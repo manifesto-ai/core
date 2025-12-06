@@ -1,10 +1,14 @@
 # Manifesto
 
+![Manifesto Logo](./docs/assets/manifesto-logo.png)
+
 **AI-Native Semantic UI State Layer**
 
 > Manifesto is not just a schema-driven UI engine. It is a **Semantic UI State Layer** that exposes the full meaning, structure, rules, and context of an application's UI—so that both humans and AI Agents can understand, reason about, and interact with the interface.
 
 <div align="center">
+
+![playground-demo](./docs/assets/playground-demo.gif)
 
 *AI understands your form's semantic context and can fill fields intelligently*
 
