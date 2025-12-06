@@ -1,0 +1,45 @@
+{
+  "name": "@manifesto-ai/schema",
+  "version": "0.0.1",
+  "description": "Monadic, atomic, composable schema definitions for Manifesto DSL",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./primitives": {
+      "types": "./dist/primitives/index.d.ts",
+      "import": "./dist/primitives/index.mjs",
+      "require": "./dist/primitives/index.cjs"
+    },
+    "./combinators": {
+      "types": "./dist/combinators/index.d.ts",
+      "import": "./dist/combinators/index.mjs",
+      "require": "./dist/combinators/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/combinators/index.ts src/primitives/index.ts --dts --format esm,cjs",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@manifesto-ai/fp": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
