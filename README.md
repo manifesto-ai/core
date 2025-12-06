@@ -1,4 +1,4 @@
-# Manifesto
+# Manifesto AI
 
 ![Manifesto Logo](./docs/assets/manifesto-logo.png)
 
