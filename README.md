@@ -4,7 +4,9 @@
 
 **AI-Native Semantic UI State Layer**
 
-> Manifesto is not just a schema-driven UI engine. It is a **Semantic UI State Layer** that exposes the full meaning, structure, rules, and context of an application's UI—so that both humans and AI Agents can understand, reason about, and interact with the interface.
+> The only UI framework where AI agents can truly understand, reason about, and interact with your interface—not just see pixels.
+>
+> **Turn any form into a machine-readable interface for LLM agents.**
 
 <div align="center">
 
@@ -12,98 +14,152 @@
 
 *AI understands your form's semantic context and can fill fields intelligently*
 
-**[🎮 Try the Playground](https://manifesto-ai-playground.vercel.app)** • **[📖 Documentation](#documentation)** • **[🎨 Storybook Demo](https://eggplantiny.github.io/manifesto-ai/)**
+**[🎮 Try the Playground](https://manifesto-ai-playground.vercel.app)** • **[📖 Docs](#documentation)**
 
 </div>
 
 ---
 
-## What Makes Manifesto Different
-
-Most form libraries generate UI from schemas. Manifesto does that too—but that's not what makes it special.
-
-**The real innovation**: Manifesto exports the complete semantic context of your UI in a structure that AI can understand and reason about.
-
-```
-Traditional UI Libraries          │  Manifesto
-──────────────────────────────────┼────────────────────────────────────
-Schema → Render → DOM             │  Schema → Engine → DOM
-         ↓                        │              ↓
-    Internal state                │       Semantic State Export
-    (not accessible)              │              ↓
-                                  │         AI Agents can:
-                                  │         • Read current state
-                                  │         • Understand visibility rules
-                                  │         • Know validation status
-                                  │         • Predict valid transitions
-                                  │         • Navigate workflows
-```
-
 ## Why Manifesto?
 
-- **Semantic State Export**: AI agents get full context—values, rules, dependencies, transitions—not just pixels.
-- **Schema-First**: Define forms as data, not code. Perfect for AI agents to generate and modify.
-- **Framework Agnostic**: Core engine works with any framework. Official bindings for React and Vue.
-- **Type-Safe**: Full TypeScript support with comprehensive type definitions.
-- **Reactive**: Automatic dependency tracking and conditional field updates.
-- **Secure**: Expression DSL with whitelisted operators - no `eval()`, no code injection.
+Most form libraries generate UI from schemas. **Manifesto does that too—but that's not what makes it special.**
 
-## Architecture
+The real question: *Can your AI agent understand what your form is doing right now?*
 
+| Traditional UI | With Manifesto |
+|----------------|----------------|
+| AI sees DOM/pixels | AI gets semantic state |
+| "There's an input field" | "This is 'email', it's required, currently invalid, depends on 'accountType'" |
+| AI guesses what to do | AI knows exactly what's valid |
+
+**Manifesto exports the complete semantic context**—values, rules, dependencies, validation state, available transitions—in a structure AI can reason about.
+
+---
+
+## Key Features
+
+- 🧠 **Semantic State Export** — AI agents get full context, not just rendered output
+- 📝 **Schema-First** — Define forms as data. Perfect for AI to generate and modify
+- 🔌 **Framework Agnostic** — React, Vue, or bring your own
+- ⚡ **Reactive** — Automatic dependency tracking and conditional updates
+- 🔒 **Secure DSL** — Expression language with whitelisted operators, no `eval()`
+- 📘 **Type-Safe** — Full TypeScript support
+
+---
+
+## 🧠 AI Interoperability
+
+**This is what makes Manifesto different from every other form library.**
+
+### The Problem
+
+Traditional UIs are opaque to AI. An agent looking at a form sees:
+- DOM elements or pixels
+- No understanding of business rules
+- No knowledge of what actions are valid
+- No way to predict consequences
+
+### The Solution: Semantic Snapshot
+
+```typescript
+import { createFormRuntime } from '@manifesto-ai/engine'
+import { createInteroperabilitySession } from '@manifesto-ai/ai-util'
+
+const runtime = createFormRuntime(productView, { entitySchema: productEntity })
+const session = createInteroperabilitySession({ runtime, viewSchema: productView, entitySchema: productEntity })
+
+// Export complete semantic state
+const snapshot = session.snapshot()
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Schema Definition                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │   Entity    │  │    View     │  │   Action    │          │
-│  │   Schema    │  │   Schema    │  │   Schema    │          │
-│  │ (Data Model)│  │ (UI Layout) │  │ (Workflows)  │          │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    @manifesto-ai/engine                     │
-│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌──────────┐  │
-│  │ Evaluator │  │  Tracker  │  │  Runtime  │  │  Loader  │  │
-│  │(Expression│  │(Dependency│  │  (State   │  │ (Schema) │  │
-│  │  Parser)  │  │   DAG)    │  │  Manager) │  │          │  │
-│  └───────────┘  └───────────┘  └───────────┘  └──────────┘  │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-          ┌───────────────┼───────────────┬───────────────┐
-          ▼               ▼               ▼
-┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
-│ @manifesto-ai/react │   │  @manifesto-ai/vue  │   │  @manifesto-ai/ai-util   │
-│  ┌───────────────┐  │   │  ┌───────────────┐  │   │ Semantic Snapshot   │
-│  │ useFormRuntime│  │   │  │ useFormRuntime│  │   │ Safe Dispatch + LLM │
-│  │ FormRenderer  │  │   │  │ FormRenderer  │  │   │ Tool Definitions    │
-│  └───────────────┘  │   │  └───────────────┘  │   └─────────────────────┘
-└─────────────────────┘   └─────────────────────┘   └─────────────────────┘
+
+**What the AI receives:**
+
+```json
+{
+  "fields": {
+    "email": {
+      "value": "",
+      "type": "string",
+      "required": true,
+      "visible": true,
+      "disabled": false,
+      "validation": { "valid": false, "errors": ["Required field"] },
+      "constraints": { "pattern": "^[a-zA-Z0-9._%+-]+@..." }
+    },
+    "country": {
+      "value": "US",
+      "dependents": ["state", "zipCode"],
+      "options": [...]
+    }
+  },
+  "availableActions": ["submit", "reset", "setValue"],
+  "formState": { "dirty": false, "valid": false, "submitting": false }
+}
 ```
+
+### Generate LLM Tool Definitions
+
+```typescript
+import { toToolDefinitions } from '@manifesto-ai/ai-util'
+
+// Auto-generate OpenAI/Claude function calling schemas
+const tools = toToolDefinitions(snapshot, { omitUnavailable: true })
+
+// AI can now call: setValue({ field: "email", value: "user@example.com" })
+```
+
+### Use Cases
+
+| Scenario | How Manifesto Helps |
+|----------|---------------------|
+| **Auto-fill forms** | AI reads field semantics, fills with contextually appropriate values |
+| **Form validation assistance** | AI understands constraints, suggests fixes for invalid inputs |
+| **Guided workflows** | AI knows current step, available transitions, required fields |
+| **Accessibility agents** | AI navigates forms semantically, not by pixel coordinates |
+| **Testing automation** | Generate test cases from semantic structure |
+| **Schema generation** | AI creates new form schemas from natural language |
+
+### Example: AI Agent Filling a Form
+
+```typescript
+// 1. AI receives semantic snapshot
+const snapshot = session.snapshot()
+
+// 2. AI reasons about the form
+// "I see 'shippingAddress' is required and empty.
+//  'productType' is 'PHYSICAL', so shipping fields are visible.
+//  I should fill the address fields."
+
+// 3. AI dispatches validated actions
+session.dispatch({ type: 'setValue', field: 'shippingAddress', value: '123 Main St' })
+
+// 4. Session validates before applying
+// If action is invalid, it's rejected with explanation
+```
+
+→ [AI Utility Package](./packages/ai-util) | [Full Documentation](./docs/guides/ai-interoperability.md)
+
+---
 
 ## Quick Start
 
-### Installation
+### 1. Install
 
 ```bash
-# Core packages
+# Core
 pnpm add @manifesto-ai/schema @manifesto-ai/engine
 
-# AI interoperability (optional)
-pnpm add @manifesto-ai/ai-util
-
-# Framework binding (choose one)
-pnpm add @manifesto-ai/react  # For React
-pnpm add @manifesto-ai/vue    # For Vue
+# Choose your framework
+pnpm add @manifesto-ai/react   # or @manifesto-ai/vue
 ```
 
-### Define Your Schema
+### 2. Define Schema
 
 ```typescript
-// entity.ts - Define data structure
-import { entity, field } from '@manifesto-ai/schema'
+import { entity, field, view, section, viewField, layout } from '@manifesto-ai/schema'
 
-export const productEntity = entity('product', 'Product', '1.0.0')
+// Data model
+const productEntity = entity('product', 'Product', '1.0.0')
   .field(field.string('name').label('Product Name').required())
   .field(field.number('price').label('Price').min(0))
   .field(field.enum('category', [
@@ -111,19 +167,14 @@ export const productEntity = entity('product', 'Product', '1.0.0')
     { value: 'clothing', label: 'Clothing' },
   ]).label('Category'))
   .build()
-```
 
-```typescript
-// view.ts - Define UI layout
-import { view, section, viewField, layout } from '@manifesto-ai/schema'
-
-export const productView = view('product-create', 'Create Product', '1.0.0')
+// UI layout
+const productView = view('product-form', 'Create Product', '1.0.0')
   .entityRef('product')
-  .mode('create')
   .layout(layout.form())
   .section(
     section('basic')
-      .title('Basic Information')
+      .title('Basic Info')
       .field(viewField.textInput('name', 'name'))
       .field(viewField.numberInput('price', 'price'))
       .field(viewField.select('category', 'category'))
@@ -131,191 +182,168 @@ export const productView = view('product-create', 'Create Product', '1.0.0')
   .build()
 ```
 
-### Render with React
+### 3. Render
 
+**React:**
 ```tsx
 import { FormRenderer } from '@manifesto-ai/react'
 import '@manifesto-ai/react/styles'
-import { productView, productEntity } from './schemas'
 
-function ProductForm() {
-  const handleSubmit = (data: Record<string, unknown>) => {
-    console.log('Form submitted:', data)
-  }
-
-  return (
-    <FormRenderer
-      schema={productView}
-      entitySchema={productEntity}
-      onSubmit={handleSubmit}
-    />
-  )
-}
+<FormRenderer
+  schema={productView}
+  entitySchema={productEntity}
+  onSubmit={(data) => console.log(data)}
+/>
 ```
 
-### Render with Vue
-
+**Vue:**
 ```vue
-<script setup lang="ts">
+<script setup>
 import { FormRenderer } from '@manifesto-ai/vue'
 import '@manifesto-ai/vue/styles'
-import { productView, productEntity } from './schemas'
-
-const handleSubmit = (data: Record<string, unknown>) => {
-  console.log('Form submitted:', data)
-}
 </script>
 
 <template>
   <FormRenderer
     :schema="productView"
     :entity-schema="productEntity"
-    @submit="handleSubmit"
+    @submit="console.log"
   />
 </template>
 ```
 
-### Expose Semantic State to AI (optional)
+### 4. Explore More
 
-```ts
-import { createFormRuntime } from '@manifesto-ai/engine'
-import { createInteroperabilitySession, toToolDefinitions } from '@manifesto-ai/ai-util'
+→ [Full Getting Started Guide](./docs/getting-started.md)
 
-const runtime = createFormRuntime(productView, { entitySchema: productEntity })
-const session = createInteroperabilitySession({ runtime, viewSchema: productView, entitySchema: productEntity })
+---
 
-const snapshot = session.snapshot() // semantic state for agents
-const tools = toToolDefinitions(snapshot, { omitUnavailable: true }) // OpenAI/Claude tool schemas
-```
-
-## Key Features
-
-### Expression DSL
+## Expression DSL
 
 Safe, array-based expressions for dynamic behavior:
 
 ```typescript
-// Hide shipping fields for digital products
-{
-  hidden: ['==', '$state.productType', 'DIGITAL']
-}
+// Conditional visibility
+{ hidden: ['==', '$state.productType', 'DIGITAL'] }
 
 // Complex conditions
-{
-  disabled: ['AND',
+{ disabled: ['AND',
     ['==', '$state.status', 'PUBLISHED'],
     ['!=', '$user.role', 'ADMIN']
   ]
 }
-```
 
-### Reactive Fields
-
-Automatic updates based on field dependencies:
-
-```typescript
+// Reactive field updates
 viewField.select('city', 'city')
   .dependsOn(['country'])
   .reaction(
-    on.change()
-      .do(actions.setOptions('city', dataSource.api({
+    on.change().do(
+      actions.setOptions('city', dataSource.api({
         endpoint: '/api/cities',
         params: { country: '$state.country' }
-      })))
+      }))
+    )
   )
 ```
 
-### Validation
+→ [Expression DSL Reference](./docs/schema-reference/expression-dsl.md)
 
-Declarative constraints with custom expressions:
+---
 
-```typescript
-field.string('email')
-  .required()
-  .pattern('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
-  .constraint({
-    type: 'custom',
-    expression: ['NOT', ['CONTAINS', '$state.email', 'spam']],
-    message: 'Invalid email domain'
-  })
+## Architecture
+
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Schema Definition                          │
+│   Entity Schema        View Schema          Action Schema       │
+│   (Data Model)         (UI Layout)          (Workflows)         │
+└──────────────────────────────┬──────────────────────────────────┘
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     @manifesto-ai/engine                        │
+│   Evaluator ─── Tracker ─── Runtime ─── Loader                  │
+│   (Expressions)  (Dependencies)  (State)    (Schema)            │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+         ┌─────────────────────┼─────────────────────┐
+         ▼                     ▼                     ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐
+│ @manifesto-ai/  │  │ @manifesto-ai/  │  │ @manifesto-ai/      │
+│     react       │  │      vue        │  │     ai-util         │
+│ ─────────────── │  │ ─────────────── │  │ ─────────────────── │
+│ useFormRuntime  │  │ useFormRuntime  │  │ Semantic Snapshot   │
+│ FormRenderer    │  │ FormRenderer    │  │ Tool Definitions    │
+└─────────────────┘  └─────────────────┘  └─────────────────────┘
+```
+
+→ [Architecture Deep Dive](./docs/architecture.md)
+
+---
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| [`@manifesto-ai/schema`](./packages/schema) | Schema types, builders, and validators |
+| [`@manifesto-ai/schema`](./packages/schema) | Schema types, builders, validators |
 | [`@manifesto-ai/engine`](./packages/engine) | Core runtime engine |
-| [`@manifesto-ai/ai-util`](./packages/ai-util) | AI interoperability: semantic snapshots, guard-railed dispatch, LLM tool definitions |
-| [`@manifesto-ai/react`](./packages/react) | React hooks and components |
-| [`@manifesto-ai/vue`](./packages/vue) | Vue composables and components |
-| [`@manifesto-ai/example-schemas`](./packages/example-schemas) | Example schemas and test utilities |
+| [`@manifesto-ai/ai-util`](./packages/ai-util) | AI interoperability utilities |
+| [`@manifesto-ai/react`](./packages/react) | React bindings |
+| [`@manifesto-ai/vue`](./packages/vue) | Vue bindings |
+
+---
 
 ## Documentation
 
-- [Getting Started](./docs/getting-started.md)
-- [Architecture](./docs/architecture.md)
+**Getting Started**
+- [Quick Start Guide](./docs/getting-started.md)
 - [Philosophy](./docs/philosophy.md)
-- **Schema Reference**
-  - [Entity Schema](./docs/schema-reference/entity-schema.md)
-  - [View Schema](./docs/schema-reference/view-schema.md)
-  - [Expression DSL](./docs/schema-reference/expression-dsl.md)
-  - [Reaction DSL](./docs/schema-reference/reaction-dsl.md)
-  - [Action Schema](./docs/schema-reference/action-schema.md)
-- **API Reference**
-  - [Engine API](./docs/api-reference/engine.md)
-  - [React API](./docs/api-reference/react.md)
-  - [Vue API](./docs/api-reference/vue.md)
-- **Guides**
-  - [Basic CRUD Form](./docs/guides/basic-crud-form.md)
-  - [Dynamic Conditions](./docs/guides/dynamic-conditions.md)
-  - [Cascade Select](./docs/guides/cascade-select.md)
-  - [Validation Patterns](./docs/guides/validation.md)
-  - [Legacy Integration](./docs/guides/legacy-integration.md)
+
+**Schema Reference**
+- [Entity Schema](./docs/schema-reference/entity-schema.md)
+- [View Schema](./docs/schema-reference/view-schema.md)
+- [Expression DSL](./docs/schema-reference/expression-dsl.md)
+- [Reaction DSL](./docs/schema-reference/reaction-dsl.md)
+
+**Guides**
+- [Basic CRUD Form](./docs/guides/basic-crud-form.md)
+- [Dynamic Conditions](./docs/guides/dynamic-conditions.md)
+- [Cascade Select](./docs/guides/cascade-select.md)
+- [Validation Patterns](./docs/guides/validation.md)
+
+---
 
 ## Live Examples
 
-**🎮 Interactive Playground:** [https://manifesto-playground.vercel.app](https://manifesto-playground.vercel.app)
-- Edit schemas in real-time
-- Preview form rendering instantly
-- Chat with AI to fill forms
+| | |
+|---|---|
+| 🎮 **[Playground](https://manifesto-ai-playground.vercel.app)** | Edit schemas, preview forms, chat with AI |
+| 📚 **[React Storybook](https://eggplantiny.github.io/manifesto-ai/react/)** | Component gallery |
+| 📚 **[Vue Storybook](https://eggplantiny.github.io/manifesto-ai/vue/)** | Component gallery |
 
-**📚 Storybook Demos:** [https://eggplantiny.github.io/manifesto-ai/](https://eggplantiny.github.io/manifesto-ai/)
-- [React Storybook](https://eggplantiny.github.io/manifesto-ai/react/)
-- [Vue Storybook](https://eggplantiny.github.io/manifesto-ai/vue/)
+**Local:**
+```bash
+pnpm playground        # Interactive playground
+pnpm storybook:react   # React components
+pnpm storybook:vue     # Vue components
+```
 
-**Local Development:**
-- `pnpm playground` - Interactive Playground
-- `pnpm storybook:react` - React Storybook
-- `pnpm storybook:vue` - Vue Storybook
+---
 
 ## Development
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Run tests
-pnpm test
-
-# Start Storybook (React)
-pnpm storybook:react
-
-# Start Storybook (Vue)
-pnpm storybook:vue
+pnpm install    # Install dependencies
+pnpm build      # Build all packages
+pnpm test       # Run tests
 ```
 
-## Requirements
+**Requirements:** Node.js ≥ 20, pnpm ≥ 9
 
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## License
 

@@ -3,6 +3,25 @@
   "version": "0.0.2",
   "description": "AI interoperability core for Manifesto - semantic snapshots and safe intent dispatch",
   "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "eggp",
+    "email": "eggplantiny@gmail.com"
+  },
+  "homepage": "https://github.com/manifesto-ai/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/ai-util"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "keywords": ["manifesto", "ai", "semantic", "snapshot", "llm", "openai", "claude", "function-calling"],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

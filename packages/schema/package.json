@@ -3,6 +3,25 @@
   "version": "0.0.1",
   "description": "Monadic, atomic, composable schema definitions for Manifesto DSL",
   "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "eggp",
+    "email": "eggplantiny@gmail.com"
+  },
+  "homepage": "https://github.com/manifesto-ai/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/schema"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "keywords": ["manifesto", "schema", "form", "dsl", "ai", "semantic-ui"],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

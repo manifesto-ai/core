@@ -3,6 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "description": "AI-Native Universal UI/Logic Engine",
+  "license": "MIT",
+  "homepage": "https://github.com/manifesto-ai/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
   "packageManager": "pnpm@10.15.0",
   "scripts": {
     "build": "turbo run build",
@@ -20,7 +29,10 @@
     "storybook:react": "pnpm --filter @manifesto-ai/storybook-react storybook",
     "storybook:vue": "pnpm --filter @manifesto-ai/storybook-vue storybook",
     "storybook:all": "concurrently \"pnpm storybook:react\" \"pnpm storybook:vue\"",
-    "build-storybook": "pnpm --filter @manifesto-ai/storybook-react build-storybook && pnpm --filter @manifesto-ai/storybook-vue build-storybook"
+    "build-storybook": "pnpm --filter @manifesto-ai/storybook-react build-storybook && pnpm --filter @manifesto-ai/storybook-vue build-storybook",
+    "prepublish:check": "pnpm build && pnpm test && pnpm typecheck",
+    "publish:dry": "pnpm -r publish --dry-run --access public --no-git-checks",
+    "publish:all": "pnpm -r publish --access public"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
