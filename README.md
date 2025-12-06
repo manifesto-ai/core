@@ -14,7 +14,7 @@
 
 *AI understands your form's semantic context and can fill fields intelligently*
 
-**[🎮 Try the Playground](https://core-playground-kjq45s9ec-eggplantinys-projects.vercel.app)** • **[📖 Docs](#documentation)**
+**[🎮 Try the Playground](https://playground.manifesto-ai.dev)** • **[📖 Docs](#documentation)**
 
 </div>
 
