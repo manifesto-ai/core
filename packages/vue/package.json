@@ -1,0 +1,55 @@
+{
+  "name": "@manifesto-ai/vue",
+  "version": "0.0.1",
+  "description": "Vue 3 integration for Manifesto DSL Engine",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./composables": {
+      "types": "./dist/composables/index.d.ts",
+      "import": "./dist/composables/index.mjs",
+      "require": "./dist/composables/index.cjs"
+    },
+    "./dist/index.css": "./dist/index.css",
+    "./styles": "./dist/index.css",
+    "./src/*": "./src/*"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/composables/index.ts --format esm,cjs && pnpm run build:types",
+    "build:types": "vue-tsc --project tsconfig.json --emitDeclarationOnly --declaration --declarationMap --outDir dist",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "vue-tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@manifesto-ai/engine": "workspace:*",
+    "@manifesto-ai/schema": "workspace:*",
+    "@manifesto-ai/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "esbuild-plugin-vue3": "^0.5.1",
+    "happy-dom": "^20.0.11",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "unplugin-vue": "^7.0.8",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.0"
+  }
+}
