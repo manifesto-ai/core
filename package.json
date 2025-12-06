@@ -1,0 +1,41 @@
+{
+  "name": "@manifesto-ai/monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AI-Native Universal UI/Logic Engine",
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test -- --coverage",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "release": "changeset publish",
+    "version-packages": "changeset version && pnpm install",
+    "format": "prettier --write \"**/*.{ts,tsx,vue,json,md}\"",
+    "playground": "pnpm --filter @manifesto-ai/playground dev",
+    "storybook": "pnpm --filter @manifesto-ai/storybook-react storybook",
+    "storybook:react": "pnpm --filter @manifesto-ai/storybook-react storybook",
+    "storybook:vue": "pnpm --filter @manifesto-ai/storybook-vue storybook",
+    "storybook:all": "concurrently \"pnpm storybook:react\" \"pnpm storybook:vue\"",
+    "build-storybook": "pnpm --filter @manifesto-ai/storybook-react build-storybook && pnpm --filter @manifesto-ai/storybook-vue build-storybook"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "@types/node": "^22.10.1",
+    "@vitest/coverage-v8": "^2.1.9",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "author": {
+    "email": "eggplantiny@gmail.com",
+    "name": "eggp"
+  }
+}
