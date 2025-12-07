@@ -316,9 +316,7 @@ viewField.select('city', 'city')
 
 | | |
 |---|---|
-| 🎮 **[Playground](https://manifesto-ai-playground.vercel.app)** | Edit schemas, preview forms, chat with AI |
-| 📚 **[React Storybook](https://eggplantiny.github.io/manifesto-ai/react/)** | Component gallery |
-| 📚 **[Vue Storybook](https://eggplantiny.github.io/manifesto-ai/vue/)** | Component gallery |
+| 🎮 **[Playground](https://playground.manifesto-ai.dev)** | Edit schemas, preview forms, chat with AI |
 
 **Local:**
 ```bash
