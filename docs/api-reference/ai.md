@@ -1,18 +1,31 @@
 # @manifesto-ai/ai-util API Reference
 
+> **⚠️ Deprecation Notice**: This package is being superseded by `@manifesto-ai/view-snapshot`.
+>
+> - `SemanticSnapshot` → Use `PageSnapshot`, `FormSnapshot` from view-snapshot
+> - `AgentAction` → Use `ViewIntent` from view-snapshot
+> - `createInteroperabilitySession` → Use `createViewSnapshotEngine` from view-snapshot
+>
+> See the [ViewSnapshot Architecture](/docs/architectures/view-snapshot.md) for the new API.
+
 Utilities for AI interoperability: semantic snapshots, visibility reasoning, interaction policies, LLM prompt optimization, and intent-safe dispatch.
 
 ## Installation
 
 ```bash
 pnpm add @manifesto-ai/ai-util
+
+# New: ViewSnapshot package (recommended)
+pnpm add @manifesto-ai/view-snapshot
 ```
 
 ---
 
 ## Session Management
 
-### createInteroperabilitySession
+### createInteroperabilitySession (Deprecated)
+
+> **Deprecated**: Use `createViewSnapshotEngine` from `@manifesto-ai/view-snapshot` instead.
 
 Bridge a `FormRuntime` into an AI-facing session that exposes semantic snapshots and safe action dispatch.
 
@@ -363,8 +376,42 @@ type AgentActionError =
 
 ---
 
+## Migration to ViewSnapshot
+
+### Quick Migration Guide
+
+```typescript
+// Before (deprecated)
+import { createInteroperabilitySession, type SemanticSnapshot } from '@manifesto-ai/ai-util'
+
+const session = createInteroperabilitySession({ runtime, viewSchema })
+const snapshot = session.snapshot()
+session.dispatch({ type: 'updateField', fieldId: 'name', value: 'John' })
+
+// After (recommended)
+import { createViewSnapshotEngine, type PageSnapshot } from '@manifesto-ai/view-snapshot'
+
+const engine = createViewSnapshotEngine({ pageId: 'my-page' })
+engine.registerFormRuntime('form-1', runtime, viewSchema)
+const snapshot = engine.getViewSnapshot()
+await engine.dispatchIntent({ type: 'setFieldValue', nodeId: 'form-1', fieldId: 'name', value: 'John' })
+```
+
+### Key Differences
+
+| ai-util (deprecated) | view-snapshot (new) |
+|---------------------|---------------------|
+| `SemanticSnapshot` | `PageSnapshot`, `FormSnapshot`, `TableSnapshot` |
+| `AgentAction` | `ViewIntent` (16+ intent types) |
+| Form-only support | Form + Table + Tabs + Overlay support |
+| `fieldId` only | `nodeId` + `fieldId` (multi-form support) |
+| `session.dispatch()` | `engine.dispatchIntent()` (async) |
+
+---
+
 ## Related Documentation
 
+- [ViewSnapshot Architecture](../architectures/view-snapshot.md) — New architecture specification
 - [AI Interoperability Protocol](../ai-interoperability.md) — Core protocol design
 - [AI Interaction Policy Guide](../guides/ai-interaction-policy.md) — Detailed policy usage
 - [Expression DSL](../schema-reference/expression-dsl.md) — Visibility condition syntax

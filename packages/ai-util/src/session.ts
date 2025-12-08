@@ -14,6 +14,25 @@ import type {
   SemanticSnapshot,
 } from './types'
 
+/**
+ * @deprecated Use `createViewSnapshotEngine` from `@manifesto-ai/view-snapshot` instead.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * import { createInteroperabilitySession } from '@manifesto-ai/ai-util'
+ * const session = createInteroperabilitySession({ runtime, viewSchema })
+ * const snapshot = session.snapshot()
+ * session.dispatch({ type: 'updateField', fieldId: 'name', value: 'John' })
+ *
+ * // After
+ * import { createViewSnapshotEngine } from '@manifesto-ai/view-snapshot'
+ * const engine = createViewSnapshotEngine({ pageId: 'my-page' })
+ * engine.registerFormRuntime('form-1', runtime, viewSchema)
+ * const snapshot = engine.getViewSnapshot()
+ * await engine.dispatchIntent({ type: 'setFieldValue', nodeId: 'form-1', fieldId: 'name', value: 'John' })
+ * ```
+ */
 export const createInteroperabilitySession = (
   options: InteroperabilitySessionOptions
 ): InteroperabilitySession => {

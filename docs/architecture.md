@@ -42,11 +42,11 @@ Manifesto uses a 3-layer schema architecture with a framework-agnostic engine co
            ┌───────────────┼───────────────┬───────────────┐
            ▼               ▼               ▼
 ┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
-│ @manifesto-ai/react │   │  @manifesto-ai/vue  │   │  @manifesto-ai/ai-util   │
-│  ┌───────────────┐  │   │  ┌───────────────┐  │   │ Semantic Snapshot   │
-│  │ useFormRuntime│  │   │  │ useFormRuntime│  │   │ Guard-Railed       │
-│  │ FormRenderer  │  │   │  │ FormRenderer  │  │   │ Dispatch           │
-│  │ Field Inputs  │  │   │  │ Field Inputs  │  │   │ LLM Tool Export    │
+│ @manifesto-ai/react │   │  @manifesto-ai/vue  │   │@manifesto-ai/view-snapshot│
+│  ┌───────────────┐  │   │  ┌───────────────┐  │   │ ViewSnapshot Engine │
+│  │ useFormRuntime│  │   │  │ useFormRuntime│  │   │ Page/Form/Table     │
+│  │ FormRenderer  │  │   │  │ FormRenderer  │  │   │ Snapshots           │
+│  │ Field Inputs  │  │   │  │ Field Inputs  │  │   │ Intent Dispatch     │
 │  └───────────────┘  │   │  └───────────────┘  │   └─────────────────────┘
 └─────────────────────┘   └─────────────────────┘   └─────────────────────┘
 ```
@@ -455,11 +455,29 @@ manifesto-ai/
 │   │   │       └── transform-operations.ts
 │   │   └── package.json
 │   │
-│   ├── ai-util/                     # @manifesto-ai/ai-util
+│   ├── view-snapshot/               # @manifesto-ai/view-snapshot (NEW)
 │   │   ├── src/
-│   │   │   ├── session.ts      # Agent-facing session (snapshot + dispatch)
+│   │   │   ├── types/          # Type definitions
+│   │   │   │   ├── nodes.ts    # ViewSnapshotNode, PageSnapshot, FormSnapshot, etc.
+│   │   │   │   ├── intents.ts  # ViewIntent union types
+│   │   │   │   ├── fields.ts   # FieldSnapshot, ColumnDefinition, TableRow
+│   │   │   │   └── overlays.ts # OverlayInstance, OverlayConfig, OverlayTemplate
+│   │   │   ├── engine/         # Core engine
+│   │   │   │   ├── ViewSnapshotEngine.ts
+│   │   │   │   ├── IntentDispatcher.ts
+│   │   │   │   ├── OverlayManager.ts
+│   │   │   │   └── NodeRegistry.ts
+│   │   │   ├── builders/       # Snapshot builders
+│   │   │   │   ├── FormSnapshotBuilder.ts
+│   │   │   │   └── TableSnapshotBuilder.ts
+│   │   │   └── guards/         # Type guards
+│   │   └── package.json
+│   │
+│   ├── ai-util/                     # @manifesto-ai/ai-util (deprecated)
+│   │   ├── src/
+│   │   │   ├── session.ts      # Agent-facing session (use view-snapshot instead)
 │   │   │   ├── tools.ts        # LLM tool definitions from snapshots
-│   │   │   └── types.ts        # AI contracts (SemanticSnapshot, AgentAction, etc.)
+│   │   │   └── types.ts        # AI contracts (deprecated, use view-snapshot)
 │   │   └── package.json
 │   │
 │   ├── react/                  # @manifesto-ai/react
@@ -515,26 +533,33 @@ manifesto-ai/
     └── vue-example/            # Vue example app
 ```
 
-`@manifesto-ai/ai-util` sits alongside the UI bindings: it wraps a `FormRuntime` into an AI-facing session (semantic snapshots + guard rails) and exports JSON-Schema tool definitions for LLM providers.
+`@manifesto-ai/view-snapshot` provides the ViewSnapshot architecture for AI agents - a normalized representation of UI state (Page, Form, Table, Overlay snapshots) with Intent-based mutations. See [ViewSnapshot Architecture](architectures/view-snapshot.md) for details.
+
+`@manifesto-ai/ai-util` (deprecated) wraps a `FormRuntime` into an AI-facing session (semantic snapshots + guard rails) and exports JSON-Schema tool definitions for LLM providers. Use `@manifesto-ai/view-snapshot` for new projects.
 
 ---
 
 ## Dependency Graph
 
 ```
-@manifesto-ai/schema ◄─────────────┐
-      │                            │
-      ▼                            │
-@manifesto-ai/engine ◄─────────────┤
-      │                            │
-      ├──────────┬────────────┬────────────────┐
-      │                       │                │
+@manifesto-ai/schema ◄─────────────────┐
+      │                                │
+      ▼                                │
+@manifesto-ai/engine ◄─────────────────┤
+      │                                │
+      ├──────────┬────────────┬────────┴───────┐
+      │          │            │                │
       ▼          ▼            ▼                ▼
-@manifesto-ai/react  @manifesto-ai/vue  @manifesto-ai/ai-util
-
+@manifesto-ai  @manifesto-ai  @manifesto-ai   @manifesto-ai
+   /react         /vue       /view-snapshot     /ai-util
+                                   │           (deprecated)
+                                   │
+                                   ▼
+                              AI Agents
+                           (MCP/REST/SDK)
 ```
 
-All packages depend on `@manifesto-ai/schema`. The engine depends on schema types; UI bindings and the AI interoperability package depend on both schema and engine.
+All packages depend on `@manifesto-ai/schema`. The engine depends on schema types; UI bindings and the ViewSnapshot package depend on both schema and engine. `@manifesto-ai/ai-util` is deprecated in favor of `@manifesto-ai/view-snapshot`.
 
 ---
 

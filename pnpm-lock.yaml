@@ -298,7 +298,7 @@ importers:
         version: 8.6.14(storybook@8.6.14(prettier@3.7.3))
       '@storybook/test-runner':
         specifier: ^0.24.2
-        version: 0.24.2(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.27.0))(storybook@8.6.14(prettier@3.7.3))
+        version: 0.24.2(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.25.12))(storybook@8.6.14(prettier@3.7.3))
       '@types/react':
         specifier: ^19.1.8
         version: 19.2.7
@@ -347,7 +347,7 @@ importers:
         version: 8.6.14(storybook@8.6.14(prettier@3.7.3))
       '@storybook/test-runner':
         specifier: ^0.24.2
-        version: 0.24.2(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.25.12))(storybook@8.6.14(prettier@3.7.3))
+        version: 0.24.2(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.27.0))(storybook@8.6.14(prettier@3.7.3))
       '@storybook/vue3':
         specifier: ^8.6.14
         version: 8.6.14(storybook@8.6.14(prettier@3.7.3))(vue@3.5.25(typescript@5.9.3))
@@ -549,6 +549,25 @@ importers:
         version: 2.1.9(@types/node@22.19.1)(happy-dom@20.0.11)(jsdom@27.2.0)(lightningcss@1.30.2)
 
   packages/ui:
+    dependencies:
+      '@manifesto-ai/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@manifesto-ai/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(@swc/core@1.15.3)(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.1)(happy-dom@20.0.11)(jsdom@27.2.0)(lightningcss@1.30.2)
+
+  packages/view-snapshot:
     dependencies:
       '@manifesto-ai/engine':
         specifier: workspace:*
@@ -6233,8 +6252,8 @@ packages:
   vue-component-type-helpers@2.2.12:
     resolution: {integrity: sha512-YbGqHZ5/eW4SnkPNR44mKVc6ZKQoRs/Rux1sxC6rdwXb4qpbOSYfDr9DsTHolOTGmIKgM9j141mZbBeg05R1pw==}
 
-  vue-component-type-helpers@3.1.6:
-    resolution: {integrity: sha512-lqPXjac98uz7zh8fxHxJPJDP4SKeaYn2Fx4kQLCBthMXm9VsmPdzUWOGWMcXN7reJ9IkcBiOFxsFS/Po7dARiw==}
+  vue-component-type-helpers@3.1.7:
+    resolution: {integrity: sha512-SxZOijzRU0LiTYARVZNYf//21bZRLJ26P2prcA6a+FfDQxJtan4tEnsryIY7aiLh2LVoet0ci2G+6RrArQ+7tA==}
 
   vue-docgen-api@4.79.2:
     resolution: {integrity: sha512-n9ENAcs+40awPZMsas7STqjkZiVlIjxIKgiJr5rSohDP0/JCrD9VtlzNojafsA1MChm/hz2h3PDtUedx3lbgfA==}
@@ -8499,7 +8518,7 @@ snapshots:
       ts-dedent: 2.2.0
       type-fest: 2.19.0
       vue: 3.5.25(typescript@5.9.3)
-      vue-component-type-helpers: 3.1.6
+      vue-component-type-helpers: 3.1.7
 
   '@swc/core-darwin-arm64@1.15.3':
     optional: true
@@ -12673,7 +12692,7 @@ snapshots:
 
   vue-component-type-helpers@2.2.12: {}
 
-  vue-component-type-helpers@3.1.6: {}
+  vue-component-type-helpers@3.1.7: {}
 
   vue-docgen-api@4.79.2(vue@3.5.25(typescript@5.9.3)):
     dependencies:

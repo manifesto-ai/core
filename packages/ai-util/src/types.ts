@@ -10,6 +10,20 @@ import type {
 import type { FormRuntime } from '@manifesto-ai/engine'
 
 // ============================================================================
+// DEPRECATION NOTICE
+// ============================================================================
+//
+// The types in this file are deprecated in favor of @manifesto-ai/view-snapshot.
+// Please migrate to the new ViewSnapshot architecture:
+//
+// - SemanticSnapshot -> PageSnapshot, FormSnapshot, TableSnapshot
+// - AgentAction -> ViewIntent
+// - InteroperabilitySession -> IViewSnapshotEngine
+//
+// See @manifesto-ai/view-snapshot for the new API.
+// ============================================================================
+
+// ============================================================================
 // Visibility Reasoning Types
 // ============================================================================
 
@@ -118,6 +132,19 @@ export type InteractionAtom =
       readonly reason?: string
     }
 
+/**
+ * @deprecated Use `PageSnapshot` from `@manifesto-ai/view-snapshot` instead.
+ * SemanticSnapshot will be removed in a future version.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * import type { SemanticSnapshot } from '@manifesto-ai/ai-util'
+ *
+ * // After
+ * import type { PageSnapshot, FormSnapshot } from '@manifesto-ai/view-snapshot'
+ * ```
+ */
 export interface SemanticSnapshot {
   readonly topology: SchemaTopology
   readonly state: {
@@ -153,6 +180,21 @@ export interface SemanticDelta {
   readonly interactions?: Readonly<Record<string, Partial<Pick<InteractionAtom, 'available' | 'reason'>>>>
 }
 
+/**
+ * @deprecated Use `ViewIntent` from `@manifesto-ai/view-snapshot` instead.
+ * AgentAction will be removed in a future version.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * import type { AgentAction } from '@manifesto-ai/ai-util'
+ * const action: AgentAction = { type: 'updateField', fieldId: 'name', value: 'John' }
+ *
+ * // After
+ * import type { ViewIntent, SetFieldValueIntent } from '@manifesto-ai/view-snapshot'
+ * const intent: SetFieldValueIntent = { type: 'setFieldValue', nodeId: 'form-1', fieldId: 'name', value: 'John' }
+ * ```
+ */
 export type AgentAction =
   | { readonly type: 'updateField'; readonly fieldId: string; readonly value: unknown }
   | { readonly type: 'submit' }
@@ -190,6 +232,10 @@ export interface FieldPolicyConfig {
   readonly policy: InteractionPolicy
 }
 
+/**
+ * @deprecated Use `ViewSnapshotEngineOptions` from `@manifesto-ai/view-snapshot` instead.
+ * InteroperabilitySessionOptions will be removed in a future version.
+ */
 export interface InteroperabilitySessionOptions {
   readonly runtime: FormRuntime
   readonly viewSchema: FormViewSchema
@@ -199,6 +245,24 @@ export interface InteroperabilitySessionOptions {
   readonly fieldPolicies?: readonly FieldPolicyConfig[]
 }
 
+/**
+ * @deprecated Use `IViewSnapshotEngine` from `@manifesto-ai/view-snapshot` instead.
+ * InteroperabilitySession will be removed in a future version.
+ *
+ * Migration:
+ * ```typescript
+ * // Before
+ * import { createInteroperabilitySession } from '@manifesto-ai/ai-util'
+ * const session = createInteroperabilitySession({ runtime, viewSchema })
+ * const snapshot = session.snapshot()
+ *
+ * // After
+ * import { createViewSnapshotEngine } from '@manifesto-ai/view-snapshot'
+ * const engine = createViewSnapshotEngine({ pageId: 'my-page' })
+ * engine.registerFormRuntime('form-1', runtime, viewSchema)
+ * const snapshot = engine.getViewSnapshot()
+ * ```
+ */
 export interface InteroperabilitySession {
   snapshot(): SemanticSnapshot
   dispatch(action: AgentAction): Result<AgentActionResult, AgentActionError>

@@ -66,6 +66,7 @@ Manifesto is designed for AI-first development. These resources help you integra
 
 | Topic | Description |
 |-------|-------------|
+| **[ViewSnapshot Architecture](architectures/view-snapshot.md)** | **New!** Normalized UI state for AI agents: Page, Form, Table, Overlay snapshots with Intent-based mutations |
 | **[AI Interoperability Protocol](./ai-interoperability.md)** | White Box contract for AI agents: semantic snapshots, intent-based actions, deterministic deltas |
 | **Semantic State Export** | The engine exposes complete UI state: values, visibility, validation, options, dependencies, and available transitions. |
 | **LLM Tool Definitions** | `@manifesto-ai/ai-util` can emit OpenAI/Claude tool schemas from live snapshots (`toToolDefinitions`) |
@@ -73,17 +74,26 @@ Manifesto is designed for AI-first development. These resources help you integra
 | **Deterministic Transitions** | AI can predict exactly what will happen before taking any action. |
 | **Schema Generation** | AI can generate valid schemas from natural language requirements. |
 
-**What AI Agents Receive:**
+**What AI Agents Receive (ViewSnapshot):**
 
 ```typescript
+// PageSnapshot - normalized UI state
 {
-  schema: { entity, view, actions },
-  state: { values, validity, visibility, touched, dirty },
-  rules: { fieldId: { hidden: bool, disabled: bool, reason: string } },
-  dependencies: { fieldId: ['dependsOn1', 'dependsOn2'] },
-  transitions: { actionId: { available: bool, reason: string } },
-  workflow: { currentStep, completedSteps, remainingSteps }
+  nodeId: 'order-management-page',
+  kind: 'page',
+  label: '주문 관리',
+  children: [
+    { nodeId: 'order-filter', kind: 'form', fields: [...], isValid: true, ... },
+    { nodeId: 'order-table', kind: 'table', columns: [...], rows: [...], selection: {...}, ... }
+  ],
+  overlays: [],  // Modal/Dialog/Toast instances
+  actions: [...]
 }
+
+// ViewIntent - mutation commands
+{ type: 'setFieldValue', nodeId: 'order-filter', fieldId: 'status', value: 'paid' }
+{ type: 'selectRow', nodeId: 'order-table', rowId: 'row-1' }
+{ type: 'openOverlay', template: 'deleteConfirm', dataSourceNodeId: 'order-table' }
 ```
 
 ---
@@ -112,7 +122,8 @@ Integrate with your framework:
 | **@manifesto-ai/engine** | Framework-agnostic runtime (Form + List) | [engine.md](./api-reference/engine.md) |
 | **@manifesto-ai/react** | React integration (FormRenderer, ListRenderer) | [react.md](./api-reference/react.md) |
 | **@manifesto-ai/vue** | Vue integration (FormRenderer, ListRenderer) | [vue.md](./api-reference/vue.md) |
-| **@manifesto-ai/ai-util** | AI interoperability (semantic snapshots, LLM tools) | [ai.md](./api-reference/ai.md) |
+| **@manifesto-ai/view-snapshot** | ViewSnapshot architecture for AI agents | [view-snapshot.md](architectures/view-snapshot.md) |
+| **@manifesto-ai/ai-util** | AI utilities (deprecated, use view-snapshot) | [ai.md](./api-reference/ai.md) |
 
 ---
 
