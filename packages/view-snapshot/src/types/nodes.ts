@@ -49,6 +49,18 @@ export interface ViewSnapshotNode {
 // ============================================================================
 
 /**
+ * 페이지 포커스 컨텍스트
+ *
+ * 현재 포커스된 노드와 오버레이를 추적합니다.
+ */
+export interface FocusContext {
+  /** 현재 활성 오버레이 ID (없으면 null) */
+  readonly activeOverlayId: string | null
+  /** 현재 포커스된 노드 ID */
+  readonly activeNodeId: string
+}
+
+/**
  * 최상위 페이지 노드
  */
 export interface PageSnapshot extends ViewSnapshotNode {
@@ -57,6 +69,8 @@ export interface PageSnapshot extends ViewSnapshotNode {
   readonly children: readonly ViewSnapshotNode[]
   /** 현재 열린 오버레이 스택 */
   readonly overlays: readonly OverlayInstance[]
+  /** 포커스 컨텍스트 (선택적 - 렌더러에서 관리) */
+  readonly focusContext?: FocusContext
 }
 
 // ============================================================================

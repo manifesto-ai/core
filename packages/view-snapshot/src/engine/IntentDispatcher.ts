@@ -1,48 +1,27 @@
 /**
  * IntentDispatcher
  *
- * ViewIntent를 해당 Runtime으로 디스패치
+ * Strategy Pattern + Chain of Responsibility Pattern을 결합한 Intent 디스패처
+ *
+ * - Strategy Pattern: 각 도메인(Form, Table, Overlay 등)별 핸들러로 비즈니스 로직 분리
+ * - Middleware Pipeline: 로깅, 가드레일, Undo 등 횡단 관심사 처리
  */
 
+import type { ViewIntent, IntentResult } from '../types/intents'
 import type {
-  ViewIntent,
-  IntentResult,
-  SetFieldValueIntent,
-  SubmitFormIntent,
-  ResetFormIntent,
-  SelectRowIntent,
-  SelectAllRowsIntent,
-  DeselectAllRowsIntent,
-  ChangePageIntent,
-  SortColumnIntent,
-  SwitchTabIntent,
-  OpenOverlayIntent,
-  SubmitOverlayIntent,
-  CloseOverlayIntent,
-  ConfirmDialogIntent,
-  DismissToastIntent,
-  TriggerActionIntent,
-} from '../types'
+  IntentHandler,
+  IntentMiddleware,
+  MiddlewareOptions,
+  RegisteredMiddleware,
+  HandlerContext,
+  IIntentDispatcher,
+} from '../types/dispatcher'
 import type { INodeRegistry } from './NodeRegistry'
-import type { IOverlayManager, OpenOverlayOptions } from './OverlayManager'
-import {
-  isFormIntent,
-  isTableIntent,
-  isTabsIntent,
-  isOverlayIntent,
-  isTriggerActionIntent,
-} from '../guards'
+import type { IOverlayManager } from './OverlayManager'
 
 // ============================================================================
 // Types
 // ============================================================================
-
-/**
- * Intent 디스패처 인터페이스
- */
-export interface IIntentDispatcher {
-  dispatch(intent: ViewIntent): Promise<IntentResult>
-}
 
 /**
  * Intent 디스패처 옵션
@@ -62,43 +41,125 @@ export interface IntentDispatcherOptions {
 
 /**
  * Intent 디스패처 구현
+ *
+ * Onion Architecture:
+ * 요청(Intent)은 여러 겹의 미들웨어 층을 통과해야만 핵심 로직(Handler)에 도달
+ *
+ * ```
+ * [Middleware 1] → [Middleware 2] → [Middleware N] → [Handler]
+ *                                                        ↓
+ * [Middleware 1] ← [Middleware 2] ← [Middleware N] ← [Result]
+ * ```
  */
 export class IntentDispatcher implements IIntentDispatcher {
+  // 전략 저장소 (Strategy Pattern)
+  private handlers = new Map<string, IntentHandler>()
+
+  // 파이프라인 (Chain of Responsibility)
+  private middlewares: RegisteredMiddleware[] = []
+
+  // 실행 컨텍스트
+  private context: HandlerContext
+
   constructor(
-    private nodeRegistry: INodeRegistry,
-    private overlayManager: IOverlayManager,
-    private options: IntentDispatcherOptions = {}
-  ) {}
+    nodeRegistry: INodeRegistry,
+    overlayManager: IOverlayManager,
+    options: IntentDispatcherOptions = {}
+  ) {
+    this.context = {
+      nodeRegistry,
+      overlayManager,
+      onTabChange: options.onTabChange,
+      onActionTrigger: options.onActionTrigger,
+      debug: options.debug,
+    }
+  }
 
+  // ============================================================================
+  // Public API
+  // ============================================================================
+
+  /**
+   * 핸들러 등록 (OCP: 확장에 열려있고 수정에 닫혀있음)
+   *
+   * @param handler Intent 핸들러
+   */
+  register(handler: IntentHandler): void {
+    for (const type of handler.targets) {
+      if (this.handlers.has(type)) {
+        this.log(`Warning: Handler for "${type}" is being overwritten`)
+      }
+      this.handlers.set(type, handler)
+    }
+    this.log(`Registered handler for: ${handler.targets.join(', ')}`)
+  }
+
+  /**
+   * 미들웨어 등록 (AOP: 횡단 관심사 분리)
+   *
+   * @param middleware 미들웨어 함수
+   * @param options 등록 옵션
+   */
+  use(middleware: IntentMiddleware, options: MiddlewareOptions = {}): void {
+    const { priority = 0, name } = options
+
+    this.middlewares.push({ middleware, priority, name })
+
+    // 우선순위로 정렬 (높을수록 먼저 실행)
+    this.middlewares.sort((a, b) => b.priority - a.priority)
+
+    this.log(`Registered middleware: ${name ?? 'anonymous'} (priority: ${priority})`)
+  }
+
+  /**
+   * Intent 디스패치 (The Execution Loop)
+   *
+   * @param intent 실행할 Intent
+   * @returns 실행 결과
+   */
   async dispatch(intent: ViewIntent): Promise<IntentResult> {
-    this.log('Dispatching intent:', intent.type)
+    this.log(`Dispatching: ${intent.type}`)
 
-    try {
-      if (isFormIntent(intent)) {
-        return await this.dispatchFormIntent(intent)
+    // 미들웨어 체인 실행기
+    const runner = async (index: number): Promise<IntentResult> => {
+      // 1. 모든 미들웨어를 통과했으면 → 실제 핸들러 실행
+      if (index >= this.middlewares.length) {
+        return this.executeHandler(intent)
       }
 
-      if (isTableIntent(intent)) {
-        return await this.dispatchTableIntent(intent)
-      }
+      // 2. 현재 미들웨어 실행
+      const current = this.middlewares[index]!
+      const { middleware, name } = current
 
-      if (isTabsIntent(intent)) {
-        return this.dispatchTabsIntent(intent)
-      }
+      this.log(`Running middleware: ${name ?? `[${index}]`}`)
 
-      if (isOverlayIntent(intent)) {
-        return this.dispatchOverlayIntent(intent)
-      }
+      // 3. next() 호출 시 다음 미들웨어로 진행
+      return middleware(intent, this.context, () => runner(index + 1))
+    }
 
-      if (isTriggerActionIntent(intent)) {
-        return await this.dispatchTriggerActionIntent(intent)
-      }
+    return runner(0)
+  }
 
+  // ============================================================================
+  // Private
+  // ============================================================================
+
+  /**
+   * 핸들러 실행
+   */
+  private async executeHandler(intent: ViewIntent): Promise<IntentResult> {
+    const handler = this.handlers.get(intent.type)
+
+    if (!handler) {
       return {
         success: false,
         errorType: 'INVALID_OPERATION',
-        message: `Unknown intent type: ${(intent as ViewIntent).type}`,
+        message: `No handler registered for intent: ${intent.type}`,
       }
+    }
+
+    try {
+      return await handler.execute(intent, this.context)
     } catch (error) {
       return {
         success: false,
@@ -108,352 +169,19 @@ export class IntentDispatcher implements IIntentDispatcher {
     }
   }
 
-  // ============================================================================
-  // Form Intents
-  // ============================================================================
-
-  private async dispatchFormIntent(
-    intent: SetFieldValueIntent | SubmitFormIntent | ResetFormIntent
-  ): Promise<IntentResult> {
-    const nodeId = intent.nodeId
-    const formNode = this.nodeRegistry.getFormNode(nodeId)
-
-    if (!formNode) {
-      return {
-        success: false,
-        errorType: 'NODE_NOT_FOUND',
-        message: `Form node "${nodeId}" not found`,
-      }
-    }
-
-    const { runtime } = formNode
-
-    switch (intent.type) {
-      case 'setFieldValue': {
-        const result = runtime.dispatch({
-          type: 'FIELD_CHANGE',
-          fieldId: intent.fieldId,
-          value: intent.value,
-        })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: this.formatFormError(result.error),
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'submit': {
-        const result = runtime.dispatch({ type: 'SUBMIT' })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: this.formatFormError(result.error),
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'reset': {
-        const result = runtime.dispatch({ type: 'RESET' })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: this.formatFormError(result.error),
-          }
-        }
-
-        return { success: true }
-      }
-    }
-  }
-
-  // ============================================================================
-  // Table Intents
-  // ============================================================================
-
-  private async dispatchTableIntent(
-    intent: SelectRowIntent | SelectAllRowsIntent | DeselectAllRowsIntent | ChangePageIntent | SortColumnIntent
-  ): Promise<IntentResult> {
-    const nodeId = intent.nodeId
-    const listNode = this.nodeRegistry.getListNode(nodeId)
-
-    if (!listNode) {
-      return {
-        success: false,
-        errorType: 'NODE_NOT_FOUND',
-        message: `List node "${nodeId}" not found`,
-      }
-    }
-
-    const { runtime } = listNode
-
-    switch (intent.type) {
-      case 'selectRow': {
-        // append가 false이면 먼저 전체 해제
-        if (!intent.append) {
-          await runtime.dispatch({ type: 'DESELECT_ALL' })
-        }
-
-        const result = await runtime.dispatch({
-          type: 'SELECT_ROW',
-          rowId: intent.rowId,
-        })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: result.error.message,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'selectAll': {
-        const result = await runtime.dispatch({ type: 'SELECT_ALL' })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: result.error.message,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'deselectAll': {
-        const result = await runtime.dispatch({ type: 'DESELECT_ALL' })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: result.error.message,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'changePage': {
-        const result = await runtime.dispatch({
-          type: 'PAGE_CHANGE',
-          page: intent.page,
-        })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: result.error.message,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'sortColumn': {
-        const result = intent.direction
-          ? await runtime.dispatch({
-              type: 'SORT_CHANGE',
-              field: intent.columnId,
-              direction: intent.direction,
-            })
-          : await runtime.dispatch({
-              type: 'SORT_TOGGLE',
-              field: intent.columnId,
-            })
-
-        if (result._tag === 'Err') {
-          return {
-            success: false,
-            errorType: 'RUNTIME_ERROR',
-            message: result.error.message,
-          }
-        }
-
-        return { success: true }
-      }
-    }
-  }
-
-  // ============================================================================
-  // Tabs Intent
-  // ============================================================================
-
-  private dispatchTabsIntent(intent: SwitchTabIntent): IntentResult {
-    // 탭 상태는 외부에서 관리 (React/Vue state 또는 커스텀 핸들러)
-    if (this.options.onTabChange) {
-      this.options.onTabChange(intent.nodeId, intent.tabId)
-      return { success: true }
-    }
-
-    return {
-      success: false,
-      errorType: 'INVALID_OPERATION',
-      message: 'Tab change handler not configured',
-    }
-  }
-
-  // ============================================================================
-  // Overlay Intents
-  // ============================================================================
-
-  private dispatchOverlayIntent(
-    intent: OpenOverlayIntent | SubmitOverlayIntent | CloseOverlayIntent | ConfirmDialogIntent | DismissToastIntent
-  ): IntentResult {
-    switch (intent.type) {
-      case 'openOverlay': {
-        const options: OpenOverlayOptions = {
-          boundData: intent.boundData,
-        }
-
-        // dataSourceNodeId가 있으면 해당 노드에서 데이터 가져오기
-        if (intent.dataSourceNodeId) {
-          const listNode = this.nodeRegistry.getListNode(intent.dataSourceNodeId)
-          if (listNode) {
-            const selectedRows = listNode.runtime.getSelectedRows()
-            options.boundData = {
-              ...options.boundData,
-              selectedRows,
-              selectedRow: selectedRows[0],
-              count: selectedRows.length,
-            }
-          }
-        }
-
-        const instance = this.overlayManager.openWithTemplate(intent.template, options)
-
-        if (!instance) {
-          return {
-            success: false,
-            errorType: 'TEMPLATE_NOT_FOUND',
-            message: `Overlay template "${intent.template}" not found`,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'submitOverlay': {
-        const success = this.overlayManager.submit(intent.instanceId)
-
-        if (!success) {
-          return {
-            success: false,
-            errorType: 'OVERLAY_NOT_FOUND',
-            message: `Overlay "${intent.instanceId}" not found`,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'closeOverlay': {
-        const success = this.overlayManager.close(intent.instanceId)
-
-        if (!success) {
-          return {
-            success: false,
-            errorType: 'OVERLAY_NOT_FOUND',
-            message: `Overlay "${intent.instanceId}" not found`,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'confirmDialog': {
-        const success = this.overlayManager.confirm(intent.instanceId)
-
-        if (!success) {
-          return {
-            success: false,
-            errorType: 'OVERLAY_NOT_FOUND',
-            message: `Dialog "${intent.instanceId}" not found`,
-          }
-        }
-
-        return { success: true }
-      }
-
-      case 'dismissToast': {
-        const success = this.overlayManager.dismiss(intent.instanceId)
-
-        if (!success) {
-          return {
-            success: false,
-            errorType: 'OVERLAY_NOT_FOUND',
-            message: `Toast "${intent.instanceId}" not found`,
-          }
-        }
-
-        return { success: true }
-      }
-    }
-  }
-
-  // ============================================================================
-  // Trigger Action Intent
-  // ============================================================================
-
-  private async dispatchTriggerActionIntent(intent: TriggerActionIntent): Promise<IntentResult> {
-    if (this.options.onActionTrigger) {
-      try {
-        await this.options.onActionTrigger(intent.nodeId, intent.actionType)
-        return { success: true }
-      } catch (error) {
-        return {
-          success: false,
-          errorType: 'RUNTIME_ERROR',
-          message: error instanceof Error ? error.message : 'Action trigger failed',
-        }
-      }
-    }
-
-    return {
-      success: false,
-      errorType: 'INVALID_OPERATION',
-      message: 'Action trigger handler not configured',
-    }
-  }
-
-  // ============================================================================
-  // Private
-  // ============================================================================
-
-  private formatFormError(error: { type: string; message?: string; errors?: Record<string, string[]> }): string {
-    if (error.message) {
-      return error.message
-    }
-    if (error.errors) {
-      const errorMessages = Object.entries(error.errors)
-        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-        .join('; ')
-      return `Validation errors: ${errorMessages}`
-    }
-    return `Form error: ${error.type}`
-  }
-
+  /**
+   * 디버그 로그
+   */
   private log(...args: unknown[]): void {
-    if (this.options.debug) {
+    if (this.context.debug) {
       console.log('[IntentDispatcher]', ...args)
     }
   }
 }
+
+// ============================================================================
+// Factory
+// ============================================================================
 
 /**
  * IntentDispatcher 팩토리 함수
@@ -462,7 +190,6 @@ export const createIntentDispatcher = (
   nodeRegistry: INodeRegistry,
   overlayManager: IOverlayManager,
   options?: IntentDispatcherOptions
-): IIntentDispatcher => {
+): IntentDispatcher => {
   return new IntentDispatcher(nodeRegistry, overlayManager, options)
 }
-

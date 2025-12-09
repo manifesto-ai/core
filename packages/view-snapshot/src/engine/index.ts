@@ -24,6 +24,7 @@ export type {
   INodeRegistry,
   RegisteredFormNode,
   RegisteredListNode,
+  RegisteredTabsNode,
   NodeType,
   RegisteredNode,
 } from './NodeRegistry'
@@ -58,6 +59,30 @@ export {
   createIntentDispatcher,
 } from './IntentDispatcher'
 export type {
-  IIntentDispatcher,
   IntentDispatcherOptions,
 } from './IntentDispatcher'
+
+// Handlers
+export {
+  FormHandler,
+  createFormHandler,
+  TableHandler,
+  createTableHandler,
+  OverlayHandler,
+  createOverlayHandler,
+  TabsHandler,
+  createTabsHandler,
+  ActionHandler,
+  createActionHandler,
+} from './handlers'
+
+// Middlewares
+export {
+  createLoggerMiddleware,
+  createGuardrailMiddleware,
+} from './middlewares'
+export type {
+  LoggerOptions,
+  GuardrailOptions,
+  GuardFunction,
+} from './middlewares'

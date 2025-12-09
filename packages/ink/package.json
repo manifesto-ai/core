@@ -1,0 +1,70 @@
+{
+  "name": "@manifesto-ai/ink",
+  "version": "0.0.1",
+  "description": "Terminal UI renderer for Manifesto ViewSnapshot using Ink",
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "eggp",
+    "email": "eggplantiny@gmail.com"
+  },
+  "homepage": "https://github.com/manifesto-ai/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/ink"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "keywords": ["manifesto", "ink", "cli", "terminal", "tui", "react", "view-snapshot"],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "manifesto-ink-demo": "./dist/cli/demo.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./cli": {
+      "types": "./dist/cli/demo.d.ts",
+      "import": "./dist/cli/demo.mjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli/demo.tsx --dts --format esm,cjs",
+    "dev": "tsup --watch",
+    "demo": "tsx src/cli/demo.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@manifesto-ai/view-snapshot": "workspace:*",
+    "ink": "^5.0.1",
+    "ink-text-input": "^6.0.0",
+    "ink-select-input": "^6.0.0",
+    "chalk": "^5.3.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "react": "^18.3.1",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

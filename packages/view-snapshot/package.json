@@ -23,32 +23,32 @@
     "registry": "https://registry.npmjs.org/"
   },
   "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./types": {
       "types": "./dist/types/index.d.ts",
-      "import": "./dist/types/index.mjs",
+      "import": "./dist/types/index.js",
       "require": "./dist/types/index.cjs"
     },
     "./engine": {
       "types": "./dist/engine/index.d.ts",
-      "import": "./dist/engine/index.mjs",
+      "import": "./dist/engine/index.js",
       "require": "./dist/engine/index.cjs"
     },
     "./builders": {
       "types": "./dist/builders/index.d.ts",
-      "import": "./dist/builders/index.mjs",
+      "import": "./dist/builders/index.js",
       "require": "./dist/builders/index.cjs"
     },
     "./guards": {
       "types": "./dist/guards/index.d.ts",
-      "import": "./dist/guards/index.mjs",
+      "import": "./dist/guards/index.js",
       "require": "./dist/guards/index.cjs"
     }
   },

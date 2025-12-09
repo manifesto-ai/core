@@ -16,12 +16,22 @@ import type {
   ViewIntent,
   OverlayTemplate,
   ViewAction,
+  TabItem,
+  TabsSnapshot,
 } from '../types'
 
 import { createNodeRegistry, type INodeRegistry } from './NodeRegistry'
 import { createTemplateRegistry, registerDefaultTemplates, type ITemplateRegistry } from './TemplateRegistry'
 import { createOverlayManager, type IOverlayManager } from './OverlayManager'
-import { createIntentDispatcher, type IIntentDispatcher, type IntentDispatcherOptions } from './IntentDispatcher'
+import type { IIntentDispatcher } from '../types'
+import { createIntentDispatcher, type IntentDispatcherOptions } from './IntentDispatcher'
+import {
+  createFormHandler,
+  createTableHandler,
+  createOverlayHandler,
+  createTabsHandler,
+  createActionHandler,
+} from './handlers'
 import { buildFormSnapshot, type FormSnapshotBuilderOptions } from '../builders/FormSnapshotBuilder'
 import { buildTableSnapshot, type TableSnapshotBuilderOptions } from '../builders/TableSnapshotBuilder'
 import { buildPageSnapshot } from '../builders/PageSnapshotBuilder'
@@ -44,8 +54,15 @@ export interface IViewSnapshotEngine {
   registerListRuntime(nodeId: string, runtime: ListRuntime, schema: ListViewSchema): void
   unregisterRuntime(nodeId: string): boolean
 
+  // Tabs 등록
+  registerTabs(nodeId: string, tabs: readonly TabItem[], options?: { label?: string; activeTabId?: string }): void
+  unregisterTabs(nodeId: string): boolean
+
   // 템플릿 등록
   registerTemplate(template: OverlayTemplate): void
+
+  // Overlay API
+  getOverlayManager(): IOverlayManager
 
   // 구독
   subscribe(listener: (snapshot: PageSnapshot) => void): () => void
@@ -127,6 +144,9 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
       }
     )
 
+    // 기본 핸들러 등록
+    this.registerDefaultHandlers()
+
     // 기본 템플릿 등록
     if (this.options.registerDefaultTemplates) {
       registerDefaultTemplates(this.templateRegistry)
@@ -168,6 +188,19 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
       children.push(snapshot)
     }
 
+    // Tabs 스냅샷 생성
+    for (const tabsNode of this.nodeRegistry.getAllTabsNodes()) {
+      const snapshot: TabsSnapshot = {
+        kind: 'tabs',
+        nodeId: tabsNode.nodeId,
+        label: tabsNode.label,
+        activeTabId: tabsNode.activeTabId,
+        tabs: tabsNode.tabs,
+        actions: [], // Tabs 노드에는 현재 액션이 없음
+      }
+      children.push(snapshot)
+    }
+
     // PageSnapshot 생성
     return buildPageSnapshot({
       pageId: this.options.pageId,
@@ -187,10 +220,9 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
       this.log('Intent failed:', result)
     }
 
-    const snapshot = this.getViewSnapshot()
-    this.notifyListeners(snapshot)
-
-    return snapshot
+    // Runtime이 자체적으로 notifyListeners를 트리거하므로
+    // 여기서는 스냅샷만 반환 (중복 알림 방지)
+    return this.getViewSnapshot()
   }
 
   async dispatchIntents(intents: ViewIntent[]): Promise<PageSnapshot> {
@@ -200,10 +232,9 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
       await this.intentDispatcher.dispatch(intent)
     }
 
-    const snapshot = this.getViewSnapshot()
-    this.notifyListeners(snapshot)
-
-    return snapshot
+    // Runtime이 자체적으로 notifyListeners를 트리거하므로
+    // 여기서는 스냅샷만 반환 (중복 알림 방지)
+    return this.getViewSnapshot()
   }
 
   // ============================================================================
@@ -270,6 +301,23 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
   }
 
   // ============================================================================
+  // Tabs 등록
+  // ============================================================================
+
+  registerTabs(
+    nodeId: string,
+    tabs: readonly TabItem[],
+    options?: { label?: string; activeTabId?: string }
+  ): void {
+    this.nodeRegistry.registerTabs(nodeId, tabs, options)
+    this.log('Tabs registered:', nodeId)
+  }
+
+  unregisterTabs(nodeId: string): boolean {
+    return this.nodeRegistry.unregisterTabs(nodeId)
+  }
+
+  // ============================================================================
   // 템플릿 등록
   // ============================================================================
 
@@ -285,6 +333,14 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
   subscribe(listener: SnapshotChangeListener): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  // ============================================================================
+  // Overlay API
+  // ============================================================================
+
+  getOverlayManager(): IOverlayManager {
+    return this.overlayManager
   }
 
   // ============================================================================
@@ -313,6 +369,19 @@ export class ViewSnapshotEngine implements IViewSnapshotEngine {
   // ============================================================================
   // Private
   // ============================================================================
+
+  /**
+   * 기본 핸들러 등록
+   */
+  private registerDefaultHandlers(): void {
+    this.intentDispatcher.register(createFormHandler())
+    this.intentDispatcher.register(createTableHandler())
+    this.intentDispatcher.register(createOverlayHandler())
+    this.intentDispatcher.register(createTabsHandler())
+    this.intentDispatcher.register(createActionHandler())
+
+    this.log('Default handlers registered')
+  }
 
   private notifyListeners(snapshot: PageSnapshot): void {
     for (const listener of this.listeners) {

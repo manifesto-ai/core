@@ -11,7 +11,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ['react', '@manifesto-ai/schema', '@manifesto-ai/engine', '@manifesto-ai/ui'],
+  external: ['react', 'react-dom', '@manifesto-ai/schema', '@manifesto-ai/engine', '@manifesto-ai/ui', '@manifesto-ai/view-snapshot'],
   outExtension({ format }) {
     return {
       js: format === 'esm' ? '.mjs' : '.cjs',
