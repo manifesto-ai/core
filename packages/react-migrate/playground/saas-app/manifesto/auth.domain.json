@@ -1,0 +1,266 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "auth",
+  "version": "1.0.0",
+  "entities": {
+    "LoginFormProps": {
+      "type": "object",
+      "description": "Entity: LoginFormProps",
+      "fields": {
+        "onSuccess": {
+          "type": "any"
+        },
+        "redirectTo": {
+          "type": "any"
+        }
+      }
+    },
+    "AuthState": {
+      "type": "object",
+      "description": "Entity: AuthState",
+      "fields": {
+        "user": {
+          "type": "User | null"
+        },
+        "organization": {
+          "type": "Organization | null"
+        },
+        "isAuthenticated": {
+          "type": "boolean"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "sessionExpiresAt": {
+          "type": "Date | null"
+        }
+      }
+    },
+    "Auth": {
+      "type": "object",
+      "description": "Entity: Auth",
+      "fields": {
+        "login": {
+          "type": "any"
+        },
+        "loginWithSSO": {
+          "type": "any"
+        },
+        "logout": {
+          "type": "any"
+        },
+        "register": {
+          "type": "any"
+        },
+        "resetPassword": {
+          "type": "any"
+        },
+        "updateProfile": {
+          "type": "any"
+        },
+        "switchOrganization": {
+          "type": "any"
+        },
+        "refreshSession": {
+          "type": "any"
+        }
+      }
+    },
+    "AuthProviderProps": {
+      "type": "object",
+      "description": "Entity: AuthProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "RegisterData": {
+      "type": "object",
+      "description": "Entity: RegisterData",
+      "fields": {
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "organizationName": {
+          "type": "string"
+        }
+      }
+    },
+    "AuthAction": {
+      "type": "object",
+      "description": "LLM: AuthAction",
+      "fields": {
+        "AUTH_START": {
+          "type": "string",
+          "description": "Action type for starting the authentication process."
+        },
+        "AUTH_SUCCESS": {
+          "type": "string",
+          "description": "Action type for successful authentication."
+        },
+        "AUTH_FAILURE": {
+          "type": "string",
+          "description": "Action type for failed authentication."
+        },
+        "LOGOUT": {
+          "type": "string",
+          "description": "Action type for logging out the user."
+        },
+        "UPDATE_USER": {
+          "type": "string",
+          "description": "Action type for updating user information."
+        },
+        "SWITCH_ORGANIZATION": {
+          "type": "string",
+          "description": "Action type for switching the user's organization."
+        },
+        "REFRESH_SESSION": {
+          "type": "string",
+          "description": "Action type for refreshing the user's session."
+        }
+      }
+    },
+    "AuthContextValue": {
+      "type": "object",
+      "description": "LLM: AuthContextValue",
+      "fields": {
+        "login": {
+          "type": "function",
+          "description": "Function to log in a user."
+        },
+        "loginWithSSO": {
+          "type": "function",
+          "description": "Function to log in a user with Single Sign-On."
+        },
+        "logout": {
+          "type": "function",
+          "description": "Function to log out the user."
+        },
+        "register": {
+          "type": "function",
+          "description": "Function to register a new user."
+        },
+        "resetPassword": {
+          "type": "function",
+          "description": "Function to reset the user's password."
+        },
+        "updateProfile": {
+          "type": "function",
+          "description": "Function to update the user's profile."
+        },
+        "switchOrganization": {
+          "type": "function",
+          "description": "Function to switch the user's organization."
+        },
+        "refreshSession": {
+          "type": "function",
+          "description": "Function to refresh the user's session."
+        }
+      }
+    }
+  },
+  "state": {
+    "Auth": {
+      "type": "context",
+      "description": "Context state from AuthContextValue"
+    },
+    "user": {
+      "type": "User | null",
+      "description": "State field from AuthState"
+    },
+    "organization": {
+      "type": "Organization | null",
+      "description": "State field from AuthState"
+    },
+    "isAuthenticated": {
+      "type": "boolean",
+      "description": "State field from AuthState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from AuthState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from AuthState"
+    },
+    "sessionExpiresAt": {
+      "type": "Date | null",
+      "description": "State field from AuthState"
+    }
+  },
+  "intents": {
+    "authStart": {
+      "type": "command",
+      "description": "command: authStart"
+    },
+    "authSuccess": {
+      "type": "event",
+      "description": "event: authSuccess"
+    },
+    "authFailure": {
+      "type": "event",
+      "description": "event: authFailure"
+    },
+    "logout": {
+      "type": "command",
+      "description": "command: logout"
+    },
+    "updateUser": {
+      "type": "command",
+      "description": "command: updateUser"
+    },
+    "switchOrganization": {
+      "type": "command",
+      "description": "command: switchOrganization"
+    },
+    "refreshSession": {
+      "type": "command",
+      "description": "command: refreshSession"
+    },
+    "AUTH_START": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "AUTH_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "AUTH_FAILURE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "UPDATE_USER": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SWITCH_ORGANIZATION": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "REFRESH_SESSION": {
+      "type": "command",
+      "description": "LLM: command"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165650,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/auth/AuthContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/auth/useAuth.ts",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/auth/LoginForm.tsx"
+    ],
+    "confidence": 0.8929130434782608
+  }
+}

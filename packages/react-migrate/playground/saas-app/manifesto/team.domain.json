@@ -1,0 +1,309 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "team",
+  "version": "1.0.0",
+  "entities": {
+    "TeamState": {
+      "type": "object",
+      "description": "Entity: TeamState",
+      "fields": {
+        "members": {
+          "type": "unknown[]"
+        },
+        "invitations": {
+          "type": "unknown[]"
+        },
+        "departments": {
+          "type": "unknown[]"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "selectedMember": {
+          "type": "TeamMember | null"
+        }
+      }
+    },
+    "Team": {
+      "type": "object",
+      "description": "Entity: Team",
+      "fields": {
+        "fetchTeamData": {
+          "type": "any"
+        },
+        "inviteMember": {
+          "type": "any"
+        },
+        "resendInvitation": {
+          "type": "any"
+        },
+        "revokeInvitation": {
+          "type": "any"
+        },
+        "updateMemberRole": {
+          "type": "any"
+        },
+        "suspendMember": {
+          "type": "any"
+        },
+        "reactivateMember": {
+          "type": "any"
+        },
+        "removeMember": {
+          "type": "any"
+        },
+        "transferOwnership": {
+          "type": "any"
+        },
+        "setSelectedMember": {
+          "type": "any"
+        },
+        "createDepartment": {
+          "type": "any"
+        },
+        "updateDepartment": {
+          "type": "any"
+        },
+        "deleteDepartment": {
+          "type": "any"
+        },
+        "assignToDepartment": {
+          "type": "any"
+        }
+      }
+    },
+    "TeamProviderProps": {
+      "type": "object",
+      "description": "Entity: TeamProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "TeamAction": {
+      "type": "object",
+      "description": "LLM: TeamAction",
+      "fields": {
+        "FETCH_START": {
+          "type": "any",
+          "description": "Action to indicate the start of fetching team data."
+        },
+        "FETCH_SUCCESS": {
+          "type": "any",
+          "description": "Action to indicate successful fetching of team data."
+        },
+        "FETCH_FAILURE": {
+          "type": "any",
+          "description": "Action to indicate failure in fetching team data."
+        },
+        "ADD_MEMBER": {
+          "type": "any",
+          "description": "Action to add a new member to the team."
+        },
+        "UPDATE_MEMBER": {
+          "type": "any",
+          "description": "Action to update an existing member's details."
+        },
+        "REMOVE_MEMBER": {
+          "type": "any",
+          "description": "Action to remove a member from the team."
+        },
+        "SUSPEND_MEMBER": {
+          "type": "any",
+          "description": "Action to suspend a member's account."
+        },
+        "REACTIVATE_MEMBER": {
+          "type": "any",
+          "description": "Action to reactivate a suspended member's account."
+        },
+        "ADD_INVITATION": {
+          "type": "any",
+          "description": "Action to send an invitation to a new member."
+        },
+        "REVOKE_INVITATION": {
+          "type": "any",
+          "description": "Action to revoke a previously sent invitation."
+        },
+        "SET_SELECTED_MEMBER": {
+          "type": "any",
+          "description": "Action to set the currently selected member."
+        },
+        "ADD_DEPARTMENT": {
+          "type": "any",
+          "description": "Action to add a new department to the team."
+        },
+        "UPDATE_DEPARTMENT": {
+          "type": "any",
+          "description": "Action to update an existing department's details."
+        },
+        "DELETE_DEPARTMENT": {
+          "type": "any",
+          "description": "Action to delete a department from the team."
+        }
+      }
+    },
+    "TeamContextValue": {
+      "type": "object",
+      "description": "LLM: TeamContextValue",
+      "fields": {
+        "fetchTeamData": {
+          "type": "any",
+          "description": "Method to fetch team data."
+        },
+        "inviteMember": {
+          "type": "any",
+          "description": "Method to invite a new member to the team."
+        },
+        "resendInvitation": {
+          "type": "any",
+          "description": "Method to resend an invitation to a member."
+        },
+        "revokeInvitation": {
+          "type": "any",
+          "description": "Method to revoke an invitation."
+        },
+        "updateMemberRole": {
+          "type": "any",
+          "description": "Method to update a member's role."
+        },
+        "suspendMember": {
+          "type": "any",
+          "description": "Method to suspend a member."
+        },
+        "reactivateMember": {
+          "type": "any",
+          "description": "Method to reactivate a suspended member."
+        },
+        "removeMember": {
+          "type": "any",
+          "description": "Method to remove a member from the team."
+        },
+        "transferOwnership": {
+          "type": "any",
+          "description": "Method to transfer ownership of the team."
+        },
+        "setSelectedMember": {
+          "type": "any",
+          "description": "Method to set the selected member."
+        },
+        "createDepartment": {
+          "type": "any",
+          "description": "Method to create a new department."
+        },
+        "updateDepartment": {
+          "type": "any",
+          "description": "Method to update an existing department."
+        },
+        "deleteDepartment": {
+          "type": "any",
+          "description": "Method to delete a department."
+        },
+        "assignToDepartment": {
+          "type": "any",
+          "description": "Method to assign a member to a department."
+        }
+      }
+    }
+  },
+  "state": {
+    "Team": {
+      "type": "context",
+      "description": "Context state from TeamContextValue"
+    },
+    "members": {
+      "type": "unknown[]",
+      "description": "State field from TeamState"
+    },
+    "invitations": {
+      "type": "unknown[]",
+      "description": "State field from TeamState"
+    },
+    "departments": {
+      "type": "unknown[]",
+      "description": "State field from TeamState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from TeamState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from TeamState"
+    },
+    "selectedMember": {
+      "type": "TeamMember | null",
+      "description": "State field from TeamState"
+    }
+  },
+  "intents": {
+    "fetchStart": {
+      "type": "query",
+      "description": "query: fetchStart"
+    },
+    "fetchSuccess": {
+      "type": "event",
+      "description": "event: fetchSuccess"
+    },
+    "fetchFailure": {
+      "type": "event",
+      "description": "event: fetchFailure"
+    },
+    "addMember": {
+      "type": "command",
+      "description": "command: addMember"
+    },
+    "updateMember": {
+      "type": "command",
+      "description": "command: updateMember"
+    },
+    "removeMember": {
+      "type": "command",
+      "description": "command: removeMember"
+    },
+    "suspendMember": {
+      "type": "command",
+      "description": "command: suspendMember"
+    },
+    "reactivateMember": {
+      "type": "command",
+      "description": "command: reactivateMember"
+    },
+    "addInvitation": {
+      "type": "command",
+      "description": "command: addInvitation"
+    },
+    "revokeInvitation": {
+      "type": "command",
+      "description": "command: revokeInvitation"
+    },
+    "setSelectedMember": {
+      "type": "command",
+      "description": "command: setSelectedMember"
+    },
+    "addDepartment": {
+      "type": "command",
+      "description": "command: addDepartment"
+    },
+    "updateDepartment": {
+      "type": "command",
+      "description": "command: updateDepartment"
+    },
+    "deleteDepartment": {
+      "type": "command",
+      "description": "command: deleteDepartment"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165653,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/team/TeamContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/team/useTeam.ts"
+    ],
+    "confidence": 0.9224901960784312
+  }
+}

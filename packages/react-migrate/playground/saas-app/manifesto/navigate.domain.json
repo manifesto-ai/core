@@ -1,0 +1,40 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "navigate",
+  "version": "1.0.0",
+  "entities": {
+    "NavigateHook": {
+      "type": "object",
+      "description": "LLM: NavigateHook",
+      "fields": {
+        "isCustomHook": {
+          "type": "boolean",
+          "description": "Indicates whether the hook is a custom hook."
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "An array of dependencies that the hook relies on."
+        }
+      }
+    }
+  },
+  "state": {},
+  "intents": {
+    "getNavigate": {
+      "type": "query",
+      "description": "query: getNavigate"
+    },
+    "navigate": {
+      "type": "event",
+      "description": "LLM: event"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165654,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/shared/hooks/useNavigate.ts"
+    ],
+    "confidence": 0.8360000000000001
+  }
+}

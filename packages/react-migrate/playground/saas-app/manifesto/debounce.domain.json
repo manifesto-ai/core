@@ -1,0 +1,40 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "debounce",
+  "version": "1.0.0",
+  "entities": {
+    "DebounceHook": {
+      "type": "object",
+      "description": "LLM: DebounceHook",
+      "fields": {
+        "value": {
+          "type": "any",
+          "description": "The value that is being debounced."
+        },
+        "delay": {
+          "type": "number",
+          "description": "The amount of time (in milliseconds) to wait before invoking the debounced function."
+        }
+      }
+    }
+  },
+  "state": {},
+  "intents": {
+    "getDebounce": {
+      "type": "query",
+      "description": "query: getDebounce"
+    },
+    "useDebounce": {
+      "type": "event",
+      "description": "LLM: event"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165655,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/shared/hooks/useDebounce.ts"
+    ],
+    "confidence": 0.8360000000000001
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "async",
+  "version": "1.0.0",
+  "entities": {
+    "AsyncState": {
+      "type": "object",
+      "description": "Entity: AsyncState",
+      "fields": {
+        "data": {
+          "type": "T | null"
+        },
+        "error": {
+          "type": "Error | null"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "isSuccess": {
+          "type": "boolean"
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "state": {
+    "data": {
+      "type": "T | null",
+      "description": "State field from AsyncState"
+    },
+    "error": {
+      "type": "Error | null",
+      "description": "State field from AsyncState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from AsyncState"
+    },
+    "isSuccess": {
+      "type": "boolean",
+      "description": "State field from AsyncState"
+    },
+    "isError": {
+      "type": "boolean",
+      "description": "State field from AsyncState"
+    }
+  },
+  "intents": {
+    "fetchData": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "handleSuccess": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "handleError": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "resetState": {
+      "type": "command",
+      "description": "LLM: command"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165646,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/shared/hooks/useAsync.ts"
+    ],
+    "confidence": 0.8925
+  }
+}

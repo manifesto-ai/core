@@ -1,0 +1,263 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "analytics",
+  "version": "1.0.0",
+  "entities": {
+    "AnalyticsState": {
+      "type": "object",
+      "description": "Entity: AnalyticsState",
+      "fields": {
+        "dashboardMetrics": {
+          "type": "DashboardMetrics | null"
+        },
+        "projectMetrics": {
+          "type": "Record"
+        },
+        "recentEvents": {
+          "type": "unknown[]"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "dateRange": {
+          "type": "DateRange"
+        },
+        "refreshInterval": {
+          "type": "number | null"
+        }
+      }
+    },
+    "Analytics": {
+      "type": "object",
+      "description": "Entity: Analytics",
+      "fields": {
+        "fetchDashboardMetrics": {
+          "type": "any"
+        },
+        "fetchProjectMetrics": {
+          "type": "any"
+        },
+        "fetchRecentEvents": {
+          "type": "any"
+        },
+        "trackEvent": {
+          "type": "any"
+        },
+        "setDateRange": {
+          "type": "any"
+        },
+        "setRefreshInterval": {
+          "type": "any"
+        },
+        "exportReport": {
+          "type": "any"
+        }
+      }
+    },
+    "AnalyticsProviderProps": {
+      "type": "object",
+      "description": "Entity: AnalyticsProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "DateRange": {
+      "type": "object",
+      "description": "Entity: DateRange",
+      "fields": {
+        "start": {
+          "type": "Date"
+        },
+        "end": {
+          "type": "Date"
+        }
+      }
+    },
+    "AnalyticsAction": {
+      "type": "object",
+      "description": "LLM: AnalyticsAction",
+      "fields": {
+        "FETCH_START": {
+          "type": "string",
+          "description": "Action to indicate the start of data fetching."
+        },
+        "FETCH_DASHBOARD_SUCCESS": {
+          "type": "string",
+          "description": "Action for successful fetching of dashboard metrics."
+        },
+        "FETCH_PROJECT_SUCCESS": {
+          "type": "string",
+          "description": "Action for successful fetching of project metrics."
+        },
+        "FETCH_EVENTS_SUCCESS": {
+          "type": "string",
+          "description": "Action for successful fetching of recent events."
+        },
+        "FETCH_FAILURE": {
+          "type": "string",
+          "description": "Action for handling errors during data fetching."
+        },
+        "SET_DATE_RANGE": {
+          "type": "string",
+          "description": "Action to set the date range for analytics."
+        },
+        "SET_REFRESH_INTERVAL": {
+          "type": "string",
+          "description": "Action to set the refresh interval for analytics data."
+        },
+        "TRACK_EVENT": {
+          "type": "string",
+          "description": "Action to track a specific event."
+        }
+      }
+    },
+    "AnalyticsContextValue": {
+      "type": "object",
+      "description": "LLM: AnalyticsContextValue",
+      "fields": {
+        "fetchDashboardMetrics": {
+          "type": "any",
+          "description": "Function to fetch dashboard metrics."
+        },
+        "fetchProjectMetrics": {
+          "type": "any",
+          "description": "Function to fetch project metrics."
+        },
+        "fetchRecentEvents": {
+          "type": "any",
+          "description": "Function to fetch recent events."
+        },
+        "trackEvent": {
+          "type": "any",
+          "description": "Function to track a specific event."
+        },
+        "setDateRange": {
+          "type": "any",
+          "description": "Function to set the date range for analytics."
+        },
+        "setRefreshInterval": {
+          "type": "any",
+          "description": "Function to set the refresh interval for analytics data."
+        },
+        "exportReport": {
+          "type": "any",
+          "description": "Function to export analytics reports."
+        }
+      }
+    }
+  },
+  "state": {
+    "Analytics": {
+      "type": "context",
+      "description": "Context state from AnalyticsContextValue"
+    },
+    "dashboardMetrics": {
+      "type": "DashboardMetrics | null",
+      "description": "State field from AnalyticsState"
+    },
+    "projectMetrics": {
+      "type": "Record",
+      "description": "State field from AnalyticsState"
+    },
+    "recentEvents": {
+      "type": "unknown[]",
+      "description": "State field from AnalyticsState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from AnalyticsState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from AnalyticsState"
+    },
+    "dateRange": {
+      "type": "DateRange",
+      "description": "State field from AnalyticsState"
+    },
+    "refreshInterval": {
+      "type": "number | null",
+      "description": "State field from AnalyticsState"
+    }
+  },
+  "intents": {
+    "fetchStart": {
+      "type": "query",
+      "description": "query: fetchStart"
+    },
+    "fetchDashboardSuccess": {
+      "type": "event",
+      "description": "event: fetchDashboardSuccess"
+    },
+    "fetchProjectSuccess": {
+      "type": "event",
+      "description": "event: fetchProjectSuccess"
+    },
+    "fetchEventsSuccess": {
+      "type": "event",
+      "description": "event: fetchEventsSuccess"
+    },
+    "fetchFailure": {
+      "type": "event",
+      "description": "event: fetchFailure"
+    },
+    "setDateRange": {
+      "type": "command",
+      "description": "command: setDateRange"
+    },
+    "setRefreshInterval": {
+      "type": "command",
+      "description": "command: setRefreshInterval"
+    },
+    "trackEvent": {
+      "type": "command",
+      "description": "command: trackEvent"
+    },
+    "FETCH_START": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_DASHBOARD_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_PROJECT_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_EVENTS_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_FAILURE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SET_DATE_RANGE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SET_REFRESH_INTERVAL": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "TRACK_EVENT": {
+      "type": "event",
+      "description": "LLM: event"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165651,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/analytics/AnalyticsContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/analytics/useAnalytics.ts"
+    ],
+    "confidence": 0.9135000000000001
+  }
+}

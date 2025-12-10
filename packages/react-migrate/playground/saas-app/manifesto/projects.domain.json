@@ -1,0 +1,319 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "projects",
+  "version": "1.0.0",
+  "entities": {
+    "TaskBoardProps": {
+      "type": "object",
+      "description": "Entity: TaskBoardProps",
+      "fields": {
+        "projectId": {
+          "type": "any"
+        }
+      }
+    },
+    "TaskCardProps": {
+      "type": "object",
+      "description": "Entity: TaskCardProps",
+      "fields": {
+        "task": {
+          "type": "any"
+        },
+        "onDragStart": {
+          "type": "any"
+        },
+        "isDragging": {
+          "type": "any"
+        },
+        "currentUserId": {
+          "type": "any"
+        }
+      }
+    },
+    "CreateTaskModalProps": {
+      "type": "object",
+      "description": "Entity: CreateTaskModalProps",
+      "fields": {
+        "projectId": {
+          "type": "any"
+        },
+        "initialStatus": {
+          "type": "any"
+        },
+        "onClose": {
+          "type": "any"
+        },
+        "onCreate": {
+          "type": "any"
+        }
+      }
+    },
+    "ProjectsState": {
+      "type": "object",
+      "description": "Entity: ProjectsState",
+      "fields": {
+        "projects": {
+          "type": "unknown[]"
+        },
+        "currentProject": {
+          "type": "Project | null"
+        },
+        "tasks": {
+          "type": "unknown[]"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "isLoadingTasks": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "pagination": {
+          "type": "any"
+        },
+        "filters": {
+          "type": "ProjectFilters"
+        }
+      }
+    },
+    "Projects": {
+      "type": "object",
+      "description": "Entity: Projects",
+      "fields": {
+        "fetchProjects": {
+          "type": "any"
+        },
+        "createProject": {
+          "type": "any"
+        },
+        "updateProject": {
+          "type": "any"
+        },
+        "deleteProject": {
+          "type": "any"
+        },
+        "archiveProject": {
+          "type": "any"
+        },
+        "duplicateProject": {
+          "type": "any"
+        },
+        "setCurrentProject": {
+          "type": "any"
+        },
+        "setFilters": {
+          "type": "any"
+        },
+        "fetchTasks": {
+          "type": "any"
+        },
+        "createTask": {
+          "type": "any"
+        },
+        "updateTask": {
+          "type": "any"
+        },
+        "deleteTask": {
+          "type": "any"
+        },
+        "moveTask": {
+          "type": "any"
+        },
+        "addMember": {
+          "type": "any"
+        },
+        "removeMember": {
+          "type": "any"
+        },
+        "updateMemberRole": {
+          "type": "any"
+        }
+      }
+    },
+    "ProjectsProviderProps": {
+      "type": "object",
+      "description": "Entity: ProjectsProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "ProjectFilters": {
+      "type": "object",
+      "description": "Entity: ProjectFilters",
+      "fields": {
+        "status": {
+          "type": "string"
+        },
+        "search": {
+          "type": "string"
+        },
+        "sortBy": {
+          "type": "unknown | unknown | unknown"
+        },
+        "sortOrder": {
+          "type": "unknown | unknown"
+        }
+      }
+    },
+    "CreateProjectData": {
+      "type": "object",
+      "description": "Entity: CreateProjectData",
+      "fields": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "visibility": {
+          "type": "unknown | unknown"
+        },
+        "settings": {
+          "type": "Partial"
+        }
+      }
+    },
+    "CreateTaskData": {
+      "type": "object",
+      "description": "Entity: CreateTaskData",
+      "fields": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string"
+        },
+        "assigneeId": {
+          "type": "string"
+        },
+        "dueDate": {
+          "type": "Date"
+        }
+      }
+    }
+  },
+  "state": {
+    "Projects": {
+      "type": "context",
+      "description": "Context state from ProjectsContextValue"
+    },
+    "projects": {
+      "type": "unknown[]",
+      "description": "State field from ProjectsState"
+    },
+    "currentProject": {
+      "type": "Project | null",
+      "description": "State field from ProjectsState"
+    },
+    "tasks": {
+      "type": "unknown[]",
+      "description": "State field from ProjectsState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from ProjectsState"
+    },
+    "isLoadingTasks": {
+      "type": "boolean",
+      "description": "State field from ProjectsState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from ProjectsState"
+    },
+    "pagination": {
+      "type": "any",
+      "description": "State field from ProjectsState"
+    },
+    "filters": {
+      "type": "ProjectFilters",
+      "description": "State field from ProjectsState"
+    }
+  },
+  "intents": {
+    "fetchStart": {
+      "type": "query",
+      "description": "query: fetchStart"
+    },
+    "fetchProjectsSuccess": {
+      "type": "event",
+      "description": "event: fetchProjectsSuccess"
+    },
+    "fetchFailure": {
+      "type": "event",
+      "description": "event: fetchFailure"
+    },
+    "setCurrentProject": {
+      "type": "command",
+      "description": "command: setCurrentProject"
+    },
+    "createProject": {
+      "type": "command",
+      "description": "command: createProject"
+    },
+    "updateProject": {
+      "type": "command",
+      "description": "command: updateProject"
+    },
+    "deleteProject": {
+      "type": "command",
+      "description": "command: deleteProject"
+    },
+    "archiveProject": {
+      "type": "command",
+      "description": "command: archiveProject"
+    },
+    "setFilters": {
+      "type": "command",
+      "description": "command: setFilters"
+    },
+    "fetchTasksStart": {
+      "type": "query",
+      "description": "query: fetchTasksStart"
+    },
+    "fetchTasksSuccess": {
+      "type": "event",
+      "description": "event: fetchTasksSuccess"
+    },
+    "addTask": {
+      "type": "command",
+      "description": "command: addTask"
+    },
+    "updateTask": {
+      "type": "command",
+      "description": "command: updateTask"
+    },
+    "deleteTask": {
+      "type": "command",
+      "description": "command: deleteTask"
+    },
+    "addMember": {
+      "type": "command",
+      "description": "command: addMember"
+    },
+    "removeMember": {
+      "type": "command",
+      "description": "command: removeMember"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165653,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/projects/ProjectsContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/projects/useProjects.ts",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/projects/TaskBoard.tsx"
+    ],
+    "confidence": 0.8681444444444459
+  }
+}

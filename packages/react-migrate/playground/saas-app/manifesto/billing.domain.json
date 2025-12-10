@@ -1,0 +1,304 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "billing",
+  "version": "1.0.0",
+  "entities": {
+    "PlanFeature": {
+      "type": "object",
+      "description": "Entity: PlanFeature",
+      "fields": {
+        "name": {
+          "type": "string"
+        },
+        "included": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "string"
+        }
+      }
+    },
+    "PlanInfo": {
+      "type": "object",
+      "description": "Entity: PlanInfo",
+      "fields": {
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number"
+        },
+        "period": {
+          "type": "unknown | unknown"
+        },
+        "description": {
+          "type": "string"
+        },
+        "features": {
+          "type": "unknown[]"
+        },
+        "popular": {
+          "type": "boolean"
+        }
+      }
+    },
+    "BillingState": {
+      "type": "object",
+      "description": "Entity: BillingState",
+      "fields": {
+        "subscription": {
+          "type": "Subscription | null"
+        },
+        "invoices": {
+          "type": "unknown[]"
+        },
+        "paymentMethods": {
+          "type": "unknown[]"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "upgradeModalOpen": {
+          "type": "boolean"
+        },
+        "selectedPlan": {
+          "type": "BillingPlan | null"
+        }
+      }
+    },
+    "Billing": {
+      "type": "object",
+      "description": "Entity: Billing",
+      "fields": {
+        "fetchBillingData": {
+          "type": "any"
+        },
+        "upgradePlan": {
+          "type": "any"
+        },
+        "downgradePlan": {
+          "type": "any"
+        },
+        "cancelSubscription": {
+          "type": "any"
+        },
+        "resumeSubscription": {
+          "type": "any"
+        },
+        "addPaymentMethod": {
+          "type": "any"
+        },
+        "removePaymentMethod": {
+          "type": "any"
+        },
+        "setDefaultPaymentMethod": {
+          "type": "any"
+        },
+        "updateSeats": {
+          "type": "any"
+        },
+        "openUpgradeModal": {
+          "type": "any"
+        },
+        "closeUpgradeModal": {
+          "type": "any"
+        },
+        "downloadInvoice": {
+          "type": "any"
+        }
+      }
+    },
+    "BillingProviderProps": {
+      "type": "object",
+      "description": "Entity: BillingProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "BillingContextValue": {
+      "type": "object",
+      "description": "LLM: BillingContextValue",
+      "fields": {
+        "fetchBillingData": {
+          "type": "any",
+          "description": "Function to fetch billing data."
+        },
+        "upgradePlan": {
+          "type": "any",
+          "description": "Function to upgrade the current plan."
+        },
+        "downgradePlan": {
+          "type": "any",
+          "description": "Function to downgrade the current plan."
+        },
+        "cancelSubscription": {
+          "type": "any",
+          "description": "Function to cancel the subscription."
+        },
+        "resumeSubscription": {
+          "type": "any",
+          "description": "Function to resume a canceled subscription."
+        },
+        "addPaymentMethod": {
+          "type": "any",
+          "description": "Function to add a new payment method."
+        },
+        "removePaymentMethod": {
+          "type": "any",
+          "description": "Function to remove an existing payment method."
+        },
+        "setDefaultPaymentMethod": {
+          "type": "any",
+          "description": "Function to set a default payment method."
+        },
+        "updateSeats": {
+          "type": "any",
+          "description": "Function to update the number of seats in the subscription."
+        },
+        "openUpgradeModal": {
+          "type": "any",
+          "description": "Function to open the upgrade modal."
+        },
+        "closeUpgradeModal": {
+          "type": "any",
+          "description": "Function to close the upgrade modal."
+        },
+        "downloadInvoice": {
+          "type": "any",
+          "description": "Function to download an invoice."
+        }
+      }
+    }
+  },
+  "state": {
+    "Billing": {
+      "type": "context",
+      "description": "Context state from BillingContextValue"
+    },
+    "subscription": {
+      "type": "Subscription | null",
+      "description": "State field from BillingState"
+    },
+    "invoices": {
+      "type": "unknown[]",
+      "description": "State field from BillingState"
+    },
+    "paymentMethods": {
+      "type": "unknown[]",
+      "description": "State field from BillingState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from BillingState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from BillingState"
+    },
+    "upgradeModalOpen": {
+      "type": "boolean",
+      "description": "State field from BillingState"
+    },
+    "selectedPlan": {
+      "type": "BillingPlan | null",
+      "description": "State field from BillingState"
+    }
+  },
+  "intents": {
+    "fetchStart": {
+      "type": "query",
+      "description": "query: fetchStart"
+    },
+    "fetchSuccess": {
+      "type": "event",
+      "description": "event: fetchSuccess"
+    },
+    "fetchFailure": {
+      "type": "event",
+      "description": "event: fetchFailure"
+    },
+    "updateSubscription": {
+      "type": "command",
+      "description": "command: updateSubscription"
+    },
+    "addPaymentMethod": {
+      "type": "command",
+      "description": "command: addPaymentMethod"
+    },
+    "removePaymentMethod": {
+      "type": "command",
+      "description": "command: removePaymentMethod"
+    },
+    "setDefaultPayment": {
+      "type": "command",
+      "description": "command: setDefaultPayment"
+    },
+    "openUpgradeModal": {
+      "type": "command",
+      "description": "command: openUpgradeModal"
+    },
+    "closeUpgradeModal": {
+      "type": "command",
+      "description": "command: closeUpgradeModal"
+    },
+    "addInvoice": {
+      "type": "command",
+      "description": "command: addInvoice"
+    },
+    "FETCH_START": {
+      "type": "event",
+      "description": "LLM: event"
+    },
+    "FETCH_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_FAILURE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "UPDATE_SUBSCRIPTION": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "ADD_PAYMENT_METHOD": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "REMOVE_PAYMENT_METHOD": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SET_DEFAULT_PAYMENT": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "OPEN_UPGRADE_MODAL": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "CLOSE_UPGRADE_MODAL": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "ADD_INVOICE": {
+      "type": "command",
+      "description": "LLM: command"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165651,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/billing/BillingContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/billing/useBilling.ts",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/billing/PricingTable.tsx"
+    ],
+    "confidence": 0.8813983050847458
+  }
+}

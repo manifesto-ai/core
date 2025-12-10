@@ -9,22 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@manifesto-ai/core": "workspace:*",
+    "@ai-sdk/openai": "^0.0.66",
     "@manifesto-ai/bridge": "workspace:*",
     "@manifesto-ai/bridge-react-hook-form": "workspace:*",
-    "@manifesto-ai/projection-ui": "workspace:*",
+    "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/projection-agent": "workspace:*",
+    "@manifesto-ai/projection-ui": "workspace:*",
+    "@vercel/analytics": "^1.6.1",
     "ai": "^3.4.0",
-    "@ai-sdk/openai": "^0.0.66",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
     "next": "^16.0.8",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-hook-form": "^7.53.0",
-    "zod": "^3.24.1",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.0",
-    "lucide-react": "^0.460.0"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

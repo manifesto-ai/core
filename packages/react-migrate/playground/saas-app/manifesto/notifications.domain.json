@@ -1,0 +1,243 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "notifications",
+  "version": "1.0.0",
+  "entities": {
+    "NotificationsState": {
+      "type": "object",
+      "description": "Entity: NotificationsState",
+      "fields": {
+        "notifications": {
+          "type": "unknown[]"
+        },
+        "unreadCount": {
+          "type": "number"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "isDropdownOpen": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Notifications": {
+      "type": "object",
+      "description": "Entity: Notifications",
+      "fields": {
+        "fetchNotifications": {
+          "type": "any"
+        },
+        "markAsRead": {
+          "type": "any"
+        },
+        "markAllAsRead": {
+          "type": "any"
+        },
+        "deleteNotification": {
+          "type": "any"
+        },
+        "clearAll": {
+          "type": "any"
+        },
+        "toggleDropdown": {
+          "type": "any"
+        },
+        "subscribeToRealtime": {
+          "type": "any"
+        }
+      }
+    },
+    "NotificationsProviderProps": {
+      "type": "object",
+      "description": "Entity: NotificationsProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "description": "LLM: Notification",
+      "fields": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the notification."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the notification."
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "Indicates whether the notification has been read."
+        },
+        "timestamp": {
+          "type": "Date",
+          "description": "The time when the notification was created."
+        }
+      }
+    },
+    "NotificationsAction": {
+      "type": "object",
+      "description": "LLM: NotificationsAction",
+      "fields": {
+        "type": {
+          "type": "string",
+          "description": "The type of action being performed."
+        },
+        "payload": {
+          "type": "any",
+          "description": "Additional data required for the action."
+        }
+      }
+    },
+    "NotificationsContextValue": {
+      "type": "object",
+      "description": "LLM: NotificationsContextValue",
+      "fields": {
+        "fetchNotifications": {
+          "type": "function",
+          "description": "Function to fetch notifications."
+        },
+        "markAsRead": {
+          "type": "function",
+          "description": "Function to mark a specific notification as read."
+        },
+        "markAllAsRead": {
+          "type": "function",
+          "description": "Function to mark all notifications as read."
+        },
+        "deleteNotification": {
+          "type": "function",
+          "description": "Function to delete a specific notification."
+        },
+        "clearAll": {
+          "type": "function",
+          "description": "Function to clear all notifications."
+        },
+        "toggleDropdown": {
+          "type": "function",
+          "description": "Function to toggle the notifications dropdown."
+        },
+        "subscribeToRealtime": {
+          "type": "function",
+          "description": "Function to subscribe to real-time notifications."
+        }
+      }
+    }
+  },
+  "state": {
+    "Notifications": {
+      "type": "context",
+      "description": "Context state from NotificationsContextValue"
+    },
+    "notifications": {
+      "type": "unknown[]",
+      "description": "State field from NotificationsState"
+    },
+    "unreadCount": {
+      "type": "number",
+      "description": "State field from NotificationsState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from NotificationsState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from NotificationsState"
+    },
+    "isDropdownOpen": {
+      "type": "boolean",
+      "description": "State field from NotificationsState"
+    }
+  },
+  "intents": {
+    "fetchStart": {
+      "type": "query",
+      "description": "query: fetchStart"
+    },
+    "fetchSuccess": {
+      "type": "event",
+      "description": "event: fetchSuccess"
+    },
+    "fetchFailure": {
+      "type": "event",
+      "description": "event: fetchFailure"
+    },
+    "addNotification": {
+      "type": "command",
+      "description": "command: addNotification"
+    },
+    "markAsRead": {
+      "type": "command",
+      "description": "command: markAsRead"
+    },
+    "markAllAsRead": {
+      "type": "command",
+      "description": "command: markAllAsRead"
+    },
+    "deleteNotification": {
+      "type": "command",
+      "description": "command: deleteNotification"
+    },
+    "clearAll": {
+      "type": "command",
+      "description": "command: clearAll"
+    },
+    "toggleDropdown": {
+      "type": "command",
+      "description": "command: toggleDropdown"
+    },
+    "FETCH_START": {
+      "type": "event",
+      "description": "LLM: event"
+    },
+    "FETCH_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_FAILURE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "ADD_NOTIFICATION": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "MARK_AS_READ": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "MARK_ALL_AS_READ": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "DELETE_NOTIFICATION": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "CLEAR_ALL": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "TOGGLE_DROPDOWN": {
+      "type": "command",
+      "description": "LLM: command"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165649,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/notifications/NotificationsContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/notifications/useNotifications.ts"
+    ],
+    "confidence": 0.9273611111111111
+  }
+}

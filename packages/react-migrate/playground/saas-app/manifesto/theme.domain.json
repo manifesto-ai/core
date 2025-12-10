@@ -1,0 +1,66 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "theme",
+  "version": "1.0.0",
+  "entities": {
+    "Theme": {
+      "type": "object",
+      "description": "Entity: Theme",
+      "fields": {
+        "theme": {
+          "type": "Theme"
+        },
+        "resolvedTheme": {
+          "type": "ResolvedTheme"
+        },
+        "setTheme": {
+          "type": "any"
+        },
+        "toggleTheme": {
+          "type": "any"
+        }
+      }
+    },
+    "ThemeProviderProps": {
+      "type": "object",
+      "description": "Entity: ThemeProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        },
+        "defaultTheme": {
+          "type": "any"
+        }
+      }
+    },
+    "ThemeProvider": {
+      "type": "object",
+      "description": "LLM: ThemeProvider",
+      "fields": {
+        "children": {
+          "type": "ReactNode",
+          "description": "The child components that will have access to the theme context."
+        },
+        "defaultTheme": {
+          "type": "string",
+          "description": "The default theme to be applied if no theme is set."
+        }
+      }
+    }
+  },
+  "state": {
+    "Theme": {
+      "type": "context",
+      "description": "Context state from ThemeContextValue"
+    }
+  },
+  "intents": {},
+  "metadata": {
+    "generatedAt": 1765374165655,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/shared/contexts/ThemeContext.tsx"
+    ],
+    "confidence": 0.8555555555555555
+  }
+}

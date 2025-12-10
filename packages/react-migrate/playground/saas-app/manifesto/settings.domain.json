@@ -1,0 +1,329 @@
+{
+  "$schema": "https://manifesto.ai/schema/domain/1.0.0",
+  "domain": "settings",
+  "version": "1.0.0",
+  "entities": {
+    "SettingsState": {
+      "type": "object",
+      "description": "Entity: SettingsState",
+      "fields": {
+        "userPreferences": {
+          "type": "UserPreferences | null"
+        },
+        "organizationSettings": {
+          "type": "OrganizationSettings | null"
+        },
+        "isLoading": {
+          "type": "boolean"
+        },
+        "isSaving": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string | null"
+        },
+        "isDirty": {
+          "type": "boolean"
+        },
+        "activeTab": {
+          "type": "SettingsTab"
+        }
+      }
+    },
+    "Settings": {
+      "type": "object",
+      "description": "Entity: Settings",
+      "fields": {
+        "fetchSettings": {
+          "type": "any"
+        },
+        "saveUserPreferences": {
+          "type": "any"
+        },
+        "saveOrganizationSettings": {
+          "type": "any"
+        },
+        "updateUserPreferences": {
+          "type": "any"
+        },
+        "updateOrganizationSettings": {
+          "type": "any"
+        },
+        "setActiveTab": {
+          "type": "any"
+        },
+        "resetChanges": {
+          "type": "any"
+        },
+        "changePassword": {
+          "type": "any"
+        },
+        "enableTwoFactor": {
+          "type": "any"
+        },
+        "disableTwoFactor": {
+          "type": "any"
+        },
+        "regenerateApiKey": {
+          "type": "any"
+        },
+        "connectIntegration": {
+          "type": "any"
+        },
+        "disconnectIntegration": {
+          "type": "any"
+        }
+      }
+    },
+    "SettingsProviderProps": {
+      "type": "object",
+      "description": "Entity: SettingsProviderProps",
+      "fields": {
+        "children": {
+          "type": "any"
+        }
+      }
+    },
+    "SettingsContextValue": {
+      "type": "object",
+      "description": "LLM: SettingsContextValue",
+      "fields": {
+        "fetchSettings": {
+          "type": "any",
+          "description": "Function to fetch the current settings."
+        },
+        "saveUserPreferences": {
+          "type": "any",
+          "description": "Function to save user preferences."
+        },
+        "saveOrganizationSettings": {
+          "type": "any",
+          "description": "Function to save organization settings."
+        },
+        "updateUserPreferences": {
+          "type": "any",
+          "description": "Function to update user preferences."
+        },
+        "updateOrganizationSettings": {
+          "type": "any",
+          "description": "Function to update organization settings."
+        },
+        "setActiveTab": {
+          "type": "any",
+          "description": "Function to set the active tab in the settings."
+        },
+        "resetChanges": {
+          "type": "any",
+          "description": "Function to reset any unsaved changes."
+        },
+        "changePassword": {
+          "type": "any",
+          "description": "Function to change the user's password."
+        },
+        "enableTwoFactor": {
+          "type": "any",
+          "description": "Function to enable two-factor authentication."
+        },
+        "disableTwoFactor": {
+          "type": "any",
+          "description": "Function to disable two-factor authentication."
+        },
+        "regenerateApiKey": {
+          "type": "any",
+          "description": "Function to regenerate the API key."
+        },
+        "connectIntegration": {
+          "type": "any",
+          "description": "Function to connect an integration."
+        },
+        "disconnectIntegration": {
+          "type": "any",
+          "description": "Function to disconnect an integration."
+        }
+      }
+    },
+    "SettingsAction": {
+      "type": "object",
+      "description": "LLM: SettingsAction",
+      "fields": {
+        "FETCH_START": {
+          "type": "any",
+          "description": "Action to indicate the start of fetching settings."
+        },
+        "FETCH_SUCCESS": {
+          "type": "any",
+          "description": "Action to indicate successful fetching of settings."
+        },
+        "FETCH_FAILURE": {
+          "type": "any",
+          "description": "Action to indicate failure in fetching settings."
+        },
+        "SAVE_START": {
+          "type": "any",
+          "description": "Action to indicate the start of saving settings."
+        },
+        "SAVE_SUCCESS": {
+          "type": "any",
+          "description": "Action to indicate successful saving of settings."
+        },
+        "SAVE_FAILURE": {
+          "type": "any",
+          "description": "Action to indicate failure in saving settings."
+        },
+        "UPDATE_USER_PREFERENCES": {
+          "type": "any",
+          "description": "Action to update user preferences."
+        },
+        "UPDATE_ORG_SETTINGS": {
+          "type": "any",
+          "description": "Action to update organization settings."
+        },
+        "SET_ACTIVE_TAB": {
+          "type": "any",
+          "description": "Action to set the active tab."
+        },
+        "RESET_CHANGES": {
+          "type": "any",
+          "description": "Action to reset changes."
+        },
+        "MARK_DIRTY": {
+          "type": "any",
+          "description": "Action to mark the settings as dirty."
+        }
+      }
+    }
+  },
+  "state": {
+    "Settings": {
+      "type": "context",
+      "description": "Context state from SettingsContextValue"
+    },
+    "userPreferences": {
+      "type": "UserPreferences | null",
+      "description": "State field from SettingsState"
+    },
+    "organizationSettings": {
+      "type": "OrganizationSettings | null",
+      "description": "State field from SettingsState"
+    },
+    "isLoading": {
+      "type": "boolean",
+      "description": "State field from SettingsState"
+    },
+    "isSaving": {
+      "type": "boolean",
+      "description": "State field from SettingsState"
+    },
+    "error": {
+      "type": "string | null",
+      "description": "State field from SettingsState"
+    },
+    "isDirty": {
+      "type": "boolean",
+      "description": "State field from SettingsState"
+    },
+    "activeTab": {
+      "type": "SettingsTab",
+      "description": "State field from SettingsState"
+    }
+  },
+  "intents": {
+    "fetchStart": {
+      "type": "query",
+      "description": "query: fetchStart"
+    },
+    "fetchSuccess": {
+      "type": "event",
+      "description": "event: fetchSuccess"
+    },
+    "fetchFailure": {
+      "type": "event",
+      "description": "event: fetchFailure"
+    },
+    "saveStart": {
+      "type": "command",
+      "description": "command: saveStart"
+    },
+    "saveSuccess": {
+      "type": "event",
+      "description": "event: saveSuccess"
+    },
+    "saveFailure": {
+      "type": "event",
+      "description": "event: saveFailure"
+    },
+    "updateUserPreferences": {
+      "type": "command",
+      "description": "command: updateUserPreferences"
+    },
+    "updateOrgSettings": {
+      "type": "command",
+      "description": "command: updateOrgSettings"
+    },
+    "setActiveTab": {
+      "type": "command",
+      "description": "command: setActiveTab"
+    },
+    "resetChanges": {
+      "type": "command",
+      "description": "command: resetChanges"
+    },
+    "markDirty": {
+      "type": "command",
+      "description": "command: markDirty"
+    },
+    "FETCH_START": {
+      "type": "event",
+      "description": "LLM: event"
+    },
+    "FETCH_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "FETCH_FAILURE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SAVE_START": {
+      "type": "event",
+      "description": "LLM: event"
+    },
+    "SAVE_SUCCESS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SAVE_FAILURE": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "UPDATE_USER_PREFERENCES": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "UPDATE_ORG_SETTINGS": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "SET_ACTIVE_TAB": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "RESET_CHANGES": {
+      "type": "command",
+      "description": "LLM: command"
+    },
+    "MARK_DIRTY": {
+      "type": "command",
+      "description": "LLM: command"
+    }
+  },
+  "metadata": {
+    "generatedAt": 1765374165652,
+    "generatedBy": "@manifesto-ai/react-migrate",
+    "sourceFiles": [
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/settings/SettingsContext.tsx",
+      "/Users/eggp/dev/workspace/eggp/manifesto-ai/core/packages/react-migrate/playground/saas-app/src/features/settings/useSettings.ts"
+    ],
+    "confidence": 0.92114
+  }
+}
