@@ -4,6 +4,7 @@
   "description": "Agent Projection layer for Manifesto AI - creates AI-readable domain context",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -20,7 +21,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -49,5 +52,17 @@
     "context"
   ],
   "author": "Manifesto Team",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/projection-agent"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/projection-agent#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

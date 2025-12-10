@@ -4,6 +4,7 @@
   "description": "Bridge interfaces and Vanilla implementation for Manifesto AI",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -16,7 +17,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -45,5 +48,17 @@
     "actuator"
   ],
   "author": "Manifesto Team",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/bridge"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/bridge#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

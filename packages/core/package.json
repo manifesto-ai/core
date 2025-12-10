@@ -4,6 +4,7 @@
   "description": "AI Native Semantic Layer for SaaS Business Logic",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -12,7 +13,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -31,6 +34,18 @@
   ],
   "author": "Manifesto Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "zod": "^3.24.1"
   },

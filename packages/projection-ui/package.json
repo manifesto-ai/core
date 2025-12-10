@@ -4,6 +4,7 @@
   "description": "UI Projection layer for Manifesto AI - converts domain policies to UI states",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -16,7 +17,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -57,5 +60,17 @@
     "react"
   ],
   "author": "Manifesto Team",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/projection-ui"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/projection-ui#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

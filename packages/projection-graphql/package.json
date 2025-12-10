@@ -4,6 +4,7 @@
   "description": "GraphQL projection layer for Manifesto domains",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -21,7 +22,9 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -51,6 +54,18 @@
     "schema",
     "domain"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "Manifesto Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/projection-graphql"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/projection-graphql#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

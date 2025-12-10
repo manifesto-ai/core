@@ -5,7 +5,6 @@
     "type": "git",
     "url": "https://github.com/manifesto-ai/core"
   },
-  "private": true,
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=22.0.0"
@@ -16,7 +15,8 @@
     "test:watch": "turbo test:watch",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "publish:packages": "bash scripts/publish-packages.sh"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

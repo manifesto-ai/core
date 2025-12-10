@@ -31,3 +31,5 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+.npm-cache
+.next
