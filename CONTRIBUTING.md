@@ -1,6 +1,6 @@
-# Contributing to Manifesto
+# Contributing to Manifesto AI
 
-Thank you for your interest in contributing to Manifesto! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Manifesto AI! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -9,36 +9,22 @@ Thank you for your interest in contributing to Manifesto! This document provides
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
 - [Making Changes](#making-changes)
-- [Coding Standards](#coding-standards)
 - [Testing](#testing)
-- [Documentation](#documentation)
 - [Submitting Changes](#submitting-changes)
-- [Review Process](#review-process)
-
----
+- [Coding Standards](#coding-standards)
 
 ## Code of Conduct
 
-This project follows a standard code of conduct. Please be respectful and constructive in all interactions.
-
-### Our Standards
-
-- Be respectful and inclusive
-- Accept constructive criticism gracefully
-- Focus on what is best for the community
-- Show empathy towards other community members
-
----
+Please be respectful and constructive in all interactions. We welcome contributors of all backgrounds and experience levels.
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Node.js**: >= 20.0.0
-- **pnpm**: >= 9.0.0
-- **Git**: Latest version recommended
+- Node.js 22 or later
+- pnpm 9.15 or later
 
-### First-Time Setup
+### Fork and Clone
 
 1. Fork the repository on GitHub
 2. Clone your fork locally:
@@ -48,31 +34,11 @@ git clone https://github.com/YOUR_USERNAME/manifesto-ai.git
 cd manifesto-ai
 ```
 
-3. Add the upstream remote:
+3. Add the upstream repository:
 
 ```bash
-git remote add upstream https://github.com/anthropics/manifesto-ai.git
+git remote add upstream https://github.com/manifesto-ai/manifesto-ai.git
 ```
-
-4. Install dependencies:
-
-```bash
-pnpm install
-```
-
-5. Build all packages:
-
-```bash
-pnpm build
-```
-
-6. Run tests to verify setup:
-
-```bash
-pnpm test
-```
-
----
 
 ## Development Setup
 
@@ -82,17 +48,10 @@ pnpm test
 pnpm install
 ```
 
-### Build Packages
+### Build All Packages
 
 ```bash
-# Build all packages
 pnpm build
-
-# Build specific package
-pnpm --filter @manifesto-ai/schema build
-pnpm --filter @manifesto-ai/engine build
-pnpm --filter @manifesto-ai/react build
-pnpm --filter @manifesto-ai/vue build
 ```
 
 ### Run Tests
@@ -101,27 +60,11 @@ pnpm --filter @manifesto-ai/vue build
 # Run all tests
 pnpm test
 
-# Run tests for specific package
-pnpm --filter @manifesto-ai/schema test
-pnpm --filter @manifesto-ai/engine test
-pnpm --filter @manifesto-ai/react test
-pnpm --filter @manifesto-ai/vue test
-
 # Run tests in watch mode
-pnpm --filter @manifesto-ai/engine test -- --watch
-```
+pnpm test:watch
 
-### Start Storybook
-
-```bash
-# React Storybook
-pnpm storybook:react
-
-# Vue Storybook
-pnpm storybook:vue
-
-# Both
-pnpm storybook:all
+# Run tests for a specific package
+pnpm --filter @manifesto-ai/core test
 ```
 
 ### Type Checking
@@ -130,85 +73,147 @@ pnpm storybook:all
 pnpm typecheck
 ```
 
-### Linting
-
-```bash
-pnpm lint
-```
-
-### Formatting
-
-```bash
-pnpm format
-```
-
----
-
 ## Project Structure
 
 ```
 manifesto-ai/
 ├── packages/
-│   ├── schema/           # Schema types and builder APIs
-│   │   ├── src/
-│   │   │   ├── types/    # TypeScript interfaces
-│   │   │   ├── primitives/ # Builder functions
-│   │   │   └── combinators/ # Composition utilities
-│   │   └── tests/
-│   │
-│   ├── engine/           # Core runtime engine
-│   │   ├── src/
-│   │   │   ├── runtime/  # FormRuntime
-│   │   │   ├── evaluator/ # Expression evaluation
-│   │   │   ├── tracker/  # Dependency tracking
-│   │   │   ├── loader/   # Schema loading
-│   │   │   └── adapter/  # Legacy adapters
-│   │   └── tests/
-│   │
-│   ├── react/            # React bindings
-│   │   ├── src/
-│   │   │   ├── components/ # React components
-│   │   │   └── hooks/    # React hooks
-│   │   └── tests/
-│   │
-│   ├── vue/              # Vue bindings
-│   │   ├── src/
-│   │   │   ├── components/ # Vue components
-│   │   │   └── composables/ # Vue composables
-│   │   └── tests/
-│   │
-│   └── example-schemas/  # Example schemas
-│
-├── apps/
-│   ├── storybook-react/  # React component showcase
-│   └── storybook-vue/    # Vue component showcase
-│
-├── docs/                 # Documentation
-│
-└── tools/                # Build and development tools
+│   ├── core/                    # Core runtime, domain, expressions, effects
+│   ├── bridge/                  # Framework-agnostic bridge interfaces
+│   ├── bridge-zustand/          # Zustand integration
+│   ├── bridge-react-hook-form/  # React Hook Form integration
+│   ├── projection-ui/           # UI state projection
+│   ├── projection-agent/        # AI agent context projection
+│   └── projection-graphql/      # GraphQL schema projection
+├── docs/                        # Documentation
+├── package.json                 # Root package.json
+├── pnpm-workspace.yaml          # Workspace configuration
+└── turbo.json                   # Turborepo configuration
 ```
 
----
+### Package Structure
+
+Each package follows this structure:
+
+```
+packages/{package-name}/
+├── src/
+│   ├── index.ts        # Main exports
+│   └── ...             # Source files
+├── tests/              # Test files
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+└── README.md
+```
 
 ## Making Changes
 
-### Branch Naming
+### Create a Branch
 
-Use descriptive branch names:
+```bash
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/your-fix-name
+```
+
+### Branch Naming
 
 - `feature/` - New features
 - `fix/` - Bug fixes
 - `docs/` - Documentation changes
 - `refactor/` - Code refactoring
-- `test/` - Test additions/changes
+- `test/` - Test additions or fixes
 
-Examples:
+### Development Workflow
+
+1. Make your changes
+2. Add or update tests
+3. Ensure all tests pass: `pnpm test`
+4. Ensure type checking passes: `pnpm typecheck`
+5. Update documentation if needed
+
+### Package-Specific Development
 
 ```bash
-git checkout -b feature/add-color-picker-field
-git checkout -b fix/expression-evaluator-null-handling
-git checkout -b docs/add-migration-guide
+# Work on a specific package
+cd packages/core
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Build the package
+pnpm build
+
+# Check types
+pnpm typecheck
 ```
+
+## Testing
+
+### Test Requirements
+
+- All new features must include tests
+- Bug fixes should include regression tests
+- Aim for >85% code coverage
+
+### Running Tests
+
+```bash
+# All tests
+pnpm test
+
+# With coverage
+pnpm test:coverage
+
+# Specific package
+pnpm --filter @manifesto-ai/core test
+
+# Watch mode
+pnpm --filter @manifesto-ai/core test:watch
+```
+
+### Writing Tests
+
+Tests use [Vitest](https://vitest.dev/). Example:
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createRuntime, defineDomain, z } from '../src/index.js';
+
+describe('Runtime', () => {
+  let runtime;
+
+  beforeEach(() => {
+    const domain = defineDomain('test', {
+      dataSchema: z.object({ count: z.number() })
+    });
+    runtime = createRuntime(domain);
+  });
+
+  it('should get and set values', () => {
+    runtime.set('data.count', 5);
+    expect(runtime.get('data.count')).toBe(5);
+  });
+
+  it('should notify subscribers on change', () => {
+    const callback = vi.fn();
+    runtime.subscribe('data.count', callback);
+
+    runtime.set('data.count', 10);
+
+    expect(callback).toHaveBeenCalledWith(10);
+  });
+});
+```
+
+### Test File Location
+
+- Place tests in `tests/` directory
+- Mirror source structure: `src/domain/index.ts` → `tests/domain/index.test.ts`
+- Use `.test.ts` extension
+
+## Submitting Changes
 
 ### Commit Messages
 
@@ -223,319 +228,123 @@ type(scope): description
 ```
 
 Types:
-
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation
-- `style`: Formatting, missing semicolons, etc.
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `perf`: Performance improvement
-- `test`: Adding or updating tests
-- `chore`: Build process or auxiliary tool changes
+- `style`: Formatting, no code change
+- `refactor`: Code restructuring
+- `test`: Adding tests
+- `chore`: Maintenance
 
 Examples:
-
 ```
-feat(schema): add colorPicker field type
-
-fix(engine): handle null values in expression evaluation
-
-docs(react): add useFormRuntime hook documentation
-
-refactor(tracker): simplify dependency graph algorithm
+feat(core): add support for async derived values
+fix(bridge): resolve memory leak in subscription cleanup
+docs(readme): update installation instructions
 ```
 
-### Creating a Changeset
+### Pull Request Process
 
-For any changes that affect published packages, create a changeset:
+1. Ensure your branch is up to date:
+   ```bash
+   git fetch upstream
+   git rebase upstream/main
+   ```
 
-```bash
-pnpm changeset
-```
+2. Push your branch:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
-Follow the prompts to:
-1. Select affected packages
-2. Choose bump type (patch/minor/major)
-3. Write a summary
+3. Create a Pull Request on GitHub
 
----
+4. Fill out the PR template with:
+   - Description of changes
+   - Related issue (if any)
+   - Testing performed
+   - Screenshots (if UI changes)
+
+### PR Requirements
+
+- [ ] Tests pass
+- [ ] Type checking passes
+- [ ] Documentation updated (if needed)
+- [ ] Changelog entry added (for significant changes)
+- [ ] PR description is complete
 
 ## Coding Standards
 
 ### TypeScript
 
-- Use strict mode (enabled in tsconfig)
-- Prefer `interface` over `type` for object shapes
-- Use explicit return types for public functions
-- Document public APIs with JSDoc comments
+- Use strict mode
+- Prefer explicit types over inference for public APIs
+- Use `unknown` over `any` when possible
+- Export types separately from implementations
 
-### Naming Conventions
+```typescript
+// Good
+export type { MyType } from './types.js';
+export { myFunction } from './implementation.js';
 
-- **Files**: kebab-case (`expression-evaluator.ts`)
-- **Classes**: PascalCase (`ExpressionEvaluator`)
-- **Functions/Methods**: camelCase (`evaluateExpression`)
-- **Constants**: UPPER_SNAKE_CASE (`DEFAULT_TIMEOUT`)
-- **Types/Interfaces**: PascalCase (`FormState`)
+// Avoid
+export { MyType, myFunction } from './index.js';
+```
 
 ### Code Style
 
-- 2 spaces for indentation
+- Use ESLint and Prettier configurations
+- 2-space indentation
 - Single quotes for strings
-- No semicolons (enforced by Prettier)
-- Max line length: 100 characters
+- Trailing commas in multi-line
+- No semicolons (enforced by config)
 
-### Best Practices
+### Documentation
 
-1. **Keep functions small**: Single responsibility
-2. **Avoid side effects**: Prefer pure functions
-3. **Use immutability**: Don't mutate input arguments
-4. **Handle errors**: Use Result types instead of throwing
-5. **Write descriptive names**: Self-documenting code
-
-### Example
+- Add JSDoc comments for public APIs
+- Include `@example` for complex functions
+- Update README when adding features
 
 ```typescript
 /**
- * Evaluates an expression against the given context.
+ * Creates a runtime instance for the given domain.
  *
- * @param expression - The expression to evaluate
- * @param context - The evaluation context
- * @returns Result containing the value or an error
+ * @param domain - The domain definition
+ * @param options - Optional configuration
+ * @returns A new runtime instance
  *
  * @example
  * ```typescript
- * const result = evaluateExpression(
- *   ['>', '$state.age', 18],
- *   { state: { age: 21 } }
- * )
- * // result.value === true
+ * const runtime = createRuntime(myDomain, {
+ *   initialData: { count: 0 }
+ * });
  * ```
  */
-export function evaluateExpression(
-  expression: Expression,
-  context: EvaluationContext
-): Result<unknown, EvaluationError> {
-  // Implementation
+export function createRuntime<TData, TState>(
+  domain: ManifestoDomain<TData, TState>,
+  options?: CreateRuntimeOptions<TData, TState>
+): DomainRuntime<TData, TState> {
+  // ...
 }
 ```
 
----
+### Package Dependencies
 
-## Testing
+- Core package should have minimal dependencies (only `zod`)
+- Use peer dependencies for framework integrations
+- Avoid circular dependencies between packages
 
-### Test Structure
+### File Organization
 
-```
-packages/
-└── engine/
-    ├── src/
-    │   └── evaluator/
-    │       └── evaluator.ts
-    └── tests/
-        └── evaluator/
-            └── evaluator.test.ts
-```
+- One concept per file
+- Group related exports in barrel files (`index.ts`)
+- Keep files under 500 lines when possible
 
-### Writing Tests
+## Questions?
 
-Use descriptive test names:
+If you have questions, please:
 
-```typescript
-describe('ExpressionEvaluator', () => {
-  describe('comparison operators', () => {
-    it('evaluates equality with matching values', () => {
-      // Test
-    })
+1. Check existing issues and discussions
+2. Open a new issue with the `question` label
+3. Join our community discussions
 
-    it('handles null values gracefully', () => {
-      // Test
-    })
-
-    it('returns error for invalid operator', () => {
-      // Test
-    })
-  })
-})
-```
-
-### Test Categories
-
-1. **Unit Tests**: Test individual functions/classes
-2. **Integration Tests**: Test module interactions
-3. **Component Tests**: Test React/Vue components
-
-### Running Tests
-
-```bash
-# All tests
-pnpm test
-
-# With coverage (all packages)
-pnpm test:coverage
-
-# With coverage (single package)
-pnpm --filter @manifesto-ai/schema test:coverage
-
-# Specific file
-pnpm --filter @manifesto-ai/engine test -- evaluator.test.ts
-
-# Watch mode
-pnpm --filter @manifesto-ai/engine test -- --watch
-```
-
----
-
-## Documentation
-
-### Where to Document
-
-| Type | Location |
-|------|----------|
-| API Reference | JSDoc in source code |
-| Guides | `/docs/guides/` |
-| Architecture | `/docs/architecture.md` |
-| Package README | `/packages/*/README.md` |
-
-### JSDoc Guidelines
-
-```typescript
-/**
- * Brief description of what this does.
- *
- * Longer description if needed, explaining behavior,
- * edge cases, and important notes.
- *
- * @param name - Description of parameter
- * @returns Description of return value
- * @throws {ErrorType} When this error occurs
- *
- * @example
- * ```typescript
- * // Example usage
- * const result = myFunction('input')
- * ```
- *
- * @see RelatedFunction
- * @since 0.1.0
- */
-```
-
-### Documentation Standards
-
-1. Every public API must have JSDoc
-2. Include at least one example
-3. Document all parameters and return values
-4. Explain any non-obvious behavior
-
----
-
-## Submitting Changes
-
-### Before Submitting
-
-1. Run all checks:
-
-```bash
-pnpm build
-pnpm test
-pnpm typecheck
-pnpm lint
-```
-
-2. Create changeset (if needed):
-
-```bash
-pnpm changeset
-```
-
-3. Update documentation if you changed APIs
-
-### Pull Request Process
-
-1. Push your branch:
-
-```bash
-git push origin feature/your-feature
-```
-
-2. Create a pull request on GitHub
-
-3. Fill out the PR template:
-   - Description of changes
-   - Related issues
-   - Testing performed
-   - Screenshots (if UI changes)
-
-4. Wait for CI to pass
-
-5. Request review from maintainers
-
-### PR Title Format
-
-Follow the same format as commits:
-
-```
-feat(schema): add colorPicker field type
-fix(engine): handle null values in expression evaluation
-docs(react): add useFormRuntime hook documentation
-```
-
----
-
-## Review Process
-
-### What Reviewers Look For
-
-1. **Correctness**: Does the code work as intended?
-2. **Tests**: Are there adequate tests?
-3. **Documentation**: Is the code documented?
-4. **Style**: Does it follow coding standards?
-5. **Performance**: Any performance concerns?
-6. **Security**: Any security issues?
-
-### Responding to Feedback
-
-- Address all comments
-- Explain your reasoning if you disagree
-- Mark resolved comments
-- Request re-review when ready
-
-### Merge Requirements
-
-- All CI checks passing
-- At least one approving review
-- All conversations resolved
-- Changeset included (if applicable)
-
----
-
-## Getting Help
-
-### Resources
-
-- [Documentation](./docs/README.md)
-- [Architecture Guide](./docs/architecture.md)
-- [API Reference](./docs/api-reference/)
-
-### Asking Questions
-
-- Check existing issues first
-- Use GitHub Discussions for questions
-- Be specific and provide context
-- Include relevant code snippets
-
----
-
-## Recognition
-
-Contributors are recognized in:
-
-- Release notes
-- GitHub contributors page
-- Special thanks in documentation
-
-Thank you for contributing to Manifesto!
-
----
-
-[Back to README](./README.md)
+Thank you for contributing to Manifesto AI!

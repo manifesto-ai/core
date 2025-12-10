@@ -1,17 +1,17 @@
 # Dependencies
-node_modules
-.pnpm-store
+node_modules/
 
 # Build outputs
-dist
-.nuxt
-.output
-.turbo
-storybook-static
+dist/
+*.tsbuildinfo
+.idea
+
+# Turbo
+.turbo/
 
 # IDE
-.vscode
-.idea
+.idea/
+.vscode/
 *.swp
 *.swo
 
@@ -19,21 +19,15 @@ storybook-static
 .DS_Store
 Thumbs.db
 
+# Test
+coverage/
+
 # Logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
 
-# Test coverage
-coverage
-
 # Environment
 .env
 .env.local
 .env.*.local
-
-# Misc
-*.tsbuildinfo
-
-#PRD.md
-.next

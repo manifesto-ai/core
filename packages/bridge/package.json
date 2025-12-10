@@ -1,0 +1,49 @@
+{
+  "name": "@manifesto-ai/bridge",
+  "version": "0.2.0",
+  "description": "Bridge interfaces and Vanilla implementation for Manifesto AI",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vanilla": {
+      "types": "./dist/vanilla.d.ts",
+      "import": "./dist/vanilla.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^0.2.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "zod": "^3.24.1"
+  },
+  "keywords": [
+    "manifesto",
+    "ai",
+    "bridge",
+    "adapter",
+    "actuator"
+  ],
+  "author": "Manifesto Team",
+  "license": "MIT"
+}

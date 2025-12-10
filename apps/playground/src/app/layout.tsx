@@ -1,38 +1,22 @@
-import type { Metadata } from 'next'
-import { Space_Grotesk, Noto_Sans_KR } from 'next/font/google'
-import { SpeedInsights } from '@vercel/speed-insights/next'
-import './globals.css'
-import { Analytics } from "@vercel/analytics/next"
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const display = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-display',
-  display: 'swap',
-})
-
-const body = Noto_Sans_KR({
-  subsets: ['latin'],
-  variable: '--font-body',
-  display: 'swap',
-})
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Manifesto Playground',
-  description: 'Interactive playground for Manifesto DSL schemas',
-}
+  title: "Manifesto Form Studio",
+  description: "AI-Generated Semantic Form Builder",
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="ko">
-      <body className={`${display.variable} ${body.variable}`}>
-        {children}
-        <Analytics />
-        <SpeedInsights />
-      </body>
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
     </html>
-  )
+  );
 }

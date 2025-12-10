@@ -1,0 +1,53 @@
+{
+  "name": "@manifesto-ai/projection-agent",
+  "version": "0.2.0",
+  "description": "Agent Projection layer for Manifesto AI - creates AI-readable domain context",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./formatters": {
+      "types": "./dist/formatters/index.d.ts",
+      "import": "./dist/formatters/index.js"
+    },
+    "./analyzers": {
+      "types": "./dist/analyzers/index.d.ts",
+      "import": "./dist/analyzers/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^0.2.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "zod": "^3.24.1"
+  },
+  "keywords": [
+    "manifesto",
+    "ai",
+    "agent",
+    "projection",
+    "context"
+  ],
+  "author": "Manifesto Team",
+  "license": "MIT"
+}

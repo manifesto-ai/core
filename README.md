@@ -1,347 +1,219 @@
 # Manifesto AI
 
-![Manifesto Logo](./docs/assets/manifesto-logo.png)
+> AI Native Semantic Layer for SaaS Business Logic
 
-**AI-Native Semantic UI State Layer**
-
-> The only UI framework where AI agents can truly understand, reason about, and interact with your interface—not just see pixels.
->
-> **Turn any form into a machine-readable interface for LLM agents.**
-
-<div align="center">
-
-![playground-demo](./docs/assets/playground-demo.gif)
-
-*AI understands your form's semantic context and can fill fields intelligently*
-
-**[🎮 Try the Playground](https://playground.manifesto-ai.dev)** • **[📖 Docs](#documentation)**
-
-</div>
-
----
+Define your business logic **declaratively**. Let AI and humans **reason in the same language**.
 
 ## Why Manifesto?
 
-Most form libraries generate UI from schemas. **Manifesto does that too—but that's not what makes it special.**
+Traditional SaaS applications scatter business logic across UI components, API handlers, and database queries. This creates a **black box** that neither humans nor AI can reason about effectively.
 
-The real question: *Can your AI agent understand what your form is doing right now?*
+Manifesto introduces a **semantic layer** where:
 
-| Traditional UI | With Manifesto |
-|----------------|----------------|
-| AI sees DOM/pixels | AI gets semantic state |
-| "There's an input field" | "This is 'email', it's required, currently invalid, depends on 'accountType'" |
-| AI guesses what to do | AI knows exactly what's valid |
-
-**Manifesto exports the complete semantic context**—values, rules, dependencies, validation state, available transitions—in a structure AI can reason about.
-
----
-
-## Key Features
-
-- 🧠 **Semantic State Export** — AI agents get full context, not just rendered output
-- 📝 **Schema-First** — Define forms as data. Perfect for AI to generate and modify
-- 🔌 **Framework Agnostic** — React, Vue, or bring your own
-- ⚡ **Reactive** — Automatic dependency tracking and conditional updates
-- 🔒 **Secure DSL** — Expression language with whitelisted operators, no `eval()`
-- 📘 **Type-Safe** — Full TypeScript support
-
----
-
-## 🧠 AI Interoperability
-
-**This is what makes Manifesto different from every other form library.**
-
-### The Problem
-
-Traditional UIs are opaque to AI. An agent looking at a form sees:
-- DOM elements or pixels
-- No understanding of business rules
-- No knowledge of what actions are valid
-- No way to predict consequences
-
-### The Solution: Semantic Snapshot
+- **Atomic**: Every piece of state has a unique `SemanticPath` address
+- **Monadic**: Side effects are described, not executed, using a safe `Effect` system
+- **AI-Native**: Domain definitions are optimized for AI to read, write, and modify
 
 ```typescript
-import { createFormRuntime } from '@manifesto-ai/engine'
-import { createInteroperabilitySession } from '@manifesto-ai/ai-util'
+// Define your domain once, use it everywhere
+const orderDomain = defineDomain('order', {
+  dataSchema: z.object({
+    items: z.array(z.object({
+      id: z.string(),
+      price: z.number(),
+      quantity: z.number()
+    })),
+    couponCode: z.string().optional()
+  }),
 
-const runtime = createFormRuntime(productView, { entitySchema: productEntity })
-const session = createInteroperabilitySession({ runtime, viewSchema: productView, entitySchema: productEntity })
+  stateSchema: z.object({
+    isSubmitting: z.boolean()
+  }),
 
-// Export complete semantic state
-const snapshot = session.snapshot()
-```
-
-**What the AI receives:**
-
-```json
-{
-  "fields": {
-    "email": {
-      "value": "",
-      "type": "string",
-      "required": true,
-      "visible": true,
-      "disabled": false,
-      "validation": { "valid": false, "errors": ["Required field"] },
-      "constraints": { "pattern": "^[a-zA-Z0-9._%+-]+@..." }
-    },
-    "country": {
-      "value": "US",
-      "dependents": ["state", "zipCode"],
-      "options": [...]
-    }
-  },
-  "availableActions": ["submit", "reset", "setValue"],
-  "formState": { "dirty": false, "valid": false, "submitting": false }
-}
-```
-
-### Generate LLM Tool Definitions
-
-```typescript
-import { toToolDefinitions } from '@manifesto-ai/ai-util'
-
-// Auto-generate OpenAI/Claude function calling schemas
-const tools = toToolDefinitions(snapshot, { omitUnavailable: true })
-
-// AI can now call: setValue({ field: "email", value: "user@example.com" })
-```
-
-### Use Cases
-
-| Scenario | How Manifesto Helps |
-|----------|---------------------|
-| **Auto-fill forms** | AI reads field semantics, fills with contextually appropriate values |
-| **Form validation assistance** | AI understands constraints, suggests fixes for invalid inputs |
-| **Guided workflows** | AI knows current step, available transitions, required fields |
-| **Accessibility agents** | AI navigates forms semantically, not by pixel coordinates |
-| **Testing automation** | Generate test cases from semantic structure |
-| **Schema generation** | AI creates new form schemas from natural language |
-
-### Example: AI Agent Filling a Form
-
-```typescript
-// 1. AI receives semantic snapshot
-const snapshot = session.snapshot()
-
-// 2. AI reasons about the form
-// "I see 'shippingAddress' is required and empty.
-//  'productType' is 'PHYSICAL', so shipping fields are visible.
-//  I should fill the address fields."
-
-// 3. AI dispatches validated actions
-session.dispatch({ type: 'setValue', field: 'shippingAddress', value: '123 Main St' })
-
-// 4. Session validates before applying
-// If action is invalid, it's rejected with explanation
-```
-
-→ [AI Utility Package](./packages/ai-util) | [Full Documentation](./docs/guides/ai-interoperability.md)
-
----
-
-## Quick Start
-
-### 1. Install
-
-```bash
-# Core
-pnpm add @manifesto-ai/schema @manifesto-ai/engine
-
-# Choose your framework
-pnpm add @manifesto-ai/react   # or @manifesto-ai/vue
-```
-
-### 2. Define Schema
-
-```typescript
-import { entity, field, view, section, viewField, layout } from '@manifesto-ai/schema'
-
-// Data model
-const productEntity = entity('product', 'Product', '1.0.0')
-  .field(field.string('name').label('Product Name').required())
-  .field(field.number('price').label('Price').min(0))
-  .field(field.enum('category', [
-    { value: 'electronics', label: 'Electronics' },
-    { value: 'clothing', label: 'Clothing' },
-  ]).label('Category'))
-  .build()
-
-// UI layout
-const productView = view('product-form', 'Create Product', '1.0.0')
-  .entityRef('product')
-  .layout(layout.form())
-  .section(
-    section('basic')
-      .title('Basic Info')
-      .field(viewField.textInput('name', 'name'))
-      .field(viewField.numberInput('price', 'price'))
-      .field(viewField.select('category', 'category'))
-  )
-  .build()
-```
-
-### 3. Render
-
-**React:**
-```tsx
-import { FormRenderer } from '@manifesto-ai/react'
-import '@manifesto-ai/react/styles'
-
-<FormRenderer
-  schema={productView}
-  entitySchema={productEntity}
-  onSubmit={(data) => console.log(data)}
-/>
-```
-
-**Vue:**
-```vue
-<script setup>
-import { FormRenderer } from '@manifesto-ai/vue'
-import '@manifesto-ai/vue/styles'
-</script>
-
-<template>
-  <FormRenderer
-    :schema="productView"
-    :entity-schema="productEntity"
-    @submit="console.log"
-  />
-</template>
-```
-
-### 4. Explore More
-
-→ [Full Getting Started Guide](./docs/getting-started.md)
-
----
-
-## Expression DSL
-
-Safe, array-based expressions for dynamic behavior:
-
-```typescript
-// Conditional visibility
-{ hidden: ['==', '$state.productType', 'DIGITAL'] }
-
-// Complex conditions
-{ disabled: ['AND',
-    ['==', '$state.status', 'PUBLISHED'],
-    ['!=', '$user.role', 'ADMIN']
-  ]
-}
-
-// Reactive field updates
-viewField.select('city', 'city')
-  .dependsOn(['country'])
-  .reaction(
-    on.change().do(
-      actions.setOptions('city', dataSource.api({
-        endpoint: '/api/cities',
-        params: { country: '$state.country' }
-      }))
+  derived: {
+    'derived.totalPrice': defineDerived(
+      { $sum: { $map: ['data.items', { $multiply: ['$item.price', '$item.quantity'] }] } },
+      z.number()
     )
-  )
+  },
+
+  actions: {
+    submit: defineAction({
+      precondition: { $gt: [{ $get: 'derived.totalPrice' }, 0] },
+      effect: sequence([
+        setState('state.isSubmitting', true),
+        apiCall({ method: 'POST', url: '/api/orders', body: { $get: 'data' } }),
+        setState('state.isSubmitting', false)
+      ])
+    })
+  }
+});
+
+// Create runtime and use it
+const runtime = createRuntime(orderDomain);
+runtime.set('data.items', [{ id: '1', price: 100, quantity: 2 }]);
+console.log(runtime.get('derived.totalPrice')); // 200
 ```
-
-→ [Expression DSL Reference](./docs/schema-reference/expression-dsl.md)
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Schema Definition                          │
-│   Entity Schema        View Schema          Action Schema       │
-│   (Data Model)         (UI Layout)          (Workflows)         │
-└──────────────────────────────┬──────────────────────────────────┘
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     @manifesto-ai/engine                        │
-│   Evaluator ─── Tracker ─── Runtime ─── Loader                  │
-│   (Expressions)  (Dependencies)  (State)    (Schema)            │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         ▼                     ▼                     ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐
-│ @manifesto-ai/  │  │ @manifesto-ai/  │  │ @manifesto-ai/      │
-│     react       │  │      vue        │  │     ai-util         │
-│ ─────────────── │  │ ─────────────── │  │ ─────────────────── │
-│ useFormRuntime  │  │ useFormRuntime  │  │ Semantic Snapshot   │
-│ FormRenderer    │  │ FormRenderer    │  │ Tool Definitions    │
-└─────────────────┘  └─────────────────┘  └─────────────────────┘
-```
-
-→ [Architecture Deep Dive](./docs/architecture.md)
-
----
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| [`@manifesto-ai/schema`](./packages/schema) | Schema types, builders, validators |
-| [`@manifesto-ai/engine`](./packages/engine) | Core runtime engine |
-| [`@manifesto-ai/ai-util`](./packages/ai-util) | AI interoperability utilities |
-| [`@manifesto-ai/react`](./packages/react) | React bindings |
-| [`@manifesto-ai/vue`](./packages/vue) | Vue bindings |
+| [@manifesto-ai/core](./packages/core) | Domain definition, runtime, expression evaluation |
+| [@manifesto-ai/bridge](./packages/bridge) | Framework-agnostic adapters |
+| [@manifesto-ai/bridge-zustand](./packages/bridge-zustand) | Zustand state management integration |
+| [@manifesto-ai/bridge-react-hook-form](./packages/bridge-react-hook-form) | React Hook Form integration |
+| [@manifesto-ai/projection-ui](./packages/projection-ui) | UI state projection |
+| [@manifesto-ai/projection-agent](./packages/projection-agent) | AI agent context generation |
+| [@manifesto-ai/projection-graphql](./packages/projection-graphql) | GraphQL schema auto-generation |
 
----
+## Quick Start
+
+### Installation
+
+```bash
+# Using pnpm (recommended)
+pnpm add @manifesto-ai/core
+
+# Using npm
+npm install @manifesto-ai/core
+
+# Using yarn
+yarn add @manifesto-ai/core
+```
+
+### Basic Usage
+
+```typescript
+import { defineDomain, createRuntime, defineSource, defineDerived, z } from '@manifesto-ai/core';
+
+// 1. Define your domain schema
+const counterDomain = defineDomain('counter', {
+  dataSchema: z.object({
+    count: z.number().default(0)
+  }),
+
+  derived: {
+    'derived.isPositive': defineDerived(
+      { $gt: [{ $get: 'data.count' }, 0] },
+      z.boolean()
+    ),
+    'derived.doubled': defineDerived(
+      { $multiply: [{ $get: 'data.count' }, 2] },
+      z.number()
+    )
+  }
+});
+
+// 2. Create a runtime instance
+const runtime = createRuntime(counterDomain);
+
+// 3. Read and write values using semantic paths
+console.log(runtime.get('data.count'));      // 0
+console.log(runtime.get('derived.doubled')); // 0
+
+runtime.set('data.count', 5);
+console.log(runtime.get('derived.doubled')); // 10
+console.log(runtime.get('derived.isPositive')); // true
+
+// 4. Subscribe to changes
+const unsubscribe = runtime.subscribe('data.count', (newValue) => {
+  console.log('Count changed:', newValue);
+});
+```
+
+## Architecture
+
+Manifesto follows a **3-layer architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Projection Layer                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │ projection-ui│  │projection-   │  │projection-graphql│   │
+│  │              │  │agent         │  │                  │   │
+│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Bridge Layer                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │    bridge    │  │bridge-zustand│  │bridge-react-     │   │
+│  │   (vanilla)  │  │              │  │hook-form         │   │
+│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Core Layer                             │
+│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌───────┐ │
+│  │ Domain │  │Express-│  │ Effect │  │  DAG   │  │Runtime│ │
+│  │        │  │  ion   │  │        │  │        │  │       │ │
+│  └────────┘  └────────┘  └────────┘  └────────┘  └───────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Core**: Domain definitions, expression DSL, effect system, dependency graph
+- **Bridge**: Connects runtime to UI frameworks (React, Zustand, etc.)
+- **Projection**: Transforms domain state for specific consumers (UI, AI, GraphQL)
 
 ## Documentation
 
-**Getting Started**
-- [Quick Start Guide](./docs/getting-started.md)
-- [Philosophy](./docs/philosophy.md)
+- [Getting Started](./docs/getting-started.md) - Step-by-step tutorial
+- [Core Concepts](./docs/concepts.md) - SemanticPath, Expression DSL, Effects
+- [Architecture](./docs/architecture.md) - System design and data flow
 
-**Schema Reference**
-- [Entity Schema](./docs/schema-reference/entity-schema.md)
-- [View Schema](./docs/schema-reference/view-schema.md)
-- [Expression DSL](./docs/schema-reference/expression-dsl.md)
-- [Reaction DSL](./docs/schema-reference/reaction-dsl.md)
+## Key Concepts
 
-**Guides**
-- [Basic CRUD Form](./docs/guides/basic-crud-form.md)
-- [Dynamic Conditions](./docs/guides/dynamic-conditions.md)
-- [Cascade Select](./docs/guides/cascade-select.md)
-- [Validation Patterns](./docs/guides/validation.md)
+### SemanticPath
 
----
+Every value in Manifesto has a unique address:
 
-## Live Examples
-
-| | |
-|---|---|
-| 🎮 **[Playground](https://playground.manifesto-ai.dev)** | Edit schemas, preview forms, chat with AI |
-
-**Local:**
-```bash
-pnpm playground        # Interactive playground
-pnpm storybook:react   # React components
-pnpm storybook:vue     # Vue components
+```typescript
+'data.user.name'        // Source data
+'state.isLoading'       // UI state
+'derived.fullName'      // Computed value
+'async.fetchUser'       // Async operation result
 ```
 
----
+### Expression DSL
 
-## Development
+A JSON-based DSL for declarative logic:
 
-```bash
-pnpm install    # Install dependencies
-pnpm build      # Build all packages
-pnpm test       # Run tests
+```typescript
+// Comparison
+{ $gt: [{ $get: 'data.price' }, 100] }
+
+// Arithmetic
+{ $multiply: [{ $get: 'data.quantity' }, { $get: 'data.price' }] }
+
+// String operations
+{ $concat: [{ $get: 'data.firstName' }, ' ', { $get: 'data.lastName' }] }
+
+// Conditional
+{ $if: [{ $get: 'state.isPremium' }, 0.9, 1.0] }
 ```
 
-**Requirements:** Node.js ≥ 20, pnpm ≥ 9
+### Effect System
 
----
+Describe side effects as data:
+
+```typescript
+// Effects are descriptions, not executions
+const submitEffect = sequence([
+  setState('state.isSubmitting', true),
+  apiCall({ method: 'POST', url: '/api/orders', body: { $get: 'data' } }),
+  setState('state.isSubmitting', false)
+]);
+
+// Execute when ready
+await runEffect(submitEffect, runtime);
+```
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md)
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
 ## License
 

@@ -1,566 +1,506 @@
-# Architecture
+# Manifesto AI Architecture
 
-Manifesto uses a 3-layer schema architecture with a framework-agnostic engine core. This document explains the system design in detail.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [3-Layer Schema Architecture](#3-layer-schema-architecture)
-- [Engine Components](#engine-components)
-- [Data Flow](#data-flow)
-- [Framework Bindings](#framework-bindings)
-- [Package Structure](#package-structure)
-
----
+This document describes the high-level architecture of Manifesto AI.
 
 ## Overview
 
+Manifesto AI follows a **3-layer architecture** that separates concerns between core business logic, framework integration, and consumer-specific projections.
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Schema Definition                           │
-│   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐          │
-│   │   Entity    │   │    View     │   │   Action    │          │
-│   │   Schema    │   │   Schema    │   │   Schema    │          │
-│   │ (Data Model)│   │ (UI Layout) │   │ (Workflows) │          │
-│   └─────────────┘   └─────────────┘   └─────────────┘          │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      @manifesto-ai/engine                              │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌───────────┐ │
-│  │ Expression │  │ Dependency │  │    Form    │  │  Schema   │ │
-│  │ Evaluator  │  │  Tracker   │  │  Runtime   │  │  Loader   │ │
-│  └────────────┘  └────────────┘  └────────────┘  └───────────┘ │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │                    Legacy Adapter                           │ │
-│  │           Transform heterogeneous API formats               │ │
-│  └────────────────────────────────────────────────────────────┘ │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-           ┌───────────────┼───────────────┬───────────────┐
-           ▼               ▼               ▼
-┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
-│ @manifesto-ai/react │   │  @manifesto-ai/vue  │   │@manifesto-ai/view-snapshot│
-│  ┌───────────────┐  │   │  ┌───────────────┐  │   │ ViewSnapshot Engine │
-│  │ useFormRuntime│  │   │  │ useFormRuntime│  │   │ Page/Form/Table     │
-│  │ FormRenderer  │  │   │  │ FormRenderer  │  │   │ Snapshots           │
-│  │ Field Inputs  │  │   │  │ Field Inputs  │  │   │ Intent Dispatch     │
-│  └───────────────┘  │   │  └───────────────┘  │   └─────────────────────┘
-└─────────────────────┘   └─────────────────────┘   └─────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        PROJECTION LAYER                              │
+│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────────────┐  │
+│  │ projection-ui │  │ projection-   │  │ projection-graphql      │  │
+│  │               │  │ agent         │  │                         │  │
+│  │ UI States     │  │ AI Context    │  │ GraphQL Schema          │  │
+│  │ Field/Action  │  │ Suggestions   │  │ Resolvers               │  │
+│  │ Events        │  │ Risk Analysis │  │ Subscriptions           │  │
+│  └───────────────┘  └───────────────┘  └─────────────────────────┘  │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ Reads state, metadata, policies
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          BRIDGE LAYER                                │
+│  ┌──────────────┐  ┌───────────────┐  ┌─────────────────────────┐   │
+│  │   bridge     │  │ bridge-       │  │ bridge-react-hook-form  │   │
+│  │   (vanilla)  │  │ zustand       │  │                         │   │
+│  │              │  │               │  │                         │   │
+│  │ Adapter/     │  │ Zustand       │  │ React Hook Form         │   │
+│  │ Actuator     │  │ Integration   │  │ Integration             │   │
+│  └──────────────┘  └───────────────┘  └─────────────────────────┘   │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ Syncs state bidirectionally
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                           CORE LAYER                                 │
+│  ┌─────────┐ ┌───────────┐ ┌────────┐ ┌─────┐ ┌─────────┐          │
+│  │ Domain  │ │Expression │ │ Effect │ │ DAG │ │ Runtime │          │
+│  │         │ │    DSL    │ │        │ │     │ │         │          │
+│  │ Schema  │ │           │ │ Result │ │Graph│ │Snapshot │          │
+│  │ Actions │ │ Evaluator │ │ Runner │ │     │ │ Subs    │          │
+│  │ Policies│ │ Analyzer  │ │        │ │     │ │         │          │
+│  └─────────┘ └───────────┘ └────────┘ └─────┘ └─────────┘          │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
----
+## Layer Responsibilities
 
-## 3-Layer Schema Architecture
+### Core Layer (`@manifesto-ai/core`)
 
-Manifesto separates concerns into three distinct schema layers:
+The foundation of Manifesto AI. This layer is framework-agnostic and contains pure business logic.
 
-### Entity Layer
+#### Domain Module
 
-**Purpose**: Define data structure and validation constraints
-
-**Responsibilities**:
-- Field data types (string, number, boolean, date, enum, etc.)
-- Validation constraints (required, min, max, pattern)
-- Relationships between entities
-- Default values
+Defines the structure and rules of your business domain:
 
 ```typescript
-import { entity, field } from '@manifesto-ai/schema'
-
-const productEntity = entity('product', 'Product', '1.0.0')
-  .field(
-    field.string('name')
-      .label('Product Name')
-      .required()
-      .max(100)
-  )
-  .field(
-    field.number('price')
-      .label('Price')
-      .min(0)
-  )
-  .field(
-    field.enum('category', [
-      { value: 'electronics', label: 'Electronics' },
-      { value: 'clothing', label: 'Clothing' },
-    ])
-      .label('Category')
-      .required()
-  )
-  .build()
+const domain = defineDomain('order', {
+  dataSchema: z.object({ ... }),     // Source of truth
+  stateSchema: z.object({ ... }),    // UI state
+  derived: { ... },                   // Computed values
+  async: { ... },                     // Async data sources
+  actions: { ... },                   // Domain operations
+  fieldPolicies: { ... }             // Field-level policies
+});
 ```
 
-**Key Interfaces**:
+**Key concepts:**
+- **dataSchema**: Persistent business data
+- **stateSchema**: Transient UI state
+- **derived**: Computed from data/state
+- **async**: External data with caching
+- **actions**: Operations with preconditions and effects
+- **fieldPolicies**: Relevance, editability, requirements
 
-| Interface | Purpose |
-|-----------|---------|
-| `EntitySchema` | Complete entity definition |
-| `EntityField` | Individual field definition |
-| `Constraint` | Validation rule (required, min, max, pattern, custom) |
-| `DataType` | Field data type |
-| `Relation` | Entity relationships |
+#### Expression Module
 
-### View Layer
-
-**Purpose**: Define UI layout, components, and reactive behavior
-
-**Responsibilities**:
-- Component mapping (which UI component for each field)
-- Layout structure (sections, grids, tabs)
-- Conditional visibility/disabled states
-- Reactive interactions (reactions)
-- Styling configuration
+JSON-based DSL for declarative logic:
 
 ```typescript
-import { view, section, viewField, layout, on, actions } from '@manifesto-ai/schema'
-
-const productView = view('product-form', 'Product Form', '1.0.0')
-  .entityRef('product')
-  .mode('create')
-  .layout(layout.form())
-  .section(
-    section('basic')
-      .title('Basic Information')
-      .field(viewField.textInput('name', 'name'))
-      .field(viewField.numberInput('price', 'price'))
-      .field(
-        viewField.select('category', 'category')
-          .reaction(
-            on.change()
-              .do(actions.setValue('shipping', null))
-          )
-      )
-  )
-  .section(
-    section('shipping')
-      .title('Shipping')
-      .visible(['!=', '$state.category', 'DIGITAL'])
-      .field(viewField.select('shipping', 'shippingMethod'))
-  )
-  .build()
+// Instead of: total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+const expression = {
+  $sum: {
+    $map: [
+      { $get: 'data.items' },
+      { $multiply: ['$item.price', '$item.quantity'] }
+    ]
+  }
+};
 ```
 
-**Key Interfaces**:
+**Features:**
+- Type-safe evaluation
+- Path extraction for dependencies
+- Expression analysis and optimization
+- String representation for debugging
 
-| Interface | Purpose |
-|-----------|---------|
-| `ViewSchema` | Complete view definition |
-| `ViewSection` | Logical field grouping |
-| `ViewField` | Field-to-component mapping |
-| `Reaction` | Event-driven behavior |
-| `LayoutConfig` | Layout type and options |
-| `ComponentType` | UI component type |
+#### Effect Module
 
-### Action Layer
-
-**Purpose**: Define workflows, API calls, and side effects
-
-**Responsibilities**:
-- API endpoint configuration
-- Data transformation pipelines
-- Conditional workflow steps
-- Parallel/sequential execution
-- State mutations
-- Navigation
+Safe side-effect handling using monadic patterns:
 
 ```typescript
-import { action, trigger, api, transform, navigate } from '@manifesto-ai/schema'
-
-const saveProductAction = action('save-product', 'Save Product', '1.0.0')
-  .trigger(trigger.manual())
-  .step(
-    api.post('/api/products')
-      .body('$state')
-      .adapter({
-        type: 'legacy',
-        requestTransform: {
-          steps: [
-            transform.rename({ name: 'product_name', price: 'product_price' })
-          ]
-        }
-      })
-  )
-  .step(navigate('/products'))
-  .rollback(
-    api.delete('/api/products/:id')
-  )
-  .build()
+const submitEffect = sequence([
+  setState('state.isSubmitting', true),
+  apiCall({ method: 'POST', url: '/api/orders', body: { $get: 'data' } }),
+  conditional(
+    { $get: 'response.success' },
+    navigate('/success'),
+    setState('state.error', { $get: 'response.error' })
+  ),
+  setState('state.isSubmitting', false)
+]);
 ```
 
-**Key Interfaces**:
+**Effect types:**
+- `setValue` / `setState`: State modifications
+- `apiCall`: HTTP requests
+- `navigate`: URL navigation
+- `delay`: Timing
+- `sequence` / `parallel`: Composition
+- `conditional` / `catchEffect`: Control flow
 
-| Interface | Purpose |
-|-----------|---------|
-| `ActionSchema` | Complete action definition |
-| `ActionStep` | Individual workflow step |
-| `ActionTrigger` | When action executes |
-| `AdapterConfig` | Legacy API transformation |
+#### DAG Module
 
----
+Dependency tracking using Directed Acyclic Graphs:
 
-## Engine Components
+```
+data.items ──┐
+             ├──► derived.total ──► derived.canCheckout
+data.tax ────┘                            │
+                                          ▼
+state.isSubmitting ─────────────► action.submit.available
+```
 
-### Expression Evaluator
-- Evaluates the Mapbox-style expression DSL with whitelisted operators, context references (`$state`, `$context`, `$user`, `$params`, `$result`, `$env`), depth limits, timeouts, and optional debug logging.【F:packages/engine/src/evaluator/context.ts†L8-L74】【F:packages/engine/src/evaluator/evaluator.ts†L15-L168】
-- Operator registry covers comparison, logical, collection, string, numeric, conditional, type, access, and date helpers such as `IN`, `CONTAINS`, `CASE`, and `FORMAT_DATE`. All operators are implemented in TypeScript without `eval`.【F:packages/engine/src/evaluator/operators.ts†L9-L165】【F:packages/engine/src/evaluator/operators.ts†L241-L311】
+**Capabilities:**
+- Automatic dependency detection
+- Efficient propagation
+- Cycle detection
+- Impact analysis
 
-### Dependency Tracker
-- Uses a DAG to model field relationships, merging explicit `dependsOn` with dependencies discovered inside reactions and `$state.*` references.【F:packages/engine/src/tracker/reactive.ts†L46-L130】
-- Detects cycles before adding edges and caches topological sorts to determine evaluation order and impacted fields after a change.【F:packages/engine/src/tracker/dag.ts†L75-L205】【F:packages/engine/src/tracker/dag.ts†L207-L279】
+#### Runtime Module
 
-### Form Runtime
-- Initializes form state from schemas and `initialValues`, loads enum options from the `EntitySchema`, evaluates all expressions, and executes `mount` reactions.【F:packages/engine/src/runtime/form-runtime.ts†L59-L152】【F:packages/engine/src/runtime/form-runtime.ts†L179-L232】
-- Handles events (`FIELD_CHANGE`, `FIELD_BLUR`, `FIELD_FOCUS`, `SUBMIT`, `RESET`, `VALIDATE`) with typed `Result` responses, coercing inputs to the target `DataType` and validating against entity constraints.【F:packages/engine/src/runtime/form-runtime.ts†L154-L224】【F:packages/engine/src/runtime/form-runtime.ts†L232-L369】【F:packages/engine/src/runtime/form-runtime.ts†L370-L461】
-- Delegates reactions to the evaluator/dependency tracker so only affected fields are recomputed, and routes side effects such as dynamic `setOptions` fetches, navigation, and custom emits via injected handlers.【F:packages/engine/src/tracker/reactive.ts†L132-L205】【F:packages/engine/src/runtime/form-runtime.ts†L520-L642】【F:packages/engine/src/runtime/form-runtime.ts†L663-L732】
+Execution engine that ties everything together:
 
-### List Runtime
-- Shares the evaluator with forms to drive expression-based column metadata and list behaviors. Initializes pagination/sorting defaults and supports static or API data sources with transform pipelines.【F:packages/engine/src/runtime/list-runtime.ts†L13-L82】【F:packages/engine/src/runtime/list-runtime.ts†L96-L122】【F:packages/engine/src/runtime/list-runtime.ts†L187-L267】
+```typescript
+const runtime = createRuntime(domain, { initialData, initialState });
 
-### Schema Loader
-- Fetches JSON schemas, validates them, and caches results with TTL and base-path controls. Provides helpers to guarantee schema type (`loadEntity`, `loadView`, `loadAction`) plus cache management utilities.【F:packages/engine/src/loader/schema-loader.ts†L12-L207】【F:packages/engine/src/loader/schema-loader.ts†L209-L248】
+// Read any path
+runtime.get('data.items');
+runtime.get('derived.total');
+runtime.get('state.isLoading');
 
-### Legacy Adapter
-- Implements an anti-corruption layer for SOAP/XML/legacy APIs with configurable transform pipelines for both requests and responses, XML parsing hooks, timeout options, and debug-friendly metadata.【F:packages/engine/src/adapter/legacy-adapter.ts†L25-L171】【F:packages/engine/src/adapter/legacy-adapter.ts†L173-L252】
+// Write data/state
+runtime.set('data.items', newItems);
+runtime.set('state.filter', 'active');
 
----
+// Subscribe to changes
+runtime.subscribe('derived.total', (value) => { ... });
+
+// Execute actions
+await runtime.executeAction('submit', { orderId: '123' });
+
+// Check action availability
+runtime.checkAction('submit');  // { available: true, reason: null }
+
+// Explain values
+runtime.explain('derived.total');
+```
+
+### Bridge Layer
+
+Connects Manifesto runtime to external state management systems.
+
+#### Adapter/Actuator Pattern
+
+```
+┌─────────────────┐                   ┌─────────────────┐
+│  External Store │                   │    Manifesto    │
+│                 │                   │    Runtime      │
+│  (Zustand,      │    Adapter        │                 │
+│   Redux,        │ ───────────────►  │    Snapshot     │
+│   RHF, etc.)    │   Reads & Syncs   │                 │
+│                 │                   │                 │
+│                 │    Actuator       │                 │
+│                 │ ◄───────────────  │    Effects      │
+│                 │   Writes & Acts   │                 │
+└─────────────────┘                   └─────────────────┘
+```
+
+**Adapter**: Reads from external store → updates runtime
+**Actuator**: Receives commands from runtime → updates external store
+
+#### Bridge Implementation
+
+```typescript
+// Create bridge
+const bridge = createBridge({
+  runtime,
+  adapter: createZustandAdapter(store, { dataSelector: ... }),
+  actuator: createZustandActuator(store, { setData: ... })
+});
+
+// Execute commands through bridge
+await bridge.execute(setValue('data.name', 'John'));
+await bridge.execute(executeAction('submit'));
+```
+
+### Projection Layer
+
+Transforms runtime state for specific consumers.
+
+#### UI Projection (`projection-ui`)
+
+Converts domain policies to UI states:
+
+```
+Domain Policy          UI State
+─────────────────────────────────
+relevance    ──────►   visible
+editability  ──────►   enabled
+requirement  ──────►   required
+validation   ──────►   errors
+```
+
+```typescript
+const manager = createProjectionManager({ runtime, domain, fields: { paths } });
+
+const fieldState = manager.getFieldState('data.email');
+// { visible: true, enabled: true, required: true, validation: { valid: false, issues: [...] } }
+```
+
+#### Agent Projection (`projection-agent`)
+
+Creates AI-consumable context:
+
+```typescript
+const context = projectAgentContext(runtime, domain);
+// {
+//   summary: 'Order is 75% complete with 2 issues',
+//   paths: Map<path, { value, type, editable, required, formatted }>,
+//   actions: Map<actionId, { available, blockedReasons, effects, risk }>,
+//   suggestion: { action: 'submit', reason: '...', confidence: 0.9 }
+// }
+```
+
+**Features:**
+- Value formatting
+- Action analysis
+- Risk assessment
+- Smart suggestions
+
+#### GraphQL Projection (`projection-graphql`)
+
+Generates GraphQL API from domain:
+
+```typescript
+const schema = generateGraphQLSchema(domain);
+const resolvers = createResolvers(domain);
+
+// Generated:
+// - Query: domain, domainField, domainPolicies, domainActions
+// - Mutation: setDomainField, domainActionName
+// - Subscription: domainChanged, domainFieldChanged
+```
 
 ## Data Flow
 
-### Initialization Flow
+### Read Flow
 
 ```
-1. Load Schemas
-   ViewSchema + EntitySchema
+User/AI requests data
          │
          ▼
-2. Build Dependency Graph
-   Analyze dependsOn declarations
+┌─────────────────┐
+│  Projection     │  Formats, analyzes, projects
+│    Layer        │
+└────────┬────────┘
          │
          ▼
-3. Initialize Field State
-   Apply default values + initial values
+┌─────────────────┐
+│   Runtime       │  Evaluates expressions, checks policies
+│                 │
+└────────┬────────┘
          │
          ▼
-4. Evaluate Initial Expressions
-   hidden, disabled, computed values
-         │
-         ▼
-5. Subscribe to State Changes
-   Connect UI renderer
+┌─────────────────┐
+│   Snapshot      │  Source of truth
+│   (data/state)  │
+└─────────────────┘
 ```
 
-### Field Change Flow
+### Write Flow
 
 ```
-1. User Input
-   onChange event
+User/AI makes change
          │
          ▼
-2. Dispatch FIELD_CHANGE
-   { type: 'FIELD_CHANGE', fieldId: 'country', value: 'US' }
+┌─────────────────┐
+│    Bridge       │  Validates, transforms
+│                 │
+└────────┬────────┘
          │
          ▼
-3. Update Value
-   state.values.country = 'US'
+┌─────────────────┐
+│   Runtime       │  Applies change to snapshot
+│                 │
+└────────┬────────┘
          │
          ▼
-4. Get Affected Fields
-   tracker.getAffectedFields('country') → ['city', 'region']
+┌─────────────────┐
+│      DAG        │  Propagates to dependents
+│  Propagation    │
+└────────┬────────┘
          │
          ▼
-5. Execute Reactions
-   For each field with change reaction on 'country'
+┌─────────────────┐
+│  Subscriptions  │  Notifies listeners
+│                 │
+└────────┬────────┘
          │
-         ├─► setValue actions
-         ├─► setOptions actions (API calls)
-         └─► updateProp actions
-         │
-         ▼
-6. Re-evaluate Expressions
-   hidden, disabled for affected fields
-         │
-         ▼
-7. Validate Field
-   Apply entity constraints
-         │
-         ▼
-8. Notify Subscribers
-   UI re-renders with new state
+         ├──────────────────────────┐
+         ▼                          ▼
+┌─────────────────┐      ┌─────────────────┐
+│   Projections   │      │   External      │
+│   Update        │      │   Stores        │
+└─────────────────┘      └─────────────────┘
 ```
 
-### Submit Flow
+### Action Execution Flow
 
 ```
-1. Dispatch SUBMIT
+Execute Action Request
          │
          ▼
-2. Validate All Fields
-   Apply all entity constraints
-         │
-         ├── Invalid ──► Return validation errors
-         │
-         ▼ Valid
-3. Prepare Submit Data
-   Map field IDs to entity field IDs
+┌─────────────────┐
+│   Runtime       │  Check preconditions
+│                 │
+└────────┬────────┘
          │
          ▼
-4. Execute Action (if configured)
-   API calls, transformations
-         │
-         ▼
-5. Return Result
-   Success or error
+    Preconditions
+    Satisfied?
+    /          \
+   No          Yes
+   │            │
+   ▼            ▼
+┌──────┐  ┌─────────────┐
+│Return│  │Build Effect │
+│Error │  │Descriptor   │
+└──────┘  └──────┬──────┘
+                 │
+                 ▼
+         ┌─────────────┐
+         │Run Effect   │
+         │Handler      │
+         └──────┬──────┘
+                │
+         ┌──────┴──────┐
+         │             │
+         ▼             ▼
+    ┌────────┐   ┌─────────┐
+    │Internal│   │External │
+    │Effects │   │Effects  │
+    │(set)   │   │(api)    │
+    └────────┘   └─────────┘
+                      │
+                      ▼
+              ┌─────────────┐
+              │Result<T>    │
+              │Ok | Err     │
+              └─────────────┘
 ```
 
----
+## Key Design Decisions
 
-## Framework Bindings
+### 1. Semantic Paths
 
-### React Binding (`@manifesto-ai/react`)
+Every value has a unique, meaningful address:
 
-```tsx
-import { FormRenderer, useFormRuntime } from '@manifesto-ai/react'
-import '@manifesto-ai/react/styles'
+```
+data.user.profile.name      # Business data
+state.form.isSubmitting     # UI state
+derived.user.fullName       # Computed value
+async.user.permissions      # Async data
+```
 
-// Option 1: FormRenderer component (recommended)
-function ProductForm() {
-  return (
-    <FormRenderer
-      schema={productView}
-      entitySchema={productEntity}
-      initialValues={{ name: '' }}
-      fetchHandler={fetchHandler}
-      onSubmit={(data) => console.log(data)}
-      onError={(error) => console.error(error)}
-      debug={true}
-    />
-  )
+**Benefits:**
+- AI can reference specific values
+- Debugging is straightforward
+- Subscriptions are granular
+- Policies can target specific paths
+
+### 2. Expression DSL over Code
+
+Expressions are data, not executable code:
+
+```typescript
+// Instead of functions
+const isValid = (data) => data.email.includes('@') && data.age >= 18;
+
+// We use expressions
+const isValid = {
+  $and: [
+    { $includes: [{ $get: 'data.email' }, '@'] },
+    { $gte: [{ $get: 'data.age' }, 18] }
+  ]
+};
+```
+
+**Benefits:**
+- Serializable (JSON)
+- Analyzable (dependencies, purity)
+- AI-readable and writable
+- Transformable (optimization)
+
+### 3. Effects as Descriptions
+
+Side effects are described, not executed immediately:
+
+```typescript
+// This doesn't make an API call
+const effect = apiCall({ method: 'POST', url: '/api/orders' });
+
+// This does
+await runEffect(effect, runtime, { apiHandler: fetch });
+```
+
+**Benefits:**
+- Testable without mocking
+- Composable safely
+- Predictable execution order
+- Traceable for debugging
+
+### 4. Result Type for Errors
+
+Errors are values, not exceptions:
+
+```typescript
+const result = await runEffect(effect, runtime);
+
+if (isOk(result)) {
+  console.log('Success:', result.value);
+} else {
+  console.log('Error:', result.error.code, result.error.message);
 }
-
-// Option 2: useFormRuntime hook (custom rendering)
-function CustomForm() {
-  const runtime = useFormRuntime(productView, {
-    entitySchema: productEntity,
-    initialValues: { name: '' }
-  })
-
-  return (
-    <form onSubmit={() => runtime.submit()}>
-      {runtime.fields.map(field => (
-        <input
-          key={field.id}
-          value={runtime.values[field.id]}
-          onChange={(e) => runtime.setFieldValue(field.id, e.target.value)}
-          disabled={field.disabled}
-          hidden={field.hidden}
-        />
-      ))}
-    </form>
-  )
-}
 ```
 
-### Vue Binding (`@manifesto-ai/vue`)
+**Benefits:**
+- Type-safe error handling
+- Forced error consideration
+- Composable error chains
+- No surprise exceptions
 
-```vue
-<script setup lang="ts">
-import { FormRenderer, useFormRuntime } from '@manifesto-ai/vue'
-import '@manifesto-ai/vue/styles'
-
-// Option 1: FormRenderer component (recommended)
-const handleSubmit = (data: Record<string, unknown>) => {
-  console.log('Submitted:', data)
-}
-</script>
-
-<template>
-  <FormRenderer
-    :schema="productView"
-    :entity-schema="productEntity"
-    :initial-values="{ name: '' }"
-    :fetch-handler="fetchHandler"
-    @submit="handleSubmit"
-    debug
-  />
-</template>
-```
-
-```vue
-<script setup lang="ts">
-// Option 2: useFormRuntime composable (custom rendering)
-import { useFormRuntime } from '@manifesto-ai/vue'
-
-const runtime = useFormRuntime(productView, {
-  entitySchema: productEntity,
-  initialValues: { name: '' }
-})
-</script>
-
-<template>
-  <form @submit.prevent="runtime.submit()">
-    <input
-      v-for="field in runtime.fields"
-      :key="field.id"
-      v-model="runtime.values[field.id]"
-      :disabled="field.disabled"
-      :hidden="field.hidden"
-    />
-  </form>
-</template>
-```
-
----
-
-## Package Structure
+## Package Dependencies
 
 ```
-manifesto-ai/
-├── packages/
-│   ├── schema/                 # @manifesto-ai/schema
-│   │   ├── src/
-│   │   │   ├── types/          # Type definitions
-│   │   │   │   ├── schema.ts   # Entity, View, Action schemas
-│   │   │   │   ├── expression.ts # Expression DSL types
-│   │   │   │   └── result.ts   # Result monad
-│   │   │   ├── primitives/     # Atomic builders
-│   │   │   │   ├── field.ts    # Entity field builders
-│   │   │   │   ├── view.ts     # View field builders
-│   │   │   │   ├── expression.ts # Expression builders
-│   │   │   │   └── action.ts   # Action step builders
-│   │   │   ├── combinators/    # Schema composers
-│   │   │   │   ├── entity.ts   # EntityBuilder
-│   │   │   │   ├── view.ts     # ViewBuilder
-│   │   │   │   └── action.ts   # ActionBuilder
-│   │   │   └── validators/     # Zod-based validation
-│   │   └── package.json
-│   │
-│   ├── engine/                 # @manifesto-ai/engine
-│   │   ├── src/
-│   │   │   ├── evaluator/      # Expression evaluation
-│   │   │   │   ├── evaluator.ts
-│   │   │   │   ├── operators.ts
-│   │   │   │   └── context.ts
-│   │   │   ├── tracker/        # Dependency tracking
-│   │   │   │   ├── dag.ts
-│   │   │   │   └── reactive.ts
-│   │   │   ├── runtime/        # Form state management
-│   │   │   │   └── form-runtime.ts
-│   │   │   ├── loader/         # Schema loading
-│   │   │   │   └── schema-loader.ts
-│   │   │   └── adapter/        # Legacy API transformation
-│   │   │       ├── legacy-adapter.ts
-│   │   │       └── transform-operations.ts
-│   │   └── package.json
-│   │
-│   ├── view-snapshot/               # @manifesto-ai/view-snapshot (NEW)
-│   │   ├── src/
-│   │   │   ├── types/          # Type definitions
-│   │   │   │   ├── nodes.ts    # ViewSnapshotNode, PageSnapshot, FormSnapshot, etc.
-│   │   │   │   ├── intents.ts  # ViewIntent union types
-│   │   │   │   ├── fields.ts   # FieldSnapshot, ColumnDefinition, TableRow
-│   │   │   │   └── overlays.ts # OverlayInstance, OverlayConfig, OverlayTemplate
-│   │   │   ├── engine/         # Core engine
-│   │   │   │   ├── ViewSnapshotEngine.ts
-│   │   │   │   ├── IntentDispatcher.ts
-│   │   │   │   ├── OverlayManager.ts
-│   │   │   │   └── NodeRegistry.ts
-│   │   │   ├── builders/       # Snapshot builders
-│   │   │   │   ├── FormSnapshotBuilder.ts
-│   │   │   │   └── TableSnapshotBuilder.ts
-│   │   │   └── guards/         # Type guards
-│   │   └── package.json
-│   │
-│   ├── ai-util/                     # @manifesto-ai/ai-util (deprecated)
-│   │   ├── src/
-│   │   │   ├── session.ts      # Agent-facing session (use view-snapshot instead)
-│   │   │   ├── tools.ts        # LLM tool definitions from snapshots
-│   │   │   └── types.ts        # AI contracts (deprecated, use view-snapshot)
-│   │   └── package.json
-│   │
-│   ├── react/                  # @manifesto-ai/react
-│   │   ├── src/
-│   │   │   ├── hooks/          # React hooks
-│   │   │   │   ├── useFormRuntime.ts
-│   │   │   │   └── useListRuntime.ts
-│   │   │   ├── components/     # React components
-│   │   │   │   ├── form/
-│   │   │   │   │   ├── FormRenderer.tsx
-│   │   │   │   │   └── DebugPanel.tsx
-│   │   │   │   ├── list/       # List components
-│   │   │   │   │   ├── ListRenderer.tsx
-│   │   │   │   │   ├── ListTable.tsx
-│   │   │   │   │   ├── ListRow.tsx
-│   │   │   │   │   ├── DataCell.tsx
-│   │   │   │   │   ├── CellRegistry.ts
-│   │   │   │   │   └── cells/  # Cell renderers
-│   │   │   │   └── inputs/     # Field components
-│   │   │   └── styles/         # CSS
-│   │   └── package.json
-│   │
-│   ├── vue/                    # @manifesto-ai/vue
-│   │   ├── src/
-│   │   │   ├── composables/    # Vue composables
-│   │   │   │   ├── useFormRuntime.ts
-│   │   │   │   └── useListRuntime.ts
-│   │   │   ├── components/     # Vue components
-│   │   │   │   ├── form/
-│   │   │   │   │   ├── FormRenderer.vue
-│   │   │   │   │   └── DebugPanel.vue
-│   │   │   │   ├── list/       # List components
-│   │   │   │   │   ├── ListRenderer.vue
-│   │   │   │   │   ├── ListTable.vue
-│   │   │   │   │   ├── ListRow.vue
-│   │   │   │   │   ├── DataCell.vue
-│   │   │   │   │   ├── CellRegistry.ts
-│   │   │   │   │   └── cells/  # Cell renderers
-│   │   │   │   └── inputs/     # Field components
-│   │   │   └── styles/         # CSS
-│   │   └── package.json
-│   │
-│   └── example-schemas/        # @manifesto-ai/example-schemas
-│       └── src/
-│           ├── product.entity.ts
-│           ├── product-create.view.ts
-│           └── storybook/      # Test utilities
-│
-└── apps/
-    ├── storybook-react/        # React Storybook
-    ├── storybook-vue/          # Vue Storybook
-    ├── react-example/          # React example app
-    └── vue-example/            # Vue example app
+@manifesto-ai/core (no dependencies except zod)
+         │
+         ├─────────────────────────────────┐
+         │                                 │
+         ▼                                 ▼
+@manifesto-ai/bridge              @manifesto-ai/projection-ui
+         │                                 │
+         ├───────────┐                     │
+         │           │                     │
+         ▼           ▼                     │
+bridge-zustand  bridge-react-hook-form     │
+                                           │
+                     ┌─────────────────────┘
+                     │
+                     ▼
+          @manifesto-ai/projection-agent
+                     │
+                     │
+                     ▼
+          @manifesto-ai/projection-graphql
 ```
 
-`@manifesto-ai/view-snapshot` provides the ViewSnapshot architecture for AI agents - a normalized representation of UI state (Page, Form, Table, Overlay snapshots) with Intent-based mutations. See [ViewSnapshot Architecture](architectures/view-snapshot.md) for details.
+All packages depend on `@manifesto-ai/core` as a peer dependency.
 
-`@manifesto-ai/ai-util` (deprecated) wraps a `FormRuntime` into an AI-facing session (semantic snapshots + guard rails) and exports JSON-Schema tool definitions for LLM providers. Use `@manifesto-ai/view-snapshot` for new projects.
+## Extension Points
 
----
+### Custom Adapters
 
-## Dependency Graph
+Implement `Adapter` interface for new state management systems.
 
-```
-@manifesto-ai/schema ◄─────────────────┐
-      │                                │
-      ▼                                │
-@manifesto-ai/engine ◄─────────────────┤
-      │                                │
-      ├──────────┬────────────┬────────┴───────┐
-      │          │            │                │
-      ▼          ▼            ▼                ▼
-@manifesto-ai  @manifesto-ai  @manifesto-ai   @manifesto-ai
-   /react         /vue       /view-snapshot     /ai-util
-                                   │           (deprecated)
-                                   │
-                                   ▼
-                              AI Agents
-                           (MCP/REST/SDK)
-```
+### Custom Actuators
 
-All packages depend on `@manifesto-ai/schema`. The engine depends on schema types; UI bindings and the ViewSnapshot package depend on both schema and engine. `@manifesto-ai/ai-util` is deprecated in favor of `@manifesto-ai/view-snapshot`.
+Implement `Actuator` interface for custom side-effect handling.
 
----
+### Custom Projections
 
-[Back to Documentation](./README.md)
+Create new projection layers by consuming runtime state and domain definitions.
+
+### Custom Effect Handlers
+
+Provide custom handlers for `apiCall`, `navigate`, and other effects.
+
+### Custom Formatters
+
+Add domain-specific value formatters for agent projection.
+
+## Further Reading
+
+- [Getting Started](./getting-started.md) - Quick tutorial
+- [Core Concepts](./concepts.md) - Deep dive into concepts
+- [Core Package](../packages/core/README.md) - Full API reference

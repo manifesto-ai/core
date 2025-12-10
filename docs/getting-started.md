@@ -1,526 +1,456 @@
-# Getting Started
+# Getting Started with Manifesto AI
 
-This guide will help you create your first schema-driven form with Manifesto.
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Step 1: Define Entity Schema](#step-1-define-entity-schema)
-- [Step 2: Define View Schema](#step-2-define-view-schema)
-- [Step 3: Render the Form](#step-3-render-the-form)
-- [Step 4: Handle Submission](#step-4-handle-submission)
-- [Next Steps](#next-steps)
-
----
+This guide will walk you through creating your first Manifesto domain in about 5 minutes.
 
 ## Prerequisites
 
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0 (recommended) or npm/yarn
-- React 18+ or Vue 3+
-
----
+- Node.js 22 or later
+- pnpm, npm, or yarn
 
 ## Installation
 
-### Core Packages
-
 ```bash
 # Using pnpm (recommended)
-pnpm add @manifesto-ai/schema @manifesto-ai/engine
+pnpm add @manifesto-ai/core
 
 # Using npm
-npm install @manifesto-ai/schema @manifesto-ai/engine
+npm install @manifesto-ai/core
 
 # Using yarn
-yarn add @manifesto-ai/schema @manifesto-ai/engine
+yarn add @manifesto-ai/core
 ```
 
-### Framework Binding
+## Step 1: Define Your First Domain
 
-Choose one based on your framework:
-
-```bash
-# For React
-pnpm add @manifesto-ai/react
-
-# For Vue
-pnpm add @manifesto-ai/vue
-```
-
-### AI Interoperability (optional)
-
-Install when you want AI agents to read and act on your forms:
-
-```bash
-pnpm add @manifesto-ai/ai-util
-```
-
----
-
-## Step 1: Define Entity Schema
-
-The Entity Schema defines your data structure and validation rules.
-
-Create `schemas/contact.entity.ts`:
+A domain is the central concept in Manifesto. It describes your business logic declaratively.
 
 ```typescript
-import { entity, field } from '@manifesto-ai/schema'
+import { defineDomain, defineDerived, z } from '@manifesto-ai/core';
 
-export const contactEntity = entity('contact', 'Contact', '1.0.0')
-  .description('Contact information form')
+// Define a simple counter domain
+const counterDomain = defineDomain('counter', {
+  // Source data schema - the "truth" your domain operates on
+  dataSchema: z.object({
+    count: z.number().default(0)
+  }),
 
-  // String field with validation
-  .field(
-    field.string('name')
-      .label('Full Name')
-      .required()
-      .min(2)
-      .max(100)
-  )
+  // UI state schema - transient state for the UI
+  stateSchema: z.object({
+    step: z.number().default(1)
+  }),
 
-  // Email field with pattern validation
-  .field(
-    field.string('email')
-      .label('Email Address')
-      .required()
-      .pattern('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
-  )
-
-  // Optional phone field
-  .field(
-    field.string('phone')
-      .label('Phone Number')
-  )
-
-  // Enum field
-  .field(
-    field.enum('subject', [
-      { value: 'general', label: 'General Inquiry' },
-      { value: 'support', label: 'Technical Support' },
-      { value: 'sales', label: 'Sales Question' },
-      { value: 'feedback', label: 'Feedback' },
-    ])
-      .label('Subject')
-      .required()
-  )
-
-  // Multiline text field
-  .field(
-    field.string('message')
-      .label('Message')
-      .required()
-      .min(10)
-      .max(1000)
-  )
-
-  .build()
+  // Derived values - computed from source data
+  derived: {
+    'derived.doubled': defineDerived(
+      { $multiply: [{ $get: 'data.count' }, 2] },
+      z.number()
+    ),
+    'derived.isPositive': defineDerived(
+      { $gt: [{ $get: 'data.count' }, 0] },
+      z.boolean()
+    )
+  }
+});
 ```
 
----
+## Step 2: Create a Runtime
 
-## Step 2: Define View Schema
-
-The View Schema defines how the form looks and behaves.
-
-Create `schemas/contact.view.ts`:
+The runtime is your interface to read, write, and observe the domain.
 
 ```typescript
-import { view, section, viewField, layout } from '@manifesto-ai/schema'
+import { createRuntime } from '@manifesto-ai/core';
 
-export const contactView = view('contact-form', 'Contact Form', '1.0.0')
-  .entityRef('contact')
-  .mode('create')
-  .layout(layout.form())
-
-  .section(
-    section('personal')
-      .title('Your Information')
-      .field(
-        viewField.textInput('name', 'name')
-          .placeholder('Enter your full name')
-      )
-      .field(
-        viewField.textInput('email', 'email')
-          .placeholder('your.email@example.com')
-      )
-      .field(
-        viewField.textInput('phone', 'phone')
-          .placeholder('(Optional) Your phone number')
-      )
-  )
-
-  .section(
-    section('inquiry')
-      .title('Your Message')
-      .field(
-        viewField.select('subject', 'subject')
-          .placeholder('Select a subject')
-      )
-      .field(
-        viewField.textarea('message', 'message')
-          .placeholder('How can we help you?')
-          .props({ rows: 5 })
-      )
-  )
-
-  .build()
+const runtime = createRuntime(counterDomain);
 ```
 
----
+## Step 3: Read and Write Values
 
-## Step 3: Render the Form
+Use semantic paths to access any value in your domain:
 
-### React
+```typescript
+// Read values
+console.log(runtime.get('data.count'));        // 0
+console.log(runtime.get('derived.doubled'));   // 0
+console.log(runtime.get('derived.isPositive')); // false
 
-Create `ContactForm.tsx`:
+// Write values
+runtime.set('data.count', 5);
 
-```tsx
-import { FormRenderer } from '@manifesto-ai/react'
-import '@manifesto-ai/react/styles'  // Import default styles
-
-import { contactView } from './schemas/contact.view'
-import { contactEntity } from './schemas/contact.entity'
-
-export function ContactForm() {
-  const handleSubmit = (data: Record<string, unknown>) => {
-    console.log('Form submitted:', data)
-    // Send to your API
-  }
-
-  const handleError = (error: unknown) => {
-    console.error('Form error:', error)
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Contact Us</h1>
-
-      <FormRenderer
-        schema={contactView}
-        entitySchema={contactEntity}
-        onSubmit={handleSubmit}
-        onError={handleError}
-        debug={process.env.NODE_ENV === 'development'}
-      />
-    </div>
-  )
-}
+// Derived values update automatically
+console.log(runtime.get('derived.doubled'));   // 10
+console.log(runtime.get('derived.isPositive')); // true
 ```
 
-### Vue
+## Step 4: Subscribe to Changes
 
-Create `ContactForm.vue`:
+React to changes anywhere in your domain:
 
-```vue
-<script setup lang="ts">
-import { FormRenderer } from '@manifesto-ai/vue'
-import '@manifesto-ai/vue/styles'  // Import default styles
+```typescript
+// Subscribe to a specific path
+const unsubscribe = runtime.subscribe('data.count', (newValue) => {
+  console.log('Count changed to:', newValue);
+});
 
-import { contactView } from './schemas/contact.view'
-import { contactEntity } from './schemas/contact.entity'
+// Make a change
+runtime.set('data.count', 10);
+// Output: "Count changed to: 10"
 
-const handleSubmit = (data: Record<string, unknown>) => {
-  console.log('Form submitted:', data)
-  // Send to your API
-}
-
-const handleError = (error: unknown) => {
-  console.error('Form error:', error)
-}
-</script>
-
-<template>
-  <div class="max-w-2xl mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Contact Us</h1>
-
-    <FormRenderer
-      :schema="contactView"
-      :entity-schema="contactEntity"
-      @submit="handleSubmit"
-      @error="handleError"
-      debug
-    />
-  </div>
-</template>
+// Clean up when done
+unsubscribe();
 ```
 
----
+## Step 5: Add Actions
 
-## Step 4: Handle Submission
+Actions encapsulate domain operations with preconditions and effects:
 
-The `onSubmit` handler receives validated form data. Here's how to send it to an API:
+```typescript
+import {
+  defineDomain,
+  defineDerived,
+  defineAction,
+  setValue,
+  sequence,
+  setState,
+  z
+} from '@manifesto-ai/core';
 
-### React
+const counterDomain = defineDomain('counter', {
+  dataSchema: z.object({
+    count: z.number().default(0)
+  }),
 
-```tsx
-import { useState } from 'react'
-import { FormRenderer } from '@manifesto-ai/react'
+  stateSchema: z.object({
+    step: z.number().default(1)
+  }),
 
-export function ContactForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
+  derived: {
+    'derived.doubled': defineDerived(
+      { $multiply: [{ $get: 'data.count' }, 2] },
+      z.number()
+    )
+  },
 
-  const handleSubmit = async (data: Record<string, unknown>) => {
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+  actions: {
+    increment: defineAction({
+      // Action is always available
+      effect: setValue('data.count', {
+        $add: [{ $get: 'data.count' }, { $get: 'state.step' }]
       })
+    }),
 
-      if (!response.ok) {
-        throw new Error('Failed to submit')
-      }
+    decrement: defineAction({
+      // Only available when count > 0
+      precondition: { $gt: [{ $get: 'data.count' }, 0] },
+      effect: setValue('data.count', {
+        $subtract: [{ $get: 'data.count' }, { $get: 'state.step' }]
+      })
+    }),
 
-      setSuccess(true)
-    } catch (error) {
-      console.error('Submit failed:', error)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  if (success) {
-    return <div>Thank you! We'll be in touch soon.</div>
-  }
-
-  return (
-    <FormRenderer
-      schema={contactView}
-      entitySchema={contactEntity}
-      onSubmit={handleSubmit}
-    />
-  )
-}
-```
-
-### Vue
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue'
-import { FormRenderer } from '@manifesto-ai/vue'
-
-const isSubmitting = ref(false)
-const success = ref(false)
-
-const handleSubmit = async (data: Record<string, unknown>) => {
-  isSubmitting.value = true
-
-  try {
-    const response = await fetch('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+    reset: defineAction({
+      effect: sequence([
+        setValue('data.count', 0),
+        setState('state.step', 1)
+      ])
     })
-
-    if (!response.ok) {
-      throw new Error('Failed to submit')
-    }
-
-    success.value = true
-  } catch (error) {
-    console.error('Submit failed:', error)
-  } finally {
-    isSubmitting.value = false
   }
-}
-</script>
-
-<template>
-  <div v-if="success">Thank you! We'll be in touch soon.</div>
-
-  <FormRenderer
-    v-else
-    :schema="contactView"
-    :entity-schema="contactEntity"
-    @submit="handleSubmit"
-  />
-</template>
+});
 ```
 
----
-
-## Adding Dynamic Behavior
-
-Let's add a conditional field. Show a "Company" field only for sales inquiries:
-
-### Update Entity Schema
+## Step 6: Execute Actions
 
 ```typescript
-// Add to contactEntity
-.field(
-  field.string('company')
-    .label('Company Name')
-)
+const runtime = createRuntime(counterDomain);
+
+// Check if action is available
+const canDecrement = runtime.checkAction('decrement');
+console.log(canDecrement);
+// { available: false, reason: 'Precondition not met' }
+
+// Execute increment
+await runtime.executeAction('increment');
+console.log(runtime.get('data.count')); // 1
+
+// Now decrement is available
+console.log(runtime.checkAction('decrement'));
+// { available: true, reason: null }
+
+// Execute decrement
+await runtime.executeAction('decrement');
+console.log(runtime.get('data.count')); // 0
 ```
 
-### Update View Schema
+## Real-World Example: Shopping Cart
+
+Here's a more complete example showing a shopping cart domain:
 
 ```typescript
-// Add to the 'personal' section
-.field(
-  viewField.textInput('company', 'company')
-    .placeholder('Your company name')
-    .hidden(['!=', '$state.subject', 'sales'])  // Only show for sales
-)
+import {
+  defineDomain,
+  defineDerived,
+  defineAction,
+  setValue,
+  sequence,
+  setState,
+  apiCall,
+  z
+} from '@manifesto-ai/core';
+
+const cartDomain = defineDomain('cart', {
+  dataSchema: z.object({
+    items: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      price: z.number(),
+      quantity: z.number()
+    })).default([]),
+    couponCode: z.string().optional()
+  }),
+
+  stateSchema: z.object({
+    isSubmitting: z.boolean().default(false),
+    error: z.string().nullable().default(null)
+  }),
+
+  derived: {
+    'derived.itemCount': defineDerived(
+      { $size: { $get: 'data.items' } },
+      z.number()
+    ),
+
+    'derived.subtotal': defineDerived(
+      {
+        $sum: {
+          $map: [
+            { $get: 'data.items' },
+            { $multiply: ['$item.price', '$item.quantity'] }
+          ]
+        }
+      },
+      z.number()
+    ),
+
+    'derived.isEmpty': defineDerived(
+      { $eq: [{ $get: 'derived.itemCount' }, 0] },
+      z.boolean()
+    ),
+
+    'derived.canCheckout': defineDerived(
+      {
+        $and: [
+          { $not: { $get: 'derived.isEmpty' } },
+          { $not: { $get: 'state.isSubmitting' } }
+        ]
+      },
+      z.boolean()
+    )
+  },
+
+  actions: {
+    addItem: defineAction({
+      effect: setValue('data.items', {
+        $concat: [
+          { $get: 'data.items' },
+          [{
+            id: { $get: 'input.id' },
+            name: { $get: 'input.name' },
+            price: { $get: 'input.price' },
+            quantity: 1
+          }]
+        ]
+      })
+    }),
+
+    removeItem: defineAction({
+      effect: setValue('data.items', {
+        $filter: [
+          { $get: 'data.items' },
+          { $ne: ['$item.id', { $get: 'input.itemId' }] }
+        ]
+      })
+    }),
+
+    updateQuantity: defineAction({
+      precondition: { $gt: [{ $get: 'input.quantity' }, 0] },
+      effect: setValue('data.items', {
+        $map: [
+          { $get: 'data.items' },
+          {
+            $if: [
+              { $eq: ['$item.id', { $get: 'input.itemId' }] },
+              {
+                id: '$item.id',
+                name: '$item.name',
+                price: '$item.price',
+                quantity: { $get: 'input.quantity' }
+              },
+              '$item'
+            ]
+          }
+        ]
+      })
+    }),
+
+    checkout: defineAction({
+      precondition: { $get: 'derived.canCheckout' },
+      effect: sequence([
+        setState('state.isSubmitting', true),
+        setState('state.error', null),
+        apiCall({
+          method: 'POST',
+          url: '/api/checkout',
+          body: {
+            items: { $get: 'data.items' },
+            couponCode: { $get: 'data.couponCode' }
+          }
+        }),
+        setValue('data.items', []),
+        setState('state.isSubmitting', false)
+      ])
+    }),
+
+    clearCart: defineAction({
+      precondition: { $not: { $get: 'derived.isEmpty' } },
+      effect: setValue('data.items', [])
+    })
+  }
+});
+
+// Usage
+const runtime = createRuntime(cartDomain);
+
+// Add items
+await runtime.executeAction('addItem', {
+  id: 'prod-1',
+  name: 'Laptop',
+  price: 999
+});
+
+await runtime.executeAction('addItem', {
+  id: 'prod-2',
+  name: 'Mouse',
+  price: 29
+});
+
+console.log(runtime.get('derived.itemCount'));  // 2
+console.log(runtime.get('derived.subtotal'));   // 1028
+console.log(runtime.get('derived.canCheckout')); // true
+
+// Update quantity
+await runtime.executeAction('updateQuantity', {
+  itemId: 'prod-2',
+  quantity: 2
+});
+
+console.log(runtime.get('derived.subtotal'));   // 1057
 ```
-
-Now the "Company" field only appears when "Sales Question" is selected.
-
----
-
-## Using Initial Values
-
-Pre-populate the form with existing data:
-
-### React
-
-```tsx
-<FormRenderer
-  schema={contactView}
-  entitySchema={contactEntity}
-  initialValues={{
-    name: 'John Doe',
-    email: 'john@example.com',
-    subject: 'support'
-  }}
-  onSubmit={handleSubmit}
-/>
-```
-
-### Vue
-
-```vue
-<FormRenderer
-  :schema="contactView"
-  :entity-schema="contactEntity"
-  :initial-values="{
-    name: 'John Doe',
-    email: 'john@example.com',
-    subject: 'support'
-  }"
-  @submit="handleSubmit"
-/>
-```
-
----
-
-## Using the Debug Panel
-
-Enable the debug panel to see real-time form state:
-
-```tsx
-<FormRenderer
-  schema={contactView}
-  entitySchema={contactEntity}
-  debug={true}  // Shows debug panel
-  onSubmit={handleSubmit}
-/>
-```
-
-The debug panel shows:
-- Current form values
-- Field states (hidden, disabled, errors)
-- Expression evaluation results
-- Field dependencies
-- Value change history
-
----
-
-## Expose the Form to AI Agents (optional)
-
-Turn the running form into an AI-facing session for safe automation:
-
-```ts
-import { createFormRuntime } from '@manifesto-ai/engine'
-import { createInteroperabilitySession, toToolDefinitions } from '@manifesto-ai/ai-util'
-
-const runtime = createFormRuntime(contactView, { entitySchema: contactEntity })
-const session = createInteroperabilitySession({
-  runtime,
-  viewSchema: contactView,
-  entitySchema: contactEntity,
-})
-
-const snapshot = session.snapshot() // semantic state for reasoning
-const tools = toToolDefinitions(snapshot, { omitUnavailable: true }) // OpenAI/Claude tool schemas
-```
-
----
 
 ## Next Steps
 
-Now that you have a basic form working, explore these topics:
+Now that you understand the basics, explore:
 
-1. **[Dynamic Conditions](./guides/dynamic-conditions.md)** - Show/hide fields based on values
-2. **[Cascade Select](./guides/cascade-select.md)** - Dependent dropdown menus
-3. **[Validation Patterns](./guides/validation.md)** - Advanced validation techniques
-4. **[Expression DSL](./schema-reference/expression-dsl.md)** - Learn the expression syntax
-5. **[Reaction DSL](./schema-reference/reaction-dsl.md)** - Event-driven interactions
+- [Core Concepts](./concepts.md) - Deep dive into SemanticPath, Expression DSL, and Effects
+- [Architecture](./architecture.md) - Understand the 3-layer architecture
+- [Bridge Integration](../packages/bridge/README.md) - Connect to React, Zustand, etc.
+- [UI Projection](../packages/projection-ui/README.md) - Generate UI states automatically
+- [Agent Projection](../packages/projection-agent/README.md) - Make your domain AI-readable
 
----
+## Common Patterns
 
-## Complete Example Files
-
-Here's the complete code for reference:
-
-### `schemas/contact.entity.ts`
+### Field Validation
 
 ```typescript
-import { entity, field } from '@manifesto-ai/schema'
+const userDomain = defineDomain('user', {
+  dataSchema: z.object({
+    email: z.string().email(),
+    password: z.string().min(8)
+  }),
 
-export const contactEntity = entity('contact', 'Contact', '1.0.0')
-  .description('Contact information form')
-  .field(field.string('name').label('Full Name').required().min(2).max(100))
-  .field(field.string('email').label('Email Address').required()
-    .pattern('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'))
-  .field(field.string('phone').label('Phone Number'))
-  .field(field.string('company').label('Company Name'))
-  .field(field.enum('subject', [
-    { value: 'general', label: 'General Inquiry' },
-    { value: 'support', label: 'Technical Support' },
-    { value: 'sales', label: 'Sales Question' },
-    { value: 'feedback', label: 'Feedback' },
-  ]).label('Subject').required())
-  .field(field.string('message').label('Message').required().min(10).max(1000))
-  .build()
+  derived: {
+    'derived.isEmailValid': defineDerived(
+      { $test: [{ $get: 'data.email' }, '^[^@]+@[^@]+\\.[^@]+$'] },
+      z.boolean()
+    ),
+    'derived.isPasswordStrong': defineDerived(
+      { $gte: [{ $size: { $get: 'data.password' } }, 8] },
+      z.boolean()
+    ),
+    'derived.canSubmit': defineDerived(
+      {
+        $and: [
+          { $get: 'derived.isEmailValid' },
+          { $get: 'derived.isPasswordStrong' }
+        ]
+      },
+      z.boolean()
+    )
+  }
+});
 ```
 
-### `schemas/contact.view.ts`
+### Loading States
 
 ```typescript
-import { view, section, viewField, layout } from '@manifesto-ai/schema'
+const dataDomain = defineDomain('data', {
+  dataSchema: z.object({
+    items: z.array(z.string()).default([])
+  }),
 
-export const contactView = view('contact-form', 'Contact Form', '1.0.0')
-  .entityRef('contact')
-  .mode('create')
-  .layout(layout.form())
-  .section(
-    section('personal')
-      .title('Your Information')
-      .field(viewField.textInput('name', 'name').placeholder('Enter your full name'))
-      .field(viewField.textInput('email', 'email').placeholder('your.email@example.com'))
-      .field(viewField.textInput('phone', 'phone').placeholder('(Optional) Your phone number'))
-      .field(viewField.textInput('company', 'company')
-        .placeholder('Your company name')
-        .hidden(['!=', '$state.subject', 'sales']))
-  )
-  .section(
-    section('inquiry')
-      .title('Your Message')
-      .field(viewField.select('subject', 'subject').placeholder('Select a subject'))
-      .field(viewField.textarea('message', 'message')
-        .placeholder('How can we help you?')
-        .props({ rows: 5 }))
-  )
-  .build()
+  stateSchema: z.object({
+    isLoading: z.boolean().default(false),
+    error: z.string().nullable().default(null)
+  }),
+
+  actions: {
+    fetch: defineAction({
+      precondition: { $not: { $get: 'state.isLoading' } },
+      effect: sequence([
+        setState('state.isLoading', true),
+        setState('state.error', null),
+        apiCall({ method: 'GET', url: '/api/items' }),
+        setState('state.isLoading', false)
+      ])
+    })
+  }
+});
 ```
 
----
+### Conditional Logic
 
-[Back to Documentation](./README.md)
+```typescript
+const pricingDomain = defineDomain('pricing', {
+  dataSchema: z.object({
+    basePrice: z.number(),
+    isPremium: z.boolean().default(false),
+    quantity: z.number().default(1)
+  }),
+
+  derived: {
+    'derived.discount': defineDerived(
+      {
+        $if: [
+          { $get: 'data.isPremium' },
+          0.2,  // 20% discount for premium
+          {
+            $if: [
+              { $gte: [{ $get: 'data.quantity' }, 10] },
+              0.1,  // 10% bulk discount
+              0     // No discount
+            ]
+          }
+        ]
+      },
+      z.number()
+    ),
+    'derived.finalPrice': defineDerived(
+      {
+        $multiply: [
+          { $get: 'data.basePrice' },
+          { $get: 'data.quantity' },
+          { $subtract: [1, { $get: 'derived.discount' }] }
+        ]
+      },
+      z.number()
+    )
+  }
+});
+```
