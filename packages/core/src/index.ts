@@ -24,6 +24,8 @@ export {
   type ManifestoDomain,
   type ValidationIssue,
   type ValidationResult,
+  type ProjectionScopePath,
+  type ProjectionScopeConfig,
   // Helpers
   defineDomain,
   defineSource,
@@ -229,6 +231,28 @@ export {
   getWarnings,
   getSuggestions,
 } from './schema/index.js';
+
+// Projection - LLM 컨텍스트 투영
+export {
+  // Types
+  type ProjectedSnapshot,
+  type ProjectedContext,
+  type ProjectionErrorCode,
+  type ProjectionError,
+  type ProjectionEngineConfig,
+  type CompressionStrategy,
+  type CompressionResult,
+  // Token Estimator
+  estimateTokens,
+  estimateTokensByPath,
+  rankPathsByTokenCost,
+  selectPathsWithinBudget,
+  // Compressor
+  compressSnapshot,
+  // Engine
+  ProjectionEngine,
+  createProjectionEngine,
+} from './projection/index.js';
 
 // Re-export Zod for convenience
 export { z } from 'zod';

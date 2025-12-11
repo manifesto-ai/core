@@ -1,0 +1,68 @@
+{
+  "name": "@manifesto-ai/hsca",
+  "version": "0.1.0",
+  "description": "Hierarchical Sparse Context Architecture - LLM reasoning with context compression",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./llm": {
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^0.2.0"
+  },
+  "dependencies": {
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "zod": "^3.24.1"
+  },
+  "keywords": [
+    "manifesto",
+    "ai",
+    "hsca",
+    "llm",
+    "context",
+    "compression"
+  ],
+  "author": "Manifesto Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/hsca"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/hsca#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

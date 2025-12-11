@@ -129,6 +129,27 @@ export type AsyncDefinition = {
 };
 
 /**
+ * ProjectionScopePath: 프로젝션 범위 경로
+ * LLM에게 노출될 스냅샷 경로
+ */
+export type ProjectionScopePath = SemanticPath;
+
+/**
+ * ProjectionScopeConfig: 프로젝션 범위 설정
+ * LLM 컨텍스트를 제한하기 위한 설정
+ */
+export type ProjectionScopeConfig = {
+  /** 포함할 경로들 */
+  paths: ProjectionScopePath[];
+
+  /** 토큰 예산 (기본값: 4000) */
+  tokenBudget?: number;
+
+  /** 예산 초과 시 압축 전략 */
+  compressionStrategy?: 'truncate' | 'summarize' | 'prioritize';
+};
+
+/**
  * ActionSemanticMeta: 액션 전용 메타데이터
  */
 export type ActionSemanticMeta = SemanticMeta & {
@@ -163,6 +184,13 @@ export type ActionDefinition = {
 
   /** Semantic 메타데이터 */
   semantic: ActionSemanticMeta;
+
+  /**
+   * 프로젝션 범위: LLM이 볼 수 있는 스냅샷 범위
+   * - 배열: 경로 목록 (기본 토큰 예산 4000 적용)
+   * - 객체: 상세 설정 (경로, 토큰 예산, 압축 전략)
+   */
+  projectionScope?: ProjectionScopeConfig | ProjectionScopePath[];
 };
 
 /**

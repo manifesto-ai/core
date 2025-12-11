@@ -12,6 +12,8 @@ import type {
   FieldPolicy,
   ConditionRef,
   ActionSemanticMeta,
+  ProjectionScopeConfig,
+  ProjectionScopePath,
 } from './types.js';
 import type { Expression } from '../expression/types.js';
 import type { Effect } from '../effect/types.js';
@@ -138,6 +140,12 @@ export type DefineActionOptions = {
   effect: Effect;
   preconditions?: ConditionRef[];
   semantic: ActionSemanticMeta;
+  /**
+   * 프로젝션 범위: LLM이 볼 수 있는 스냅샷 범위
+   * - 배열: 경로 목록 (기본 토큰 예산 4000 적용)
+   * - 객체: 상세 설정 (경로, 토큰 예산, 압축 전략)
+   */
+  projectionScope?: ProjectionScopeConfig | ProjectionScopePath[];
 };
 
 export function defineAction(options: DefineActionOptions): ActionDefinition {
@@ -146,6 +154,7 @@ export function defineAction(options: DefineActionOptions): ActionDefinition {
     input: options.input,
     effect: options.effect,
     preconditions: options.preconditions,
+    projectionScope: options.projectionScope,
     semantic: {
       readable: true,
       writable: false,

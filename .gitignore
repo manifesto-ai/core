@@ -33,3 +33,4 @@ pnpm-debug.log*
 .env.*.local
 .npm-cache
 .next
+packages/hsca/datasets/data.json
