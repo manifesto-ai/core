@@ -91,6 +91,24 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/agent:
+    devDependencies:
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.2
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@22.19.2)(jsdom@26.1.0))
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.2)(jsdom@26.1.0)
+
   packages/bridge:
     devDependencies:
       '@manifesto-ai/core':
