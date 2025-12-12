@@ -8,6 +8,7 @@
 import type { Effect } from './effect.js';
 import type { Constraints } from './constraints.js';
 import type { PatchErrorState } from './errors.js';
+import type { ProjectionMetadata } from '../projection/types.js';
 
 /**
  * AgentDecision - LLM이 반환하는 결정
@@ -39,7 +40,7 @@ export type AgentDecision = {
  * AgentClient 입력
  */
 export type AgentClientInput<S = unknown> = {
-  /** 현재 스냅샷 */
+  /** 현재 스냅샷 (전체 또는 투영된 스냅샷) */
   snapshot: S;
   /** 현재 phase의 Constraints */
   constraints: Constraints;
@@ -47,6 +48,11 @@ export type AgentClientInput<S = unknown> = {
   recentErrors?: PatchErrorState[];
   /** 사용자 지시 (선택) */
   instruction?: string;
+  /**
+   * 투영 메타데이터 (선택, v0.1.x)
+   * projectionProvider 사용 시 자동으로 포함됨
+   */
+  projectionMeta?: ProjectionMetadata;
 };
 
 /**

@@ -92,6 +92,22 @@ export {
   createFixedClient,
 } from './types/index.js';
 
+// Projection types (v0.1.x)
+export type {
+  ProjectedSnapshot,
+  ProjectionMetadata,
+  ProjectionResult,
+  CompressionStrategy,
+  ProjectionProviderConfig,
+  ProjectionProvider,
+  CreateProjectionProviderOptions,
+} from './projection/index.js';
+export {
+  createSimpleProjectionProvider,
+  createIdentityProjectionProvider,
+  createDynamicProjectionProvider,
+} from './projection/index.js';
+
 // Session types
 export type {
   StepResult,
@@ -227,6 +243,7 @@ export type {
   SimpleSessionOptions,
   DomainRuntimeLike,
   CreateAgentRuntimeOptions,
+  ProjectionConfig,
 } from './session/index.js';
 
 export {

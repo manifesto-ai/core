@@ -13,6 +13,7 @@ import type { Constraints } from '../types/constraints.js';
 import type { Policy } from '../types/policy.js';
 import type { AgentRuntime, StepResult } from '../types/session.js';
 import type { ErrorState } from '../types/errors.js';
+import type { ProjectionProvider } from '../projection/types.js';
 import { createEffectError, createHandlerError } from '../types/errors.js';
 import type { EffectHandlerRegistry, HandlerContext, ToolRegistry } from '../handlers/registry.js';
 import { validateEffectStructure } from './validate-effect.js';
@@ -35,6 +36,11 @@ export type ExecutorContext<S = unknown> = {
   compileConstraints: (snapshot: S) => Constraints;
   /** 사용자 지시 */
   instruction?: string;
+  /**
+   * Projection Provider (v0.1.x)
+   * LLM에게 전달할 스냅샷을 투영하는 제공자
+   */
+  projectionProvider?: ProjectionProvider<S>;
 };
 
 /**
@@ -44,25 +50,38 @@ export type ExecutorContext<S = unknown> = {
  * @returns StepResult
  */
 export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResult> {
-  const { runtime, client, policy, handlers, tools, compileConstraints, instruction } = ctx;
+  const { runtime, client, policy, handlers, tools, compileConstraints, instruction, projectionProvider } = ctx;
 
   // 1. 현재 스냅샷 조회
-  const snapshot = runtime.getSnapshot();
+  const fullSnapshot = runtime.getSnapshot();
 
   // 2. Constraints 컴파일
-  const constraints = compileConstraints(snapshot);
+  const constraints = compileConstraints(fullSnapshot);
 
   // 3. 최근 에러 조회
   const recentErrors = runtime.getRecentErrors(5);
 
-  // 4. LLM 호출
+  // 4. Projection 적용 (v0.1.x)
+  // projectionProvider가 있으면 투영된 스냅샷 사용, 없으면 전체 스냅샷 사용
+  let snapshotForLLM: S = fullSnapshot;
+  let projectionMeta = undefined;
+
+  if (projectionProvider) {
+    const projectionResult = projectionProvider.project(fullSnapshot);
+    // Projection 결과를 S로 타입 단언 (부분 스냅샷이지만 클라이언트는 이를 처리할 수 있음)
+    snapshotForLLM = projectionResult.snapshot as S;
+    projectionMeta = projectionResult.metadata;
+  }
+
+  // 5. LLM 호출
   let decision: AgentDecision;
   try {
     decision = await client.decide({
-      snapshot,
+      snapshot: snapshotForLLM,
       constraints,
       recentErrors: recentErrors.length > 0 ? recentErrors : undefined,
       instruction,
+      projectionMeta,
     });
   } catch (err) {
     // LLM 호출 실패

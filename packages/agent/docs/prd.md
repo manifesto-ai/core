@@ -363,6 +363,93 @@ export interface AgentClient<S = unknown> {
 
 ---
 
+## 10.5 Projection Support (v0.1.x)
+
+### 10.5.1 Overview
+
+Agent sessions can optionally use projection to limit the snapshot data sent to the LLM. This enables:
+- **Token budget management**: Limit context size to stay within model limits
+- **Focused context**: Send only relevant paths for specific actions
+- **Cost optimization**: Reduce LLM token usage and costs
+
+### 10.5.2 ProjectionProvider Interface
+
+```typescript
+export interface ProjectionProvider<S = unknown> {
+  project(fullSnapshot: S): ProjectionResult<Partial<S>>;
+  getMetadata(): ProjectionMetadata | undefined;
+  getConfig(): ProjectionProviderConfig;
+}
+
+export type ProjectionMetadata = {
+  isProjected: boolean;
+  tokenCount: number;
+  includedPaths: string[];
+  compressed?: boolean;
+  compressionStrategy?: CompressionStrategy;
+};
+
+export type ProjectionProviderConfig = {
+  tokenBudget?: number;        // Default: 4000
+  requiredPaths?: string[];    // Always include
+  excludePaths?: string[];     // Always exclude
+  compressionStrategy?: 'truncate' | 'summarize' | 'prioritize';
+};
+```
+
+### 10.5.3 Usage
+
+```typescript
+import { createAgentSession, createSimpleProjectionProvider } from '@manifesto-ai/agent';
+
+// Option 1: Using ProjectionProvider directly
+const provider = createSimpleProjectionProvider({
+  paths: ['data.currentItem', 'state.phase', 'derived.computedValue'],
+  config: {
+    tokenBudget: 4000,
+    compressionStrategy: 'truncate',
+  },
+});
+
+const session = createAgentSession({
+  runtime,
+  client,
+  projectionProvider: provider,
+});
+
+// Option 2: Using projection config (creates provider internally)
+const session = createAgentSession({
+  runtime,
+  client,
+  projection: {
+    paths: ['data.currentItem', 'state.phase'],
+    tokenBudget: 4000,
+  },
+});
+```
+
+### 10.5.4 Extended AgentClientInput
+
+```typescript
+export type AgentClientInput<S = unknown> = {
+  snapshot: S;
+  constraints: Constraints;
+  recentErrors?: PatchErrorState[];
+  instruction?: string;
+  // New in v0.1.x
+  projectionMeta?: ProjectionMetadata;
+};
+```
+
+### 10.5.5 Backward Compatibility
+
+Projection is optional. Sessions without projection configuration receive full snapshots, maintaining v0.1 behavior:
+- `projectionProvider` and `projection` options are optional
+- `AgentClientInput.projectionMeta` is optional
+- Existing code works unchanged
+
+---
+
 ## 11. Session API
 
 ### 11.1 Policy (Simplified)
@@ -579,6 +666,10 @@ Respond with a single JSON object matching AgentDecision schema.
 │   │   ├── tool-call.ts      # tool.call handler
 │   │   ├── patch.ts          # snapshot.patch handler
 │   │   └── log.ts            # log.emit handler
+│   ├── projection/           # Projection module (v0.1.x)
+│   │   ├── index.ts          # Projection exports
+│   │   ├── types.ts          # ProjectionProvider, ProjectionMetadata
+│   │   └── provider.ts       # createSimpleProjectionProvider, etc.
 │   └── prompt/
 │       ├── system.ts         # System prompt template
 │       └── step.ts           # Per-step prompt builder

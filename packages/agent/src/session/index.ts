@@ -13,7 +13,7 @@ export type { EffectValidationResult } from './validate-effect.js';
 export { validateEffectStructure, validateAgentDecision } from './validate-effect.js';
 
 // Session factory
-export type { CreateAgentSessionOptions, SimpleSessionOptions } from './create.js';
+export type { CreateAgentSessionOptions, SimpleSessionOptions, ProjectionConfig } from './create.js';
 export { createAgentSession, createSimpleSession } from './create.js';
 
 // Runtime adapter

@@ -118,6 +118,19 @@ type Effect =
 }
 ```
 
+#### HumanAskEffect (v0.2 Preview)
+
+Type definition only in v0.1. Runtime support planned for v0.2.
+
+```typescript
+type HumanAskEffect = {
+  type: 'human.ask';
+  id: string;
+  question: string;
+  options?: string[];
+};
+```
+
 ### PatchOp Operations
 
 Only two operations are allowed in v0.1:
@@ -211,6 +224,106 @@ const errors = getErrors();
 
 The LLM receives these errors in the next step and can self-correct.
 
+## Projection (v0.1.x)
+
+Projection allows you to control what portion of the snapshot is sent to the LLM, managing token budgets and focusing context on relevant data.
+
+### Why Projection?
+
+- **Token Budget Management**: Large snapshots can exceed LLM context limits
+- **Focused Context**: Send only relevant data for current task
+- **Cost Optimization**: Smaller prompts reduce API costs
+
+### Using Projection
+
+#### Simple Configuration
+
+```typescript
+import { createAgentSession } from '@manifesto-ai/agent';
+
+const session = createAgentSession({
+  runtime: myRuntime,
+  client: myClient,
+  projection: {
+    paths: ['data.currentItem', 'state.phase', 'derived.observations'],
+    tokenBudget: 4000,
+    compressionStrategy: 'truncate',
+    requiredPaths: ['state.phase'],
+    excludePaths: ['data.largeBlob'],
+  },
+});
+```
+
+#### Custom Projection Provider
+
+```typescript
+import { createSimpleProjectionProvider } from '@manifesto-ai/agent';
+
+const provider = createSimpleProjectionProvider({
+  paths: ['data.currentItem', 'state.phase'],
+  config: {
+    tokenBudget: 4000,
+    compressionStrategy: 'truncate',
+  },
+});
+
+const session = createAgentSession({
+  runtime: myRuntime,
+  client: myClient,
+  projectionProvider: provider,
+});
+```
+
+#### Dynamic Projection
+
+```typescript
+import { createDynamicProjectionProvider } from '@manifesto-ai/agent';
+
+const provider = createDynamicProjectionProvider({
+  pathResolver: (snapshot) => {
+    const paths = ['state.phase'];
+    if (snapshot.state.phase === 'editing') {
+      paths.push('data.currentItem', 'data.editHistory');
+    } else if (snapshot.state.phase === 'reviewing') {
+      paths.push('data.items', 'derived.summary');
+    }
+    return paths;
+  },
+  config: { tokenBudget: 4000 },
+});
+```
+
+#### Identity Projection (No Projection)
+
+```typescript
+import { createIdentityProjectionProvider } from '@manifesto-ai/agent';
+
+// Passes full snapshot through (for small snapshots or testing)
+const provider = createIdentityProjectionProvider();
+```
+
+### Projection Metadata
+
+The LLM client receives projection metadata along with the snapshot:
+
+```typescript
+type ProjectionMetadata = {
+  isProjected: boolean;      // Whether projection was applied
+  tokenCount: number;        // Estimated token count
+  includedPaths: string[];   // Paths included in projection
+  compressed?: boolean;      // Whether compression was applied
+  compressionStrategy?: CompressionStrategy;
+};
+```
+
+### Compression Strategies
+
+| Strategy | Description |
+|----------|-------------|
+| `truncate` | Limit array sizes progressively until under budget |
+| `summarize` | (Future) Use LLM to summarize large sections |
+| `prioritize` | (Future) Keep high-priority paths, drop low-priority |
+
 ## Session API
 
 ### Creating a Session
@@ -223,8 +336,8 @@ import {
 } from '@manifesto-ai/agent';
 
 const session = createAgentSession({
-  core: manifestoCore,  // ManifestoCoreLike implementation
-  client: llmClient,    // AgentClient implementation
+  runtime: agentRuntime,  // AgentRuntime implementation
+  client: llmClient,      // AgentClient implementation
   policy: {
     maxSteps: 100,
     maxEffectsPerStep: 16,
@@ -246,12 +359,36 @@ const runResult = await session.run();
 // { done: boolean, totalSteps: number, totalEffects: number, reason?: string }
 ```
 
+### Done Checkers
+
+Control when the session completes:
+
+```typescript
+import { phaseDoneChecker } from '@manifesto-ai/agent';
+
+const session = createAgentSession({
+  runtime: myRuntime,
+  client: myClient,
+  isDone: phaseDoneChecker('complete'),
+});
+
+// Custom done checker
+const session = createAgentSession({
+  runtime: myRuntime,
+  client: myClient,
+  isDone: (snapshot) => ({
+    done: snapshot.data.items.length >= 10,
+    reason: 'Maximum items reached',
+  }),
+});
+```
+
 ### Simple Session (for Testing)
 
 ```typescript
 import { createSimpleSession } from '@manifesto-ai/agent';
 
-const { session, getSnapshot, getErrors, clearErrors } = createSimpleSession({
+const { session, getSnapshot, getErrors, getObservations } = createSimpleSession({
   initialSnapshot: { data: {}, state: {}, derived: {} },
   client: yourClient,
   policy: { maxSteps: 50 },
@@ -261,6 +398,46 @@ const { session, getSnapshot, getErrors, clearErrors } = createSimpleSession({
   }),
 });
 ```
+
+## AgentRuntime
+
+### Using with @manifesto-ai/core
+
+```typescript
+import { createRuntime } from '@manifesto-ai/core';
+import { createAgentRuntime, createAgentSession } from '@manifesto-ai/agent';
+
+// Create domain runtime from core
+const domainRuntime = createRuntime({ domain: myDomain });
+
+// Wrap with agent runtime adapter
+const agentRuntime = createAgentRuntime({
+  domainRuntime,
+  maxErrors: 100,
+  maxObservations: 1000,
+});
+
+// Create session with agent runtime
+const session = createAgentSession({
+  runtime: agentRuntime,
+  client: myClient,
+});
+```
+
+### AgentRuntime Interface
+
+```typescript
+interface AgentRuntime<S> {
+  getSnapshot(): S;
+  applyPatch(ops: PatchOp[]): ApplyResult<S>;
+  appendError(error: ErrorState): void;
+  getRecentErrors(limit?: number): PatchErrorState[];
+  clearErrors(): void;
+  appendObservation(obs: Observation): void;
+}
+```
+
+> **Note**: `ManifestoCoreLike` is deprecated. Use `AgentRuntime` instead.
 
 ## Tools
 
@@ -348,7 +525,7 @@ import type { AgentClient, AgentDecision, Constraints } from '@manifesto-ai/agen
 
 const myClient: AgentClient = {
   async decide(input) {
-    const { snapshot, constraints, recentErrors, instruction } = input;
+    const { snapshot, constraints, recentErrors, instruction, projectionMeta } = input;
 
     // Call your LLM here
     const response = await callLLM({
@@ -381,6 +558,18 @@ type AgentDecision = {
 };
 ```
 
+### AgentClientInput
+
+```typescript
+type AgentClientInput<S = unknown> = {
+  snapshot: S;
+  constraints: Constraints;
+  recentErrors?: PatchErrorState[];
+  instruction?: string;
+  projectionMeta?: ProjectionMetadata;  // Included when using projection
+};
+```
+
 ## Testing
 
 ### Mock Client
@@ -409,17 +598,15 @@ const client = createMockClient(decisions);
 ```typescript
 import { createFixedClient, generateEffectId } from '@manifesto-ai/agent';
 
-// Returns the same decision every time
-const client = createFixedClient({
-  effects: [
-    {
-      type: 'log.emit',
-      id: generateEffectId(),
-      level: 'info',
-      message: 'Hello',
-    },
-  ],
-});
+// Returns the same effects every time
+const client = createFixedClient([
+  {
+    type: 'log.emit',
+    id: generateEffectId(),
+    level: 'info',
+    message: 'Hello',
+  },
+]);
 ```
 
 ### Invariant Helpers
@@ -482,33 +669,13 @@ type Policy = {
 };
 ```
 
-### ManifestoCoreLike Interface
-
-If integrating with `@manifesto-ai/core`:
-
-```typescript
-interface ManifestoCoreLike<S> {
-  getSnapshot(): S;
-  applyPatch(ops: PatchOp[]): ApplyResult;
-  appendError(error: PatchErrorState): void;
-  getRecentErrors(limit?: number): PatchErrorState[];
-  clearErrors(): void;
-  appendObservation(obs: Observation): void;
-}
-```
-
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    @manifesto/loops-hsca                     │
-│          (HSCA phase rules + constraints compiler)           │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ uses
-┌─────────────────────────▼───────────────────────────────────┐
 │                     @manifesto-ai/agent                      │
 │   (LLM policy execution + Effect standardization +           │
-│                  Runtime enforcement)                        │
+│       Projection + Runtime enforcement)                      │
 └─────────────────────────┬───────────────────────────────────┘
                           │ uses
 ┌─────────────────────────▼───────────────────────────────────┐
@@ -522,20 +689,30 @@ interface ManifestoCoreLike<S> {
 
 ### Types
 
-- `Effect`, `ToolCallEffect`, `SnapshotPatchEffect`, `LogEmitEffect`
+- `Effect`, `ToolCallEffect`, `SnapshotPatchEffect`, `LogEmitEffect`, `HumanAskEffect`
 - `PatchOp`
 - `Constraints`, `TypeRule`, `Invariant`
 - `Policy`
-- `PatchErrorState`, `EffectErrorState`, `HandlerErrorState`
-- `AgentClient`, `AgentDecision`
+- `PatchErrorState`, `EffectErrorState`, `HandlerErrorState`, `ErrorState`
+- `AgentClient`, `AgentDecision`, `AgentClientInput`
 - `AgentSession`, `StepResult`, `RunResult`
+- `AgentRuntime`, `ApplyResult`, `DoneChecker`
 - `Observation`
 - `Tool`, `ToolRegistry`
+- `ProjectedSnapshot`, `ProjectionMetadata`, `ProjectionResult`
+- `CompressionStrategy`, `ProjectionProviderConfig`, `ProjectionProvider`
 
 ### Session
 
 - `createAgentSession(options)` - Create a full session
 - `createSimpleSession(options)` - Create a simple session for testing
+- `createAgentRuntime(options)` - Create AgentRuntime from DomainRuntime
+
+### Projection
+
+- `createSimpleProjectionProvider(options)` - Path-based projection
+- `createIdentityProjectionProvider(config?)` - No projection (passthrough)
+- `createDynamicProjectionProvider(options)` - Dynamic path resolution
 
 ### Validation
 
@@ -565,7 +742,16 @@ interface ManifestoCoreLike<S> {
 - `generateObservationId()` - Generate unique observation ID
 - `createDefaultConstraints(phase?)` - Create default constraints
 - `createMockClient(decisions)` - Create mock client for testing
-- `createFixedClient(decision)` - Create fixed-response client
+- `createFixedClient(effects)` - Create fixed-response client
+- `defaultDoneChecker()` - Always returns not done
+- `phaseDoneChecker(targetPhase)` - Done when phase matches
+
+### Invariant Helpers
+
+- `requiredFieldInvariant(path)` - Field must exist
+- `rangeInvariant(path, min, max)` - Number in range
+- `arrayLengthInvariant(path, min, max)` - Array length constraint
+- `customInvariant(id, message, predicate)` - Custom validation
 
 ## License
 
@@ -578,4 +764,3 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 ## Related Packages
 
 - [@manifesto-ai/core](../core) - Core snapshot management
-- [@manifesto-ai/loops-hsca](../loops-hsca) - HSCA loop implementation

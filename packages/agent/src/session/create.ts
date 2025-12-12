@@ -10,10 +10,32 @@ import type { Constraints } from '../types/constraints.js';
 import type { Policy } from '../types/policy.js';
 import type { AgentRuntime, AgentSession, StepResult, RunResult, DoneChecker } from '../types/session.js';
 import type { EffectHandlerRegistry, ToolRegistry } from '../handlers/registry.js';
+import type {
+  ProjectionProvider,
+  CompressionStrategy,
+} from '../projection/types.js';
 import { createDefaultPolicy } from '../types/policy.js';
 import { createDefaultConstraints } from '../types/constraints.js';
 import { createToolRegistry, createDefaultHandlerRegistry } from '../handlers/index.js';
+import { createSimpleProjectionProvider } from '../projection/provider.js';
 import { executeStep, executeRun, type ExecutorContext } from './executor.js';
+
+/**
+ * Projection 설정 옵션
+ * projectionProvider 대신 간단한 설정으로 projection 사용
+ */
+export type ProjectionConfig = {
+  /** 투영할 경로 목록 */
+  paths: string[];
+  /** 토큰 예산 (기본: 4000) */
+  tokenBudget?: number;
+  /** 압축 전략 (기본: 'truncate') */
+  compressionStrategy?: CompressionStrategy;
+  /** 항상 포함할 경로 */
+  requiredPaths?: string[];
+  /** 항상 제외할 경로 */
+  excludePaths?: string[];
+};
 
 /**
  * Session 생성 옵션
@@ -35,6 +57,17 @@ export type CreateAgentSessionOptions<S = unknown> = {
   instruction?: string;
   /** 완료 조건 체커 */
   isDone?: DoneChecker<S>;
+  /**
+   * Projection Provider (v0.1.x)
+   * LLM에게 전달할 스냅샷을 투영하는 제공자
+   */
+  projectionProvider?: ProjectionProvider<S>;
+  /**
+   * Projection 설정 (v0.1.x)
+   * projectionProvider 대신 간단한 설정으로 projection 사용
+   * projectionProvider가 제공되면 무시됨
+   */
+  projection?: ProjectionConfig;
 };
 
 /**
@@ -77,6 +110,8 @@ export function createAgentSession<S = unknown>(
     compileConstraints: compileConstraintsInput,
     instruction,
     isDone,
+    projectionProvider: projectionProviderInput,
+    projection,
   } = opts;
 
   // Policy 병합
@@ -96,6 +131,21 @@ export function createAgentSession<S = unknown>(
   // Constraints 컴파일러 (기본: 단순 기본값)
   const compileConstraints = compileConstraintsInput ?? (() => createDefaultConstraints());
 
+  // Projection Provider 설정
+  // projectionProvider가 직접 제공되면 사용, 아니면 projection 설정으로 생성
+  let projectionProvider: ProjectionProvider<S> | undefined = projectionProviderInput;
+  if (!projectionProvider && projection) {
+    projectionProvider = createSimpleProjectionProvider<S>({
+      paths: projection.paths,
+      config: {
+        tokenBudget: projection.tokenBudget,
+        compressionStrategy: projection.compressionStrategy,
+        requiredPaths: projection.requiredPaths,
+        excludePaths: projection.excludePaths,
+      },
+    });
+  }
+
   // Executor 컨텍스트
   const ctx: ExecutorContext<S> = {
     runtime,
@@ -105,6 +155,7 @@ export function createAgentSession<S = unknown>(
     tools,
     compileConstraints,
     instruction,
+    projectionProvider,
   };
 
   return {
