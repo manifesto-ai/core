@@ -1,0 +1,91 @@
+name: Publish to npm
+
+on:
+  # Manual trigger with package selection
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish'
+        required: true
+        type: choice
+        options:
+          - agent
+          - core
+          - bridge
+          - bridge-react-hook-form
+          - bridge-zustand
+          - projection-agent
+          - projection-graphql
+          - projection-ui
+          - react-migrate
+      dry_run:
+        description: 'Dry run (skip actual publish)'
+        required: false
+        type: boolean
+        default: false
+
+  # Auto publish on version tags (e.g., @manifesto-ai/agent@0.1.0)
+  push:
+    tags:
+      - '@manifesto-ai/*@*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Determine package to publish
+        id: package
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PACKAGE="${{ github.event.inputs.package }}"
+          else
+            # Extract package name from tag (e.g., @manifesto-ai/agent@0.1.0 -> agent)
+            TAG="${{ github.ref_name }}"
+            PACKAGE=$(echo "$TAG" | sed 's/@manifesto-ai\///' | sed 's/@.*//')
+          fi
+          echo "package=$PACKAGE" >> $GITHUB_OUTPUT
+          echo "Publishing package: $PACKAGE"
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Publish to npm
+        working-directory: packages/${{ steps.package.outputs.package }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "Dry run - would publish:"
+            pnpm publish --dry-run --no-git-checks
+          else
+            pnpm publish --no-git-checks --provenance
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
