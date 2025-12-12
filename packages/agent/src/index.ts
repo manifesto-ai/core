@@ -98,6 +98,8 @@ export type {
   RunResult,
   AgentSession,
   ApplyResult,
+  AgentRuntime,
+  /** @deprecated Use AgentRuntime instead */
   ManifestoCoreLike,
   DoneChecker,
 } from './types/index.js';
@@ -223,6 +225,8 @@ export type {
   EffectValidationResult,
   CreateAgentSessionOptions,
   SimpleSessionOptions,
+  DomainRuntimeLike,
+  CreateAgentRuntimeOptions,
 } from './session/index.js';
 
 export {
@@ -232,4 +236,5 @@ export {
   validateAgentDecision,
   createAgentSession,
   createSimpleSession,
+  createAgentRuntime,
 } from './session/index.js';

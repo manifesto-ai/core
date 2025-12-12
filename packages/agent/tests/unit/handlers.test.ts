@@ -17,11 +17,11 @@ import { createSnapshotPatchHandler } from '../../src/handlers/patch.js';
 import { createLogEmitHandler, createLogCollector } from '../../src/handlers/log.js';
 import { createDefaultConstraints } from '../../src/types/constraints.js';
 import { generateEffectId } from '../../src/types/effect.js';
-import type { ManifestoCoreLike } from '../../src/types/session.js';
+import type { AgentRuntime } from '../../src/types/session.js';
 
 describe('Effect Handlers', () => {
-  // Mock ManifestoCoreLike
-  function createMockCore<S>(initialSnapshot: S): ManifestoCoreLike<S> & {
+  // Mock AgentRuntime
+  function createMockRuntime<S>(initialSnapshot: S): AgentRuntime<S> & {
     errors: unknown[];
     observations: unknown[];
   } {
@@ -112,7 +112,7 @@ describe('Effect Handlers', () => {
         level: 'info',
         message: 'Test',
       };
-      const ctx = { core: {}, constraints: {}, tools: {} } as any;
+      const ctx = { runtime: {}, constraints: {}, tools: {} } as any;
 
       await registry.handle(effect as any, ctx);
 
@@ -158,12 +158,12 @@ describe('Effect Handlers', () => {
   });
 
   describe('createToolCallHandler', () => {
-    let core: ReturnType<typeof createMockCore>;
+    let runtime: ReturnType<typeof createMockRuntime>;
     let tools: ToolRegistry;
     let ctx: HandlerContext;
 
     beforeEach(() => {
-      core = createMockCore({ data: {}, state: {}, derived: {} });
+      runtime = createMockRuntime({ data: {}, state: {}, derived: {} });
       tools = createToolRegistry([
         defineTool('echo', 'Echo input', async (input: any) => ({ echo: input })),
         defineTool('fail', 'Always fails', async () => {
@@ -171,7 +171,7 @@ describe('Effect Handlers', () => {
         }),
       ]);
       ctx = {
-        core,
+        runtime,
         constraints: createDefaultConstraints(),
         tools,
       };
@@ -190,10 +190,10 @@ describe('Effect Handlers', () => {
         ctx
       );
 
-      expect(core.observations).toHaveLength(1);
-      expect((core.observations[0] as any).source).toBe('tool:echo');
-      expect((core.observations[0] as any).content).toEqual({ echo: { message: 'hello' } });
-      expect((core.observations[0] as any).triggeredBy).toBe('eff_1');
+      expect(runtime.observations).toHaveLength(1);
+      expect((runtime.observations[0] as any).source).toBe('tool:echo');
+      expect((runtime.observations[0] as any).content).toEqual({ echo: { message: 'hello' } });
+      expect((runtime.observations[0] as any).triggeredBy).toBe('eff_1');
     });
 
     it('should throw on unknown tool', async () => {
@@ -230,13 +230,13 @@ describe('Effect Handlers', () => {
   });
 
   describe('createSnapshotPatchHandler', () => {
-    let core: ReturnType<typeof createMockCore>;
+    let runtime: ReturnType<typeof createMockRuntime>;
     let ctx: HandlerContext;
 
     beforeEach(() => {
-      core = createMockCore({ data: { items: [] }, state: {}, derived: {} });
+      runtime = createMockRuntime({ data: { items: [] }, state: {}, derived: {} });
       ctx = {
-        core,
+        runtime,
         constraints: createDefaultConstraints(),
         tools: createToolRegistry([]),
       };
@@ -254,7 +254,7 @@ describe('Effect Handlers', () => {
         ctx
       );
 
-      expect((core.getSnapshot() as any).data.name).toBe('test');
+      expect((runtime.getSnapshot() as any).data.name).toBe('test');
     });
 
     it('should reject derived path writes', async () => {
@@ -271,7 +271,7 @@ describe('Effect Handlers', () => {
         )
       ).rejects.toThrow();
 
-      expect(core.errors.length).toBeGreaterThan(0);
+      expect(runtime.errors.length).toBeGreaterThan(0);
     });
 
     it('should apply multiple ops in order', async () => {
@@ -289,7 +289,7 @@ describe('Effect Handlers', () => {
         ctx
       );
 
-      const snapshot = core.getSnapshot() as any;
+      const snapshot = runtime.getSnapshot() as any;
       expect(snapshot.data.a).toBe(1);
       expect(snapshot.data.b).toBe(2);
     });

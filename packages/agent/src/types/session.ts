@@ -64,12 +64,15 @@ export type ApplyResult<S> =
   | { ok: false; error: PatchErrorState };
 
 /**
- * ManifestoCoreLike - Core 최소 인터페이스
+ * AgentRuntime - Agent 실행을 위한 Runtime 인터페이스
  *
- * @manifesto/core와의 느슨한 결합을 위한 인터페이스.
- * agent는 core를 사용만 하고, core semantics를 복제/재정의하지 않음.
+ * @manifesto-ai/core의 DomainRuntime을 래핑하여 Agent 실행에 필요한
+ * 추가 기능(에러 상태, observations)을 제공하는 어댑터 인터페이스.
+ *
+ * Note: DomainRuntime과 직접 호환되지 않음.
+ * createAgentRuntime() 어댑터를 사용하여 DomainRuntime을 래핑해야 함.
  */
-export interface ManifestoCoreLike<S> {
+export interface AgentRuntime<S> {
   /**
    * 현재 스냅샷 조회
    */
@@ -104,6 +107,12 @@ export interface ManifestoCoreLike<S> {
    */
   appendObservation(obs: Observation): void;
 }
+
+/**
+ * @deprecated Use AgentRuntime instead
+ * ManifestoCoreLike는 AgentRuntime으로 이름이 변경되었습니다.
+ */
+export type ManifestoCoreLike<S> = AgentRuntime<S>;
 
 /**
  * Session 생성 완료 여부 판정자

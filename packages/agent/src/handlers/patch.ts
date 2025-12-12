@@ -23,7 +23,7 @@ export function createSnapshotPatchHandler<S = unknown>(): EffectHandler<Snapsho
       const { ops, id: effectId } = effect;
 
       // 1. 현재 스냅샷 조회
-      const currentSnapshot = ctx.core.getSnapshot();
+      const currentSnapshot = ctx.runtime.getSnapshot();
 
       // 2. Pre-patch 검증 (ACL, bounds, type)
       const validationResult = validatePatchOps(
@@ -35,16 +35,16 @@ export function createSnapshotPatchHandler<S = unknown>(): EffectHandler<Snapsho
 
       if (!validationResult.ok) {
         // 검증 실패: 에러 기록 후 종료
-        ctx.core.appendError(validationResult.error);
+        ctx.runtime.appendError(validationResult.error);
         throw new PatchValidationError(validationResult.error);
       }
 
       // 3. Patch 적용
-      const applyResult = ctx.core.applyPatch(ops);
+      const applyResult = ctx.runtime.applyPatch(ops);
 
       if (!applyResult.ok) {
         // 적용 실패: 에러 기록 후 종료
-        ctx.core.appendError(applyResult.error);
+        ctx.runtime.appendError(applyResult.error);
         throw new PatchValidationError(applyResult.error);
       }
 
@@ -89,7 +89,7 @@ export async function applyPatch<S>(
   const { ops, id: effectId } = effect;
 
   // 현재 스냅샷 조회
-  const currentSnapshot = ctx.core.getSnapshot();
+  const currentSnapshot = ctx.runtime.getSnapshot();
 
   // Pre-patch 검증
   const validationResult = validatePatchOps(
@@ -100,7 +100,7 @@ export async function applyPatch<S>(
   );
 
   if (!validationResult.ok) {
-    ctx.core.appendError(validationResult.error);
+    ctx.runtime.appendError(validationResult.error);
     return {
       success: false,
       appliedOps: 0,
@@ -109,10 +109,10 @@ export async function applyPatch<S>(
   }
 
   // Patch 적용
-  const applyResult = ctx.core.applyPatch(ops);
+  const applyResult = ctx.runtime.applyPatch(ops);
 
   if (!applyResult.ok) {
-    ctx.core.appendError(applyResult.error);
+    ctx.runtime.appendError(applyResult.error);
     return {
       success: false,
       appliedOps: 0,

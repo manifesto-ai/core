@@ -15,3 +15,7 @@ export { validateEffectStructure, validateAgentDecision } from './validate-effec
 // Session factory
 export type { CreateAgentSessionOptions, SimpleSessionOptions } from './create.js';
 export { createAgentSession, createSimpleSession } from './create.js';
+
+// Runtime adapter
+export type { DomainRuntimeLike, CreateAgentRuntimeOptions } from './adapter.js';
+export { createAgentRuntime } from './adapter.js';

@@ -11,7 +11,7 @@ import type { Effect } from '../types/effect.js';
 import type { AgentDecision, AgentClient } from '../types/client.js';
 import type { Constraints } from '../types/constraints.js';
 import type { Policy } from '../types/policy.js';
-import type { ManifestoCoreLike, StepResult } from '../types/session.js';
+import type { AgentRuntime, StepResult } from '../types/session.js';
 import type { ErrorState } from '../types/errors.js';
 import { createEffectError, createHandlerError } from '../types/errors.js';
 import type { EffectHandlerRegistry, HandlerContext, ToolRegistry } from '../handlers/registry.js';
@@ -21,8 +21,8 @@ import { validateEffectStructure } from './validate-effect.js';
  * Executor 컨텍스트
  */
 export type ExecutorContext<S = unknown> = {
-  /** ManifestoCore 인터페이스 */
-  core: ManifestoCoreLike<S>;
+  /** AgentRuntime 인터페이스 */
+  runtime: AgentRuntime<S>;
   /** AgentClient */
   client: AgentClient<S>;
   /** 실행 정책 */
@@ -44,16 +44,16 @@ export type ExecutorContext<S = unknown> = {
  * @returns StepResult
  */
 export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResult> {
-  const { core, client, policy, handlers, tools, compileConstraints, instruction } = ctx;
+  const { runtime, client, policy, handlers, tools, compileConstraints, instruction } = ctx;
 
   // 1. 현재 스냅샷 조회
-  const snapshot = core.getSnapshot();
+  const snapshot = runtime.getSnapshot();
 
   // 2. Constraints 컴파일
   const constraints = compileConstraints(snapshot);
 
   // 3. 최근 에러 조회
-  const recentErrors = core.getRecentErrors(5);
+  const recentErrors = runtime.getRecentErrors(5);
 
   // 4. LLM 호출
   let decision: AgentDecision;
@@ -66,7 +66,7 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
     });
   } catch (err) {
     // LLM 호출 실패
-    core.appendError(createEffectError('llm_call', err instanceof Error ? err.message : String(err)));
+    runtime.appendError(createEffectError('llm_call', err instanceof Error ? err.message : String(err)));
     return {
       done: false,
       reason: 'LLM call failed',
@@ -93,11 +93,11 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
   let errorsEncountered = 0;
 
   // 이전 에러 클리어 (새 step 시작)
-  core.clearErrors();
+  runtime.clearErrors();
 
   // Handler 컨텍스트 준비
   const handlerCtx: HandlerContext<S> = {
-    core,
+    runtime,
     constraints,
     tools,
   };
@@ -106,7 +106,7 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
     // 6.1 Effect 구조 검증
     const validation = validateEffectStructure(effect);
     if (!validation.ok) {
-      core.appendError(createEffectError(
+      runtime.appendError(createEffectError(
         effect.id ?? 'unknown',
         validation.issue
       ));
@@ -119,7 +119,7 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
       await handlers.handle(effect, handlerCtx);
       effectsExecuted++;
     } catch (err) {
-      core.appendError(createHandlerError(
+      runtime.appendError(createHandlerError(
         effect.id,
         err instanceof Error ? err.message : String(err)
       ));
@@ -151,14 +151,14 @@ export async function executeRun<S>(
   totalSteps: number;
   totalEffects: number;
 }> {
-  const { core, policy } = ctx;
+  const { runtime, policy } = ctx;
   let totalSteps = 0;
   let totalEffects = 0;
 
   while (totalSteps < policy.maxSteps) {
     // 완료 조건 체크
     if (isDone) {
-      const snapshot = core.getSnapshot();
+      const snapshot = runtime.getSnapshot();
       const doneCheck = isDone(snapshot);
       if (doneCheck.done) {
         return {

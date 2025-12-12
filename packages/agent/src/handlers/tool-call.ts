@@ -32,7 +32,7 @@ export function createToolCallHandler<S = unknown>(): EffectHandler<ToolCallEffe
       // 2. 결과를 derived.observations에 push (Runtime 권한)
       // LLM은 절대 observations를 직접 수정할 수 없음
       const observation = createToolObservation(effect.tool, result, effect.id);
-      ctx.core.appendObservation(observation);
+      ctx.runtime.appendObservation(observation);
     },
   };
 }
@@ -78,7 +78,7 @@ export async function executeToolCall(
 
     // observations에 push
     const observation = createToolObservation(effect.tool, result, effect.id);
-    ctx.core.appendObservation(observation);
+    ctx.runtime.appendObservation(observation);
 
     return {
       tool: effect.tool,
@@ -98,7 +98,7 @@ export async function executeToolCall(
       },
       effect.id
     );
-    ctx.core.appendObservation(observation);
+    ctx.runtime.appendObservation(observation);
 
     return {
       tool: effect.tool,

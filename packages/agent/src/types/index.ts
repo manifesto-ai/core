@@ -83,6 +83,7 @@ export type {
   RunResult,
   AgentSession,
   ApplyResult,
+  AgentRuntime,
   ManifestoCoreLike,
   DoneChecker,
 } from './session.js';

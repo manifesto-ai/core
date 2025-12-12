@@ -8,7 +8,7 @@
 import type { AgentClient } from '../types/client.js';
 import type { Constraints } from '../types/constraints.js';
 import type { Policy } from '../types/policy.js';
-import type { ManifestoCoreLike, AgentSession, StepResult, RunResult, DoneChecker } from '../types/session.js';
+import type { AgentRuntime, AgentSession, StepResult, RunResult, DoneChecker } from '../types/session.js';
 import type { EffectHandlerRegistry, ToolRegistry } from '../handlers/registry.js';
 import { createDefaultPolicy } from '../types/policy.js';
 import { createDefaultConstraints } from '../types/constraints.js';
@@ -19,8 +19,8 @@ import { executeStep, executeRun, type ExecutorContext } from './executor.js';
  * Session 생성 옵션
  */
 export type CreateAgentSessionOptions<S = unknown> = {
-  /** ManifestoCore 인터페이스 */
-  core: ManifestoCoreLike<S>;
+  /** AgentRuntime 인터페이스 */
+  runtime: AgentRuntime<S>;
   /** AgentClient (LLM 어댑터) */
   client: AgentClient<S>;
   /** 실행 정책 */
@@ -46,7 +46,7 @@ export type CreateAgentSessionOptions<S = unknown> = {
  * @example
  * ```ts
  * const session = createAgentSession({
- *   core: myCore,
+ *   runtime: myRuntime,
  *   client: myLLMClient,
  *   policy: { maxSteps: 50 },
  *   tools: [searchTool, calculatorTool],
@@ -69,7 +69,7 @@ export function createAgentSession<S = unknown>(
   opts: CreateAgentSessionOptions<S>
 ): AgentSession {
   const {
-    core,
+    runtime,
     client,
     policy: policyOverride,
     handlers,
@@ -98,7 +98,7 @@ export function createAgentSession<S = unknown>(
 
   // Executor 컨텍스트
   const ctx: ExecutorContext<S> = {
-    core,
+    runtime,
     client,
     policy,
     handlers: effectHandlers,
@@ -155,8 +155,8 @@ export function createSimpleSession<S>(opts: SimpleSessionOptions<S>): {
   const errors: unknown[] = [];
   const observations: unknown[] = [];
 
-  // ManifestoCoreLike 구현
-  const core: ManifestoCoreLike<S> = {
+  // AgentRuntime 구현
+  const runtime: AgentRuntime<S> = {
     getSnapshot: () => snapshot,
 
     applyPatch: (ops) => {
@@ -211,7 +211,7 @@ export function createSimpleSession<S>(opts: SimpleSessionOptions<S>): {
   };
 
   const session = createAgentSession({
-    core,
+    runtime,
     client,
     policy,
     tools,

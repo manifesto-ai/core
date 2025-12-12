@@ -6,15 +6,15 @@
  */
 
 import type { Effect, ToolCallEffect, SnapshotPatchEffect, LogEmitEffect } from '../types/effect.js';
-import type { ManifestoCoreLike } from '../types/session.js';
+import type { AgentRuntime } from '../types/session.js';
 import type { Constraints } from '../types/constraints.js';
 
 /**
  * Handler 실행 컨텍스트
  */
 export type HandlerContext<S = unknown> = {
-  /** ManifestoCore 인터페이스 */
-  core: ManifestoCoreLike<S>;
+  /** AgentRuntime 인터페이스 */
+  runtime: AgentRuntime<S>;
   /** 현재 constraints */
   constraints: Constraints;
   /** Tool 레지스트리 */

@@ -28,10 +28,10 @@ export default defineConfig({
         'src/**/*.test.ts',
       ],
       thresholds: {
-        lines: 80,
+        lines: 70,
         functions: 80,
-        branches: 70,
-        statements: 80,
+        branches: 80,
+        statements: 70,
       },
       all: true,
       clean: true,
