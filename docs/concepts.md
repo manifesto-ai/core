@@ -88,20 +88,22 @@ const orderDomain = defineDomain('order', {
   }),
 
   // Optional: Computed values
+  // Keys are auto-prefixed: 'itemCount' becomes 'derived.itemCount'
   derived: {
-    'derived.itemCount': defineDerived(
+    itemCount: defineDerived(
       { $size: { $get: 'data.items' } },
       z.number()
     ),
-    'derived.subtotal': defineDerived(
+    subtotal: defineDerived(
       { $sum: { $map: ['data.items', { $multiply: ['$item.price', '$item.quantity'] }] } },
       z.number()
     )
   },
 
   // Optional: Async data sources
+  // Keys are auto-prefixed: 'shippingRates' becomes 'async.shippingRates'
   async: {
-    'async.shippingRates': defineAsync({
+    shippingRates: defineAsync({
       fetch: { method: 'GET', url: '/api/shipping-rates' },
       dependencies: ['data.items']
     }, z.array(z.object({ carrier: z.string(), price: z.number() })))

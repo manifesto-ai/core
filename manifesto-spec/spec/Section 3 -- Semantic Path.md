@@ -594,3 +594,34 @@ type PathDefinitions<TData = unknown, TState = unknown> = {
 | `sources` | Record | External input definitions |
 | `derived` | Record | Computed value definitions |
 | `async` | Record | Async operation definitions |
+
+### 3.11.1 Key Auto-Prefixing
+
+When defining paths, keys are automatically prefixed based on their container:
+
+| Container | Auto-Prefix | Example |
+|-----------|-------------|---------|
+| `sources` | `data.` | `items` → `data.items` |
+| `derived` | `derived.` | `total` → `derived.total` |
+| `async` | `async.` | `rates` → `async.rates` |
+
+Keys with existing correct prefixes are preserved for backward compatibility.
+
+**Example № 14** *Short-form keys with auto-prefixing*
+
+```typescript
+{
+  sources: {
+    items: { ... }           // Stored as 'data.items'
+  },
+  derived: {
+    total: { ... },          // Stored as 'derived.total'
+    'derived.legacy': { ... } // Preserved as 'derived.legacy'
+  },
+  async: {
+    rates: { ... }           // Stored as 'async.rates'
+  }
+}
+```
+
+**Note:** Auto-prefixing applies only to definition keys. All other path references (deps, expressions, effects, preconditions) **MUST** use full SemanticPaths.

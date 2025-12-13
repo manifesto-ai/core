@@ -109,6 +109,32 @@ Within array functions (`map`, `filter`, `reduce`), special path references are 
 ['reduce', ['get', 'data.values'], ['+', ['get', '$acc'], ['get', '$']], 0]
 ```
 
+### 5.4.3 IsBuiltInPath
+
+Built-in paths are system-provided references that begin with `$`. These paths are valid only within specific expression contexts (iteration, reduction) and **MUST NOT** be treated as domain-defined paths during validation.
+
+```
+IsBuiltInPath(path):
+1. Return path.startsWith('$').
+```
+
+**Behavior:**
+
+- Built-in paths **MUST NOT** be included in dependency validation (Section 6.4)
+- Built-in paths **MUST NOT** be registered in the DAG (Section 7.3)
+- Built-in paths are resolved by the evaluator context, not by snapshot lookup
+
+**Example № 3.1** *Built-in path detection*
+
+```typescript
+isBuiltInPath('$');           // true
+isBuiltInPath('$.price');     // true
+isBuiltInPath('$index');      // true
+isBuiltInPath('$acc');        // true
+isBuiltInPath('data.items');  // false
+isBuiltInPath('derived.total'); // false
+```
+
 ---
 
 ## 5.5 Comparison Operators

@@ -496,9 +496,17 @@ ManifestoDomain :
   meta? DomainMeta
 
 PathDefinitions :
-  sources Record<SemanticPath, SourceDefinition>
-  derived Record<SemanticPath, DerivedDefinition>
-  async Record<SemanticPath, AsyncDefinition>
+  sources Record<PathKey, SourceDefinition>
+  derived Record<PathKey, DerivedDefinition>
+  async Record<PathKey, AsyncDefinition>
+
+PathKey : Identifier | SemanticPath
+
+; Note: PathKey is auto-prefixed based on container:
+;   sources keys → 'data.' + key
+;   derived keys → 'derived.' + key
+;   async keys → 'async.' + key
+; Keys with existing correct prefix are preserved (backward compatible)
 
 SourceDefinition :
   schema ZodType

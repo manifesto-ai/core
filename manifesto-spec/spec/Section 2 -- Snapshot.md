@@ -6,9 +6,28 @@ A **DomainSnapshot** represents the complete state of a domain at a specific poi
 
 ---
 
+# Part A: Normative Requirements
+
+---
+
 ## 2.2 DomainSnapshot Type
 
-### 2.2.1 Type Definition
+### 2.2.1 Language-Neutral Definition
+
+A DomainSnapshot is a structured value containing six fields:
+
+| Field | Type | Writability | Description |
+|-------|------|-------------|-------------|
+| `data` | Domain-defined | Writable | User input and domain data conforming to the domain's data schema |
+| `state` | Domain-defined | Writable | System and UI state conforming to the domain's state schema |
+| `derived` | Mapping | Read-only | A mapping from SemanticPath to computed values |
+| `validity` | Mapping | Read-only | A mapping from SemanticPath to ValidationResult |
+| `timestamp` | Integer | System-managed | Milliseconds since Unix epoch (1970-01-01T00:00:00Z) |
+| `version` | Non-negative integer | System-managed | Modification counter, monotonically increasing |
+
+### 2.2.2 TypeScript Reference
+
+*The following type definition serves as a reference implementation in TypeScript. Implementations in other languages should provide equivalent semantics.*
 
 ```typescript
 type DomainSnapshot<TData = unknown, TState = unknown> = {
@@ -21,7 +40,7 @@ type DomainSnapshot<TData = unknown, TState = unknown> = {
 };
 ```
 
-### 2.2.2 Grammar
+### 2.2.3 Grammar
 
 ```
 DomainSnapshot :
@@ -32,32 +51,34 @@ DomainSnapshot :
   timestamp Timestamp
   version Version
 
-DataValue : unknown
+DataValue : domain-defined structured value
 
-StateValue : unknown
+StateValue : domain-defined structured value
 
-DerivedMap : Record<SemanticPath, unknown>
+DerivedMap : mapping from SemanticPath to any value
 
-ValidityMap : Record<SemanticPath, ValidationResult>
+ValidityMap : mapping from SemanticPath to ValidationResult
 
-Timestamp : number
+Timestamp : non-negative integer (milliseconds since epoch)
 
-Version : number
+Version : non-negative integer
 ```
 
 ---
 
-## 2.3 Field Semantics
+## 2.3 Semantic Guarantees
 
-### 2.3.1 data
+### 2.3.1 Field Semantics
+
+#### data
 
 The `data` field contains user input and domain data. Values in this namespace are **writable** through `SetValueEffect`.
 
 A conforming implementation **MUST**:
 
-- Store the `data` field as the first type parameter `TData`
-- Preserve the structure defined by the domain's `dataSchema`
-- Support nested object and array access
+- Provide access to values via paths starting with `data.`
+- Preserve the shape and values as defined by the domain's `dataSchema`
+- Support hierarchical access via SemanticPath, including indexed collection access
 
 **Example № 1** *Data namespace structure*
 
@@ -82,14 +103,14 @@ type OrderData = {
 // data.couponCode
 ```
 
-### 2.3.2 state
+#### state
 
 The `state` field contains system and UI state. Values in this namespace are **writable** through `SetStateEffect`.
 
 A conforming implementation **MUST**:
 
-- Store the `state` field as the second type parameter `TState`
-- Preserve the structure defined by the domain's `stateSchema`
+- Provide access to values via paths starting with `state.`
+- Preserve the shape and values as defined by the domain's `stateSchema`
 - Support async operation state (loading, error, result)
 
 **Example № 2** *State namespace structure*
@@ -110,15 +131,15 @@ type OrderState = {
 // state.shippingOptions
 ```
 
-### 2.3.3 derived
+#### derived
 
 The `derived` field contains computed values. Values in this namespace are **read-only** and computed automatically by the runtime.
 
 A conforming implementation **MUST**:
 
-- Store derived values as a `Record<SemanticPath, unknown>`
+- Provide access to values via paths starting with `derived.` or by direct key lookup
 - Recompute derived values when their dependencies change
-- **MUST NOT** allow direct writes to derived paths
+- **MUST NOT** allow external writes to derived paths
 
 **Example № 3** *Derived namespace structure*
 
@@ -130,9 +151,9 @@ A conforming implementation **MUST**:
 // derived.isValid - form validation status
 ```
 
-> **Note:** Attempting to write to a derived path **MUST** result in a validation error.
+> **Note:** Attempting to write to a derived path from external code **MUST** result in a validation error.
 
-### 2.3.4 validity
+#### validity
 
 The `validity` field contains validation results for paths. This namespace is **read-only** and populated by the validation system.
 
@@ -154,59 +175,152 @@ type ValidationIssue = {
 };
 ```
 
-### 2.3.5 timestamp
+### 2.3.2 Namespace Access Control
 
-The `timestamp` field records when the snapshot was created or last modified.
+A conforming implementation **MUST** enforce the following access rules:
 
-A conforming implementation **MUST**:
+| Namespace | External Read | External Write | Runtime Write |
+|-----------|---------------|----------------|---------------|
+| `data` | Allowed | Via SetValueEffect | Allowed |
+| `state` | Allowed | Via SetStateEffect | Allowed |
+| `derived` | Allowed | **Prohibited** | Allowed (DAG propagation) |
+| `validity` | Allowed | **Prohibited** | Allowed (validation system) |
 
-- Set `timestamp` to the current time in milliseconds since Unix epoch
-- Update `timestamp` when creating new snapshots via modification
+### 2.3.3 Immutability Invariant
 
-### 2.3.6 version
+Snapshots **MUST** exhibit immutable behavior from the perspective of any code that holds a reference to a snapshot.
 
-The `version` field tracks the number of modifications to the snapshot.
+**Behavioral Requirements:**
 
-A conforming implementation **MUST**:
+A conforming implementation **MUST** ensure:
 
-- Initialize `version` to `0` for new snapshots
-- Increment `version` by `1` for each modification
-- **MUST NOT** decrement or reset `version`
+1. **Value Stability**: Once a snapshot is created and made observable, any subsequent read of its fields **MUST** return values structurally equivalent to the original values.
+
+2. **Isolation**: A modification operation (such as SetValueByPath) **MUST** return a new snapshot such that:
+   - The original snapshot remains observationally unchanged
+   - Modifications to the new snapshot **MUST NOT** affect the original
+   - Modifications to the original snapshot (if somehow possible) **MUST NOT** affect the new snapshot
+
+3. **Identity Distinction**: The new snapshot **MUST** be distinguishable from the original (i.e., they **MUST NOT** be the same reference).
+
+**Implementation Freedom:**
+
+Implementations **MAY** use any technique that satisfies these behavioral requirements, including but not limited to:
+
+- Eager deep copying
+- Structural sharing (copy-on-write)
+- Persistent data structures
+- Immutable data structure libraries
+- Lazy cloning with copy-on-write semantics
+
+> **Note:** See Appendix 2.B for implementation strategies.
+
+### 2.3.4 Version Semantics
+
+The `version` field provides a monotonically increasing counter for snapshot lineage.
+
+**Invariants:**
+
+1. **Initial Value**: `version` **MUST** equal `0` for snapshots created via CreateSnapshot.
+
+2. **Monotonic Increase**: For any snapshot `S'` derived from `S` via a modification operation:
+   - `S'.version` **MUST** be greater than `S.version`
+   - `S'.version` **MUST** equal `S.version + 1`
+
+3. **Non-Decreasing**: There **MUST NOT** exist any operation that decreases `version`.
+
+4. **No Reset**: There **MUST NOT** exist any operation that resets `version` to a previous value within the same domain lineage.
+
+**Rationale:** Version monotonicity enables optimistic concurrency control, change detection, and causal ordering of modifications.
+
+### 2.3.5 Timestamp Semantics
+
+The `timestamp` field records the wall-clock time of snapshot creation or modification.
+
+**Invariants:**
+
+1. **Unit**: Timestamp **MUST** be expressed in milliseconds since Unix epoch (1970-01-01T00:00:00Z).
+
+2. **Non-Decreasing**: For any snapshot `S'` derived from `S`:
+   - `S'.timestamp` **MUST** be greater than or equal to `S.timestamp`
+
+3. **Currency**: The timestamp **SHOULD** reflect the actual time of the modification operation.
+
+**Implementation Note:** Due to clock skew and resolution limitations, implementations **MAY** observe `S'.timestamp === S.timestamp` for rapid successive modifications.
+
+### 2.3.6 Copy-on-Write Semantics
+
+To clarify the relationship between snapshot immutability (Section 2.3.3) and modification operations:
+
+**Behavioral Model:**
+
+Snapshot immutability is achieved via **copy-on-write** semantics:
+
+1. **All mutation operations return NEW snapshots**: Operations like `SetValueByPath` **MUST** return a new snapshot instance rather than modifying the input snapshot.
+
+2. **Internal propagation creates new snapshots**: When the DAG propagation system computes derived values, each intermediate state **MUST** be represented by a new snapshot (or an efficient equivalent such as structural sharing).
+
+3. **Original snapshots remain unchanged**: Any code holding a reference to a snapshot can rely on its values remaining stable.
+
+4. **Version comparison for identity**: Callers **MUST NOT** assume snapshot reference identity. Use `version` comparison to detect changes.
+
+**Example № 8.1** *Copy-on-write behavior*
+
+```typescript
+const s0 = createSnapshot({ count: 0 }, {});
+const s1 = setValueByPath(s0, 'data.count', 1);
+
+// s0 is unchanged
+s0.data.count;  // 0
+s0.version;     // 0
+
+// s1 is a new snapshot
+s1.data.count;  // 1
+s1.version;     // 1
+
+// Reference identity differs
+s0 === s1;      // false
+```
+
+**Propagation Context:**
+
+During DAG propagation (Section 7.5), the runtime internally creates a sequence of snapshots:
+
+```
+S0 (input) → S1 (derived.a computed) → S2 (derived.b computed) → S3 (final)
+```
+
+Each step produces a new snapshot. The runtime **MAY** optimize this via structural sharing, but **MUST** ensure the final snapshot returned to callers satisfies all immutability guarantees.
 
 ---
 
-## 2.4 Immutability Invariant
+## 2.4 Observable Behaviors
 
-Snapshots **MUST** be treated as immutable. Modifications create new snapshot instances.
+This section defines the observable behaviors that constitute the snapshot API. Each operation is specified in terms of its inputs, outputs, and post-conditions.
 
-A conforming implementation **MUST**:
-
-1. Never mutate an existing snapshot in place
-2. Create a new snapshot object for each modification
-3. Deep clone `data` and `state` when creating modified snapshots
-4. Shallow copy `derived` and `validity` maps
-
-> **Note:** The shallow copy for `derived` and `validity` is acceptable because the runtime manages these values and can efficiently recompute them.
-
----
-
-## 2.5 Snapshot Operations
-
-### 2.5.1 CreateSnapshot
+### 2.4.1 CreateSnapshot
 
 Creates a new snapshot with initial data and state.
 
+**Signature:**
+
 ```
-CreateSnapshot(initialData, initialState):
-1. Let {snapshot} be a new DomainSnapshot object.
-2. Set {snapshot}.data to {initialData}.
-3. Set {snapshot}.state to {initialState}.
-4. Set {snapshot}.derived to an empty Record.
-5. Set {snapshot}.validity to an empty Record.
-6. Set {snapshot}.timestamp to the current time in milliseconds.
-7. Set {snapshot}.version to 0.
-8. Return {snapshot}.
+CreateSnapshot(initialData, initialState) -> DomainSnapshot
 ```
+
+**Behavioral Contract:**
+
+Given `snapshot = CreateSnapshot(initialData, initialState)`:
+
+1. **Field Initialization**:
+   - `snapshot.data` **MUST** be structurally equivalent to `initialData`
+   - `snapshot.state` **MUST** be structurally equivalent to `initialState`
+   - `snapshot.derived` **MUST** be an empty mapping
+   - `snapshot.validity` **MUST** be an empty mapping
+
+2. **Metadata Initialization**:
+   - `snapshot.version` **MUST** equal `0`
+   - `snapshot.timestamp` **MUST** be the current time in milliseconds since Unix epoch
 
 **Example № 4** *Creating a snapshot*
 
@@ -227,44 +341,29 @@ const snapshot = createSnapshot(
 // }
 ```
 
-### 2.5.2 CloneSnapshot
-
-Creates an immutable copy of a snapshot.
-
-```
-CloneSnapshot(snapshot):
-1. Let {clone} be a new DomainSnapshot object.
-2. Set {clone}.data to a deep clone of {snapshot}.data.
-3. Set {clone}.state to a deep clone of {snapshot}.state.
-4. Set {clone}.derived to a shallow copy of {snapshot}.derived.
-5. Set {clone}.validity to a shallow copy of {snapshot}.validity.
-6. Set {clone}.timestamp to {snapshot}.timestamp.
-7. Set {clone}.version to {snapshot}.version.
-8. Return {clone}.
-```
-
-### 2.5.3 GetValueByPath
+### 2.4.2 GetValueByPath
 
 Retrieves a value from a snapshot using a semantic path.
 
+**Signature:**
+
 ```
-GetValueByPath(snapshot, path):
-1. If {path} starts with "data.":
-   a. Let {subPath} be {path} with "data." prefix removed.
-   b. Return GetNestedValue({snapshot}.data, {subPath}).
-2. If {path} starts with "state.":
-   a. Let {subPath} be {path} with "state." prefix removed.
-   b. Return GetNestedValue({snapshot}.state, {subPath}).
-3. If {path} starts with "derived.":
-   a. Let {subPath} be {path} with "derived." prefix removed.
-   b. If {subPath} exists in {snapshot}.derived:
-      i. Return {snapshot}.derived[{subPath}].
-   c. If {path} exists in {snapshot}.derived:
-      i. Return {snapshot}.derived[{path}].
-4. If {path} exists in {snapshot}.derived:
-   a. Return {snapshot}.derived[{path}].
-5. Return undefined.
+GetValueByPath(snapshot, path) -> value | undefined
 ```
+
+**Behavioral Contract:**
+
+1. **Namespace Routing**: The path **MUST** be resolved according to its namespace prefix:
+   - Paths starting with `data.` resolve against `snapshot.data`
+   - Paths starting with `state.` resolve against `snapshot.state`
+   - Paths starting with `derived.` resolve against `snapshot.derived`
+   - Other paths **SHOULD** be checked against `snapshot.derived`
+
+2. **Path Traversal**: The implementation **MUST** traverse nested structures according to SemanticPath semantics (Section 3).
+
+3. **Missing Values**: If the path cannot be resolved, the function **MUST** return an absent value (e.g., `undefined` in JavaScript, `None` in Python, `nil` in other languages).
+
+4. **Determinism**: Given identical inputs, the function **MUST** return identical outputs.
 
 **Example № 5** *Getting values by path*
 
@@ -280,51 +379,89 @@ getValueByPath(snapshot, 'state.loading');   // false
 getValueByPath(snapshot, 'data.missing');    // undefined
 ```
 
-### 2.5.4 SetValueByPath
+### 2.4.3 SetValueByPath
 
 Creates a new snapshot with a value set at the specified path.
 
+**Signature:**
+
 ```
-SetValueByPath(snapshot, path, value):
-1. Let {newSnapshot} be CloneSnapshot({snapshot}).
-2. Increment {newSnapshot}.version by 1.
-3. Set {newSnapshot}.timestamp to the current time in milliseconds.
-4. If {path} starts with "data.":
-   a. Let {subPath} be {path} with "data." prefix removed.
-   b. Set {newSnapshot}.data to SetNestedValue({newSnapshot}.data, {subPath}, {value}).
-   c. Return {newSnapshot}.
-5. If {path} starts with "state.":
-   a. Let {subPath} be {path} with "state." prefix removed.
-   b. Set {newSnapshot}.state to SetNestedValue({newSnapshot}.state, {subPath}, {value}).
-   c. Return {newSnapshot}.
-6. If {path} starts with "derived.":
-   a. Let {subPath} be {path} with "derived." prefix removed.
-   b. Set {newSnapshot}.derived[{subPath}] to {value}.
-   c. Return {newSnapshot}.
-7. Set {newSnapshot}.derived[{path}] to {value}.
-8. Return {newSnapshot}.
+SetValueByPath(snapshot, path, value) -> DomainSnapshot
 ```
 
-> **Note:** While this algorithm allows setting derived values, the runtime **SHOULD** prevent external writes to derived paths. The algorithm supports derived writes for internal DAG propagation.
+**Behavioral Contract:**
 
-### 2.5.5 DiffSnapshots
+Given `result = SetValueByPath(snapshot, path, value)`:
+
+1. **New Snapshot**: `result` **MUST** be a new snapshot distinct from `snapshot`.
+
+2. **Value Set**: `GetValueByPath(result, path)` **MUST** be structurally equivalent to `value`.
+
+3. **Version Increment**: `result.version` **MUST** equal `snapshot.version + 1`.
+
+4. **Timestamp Update**: `result.timestamp` **MUST** be greater than or equal to `snapshot.timestamp`.
+
+5. **Unmodified Paths**: For all paths `p` where `p` is neither `path` nor a sub-path or parent-path of `path`:
+   - `GetValueByPath(result, p)` **MUST** be structurally equivalent to `GetValueByPath(snapshot, p)`
+
+6. **Original Unchanged**: The input `snapshot` **MUST** remain observationally unchanged (per Section 2.3.3).
+
+> **Note:** While this specification allows setting derived values for internal DAG propagation, external writes to derived paths **SHOULD** be prevented by the runtime.
+
+### 2.4.4 CloneSnapshot
+
+Creates a snapshot that is an independent copy of the input snapshot.
+
+**Signature:**
+
+```
+CloneSnapshot(snapshot) -> DomainSnapshot
+```
+
+**Behavioral Contract:**
+
+Given `clone = CloneSnapshot(snapshot)`:
+
+1. **Value Equivalence**: For all valid paths `p`:
+   - `GetValueByPath(clone, p)` **MUST** be structurally equivalent to `GetValueByPath(snapshot, p)`
+
+2. **Metadata Preservation**:
+   - `clone.timestamp` **MUST** equal `snapshot.timestamp`
+   - `clone.version` **MUST** equal `snapshot.version`
+
+3. **Independence**: Subsequent modifications to `clone` via SetValueByPath **MUST NOT** affect `snapshot`, and vice versa.
+
+4. **Identity Distinction**: `clone` **MUST NOT** be the same reference as `snapshot`.
+
+**Implementation Notes:**
+
+Implementations **MAY** achieve this contract through:
+- Eager deep cloning
+- Lazy cloning with copy-on-write
+- Structural sharing where unmodified subtrees share references
+- Any other technique preserving the behavioral contract
+
+> **Reference Implementation:** See Appendix 2.A.1 for a sample implementation.
+
+### 2.4.5 DiffSnapshots
 
 Computes the paths that changed between two snapshots.
 
+**Signature:**
+
 ```
-DiffSnapshots(oldSnapshot, newSnapshot):
-1. Let {changedPaths} be an empty array.
-2. Let {dataChanges} be DiffObjects({oldSnapshot}.data, {newSnapshot}.data, "data").
-3. Append all {dataChanges} to {changedPaths}.
-4. Let {stateChanges} be DiffObjects({oldSnapshot}.state, {newSnapshot}.state, "state").
-5. Append all {stateChanges} to {changedPaths}.
-6. Let {allDerivedKeys} be the union of keys from {oldSnapshot}.derived and {newSnapshot}.derived.
-7. For each {key} in {allDerivedKeys}:
-   a. If DeepEqual({oldSnapshot}.derived[{key}], {newSnapshot}.derived[{key}]) is false:
-      i. Let {path} be {key} if it starts with "derived.", otherwise "derived." + {key}.
-      ii. Append {path} to {changedPaths}.
-8. Return {changedPaths}.
+DiffSnapshots(oldSnapshot, newSnapshot) -> SemanticPath[]
 ```
+
+**Behavioral Contract:**
+
+1. **Completeness**: All paths where values differ **MUST** be included in the result.
+
+2. **Soundness**: All paths in the result **MUST** have structurally different values between the two snapshots.
+
+3. **Namespace Coverage**: The diff **MUST** consider `data`, `state`, and `derived` namespaces.
+
+4. **Structural Comparison**: Value comparison **MUST** use structural equality semantics.
 
 **Example № 6** *Computing snapshot diff*
 
@@ -338,52 +475,123 @@ diffSnapshots(oldSnapshot, newSnapshot);
 
 ---
 
-## 2.6 Helper Algorithms
+## 2.5 Serialization Requirements
 
-### 2.6.1 GetNestedValue
+### 2.5.1 JSON Serialization
 
-Retrieves a nested value from an object using a dot-separated path.
+Snapshots **MUST** be serializable to JSON. A conforming implementation:
 
-```
-GetNestedValue(obj, path):
-1. If {path} is empty, return {obj}.
-2. Let {parts} be ParsePath({path}).
-3. Let {current} be {obj}.
-4. For each {part} in {parts}:
-   a. If {current} is null or undefined, return undefined.
-   b. Set {current} to {current}[{part}].
-5. Return {current}.
-```
+- **MUST** serialize all primitive types (string, number, boolean, null)
+- **MUST** serialize indexed collections and mappings
+- **SHOULD** handle Date values by converting to ISO 8601 strings
+- **MAY** support custom serialization for other types
 
-### 2.6.2 SetNestedValue
+**Example № 7** *JSON serialization*
 
-Creates a new object with a value set at a nested path.
+```typescript
+const snapshot = createSnapshot(
+  { count: 42, name: 'test' },
+  { active: true }
+);
 
-```
-SetNestedValue(obj, path, value):
-1. If {path} is empty, return {value}.
-2. Let {parts} be ParsePath({path}).
-3. Let {result} be a deep clone of {obj}.
-4. Let {current} be {result}.
-5. For {i} from 0 to length({parts}) - 2:
-   a. Let {part} be {parts}[{i}].
-   b. If {current}[{part}] is undefined or null:
-      i. Set {current}[{part}] to an empty object.
-   c. Else:
-      i. Set {current}[{part}] to a deep clone of {current}[{part}].
-   d. Set {current} to {current}[{part}].
-6. Let {lastPart} be {parts}[length({parts}) - 1].
-7. Set {current}[{lastPart}] to {value}.
-8. Return {result}.
+const json = JSON.stringify(snapshot);
+// {
+//   "data": { "count": 42, "name": "test" },
+//   "state": { "active": true },
+//   "derived": {},
+//   "validity": {},
+//   "timestamp": 1702500000000,
+//   "version": 0
+// }
 ```
 
-### 2.6.3 ParsePath
+### 2.5.2 Deserialization
+
+When deserializing a snapshot:
+
+1. The `timestamp` **SHOULD** be preserved from the serialized form.
+2. The `version` **SHOULD** be preserved from the serialized form.
+3. The `derived` values **MAY** be recomputed from the DAG instead of being deserialized.
+
+---
+
+## 2.6 Conformance Levels
+
+### Level 1: Minimal Conformance
+
+A Level 1 implementation **MUST**:
+
+- Implement the DomainSnapshot structure with all six fields
+- Satisfy all **MUST** requirements in Section 2.3 (Semantic Guarantees)
+- Implement CreateSnapshot, GetValueByPath, and SetValueByPath per Section 2.4
+- Support JSON serialization per Section 2.5
+
+### Level 2: Standard Conformance
+
+A Level 2 implementation **MUST** satisfy Level 1 and additionally:
+
+- Implement CloneSnapshot per Section 2.4.4
+- Implement DiffSnapshots per Section 2.4.5
+- Support all SemanticPath syntax defined in Section 3
+
+### Level 3: Full Conformance
+
+A Level 3 implementation **MUST** satisfy Level 2 and additionally:
+
+- Provide builder functions for snapshot operations
+- Support validation results in the `validity` namespace
+- Implement thread-safe snapshot access (if applicable to the runtime environment)
+
+---
+
+# Part B: Non-Normative (Informative)
+
+---
+
+## Appendix 2.A Reference Implementations
+
+*This appendix is non-normative. It provides reference implementations for guidance. Implementations are free to use alternative techniques that achieve the same behavioral guarantees.*
+
+### 2.A.1 Snapshot Cloning
+
+The following algorithm provides one approach to cloning snapshot data using deep copying. Implementations **MAY** use structural sharing, persistent data structures, or other techniques.
+
+```
+CloneSnapshot(snapshot):
+1. Let {clone} be a new DomainSnapshot.
+2. Set {clone}.data to DeepClone({snapshot}.data).
+3. Set {clone}.state to DeepClone({snapshot}.state).
+4. Set {clone}.derived to ShallowCopy({snapshot}.derived).
+5. Set {clone}.validity to ShallowCopy({snapshot}.validity).
+6. Set {clone}.timestamp to {snapshot}.timestamp.
+7. Set {clone}.version to {snapshot}.version.
+8. Return {clone}.
+```
+
+> **Note:** The shallow copy for `derived` and `validity` is one valid approach because the runtime manages these values and can efficiently recompute them.
+
+### 2.A.2 Deep Clone
+
+```
+DeepClone(value):
+1. If {value} is null or not an object type, return {value}.
+2. If {value} is an indexed collection:
+   a. Return a new collection where each element is DeepClone of the original.
+3. If {value} is a mapping:
+   a. Let {result} be a new empty mapping.
+   b. For each key-value pair in {value}:
+      i. Set {result}[key] to DeepClone(value).
+   c. Return {result}.
+4. Return {value}.
+```
+
+### 2.A.3 Path Parsing
 
 Parses a path string into segments, supporting both dot notation and bracket notation.
 
 ```
 ParsePath(path):
-1. Let {parts} be an empty array.
+1. Let {parts} be an empty sequence.
 2. Let {current} be an empty string.
 3. Let {inBracket} be false.
 4. Let {bracketContent} be an empty string.
@@ -405,7 +613,7 @@ ParsePath(path):
 7. Return {parts}.
 ```
 
-**Example № 7** *Parsing paths*
+**Example № 8** *Parsing paths*
 
 ```typescript
 parsePath('user.name');           // ['user', 'name']
@@ -413,91 +621,233 @@ parsePath('items[0].price');      // ['items', '0', 'price']
 parsePath('data["complex.key"]'); // ['data', 'complex.key']
 ```
 
-### 2.6.4 DeepEqual
-
-Performs deep equality comparison between two values.
+### 2.A.4 Nested Value Access
 
 ```
-DeepEqual(a, b):
-1. If {a} === {b}, return true.
+GetNestedValue(obj, path):
+1. If {path} is empty, return {obj}.
+2. Let {parts} be ParsePath({path}).
+3. Let {current} be {obj}.
+4. For each {part} in {parts}:
+   a. If {current} is null or absent, return absent.
+   b. Set {current} to {current}[{part}].
+5. Return {current}.
+```
+
+### 2.A.5 Nested Value Setting
+
+```
+SetNestedValue(obj, path, value):
+1. If {path} is empty, return {value}.
+2. Let {parts} be ParsePath({path}).
+3. Let {result} be a clone of {obj}.
+4. Let {current} be {result}.
+5. For {i} from 0 to length({parts}) - 2:
+   a. Let {part} be {parts}[{i}].
+   b. If {current}[{part}] is absent:
+      i. Set {current}[{part}] to an empty mapping.
+   c. Else:
+      i. Set {current}[{part}] to a clone of {current}[{part}].
+   d. Set {current} to {current}[{part}].
+6. Let {lastPart} be {parts}[length({parts}) - 1].
+7. Set {current}[{lastPart}] to {value}.
+8. Return {result}.
+```
+
+### 2.A.6 Structural Equality
+
+```
+StructuralEqual(a, b):
+1. If {a} and {b} are the same reference, return true.
 2. If {a} is null or {b} is null, return {a} === {b}.
-3. If typeof {a} !== typeof {b}, return false.
-4. If typeof {a} !== 'object', return {a} === {b}.
-5. If IsArray({a}) and IsArray({b}):
-   a. If length({a}) !== length({b}), return false.
-   b. For {i} from 0 to length({a}) - 1:
-      i. If DeepEqual({a}[{i}], {b}[{i}]) is false, return false.
+3. If types of {a} and {b} differ, return false.
+4. If {a} is not a composite type, return {a} === {b}.
+5. If {a} and {b} are indexed collections:
+   a. If lengths differ, return false.
+   b. For each index {i}:
+      i. If StructuralEqual({a}[{i}], {b}[{i}]) is false, return false.
    c. Return true.
-6. If IsArray({a}) or IsArray({b}), return false.
-7. Let {aKeys} be the keys of {a}.
-8. Let {bKeys} be the keys of {b}.
-9. If length({aKeys}) !== length({bKeys}), return false.
-10. For each {key} in {aKeys}:
-    a. If DeepEqual({a}[{key}], {b}[{key}]) is false, return false.
-11. Return true.
+6. If {a} and {b} are mappings:
+   a. If key counts differ, return false.
+   b. For each key in {a}:
+      i. If StructuralEqual({a}[key], {b}[key]) is false, return false.
+   c. Return true.
+7. Return false.
 ```
 
 ---
 
-## 2.7 Serialization
+## Appendix 2.B Implementation Strategies
 
-### 2.7.1 JSON Serialization
+*This appendix is non-normative.*
 
-Snapshots **MUST** be serializable to JSON. A conforming implementation:
+### 2.B.1 Structural Sharing
 
-- **MUST** serialize all primitive types (string, number, boolean, null)
-- **MUST** serialize arrays and plain objects
-- **SHOULD** handle Date objects by converting to ISO 8601 strings
-- **MAY** support custom serialization for other types
-
-**Example № 8** *JSON serialization*
+Structural sharing allows efficient snapshot modification by sharing unmodified subtrees between snapshots.
 
 ```typescript
-const snapshot = createSnapshot(
-  { count: 42, name: 'test' },
-  { active: true }
-);
-
-const json = JSON.stringify(snapshot);
-// {
-//   "data": { "count": 42, "name": "test" },
-//   "state": { "active": true },
-//   "derived": {},
-//   "validity": {},
-//   "timestamp": 1702500000000,
-//   "version": 0
-// }
+// Conceptual example - only clone the modified path
+function setNestedValueWithSharing(obj, path, value) {
+  if (path.length === 0) return value;
+  const [head, ...tail] = path;
+  return {
+    ...obj,  // shallow copy - shares unmodified branches
+    [head]: setNestedValueWithSharing(obj[head], tail, value)
+  };
+}
 ```
 
-### 2.7.2 Deserialization
+**Trade-offs:**
 
-When deserializing a snapshot:
+- **Pro**: O(depth) memory per modification vs O(n) for deep clone
+- **Pro**: Enables efficient equality checks via reference equality for unchanged subtrees
+- **Con**: Requires careful handling of nested modifications
+- **Con**: May retain references to old data, affecting garbage collection
 
-1. The `timestamp` **SHOULD** be preserved from the serialized form
-2. The `version` **SHOULD** be preserved from the serialized form
-3. The `derived` values **MAY** be recomputed from the DAG
+### 2.B.2 Persistent Data Structures
+
+Libraries providing immutable/persistent data structures can be used:
+
+- **JavaScript/TypeScript**: Immutable.js, Immer
+- **Clojure**: Native persistent data structures
+- **Scala**: scala.collection.immutable
+- **Rust**: im-rs, rpds
+
+**Example with Immer:**
+
+```typescript
+import { produce } from 'immer';
+
+function setValueByPath(snapshot, path, value) {
+  return produce(snapshot, draft => {
+    setNested(draft, path, value);
+    draft.version++;
+    draft.timestamp = Date.now();
+  });
+}
+```
+
+### 2.B.3 Lazy Evaluation
+
+For large derived value maps, lazy evaluation can defer computation:
+
+```typescript
+// Conceptual - derived values computed on first access
+class LazyDerived {
+  private cache = new Map();
+
+  get(key) {
+    if (!this.cache.has(key)) {
+      this.cache.set(key, this.compute(key));
+    }
+    return this.cache.get(key);
+  }
+}
+```
+
+### 2.B.4 Thread Safety Considerations
+
+For concurrent environments:
+
+1. Snapshot immutability naturally supports concurrent reads without synchronization.
+2. Modification operations should be serialized or use atomic compare-and-swap.
+3. Consider read-copy-update (RCU) patterns for high-read workloads.
+4. Subscribers should receive consistent snapshots.
+
+### 2.B.5 Memory Optimization
+
+For memory-constrained environments:
+
+1. Limit snapshot history retention.
+2. Use weak references for derived value caches.
+3. Consider compression for serialized snapshots.
+4. Implement snapshot pooling for high-frequency modifications.
 
 ---
 
-## 2.8 Thread Safety
+## Appendix 2.C Test Vectors
 
-*Non-normative*
+*This appendix is normative for conformance testing.*
 
-While this specification does not mandate threading models, implementations **SHOULD** consider:
+### Test Vector 1: Modification Isolation
 
-1. Snapshot immutability naturally supports concurrent reads
-2. Modifications should be serialized or use compare-and-swap
-3. Subscribers should receive consistent snapshots
+**Given:**
 
----
+```json
+{
+  "data": { "count": 1 },
+  "state": {},
+  "derived": {},
+  "validity": {},
+  "timestamp": 1000,
+  "version": 0
+}
+```
 
-## 2.9 Memory Considerations
+**After** `SetValueByPath(snapshot, "data.count", 2)`:
 
-*Non-normative*
+| Assertion | Expected |
+|-----------|----------|
+| Original `snapshot.data.count` | `1` (unchanged) |
+| Original `snapshot.version` | `0` (unchanged) |
+| New `result.data.count` | `2` |
+| New `result.version` | `1` |
 
-For large applications:
+### Test Vector 2: Version Monotonicity
 
-1. Consider structural sharing between snapshot versions
-2. Limit the depth of nested objects
-3. Use pagination for large collections in `data`
-4. Clean up old snapshots to prevent memory leaks
+**Given** sequential modifications S0 -> S1 -> S2 -> S3:
+
+| Snapshot | Version |
+|----------|---------|
+| S0 (initial) | `0` |
+| S1 | `1` |
+| S2 | `2` |
+| S3 | `3` |
+
+Each version **MUST** increment by exactly 1.
+
+### Test Vector 3: Clone Independence
+
+**Given:**
+
+```
+S0 = CreateSnapshot({ x: 1 }, {})
+S1 = CloneSnapshot(S0)
+S2 = SetValueByPath(S1, "data.x", 42)
+```
+
+| Assertion | Expected |
+|-----------|----------|
+| `GetValueByPath(S0, "data.x")` | `1` |
+| `GetValueByPath(S1, "data.x")` | `1` |
+| `GetValueByPath(S2, "data.x")` | `42` |
+| `S0.version` | `0` |
+| `S1.version` | `0` |
+| `S2.version` | `1` |
+
+### Test Vector 4: Timestamp Non-Decreasing
+
+**Given:**
+
+```
+S0 = CreateSnapshot({}, {}) at time T0
+S1 = SetValueByPath(S0, "data.x", 1) at time T1
+```
+
+| Assertion | Expected |
+|-----------|----------|
+| `S1.timestamp >= S0.timestamp` | `true` |
+
+### Test Vector 5: Structural Equality for DiffSnapshots
+
+**Given:**
+
+```
+S0 = CreateSnapshot({ a: [1, 2, 3], b: { c: 1 } }, {})
+S1 = SetValueByPath(S0, "data.a[1]", 99)
+```
+
+| Assertion | Expected |
+|-----------|----------|
+| `DiffSnapshots(S0, S1)` contains `"data.a[1]"` or `"data.a"` | `true` |
+| `DiffSnapshots(S0, S1)` contains `"data.b"` | `false` |

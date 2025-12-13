@@ -93,10 +93,29 @@ BuildDependencyGraph(domain):
    d. Set {dependencies}[{path}] to {deps}.
    e. For each {dep} in {deps}:
       i. Add {path} to {dependents}[{dep}].
-   f. Register result, loading, error paths.
+   f. Register result, loading, error paths (see 7.3.1.1).
 
 // Topological sort
 7. Let {topologicalOrder} be TopologicalSort({nodes}, {dependencies}).
+
+### 7.3.1.1 Async Result Path Registration
+
+For each AsyncDefinition, the `resultPath`, `loadingPath`, and `errorPath` **MUST** be registered as implicit source-like nodes in the dependency graph.
+
+```
+RegisterAsyncResultPaths(asyncPath, asyncDef, nodes, dependencies, dependents):
+1. For each {statePath} in [{asyncDef}.resultPath, {asyncDef}.loadingPath, {asyncDef}.errorPath]:
+   a. If {statePath} not in {nodes}:
+      i. Add SourceNode({statePath}, { semantic: { type: 'async-state' } }) to {nodes}.
+      ii. Set {dependencies}[{statePath}] to empty Set.
+   b. Add {asyncPath} to {dependents}[{statePath}].
+   c. Add {statePath} to {dependencies}[{asyncPath}].
+```
+
+**Purpose:** This registration ensures that:
+- Changes to async result paths trigger propagation to dependent derived values
+- The topological sort includes async result paths in correct order
+- Subscribers receive notifications when async operations complete
 
 8. Return { nodes, dependencies, dependents, topologicalOrder }.
 ```
@@ -363,6 +382,60 @@ ExecutePendingEffects(pendingEffects, config):
 2. Return Ok(undefined).
 ```
 
+### 7.5.7 Async Debouncing
+
+When an AsyncDefinition specifies a `debounce` value, the runtime **MUST** delay effect execution and cancel pending executions on new triggers.
+
+```
+AsyncDebounceManager:
+  - pendingTimers: Map<SemanticPath, TimerId>
+
+ScheduleAsyncEffect(asyncPath, asyncDef, context, handler):
+1. Let {key} be {asyncPath}.
+
+2. If {pendingTimers}.has({key}):
+   a. Cancel the existing timer.
+   b. Remove {key} from {pendingTimers}.
+
+3. If {asyncDef}.debounce is defined and {asyncDef}.debounce > 0:
+   a. Let {timerId} be setTimeout(() => {
+        ExecuteAsyncWithCondition({asyncPath}, {asyncDef}, {context}, {handler})
+      }, {asyncDef}.debounce).
+   b. Set {pendingTimers}[{key}] to {timerId}.
+
+4. Else:
+   a. ExecuteAsyncWithCondition({asyncPath}, {asyncDef}, {context}, {handler}).
+
+ExecuteAsyncWithCondition(asyncPath, asyncDef, context, handler):
+1. Remove {asyncPath} from {pendingTimers} if exists.
+2. If {asyncDef}.condition exists:
+   a. Let {shouldExecute} be Evaluate({asyncDef}.condition, {context}).
+   b. If not {shouldExecute}, return.
+3. Call HandleAsyncTrigger({asyncDef}, {handler}, {context}).
+```
+
+**Behavior:**
+
+- Each new trigger resets the debounce timer
+- Only the last trigger within the debounce window executes
+- The condition is re-evaluated when the timer fires (not when scheduled)
+- Pending timers **SHOULD** be cancelled on runtime dispose
+
+**Example № 1** *Debounced search*
+
+```typescript
+// AsyncDefinition with 300ms debounce
+{
+  deps: ['data.searchQuery'],
+  debounce: 300,
+  condition: ['>=', ['length', ['get', 'data.searchQuery']], 3],
+  effect: { _tag: 'ApiCall', endpoint: '/api/search', ... }
+}
+
+// User types: "h" -> "he" -> "hel" -> "hell" -> "hello"
+// Only one API call is made 300ms after "hello" is typed
+```
+
 ---
 
 ## 7.6 Effect Execution
@@ -446,6 +519,48 @@ RunEffect(effect, config):
       ii. Return Ok(undefined).
 
 4. Return Err(EffectError("UNKNOWN_EFFECT", {effect}._tag)).
+```
+
+### 7.6.1.1 Expression Resolution in Effects
+
+Effect fields such as `endpoint`, `body`, `query`, and `to` may contain Expression values. These **MUST** be evaluated before the effect is executed.
+
+```
+EvaluateIfExpression(value, context):
+1. If {value} is an array and {value}[0] is a known operator:
+   a. Return Evaluate({value}, {context}).
+2. Return {value}.
+
+EvaluateRecord(record, context):
+1. If {record} is undefined or null, return {record}.
+2. Let {result} be an empty Record.
+3. For each {key}, {value} in {record}:
+   a. Set {result}[{key}] to EvaluateIfExpression({value}, {context}).
+4. Return {result}.
+```
+
+**Applied To:**
+
+| Effect Type | Fields Using Expression Resolution |
+|-------------|-----------------------------------|
+| `ApiCall` | `endpoint`, `body`, `query`, `headers` |
+| `Navigate` | `to` |
+| `SetValue` | `value` |
+| `SetState` | `value` |
+| `Conditional` | `condition` |
+
+**Example № 2** *Dynamic API endpoint*
+
+```typescript
+// Effect definition with expression in endpoint
+{
+  _tag: 'ApiCall',
+  endpoint: ['concat', '/api/users/', ['get', 'data.userId']],
+  method: 'GET'
+}
+
+// With data.userId = '123', resolves to:
+// endpoint: '/api/users/123'
 ```
 
 ### 7.6.2 EffectHandler Interface
@@ -560,6 +675,70 @@ execute(actionId, input):
 8. Return {result}.
 ```
 
+### 7.7.3 createRuntime
+
+Creates and initializes a DomainRuntime instance.
+
+```typescript
+function createRuntime<TData, TState>(
+  domain: ManifestoDomain<TData, TState>,
+  options?: RuntimeOptions
+): DomainRuntime<TData, TState>;
+```
+
+```
+CreateRuntime(domain, options):
+1. Let {graph} be BuildDependencyGraph({domain}).
+2. Let {initialData} be {options}.initialData or {}.
+3. Let {initialState} be {domain}.initialState.
+4. Let {snapshot} be CreateSnapshot({initialData}, {initialState}).
+
+// Initial Propagation
+5. Let {sourcePaths} be all paths where {graph}.nodes[path].kind === 'source'.
+6. Let {propagationResult} be Propagate({graph}, {sourcePaths}, {snapshot}).
+7. For each {path}, {value} in {propagationResult}.changes:
+   a. Set {snapshot} to SetValueByPath({snapshot}, {path}, {value}).
+8. Let {currentSnapshot} be {snapshot}.
+
+// Initialize managers
+9. Let {subscriptionManager} be new SubscriptionManager().
+10. Let {debounceManager} be new AsyncDebounceManager().
+
+// Create handler
+11. Let {effectHandler} be {options}.effectHandler or CreateDefaultHandler({currentSnapshot}).
+
+// Return runtime interface
+12. Return DomainRuntime with:
+    - getSnapshot: () => {currentSnapshot}
+    - get, set, execute, subscribe, etc. as specified in 7.7.2
+    - dispose: () => cleanup all managers
+```
+
+**Initial Propagation Semantics:**
+
+- Initial propagation computes all derived values from their initial source values
+- This ensures `getSnapshot()` returns a fully consistent snapshot from the start
+- Async nodes are **NOT** triggered during initial propagation
+- If any derived computation fails, `createRuntime` **MUST** throw an error
+
+**Example № 1** *Initial propagation sequence*
+
+```typescript
+// Domain with:
+// - data.items (source, default: [])
+// - derived.count = items.length
+// - derived.isEmpty = count === 0
+
+const runtime = createRuntime(domain);
+
+// After createRuntime, snapshot contains:
+// {
+//   data: { items: [] },
+//   state: { ... },
+//   derived: { count: 0, isEmpty: true }
+// }
+```
+
 ---
 
 ## 7.8 Subscription System
@@ -609,6 +788,60 @@ class SubscriptionManager<TData, TState> {
   clear(): void;
   getSubscriptionCount(): { snapshot: number; path: number; event: number };
 }
+```
+
+**Internal Data Structures:**
+
+SubscriptionManager maintains three listener collections:
+
+```typescript
+// Internal state
+{
+  snapshotListeners: Set<SnapshotListener<TData, TState>>;
+  pathListeners: Map<SemanticPath | WildcardPattern, Set<PathListener>>;
+  eventListeners: Map<EventChannel, Set<EventListener>>;
+}
+```
+
+| Collection | Key Type | Value Type | Purpose |
+|------------|----------|------------|---------|
+| `snapshotListeners` | - | `Set<SnapshotListener>` | Listeners for any snapshot change |
+| `pathListeners` | `SemanticPath \| WildcardPattern` | `Set<PathListener>` | Listeners for specific path changes |
+| `eventListeners` | `string` | `Set<EventListener>` | Listeners for domain events |
+
+**NotifySnapshotChange Algorithm:**
+
+```
+NotifySnapshotChange(snapshot, changedPaths):
+1. For each {listener} in {snapshotListeners}:
+   a. Call {listener}({snapshot}, {changedPaths}).
+
+2. For each {path} in {changedPaths}:
+   a. If {pathListeners}.has({path}):
+      i. Let {value} be GetValueByPath({snapshot}, {path}).
+      ii. For each {listener} in {pathListeners}.get({path}):
+          1. Call {listener}({value}, {path}).
+
+3. For each {pattern}, {listeners} in {pathListeners}:
+   a. If {pattern} is a wildcard pattern:
+      i. For each {path} in {changedPaths}:
+         1. If MatchesWildcard({path}, {pattern}):
+            a. Let {value} be GetValueByPath({snapshot}, {path}).
+            b. For each {listener} in {listeners}:
+               1. Call {listener}({value}, {path}).
+```
+
+**EmitEvent Algorithm:**
+
+```
+EmitEvent(channel, payload):
+1. Let {event} be { channel: {channel}, payload: {payload}, timestamp: Date.now() }.
+2. If {eventListeners}.has({channel}):
+   a. For each {listener} in {eventListeners}.get({channel}):
+      i. Call {listener}({event}).
+3. If {eventListeners}.has('*'):
+   a. For each {listener} in {eventListeners}.get('*'):
+      i. Call {listener}({event}).
 ```
 
 ### 7.8.4 Subscription Requirements
