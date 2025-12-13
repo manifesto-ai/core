@@ -38,7 +38,7 @@ const counter = defineDomain('counter', {
   dataSchema: z.object({ count: z.number().default(0) }),
   
   derived: {
-    'derived.doubled': defineDerived(
+    doubled: defineDerived(
       { $multiply: [{ $get: 'data.count' }, 2] },
       z.number()
     )
@@ -170,11 +170,11 @@ const todosDomain = defineDomain('todos', {
   }),
 
   derived: {
-    'derived.remaining': defineDerived(
+    remaining: defineDerived(
       { $size: { $filter: [{ $get: 'data.items' }, { $not: '$item.done' }] } },
       z.number()
     ),
-    'derived.allDone': defineDerived(
+    allDone: defineDerived(
       { $eq: [{ $get: 'derived.remaining' }, 0] },
       z.boolean()
     )

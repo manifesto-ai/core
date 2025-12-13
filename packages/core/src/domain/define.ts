@@ -32,6 +32,24 @@ export type DefineDomainOptions<TData, TState> = {
 };
 
 /**
+ * Adds namespace prefix to keys if not already present.
+ * Supports nested paths (e.g., 'user.name' → 'data.user.name').
+ */
+function prefixKeys<T>(
+  record: Record<string, T> | undefined,
+  prefix: string
+): Record<string, T> {
+  if (!record) return {} as Record<string, T>;
+
+  const result: Record<string, T> = {};
+  for (const [key, value] of Object.entries(record)) {
+    const prefixedKey = key.startsWith(`${prefix}.`) ? key : `${prefix}.${key}`;
+    result[prefixedKey] = value;
+  }
+  return result;
+}
+
+/**
  * 도메인 정의 헬퍼 함수
  */
 export function defineDomain<TData, TState>(
@@ -45,9 +63,9 @@ export function defineDomain<TData, TState>(
     stateSchema: options.stateSchema,
     initialState: options.initialState,
     paths: {
-      sources: options.paths?.sources ?? {},
-      derived: options.paths?.derived ?? {},
-      async: options.paths?.async ?? {},
+      sources: prefixKeys(options.paths?.sources, 'data'),
+      derived: prefixKeys(options.paths?.derived, 'derived'),
+      async: prefixKeys(options.paths?.async, 'async'),
     },
     actions: options.actions ?? {},
     meta: options.meta,

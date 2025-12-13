@@ -12,6 +12,125 @@ import { validateDomain } from '../../src/domain/validate.js';
 
 describe('Domain Definition', () => {
   describe('defineDomain', () => {
+    describe('auto-prefixing', () => {
+      it('should auto-prefix derived keys', () => {
+        const domain = defineDomain({
+          id: 'test',
+          name: 'Test',
+          description: 'Test',
+          dataSchema: z.object({}),
+          stateSchema: z.object({}),
+          initialState: {},
+          paths: {
+            derived: {
+              activeCount: defineDerived({
+                deps: [],
+                expr: 0,
+                semantic: { type: 'count', description: 'Active count' },
+              }),
+            },
+          },
+        });
+
+        expect(domain.paths.derived['derived.activeCount']).toBeDefined();
+        expect(domain.paths.derived['activeCount']).toBeUndefined();
+      });
+
+      it('should auto-prefix source keys with data prefix', () => {
+        const domain = defineDomain({
+          id: 'test',
+          name: 'Test',
+          description: 'Test',
+          dataSchema: z.object({ items: z.array(z.string()) }),
+          stateSchema: z.object({}),
+          initialState: {},
+          paths: {
+            sources: {
+              items: defineSource({
+                schema: z.array(z.string()),
+                semantic: { type: 'list', description: 'Items' },
+              }),
+            },
+          },
+        });
+
+        expect(domain.paths.sources['data.items']).toBeDefined();
+        expect(domain.paths.sources['items']).toBeUndefined();
+      });
+
+      it('should preserve existing prefixes (backward compatibility)', () => {
+        const domain = defineDomain({
+          id: 'test',
+          name: 'Test',
+          description: 'Test',
+          dataSchema: z.object({}),
+          stateSchema: z.object({}),
+          initialState: {},
+          paths: {
+            derived: {
+              'derived.legacyField': defineDerived({
+                deps: [],
+                expr: true,
+                semantic: { type: 'flag', description: 'Legacy field' },
+              }),
+            },
+          },
+        });
+
+        expect(domain.paths.derived['derived.legacyField']).toBeDefined();
+        expect(domain.paths.derived['derived.derived.legacyField']).toBeUndefined();
+      });
+
+      it('should handle nested paths', () => {
+        const domain = defineDomain({
+          id: 'test',
+          name: 'Test',
+          description: 'Test',
+          dataSchema: z.object({ user: z.object({ name: z.string() }) }),
+          stateSchema: z.object({}),
+          initialState: {},
+          paths: {
+            sources: {
+              'user.name': defineSource({
+                schema: z.string(),
+                semantic: { type: 'input', description: 'User name' },
+              }),
+            },
+          },
+        });
+
+        expect(domain.paths.sources['data.user.name']).toBeDefined();
+      });
+
+      it('should support mixed usage (new and old style)', () => {
+        const domain = defineDomain({
+          id: 'test',
+          name: 'Test',
+          description: 'Test',
+          dataSchema: z.object({}),
+          stateSchema: z.object({}),
+          initialState: {},
+          paths: {
+            derived: {
+              newStyle: defineDerived({
+                deps: [],
+                expr: 1,
+                semantic: { type: 'count', description: 'New style' },
+              }),
+              'derived.oldStyle': defineDerived({
+                deps: [],
+                expr: 2,
+                semantic: { type: 'count', description: 'Old style' },
+              }),
+            },
+          },
+        });
+
+        expect(domain.paths.derived['derived.newStyle']).toBeDefined();
+        expect(domain.paths.derived['derived.oldStyle']).toBeDefined();
+      });
+    });
+
     it('should create a valid domain', () => {
       const domain = defineDomain({
         id: 'test-domain',
