@@ -40,12 +40,13 @@ const counterDomain = defineDomain('counter', {
   }),
 
   // Derived values - computed from source data
+  // Keys are auto-prefixed: 'doubled' becomes 'derived.doubled'
   derived: {
-    'derived.doubled': defineDerived(
+    doubled: defineDerived(
       { $multiply: [{ $get: 'data.count' }, 2] },
       z.number()
     ),
-    'derived.isPositive': defineDerived(
+    isPositive: defineDerived(
       { $gt: [{ $get: 'data.count' }, 0] },
       z.boolean()
     )
@@ -124,7 +125,7 @@ const counterDomain = defineDomain('counter', {
   }),
 
   derived: {
-    'derived.doubled': defineDerived(
+    doubled: defineDerived(
       { $multiply: [{ $get: 'data.count' }, 2] },
       z.number()
     )
@@ -212,12 +213,12 @@ const cartDomain = defineDomain('cart', {
   }),
 
   derived: {
-    'derived.itemCount': defineDerived(
+    itemCount: defineDerived(
       { $size: { $get: 'data.items' } },
       z.number()
     ),
 
-    'derived.subtotal': defineDerived(
+    subtotal: defineDerived(
       {
         $sum: {
           $map: [
@@ -229,12 +230,12 @@ const cartDomain = defineDomain('cart', {
       z.number()
     ),
 
-    'derived.isEmpty': defineDerived(
+    isEmpty: defineDerived(
       { $eq: [{ $get: 'derived.itemCount' }, 0] },
       z.boolean()
     ),
 
-    'derived.canCheckout': defineDerived(
+    canCheckout: defineDerived(
       {
         $and: [
           { $not: { $get: 'derived.isEmpty' } },
@@ -366,15 +367,15 @@ const userDomain = defineDomain('user', {
   }),
 
   derived: {
-    'derived.isEmailValid': defineDerived(
+    isEmailValid: defineDerived(
       { $test: [{ $get: 'data.email' }, '^[^@]+@[^@]+\\.[^@]+$'] },
       z.boolean()
     ),
-    'derived.isPasswordStrong': defineDerived(
+    isPasswordStrong: defineDerived(
       { $gte: [{ $size: { $get: 'data.password' } }, 8] },
       z.boolean()
     ),
-    'derived.canSubmit': defineDerived(
+    canSubmit: defineDerived(
       {
         $and: [
           { $get: 'derived.isEmailValid' },
@@ -425,7 +426,7 @@ const pricingDomain = defineDomain('pricing', {
   }),
 
   derived: {
-    'derived.discount': defineDerived(
+    discount: defineDerived(
       {
         $if: [
           { $get: 'data.isPremium' },
@@ -441,7 +442,7 @@ const pricingDomain = defineDomain('pricing', {
       },
       z.number()
     ),
-    'derived.finalPrice': defineDerived(
+    finalPrice: defineDerived(
       {
         $multiply: [
           { $get: 'data.basePrice' },
