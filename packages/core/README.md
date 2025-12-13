@@ -42,11 +42,12 @@ const todosDomain = defineDomain('todos', {
   }),
 
   derived: {
-    'derived.activeCount': defineDerived(
+    // Keys are auto-prefixed: 'activeCount' becomes 'derived.activeCount'
+    activeCount: defineDerived(
       { $size: { $filter: ['data.items', { $eq: ['$item.completed', false] }] } },
       z.number()
     ),
-    'derived.filteredItems': defineDerived(
+    filteredItems: defineDerived(
       {
         $if: [
           { $eq: [{ $get: 'state.filter' }, 'all'] },
@@ -88,6 +89,8 @@ console.log(runtime.get('derived.activeCount')); // 1
 
 ### Domain Definition
 
+> **Note:** Keys in `sources`, `derived`, and `async` are auto-prefixed (`data.`, `derived.`, `async.` respectively). Keys with existing prefixes are preserved for backward compatibility. Both `activeCount` and `'derived.activeCount'` are valid.
+
 #### `defineDomain(name, config)`
 
 Creates a domain definition.
@@ -108,7 +111,8 @@ Defines a source field with optional metadata.
 
 ```typescript
 const sources = {
-  'data.user': defineSource(
+  // Auto-prefixed: 'user' becomes 'data.user'
+  user: defineSource(
     z.object({ name: z.string(), email: z.string() }),
     { description: 'Current user information' }
   )
@@ -121,7 +125,8 @@ Defines a computed value.
 
 ```typescript
 const derived = {
-  'derived.fullName': defineDerived(
+  // Auto-prefixed: 'fullName' becomes 'derived.fullName'
+  fullName: defineDerived(
     { $concat: [{ $get: 'data.firstName' }, ' ', { $get: 'data.lastName' }] },
     z.string(),
     { description: 'User full name' }
@@ -135,7 +140,8 @@ Defines an async data source.
 
 ```typescript
 const async = {
-  'async.userData': defineAsync(
+  // Auto-prefixed: 'userData' becomes 'async.userData'
+  userData: defineAsync(
     {
       fetch: { method: 'GET', url: '/api/user' },
       dependencies: ['data.userId']
