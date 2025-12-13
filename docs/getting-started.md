@@ -28,7 +28,11 @@ A domain is the central concept in Manifesto. It describes your business logic d
 import { defineDomain, defineDerived, z } from '@manifesto-ai/core';
 
 // Define a simple counter domain
-const counterDomain = defineDomain('counter', {
+const counterDomain = defineDomain({
+  id: 'counter',
+  name: 'Counter',
+  description: 'Simple counter domain',
+
   // Source data schema - the "truth" your domain operates on
   dataSchema: z.object({
     count: z.number().default(0)
@@ -39,17 +43,26 @@ const counterDomain = defineDomain('counter', {
     step: z.number().default(1)
   }),
 
+  // Initial state values
+  initialState: {
+    step: 1
+  },
+
   // Derived values - computed from source data
   // Keys are auto-prefixed: 'doubled' becomes 'derived.doubled'
-  derived: {
-    doubled: defineDerived(
-      { $multiply: [{ $get: 'data.count' }, 2] },
-      z.number()
-    ),
-    isPositive: defineDerived(
-      { $gt: [{ $get: 'data.count' }, 0] },
-      z.boolean()
-    )
+  paths: {
+    derived: {
+      doubled: defineDerived({
+        deps: ['data.count'],
+        expr: ['*', ['get', 'data.count'], 2],
+        semantic: { type: 'computed', description: 'Double of count' }
+      }),
+      isPositive: defineDerived({
+        deps: ['data.count'],
+        expr: ['>', ['get', 'data.count'], 0],
+        semantic: { type: 'computed', description: 'Whether count is positive' }
+      })
+    }
   }
 });
 ```
@@ -115,7 +128,11 @@ import {
   z
 } from '@manifesto-ai/core';
 
-const counterDomain = defineDomain('counter', {
+const counterDomain = defineDomain({
+  id: 'counter',
+  name: 'Counter',
+  description: 'Counter with actions',
+
   dataSchema: z.object({
     count: z.number().default(0)
   }),
@@ -124,34 +141,55 @@ const counterDomain = defineDomain('counter', {
     step: z.number().default(1)
   }),
 
-  derived: {
-    doubled: defineDerived(
-      { $multiply: [{ $get: 'data.count' }, 2] },
-      z.number()
-    )
+  initialState: {
+    step: 1
+  },
+
+  paths: {
+    derived: {
+      doubled: defineDerived({
+        deps: ['data.count'],
+        expr: ['*', ['get', 'data.count'], 2],
+        semantic: { type: 'computed', description: 'Double of count' }
+      }),
+      isPositive: defineDerived({
+        deps: ['data.count'],
+        expr: ['>', ['get', 'data.count'], 0],
+        semantic: { type: 'computed', description: 'Whether count is positive' }
+      })
+    }
   },
 
   actions: {
     increment: defineAction({
-      // Action is always available
-      effect: setValue('data.count', {
-        $add: [{ $get: 'data.count' }, { $get: 'state.step' }]
-      })
+      deps: ['data.count', 'state.step'],
+      effect: setValue('data.count',
+        ['+', ['get', 'data.count'], ['get', 'state.step']],
+        'Increment counter'
+      ),
+      semantic: { type: 'action', verb: 'increment', description: 'Increment counter by step' }
     }),
 
     decrement: defineAction({
+      deps: ['data.count', 'state.step'],
       // Only available when count > 0
-      precondition: { $gt: [{ $get: 'data.count' }, 0] },
-      effect: setValue('data.count', {
-        $subtract: [{ $get: 'data.count' }, { $get: 'state.step' }]
-      })
+      preconditions: [
+        { path: 'derived.isPositive', expect: 'true', reason: 'Count must be positive' }
+      ],
+      effect: setValue('data.count',
+        ['-', ['get', 'data.count'], ['get', 'state.step']],
+        'Decrement counter'
+      ),
+      semantic: { type: 'action', verb: 'decrement', description: 'Decrement counter by step' }
     }),
 
     reset: defineAction({
+      deps: ['data.count', 'state.step'],
       effect: sequence([
-        setValue('data.count', 0),
-        setState('state.step', 1)
-      ])
+        setValue('data.count', 0, 'Reset count'),
+        setState('state.step', 1, 'Reset step')
+      ]),
+      semantic: { type: 'action', verb: 'reset', description: 'Reset counter to zero' }
     })
   }
 });
@@ -196,7 +234,11 @@ import {
   z
 } from '@manifesto-ai/core';
 
-const cartDomain = defineDomain('cart', {
+const cartDomain = defineDomain({
+  id: 'cart',
+  name: 'Shopping Cart',
+  description: 'Shopping cart domain with checkout',
+
   dataSchema: z.object({
     items: z.array(z.object({
       id: z.string(),
@@ -212,106 +254,100 @@ const cartDomain = defineDomain('cart', {
     error: z.string().nullable().default(null)
   }),
 
-  derived: {
-    itemCount: defineDerived(
-      { $size: { $get: 'data.items' } },
-      z.number()
-    ),
+  initialState: {
+    isSubmitting: false,
+    error: null
+  },
 
-    subtotal: defineDerived(
-      {
-        $sum: {
-          $map: [
-            { $get: 'data.items' },
-            { $multiply: ['$item.price', '$item.quantity'] }
-          ]
-        }
-      },
-      z.number()
-    ),
+  paths: {
+    derived: {
+      itemCount: defineDerived({
+        deps: ['data.items'],
+        expr: ['length', ['get', 'data.items']],
+        semantic: { type: 'count', description: 'Number of items in cart' }
+      }),
 
-    isEmpty: defineDerived(
-      { $eq: [{ $get: 'derived.itemCount' }, 0] },
-      z.boolean()
-    ),
+      subtotal: defineDerived({
+        deps: ['data.items'],
+        expr: ['sum', ['map', ['get', 'data.items'], ['*', '$.price', '$.quantity']]],
+        semantic: { type: 'currency', description: 'Cart subtotal' }
+      }),
 
-    canCheckout: defineDerived(
-      {
-        $and: [
-          { $not: { $get: 'derived.isEmpty' } },
-          { $not: { $get: 'state.isSubmitting' } }
-        ]
-      },
-      z.boolean()
-    )
+      isEmpty: defineDerived({
+        deps: ['derived.itemCount'],
+        expr: ['==', ['get', 'derived.itemCount'], 0],
+        semantic: { type: 'boolean', description: 'Whether cart is empty' }
+      }),
+
+      canCheckout: defineDerived({
+        deps: ['derived.isEmpty', 'state.isSubmitting'],
+        expr: ['and', ['!', ['get', 'derived.isEmpty']], ['!', ['get', 'state.isSubmitting']]],
+        semantic: { type: 'boolean', description: 'Whether checkout is available' }
+      })
+    }
   },
 
   actions: {
     addItem: defineAction({
-      effect: setValue('data.items', {
-        $concat: [
-          { $get: 'data.items' },
-          [{
-            id: { $get: 'input.id' },
-            name: { $get: 'input.name' },
-            price: { $get: 'input.price' },
-            quantity: 1
-          }]
-        ]
-      })
+      deps: ['data.items'],
+      input: z.object({ id: z.string(), name: z.string(), price: z.number() }),
+      effect: setValue('data.items',
+        ['concat', ['get', 'data.items'], [{ id: ['get', 'input.id'], name: ['get', 'input.name'], price: ['get', 'input.price'], quantity: 1 }]],
+        'Add item to cart'
+      ),
+      semantic: { type: 'action', verb: 'add', description: 'Add item to cart' }
     }),
 
     removeItem: defineAction({
-      effect: setValue('data.items', {
-        $filter: [
-          { $get: 'data.items' },
-          { $ne: ['$item.id', { $get: 'input.itemId' }] }
-        ]
-      })
+      deps: ['data.items'],
+      input: z.object({ itemId: z.string() }),
+      effect: setValue('data.items',
+        ['filter', ['get', 'data.items'], ['!=', '$.id', ['get', 'input.itemId']]],
+        'Remove item from cart'
+      ),
+      semantic: { type: 'action', verb: 'remove', description: 'Remove item from cart' }
     }),
 
     updateQuantity: defineAction({
-      precondition: { $gt: [{ $get: 'input.quantity' }, 0] },
-      effect: setValue('data.items', {
-        $map: [
-          { $get: 'data.items' },
-          {
-            $if: [
-              { $eq: ['$item.id', { $get: 'input.itemId' }] },
-              {
-                id: '$item.id',
-                name: '$item.name',
-                price: '$item.price',
-                quantity: { $get: 'input.quantity' }
-              },
-              '$item'
-            ]
-          }
-        ]
-      })
+      deps: ['data.items'],
+      input: z.object({ itemId: z.string(), quantity: z.number().positive() }),
+      effect: setValue('data.items',
+        ['map', ['get', 'data.items'],
+          ['if', ['==', '$.id', ['get', 'input.itemId']],
+            { id: '$.id', name: '$.name', price: '$.price', quantity: ['get', 'input.quantity'] },
+            '$']],
+        'Update item quantity'
+      ),
+      semantic: { type: 'action', verb: 'update', description: 'Update item quantity' }
     }),
 
     checkout: defineAction({
-      precondition: { $get: 'derived.canCheckout' },
+      deps: ['data.items', 'data.couponCode', 'state.isSubmitting'],
+      preconditions: [
+        { path: 'derived.canCheckout', expect: 'true', reason: 'Checkout must be available' }
+      ],
       effect: sequence([
-        setState('state.isSubmitting', true),
-        setState('state.error', null),
+        setState('state.isSubmitting', true, 'Set submitting'),
+        setState('state.error', null, 'Clear error'),
         apiCall({
           method: 'POST',
           url: '/api/checkout',
-          body: {
-            items: { $get: 'data.items' },
-            couponCode: { $get: 'data.couponCode' }
-          }
+          body: { items: ['get', 'data.items'], couponCode: ['get', 'data.couponCode'] },
+          description: 'Submit checkout'
         }),
-        setValue('data.items', []),
-        setState('state.isSubmitting', false)
-      ])
+        setValue('data.items', [], 'Clear cart'),
+        setState('state.isSubmitting', false, 'Clear submitting')
+      ]),
+      semantic: { type: 'action', verb: 'checkout', description: 'Submit order', risk: 'high' }
     }),
 
     clearCart: defineAction({
-      precondition: { $not: { $get: 'derived.isEmpty' } },
-      effect: setValue('data.items', [])
+      deps: ['data.items'],
+      preconditions: [
+        { path: 'derived.isEmpty', expect: 'false', reason: 'Cart must have items' }
+      ],
+      effect: setValue('data.items', [], 'Clear all items'),
+      semantic: { type: 'action', verb: 'clear', description: 'Clear cart' }
     })
   }
 });
@@ -360,30 +396,37 @@ Now that you understand the basics, explore:
 ### Field Validation
 
 ```typescript
-const userDomain = defineDomain('user', {
+const userDomain = defineDomain({
+  id: 'user',
+  name: 'User',
+  description: 'User registration domain',
+
   dataSchema: z.object({
     email: z.string().email(),
     password: z.string().min(8)
   }),
 
-  derived: {
-    isEmailValid: defineDerived(
-      { $test: [{ $get: 'data.email' }, '^[^@]+@[^@]+\\.[^@]+$'] },
-      z.boolean()
-    ),
-    isPasswordStrong: defineDerived(
-      { $gte: [{ $size: { $get: 'data.password' } }, 8] },
-      z.boolean()
-    ),
-    canSubmit: defineDerived(
-      {
-        $and: [
-          { $get: 'derived.isEmailValid' },
-          { $get: 'derived.isPasswordStrong' }
-        ]
-      },
-      z.boolean()
-    )
+  stateSchema: z.object({}),
+  initialState: {},
+
+  paths: {
+    derived: {
+      isEmailValid: defineDerived({
+        deps: ['data.email'],
+        expr: ['test', ['get', 'data.email'], '^[^@]+@[^@]+\\.[^@]+$'],
+        semantic: { type: 'validation', description: 'Whether email is valid' }
+      }),
+      isPasswordStrong: defineDerived({
+        deps: ['data.password'],
+        expr: ['>=', ['length', ['get', 'data.password']], 8],
+        semantic: { type: 'validation', description: 'Whether password is strong enough' }
+      }),
+      canSubmit: defineDerived({
+        deps: ['derived.isEmailValid', 'derived.isPasswordStrong'],
+        expr: ['and', ['get', 'derived.isEmailValid'], ['get', 'derived.isPasswordStrong']],
+        semantic: { type: 'boolean', description: 'Whether form can be submitted' }
+      })
+    }
   }
 });
 ```
@@ -391,7 +434,11 @@ const userDomain = defineDomain('user', {
 ### Loading States
 
 ```typescript
-const dataDomain = defineDomain('data', {
+const dataDomain = defineDomain({
+  id: 'data',
+  name: 'Data',
+  description: 'Data fetching domain',
+
   dataSchema: z.object({
     items: z.array(z.string()).default([])
   }),
@@ -401,15 +448,34 @@ const dataDomain = defineDomain('data', {
     error: z.string().nullable().default(null)
   }),
 
+  initialState: {
+    isLoading: false,
+    error: null
+  },
+
+  paths: {
+    derived: {
+      isNotLoading: defineDerived({
+        deps: ['state.isLoading'],
+        expr: ['!', ['get', 'state.isLoading']],
+        semantic: { type: 'boolean', description: 'Whether not loading' }
+      })
+    }
+  },
+
   actions: {
     fetch: defineAction({
-      precondition: { $not: { $get: 'state.isLoading' } },
+      deps: ['state.isLoading'],
+      preconditions: [
+        { path: 'derived.isNotLoading', expect: 'true', reason: 'Already loading' }
+      ],
       effect: sequence([
-        setState('state.isLoading', true),
-        setState('state.error', null),
-        apiCall({ method: 'GET', url: '/api/items' }),
-        setState('state.isLoading', false)
-      ])
+        setState('state.isLoading', true, 'Set loading'),
+        setState('state.error', null, 'Clear error'),
+        apiCall({ method: 'GET', url: '/api/items', description: 'Fetch items' }),
+        setState('state.isLoading', false, 'Clear loading')
+      ]),
+      semantic: { type: 'action', verb: 'fetch', description: 'Fetch data from API' }
     })
   }
 });
@@ -418,40 +484,39 @@ const dataDomain = defineDomain('data', {
 ### Conditional Logic
 
 ```typescript
-const pricingDomain = defineDomain('pricing', {
+const pricingDomain = defineDomain({
+  id: 'pricing',
+  name: 'Pricing',
+  description: 'Pricing calculation domain',
+
   dataSchema: z.object({
     basePrice: z.number(),
     isPremium: z.boolean().default(false),
     quantity: z.number().default(1)
   }),
 
-  derived: {
-    discount: defineDerived(
-      {
-        $if: [
-          { $get: 'data.isPremium' },
+  stateSchema: z.object({}),
+  initialState: {},
+
+  paths: {
+    derived: {
+      discount: defineDerived({
+        deps: ['data.isPremium', 'data.quantity'],
+        expr: ['if', ['get', 'data.isPremium'],
           0.2,  // 20% discount for premium
-          {
-            $if: [
-              { $gte: [{ $get: 'data.quantity' }, 10] },
-              0.1,  // 10% bulk discount
-              0     // No discount
-            ]
-          }
-        ]
-      },
-      z.number()
-    ),
-    finalPrice: defineDerived(
-      {
-        $multiply: [
-          { $get: 'data.basePrice' },
-          { $get: 'data.quantity' },
-          { $subtract: [1, { $get: 'derived.discount' }] }
-        ]
-      },
-      z.number()
-    )
+          ['if', ['>=', ['get', 'data.quantity'], 10],
+            0.1,  // 10% bulk discount
+            0     // No discount
+          ]
+        ],
+        semantic: { type: 'percentage', description: 'Applicable discount rate' }
+      }),
+      finalPrice: defineDerived({
+        deps: ['data.basePrice', 'data.quantity', 'derived.discount'],
+        expr: ['*', ['get', 'data.basePrice'], ['get', 'data.quantity'], ['-', 1, ['get', 'derived.discount']]],
+        semantic: { type: 'currency', description: 'Final price after discount' }
+      })
+    }
   }
 });
 ```

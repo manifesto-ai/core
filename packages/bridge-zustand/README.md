@@ -14,7 +14,7 @@ pnpm add @manifesto-ai/bridge-zustand @manifesto-ai/bridge @manifesto-ai/core zu
 
 ```typescript
 import { create } from 'zustand';
-import { createRuntime, defineDomain, z } from '@manifesto-ai/core';
+import { createRuntime, defineDomain, defineDerived, z } from '@manifesto-ai/core';
 import {
   createZustandAdapter,
   createZustandActuator,
@@ -38,14 +38,20 @@ const useFormStore = create<FormStore>((set) => ({
 }));
 
 // 2. Define your Manifesto domain
-const formDomain = defineDomain('form', {
+const formDomain = defineDomain({
+  id: 'form',
+  name: 'Form',
+  description: 'User form domain',
   dataSchema: z.object({
     name: z.string(),
     email: z.string().email()
   }),
   stateSchema: z.object({
     isSubmitting: z.boolean().default(false)
-  })
+  }),
+  initialState: {
+    isSubmitting: false
+  }
 });
 
 // 3. Create runtime
@@ -186,7 +192,7 @@ const bridge = createBridge({ runtime, adapter, actuator });
 ```typescript
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
-import { createRuntime, defineDomain, z } from '@manifesto-ai/core';
+import { createRuntime, defineDomain, defineDerived, z } from '@manifesto-ai/core';
 import {
   createZustandAdapter,
   createZustandActuator,
@@ -222,7 +228,10 @@ const useTodoStore = create<TodoStore>((set) => ({
 }));
 
 // Manifesto domain with derived state
-const todoDomain = defineDomain('todos', {
+const todoDomain = defineDomain({
+  id: 'todos',
+  name: 'Todos',
+  description: 'Todo list domain',
   dataSchema: z.object({
     items: z.array(z.object({
       id: z.string(),
@@ -230,15 +239,21 @@ const todoDomain = defineDomain('todos', {
       done: z.boolean()
     }))
   }),
-  derived: {
-    'derived.totalCount': defineDerived(
-      { $size: { $get: 'data.items' } },
-      z.number()
-    ),
-    'derived.doneCount': defineDerived(
-      { $size: { $filter: [{ $get: 'data.items' }, { $eq: ['$item.done', true] }] } },
-      z.number()
-    )
+  stateSchema: z.object({}),
+  initialState: {},
+  paths: {
+    derived: {
+      totalCount: defineDerived({
+        deps: ['data.items'],
+        expr: ['length', ['get', 'data.items']],
+        semantic: { type: 'count', description: 'Total number of items' }
+      }),
+      doneCount: defineDerived({
+        deps: ['data.items'],
+        expr: ['length', ['filter', ['get', 'data.items'], '$.done']],
+        semantic: { type: 'count', description: 'Number of completed items' }
+      })
+    }
   }
 });
 

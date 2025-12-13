@@ -13,11 +13,23 @@ pnpm add @manifesto-ai/projection-agent @manifesto-ai/core
 ## Quick Start
 
 ```typescript
-import { createRuntime, defineDomain, z } from '@manifesto-ai/core';
+import {
+  createRuntime,
+  defineDomain,
+  defineDerived,
+  defineAction,
+  sequence,
+  setState,
+  apiCall,
+  z
+} from '@manifesto-ai/core';
 import { projectAgentContext } from '@manifesto-ai/projection-agent';
 
 // Define domain
-const orderDomain = defineDomain('order', {
+const orderDomain = defineDomain({
+  id: 'order',
+  name: 'Order',
+  description: 'Order management domain',
   dataSchema: z.object({
     items: z.array(z.object({
       id: z.string(),
@@ -27,19 +39,33 @@ const orderDomain = defineDomain('order', {
     })),
     couponCode: z.string().optional()
   }),
-
   stateSchema: z.object({
     isSubmitting: z.boolean().default(false)
   }),
-
+  initialState: {
+    isSubmitting: false
+  },
+  paths: {
+    derived: {
+      hasItems: defineDerived({
+        deps: ['data.items'],
+        expr: ['>', ['length', ['get', 'data.items']], 0],
+        semantic: { type: 'boolean', description: 'Whether cart has items' }
+      })
+    }
+  },
   actions: {
     submit: defineAction({
-      precondition: { $gt: [{ $size: { $get: 'data.items' } }, 0] },
+      deps: ['data.items', 'state.isSubmitting'],
+      preconditions: [
+        { path: 'derived.hasItems', expect: 'true', reason: 'Cart must have items' }
+      ],
       effect: sequence([
-        setState('state.isSubmitting', true),
-        apiCall({ method: 'POST', url: '/api/orders' }),
-        setState('state.isSubmitting', false)
-      ])
+        setState('state.isSubmitting', true, 'Set submitting'),
+        apiCall({ method: 'POST', url: '/api/orders', description: 'Submit order' }),
+        setState('state.isSubmitting', false, 'Clear submitting')
+      ]),
+      semantic: { type: 'action', verb: 'submit', description: 'Submit order', risk: 'medium' }
     })
   }
 });

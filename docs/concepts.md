@@ -67,9 +67,13 @@ A **Domain** declares your business logic structure.
 ### Basic Structure
 
 ```typescript
-import { defineDomain, z } from '@manifesto-ai/core';
+import { defineDomain, defineDerived, defineAsync, defineAction, z } from '@manifesto-ai/core';
 
-const orderDomain = defineDomain('order', {
+const orderDomain = defineDomain({
+  id: 'order',
+  name: 'Order',
+  description: 'Order management domain',
+
   // Required: Source data structure
   dataSchema: z.object({
     items: z.array(z.object({
@@ -81,46 +85,65 @@ const orderDomain = defineDomain('order', {
     couponCode: z.string().optional()
   }),
 
-  // Optional: UI state structure
+  // Required: UI state structure
   stateSchema: z.object({
     isSubmitting: z.boolean().default(false),
     selectedItemId: z.string().nullable().default(null)
   }),
 
-  // Optional: Computed values
-  // Keys are auto-prefixed: 'itemCount' becomes 'derived.itemCount'
-  derived: {
-    itemCount: defineDerived(
-      { $size: { $get: 'data.items' } },
-      z.number()
-    ),
-    subtotal: defineDerived(
-      { $sum: { $map: ['data.items', { $multiply: ['$item.price', '$item.quantity'] }] } },
-      z.number()
-    )
+  // Required: Initial state values
+  initialState: {
+    isSubmitting: false,
+    selectedItemId: null
   },
 
-  // Optional: Async data sources
-  // Keys are auto-prefixed: 'shippingRates' becomes 'async.shippingRates'
-  async: {
-    shippingRates: defineAsync({
-      fetch: { method: 'GET', url: '/api/shipping-rates' },
-      dependencies: ['data.items']
-    }, z.array(z.object({ carrier: z.string(), price: z.number() })))
+  // Optional: Path definitions
+  paths: {
+    // Computed values - keys auto-prefixed: 'itemCount' becomes 'derived.itemCount'
+    derived: {
+      itemCount: defineDerived({
+        deps: ['data.items'],
+        expr: ['length', ['get', 'data.items']],
+        semantic: { type: 'count', description: 'Number of items' }
+      }),
+      subtotal: defineDerived({
+        deps: ['data.items'],
+        expr: ['sum', ['map', ['get', 'data.items'], ['*', '$.price', '$.quantity']]],
+        semantic: { type: 'currency', description: 'Order subtotal' }
+      })
+    },
+
+    // Async data sources - keys auto-prefixed: 'shippingRates' becomes 'async.shippingRates'
+    async: {
+      shippingRates: defineAsync({
+        deps: ['data.items'],
+        effect: { _tag: 'ApiCall', method: 'GET', endpoint: '/api/shipping-rates', description: 'Fetch shipping rates' },
+        resultPath: 'async.shippingRates',
+        loadingPath: 'state.shippingLoading',
+        errorPath: 'state.shippingError',
+        semantic: { type: 'async', description: 'Available shipping rates' }
+      })
+    }
   },
 
   // Optional: Domain actions
   actions: {
-    addItem: defineAction({ ... }),
-    removeItem: defineAction({ ... }),
-    checkout: defineAction({ ... })
-  },
-
-  // Optional: Field-level policies
-  fieldPolicies: {
-    'data.couponCode': fieldPolicy({
-      relevance: condition({ $gt: [{ $get: 'derived.subtotal' }, 50] }),
-      editability: condition({ $not: { $get: 'state.isSubmitting' } })
+    addItem: defineAction({
+      deps: ['data.items'],
+      effect: setValue('data.items', ['concat', ['get', 'data.items'], [['get', 'input']]], 'Add item'),
+      semantic: { type: 'action', verb: 'add', description: 'Add item to order' }
+    }),
+    checkout: defineAction({
+      deps: ['data.items', 'state.isSubmitting'],
+      preconditions: [
+        { path: 'derived.itemCount', expect: 'true', reason: 'Cart must have items' }
+      ],
+      effect: sequence([
+        setState('state.isSubmitting', true, 'Set submitting'),
+        apiCall({ method: 'POST', url: '/api/checkout', description: 'Submit order' }),
+        setState('state.isSubmitting', false, 'Clear submitting')
+      ]),
+      semantic: { type: 'action', verb: 'checkout', description: 'Checkout order', risk: 'high' }
     })
   }
 });
@@ -479,28 +502,62 @@ Field policies define dynamic rules for field behavior.
 ### Defining Policies
 
 ```typescript
-import { fieldPolicy, condition } from '@manifesto-ai/core';
+import { defineDomain, defineSource, fieldPolicy, condition, z } from '@manifesto-ai/core';
 
-const domain = defineDomain('form', {
+const domain = defineDomain({
+  id: 'form',
+  name: 'Form',
+  description: 'Account form domain',
+
   dataSchema: z.object({
     accountType: z.enum(['personal', 'business']),
     companyName: z.string().optional(),
     taxId: z.string().optional()
   }),
 
-  fieldPolicies: {
-    // Company name only relevant for business accounts
-    'data.companyName': fieldPolicy({
-      relevance: condition({ $eq: [{ $get: 'data.accountType' }, 'business'] }),
-      requirement: condition({ $eq: [{ $get: 'data.accountType' }, 'business'] })
-    }),
+  stateSchema: z.object({
+    isVerified: z.boolean()
+  }),
 
-    // Tax ID required for business accounts
-    'data.taxId': fieldPolicy({
-      relevance: condition({ $eq: [{ $get: 'data.accountType' }, 'business'] }),
-      requirement: condition({ $eq: [{ $get: 'data.accountType' }, 'business'] }),
-      editability: condition({ $not: { $get: 'state.isVerified' } })
-    })
+  initialState: {
+    isVerified: false
+  },
+
+  paths: {
+    sources: {
+      // Company name only relevant for business accounts
+      companyName: defineSource({
+        schema: z.string().optional(),
+        policy: fieldPolicy({
+          relevantWhen: [condition('derived.isBusinessAccount')],
+          requiredWhen: [condition('derived.isBusinessAccount')]
+        }),
+        semantic: { type: 'string', description: 'Company name' }
+      }),
+
+      // Tax ID required for business accounts
+      taxId: defineSource({
+        schema: z.string().optional(),
+        policy: fieldPolicy({
+          relevantWhen: [condition('derived.isBusinessAccount')],
+          requiredWhen: [condition('derived.isBusinessAccount')],
+          editableWhen: [condition('derived.isNotVerified')]
+        }),
+        semantic: { type: 'string', description: 'Tax ID' }
+      })
+    },
+    derived: {
+      isBusinessAccount: defineDerived({
+        deps: ['data.accountType'],
+        expr: ['==', ['get', 'data.accountType'], 'business'],
+        semantic: { type: 'boolean', description: 'Whether business account' }
+      }),
+      isNotVerified: defineDerived({
+        deps: ['state.isVerified'],
+        expr: ['!', ['get', 'state.isVerified']],
+        semantic: { type: 'boolean', description: 'Whether not verified' }
+      })
+    }
   }
 });
 ```
@@ -543,50 +600,83 @@ Actions are domain operations with preconditions and effects.
 ### Defining Actions
 
 ```typescript
-import { defineAction, sequence, setState, apiCall, setValue } from '@manifesto-ai/core';
+import { defineAction, sequence, setState, apiCall, setValue, z } from '@manifesto-ai/core';
 
-const domain = defineDomain('order', {
-  // ... schemas ...
+const domain = defineDomain({
+  id: 'order',
+  name: 'Order',
+  description: 'Order management domain',
+  dataSchema: z.object({ items: z.array(z.any()), status: z.string() }),
+  stateSchema: z.object({ isSubmitting: z.boolean() }),
+  initialState: { isSubmitting: false },
+
+  paths: {
+    derived: {
+      hasItems: defineDerived({
+        deps: ['data.items'],
+        expr: ['>', ['length', ['get', 'data.items']], 0],
+        semantic: { type: 'boolean', description: 'Whether cart has items' }
+      }),
+      isNotSubmitting: defineDerived({
+        deps: ['state.isSubmitting'],
+        expr: ['!', ['get', 'state.isSubmitting']],
+        semantic: { type: 'boolean', description: 'Whether not submitting' }
+      })
+    }
+  },
 
   actions: {
     // Simple action
     clearCart: defineAction({
-      effect: setValue('data.items', [])
+      deps: ['data.items'],
+      effect: setValue('data.items', [], 'Clear cart'),
+      semantic: { type: 'action', verb: 'clear', description: 'Clear the cart' }
     }),
 
-    // Action with precondition
+    // Action with preconditions
     checkout: defineAction({
-      precondition: {
-        $and: [
-          { $gt: [{ $size: { $get: 'data.items' } }, 0] },
-          { $not: { $get: 'state.isSubmitting' } }
-        ]
-      },
+      deps: ['data.items', 'state.isSubmitting'],
+      preconditions: [
+        { path: 'derived.hasItems', expect: 'true', reason: 'Cart must have items' },
+        { path: 'derived.isNotSubmitting', expect: 'true', reason: 'Already submitting' }
+      ],
       effect: sequence([
-        setState('state.isSubmitting', true),
-        apiCall({ method: 'POST', url: '/api/checkout', body: { $get: 'data' } }),
-        setValue('data.items', []),
-        setState('state.isSubmitting', false)
-      ])
+        setState('state.isSubmitting', true, 'Set submitting'),
+        apiCall({ method: 'POST', url: '/api/checkout', body: ['get', 'data'], description: 'Submit checkout' }),
+        setValue('data.items', [], 'Clear cart'),
+        setState('state.isSubmitting', false, 'Clear submitting')
+      ]),
+      semantic: { type: 'action', verb: 'checkout', description: 'Checkout order', risk: 'high' }
     }),
 
-    // Action with input
+    // Action with input schema
     addItem: defineAction({
-      precondition: { $not: { $get: 'state.isSubmitting' } },
-      effect: setValue('data.items', {
-        $concat: [{ $get: 'data.items' }, [{ $get: 'input' }]]
-      })
+      deps: ['data.items', 'state.isSubmitting'],
+      input: z.object({ id: z.string(), name: z.string(), price: z.number() }),
+      preconditions: [
+        { path: 'derived.isNotSubmitting', expect: 'true', reason: 'Cannot add while submitting' }
+      ],
+      effect: setValue('data.items',
+        ['concat', ['get', 'data.items'], [['get', 'input']]],
+        'Add item to cart'
+      ),
+      semantic: { type: 'action', verb: 'add', description: 'Add item to cart' }
     }),
 
-    // Action with semantic metadata
+    // Action with semantic metadata indicating risk
     deleteOrder: defineAction({
-      meta: {
+      deps: ['data.status'],
+      preconditions: [
+        { path: 'data.status', expect: 'draft', reason: 'Can only delete draft orders' }
+      ],
+      effect: apiCall({ method: 'DELETE', url: '/api/orders/{id}', description: 'Delete order' }),
+      semantic: {
+        type: 'action',
+        verb: 'delete',
         description: 'Permanently delete the order',
-        importance: 'critical',
-        confirmationRequired: true
-      },
-      precondition: { $eq: [{ $get: 'data.status' }, 'draft'] },
-      effect: apiCall({ method: 'DELETE', url: '/api/orders/{id}' })
+        risk: 'critical',
+        reversible: false
+      }
     })
   }
 });

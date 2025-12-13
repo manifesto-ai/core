@@ -20,14 +20,19 @@ import {
   createRuntime,
   defineDerived,
   defineAction,
+  defineSource,
   sequence,
   setState,
-  apiCall,
+  setValue,
   z
 } from '@manifesto-ai/core';
 
 // Define a domain
-const todosDomain = defineDomain('todos', {
+const todosDomain = defineDomain({
+  id: 'todos',
+  name: 'Todos',
+  description: 'Todo list management domain',
+
   dataSchema: z.object({
     items: z.array(z.object({
       id: z.string(),
@@ -37,45 +42,61 @@ const todosDomain = defineDomain('todos', {
   }),
 
   stateSchema: z.object({
-    filter: z.enum(['all', 'active', 'completed']).default('all'),
-    isLoading: z.boolean().default(false)
+    filter: z.enum(['all', 'active', 'completed']),
+    isLoading: z.boolean()
   }),
 
-  derived: {
-    // Keys are auto-prefixed: 'activeCount' becomes 'derived.activeCount'
-    activeCount: defineDerived(
-      { $size: { $filter: ['data.items', { $eq: ['$item.completed', false] }] } },
-      z.number()
-    ),
-    filteredItems: defineDerived(
-      {
-        $if: [
-          { $eq: [{ $get: 'state.filter' }, 'all'] },
-          { $get: 'data.items' },
-          { $filter: ['data.items', {
-            $eq: ['$item.completed', { $eq: [{ $get: 'state.filter' }, 'completed'] }]
-          }] }
-        ]
-      },
-      z.array(z.object({ id: z.string(), title: z.string(), completed: z.boolean() }))
-    )
+  initialState: {
+    filter: 'all',
+    isLoading: false
+  },
+
+  paths: {
+    sources: {
+      // Auto-prefixed: 'items' becomes 'data.items'
+      items: defineSource({
+        schema: z.array(z.object({
+          id: z.string(),
+          title: z.string(),
+          completed: z.boolean()
+        })),
+        defaultValue: [],
+        semantic: { type: 'list', description: 'Todo items' }
+      })
+    },
+    derived: {
+      // Auto-prefixed: 'activeCount' becomes 'derived.activeCount'
+      activeCount: defineDerived({
+        deps: ['data.items'],
+        expr: ['length', ['filter', ['get', 'data.items'], ['!', '$.completed']]],
+        semantic: { type: 'count', description: 'Number of active todos' }
+      })
+    }
   },
 
   actions: {
-    addTodo: defineAction({
-      precondition: { $gt: [{ $size: { $get: 'input.title' } }, 0] },
-      effect: setValue('data.items', {
-        $concat: [
-          { $get: 'data.items' },
-          [{ id: { $get: 'input.id' }, title: { $get: 'input.title' }, completed: false }]
-        ]
-      })
+    // Set filter action
+    setFilter: defineAction({
+      deps: ['state.filter'],
+      input: z.object({ filter: z.enum(['all', 'active', 'completed']) }),
+      effect: setState('state.filter', ['get', 'input.filter'], 'Set filter'),
+      semantic: { type: 'action', verb: 'set', description: 'Set todo filter' }
+    }),
+
+    // Clear completed todos
+    clearCompleted: defineAction({
+      deps: ['data.items'],
+      effect: setValue('data.items',
+        ['filter', ['get', 'data.items'], ['!', '$.completed']],
+        'Clear completed todos'
+      ),
+      semantic: { type: 'action', verb: 'clear', description: 'Remove completed todos' }
     })
   }
 });
 
 // Create runtime
-const runtime = createRuntime(todosDomain);
+const runtime = createRuntime({ domain: todosDomain });
 
 // Use the runtime
 runtime.set('data.items', [
@@ -91,94 +112,128 @@ console.log(runtime.get('derived.activeCount')); // 1
 
 > **Note:** Keys in `sources`, `derived`, and `async` are auto-prefixed (`data.`, `derived.`, `async.` respectively). Keys with existing prefixes are preserved for backward compatibility. Both `activeCount` and `'derived.activeCount'` are valid.
 
-#### `defineDomain(name, config)`
+#### `defineDomain(options)`
 
 Creates a domain definition.
 
 ```typescript
-const domain = defineDomain('myDomain', {
+const domain = defineDomain({
+  id: 'myDomain',
+  name: 'My Domain',
+  description: 'Domain description for AI understanding',
   dataSchema: z.object({ ... }),      // Required: Source data schema
-  stateSchema: z.object({ ... }),     // Optional: UI state schema
-  derived: { ... },                    // Optional: Computed values
-  async: { ... },                      // Optional: Async data sources
-  actions: { ... }                     // Optional: Domain actions
+  stateSchema: z.object({ ... }),     // Required: UI state schema
+  initialState: { ... },               // Required: Initial state values
+  paths: {
+    sources: { ... },                  // Optional: Source definitions
+    derived: { ... },                  // Optional: Computed values
+    async: { ... },                    // Optional: Async data sources
+  },
+  actions: { ... },                    // Optional: Domain actions
+  meta: { ... }                        // Optional: Domain metadata
 });
 ```
 
-#### `defineSource(schema, meta?)`
+#### `defineSource(options)`
 
-Defines a source field with optional metadata.
+Defines a source field with semantic metadata.
 
 ```typescript
 const sources = {
   // Auto-prefixed: 'user' becomes 'data.user'
-  user: defineSource(
-    z.object({ name: z.string(), email: z.string() }),
-    { description: 'Current user information' }
-  )
+  user: defineSource({
+    schema: z.object({ name: z.string(), email: z.string() }),
+    defaultValue: { name: '', email: '' },
+    semantic: {
+      type: 'entity',
+      description: 'Current user information'
+    }
+  })
 };
 ```
 
-#### `defineDerived(expression, schema, meta?)`
+#### `defineDerived(options)`
 
-Defines a computed value.
+Defines a computed value with explicit dependencies.
 
 ```typescript
 const derived = {
   // Auto-prefixed: 'fullName' becomes 'derived.fullName'
-  fullName: defineDerived(
-    { $concat: [{ $get: 'data.firstName' }, ' ', { $get: 'data.lastName' }] },
-    z.string(),
-    { description: 'User full name' }
-  )
+  fullName: defineDerived({
+    deps: ['data.firstName', 'data.lastName'],
+    expr: ['concat', ['get', 'data.firstName'], ' ', ['get', 'data.lastName']],
+    semantic: {
+      type: 'computed',
+      description: 'User full name'
+    }
+  })
 };
 ```
 
-#### `defineAsync(config, schema, meta?)`
+#### `defineAsync(options)`
 
-Defines an async data source.
+Defines an async data source with result paths.
 
 ```typescript
 const async = {
   // Auto-prefixed: 'userData' becomes 'async.userData'
-  userData: defineAsync(
-    {
-      fetch: { method: 'GET', url: '/api/user' },
-      dependencies: ['data.userId']
+  userData: defineAsync({
+    deps: ['data.userId'],
+    condition: ['!=', ['get', 'data.userId'], null],
+    debounce: 300,
+    effect: {
+      _tag: 'ApiCall',
+      method: 'GET',
+      endpoint: '/api/user',
+      description: 'Fetch user data'
     },
-    z.object({ name: z.string() })
-  )
+    resultPath: 'state.userData',
+    loadingPath: 'state.userLoading',
+    errorPath: 'state.userError',
+    semantic: {
+      type: 'async',
+      description: 'User data from API'
+    }
+  })
 };
 ```
 
-#### `defineAction(config)`
+#### `defineAction(options)`
 
 Defines a domain action with preconditions and effects.
 
 ```typescript
 const actions = {
   submit: defineAction({
-    precondition: { $and: [
-      { $gt: [{ $get: 'derived.total' }, 0] },
-      { $not: { $get: 'state.isSubmitting' } }
-    ]},
+    deps: ['derived.total', 'state.isSubmitting'],
+    preconditions: [
+      { path: 'derived.hasItems', expect: 'true', reason: 'Cart must have items' },
+      { path: 'state.isSubmitting', expect: 'false', reason: 'Already submitting' }
+    ],
     effect: sequence([
       setState('state.isSubmitting', true),
       apiCall({ method: 'POST', url: '/api/submit' }),
       setState('state.isSubmitting', false)
-    ])
+    ]),
+    semantic: {
+      type: 'action',
+      verb: 'submit',
+      description: 'Submit the order',
+      risk: 'medium'
+    }
   })
 };
 ```
 
 ### Runtime
 
-#### `createRuntime(domain, options?)`
+#### `createRuntime(options)`
 
 Creates a runtime instance for a domain.
 
 ```typescript
-const runtime = createRuntime(domain, {
+const runtime = createRuntime({
+  domain: myDomain,
   initialData: { count: 0 },
   initialState: { isLoading: false }
 });
@@ -221,76 +276,147 @@ const explanation = runtime.explain('derived.total');
 
 ### Expression DSL
 
-Manifesto uses a JSON-based DSL for declarative expressions.
+Manifesto uses a JSON-based DSL for declarative expressions. All expressions use **array format**: `['operator', ...args]`.
+
+#### Path Reference
+
+```typescript
+['get', 'data.user.name']     // Get value at path
+['get', 'state.isLoading']    // Get state value
+['get', 'derived.total']      // Get derived value
+
+// In predicates (filter, map, etc.)
+'$.price'                      // Current item's price field
+'$.completed'                  // Current item's completed field
+'$'                            // Current item itself
+```
 
 #### Comparison Operators
 
 ```typescript
-{ $eq: [a, b] }       // a === b
-{ $ne: [a, b] }       // a !== b
-{ $gt: [a, b] }       // a > b
-{ $gte: [a, b] }      // a >= b
-{ $lt: [a, b] }       // a < b
-{ $lte: [a, b] }      // a <= b
+['==', a, b]      // a === b
+['!=', a, b]      // a !== b
+['>', a, b]       // a > b
+['>=', a, b]      // a >= b
+['<', a, b]       // a < b
+['<=', a, b]      // a <= b
 ```
 
 #### Logical Operators
 
 ```typescript
-{ $and: [expr1, expr2, ...] }   // All true
-{ $or: [expr1, expr2, ...] }    // Any true
-{ $not: expr }                   // Negation
+['all', expr1, expr2, ...]    // All expressions must be true (AND)
+['any', expr1, expr2, ...]    // Any expression is true (OR)
+['!', expr]                    // Negation (NOT)
 ```
 
 #### Arithmetic Operators
 
 ```typescript
-{ $add: [a, b] }        // a + b
-{ $subtract: [a, b] }   // a - b
-{ $multiply: [a, b] }   // a * b
-{ $divide: [a, b] }     // a / b
-{ $modulo: [a, b] }     // a % b
+['+', a, b]       // a + b
+['-', a, b]       // a - b
+['*', a, b]       // a * b
 ```
 
 #### String Functions
 
 ```typescript
-{ $concat: [str1, str2, ...] }  // Concatenate strings
-{ $upper: str }                  // Uppercase
-{ $lower: str }                  // Lowercase
-{ $trim: str }                   // Trim whitespace
-{ $split: [str, delimiter] }     // Split string
-{ $includes: [str, search] }     // Contains substring
+['concat', str1, str2, ...]     // Concatenate strings
+['join', array, delimiter]       // Join array elements
+['includes', str, search]        // Contains substring
+['slice', str, start, end]       // Substring
 ```
 
 #### Array Functions
 
 ```typescript
-{ $size: array }                            // Array length
-{ $first: array }                           // First element
-{ $last: array }                            // Last element
-{ $filter: [array, predicate] }             // Filter elements
-{ $map: [array, transform] }                // Transform elements
-{ $find: [array, predicate] }               // Find first match
-{ $some: [array, predicate] }               // Any match
-{ $every: [array, predicate] }              // All match
-{ $sum: array }                             // Sum numbers
-{ $reduce: [array, reducer, initial] }      // Reduce array
+['length', array]                // Array length
+['at', array, index]             // Element at index (0 = first, -1 = last)
+['filter', array, predicate]     // Filter elements
+['map', array, transform]        // Transform elements
+['some', array, predicate]       // Any element matches
+['every', array, predicate]      // All elements match
+['concat', array1, array2]       // Concatenate arrays
+['includes', array, element]     // Array contains element
+['sort', array, key]             // Sort by key
+['slice', array, start, end]     // Slice array
+['indexOf', array, element]      // Find index of element
 ```
+
+> **Note:** There is no `find` operator. Use `['at', ['filter', array, predicate], 0]` instead.
 
 #### Conditional
 
 ```typescript
-{ $if: [condition, thenValue, elseValue] }
+// Case expression (if-else chain) - each condition-value pair is a tuple
+['case',
+  [condition1, value1],
+  [condition2, value2],
+  defaultValue
+]
+
+// Example: return 'large', 'medium', or 'small' based on total
+['case',
+  [['>', ['get', 'derived.total'], 100], 'large'],
+  [['>', ['get', 'derived.total'], 50], 'medium'],
+  'small'
+]
+
+// Match expression (pattern matching)
+['match', value,
+  [pattern1, result1],
+  [pattern2, result2],
+  defaultResult
+]
+
+// Coalesce (first non-null value)
+['coalesce', value1, value2, value3]
 ```
 
-#### Path Reference
+#### Object Operations
 
 ```typescript
-{ $get: 'data.user.name' }    // Get value at path
-'$item.price'                  // Current item in iteration
-'$index'                       // Current index in iteration
+['pick', object, ['key1', 'key2']]   // Pick specific keys
+['omit', object, ['key1', 'key2']]   // Omit specific keys
 ```
+
+#### Examples
+
+```typescript
+// Filter active todos
+['filter', ['get', 'data.items'], ['!', '$.completed']]
+
+// Count completed items
+['length', ['filter', ['get', 'data.items'], '$.completed']]
+
+// Find first item by id (no find operator, use filter + at)
+['at', ['filter', ['get', 'data.items'], ['==', '$.id', ['get', 'input.id']]], 0]
+
+// Concatenate first and last name
+['concat', ['get', 'data.firstName'], ' ', ['get', 'data.lastName']]
+
+// Conditional value (each condition-value pair is a tuple)
+['case',
+  [['>', ['get', 'derived.total'], 100], 'large'],
+  [['>', ['get', 'derived.total'], 50], 'medium'],
+  'small'
+]
+```
+
+#### Known Limitations
+
+1. **No object literal construction**: You cannot create new objects with dynamic values directly in expressions.
+   ```typescript
+   // ❌ This does NOT work
+   ['concat', ['get', 'data.items'], [{ id: ['get', 'input.id'], name: 'New' }]]
+
+   // ✅ Use pick/omit for existing objects, or handle in effect handlers
+   ['pick', '$', ['id', 'name']]
+   ```
+
+2. **No empty object literal**: `{}` is not a valid expression. Use `['coalesce']` or handle in application code.
+
+3. **No `find` operator**: Use `['at', ['filter', array, predicate], 0]` instead.
 
 ### Effect System
 
@@ -301,7 +427,7 @@ Effects describe side effects as data.
 ```typescript
 // Set a value
 setValue('data.count', 10)
-setValue('data.count', { $add: [{ $get: 'data.count' }, 1] })
+setValue('data.count', ['+', ['get', 'data.count'], 1])
 
 // Set state
 setState('state.isLoading', true)
@@ -310,7 +436,7 @@ setState('state.isLoading', true)
 apiCall({
   method: 'POST',
   url: '/api/orders',
-  body: { $get: 'data.order' },
+  body: ['get', 'data.order'],
   headers: { 'Content-Type': 'application/json' }
 })
 
@@ -342,7 +468,7 @@ parallel([
 
 // Conditional execution
 conditional(
-  { $get: 'state.isPremium' },
+  ['get', 'state.isPremium'],
   apiCall({ method: 'GET', url: '/api/premium' }),
   apiCall({ method: 'GET', url: '/api/basic' })
 )
@@ -350,7 +476,7 @@ conditional(
 // Error handling
 catchEffect(
   apiCall({ method: 'POST', url: '/api/submit' }),
-  setState('state.error', { $get: 'error.message' })
+  setState('state.error', ['get', 'error.message'])
 )
 ```
 

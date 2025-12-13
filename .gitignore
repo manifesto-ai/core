@@ -33,6 +33,3 @@ pnpm-debug.log*
 .env.*.local
 .npm-cache
 .next
-
-AGENTS.md
-Claude.md

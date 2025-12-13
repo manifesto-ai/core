@@ -445,23 +445,25 @@ interface AgentRuntime<S> {
 
 ```typescript
 import { defineTool, createToolRegistry } from '@manifesto-ai/agent';
+import { z } from 'zod';
 
-const searchTool = defineTool({
-  name: 'search',
-  description: 'Search the web',
-  execute: async (input: { query: string }) => {
+// defineTool(name, inputSchema, execute)
+const searchTool = defineTool(
+  'search',
+  z.object({ query: z.string() }),
+  async (input) => {
     const results = await performSearch(input.query);
     return { results };
-  },
-});
+  }
+);
 
-const calculatorTool = defineTool({
-  name: 'calculate',
-  description: 'Perform calculations',
-  execute: async (input: { expression: string }) => {
+const calculatorTool = defineTool(
+  'calculate',
+  z.object({ expression: z.string() }),
+  async (input) => {
     return { result: eval(input.expression) };
-  },
-});
+  }
+);
 
 const toolRegistry = createToolRegistry([searchTool, calculatorTool]);
 ```
@@ -745,6 +747,11 @@ type Policy = {
 - `createFixedClient(effects)` - Create fixed-response client
 - `defaultDoneChecker()` - Always returns not done
 - `phaseDoneChecker(targetPhase)` - Done when phase matches
+
+### Tools
+
+- `defineTool(name, inputSchema, execute)` - Define a tool with name, Zod schema, and handler
+- `createToolRegistry(tools)` - Create a registry from tool array
 
 ### Invariant Helpers
 
