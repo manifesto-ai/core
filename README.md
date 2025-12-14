@@ -14,6 +14,7 @@
   <a href="https://github.com/anthropics/manifesto-ai/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License" /></a>
   <a href="https://github.com/anthropics/manifesto-ai/actions"><img src="https://img.shields.io/github/actions/workflow/status/anthropics/manifesto-ai/ci.yml?style=flat-square" alt="CI Status" /></a>
   <a href="https://bundlephobia.com/package/@manifesto-ai/core"><img src="https://img.shields.io/bundlephobia/minzip/@manifesto-ai/core?style=flat-square&label=bundle%20size" alt="Bundle Size" /></a>
+  <a href="https://spec.manifesto-ai.dev"><img src="https://img.shields.io/badge/spec-Working%20Draft-orange?style=flat-square" alt="Spec: Working Draft" /></a>
 </p>
 
 <p align="center">
@@ -233,6 +234,7 @@ await runtime.executeAction('toggle', { id: 'todo-1' });
 
 ## Documentation
 
+- **[Specification](https://spec.manifesto-ai.dev)** — Formal spec definition (Working Draft) | [GitHub](https://github.com/manifesto-ai/spec)
 - **[Getting Started](./docs/getting-started.md)** — 5-minute introduction
 - **[Core Concepts](./docs/concepts.md)** — SemanticPath, Expressions, Effects
 - **[Architecture](./docs/architecture.md)** — 3-layer design philosophy
