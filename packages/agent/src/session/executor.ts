@@ -14,6 +14,7 @@ import type { Policy } from '../types/policy.js';
 import type { AgentRuntime, StepResult } from '../types/session.js';
 import type { ErrorState } from '../types/errors.js';
 import type { ProjectionProvider } from '../projection/types.js';
+import type { RuntimeEvents } from '../types/events.js';
 import { createEffectError, createHandlerError } from '../types/errors.js';
 import type { EffectHandlerRegistry, HandlerContext, ToolRegistry } from '../handlers/registry.js';
 import { validateEffectStructure } from './validate-effect.js';
@@ -41,6 +42,15 @@ export type ExecutorContext<S = unknown> = {
    * LLM에게 전달할 스냅샷을 투영하는 제공자
    */
   projectionProvider?: ProjectionProvider<S>;
+  /**
+   * 런타임 이벤트 콜백 (v0.1.x)
+   * Step, LLM 호출, Effect 실행 등의 진행 상황 알림
+   */
+  events?: RuntimeEvents<S>;
+  /**
+   * 현재 step 번호 (executeRun에서 관리)
+   */
+  stepNumber?: number;
 };
 
 /**
@@ -50,10 +60,17 @@ export type ExecutorContext<S = unknown> = {
  * @returns StepResult
  */
 export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResult> {
-  const { runtime, client, policy, handlers, tools, compileConstraints, instruction, projectionProvider } = ctx;
+  const { runtime, client, policy, handlers, tools, compileConstraints, instruction, projectionProvider, events, stepNumber = 1 } = ctx;
 
   // 1. 현재 스냅샷 조회
   const fullSnapshot = runtime.getSnapshot();
+
+  // Event: onStepStart
+  events?.onStepStart?.({
+    stepNumber,
+    timestamp: Date.now(),
+    snapshot: fullSnapshot,
+  });
 
   // 2. Constraints 컴파일
   const constraints = compileConstraints(fullSnapshot);
@@ -73,6 +90,12 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
     projectionMeta = projectionResult.metadata;
   }
 
+  // Event: onLLMCallStart
+  events?.onLLMCallStart?.({
+    stepNumber,
+    timestamp: Date.now(),
+  });
+
   // 5. LLM 호출
   let decision: AgentDecision;
   try {
@@ -86,22 +109,45 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
   } catch (err) {
     // LLM 호출 실패
     runtime.appendError(createEffectError('llm_call', err instanceof Error ? err.message : String(err)));
-    return {
+    const result: StepResult = {
       done: false,
       reason: 'LLM call failed',
       effectsExecuted: 0,
       errorsEncountered: 1,
     };
+    // Event: onStepComplete (with error)
+    events?.onStepComplete?.({
+      stepNumber,
+      timestamp: Date.now(),
+      snapshot: runtime.getSnapshot(),
+      ...result,
+    });
+    return result;
   }
+
+  // Event: onLLMCallComplete
+  events?.onLLMCallComplete?.({
+    stepNumber,
+    timestamp: Date.now(),
+    decision,
+  });
 
   // 5. Effects가 비어있으면 완료로 간주
   if (decision.effects.length === 0) {
-    return {
+    const result: StepResult = {
       done: true,
       reason: 'No effects emitted',
       effectsExecuted: 0,
       errorsEncountered: 0,
     };
+    // Event: onStepComplete
+    events?.onStepComplete?.({
+      stepNumber,
+      timestamp: Date.now(),
+      snapshot: runtime.getSnapshot(),
+      ...result,
+    });
+    return result;
   }
 
   // 6. Effects 순차 실행 (stop-on-failure)
@@ -121,7 +167,9 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
     tools,
   };
 
-  for (const effect of effectsToExecute) {
+  for (let i = 0; i < effectsToExecute.length; i++) {
+    const effect = effectsToExecute[i]!;
+
     // 6.1 Effect 구조 검증
     const validation = validateEffectStructure(effect);
     if (!validation.ok) {
@@ -133,10 +181,26 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
       break; // stop-on-failure
     }
 
+    // Event: onEffectStart
+    events?.onEffectStart?.({
+      stepNumber,
+      effectIndex: i,
+      effect,
+      timestamp: Date.now(),
+    });
+
     // 6.2 Effect 실행
     try {
       await handlers.handle(effect, handlerCtx);
       effectsExecuted++;
+
+      // Event: onEffectComplete
+      events?.onEffectComplete?.({
+        stepNumber,
+        effectIndex: i,
+        effect,
+        timestamp: Date.now(),
+      });
     } catch (err) {
       runtime.appendError(createHandlerError(
         effect.id,
@@ -147,11 +211,21 @@ export async function executeStep<S>(ctx: ExecutorContext<S>): Promise<StepResul
     }
   }
 
-  return {
+  const result: StepResult = {
     done: false,
     effectsExecuted,
     errorsEncountered,
   };
+
+  // Event: onStepComplete
+  events?.onStepComplete?.({
+    stepNumber,
+    timestamp: Date.now(),
+    snapshot: runtime.getSnapshot(),
+    ...result,
+  });
+
+  return result;
 }
 
 /**
@@ -189,8 +263,12 @@ export async function executeRun<S>(
       }
     }
 
-    // Step 실행
-    const result = await executeStep(ctx);
+    // Step 실행 (stepNumber 전달)
+    const stepCtx: ExecutorContext<S> = {
+      ...ctx,
+      stepNumber: totalSteps + 1,
+    };
+    const result = await executeStep(stepCtx);
     totalSteps++;
     totalEffects += result.effectsExecuted;
 

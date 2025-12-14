@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Session layer that executes LLM as a pure policy function and standardizes all side effects as Effects",
   "type": "module",
   "main": "./dist/index.js",

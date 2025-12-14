@@ -91,3 +91,12 @@ export {
   defaultDoneChecker,
   phaseDoneChecker,
 } from './session.js';
+
+// Event types
+export type {
+  StepEvent,
+  EffectEvent,
+  LLMCallEvent,
+  StepCompleteEvent,
+  RuntimeEvents,
+} from './events.js';

@@ -124,6 +124,15 @@ export {
   phaseDoneChecker,
 } from './types/index.js';
 
+// Event types (v0.1.x)
+export type {
+  StepEvent,
+  EffectEvent,
+  LLMCallEvent,
+  StepCompleteEvent,
+  RuntimeEvents,
+} from './types/index.js';
+
 // ============================================================================
 // Validation
 // ============================================================================

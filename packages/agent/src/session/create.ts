@@ -9,6 +9,7 @@ import type { AgentClient } from '../types/client.js';
 import type { Constraints } from '../types/constraints.js';
 import type { Policy } from '../types/policy.js';
 import type { AgentRuntime, AgentSession, StepResult, RunResult, DoneChecker } from '../types/session.js';
+import type { RuntimeEvents } from '../types/events.js';
 import type { EffectHandlerRegistry, ToolRegistry } from '../handlers/registry.js';
 import type {
   ProjectionProvider,
@@ -68,6 +69,11 @@ export type CreateAgentSessionOptions<S = unknown> = {
    * projectionProvider가 제공되면 무시됨
    */
   projection?: ProjectionConfig;
+  /**
+   * 런타임 이벤트 콜백 (v0.1.x)
+   * Step, LLM 호출, Effect 실행 등의 진행 상황 알림
+   */
+  events?: RuntimeEvents<S>;
 };
 
 /**
@@ -112,6 +118,7 @@ export function createAgentSession<S = unknown>(
     isDone,
     projectionProvider: projectionProviderInput,
     projection,
+    events,
   } = opts;
 
   // Policy 병합
@@ -156,6 +163,7 @@ export function createAgentSession<S = unknown>(
     compileConstraints,
     instruction,
     projectionProvider,
+    events,
   };
 
   return {
