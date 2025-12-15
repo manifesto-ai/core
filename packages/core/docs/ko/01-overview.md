@@ -1,37 +1,5 @@
 # @manifesto-ai/core 개요
 
-```typescript
-import { defineDomain, createRuntime, z } from '@manifesto-ai/core';
-
-// 주문 도메인 정의
-const orderDomain = defineDomain({
-  id: 'order',
-  name: '주문',
-  description: '이커머스 주문 관리 도메인',
-
-  dataSchema: z.object({
-    items: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      price: z.number(),
-      quantity: z.number()
-    })),
-    couponCode: z.string().optional()
-  }),
-
-  stateSchema: z.object({
-    isSubmitting: z.boolean()
-  }),
-
-  initialState: { isSubmitting: false }
-});
-
-// 런타임 생성 및 사용
-const runtime = createRuntime({ domain: orderDomain });
-runtime.set('data.items', [{ id: '1', name: '상품A', price: 10000, quantity: 2 }]);
-console.log(runtime.get('derived.total')); // 20000
-```
-
 ## Manifesto Core란?
 
 Manifesto Core는 **AI Native Semantic Layer**이다. SaaS 애플리케이션의 비즈니스 로직을 AI가 이해하고 안전하게 조작할 수 있는 형태로 선언한다.
@@ -65,6 +33,45 @@ const subtotal = defineDerived({
 - **Derived 값**은 deps의 값만으로 결정된다
 - **Action**은 precondition이 충족되어야만 실행된다
 - **Effect**는 실행 전 "무엇을 할 것인지"를 데이터로 표현한다
+```typescript
+import { defineDomain, createRuntime, z } from '@manifesto-ai/core';
+
+// 주문 도메인 정의
+const orderDomain = defineDomain({
+  id: 'order',
+  name: '주문',
+  description: '이커머스 주문 관리 도메인',
+
+  dataSchema: z.object({
+    items: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      price: z.number(),
+      quantity: z.number()
+    })),
+    couponCode: z.string().optional()
+  }),
+
+  derived: {
+    total: defineDerived({
+      deps: ['data.items'],
+      expr: ['sum', ['map', ['get', 'data.items'], ['*', '$.price', '$.quantity']]],
+      semantic: { type: 'currency', description: '주문 총액' }
+    })
+  },
+
+  stateSchema: z.object({
+    isSubmitting: z.boolean()
+  }),
+
+  initialState: { isSubmitting: false }
+});
+
+// 런타임 생성 및 사용
+const runtime = createRuntime({ domain: orderDomain });
+runtime.set('data.items', [{ id: '1', name: '상품A', price: 10000, quantity: 2 }]);
+console.log(runtime.get('derived.total')); // 20000
+```
 
 ## Core가 해결하는 문제
 

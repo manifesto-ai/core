@@ -14,7 +14,6 @@ CACHE_DIR="${ROOT_DIR}/.npm-cache"
 PACKAGES=(
   core
   agent
-  react-migrate
 )
 
 maybe_build() {
