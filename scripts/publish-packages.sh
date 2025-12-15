@@ -13,12 +13,7 @@ CACHE_DIR="${ROOT_DIR}/.npm-cache"
 
 PACKAGES=(
   core
-  bridge
-  bridge-react-hook-form
-  bridge-zustand
-  projection-agent
-  projection-graphql
-  projection-ui
+  agent
 )
 
 maybe_build() {
