@@ -11,13 +11,6 @@ on:
         options:
           - agent
           - core
-          - bridge
-          - bridge-react-hook-form
-          - bridge-zustand
-          - projection-agent
-          - projection-graphql
-          - projection-ui
-          - react-migrate
       dry_run:
         description: 'Dry run (skip actual publish)'
         required: false
