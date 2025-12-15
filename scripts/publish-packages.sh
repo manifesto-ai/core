@@ -13,9 +13,8 @@ CACHE_DIR="${ROOT_DIR}/.npm-cache"
 
 PACKAGES=(
   core
-  bridge
-  bridge-react-hook-form
-  bridge-zustand
+  agent
+  react-migrate
 )
 
 maybe_build() {

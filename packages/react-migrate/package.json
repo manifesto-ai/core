@@ -48,7 +48,7 @@
     "cli": "tsx src/cli/cli.tsx"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^0.2.0"
+    "@manifesto-ai/core": "^0.3.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -66,7 +66,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/core": "^0.3.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",

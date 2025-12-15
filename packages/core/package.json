@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI Native Semantic Layer for SaaS Business Logic",
   "type": "module",
   "main": "./dist/index.js",
