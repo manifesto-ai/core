@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Session layer that executes LLM as a pure policy function and standardizes all side effects as Effects",
   "type": "module",
   "main": "./dist/index.js",
@@ -53,7 +53,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^0.2.0"
+    "@manifesto-ai/core": "^0.3.0"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
