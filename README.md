@@ -5,7 +5,7 @@
 <h1 align="center">Manifesto AI</h1>
 
 <p align="center">
-  <strong>AI-Native Semantic State Engine</strong><br/>
+  <strong>AI-Native Semantic State Layer</strong><br/>
   A unified world model where UI, Agents, and Humans operate over the same explicit semantics.
 </p>
 
