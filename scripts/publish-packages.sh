@@ -16,9 +16,6 @@ PACKAGES=(
   bridge
   bridge-react-hook-form
   bridge-zustand
-  projection-agent
-  projection-graphql
-  projection-ui
 )
 
 maybe_build() {
