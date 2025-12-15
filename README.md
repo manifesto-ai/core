@@ -133,10 +133,10 @@ UI, AI agents, and APIs are all **projections** of the same semantic model:
                              │
          ┌───────────────────┼───────────────────┐
          ▼                   ▼                   ▼
-   ┌──────────┐       ┌──────────┐       ┌──────────┐
-   │  UI      │       │  Agent   │       │  GraphQL │
-   │Projection│       │Projection│       │Projection│
-   └──────────┘       └──────────┘       └──────────┘
+   ┌──────────┐        ┌──────────┐        ┌──────────┐
+   │  UI      │        │  Agent   │        │    BE    │
+   │Projection│        │Projection│        │Projection│
+   └──────────┘        └──────────┘        └──────────┘
 ```
 
 ---
@@ -223,12 +223,11 @@ await runtime.executeAction('toggle', { id: 'todo-1' });
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [`@manifesto-ai/core`](./packages/core) | Core runtime, domain definition, expression DSL |
-| [`@manifesto-ai/bridge`](./packages/bridge) | Framework integrations (React, Zustand, etc.) |
-| [`@manifesto-ai/projection-ui`](./packages/projection-ui) | UI state projection for rendering |
-| [`@manifesto-ai/projection-agent`](./packages/projection-agent) | AI agent projection for semantic operation |
+| Package                                                         | Description |
+|-----------------------------------------------------------------|-------------|
+| [`@manifesto-ai/core`](./packages/core)                         | Core runtime, domain definition, expression DSL |
+| [`@manifesto-ai/bridge/*`](https://github.com/manifesto-ai/bridge)                   | Framework integrations (React, Zustand, etc.) |
+| [`@manifesto-ai/agent`](./packages/agent)                       | AI Agent integration for Manifesto domains |
 
 ---
 
@@ -261,11 +260,11 @@ const cartDomain = defineDomain('cart', {
   }),
 
   derived: {
-    'derived.subtotal': defineDerived(
+    subtotal: defineDerived(
       { $sum: { $map: [{ $get: 'data.items' }, { $multiply: ['$item.price', '$item.quantity'] }] } },
       z.number()
     ),
-    'derived.canCheckout': defineDerived(
+    canCheckout: defineDerived(
       { $and: [
         { $gt: [{ $size: { $get: 'data.items' } }, 0] },
         { $not: { $get: 'state.isSubmitting' } }
