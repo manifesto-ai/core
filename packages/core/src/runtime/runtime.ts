@@ -7,7 +7,7 @@ import type {
 } from '../domain/types.js';
 import type { Expression, EvaluationContext } from '../expression/types.js';
 import type { Effect } from '../effect/types.js';
-import type { Result } from '../effect/result.js';
+import type { Result, PropagationError, HandlerError } from '../effect/result.js';
 import type { EffectError } from '../effect/result.js';
 import type {
   DomainSnapshot,
@@ -25,7 +25,7 @@ import { SubscriptionManager } from './subscription.js';
 import { buildDependencyGraph, getAllDependents } from '../dag/graph.js';
 import { propagate, propagateAsyncResult, analyzeImpact } from '../dag/propagation.js';
 import { runEffect, type EffectHandler } from '../effect/runner.js';
-import { ok, err, effectError } from '../effect/result.js';
+import { ok, err, effectError, handlerError, propagationError } from '../effect/result.js';
 import { evaluate } from '../expression/evaluator.js';
 
 /**
@@ -80,17 +80,30 @@ export type ExplanationTree = {
 };
 
 /**
+ * SetError: set/setMany 메서드의 에러 타입
+ *
+ * P0-1 Contract: 검증 에러와 전파 에러를 모두 포함
+ */
+export type SetError = ValidationError | PropagationError;
+
+/**
  * DomainRuntime: 도메인 실행 엔진
  */
 export interface DomainRuntime<TData = unknown, TState = unknown> {
+  // Domain Info
+  /** P0-2: Get the domain ID for validation */
+  getDomainId(): string;
+
   // Snapshot Access
   getSnapshot(): DomainSnapshot<TData, TState>;
   get<T = unknown>(path: SemanticPath): T;
   getMany(paths: SemanticPath[]): Record<SemanticPath, unknown>;
 
   // Mutations
-  set(path: SemanticPath, value: unknown): Result<void, ValidationError>;
-  setMany(updates: Record<SemanticPath, unknown>): Result<void, ValidationError>;
+  /** P0-1 Contract: 검증 에러 또는 전파 에러 반환 */
+  set(path: SemanticPath, value: unknown): Result<void, SetError>;
+  /** P0-1 Contract: 검증 에러 또는 전파 에러 반환 */
+  setMany(updates: Record<SemanticPath, unknown>): Result<void, SetError>;
   execute(actionId: string, input?: unknown): Promise<Result<void, EffectError>>;
 
   // Policy & Metadata
@@ -128,6 +141,39 @@ export type CreateRuntimeOptions<TData, TState> = {
 };
 
 /**
+ * P1-1: async base path 확인 (O(1) 체크)
+ *
+ * async.{name}이 도메인에 정의된 async 경로의 base path인지 확인합니다.
+ * async.{name}.result, async.{name}.loading, async.{name}.error는 값 경로이므로 false 반환.
+ */
+function isAsyncBasePath(path: string, domain: ManifestoDomain<unknown, unknown>): boolean {
+  // async.로 시작하지 않으면 확인 불필요
+  if (!path.startsWith('async.')) {
+    return false;
+  }
+
+  // O(1) 체크: 직접 프로퍼티 존재 확인
+  const asyncPaths = domain.paths.async;
+  return asyncPaths !== undefined && path in asyncPaths;
+}
+
+/**
+ * P1-1: warnOnce 패턴 - 이미 경고한 경로는 다시 경고하지 않음
+ */
+const warnedAsyncPaths = new Set<string>();
+
+function warnAsyncPathOnce(path: string, message: string): void {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+  if (warnedAsyncPaths.has(path)) {
+    return;
+  }
+  warnedAsyncPaths.add(path);
+  console.warn(message);
+}
+
+/**
  * DomainRuntime 생성
  */
 export function createRuntime<TData, TState>(
@@ -148,21 +194,54 @@ export function createRuntime<TData, TState>(
   const subscriptionManager = new SubscriptionManager<TData, TState>();
 
   // Effect 핸들러 (기본값 + 사용자 제공)
+  // P0-1 Contract: 모든 핸들러가 Result를 반환
   const effectHandler: EffectHandler = {
     setValue: (path, value) => {
-      snapshot = setValueByPath(snapshot, path, value);
+      try {
+        snapshot = setValueByPath(snapshot, path, value);
+        return ok(undefined);
+      } catch (e) {
+        return err(
+          handlerError(path, e instanceof Error ? e : new Error(String(e)), 'SET_VALUE_FAILED')
+        );
+      }
     },
     setState: (path, value) => {
-      snapshot = setValueByPath(snapshot, path, value);
+      try {
+        snapshot = setValueByPath(snapshot, path, value);
+        return ok(undefined);
+      } catch (e) {
+        return err(
+          handlerError(path, e instanceof Error ? e : new Error(String(e)), 'SET_STATE_FAILED')
+        );
+      }
     },
     apiCall: options.effectHandler?.apiCall ?? (async () => {
-      throw new Error('apiCall handler not provided');
+      return err(
+        handlerError(
+          'apiCall' as SemanticPath,
+          new Error('apiCall handler not provided'),
+          'API_CALL_NOT_PROVIDED'
+        )
+      );
     }),
-    navigate: options.effectHandler?.navigate ?? (() => {
+    navigate: options.effectHandler?.navigate ?? ((to, mode) => {
       console.warn('navigate handler not provided');
+      return ok(undefined);
     }),
     emitEvent: (channel, payload) => {
-      subscriptionManager.emitEvent(channel, payload);
+      try {
+        subscriptionManager.emitEvent(channel, payload);
+        return ok(undefined);
+      } catch (e) {
+        return err(
+          handlerError(
+            `event:${channel}` as SemanticPath,
+            e instanceof Error ? e : new Error(String(e)),
+            'EMIT_EVENT_FAILED'
+          )
+        );
+      }
     },
   };
 
@@ -189,12 +268,30 @@ export function createRuntime<TData, TState>(
   }
 
   return {
+    // Domain Info
+    getDomainId(): string {
+      return domain.id;
+    },
+
     // Snapshot Access
     getSnapshot(): DomainSnapshot<TData, TState> {
       return snapshot;
     },
 
     get<T = unknown>(path: SemanticPath): T {
+      // P1-1: async base path 가드 - async.{name}은 프로세스 식별자이며 값 경로가 아님
+      if (isAsyncBasePath(path, domain)) {
+        const asyncDef = domain.paths.async?.[path];
+        const resultPath = asyncDef?.resultPath ?? (`${path}.result` as SemanticPath);
+        // warnOnce 패턴: 동일 경로에 대해 한 번만 경고
+        warnAsyncPathOnce(
+          path,
+          `[manifesto] "${path}" is an async process path, not a value path. ` +
+          `Use "${resultPath}", "${asyncDef?.loadingPath ?? `${path}.loading`}", or "${asyncDef?.errorPath ?? `${path}.error`}" instead.`
+        );
+        // v0.3.x: backwards compatibility - fallback to resultPath
+        return getValueByPath(snapshot, resultPath) as T;
+      }
       return getValueByPath(snapshot, path) as T;
     },
 
@@ -207,7 +304,10 @@ export function createRuntime<TData, TState>(
     },
 
     // Mutations
-    set(path: SemanticPath, value: unknown): Result<void, ValidationError> {
+    /**
+     * P0-1 Contract: 검증 에러 또는 전파 에러 반환
+     */
+    set(path: SemanticPath, value: unknown): Result<void, SetError> {
       // Zod 스키마 검증 (간략화)
       const source = domain.paths.sources[path];
       if (source) {
@@ -238,13 +338,21 @@ export function createRuntime<TData, TState>(
         },
       });
 
+      // P0-1 Contract: 전파 에러가 있으면 반환
+      if (result.errors.length > 0) {
+        return err(propagationError(result.errors));
+      }
+
       // 구독자 알림
       subscriptionManager.notifySnapshotChange(snapshot, [path, ...result.changes.keys()]);
 
       return ok(undefined);
     },
 
-    setMany(updates: Record<SemanticPath, unknown>): Result<void, ValidationError> {
+    /**
+     * P0-1 Contract: 검증 에러 또는 전파 에러 반환
+     */
+    setMany(updates: Record<SemanticPath, unknown>): Result<void, SetError> {
       const paths = Object.keys(updates);
 
       // 모든 값 검증
@@ -280,6 +388,11 @@ export function createRuntime<TData, TState>(
           snapshot = setValueByPath(snapshot, p, v);
         },
       });
+
+      // P0-1 Contract: 전파 에러가 있으면 반환
+      if (result.errors.length > 0) {
+        return err(propagationError(result.errors));
+      }
 
       // 구독자 알림
       subscriptionManager.notifySnapshotChange(snapshot, [...paths, ...result.changes.keys()]);
