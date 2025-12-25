@@ -55,9 +55,14 @@ Compiler는 그 선언 구조로 수렴하기 위한 변환기이며, Runtime은
 
 ## 제5조 — 결정론 경계(Determinism Boundary)
 
-1. Linker/Verifier/Patch 적용은 가능한 한 결정론적이어야 한다. 
-2. 비결정/IO(LLM 호출, rate limit, retry)는 `llmAdapter` 경계 뒤로 격리한다. 
-3. 비결정 요소가 개입된 산출물은 반드시 provenance에 모델/프롬프트 해시 등 추적 정보를 포함해야 한다. 
+1. Linker/Verifier/Patch 적용은 가능한 한 결정론적이어야 한다.
+2. 비결정/IO(LLM 호출, rate limit, retry)는 `llmAdapter` 경계 뒤로 격리한다.
+3. 비결정 요소가 개입된 산출물은 반드시 provenance에 모델/프롬프트 해시 등 추적 정보를 포함해야 한다.
+
+**구현 상태:**
+- `nlExtractorPass`는 명시적 opt-in 필요 (기본 export deprecated)
+- `PatchHint.origin` 필드로 `'deterministic' | 'llm'` 구분 가능
+- 결정론적 제안 함수들(`suggestDuplicatePathResolutions`, `generateAliasHints` 등)은 `origin: 'deterministic'` 명시 
 
 ---
 
@@ -74,9 +79,15 @@ Compiler는 그 선언 구조로 수렴하기 위한 변환기이며, Runtime은
 1. Compiler가 Core에 없는 기능이 필요하다고 판단할 때(새 operator, 새 effect tag, 새 policy semantics 등), 다음 중 하나로만 진행한다:
 
    * (A) 기존 Core 기능 조합으로 대체 가능한 경우 → PatchHint로 제안
-   * (B) 대체 불가능한 경우 → Issue로 “Core 확장 제안”을 사용자에게 노출 
-2. Compiler는 Core를 “몰래 확장”하지 않는다(사설 DSL/사설 effect 금지).
-3. 사용자/커뮤니티가 수용하면 Core에 정식 도입하고, Compiler는 그 버전을 타겟으로 업데이트한다(마이그레이션 가이드 제공). 
+   * (B) 대체 불가능한 경우 → Issue로 "Core 확장 제안"을 사용자에게 노출
+2. Compiler는 Core를 "몰래 확장"하지 않는다(사설 DSL/사설 effect 금지).
+3. 사용자/커뮤니티가 수용하면 Core에 정식 도입하고, Compiler는 그 버전을 타겟으로 업데이트한다(마이그레이션 가이드 제공).
+
+**구현 상태:**
+- `IssueCode`에 `UNSUPPORTED_OPERATOR`, `UNSUPPORTED_EFFECT_TYPE`, `CORE_EXTENSION_PROPOSAL` 추가
+- `expression-lowering.ts`: Core에 없는 operator 감지 시 경고 로그 및 Issue 생성 가능
+- `effect-lowering.ts`: Core에 없는 effect pattern 감지 시 경고 로그 및 Issue 생성 가능
+- Unknown feature는 skip하지 않고 추적 후 사용자에게 노출됨 
 
 ---
 

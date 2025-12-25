@@ -63,14 +63,66 @@ const LOGICAL_OPERATOR_MAP: Record<string, string> = {
   '||': 'any',
 };
 
+/**
+ * Set of all supported operators in Core Expression DSL
+ *
+ * 헌법 제7조: Core에서 정의한 operators만 여기에 포함
+ */
+const SUPPORTED_OPERATORS = new Set([
+  // Comparison
+  '>', '<', '>=', '<=', '==', '!=',
+  // Arithmetic
+  '+', '-', '*', '/', '%',
+  // Logical
+  'all', 'any', '!',
+  // String
+  'concat', 'upper', 'lower', 'trim', 'slice', 'split', 'join', 'matches', 'replace',
+  // Array
+  'length', 'at', 'first', 'last', 'includes', 'indexOf', 'map', 'filter', 'reduce', 'flatten', 'unique', 'sort',
+  // Number
+  'sum', 'min', 'max', 'avg', 'count', 'round', 'floor', 'ceil', 'abs', 'clamp',
+  // Object
+  'has', 'keys', 'values', 'entries', 'pick', 'omit', 'assoc', 'dissoc', 'merge',
+  // Type
+  'isNull', 'isNumber', 'isString', 'isArray', 'isObject', 'toNumber', 'toString',
+  // Date
+  'now', 'date', 'year', 'month', 'day', 'diff',
+  // Control flow
+  'get', 'case', 'coalesce', 'let', 'var',
+]);
+
+/**
+ * Check if an operator is supported by Core Expression DSL
+ */
+function isSupportedOperator(operator: string): boolean {
+  return SUPPORTED_OPERATORS.has(operator);
+}
+
+/**
+ * Track unsupported operators found during conversion
+ */
+interface ConversionContext {
+  unsupportedOperators: Array<{ operator: string; location?: string }>;
+}
+
+/**
+ * Create a new conversion context
+ */
+function createConversionContext(): ConversionContext {
+  return { unsupportedOperators: [] };
+}
+
 // ============================================================================
 // Expression Conversion
 // ============================================================================
 
 /**
  * Convert AST expression value to Expression DSL
+ *
+ * @param value AST expression value
+ * @param convCtx Conversion context to track unsupported operators (헌법 제7조)
  */
-function convertToExpressionDSL(value: unknown): Expression {
+function convertToExpressionDSL(value: unknown, convCtx?: ConversionContext): Expression {
   if (value === null) return null;
   if (value === undefined) return null;
 
@@ -92,8 +144,8 @@ function convertToExpressionDSL(value: unknown): Expression {
     // Binary expression
     if (obj.type === 'binary') {
       const operator = obj.operator as string;
-      const left = convertToExpressionDSL(obj.left);
-      const right = convertToExpressionDSL(obj.right);
+      const left = convertToExpressionDSL(obj.left, convCtx);
+      const right = convertToExpressionDSL(obj.right, convCtx);
 
       // Handle logical operators (variadic)
       if (operator === '&&') {
@@ -109,7 +161,12 @@ function convertToExpressionDSL(value: unknown): Expression {
         return [dslOperator, left, right] as Expression;
       }
 
-      // Unknown operator - return as-is
+      // 헌법 제7조: Unknown operator 감지 및 기록
+      if (convCtx && !isSupportedOperator(operator)) {
+        convCtx.unsupportedOperators.push({ operator });
+      }
+
+      // Unknown operator - return as-is (but tracked)
       return [operator, left, right] as Expression;
     }
 
@@ -188,17 +245,26 @@ export const expressionLoweringPass: Pass = {
       let expression: Expression | null = null;
       let sourceCode = '';
 
+      // 헌법 제7조: Conversion context로 unsupported operators 추적
+      const convCtx = createConversionContext();
+
       if (finding.kind === 'binary_expression') {
         const data = finding.data as BinaryExpressionData;
-        expression = convertBinaryExpression(data);
+        expression = convertBinaryExpression(data, convCtx);
         sourceCode = data.sourceCode;
       } else if (finding.kind === 'if_statement') {
         const data = finding.data as IfStatementData;
-        expression = convertToExpressionDSL(data.condition);
+        expression = convertToExpressionDSL(data.condition, convCtx);
         sourceCode = extractConditionSource(data.sourceCode);
       }
 
       if (!expression) continue;
+
+      // 헌법 제7조: Unsupported operators 발견 시 경고
+      if (convCtx.unsupportedOperators.length > 0) {
+        const ops = convCtx.unsupportedOperators.map(o => o.operator).join(', ');
+        ctx.log('warn', `Unknown operator(s) detected: ${ops} - Core Extension may be needed`);
+      }
 
       // Analyze expression to get dependencies
       let deps: SemanticPath[] = [];
@@ -228,6 +294,10 @@ export const expressionLoweringPass: Pass = {
             excerpt: sourceCode,
           },
         ],
+        // 헌법 제7조: Unsupported operators 정보를 context에 저장
+        ...(convCtx.unsupportedOperators.length > 0 && {
+          context: { unsupportedOperators: convCtx.unsupportedOperators },
+        }),
       };
 
       const fragment = createDerivedFragment(options);
@@ -240,11 +310,14 @@ export const expressionLoweringPass: Pass = {
 
 /**
  * Convert BinaryExpressionData to Expression DSL
+ *
+ * @param data Binary expression data from AST
+ * @param convCtx Conversion context to track unsupported operators (헌법 제7조)
  */
-function convertBinaryExpression(data: BinaryExpressionData): Expression {
+function convertBinaryExpression(data: BinaryExpressionData, convCtx?: ConversionContext): Expression {
   const operator = data.operator;
-  const left = convertToExpressionDSL(data.left);
-  const right = convertToExpressionDSL(data.right);
+  const left = convertToExpressionDSL(data.left, convCtx);
+  const right = convertToExpressionDSL(data.right, convCtx);
 
   // Handle logical operators
   if (operator === '&&') {
@@ -260,7 +333,12 @@ function convertBinaryExpression(data: BinaryExpressionData): Expression {
     return [dslOperator, left, right] as Expression;
   }
 
-  // Unknown operator - return as-is
+  // 헌법 제7조: Unknown operator 감지 및 기록
+  if (convCtx && !isSupportedOperator(operator)) {
+    convCtx.unsupportedOperators.push({ operator, location: data.sourceCode });
+  }
+
+  // Unknown operator - return as-is (but tracked)
   return [operator, left, right] as Expression;
 }
 

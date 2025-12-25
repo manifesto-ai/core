@@ -69,6 +69,10 @@ export type IssueCode =
   // Allowlist enforcement issues
   | 'ENDPOINT_NOT_ALLOWED'
   | 'EFFECT_TYPE_NOT_ALLOWED'
+  // Core Extension Proposal issues (헌법 제7조)
+  | 'UNSUPPORTED_OPERATOR'
+  | 'UNSUPPORTED_EFFECT_TYPE'
+  | 'CORE_EXTENSION_PROPOSAL'
   // General
   | 'UNKNOWN_ERROR';
 
@@ -363,5 +367,74 @@ export function effectTypeNotAllowedIssue(
     message: `Effect type "${effectType}" is not in the allowed list`,
     relatedFragments: [fragmentId],
     context: { effectType, allowedEffectTypes },
+  };
+}
+
+// ============================================================================
+// Core Extension Proposal Issue Factory Functions (헌법 제7조)
+// ============================================================================
+
+/**
+ * Create an UNSUPPORTED_OPERATOR issue
+ *
+ * 헌법 제7조: Core에 없는 operator를 발견했을 때 Issue로 노출
+ */
+export function unsupportedOperatorIssue(
+  operator: string,
+  location?: { file?: string; line?: number },
+  relatedFragments?: FragmentId[]
+): Issue {
+  return {
+    id: createIssueId(),
+    code: 'UNSUPPORTED_OPERATOR',
+    severity: 'warning',
+    message: `Unknown operator "${operator}" - Core Expression DSL에 정의되지 않았습니다. Core 확장이 필요할 수 있습니다.`,
+    relatedFragments,
+    context: { operator, location },
+  };
+}
+
+/**
+ * Create an UNSUPPORTED_EFFECT_TYPE issue
+ *
+ * 헌법 제7조: Core에 없는 effect type을 발견했을 때 Issue로 노출
+ */
+export function unsupportedEffectTypeIssue(
+  effectType: string,
+  callee?: string,
+  relatedFragments?: FragmentId[]
+): Issue {
+  return {
+    id: createIssueId(),
+    code: 'UNSUPPORTED_EFFECT_TYPE',
+    severity: 'warning',
+    message: `Unknown effect pattern "${effectType}" - Core Effect에 정의되지 않았습니다. Core 확장이 필요할 수 있습니다.`,
+    relatedFragments,
+    context: { effectType, callee },
+  };
+}
+
+/**
+ * Create a CORE_EXTENSION_PROPOSAL issue
+ *
+ * 헌법 제7조: Core 확장이 필요할 때 사용자/Agent에게 명시적으로 제안
+ */
+export function coreExtensionProposalIssue(
+  feature: string,
+  description: string,
+  alternative?: string,
+  relatedFragments?: FragmentId[]
+): Issue {
+  const message = alternative
+    ? `Core 확장 제안: "${feature}" - ${description}. 대안: ${alternative}`
+    : `Core 확장 제안: "${feature}" - ${description}`;
+
+  return {
+    id: createIssueId(),
+    code: 'CORE_EXTENSION_PROPOSAL',
+    severity: 'suggestion',
+    message,
+    relatedFragments,
+    context: { feature, description, alternative },
   };
 }

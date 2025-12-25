@@ -148,6 +148,13 @@ export interface Patch {
 }
 
 /**
+ * Origin of a patch hint
+ *
+ * 헌법 제5조 (결정론 경계): suggestion이 결정론적인지 LLM 기반인지 명확히 구분
+ */
+export type PatchHintOrigin = 'deterministic' | 'llm';
+
+/**
  * A hint for generating a patch
  *
  * Patch hints are suggestions that can be shown to users
@@ -187,6 +194,23 @@ export interface PatchHint {
 
   /** Is this a recommended fix? */
   recommended?: boolean;
+
+  /**
+   * Origin of this hint (헌법 제5조)
+   *
+   * - 'deterministic': 결정론적 알고리즘으로 생성 (conflict detection, similarity analysis 등)
+   * - 'llm': LLM을 통해 생성 (NL pass, AI suggestion 등)
+   *
+   * Optional for backward compatibility.
+   */
+  origin?: PatchHintOrigin;
+
+  /**
+   * Provenance for LLM-generated hints
+   *
+   * LLM이 사용된 경우 추적 정보 (model, promptHash 등)
+   */
+  provenance?: Provenance;
 }
 
 /**

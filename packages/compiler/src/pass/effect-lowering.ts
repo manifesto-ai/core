@@ -62,6 +62,22 @@ const API_PATTERNS = [
 ];
 
 /**
+ * Track unsupported effect patterns found during conversion
+ *
+ * 헌법 제7조: Core에 없는 effect pattern을 추적
+ */
+interface EffectConversionContext {
+  unsupportedEffects: Array<{ callee: string; sourceCode?: string }>;
+}
+
+/**
+ * Create a new effect conversion context
+ */
+function createEffectConversionContext(): EffectConversionContext {
+  return { unsupportedEffects: [] };
+}
+
+/**
  * Determine if a function call is an emit-like effect
  */
 function isEmitPattern(callee: string): boolean {
@@ -122,8 +138,11 @@ function convertAssignment(data: AssignmentData): Effect {
 
 /**
  * Convert function call to Effect
+ *
+ * @param data Function call data from AST
+ * @param convCtx Conversion context to track unsupported effects (헌법 제7조)
  */
-function convertFunctionCall(data: FunctionCallData): Effect | null {
+function convertFunctionCall(data: FunctionCallData, convCtx?: EffectConversionContext): Effect | null {
   const callee = data.callee;
 
   // Check for emit pattern
@@ -162,7 +181,12 @@ function convertFunctionCall(data: FunctionCallData): Effect | null {
     return effect;
   }
 
-  // Unknown function call - skip (not an effect we recognize)
+  // 헌법 제7조: Unknown function call 감지 및 기록
+  if (convCtx) {
+    convCtx.unsupportedEffects.push({ callee, sourceCode: data.sourceCode });
+  }
+
+  // Unknown function call - skip (not an effect we recognize, but tracked)
   return null;
 }
 
@@ -252,6 +276,9 @@ export const effectLoweringPass: Pass = {
     const fragments: EffectFragment[] = [];
     let effectIndex = 0;
 
+    // 헌법 제7조: Effect conversion context로 unsupported effects 추적
+    const convCtx = createEffectConversionContext();
+
     for (const finding of findings) {
       let effect: Effect | null = null;
       let sourceCode = '';
@@ -262,7 +289,7 @@ export const effectLoweringPass: Pass = {
         sourceCode = data.sourceCode;
       } else if (finding.kind === 'function_call') {
         const data = finding.data as FunctionCallData;
-        effect = convertFunctionCall(data);
+        effect = convertFunctionCall(data, convCtx);
         sourceCode = data.sourceCode;
       }
 
@@ -298,6 +325,12 @@ export const effectLoweringPass: Pass = {
 
       const fragment = createEffectFragment(options);
       fragments.push(fragment);
+    }
+
+    // 헌법 제7조: Unsupported effects 발견 시 경고
+    if (convCtx.unsupportedEffects.length > 0) {
+      const patterns = convCtx.unsupportedEffects.map(e => e.callee).join(', ');
+      ctx.log('warn', `Unknown effect pattern(s) detected: ${patterns} - Core Extension may be needed`);
     }
 
     return fragments;

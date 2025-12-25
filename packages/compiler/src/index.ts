@@ -184,6 +184,24 @@ export {
 } from './safety/index.js';
 
 // ============================================================================
+// Pipeline Module (TRD 1.5)
+// ============================================================================
+
+export {
+  // Fragment compilation
+  compileFragmentsFromArtifacts,
+  type CompileFragmentsOptions,
+  type CompileFragmentsResult,
+  // Full pipeline
+  runCompilePipeline,
+  type PipelineOptions,
+  type PipelineResult,
+  // Provenance
+  buildProvenanceMap,
+  type ProvenanceMap,
+} from './pipeline/index.js';
+
+// ============================================================================
 // Main Compiler
 // ============================================================================
 

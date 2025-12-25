@@ -18,6 +18,13 @@ import {
   createIssueId,
 } from '../types/issue.js';
 
+// Internal utilities (TRD 1.5)
+import {
+  sortIssues as internalSortIssues,
+  getBlockingIssues as internalGetBlockingIssues,
+  hasBlockingIssues as internalHasBlockingIssues,
+} from '../internal/index.js';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -529,45 +536,29 @@ export function createInvalidEffectIssue(
 
 /**
  * Check if any issues are blocking (error severity)
+ *
+ * @deprecated Use import from '../internal/index.js' directly for new code
  */
 export function hasBlockingIssues(issues: Issue[]): boolean {
-  return issues.some((i) => i.severity === 'error');
+  return internalHasBlockingIssues(issues);
 }
 
 /**
  * Get only blocking issues
+ *
+ * @deprecated Use import from '../internal/index.js' directly for new code
  */
 export function getBlockingIssues(issues: Issue[]): Issue[] {
-  return issues.filter((i) => i.severity === 'error');
+  return internalGetBlockingIssues(issues);
 }
 
 /**
  * Sort issues by severity (errors first), then by code, then by path
+ *
+ * @deprecated Use import from '../internal/index.js' directly for new code
  */
 export function sortIssues(issues: Issue[]): Issue[] {
-  const severityOrder: Record<IssueSeverity, number> = {
-    error: 0,
-    warning: 1,
-    info: 2,
-    suggestion: 3,
-  };
-
-  return [...issues].sort((a, b) => {
-    // Sort by severity first
-    const sevA = severityOrder[a.severity] ?? 4;
-    const sevB = severityOrder[b.severity] ?? 4;
-    if (sevA !== sevB) return sevA - sevB;
-
-    // Then by code
-    if (a.code !== b.code) return a.code.localeCompare(b.code);
-
-    // Then by path
-    if (a.path && b.path) return a.path.localeCompare(b.path);
-    if (a.path) return -1;
-    if (b.path) return 1;
-
-    return 0;
-  });
+  return internalSortIssues(issues);
 }
 
 /**
