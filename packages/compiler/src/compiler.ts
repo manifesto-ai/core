@@ -14,8 +14,7 @@
  * - Patch-first editing (#9)
  */
 
-import type { Fragment, FragmentId } from './types/fragment.js';
-import type { Provenance } from './types/provenance.js';
+import type { Fragment } from './types/fragment.js';
 import type { Patch, PatchHint } from './types/patch.js';
 import type { Conflict } from './types/conflict.js';
 import type { Issue } from './types/issue.js';
@@ -61,6 +60,9 @@ import { applyPatch as patchApply, applyPatches } from './patch/index.js';
 
 // Session
 import { createCompilerSession } from './session.js';
+
+// Pipeline
+import { buildProvenanceMap } from './pipeline/index.js';
 
 // ============================================================================
 // Default Passes
@@ -176,11 +178,8 @@ export function createCompiler(config: ExtendedCompilerConfig): Compiler {
         verifyIssues = verifyResult.issues;
       }
 
-      // Step 5: Build provenance map
-      const provenance = new Map<FragmentId, Provenance>();
-      for (const fragment of linkResult.fragments) {
-        provenance.set(fragment.id, fragment.origin);
-      }
+      // Step 5: Build provenance map (using pipeline module)
+      const provenance = buildProvenanceMap(linkResult.fragments);
 
       return {
         fragments: linkResult.fragments,

@@ -79,8 +79,13 @@ export {
   determineMaxRisk,
 } from './action-pass.js';
 export {
+  /**
+   * @deprecated Use createNLExtractorPass with explicit LLM adapter.
+   * 헌법 제5조 (결정론 경계): LLM 패스는 명시적 opt-in이어야 합니다.
+   */
   nlExtractorPass,
   createNLExtractorPass,
+  /** MockLLMAdapter는 테스트 전용입니다. 프로덕션에서는 사용하지 마세요. */
   MockLLMAdapter,
   type LLMAdapter,
   type LLMContext,

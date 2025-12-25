@@ -61,6 +61,15 @@ import {
   type DomainBuildResult,
 } from './domain-builder.js';
 
+// Internal utilities (TRD 1.5)
+import {
+  sortIssues as internalSortIssues,
+  getBlockingIssues as internalGetBlockingIssues,
+  hasBlockingIssues as internalHasBlockingIssues,
+  getBlockingConflicts as internalGetBlockingConflicts,
+  hasBlockingConflicts as internalHasBlockingConflicts,
+} from '../internal/index.js';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -403,17 +412,11 @@ export function incrementalLink(
 
 /**
  * Sort issues by severity, code, and path (Principle E)
+ *
+ * @deprecated Use import from '../internal/index.js' directly for new code
  */
 export function sortIssues(issues: Issue[]): Issue[] {
-  return [...issues].sort((a, b) => {
-    const severityOrder: Record<string, number> = { error: 0, warning: 1, info: 2, suggestion: 3 };
-    const sevA = severityOrder[a.severity] ?? 4;
-    const sevB = severityOrder[b.severity] ?? 4;
-    if (sevA !== sevB) return sevA - sevB;
-    if (a.code !== b.code) return a.code.localeCompare(b.code);
-    if (a.path && b.path) return a.path.localeCompare(b.path);
-    return 0;
-  });
+  return internalSortIssues(issues);
 }
 
 /**
@@ -427,14 +430,7 @@ export function getBlockingIssues(result: LinkResult): Issue[] {
  * Check if link result is valid (no blocking issues or conflicts)
  */
 export function isLinkResultValid(result: LinkResult): boolean {
-  const hasBlockingIssues = result.issues.some((i) => i.severity === 'error');
-  const hasBlockingConflicts = result.conflicts.some(
-    (c) =>
-      c.type === 'duplicate_provides' ||
-      c.type === 'schema_mismatch' ||
-      c.type === 'dependency_conflict'
-  );
-  return !hasBlockingIssues && !hasBlockingConflicts;
+  return !internalHasBlockingIssues(result.issues) && !internalHasBlockingConflicts(result.conflicts);
 }
 
 /**

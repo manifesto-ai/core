@@ -291,6 +291,8 @@ function mergeClusterResults(
  * Generate PatchHints from alias suggestions
  *
  * Converts AliasSuggestions to the PatchHint format used by the linker.
+ *
+ * 헌법 제5조: 결정론적 알고리즘으로 생성되는 제안
  */
 export function generateAliasHints(suggestions: AliasSuggestion[]): PatchHint[] {
   return suggestions.map((suggestion) => ({
@@ -303,6 +305,7 @@ export function generateAliasHints(suggestions: AliasSuggestion[]): PatchHint[] 
     confidence: suggestion.confidence,
     rationale: suggestion.rationale,
     recommended: suggestion.confidence >= 0.8,
+    origin: 'deterministic', // 헌법 제5조
   }));
 }
 

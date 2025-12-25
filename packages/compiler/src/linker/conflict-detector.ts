@@ -27,6 +27,11 @@ import {
   schemaMismatchConflict,
   semanticMismatchConflict,
 } from '../types/conflict.js';
+
+// Internal utilities (TRD 1.5)
+import {
+  getBlockingConflicts as internalGetBlockingConflicts,
+} from '../internal/index.js';
 import {
   normalizeFragmentProvides,
   type NormalizedProvides,
@@ -321,10 +326,12 @@ export function detectSemanticMismatches(fragments: Fragment[]): Conflict[] {
 /**
  * Suggest resolutions for duplicate path conflicts
  *
+ * 헌법 제5조: 결정론적 알고리즘으로 생성되는 제안
+ *
  * @param path - The conflicting path
  * @param fragmentIds - Fragment IDs in conflict
  * @param fragments - All fragments (for context)
- * @returns Array of PatchHint suggestions
+ * @returns Array of PatchHint suggestions with origin: 'deterministic'
  */
 export function suggestDuplicatePathResolutions(
   path: SemanticPath,
@@ -345,6 +352,7 @@ export function suggestDuplicatePathResolutions(
         fragmentId: id,
         path,
       })),
+      origin: 'deterministic', // 헌법 제5조
     });
   }
 
@@ -363,6 +371,7 @@ export function suggestDuplicatePathResolutions(
           newPath: newPath as SemanticPath,
         },
       ],
+      origin: 'deterministic', // 헌법 제5조
     });
   });
 
@@ -372,10 +381,12 @@ export function suggestDuplicatePathResolutions(
 /**
  * Suggest resolutions for duplicate action ID conflicts
  *
+ * 헌법 제5조: 결정론적 알고리즘으로 생성되는 제안
+ *
  * @param actionId - The conflicting action ID
  * @param fragmentIds - Fragment IDs in conflict
  * @param fragments - All fragments (for context)
- * @returns Array of PatchHint suggestions
+ * @returns Array of PatchHint suggestions with origin: 'deterministic'
  */
 export function suggestDuplicateActionResolutions(
   actionId: string,
@@ -395,6 +406,7 @@ export function suggestDuplicateActionResolutions(
         type: 'remove_fragment' as const,
         fragmentId: id,
       })),
+      origin: 'deterministic', // 헌법 제5조
     });
   }
 
@@ -413,6 +425,7 @@ export function suggestDuplicateActionResolutions(
           newActionId,
         },
       ],
+      origin: 'deterministic', // 헌법 제5조
     });
   });
 
@@ -422,9 +435,11 @@ export function suggestDuplicateActionResolutions(
 /**
  * Suggest resolutions for schema mismatch conflicts
  *
+ * 헌법 제5조: 결정론적 알고리즘으로 생성되는 제안
+ *
  * @param conflict - The schema mismatch conflict
  * @param fragments - All fragments (for context)
- * @returns Array of PatchHint suggestions
+ * @returns Array of PatchHint suggestions with origin: 'deterministic'
  */
 export function suggestSchemaMismatchResolutions(
   conflict: Conflict,
@@ -452,6 +467,7 @@ export function suggestSchemaMismatchResolutions(
             path: conflict.target as SemanticPath,
             newType: targetType,
           })),
+          origin: 'deterministic', // 헌법 제5조
         });
       }
     }
@@ -463,9 +479,11 @@ export function suggestSchemaMismatchResolutions(
 /**
  * Suggest resolutions for any conflict
  *
+ * 헌법 제5조: 결정론적 알고리즘으로 생성되는 제안
+ *
  * @param conflict - The conflict to suggest resolutions for
  * @param fragments - All fragments (for context)
- * @returns Array of PatchHint suggestions
+ * @returns Array of PatchHint suggestions with origin: 'deterministic'
  */
 export function suggestConflictResolutions(
   conflict: Conflict,
@@ -498,6 +516,7 @@ export function suggestConflictResolutions(
           suggestion: 'Review and unify semantic descriptions manually',
           reason: 'Semantic descriptions should be consistent',
           operations: [],
+          origin: 'deterministic', // 헌법 제5조
         },
       ];
 
@@ -522,14 +541,11 @@ export function filterConflictsByType(
 
 /**
  * Get all blocking conflicts (those that prevent domain generation)
+ *
+ * @deprecated Use import from '../internal/index.js' directly for new code
  */
 export function getBlockingConflicts(conflicts: Conflict[]): Conflict[] {
-  return conflicts.filter(
-    (c) =>
-      c.type === 'duplicate_provides' ||
-      c.type === 'schema_mismatch' ||
-      c.type === 'dependency_conflict'
-  );
+  return internalGetBlockingConflicts(conflicts);
 }
 
 /**

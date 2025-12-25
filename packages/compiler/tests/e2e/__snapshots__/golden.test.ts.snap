@@ -1,0 +1,772 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Golden: Complete Application Compilation > should produce stable output for complete app 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 14,
+  "fragments": [
+    {
+      "actionId": "addToCart",
+      "kind": "ActionFragment",
+      "provides": [
+        "action:addToCart",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "deps": [
+        "data.item.productId",
+        "data.p.id",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.complete-app_expr_0",
+      "provides": [
+        "derived.complete-app_expr_0",
+      ],
+      "requires": [
+        "data.item.productId",
+        "data.p.id",
+      ],
+      "tags": [],
+    },
+    {
+      "deps": [
+        "data.item.quantity",
+        "data.sum",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.complete-app_expr_1",
+      "provides": [
+        "derived.complete-app_expr_1",
+      ],
+      "requires": [
+        "data.item.quantity",
+        "data.sum",
+      ],
+      "tags": [],
+    },
+    {
+      "deps": [],
+      "kind": "DerivedFragment",
+      "path": "derived.complete-app_expr_2",
+      "provides": [
+        "derived.complete-app_expr_2",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "deps": [
+        "data.item.quantity",
+        "data.sum",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.complete-app_expr_3",
+      "provides": [
+        "derived.complete-app_expr_3",
+      ],
+      "requires": [
+        "data.item.quantity",
+        "data.sum",
+      ],
+      "tags": [],
+    },
+    {
+      "deps": [
+        "data.cart.length",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.complete-app_expr_4",
+      "provides": [
+        "derived.complete-app_expr_4",
+      ],
+      "requires": [
+        "data.cart.length",
+      ],
+      "tags": [],
+    },
+    {
+      "deps": [
+        "data.cart.length",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.complete-app_expr_5",
+      "provides": [
+        "derived.complete-app_expr_5",
+      ],
+      "requires": [
+        "data.cart.length",
+      ],
+      "tags": [],
+    },
+    {
+      "effect": "SetValue",
+      "kind": "EffectFragment",
+      "provides": [],
+      "requires": [],
+      "risk": "low",
+      "tags": [],
+    },
+    {
+      "effect": "SetValue",
+      "kind": "EffectFragment",
+      "provides": [],
+      "requires": [],
+      "risk": "low",
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.cart",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.cart",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.cartItemCount",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.cartItemCount",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.cartTotal",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.cartTotal",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.isCheckingOut",
+          "type": "boolean",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.isCheckingOut",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.product",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.product",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 17,
+  "issues": [
+    {
+      "code": "INVALID_EFFECT",
+      "message": "Invalid effect in action "addToCart": Action must have either effect or effectRef",
+      "path": undefined,
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.complete-app_expr_0": invalid path format",
+      "path": "derived.complete-app_expr_0",
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.complete-app_expr_1": invalid path format",
+      "path": "derived.complete-app_expr_1",
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.complete-app_expr_2": invalid path format",
+      "path": "derived.complete-app_expr_2",
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.complete-app_expr_3": invalid path format",
+      "path": "derived.complete-app_expr_3",
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.complete-app_expr_4": invalid path format",
+      "path": "derived.complete-app_expr_4",
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.complete-app_expr_5": invalid path format",
+      "path": "derived.complete-app_expr_5",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_ACTION_EFFECT",
+      "message": "Action "addToCart" has no effect defined",
+      "path": undefined,
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_ACTION_EFFECT",
+      "message": "Action "addToCart" has no effect defined",
+      "path": undefined,
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_0" depends on undefined path "data.p.id"",
+      "path": "derived.complete-app_expr_0",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_0" depends on undefined path "data.item.productId"",
+      "path": "derived.complete-app_expr_0",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_1" depends on undefined path "data.sum"",
+      "path": "derived.complete-app_expr_1",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_1" depends on undefined path "data.item.quantity"",
+      "path": "derived.complete-app_expr_1",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_3" depends on undefined path "data.sum"",
+      "path": "derived.complete-app_expr_3",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_3" depends on undefined path "data.item.quantity"",
+      "path": "derived.complete-app_expr_3",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_4" depends on undefined path "data.cart.length"",
+      "path": "derived.complete-app_expr_4",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.complete-app_expr_5" depends on undefined path "data.cart.length"",
+      "path": "derived.complete-app_expr_5",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
+exports[`Golden: Edge Cases > should produce stable output for comments only 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 0,
+  "fragments": [],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Edge Cases > should produce stable output for empty code 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 0,
+  "fragments": [],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Edge Cases > should produce stable output for empty input 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 0,
+  "fragments": [],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Interface Schema Compilation > should produce stable output for User interface 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 0,
+  "fragments": [],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Interface Schema Compilation > should produce stable output for nested interface 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 0,
+  "fragments": [],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Multi-Artifact Compilation > should produce stable output for multiple artifacts 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 3,
+  "fragments": [
+    {
+      "fields": [
+        {
+          "path": "data.a",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.a",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.b",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.b",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.c",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.c",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Simple Code Compilation > should produce stable output for boolean expression 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 3,
+  "fragments": [
+    {
+      "deps": [
+        "data.x",
+        "data.y",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.bool-expr_expr_0",
+      "provides": [
+        "derived.bool-expr_expr_0",
+      ],
+      "requires": [
+        "data.x",
+        "data.y",
+      ],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.isActive",
+          "type": "boolean",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.isActive",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.isValid",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.isValid",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 3,
+  "issues": [
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.bool-expr_expr_0": invalid path format",
+      "path": "derived.bool-expr_expr_0",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.bool-expr_expr_0" depends on undefined path "data.x"",
+      "path": "derived.bool-expr_expr_0",
+      "severity": "error",
+    },
+    {
+      "code": "MISSING_DEPENDENCY",
+      "message": "Path "derived.bool-expr_expr_0" depends on undefined path "data.y"",
+      "path": "derived.bool-expr_expr_0",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
+exports[`Golden: Simple Code Compilation > should produce stable output for multiple variables 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 3,
+  "fragments": [
+    {
+      "fields": [
+        {
+          "path": "data.x",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.x",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.y",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.y",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.z",
+          "type": "string",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.z",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Simple Code Compilation > should produce stable output for simple variable declaration 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 1,
+  "fragments": [
+    {
+      "fields": [
+        {
+          "path": "data.count",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.count",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: Sort Options Stability > should produce stable sorted fragments 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 3,
+  "fragments": [
+    {
+      "fields": [
+        {
+          "path": "data.a",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.a",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.m",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.m",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.z",
+          "type": "number",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.z",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 0,
+  "issues": [],
+}
+`;
+
+exports[`Golden: State Management Compilation > should produce stable output for state code 1`] = `
+{
+  "conflictCount": 0,
+  "conflicts": [],
+  "domainDraft": null,
+  "fragmentCount": 7,
+  "fragments": [
+    {
+      "deps": [
+        "data.errorMessage",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.state-code_expr_0",
+      "provides": [
+        "derived.state-code_expr_0",
+      ],
+      "requires": [
+        "data.errorMessage",
+      ],
+      "tags": [],
+    },
+    {
+      "deps": [
+        "data.selectedUserId",
+      ],
+      "kind": "DerivedFragment",
+      "path": "derived.state-code_expr_1",
+      "provides": [
+        "derived.state-code_expr_1",
+      ],
+      "requires": [
+        "data.selectedUserId",
+      ],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.errorMessage",
+          "type": "null",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.errorMessage",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.hasError",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.hasError",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.isLoading",
+          "type": "boolean",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.isLoading",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.isUserSelected",
+          "type": "object",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.isUserSelected",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+    {
+      "fields": [
+        {
+          "path": "data.selectedUserId",
+          "type": "null",
+        },
+      ],
+      "kind": "SchemaFragment",
+      "namespace": "data",
+      "provides": [
+        "data.selectedUserId",
+      ],
+      "requires": [],
+      "tags": [],
+    },
+  ],
+  "issueCount": 2,
+  "issues": [
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.state-code_expr_0": invalid path format",
+      "path": "derived.state-code_expr_0",
+      "severity": "error",
+    },
+    {
+      "code": "INVALID_PATH",
+      "message": "Invalid path "derived.state-code_expr_1": invalid path format",
+      "path": "derived.state-code_expr_1",
+      "severity": "error",
+    },
+  ],
+}
+`;

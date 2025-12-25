@@ -370,3 +370,287 @@ describe('timeout', () => {
     await expect(resultPromise).rejects.toThrow('timeout');
   });
 });
+
+// ============================================================================
+// Extended Retry Tests (TRD 1.11 - LLM retry logic)
+// ============================================================================
+
+describe('withRetry - Extended Scenarios', () => {
+  it('should use exponential backoff', async () => {
+    vi.useRealTimers();
+
+    const delays: number[] = [];
+    let lastCallTime = Date.now();
+
+    const fn = vi.fn().mockImplementation(async () => {
+      const now = Date.now();
+      if (delays.length > 0 || lastCallTime !== now) {
+        delays.push(now - lastCallTime);
+      }
+      lastCallTime = now;
+
+      if (fn.mock.calls.length < 3) {
+        throw new RetryableError('rate_limit', '429');
+      }
+      return 'success';
+    });
+
+    const result = await withRetry(fn, {
+      maxRetries: 3,
+      initialDelay: 50,
+      multiplier: 2,
+      jitter: 0, // No jitter for deterministic test
+    });
+
+    expect(result).toBe('success');
+    expect(fn).toHaveBeenCalledTimes(3);
+
+    // Check backoff pattern (second delay should be ~2x first)
+    if (delays.length >= 2) {
+      expect(delays[1]).toBeGreaterThanOrEqual(delays[0] * 1.5);
+    }
+  });
+
+  it('should handle ECONNRESET error', async () => {
+    vi.useRealTimers();
+
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValue('recovered');
+
+    const result = await withRetry(fn, {
+      maxRetries: 2,
+      initialDelay: 10,
+    });
+
+    expect(result).toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle ETIMEDOUT error', async () => {
+    vi.useRealTimers();
+
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ETIMEDOUT'))
+      .mockResolvedValue('recovered');
+
+    const result = await withRetry(fn, {
+      maxRetries: 2,
+      initialDelay: 10,
+    });
+
+    expect(result).toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle 503 Service Unavailable', async () => {
+    vi.useRealTimers();
+
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('503 Service Unavailable'))
+      .mockResolvedValue('recovered');
+
+    const result = await withRetry(fn, {
+      maxRetries: 2,
+      initialDelay: 10,
+    });
+
+    expect(result).toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle overloaded error', async () => {
+    vi.useRealTimers();
+
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Server is overloaded, please retry'))
+      .mockResolvedValue('recovered');
+
+    const result = await withRetry(fn, {
+      maxRetries: 2,
+      initialDelay: 10,
+    });
+
+    expect(result).toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should respect maxDelay cap', async () => {
+    vi.useRealTimers();
+
+    let callTimes: number[] = [];
+
+    const fn = vi.fn().mockImplementation(async () => {
+      callTimes.push(Date.now());
+      if (fn.mock.calls.length < 4) {
+        throw new RetryableError('rate_limit', '429');
+      }
+      return 'success';
+    });
+
+    await withRetry(fn, {
+      maxRetries: 4,
+      initialDelay: 10,
+      multiplier: 10, // Very aggressive multiplier
+      maxDelay: 50, // But capped at 50ms
+      jitter: 0,
+    });
+
+    expect(fn).toHaveBeenCalledTimes(4);
+
+    // All delays should be <= maxDelay (with some tolerance for execution time)
+    for (let i = 1; i < callTimes.length; i++) {
+      const delay = callTimes[i] - callTimes[i - 1];
+      expect(delay).toBeLessThanOrEqual(100); // maxDelay + tolerance
+    }
+  });
+});
+
+// ============================================================================
+// Extended RateLimiter Tests (TRD 1.11 - rate limit logic)
+// ============================================================================
+
+describe('RateLimiter - Extended Scenarios', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should wait when no tokens available', async () => {
+    const limiter = new RateLimiter({ requestsPerMinute: 1 });
+
+    // Use the only token
+    await limiter.acquire();
+    expect(limiter.getTokens()).toBe(0);
+
+    // Start acquiring next token (should wait)
+    const acquirePromise = limiter.acquire();
+
+    // Advance time by 30 seconds (half the refill time for 1 RPM)
+    vi.advanceTimersByTime(30000);
+    expect(limiter.getTokens()).toBeCloseTo(0.5, 1);
+
+    // Advance remaining time
+    vi.advanceTimersByTime(30000);
+
+    await acquirePromise;
+    // Should have acquired the token now
+  });
+
+  it('should handle burst of requests', async () => {
+    const limiter = new RateLimiter({ requestsPerMinute: 10 });
+
+    // Use all tokens rapidly
+    for (let i = 0; i < 10; i++) {
+      await limiter.acquire();
+    }
+
+    expect(limiter.getTokens()).toBe(0);
+    expect(limiter.canAcquire()).toBe(false);
+
+    // After 6 seconds, should have 1 token
+    vi.advanceTimersByTime(6000);
+    expect(limiter.getTokens()).toBeCloseTo(1, 0);
+    expect(limiter.canAcquire()).toBe(true);
+  });
+
+  it('should track tokens accurately over multiple refills', async () => {
+    const limiter = new RateLimiter({ requestsPerMinute: 60 });
+
+    // Use 30 tokens
+    for (let i = 0; i < 30; i++) {
+      await limiter.acquire();
+    }
+
+    expect(limiter.getTokens()).toBe(30);
+
+    // Advance 15 seconds (should refill 15 tokens)
+    vi.advanceTimersByTime(15000);
+    expect(limiter.getTokens()).toBeCloseTo(45, 0);
+
+    // Advance another 30 seconds (should cap at 60)
+    vi.advanceTimersByTime(30000);
+    expect(limiter.getTokens()).toBe(60);
+  });
+
+  it('should handle concurrent acquire calls', async () => {
+    vi.useRealTimers(); // Need real timers for concurrent behavior
+
+    const limiter = new RateLimiter({ requestsPerMinute: 60 });
+
+    // Make 5 concurrent acquire calls
+    const promises = Array(5).fill(null).map(() => limiter.acquire());
+    await Promise.all(promises);
+
+    // All should succeed, tokens should be reduced by 5
+    expect(limiter.getTokens()).toBe(55);
+  });
+});
+
+// ============================================================================
+// Network Error Simulation Tests
+// ============================================================================
+
+describe('Network Error Handling', () => {
+  it('should classify common network errors as retryable', async () => {
+    vi.useRealTimers();
+
+    const networkErrors = [
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'rate_limit_exceeded',
+      '429 Too Many Requests',
+      '500 Internal Server Error',
+      '502 Bad Gateway',
+      '503 Service Unavailable',
+      '504 Gateway Timeout',
+    ];
+
+    for (const errorMsg of networkErrors) {
+      const fn = vi
+        .fn()
+        .mockRejectedValueOnce(new Error(errorMsg))
+        .mockResolvedValue('recovered');
+
+      const result = await withRetry(fn, {
+        maxRetries: 1,
+        initialDelay: 1,
+      });
+
+      expect(result).toBe('recovered');
+      expect(fn).toHaveBeenCalledTimes(2);
+
+      fn.mockClear();
+    }
+  });
+
+  it('should not retry authentication errors', async () => {
+    const fn = vi.fn().mockRejectedValue(new Error('401 Unauthorized'));
+
+    await expect(
+      withRetry(fn, {
+        maxRetries: 3,
+        retryableErrors: ['429', '500', '503'],
+      })
+    ).rejects.toThrow('401 Unauthorized');
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not retry invalid API key errors', async () => {
+    const fn = vi.fn().mockRejectedValue(new Error('Invalid API key provided'));
+
+    await expect(
+      withRetry(fn, { maxRetries: 3 })
+    ).rejects.toThrow('Invalid API key');
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});

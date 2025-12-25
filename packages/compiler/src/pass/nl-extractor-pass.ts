@@ -350,11 +350,17 @@ export function createNLExtractorPass(config: NLPassConfig): NLPass {
 // ============================================================================
 
 /**
- * Default NL pass with mock adapter (for development/testing)
+ * @deprecated Use createNLExtractorPass with explicit LLM adapter.
+ * This default instance uses MockLLMAdapter and should only be used for testing.
+ *
+ * 헌법 제5조 (결정론 경계): LLM 패스는 명시적 opt-in이어야 합니다.
+ * 프로덕션에서는 createNLExtractorPass()를 사용하세요.
  */
 export const nlExtractorPass = createNLExtractorPass({
   adapter: new MockLLMAdapter(),
   minConfidence: 0.3,
 });
 
-export default nlExtractorPass;
+// Note: default export removed to encourage explicit opt-in
+// 기존: export default nlExtractorPass;
+// 변경: createNLExtractorPass를 사용하도록 유도
