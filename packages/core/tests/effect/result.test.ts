@@ -11,6 +11,7 @@ import {
   all,
   any,
   tryCatch,
+  resultFrom,
 } from '../../src/effect/result.js';
 
 describe('Result', () => {
@@ -141,6 +142,81 @@ describe('Result', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.message).toBe('mapped');
+      }
+    });
+  });
+
+  describe('resultFrom (P0-1 Contract)', () => {
+    it('should convert successful async function to ok result', async () => {
+      const result = await resultFrom(async () => 'success');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value).toBe('success');
+      }
+    });
+
+    it('should convert throwing async function to err result with HandlerError', async () => {
+      const result = await resultFrom(async () => {
+        throw new Error('async error');
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error._tag).toBe('HandlerError');
+        expect(result.error.cause.message).toBe('async error');
+        expect(result.error.code).toBe('API_CALL_THROWN');
+      }
+    });
+
+    it('should handle non-Error throws', async () => {
+      const result = await resultFrom(async () => {
+        throw 'string error';
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error._tag).toBe('HandlerError');
+        expect(result.error.cause.message).toBe('string error');
+      }
+    });
+
+    it('should work with complex async operations', async () => {
+      const fetchData = async () => {
+        // Simulate async fetch
+        await Promise.resolve();
+        return { id: 1, name: 'test' };
+      };
+
+      const result = await resultFrom(fetchData);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value).toEqual({ id: 1, name: 'test' });
+      }
+    });
+
+    it('should be usable as EffectHandler.apiCall implementation', async () => {
+      // This demonstrates the migration pattern from throw-based to Result-based handler
+      const legacyApiCall = async (url: string) => {
+        if (url === '/fail') {
+          throw new Error('API failed');
+        }
+        return { data: 'success' };
+      };
+
+      // Wrapped with resultFrom for P0-1 compliant handler
+      const apiCallHandler = (url: string) => resultFrom(() => legacyApiCall(url));
+
+      // Success case
+      const successResult = await apiCallHandler('/success');
+      expect(successResult.ok).toBe(true);
+      if (successResult.ok) {
+        expect(successResult.value).toEqual({ data: 'success' });
+      }
+
+      // Error case
+      const errorResult = await apiCallHandler('/fail');
+      expect(errorResult.ok).toBe(false);
+      if (!errorResult.ok) {
+        expect(errorResult.error._tag).toBe('HandlerError');
+        expect(errorResult.error.cause.message).toBe('API failed');
       }
     });
   });

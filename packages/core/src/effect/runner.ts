@@ -11,37 +11,74 @@ import type {
   CatchEffect,
   EmitEventEffect,
 } from './types.js';
-import type { Result } from './result.js';
+import type { Result, HandlerError } from './result.js';
 import type { EvaluationContext, Expression } from '../expression/types.js';
 import type { SemanticPath } from '../domain/types.js';
 import { ok, err, effectError } from './result.js';
 import { evaluate } from '../expression/evaluator.js';
 
 /**
+ * API 호출 요청 타입
+ */
+export type ApiCallRequest = {
+  endpoint: string;
+  method: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+  query?: Record<string, unknown>;
+  timeout?: number;
+};
+
+/**
  * Effect 실행 핸들러
+ *
+ * P0-1 Contract: 모든 메서드가 Result 패턴을 따릅니다.
+ * - 동기 메서드: Result<T, HandlerError> 반환
+ * - 비동기 메서드: Promise<Result<T, HandlerError>> 반환
+ *
+ * 실패 시 에러가 침묵되지 않고 명시적으로 전파됩니다.
  */
 export type EffectHandler = {
-  /** 데이터 값 설정 */
-  setValue: (path: SemanticPath, value: unknown) => void;
+  /** 데이터 값 설정 - 실패 시 HandlerError 반환 */
+  setValue: (path: SemanticPath, value: unknown) => Result<void, HandlerError>;
 
-  /** 상태 값 설정 */
-  setState: (path: SemanticPath, value: unknown) => void;
+  /** 상태 값 설정 - 실패 시 HandlerError 반환 */
+  setState: (path: SemanticPath, value: unknown) => Result<void, HandlerError>;
 
-  /** API 호출 */
-  apiCall: (request: {
-    endpoint: string;
-    method: string;
-    body?: unknown;
-    headers?: Record<string, string>;
-    query?: Record<string, unknown>;
-    timeout?: number;
-  }) => Promise<unknown>;
+  /**
+   * API 호출 - 실패 시 HandlerError 반환
+   *
+   * P0-1 Contract: Promise<Result<unknown, HandlerError>> 반환.
+   * 기존 throw 기반 핸들러는 resultFrom() 헬퍼로 래핑하세요.
+   *
+   * @example
+   * ```typescript
+   * // Result 패턴 직접 구현
+   * apiCall: async (req) => {
+   *   try {
+   *     const res = await fetch(req.endpoint);
+   *     if (!res.ok) return err(handlerError('apiCall', new Error(res.statusText)));
+   *     return ok(await res.json());
+   *   } catch (e) {
+   *     return err(handlerError('apiCall', e instanceof Error ? e : new Error(String(e))));
+   *   }
+   * }
+   *
+   * // 또는 resultFrom 헬퍼 사용 (마이그레이션 용이)
+   * apiCall: (req) => resultFrom(async () => {
+   *   const res = await fetch(req.endpoint);
+   *   if (!res.ok) throw new Error(res.statusText);
+   *   return res.json();
+   * })
+   * ```
+   */
+  apiCall: (request: ApiCallRequest) => Promise<Result<unknown, HandlerError>>;
 
-  /** 네비게이션 */
-  navigate: (to: string, mode?: 'push' | 'replace') => void;
+  /** 네비게이션 - 실패 시 HandlerError 반환 */
+  navigate: (to: string, mode?: 'push' | 'replace') => Result<void, HandlerError>;
 
-  /** 이벤트 발행 */
-  emitEvent: (channel: string, payload: unknown) => void;
+  /** 이벤트 발행 - 실패 시 HandlerError 반환 */
+  emitEvent: (channel: string, payload: unknown) => Result<void, HandlerError>;
 };
 
 /**
@@ -112,6 +149,8 @@ export async function runEffect(
 
 /**
  * SetValue 실행
+ *
+ * P0-1 Contract: handler.setValue의 Result를 확인하고 에러 전파
  */
 async function runSetValue(
   effect: SetValueEffect,
@@ -122,12 +161,24 @@ async function runSetValue(
   if (!valueResult.ok) {
     return err(effectError(effect, new Error(valueResult.error)));
   }
-  handler.setValue(effect.path, valueResult.value);
+
+  const handlerResult = handler.setValue(effect.path, valueResult.value);
+  if (!handlerResult.ok) {
+    return err(
+      effectError(effect, handlerResult.error.cause, {
+        code: handlerResult.error.code ?? 'HANDLER_ERROR',
+        context,
+      })
+    );
+  }
+
   return ok(undefined);
 }
 
 /**
  * SetState 실행
+ *
+ * P0-1 Contract: handler.setState의 Result를 확인하고 에러 전파
  */
 async function runSetState(
   effect: SetStateEffect,
@@ -138,12 +189,24 @@ async function runSetState(
   if (!valueResult.ok) {
     return err(effectError(effect, new Error(valueResult.error)));
   }
-  handler.setState(effect.path, valueResult.value);
+
+  const handlerResult = handler.setState(effect.path, valueResult.value);
+  if (!handlerResult.ok) {
+    return err(
+      effectError(effect, handlerResult.error.cause, {
+        code: handlerResult.error.code ?? 'HANDLER_ERROR',
+        context,
+      })
+    );
+  }
+
   return ok(undefined);
 }
 
 /**
  * ApiCall 실행
+ *
+ * P0-1 Contract: handler.apiCall의 Result를 확인하고 에러 전파
  */
 async function runApiCall(
   effect: ApiCallEffect,
@@ -189,27 +252,32 @@ async function runApiCall(
     }
   }
 
-  try {
-    const response = await handler.apiCall({
-      endpoint,
-      method: effect.method,
-      body,
-      headers: effect.headers,
-      query,
-      timeout: effect.timeout,
-    });
-    return ok(response);
-  } catch (e) {
+  // P0-1: handler.apiCall은 이제 Promise<Result<unknown, HandlerError>> 반환
+  const handlerResult = await handler.apiCall({
+    endpoint,
+    method: effect.method,
+    body,
+    headers: effect.headers,
+    query,
+    timeout: effect.timeout,
+  });
+
+  if (!handlerResult.ok) {
     return err(
-      effectError(effect, e instanceof Error ? e : new Error(String(e)), {
-        code: 'API_CALL_FAILED',
+      effectError(effect, handlerResult.error.cause, {
+        code: handlerResult.error.code ?? 'API_CALL_FAILED',
+        context,
       })
     );
   }
+
+  return ok(handlerResult.value);
 }
 
 /**
  * Navigate 실행
+ *
+ * P0-1 Contract: handler.navigate의 Result를 확인하고 에러 전파
  */
 async function runNavigate(
   effect: NavigateEffect,
@@ -227,7 +295,16 @@ async function runNavigate(
     to = String(toResult.value);
   }
 
-  handler.navigate(to, effect.mode);
+  const handlerResult = handler.navigate(to, effect.mode);
+  if (!handlerResult.ok) {
+    return err(
+      effectError(effect, handlerResult.error.cause, {
+        code: handlerResult.error.code ?? 'NAVIGATE_ERROR',
+        context,
+      })
+    );
+  }
+
   return ok(undefined);
 }
 
@@ -338,12 +415,21 @@ async function runCatch(
 
 /**
  * EmitEvent 실행
+ *
+ * P0-1 Contract: handler.emitEvent의 Result를 확인하고 에러 전파
  */
 async function runEmitEvent(
   effect: EmitEventEffect,
   handler: EffectHandler
 ): Promise<EffectResult> {
-  handler.emitEvent(effect.channel, effect.payload);
+  const handlerResult = handler.emitEvent(effect.channel, effect.payload);
+  if (!handlerResult.ok) {
+    return err(
+      effectError(effect, handlerResult.error.cause, {
+        code: handlerResult.error.code ?? 'EMIT_EVENT_ERROR',
+      })
+    );
+  }
   return ok(undefined);
 }
 

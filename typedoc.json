@@ -1,0 +1,41 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "packages/core/src/index.ts",
+    "packages/compiler/src/index.ts",
+    "packages/bridge-react/src/index.ts"
+  ],
+  "out": "docs/api",
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPointStrategy": "expand",
+  "name": "Manifesto AI API Reference",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "includeVersion": true,
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Domain",
+    "Expression",
+    "Effect",
+    "Runtime",
+    "DAG",
+    "Policy",
+    "Schema",
+    "Projection",
+    "Agent",
+    "*"
+  ],
+  "sort": ["source-order"],
+  "visibilityFilters": {
+    "protected": false,
+    "private": false,
+    "inherited": true,
+    "@internal": false
+  },
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  }
+}

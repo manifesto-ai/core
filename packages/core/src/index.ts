@@ -3,11 +3,14 @@
  *
  * AI Native Semantic Layer for SaaS Business Logic
  *
- * Manifesto는 SaaS 비즈니스 로직을 의미론적 주소 공간(Semantic Path Space)으로 선언하여,
- * AI Agent가 UI를 이해하고 안전하게 조작할 수 있게 하는 AI Native Semantic Layer입니다.
+ * Manifesto is an AI Native Semantic Layer that declares SaaS business logic
+ * in a Semantic Path Space, enabling AI Agents to understand and safely
+ * manipulate UI state.
+ *
+ * @packageDocumentation
  */
 
-// Domain - 도메인 정의 및 타입
+// Domain - Domain definitions and types
 export {
   // Types
   type SemanticPath,
@@ -36,7 +39,7 @@ export {
   validateDomain,
 } from './domain/index.js';
 
-// Expression - DSL 표현식
+// Expression - DSL expressions
 export {
   // Types
   type Expression,
@@ -73,7 +76,7 @@ export {
   type DependencyAnalysis,
 } from './expression/index.js';
 
-// Effect - 부수효과 시스템
+// Effect - Side effect system
 export {
   // Types
   type Effect,
@@ -93,9 +96,13 @@ export {
   // Result
   type Result,
   type EffectError,
+  type HandlerError, // P0-1: EffectHandler 실행 에러
+  type PropagationError, // P0-1: DAG 전파 에러
   ok,
   err,
   effectError,
+  handlerError, // P0-1: HandlerError 생성
+  propagationError, // P0-1: PropagationError 생성
   isOk,
   isErr,
   unwrap,
@@ -109,7 +116,11 @@ export {
   any,
   fromPromise,
   tryCatch,
+  resultFrom, // P0-1: throw 기반 async 함수를 Result 패턴으로 변환
+  resultFromFetch, // P0-1: fetch Response를 Result 패턴으로 변환 (HTTP 에러 자동 처리)
+  type HttpErrorInfo, // P0-1: HTTP 에러 정보 타입
   // Runner
+  type ApiCallRequest, // P0-1: API 호출 요청 타입
   runEffect,
   setValue,
   setState,
@@ -126,7 +137,7 @@ export {
   type EffectResult,
 } from './effect/index.js';
 
-// DAG - 의존성 그래프
+// DAG - Dependency graph
 export {
   // Types
   type DependencyGraph,
@@ -158,7 +169,7 @@ export {
   type SnapshotLike,
 } from './dag/index.js';
 
-// Runtime - 도메인 실행 엔진
+// Runtime - Domain execution engine
 export {
   // Snapshot
   type DomainSnapshot,
@@ -181,11 +192,12 @@ export {
   type ResolvedFieldPolicy,
   type ExplanationTree,
   type ValidationError,
+  type SetError, // P0-1: set/setMany 에러 타입 (ValidationError | PropagationError)
   type CreateRuntimeOptions,
   createRuntime,
 } from './runtime/index.js';
 
-// Policy - 정책 평가
+// Policy - Policy evaluation
 export {
   // Precondition
   evaluatePrecondition,
@@ -206,7 +218,7 @@ export {
   type FieldUIState,
 } from './policy/index.js';
 
-// Schema - Zod 통합
+// Schema - Zod integration
 export {
   // Integration
   schemaToSource,
@@ -229,6 +241,59 @@ export {
   getWarnings,
   getSuggestions,
 } from './schema/index.js';
+
+// Projection - Agent Context Projection
+export {
+  // Types
+  type ProjectedSnapshot,
+  type AgentContext,
+  type AgentContextMetadata,
+  type AgentActionInfo,
+  type UnavailableAction,
+  type BlockedReason,
+  type FieldInfo,
+  type ExplainValueResult,
+  type ExplainActionResult,
+  type ExplainFieldResult,
+  type ImpactAnalysis,
+  type ActionImpactAnalysis,
+  // Agent Context
+  projectSnapshot,
+  projectAgentContext,
+  type ProjectAgentContextOptions,
+  // Explain
+  explainValue,
+  explainAction,
+  explainField,
+  // Impact
+  analyzeValueImpact,
+  analyzeActionImpact,
+  getImpactMap,
+} from './projection/index.js';
+
+// Agent - AI Agent Types (implementation in Phase 3)
+export {
+  // Decision types
+  type AgentDecision,
+  type DecisionResult,
+  type DecisionSuccess,
+  type DecisionFailure,
+  type DecisionFailureType,
+  type ValidationFailureDetails,
+  type UnavailableActionDetails,
+  // Feedback types
+  type DecisionFeedback,
+  type ActionSuccessFeedback,
+  type ActionFailureFeedback,
+  type UnavailableActionFeedback,
+  type ValidationFailureFeedback,
+  // Loop types
+  type AgentDecisionLoop,
+  type AgentLoopConfig,
+  // Session types
+  type AgentCapabilities,
+  type AgentSession,
+} from './agent/index.js';
 
 // Re-export Zod for convenience
 export { z } from 'zod';

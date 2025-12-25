@@ -105,6 +105,27 @@ function collectAllPaths<TData, TState>(
     }
   }
 
+  // State paths from stateSchema (state.xxx paths are valid dependencies)
+  if (domain.stateSchema && typeof domain.stateSchema === 'object') {
+    // Handle Zod schema or plain object
+    const shape = (domain.stateSchema as any).shape || (domain.stateSchema as any);
+    if (shape && typeof shape === 'object') {
+      for (const key of Object.keys(shape)) {
+        paths.add(`state.${key}` as SemanticPath);
+      }
+    }
+  }
+
+  // Data paths from dataSchema (data.xxx paths are valid dependencies)
+  if (domain.dataSchema && typeof domain.dataSchema === 'object') {
+    const shape = (domain.dataSchema as any).shape || (domain.dataSchema as any);
+    if (shape && typeof shape === 'object') {
+      for (const key of Object.keys(shape)) {
+        paths.add(`data.${key}` as SemanticPath);
+      }
+    }
+  }
+
   return paths;
 }
 

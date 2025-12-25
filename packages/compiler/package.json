@@ -1,0 +1,64 @@
+{
+  "name": "@manifesto-ai/compiler",
+  "version": "0.1.0",
+  "description": "Manifestify Compiler - Transform code and natural language into Manifesto Fragments",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "manifesto",
+    "compiler",
+    "ai",
+    "semantic",
+    "dsl",
+    "fragment"
+  ],
+  "author": "Manifesto Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/compiler"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/compiler#readme",
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^0.3.0"
+  },
+  "dependencies": {
+    "@swc/core": "^1.10.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9"
+  }
+}

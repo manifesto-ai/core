@@ -1,0 +1,59 @@
+{
+  "name": "@manifesto-ai/bridge-react",
+  "version": "0.1.0",
+  "description": "React hooks for Manifesto Domain Runtime",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "manifesto",
+    "react",
+    "hooks",
+    "state-management"
+  ],
+  "author": "Manifesto Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/bridge-react"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "@manifesto-ai/core": "^0.3.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@testing-library/react": "^14.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "jsdom": "^25.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "zod": "^3.24.1"
+  }
+}

@@ -46,6 +46,15 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* Neon accent colors for compiler playground */
+    --neon-cyan: 186 100% 50%;
+    --neon-violet: 259 94% 72%;
+    --neon-emerald: 160 84% 52%;
+    --neon-amber: 43 96% 56%;
+    --neon-pink: 330 81% 72%;
+    --neon-orange: 27 96% 61%;
+    --neon-blue: 217 91% 68%;
   }
 }
 
@@ -56,4 +65,70 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* React Flow custom styles */
+.react-flow__background {
+  background-color: hsl(var(--background));
+}
+
+.react-flow__controls {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.react-flow__controls-button {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.react-flow__controls-button:hover {
+  background-color: hsl(var(--muted));
+}
+
+.react-flow__minimap {
+  background-color: hsl(var(--card));
+  border-radius: var(--radius);
+}
+
+/* Animated edge for active dependencies */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: hsl(var(--neon-cyan));
+  stroke-dasharray: 5;
+  animation: dash 0.5s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* Node glow effects */
+.fragment-node {
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.fragment-node:hover {
+  box-shadow: 0 0 20px hsl(var(--neon-cyan) / 0.4);
+}
+
+.fragment-node.selected {
+  box-shadow: 0 0 30px hsl(var(--neon-cyan) / 0.6);
+}
+
+/* Phase node pulse animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.phase-node-active {
+  animation: pulse-glow 1.5s ease-in-out infinite;
 }
