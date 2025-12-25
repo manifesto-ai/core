@@ -1,14 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import {
   defineDomain,
   defineSource,
   defineDerived,
+  defineAsync,
   defineAction,
   condition,
   fieldPolicy,
 } from '../../src/domain/define.js';
 import { validateDomain } from '../../src/domain/validate.js';
+import { validateAsyncPathConvention } from '../../src/dag/propagation.js';
+import { apiCall } from '../../src/effect/runner.js';
 
 describe('Domain Definition', () => {
   describe('defineDomain', () => {
@@ -301,6 +304,192 @@ describe('Domain Definition', () => {
     it('should create condition with reason', () => {
       const cond = condition('derived.canSubmit', { reason: 'Form is incomplete' });
       expect(cond.reason).toBe('Form is incomplete');
+    });
+  });
+
+  /**
+   * P0-2 Contract Tests: Async path convention
+   *
+   * 핵심 계약:
+   * - Async path는 항상 `async.{name}` 형태
+   * - 결과 경로는 자동 생성: `async.{name}.result`, `async.{name}.loading`, `async.{name}.error`
+   */
+  describe('P0-2 Contract: defineAsync', () => {
+    const mockEffect = apiCall({
+      endpoint: '/api/data',
+      method: 'GET',
+      description: 'Fetch data',
+    });
+
+    describe('new basePath API (recommended)', () => {
+      it('should auto-generate subpaths from basePath with async prefix', () => {
+        const asyncDef = defineAsync('async.userData', {
+          deps: ['data.userId'],
+          effect: mockEffect,
+          semantic: { type: 'async', description: 'User data fetch' },
+        });
+
+        expect(asyncDef.resultPath).toBe('async.userData.result');
+        expect(asyncDef.loadingPath).toBe('async.userData.loading');
+        expect(asyncDef.errorPath).toBe('async.userData.error');
+      });
+
+      it('should auto-add async prefix if missing', () => {
+        const asyncDef = defineAsync('userData', {
+          deps: ['data.userId'],
+          effect: mockEffect,
+          semantic: { type: 'async', description: 'User data fetch' },
+        });
+
+        expect(asyncDef.resultPath).toBe('async.userData.result');
+        expect(asyncDef.loadingPath).toBe('async.userData.loading');
+        expect(asyncDef.errorPath).toBe('async.userData.error');
+      });
+
+      it('should preserve all other options', () => {
+        const condition: [string, [string, string], number] = ['>', ['get', 'data.userId'], 0];
+        const asyncDef = defineAsync('async.userData', {
+          deps: ['data.userId', 'data.tenantId'],
+          condition,
+          debounce: 300,
+          effect: mockEffect,
+          semantic: {
+            type: 'async',
+            description: 'User data fetch',
+            importance: 'high',
+          },
+        });
+
+        expect(asyncDef.deps).toEqual(['data.userId', 'data.tenantId']);
+        expect(asyncDef.condition).toEqual(condition);
+        expect(asyncDef.debounce).toBe(300);
+        expect(asyncDef.effect).toBe(mockEffect);
+        expect(asyncDef.semantic.readable).toBe(true);
+        expect(asyncDef.semantic.writable).toBe(false);
+        expect(asyncDef.semantic.importance).toBe('high');
+      });
+
+      it('should handle nested paths', () => {
+        const asyncDef = defineAsync('async.user.profile', {
+          deps: ['data.userId'],
+          effect: mockEffect,
+          semantic: { type: 'async', description: 'User profile fetch' },
+        });
+
+        expect(asyncDef.resultPath).toBe('async.user.profile.result');
+        expect(asyncDef.loadingPath).toBe('async.user.profile.loading');
+        expect(asyncDef.errorPath).toBe('async.user.profile.error');
+      });
+    });
+
+    describe('legacy explicit paths API (deprecated)', () => {
+      it('should accept explicit paths (backward compatibility)', () => {
+        // Suppress console.warn for this test
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const asyncDef = defineAsync({
+          deps: ['data.userId'],
+          effect: mockEffect,
+          resultPath: 'async.userData.result',
+          loadingPath: 'async.userData.loading',
+          errorPath: 'async.userData.error',
+          semantic: { type: 'async', description: 'User data fetch' },
+        });
+
+        expect(asyncDef.resultPath).toBe('async.userData.result');
+        expect(asyncDef.loadingPath).toBe('async.userData.loading');
+        expect(asyncDef.errorPath).toBe('async.userData.error');
+
+        warnSpy.mockRestore();
+      });
+
+      it('should warn for non-standard path patterns', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        defineAsync({
+          deps: ['data.userId'],
+          effect: mockEffect,
+          resultPath: 'state.userData', // Non-standard - should warn
+          loadingPath: 'state.userLoading', // Non-standard - should warn
+          errorPath: 'state.userError', // Non-standard - should warn
+          semantic: { type: 'async', description: 'User data fetch' },
+        });
+
+        expect(warnSpy).toHaveBeenCalledTimes(3);
+        expect(warnSpy.mock.calls[0]?.[0]).toContain('P0-2 Deprecation');
+        expect(warnSpy.mock.calls[0]?.[0]).toContain('.result');
+
+        warnSpy.mockRestore();
+      });
+    });
+  });
+
+  describe('P0-2 Contract: validateAsyncPathConvention', () => {
+    it('should validate correct convention', () => {
+      const result = validateAsyncPathConvention('async.userData', {
+        resultPath: 'async.userData.result',
+        loadingPath: 'async.userData.loading',
+        errorPath: 'async.userData.error',
+      });
+
+      expect(result.valid).toBe(true);
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('should detect missing async prefix', () => {
+      const result = validateAsyncPathConvention('userData', {
+        resultPath: 'userData.result',
+        loadingPath: 'userData.loading',
+        errorPath: 'userData.error',
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes("should start with 'async.'"))).toBe(true);
+    });
+
+    it('should detect incorrect resultPath', () => {
+      const result = validateAsyncPathConvention('async.userData', {
+        resultPath: 'state.userData',
+        loadingPath: 'async.userData.loading',
+        errorPath: 'async.userData.error',
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes('resultPath'))).toBe(true);
+    });
+
+    it('should detect incorrect loadingPath', () => {
+      const result = validateAsyncPathConvention('async.userData', {
+        resultPath: 'async.userData.result',
+        loadingPath: 'state.loading',
+        errorPath: 'async.userData.error',
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes('loadingPath'))).toBe(true);
+    });
+
+    it('should detect incorrect errorPath', () => {
+      const result = validateAsyncPathConvention('async.userData', {
+        resultPath: 'async.userData.result',
+        loadingPath: 'async.userData.loading',
+        errorPath: 'state.error',
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes('errorPath'))).toBe(true);
+    });
+
+    it('should report all issues at once', () => {
+      const result = validateAsyncPathConvention('userData', {
+        resultPath: 'state.result',
+        loadingPath: 'state.loading',
+        errorPath: 'state.error',
+      });
+
+      expect(result.valid).toBe(false);
+      // Should have 4 issues: missing prefix + 3 wrong paths
+      expect(result.issues.length).toBe(4);
     });
   });
 });

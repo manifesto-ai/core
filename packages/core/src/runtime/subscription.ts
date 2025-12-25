@@ -35,6 +35,32 @@ export type Unsubscribe = () => void;
 
 /**
  * Subscription Manager
+ *
+ * ## Notify Policy (P1-2)
+ *
+ * **changedPaths는 "값 변화"가 아니라 "set 시도/전파 이벤트" 기준입니다.**
+ *
+ * - `runtime.set(path, value)`가 호출되면 값이 동일하더라도 path가 changedPaths에 포함됩니다.
+ * - 이는 "값 변화 감지" 보다 "상태 전이 이벤트" 관점의 설계입니다.
+ *
+ * **설계 의도:**
+ * 1. **결정론적 동작**: 동일한 set 호출은 항상 동일한 알림을 생성합니다.
+ * 2. **디버깅 용이성**: 모든 set 시도를 추적할 수 있습니다.
+ * 3. **의존성 전파**: DAG 전파 로직과 일관된 동작을 보장합니다.
+ *
+ * **성능 고려:**
+ * 값 변화 없는 알림이 성능 문제가 되는 경우, React 훅에서 `useSyncExternalStore`의
+ * `getSnapshot`이 동일 참조를 반환하도록 최적화하거나, 컴포넌트 레벨에서 memo를 사용하세요.
+ *
+ * @example
+ * ```typescript
+ * // 값이 동일해도 알림 발생 (의도된 동작)
+ * runtime.set('data.count', 10);  // → notify
+ * runtime.set('data.count', 10);  // → notify (같은 값이지만 알림)
+ *
+ * // React에서 불필요한 리렌더 방지
+ * const count = useValue('data.count');  // useSyncExternalStore 내부에서 참조 비교
+ * ```
  */
 export class SubscriptionManager<TData, TState> {
   private snapshotListeners = new Set<SnapshotListener<TData, TState>>();

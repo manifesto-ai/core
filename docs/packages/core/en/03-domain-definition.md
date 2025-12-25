@@ -540,6 +540,99 @@ const productDetailAsync = defineAsync({
 });
 ```
 
+### Async Path Convention (P1-1)
+
+Async paths follow a strict naming convention:
+
+| Path | Type | Description |
+|------|------|-------------|
+| `async.{name}` | Process identifier | **NOT** a value path |
+| `async.{name}.result` | Value path | The resolved data |
+| `async.{name}.loading` | Value path | Boolean loading state |
+| `async.{name}.error` | Value path | Error object if failed |
+
+**Important:** Always use the specific subpaths when reading async values:
+
+```typescript
+// ❌ Wrong - will emit warning and fallback to .result
+const data = runtime.get('async.userData');
+
+// ✅ Correct
+const data = runtime.get('async.userData.result');
+const isLoading = runtime.get('async.userData.loading');
+const error = runtime.get('async.userData.error');
+```
+
+### Async Race Condition Policy (P1-2)
+
+When multiple async requests are made in rapid succession (e.g., user types quickly), the runtime uses a **Last-Write-Wins** policy by default.
+
+**Recommended Pattern: Request ID Tracking**
+
+To prevent stale responses from overwriting fresh data, use a request ID pattern:
+
+```typescript
+// Domain with request tracking
+const searchDomain = defineDomain({
+  // ...
+  stateSchema: z.object({
+    requestId: z.number(),
+    results: z.array(z.string()),
+    loading: z.boolean(),
+    error: z.unknown().nullable(),
+  }),
+  initialState: {
+    requestId: 0,
+    results: [],
+    loading: false,
+    error: null,
+  },
+  // ...
+});
+
+// In your async handler
+async function handleSearch(query: string) {
+  // Increment request ID before making request
+  const currentRequestId = runtime.get('state.requestId') + 1;
+  runtime.set('state.requestId', currentRequestId);
+  runtime.set('state.loading', true);
+
+  try {
+    const results = await fetchSearchResults(query);
+
+    // Only update if this is still the latest request
+    if (runtime.get('state.requestId') === currentRequestId) {
+      runtime.set('state.results', results);
+      runtime.set('state.loading', false);
+    }
+    // Otherwise, discard stale response silently
+  } catch (error) {
+    if (runtime.get('state.requestId') === currentRequestId) {
+      runtime.set('state.error', error);
+      runtime.set('state.loading', false);
+    }
+  }
+}
+```
+
+**Timeline Example:**
+
+```
+Time 0ms: User types "a" → Request #1 starts
+Time 50ms: User types "ab" → Request #2 starts
+Time 100ms: Request #2 completes (fast server) → Updates state
+Time 200ms: Request #1 completes (slow server) → Discarded (requestId mismatch)
+```
+
+**Policy Summary:**
+
+| Scenario | Behavior |
+|----------|----------|
+| Multiple concurrent requests | All execute in parallel |
+| Response arrives | Only latest requestId updates state |
+| Stale response | Silently discarded |
+| Error handling | Same requestId check applies |
+
 ---
 
 ## defineAction()

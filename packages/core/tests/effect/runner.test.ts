@@ -14,6 +14,7 @@ import {
   type EffectHandler,
   type EffectRunnerConfig,
 } from '../../src/effect/runner.js';
+import { ok, err, handlerError } from '../../src/effect/result.js';
 import type { EvaluationContext } from '../../src/expression/types.js';
 
 describe('Effect Runner', () => {
@@ -27,12 +28,14 @@ describe('Effect Runner', () => {
   });
 
   beforeEach(() => {
+    // P0-1 Contract: All handler methods must return Result
     handler = {
-      setValue: vi.fn(),
-      setState: vi.fn(),
-      apiCall: vi.fn().mockResolvedValue({ success: true }),
-      navigate: vi.fn(),
-      emitEvent: vi.fn(),
+      setValue: vi.fn().mockReturnValue(ok(undefined)),
+      setState: vi.fn().mockReturnValue(ok(undefined)),
+      // P0-1: apiCall now returns Promise<Result<unknown, HandlerError>>
+      apiCall: vi.fn().mockResolvedValue(ok({ success: true })),
+      navigate: vi.fn().mockReturnValue(ok(undefined)),
+      emitEvent: vi.fn().mockReturnValue(ok(undefined)),
     };
     contextValues = {
       'data.name': 'test',
@@ -207,8 +210,9 @@ describe('Effect Runner', () => {
     });
 
     it('should return error when API call fails', async () => {
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('Network error')
+      // P0-1: apiCall now returns Result error instead of throwing
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValue(
+        err(handlerError('apiCall', new Error('Network error'), 'API_CALL_FAILED'))
       );
       const effect = apiCall({
         endpoint: '/api/fail',
@@ -357,8 +361,9 @@ describe('Effect Runner', () => {
     });
 
     it('should return last result on success', async () => {
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('first');
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('second');
+      // P0-1: apiCall now returns Promise<Result<unknown, HandlerError>>
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('first'));
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('second'));
 
       const effects = [
         apiCall({ endpoint: '/a', method: 'GET', description: 'First' }),
@@ -386,8 +391,9 @@ describe('Effect Runner', () => {
 
   describe('runEffect - Parallel', () => {
     it('should execute effects in parallel (waitAll=true)', async () => {
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('a');
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('b');
+      // P0-1: apiCall now returns Promise<Result<unknown, HandlerError>>
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('a'));
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('b'));
 
       const effects = [
         apiCall({ endpoint: '/a', method: 'GET', description: 'A' }),
@@ -406,6 +412,7 @@ describe('Effect Runner', () => {
       let resolveFirst: (v: unknown) => void;
       let resolveSecond: (v: unknown) => void;
 
+      // P0-1: apiCall now returns Promise<Result<unknown, HandlerError>>
       (handler.apiCall as ReturnType<typeof vi.fn>).mockImplementationOnce(
         () => new Promise((r) => (resolveFirst = r))
       );
@@ -420,8 +427,8 @@ describe('Effect Runner', () => {
       const effect = parallel(effects, { waitAll: false });
       const promise = runEffect(effect, config);
 
-      // Resolve second first
-      resolveSecond!('fast');
+      // Resolve second first - must return Result
+      resolveSecond!(ok('fast'));
       const result = await promise;
 
       expect(result.ok).toBe(true);
@@ -431,9 +438,10 @@ describe('Effect Runner', () => {
     });
 
     it('should return error if any parallel effect fails (waitAll=true)', async () => {
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('success');
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new Error('Failed')
+      // P0-1: apiCall now returns Result error instead of throwing
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('success'));
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        err(handlerError('apiCall', new Error('Failed'), 'API_CALL_FAILED'))
       );
 
       const effects = [
@@ -447,8 +455,9 @@ describe('Effect Runner', () => {
     });
 
     it('should default to waitAll=true', async () => {
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('a');
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('b');
+      // P0-1: apiCall now returns Promise<Result<unknown, HandlerError>>
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('a'));
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('b'));
 
       const effects = [
         apiCall({ endpoint: '/a', method: 'GET', description: 'A' }),
@@ -572,10 +581,11 @@ describe('Effect Runner', () => {
     });
 
     it('should return catch result when try fails', async () => {
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new Error('API Error')
+      // P0-1: apiCall now returns Result error instead of throwing
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        err(handlerError('apiCall', new Error('API Error'), 'API_CALL_FAILED'))
       );
-      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce('fallback');
+      (handler.apiCall as ReturnType<typeof vi.fn>).mockResolvedValueOnce(ok('fallback'));
 
       const effect = catchEffect({
         try: apiCall({ endpoint: '/fail', method: 'GET', description: 'Fail' }),
@@ -657,6 +667,7 @@ describe('Effect Runner', () => {
 
   describe('runEffect - Exception Handling', () => {
     it('should catch synchronous exceptions', async () => {
+      // P0-1: Handler still throws exception (not returning Result error)
       (handler.setValue as ReturnType<typeof vi.fn>).mockImplementation(() => {
         throw new Error('Sync error');
       });
@@ -670,6 +681,7 @@ describe('Effect Runner', () => {
     });
 
     it('should handle non-Error throws', async () => {
+      // P0-1: Handler still throws exception (not returning Result error)
       (handler.setValue as ReturnType<typeof vi.fn>).mockImplementation(() => {
         throw 'string error';
       });
@@ -679,6 +691,22 @@ describe('Effect Runner', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.cause.message).toBe('string error');
+      }
+    });
+
+    it('should handle handler returning error Result', async () => {
+      // P0-1 Contract: Handler returns Result error instead of throwing
+      const { err, handlerError } = await import('../../src/effect/result.js');
+      (handler.setValue as ReturnType<typeof vi.fn>).mockReturnValue(
+        err(handlerError('data.x', new Error('Handler error'), 'TEST_ERROR'))
+      );
+      const effect = setValue('data.x', 'value', 'Set');
+      const result = await runEffect(effect, config);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.cause.message).toBe('Handler error');
+        expect(result.error.code).toBe('TEST_ERROR');
       }
     });
   });

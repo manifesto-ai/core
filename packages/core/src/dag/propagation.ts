@@ -125,7 +125,44 @@ export function propagate(
 }
 
 /**
+ * P0-2 Contract: Async path 규약 검증
+ *
+ * @param basePath - async 기본 경로 (e.g., 'async.userData')
+ * @returns 규약 준수 여부와 상세 정보
+ */
+export function validateAsyncPathConvention(
+  basePath: SemanticPath,
+  definition: { resultPath: SemanticPath; loadingPath: SemanticPath; errorPath: SemanticPath }
+): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+
+  // 1. basePath가 async. prefix로 시작하는지 확인
+  if (!basePath.startsWith('async.')) {
+    issues.push(`Base path '${basePath}' should start with 'async.'`);
+  }
+
+  // 2. subpaths가 규약을 따르는지 확인
+  const expectedResult = `${basePath}.result`;
+  const expectedLoading = `${basePath}.loading`;
+  const expectedError = `${basePath}.error`;
+
+  if (definition.resultPath !== expectedResult) {
+    issues.push(`resultPath '${definition.resultPath}' should be '${expectedResult}'`);
+  }
+  if (definition.loadingPath !== expectedLoading) {
+    issues.push(`loadingPath '${definition.loadingPath}' should be '${expectedLoading}'`);
+  }
+  if (definition.errorPath !== expectedError) {
+    issues.push(`errorPath '${definition.errorPath}' should be '${expectedError}'`);
+  }
+
+  return { valid: issues.length === 0, issues };
+}
+
+/**
  * Async Effect 완료 후 결과 전파
+ *
+ * P0-2 Contract: 규약 불일치 시 경고 로그 출력
  */
 export function propagateAsyncResult(
   graph: DependencyGraph,
@@ -140,6 +177,12 @@ export function propagateAsyncResult(
 
   const changes = new Map<SemanticPath, unknown>();
   const definition = node.definition;
+
+  // P0-2: 규약 검증
+  const validation = validateAsyncPathConvention(asyncPath, definition);
+  if (!validation.valid) {
+    console.warn(`[P0-2] Async path convention violation for '${asyncPath}':`, validation.issues);
+  }
 
   // 로딩 상태 해제
   changes.set(definition.loadingPath, false);

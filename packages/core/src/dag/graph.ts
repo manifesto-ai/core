@@ -119,6 +119,11 @@ export function buildDependencyGraph<TData, TState>(
       dependents.get(dep)!.add(path);
     }
 
+    // async path 자체의 dependents 초기화 (result/loading/error 추가 전에 필요)
+    if (!dependents.has(path)) {
+      dependents.set(path, new Set());
+    }
+
     // result, loading, error 경로도 노드로 등록 (source처럼 취급)
     for (const statePath of [
       definition.resultPath,
@@ -133,10 +138,6 @@ export function buildDependencyGraph<TData, TState>(
         }
         dependents.get(path)!.add(statePath);
       }
-    }
-
-    if (!dependents.has(path)) {
-      dependents.set(path, new Set());
     }
   }
 
