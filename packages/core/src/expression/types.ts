@@ -119,6 +119,26 @@ export type UniqueExpr = ['unique', Expression];
 export type SortExpr = ['sort', Expression, Expression?];
 export type ReverseExpr = ['reverse', Expression];
 
+// Tier 1: 필수 (배열 조작)
+// Note: concat은 다형성으로 String & Array 모두 지원 (StringFn에 정의)
+export type AppendExpr = ['append', Expression, Expression];
+export type PrependExpr = ['prepend', Expression, Expression];
+
+// Tier 2: 권장 (FP 패턴)
+export type TakeExpr = ['take', Expression, Expression];
+export type DropExpr = ['drop', Expression, Expression];
+export type FindExpr = ['find', Expression, Expression];
+export type FindIndexExpr = ['findIndex', Expression, Expression];
+export type IsEmptyExpr = ['isEmpty', Expression];
+export type RangeExpr = ['range', Expression, Expression];
+
+// Tier 3: 고급 (복잡한 변환)
+export type ZipExpr = ['zip', Expression, Expression];
+export type PartitionExpr = ['partition', Expression, Expression];
+export type GroupByExpr = ['groupBy', Expression, Expression];
+export type ChunkExpr = ['chunk', Expression, Expression];
+export type CompactExpr = ['compact', Expression];
+
 export type ArrayFn =
   | LengthExpr
   | AtExpr
@@ -134,7 +154,23 @@ export type ArrayFn =
   | FlattenExpr
   | UniqueExpr
   | SortExpr
-  | ReverseExpr;
+  | ReverseExpr
+  // Tier 1
+  | AppendExpr
+  | PrependExpr
+  // Tier 2
+  | TakeExpr
+  | DropExpr
+  | FindExpr
+  | FindIndexExpr
+  | IsEmptyExpr
+  | RangeExpr
+  // Tier 3
+  | ZipExpr
+  | PartitionExpr
+  | GroupByExpr
+  | ChunkExpr
+  | CompactExpr;
 
 // =============================================================================
 // Number Functions
@@ -173,8 +209,11 @@ export type ValuesExpr = ['values', Expression];
 export type EntriesExpr = ['entries', Expression];
 export type PickExpr = ['pick', Expression, ...string[]];
 export type OmitExpr = ['omit', Expression, ...string[]];
+export type AssocExpr = ['assoc', Expression, string, Expression];
+export type DissocExpr = ['dissoc', Expression, string];
+export type MergeExpr = ['merge', ...Expression[]];
 
-export type ObjectFn = HasExpr | KeysExpr | ValuesExpr | EntriesExpr | PickExpr | OmitExpr;
+export type ObjectFn = HasExpr | KeysExpr | ValuesExpr | EntriesExpr | PickExpr | OmitExpr | AssocExpr | DissocExpr | MergeExpr;
 
 // =============================================================================
 // Type Functions
@@ -196,6 +235,14 @@ export type TypeFn =
   | IsObjectExpr
   | ToNumberExpr
   | ToStringExpr;
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+export type UuidExpr = ['uuid'];
+
+export type UtilityFn = UuidExpr;
 
 // =============================================================================
 // Date Functions
@@ -222,6 +269,7 @@ export type FunctionExpr =
   | NumberFn
   | ObjectFn
   | TypeFn
+  | UtilityFn
   | DateFn;
 
 /**
