@@ -537,4 +537,292 @@ describe('Domain Runtime', () => {
       expect(snapshot.data.quantity).toBe(5);
     });
   });
+
+  /**
+   * P0-1 Contract Tests: Effect 실행 계약
+   *
+   * 핵심 계약:
+   * - set()/setMany()가 propagation 에러를 Result로 반환해야 함
+   * - Effect 실패가 침묵(silent)되지 않아야 함
+   */
+  describe('P0-1 Contract: Propagation Error Handling', () => {
+    // Domain with an expression that can fail during propagation
+    function createDomainWithFailableExpression(): ManifestoDomain<any, any> {
+      return defineDomain({
+        id: 'failable-domain',
+        name: 'Failable Domain',
+        description: 'Domain that can fail during propagation',
+        dataSchema: z.object({
+          numerator: z.number(),
+          denominator: z.number(),
+        }),
+        stateSchema: z.object({}),
+        initialState: {},
+        paths: {
+          sources: {
+            'data.numerator': defineSource({
+              schema: z.number(),
+              semantic: { type: 'input', description: 'Numerator' },
+            }),
+            'data.denominator': defineSource({
+              schema: z.number(),
+              semantic: { type: 'input', description: 'Denominator' },
+            }),
+          },
+          derived: {
+            // This expression can fail when denominator is 0 or when invalid operation happens
+            'derived.ratio': defineDerived({
+              deps: ['data.numerator', 'data.denominator'],
+              // Use a valid expression - division
+              expr: ['/', ['get', 'data.numerator'], ['get', 'data.denominator']],
+              semantic: { type: 'computed', description: 'Ratio' },
+            }),
+            // Chain another derived to test error propagation through the DAG
+            'derived.doubleRatio': defineDerived({
+              deps: ['derived.ratio'],
+              expr: ['*', ['get', 'derived.ratio'], 2],
+              semantic: { type: 'computed', description: 'Double ratio' },
+            }),
+          },
+        },
+        actions: {},
+      });
+    }
+
+    it('should return Result<void, SetError> from set() - ValidationError case', () => {
+      const domain = createTestDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { name: 'Test', quantity: 1, price: 10 },
+      });
+
+      // Invalid value should return ValidationError
+      const result = runtime.set('data.price', -10);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error._tag).toBe('ValidationError');
+      }
+    });
+
+    it('should return Result<void, SetError> from setMany() - ValidationError case', () => {
+      const domain = createTestDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { name: 'Test', quantity: 1, price: 10 },
+      });
+
+      // Invalid value should return ValidationError
+      const result = runtime.setMany({
+        'data.quantity': 5,
+        'data.price': -10, // Invalid
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error._tag).toBe('ValidationError');
+      }
+    });
+
+    it('should successfully propagate when expression evaluation succeeds', () => {
+      const domain = createDomainWithFailableExpression();
+      const runtime = createRuntime({
+        domain,
+        initialData: { numerator: 10, denominator: 2 },
+      });
+
+      // Valid operation
+      const result = runtime.set('data.numerator', 20);
+
+      expect(result.ok).toBe(true);
+      expect(runtime.get('derived.ratio')).toBe(10); // 20 / 2 = 10
+      expect(runtime.get('derived.doubleRatio')).toBe(20); // 10 * 2 = 20
+    });
+
+    it('should propagate through DAG chain successfully', () => {
+      const domain = createDomainWithFailableExpression();
+      const runtime = createRuntime({
+        domain,
+        initialData: { numerator: 10, denominator: 5 },
+      });
+
+      // Change denominator and verify entire DAG propagates
+      const result = runtime.set('data.denominator', 2);
+
+      expect(result.ok).toBe(true);
+      expect(runtime.get('derived.ratio')).toBe(5); // 10 / 2 = 5
+      expect(runtime.get('derived.doubleRatio')).toBe(10); // 5 * 2 = 10
+    });
+
+    it('should handle setMany with multiple paths affecting same derived', () => {
+      const domain = createDomainWithFailableExpression();
+      const runtime = createRuntime({
+        domain,
+        initialData: { numerator: 10, denominator: 2 },
+      });
+
+      const result = runtime.setMany({
+        'data.numerator': 20,
+        'data.denominator': 4,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(runtime.get('derived.ratio')).toBe(5); // 20 / 4 = 5
+      expect(runtime.get('derived.doubleRatio')).toBe(10); // 5 * 2 = 10
+    });
+
+    it('should return SetError type which is ValidationError | PropagationError union', () => {
+      const domain = createTestDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { name: 'Test', quantity: 1, price: 10 },
+      });
+
+      // Get a validation error
+      const result = runtime.set('data.price', -10);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        // SetError should have _tag property to distinguish error types
+        expect(result.error).toHaveProperty('_tag');
+        expect(['ValidationError', 'PropagationError']).toContain(result.error._tag);
+      }
+    });
+  });
+
+  // ===========================================
+  // P1-1: Async Path Guard
+  // ===========================================
+  describe('async path guard (P1-1)', () => {
+    function createAsyncDomain(): ManifestoDomain<any, any> {
+      return defineDomain({
+        id: 'async-test',
+        name: 'Async Test Domain',
+        description: 'Domain for testing async path guard',
+        dataSchema: z.object({
+          query: z.string(),
+        }),
+        stateSchema: z.object({
+          async: z.object({
+            search: z.object({
+              result: z.array(z.string()).optional(),
+              loading: z.boolean().optional(),
+              error: z.string().nullable().optional(),
+            }).optional(),
+          }).optional(),
+        }),
+        initialState: {
+          async: {
+            search: {
+              result: ['item1', 'item2'],
+              loading: false,
+              error: null,
+            },
+          },
+        },
+        paths: {
+          sources: {
+            'data.query': defineSource({
+              schema: z.string(),
+              semantic: { type: 'input', description: 'Search query' },
+            }),
+          },
+          derived: {},
+          async: {
+            'async.search': {
+              deps: ['data.query'],
+              effect: {
+                _tag: 'ApiCall',
+                endpoint: '/api/search',
+                method: 'GET',
+                description: 'Search',
+              },
+              resultPath: 'state.async.search.result',
+              loadingPath: 'state.async.search.loading',
+              errorPath: 'state.async.search.error',
+              semantic: { type: 'async', description: 'Search API' },
+            },
+          },
+        },
+        actions: {},
+      });
+    }
+
+    it('should warn when accessing async base path directly', () => {
+      const domain = createAsyncDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { query: 'test' },
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Access async base path directly (should warn)
+      runtime.get('async.search');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"async.search" is an async process path, not a value path')
+      );
+      // Should suggest the actual resultPath from the domain definition
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Use "state.async.search.result"')
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it('should fall back to .result when accessing async base path', () => {
+      const domain = createAsyncDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { query: 'test' },
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Access async base path - should return .result value
+      const result = runtime.get('async.search');
+
+      // Should fall back to .result value
+      expect(result).toEqual(['item1', 'item2']);
+
+      warnSpy.mockRestore();
+    });
+
+    it('should not warn when accessing async value paths (.result, .loading, .error)', () => {
+      const domain = createAsyncDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { query: 'test' },
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Access specific value paths (should NOT warn)
+      runtime.get('async.search.result');
+      runtime.get('async.search.loading');
+      runtime.get('async.search.error');
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it('should not warn for non-async paths', () => {
+      const domain = createAsyncDomain();
+      const runtime = createRuntime({
+        domain,
+        initialData: { query: 'test' },
+      });
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Access regular paths (should NOT warn)
+      runtime.get('data.query');
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+  });
 });
