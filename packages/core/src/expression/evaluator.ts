@@ -33,7 +33,17 @@ function evalExpr(expr: Expression, ctx: EvaluationContext): unknown {
     throw new Error(`Invalid expression: ${JSON.stringify(expr)}`);
   }
 
+  // Handle empty arrays and array literals (non-operator arrays)
+  if (expr.length === 0) {
+    return expr;
+  }
+
   const [op, ...args] = expr;
+
+  // If first element is not a string, it's an array literal - return as-is
+  if (typeof op !== 'string') {
+    return expr;
+  }
 
   switch (op) {
     // Value Access
@@ -109,20 +119,30 @@ function evalExpr(expr: Expression, ctx: EvaluationContext): unknown {
     case 'coalesce':
       return evalCoalesce(args as Expression[], ctx);
 
-    // String
-    case 'concat':
-      return args.map((a) => String(evalExpr(a as Expression, ctx))).join('');
+    // String/Array (polymorphic)
+    case 'concat': {
+      const values = args.map((a) => evalExpr(a as Expression, ctx));
+      if (values.length === 0) return '';
+      // 첫 인자 타입으로 결정: Array면 배열 병합, 아니면 문자열 연결
+      if (Array.isArray(values[0])) {
+        return values.flatMap((v) => (Array.isArray(v) ? v : []));
+      }
+      return values.map(String).join('');
+    }
     case 'upper':
       return String(evalExpr(args[0] as Expression, ctx)).toUpperCase();
     case 'lower':
       return String(evalExpr(args[0] as Expression, ctx)).toLowerCase();
     case 'trim':
       return String(evalExpr(args[0] as Expression, ctx)).trim();
-    case 'slice':
-      return String(evalExpr(args[0] as Expression, ctx)).slice(
-        args[1] as number,
-        args[2] as number | undefined
-      );
+    case 'slice': {
+      const val = evalExpr(args[0] as Expression, ctx);
+      const start = args[1] as number;
+      const end = args[2] as number | undefined;
+      if (typeof val === 'string') return val.slice(start, end);
+      if (Array.isArray(val)) return val.slice(start, end);
+      return null;
+    }
     case 'split':
       return String(evalExpr(args[0] as Expression, ctx)).split(args[1] as string);
     case 'join':
@@ -135,25 +155,40 @@ function evalExpr(expr: Expression, ctx: EvaluationContext): unknown {
         args[2] as string
       );
 
-    // Array
-    case 'length':
-      return (evalExpr(args[0] as Expression, ctx) as unknown[]).length;
-    case 'at':
-      return (evalExpr(args[0] as Expression, ctx) as unknown[])[args[1] as number];
+    // Array (polymorphic: String & Array)
+    case 'length': {
+      const val = evalExpr(args[0] as Expression, ctx);
+      if (typeof val === 'string') return val.length;
+      if (Array.isArray(val)) return val.length;
+      return 0;
+    }
+    case 'at': {
+      const val = evalExpr(args[0] as Expression, ctx);
+      const index = args[1] as number;
+      if (typeof val === 'string') return val.at(index) ?? null;
+      if (Array.isArray(val)) return val.at(index) ?? null;
+      return null;
+    }
     case 'first':
       return (evalExpr(args[0] as Expression, ctx) as unknown[])[0];
     case 'last': {
       const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
       return arr[arr.length - 1];
     }
-    case 'includes':
-      return (evalExpr(args[0] as Expression, ctx) as unknown[]).includes(
-        evalExpr(args[1] as Expression, ctx)
-      );
-    case 'indexOf':
-      return (evalExpr(args[0] as Expression, ctx) as unknown[]).indexOf(
-        evalExpr(args[1] as Expression, ctx)
-      );
+    case 'includes': {
+      const val = evalExpr(args[0] as Expression, ctx);
+      const search = evalExpr(args[1] as Expression, ctx);
+      if (typeof val === 'string') return val.includes(String(search));
+      if (Array.isArray(val)) return val.includes(search);
+      return false;
+    }
+    case 'indexOf': {
+      const val = evalExpr(args[0] as Expression, ctx);
+      const search = evalExpr(args[1] as Expression, ctx);
+      if (typeof val === 'string') return val.indexOf(String(search));
+      if (Array.isArray(val)) return val.indexOf(search);
+      return -1;
+    }
     case 'map':
       return evalMap(args as Expression[], ctx);
     case 'filter':
@@ -172,6 +207,72 @@ function evalExpr(expr: Expression, ctx: EvaluationContext): unknown {
       return evalSort(args as Expression[], ctx);
     case 'reverse':
       return [...(evalExpr(args[0] as Expression, ctx) as unknown[])].reverse();
+
+    // Tier 1: Array manipulation (essential)
+    case 'append': {
+      const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+      const elem = evalExpr(args[1] as Expression, ctx);
+      return [...arr, elem];
+    }
+    case 'prepend': {
+      const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+      const elem = evalExpr(args[1] as Expression, ctx);
+      return [elem, ...arr];
+    }
+
+    // Tier 2: FP patterns (recommended)
+    case 'take': {
+      const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+      const n = evalExpr(args[1] as Expression, ctx) as number;
+      return arr.slice(0, n);
+    }
+    case 'drop': {
+      const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+      const n = evalExpr(args[1] as Expression, ctx) as number;
+      return arr.slice(n);
+    }
+    case 'find':
+      return evalFind(args as Expression[], ctx);
+    case 'findIndex':
+      return evalFindIndex(args as Expression[], ctx);
+    case 'isEmpty': {
+      const val = evalExpr(args[0] as Expression, ctx);
+      if (typeof val === 'string') return val.length === 0;
+      if (Array.isArray(val)) return val.length === 0;
+      return true; // null, undefined 등은 비어있는 것으로 간주
+    }
+    case 'range': {
+      const start = evalExpr(args[0] as Expression, ctx) as number;
+      const end = evalExpr(args[1] as Expression, ctx) as number;
+      if (start > end) return [];
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    }
+
+    // Tier 3: Advanced transformations
+    case 'zip': {
+      const arr1 = evalExpr(args[0] as Expression, ctx) as unknown[];
+      const arr2 = evalExpr(args[1] as Expression, ctx) as unknown[];
+      const len = Math.min(arr1.length, arr2.length);
+      return Array.from({ length: len }, (_, i) => [arr1[i], arr2[i]]);
+    }
+    case 'partition':
+      return evalPartition(args as Expression[], ctx);
+    case 'groupBy':
+      return evalGroupBy(args as Expression[], ctx);
+    case 'chunk': {
+      const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+      const size = evalExpr(args[1] as Expression, ctx) as number;
+      if (size <= 0) return [];
+      const result: unknown[][] = [];
+      for (let i = 0; i < arr.length; i += size) {
+        result.push(arr.slice(i, i + size));
+      }
+      return result;
+    }
+    case 'compact': {
+      const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+      return arr.filter(Boolean);
+    }
 
     // Number
     case 'sum':
@@ -232,6 +333,30 @@ function evalExpr(expr: Expression, ctx: EvaluationContext): unknown {
       }
       return result;
     }
+    case 'assoc': {
+      // ['assoc', obj, key, value] - 객체에 키-값 쌍 추가/수정 (불변)
+      const obj = evalExpr(args[0] as Expression, ctx) as Record<string, unknown>;
+      const key = args[1] as string;
+      const val = evalExpr(args[2] as Expression, ctx);
+      return { ...obj, [key]: val };
+    }
+    case 'dissoc': {
+      // ['dissoc', obj, key] - 객체에서 키 제거 (불변)
+      const obj = evalExpr(args[0] as Expression, ctx) as Record<string, unknown>;
+      const key = args[1] as string;
+      const { [key]: _, ...rest } = obj;
+      return rest;
+    }
+    case 'merge': {
+      // ['merge', obj1, obj2, ...] - 여러 객체 병합 (불변)
+      const objects = args.map((a) => evalExpr(a as Expression, ctx) as Record<string, unknown>);
+      return Object.assign({}, ...objects);
+    }
+
+    // Utility
+    case 'uuid':
+      // ['uuid'] - UUID v4 생성
+      return crypto.randomUUID();
 
     // Type
     case 'isNull':
@@ -444,4 +569,61 @@ function evalSort(args: Expression[], ctx: EvaluationContext): unknown[] {
     if (bVal === null || bVal === undefined) return -1;
     return aVal < bVal ? -1 : 1;
   });
+}
+
+/**
+ * find 연산자 평가
+ */
+function evalFind(args: Expression[], ctx: EvaluationContext): unknown {
+  const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+  const predicate = args[1] as Expression;
+  return arr.find((item, index) =>
+    Boolean(evalExpr(predicate, { ...ctx, current: item, index }))
+  );
+}
+
+/**
+ * findIndex 연산자 평가
+ */
+function evalFindIndex(args: Expression[], ctx: EvaluationContext): number {
+  const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+  const predicate = args[1] as Expression;
+  return arr.findIndex((item, index) =>
+    Boolean(evalExpr(predicate, { ...ctx, current: item, index }))
+  );
+}
+
+/**
+ * partition 연산자 평가: 조건에 따라 두 배열로 분리
+ */
+function evalPartition(args: Expression[], ctx: EvaluationContext): [unknown[], unknown[]] {
+  const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+  const predicate = args[1] as Expression;
+  const truthy: unknown[] = [];
+  const falsy: unknown[] = [];
+  arr.forEach((item, index) => {
+    if (Boolean(evalExpr(predicate, { ...ctx, current: item, index }))) {
+      truthy.push(item);
+    } else {
+      falsy.push(item);
+    }
+  });
+  return [truthy, falsy];
+}
+
+/**
+ * groupBy 연산자 평가: 키 표현식으로 그룹화
+ */
+function evalGroupBy(args: Expression[], ctx: EvaluationContext): Record<string, unknown[]> {
+  const arr = evalExpr(args[0] as Expression, ctx) as unknown[];
+  const keyExpr = args[1] as Expression;
+  const result: Record<string, unknown[]> = {};
+  arr.forEach((item, index) => {
+    const key = String(evalExpr(keyExpr, { ...ctx, current: item, index }));
+    if (!result[key]) {
+      result[key] = [];
+    }
+    result[key].push(item);
+  });
+  return result;
 }

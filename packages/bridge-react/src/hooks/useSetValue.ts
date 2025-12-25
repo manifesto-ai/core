@@ -41,7 +41,8 @@ export function useSetValue(): UseSetValueResult {
       if (isErr(result)) {
         setError(result.error);
       } else {
-        setError(null);
+        // Only clear error if it was set - avoid unnecessary re-renders
+        setError((prev) => (prev === null ? prev : null));
       }
       return result;
     },
@@ -54,7 +55,8 @@ export function useSetValue(): UseSetValueResult {
       if (isErr(result)) {
         setError(result.error);
       } else {
-        setError(null);
+        // Only clear error if it was set - avoid unnecessary re-renders
+        setError((prev) => (prev === null ? prev : null));
       }
       return result;
     },

@@ -112,6 +112,30 @@ true     // boolean
 null     // null
 ```
 
+### Array Literals
+
+Arrays that don't start with a string operator are treated as data literals:
+
+```typescript
+[10, 20, 30]              // Array literal → [10, 20, 30]
+['a', 'b', 'c']           // String array starts with string, but not an operator
+[1, 'mixed', true]        // Mixed types array literal
+
+// Contrast with operator expressions:
+['concat', 'a', 'b']      // Operator expression → 'ab'
+['+', 1, 2]               // Operator expression → 3
+```
+
+This enables direct use of array data in expressions:
+
+```typescript
+// Using array literal as default value
+['coalesce', ['get', 'data.items'], []]
+
+// Comparing with array literal
+['==', ['get', 'data.status'], ['pending', 'draft']]
+```
+
 ---
 
 ## Value Access
@@ -293,18 +317,55 @@ Returns the first non-null value:
 
 ---
 
+## Polymorphic Operators
+
+Some operators work on both strings and arrays, automatically detecting the input type. This enables flexible data manipulation without type-specific operators.
+
+| Operator | String | Array | Example |
+|----------|--------|-------|---------|
+| `concat` | Concatenate strings | Merge arrays | `['concat', [1,2], [3,4]]` → `[1,2,3,4]` |
+| `length` | String length | Array length | `['length', 'hello']` → `5` |
+| `slice` | Substring | Subarray | `['slice', [1,2,3,4], 1, 3]` → `[2,3]` |
+| `includes` | Contains substring | Contains element | `['includes', [1,2,3], 2]` → `true` |
+| `indexOf` | Char/substring position | Element position | `['indexOf', [1,2,3], 2]` → `1` |
+| `at` | Character at index | Element at index | `['at', 'hello', 1]` → `'e'` |
+| `isEmpty` | Empty string check | Empty array check | `['isEmpty', []]` → `true` |
+
+```typescript
+// String mode
+['concat', 'Hello', ' ', 'World']   // 'Hello World'
+['length', 'hello']                  // 5
+['slice', 'hello', 1, 4]            // 'ell'
+['includes', 'hello', 'ell']        // true
+['indexOf', 'hello', 'l']           // 2
+['at', 'hello', 1]                  // 'e'
+['isEmpty', '']                     // true
+
+// Array mode
+['concat', [1, 2], [3, 4]]          // [1, 2, 3, 4]
+['concat', [1], [2], [3]]           // [1, 2, 3]
+['length', [1, 2, 3]]               // 3
+['slice', [1, 2, 3, 4], 1, 3]       // [2, 3]
+['includes', [1, 2, 3], 2]          // true
+['indexOf', ['a', 'b', 'c'], 'b']   // 1
+['at', [10, 20, 30], -1]            // 30 (negative index)
+['isEmpty', []]                     // true
+```
+
+---
+
 ## Array Functions
 
 ### Basic Functions
 
 | Function | Description | Example |
 |----------|-------------|---------|
-| `length` | Length | `['length', ['get', 'data.items']]` |
-| `at` | Index access | `['at', ['get', 'data.items'], 0]` |
+| `length` | Length (polymorphic) | `['length', ['get', 'data.items']]` |
+| `at` | Index access (polymorphic) | `['at', ['get', 'data.items'], 0]` |
 | `first` | First element | `['first', ['get', 'data.items']]` |
 | `last` | Last element | `['last', ['get', 'data.items']]` |
-| `includes` | Contains | `['includes', ['get', 'data.tags'], 'sale']` |
-| `indexOf` | Find index | `['indexOf', ['get', 'data.items'], 'A']` |
+| `includes` | Contains (polymorphic) | `['includes', ['get', 'data.tags'], 'sale']` |
+| `indexOf` | Find index (polymorphic) | `['indexOf', ['get', 'data.items'], 'A']` |
 
 ### Transform Functions
 
@@ -364,6 +425,97 @@ Accumulation operation:
 ]
 ```
 
+### Manipulation Functions
+
+Functions for adding elements to arrays:
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `append` | Add to end | `['append', [1, 2], 3]` → `[1, 2, 3]` |
+| `prepend` | Add to beginning | `['prepend', [1, 2], 0]` → `[0, 1, 2]` |
+
+```typescript
+// Add item to cart
+['append', ['get', 'data.cartItems'], newItem]
+
+// Add urgent message to front
+['prepend', ['get', 'data.messages'], urgentMessage]
+
+// Build array step by step
+['append', ['append', [], 'first'], 'second']
+// ['first', 'second']
+```
+
+### FP Pattern Functions
+
+Functional programming patterns for array manipulation:
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `take` | First n elements | `['take', [1,2,3,4], 2]` → `[1, 2]` |
+| `drop` | Skip first n | `['drop', [1,2,3,4], 2]` → `[3, 4]` |
+| `find` | First matching element | `['find', arr, ['>', '$', 10]]` |
+| `findIndex` | Index of first match | `['findIndex', arr, ['==', '$.id', 'x']]` |
+| `isEmpty` | Check if empty (polymorphic) | `['isEmpty', []]` → `true` |
+| `range` | Generate number sequence | `['range', 1, 5]` → `[1, 2, 3, 4, 5]` |
+
+```typescript
+// Pagination: get first 10 items
+['take', ['get', 'data.items'], 10]
+
+// Pagination: page 2 (skip 10, take next 10)
+['take', ['drop', ['get', 'data.items'], 10], 10]
+
+// Find first incomplete todo
+['find', ['get', 'data.todos'], ['!', '$.completed']]
+// Returns the todo object or undefined
+
+// Find index of item by ID
+['findIndex', ['get', 'data.items'], ['==', '$.id', 'target-id']]
+// Returns index or -1
+
+// Check if cart is empty
+['isEmpty', ['get', 'data.cartItems']]
+
+// Generate page numbers
+['range', 1, ['get', 'derived.totalPages']]
+// [1, 2, 3, 4, 5] for 5 pages
+```
+
+### Advanced Transformation Functions
+
+Complex transformations for data processing:
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `zip` | Pair elements from two arrays | `['zip', [1,2], ['a','b']]` → `[[1,'a'], [2,'b']]` |
+| `partition` | Split by condition | `['partition', arr, pred]` → `[truthy, falsy]` |
+| `groupBy` | Group by key expression | `['groupBy', users, '$.role']` → `{admin: [...], user: [...]}` |
+| `chunk` | Split into fixed-size chunks | `['chunk', [1,2,3,4], 2]` → `[[1,2], [3,4]]` |
+| `compact` | Remove falsy values | `['compact', [0, 1, null, 2, '', 3]]` → `[1, 2, 3]` |
+
+```typescript
+// Pair names with scores
+['zip', ['get', 'data.names'], ['get', 'data.scores']]
+// [['Alice', 95], ['Bob', 87], ['Carol', 92]]
+
+// Separate active/inactive users
+['partition', ['get', 'data.users'], '$.isActive']
+// [[active users], [inactive users]]
+
+// Group orders by status
+['groupBy', ['get', 'data.orders'], '$.status']
+// { pending: [...], shipped: [...], delivered: [...] }
+
+// Create paginated chunks
+['chunk', ['get', 'data.items'], 10]
+// [[first 10], [next 10], ...]
+
+// Clean data by removing nulls and empty strings
+['compact', ['get', 'data.optionalValues']]
+// Only truthy values remain
+```
+
 ---
 
 ## Number Functions
@@ -402,11 +554,11 @@ Accumulation operation:
 
 | Function | Description | Example |
 |----------|-------------|---------|
-| `concat` | Concatenate | `['concat', 'Hello', ' ', 'World']` |
+| `concat` | Concatenate (polymorphic) | `['concat', 'Hello', ' ', 'World']` |
 | `upper` | Uppercase | `['upper', 'hello']` → `'HELLO'` |
 | `lower` | Lowercase | `['lower', 'HELLO']` → `'hello'` |
 | `trim` | Trim whitespace | `['trim', '  hello  ']` → `'hello'` |
-| `slice` | Substring | `['slice', 'hello', 0, 2]` → `'he'` |
+| `slice` | Substring (polymorphic) | `['slice', 'hello', 0, 2]` → `'he'` |
 | `split` | Split | `['split', 'a,b,c', ',']` → `['a','b','c']` |
 | `join` | Join | `['join', ['get', 'data.tags'], ', ']` |
 | `matches` | Regex match | `['matches', 'test@email.com', '^.+@.+$']` |
@@ -436,6 +588,9 @@ Accumulation operation:
 | `entries` | Key-value pairs | `['entries', ['get', 'data.user']]` |
 | `pick` | Select specific keys | `['pick', ['get', 'data.user'], 'id', 'name']` |
 | `omit` | Exclude specific keys | `['omit', ['get', 'data.user'], 'password']` |
+| `assoc` | Add/update key-value (immutable) | `['assoc', obj, 'name', 'John']` |
+| `dissoc` | Remove key (immutable) | `['dissoc', obj, 'password']` |
+| `merge` | Merge objects (immutable) | `['merge', obj1, obj2]` |
 
 ```typescript
 // Check if email field exists
@@ -446,6 +601,15 @@ Accumulation operation:
 
 // Exclude sensitive info
 ['omit', ['get', 'data.user'], 'password', 'ssn']
+
+// Immutable object update: add/update a field
+['assoc', ['get', 'data.todo'], 'completed', true]
+
+// Immutable object update: remove a field
+['dissoc', ['get', 'data.user'], 'temporaryToken']
+
+// Merge defaults with overrides
+['merge', ['get', 'data.defaults'], ['get', 'data.userSettings']]
 ```
 
 ---
@@ -484,6 +648,29 @@ Accumulation operation:
 
 // Check if order is from this year
 ['==', ['year', ['get', 'data.orderDate']], ['year', ['now']]]
+```
+
+---
+
+## Utility Functions
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `uuid` | Generate UUID v4 | `['uuid']` → `'550e8400-e29b-41d4-a716-446655440000'` |
+
+```typescript
+// Generate unique ID for new todo item
+['assoc', ['get', 'data.newTodo'], 'id', ['uuid']]
+
+// Create new item with generated ID
+['append',
+  ['get', 'data.todos'],
+  {
+    id: ['uuid'],
+    text: ['get', 'data.inputText'],
+    completed: false
+  }
+]
 ```
 
 ---

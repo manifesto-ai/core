@@ -80,6 +80,22 @@ function isValidOperator(op: string): boolean {
     'unique',
     'sort',
     'reverse',
+    // Array (Tier 1: essential)
+    'append',
+    'prepend',
+    // Array (Tier 2: FP patterns)
+    'take',
+    'drop',
+    'find',
+    'findIndex',
+    'isEmpty',
+    'range',
+    // Array (Tier 3: advanced)
+    'zip',
+    'partition',
+    'groupBy',
+    'chunk',
+    'compact',
     // Number
     'sum',
     'min',
