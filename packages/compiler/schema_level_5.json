@@ -1,0 +1,243 @@
+{
+  "id": "account-management-schema",
+  "version": "1.0.0",
+  "hash": "",
+  "state": {
+    "fields": {
+      "accountStatus": {
+        "type": {
+          "enum": [
+            "inactive",
+            "pending",
+            "active",
+            "locked"
+          ]
+        },
+        "required": true,
+        "default": "inactive",
+        "description": "Current status of the account"
+      },
+      "verificationAttempts": {
+        "type": "number",
+        "required": true,
+        "default": 0,
+        "description": "Number of consecutive verification failures"
+      },
+      "verificationExpiry": {
+        "type": "string",
+        "required": false,
+        "description": "Timestamp when the verification link expires"
+      },
+      "adminActivated": {
+        "type": "boolean",
+        "required": true,
+        "default": false,
+        "description": "Indicates if the account was activated by an admin"
+      }
+    }
+  },
+  "computed": {
+    "fields": {
+      "computed.currentAccountStatus": {
+        "deps": [
+          "state.accountStatus"
+        ],
+        "expr": {
+          "kind": "get",
+          "path": "state.accountStatus"
+        },
+        "description": "Displays the current account status"
+      }
+    }
+  },
+  "actions": {
+    "registerAccount": {
+      "flow": {
+        "kind": "patch",
+        "op": "set",
+        "path": "state.accountStatus",
+        "value": {
+          "kind": "lit",
+          "value": "inactive"
+        }
+      },
+      "description": "User registers an account, setting it to inactive"
+    },
+    "completeEmailVerification": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "and",
+          "args": [
+            {
+              "kind": "neq",
+              "left": {
+                "kind": "get",
+                "path": "state.accountStatus"
+              },
+              "right": {
+                "kind": "lit",
+                "value": "active"
+              }
+            },
+            {
+              "kind": "lt",
+              "left": {
+                "kind": "get",
+                "path": "state.verificationAttempts"
+              },
+              "right": {
+                "kind": "lit",
+                "value": 3
+              }
+            }
+          ]
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "state.accountStatus",
+          "value": {
+            "kind": "lit",
+            "value": "active"
+          }
+        },
+        "else": {
+          "kind": "patch",
+          "op": "set",
+          "path": "state.accountStatus",
+          "value": {
+            "kind": "lit",
+            "value": "inactive"
+          }
+        }
+      },
+      "description": "Account becomes active upon email verification completion"
+    },
+    "adminActivateAccount": {
+      "flow": {
+        "kind": "seq",
+        "steps": [
+          {
+            "kind": "patch",
+            "op": "set",
+            "path": "state.accountStatus",
+            "value": {
+              "kind": "lit",
+              "value": "active"
+            }
+          },
+          {
+            "kind": "patch",
+            "op": "set",
+            "path": "state.adminActivated",
+            "value": {
+              "kind": "lit",
+              "value": true
+            }
+          }
+        ]
+      },
+      "description": "Admin can activate account without email verification"
+    },
+    "attemptVerificationAfterExpiry": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "gt",
+          "left": {
+            "kind": "get",
+            "path": "state.verificationAttempts"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 3
+          }
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "state.accountStatus",
+          "value": {
+            "kind": "lit",
+            "value": "locked"
+          }
+        },
+        "else": {
+          "kind": "patch",
+          "op": "set",
+          "path": "state.accountStatus",
+          "value": {
+            "kind": "lit",
+            "value": "inactive"
+          }
+        }
+      },
+      "description": "If verification is attempted after expiration, account returns to inactive state"
+    },
+    "requestNewVerification": {
+      "flow": {
+        "kind": "patch",
+        "op": "set",
+        "path": "state.verificationAttempts",
+        "value": {
+          "kind": "lit",
+          "value": 0
+        }
+      },
+      "description": "New verification request is required after expiration"
+    },
+    "lockAccountAfterFailures": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "gte",
+          "left": {
+            "kind": "get",
+            "path": "state.verificationAttempts"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 3
+          }
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "state.accountStatus",
+          "value": {
+            "kind": "lit",
+            "value": "locked"
+          }
+        }
+      },
+      "description": "Account is locked after three consecutive verification failures"
+    },
+    "adminUnlockAccount": {
+      "flow": {
+        "kind": "seq",
+        "steps": [
+          {
+            "kind": "patch",
+            "op": "set",
+            "path": "state.accountStatus",
+            "value": {
+              "kind": "lit",
+              "value": "inactive"
+            }
+          },
+          {
+            "kind": "patch",
+            "op": "set",
+            "path": "state.verificationAttempts",
+            "value": {
+              "kind": "lit",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": "Admin must unlock the account and reset verification attempts"
+    }
+  }
+}

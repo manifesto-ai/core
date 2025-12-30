@@ -1,0 +1,46 @@
+{
+  "name": "@manifesto-ai/builder",
+  "version": "1.0.0",
+  "description": "Manifesto Builder - Type-safe domain definition DSL with Zod integration",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/builder"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/builder#readme",
+  "keywords": ["manifesto", "builder", "dsl", "zod", "typescript", "type-safe"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "echo 'lint not configured'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "zod": "^4.2.1"
+  }
+}

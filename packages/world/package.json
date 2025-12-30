@@ -1,0 +1,48 @@
+{
+  "name": "@manifesto-ai/world",
+  "version": "1.0.0",
+  "description": "Manifesto World Protocol - Governance, Authority, and Lineage layer",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/world"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/world#readme",
+  "keywords": ["manifesto", "governance", "authority", "lineage", "ai-agents"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^1.0.0",
+    "@manifesto-ai/host": "^1.0.0"
+  },
+  "dependencies": {
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.16"
+  },
+  "files": [
+    "dist"
+  ]
+}

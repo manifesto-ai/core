@@ -1,0 +1,542 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { runHostLoop, type HostLoopOptions } from "./loop.js";
+import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
+import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
+import { createCore, createSnapshot, createIntent, type DomainSchema, type ManifestoCore } from "@manifesto-ai/core";
+import type { EffectHandler } from "./effects/types.js";
+
+// Helper to create a minimal domain schema
+function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
+  return {
+    id: "test",
+    version: "1.0.0",
+    hash: "test-hash",
+    state: { fields: {} },
+    computed: { fields: {} },
+    actions: {},
+    ...overrides,
+  };
+}
+
+describe("runHostLoop", () => {
+  let core: ManifestoCore;
+  let registry: EffectHandlerRegistry;
+  let executor: EffectExecutor;
+
+  beforeEach(() => {
+    core = createCore();
+    registry = createEffectRegistry();
+    executor = createEffectExecutor(registry);
+  });
+
+  describe("Basic Loop Execution", () => {
+    it("should complete simple action without effects", async () => {
+      const schema = createTestSchema({
+        actions: {
+          increment: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: {
+                kind: "add",
+                left: { kind: "coalesce", args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }] },
+                right: { kind: "lit", value: 1 },
+              },
+            },
+          },
+        },
+      });
+
+      const snapshot = createSnapshot({ count: 5 }, "test-hash");
+      const intent = createIntent("increment");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("complete");
+      expect(result.snapshot.data).toEqual({ count: 6 });
+      expect(result.iterations).toBe(1);
+      expect(result.traces).toHaveLength(1);
+    });
+
+    it("should handle halted status", async () => {
+      const schema = createTestSchema({
+        actions: {
+          haltAction: {
+            flow: {
+              kind: "halt",
+              reason: "Test halt",
+            },
+          },
+        },
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("haltAction");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("halted");
+      expect(result.iterations).toBe(1);
+    });
+
+    it("should handle error status from core", async () => {
+      const schema = createTestSchema({
+        actions: {
+          errorAction: {
+            flow: {
+              kind: "fail",
+              code: "TEST_ERROR",
+              message: { kind: "lit", value: "Test error message" },
+            },
+          },
+        },
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("errorAction");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("EFFECT_EXECUTION_FAILED");
+    });
+
+    it("should handle unknown action", async () => {
+      const schema = createTestSchema();
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("unknownAction");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("error");
+    });
+  });
+
+  describe("Effect Handling", () => {
+    it("should execute effect handler and resume computation", async () => {
+      // Flow design: Check if response exists before triggering effect
+      // First compute: no response -> trigger effect -> pending
+      // Effect sets response
+      // Second compute: response exists -> skip effect -> complete
+      const schema = createTestSchema({
+        actions: {
+          fetchData: {
+            flow: {
+              kind: "seq",
+              steps: [
+                { kind: "patch", op: "set", path: "loading", value: { kind: "lit", value: true } },
+                {
+                  kind: "if",
+                  cond: { kind: "isNull", arg: { kind: "get", path: "response" } },
+                  then: {
+                    kind: "effect",
+                    type: "http",
+                    params: {
+                      url: { kind: "lit", value: "https://api.test.com/data" },
+                    },
+                  },
+                },
+                { kind: "patch", op: "set", path: "loading", value: { kind: "lit", value: false } },
+              ],
+            },
+          },
+        },
+      });
+
+      const httpHandler: EffectHandler = async (_type, _params, _context) => {
+        return [{ op: "set", path: "response", value: { data: "fetched" } }];
+      };
+      registry.register("http", httpHandler);
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("fetchData");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("complete");
+      expect(result.snapshot.data).toEqual({
+        loading: false,
+        response: { data: "fetched" },
+      });
+      expect(result.iterations).toBe(2); // First compute returns pending, second completes
+    });
+
+    it("should handle multiple effects in sequence", async () => {
+      // Each effect is guarded by a condition to prevent re-execution
+      const schema = createTestSchema({
+        actions: {
+          multiEffect: {
+            flow: {
+              kind: "seq",
+              steps: [
+                {
+                  kind: "if",
+                  cond: { kind: "not", arg: { kind: "get", path: "step1Done" } },
+                  then: {
+                    kind: "effect",
+                    type: "step1",
+                    params: {},
+                  },
+                },
+                {
+                  kind: "if",
+                  cond: {
+                    kind: "and",
+                    args: [
+                      { kind: "get", path: "step1Done" },
+                      { kind: "not", arg: { kind: "get", path: "step2Done" } },
+                    ],
+                  },
+                  then: {
+                    kind: "effect",
+                    type: "step2",
+                    params: {},
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const executionOrder: string[] = [];
+
+      registry.register("step1", async () => {
+        executionOrder.push("step1");
+        return [{ op: "set", path: "step1Done", value: true }];
+      });
+      registry.register("step2", async () => {
+        executionOrder.push("step2");
+        return [{ op: "set", path: "step2Done", value: true }];
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("multiEffect");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("complete");
+      expect(executionOrder).toEqual(["step1", "step2"]);
+      expect(result.snapshot.data).toEqual({ step1Done: true, step2Done: true });
+    });
+
+    it("should return error for unknown effect type", async () => {
+      const schema = createTestSchema({
+        actions: {
+          unknownEffect: {
+            flow: {
+              kind: "effect",
+              type: "unknown_type",
+              params: {},
+            },
+          },
+        },
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("unknownEffect");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("UNKNOWN_EFFECT_TYPE");
+      expect(result.error?.details?.missingHandlers).toContain("unknown_type");
+    });
+
+    it("should return error when effect handler fails", async () => {
+      const schema = createTestSchema({
+        actions: {
+          failingEffect: {
+            flow: {
+              kind: "effect",
+              type: "failing",
+              params: {},
+            },
+          },
+        },
+      });
+
+      registry.register("failing", async () => {
+        throw new Error("Effect handler error");
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("failingEffect");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("EFFECT_EXECUTION_FAILED");
+      expect(result.error?.message).toContain("Effect handler error");
+    });
+  });
+
+  describe("Max Iterations", () => {
+    it("should respect max iterations limit", async () => {
+      // Create an effect that always returns to pending state
+      const schema = createTestSchema({
+        actions: {
+          infiniteEffect: {
+            flow: {
+              kind: "effect",
+              type: "loop",
+              params: {},
+            },
+          },
+        },
+      });
+
+      // This handler returns patches that trigger the effect again
+      registry.register("loop", async () => {
+        return []; // No patches, but we need the loop to continue
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("infiniteEffect");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor, {
+        maxIterations: 5,
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("LOOP_MAX_ITERATIONS");
+      expect(result.iterations).toBe(5);
+    });
+
+    it("should use default max iterations when not specified", async () => {
+      const schema = createTestSchema({
+        actions: {
+          infiniteEffect: {
+            flow: {
+              kind: "effect",
+              type: "loop",
+              params: {},
+            },
+          },
+        },
+      });
+
+      registry.register("loop", async () => []);
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("infiniteEffect");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("error");
+      expect(result.iterations).toBe(100); // Default max
+    });
+  });
+
+  describe("Callbacks", () => {
+    it("should call onBeforeCompute before each iteration", async () => {
+      const schema = createTestSchema({
+        actions: {
+          withEffect: {
+            flow: {
+              kind: "seq",
+              steps: [
+                { kind: "effect", type: "test", params: {} },
+              ],
+            },
+          },
+        },
+      });
+
+      registry.register("test", async () => []);
+
+      const beforeComputeCalls: Array<{ iteration: number; version: number }> = [];
+
+      const options: HostLoopOptions = {
+        maxIterations: 3,
+        onBeforeCompute: (iteration, snapshot) => {
+          beforeComputeCalls.push({ iteration, version: snapshot.meta.version });
+        },
+      };
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("withEffect");
+
+      await runHostLoop(core, schema, snapshot, intent, executor, options);
+
+      expect(beforeComputeCalls.length).toBeGreaterThanOrEqual(2);
+      expect(beforeComputeCalls[0]).toEqual({ iteration: 1, version: 0 });
+    });
+
+    it("should call onAfterCompute after each iteration", async () => {
+      const schema = createTestSchema({
+        actions: {
+          simple: {
+            flow: { kind: "patch", op: "set", path: "done", value: { kind: "lit", value: true } },
+          },
+        },
+      });
+
+      const afterComputeCalls: Array<{ iteration: number; status: string }> = [];
+
+      const options: HostLoopOptions = {
+        onAfterCompute: (iteration, result) => {
+          afterComputeCalls.push({ iteration, status: result.status });
+        },
+      };
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("simple");
+
+      await runHostLoop(core, schema, snapshot, intent, executor, options);
+
+      expect(afterComputeCalls).toHaveLength(1);
+      expect(afterComputeCalls[0]).toEqual({ iteration: 1, status: "complete" });
+    });
+
+    it("should call onBeforeEffect and onAfterEffect for each effect", async () => {
+      // Guard effect with condition to prevent infinite loop
+      const schema = createTestSchema({
+        actions: {
+          withEffect: {
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "result" } },
+              then: { kind: "effect", type: "test", params: { key: { kind: "lit", value: "value" } } },
+            },
+          },
+        },
+      });
+
+      registry.register("test", async () => [{ op: "set", path: "result", value: "done" }]);
+
+      const beforeEffectCalls: string[] = [];
+      const afterEffectCalls: Array<{ type: string; patchCount: number }> = [];
+
+      const options: HostLoopOptions = {
+        onBeforeEffect: (req) => {
+          beforeEffectCalls.push(req.type);
+        },
+        onAfterEffect: (req, patches, error) => {
+          afterEffectCalls.push({ type: req.type, patchCount: patches.length });
+        },
+      };
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("withEffect");
+
+      await runHostLoop(core, schema, snapshot, intent, executor, options);
+
+      expect(beforeEffectCalls).toEqual(["test"]);
+      expect(afterEffectCalls).toEqual([{ type: "test", patchCount: 1 }]);
+    });
+  });
+
+  describe("Trace Collection", () => {
+    it("should collect traces from all iterations", async () => {
+      // Guard effect to prevent infinite loop
+      const schema = createTestSchema({
+        actions: {
+          withEffect: {
+            flow: {
+              kind: "seq",
+              steps: [
+                { kind: "patch", op: "set", path: "step", value: { kind: "lit", value: 1 } },
+                {
+                  kind: "if",
+                  cond: { kind: "isNull", arg: { kind: "get", path: "effectDone" } },
+                  then: { kind: "effect", type: "test", params: {} },
+                },
+                { kind: "patch", op: "set", path: "step", value: { kind: "lit", value: 2 } },
+              ],
+            },
+          },
+        },
+      });
+
+      registry.register("test", async () => [{ op: "set", path: "effectDone", value: true }]);
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("withEffect");
+
+      const result = await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(result.status).toBe("complete");
+      expect(result.traces).toHaveLength(2); // 2 iterations
+      expect(result.traces[0].intent.type).toBe("withEffect");
+      expect(result.traces[1].intent.type).toBe("withEffect");
+    });
+  });
+
+  describe("Complex Scenarios", () => {
+    it("should handle conditional effects", async () => {
+      // Guard effect to prevent infinite loop when shouldFetch is true
+      const schema = createTestSchema({
+        actions: {
+          conditionalFetch: {
+            flow: {
+              kind: "if",
+              cond: { kind: "get", path: "input.shouldFetch" },
+              then: {
+                kind: "if",
+                cond: { kind: "isNull", arg: { kind: "get", path: "fetched" } },
+                then: { kind: "effect", type: "http", params: {} },
+              },
+              else: {
+                kind: "patch",
+                op: "set",
+                path: "skipped",
+                value: { kind: "lit", value: true },
+              },
+            },
+          },
+        },
+      });
+
+      registry.register("http", async () => [{ op: "set", path: "fetched", value: true }]);
+
+      // With fetch
+      const snapshot1 = createSnapshot({}, "test-hash");
+      const intent1 = createIntent("conditionalFetch", { shouldFetch: true });
+      const result1 = await runHostLoop(core, schema, snapshot1, intent1, executor);
+
+      expect(result1.status).toBe("complete");
+      expect(result1.snapshot.data).toEqual({ fetched: true });
+
+      // Without fetch
+      const snapshot2 = createSnapshot({}, "test-hash");
+      const intent2 = createIntent("conditionalFetch", { shouldFetch: false });
+      const result2 = await runHostLoop(core, schema, snapshot2, intent2, executor);
+
+      expect(result2.status).toBe("complete");
+      expect(result2.snapshot.data).toEqual({ skipped: true });
+    });
+
+    it("should pass effect params correctly", async () => {
+      const schema = createTestSchema({
+        actions: {
+          fetchUser: {
+            flow: {
+              kind: "effect",
+              type: "http",
+              params: {
+                url: { kind: "lit", value: "https://api.test.com/users" },
+                userId: { kind: "get", path: "input.userId" },
+              },
+            },
+          },
+        },
+      });
+
+      let receivedParams: Record<string, unknown> | undefined;
+      registry.register("http", async (_type, params) => {
+        receivedParams = params;
+        return [];
+      });
+
+      const snapshot = createSnapshot({}, "test-hash");
+      const intent = createIntent("fetchUser", { userId: 42 });
+
+      await runHostLoop(core, schema, snapshot, intent, executor);
+
+      expect(receivedParams?.url).toBe("https://api.test.com/users");
+      expect(receivedParams?.userId).toBe(42);
+    });
+  });
+});
