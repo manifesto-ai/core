@@ -62,7 +62,7 @@
     "@manifesto-ai/host": "workspace:*",
     "@anthropic-ai/sdk": "^0.26.0",
     "@types/react": "^18.3.0",
-    "dotenv": "^16.4.0",
+    "dotenv": "^17.2.3",
     "openai": "^4.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.3",
