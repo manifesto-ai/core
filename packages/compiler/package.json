@@ -37,7 +37,7 @@
     "@manifesto-ai/core": "^1.0.0",
     "@manifesto-ai/builder": "^1.0.0",
     "@manifesto-ai/host": "^1.0.0",
-    "@anthropic-ai/sdk": "^0.26.0",
+    "@anthropic-ai/sdk": "^0.71.2",
     "openai": "^4.0.0",
     "zod": "^4.2.1"
   },
@@ -60,7 +60,7 @@
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
-    "@anthropic-ai/sdk": "^0.26.0",
+    "@anthropic-ai/sdk": "^0.71.2",
     "@types/react": "^18.3.0",
     "dotenv": "^16.4.0",
     "openai": "^4.0.0",
