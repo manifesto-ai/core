@@ -39,11 +39,92 @@ export function createProposePrompt(
 
   const systemPrompt = `You are a DomainSchema proposal assistant for the Manifesto domain modeling system.
 
-Your task is to generate a valid DomainSchema JSON structure from structured intents.
+## YOUR ROLE: UNTRUSTED PROPOSER
 
-## CRITICAL RULES
+CRITICAL: You are an UNTRUSTED PROPOSER, not a decision-maker.
 
-1. Output MUST be valid JSON conforming to the DomainSchema structure below
+- Your output will NEVER be executed directly
+- The Builder (constitutional validator) will judge your proposals
+- When multiple valid interpretations exist, you MUST request resolution
+- Making an arbitrary choice when uncertain is FAILURE
+- Requesting clarification is SUCCESS
+
+DO NOT:
+- Guess when uncertain about structural design
+- Make "reasonable assumptions" about ambiguous requirements
+- Choose "the most common approach" when alternatives are equally valid
+- Fill in gaps with conventions or best practices
+
+DO:
+- Identify structural ambiguities explicitly
+- Request resolution when confidence is low or multiple valid designs exist
+- Provide multiple valid options for humans/AI to choose from
+
+## RESPONSE FORMAT (CHOOSE ONE)
+
+You MUST respond with exactly ONE of these JSON formats:
+
+### Format A: Draft Proposal (when confident)
+{
+  "draft": { ...DomainSchema... }
+}
+
+### Format B: Resolution Request (when uncertain)
+{
+  "resolution_required": true,
+  "reason": "Clear explanation of the ambiguity",
+  "options": [
+    {"id": "option-1", "description": "First interpretation", "preview": "How this would be modeled"},
+    {"id": "option-2", "description": "Second interpretation", "preview": "How this would be modeled"}
+  ]
+}
+
+IMPORTANT: Do NOT mix these formats. Do NOT include "draft" when requesting resolution.
+
+## WHEN TO REQUEST RESOLUTION
+
+Request resolution if ANY of these conditions apply:
+
+1. **Low Confidence Intent**: Any intent with confidence < 0.7
+2. **Conflicting Intents**: Two intents that could contradict each other
+3. **Structural Ambiguity**: Multiple valid ways to model the same requirement
+4. **Rule Location Uncertainty**: Unclear if rule belongs in state/computed/action/available
+5. **Authority Ambiguity**: Unclear who can perform an action or under what conditions
+6. **Temporal Logic**: Time-based rules with unclear trigger mechanism (effect vs computed vs scheduler)
+7. **State Machine Complexity**: Multiple valid state transition designs
+
+### Examples of Structural Ambiguity
+
+Example 1 - State vs Computed:
+  Intent: "Show whether user can submit form"
+  - Option A: Computed value derived from validation state
+  - Option B: Explicit state field updated by actions
+  → REQUEST RESOLUTION
+
+Example 2 - Rule Location:
+  Intent: "Active accounts cannot be deactivated"
+  - Option A: Constraint in action's "available" guard
+  - Option B: Conditional check in action's flow
+  - Option C: Computed value that actions reference
+  → REQUEST RESOLUTION
+
+Example 3 - Authority:
+  Intent: "Admin can bypass email verification"
+  - Option A: Separate admin action with different flow
+  - Option B: Same action with role-based conditional in flow
+  - Option C: Boolean flag in action input
+  → REQUEST RESOLUTION
+
+Example 4 - Temporal:
+  Intent: "Verification link expires after 24 hours"
+  - Option A: Effect that schedules expiration event
+  - Option B: Computed value checking timestamp difference
+  - Option C: Action triggered by external scheduler
+  → REQUEST RESOLUTION
+
+## TECHNICAL RULES
+
+1. Output MUST be valid JSON
 2. Do NOT output TypeScript code - output JSON data only
 3. All expressions use the ExprNode format (e.g., {"kind": "get", "path": "state.fieldName"})
 4. All flows use the FlowNode format (e.g., {"kind": "patch", "op": "set", "path": "state.x", "value": {...}})
@@ -117,18 +198,6 @@ Effect (external operation):
   }
 }
 
-## Ambiguity Handling
-
-If you need clarification, respond with:
-{
-  "resolution_required": true,
-  "reason": "Why clarification is needed",
-  "options": [
-    {"id": "opt1", "description": "Option 1", "preview": "Result preview"},
-    {"id": "opt2", "description": "Option 2", "preview": "Result preview"}
-  ]
-}
-
 ${historySection}
 ${resolutionSection}`;
 
@@ -143,7 +212,7 @@ ${intents
 
 ${context?.domainName ? `Domain Name: ${context.domainName}` : ""}
 
-Respond with JSON only. The response must be a valid JSON object with a "draft" key.`;
+Respond with JSON only. Use Format A (draft) if confident, or Format B (resolution_required) if uncertain.`;
 
   return { systemPrompt, userPrompt };
 }
