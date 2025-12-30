@@ -1,0 +1,9 @@
+{
+  "packages/core": "1.0.0",
+  "packages/host": "1.0.0",
+  "packages/world": "1.0.0",
+  "packages/bridge": "1.0.0",
+  "packages/builder": "1.0.0",
+  "packages/react": "1.0.0",
+  "packages/compiler": "1.0.0"
+}

@@ -10,7 +10,7 @@
 
 Manifesto is a semantic state layer for building AI-governed applications with deterministic computation and full accountability. It separates pure computation (Core) from effect execution (Host) and governance (World).
 
-> See [README](./README.md)
+> See [README](../README.md)
 
 ### How is this different from Redux/Zustand?
 

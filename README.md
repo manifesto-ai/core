@@ -44,7 +44,7 @@ Intent → Core (compute) → Patches + Effects → Host (execute) → New Snaps
 | **Effect** | A declaration of external operation for Host to execute. |
 | **World** | An immutable committed Snapshot with governance metadata. |
 
-> See [ARCHITECTURE.md](./ARCHITECTURE.md) for the complete mental model.
+> See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the complete mental model.
 
 ---
 
@@ -109,7 +109,7 @@ function TodoList() {
 }
 ```
 
-> See [Getting Started Guide](./packages/core/GUIDE.md) for the full tutorial.
+> See [Getting Started Guide](docs/packages/core/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -117,13 +117,13 @@ function TodoList() {
 
 | Package | Description | Docs |
 |---------|-------------|------|
-| [`@manifesto-ai/core`](./packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [README](./packages/core/README.md) |
-| [`@manifesto-ai/host`](./packages/host) | Effect execution runtime. Executes effects and applies patches. | [README](./packages/host/README.md) |
-| [`@manifesto-ai/world`](./packages/world) | Governance layer. Manages authority, proposals, and lineage. | [README](./packages/world/README.md) |
-| [`@manifesto-ai/bridge`](./packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](./packages/bridge/README.md) |
-| [`@manifesto-ai/builder`](./packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](./packages/builder/README.md) |
-| [`@manifesto-ai/react`](./packages/react) | React integration. Hooks and context for React applications. | [README](./packages/react/README.md) |
-| [`@manifesto-ai/compiler`](./packages/compiler) | NL compiler. Compiles natural language to DomainSchema. | [README](./packages/compiler/README.md) |
+| [`@manifesto-ai/core`](docs/packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [README](docs/packages/core/README.md) |
+| [`@manifesto-ai/host`](docs/packages/host) | Effect execution runtime. Executes effects and applies patches. | [README](docs/packages/host/README.md) |
+| [`@manifesto-ai/world`](docs/packages/world) | Governance layer. Manages authority, proposals, and lineage. | [README](docs/packages/world/README.md) |
+| [`@manifesto-ai/bridge`](docs/packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](docs/packages/bridge/README.md) |
+| [`@manifesto-ai/builder`](docs/packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](docs/packages/builder/README.md) |
+| [`@manifesto-ai/react`](docs/packages/react) | React integration. Hooks and context for React applications. | [README](docs/packages/react/README.md) |
+| [`@manifesto-ai/compiler`](docs/packages/compiler) | NL compiler. Compiles natural language to DomainSchema. | [README](docs/packages/compiler/README.md) |
 
 ---
 
@@ -160,7 +160,7 @@ function TodoList() {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-> See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed explanation.
+> See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed explanation.
 
 ---
 
@@ -176,11 +176,11 @@ function TodoList() {
 
 | Type | For whom | Link |
 |------|----------|------|
-| **Guides** | Users who want to learn | [Getting Started](./packages/core/GUIDE.md) |
-| **Specs** | Implementers & reviewers | [Core Spec](./packages/core/SPEC.md) |
-| **Rationale** | Contributors & researchers | [Design Decisions](./packages/core/FDR.md) |
-| **Glossary** | Everyone | [Terms & Definitions](./GLOSSARY.md) |
-| **FAQ** | Everyone | [Frequently Asked Questions](./FAQ.md) |
+| **Guides** | Users who want to learn | [Getting Started](docs/packages/core/GUIDE.md) |
+| **Specs** | Implementers & reviewers | [Core Spec](docs/packages/core/SPEC.md) |
+| **Rationale** | Contributors & researchers | [Design Decisions](docs/packages/core/FDR.md) |
+| **Glossary** | Everyone | [Terms & Definitions](docs/GLOSSARY.md) |
+| **FAQ** | Everyone | [Frequently Asked Questions](docs/FAQ.md) |
 
 ---
 
@@ -190,7 +190,7 @@ We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md
 
 For significant changes, please open an issue first to discuss what you would like to change.
 
-> See [GOVERNANCE.md](./GOVERNANCE.md) for our decision-making process.
+> See [GOVERNANCE.md](docs/GOVERNANCE.md) for our decision-making process.
 
 ---
 

@@ -1,0 +1,169 @@
+name: Initial Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm initial release'
+        required: true
+        default: ''
+
+jobs:
+  initial-release:
+    name: Create Initial Release
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Create Git Tags
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create tags for each package
+          git tag -a "@manifesto-ai/core-v1.0.0" -m "Release @manifesto-ai/core v1.0.0"
+          git tag -a "@manifesto-ai/host-v1.0.0" -m "Release @manifesto-ai/host v1.0.0"
+          git tag -a "@manifesto-ai/world-v1.0.0" -m "Release @manifesto-ai/world v1.0.0"
+          git tag -a "@manifesto-ai/bridge-v1.0.0" -m "Release @manifesto-ai/bridge v1.0.0"
+          git tag -a "@manifesto-ai/builder-v1.0.0" -m "Release @manifesto-ai/builder v1.0.0"
+          git tag -a "@manifesto-ai/react-v1.0.0" -m "Release @manifesto-ai/react v1.0.0"
+          git tag -a "@manifesto-ai/compiler-v1.0.0" -m "Release @manifesto-ai/compiler v1.0.0"
+
+          git push origin --tags
+
+      - name: Create GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create releases for each package
+          gh release create "@manifesto-ai/core-v1.0.0" \
+            --title "@manifesto-ai/core v1.0.0" \
+            --notes "## Initial Release
+
+          The pure semantic calculator of Manifesto. Computes state transitions deterministically with no side effects.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/core
+          \`\`\`
+          "
+
+          gh release create "@manifesto-ai/host-v1.0.0" \
+            --title "@manifesto-ai/host v1.0.0" \
+            --notes "## Initial Release
+
+          The effect execution runtime of Manifesto. Executes effects, applies patches, and manages the compute-effect loop.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/host
+          \`\`\`
+          "
+
+          gh release create "@manifesto-ai/world-v1.0.0" \
+            --title "@manifesto-ai/world v1.0.0" \
+            --notes "## Initial Release
+
+          The governance layer of Manifesto. Manages authority, proposals, decision records, and lineage.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/world
+          \`\`\`
+          "
+
+          gh release create "@manifesto-ai/bridge-v1.0.0" \
+            --title "@manifesto-ai/bridge v1.0.0" \
+            --notes "## Initial Release
+
+          The two-way binding layer of Manifesto. Routes external events to intents and delivers snapshot changes to subscribers.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/bridge
+          \`\`\`
+          "
+
+          gh release create "@manifesto-ai/builder-v1.0.0" \
+            --title "@manifesto-ai/builder v1.0.0" \
+            --notes "## Initial Release
+
+          The developer experience (DX) layer of Manifesto. Provides type-safe domain definition with Zod integration.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/builder
+          \`\`\`
+          "
+
+          gh release create "@manifesto-ai/react-v1.0.0" \
+            --title "@manifesto-ai/react v1.0.0" \
+            --notes "## Initial Release
+
+          React integration for Manifesto. Provides hooks and context for seamless React application development.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/react
+          \`\`\`
+          "
+
+          gh release create "@manifesto-ai/compiler-v1.0.0" \
+            --title "@manifesto-ai/compiler v1.0.0" \
+            --notes "## Initial Release
+
+          Compiles natural language specifications into Manifesto DomainSchemas using LLM-powered pipelines.
+
+          ### Installation
+          \`\`\`bash
+          npm install @manifesto-ai/compiler
+          \`\`\`
+          "
+
+      - name: Publish to npm
+        run: pnpm -r publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+
+      - name: Summary
+        run: |
+          echo "## Initial Release Complete! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published Packages" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/core | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/host | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/world | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/bridge | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/builder | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/react | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "| @manifesto-ai/compiler | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
