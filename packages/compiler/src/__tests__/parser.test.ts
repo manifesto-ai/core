@@ -1,10 +1,13 @@
+/**
+ * Parser Tests (v1.1)
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   parseJSONResponse,
-  extractResolutionRequest,
-  validateSegmentsResponse,
-  validateIntentsResponse,
-  validateDraftResponse,
+  extractAmbiguity,
+  validatePlanResponse,
+  validateFragmentDraftResponse,
 } from "../effects/llm/parser.js";
 
 describe("Parser", () => {
@@ -46,95 +49,153 @@ describe("Parser", () => {
     });
   });
 
-  describe("extractResolutionRequest", () => {
-    it("should extract resolution request", () => {
-      const input = JSON.stringify({
-        resolution_required: true,
-        reason: "Ambiguous requirement",
-        options: [
-          { id: "opt1", description: "Option 1" },
-          { id: "opt2", description: "Option 2" },
+  describe("extractAmbiguity", () => {
+    it("should extract ambiguity from response", () => {
+      const data = {
+        ambiguous: true,
+        reason: "Unclear requirement",
+        alternatives: [
+          { plan: { strategy: "by-statement", chunks: [] } },
+          { plan: { strategy: "by-entity", chunks: [] } },
         ],
-      });
+      };
 
-      const result = extractResolutionRequest(input);
+      const result = extractAmbiguity<{ plan: unknown }>(data);
       expect(result).not.toBeNull();
-      expect(result?.reason).toBe("Ambiguous requirement");
-      expect(result?.options).toHaveLength(2);
+      expect(result?.reason).toBe("Unclear requirement");
+      expect(result?.alternatives).toHaveLength(2);
     });
 
-    it("should return null for non-resolution response", () => {
-      const input = JSON.stringify({ segments: ["a", "b"] });
-      const result = extractResolutionRequest(input);
+    it("should return null for non-ambiguous response", () => {
+      const data = { plan: { strategy: "by-statement", chunks: [] } };
+      const result = extractAmbiguity<unknown>(data);
       expect(result).toBeNull();
     });
   });
 
-  describe("validateSegmentsResponse", () => {
-    it("should validate valid segments", () => {
-      const result = validateSegmentsResponse({ segments: ["a", "b", "c"] });
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.data.segments).toEqual(["a", "b", "c"]);
-      }
-    });
-
-    it("should reject missing segments", () => {
-      const result = validateSegmentsResponse({});
-      expect(result.ok).toBe(false);
-    });
-
-    it("should reject non-string segments", () => {
-      const result = validateSegmentsResponse({ segments: [1, 2, 3] });
-      expect(result.ok).toBe(false);
-    });
-  });
-
-  describe("validateIntentsResponse", () => {
-    it("should validate valid intents", () => {
-      const result = validateIntentsResponse({
-        intents: [
-          { kind: "state", description: "Track name", confidence: 0.9 },
-          { kind: "action", description: "Update profile", confidence: 0.8 },
-        ],
+  describe("validatePlanResponse", () => {
+    it("should validate valid plan", () => {
+      const result = validatePlanResponse({
+        plan: {
+          strategy: "by-statement",
+          chunks: [
+            { content: "Track counter", expectedType: "state", dependencies: [] },
+          ],
+        },
       });
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.data.intents).toHaveLength(2);
+        expect(result.data.plan.strategy).toBe("by-statement");
+        expect(result.data.plan.chunks).toHaveLength(1);
       }
     });
 
-    it("should reject invalid kind", () => {
-      const result = validateIntentsResponse({
-        intents: [{ kind: "invalid", description: "Test", confidence: 0.9 }],
+    it("should reject missing plan", () => {
+      const result = validatePlanResponse({});
+      expect(result.ok).toBe(false);
+    });
+
+    it("should reject invalid strategy", () => {
+      const result = validatePlanResponse({
+        plan: {
+          strategy: "invalid-strategy",
+          chunks: [],
+        },
       });
       expect(result.ok).toBe(false);
     });
 
-    it("should reject invalid confidence", () => {
-      const result = validateIntentsResponse({
-        intents: [{ kind: "state", description: "Test", confidence: 1.5 }],
+    it("should reject missing chunks", () => {
+      const result = validatePlanResponse({
+        plan: {
+          strategy: "by-statement",
+        },
       });
       expect(result.ok).toBe(false);
+    });
+
+    it("should validate all strategy types", () => {
+      const strategies = ["by-statement", "by-entity", "by-layer", "single"];
+      for (const strategy of strategies) {
+        const result = validatePlanResponse({
+          plan: { strategy, chunks: [] },
+        });
+        expect(result.ok).toBe(true);
+      }
     });
   });
 
-  describe("validateDraftResponse", () => {
-    it("should validate valid draft", () => {
-      const result = validateDraftResponse({
-        draft: { id: "test", version: "1.0.0" },
+  describe("validateFragmentDraftResponse", () => {
+    it("should validate valid fragment draft", () => {
+      const result = validateFragmentDraftResponse({
+        draft: {
+          type: "state",
+          interpretation: {
+            raw: { path: "counter", schema: { type: "number" } },
+            description: "Counter value",
+          },
+          confidence: 0.9,
+        },
       });
       expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.draft.type).toBe("state");
+        expect(result.data.draft.interpretation.raw).toBeDefined();
+      }
     });
 
     it("should reject missing draft", () => {
-      const result = validateDraftResponse({});
+      const result = validateFragmentDraftResponse({});
       expect(result.ok).toBe(false);
     });
 
-    it("should reject non-object draft", () => {
-      const result = validateDraftResponse({ draft: "not an object" });
+    it("should reject invalid type", () => {
+      const result = validateFragmentDraftResponse({
+        draft: {
+          type: "invalid-type",
+          interpretation: { raw: {} },
+        },
+      });
       expect(result.ok).toBe(false);
+    });
+
+    it("should reject missing interpretation", () => {
+      const result = validateFragmentDraftResponse({
+        draft: {
+          type: "state",
+        },
+      });
+      expect(result.ok).toBe(false);
+    });
+
+    it("should validate all fragment types", () => {
+      const types = ["state", "computed", "action", "constraint", "effect", "flow"];
+      for (const type of types) {
+        const result = validateFragmentDraftResponse({
+          draft: {
+            type,
+            interpretation: { raw: { test: true } },
+          },
+        });
+        expect(result.ok).toBe(true);
+      }
+    });
+
+    it("should allow alternatives in draft", () => {
+      const result = validateFragmentDraftResponse({
+        draft: {
+          type: "state",
+          interpretation: { raw: { path: "counter" } },
+          alternatives: [
+            { raw: { path: "value" } },
+            { raw: { path: "count" } },
+          ],
+        },
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.draft.alternatives).toHaveLength(2);
+      }
     });
   });
 });

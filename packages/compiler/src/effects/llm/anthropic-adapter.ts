@@ -1,21 +1,34 @@
+/**
+ * @manifesto-ai/compiler v1.1 Anthropic Adapter
+ *
+ * LLM Adapter implementation using Anthropic Claude API.
+ * Per SPEC §10: LLM Actors are untrusted proposers.
+ */
+
 import Anthropic from "@anthropic-ai/sdk";
 import type {
   LLMAdapter,
   LLMAdapterConfig,
-  SegmentResult,
-  NormalizeResult,
-  ProposeResult,
+  PlanRequest,
+  PlanResult,
+  GenerateRequest,
+  GenerateResult,
+  RawPlanOutput,
+  RawDraftOutput,
 } from "./adapter.js";
 import { DEFAULT_LLM_CONFIG } from "./adapter.js";
-import { createSegmentPrompt, createNormalizePrompt, createProposePrompt } from "./prompts/index.js";
+import { createPlanPrompt } from "./prompts/plan.js";
+import { createGeneratePrompt } from "./prompts/generate.js";
 import {
   parseJSONResponse,
-  extractResolutionRequest,
-  validateSegmentsResponse,
-  validateIntentsResponse,
-  validateDraftResponse,
+  extractAmbiguity,
+  validatePlanResponse,
+  validateFragmentDraftResponse,
 } from "./parser.js";
-import type { CompilerContext, NormalizedIntent, AttemptRecord } from "../../domain/types.js";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §1 Adapter Options
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * Anthropic adapter options
@@ -28,11 +41,15 @@ export interface AnthropicAdapterOptions extends Partial<LLMAdapterConfig> {
   apiKey?: string;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// §2 Anthropic Adapter Implementation
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
  * Anthropic Claude adapter for LLM operations
  *
- * Per FDR-C011: LLM interactions are effect handlers, not direct calls.
- * This adapter implements the LLMAdapter interface for use with effect handlers.
+ * Per SPEC §10: LLM Actors are implemented as effect handlers.
+ * This adapter implements the v1.1 LLMAdapter interface.
  */
 export class AnthropicAdapter implements LLMAdapter {
   private client: Anthropic;
@@ -53,127 +70,21 @@ export class AnthropicAdapter implements LLMAdapter {
     };
   }
 
-  /**
-   * Segment natural language text into requirement segments
-   */
-  async segment(params: { text: string }): Promise<SegmentResult> {
-    try {
-      const { systemPrompt, userPrompt } = createSegmentPrompt(params.text);
-
-      const response = await this.client.messages.create({
-        model: this.config.model,
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-        system: this.config.systemPromptPrefix + systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      });
-
-      const content = this.extractTextContent(response);
-
-      // Check for resolution request (unlikely for segmentation, but possible)
-      const resolution = extractResolutionRequest(content);
-      if (resolution) {
-        return {
-          ok: "resolution",
-          reason: resolution.reason,
-          options: resolution.options,
-        };
-      }
-
-      const parseResult = parseJSONResponse<unknown>(content);
-      if (!parseResult.ok) {
-        return { ok: false, error: parseResult.error };
-      }
-
-      const validateResult = validateSegmentsResponse(parseResult.data);
-      if (!validateResult.ok) {
-        return { ok: false, error: validateResult.error };
-      }
-
-      return { ok: true, data: { segments: validateResult.data.segments } };
-    } catch (error) {
-      return { ok: false, error: this.formatError(error) };
-    }
-  }
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.1 Plan
+  // ─────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Normalize segments into structured intents
-   */
-  async normalize(params: {
-    segments: string[];
-    schema: unknown;
-    context?: CompilerContext;
-  }): Promise<NormalizeResult> {
-    try {
-      const { systemPrompt, userPrompt } = createNormalizePrompt(
-        params.segments,
-        params.schema,
-        params.context
-      );
-
-      const response = await this.client.messages.create({
-        model: this.config.model,
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-        system: this.config.systemPromptPrefix + systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      });
-
-      const content = this.extractTextContent(response);
-
-      // Check for resolution request
-      const resolution = extractResolutionRequest(content);
-      if (resolution) {
-        return {
-          ok: "resolution",
-          reason: resolution.reason,
-          options: resolution.options,
-        };
-      }
-
-      const parseResult = parseJSONResponse<unknown>(content);
-      if (!parseResult.ok) {
-        return { ok: false, error: parseResult.error };
-      }
-
-      const validateResult = validateIntentsResponse(parseResult.data);
-      if (!validateResult.ok) {
-        return { ok: false, error: validateResult.error };
-      }
-
-      // Cast to NormalizedIntent
-      const intents: NormalizedIntent[] = validateResult.data.intents.map((i) => ({
-        kind: i.kind as "state" | "computed" | "action" | "constraint",
-        description: i.description,
-        confidence: i.confidence,
-      }));
-
-      return { ok: true, data: { intents } };
-    } catch (error) {
-      return { ok: false, error: this.formatError(error) };
-    }
-  }
-
-  /**
-   * Propose a DomainDraft from intents
+   * Generate a Plan from SourceInput
    *
-   * Per FDR-C002: LLM output is an untrusted proposal.
+   * Per SPEC §10.3: PlannerActor responsibility.
    */
-  async propose(params: {
-    schema: unknown;
-    intents: NormalizedIntent[];
-    history: AttemptRecord[];
-    context?: CompilerContext;
-    resolution?: string;
-  }): Promise<ProposeResult> {
+  async plan(request: PlanRequest): Promise<PlanResult> {
     try {
-      const { systemPrompt, userPrompt } = createProposePrompt(
-        params.schema,
-        params.intents,
-        params.history,
-        params.context,
-        params.resolution
-      );
+      const { systemPrompt, userPrompt } = createPlanPrompt({
+        sourceInput: request.sourceInput,
+        hints: request.hints,
+      });
 
       const response = await this.client.messages.create({
         model: this.config.model,
@@ -185,31 +96,137 @@ export class AnthropicAdapter implements LLMAdapter {
 
       const content = this.extractTextContent(response);
 
-      // Check for resolution request
-      const resolution = extractResolutionRequest(content);
-      if (resolution) {
-        return {
-          ok: "resolution",
-          reason: resolution.reason,
-          options: resolution.options,
-        };
-      }
-
+      // Parse JSON
       const parseResult = parseJSONResponse<unknown>(content);
       if (!parseResult.ok) {
         return { ok: false, error: parseResult.error };
       }
 
-      const validateResult = validateDraftResponse(parseResult.data);
+      // Check for explicit error
+      const data = parseResult.data as Record<string, unknown>;
+      if (data.error) {
+        return { ok: false, error: String(data.error) };
+      }
+
+      // Check for ambiguity
+      const ambiguity = extractAmbiguity<{ plan: Record<string, unknown> }>(data);
+      if (ambiguity) {
+        // Validate each alternative
+        const validatedAlternatives: Array<{ plan: RawPlanOutput }> = [];
+        for (const alt of ambiguity.alternatives) {
+          const validateResult = validatePlanResponse(alt);
+          if (validateResult.ok) {
+            validatedAlternatives.push({ plan: validateResult.data.plan });
+          }
+        }
+
+        if (validatedAlternatives.length === 0) {
+          return { ok: false, error: "All alternatives failed validation" };
+        }
+
+        return {
+          ok: "ambiguous",
+          reason: ambiguity.reason,
+          alternatives: validatedAlternatives,
+        };
+      }
+
+      // Validate plan response
+      const validateResult = validatePlanResponse(data);
       if (!validateResult.ok) {
         return { ok: false, error: validateResult.error };
       }
 
-      return { ok: true, data: { draft: validateResult.data.draft } };
+      return {
+        ok: true,
+        data: { plan: validateResult.data.plan },
+      };
     } catch (error) {
       return { ok: false, error: this.formatError(error) };
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.2 Generate
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Generate a FragmentDraft from a Chunk
+   *
+   * Per SPEC §10.4: GeneratorActor responsibility.
+   */
+  async generate(request: GenerateRequest): Promise<GenerateResult> {
+    try {
+      const { systemPrompt, userPrompt } = createGeneratePrompt({
+        chunk: request.chunk,
+        plan: request.plan,
+        existingFragments: request.existingFragments,
+        retryContext: request.retryContext,
+      });
+
+      const response = await this.client.messages.create({
+        model: this.config.model,
+        max_tokens: this.config.maxTokens,
+        temperature: this.config.temperature,
+        system: this.config.systemPromptPrefix + systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const content = this.extractTextContent(response);
+
+      // Parse JSON
+      const parseResult = parseJSONResponse<unknown>(content);
+      if (!parseResult.ok) {
+        return { ok: false, error: parseResult.error };
+      }
+
+      // Check for explicit error
+      const data = parseResult.data as Record<string, unknown>;
+      if (data.error) {
+        return { ok: false, error: String(data.error) };
+      }
+
+      // Check for ambiguity
+      const ambiguity = extractAmbiguity<{ draft: Record<string, unknown> }>(data);
+      if (ambiguity) {
+        // Validate each alternative
+        const validatedAlternatives: Array<{ draft: RawDraftOutput }> = [];
+        for (const alt of ambiguity.alternatives) {
+          const validateResult = validateFragmentDraftResponse(alt);
+          if (validateResult.ok) {
+            validatedAlternatives.push({ draft: validateResult.data.draft });
+          }
+        }
+
+        if (validatedAlternatives.length === 0) {
+          return { ok: false, error: "All alternatives failed validation" };
+        }
+
+        return {
+          ok: "ambiguous",
+          reason: ambiguity.reason,
+          alternatives: validatedAlternatives,
+        };
+      }
+
+      // Validate fragment draft response
+      const validateResult = validateFragmentDraftResponse(data);
+      if (!validateResult.ok) {
+        return { ok: false, error: validateResult.error };
+      }
+
+      return {
+        ok: true,
+        data: { draft: validateResult.data.draft },
+      };
+    } catch (error) {
+      return { ok: false, error: this.formatError(error) };
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.3 Helpers
+  // ─────────────────────────────────────────────────────────────────────────────
 
   /**
    * Extract text content from Anthropic response
@@ -235,6 +252,10 @@ export class AnthropicAdapter implements LLMAdapter {
     return String(error);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3 Factory Function
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * Create an Anthropic adapter with options

@@ -1,5 +1,5 @@
 /**
- * Main App Component
+ * Main App Component (v1.1)
  *
  * Orchestrates the CLI UI based on compiler state.
  */
@@ -14,9 +14,9 @@ import { Metrics } from "./components/Metrics.js";
 import { Resolution } from "./components/Resolution.js";
 import { Result } from "./components/Result.js";
 import { Error } from "./components/Error.js";
-import type { AppProps, Verbosity } from "./types.js";
+import type { AppProps } from "./types.js";
 
-const VERSION = "0.0.1";
+const VERSION = "1.1.0";
 
 export const App: React.FC<AppProps> = ({
   input,
@@ -27,7 +27,7 @@ export const App: React.FC<AppProps> = ({
   outputFile,
 }) => {
   const { exit } = useApp();
-  const { state, start, resolve, discard } = useCompiler({
+  const { state, start, acceptPlan, rejectPlan, resolveConflict, reset } = useCompiler({
     provider,
     apiKey,
     model,
@@ -48,7 +48,7 @@ export const App: React.FC<AppProps> = ({
 
   // Update elapsed time
   useEffect(() => {
-    if (state.status !== "idle" && state.status !== "success" && state.status !== "discarded") {
+    if (state.status !== "idle" && state.status !== "success" && state.status !== "failed") {
       const interval = setInterval(() => {
         setElapsed(Date.now() - state.metrics.startTime);
       }, 100);
@@ -58,7 +58,7 @@ export const App: React.FC<AppProps> = ({
 
   // Exit on terminal state
   useEffect(() => {
-    if (state.status === "success" || state.status === "discarded") {
+    if (state.status === "success" || state.status === "failed") {
       // Delay to allow final render and file write
       const timeout = setTimeout(() => {
         exit();
@@ -75,8 +75,20 @@ export const App: React.FC<AppProps> = ({
         <Resolution
           reason={state.resolutionPending.reason}
           options={state.resolutionPending.options}
-          onSelect={resolve}
-          onSkip={discard}
+          onSelect={(optionId) => {
+            // Handle plan acceptance/rejection or conflict resolution
+            if (state.status === "awaiting_plan_decision") {
+              if (optionId === "accept") {
+                acceptPlan();
+              } else if (optionId === "reject") {
+                rejectPlan("User rejected the plan");
+              }
+            } else if (state.status === "awaiting_conflict_resolution") {
+              // Use the first pending resolution if available
+              resolveConflict("pending", optionId);
+            }
+          }}
+          onSkip={() => reset()}
         />
       </Box>
     );
@@ -94,7 +106,7 @@ export const App: React.FC<AppProps> = ({
     );
   }
 
-  if (state.status === "discarded") {
+  if (state.status === "failed") {
     return (
       <Box flexDirection="column">
         {verbosity !== "simple" && <Header version={VERSION} input={input} />}

@@ -303,8 +303,8 @@ For manual domain definition, use [`@manifesto-ai/builder`](../builder/) directl
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/compiler/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/compiler/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/compiler/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 

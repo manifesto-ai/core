@@ -1,9 +1,10 @@
 /**
- * @manifesto-ai/compiler
+ * @manifesto-ai/compiler v1.1
  *
  * Natural language to Manifesto DomainSchema compiler.
  *
- * Implemented as a Manifesto Application (dogfooding per FDR-C001).
+ * v1.1 introduces the Fragment Pipeline architecture:
+ * Plan → Generate → Lower → Link → Verify → Emit
  *
  * @example Using Anthropic (built-in)
  * ```typescript
@@ -13,39 +14,14 @@
  *   anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
  * });
  *
- * compiler.subscribe((state) => {
- *   if (state.status === 'success') {
- *     console.log('Compiled schema:', state.result);
+ * compiler.subscribe((snapshot) => {
+ *   if (snapshot.status === 'success') {
+ *     console.log('Compiled schema:', snapshot.domainSpec);
  *   }
  * });
  *
  * await compiler.start({
  *   text: 'Track user name and email. Allow users to update their profile.',
- * });
- * ```
- *
- * @example Using custom LLM adapter (e.g., OpenAI)
- * ```typescript
- * import { createCompiler, type LLMAdapter } from '@manifesto-ai/compiler';
- * import OpenAI from 'openai';
- *
- * // Implement your own adapter
- * const openaiAdapter: LLMAdapter = {
- *   async segment({ text }) {
- *     const openai = new OpenAI();
- *     const response = await openai.chat.completions.create({ ... });
- *     return { ok: true, data: { segments: [...] } };
- *   },
- *   async normalize({ segments, schema, context }) {
- *     // ...
- *   },
- *   async propose({ schema, intents, history, context, resolution }) {
- *     // ...
- *   },
- * };
- *
- * const compiler = createCompiler({
- *   llmAdapter: openaiAdapter,  // Inject custom adapter
  * });
  * ```
  */
@@ -58,11 +34,11 @@ export { createCompiler } from "./api/factory.js";
 export { ManifestoCompiler } from "./api/compiler.js";
 
 // ════════════════════════════════════════════════════════════════════════════
-// Types
+// Core Types
 // ════════════════════════════════════════════════════════════════════════════
 
 export type {
-  // Core types
+  // Compiler interface
   Compiler,
   CompilerOptions,
   CompilerSnapshot,
@@ -71,27 +47,62 @@ export type {
   CompilerStatus,
   Unsubscribe,
 
-  // Resolution
-  CompilerResolutionPolicy,
+  // Resolution policy
+  ResolutionPolicy,
   ResolutionOption,
-  DiscardReason,
+  ResolutionRequest,
+  ResolutionResponse,
+  ResolutionRecord,
 
-  // Pipeline types
-  CompilerContext,
-  NormalizedIntent,
-  AttemptRecord,
-  CompilerDiagnostics,
-  CompilerDiagnostic,
-
-  // Telemetry (SPEC §15.2)
+  // Telemetry
   CompilerTelemetry,
 
   // LLM types
   LLMAdapter,
   LLMResult,
-  SegmentResult,
-  NormalizeResult,
-  ProposeResult,
+  RawPlanOutput,
+  RawChunkOutput,
+  RawDraftOutput,
+  RawInterpretationOutput,
+} from "./domain/types.js";
+
+// ════════════════════════════════════════════════════════════════════════════
+// Pipeline Types (v1.1)
+// ════════════════════════════════════════════════════════════════════════════
+
+export type {
+  // Input
+  SourceInput,
+  SourceInputType,
+
+  // Plan phase
+  Plan,
+  PlanStrategy,
+  Chunk,
+  ChunkDependency,
+
+  // Generate phase
+  FragmentDraft,
+  FragmentType,
+  FragmentInterpretation,
+
+  // Pipeline phase
+  Fragment,
+  FragmentContent,
+  Provenance,
+  DomainDraft,
+  DependencyGraph,
+  Issue,
+  IssueSeverity,
+
+  // Output
+  DomainSpec,
+  DomainSpecProvenance,
+  DomainSpecVerification,
+
+  // Conflicts
+  Conflict,
+  ConflictType,
 } from "./domain/types.js";
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -100,6 +111,43 @@ export type {
 
 export { CompilerDomain, INITIAL_STATE } from "./domain/domain.js";
 export { CompilerStateSchema } from "./domain/schema.js";
+
+// ════════════════════════════════════════════════════════════════════════════
+// Pipeline Components (v1.1)
+// ════════════════════════════════════════════════════════════════════════════
+
+export {
+  createPassLayer,
+  PASS_LAYER_VERSION,
+  type PassLayer,
+  type PassContext,
+  type PassResult,
+} from "./pipeline/index.js";
+
+export {
+  createLinker,
+  LINKER_VERSION,
+  type Linker,
+  type LinkContext,
+  type LinkResult,
+} from "./pipeline/index.js";
+
+export {
+  createVerifier,
+  VERIFIER_VERSION,
+  type Verifier,
+  type VerifyContext,
+  type VerifyResult,
+} from "./pipeline/index.js";
+
+export {
+  createEmitter,
+  EMITTER_VERSION,
+  COMPILER_VERSION,
+  type Emitter,
+  type EmitContext,
+  type EmitResult,
+} from "./pipeline/index.js";
 
 // ════════════════════════════════════════════════════════════════════════════
 // LLM Adapters
@@ -125,9 +173,9 @@ export { DEFAULT_LLM_CONFIG, type LLMAdapterConfig } from "./effects/llm/adapter
 
 export {
   createLLMEffectHandlers,
-  createSegmentHandler,
-  createNormalizeHandler,
-  createProposeHandler,
+  createPlanHandler,
+  createGenerateHandler,
+  DEFAULT_RESOLUTION_POLICY,
   type LLMEffectHandler,
   type EffectHandlerResult,
 } from "./effects/llm/handlers.js";
@@ -142,11 +190,8 @@ export {
 // Prompt Utilities (for customization)
 // ════════════════════════════════════════════════════════════════════════════
 
-export {
-  createSegmentPrompt,
-  createNormalizePrompt,
-  createProposePrompt,
-} from "./effects/llm/prompts/index.js";
+export { createPlanPrompt } from "./effects/llm/prompts/plan.js";
+export { createGeneratePrompt } from "./effects/llm/prompts/generate.js";
 
 // ════════════════════════════════════════════════════════════════════════════
 // Parser Utilities (for testing)
@@ -154,10 +199,12 @@ export {
 
 export {
   parseJSONResponse,
-  extractResolutionRequest,
-  validateSegmentsResponse,
-  validateIntentsResponse,
-  validateDraftResponse,
+  extractAmbiguity,
+  validatePlanResponse,
+  validateFragmentDraftResponse,
   type ParseResult,
-  type ResolutionRequest,
+  type AmbiguityInfo,
+  type RawPlan,
+  type RawChunk,
+  type RawFragmentDraft,
 } from "./effects/llm/parser.js";

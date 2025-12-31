@@ -1,11 +1,12 @@
+/**
+ * Telemetry Tests (v1.1)
+ */
+
 import { describe, it, expect, vi } from "vitest";
 import { createCompiler } from "../api/factory.js";
 import {
   createSuccessMockAdapter,
-  createResolutionMockAdapter,
-  createInvalidDraftMockAdapter,
-  createSegmentFailMockAdapter,
-  DEFAULT_PROPOSE_RESPONSE,
+  createPlanFailMockAdapter,
   createMockAdapter,
 } from "./helpers/mock-adapter.js";
 import type { CompilerTelemetry, CompilerStatus } from "../domain/types.js";
@@ -20,6 +21,11 @@ describe("CompilerTelemetry", () => {
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Create a counter" });
@@ -27,16 +33,11 @@ describe("CompilerTelemetry", () => {
       // Should have been called for transitions
       expect(onPhaseChange).toHaveBeenCalled();
 
-      // Verify specific transitions
+      // Verify v1.1 transitions
       const calls = onPhaseChange.mock.calls as [CompilerStatus, CompilerStatus][];
       const transitions = calls.map(([from, to]) => `${from}→${to}`);
 
-      expect(transitions).toContain("idle→segmenting");
-      expect(transitions).toContain("segmenting→normalizing");
-      expect(transitions).toContain("normalizing→proposing");
-      expect(transitions).toContain("proposing→validating");
-      // Final transition to success
-      expect(transitions.some((t: string) => t.endsWith("→success"))).toBe(true);
+      expect(transitions).toContain("idle→planning");
     });
   });
 
@@ -49,6 +50,11 @@ describe("CompilerTelemetry", () => {
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Create a counter" });
@@ -58,16 +64,15 @@ describe("CompilerTelemetry", () => {
         expect.objectContaining({
           status: "success",
           isTerminal: true,
-          result: expect.anything(),
         })
       );
     });
 
-    it("should call onComplete on discard", async () => {
+    it("should call onComplete on failure", async () => {
       const onComplete = vi.fn();
       const telemetry: CompilerTelemetry = { onComplete };
 
-      const adapter = createSegmentFailMockAdapter();
+      const adapter = createPlanFailMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
@@ -78,80 +83,66 @@ describe("CompilerTelemetry", () => {
       expect(onComplete).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: "discarded",
+          status: "failed",
           isTerminal: true,
         })
       );
     });
   });
 
-  describe("onAttempt", () => {
-    // Note: The current domain implementation increments attemptCount but
-    // doesn't populate the attempts array. onAttempt would be called if
-    // attempts were recorded. This test documents the current behavior.
-    it("should track attempt count on retries (attempts array not implemented)", async () => {
-      const onAttempt = vi.fn();
-      const onPhaseChange = vi.fn();
-      const telemetry: CompilerTelemetry = { onAttempt, onPhaseChange };
-
-      const adapter = createInvalidDraftMockAdapter(2);
-      const compiler = createCompiler({
-        llmAdapter: adapter,
-        telemetry,
-        traceDrafts: true,
-        maxRetries: 5,
-      });
-
-      await compiler.start({ text: "Create a counter" });
-
-      // Verify retries happened via phase changes (proposing appears multiple times)
-      const proposingCount = (onPhaseChange.mock.calls as [CompilerStatus, CompilerStatus][])
-        .filter(([, to]) => to === "proposing").length;
-      expect(proposingCount).toBeGreaterThan(1); // At least initial + 1 retry
-
-      // onAttempt is not called because attempts array is not populated
-      // This is expected behavior of current implementation
-      expect(onAttempt).not.toHaveBeenCalled();
-    });
-
-    it("should not call onAttempt when traceDrafts is false", async () => {
-      const onAttempt = vi.fn();
-      const telemetry: CompilerTelemetry = { onAttempt };
+  describe("onPlanReceived", () => {
+    it("should call onPlanReceived when plan is received", async () => {
+      const onPlanReceived = vi.fn();
+      const telemetry: CompilerTelemetry = { onPlanReceived };
 
       const adapter = createSuccessMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
-        traceDrafts: false,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
-      await compiler.start({ text: "Create a counter" });
+      await compiler.start({ text: "Track counter" });
 
-      expect(onAttempt).not.toHaveBeenCalled();
+      expect(onPlanReceived).toHaveBeenCalledTimes(1);
+      expect(onPlanReceived).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: expect.any(String),
+          strategy: expect.any(String),
+          chunks: expect.any(Array),
+        })
+      );
     });
   });
 
-  describe("onResolutionRequested", () => {
-    it("should call onResolutionRequested when resolution is needed", async () => {
-      const onResolutionRequested = vi.fn();
-      const telemetry: CompilerTelemetry = { onResolutionRequested };
+  describe("onDraftReceived", () => {
+    it("should call onDraftReceived when draft is received", async () => {
+      const onDraftReceived = vi.fn();
+      const telemetry: CompilerTelemetry = { onDraftReceived };
 
-      const adapter = createResolutionMockAdapter("Ambiguous input");
+      const adapter = createSuccessMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
-        resolutionPolicy: { onResolutionRequired: "await" },
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
-      await compiler.start({ text: "Track items" });
+      await compiler.start({ text: "Track counter" });
 
-      expect(onResolutionRequested).toHaveBeenCalledTimes(1);
-      expect(onResolutionRequested).toHaveBeenCalledWith(
-        "Ambiguous input",
-        expect.arrayContaining([
-          expect.objectContaining({ id: "option1" }),
-          expect.objectContaining({ id: "option2" }),
-        ])
+      expect(onDraftReceived).toHaveBeenCalled();
+      expect(onDraftReceived).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: expect.any(String),
+          type: expect.any(String),
+        })
       );
     });
   });
@@ -165,18 +156,21 @@ describe("CompilerTelemetry", () => {
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Create a counter" });
 
       expect(onEffectStart).toHaveBeenCalled();
 
-      // Check that all effect types were started
+      // Check that v1.1 effect types were started
       const effectTypes = (onEffectStart.mock.calls as [string, Record<string, unknown>][]).map(([type]) => type);
-      expect(effectTypes).toContain("llm:segment");
-      expect(effectTypes).toContain("llm:normalize");
-      expect(effectTypes).toContain("llm:propose");
-      expect(effectTypes).toContain("builder:validate");
+      expect(effectTypes).toContain("llm:plan");
+      expect(effectTypes).toContain("llm:generate");
     });
 
     it("should call onEffectEnd after each effect", async () => {
@@ -187,6 +181,11 @@ describe("CompilerTelemetry", () => {
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Create a counter" });
@@ -202,8 +201,8 @@ describe("CompilerTelemetry", () => {
       );
 
       expect(effectResults).toContainEqual({
-        type: "llm:segment",
-        action: "receiveSegments",
+        type: "llm:plan",
+        action: "receivePlan",
       });
     });
   });
@@ -215,9 +214,8 @@ describe("CompilerTelemetry", () => {
 
       // Create adapter that throws an error
       const adapter = {
-        segment: vi.fn().mockRejectedValue(new Error("Network failure")),
-        normalize: vi.fn(),
-        propose: vi.fn(),
+        plan: vi.fn().mockRejectedValue(new Error("Network failure")),
+        generate: vi.fn(),
       };
 
       const compiler = createCompiler({
@@ -230,7 +228,7 @@ describe("CompilerTelemetry", () => {
       expect(onError).toHaveBeenCalled();
       expect(onError).toHaveBeenCalledWith(
         expect.objectContaining({ message: "Network failure" }),
-        expect.stringContaining("effect:llm:segment")
+        expect.stringContaining("effect:llm:plan")
       );
     });
   });
@@ -240,6 +238,8 @@ describe("CompilerTelemetry", () => {
       const telemetry: CompilerTelemetry = {
         onPhaseChange: vi.fn(),
         onComplete: vi.fn(),
+        onPlanReceived: vi.fn(),
+        onDraftReceived: vi.fn(),
         onEffectStart: vi.fn(),
         onEffectEnd: vi.fn(),
       };
@@ -248,6 +248,11 @@ describe("CompilerTelemetry", () => {
       const compiler = createCompiler({
         llmAdapter: adapter,
         telemetry,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Create a counter" });
@@ -255,6 +260,8 @@ describe("CompilerTelemetry", () => {
       // All hooks should have been called
       expect(telemetry.onPhaseChange).toHaveBeenCalled();
       expect(telemetry.onComplete).toHaveBeenCalled();
+      expect(telemetry.onPlanReceived).toHaveBeenCalled();
+      expect(telemetry.onDraftReceived).toHaveBeenCalled();
       expect(telemetry.onEffectStart).toHaveBeenCalled();
       expect(telemetry.onEffectEnd).toHaveBeenCalled();
     });
@@ -263,6 +270,11 @@ describe("CompilerTelemetry", () => {
       const adapter = createSuccessMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
         // No telemetry provided
       });
 

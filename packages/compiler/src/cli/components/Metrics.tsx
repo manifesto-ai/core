@@ -1,5 +1,5 @@
 /**
- * Metrics Component
+ * Metrics Component (v1.1)
  *
  * Displays detailed metrics in full verbosity mode.
  */
@@ -19,6 +19,11 @@ export const Metrics: React.FC<MetricsProps> = ({ metrics, status }) => {
   const elapsed = metrics.endTime
     ? metrics.endTime - metrics.startTime
     : Date.now() - metrics.startTime;
+
+  const totalDraftAttempts = Object.values(metrics.draftAttempts).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   return (
     <Box flexDirection="column" marginTop={1} borderStyle="single" paddingX={1}>
@@ -53,12 +58,12 @@ export const Metrics: React.FC<MetricsProps> = ({ metrics, status }) => {
                 {formatDuration(phaseTiming).padEnd(12)}
               </Text>
               <Text color="gray">
-                {phase === "segmenting" && metrics.segmentCount
-                  ? `${metrics.segmentCount} segments`
-                  : phase === "normalizing" && metrics.intentCount
-                  ? `${metrics.intentCount} intents`
-                  : phase === "proposing"
-                  ? `attempt ${metrics.attemptCount + 1}`
+                {phase === "planning" && metrics.planAttempts > 0
+                  ? `${metrics.planAttempts} attempt(s)`
+                  : phase === "generating" && metrics.chunkCount
+                  ? `${metrics.chunkCount} chunk(s)`
+                  : phase === "lowering" && metrics.fragmentCount
+                  ? `${metrics.fragmentCount} fragment(s)`
                   : "-"}
               </Text>
             </Box>
@@ -84,7 +89,7 @@ export const Metrics: React.FC<MetricsProps> = ({ metrics, status }) => {
       {/* Summary line */}
       <Box marginTop={1}>
         <Text color="gray">
-          Total: {formatDuration(elapsed)} | Attempts: {metrics.attemptCount + 1} | Status: {status}
+          Total: {formatDuration(elapsed)} | Plan attempts: {metrics.planAttempts} | Draft attempts: {totalDraftAttempts} | Status: {status}
         </Text>
       </Box>
     </Box>

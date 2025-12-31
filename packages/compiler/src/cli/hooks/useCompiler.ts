@@ -1,5 +1,5 @@
 /**
- * useCompiler Hook
+ * useCompiler Hook (v1.1)
  *
  * Integrates the Manifesto Compiler with React/Ink UI state management.
  * Handles telemetry callbacks to update UI in real-time.
@@ -11,14 +11,17 @@ import type {
   Compiler,
   CompilerTelemetry,
   CompilerStatus,
-  ResolutionOption,
+  ResolutionRequest,
+  Plan,
+  FragmentDraft,
+  Fragment,
+  Conflict,
 } from "../../domain/types.js";
 import type {
   Provider,
   Verbosity,
   CompilerUIState,
   CompilerMetrics,
-  EffectTiming,
 } from "../types.js";
 
 export interface UseCompilerOptions {
@@ -31,8 +34,12 @@ export interface UseCompilerOptions {
 interface UseCompilerReturn {
   state: CompilerUIState;
   start: (text: string) => Promise<void>;
-  resolve: (optionId: string) => Promise<void>;
-  discard: () => Promise<void>;
+  acceptPlan: () => Promise<void>;
+  rejectPlan: (reason: string) => Promise<void>;
+  acceptDraft: (draftId: string) => Promise<void>;
+  rejectDraft: (draftId: string, reason: string) => Promise<void>;
+  resolveConflict: (resolutionId: string, optionId: string) => Promise<void>;
+  reset: () => Promise<void>;
 }
 
 function createInitialMetrics(): CompilerMetrics {
@@ -40,7 +47,8 @@ function createInitialMetrics(): CompilerMetrics {
     startTime: 0,
     phaseTimings: {},
     effectTimings: [],
-    attemptCount: 0,
+    planAttempts: 0,
+    draftAttempts: {},
   };
 }
 
@@ -57,18 +65,22 @@ function createInitialState(): CompilerUIState {
 }
 
 /**
- * Calculate progress percentage based on current status
+ * Calculate progress percentage based on current status (v1.1)
  */
 function calculateProgress(status: CompilerStatus): number {
   const progressMap: Record<CompilerStatus, number> = {
     idle: 0,
-    segmenting: 20,
-    normalizing: 40,
-    proposing: 60,
-    validating: 80,
-    awaiting_resolution: 50,
+    planning: 10,
+    awaiting_plan_decision: 15,
+    generating: 30,
+    awaiting_draft_decision: 45,
+    lowering: 55,
+    linking: 65,
+    awaiting_conflict_resolution: 70,
+    verifying: 80,
+    emitting: 90,
     success: 100,
-    discarded: 100,
+    failed: 100,
   };
   return progressMap[status] ?? 0;
 }
@@ -103,8 +115,8 @@ export function useCompiler(options: UseCompilerOptions): UseCompilerReturn {
         // Record phase start time
         phaseStartTimes.current.set(to, now);
 
-        // Don't update status for terminal states - let onComplete handle it with result
-        if (to !== "success" && to !== "discarded") {
+        // Don't update status for terminal states - let onComplete handle it
+        if (to !== "success" && to !== "failed") {
           setState((s) => ({
             ...s,
             status: to,
@@ -114,8 +126,52 @@ export function useCompiler(options: UseCompilerOptions): UseCompilerReturn {
         }
       },
 
-      onEffectStart: (type: string, _params: Record<string, unknown>) => {
-        effectStartTimes.current.set(type, Date.now());
+      onPlanReceived: (plan: Plan) => {
+        setState((s) => ({
+          ...s,
+          metrics: {
+            ...s.metrics,
+            chunkCount: plan.chunks.length,
+          },
+        }));
+      },
+
+      onDraftReceived: (_draft: FragmentDraft) => {
+        // Could track draft count here if needed
+      },
+
+      onFragmentLowered: (_fragment: Fragment) => {
+        setState((s) => ({
+          ...s,
+          metrics: {
+            ...s.metrics,
+            fragmentCount: (s.metrics.fragmentCount ?? 0) + 1,
+          },
+        }));
+      },
+
+      onConflictsDetected: (conflicts: Conflict[]) => {
+        // Conflicts are handled via onResolutionRequested
+        if (conflicts.length > 0) {
+          setState((s) => ({
+            ...s,
+            error: `${conflicts.length} conflict(s) detected`,
+          }));
+        }
+      },
+
+      onResolutionRequested: (request: ResolutionRequest) => {
+        setState((s) => ({
+          ...s,
+          resolutionPending: {
+            reason: request.reason,
+            options: request.options,
+          },
+        }));
+      },
+
+      onEffectStart: (effectType, _params) => {
+        effectStartTimes.current.set(effectType, Date.now());
 
         setState((s) => ({
           ...s,
@@ -124,7 +180,7 @@ export function useCompiler(options: UseCompilerOptions): UseCompilerReturn {
             effectTimings: [
               ...s.metrics.effectTimings,
               {
-                type,
+                type: effectType,
                 startTime: Date.now(),
               },
             ],
@@ -132,78 +188,43 @@ export function useCompiler(options: UseCompilerOptions): UseCompilerReturn {
         }));
       },
 
-      onEffectEnd: (type: string, result: unknown) => {
-        const startTime = effectStartTimes.current.get(type);
+      onEffectEnd: (effectType, result) => {
+        const startTime = effectStartTimes.current.get(effectType);
         const endTime = Date.now();
         const duration = startTime ? endTime - startTime : 0;
 
         setState((s) => {
           // Update the effect timing with end time and duration
           const effectTimings = s.metrics.effectTimings.map((et) =>
-            et.type === type && !et.endTime
-              ? { ...et, endTime, duration, details: result as Record<string, unknown> }
+            et.type === effectType && !et.endTime
+              ? { ...et, endTime, duration, details: result as unknown as Record<string, unknown> }
               : et
           );
-
-          // Extract segment/intent counts if available
-          let segmentCount = s.metrics.segmentCount;
-          let intentCount = s.metrics.intentCount;
-
-          if (type === "llm:segment" && result && typeof result === "object") {
-            const res = result as { segments?: unknown[] };
-            if (res.segments) {
-              segmentCount = res.segments.length;
-            }
-          }
-          if (type === "llm:normalize" && result && typeof result === "object") {
-            const res = result as { intents?: unknown[] };
-            if (res.intents) {
-              intentCount = res.intents.length;
-            }
-          }
 
           return {
             ...s,
             metrics: {
               ...s.metrics,
               effectTimings,
-              segmentCount,
-              intentCount,
             },
           };
         });
       },
 
-      onResolutionRequested: (reason: string, options: ResolutionOption[]) => {
-        setState((s) => ({
-          ...s,
-          resolutionPending: { reason, options },
-        }));
-      },
-
       onComplete: (snapshot) => {
-        // Set all terminal state values in a single update to avoid race conditions
+        // Set all terminal state values in a single update
         setState((s) => ({
           ...s,
           status: snapshot.status,
           phase: snapshot.status,
           progress: calculateProgress(snapshot.status),
-          result: snapshot.result,
-          error: snapshot.discardReason ?? null,
+          result: snapshot.domainSpec,
+          error: snapshot.failureReason ?? null,
           metrics: {
             ...s.metrics,
             endTime: Date.now(),
-            attemptCount: snapshot.attemptCount,
-          },
-        }));
-      },
-
-      onAttempt: (_attempt) => {
-        setState((s) => ({
-          ...s,
-          metrics: {
-            ...s.metrics,
-            attemptCount: s.metrics.attemptCount + 1,
+            planAttempts: snapshot.planAttempts,
+            draftAttempts: snapshot.draftAttempts,
           },
         }));
       },
@@ -224,8 +245,11 @@ export function useCompiler(options: UseCompilerOptions): UseCompilerReturn {
     const compiler = createCompiler({
       ...providerOptions,
       telemetry,
-      resolutionPolicy: { onResolutionRequired: "await" }, // Always await for CLI
-      traceDrafts: options.verbosity === "full",
+      resolutionPolicy: {
+        onPlanDecision: "await",
+        onDraftDecision: "auto-accept", // Auto-accept drafts by default
+        onConflictResolution: "await",
+      },
     });
 
     compilerRef.current = compiler;
@@ -255,17 +279,50 @@ export function useCompiler(options: UseCompilerOptions): UseCompilerReturn {
     await compilerRef.current.start({ text });
   }, []);
 
-  const resolve = useCallback(async (optionId: string) => {
+  const acceptPlan = useCallback(async () => {
     if (!compilerRef.current) return;
     setState((s) => ({ ...s, resolutionPending: null }));
-    await compilerRef.current.resolve(optionId);
+    await compilerRef.current.acceptPlan();
   }, []);
 
-  const discard = useCallback(async () => {
+  const rejectPlan = useCallback(async (reason: string) => {
     if (!compilerRef.current) return;
     setState((s) => ({ ...s, resolutionPending: null }));
-    await compilerRef.current.discard("USER_CANCELLED");
+    await compilerRef.current.rejectPlan(reason);
   }, []);
 
-  return { state, start, resolve, discard };
+  const acceptDraft = useCallback(async (draftId: string) => {
+    if (!compilerRef.current) return;
+    setState((s) => ({ ...s, resolutionPending: null }));
+    await compilerRef.current.acceptDraft(draftId);
+  }, []);
+
+  const rejectDraft = useCallback(async (draftId: string, reason: string) => {
+    if (!compilerRef.current) return;
+    setState((s) => ({ ...s, resolutionPending: null }));
+    await compilerRef.current.rejectDraft(draftId, reason);
+  }, []);
+
+  const resolveConflict = useCallback(async (resolutionId: string, optionId: string) => {
+    if (!compilerRef.current) return;
+    setState((s) => ({ ...s, resolutionPending: null }));
+    await compilerRef.current.resolveConflict(resolutionId, optionId);
+  }, []);
+
+  const reset = useCallback(async () => {
+    if (!compilerRef.current) return;
+    setState(createInitialState());
+    await compilerRef.current.reset();
+  }, []);
+
+  return {
+    state,
+    start,
+    acceptPlan,
+    rejectPlan,
+    acceptDraft,
+    rejectDraft,
+    resolveConflict,
+    reset,
+  };
 }

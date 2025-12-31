@@ -1,12 +1,31 @@
+/**
+ * @manifesto-ai/compiler v1.1 Builder Validate Handler
+ *
+ * NOTE: This handler is a legacy v1.0 component.
+ * In v1.1, validation is done by the Verifier pipeline component.
+ *
+ * This file is kept for backwards compatibility but may be removed.
+ */
+
 import type { EffectHandlerResult } from "../llm/handlers.js";
-import type { CompilerDiagnostics } from "../../domain/types.js";
+import type { Issue } from "../../domain/types.js";
 
 /**
  * Builder validate effect handler type
+ * @deprecated Use Verifier in v1.1
  */
 export type BuilderValidateHandler = (
   params: Record<string, unknown>
 ) => Promise<EffectHandlerResult>;
+
+/**
+ * Diagnostics structure (v1.0 compat)
+ */
+export interface CompilerDiagnostics {
+  valid: boolean;
+  errors: Array<{ code: string; message: string }>;
+  warnings: Array<{ code: string; message: string }>;
+}
 
 /**
  * Create builder:validate effect handler
@@ -16,6 +35,7 @@ export type BuilderValidateHandler = (
  *
  * This handler wraps the Builder validation and returns the result as an action.
  *
+ * @deprecated Use Verifier in v1.1 pipeline
  * @param validateFn - Optional custom validation function (for testing)
  */
 export function createBuilderValidateHandler(
@@ -30,39 +50,47 @@ export function createBuilderValidateHandler(
     try {
       const result = validate(draft);
 
+      // Convert to v1.1 Issue format
+      const issues: Issue[] = [
+        ...result.diagnostics.errors.map((e) => ({
+          id: `issue_${e.code}`,
+          code: e.code,
+          severity: "error" as const,
+          message: e.message,
+        })),
+        ...result.diagnostics.warnings.map((w) => ({
+          id: `issue_${w.code}`,
+          code: w.code,
+          severity: "warning" as const,
+          message: w.message,
+        })),
+      ];
+
       return {
-        action: "receiveValidation",
+        action: "receiveVerification",
         input: {
           valid: result.valid,
-          schema: result.valid ? result.schema : null,
-          diagnostics: result.diagnostics,
-          schemaHash: result.valid ? result.schemaHash : null,
-          timestamp,
+          issues,
         },
       };
     } catch (error) {
       // Validation threw an error - treat as invalid
       const message = error instanceof Error ? error.message : String(error);
 
-      const diagnostics: CompilerDiagnostics = {
-        valid: false,
-        errors: [
-          {
-            code: "VALIDATION_ERROR",
-            message: `Builder validation threw: ${message}`,
-          },
-        ],
-        warnings: [],
-      };
+      const issues: Issue[] = [
+        {
+          id: "issue_validation_error",
+          code: "VALIDATION_ERROR",
+          severity: "error",
+          message: `Builder validation threw: ${message}`,
+        },
+      ];
 
       return {
-        action: "receiveValidation",
+        action: "receiveVerification",
         input: {
           valid: false,
-          schema: null,
-          diagnostics,
-          schemaHash: null,
-          timestamp,
+          issues,
         },
       };
     }
@@ -85,7 +113,7 @@ export interface ValidateResult {
  * This is a placeholder that performs basic structural validation.
  * In production, this would call the actual Builder.validateDomain().
  *
- * TODO: Integrate with actual @manifesto-ai/builder validateDomain
+ * @deprecated Use Verifier in v1.1 pipeline
  */
 function defaultValidate(draft: unknown): ValidateResult {
   // Basic structural validation

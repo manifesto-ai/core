@@ -55,9 +55,10 @@ export interface CompilerMetrics {
   endTime?: number;
   phaseTimings: Record<string, number>;
   effectTimings: EffectTiming[];
-  attemptCount: number;
-  segmentCount?: number;
-  intentCount?: number;
+  planAttempts: number;
+  draftAttempts: Record<string, number>;
+  chunkCount?: number;
+  fragmentCount?: number;
 }
 
 export interface ResolutionPending {
@@ -131,23 +132,27 @@ export interface ErrorProps {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Phase Configuration
+// Phase Configuration (v1.1)
 // ════════════════════════════════════════════════════════════════════════════
 
 export const PHASES = [
-  "segmenting",
-  "normalizing",
-  "proposing",
-  "validating",
+  "planning",
+  "generating",
+  "lowering",
+  "linking",
+  "verifying",
+  "emitting",
 ] as const;
 
 export type Phase = (typeof PHASES)[number];
 
 export const PHASE_LABELS: Record<Phase, string> = {
-  segmenting: "Segmenting",
-  normalizing: "Normalizing",
-  proposing: "Proposing",
-  validating: "Validating",
+  planning: "Planning",
+  generating: "Generating",
+  lowering: "Lowering",
+  linking: "Linking",
+  verifying: "Verifying",
+  emitting: "Emitting",
 };
 
 export function getPhaseIndex(status: CompilerStatus): number {
@@ -157,4 +162,15 @@ export function getPhaseIndex(status: CompilerStatus): number {
 
 export function isActivePhase(status: CompilerStatus): boolean {
   return PHASES.includes(status as Phase);
+}
+
+/**
+ * Check if status is awaiting user decision
+ */
+export function isAwaitingDecision(status: CompilerStatus): boolean {
+  return (
+    status === "awaiting_plan_decision" ||
+    status === "awaiting_draft_decision" ||
+    status === "awaiting_conflict_resolution"
+  );
 }

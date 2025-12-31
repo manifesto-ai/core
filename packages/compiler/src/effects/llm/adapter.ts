@@ -1,85 +1,216 @@
+/**
+ * @manifesto-ai/compiler v1.1 LLM Adapter
+ *
+ * Per SPEC §10: LLM Actors are untrusted proposers.
+ * This adapter defines the interface between Compiler and LLM providers.
+ */
+
 import type {
-  CompilerContext,
-  NormalizedIntent,
-  AttemptRecord,
-  ResolutionOption,
+  SourceInput,
+  Plan,
+  PlanStrategy,
+  Chunk,
+  FragmentDraft,
+  FragmentType,
+  Fragment,
+  Issue,
 } from "../../domain/types.js";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// §1 LLM Result Types
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * LLM Result types - tri-state result for LLM operations
+ * LLM Result - tri-state result for LLM operations
  *
- * Per FDR-C002: LLM is an untrusted proposer.
- * These results represent what the LLM returned, not validated output.
+ * Per SPEC §10.2: LLM can succeed, fail, or request resolution.
+ * NOTE: In v1.1, resolution is primarily triggered by Linker, not LLM.
+ * However, LLM can still indicate ambiguity for the Planner/Generator phase.
  */
 export type LLMResult<T> =
   | { ok: true; data: T }
-  | { ok: "resolution"; reason: string; options: ResolutionOption[] }
+  | { ok: "ambiguous"; reason: string; alternatives: T[] }
   | { ok: false; error: string };
 
-/**
- * Segment result
- */
-export type SegmentResult = LLMResult<{ segments: string[] }>;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §2 Plan Request/Result
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Normalize result
+ * Plan request - input for the PlannerActor
+ *
+ * Per SPEC §10.3: PlannerActor analyzes input and produces a Plan.
  */
-export type NormalizeResult = LLMResult<{ intents: NormalizedIntent[] }>;
+export interface PlanRequest {
+  /**
+   * Source input to analyze
+   */
+  sourceInput: SourceInput;
+
+  /**
+   * Optional hints for planning strategy
+   */
+  hints?: {
+    /**
+     * Preferred chunking strategy
+     */
+    preferredStrategy?: PlanStrategy;
+
+    /**
+     * Maximum number of chunks
+     */
+    maxChunks?: number;
+  };
+}
 
 /**
- * Propose result
+ * Raw chunk from LLM (before ID assignment)
  */
-export type ProposeResult = LLMResult<{ draft: unknown }>;
+export interface RawChunkOutput {
+  content: string;
+  expectedType: FragmentType;
+  dependencies: Array<{
+    kind: "requires";
+    targetChunkId: string;
+    reason?: string;
+  }>;
+  sourceSpan?: { start: number; end: number };
+}
+
+/**
+ * Raw plan from LLM (before ID assignment)
+ */
+export interface RawPlanOutput {
+  strategy: PlanStrategy;
+  chunks: RawChunkOutput[];
+  rationale?: string;
+}
+
+/**
+ * Plan result - output from the PlannerActor
+ */
+export type PlanResult = LLMResult<{
+  /**
+   * Generated plan (without IDs - IDs added by handlers)
+   */
+  plan: RawPlanOutput;
+}>;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3 Generate Request/Result
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Generate request - input for the GeneratorActor
+ *
+ * Per SPEC §10.4: GeneratorActor produces FragmentDraft from Chunk.
+ */
+export interface GenerateRequest {
+  /**
+   * Chunk to generate FragmentDraft from
+   */
+  chunk: Chunk;
+
+  /**
+   * Full plan for context
+   */
+  plan: Plan;
+
+  /**
+   * Existing verified fragments (for dependency context)
+   */
+  existingFragments: Fragment[];
+
+  /**
+   * Retry context if this is a retry attempt
+   */
+  retryContext?: {
+    /**
+     * Previous draft that failed
+     */
+    previousDraft: FragmentDraft;
+
+    /**
+     * Issues that caused the failure
+     */
+    issues: Issue[];
+
+    /**
+     * Attempt number (0-indexed)
+     */
+    attemptNumber: number;
+  };
+}
+
+/**
+ * Raw fragment interpretation from LLM
+ */
+export interface RawInterpretationOutput {
+  raw: unknown;
+  description?: string;
+}
+
+/**
+ * Raw fragment draft from LLM (before ID assignment)
+ */
+export interface RawDraftOutput {
+  type: FragmentType;
+  interpretation: RawInterpretationOutput;
+  confidence?: number;
+  alternatives?: RawInterpretationOutput[];
+}
+
+/**
+ * Generate result - output from the GeneratorActor
+ */
+export type GenerateResult = LLMResult<{
+  /**
+   * Generated fragment draft (without IDs - IDs added by handlers)
+   */
+  draft: RawDraftOutput;
+}>;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §4 LLM Adapter Interface
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * LLM Adapter interface - abstracts over different LLM providers
  *
- * Per SPEC.md §6: Effect handler contracts define the interface between
- * Compiler and LLM. This adapter interface mirrors those contracts.
+ * Per SPEC §10: LLM Actors (PlannerActor, GeneratorActor) are implemented
+ * as effect handlers using this adapter interface.
+ *
+ * v1.1 Changes:
+ * - Removed: segment(), normalize(), propose() (v1.0)
+ * - Added: plan(), generate() (v1.1)
  */
 export interface LLMAdapter {
   /**
-   * Segment natural language text into requirement segments
+   * Generate a Plan from SourceInput
    *
-   * @param params.text - Input text to segment
-   * @returns Segmented text or error
+   * Per SPEC §10.3: PlannerActor responsibility.
+   * Analyzes input, determines chunking strategy, and produces Plan.
+   *
+   * @param request - Plan request with source input and hints
+   * @returns Plan result or error
    */
-  segment(params: { text: string }): Promise<SegmentResult>;
+  plan(request: PlanRequest): Promise<PlanResult>;
 
   /**
-   * Normalize segments into structured intents
+   * Generate a FragmentDraft from a Chunk
    *
-   * @param params.segments - Text segments to normalize
-   * @param params.schema - Target schema (for context)
-   * @param params.context - Additional context
-   * @returns Normalized intents, resolution request, or error
+   * Per SPEC §10.4: GeneratorActor responsibility.
+   * Produces FragmentDraft with interpretation, requires/provides hints.
+   *
+   * @param request - Generate request with chunk and context
+   * @returns FragmentDraft result or error
    */
-  normalize(params: {
-    segments: string[];
-    schema: unknown;
-    context?: CompilerContext;
-  }): Promise<NormalizeResult>;
-
-  /**
-   * Propose a DomainDraft from intents
-   *
-   * Per FDR-C002: Output is a proposal, not a validated schema.
-   *
-   * @param params.schema - Target schema structure
-   * @param params.intents - Normalized intents to implement
-   * @param params.history - Previous failed attempts (for retry feedback)
-   * @param params.context - Additional context
-   * @param params.resolution - Resolution selection (if resuming from resolution)
-   * @returns Draft proposal, resolution request, or error
-   */
-  propose(params: {
-    schema: unknown;
-    intents: NormalizedIntent[];
-    history: AttemptRecord[];
-    context?: CompilerContext;
-    resolution?: string;
-  }): Promise<ProposeResult>;
+  generate(request: GenerateRequest): Promise<GenerateResult>;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §5 LLM Adapter Configuration
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * LLM Adapter configuration
@@ -115,6 +246,8 @@ export interface LLMAdapterConfig {
    * Prepended to all system prompts
    */
   systemPromptPrefix?: string;
+
+  [key: string]: unknown;
 }
 
 /**

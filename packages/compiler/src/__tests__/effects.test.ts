@@ -1,131 +1,230 @@
+/**
+ * Effect Handler Tests (v1.1)
+ */
+
 import { describe, it, expect, vi } from "vitest";
 import {
-  createSegmentHandler,
-  createNormalizeHandler,
-  createProposeHandler,
+  createPlanHandler,
+  createGenerateHandler,
+  DEFAULT_RESOLUTION_POLICY,
 } from "../effects/llm/handlers.js";
 import { createBuilderValidateHandler } from "../effects/builder/validate-handler.js";
-import type { LLMAdapter } from "../effects/llm/adapter.js";
+import type { LLMAdapter, FragmentType, PlanStrategy, ResolutionPolicy } from "../domain/types.js";
+
+const MOCK_POLICY: ResolutionPolicy = {
+  ...DEFAULT_RESOLUTION_POLICY,
+  onPlanDecision: "auto-accept",
+  onDraftDecision: "auto-accept",
+};
 
 describe("Effect Handlers", () => {
-  describe("createSegmentHandler", () => {
-    it("should return receiveSegments action on success", async () => {
+  describe("createPlanHandler", () => {
+    it("should return receivePlan action on success", async () => {
       const mockAdapter: LLMAdapter = {
-        segment: vi.fn().mockResolvedValue({
-          ok: true,
-          data: { segments: ["seg1", "seg2"] },
-        }),
-        normalize: vi.fn(),
-        propose: vi.fn(),
-      };
-
-      const handler = createSegmentHandler(mockAdapter);
-      const result = await handler({ text: "test input" });
-
-      expect(result.action).toBe("receiveSegments");
-      expect(result.input.segments).toEqual(["seg1", "seg2"]);
-    });
-
-    it("should return requestResolution action on resolution", async () => {
-      const mockAdapter: LLMAdapter = {
-        segment: vi.fn().mockResolvedValue({
-          ok: "resolution",
-          reason: "Ambiguous",
-          options: [{ id: "opt1", description: "Option 1" }],
-        }),
-        normalize: vi.fn(),
-        propose: vi.fn(),
-      };
-
-      const handler = createSegmentHandler(mockAdapter);
-      const result = await handler({ text: "test input" });
-
-      expect(result.action).toBe("requestResolution");
-      expect(result.input.reason).toBe("Ambiguous");
-    });
-
-    it("should return discard action on error", async () => {
-      const mockAdapter: LLMAdapter = {
-        segment: vi.fn().mockResolvedValue({
-          ok: false,
-          error: "Failed",
-        }),
-        normalize: vi.fn(),
-        propose: vi.fn(),
-      };
-
-      const handler = createSegmentHandler(mockAdapter);
-      const result = await handler({ text: "test input" });
-
-      expect(result.action).toBe("discard");
-      expect(result.input.reason).toBe("SEGMENTATION_FAILED");
-    });
-  });
-
-  describe("createNormalizeHandler", () => {
-    it("should return receiveIntents action on success", async () => {
-      const mockAdapter: LLMAdapter = {
-        segment: vi.fn(),
-        normalize: vi.fn().mockResolvedValue({
+        plan: vi.fn().mockResolvedValue({
           ok: true,
           data: {
-            intents: [{ kind: "state", description: "test", confidence: 0.9 }],
+            plan: {
+              strategy: "by-statement" as PlanStrategy,
+              chunks: [
+                { content: "chunk1", expectedType: "state" as FragmentType, dependencies: [] },
+              ],
+              rationale: "test",
+            },
           },
         }),
-        propose: vi.fn(),
+        generate: vi.fn(),
       };
 
-      const handler = createNormalizeHandler(mockAdapter, { onResolutionRequired: "await" });
-      const result = await handler({ segments: ["seg1"], schema: null });
+      const handler = createPlanHandler(mockAdapter, MOCK_POLICY);
+      const result = await handler({
+        sourceInput: {
+          id: "input_1",
+          type: "natural-language",
+          content: "test input",
+          receivedAt: Date.now(),
+        },
+      });
 
-      expect(result.action).toBe("receiveIntents");
-      expect(result.input.intents).toHaveLength(1);
+      expect(result.action).toBe("receivePlan");
+      const plan = (result.input as { plan: { chunks: unknown[] } }).plan;
+      expect(plan).toBeDefined();
+      expect(plan.chunks).toHaveLength(1);
     });
 
-    it("should respect discard policy on resolution", async () => {
+    it("should assign IDs to plan and chunks", async () => {
       const mockAdapter: LLMAdapter = {
-        segment: vi.fn(),
-        normalize: vi.fn().mockResolvedValue({
-          ok: "resolution",
-          reason: "Ambiguous",
-          options: [],
+        plan: vi.fn().mockResolvedValue({
+          ok: true,
+          data: {
+            plan: {
+              strategy: "by-statement" as PlanStrategy,
+              chunks: [
+                { content: "chunk1", expectedType: "state" as FragmentType, dependencies: [] },
+                { content: "chunk2", expectedType: "action" as FragmentType, dependencies: [] },
+              ],
+            },
+          },
         }),
-        propose: vi.fn(),
+        generate: vi.fn(),
       };
 
-      const handler = createNormalizeHandler(mockAdapter, { onResolutionRequired: "discard" });
-      const result = await handler({ segments: ["seg1"], schema: null });
+      const handler = createPlanHandler(mockAdapter, MOCK_POLICY);
+      const result = await handler({
+        sourceInput: {
+          id: "input_1",
+          type: "natural-language",
+          content: "test input",
+          receivedAt: Date.now(),
+        },
+      });
 
-      expect(result.action).toBe("discard");
-      expect(result.input.reason).toBe("RESOLUTION_REQUIRED_BUT_DISABLED");
+      const plan = (result.input as { plan: { id: string; chunks: Array<{ id: string }> } }).plan;
+      expect(plan.id).toBeDefined();
+      expect(plan.chunks[0].id).toBeDefined();
+      expect(plan.chunks[1].id).toBeDefined();
+    });
+
+    it("should return fail action on error", async () => {
+      const mockAdapter: LLMAdapter = {
+        plan: vi.fn().mockResolvedValue({
+          ok: false,
+          error: "Planning failed",
+        }),
+        generate: vi.fn(),
+      };
+
+      const handler = createPlanHandler(mockAdapter, MOCK_POLICY);
+      const result = await handler({
+        sourceInput: {
+          id: "input_1",
+          type: "natural-language",
+          content: "test input",
+          receivedAt: Date.now(),
+        },
+      });
+
+      expect(result.action).toBe("fail");
+      expect((result.input as { reason: string }).reason).toBe("PLANNING_FAILED");
     });
   });
 
-  describe("createProposeHandler", () => {
-    it("should return receiveDraft action on success", async () => {
+  describe("createGenerateHandler", () => {
+    it("should return receiveFragmentDraft action on success", async () => {
       const mockAdapter: LLMAdapter = {
-        segment: vi.fn(),
-        normalize: vi.fn(),
-        propose: vi.fn().mockResolvedValue({
+        plan: vi.fn(),
+        generate: vi.fn().mockResolvedValue({
           ok: true,
-          data: { draft: { id: "test" } },
+          data: {
+            draft: {
+              type: "state" as FragmentType,
+              interpretation: {
+                raw: { path: "counter", schema: { type: "number" } },
+                description: "Counter",
+              },
+              confidence: 0.9,
+            },
+          },
         }),
       };
 
-      const handler = createProposeHandler(mockAdapter, { onResolutionRequired: "await" });
+      const handler = createGenerateHandler(mockAdapter, MOCK_POLICY);
       const result = await handler({
-        schema: null,
-        intents: [],
-        history: [],
+        chunk: {
+          id: "chunk_1",
+          content: "Track counter",
+          expectedType: "state" as FragmentType,
+          dependencies: [],
+        },
+        plan: {
+          id: "plan_1",
+          sourceInputId: "input_1",
+          strategy: "by-statement" as PlanStrategy,
+          chunks: [],
+          status: "accepted",
+        },
+        existingFragments: [],
       });
 
-      expect(result.action).toBe("receiveDraft");
-      expect(result.input.draft).toEqual({ id: "test" });
+      expect(result.action).toBe("receiveFragmentDraft");
+      const draft = (result.input as { draft: { type: string } }).draft;
+      expect(draft).toBeDefined();
+      expect(draft.type).toBe("state");
+    });
+
+    it("should assign ID and chunkId to draft", async () => {
+      const mockAdapter: LLMAdapter = {
+        plan: vi.fn(),
+        generate: vi.fn().mockResolvedValue({
+          ok: true,
+          data: {
+            draft: {
+              type: "state" as FragmentType,
+              interpretation: {
+                raw: { path: "counter" },
+              },
+            },
+          },
+        }),
+      };
+
+      const handler = createGenerateHandler(mockAdapter, MOCK_POLICY);
+      const result = await handler({
+        chunk: {
+          id: "chunk_1",
+          content: "Track counter",
+          expectedType: "state" as FragmentType,
+          dependencies: [],
+        },
+        plan: {
+          id: "plan_1",
+          sourceInputId: "input_1",
+          strategy: "by-statement" as PlanStrategy,
+          chunks: [],
+          status: "accepted",
+        },
+        existingFragments: [],
+      });
+
+      const draft = (result.input as { draft: { id: string; chunkId: string } }).draft;
+      expect(draft.id).toBeDefined();
+      expect(draft.chunkId).toBe("chunk_1");
+    });
+
+    it("should return fail action on error", async () => {
+      const mockAdapter: LLMAdapter = {
+        plan: vi.fn(),
+        generate: vi.fn().mockResolvedValue({
+          ok: false,
+          error: "Generation failed",
+        }),
+      };
+
+      const handler = createGenerateHandler(mockAdapter, MOCK_POLICY);
+      const result = await handler({
+        chunk: {
+          id: "chunk_1",
+          content: "Track counter",
+          expectedType: "state" as FragmentType,
+          dependencies: [],
+        },
+        plan: {
+          id: "plan_1",
+          sourceInputId: "input_1",
+          strategy: "by-statement" as PlanStrategy,
+          chunks: [],
+          status: "accepted",
+        },
+        existingFragments: [],
+      });
+
+      expect(result.action).toBe("fail");
+      expect((result.input as { reason: string }).reason).toBe("GENERATION_FAILED");
     });
   });
 
   describe("createBuilderValidateHandler", () => {
-    it("should return receiveValidation with valid result", async () => {
+    it("should return valid result for valid draft", async () => {
       const handler = createBuilderValidateHandler();
       const result = await handler({
         draft: {
@@ -138,30 +237,26 @@ describe("Effect Handlers", () => {
         },
       });
 
-      expect(result.action).toBe("receiveValidation");
+      expect(result.action).toBe("receiveVerification");
       expect(result.input.valid).toBe(true);
-      expect(result.input.schemaHash).toBeDefined();
+      expect(result.input.issues).toEqual([]);
     });
 
-    it("should return receiveValidation with invalid result for missing fields", async () => {
+    it("should return issues for invalid draft", async () => {
       const handler = createBuilderValidateHandler();
       const result = await handler({
         draft: { id: "test" },
       });
 
-      expect(result.action).toBe("receiveValidation");
-      expect(result.input.valid).toBe(false);
-      expect(result.input.diagnostics).toBeDefined();
+      expect(result.action).toBe("receiveVerification");
+      expect((result.input as { valid: boolean }).valid).toBe(false);
+      expect((result.input as { issues: unknown[] }).issues.length).toBeGreaterThan(0);
     });
 
     it("should handle custom validation function", async () => {
       const customValidate = vi.fn().mockReturnValue({
         valid: false,
-        diagnostics: {
-          valid: false,
-          errors: [{ code: "CUSTOM_ERROR", message: "Custom error" }],
-          warnings: [],
-        },
+        issues: [{ severity: "error", code: "CUSTOM_ERROR", message: "Custom error" }],
       });
 
       const handler = createBuilderValidateHandler(customValidate);

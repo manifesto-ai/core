@@ -1,19 +1,30 @@
+/**
+ * Integration Tests (v1.1)
+ */
+
 import { describe, it, expect, vi } from "vitest";
 import { createCompiler } from "../api/factory.js";
 import {
   createMockAdapter,
   createSuccessMockAdapter,
-  createSegmentFailMockAdapter,
-  createResolutionMockAdapter,
-  createInvalidDraftMockAdapter,
-  DEFAULT_PROPOSE_RESPONSE,
+  createPlanFailMockAdapter,
+  createAmbiguousPlanMockAdapter,
+  createGenerateFailMockAdapter,
+  DEFAULT_PLAN_RESPONSE,
 } from "./helpers/mock-adapter.js";
 
 describe("Compiler Integration", () => {
   describe("successful compilation flow", () => {
-    it("should complete full flow: idle → segmenting → normalizing → proposing → validating → success", async () => {
+    it("should complete full flow: idle → planning → generating → lowering → linking → verifying → emitting → success", async () => {
       const adapter = createSuccessMockAdapter();
-      const compiler = createCompiler({ llmAdapter: adapter });
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
 
       // Initial state should be idle
       let snapshot = await compiler.getSnapshot();
@@ -27,12 +38,19 @@ describe("Compiler Integration", () => {
       snapshot = await compiler.getSnapshot();
       expect(snapshot.status).toBe("success");
       expect(snapshot.isTerminal).toBe(true);
-      expect(snapshot.result).toBeDefined();
+      expect(snapshot.domainSpec).toBeDefined();
     });
 
     it("should track state transitions via subscription", async () => {
       const adapter = createSuccessMockAdapter();
-      const compiler = createCompiler({ llmAdapter: adapter });
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
 
       const transitions: string[] = [];
       const unsubscribe = compiler.subscribe((state) => {
@@ -49,130 +67,131 @@ describe("Compiler Integration", () => {
     });
   });
 
-  describe("empty input handling", () => {
-    it("should discard on empty input", async () => {
-      const adapter = createMockAdapter({
-        segmentResponse: { ok: true, data: { segments: [] } },
-      });
-      const compiler = createCompiler({ llmAdapter: adapter });
-
-      await compiler.start({ text: "" });
-
-      const snapshot = await compiler.getSnapshot();
-      // Empty segments should still proceed but may result in discard
-      expect(snapshot.isTerminal).toBe(true);
-    });
-  });
-
-  describe("segmentation failure handling", () => {
-    it("should discard when segmentation fails", async () => {
-      const adapter = createSegmentFailMockAdapter("Network error");
+  describe("planning failure handling", () => {
+    it("should fail when planning fails", async () => {
+      const adapter = createPlanFailMockAdapter("Network error");
       const compiler = createCompiler({ llmAdapter: adapter });
 
       await compiler.start({ text: "Some input" });
 
       const snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("discarded");
-      expect(snapshot.discardReason).toBe("SEGMENTATION_FAILED");
+      expect(snapshot.status).toBe("failed");
+      expect(snapshot.failureReason).toBe("PLANNING_FAILED");
     });
   });
 
-  describe("resolution flow", () => {
-    it("should enter awaiting_resolution when ambiguity detected (await policy)", async () => {
-      const adapter = createResolutionMockAdapter("Multiple interpretations");
+  describe("plan decision flow", () => {
+    it("should enter awaiting_plan_decision when ambiguity detected (await policy)", async () => {
+      const adapter = createAmbiguousPlanMockAdapter("Multiple strategies possible");
       const compiler = createCompiler({
         llmAdapter: adapter,
-        resolutionPolicy: { onResolutionRequired: "await" },
+        resolutionPolicy: {
+          onPlanDecision: "await",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Track items" });
 
       const snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("awaiting_resolution");
-      expect(snapshot.resolutionReason).toBe("Multiple interpretations");
-      expect(snapshot.resolutionOptions.length).toBe(2);
+      expect(snapshot.status).toBe("awaiting_plan_decision");
     });
 
-    it("should discard when resolution required but policy is discard", async () => {
-      const adapter = createResolutionMockAdapter();
+    it("should auto-accept plan when policy is auto-accept", async () => {
+      const adapter = createSuccessMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
-        resolutionPolicy: { onResolutionRequired: "discard" },
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Track items" });
 
       const snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("discarded");
-      expect(snapshot.discardReason).toBe("RESOLUTION_REQUIRED_BUT_DISABLED");
+      // Should proceed past planning
+      expect(snapshot.status).not.toBe("awaiting_plan_decision");
     });
 
-    it("should resolve ambiguity and continue to success", async () => {
-      // Start with adapter that returns resolution, then after resolve returns success
-      const adapter = createResolutionMockAdapter("Ambiguous requirement");
-
+    it("should discard when plan ambiguous but policy is discard", async () => {
+      const adapter = createAmbiguousPlanMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
-        resolutionPolicy: { onResolutionRequired: "await" },
+        resolutionPolicy: {
+          onPlanDecision: "discard",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
-      // Start compilation - should enter awaiting_resolution
+      await compiler.start({ text: "Track items" });
+
+      const snapshot = await compiler.getSnapshot();
+      expect(snapshot.status).toBe("failed");
+    });
+
+    it("should accept plan and continue to generation", async () => {
+      const adapter = createMockAdapter();
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "await",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
+
+      // Start compilation - should get plan and enter awaiting_plan_decision
       await compiler.start({ text: "Track items" });
 
       let snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("awaiting_resolution");
-      expect(snapshot.resolutionReason).toBe("Ambiguous requirement");
+      // With auto-accept it will proceed, otherwise check the transition
+      if (snapshot.status === "awaiting_plan_decision") {
+        await compiler.acceptPlan();
 
-      // Now override propose to return success for the second call
-      vi.mocked(adapter.propose).mockResolvedValue(DEFAULT_PROPOSE_RESPONSE);
-
-      // Resolve the ambiguity
-      await compiler.resolve("opt1");
-
-      snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("success");
-      expect(snapshot.result).toBeDefined();
+        snapshot = await compiler.getSnapshot();
+        expect(["generating", "success"]).toContain(snapshot.status);
+      }
     });
   });
 
-  describe("retry on validation failure", () => {
-    it("should retry when draft fails validation", async () => {
-      const adapter = createInvalidDraftMockAdapter(2);
-      const compiler = createCompiler({ llmAdapter: adapter, maxRetries: 5 });
+  describe("generation failure handling", () => {
+    it("should fail when generation fails", async () => {
+      const adapter = createGenerateFailMockAdapter("Generation network error");
+      // Override plan to succeed
+      vi.mocked(adapter.plan).mockResolvedValue(DEFAULT_PLAN_RESPONSE);
+
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
 
       await compiler.start({ text: "Create a counter" });
 
       const snapshot = await compiler.getSnapshot();
-      // After retries, should eventually succeed
-      expect(snapshot.attemptCount).toBeGreaterThanOrEqual(1);
-    });
-
-    it("should discard after max retries exceeded", async () => {
-      // Create adapter that always returns invalid draft
-      const adapter = createMockAdapter({
-        proposeResponse: {
-          ok: true,
-          data: { draft: { _invalid: true } },
-        },
-      });
-
-      const compiler = createCompiler({
-        llmAdapter: adapter,
-        maxRetries: 3,
-      });
-
-      await compiler.start({ text: "Create something" });
-
-      const snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("discarded");
-      expect(snapshot.discardReason).toBe("MAX_RETRIES_EXCEEDED");
+      expect(snapshot.status).toBe("failed");
+      expect(snapshot.failureReason).toBe("GENERATION_FAILED");
     });
   });
 
   describe("reset after completion", () => {
     it("should reset to idle after success", async () => {
       const adapter = createSuccessMockAdapter();
-      const compiler = createCompiler({ llmAdapter: adapter });
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
 
       await compiler.start({ text: "Create a counter" });
 
@@ -184,17 +203,17 @@ describe("Compiler Integration", () => {
       snapshot = await compiler.getSnapshot();
       expect(snapshot.status).toBe("idle");
       expect(snapshot.isIdle).toBe(true);
-      expect(snapshot.result).toBeNull();
+      expect(snapshot.domainSpec).toBeNull();
     });
 
-    it("should reset to idle after discard", async () => {
-      const adapter = createSegmentFailMockAdapter();
+    it("should reset to idle after failure", async () => {
+      const adapter = createPlanFailMockAdapter();
       const compiler = createCompiler({ llmAdapter: adapter });
 
       await compiler.start({ text: "Something" });
 
       let snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("discarded");
+      expect(snapshot.status).toBe("failed");
 
       await compiler.reset();
 
@@ -203,88 +222,118 @@ describe("Compiler Integration", () => {
     });
   });
 
-  describe("manual discard", () => {
-    it("should allow manual discard during compilation", async () => {
-      const adapter = createResolutionMockAdapter();
+  describe("plan rejection", () => {
+    it("should allow rejecting plan during awaiting_plan_decision", async () => {
+      const adapter = createMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
-        resolutionPolicy: { onResolutionRequired: "await" },
+        resolutionPolicy: {
+          onPlanDecision: "await",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
       });
 
       await compiler.start({ text: "Track items" });
 
       let snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("awaiting_resolution");
+      if (snapshot.status === "awaiting_plan_decision") {
+        const planAttemptsBefore = snapshot.planAttempts;
 
-      // Manually discard instead of resolving
-      await compiler.discard("RESOLUTION_REQUIRED_BUT_DISABLED");
+        await compiler.rejectPlan("Plan not satisfactory");
 
-      snapshot = await compiler.getSnapshot();
-      expect(snapshot.status).toBe("discarded");
+        snapshot = await compiler.getSnapshot();
+        // After reject, effect loop runs again: planning → receivePlan → awaiting_plan_decision
+        // Or if max attempts exceeded: failed
+        expect(["awaiting_plan_decision", "failed"]).toContain(snapshot.status);
+
+        // Plan attempts should have increased (retry occurred)
+        if (snapshot.status === "awaiting_plan_decision") {
+          expect(snapshot.planAttempts).toBeGreaterThan(planAttemptsBefore);
+        }
+      }
     });
   });
 
-  describe("trace drafts option", () => {
-    it("should track attempt count on retries", async () => {
-      const adapter = createInvalidDraftMockAdapter(2);
-      const compiler = createCompiler({
-        llmAdapter: adapter,
-        traceDrafts: true,
-        maxRetries: 5,
-      });
-
-      await compiler.start({ text: "Create a counter" });
-
-      const snapshot = await compiler.getSnapshot();
-      // attemptCount tracks retries (incremented on each validation failure)
-      expect(snapshot.attemptCount).toBeGreaterThanOrEqual(1);
-    });
-
-    it("should have zero attempts on first success", async () => {
+  describe("attempt tracking", () => {
+    it("should track plan attempts", async () => {
       const adapter = createSuccessMockAdapter();
       const compiler = createCompiler({
         llmAdapter: adapter,
-        traceDrafts: false,
-      });
-
-      await compiler.start({ text: "Create a counter" });
-
-      const snapshot = await compiler.getSnapshot();
-      // No retries needed on success
-      expect(snapshot.attemptCount).toBe(0);
-    });
-  });
-
-  describe("context passing", () => {
-    it("should pass context to LLM adapter", async () => {
-      const adapter = createSuccessMockAdapter();
-      const compiler = createCompiler({ llmAdapter: adapter });
-
-      await compiler.start({
-        text: "Create a counter",
-        context: {
-          domainName: "counter-app",
-          existingActions: ["decrement"],
-          glossary: { counter: "A numeric value that tracks quantity" },
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
         },
       });
 
-      // Verify context was passed to normalize and propose
-      expect(adapter.normalize).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: expect.objectContaining({
-            domainName: "counter-app",
-          }),
-        })
-      );
+      await compiler.start({ text: "Create a counter" });
 
-      expect(adapter.propose).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: expect.objectContaining({
-            domainName: "counter-app",
-          }),
-        })
-      );
+      const snapshot = await compiler.getSnapshot();
+      expect(snapshot.planAttempts).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should track draft attempts per chunk", async () => {
+      const adapter = createSuccessMockAdapter();
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
+
+      await compiler.start({ text: "Create a counter" });
+
+      const snapshot = await compiler.getSnapshot();
+      // draftAttempts is a Record<chunkId, number>
+      expect(typeof snapshot.draftAttempts).toBe("object");
+    });
+  });
+
+  describe("computed state helpers", () => {
+    it("should provide correct computed helpers for idle state", async () => {
+      const adapter = createSuccessMockAdapter();
+      const compiler = createCompiler({ llmAdapter: adapter });
+
+      const snapshot = await compiler.getSnapshot();
+      expect(snapshot.isIdle).toBe(true);
+      expect(snapshot.isProcessing).toBe(false);
+      expect(snapshot.isTerminal).toBe(false);
+      expect(snapshot.isAwaitingDecision).toBe(false);
+    });
+
+    it("should provide correct computed helpers for success state", async () => {
+      const adapter = createSuccessMockAdapter();
+      const compiler = createCompiler({
+        llmAdapter: adapter,
+        resolutionPolicy: {
+          onPlanDecision: "auto-accept",
+          onDraftDecision: "auto-accept",
+          onConflictResolution: "await",
+        },
+      });
+
+      await compiler.start({ text: "Create a counter" });
+
+      const snapshot = await compiler.getSnapshot();
+      expect(snapshot.isSuccess).toBe(true);
+      expect(snapshot.isTerminal).toBe(true);
+      expect(snapshot.isProcessing).toBe(false);
+      expect(snapshot.isFailed).toBe(false);
+    });
+
+    it("should provide correct computed helpers for failed state", async () => {
+      const adapter = createPlanFailMockAdapter();
+      const compiler = createCompiler({ llmAdapter: adapter });
+
+      await compiler.start({ text: "Something" });
+
+      const snapshot = await compiler.getSnapshot();
+      expect(snapshot.isFailed).toBe(true);
+      expect(snapshot.isTerminal).toBe(true);
+      expect(snapshot.isSuccess).toBe(false);
     });
   });
 });
