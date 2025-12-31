@@ -1,5 +1,7 @@
 # Manifesto LLM Constitution
 
+> **Scope:** This constitution applies to LLM agents (Claude, GPT, etc.) writing or modifying Manifesto code.
+
 **Version:** 1.0
 **Status:** Binding
 **Applies to:** All LLMs writing, modifying, or refactoring Manifesto code
@@ -8,7 +10,7 @@
 
 ## 0. Document Identity
 
-This document is a **binding operational constitution** for any LLM that interacts with the Manifesto codebase.
+This document is a **binding operational constitution** for any LLM agent that interacts with the Manifesto codebase.
 
 This is NOT documentation. This is NOT a tutorial. This is a **constraint specification**.
 

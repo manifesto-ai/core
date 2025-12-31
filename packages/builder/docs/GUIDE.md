@@ -376,7 +376,97 @@ flow: () =>
 // Effect runs every time!
 ```
 
-**Why it's wrong:** Flow re-evaluates from the beginning each time.
+**Why it's wrong:** Flow re-evaluates from the beginning each time. Without state guards, effects execute repeatedly.
+
+#### The Problem: Unbounded Re-execution
+
+**Timeline of what happens (WRONG approach):**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Compute Cycle 1 (intent submitted)                             │
+├─────────────────────────────────────────────────────────────────┤
+│ Flow evaluation:                                                │
+│   1. flow.effect("api.init", {})  → Requirement declared        │
+│   2. flow.patch("set", "initialized", true)  → Skipped (pending)│
+│ Result: status="pending", requirements=[effect:api.init]        │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Host executes effect "api.init"                                 │
+│ Returns patches: [{ op: "set", path: "/data/initData", ... }]  │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Compute Cycle 2 (auto-triggered by Host)                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Flow evaluation:                                                │
+│   1. flow.effect("api.init", {})  → Requirement declared AGAIN! │
+│   2. flow.patch("set", "initialized", true)  → Skipped          │
+│ Result: status="pending", requirements=[effect:api.init]        │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Host executes effect "api.init" AGAIN                           │
+│ (Infinite loop! Effect keeps re-executing)                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why this happens:**
+1. Flow is **pure computation** — it has no memory of previous executions
+2. Each `compute()` call starts from the beginning of the Flow
+3. Without a state guard, the effect is **always** declared
+4. Host executes effect → triggers re-compute → effect declared again → infinite loop
+
+#### The Solution: State Guards
+
+**Timeline of what happens (CORRECT approach):**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Initial State: { initialized: false, initData: null }          │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Compute Cycle 1 (intent submitted)                             │
+├─────────────────────────────────────────────────────────────────┤
+│ Flow evaluation:                                                │
+│   1. guard(expr.not(state.initialized), [...])                  │
+│      → state.initialized = false → ENTER guard                  │
+│   2. flow.effect("api.init", {})  → Requirement declared        │
+│   3. flow.patch("set", "initialized", true)  → Skipped (pending)│
+│ Result: status="pending", requirements=[effect:api.init]        │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Host executes effect "api.init"                                 │
+│ Returns patches:                                                │
+│   [{ op: "set", path: "/data/initialized", value: true },      │
+│    { op: "set", path: "/data/initData", value: {...} }]        │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Updated State: { initialized: true, initData: {...} }          │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Compute Cycle 2 (auto-triggered by Host)                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Flow evaluation:                                                │
+│   1. guard(expr.not(state.initialized), [...])                  │
+│      → state.initialized = true → SKIP guard body               │
+│ Result: status="completed", requirements=[]                     │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+                      ✓ Flow completes
+                   (Effect runs only once)
+```
+
+**Why this works:**
+1. Guard checks `state.initialized` before allowing effect execution
+2. Effect handler sets `initialized = true` via patches
+3. Next compute cycle sees `initialized = true` and skips the guard
+4. Flow completes without re-declaring the effect
 
 **Correct approach:**
 
@@ -390,6 +480,21 @@ flow: ({ state }) =>
     ]),
   ])
 ```
+
+**Alternative: Use `onceNull` helper**
+
+```typescript
+import { onceNull } from "@manifesto-ai/builder";
+
+// Simpler: Only execute if state.initData is null
+flow: ({ state }) =>
+  onceNull(state.initData, [
+    flow.effect("api.fetchData", {}),
+    // Effect handler will set initData
+  ])
+```
+
+**Key principle:** Every effect MUST be guarded by state that the effect changes. This creates a feedback loop that prevents re-execution.
 
 ### Mistake 3: Async Expressions
 
@@ -477,6 +582,306 @@ computed: {
   }),
 }
 ```
+
+---
+
+## End-to-End Example: Counter App
+
+**Goal:** Complete working example from domain definition to running application.
+
+**Prerequisites:** Node.js 18+, TypeScript
+
+This example demonstrates the full Manifesto stack in a single file. You can copy-paste and run it.
+
+```typescript
+// counter-app.ts
+// Copy this entire file and run: npx tsx counter-app.ts
+
+import { z } from "zod";
+import { defineDomain } from "@manifesto-ai/builder";
+import { createCore, createSnapshot } from "@manifesto-ai/core";
+import { createHost } from "@manifesto-ai/host";
+import { createManifestoWorld, createAutoApproveHandler } from "@manifesto-ai/world";
+import { createBridge } from "@manifesto-ai/bridge";
+
+// ============ Step 1: Define Domain ============
+
+const CounterDomain = defineDomain(
+  // State schema (Zod-first)
+  z.object({
+    count: z.number().default(0),
+    lastAction: z.string().optional(),
+    history: z.array(z.number()).default([]),
+  }),
+
+  // Domain definition
+  ({ state, computed, actions, expr, flow }) => {
+    // Computed: Is count positive?
+    const { isPositive } = computed.define({
+      isPositive: expr.gt(state.count, 0),
+    });
+
+    // Computed: Average of history
+    const { average } = computed.define({
+      average: expr.cond(
+        expr.gt(expr.len(state.history), 0),
+        expr.div(
+          expr.reduce(state.history, (sum, val) => expr.add(sum, val), 0),
+          expr.len(state.history)
+        ),
+        expr.lit(0)
+      ),
+    });
+
+    // Actions
+    const { increment } = actions.define({
+      increment: {
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.add(state.count, 1)),
+          flow.patch(state.history).set(expr.append(state.history, state.count)),
+          flow.patch(state.lastAction).set(expr.lit("increment"))
+        ),
+      },
+    });
+
+    const { decrement } = actions.define({
+      decrement: {
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.sub(state.count, 1)),
+          flow.patch(state.history).set(expr.append(state.history, state.count)),
+          flow.patch(state.lastAction).set(expr.lit("decrement"))
+        ),
+      },
+    });
+
+    const { reset } = actions.define({
+      reset: {
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.lit(0)),
+          flow.patch(state.history).set(expr.lit([])),
+          flow.patch(state.lastAction).set(expr.lit("reset"))
+        ),
+      },
+    });
+
+    const { setCount } = actions.define({
+      setCount: {
+        input: z.object({ value: z.number() }),
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.input<number>("value")),
+          flow.patch(state.lastAction).set(expr.lit("setCount"))
+        ),
+      },
+    });
+
+    return {
+      computed: { isPositive, average },
+      actions: { increment, decrement, reset, setCount },
+    };
+  },
+  { id: "counter-domain", version: "1.0.0" }
+);
+
+// ============ Step 2: Create Core ============
+
+const core = createCore();
+
+// ============ Step 3: Create Initial Snapshot ============
+
+const initialSnapshot = createSnapshot(CounterDomain.schema);
+console.log("Initial state:", initialSnapshot.data);
+// → { count: 0, lastAction: undefined, history: [] }
+
+// ============ Step 4: Create Host ============
+
+const host = createHost({
+  schema: CounterDomain.schema,
+  snapshot: initialSnapshot,
+});
+
+// ============ Step 5: Create World with Auto-Approve Authority ============
+
+const world = createManifestoWorld({
+  schemaHash: "counter-app-v1",
+  host,
+  defaultAuthority: createAutoApproveHandler(),
+});
+
+// Register actors
+world.registerActor({
+  actorId: "user-1",
+  kind: "human",
+  name: "Alice",
+});
+
+// ============ Step 6: Create Bridge ============
+
+const bridge = createBridge({
+  world,
+  schemaHash: "counter-app-v1",
+  defaultActor: { actorId: "user-1", kind: "human" },
+});
+
+// ============ Step 7: Subscribe to State Changes ============
+
+bridge.subscribe((snapshot) => {
+  console.log("\n=== State Updated ===");
+  console.log("Count:", snapshot.data.count);
+  console.log("Last Action:", snapshot.data.lastAction);
+  console.log("History:", snapshot.data.history);
+  console.log("Is Positive:", snapshot.computed.isPositive);
+  console.log("Average:", snapshot.computed.average);
+});
+
+// ============ Step 8: Run Actions ============
+
+async function runDemo() {
+  console.log("\n🚀 Starting Counter App Demo\n");
+
+  // Action 1: Increment
+  console.log(">>> Dispatching: increment");
+  await bridge.dispatch({ type: "increment", input: {} });
+
+  // Action 2: Increment again
+  console.log("\n>>> Dispatching: increment");
+  await bridge.dispatch({ type: "increment", input: {} });
+
+  // Action 3: Decrement
+  console.log("\n>>> Dispatching: decrement");
+  await bridge.dispatch({ type: "decrement", input: {} });
+
+  // Action 4: Set count to 10
+  console.log("\n>>> Dispatching: setCount (value: 10)");
+  await bridge.dispatch({ type: "setCount", input: { value: 10 } });
+
+  // Action 5: Increment
+  console.log("\n>>> Dispatching: increment");
+  await bridge.dispatch({ type: "increment", input: {} });
+
+  // Action 6: Reset
+  console.log("\n>>> Dispatching: reset");
+  await bridge.dispatch({ type: "reset", input: {} });
+
+  console.log("\n✅ Demo Complete!\n");
+
+  // Final snapshot
+  const finalSnapshot = bridge.getSnapshot();
+  console.log("Final snapshot:");
+  console.log(JSON.stringify(finalSnapshot.data, null, 2));
+}
+
+// Run the demo
+runDemo().catch(console.error);
+```
+
+**Expected Output:**
+
+```
+Initial state: { count: 0, lastAction: undefined, history: [] }
+
+🚀 Starting Counter App Demo
+
+>>> Dispatching: increment
+
+=== State Updated ===
+Count: 1
+Last Action: increment
+History: [ 0 ]
+Is Positive: true
+Average: 0
+
+>>> Dispatching: increment
+
+=== State Updated ===
+Count: 2
+Last Action: increment
+History: [ 0, 1 ]
+Is Positive: true
+Average: 0.5
+
+>>> Dispatching: decrement
+
+=== State Updated ===
+Count: 1
+Last Action: decrement
+History: [ 0, 1, 2 ]
+Is Positive: true
+Average: 1
+
+>>> Dispatching: setCount (value: 10)
+
+=== State Updated ===
+Count: 10
+Last Action: setCount
+History: [ 0, 1, 2 ]
+Is Positive: true
+Average: 1
+
+>>> Dispatching: increment
+
+=== State Updated ===
+Count: 11
+Last Action: increment
+History: [ 0, 1, 2, 10 ]
+Is Positive: true
+Average: 3.25
+
+>>> Dispatching: reset
+
+=== State Updated ===
+Count: 0
+Last Action: reset
+History: []
+Is Positive: false
+Average: 0
+
+✅ Demo Complete!
+
+Final snapshot:
+{
+  "count": 0,
+  "lastAction": "reset",
+  "history": []
+}
+```
+
+**To run this example:**
+
+1. Create a new directory:
+   ```bash
+   mkdir manifesto-counter
+   cd manifesto-counter
+   npm init -y
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host @manifesto-ai/world @manifesto-ai/bridge zod
+   npm install -D tsx typescript
+   ```
+
+3. Save the code above as `counter-app.ts`
+
+4. Run:
+   ```bash
+   npx tsx counter-app.ts
+   ```
+
+**What this demonstrates:**
+
+1. **Domain Definition** — Type-safe state schema with Zod, computed values, and actions
+2. **Core** — Pure computation engine
+3. **Host** — Effect execution and patch application
+4. **World** — Governance and authority (auto-approve for this simple example)
+5. **Bridge** — Intent dispatching and state subscription
+6. **Full Flow** — Define → Create → Run → Subscribe → Dispatch
+
+**Next steps:**
+
+- Add effects (API calls, database writes)
+- Add HITL authority for human approval
+- Add React UI with `@manifesto-ai/react`
+- Add trace recording with `@manifesto-ai/lab`
 
 ---
 

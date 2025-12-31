@@ -289,7 +289,149 @@ console.log(snapshot.computed.remaining);
 
 ## Common Mistakes
 
-### Mistake 1: Forgetting to Register Projections
+### Mistake 1: Ignoring Projection Failures
+
+**What people do:**
+
+```typescript
+// Wrong: Not checking projection result
+bridge.registerProjection({
+  projectionId: "ui:form",
+  project(req) {
+    // May throw or return invalid intent
+    const data = JSON.parse(req.source.payload.raw); // Can throw!
+    return {
+      kind: "intent",
+      body: { type: "todo.add", input: data },
+    };
+  },
+});
+
+await bridge.dispatchEvent(createUISourceEvent("form", { raw: "invalid-json" }));
+// Projection crashes silently!
+```
+
+**Why it's wrong:** Projection errors are caught and logged, but the event is silently dropped. Users see no feedback.
+
+**Correct approach:**
+
+```typescript
+// Right: Handle projection errors gracefully
+bridge.registerProjection({
+  projectionId: "ui:form",
+  project(req) {
+    try {
+      const payload = req.source.payload;
+
+      // Validate payload first
+      if (!payload || typeof payload.raw !== "string") {
+        console.error("[Projection] Invalid payload:", payload);
+        return { kind: "none" }; // Explicit no-op
+      }
+
+      // Parse safely
+      const data = JSON.parse(payload.raw);
+
+      // Validate parsed data
+      if (!data.title || typeof data.title !== "string") {
+        console.error("[Projection] Invalid parsed data:", data);
+        return { kind: "none" };
+      }
+
+      return {
+        kind: "intent",
+        body: { type: "todo.add", input: { title: data.title } },
+      };
+    } catch (error) {
+      console.error("[Projection] Error:", error);
+      // Return intent to show error to user
+      return {
+        kind: "intent",
+        body: {
+          type: "error.show",
+          input: { message: "Invalid form data" },
+        },
+      };
+    }
+  },
+});
+```
+
+### Mistake 2: Race Conditions During Initialization
+
+**What people do:**
+
+```typescript
+// Wrong: Creating bridge before world is ready
+const world = createManifestoWorld({ schemaHash, host });
+const bridge = createBridge({ world, schemaHash, defaultActor });
+
+// Immediately dispatch
+await bridge.dispatch({ type: "init.load", input: {} });
+// World may not be fully initialized!
+```
+
+**Why it's wrong:** If World Protocol is still setting up (loading persistence, registering actors), dispatching immediately can fail or create inconsistent state.
+
+**Correct approach:**
+
+```typescript
+// Right: Wait for world to be ready
+const world = createManifestoWorld({
+  schemaHash,
+  host,
+  defaultAuthority: createAutoApproveHandler(),
+});
+
+// Register all actors first
+world.registerActor({ actorId: "user-1", kind: "human" });
+world.registerActor({ actorId: "system", kind: "system" });
+
+// Create bridge after world setup
+const bridge = createBridge({
+  world,
+  schemaHash,
+  defaultActor: { actorId: "user-1", kind: "human" },
+});
+
+// Register all projections before events
+bridge.registerProjection({
+  projectionId: "ui:init",
+  project: () => ({ kind: "intent", body: { type: "init.load", input: {} } }),
+});
+
+// Now safe to dispatch
+await bridge.dispatch({ type: "init.load", input: {} });
+```
+
+**Better: Use initialization intent**
+
+```typescript
+// Best: Explicit initialization flow
+const world = createManifestoWorld({ schemaHash, host });
+world.registerActor({ actorId: "system", kind: "system" });
+
+const bridge = createBridge({
+  world,
+  schemaHash,
+  defaultActor: { actorId: "system", kind: "system" },
+});
+
+// Dispatch initialization intent
+await bridge.dispatch({
+  type: "system.initialize",
+  input: {
+    actors: [
+      { actorId: "user-1", kind: "human" },
+      { actorId: "agent-1", kind: "agent" },
+    ],
+  },
+});
+
+// Now application is ready
+```
+
+### Mistake 3: Forgetting to Register Projections
 
 **What people do:**
 
@@ -318,7 +460,7 @@ bridge.registerProjection({
 await bridge.dispatchEvent(createUISourceEvent("click", { action: "add" }));
 ```
 
-### Mistake 2: Not Cleaning Up Subscriptions
+### Mistake 4: Not Cleaning Up Subscriptions
 
 **What people do:**
 
@@ -346,7 +488,7 @@ useEffect(() => {
 }, []);
 ```
 
-### Mistake 3: Mutating SnapshotView
+### Mistake 5: Mutating SnapshotView
 
 **What people do:**
 

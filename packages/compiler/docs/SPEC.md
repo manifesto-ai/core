@@ -1,5 +1,7 @@
 # @manifesto-ai/compiler Specification v1.0
 
+> **Note:** Previous version specifications are archived in [archive/](../archive/) for historical reference.
+
 > **Version:** 1.0
 > **Status:** Normative
 > **Role:** LLM-Assisted Structural Compiler

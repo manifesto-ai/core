@@ -109,7 +109,7 @@ function TodoList() {
 }
 ```
 
-> See [Getting Started Guide](docs/packages/core/GUIDE.md) for the full tutorial.
+> See [Getting Started Guide](packages/core/docs/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -117,13 +117,13 @@ function TodoList() {
 
 | Package | Description | Docs |
 |---------|-------------|------|
-| [`@manifesto-ai/core`](docs/packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [README](docs/packages/core/README.md) |
-| [`@manifesto-ai/host`](docs/packages/host) | Effect execution runtime. Executes effects and applies patches. | [README](docs/packages/host/README.md) |
-| [`@manifesto-ai/world`](docs/packages/world) | Governance layer. Manages authority, proposals, and lineage. | [README](docs/packages/world/README.md) |
-| [`@manifesto-ai/bridge`](packages/bridge/docs/bridge) | Two-way binding. Routes external events to intents and back. | [README](packages/bridge/docs/README.md) |
-| [`@manifesto-ai/builder`](docs/packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](docs/packages/builder/README.md) |
-| [`@manifesto-ai/react`](docs/packages/react) | React integration. Hooks and context for React applications. | [README](docs/packages/react/README.md) |
-| [`@manifesto-ai/compiler`](docs/packages/compiler) | NL compiler. Compiles natural language to DomainSchema. | [README](docs/packages/compiler/README.md) |
+| [`@manifesto-ai/core`](packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [README](packages/core/docs/README.md) |
+| [`@manifesto-ai/host`](packages/host) | Effect execution runtime. Executes effects and applies patches. | [README](packages/host/docs/README.md) |
+| [`@manifesto-ai/world`](packages/world) | Governance layer. Manages authority, proposals, and lineage. | [README](packages/world/docs/README.md) |
+| [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](packages/bridge/docs/README.md) |
+| [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](packages/builder/docs/README.md) |
+| [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [README](packages/react/docs/README.md) |
+| [`@manifesto-ai/compiler`](packages/compiler) | NL compiler. Compiles natural language to DomainSchema. | [README](packages/compiler/docs/README.md) |
 
 ---
 
@@ -179,7 +179,7 @@ function TodoList() {
 | **Guides** | Users who want to learn | [Getting Started](packages/core/docs/GUIDE.md) |
 | **Specs** | Implementers & reviewers | [Core Spec](packages/core/docs/SPEC.md) |
 | **Rationale** | Contributors & researchers | [Design Decisions](packages/core/docs/FDR.md) |
-| **Glossary** | Everyone | [Terms & Definitions](docs/GLOSSARY.md) |
+| **Architecture** | System designers | [Architecture](docs/ARCHITECTURE.md) |
 | **FAQ** | Everyone | [Frequently Asked Questions](docs/FAQ.md) |
 
 ---

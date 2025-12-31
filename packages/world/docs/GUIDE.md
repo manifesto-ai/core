@@ -272,11 +272,391 @@ const world = createManifestoWorld({
 });
 ```
 
+### Production HITL with Email Notifications
+
+**Goal:** Complete HITL setup with email notifications for approval requests.
+
+**Prerequisites:** Email service (SendGrid, AWS SES, etc.) or webhook endpoint.
+
+```typescript
+import { createManifestoWorld, createHITLHandler } from "@manifesto-ai/world";
+import { createHost } from "@manifesto-ai/host";
+import type { Proposal } from "@manifesto-ai/world";
+
+// ============ Email Notification Service ============
+
+interface EmailService {
+  sendApprovalRequest(params: {
+    to: string;
+    proposal: Proposal;
+    approveUrl: string;
+    rejectUrl: string;
+  }): Promise<void>;
+}
+
+// Example with SendGrid
+const emailService: EmailService = {
+  async sendApprovalRequest({ to, proposal, approveUrl, rejectUrl }) {
+    const sg = require("@sendgrid/mail");
+    sg.setApiKey(process.env.SENDGRID_API_KEY);
+
+    const msg = {
+      to,
+      from: "approvals@myapp.com",
+      subject: `Approval Required: ${proposal.intent.body.type}`,
+      html: `
+        <h2>Approval Request</h2>
+        <p><strong>Actor:</strong> ${proposal.actor.actorId} (${proposal.actor.kind})</p>
+        <p><strong>Action:</strong> ${proposal.intent.body.type}</p>
+        <p><strong>Input:</strong></p>
+        <pre>${JSON.stringify(proposal.intent.body.input, null, 2)}</pre>
+        <p><strong>Submitted:</strong> ${new Date(proposal.createdAt).toLocaleString()}</p>
+        <hr />
+        <p>
+          <a href="${approveUrl}" style="background: green; color: white; padding: 10px 20px; text-decoration: none;">
+            Approve
+          </a>
+          <a href="${rejectUrl}" style="background: red; color: white; padding: 10px 20px; text-decoration: none; margin-left: 10px;">
+            Reject
+          </a>
+        </p>
+      `,
+    };
+
+    await sg.send(msg);
+  },
+};
+
+// ============ HITL Controller with Approval Queue ============
+
+// Store pending proposals for webhook callback
+const pendingApprovals = new Map<string, Proposal>();
+
+// Create HITL handler
+const hitlAuthority = createHITLHandler({
+  notify: async (proposal) => {
+    // Store for later approval
+    pendingApprovals.set(proposal.proposalId, proposal);
+
+    // Generate approval URLs (signed tokens in production)
+    const approveUrl = `https://myapp.com/approve/${proposal.proposalId}?token=${generateToken(proposal.proposalId)}`;
+    const rejectUrl = `https://myapp.com/reject/${proposal.proposalId}?token=${generateToken(proposal.proposalId)}`;
+
+    // Send email notification
+    await emailService.sendApprovalRequest({
+      to: "admin@myapp.com",
+      proposal,
+      approveUrl,
+      rejectUrl,
+    });
+
+    console.log(`Approval email sent for proposal: ${proposal.proposalId}`);
+  },
+  timeout: 3600000, // 1 hour timeout
+  onTimeout: "reject", // Auto-reject if not approved within 1 hour
+});
+
+// ============ World Setup ============
+
+const host = createHost({ schema, snapshot: createSnapshot(schema) });
+
+const world = createManifestoWorld({
+  schemaHash: "my-app-v1",
+  host,
+  defaultAuthority: createAutoApproveHandler(), // Default for non-AI actors
+});
+
+// Register AI agent with HITL authority
+world.registerActor({
+  actorId: "agent-assistant",
+  kind: "agent",
+  name: "Assistant",
+  meta: { model: "gpt-4" },
+});
+
+world.bindAuthority("agent-assistant", "hitl-authority", hitlAuthority);
+
+// ============ Webhook Endpoints (Express example) ============
+
+import express from "express";
+const app = express();
+
+// Approve endpoint
+app.get("/approve/:proposalId", async (req, res) => {
+  const { proposalId } = req.params;
+  const { token } = req.query;
+
+  // Verify token (omitted for brevity)
+  if (!verifyToken(proposalId, token as string)) {
+    return res.status(403).send("Invalid token");
+  }
+
+  const proposal = pendingApprovals.get(proposalId);
+  if (!proposal) {
+    return res.status(404).send("Proposal not found or already processed");
+  }
+
+  // Approve through World
+  await world.processHITLDecision(proposalId, "approved", "Approved via email link");
+
+  // Clean up
+  pendingApprovals.delete(proposalId);
+
+  res.send(`
+    <h2>Proposal Approved</h2>
+    <p>Proposal ${proposalId} has been approved.</p>
+    <p><a href="https://myapp.com/dashboard">Return to Dashboard</a></p>
+  `);
+});
+
+// Reject endpoint
+app.get("/reject/:proposalId", async (req, res) => {
+  const { proposalId } = req.params;
+  const { token } = req.query;
+
+  // Verify token
+  if (!verifyToken(proposalId, token as string)) {
+    return res.status(403).send("Invalid token");
+  }
+
+  const proposal = pendingApprovals.get(proposalId);
+  if (!proposal) {
+    return res.status(404).send("Proposal not found or already processed");
+  }
+
+  // Reject through World
+  await world.processHITLDecision(proposalId, "rejected", "Rejected via email link");
+
+  // Clean up
+  pendingApprovals.delete(proposalId);
+
+  res.send(`
+    <h2>Proposal Rejected</h2>
+    <p>Proposal ${proposalId} has been rejected.</p>
+    <p><a href="https://myapp.com/dashboard">Return to Dashboard</a></p>
+  `);
+});
+
+app.listen(3000, () => {
+  console.log("HITL approval server running on port 3000");
+});
+
+// ============ Helper Functions ============
+
+function generateToken(proposalId: string): string {
+  // In production, use proper JWT signing
+  const crypto = require("crypto");
+  const secret = process.env.APPROVAL_SECRET || "change-me";
+  return crypto
+    .createHmac("sha256", secret)
+    .update(proposalId)
+    .digest("hex");
+}
+
+function verifyToken(proposalId: string, token: string): boolean {
+  return token === generateToken(proposalId);
+}
+
+// ============ Usage Example ============
+
+// AI agent submits a proposal
+const result = await world.submitProposal({
+  actorId: "agent-assistant",
+  intent: {
+    type: "data.delete",
+    input: { recordId: "rec_123" },
+  },
+});
+
+// Result will be pending
+console.log(result.status); // → "pending"
+console.log(result.proposal.proposalId); // → "p_abc123"
+
+// Email is sent automatically via the notify callback
+// Human clicks approve/reject link
+// World processes the decision and executes the intent
+```
+
+**Production considerations:**
+
+1. **Security:**
+   - Use proper JWT signing for approval tokens
+   - Set expiration on tokens
+   - Rate-limit approval endpoints
+   - Require authentication for approval UI
+
+2. **Persistence:**
+   - Store pending proposals in database, not in-memory Map
+   - Persist approval state to survive restarts
+
+3. **Monitoring:**
+   - Track approval latency
+   - Alert on timeout rejections
+   - Log all approval decisions
+
+4. **User Experience:**
+   - Provide web UI for bulk approvals
+   - Show proposal context and impact
+   - Support delegation to other approvers
+
 ---
 
 ## Common Mistakes
 
-### Mistake 1: Submitting Without Registering Actor
+### Mistake 1: Bypassing World Governance (Direct Host Execution)
+
+**What people do:**
+
+```typescript
+// Wrong: Execute directly on Host, skipping World Protocol
+import { createHost } from "@manifesto-ai/host";
+
+const host = createHost({ schema, snapshot });
+await host.execute(snapshot, intent); // NO GOVERNANCE!
+```
+
+**Why it's wrong:** This violates the Manifesto sovereignty model. All intents MUST flow through World Protocol for Authority evaluation, lineage tracking, and accountability. Direct Host execution:
+- Skips Authority approval
+- Creates no DecisionRecord
+- Breaks lineage DAG
+- Cannot be audited or replayed
+
+**Constitutional reference:** Section 6 - Authority Bypass (FORBIDDEN)
+
+**Correct approach:**
+
+```typescript
+// Right: All intents through World Protocol
+import { createManifestoWorld, createAutoApproveHandler } from "@manifesto-ai/world";
+
+const world = createManifestoWorld({
+  schemaHash: "my-app-v1",
+  host,
+  defaultAuthority: createAutoApproveHandler(),
+});
+
+// Submit through World (governance enforced)
+const result = await world.submitProposal({
+  actorId: "user-1",
+  intent: { type: "todo.add", input: {} },
+});
+
+// Now you have: DecisionRecord, lineage, auditability
+```
+
+### Mistake 2: Not Handling Async HITL/Tribunal Approval
+
+**What people do:**
+
+```typescript
+// Wrong: Assuming HITL completes synchronously
+const result = await world.submitProposal({
+  actorId: "agent-1",
+  intent: { type: "dangerous.action", input: {} },
+});
+
+// Accessing result.world immediately
+updateUI(result.world.snapshot); // May not exist yet!
+```
+
+**Why it's wrong:** HITL and Tribunal authorities are inherently async. The proposal enters "pending" state until a human approves/rejects. The `result.world` field will be undefined until approval completes.
+
+**Correct approach:**
+
+```typescript
+// Right: Check status and handle async flow
+const result = await world.submitProposal({
+  actorId: "agent-1",
+  intent: { type: "dangerous.action", input: {} },
+});
+
+if (result.status === "completed") {
+  // Immediate completion (auto-approve or synchronous authority)
+  updateUI(result.world.snapshot);
+} else if (result.status === "pending") {
+  // HITL approval needed
+  console.log("Waiting for approval:", result.proposal.proposalId);
+
+  // Option 1: Subscribe to world events
+  world.subscribe((event) => {
+    if (event.kind === "proposal_decided" && event.proposalId === result.proposal.proposalId) {
+      if (event.decision === "approved") {
+        const updatedWorld = world.getCurrentWorld();
+        updateUI(updatedWorld.snapshot);
+      }
+    }
+  });
+
+  // Option 2: Poll for completion
+  const interval = setInterval(async () => {
+    const proposal = await world.getProposal(result.proposal.proposalId);
+    if (proposal.status !== "pending") {
+      clearInterval(interval);
+      updateUI(world.getCurrentWorld().snapshot);
+    }
+  }, 1000);
+} else if (result.status === "rejected") {
+  showError(result.decision.reason);
+}
+```
+
+### Mistake 3: Not Persisting DecisionRecords
+
+**What people do:**
+
+```typescript
+// Wrong: Ignoring decision records
+const result = await world.submitProposal({ ... });
+
+// Continue without storing decision
+processResult(result);
+```
+
+**Why it's wrong:** DecisionRecords are the foundation of:
+- Compliance audits (SOC2, GDPR, HIPAA)
+- Debugging authority logic
+- Replay and time-travel
+- Accountability trails
+
+Without persisting decisions, you lose **why** a state change was allowed.
+
+**Correct approach:**
+
+```typescript
+// Right: Always persist DecisionRecords
+const result = await world.submitProposal({
+  actorId: "agent-1",
+  intent: { type: "sensitive.action", input: {} },
+});
+
+if (result.decision) {
+  // Store decision for audit trail
+  await decisionStore.save({
+    proposalId: result.proposal.proposalId,
+    actorId: result.proposal.actor.actorId,
+    authorityId: result.decision.authorityId,
+    decision: result.decision.decision,
+    reason: result.decision.reason,
+    timestamp: result.decision.timestamp,
+    worldId: result.world?.worldId,
+  });
+
+  // Log for compliance
+  auditLog.info("Authority decision", {
+    proposal: result.proposal.proposalId,
+    authority: result.decision.authorityId,
+    decision: result.decision.decision,
+  });
+}
+
+// Query decisions later for audit
+const agentDecisions = await decisionStore.query({
+  actorId: "agent-1",
+  dateRange: { start: "2026-01-01", end: "2026-01-31" },
+});
+```
+
+### Mistake 4: Submitting Without Registering Actor
 
 **What people do:**
 
@@ -300,65 +680,6 @@ await world.submitProposal({
   actorId: "unknown-user",
   intent: { type: "todo.add", input: {} },
 });
-```
-
-### Mistake 2: Not Handling Pending Status
-
-**What people do:**
-
-```typescript
-// Wrong: Assuming immediate completion
-const result = await world.submitProposal({ ... });
-console.log(result.world.snapshot.data); // May be undefined if pending!
-```
-
-**Why it's wrong:** HITL and tribunal authorities don't complete immediately.
-
-**Correct approach:**
-
-```typescript
-// Right: Check status
-const result = await world.submitProposal({ ... });
-
-if (result.status === "completed") {
-  console.log("New world:", result.world);
-} else if (result.status === "pending") {
-  console.log("Awaiting approval:", result.proposal);
-  // Subscribe to updates or poll
-} else if (result.status === "rejected") {
-  console.log("Rejected:", result.decision.reason);
-}
-```
-
-### Mistake 3: Ignoring Decision Records
-
-**What people do:**
-
-```typescript
-// Wrong: Not tracking decisions
-await world.submitProposal({ ... });
-// Who approved what? No audit trail!
-```
-
-**Why it's wrong:** Decision records are crucial for compliance and debugging.
-
-**Correct approach:**
-
-```typescript
-// Right: Store and query decision records
-const result = await world.submitProposal({ ... });
-
-if (result.decision) {
-  console.log("Decision:", {
-    authority: result.decision.authorityId,
-    decision: result.decision.decision,
-    reason: result.decision.reason,
-    timestamp: result.decision.timestamp,
-  });
-
-  // Store for audit
-  await auditLog.save(result.decision);
-}
 ```
 
 ---

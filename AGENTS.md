@@ -1,14 +1,37 @@
-# Manifesto LLM Constitution
+# Manifesto Agent Guide
+
+> **Scope:** Guide for developers using Claude Code agents to work with Manifesto.
 
 **Version:** 1.0
-**Status:** Binding
-**Applies to:** All LLMs writing, modifying, or refactoring Manifesto code
+**Status:** Operational Guide
+**Audience:** Human developers using Claude Code agents
 
 ---
 
-## 0. Document Identity
+## Document Purpose
 
-This document is a **binding operational constitution** for any LLM that interacts with the Manifesto codebase.
+This guide is for developers using Claude Code agents to work with the Manifesto codebase. It differs from `CLAUDE.md` in the following ways:
+
+| Document | Audience | Purpose | Tone |
+|----------|----------|---------|------|
+| **CLAUDE.md** | LLM agents writing code | Constitutional constraints (binding) | Normative, restrictive |
+| **AGENTS.md** | Developers using agents | Practical agent usage guide (advisory) | Educational, practical |
+
+**When to read CLAUDE.md:** If you are an LLM agent modifying Manifesto code (this is automatically loaded).
+
+**When to read AGENTS.md:** If you are a developer using Claude Code agents to work with Manifesto.
+
+---
+
+## Quick Reference: Constitutional Constraints
+
+For developers using agents, here's a condensed reference to the key constraints from `CLAUDE.md`. Agents will automatically follow these rules.
+
+**Version:** 1.0 (based on CLAUDE.md)
+
+### 0. Document Identity
+
+The Constitution (`CLAUDE.md`) is a **binding operational constitution** for any LLM that interacts with the Manifesto codebase.
 
 This is NOT documentation. This is NOT a tutorial. This is a **constraint specification**.
 
@@ -32,7 +55,7 @@ When documents conflict, prefer higher-ranked sources.
 
 ---
 
-## 1. Core Engineering Axiom
+### 1. Core Engineering Axiom
 
 **Manifesto computes what the world should become; Host makes it so.**
 
@@ -50,7 +73,7 @@ This equation is:
 
 ---
 
-## 2. Engineering Priorities (Ordered)
+### 2. Engineering Priorities (Ordered)
 
 When priorities conflict, higher-ranked priorities MUST prevail.
 
@@ -67,9 +90,9 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 ---
 
-## 3. Package Boundary Rules
+### 3. Package Boundary Rules
 
-### @manifesto-ai/core
+#### @manifesto-ai/core
 
 **IS responsible for:**
 - Pure semantic computation
@@ -88,7 +111,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 **Forbidden imports:** Host, World, Bridge, React, network libraries
 
-### @manifesto-ai/host
+#### @manifesto-ai/host
 
 **IS responsible for:**
 - Effect execution
@@ -106,7 +129,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 **Forbidden imports:** World governance types, React, Authority handlers
 
-### @manifesto-ai/world
+#### @manifesto-ai/world
 
 **IS responsible for:**
 - Proposal management
@@ -123,7 +146,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 **Forbidden imports:** Host execution internals, Core compute internals
 
-### @manifesto-ai/bridge
+#### @manifesto-ai/bridge
 
 **IS responsible for:**
 - Two-way binding (events <-> intents, snapshot <-> subscribers)
@@ -140,7 +163,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 **Forbidden imports:** Core compute internals, Host effect handlers, World governance internals
 
-### @manifesto-ai/builder
+#### @manifesto-ai/builder
 
 **IS responsible for:**
 - Type-safe domain definition DSL
@@ -157,7 +180,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 **Forbidden imports:** Host, World, compute/apply functions
 
-### @manifesto-ai/lab
+#### @manifesto-ai/lab
 
 **IS responsible for:**
 - LLM necessity governance
@@ -170,7 +193,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Execute Core logic directly
 - Modify governance decisions
 
-### @manifesto-ai/react
+#### @manifesto-ai/react
 
 **IS responsible for:**
 - React hooks (`useValue`, `useActions`, `useComputed`)
@@ -184,9 +207,9 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 ---
 
-## 4. State & Data Flow Rules
+### 4. State & Data Flow Rules
 
-### 4.1 Snapshot Structure (Canonical)
+#### 4.1 Snapshot Structure (Canonical)
 
 ```typescript
 type Snapshot = {
@@ -207,7 +230,7 @@ type Snapshot = {
 };
 ```
 
-### 4.2 State Mutation Rules
+#### 4.2 State Mutation Rules
 
 **ONLY THREE PATCH OPERATIONS EXIST:**
 1. `set` — Replace value at path (create if missing)
@@ -225,14 +248,14 @@ type Snapshot = {
 - Result in a new Snapshot (old Snapshot unchanged)
 - Increment `meta.version` by exactly 1
 
-### 4.3 Computed Values
+#### 4.3 Computed Values
 
 - Computed values are ALWAYS recalculated, NEVER stored
 - Computed dependencies form a DAG (cycles are rejected)
 - Computed expressions MUST be pure (no side effects)
 - Computed MUST be total (always return a value, never throw)
 
-### 4.4 Data Flow Direction
+#### 4.4 Data Flow Direction
 
 ```
 Actor submits Intent
@@ -263,9 +286,9 @@ New World (immutable)
 
 ---
 
-## 5. Failure Model
+### 5. Failure Model
 
-### 5.1 Errors Are Values
+#### 5.1 Errors Are Values
 
 Errors are **values in Snapshot**, NOT exceptions.
 
@@ -279,7 +302,7 @@ type ErrorValue = {
 };
 ```
 
-### 5.2 FORBIDDEN Failure Patterns
+#### 5.2 FORBIDDEN Failure Patterns
 
 - `throw` in Core logic (Core is pure, never throws)
 - `try/catch` for business logic errors
@@ -287,14 +310,14 @@ type ErrorValue = {
 - Implicit error channels
 - Swallowed errors
 
-### 5.3 REQUIRED Failure Patterns
+#### 5.3 REQUIRED Failure Patterns
 
 - Effect handlers MUST return `Patch[]`, never throw
 - Failures MUST be expressed as patches to `system.lastError` or domain state
 - Flow failures use `{ kind: 'fail', code: string, message?: string }`
 - Host MUST report effect execution failures faithfully through Snapshot
 
-### 5.4 Error Handling Pattern
+#### 5.4 Error Handling Pattern
 
 ```typescript
 // Effect handler - CORRECT
@@ -316,9 +339,9 @@ async function handler(type, params): Promise<Patch[]> {
 
 ---
 
-## 6. Type Discipline
+### 6. Type Discipline
 
-### 6.1 Zero String Paths (Builder)
+#### 6.1 Zero String Paths (Builder)
 
 User-facing APIs MUST NOT require string paths.
 
@@ -330,7 +353,7 @@ User-facing APIs MUST NOT require string paths.
 state.todos[0].completed  // TypeScript-checked FieldRef
 ```
 
-### 6.2 Phantom Types for References
+#### 6.2 Phantom Types for References
 
 ```typescript
 type FieldRef<T> = {
@@ -346,14 +369,14 @@ type ComputedRef<T> = {
 };
 ```
 
-### 6.3 Type Safety Requirements
+#### 6.3 Type Safety Requirements
 
 - All state field access MUST support IDE autocomplete via Zod inference
 - Type mismatch MUST fail at compile time where possible
 - Generated schemas MUST be JSON-serializable
 - Expression results MUST be typed
 
-### 6.4 FORBIDDEN Type Shortcuts
+#### 6.4 FORBIDDEN Type Shortcuts
 
 - `any` in public APIs
 - `as` casts to bypass type checks
@@ -362,21 +385,21 @@ type ComputedRef<T> = {
 
 ---
 
-## 7. File & Module Structure Rules
+### 7. File & Module Structure Rules
 
-### 7.1 File Size
+#### 7.1 File Size
 
 - Files SHOULD NOT exceed 500 lines
 - Files exceeding 300 lines SHOULD be evaluated for decomposition
 - Single-responsibility principle: one concept per file
 
-### 7.2 Export Rules
+#### 7.2 Export Rules
 
 - Public API exports MUST go through package `index.ts`
 - Internal modules MUST NOT be imported directly from outside package
 - Types and implementations MUST be co-located or explicitly separated
 
-### 7.3 Naming Conventions
+#### 7.3 Naming Conventions
 
 | Kind | Convention | Example |
 |------|------------|---------|
@@ -386,7 +409,7 @@ type ComputedRef<T> = {
 | Function | camelCase | `computeResult` |
 | Constant | SCREAMING_SNAKE_CASE | `MAX_RETRIES` |
 
-### 7.4 Test File Location
+#### 7.4 Test File Location
 
 - Tests MUST be in `__tests__/` directories
 - Test files MUST be named `*.test.ts` or `*.spec.ts`
@@ -394,9 +417,9 @@ type ComputedRef<T> = {
 
 ---
 
-## 8. Refactoring Rules
+### 8. Refactoring Rules
 
-### 8.1 Valid Refactoring Motivations
+#### 8.1 Valid Refactoring Motivations
 
 - Reducing cyclomatic complexity
 - Improving type safety
@@ -404,7 +427,7 @@ type ComputedRef<T> = {
 - Removing dead code
 - Extracting reusable patterns that already appear 3+ times
 
-### 8.2 INVALID Refactoring Motivations
+#### 8.2 INVALID Refactoring Motivations
 
 - "Cleaner" code (subjective)
 - Future requirements not yet specified
@@ -412,7 +435,7 @@ type ComputedRef<T> = {
 - Performance optimization without profiling evidence
 - Making code "more flexible" for hypotheticals
 
-### 8.3 Refactoring Constraints
+#### 8.3 Refactoring Constraints
 
 - MUST NOT change public API signatures without explicit request
 - MUST NOT introduce new dependencies
@@ -420,7 +443,7 @@ type ComputedRef<T> = {
 - MUST maintain all existing test assertions
 - MUST NOT add features disguised as refactoring
 
-### 8.4 Before Refactoring
+#### 8.4 Before Refactoring
 
 - Read the file first
 - Understand existing patterns
@@ -429,16 +452,16 @@ type ComputedRef<T> = {
 
 ---
 
-## 9. Testing Philosophy
+### 9. Testing Philosophy
 
-### 9.1 What Tests Prove
+#### 9.1 What Tests Prove
 
 - **Core tests:** Determinism (same input -> same output)
 - **Host tests:** Effect handler correctness, patch application
 - **World tests:** Governance invariants, lineage integrity
 - **Integration tests:** End-to-end flow correctness
 
-### 9.2 Core Testing (No Mocks)
+#### 9.2 Core Testing (No Mocks)
 
 Core is pure. Tests require NO mocking.
 
@@ -450,7 +473,7 @@ it('computes transition', () => {
 });
 ```
 
-### 9.3 FORBIDDEN Test Patterns
+#### 9.3 FORBIDDEN Test Patterns
 
 - Mocking Core internals
 - Time-dependent assertions in Core tests
@@ -458,7 +481,7 @@ it('computes transition', () => {
 - Tests that modify global state
 - Tests that require network access
 
-### 9.4 REQUIRED Test Patterns
+#### 9.4 REQUIRED Test Patterns
 
 - Effect handlers tested with explicit return values
 - Determinism tests: run same input twice, assert identical output
@@ -467,9 +490,9 @@ it('computes transition', () => {
 
 ---
 
-## 10. Anti-Patterns (Explicit Examples)
+### 10. Anti-Patterns (Explicit Examples)
 
-### 10.1 Intelligent Host (FORBIDDEN)
+#### 10.1 Intelligent Host (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Host making decisions
@@ -483,7 +506,7 @@ async function executeEffect(req) {
 // Host MUST execute or report failure, never decide
 ```
 
-### 10.2 Direct State Mutation (FORBIDDEN)
+#### 10.2 Direct State Mutation (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN
@@ -496,7 +519,7 @@ const newSnapshot = core.apply(schema, snapshot, [
 ]);
 ```
 
-### 10.3 Value Passing Outside Snapshot (FORBIDDEN)
+#### 10.3 Value Passing Outside Snapshot (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Returning value from effect
@@ -508,7 +531,7 @@ core.compute(schema, snapshot, { ...intent, result });
 // Next compute() reads result from Snapshot
 ```
 
-### 10.4 Execution-Aware Core (FORBIDDEN)
+#### 10.4 Execution-Aware Core (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Core branching on execution state
@@ -522,7 +545,7 @@ if (snapshot.data.syncStatus === 'success') {
 }
 ```
 
-### 10.5 Re-Entry Unsafe Flow (FORBIDDEN)
+#### 10.5 Re-Entry Unsafe Flow (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Runs every compute cycle
@@ -538,7 +561,7 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
 });
 ```
 
-### 10.6 Authority Bypass (FORBIDDEN)
+#### 10.6 Authority Bypass (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Direct execution without governance
@@ -549,7 +572,7 @@ world.submitProposal(actor, intentInstance);
 // Authority evaluates, then approved intents go to Host
 ```
 
-### 10.7 Hidden Continuation State (FORBIDDEN)
+#### 10.7 Hidden Continuation State (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Execution context stored outside Snapshot
@@ -559,7 +582,7 @@ const pendingCallbacks = new Map();  // Hidden state!
 // snapshot.system.pendingRequirements
 ```
 
-### 10.8 Turing-Complete Flow (FORBIDDEN)
+#### 10.8 Turing-Complete Flow (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN - Unbounded loops in Flow
@@ -571,7 +594,7 @@ while (snapshot.system.pendingRequirements.length > 0) {
 }
 ```
 
-### 10.9 Circular Computed Dependencies (FORBIDDEN)
+#### 10.9 Circular Computed Dependencies (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN
@@ -581,7 +604,7 @@ computed.define({
 });
 ```
 
-### 10.10 String Paths in Builder API (FORBIDDEN)
+#### 10.10 String Paths in Builder API (FORBIDDEN)
 
 ```typescript
 // FORBIDDEN
@@ -593,11 +616,11 @@ flow.patch(state.todos[0].completed).set(true);
 
 ---
 
-## 11. LLM Self-Check
+### 11. LLM Self-Check
 
 Before producing any code change, mentally verify ALL of the following:
 
-### Constitutional Compliance
+#### Constitutional Compliance
 
 - [ ] Does this change preserve determinism? (Same input -> same output)
 - [ ] Does this change maintain Snapshot as sole communication medium?
@@ -605,39 +628,39 @@ Before producing any code change, mentally verify ALL of the following:
 - [ ] Are all state changes expressed as Patches?
 - [ ] Are all errors expressed as values, not exceptions?
 
-### Package Boundaries
+#### Package Boundaries
 
 - [ ] Does this code import only from allowed packages?
 - [ ] Does this code NOT import forbidden dependencies?
 - [ ] Is this code in the correct package for its responsibility?
 
-### Flow Safety
+#### Flow Safety
 
 - [ ] Are all Flow patches state-guarded for re-entry safety?
 - [ ] Are all Flow effects state-guarded for re-entry safety?
 - [ ] Does this Flow terminate in finite steps?
 - [ ] Are there no circular `call` references?
 
-### Type Safety
+#### Type Safety
 
 - [ ] Are there zero string paths in user-facing APIs?
 - [ ] Are all public APIs properly typed (no `any`)?
 - [ ] Do types compile without `@ts-ignore`?
 
-### Testing
+#### Testing
 
 - [ ] Can Core changes be tested without mocks?
 - [ ] Do tests verify determinism where applicable?
 - [ ] Are all existing tests still passing?
 
-### Simplicity
+#### Simplicity
 
 - [ ] Is this the minimum complexity needed for the current requirement?
 - [ ] Are there no features added beyond what was requested?
 - [ ] Are there no premature abstractions?
 - [ ] Are there no hypothetical future requirements addressed?
 
-### Before Submitting
+#### Before Submitting
 
 - [ ] Have I read the files I'm modifying?
 - [ ] Have I run the relevant tests?
@@ -646,7 +669,7 @@ Before producing any code change, mentally verify ALL of the following:
 
 ---
 
-## 12. Canonical Statements
+### 12. Canonical Statements
 
 Reference these when making decisions:
 
@@ -665,9 +688,9 @@ Reference these when making decisions:
 
 ---
 
-## 13. Quick Reference Tables
+### 13. Quick Reference Tables
 
-### Sovereignty Matrix
+#### Sovereignty Matrix
 
 | Role | May Do | MUST NOT Do |
 |------|--------|-------------|
@@ -678,7 +701,7 @@ Reference these when making decisions:
 | **Host** | Execute effects, apply patches, report | Decide, interpret, suppress effects |
 | **Bridge** | Route events, project snapshots | Mutate, apply, execute, govern |
 
-### Forbidden Import Matrix
+#### Forbidden Import Matrix
 
 | Package | MUST NOT Import |
 |---------|-----------------|
@@ -689,7 +712,7 @@ Reference these when making decisions:
 | builder | host, world, compute/apply |
 | react | core internals, host, world |
 
-### Priority Decision Tree
+#### Priority Decision Tree
 
 ```
 Is determinism preserved?
@@ -705,4 +728,189 @@ Is determinism preserved?
 
 ---
 
-*End of Manifesto LLM Constitution v1.0*
+*End of Manifesto LLM Constitution Reference v1.0*
+
+---
+
+## Working with Claude Code Agents
+
+This section provides guidance for developers using Claude Code agents to work with the Manifesto codebase.
+
+### Understanding Claude Code Agent Roles
+
+Claude Code provides specialized agents for different tasks:
+
+| Agent Type | Purpose | When to Use |
+|------------|---------|-------------|
+| **General Agent** | Code generation, debugging, refactoring | Standard development tasks |
+| **Documentation Agent** | Writing/updating docs, generating API references | Documentation work |
+| **Task Agent** | Multi-step task execution with tool invocation | Complex workflows requiring multiple tools |
+
+### Using the manifesto-docs-architect Agent
+
+The `manifesto-docs-architect` agent is a custom-configured agent designed specifically for Manifesto documentation work. It:
+
+- Enforces the six-layer documentation hierarchy (Orientation → Concepts → Architecture → Specs → Guides → FDR)
+- Prevents category errors in documentation (e.g., calling Manifesto a "workflow engine")
+- Generates Mermaid diagrams that are architecturally accurate
+- Cross-references Constitution, SPEC, and FDR documents appropriately
+
+**Example: Generating API Documentation**
+
+```bash
+# Using manifesto-docs-architect to document a new API
+claude-code --agent manifesto-docs-architect \
+  "Document the new withLab() API in packages/lab/docs/GUIDE.md"
+```
+
+The agent will:
+1. Read the code to derive accurate API information
+2. Check existing SPEC/FDR for normative definitions
+3. Structure content according to layer requirements
+4. Add "What this is NOT" sections if needed
+5. Generate Mermaid diagrams for architecture clarity
+
+### When to Use the Task Tool
+
+The Task tool is ideal for open-ended work requiring multiple rounds of exploration:
+
+**Use Task tool when:**
+- You need to explore the codebase structure before making changes
+- The work requires multiple grep/glob passes to find all relevant files
+- You're unsure which files need modification
+- The task involves coordinating changes across multiple packages
+
+**Example scenarios:**
+```typescript
+// Scenario 1: Finding all uses of a deprecated pattern
+Task: "Find all Flow definitions that are not re-entry safe and list them"
+
+// Scenario 2: Architecture documentation requiring code exploration
+Task: "Document the data flow between Core and Host, using actual code examples"
+
+// Scenario 3: Cross-package refactoring
+Task: "Update all Effect handler signatures to use the new ErrorValue type"
+```
+
+**Do NOT use Task tool when:**
+- The file paths are already known
+- The change is localized to a single file
+- The work is straightforward code modification
+
+### Agent Communication Best Practices
+
+When working with Claude Code agents on Manifesto:
+
+1. **Reference the Constitution explicitly**
+   - Good: "Update this Flow following Constitution Axiom 3 (Patch Exclusivity)"
+   - Bad: "Make this Flow better"
+
+2. **Specify the documentation layer**
+   - Good: "Add this to Layer 4 (Specifications)"
+   - Bad: "Add this to the docs"
+
+3. **Clarify mental model expectations**
+   - Good: "Explain World Protocol without implying it's a workflow engine"
+   - Bad: "Explain World Protocol"
+
+4. **Request architectural verification**
+   - Good: "Generate a sequence diagram showing Actor → World → Host flow"
+   - Bad: "Show how this works"
+
+### Common Agent Pitfalls (and How to Avoid Them)
+
+| Pitfall | Why It Happens | How to Prevent |
+|---------|----------------|----------------|
+| Agent suggests `any` in public APIs | Convenience over type safety | Remind: "Use strict TypeScript, no `any` in public APIs" |
+| Agent creates circular dependencies | Lack of package boundary awareness | Reference: "Check Section 3 (Package Boundary Rules)" |
+| Agent uses string paths in examples | Common pattern in other frameworks | Specify: "Use FieldRef, zero string paths (CLAUDE.md Section 6)" |
+| Agent adds future-oriented features | Trying to be helpful | Clarify: "Only implement current requirements (Priority 8: Simplicity)" |
+
+### Example: Full Agent Workflow
+
+**Task:** Add a new Authority type to @manifesto-ai/world
+
+**Step 1: Verify constitutional compliance**
+```bash
+claude-code "Show me where Authority types are defined and confirm \
+  they don't execute effects or apply patches (Constitution Section II)"
+```
+
+**Step 2: Implement with boundaries enforced**
+```bash
+claude-code "Add a new DurationAuthority that rejects Intents older than N seconds. \
+  Follow Authority Sovereignty rules. Must NOT execute, compute, or apply patches."
+```
+
+**Step 3: Document the change**
+```bash
+claude-code --agent manifesto-docs-architect \
+  "Document DurationAuthority in packages/world/docs/SPEC.md (Layer 4)"
+```
+
+**Step 4: Update tests**
+```bash
+claude-code "Add tests verifying DurationAuthority respects Authority Sovereignty. \
+  Follow Section 9.4 (REQUIRED Test Patterns)"
+```
+
+### Agent Self-Check Prompts
+
+Before finalizing agent-generated code, ask the agent to verify:
+
+```
+Review this change against CLAUDE.md Section 11 (LLM Self-Check):
+- Does it preserve determinism?
+- Does it maintain Snapshot as sole medium?
+- Are all state changes expressed as Patches?
+- Are package boundaries respected?
+- Is this the minimum complexity needed?
+```
+
+### Getting Help from Agents
+
+**For conceptual questions:**
+```bash
+claude-code "Explain the difference between Effect and Requirement, \
+  using definitions from packages/core/docs/SPEC.md"
+```
+
+**For pattern identification:**
+```bash
+claude-code "Find examples of re-entry safe Flows in apps/example-todo"
+```
+
+**For debugging:**
+```bash
+claude-code "Why is this Flow being executed multiple times? \
+  Check against Section 10.5 (Re-Entry Unsafe Flow)"
+```
+
+---
+
+## Frequently Asked Questions
+
+### Q: Should I always use CLAUDE.md when working with agents?
+
+A: No. Use CLAUDE.md as a reference for constraints, but use AGENTS.md for practical guidance. If the agent is modifying code, it should follow CLAUDE.md. If you're asking questions or exploring, AGENTS.md is sufficient.
+
+### Q: Can I ask agents to "simplify" the Constitution?
+
+A: No. The Constitution is intentionally restrictive. Simplifying it would violate architectural integrity. Instead, ask agents to explain specific sections with examples.
+
+### Q: What if an agent suggests violating the Constitution?
+
+A: Reject the suggestion and reference the specific section being violated. Example: "This violates Axiom 2 (Snapshot as Sole Medium). Please revise using only Snapshot for communication."
+
+### Q: How do I know if agent-generated documentation is correct?
+
+A: Verify it against the normative hierarchy:
+1. Does it contradict CONSTITUTION.md?
+2. Does it contradict SPEC documents?
+3. Does it match the actual code?
+
+If yes to any, the documentation is incorrect.
+
+---
+
+*End of Manifesto Agent Guide v1.0*
