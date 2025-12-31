@@ -1,6 +1,8 @@
 # [Package] Specification v[X.Y]
 
 <!-- INSTRUCTION:
+파일 위치: packages/[package]/docs/SPEC.md
+
 SPEC은 "무엇을 보장하는가"를 정의하는 규범적(normative) 문서입니다.
 - RFC 2119 키워드 사용 (MUST, SHOULD, MAY)
 - 구현자가 이것만 보고 구현할 수 있어야 함

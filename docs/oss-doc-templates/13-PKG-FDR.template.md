@@ -1,6 +1,8 @@
 # [Package] — Foundational Design Rationale (FDR)
 
 <!-- INSTRUCTION:
+파일 위치: packages/[package]/docs/FDR.md
+
 FDR은 "왜 이렇게 결정했는가"를 기록하는 역사적 문서입니다.
 - 결정(Decision)이 명확해야 함
 - 맥락(Context)이 있어야 함

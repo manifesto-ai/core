@@ -1,6 +1,8 @@
 # [Package] Guide
 
 <!-- INSTRUCTION:
+파일 위치: packages/[package]/docs/GUIDE.md
+
 GUIDE는 "어떻게 쓰는지"를 설명하는 실용적인 문서입니다.
 - 모든 코드는 복붙해서 실행 가능해야 함
 - 철학/이론 설명 NO
@@ -355,7 +357,7 @@ describe('[Package]', () => {
 
 - **Deep dive:** Read [SPEC.md](./SPEC.md) for complete API reference
 - **Understand why:** Read [FDR.md](./FDR.md) for design rationale
-- **See examples:** Check [examples/](../../examples/) directory
+- **See examples:** Check [examples/](../../../examples/) directory
 - **Get help:** Open an [issue](link) or [discussion](link)
 
 ---

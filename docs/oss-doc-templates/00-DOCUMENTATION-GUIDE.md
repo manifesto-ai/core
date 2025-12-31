@@ -55,23 +55,26 @@ core.compute(snapshot, intent);
 ```
 manifesto/
 ├── README.md                 ← 최상위 랜딩
-├── ARCHITECTURE.md           ← 전체 정신모델
-├── GOVERNANCE.md             ← 기여/변경 프로세스
-├── GLOSSARY.md               ← 용어 정의
-├── FAQ.md                    ← 자주 묻는 질문
+├── docs/
+│   ├── ARCHITECTURE.md       ← 전체 정신모델
+│   ├── GOVERNANCE.md         ← 기여/변경 프로세스
+│   ├── GLOSSARY.md           ← 용어 정의
+│   └── FAQ.md                ← 자주 묻는 질문
 │
 ├── packages/
 │   ├── core/
-│   │   ├── README.md         ← Core 소개
-│   │   ├── GUIDE.md          ← Core 사용법
-│   │   ├── SPEC.md           ← Core 명세
-│   │   └── FDR.md            ← Core 설계 근거
+│   │   ├── README.md         ← Core 소개 (패키지 루트)
+│   │   └── docs/
+│   │       ├── GUIDE.md      ← Core 사용법
+│   │       ├── SPEC.md       ← Core 명세
+│   │       └── FDR.md        ← Core 설계 근거
 │   │
 │   ├── host/
 │   │   ├── README.md
-│   │   ├── GUIDE.md
-│   │   ├── SPEC.md
-│   │   └── FDR.md
+│   │   └── docs/
+│   │       ├── GUIDE.md
+│   │       ├── SPEC.md
+│   │       └── FDR.md
 │   │
 │   └── ... (다른 패키지들)
 │
@@ -80,6 +83,9 @@ manifesto/
     ├── todo-app/             ← 기본 앱 예제
     └── hitl-demo/            ← HITL 예제
 ```
+
+> **정책:** 각 패키지의 문서(GUIDE, SPEC, FDR)는 해당 패키지의 `docs/` 폴더에 위치합니다.
+> README.md는 패키지 루트에 위치합니다.
 
 ---
 
