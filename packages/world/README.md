@@ -203,8 +203,8 @@ For simple applications without governance, you can use Host directly.
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/world/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/world/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/world/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 
