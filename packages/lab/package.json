@@ -1,0 +1,60 @@
+{
+  "name": "@manifesto-ai/lab",
+  "version": "1.0.0",
+  "description": "Manifesto Lab - LLM governance, experimentation, and tracing for Manifesto systems",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/lab"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/lab#readme",
+  "keywords": [
+    "manifesto",
+    "lab",
+    "llm",
+    "governance",
+    "tracing",
+    "necessity",
+    "hitl",
+    "human-in-the-loop"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@manifesto-ai/world": "workspace:*",
+    "zod": "^4.0.0"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/world": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "ink": "^5.0.1",
+    "ink-select-input": "^6.0.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^18.3.1",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.16"
+  }
+}
