@@ -148,9 +148,13 @@ export class ManifestoHost {
    * It runs the host loop until completion, halt, or error.
    *
    * @param intent - Intent to dispatch (use createIntent helper)
+   * @param loopOptions - Optional loop options to merge with constructor options
    * @returns Host result with final snapshot and traces
    */
-  async dispatch(intent: Intent): Promise<HostResult> {
+  async dispatch(
+    intent: Intent,
+    loopOptions?: Partial<HostLoopOptions>
+  ): Promise<HostResult> {
     // Wait for initialization
     if (!this.initialized) {
       await this.initializeIfNeeded();
@@ -170,14 +174,18 @@ export class ManifestoHost {
       };
     }
 
-    // Run the host loop
+    // Run the host loop with merged options
+    const mergedOptions: HostLoopOptions = {
+      ...this.loopOptions,
+      ...loopOptions,
+    };
     const result = await runHostLoop(
       this.core,
       this.schema,
       snapshot,
       intent,
       this.executor,
-      this.loopOptions
+      mergedOptions
     );
 
     // Save final snapshot

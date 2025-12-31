@@ -109,15 +109,12 @@ export const TodoDomain = defineDomain(
           createdAt: z.number(),
         }),
         flow: flow.patch(state.todos).set(
-          expr.append(state.todos, expr.merge(
-            expr.lit({} as TodoItem),
-            {
-              id: expr.input<string>("id") as unknown as string,
-              title: expr.input<string>("title") as unknown as string,
-              completed: expr.lit(false) as unknown as boolean,
-              createdAt: expr.input<number>("createdAt") as unknown as number,
-            } as unknown as Partial<TodoItem>
-          ) as unknown as Expr<TodoItem>)
+          expr.append(state.todos, expr.object<TodoItem>({
+            id: expr.input<string>("id"),
+            title: expr.input<string>("title"),
+            completed: expr.lit(false),
+            createdAt: expr.input<number>("createdAt"),
+          }))
         ),
       },
     });
@@ -130,10 +127,10 @@ export const TodoDomain = defineDomain(
           expr.map(state.todos, (item) =>
             expr.cond(
               expr.eq(itemField<string>(item.id), expr.input<string>("id")),
-              expr.merge(
+              expr.merge<TodoItem>(
                 itemField<TodoItem>(item),
-                { completed: expr.not(itemField<boolean>(item.completed)) as unknown as boolean }
-              ) as unknown as Expr<TodoItem>,
+                expr.object({ completed: expr.not(itemField<boolean>(item.completed)) })
+              ),
               itemField<TodoItem>(item)
             )
           )
@@ -162,10 +159,10 @@ export const TodoDomain = defineDomain(
             expr.map(state.todos, (item) =>
               expr.cond(
                 expr.eq(itemField<string>(item.id), expr.input<string>("id")),
-                expr.merge(
+                expr.merge<TodoItem>(
                   itemField<TodoItem>(item),
-                  { title: expr.input<string>("title") as unknown as string }
-                ) as unknown as Expr<TodoItem>,
+                  expr.object({ title: expr.input<string>("title") })
+                ),
                 itemField<TodoItem>(item)
               )
             )
@@ -186,19 +183,19 @@ export const TodoDomain = defineDomain(
           // All completed -> mark all as not completed
           flow.patch(state.todos).set(
             expr.map(state.todos, (item) =>
-              expr.merge(
+              expr.merge<TodoItem>(
                 itemField<TodoItem>(item),
-                { completed: expr.lit(false) as unknown as boolean }
-              ) as unknown as Expr<TodoItem>
+                expr.object({ completed: expr.lit(false) })
+              )
             )
           ),
           // Not all completed -> mark all as completed
           flow.patch(state.todos).set(
             expr.map(state.todos, (item) =>
-              expr.merge(
+              expr.merge<TodoItem>(
                 itemField<TodoItem>(item),
-                { completed: expr.lit(true) as unknown as boolean }
-              ) as unknown as Expr<TodoItem>
+                expr.object({ completed: expr.lit(true) })
+              )
             )
           )
         ),

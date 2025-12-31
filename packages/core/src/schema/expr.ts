@@ -45,7 +45,9 @@ export type ExprNode =
   | FindExpr
   | EveryExpr
   | SomeExpr
+  | AppendExpr
   // Object
+  | ObjectExpr
   | KeysExpr
   | ValuesExpr
   | EntriesExpr
@@ -273,7 +275,20 @@ export const SomeExpr: z.ZodType<{ kind: "some"; array: ExprNode; predicate: Exp
 });
 export type SomeExpr = z.infer<typeof SomeExpr>;
 
+export const AppendExpr: z.ZodType<{ kind: "append"; array: ExprNode; items: ExprNode[] }> = z.object({
+  kind: z.literal("append"),
+  array: z.lazy(() => ExprNodeSchema),
+  items: z.array(z.lazy(() => ExprNodeSchema)),
+});
+export type AppendExpr = z.infer<typeof AppendExpr>;
+
 // ============ Object ============
+
+export const ObjectExpr: z.ZodType<{ kind: "object"; fields: Record<string, ExprNode> }> = z.object({
+  kind: z.literal("object"),
+  fields: z.record(z.string(), z.lazy(() => ExprNodeSchema)),
+}) as z.ZodType<{ kind: "object"; fields: Record<string, ExprNode> }>;
+export type ObjectExpr = z.infer<typeof ObjectExpr>;
 
 export const KeysExpr: z.ZodType<{ kind: "keys"; obj: ExprNode }> = z.object({
   kind: z.literal("keys"),
@@ -359,7 +374,9 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   FindExpr,
   EveryExpr,
   SomeExpr,
+  AppendExpr,
   // Object
+  ObjectExpr,
   KeysExpr,
   ValuesExpr,
   EntriesExpr,
@@ -380,8 +397,8 @@ export const ExprKind = z.enum([
   "if",
   "add", "sub", "mul", "div", "mod",
   "concat", "substring",
-  "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some",
-  "keys", "values", "entries", "merge",
+  "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some", "append",
+  "object", "keys", "values", "entries", "merge",
   "typeof", "isNull", "coalesce",
 ]);
 export type ExprKind = z.infer<typeof ExprKind>;

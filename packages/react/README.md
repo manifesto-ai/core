@@ -264,8 +264,8 @@ For non-React applications, use [`@manifesto-ai/bridge`](../bridge/) directly.
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/react/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/react/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/react/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 

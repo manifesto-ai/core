@@ -442,6 +442,36 @@ export const expr = {
   },
 
   /**
+   * Create an object with dynamic field values
+   *
+   * @example
+   * ```ts
+   * expr.object({
+   *   id: expr.input("id"),
+   *   title: expr.input("title"),
+   *   completed: expr.lit(false),
+   * })
+   * ```
+   */
+  object<T = unknown>(
+    fields: Record<string, ExprLike<unknown> | FieldRef<unknown> | ComputedRef<unknown>>
+  ): Expr<T> {
+    const compiledFields: Record<string, import("@manifesto-ai/core").ExprNode> = {};
+    const allDeps: string[] = [];
+
+    for (const [key, value] of Object.entries(fields)) {
+      const normalized = normalizeOperand(value);
+      compiledFields[key] = normalized.compile();
+      allDeps.push(...normalized.deps());
+    }
+
+    return new ExprImpl<T>(
+      { kind: "object", fields: compiledFields },
+      allDeps
+    );
+  },
+
+  /**
    * Merge multiple objects into one (later objects override earlier ones)
    *
    * @example
@@ -678,9 +708,9 @@ export const expr = {
     const arr = normalizeOperand(array);
     const itemNodes = items.map((i) => normalizeOperand(i));
 
-    // Use concat for array append
+    // Use append for array append (not concat which is for strings)
     return new ExprImpl<T[]>(
-      { kind: "concat", args: [arr.compile(), ...itemNodes.map((i) => i.compile())] },
+      { kind: "append", array: arr.compile(), items: itemNodes.map((i) => i.compile()) },
       [...arr.deps(), ...itemNodes.flatMap((i) => i.deps())]
     );
   },

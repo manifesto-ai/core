@@ -16,11 +16,14 @@ import { createDiagnostics } from "../diagnostics/index.js";
 
 /**
  * DomainModule - Complete domain output from defineDomain()
+ *
+ * Note: TActions uses `any` to avoid contravariance issues with ActionRef's intent() method.
  */
 export interface DomainModule<
   TState,
   TComputed extends Record<string, ComputedRef<unknown>>,
-  TActions extends Record<string, ActionRef<unknown>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  TActions extends Record<string, ActionRef<any>>
 > {
   /**
    * The compiled DomainSchema IR (for Core)
@@ -104,7 +107,8 @@ export function defineDomain<
   TOut["computed"] extends Record<string, ComputedRef<unknown>>
     ? TOut["computed"]
     : Record<string, never>,
-  TOut["actions"] extends Record<string, ActionRef<unknown>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  TOut["actions"] extends Record<string, ActionRef<any>>
     ? TOut["actions"]
     : Record<string, never>
 > {
@@ -180,7 +184,8 @@ export function defineDomain<
     computed: (output.computed ?? {}) as TOut["computed"] extends Record<string, ComputedRef<unknown>>
       ? TOut["computed"]
       : Record<string, never>,
-    actions: (output.actions ?? {}) as TOut["actions"] extends Record<string, ActionRef<unknown>>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    actions: (output.actions ?? {}) as TOut["actions"] extends Record<string, ActionRef<any>>
       ? TOut["actions"]
       : Record<string, never>,
     diagnostics,

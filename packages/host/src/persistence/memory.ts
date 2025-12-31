@@ -2,6 +2,18 @@ import type { Snapshot } from "@manifesto-ai/core";
 import type { SnapshotStore, SnapshotStoreWithHistory } from "./interface.js";
 
 /**
+ * Options for MemorySnapshotStore
+ */
+export interface MemorySnapshotStoreOptions {
+  /**
+   * Maximum number of snapshots to keep in history.
+   * Older snapshots are automatically pruned.
+   * Default: 100
+   */
+  maxHistory?: number;
+}
+
+/**
  * In-memory snapshot store
  *
  * Stores snapshots in memory with version history.
@@ -10,6 +22,11 @@ import type { SnapshotStore, SnapshotStoreWithHistory } from "./interface.js";
 export class MemorySnapshotStore implements SnapshotStoreWithHistory {
   private snapshots: Map<number, Snapshot> = new Map();
   private latestVersion: number = -1;
+  private maxHistory: number;
+
+  constructor(options: MemorySnapshotStoreOptions = {}) {
+    this.maxHistory = options.maxHistory ?? 100;
+  }
 
   async get(): Promise<Snapshot | null> {
     if (this.latestVersion < 0) {
@@ -39,6 +56,15 @@ export class MemorySnapshotStore implements SnapshotStoreWithHistory {
     const cloned = JSON.parse(JSON.stringify(snapshot)) as Snapshot;
     this.snapshots.set(version, cloned);
     this.latestVersion = version;
+
+    // Prune old snapshots if exceeding maxHistory
+    if (this.snapshots.size > this.maxHistory) {
+      const versions = Array.from(this.snapshots.keys()).sort((a, b) => a - b);
+      const toRemove = versions.slice(0, versions.length - this.maxHistory);
+      for (const v of toRemove) {
+        this.snapshots.delete(v);
+      }
+    }
   }
 
   async getVersion(version: number): Promise<Snapshot | null> {
@@ -80,7 +106,9 @@ export class MemorySnapshotStore implements SnapshotStoreWithHistory {
 
 /**
  * Create a new memory snapshot store
+ *
+ * @param options - Store options (maxHistory defaults to 100)
  */
-export function createMemoryStore(): MemorySnapshotStore {
-  return new MemorySnapshotStore();
+export function createMemoryStore(options?: MemorySnapshotStoreOptions): MemorySnapshotStore {
+  return new MemorySnapshotStore(options);
 }

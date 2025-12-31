@@ -186,8 +186,8 @@ For typical usage, see [`@manifesto-ai/react`](../react/) or [`@manifesto-ai/hos
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/core/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/core/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/core/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 

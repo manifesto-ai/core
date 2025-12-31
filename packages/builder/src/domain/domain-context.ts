@@ -49,10 +49,14 @@ export interface DomainContext<TSchema extends z.ZodTypeAny> {
 
 /**
  * DomainOutput - What the builder function returns
+ *
+ * Note: ActionRef uses `any` instead of `unknown` to avoid contravariance issues
+ * with the intent() method's function parameter type.
  */
 export interface DomainOutput {
   readonly computed?: Record<string, ComputedRef<unknown>>;
-  readonly actions?: Record<string, ActionRef<unknown>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly actions?: Record<string, ActionRef<any>>;
   readonly flows?: Record<string, FlowRef>;
 }
 

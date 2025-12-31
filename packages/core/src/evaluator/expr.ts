@@ -88,8 +88,12 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateEvery(expr.array, expr.predicate, ctx);
     case "some":
       return evaluateSome(expr.array, expr.predicate, ctx);
+    case "append":
+      return evaluateAppend(expr.array, expr.items, ctx);
 
     // Object
+    case "object":
+      return evaluateObject(expr.fields, ctx);
     case "keys":
       return evaluateKeys(expr.obj, ctx);
     case "values":
@@ -478,7 +482,36 @@ function evaluateSome(array: ExprNode, predicate: ExprNode, ctx: EvalContext): E
   return ok(false);
 }
 
+function evaluateAppend(array: ExprNode, items: ExprNode[], ctx: EvalContext): ExprResult {
+  const arrayResult = evaluateExpr(array, ctx);
+  if (!arrayResult.ok) return arrayResult;
+
+  const arr = arrayResult.value;
+  if (!Array.isArray(arr)) return ok([]);
+
+  const result = [...arr];
+  for (const itemExpr of items) {
+    const itemResult = evaluateExpr(itemExpr, ctx);
+    if (!itemResult.ok) return itemResult;
+    result.push(itemResult.value);
+  }
+
+  return ok(result);
+}
+
 // ============ Object ============
+
+function evaluateObject(fields: Record<string, ExprNode>, ctx: EvalContext): ExprResult {
+  const result: Record<string, unknown> = {};
+
+  for (const [key, fieldExpr] of Object.entries(fields)) {
+    const fieldResult = evaluateExpr(fieldExpr, ctx);
+    if (!fieldResult.ok) return fieldResult;
+    result[key] = fieldResult.value;
+  }
+
+  return ok(result);
+}
 
 function evaluateKeys(obj: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(obj, ctx);
