@@ -114,7 +114,7 @@ const compiler = createCompiler({
 await compiler.start({ text: "Track user profiles with name and email..." });
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -151,7 +151,7 @@ manifesto-compile --verbose "Complex requirements..."
 | `--verbose` | Show phase progress |
 | `--full` | Show full metrics |
 
-> See [GUIDE.md](./GUIDE.md#cli-usage) for detailed CLI documentation.
+> See [GUIDE.md](GUIDE.md#cli-usage) for detailed CLI documentation.
 
 ---
 
@@ -204,7 +204,7 @@ interface LLMAdapter {
 }
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -302,9 +302,9 @@ For manual domain definition, use [`@manifesto-ai/builder`](../builder/) directl
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 

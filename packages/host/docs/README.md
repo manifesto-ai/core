@@ -84,7 +84,7 @@ console.log(result.status); // → "completed"
 console.log(result.snapshot.data.user); // → { id: "123", name: "..." }
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -118,7 +118,7 @@ interface SnapshotStore {
 class MemorySnapshotStore implements SnapshotStore;
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -196,9 +196,9 @@ For typical usage with governance, see [`@manifesto-ai/world`](../world/).
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 

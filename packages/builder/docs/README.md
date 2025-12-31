@@ -124,7 +124,7 @@ console.log(TodoDomain.state.todos);   // → FieldRef<Todo[]>
 console.log(TodoDomain.actions.add);   // → ActionRef<{ title: string }>
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -177,7 +177,7 @@ type ComputedRef<T> = { path: string; /* read-only */ };
 type ActionRef<TInput> = { type: string; /* type-safe dispatch */ };
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -274,9 +274,9 @@ expr.add(state.subtotal, expr.mul(state.subtotal, state.taxRate))
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 

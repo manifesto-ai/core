@@ -92,7 +92,7 @@ console.log(result.status); // → "completed"
 console.log(result.snapshot.data.count); // → 1
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -120,7 +120,7 @@ type Patch = { op: "set" | "unset" | "merge", path, value? };
 type ComputeResult = { status, snapshot, patches, requirements, trace };
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -185,9 +185,9 @@ For typical usage, see [`@manifesto-ai/react`](../react/) or [`@manifesto-ai/hos
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 

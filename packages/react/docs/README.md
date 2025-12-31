@@ -130,7 +130,7 @@ function Root() {
 }
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -172,7 +172,7 @@ type DispatchFn = (body: IntentBody) => Promise<ProposalResult>;
 type DispatchEventFn = (event: SourceEvent) => Promise<ProposalResult | undefined>;
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -263,9 +263,9 @@ For non-React applications, use [`@manifesto-ai/bridge`](../bridge/) directly.
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 

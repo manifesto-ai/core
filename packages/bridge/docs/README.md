@@ -100,7 +100,7 @@ unsubscribe();
 bridge.dispose();
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -139,7 +139,7 @@ type ProjectionResult = { kind: "intent"; body: IntentBody } | { kind: "none" };
 type SnapshotView = Readonly<{ data, computed, system, input, meta }>;
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -226,9 +226,9 @@ For React applications, see [`@manifesto-ai/react`](../react/).
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 

@@ -85,7 +85,7 @@ console.log(result.status); // → "completed"
 console.log(result.world.worldId); // → "w_abc123..."
 ```
 
-> See [GUIDE.md](./GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full tutorial.
 
 ---
 
@@ -119,7 +119,7 @@ type DecisionRecord = { decisionId, proposalId, authority, decision, timestamp }
 type ActorRef = { actorId, kind: "human" | "agent" | "system", name?, meta? };
 ```
 
-> See [SPEC.md](./SPEC.md) for complete API reference.
+> See [SPEC.md](SPEC.md) for complete API reference.
 
 ---
 
@@ -202,9 +202,9 @@ For simple applications without governance, you can use Host directly.
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](SPEC.md) | Complete specification |
+| [FDR.md](FDR.md) | Design rationale |
 
 ---
 
