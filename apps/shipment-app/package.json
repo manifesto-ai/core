@@ -1,13 +1,12 @@
 {
-  "name": "example-todo",
+  "name": "shipment-app",
   "version": "1.0.0",
-  "description": "Todo example using MEL compiler, Host, and Effect-Utils",
+  "description": "Global Ocean Logistics example using MEL compiler and Host",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "node --import=tsx src/main.ts",
-    "dev": "tsx watch src/main.ts"
+    "start": "node --import=tsx src/main.ts"
   },
   "dependencies": {
     "@manifesto-ai/compiler": "workspace:*",

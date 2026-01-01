@@ -1,0 +1,400 @@
+/**
+ * GlobalOceanLogistics Domain (Simplified)
+ *
+ * Demonstrates 4 real-world shipping scenarios:
+ * 1. Real-time Tracking Dashboard
+ * 2. Instant Freight Quotes
+ * 3. B/L Document Processing
+ * 4. Port Disruption Management
+ */
+
+domain GlobalOceanLogistics {
+  state {
+    // ===========================================
+    // 1) Tracking Dashboard
+    // ===========================================
+    trackingCustomerId: string | null = null
+    trackingShipments: Json = {}
+    trackingSignals: Json | null = null
+    trackingEffective: Json = {}
+    trackingErrorKeys: Array<string> | null = null
+    trackingStatus: string = "idle"
+    trackingRefreshedAt: number | null = null
+
+    // Re-entry guards
+    trackingRefreshIntent: string | null = null
+    trackingBuildEffectiveIntent: string | null = null
+    trackingExtractErrorsIntent: string | null = null
+
+    // ===========================================
+    // 2) Quoting
+    // ===========================================
+    quotingActiveId: string | null = null
+    quotingRequests: Json = {}
+
+    // Re-entry guards
+    quotingRequestIntent: string | null = null
+    quotingFilterFastIntent: string | null = null
+    quotingExtractPendingIntent: string | null = null
+
+    // ===========================================
+    // 3) Documents (B/L)
+    // ===========================================
+    documentsOrderId: string | null = null
+    documentsPdf: Json | null = null
+    documentsMeta: Json | null = null
+    documentsOcrText: string | null = null
+    documentsExtracted: Json | null = null
+    documentsUnipass: Json | null = null
+    documentsRiskyItems: Array<Json> | null = null
+    documentsStatus: string = "idle"
+
+    // Re-entry guards
+    documentsOpenIntent: string | null = null
+    documentsOcrIntent: string | null = null
+    documentsParseIntent: string | null = null
+    documentsUnipassIntent: string | null = null
+    documentsHighlightIntent: string | null = null
+
+    // ===========================================
+    // 4) Disruptions
+    // ===========================================
+    disruptionEventId: string | null = null
+    disruptionEvents: Json = {}
+    disruptionImpactedOrders: Json | null = null
+    disruptionAlternatives: Json | null = null
+    disruptionBeforeAfter: Json | null = null
+    disruptionNotification: Json | null = null
+    disruptionStatus: string = "idle"
+
+    // Re-entry guards
+    disruptionProcessIntent: string | null = null
+    disruptionCompareIntent: string | null = null
+  }
+
+  // ===========================================
+  // Computed Values
+  // ===========================================
+
+  computed isTrackingDegraded = and(
+    isNotNull(trackingErrorKeys),
+    gt(len(trackingErrorKeys), 0)
+  )
+
+  computed hasDocumentRisk = and(
+    isNotNull(documentsRiskyItems),
+    gt(len(documentsRiskyItems), 0)
+  )
+
+  // ===========================================
+  // Actions
+  // ===========================================
+
+  /**
+   * Refresh tracking dashboard
+   * - Load customer shipments
+   * - Aggregate signals (AIS/TOS/Weather)
+   * - Build effective tracking views
+   */
+  action refreshDashboard(customerId: string) {
+    when eq(trim(customerId), "") {
+      fail "MISSING_CUSTOMER" with "customerId is required"
+    }
+
+    once(trackingRefreshIntent) {
+      patch trackingRefreshIntent = $meta.intentId
+      patch trackingCustomerId = customerId
+      patch trackingStatus = "loading"
+
+      // Load shipments for this customer
+      effect api.shipment.listActive({
+        customerId: customerId,
+        into: trackingShipments
+      })
+
+      // Aggregate signals (AIS + TOS + Weather)
+      effect api.tracking.aggregateSignals({
+        customerId: customerId,
+        into: trackingSignals
+      })
+
+      patch trackingRefreshedAt = $system.timestamp
+    }
+
+    // Extract error keys if signals have errors
+    once(trackingExtractErrorsIntent) when and(
+      isNotNull(trackingSignals),
+      isNotNull(trackingSignals.errors)
+    ) {
+      patch trackingExtractErrorsIntent = $meta.intentId
+
+      effect record.keys({
+        source: trackingSignals.errors,
+        into: trackingErrorKeys
+      })
+    }
+
+    // Build effective tracking views
+    once(trackingBuildEffectiveIntent) when and(
+      isNotNull(trackingShipments),
+      isNotNull(trackingSignals)
+    ) {
+      patch trackingBuildEffectiveIntent = $meta.intentId
+
+      effect record.mapValues({
+        source: trackingShipments,
+        select: {
+          position: trackingSignals.ais.positionsByShipment[$item.id],
+          typhoonIndex: coalesce(trackingSignals.weather.typhoonDelayIndexByLane[$item.laneId], 0),
+          portCongestion: coalesce(trackingSignals.tos.portCongestionIndexByPort[$item.destinationPort], 0)
+        },
+        into: trackingEffective
+      })
+
+      patch trackingStatus = cond(isTrackingDegraded, "degraded", "ready")
+    }
+  }
+
+  /**
+   * Request instant quote
+   * - Check ERP credit
+   * - Request quotes from all carriers
+   * - Filter fast responses (< 3s)
+   */
+  action requestQuote(customerId: string, origin: string, destination: string) {
+    when eq(trim(customerId), "") { fail "MISSING_CUSTOMER" with "customerId is required" }
+    when eq(trim(origin), "") { fail "MISSING_ORIGIN" with "origin is required" }
+    when eq(trim(destination), "") { fail "MISSING_DESTINATION" with "destination is required" }
+
+    once(quotingRequestIntent) {
+      patch quotingRequestIntent = $meta.intentId
+      patch quotingActiveId = $system.uuid
+
+      // Initialize request
+      patch quotingRequests[$system.uuid] = {
+        id: $system.uuid,
+        customerId: customerId,
+        origin: trim(origin),
+        destination: trim(destination),
+        createdAt: $system.timestamp,
+        status: "loading",
+        credit: null,
+        quotes: {},
+        fastQuotes: {},
+        fastCarriers: null,
+        pendingCarriers: null
+      }
+
+      // ERP credit check
+      effect api.erp.getCustomerCredit({
+        customerId: customerId,
+        into: quotingRequests[quotingActiveId].credit
+      })
+
+      // Multi-carrier rate request
+      effect api.quote.requestAllCarriers({
+        customerId: customerId,
+        origin: trim(origin),
+        destination: trim(destination),
+        into: quotingRequests[quotingActiveId].quotes
+      })
+    }
+
+    // Filter fast quotes (responded within 3s with ok status)
+    once(quotingFilterFastIntent) when isNotNull(quotingActiveId) {
+      patch quotingFilterFastIntent = $meta.intentId
+
+      effect record.filter({
+        source: quotingRequests[quotingActiveId].quotes,
+        where: and(eq($item.status, "ok"), lte($item.receivedWithinMs, 3000)),
+        into: quotingRequests[quotingActiveId].fastQuotes
+      })
+
+      effect record.keys({
+        source: quotingRequests[quotingActiveId].fastQuotes,
+        into: quotingRequests[quotingActiveId].fastCarriers
+      })
+
+      patch quotingRequests[quotingActiveId].status = "partial"
+    }
+
+    // Extract pending carriers
+    once(quotingExtractPendingIntent) when isNotNull(quotingActiveId) {
+      patch quotingExtractPendingIntent = $meta.intentId
+
+      effect record.filter({
+        source: quotingRequests[quotingActiveId].quotes,
+        where: not(and(eq($item.status, "ok"), lte($item.receivedWithinMs, 3000))),
+        into: quotingRequests[quotingActiveId].pendingQuotes
+      })
+
+      effect record.keys({
+        source: quotingRequests[quotingActiveId].pendingQuotes,
+        into: quotingRequests[quotingActiveId].pendingCarriers
+      })
+    }
+  }
+
+  /**
+   * Open Bill of Lading
+   * - Fetch PDF and metadata
+   * - OCR text extraction
+   * - Parse B/L fields
+   * - Customs risk check (Unipass)
+   */
+  action openBillOfLading(orderId: string) {
+    when eq(trim(orderId), "") {
+      fail "MISSING_ORDER" with "orderId is required"
+    }
+
+    once(documentsOpenIntent) {
+      patch documentsOpenIntent = $meta.intentId
+      patch documentsOrderId = orderId
+      patch documentsStatus = "loading"
+
+      // Reset state
+      patch documentsPdf = null
+      patch documentsMeta = null
+      patch documentsOcrText = null
+      patch documentsExtracted = null
+      patch documentsUnipass = null
+      patch documentsRiskyItems = null
+
+      // Fetch metadata and PDF
+      effect api.bl.fetchMetadata({
+        orderId: orderId,
+        into: documentsMeta
+      })
+
+      effect api.bl.fetchPdf({
+        orderId: orderId,
+        into: documentsPdf
+      })
+    }
+
+    // OCR extraction after PDF is loaded
+    once(documentsOcrIntent) when isNotNull(documentsPdf) {
+      patch documentsOcrIntent = $meta.intentId
+
+      effect ocr.extractText({
+        pdf: documentsPdf,
+        into: documentsOcrText
+      })
+    }
+
+    // Parse B/L fields from OCR text
+    once(documentsParseIntent) when isNotNull(documentsOcrText) {
+      patch documentsParseIntent = $meta.intentId
+
+      effect ocr.extractBlFields({
+        text: documentsOcrText,
+        into: documentsExtracted
+      })
+    }
+
+    // Unipass customs risk check
+    once(documentsUnipassIntent) when and(
+      isNotNull(documentsExtracted),
+      isNotNull(documentsExtracted.hsCodes),
+      isNotNull(documentsExtracted.containerNos)
+    ) {
+      patch documentsUnipassIntent = $meta.intentId
+
+      effect api.unipass.checkCustomsRisk({
+        hsCodes: documentsExtracted.hsCodes,
+        containerNos: documentsExtracted.containerNos,
+        into: documentsUnipass
+      })
+    }
+
+    // Highlight risky items
+    once(documentsHighlightIntent) when and(
+      isNotNull(documentsUnipass),
+      isNotNull(documentsUnipass.items)
+    ) {
+      patch documentsHighlightIntent = $meta.intentId
+
+      effect array.filter({
+        source: documentsUnipass.items,
+        where: eq($item.risk, "deny"),
+        into: documentsRiskyItems
+      })
+
+      patch documentsStatus = "ready"
+    }
+  }
+
+  /**
+   * Process port disruption
+   * - Find impacted orders
+   * - Broadcast notifications
+   * - Find alternative routes
+   * - Build before/after comparison
+   */
+  action processDisruption(eventId: string, portCode: string, kind: string) {
+    when eq(trim(eventId), "") { fail "MISSING_EVENT" with "eventId is required" }
+    when eq(trim(portCode), "") { fail "MISSING_PORT" with "portCode is required" }
+
+    once(disruptionProcessIntent) {
+      patch disruptionProcessIntent = $meta.intentId
+      patch disruptionEventId = eventId
+      patch disruptionStatus = "loading"
+
+      // Record event
+      patch disruptionEvents[eventId] = {
+        id: eventId,
+        portCode: trim(portCode),
+        kind: kind,
+        createdAt: $system.timestamp
+      }
+
+      // Find impacted orders
+      effect api.orders.searchActiveByPort({
+        portCode: trim(portCode),
+        into: disruptionImpactedOrders
+      })
+
+      // Broadcast notifications
+      effect api.notify.broadcastDisruption({
+        eventId: eventId,
+        portCode: trim(portCode),
+        kind: kind,
+        into: disruptionNotification
+      })
+
+      // Find alternative routes
+      effect api.route.findAlternativeRoutes({
+        eventId: eventId,
+        portCode: trim(portCode),
+        into: disruptionAlternatives
+      })
+    }
+
+    // Build before/after comparison
+    once(disruptionCompareIntent) when and(
+      isNotNull(disruptionImpactedOrders),
+      isNotNull(disruptionAlternatives)
+    ) {
+      patch disruptionCompareIntent = $meta.intentId
+
+      effect record.mapValues({
+        source: disruptionImpactedOrders,
+        select: {
+          orderId: $item.id,
+          before: {
+            eta: $item.schedule.eta,
+            route: $item.schedule.route
+          },
+          after: {
+            eta: disruptionAlternatives[$item.id].eta,
+            route: disruptionAlternatives[$item.id].route,
+            deltaHours: disruptionAlternatives[$item.id].deltaHours
+          }
+        },
+        into: disruptionBeforeAfter
+      })
+
+      patch disruptionStatus = "ready"
+    }
+  }
+}
