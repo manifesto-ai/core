@@ -883,6 +883,66 @@ export const expr = {
     );
   },
 
+  // ============ Array Aggregation (v0.3.2) ============
+
+  /**
+   * Sum of numeric array elements
+   * Returns 0 for empty array or non-array
+   *
+   * @example
+   * ```ts
+   * expr.sum(state.values)  // Sum of all numbers
+   * expr.sum(expr.map(state.items, item => item.price))  // Sum of prices
+   * ```
+   */
+  sum(
+    array: ExprLike<number[]> | FieldRef<number[]> | FieldRef<unknown>
+  ): Expr<number> {
+    const arr = normalizeOperand(array);
+    return new ExprImpl<number>(
+      { kind: "sumArray", array: arr.compile() },
+      arr.deps()
+    );
+  },
+
+  /**
+   * Minimum value in numeric array
+   * Returns null for empty array or non-array
+   *
+   * @example
+   * ```ts
+   * expr.minOf(state.values)  // Minimum value
+   * ```
+   */
+  minOf(
+    array: ExprLike<number[]> | FieldRef<number[]> | FieldRef<unknown>
+  ): Expr<number | null> {
+    const arr = normalizeOperand(array);
+    return new ExprImpl<number | null>(
+      { kind: "minArray", array: arr.compile() },
+      arr.deps()
+    );
+  },
+
+  /**
+   * Maximum value in numeric array
+   * Returns null for empty array or non-array
+   *
+   * @example
+   * ```ts
+   * expr.maxOf(state.values)  // Maximum value
+   * ```
+   */
+  maxOf(
+    array: ExprLike<number[]> | FieldRef<number[]> | FieldRef<unknown>
+  ): Expr<number | null> {
+    const arr = normalizeOperand(array);
+    return new ExprImpl<number | null>(
+      { kind: "maxArray", array: arr.compile() },
+      arr.deps()
+    );
+  },
+
   // ============ Object Operations (Phase 5) ============
 
   /**

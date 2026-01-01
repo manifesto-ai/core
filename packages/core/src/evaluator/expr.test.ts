@@ -665,4 +665,81 @@ describe("Expression Evaluator", () => {
       }, ctx)).toBe(1);
     });
   });
+
+  // v0.3.2: Array Aggregation Functions
+  describe("Array Aggregation", () => {
+    it("sumArray - should sum numeric array", () => {
+      const ctx = createTestContext({ values: [1, 2, 3, 4, 5] });
+      expect(evaluate({
+        kind: "sumArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(15);
+    });
+
+    it("sumArray - should return 0 for empty array", () => {
+      const ctx = createTestContext({ values: [] });
+      expect(evaluate({
+        kind: "sumArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(0);
+    });
+
+    it("sumArray - should return 0 for non-array", () => {
+      expect(evaluate({
+        kind: "sumArray",
+        array: { kind: "lit", value: "not an array" },
+      })).toBe(0);
+    });
+
+    it("minArray - should find minimum in array", () => {
+      const ctx = createTestContext({ values: [5, 2, 8, 1, 9] });
+      expect(evaluate({
+        kind: "minArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(1);
+    });
+
+    it("minArray - should return null for empty array", () => {
+      const ctx = createTestContext({ values: [] });
+      expect(evaluate({
+        kind: "minArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBeNull();
+    });
+
+    it("maxArray - should find maximum in array", () => {
+      const ctx = createTestContext({ values: [5, 2, 8, 1, 9] });
+      expect(evaluate({
+        kind: "maxArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(9);
+    });
+
+    it("maxArray - should return null for empty array", () => {
+      const ctx = createTestContext({ values: [] });
+      expect(evaluate({
+        kind: "maxArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBeNull();
+    });
+
+    it("sumArray - should work with nested expressions", () => {
+      const ctx = createTestContext({
+        items: [
+          { price: 10 },
+          { price: 20 },
+          { price: 30 },
+        ],
+      });
+      // sum(map(items, $item.price))
+      expect(evaluate({
+        kind: "sumArray",
+        array: {
+          kind: "map",
+          array: { kind: "get", path: "items" },
+          mapper: { kind: "get", path: "$item.price" },
+        },
+      }, ctx)).toBe(60);
+    });
+  });
 });
