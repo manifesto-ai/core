@@ -40,8 +40,9 @@ export interface SetupDomainResult {
  * }
  * ```
  */
-export function setupDomain(
-  domain: DomainModule<unknown, Record<string, never>, Record<string, never>>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setupDomain<T extends DomainModule<any, any, any>>(
+  domain: T
 ): SetupDomainResult {
   const { schema, diagnostics } = domain;
 
@@ -69,8 +70,9 @@ export function setupDomain(
  *
  * Useful for development-time validation without the full setup process.
  */
-export function validateDomain(
-  domain: DomainModule<unknown, Record<string, never>, Record<string, never>>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function validateDomain<T extends DomainModule<any, any, any>>(
+  domain: T
 ): DomainDiagnostics {
   return domain.diagnostics;
 }

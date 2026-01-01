@@ -1,11 +1,18 @@
+/**
+ * @manifesto-ai/compiler v1.1 LLM Effects
+ *
+ * Exports for LLM-related effects: adapters, handlers, parser, prompts.
+ */
+
 // Adapter
 export type {
   LLMAdapter,
   LLMAdapterConfig,
   LLMResult,
-  SegmentResult,
-  NormalizeResult,
-  ProposeResult,
+  PlanRequest,
+  PlanResult,
+  GenerateRequest,
+  GenerateResult,
 } from "./adapter.js";
 export { DEFAULT_LLM_CONFIG } from "./adapter.js";
 
@@ -18,10 +25,10 @@ export {
 
 // Handlers
 export {
-  createSegmentHandler,
-  createNormalizeHandler,
-  createProposeHandler,
+  createPlanHandler,
+  createGenerateHandler,
   createLLMEffectHandlers,
+  DEFAULT_RESOLUTION_POLICY,
   type LLMEffectHandler,
   type EffectHandlerResult,
 } from "./handlers.js";
@@ -29,13 +36,21 @@ export {
 // Parser
 export {
   parseJSONResponse,
-  extractResolutionRequest,
+  extractAmbiguity,
+  validatePlanResponse,
+  validateFragmentDraftResponse,
+  // Legacy exports (deprecated)
   validateSegmentsResponse,
-  validateIntentsResponse,
   validateDraftResponse,
   type ParseResult,
-  type ResolutionRequest,
+  type AmbiguityInfo,
+  type RawPlan,
+  type RawChunk,
+  type RawChunkDependency,
+  type RawFragmentDraft,
+  type RawFragmentInterpretation,
 } from "./parser.js";
 
 // Prompts
-export { createSegmentPrompt, createNormalizePrompt, createProposePrompt } from "./prompts/index.js";
+export { createPlanPrompt } from "./prompts/plan.js";
+export { createGeneratePrompt } from "./prompts/generate.js";

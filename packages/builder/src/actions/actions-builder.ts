@@ -51,8 +51,10 @@ export interface BuiltActionSpec {
 
 /**
  * Type helper to extract input type from ActionSpec
+ * If the spec has an `input` field with a ZodType, extract that type.
+ * Otherwise, return void (for actions without input).
  */
-type ActionInputType<S> = S extends ActionSpecInput<infer I> ? I : void;
+type ActionInputType<S> = S extends { input: z.ZodType<infer I> } ? I : void;
 
 /**
  * ActionsBuilder - Builder for action definitions
@@ -84,7 +86,8 @@ export class ActionsBuilder {
   define<T extends Record<string, ActionSpecInput<unknown>>>(
     definitions: T
   ): { [K in keyof T]: ActionRef<ActionInputType<T[K]>> } {
-    const result: Record<string, ActionRef<unknown>> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: Record<string, ActionRef<any>> = {};
 
     for (const [name, spec] of Object.entries(definitions)) {
       const availableExpr = this.normalizeAvailable(spec.available);

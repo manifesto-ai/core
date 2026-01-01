@@ -300,7 +300,7 @@ flow: ({ state }) =>
   ])
 ```
 
-> See [Host FDR](./packages/host/FDR.md)
+> See [Host FDR](../packages/host/docs/FDR.md)
 
 ### Snapshot version keeps incrementing unexpectedly
 

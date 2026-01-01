@@ -1,21 +1,61 @@
+/**
+ * @manifesto-ai/compiler v1.1 OpenAI Adapter
+ *
+ * LLM Adapter implementation using OpenAI API.
+ * Per SPEC §10: LLM Actors are untrusted proposers.
+ */
+
 import OpenAI from "openai";
 import type {
   LLMAdapter,
   LLMAdapterConfig,
-  SegmentResult,
-  NormalizeResult,
-  ProposeResult,
+  PlanRequest,
+  PlanResult,
+  GenerateRequest,
+  GenerateResult,
+  RawPlanOutput,
+  RawDraftOutput,
 } from "./adapter.js";
 import { DEFAULT_LLM_CONFIG } from "./adapter.js";
-import { createSegmentPrompt, createNormalizePrompt, createProposePrompt } from "./prompts/index.js";
+import { createPlanPrompt } from "./prompts/plan.js";
+import { createGeneratePrompt } from "./prompts/generate.js";
+import { createClassifyPrompt } from "./prompts/classify.js";
 import {
   parseJSONResponse,
-  extractResolutionRequest,
-  validateSegmentsResponse,
-  validateIntentsResponse,
-  validateDraftResponse,
+  extractAmbiguity,
+  validatePlanResponse,
+  validateFragmentDraftResponse,
 } from "./parser.js";
-import type { CompilerContext, NormalizedIntent, AttemptRecord } from "../../domain/types.js";
+import {
+  splitInput,
+  inferDependencies,
+  type Segment,
+  type ClassifiedSegment,
+} from "./splitter.js";
+import type { FragmentType } from "../../domain/types.js";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §1 Adapter Options
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Options for parallel planning
+ */
+export interface ParallelPlanOptions {
+  /** Maximum number of concurrent API calls (default: 3) */
+  maxConcurrency?: number;
+  /** Number of segments per batch (default: 3) */
+  batchSize?: number;
+}
+
+/**
+ * Valid fragment types
+ */
+const VALID_FRAGMENT_TYPES = ["state", "computed", "action", "constraint", "effect", "flow"];
+
+function isValidFragmentType(type: string): boolean {
+  return VALID_FRAGMENT_TYPES.includes(type);
+}
 
 /**
  * OpenAI adapter options
@@ -41,24 +81,27 @@ export interface OpenAIAdapterOptions extends Partial<LLMAdapterConfig> {
 /**
  * Default OpenAI configuration
  */
-const DEFAULT_OPENAI_CONFIG: Required<Omit<LLMAdapterConfig, "systemPromptPrefix">> & {
-  systemPromptPrefix: string;
-} = {
-  model: "gpt-4o",
+const DEFAULT_OPENAI_CONFIG: Required<LLMAdapterConfig> = {
+  model: "gpt-4o-mini",
   maxTokens: 4096,
-  temperature: 0.1,
+  temperature: 0.2,  // Lower temperature for structured output
   timeout: 60000,
   systemPromptPrefix: "",
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// §2 OpenAI Adapter Implementation
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
  * OpenAI adapter for LLM operations
  *
- * Implements the LLMAdapter interface for OpenAI GPT models.
+ * Per SPEC §10: LLM Actors are implemented as effect handlers.
+ * This adapter implements the v1.1 LLMAdapter interface.
  */
 export class OpenAIAdapter implements LLMAdapter {
   private client: OpenAI;
-  private config: Required<LLMAdapterConfig>;
+  private config: LLMAdapterConfig;
 
   constructor(options: OpenAIAdapterOptions = {}) {
     this.client = new OpenAI({
@@ -70,32 +113,36 @@ export class OpenAIAdapter implements LLMAdapter {
 
     this.config = {
       model: options.model ?? DEFAULT_OPENAI_CONFIG.model,
-      maxTokens: options.maxTokens ?? DEFAULT_OPENAI_CONFIG.maxTokens,
+      max_completion_tokens: options.maxTokens ?? DEFAULT_OPENAI_CONFIG.maxTokens,
       temperature: options.temperature ?? DEFAULT_OPENAI_CONFIG.temperature,
       timeout: options.timeout ?? DEFAULT_OPENAI_CONFIG.timeout,
       systemPromptPrefix: options.systemPromptPrefix ?? DEFAULT_OPENAI_CONFIG.systemPromptPrefix,
     };
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.1 Plan
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /**
-   * Segment natural language text into requirement segments
+   * Generate a Plan from SourceInput
+   *
+   * Per SPEC §10.3: PlannerActor responsibility.
    */
-  async segment(params: { text: string }): Promise<SegmentResult> {
+  async plan(request: PlanRequest): Promise<PlanResult> {
     try {
-      const prompt = createSegmentPrompt(params.text);
+      const { systemPrompt, userPrompt } = createPlanPrompt({
+        sourceInput: request.sourceInput,
+        hints: request.hints,
+      });
+
       const response = await this.client.chat.completions.create({
         model: this.config.model,
-        max_tokens: this.config.maxTokens,
+        max_completion_tokens: this.config.maxTokens,
         temperature: this.config.temperature,
         messages: [
-          {
-            role: "system",
-            content: this.config.systemPromptPrefix + prompt.systemPrompt,
-          },
-          {
-            role: "user",
-            content: prompt.userPrompt,
-          },
+          { role: "system", content: this.config.systemPromptPrefix + systemPrompt },
+          { role: "user", content: userPrompt },
         ],
       });
 
@@ -104,135 +151,236 @@ export class OpenAIAdapter implements LLMAdapter {
         return { ok: false, error: "Empty response from LLM" };
       }
 
-      // Check for resolution request
-      const resolution = extractResolutionRequest(content);
-      if (resolution) {
+      // Parse JSON
+      const parseResult = parseJSONResponse<unknown>(content);
+      if (!parseResult.ok) {
+        return { ok: false, error: parseResult.error };
+      }
+
+      // Check for explicit error
+      const data = parseResult.data as Record<string, unknown>;
+      if (data.error) {
+        return { ok: false, error: String(data.error) };
+      }
+
+      // Check for ambiguity
+      const ambiguity = extractAmbiguity<{ plan: Record<string, unknown> }>(data);
+      if (ambiguity) {
+        const validatedAlternatives: Array<{ plan: RawPlanOutput }> = [];
+        for (const alt of ambiguity.alternatives) {
+          const validateResult = validatePlanResponse(alt);
+          if (validateResult.ok) {
+            validatedAlternatives.push({ plan: validateResult.data.plan });
+          }
+        }
+
+        if (validatedAlternatives.length === 0) {
+          return { ok: false, error: "All alternatives failed validation" };
+        }
+
         return {
-          ok: "resolution",
-          reason: resolution.reason,
-          options: resolution.options,
+          ok: "ambiguous",
+          reason: ambiguity.reason,
+          alternatives: validatedAlternatives,
         };
       }
 
-      // Parse and validate response
-      const parsed = parseJSONResponse<{ segments: string[] }>(content);
-      if (!parsed.ok) {
-        return { ok: false, error: `Failed to parse response: ${parsed.error}` };
+      // Validate plan response
+      const validateResult = validatePlanResponse(data);
+      if (!validateResult.ok) {
+        return { ok: false, error: validateResult.error };
       }
 
-      const validated = validateSegmentsResponse(parsed.data);
-      if (!validated.ok) {
-        return { ok: false, error: `Invalid response: ${validated.error}` };
-      }
-
-      return { ok: true, data: validated.data };
-    } catch (error) {
       return {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        ok: true,
+        data: { plan: validateResult.data.plan },
       };
+    } catch (error) {
+      return { ok: false, error: this.formatError(error) };
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.2 Plan Parallel (Optimized)
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /**
-   * Normalize segments into structured intents
+   * Generate a Plan using parallel classification
+   *
+   * Optimized version that:
+   * 1. Splits input into segments by line breaks
+   * 2. Classifies segments in parallel batches
+   * 3. Infers dependencies deterministically
    */
-  async normalize(params: {
-    segments: string[];
-    schema: unknown;
-    context?: CompilerContext;
-  }): Promise<NormalizeResult> {
+  async planParallel(
+    request: PlanRequest,
+    options: ParallelPlanOptions = {}
+  ): Promise<PlanResult> {
+    const maxConcurrency = options.maxConcurrency ?? 3;
+    const batchSize = options.batchSize ?? 3;
+
     try {
-      const prompt = createNormalizePrompt(params.segments, params.schema, params.context);
-      const response = await this.client.chat.completions.create({
-        model: this.config.model,
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-        messages: [
-          {
-            role: "system",
-            content: this.config.systemPromptPrefix + prompt.systemPrompt,
-          },
-          {
-            role: "user",
-            content: prompt.userPrompt,
-          },
-        ],
+      // Step 1: Split input into segments
+      const { segments, batches } = splitInput(request.sourceInput.content, {
+        batchSize,
+        minLength: 10,
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        return { ok: false, error: "Empty response from LLM" };
+      if (segments.length === 0) {
+        return { ok: false, error: "No segments found in input" };
       }
 
-      // Check for resolution request
-      const resolution = extractResolutionRequest(content);
-      if (resolution) {
-        return {
-          ok: "resolution",
-          reason: resolution.reason,
-          options: resolution.options,
-        };
+      if (process.env.DEBUG) {
+        console.log(`[PlanParallel] Split into ${segments.length} segments, ${batches.length} batches`);
       }
 
-      // Parse and validate response
-      const parsed = parseJSONResponse<{ intents: NormalizedIntent[] }>(content);
-      if (!parsed.ok) {
-        return { ok: false, error: `Failed to parse response: ${parsed.error}` };
-      }
-
-      const validated = validateIntentsResponse(parsed.data);
-      if (!validated.ok) {
-        return { ok: false, error: `Invalid response: ${validated.error}` };
-      }
-
-      // Cast to NormalizedIntent (validator ensures correctness)
-      const intents: NormalizedIntent[] = validated.data.intents.map((i) => ({
-        kind: i.kind as "state" | "computed" | "action" | "constraint",
-        description: i.description,
-        confidence: i.confidence,
-      }));
-
-      return { ok: true, data: { intents } };
-    } catch (error) {
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  }
-
-  /**
-   * Propose a DomainDraft from intents
-   */
-  async propose(params: {
-    schema: unknown;
-    intents: NormalizedIntent[];
-    history: AttemptRecord[];
-    context?: CompilerContext;
-    resolution?: string;
-  }): Promise<ProposeResult> {
-    try {
-      const prompt = createProposePrompt(
-        params.schema,
-        params.intents,
-        params.history,
-        params.context,
-        params.resolution
+      // Step 2: Classify batches in parallel
+      const classifyResults = await this.classifyBatchesParallel(
+        batches,
+        maxConcurrency
       );
+
+      // Check for errors
+      const errors = classifyResults.filter((r) => r.error);
+      if (errors.length > 0) {
+        return { ok: false, error: errors.map((e) => e.error).join("; ") };
+      }
+
+      // Flatten classifications
+      const allClassified: ClassifiedSegment[] = classifyResults.flatMap(
+        (r) => r.classified ?? []
+      );
+
+      if (allClassified.length === 0) {
+        return { ok: false, error: "Classification returned no results" };
+      }
+
+      if (process.env.DEBUG) {
+        console.log(`[PlanParallel] Classified ${allClassified.length} segments`);
+      }
+
+      // Step 3: Infer dependencies
+      const chunksWithDeps = inferDependencies(allClassified);
+
+      // Step 4: Build plan
+      const plan: RawPlanOutput = {
+        strategy: "by-statement",
+        chunks: chunksWithDeps.map((chunk, index) => ({
+          content: chunk.content,
+          expectedType: chunk.expectedType,
+          dependencies: chunk.dependencies,
+          sourceSpan: segments[index]
+            ? { start: segments[index].startOffset, end: segments[index].endOffset }
+            : undefined,
+        })),
+        rationale: `Parallel classification of ${segments.length} statements`,
+      };
+
+      return {
+        ok: true,
+        data: { plan },
+      };
+    } catch (error) {
+      return { ok: false, error: this.formatError(error) };
+    }
+  }
+
+  /**
+   * Classify batches in parallel with concurrency limit
+   */
+  private async classifyBatchesParallel(
+    batches: Segment[][],
+    maxConcurrency: number
+  ): Promise<Array<{ classified?: ClassifiedSegment[]; error?: string }>> {
+    const results: Array<{ classified?: ClassifiedSegment[]; error?: string }> = [];
+
+    // Process batches with concurrency limit
+    for (let i = 0; i < batches.length; i += maxConcurrency) {
+      const chunk = batches.slice(i, i + maxConcurrency);
+      const promises = chunk.map((batch) => this.classifyBatch(batch));
+      const batchResults = await Promise.all(promises);
+      results.push(...batchResults);
+    }
+
+    return results;
+  }
+
+  /**
+   * Classify a single batch of segments
+   */
+  private async classifyBatch(
+    segments: Segment[]
+  ): Promise<{ classified?: ClassifiedSegment[]; error?: string }> {
+    try {
+      const { systemPrompt, userPrompt } = createClassifyPrompt({ segments });
+
       const response = await this.client.chat.completions.create({
         model: this.config.model,
-        max_tokens: this.config.maxTokens,
+        max_completion_tokens: 1024, // Smaller for classification
+        temperature: 0.1, // Lower for classification
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return { error: "Empty response from LLM" };
+      }
+
+      // Parse JSON array
+      const parseResult = parseJSONResponse<unknown[]>(content);
+      if (!parseResult.ok) {
+        return { error: parseResult.error };
+      }
+
+      // Validate and map to ClassifiedSegment
+      const data = parseResult.data as Array<{ index: number; type: string }>;
+      const classified: ClassifiedSegment[] = [];
+
+      for (const item of data) {
+        const segment = segments.find((s) => s.index === item.index);
+        if (segment && isValidFragmentType(item.type)) {
+          classified.push({
+            content: segment.content,
+            type: item.type as FragmentType,
+            index: item.index,
+          });
+        }
+      }
+
+      return { classified };
+    } catch (error) {
+      return { error: this.formatError(error) };
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.3 Generate
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Generate a FragmentDraft from a Chunk
+   *
+   * Per SPEC §10.4: GeneratorActor responsibility.
+   */
+  async generate(request: GenerateRequest): Promise<GenerateResult> {
+    try {
+      const { systemPrompt, userPrompt } = createGeneratePrompt({
+        chunk: request.chunk,
+        plan: request.plan,
+        existingFragments: request.existingFragments,
+        retryContext: request.retryContext,
+      });
+
+      const response = await this.client.chat.completions.create({
+        model: this.config.model,
+        max_completion_tokens: this.config.maxTokens,
         temperature: this.config.temperature,
         messages: [
-          {
-            role: "system",
-            content: this.config.systemPromptPrefix + prompt.systemPrompt,
-          },
-          {
-            role: "user",
-            content: prompt.userPrompt,
-          },
+          { role: "system", content: this.config.systemPromptPrefix + systemPrompt },
+          { role: "user", content: userPrompt },
         ],
       });
 
@@ -241,40 +389,83 @@ export class OpenAIAdapter implements LLMAdapter {
         return { ok: false, error: "Empty response from LLM" };
       }
 
-      // Check for resolution request
-      const resolution = extractResolutionRequest(content);
-      if (resolution) {
+      // Parse JSON
+      const parseResult = parseJSONResponse<unknown>(content);
+      if (!parseResult.ok) {
+        return { ok: false, error: parseResult.error };
+      }
+
+      // Check for explicit error
+      const data = parseResult.data as Record<string, unknown>;
+      if (data.error) {
+        return { ok: false, error: String(data.error) };
+      }
+
+      // Check for ambiguity
+      const ambiguity = extractAmbiguity<{ draft: Record<string, unknown> }>(data);
+      if (ambiguity) {
+        const validatedAlternatives: Array<{ draft: RawDraftOutput }> = [];
+        for (const alt of ambiguity.alternatives) {
+          const validateResult = validateFragmentDraftResponse(alt);
+          if (validateResult.ok) {
+            validatedAlternatives.push({ draft: validateResult.data.draft });
+          }
+        }
+
+        if (validatedAlternatives.length === 0) {
+          return { ok: false, error: "All alternatives failed validation" };
+        }
+
         return {
-          ok: "resolution",
-          reason: resolution.reason,
-          options: resolution.options,
+          ok: "ambiguous",
+          reason: ambiguity.reason,
+          alternatives: validatedAlternatives,
         };
       }
 
-      // Parse and validate response
-      const parsed = parseJSONResponse<{ draft: unknown }>(content);
-      if (!parsed.ok) {
-        return { ok: false, error: `Failed to parse response: ${parsed.error}` };
+      // Validate fragment draft response
+      const validateResult = validateFragmentDraftResponse(data);
+      if (!validateResult.ok) {
+        return { ok: false, error: validateResult.error };
       }
 
-      const validated = validateDraftResponse(parsed.data);
-      if (!validated.ok) {
-        return { ok: false, error: `Invalid response: ${validated.error}` };
-      }
-
-      return { ok: true, data: validated.data };
-    } catch (error) {
       return {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        ok: true,
+        data: { draft: validateResult.data.draft },
       };
+    } catch (error) {
+      return { ok: false, error: this.formatError(error) };
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.3 Helpers
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Format error for consistent error messages
+   */
+  private formatError(error: unknown): string {
+    if (error instanceof OpenAI.APIError) {
+      return `OpenAI API error: ${error.message} (${error.status})`;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error);
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3 Factory Function
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Create an OpenAI adapter instance
+ * Create an OpenAI adapter with options
+ *
+ * @param options - Adapter configuration options
+ * @returns LLMAdapter instance
  */
-export function createOpenAIAdapter(options: OpenAIAdapterOptions = {}): LLMAdapter {
+export function createOpenAIAdapter(options?: OpenAIAdapterOptions): LLMAdapter {
   return new OpenAIAdapter(options);
 }

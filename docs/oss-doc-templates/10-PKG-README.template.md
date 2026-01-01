@@ -1,6 +1,8 @@
 # @[org]/[package]
 
 <!-- INSTRUCTION:
+파일 위치: packages/[package]/README.md (패키지 루트)
+
 패키지별 README는 "이 패키지가 뭐고 왜 쓰는지"를 설명합니다.
 전체 프로젝트 README와 중복되지 않게 주의하세요.
 이 패키지의 고유한 역할에 집중합니다.
@@ -102,7 +104,7 @@ console.log(result);
 // → [expected_output]
 ```
 
-→ See [GUIDE.md](./GUIDE.md) for the full tutorial.
+→ See [GUIDE.md](./docs/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -125,7 +127,7 @@ console.log(result);
 
 [One paragraph explanation]
 
-→ See [GLOSSARY](../../GLOSSARY.md) for complete definitions.
+→ See [GLOSSARY](../../docs/GLOSSARY.md) for complete definitions.
 
 ---
 
@@ -149,7 +151,7 @@ type [MainType] = { ... };
 const [CONSTANT]: [Type];
 ```
 
-→ See [SPEC.md](./SPEC.md) for complete API reference.
+→ See [SPEC.md](./docs/SPEC.md) for complete API reference.
 
 ---
 
@@ -204,9 +206,9 @@ For typical usage, see [`@[org]/[higher-level-package]`](../higher-level-package
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](./SPEC.md) | Complete specification |
-| [FDR.md](./FDR.md) | Design rationale |
+| [GUIDE.md](./docs/GUIDE.md) | Step-by-step usage guide |
+| [SPEC.md](./docs/SPEC.md) | Complete specification |
+| [FDR.md](./docs/FDR.md) | Design rationale |
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * StatusBar Component
+ * StatusBar Component (v1.1)
  *
  * Displays current compilation status with a spinner for active phases.
  */
@@ -11,13 +11,17 @@ import type { StatusBarProps } from "../types.js";
 
 const STATUS_LABELS: Record<string, string> = {
   idle: "Ready",
-  segmenting: "Segmenting input...",
-  normalizing: "Normalizing intents...",
-  proposing: "Proposing schema...",
-  validating: "Validating draft...",
-  awaiting_resolution: "Waiting for resolution...",
+  planning: "Planning compilation...",
+  awaiting_plan_decision: "Awaiting plan approval...",
+  generating: "Generating fragments...",
+  awaiting_draft_decision: "Awaiting draft approval...",
+  lowering: "Lowering drafts to fragments...",
+  linking: "Linking fragments...",
+  awaiting_conflict_resolution: "Resolving conflicts...",
+  verifying: "Verifying domain...",
+  emitting: "Emitting domain spec...",
   success: "Compilation complete",
-  discarded: "Compilation discarded",
+  failed: "Compilation failed",
 };
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -25,7 +29,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   isSpinning,
 }) => {
   const label = STATUS_LABELS[status] || status;
-  const isTerminal = status === "success" || status === "discarded";
+  const isTerminal = status === "success" || status === "failed";
   const isSuccess = status === "success";
 
   return (

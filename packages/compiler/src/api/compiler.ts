@@ -1,3 +1,12 @@
+/**
+ * @manifesto-ai/compiler v1.1 Compiler API
+ *
+ * ManifestoCompiler - Implementation of the Compiler interface.
+ * Per FDR-C001: Compiler is implemented as a Manifesto Application.
+ *
+ * Pipeline: Plan → Generate → Lower → Link → Verify → Emit
+ */
+
 import { createHost, createIntent, type ManifestoHost, type Snapshot } from "@manifesto-ai/host";
 import { CompilerDomain, INITIAL_STATE } from "../domain/domain.js";
 import type {
@@ -7,17 +16,40 @@ import type {
   CompilerStatus,
   CompileInput,
   Unsubscribe,
-  DiscardReason,
+  FailureReason,
   LLMAdapter,
-  CompilerResolutionPolicy,
+  ResolutionPolicy,
   CompilerTelemetry,
-  EffectHandlerResult,
+  CompilerEffectType,
 } from "../domain/types.js";
 import {
   createLLMEffectHandlers,
-  createBuilderValidateHandler,
-  type EffectHandlerResult as LLMEffectHandlerResult,
-} from "../effects/index.js";
+  type EffectHandlerResult,
+} from "../effects/llm/handlers.js";
+import {
+  createPassLayer,
+  createLinker,
+  createVerifier,
+  createEmitter,
+  PASS_LAYER_VERSION,
+  LINKER_VERSION,
+  COMPILER_VERSION,
+} from "../pipeline/index.js";
+import { nanoid } from "nanoid";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §1 Default Configuration
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DEFAULT_RESOLUTION_POLICY: ResolutionPolicy = {
+  onPlanDecision: "await",
+  onDraftDecision: "auto-accept",
+  onConflictResolution: "await",
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §2 ManifestoCompiler Implementation
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * ManifestoCompiler - Implementation of the Compiler interface
@@ -28,64 +60,216 @@ import {
 export class ManifestoCompiler implements Compiler {
   private host: ManifestoHost;
   private listeners: Set<(state: CompilerSnapshot) => void> = new Set();
-  private effectHandlers: Record<string, (params: Record<string, unknown>) => Promise<LLMEffectHandlerResult>>;
-  private policy: CompilerResolutionPolicy;
+  private effectHandlers: Record<string, (params: Record<string, unknown>) => Promise<EffectHandlerResult>>;
+  private policy: ResolutionPolicy;
   private telemetry?: CompilerTelemetry;
   private previousStatus: CompilerStatus = "idle";
+
+  // Stored source input (workaround for Builder not resolving expressions in objects)
+  private currentSourceInput: {
+    id: string;
+    type: "natural-language" | "code" | "mixed";
+    content: string;
+    receivedAt: number;
+  } | null = null;
+
+  // Pipeline components
+  private passLayer = createPassLayer();
+  private linker = createLinker();
+  private verifier = createVerifier();
+  private emitter = createEmitter();
 
   constructor(
     adapter: LLMAdapter,
     options: {
-      maxRetries?: number;
-      traceDrafts?: boolean;
-      resolutionPolicy?: CompilerResolutionPolicy;
+      resolutionPolicy?: Partial<ResolutionPolicy>;
       telemetry?: CompilerTelemetry;
+      config?: {
+        maxPlanAttempts?: number;
+        maxDraftAttempts?: number;
+        maxLoweringRetries?: number;
+      };
     } = {}
   ) {
-    this.policy = options.resolutionPolicy ?? { onResolutionRequired: "discard" };
+    this.policy = { ...DEFAULT_RESOLUTION_POLICY, ...options.resolutionPolicy };
     this.telemetry = options.telemetry;
 
-    // Create effect handlers
+    // Create LLM effect handlers
     const llmHandlers = createLLMEffectHandlers(adapter, this.policy);
-    const builderHandler = createBuilderValidateHandler();
 
+    // Create pipeline effect handlers
     this.effectHandlers = {
       ...llmHandlers,
-      "builder:validate": builderHandler,
+      "pass:lower": this.createPassLowerHandler(),
+      "linker:link": this.createLinkerLinkHandler(),
+      "verifier:verify": this.createVerifierVerifyHandler(),
+      "emitter:emit": this.createEmitterEmitHandler(),
     };
 
     // Create Host with CompilerDomain
     this.host = createHost(CompilerDomain.schema, {
       initialData: {
         ...INITIAL_STATE,
-        maxRetries: options.maxRetries ?? INITIAL_STATE.maxRetries,
-        traceDrafts: options.traceDrafts ?? INITIAL_STATE.traceDrafts,
+        config: {
+          ...INITIAL_STATE.config,
+          ...options.config,
+        },
       },
     });
 
     // Register effect handlers with Host
-    for (const [type, handler] of Object.entries(this.effectHandlers)) {
+    // Note: The Host calls these with unresolved expression objects from domain flows.
+    // The actual effect execution happens in dispatchWithEffectLoop with resolved data.
+    for (const [type] of Object.entries(this.effectHandlers)) {
       this.host.registerEffect(type, async (effectType, params) => {
-        // Execute the handler
-        const result = await handler(params as Record<string, unknown>);
-
-        // Return patches that schedule the next action
-        // The Host will apply these and continue the loop
+        if (process.env.DEBUG) {
+          console.log(`[Host Effect] ${effectType} called with params:`, JSON.stringify(params)?.slice(0, 200));
+        }
+        // Return empty array - effects are handled in dispatchWithEffectLoop
         return [];
       });
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.1 Pipeline Effect Handlers
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private createPassLowerHandler(): (params: Record<string, unknown>) => Promise<EffectHandlerResult> {
+    return async (params) => {
+      const drafts = params.drafts as unknown[];
+      const sourceInputId = params.sourceInputId as string;
+      const sourceType = params.sourceType as "natural-language" | "code" | "mixed";
+      const planId = params.planId as string;
+
+      const context = {
+        sourceInputId,
+        sourceType,
+        planId,
+        actorId: "compiler",
+        runtimeId: "manifesto-compiler",
+        passLayerVersion: PASS_LAYER_VERSION,
+        linkerVersion: LINKER_VERSION,
+      };
+
+      const fragments = [];
+      const issues = [];
+
+      for (const draft of drafts) {
+        const result = this.passLayer.lower(draft as never, context);
+        if (result.ok) {
+          fragments.push(result.fragment);
+        } else {
+          issues.push(...result.issues);
+        }
+      }
+
+      // Check for errors (any issue with severity "error")
+      const hasErrors = issues.some((issue: { severity?: string }) => issue.severity === "error");
+
+      return {
+        action: "receiveLoweredFragments",
+        input: { fragments, issues, hasErrors },
+      };
+    };
+  }
+
+  private createLinkerLinkHandler(): (params: Record<string, unknown>) => Promise<EffectHandlerResult> {
+    return async (params) => {
+      const fragments = params.fragments as unknown[];
+      const sourceInputId = params.sourceInputId as string;
+      const planId = params.planId as string;
+
+      const context = { sourceInputId, planId };
+      const result = this.linker.link(fragments as never[], context);
+
+      if (result.ok === true) {
+        return {
+          action: "receiveLinkResult",
+          input: { domainDraft: result.domainDraft, conflicts: [], hasConflicts: false },
+        };
+      }
+
+      // Conflict detected
+      return {
+        action: "receiveLinkResult",
+        input: {
+          domainDraft: null,
+          conflicts: result.conflicts,
+          hasConflicts: true,
+          pendingResolution: {
+            id: `resolution_${Date.now()}`,
+            stage: "link",
+            reason: `${result.conflicts.length} conflict(s) detected`,
+            conflicts: result.conflicts,
+            options: result.options,
+            context: { sourceInputId, planId },
+          },
+        },
+      };
+    };
+  }
+
+  private createVerifierVerifyHandler(): (params: Record<string, unknown>) => Promise<EffectHandlerResult> {
+    return async (params) => {
+      const domainDraft = params.domainDraft as unknown;
+      const result = this.verifier.verify(domainDraft as never);
+
+      return {
+        action: "receiveVerification",
+        input: { valid: result.valid, issues: result.issues },
+      };
+    };
+  }
+
+  private createEmitterEmitHandler(): (params: Record<string, unknown>) => Promise<EffectHandlerResult> {
+    return async (params) => {
+      const domainDraft = params.domainDraft as unknown;
+      const verification = params.verification as { valid: boolean; issues: unknown[] };
+
+      const context = { compilerVersion: COMPILER_VERSION };
+      const result = this.emitter.emit(domainDraft as never, verification as never, context);
+
+      if (result.ok) {
+        return {
+          action: "receiveEmitted",
+          input: { domainSpec: result.domainSpec },
+        };
+      }
+
+      return {
+        action: "fail",
+        input: { reason: "EMISSION_FAILED" },
+      };
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.2 Public API - Core
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /**
    * Start compilation with input
    */
   async start(input: CompileInput): Promise<void> {
+    const inputId = `input_${nanoid(8)}`;
+    const inputType = input.type ?? "natural-language";
+    const timestamp = Date.now();
+
+    // Store source input for effect handler (workaround for Builder expression resolution)
+    this.currentSourceInput = {
+      id: inputId,
+      type: inputType,
+      content: input.text,
+      receivedAt: timestamp,
+    };
+
     const intent = createIntent("start", {
+      id: inputId,
       text: input.text,
-      schema: input.schema,
-      context: input.context,
-      maxRetries: input.maxRetries,
-      traceDrafts: input.traceDrafts,
+      type: inputType,
+      timestamp,
+      config: input.config,
     });
 
     await this.dispatchWithEffectLoop(intent);
@@ -118,159 +302,344 @@ export class ManifestoCompiler implements Compiler {
     await this.dispatchWithEffectLoop(intent);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.3 Public API - Plan Phase
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /**
-   * Resolve ambiguity
+   * Accept the current plan and proceed to generation
    */
-  async resolve(selectedOptionId: string): Promise<void> {
-    await this.dispatch("resolve", { selectedOptionId });
+  async acceptPlan(): Promise<void> {
+    await this.dispatch("acceptPlan", {});
   }
 
   /**
-   * Discard compilation
+   * Reject the current plan with reason
    */
-  async discard(reason?: DiscardReason): Promise<void> {
-    await this.dispatch("discard", { reason: reason ?? "RESOLUTION_REQUIRED_BUT_DISABLED" });
+  async rejectPlan(reason: string): Promise<void> {
+    await this.dispatch("rejectPlan", { reason });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.4 Public API - Generate Phase
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Accept a fragment draft
+   */
+  async acceptDraft(draftId: string): Promise<void> {
+    await this.dispatch("acceptDraft", { draftId });
   }
 
   /**
-   * Reset to idle
+   * Reject a fragment draft with reason
+   */
+  async rejectDraft(draftId: string, reason: string): Promise<void> {
+    await this.dispatch("rejectDraft", { draftId, reason });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.5 Public API - Conflict Resolution
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Resolve a conflict by selecting an option
+   */
+  async resolveConflict(resolutionId: string, selectedOptionId: string): Promise<void> {
+    await this.dispatch("resolveConflict", {
+      response: {
+        requestId: resolutionId,
+        selectedOptionId,
+        decidedBy: { kind: "human", actorId: "user" },
+        timestamp: Date.now(),
+      },
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.6 Public API - Terminal
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Fail the compilation with a reason
+   */
+  async fail(reason: FailureReason): Promise<void> {
+    await this.dispatch("fail", { reason });
+  }
+
+  /**
+   * Reset to idle state
    */
   async reset(): Promise<void> {
+    this.currentSourceInput = null;
     await this.dispatch("reset", {});
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // §2.7 Private - Effect Loop
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /**
    * Dispatch intent and handle effects in a loop
-   *
-   * This implements the effect execution loop that the Host normally handles.
-   * We need custom logic because our effect handlers return actions to dispatch.
    */
   private async dispatchWithEffectLoop(intent: ReturnType<typeof createIntent>): Promise<void> {
-    // Track previous attempt count to detect new attempts
-    let previousAttemptCount = 0;
-
     try {
       // Dispatch the initial intent
       const result = await this.host.dispatch(intent);
 
-      // Debug: Check dispatch result
       if (process.env.DEBUG) {
         console.log("[Compiler] Dispatch result:", {
           action: intent.type,
           hostStatus: result.status,
           error: result.error,
           stateStatus: (result.snapshot.data as CompilerState).status,
-          traces: result.traces?.length ?? 0,
         });
       }
 
-      // Get the current snapshot to check for pending effects
+      // Get the current snapshot
       let snapshot = result.snapshot;
       let compilerSnapshot = this.toCompilerSnapshot(snapshot);
 
       // Emit initial phase change
       this.emitPhaseChange(compilerSnapshot);
-      previousAttemptCount = compilerSnapshot.attemptCount;
 
       // Process pending effects
       while (this.hasPendingEffects(snapshot)) {
         const effects = this.extractPendingEffects(snapshot);
 
         for (const effect of effects) {
-          // Execute effect with telemetry
-          const handlerResult = await this.executeEffect(effect.type, effect.params);
+          let nextIntent;
+
+          // Handle auto-actions (dispatch directly as domain actions)
+          if (effect.isAutoAction && effect.type.startsWith("action:")) {
+            const actionName = effect.type.replace("action:", "");
+            nextIntent = createIntent(actionName, effect.params);
+          } else {
+            // Execute effect with telemetry
+            const handlerResult = await this.executeEffect(effect.type, effect.params);
+            nextIntent = createIntent(handlerResult.action, handlerResult.input);
+          }
 
           // Dispatch the resulting action
-          const nextIntent = createIntent(handlerResult.action, handlerResult.input);
           const nextResult = await this.host.dispatch(nextIntent);
           snapshot = nextResult.snapshot;
           compilerSnapshot = this.toCompilerSnapshot(snapshot);
 
           // Emit phase change
           this.emitPhaseChange(compilerSnapshot);
-
-          // Emit attempt if new attempt was recorded
-          if (compilerSnapshot.attemptCount > previousAttemptCount) {
-            this.emitAttempt(compilerSnapshot);
-            previousAttemptCount = compilerSnapshot.attemptCount;
-          }
         }
       }
 
       // Notify listeners
       await this.notifyListeners();
     } catch (error) {
-      // Emit error telemetry
       this.telemetry?.onError?.(error as Error, `dispatch:${intent.type}`);
       throw error;
     }
   }
 
   /**
-   * Check if snapshot has pending effects
+   * Check if snapshot has pending effects or auto-accept decisions
    */
   private hasPendingEffects(snapshot: Snapshot): boolean {
-    // Check trace for effect nodes
     const data = snapshot.data as CompilerState;
     const status = data.status;
 
-    // Effects are triggered during state transitions
-    // We detect pending effects by checking if we're in a transitional state
-    return (
-      status === "segmenting" ||
-      status === "normalizing" ||
-      status === "proposing" ||
-      status === "validating"
-    );
+    // Effects are triggered during these states
+    if (
+      status === "planning" ||
+      status === "generating" ||
+      status === "lowering" ||
+      status === "linking" ||
+      status === "verifying" ||
+      status === "emitting"
+    ) {
+      return true;
+    }
+
+    // Auto-accept decisions
+    if (status === "awaiting_plan_decision" && this.policy.onPlanDecision === "auto-accept") {
+      return true;
+    }
+    if (status === "awaiting_draft_decision" && this.policy.onDraftDecision === "auto-accept") {
+      return true;
+    }
+
+    return false;
   }
 
   /**
    * Extract pending effects from snapshot
    */
-  private extractPendingEffects(snapshot: Snapshot): Array<{ type: string; params: Record<string, unknown> }> {
+  private extractPendingEffects(snapshot: Snapshot): Array<{ type: string; params: Record<string, unknown>; isAutoAction?: boolean }> {
     const data = snapshot.data as CompilerState;
     const status = data.status;
 
-    // Map status to effect type
     switch (status) {
-      case "segmenting":
-        return [{ type: "llm:segment", params: { text: data.input } }];
+      case "planning":
+        // Use stored sourceInput since Builder doesn't resolve expressions in objects
+        return [{
+          type: "llm:plan",
+          params: { sourceInput: this.currentSourceInput },
+        }];
 
-      case "normalizing":
-        return [
-          {
-            type: "llm:normalize",
-            params: {
-              segments: data.segments,
-              schema: data.targetSchema,
-              context: data.context,
-            },
-          },
-        ];
+      case "awaiting_plan_decision":
+        // Auto-accept plan
+        if (this.policy.onPlanDecision === "auto-accept") {
+          return [{
+            type: "action:acceptPlan",
+            params: {},
+            isAutoAction: true,
+          }];
+        }
+        return [];
 
-      case "proposing":
-        return [
-          {
-            type: "llm:propose",
-            params: {
-              schema: data.targetSchema,
-              intents: data.intents,
-              history: data.attempts,
-              context: data.context,
-            },
+      case "generating":
+        return [{
+          type: "llm:generate",
+          params: {
+            chunk: data.chunks[data.currentChunkIndex],
+            plan: data.plan,
+            existingFragments: data.fragments,
           },
-        ];
+        }];
 
-      case "validating":
-        return [
-          {
-            type: "builder:validate",
-            params: { draft: data.currentDraft },
+      case "awaiting_draft_decision":
+        // Auto-accept draft
+        if (this.policy.onDraftDecision === "auto-accept") {
+          const drafts = Array.isArray(data.fragmentDrafts) ? data.fragmentDrafts : [];
+          const pendingDraft = drafts.find(d => d.status === "pending");
+          if (pendingDraft) {
+            return [{
+              type: "action:acceptDraft",
+              params: { draftId: pendingDraft.id },
+              isAutoAction: true,
+            }];
+          }
+        }
+        return [];
+
+      case "lowering":
+        return [{
+          type: "pass:lower",
+          params: {
+            drafts: data.fragmentDrafts,
+            sourceInputId: data.sourceInput?.id,
+            sourceType: data.sourceInput?.type,
+            planId: data.plan?.id,
           },
-        ];
+        }];
+
+      case "linking":
+        return [{
+          type: "linker:link",
+          params: {
+            fragments: data.fragments,
+            sourceInputId: data.sourceInput?.id,
+            planId: data.plan?.id,
+          },
+        }];
+
+      case "verifying":
+        return [{
+          type: "verifier:verify",
+          params: { domainDraft: data.domainDraft },
+        }];
+
+      case "emitting":
+        return [{
+          type: "emitter:emit",
+          params: {
+            domainDraft: data.domainDraft,
+            verification: { valid: true, issues: data.issues },
+          },
+        }];
 
       default:
         return [];
+    }
+  }
+
+  /**
+   * Execute effect with telemetry
+   */
+  private async executeEffect(
+    effectType: string,
+    params: Record<string, unknown>
+  ): Promise<EffectHandlerResult> {
+    const handler = this.effectHandlers[effectType];
+    if (!handler) {
+      throw new Error(`No handler for effect type: ${effectType}`);
+    }
+
+    if (process.env.DEBUG) {
+      console.log(`[Loop Effect] ${effectType} executing with params:`, JSON.stringify(params)?.slice(0, 200));
+    }
+
+    this.telemetry?.onEffectStart?.(effectType as CompilerEffectType, params);
+
+    try {
+      const result = await handler(params);
+      this.telemetry?.onEffectEnd?.(effectType as CompilerEffectType, result);
+      return result;
+    } catch (error) {
+      this.telemetry?.onError?.(error as Error, `effect:${effectType}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Emit telemetry for phase changes
+   */
+  private emitPhaseChange(snapshot: CompilerSnapshot): void {
+    const newStatus = snapshot.status;
+
+    if (this.previousStatus !== newStatus) {
+      this.telemetry?.onPhaseChange?.(this.previousStatus, newStatus);
+      this.previousStatus = newStatus;
+    }
+
+    // Emit specific events
+    if (newStatus === "awaiting_plan_decision" && snapshot.plan) {
+      this.telemetry?.onPlanReceived?.(snapshot.plan);
+
+      // Create a resolution request for plan decision
+      const planResolutionRequest = {
+        id: `plan_resolution_${snapshot.plan.id}`,
+        stage: "plan" as const,
+        reason: `Plan created with ${snapshot.plan.chunks.length} chunk(s) using "${snapshot.plan.strategy}" strategy`,
+        conflicts: [],
+        options: [
+          {
+            id: "accept",
+            description: "Accept the plan and proceed to generation",
+            impact: { kind: "accept_plan" as const, planId: snapshot.plan.id },
+          },
+          {
+            id: "reject",
+            description: "Reject the plan and request a new one",
+            impact: { kind: "reject_plan" as const, planId: snapshot.plan.id, reason: "User rejected" },
+          },
+        ],
+        context: {
+          sourceInputId: snapshot.sourceInput?.id ?? "",
+          planId: snapshot.plan.id,
+        },
+      };
+      this.telemetry?.onResolutionRequested?.(planResolutionRequest);
+    }
+
+    if (newStatus === "awaiting_draft_decision" && snapshot.fragmentDrafts.length > 0) {
+      const latestDraft = snapshot.fragmentDrafts[snapshot.fragmentDrafts.length - 1];
+      this.telemetry?.onDraftReceived?.(latestDraft);
+    }
+
+    if (newStatus === "awaiting_conflict_resolution" && snapshot.pendingResolution) {
+      this.telemetry?.onResolutionRequested?.(snapshot.pendingResolution);
+    }
+
+    if (snapshot.isTerminal) {
+      this.telemetry?.onComplete?.(snapshot);
     }
   }
 
@@ -289,72 +658,6 @@ export class ManifestoCompiler implements Compiler {
   }
 
   /**
-   * Emit telemetry for phase changes
-   * Per SPEC §15.2
-   */
-  private emitPhaseChange(snapshot: CompilerSnapshot): void {
-    const newStatus = snapshot.status;
-
-    // Emit phase change if status changed
-    if (this.previousStatus !== newStatus) {
-      this.telemetry?.onPhaseChange?.(this.previousStatus, newStatus);
-      this.previousStatus = newStatus;
-    }
-
-    // Emit resolution requested if awaiting resolution
-    if (newStatus === "awaiting_resolution" && snapshot.resolutionReason) {
-      this.telemetry?.onResolutionRequested?.(
-        snapshot.resolutionReason,
-        snapshot.resolutionOptions
-      );
-    }
-
-    // Emit complete if terminal
-    if (snapshot.isTerminal) {
-      this.telemetry?.onComplete?.(snapshot);
-    }
-  }
-
-  /**
-   * Execute effect with telemetry
-   */
-  private async executeEffect(
-    effectType: string,
-    params: Record<string, unknown>
-  ): Promise<LLMEffectHandlerResult> {
-    const handler = this.effectHandlers[effectType];
-    if (!handler) {
-      throw new Error(`No handler for effect type: ${effectType}`);
-    }
-
-    // Emit effect start
-    this.telemetry?.onEffectStart?.(effectType, params);
-
-    try {
-      const result = await handler(params);
-
-      // Emit effect end
-      this.telemetry?.onEffectEnd?.(effectType, result);
-
-      return result;
-    } catch (error) {
-      // Emit error
-      this.telemetry?.onError?.(error as Error, `effect:${effectType}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Emit attempt telemetry
-   */
-  private emitAttempt(snapshot: CompilerSnapshot): void {
-    if (snapshot.traceDrafts && snapshot.attempts.length > 0) {
-      const latestAttempt = snapshot.attempts[snapshot.attempts.length - 1];
-      this.telemetry?.onAttempt?.(latestAttempt);
-    }
-  }
-
-  /**
    * Convert Host Snapshot to CompilerSnapshot
    */
   private toCompilerSnapshot(snapshot: Snapshot): CompilerSnapshot {
@@ -363,18 +666,25 @@ export class ManifestoCompiler implements Compiler {
 
     return {
       ...data,
-      // Computed values
+      // Computed values - status helpers
       isIdle: (computed["computed.isIdle"] as boolean) ?? data.status === "idle",
-      isSegmenting: (computed["computed.isSegmenting"] as boolean) ?? data.status === "segmenting",
-      isNormalizing: (computed["computed.isNormalizing"] as boolean) ?? data.status === "normalizing",
-      isProposing: (computed["computed.isProposing"] as boolean) ?? data.status === "proposing",
-      isValidating: (computed["computed.isValidating"] as boolean) ?? data.status === "validating",
-      isAwaitingResolution:
-        (computed["computed.isAwaitingResolution"] as boolean) ?? data.status === "awaiting_resolution",
-      isTerminal:
-        (computed["computed.isTerminal"] as boolean) ??
-        (data.status === "success" || data.status === "discarded"),
-      canRetry: (computed["computed.canRetry"] as boolean) ?? data.attemptCount < data.maxRetries,
+      isPlanning: (computed["computed.isPlanning"] as boolean) ?? data.status === "planning",
+      isAwaitingPlanDecision: (computed["computed.isAwaitingPlanDecision"] as boolean) ?? data.status === "awaiting_plan_decision",
+      isGenerating: (computed["computed.isGenerating"] as boolean) ?? data.status === "generating",
+      isAwaitingDraftDecision: (computed["computed.isAwaitingDraftDecision"] as boolean) ?? data.status === "awaiting_draft_decision",
+      isLowering: (computed["computed.isLowering"] as boolean) ?? data.status === "lowering",
+      isLinking: (computed["computed.isLinking"] as boolean) ?? data.status === "linking",
+      isAwaitingConflictResolution: (computed["computed.isAwaitingConflictResolution"] as boolean) ?? data.status === "awaiting_conflict_resolution",
+      isVerifying: (computed["computed.isVerifying"] as boolean) ?? data.status === "verifying",
+      isEmitting: (computed["computed.isEmitting"] as boolean) ?? data.status === "emitting",
+      isSuccess: (computed["computed.isSuccess"] as boolean) ?? data.status === "success",
+      isFailed: (computed["computed.isFailed"] as boolean) ?? data.status === "failed",
+
+      // Computed values - aggregate helpers
+      isTerminal: (computed["computed.isTerminal"] as boolean) ?? (data.status === "success" || data.status === "failed"),
+      isProcessing: (computed["computed.isProcessing"] as boolean) ?? ["planning", "generating", "lowering", "linking", "verifying", "emitting"].includes(data.status),
+      isAwaitingDecision: (computed["computed.isAwaitingDecision"] as boolean) ?? ["awaiting_plan_decision", "awaiting_draft_decision", "awaiting_conflict_resolution"].includes(data.status),
+      canRetry: (computed["computed.canRetryPlan"] as boolean) ?? data.planAttempts < data.config.maxPlanAttempts,
     };
   }
 }

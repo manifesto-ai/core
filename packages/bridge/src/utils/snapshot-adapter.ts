@@ -32,10 +32,18 @@ import type { SnapshotView } from "../schema/snapshot-view.js";
  * @returns Read-only SnapshotView with only data and computed
  */
 export function toSnapshotView(snapshot: Snapshot): SnapshotView {
+  // Transform computed keys: remove "computed." prefix for user-friendly access
+  // Internal Core uses "computed.X" for path resolution, but users expect just "X"
+  const transformedComputed: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot.computed)) {
+    const userKey = key.startsWith("computed.") ? key.slice(9) : key;
+    transformedComputed[userKey] = value;
+  }
+
   // Create shallow copies of data and computed
   const view: SnapshotView = {
     data: snapshot.data,
-    computed: { ...snapshot.computed },
+    computed: transformedComputed,
   };
 
   // Freeze the view for immutability
@@ -70,9 +78,16 @@ export function deepFreeze<T extends object>(obj: T): T {
  * Use this when you need to ensure deep immutability.
  */
 export function toDeepFrozenSnapshotView(snapshot: Snapshot): SnapshotView {
+  // Transform computed keys: remove "computed." prefix for user-friendly access
+  const transformedComputed: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot.computed)) {
+    const userKey = key.startsWith("computed.") ? key.slice(9) : key;
+    transformedComputed[userKey] = structuredClone(value);
+  }
+
   const view: SnapshotView = {
     data: structuredClone(snapshot.data),
-    computed: structuredClone(snapshot.computed),
+    computed: transformedComputed,
   };
 
   return deepFreeze(view);

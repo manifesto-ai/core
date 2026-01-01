@@ -12,7 +12,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import { createSnapshot } from "@manifesto-ai/core";
+import { createSnapshot, evaluateComputed, isOk, type DomainSchema } from "@manifesto-ai/core";
 import { createHost } from "@manifesto-ai/host";
 import {
   createManifestoWorld,
@@ -184,7 +184,17 @@ export function createManifestoApp<
 
     initPromise = (async () => {
       // Create genesis world with initial snapshot
-      const snapshot = createSnapshot(options.initialState, domain.schema.hash);
+      let snapshot = createSnapshot(options.initialState, domain.schema.hash);
+
+      // Evaluate computed values for the initial snapshot
+      // Cast schema - the actual DomainModule.schema has full DomainSchema structure
+      const computedResult = evaluateComputed(domain.schema as DomainSchema, snapshot);
+      if (isOk(computedResult)) {
+        snapshot = {
+          ...snapshot,
+          computed: computedResult.value,
+        };
+      }
       await world.createGenesis(snapshot);
 
       // Refresh bridge to get initial state
@@ -213,26 +223,28 @@ export function createManifestoApp<
     // Initialize on mount
     useEffect(() => {
       let mounted = true;
+      let unsubscribe: (() => void) | undefined;
 
       initialize().then(() => {
         if (!mounted) return;
 
         // Subscribe to snapshot changes
-        const unsubscribe = bridge.subscribe((newSnapshot) => {
+        unsubscribe = bridge.subscribe((newSnapshot) => {
           if (mounted) {
-            setSnapshot(newSnapshot);
+            // Create a new object to ensure React detects the state change
+            // (the frozen SnapshotView from bridge might not trigger re-render)
+            setSnapshot(newSnapshot ? { ...newSnapshot } : null);
           }
         });
 
         setIsReady(true);
-
-        return () => {
-          unsubscribe();
-        };
       });
 
       return () => {
         mounted = false;
+        if (unsubscribe) {
+          unsubscribe();
+        }
       };
     }, []);
 

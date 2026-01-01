@@ -472,23 +472,21 @@ describe("expr builder", () => {
     });
 
     describe("append", () => {
-      it("expr.append compiles to concat", () => {
+      it("expr.append compiles to append", () => {
         const e = expr.append(todoState.tags, "new-tag");
         expect(e.compile()).toEqual({
-          kind: "concat",
-          args: [
-            { kind: "get", path: "tags" },
-            { kind: "lit", value: "new-tag" },
-          ],
+          kind: "append",
+          array: { kind: "get", path: "tags" },
+          items: [{ kind: "lit", value: "new-tag" }],
         });
       });
 
       it("expr.append with multiple items", () => {
         const e = expr.append(todoState.tags, "tag1", "tag2");
         expect(e.compile()).toEqual({
-          kind: "concat",
-          args: [
-            { kind: "get", path: "tags" },
+          kind: "append",
+          array: { kind: "get", path: "tags" },
+          items: [
             { kind: "lit", value: "tag1" },
             { kind: "lit", value: "tag2" },
           ],
@@ -520,6 +518,29 @@ describe("expr builder", () => {
           obj: { kind: "get", path: "settings" },
         });
       });
+    });
+  });
+
+  describe("conversion", () => {
+    it("expr.toString compiles to toString expression", () => {
+      const e = expr.toString(42);
+      expect(e.compile()).toEqual({
+        kind: "toString",
+        arg: { kind: "lit", value: 42 },
+      });
+    });
+
+    it("expr.toString works with field refs", () => {
+      const e = expr.toString(state.age);
+      expect(e.compile()).toEqual({
+        kind: "toString",
+        arg: { kind: "get", path: "age" },
+      });
+    });
+
+    it("expr.toString tracks dependencies", () => {
+      const e = expr.toString(state.score);
+      expect(e.deps()).toContain("score");
     });
   });
 });

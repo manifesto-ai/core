@@ -290,7 +290,7 @@ type Snapshot = {
 
 | Alternative | Why Not |
 |-------------|---------|
-| **Event Sourcing** | We store intents + worlds, not events. Worlds are the source of truth, not event logs. → See [Core FDR](./packages/core/FDR.md) |
+| **Event Sourcing** | We store intents + worlds, not events. Worlds are the source of truth, not event logs. → See [Core FDR](../packages/core/docs/FDR.md) |
 | **Redux/Flux** | Too coupled to UI. Our architecture separates UI binding (Bridge) from state management (Core+Host+World). |
 | **Actor Model** | Actors have hidden state. Our Snapshot is fully visible and serializable. |
 | **Traditional ORM** | ORMs hide persistence. Our Host explicitly handles IO through effect handlers. |
@@ -315,10 +315,10 @@ type Snapshot = {
 | Document | Purpose |
 |----------|---------|
 | [GLOSSARY.md](./GLOSSARY.md) | Term definitions |
-| [Core SPEC](./packages/core/SPEC.md) | Core layer specification |
-| [Host SPEC](./packages/host/SPEC.md) | Host layer specification |
-| [World SPEC](./packages/world/SPEC.md) | World layer specification |
-| [Core FDR](./packages/core/FDR.md) | Core design rationale |
+| [Core SPEC](../packages/core/docs/SPEC.md) | Core layer specification |
+| [Host SPEC](../packages/host/docs/SPEC.md) | Host layer specification |
+| [World SPEC](../packages/world/docs/SPEC.md) | World layer specification |
+| [Core FDR](../packages/core/docs/FDR.md) | Core design rationale |
 
 ---
 

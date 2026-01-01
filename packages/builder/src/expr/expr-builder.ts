@@ -360,6 +360,116 @@ export const expr = {
     );
   },
 
+  /**
+   * Negate a number
+   * @example expr.neg(5) // -5
+   */
+  neg(
+    arg: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<number>({ kind: "neg", arg: a.compile() }, a.deps());
+  },
+
+  /**
+   * Absolute value
+   * @example expr.abs(-5) // 5
+   */
+  abs(
+    arg: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<number>({ kind: "abs", arg: a.compile() }, a.deps());
+  },
+
+  /**
+   * Minimum of multiple numbers
+   * @example expr.min(5, 3, 8) // 3
+   */
+  min(
+    ...args: Array<ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>>
+  ): Expr<number | null> {
+    const normalized = args.map((a) => normalizeOperand(a));
+    return new ExprImpl<number | null>(
+      { kind: "min", args: normalized.map((a) => a.compile()) },
+      normalized.flatMap((a) => a.deps())
+    );
+  },
+
+  /**
+   * Maximum of multiple numbers
+   * @example expr.max(5, 3, 8) // 8
+   */
+  max(
+    ...args: Array<ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>>
+  ): Expr<number | null> {
+    const normalized = args.map((a) => normalizeOperand(a));
+    return new ExprImpl<number | null>(
+      { kind: "max", args: normalized.map((a) => a.compile()) },
+      normalized.flatMap((a) => a.deps())
+    );
+  },
+
+  /**
+   * Floor (round down)
+   * @example expr.floor(3.7) // 3
+   */
+  floor(
+    arg: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<number>({ kind: "floor", arg: a.compile() }, a.deps());
+  },
+
+  /**
+   * Ceiling (round up)
+   * @example expr.ceil(3.2) // 4
+   */
+  ceil(
+    arg: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<number>({ kind: "ceil", arg: a.compile() }, a.deps());
+  },
+
+  /**
+   * Round to nearest integer
+   * @example expr.round(3.5) // 4
+   */
+  round(
+    arg: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<number>({ kind: "round", arg: a.compile() }, a.deps());
+  },
+
+  /**
+   * Square root (returns null for negative numbers)
+   * @example expr.sqrt(9) // 3
+   */
+  sqrt(
+    arg: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number | null> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<number | null>({ kind: "sqrt", arg: a.compile() }, a.deps());
+  },
+
+  /**
+   * Power (base^exponent)
+   * @example expr.pow(2, 3) // 8
+   */
+  pow(
+    base: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>,
+    exponent: ExprLike<number | null | undefined> | FieldRef<number | null | undefined> | ComputedRef<number | null | undefined>
+  ): Expr<number> {
+    const b = normalizeOperand(base);
+    const e = normalizeOperand(exponent);
+    return new ExprImpl<number>(
+      { kind: "pow", base: b.compile(), exponent: e.compile() },
+      [...b.deps(), ...e.deps()]
+    );
+  },
+
   // ============ String ============
 
   /**
@@ -371,6 +481,64 @@ export const expr = {
       { kind: "concat", args: normalized.map((a) => a.compile()) },
       normalized.flatMap((a) => a.deps())
     );
+  },
+
+  /**
+   * Trim whitespace from string
+   * @example expr.trim("  hello  ") // "hello"
+   */
+  trim(
+    str: ExprLike<string | null | undefined> | FieldRef<string | null | undefined> | ComputedRef<string | null | undefined>
+  ): Expr<string> {
+    const s = normalizeOperand(str);
+    return new ExprImpl<string>({ kind: "trim", str: s.compile() }, s.deps());
+  },
+
+  /**
+   * Convert to lowercase
+   * @example expr.toLowerCase("HELLO") // "hello"
+   */
+  toLowerCase(
+    str: ExprLike<string | null | undefined> | FieldRef<string | null | undefined> | ComputedRef<string | null | undefined>
+  ): Expr<string> {
+    const s = normalizeOperand(str);
+    return new ExprImpl<string>({ kind: "toLowerCase", str: s.compile() }, s.deps());
+  },
+
+  /**
+   * Convert to uppercase
+   * @example expr.toUpperCase("hello") // "HELLO"
+   */
+  toUpperCase(
+    str: ExprLike<string | null | undefined> | FieldRef<string | null | undefined> | ComputedRef<string | null | undefined>
+  ): Expr<string> {
+    const s = normalizeOperand(str);
+    return new ExprImpl<string>({ kind: "toUpperCase", str: s.compile() }, s.deps());
+  },
+
+  /**
+   * Get string length
+   * @example expr.strLen("hello") // 5
+   */
+  strLen(
+    str: ExprLike<string | null | undefined> | FieldRef<string | null | undefined> | ComputedRef<string | null | undefined>
+  ): Expr<number> {
+    const s = normalizeOperand(str);
+    return new ExprImpl<number>({ kind: "strLen", str: s.compile() }, s.deps());
+  },
+
+  // ============ Conversion ============
+
+  /**
+   * Convert value to string
+   * @example expr.toString(42) // "42"
+   * @example expr.toString(true) // "true"
+   */
+  toString(
+    arg: ExprLike<unknown> | FieldRef<unknown> | ComputedRef<unknown>
+  ): Expr<string> {
+    const a = normalizeOperand(arg);
+    return new ExprImpl<string>({ kind: "toString", arg: a.compile() }, a.deps());
   },
 
   // ============ Collection ============
@@ -438,6 +606,36 @@ export const expr = {
     return new ExprImpl<R[]>(
       { kind: "map", array: arr.compile(), mapper: mapperNode },
       [...arr.deps(), ...collectPredicateDeps(mapperNode, arrayPath)]
+    );
+  },
+
+  /**
+   * Create an object with dynamic field values
+   *
+   * @example
+   * ```ts
+   * expr.object({
+   *   id: expr.input("id"),
+   *   title: expr.input("title"),
+   *   completed: expr.lit(false),
+   * })
+   * ```
+   */
+  object<T = unknown>(
+    fields: Record<string, ExprLike<unknown> | FieldRef<unknown> | ComputedRef<unknown>>
+  ): Expr<T> {
+    const compiledFields: Record<string, import("@manifesto-ai/core").ExprNode> = {};
+    const allDeps: string[] = [];
+
+    for (const [key, value] of Object.entries(fields)) {
+      const normalized = normalizeOperand(value);
+      compiledFields[key] = normalized.compile();
+      allDeps.push(...normalized.deps());
+    }
+
+    return new ExprImpl<T>(
+      { kind: "object", fields: compiledFields },
+      allDeps
     );
   },
 
@@ -678,9 +876,9 @@ export const expr = {
     const arr = normalizeOperand(array);
     const itemNodes = items.map((i) => normalizeOperand(i));
 
-    // Use concat for array append
+    // Use append for array append (not concat which is for strings)
     return new ExprImpl<T[]>(
-      { kind: "concat", args: [arr.compile(), ...itemNodes.map((i) => i.compile())] },
+      { kind: "append", array: arr.compile(), items: itemNodes.map((i) => i.compile()) },
       [...arr.deps(), ...itemNodes.flatMap((i) => i.deps())]
     );
   },

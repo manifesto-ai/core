@@ -1,207 +1,211 @@
+/**
+ * @manifesto-ai/compiler v1.1 Types
+ *
+ * TypeScript types extracted from Zod schemas.
+ * Per SPEC_1.1v.md: Fragment Pipeline architecture types.
+ */
+
+import type { z } from "zod";
 import type { DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
+import type {
+  SourceInputTypeSchema,
+  SourceInputSchema,
+  PlanStrategySchema,
+  PlanStatusSchema,
+  FragmentTypeSchema,
+  ChunkDependencySchema,
+  ChunkSchema,
+  PlanSchema,
+  FragmentDraftStatusSchema,
+  FragmentInterpretationSchema,
+  FragmentDraftSchema,
+  StateFragmentContentSchema,
+  ComputedFragmentContentSchema,
+  ActionFragmentContentSchema,
+  ConstraintFragmentContentSchema,
+  EffectFragmentContentSchema,
+  FlowFragmentContentSchema,
+  FragmentContentSchema,
+  ProvenanceSchema,
+  FragmentSchema,
+  DependencyEdgeSchema,
+  DependencyGraphSchema,
+  DomainDraftSchema,
+  IssueSeveritySchema,
+  IssueSchema,
+  DomainSpecProvenanceSchema,
+  DomainSpecVerificationSchema,
+  DomainSpecSchema,
+  ConflictTypeSchema,
+  ConflictSchema,
+  ResolutionStageSchema,
+  ResolutionImpactSchema,
+  ResolutionOptionSchema,
+  ResolutionRequestSchema,
+  ResolutionResponseSchema,
+  ResolutionRecordSchema,
+  CompilerStatusSchema,
+  FailureReasonSchema,
+  CompilerConfigSchema,
+  CompilerStateSchema,
+} from "./schema.js";
 
-/**
- * Compiler context for additional information
- */
-export interface CompilerContext {
-  /**
-   * Name of the domain being compiled
-   */
-  domainName?: string;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.1 SourceInput
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * List of existing action names (for context)
-   */
-  existingActions?: string[];
+export type SourceInputType = z.infer<typeof SourceInputTypeSchema>;
+export type SourceInput = z.infer<typeof SourceInputSchema>;
 
-  /**
-   * Glossary of domain-specific terms
-   */
-  glossary?: Record<string, string>;
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.2 Plan & Chunk
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Normalized intent - structured representation of a requirement
- */
-export interface NormalizedIntent {
-  /**
-   * Intent kind
-   */
-  kind: "state" | "computed" | "action" | "constraint";
+export type PlanStrategy = z.infer<typeof PlanStrategySchema>;
+export type PlanStatus = z.infer<typeof PlanStatusSchema>;
+export type FragmentType = z.infer<typeof FragmentTypeSchema>;
+export type ChunkDependency = z.infer<typeof ChunkDependencySchema>;
+export type Chunk = z.infer<typeof ChunkSchema>;
+export type Plan = z.infer<typeof PlanSchema>;
 
-  /**
-   * Human-readable description
-   */
-  description: string;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.3 FragmentDraft (UNTRUSTED)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Confidence level (0.0 - 1.0)
-   */
-  confidence: number;
-}
+export type FragmentDraftStatus = z.infer<typeof FragmentDraftStatusSchema>;
+export type FragmentInterpretation = z.infer<typeof FragmentInterpretationSchema>;
+export type FragmentDraft = z.infer<typeof FragmentDraftSchema>;
 
-/**
- * Attempt record - tracks validation attempts
- */
-export interface AttemptRecord {
-  /**
-   * Attempt number (0-indexed)
-   */
-  attemptNumber: number;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.4 Fragment (VERIFIED)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Hash of the draft for correlation
-   */
-  draftHash: string;
+export type StateFragmentContent = z.infer<typeof StateFragmentContentSchema>;
+export type ComputedFragmentContent = z.infer<typeof ComputedFragmentContentSchema>;
+export type ActionFragmentContent = z.infer<typeof ActionFragmentContentSchema>;
+export type ConstraintFragmentContent = z.infer<typeof ConstraintFragmentContentSchema>;
+export type EffectFragmentContent = z.infer<typeof EffectFragmentContentSchema>;
+export type FlowFragmentContent = z.infer<typeof FlowFragmentContentSchema>;
+export type FragmentContent = z.infer<typeof FragmentContentSchema>;
 
-  /**
-   * Validation diagnostics from this attempt
-   */
-  diagnostics: CompilerDiagnostics | null;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.5 Provenance
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Timestamp of the attempt (from effect handler)
-   */
-  timestamp: number;
-}
+export type Provenance = z.infer<typeof ProvenanceSchema>;
+export type Fragment = z.infer<typeof FragmentSchema>;
 
-/**
- * Resolution option - choice for ambiguity resolution
- */
-export interface ResolutionOption {
-  /**
-   * Unique identifier
-   */
-  id: string;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.6 DomainDraft
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Human-readable description
-   */
-  description: string;
+export type DependencyEdge = z.infer<typeof DependencyEdgeSchema>;
+export type DependencyGraph = z.infer<typeof DependencyGraphSchema>;
+export type DomainDraft = z.infer<typeof DomainDraftSchema>;
 
-  /**
-   * Optional preview of what this option produces
-   */
-  preview?: string;
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.7 DomainSpec
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Discard reason codes
- */
-export type DiscardReason =
-  | "RESOLUTION_REQUIRED_BUT_DISABLED"
-  | "MAX_RETRIES_EXCEEDED"
-  | "EMPTY_INPUT"
-  | "SEGMENTATION_FAILED"
-  | "USER_CANCELLED";
+export type IssueSeverity = z.infer<typeof IssueSeveritySchema>;
+export type Issue = z.infer<typeof IssueSchema>;
+export type DomainSpecProvenance = z.infer<typeof DomainSpecProvenanceSchema>;
+export type DomainSpecVerification = z.infer<typeof DomainSpecVerificationSchema>;
+export type DomainSpec = z.infer<typeof DomainSpecSchema>;
 
-/**
- * Compilation status
- */
-export type CompilerStatus =
-  | "idle"
-  | "segmenting"
-  | "normalizing"
-  | "proposing"
-  | "validating"
-  | "awaiting_resolution"
-  | "success"
-  | "discarded";
+// ═══════════════════════════════════════════════════════════════════════════════
+// §3.8 Conflicts
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Resolution policy
- */
-export interface CompilerResolutionPolicy {
-  /**
-   * What to do when resolution is required
-   */
-  onResolutionRequired: "await" | "discard";
-}
+export type ConflictType = z.infer<typeof ConflictTypeSchema>;
+export type Conflict = z.infer<typeof ConflictSchema>;
 
-/**
- * Simplified diagnostics for compiler use
- */
-export interface CompilerDiagnostics {
-  valid: boolean;
-  errors: CompilerDiagnostic[];
-  warnings: CompilerDiagnostic[];
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// §6 Resolution Contract
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export interface CompilerDiagnostic {
-  code: string;
-  message: string;
-  path?: string;
-  suggestion?: string;
-}
+export type ResolutionStage = z.infer<typeof ResolutionStageSchema>;
+export type ResolutionImpact = z.infer<typeof ResolutionImpactSchema>;
+export type ResolutionOption = z.infer<typeof ResolutionOptionSchema>;
+export type ResolutionRequest = z.infer<typeof ResolutionRequestSchema>;
+export type ResolutionResponse = z.infer<typeof ResolutionResponseSchema>;
+export type ResolutionRecord = z.infer<typeof ResolutionRecordSchema>;
 
-/**
- * Compiler state - full state of the compiler domain
- */
-export interface CompilerState {
-  // ─── Input ───
-  input: string | null;
-  targetSchema: unknown | null;
-  context: CompilerContext | null;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §7 Compiler State Machine
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  // ─── Configuration ───
-  maxRetries: number;
-  traceDrafts: boolean;
+export type CompilerStatus = z.infer<typeof CompilerStatusSchema>;
+export type FailureReason = z.infer<typeof FailureReasonSchema>;
+export type CompilerConfig = z.infer<typeof CompilerConfigSchema>;
+export type CompilerState = z.infer<typeof CompilerStateSchema>;
 
-  // ─── Pipeline State ───
-  segments: string[];
-  intents: NormalizedIntent[];
-  currentDraft: unknown | null;
-
-  // ─── Validation State ───
-  diagnostics: CompilerDiagnostics | null;
-
-  // ─── Loop Control ───
-  attemptCount: number;
-
-  // ─── History (when traceDrafts: true) ───
-  attempts: AttemptRecord[];
-
-  // ─── Resolution State ───
-  resolutionOptions: ResolutionOption[];
-  resolutionReason: string | null;
-
-  // ─── Status ───
-  status: CompilerStatus;
-
-  // ─── Output ───
-  result: CoreDomainSchema | null;
-  resultHash: string | null;
-  discardReason: DiscardReason | null;
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// §8 Compiler Snapshot (Extended State with Computed Values)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * Compiler snapshot - exposed state with computed values
+ *
+ * Per SPEC §7.4: Computed values derived from status.
  */
 export interface CompilerSnapshot extends CompilerState {
-  // Computed values
+  // ─── Computed: Status Helpers ───
   isIdle: boolean;
-  isSegmenting: boolean;
-  isNormalizing: boolean;
-  isProposing: boolean;
-  isValidating: boolean;
-  isAwaitingResolution: boolean;
+  isPlanning: boolean;
+  isAwaitingPlanDecision: boolean;
+  isGenerating: boolean;
+  isAwaitingDraftDecision: boolean;
+  isLowering: boolean;
+  isLinking: boolean;
+  isAwaitingConflictResolution: boolean;
+  isVerifying: boolean;
+  isEmitting: boolean;
+  isSuccess: boolean;
+  isFailed: boolean;
+
+  // ─── Computed: Aggregate Helpers ───
   isTerminal: boolean;
+  isProcessing: boolean;
+  isAwaitingDecision: boolean;
   canRetry: boolean;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// §9 Compiler Options & Input
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Compiler options
+ * Resolution policy - what to do when resolution is required
+ */
+export interface ResolutionPolicy {
+  /**
+   * Policy for plan decision
+   */
+  onPlanDecision: "auto-accept" | "await" | "discard";
+
+  /**
+   * Policy for draft decision
+   */
+  onDraftDecision: "auto-accept" | "await" | "discard";
+
+  /**
+   * Policy for conflict resolution
+   */
+  onConflictResolution: "await" | "discard";
+}
+
+/**
+ * Compiler options - configuration for compiler instance
  */
 export interface CompilerOptions {
   /**
-   * LLM adapter for text processing.
-   * If provided, takes precedence over anthropic/openai options.
+   * LLM adapter for text processing
    */
   llmAdapter?: LLMAdapter;
 
   /**
-   * Anthropic adapter options.
-   * Used if llmAdapter is not provided and openai is not specified.
+   * Anthropic adapter options
    */
   anthropic?: {
     apiKey?: string;
@@ -212,8 +216,7 @@ export interface CompilerOptions {
   };
 
   /**
-   * OpenAI adapter options.
-   * Used if llmAdapter is not provided. Takes precedence over anthropic.
+   * OpenAI adapter options
    */
   openai?: {
     apiKey?: string;
@@ -226,29 +229,23 @@ export interface CompilerOptions {
   };
 
   /**
-   * Resolution policy (default: 'discard')
+   * Resolution policy
    */
-  resolutionPolicy?: CompilerResolutionPolicy;
+  resolutionPolicy?: Partial<ResolutionPolicy>;
 
   /**
-   * Maximum retries (default: 5)
+   * Compiler config overrides
    */
-  maxRetries?: number;
+  config?: Partial<CompilerConfig>;
 
   /**
-   * Whether to trace drafts (default: false)
-   */
-  traceDrafts?: boolean;
-
-  /**
-   * Telemetry hook for monitoring compilation (optional)
-   * Per SPEC §15.2
+   * Telemetry hook
    */
   telemetry?: CompilerTelemetry;
 }
 
 /**
- * Compile input
+ * Compile input - input for starting compilation
  */
 export interface CompileInput {
   /**
@@ -257,67 +254,105 @@ export interface CompileInput {
   text: string;
 
   /**
-   * Target schema (optional)
+   * Input type
    */
-  schema?: unknown;
+  type?: SourceInputType;
 
   /**
-   * Additional context
+   * Override config for this compilation
    */
-  context?: CompilerContext;
+  config?: Partial<CompilerConfig>;
+}
 
-  /**
-   * Override max retries
-   */
-  maxRetries?: number;
+// ═══════════════════════════════════════════════════════════════════════════════
+// §10 LLM Adapter Interface
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Override trace drafts
-   */
-  traceDrafts?: boolean;
+/**
+ * Raw chunk output from LLM (before ID assignment)
+ */
+export interface RawChunkOutput {
+  content: string;
+  expectedType: FragmentType;
+  dependencies: Array<{
+    kind: "requires";
+    targetChunkId: string;
+    reason?: string;
+  }>;
+  sourceSpan?: { start: number; end: number };
 }
 
 /**
- * LLM Result types
+ * Raw plan output from LLM (before ID assignment)
+ */
+export interface RawPlanOutput {
+  strategy: PlanStrategy;
+  chunks: RawChunkOutput[];
+  rationale?: string;
+}
+
+/**
+ * Raw interpretation output from LLM
+ */
+export interface RawInterpretationOutput {
+  raw: unknown;
+  description?: string;
+}
+
+/**
+ * Raw draft output from LLM (before ID assignment)
+ */
+export interface RawDraftOutput {
+  type: FragmentType;
+  interpretation: RawInterpretationOutput;
+  confidence?: number;
+  alternatives?: RawInterpretationOutput[];
+}
+
+/**
+ * LLM Result type
  */
 export type LLMResult<T> =
   | { ok: true; data: T }
-  | { ok: "resolution"; reason: string; options: ResolutionOption[] }
+  | { ok: "ambiguous"; reason: string; alternatives: T[] }
   | { ok: false; error: string };
-
-export type SegmentResult = LLMResult<{ segments: string[] }>;
-export type NormalizeResult = LLMResult<{ intents: NormalizedIntent[] }>;
-export type ProposeResult = LLMResult<{ draft: unknown }>;
 
 /**
  * LLM Adapter interface
+ *
+ * Per SPEC §10: LLM Actors are untrusted proposers.
+ * Returns raw types without IDs - IDs are assigned by handlers.
  */
 export interface LLMAdapter {
   /**
-   * Segment natural language text into requirement segments
+   * Generate a Plan from SourceInput
    */
-  segment(params: { text: string }): Promise<SegmentResult>;
+  plan(request: {
+    sourceInput: SourceInput;
+    hints?: {
+      preferredStrategy?: PlanStrategy;
+      maxChunks?: number;
+    };
+  }): Promise<LLMResult<{ plan: RawPlanOutput }>>;
 
   /**
-   * Normalize segments into structured intents
+   * Generate a FragmentDraft from a Chunk
    */
-  normalize(params: {
-    segments: string[];
-    schema: unknown;
-    context?: CompilerContext;
-  }): Promise<NormalizeResult>;
-
-  /**
-   * Propose a DomainDraft from intents
-   */
-  propose(params: {
-    schema: unknown;
-    intents: NormalizedIntent[];
-    history: AttemptRecord[];
-    context?: CompilerContext;
-    resolution?: string;
-  }): Promise<ProposeResult>;
+  generate(request: {
+    chunk: Chunk;
+    plan: Plan;
+    existingFragments: Fragment[];
+    retryContext?: {
+      previousDraft: FragmentDraft;
+      issues: Issue[];
+      attemptNumber: number;
+    };
+  }): Promise<LLMResult<{ draft: RawDraftOutput }>>;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §11 Compiler Interface
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * Unsubscribe function
@@ -325,16 +360,16 @@ export interface LLMAdapter {
 export type Unsubscribe = () => void;
 
 /**
- * Compiler interface
+ * Compiler interface - main API for the compiler
  */
 export interface Compiler {
   /**
-   * Start compilation
+   * Start compilation with input text
    */
   start(input: CompileInput): Promise<void>;
 
   /**
-   * Get current state
+   * Get current compiler snapshot
    */
   getSnapshot(): Promise<CompilerSnapshot>;
 
@@ -344,28 +379,60 @@ export interface Compiler {
   subscribe(callback: (state: CompilerSnapshot) => void): Unsubscribe;
 
   /**
-   * Dispatch an action
+   * Dispatch an action to the compiler domain
    */
   dispatch(action: string, input?: unknown): Promise<void>;
 
-  /**
-   * Resolve ambiguity
-   */
-  resolve(selectedOptionId: string): Promise<void>;
+  // ─── Plan Phase ───
 
   /**
-   * Discard compilation
+   * Accept the current plan and proceed to generation
    */
-  discard(reason?: DiscardReason): Promise<void>;
+  acceptPlan(): Promise<void>;
 
   /**
-   * Reset to idle
+   * Reject the current plan with reason
+   */
+  rejectPlan(reason: string): Promise<void>;
+
+  // ─── Generate Phase ───
+
+  /**
+   * Accept a fragment draft
+   */
+  acceptDraft(draftId: string): Promise<void>;
+
+  /**
+   * Reject a fragment draft with reason
+   */
+  rejectDraft(draftId: string, reason: string): Promise<void>;
+
+  // ─── Conflict Resolution ───
+
+  /**
+   * Resolve a conflict by selecting an option
+   */
+  resolveConflict(resolutionId: string, selectedOptionId: string): Promise<void>;
+
+  // ─── Terminal ───
+
+  /**
+   * Fail the compilation with a reason
+   */
+  fail(reason: FailureReason): Promise<void>;
+
+  /**
+   * Reset to idle state
    */
   reset(): Promise<void>;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// §12 Effect Handler Types
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Effect handler result - returned by effect handlers
+ * Effect handler result
  */
 export interface EffectHandlerResult {
   action: string;
@@ -373,56 +440,78 @@ export interface EffectHandlerResult {
 }
 
 /**
+ * Compiler effect types (v1.1)
+ */
+export type CompilerEffectType =
+  | "llm:plan"
+  | "llm:generate"
+  | "pass:lower"
+  | "linker:link"
+  | "verifier:verify"
+  | "emitter:emit";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §13 Telemetry
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
  * Telemetry hook for monitoring compiler execution
- *
- * Per SPEC §15.2: Allows external systems to observe compilation progress
- * for debugging, monitoring, and analytics purposes.
  */
 export interface CompilerTelemetry {
   /**
    * Called when compilation phase changes
-   * @param from - Previous status
-   * @param to - New status
    */
   onPhaseChange?(from: CompilerStatus, to: CompilerStatus): void;
 
   /**
-   * Called when a validation attempt is recorded (when traceDrafts is true)
-   * @param attempt - The recorded attempt
+   * Called when a plan is received
    */
-  onAttempt?(attempt: AttemptRecord): void;
+  onPlanReceived?(plan: Plan): void;
 
   /**
-   * Called when resolution is requested from external system
-   * @param reason - Why resolution is needed
-   * @param options - Available resolution options
+   * Called when a fragment draft is received
    */
-  onResolutionRequested?(reason: string, options: ResolutionOption[]): void;
+  onDraftReceived?(draft: FragmentDraft): void;
 
   /**
-   * Called when compilation completes (success or discarded)
-   * @param result - Final compiler snapshot
+   * Called when a fragment is lowered
+   */
+  onFragmentLowered?(fragment: Fragment): void;
+
+  /**
+   * Called when conflicts are detected
+   */
+  onConflictsDetected?(conflicts: Conflict[]): void;
+
+  /**
+   * Called when resolution is requested
+   */
+  onResolutionRequested?(request: ResolutionRequest): void;
+
+  /**
+   * Called when compilation completes (success or failed)
    */
   onComplete?(result: CompilerSnapshot): void;
 
   /**
    * Called when an effect is about to be executed
-   * @param effectType - Type of effect (e.g., 'llm:segment')
-   * @param params - Effect parameters
    */
-  onEffectStart?(effectType: string, params: Record<string, unknown>): void;
+  onEffectStart?(effectType: CompilerEffectType, params: Record<string, unknown>): void;
 
   /**
    * Called when an effect completes
-   * @param effectType - Type of effect
-   * @param result - Effect handler result
    */
-  onEffectEnd?(effectType: string, result: EffectHandlerResult): void;
+  onEffectEnd?(effectType: CompilerEffectType, result: EffectHandlerResult): void;
 
   /**
    * Called on any error during compilation
-   * @param error - The error that occurred
-   * @param context - Context where error occurred (e.g., 'effect:llm:segment')
    */
   onError?(error: Error, context: string): void;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §14 Re-exports for convenience
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Re-export core domain schema type
+export type { CoreDomainSchema };

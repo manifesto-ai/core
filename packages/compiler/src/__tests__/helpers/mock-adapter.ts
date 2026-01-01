@@ -1,53 +1,79 @@
+/**
+ * Mock LLM Adapter for v1.1 Testing
+ */
+
 import { vi } from "vitest";
 import type {
   LLMAdapter,
-  SegmentResult,
-  NormalizeResult,
-  ProposeResult,
-  NormalizedIntent,
+  LLMResult,
+  RawPlanOutput,
+  RawDraftOutput,
+  RawChunkOutput,
+  PlanStrategy,
+  FragmentType,
 } from "../../domain/types.js";
 
 /**
- * Default successful segment response
+ * Default successful plan response
  */
-export const DEFAULT_SEGMENT_RESPONSE: SegmentResult = {
+export const DEFAULT_PLAN_RESPONSE: LLMResult<{ plan: RawPlanOutput }> = {
   ok: true,
   data: {
-    segments: ["requirement 1", "requirement 2"],
+    plan: {
+      strategy: "by-statement" as PlanStrategy,
+      chunks: [
+        {
+          content: "Track counter value",
+          expectedType: "state" as FragmentType,
+          dependencies: [],
+        },
+        {
+          content: "Increment counter action",
+          expectedType: "action" as FragmentType,
+          dependencies: [{ kind: "requires", targetChunkId: "chunk_0" }],
+        },
+      ],
+      rationale: "Split by domain concern",
+    },
   },
 };
 
 /**
- * Default successful normalize response
+ * Default successful generate response (for state fragment)
  */
-export const DEFAULT_NORMALIZE_RESPONSE: NormalizeResult = {
-  ok: true,
-  data: {
-    intents: [
-      { kind: "state", description: "Track counter value", confidence: 0.9 },
-      { kind: "action", description: "Increment counter", confidence: 0.85 },
-    ],
-  },
-};
-
-/**
- * Default successful propose response (minimal valid DomainDraft)
- */
-export const DEFAULT_PROPOSE_RESPONSE: ProposeResult = {
+export const DEFAULT_STATE_DRAFT_RESPONSE: LLMResult<{ draft: RawDraftOutput }> = {
   ok: true,
   data: {
     draft: {
-      id: "test:counter",
-      version: "1.0.0",
-      state: {
-        counter: { type: "number", default: 0 },
+      type: "state" as FragmentType,
+      interpretation: {
+        raw: {
+          name: "counter",
+          schema: { type: "number", default: 0 },
+        },
+        description: "Counter value",
       },
-      computed: {},
-      actions: {
-        increment: {
+      confidence: 0.95,
+    },
+  },
+};
+
+/**
+ * Default successful generate response (for action fragment)
+ */
+export const DEFAULT_ACTION_DRAFT_RESPONSE: LLMResult<{ draft: RawDraftOutput }> = {
+  ok: true,
+  data: {
+    draft: {
+      type: "action" as FragmentType,
+      interpretation: {
+        raw: {
+          name: "increment",
           flow: [{ set: { path: "counter", expr: { add: ["$counter", 1] } } }],
         },
+        description: "Increment counter",
       },
+      confidence: 0.9,
     },
   },
 };
@@ -56,50 +82,43 @@ export const DEFAULT_PROPOSE_RESPONSE: ProposeResult = {
  * Mock adapter options
  */
 export interface MockAdapterOptions {
-  segmentResponse?: SegmentResult | (() => SegmentResult);
-  normalizeResponse?: NormalizeResult | (() => NormalizeResult);
-  proposeResponse?: ProposeResult | (() => ProposeResult);
-  proposeResponses?: ProposeResult[];
+  planResponse?: LLMResult<{ plan: RawPlanOutput }> | (() => LLMResult<{ plan: RawPlanOutput }>);
+  generateResponse?: LLMResult<{ draft: RawDraftOutput }> | (() => LLMResult<{ draft: RawDraftOutput }>);
+  generateResponses?: Array<LLMResult<{ draft: RawDraftOutput }>>;
 }
 
 /**
- * Create a mock LLM adapter for testing
+ * Create a mock LLM adapter for testing (v1.1)
  */
 export function createMockAdapter(options: MockAdapterOptions = {}): LLMAdapter {
-  let proposeCallCount = 0;
+  let generateCallCount = 0;
 
-  const getSegmentResponse = (): SegmentResult => {
-    if (typeof options.segmentResponse === "function") {
-      return options.segmentResponse();
+  const getPlanResponse = (): LLMResult<{ plan: RawPlanOutput }> => {
+    if (typeof options.planResponse === "function") {
+      return options.planResponse();
     }
-    return options.segmentResponse ?? DEFAULT_SEGMENT_RESPONSE;
+    return options.planResponse ?? DEFAULT_PLAN_RESPONSE;
   };
 
-  const getNormalizeResponse = (): NormalizeResult => {
-    if (typeof options.normalizeResponse === "function") {
-      return options.normalizeResponse();
-    }
-    return options.normalizeResponse ?? DEFAULT_NORMALIZE_RESPONSE;
-  };
-
-  const getProposeResponse = (): ProposeResult => {
-    // Support multiple propose responses for retry testing
-    if (options.proposeResponses && options.proposeResponses.length > 0) {
-      const response = options.proposeResponses[proposeCallCount] ?? options.proposeResponses[options.proposeResponses.length - 1];
-      proposeCallCount++;
+  const getGenerateResponse = (): LLMResult<{ draft: RawDraftOutput }> => {
+    // Support multiple generate responses for retry testing
+    if (options.generateResponses && options.generateResponses.length > 0) {
+      const response =
+        options.generateResponses[generateCallCount] ??
+        options.generateResponses[options.generateResponses.length - 1];
+      generateCallCount++;
       return response;
     }
 
-    if (typeof options.proposeResponse === "function") {
-      return options.proposeResponse();
+    if (typeof options.generateResponse === "function") {
+      return options.generateResponse();
     }
-    return options.proposeResponse ?? DEFAULT_PROPOSE_RESPONSE;
+    return options.generateResponse ?? DEFAULT_STATE_DRAFT_RESPONSE;
   };
 
   return {
-    segment: vi.fn().mockImplementation(async () => getSegmentResponse()),
-    normalize: vi.fn().mockImplementation(async () => getNormalizeResponse()),
-    propose: vi.fn().mockImplementation(async () => getProposeResponse()),
+    plan: vi.fn().mockImplementation(async () => getPlanResponse()),
+    generate: vi.fn().mockImplementation(async () => getGenerateResponse()),
   };
 }
 
@@ -107,64 +126,96 @@ export function createMockAdapter(options: MockAdapterOptions = {}): LLMAdapter 
  * Create a mock adapter that always succeeds
  */
 export function createSuccessMockAdapter(): LLMAdapter {
-  return createMockAdapter();
-}
-
-/**
- * Create a mock adapter that fails at segmentation
- */
-export function createSegmentFailMockAdapter(error: string = "Segmentation failed"): LLMAdapter {
+  // Provide responses for both chunks (state then action)
   return createMockAdapter({
-    segmentResponse: { ok: false, error },
+    generateResponses: [DEFAULT_STATE_DRAFT_RESPONSE, DEFAULT_ACTION_DRAFT_RESPONSE],
   });
 }
 
 /**
- * Create a mock adapter that requires resolution
+ * Create a mock adapter that fails at planning
  */
-export function createResolutionMockAdapter(reason: string = "Ambiguous requirement"): LLMAdapter {
+export function createPlanFailMockAdapter(error: string = "Planning failed"): LLMAdapter {
   return createMockAdapter({
-    proposeResponse: {
-      ok: "resolution",
+    planResponse: { ok: false, error },
+  });
+}
+
+/**
+ * Create a mock adapter that returns ambiguous plan
+ */
+export function createAmbiguousPlanMockAdapter(reason: string = "Ambiguous requirement"): LLMAdapter {
+  const basePlan = (DEFAULT_PLAN_RESPONSE as { ok: true; data: { plan: RawPlanOutput } }).data.plan;
+  return createMockAdapter({
+    planResponse: {
+      ok: "ambiguous",
       reason,
-      options: [
-        { id: "option1", description: "First option" },
-        { id: "option2", description: "Second option" },
+      alternatives: [
+        { plan: { ...basePlan, strategy: "by-statement" as PlanStrategy } },
+        { plan: { ...basePlan, strategy: "by-entity" as PlanStrategy } },
       ],
     },
   });
 }
 
 /**
- * Create a mock adapter that produces invalid drafts (for retry testing)
+ * Create a mock adapter that fails at generation
  */
-export function createInvalidDraftMockAdapter(
-  failCount: number = 2,
-  eventualResponse: ProposeResult = DEFAULT_PROPOSE_RESPONSE
-): LLMAdapter {
-  const invalidResponse: ProposeResult = {
-    ok: true,
-    data: {
-      draft: { _invalid: true }, // Will fail validation
-    },
-  };
-
-  const responses: ProposeResult[] = [];
-  for (let i = 0; i < failCount; i++) {
-    responses.push(invalidResponse);
-  }
-  responses.push(eventualResponse);
-
-  return createMockAdapter({ proposeResponses: responses });
+export function createGenerateFailMockAdapter(error: string = "Generation failed"): LLMAdapter {
+  return createMockAdapter({
+    generateResponse: { ok: false, error },
+  });
 }
 
 /**
- * Create custom intents for testing
+ * Create a mock adapter with ambiguous drafts
  */
-export function createIntents(intents: Partial<NormalizedIntent>[]): NormalizedIntent[] {
-  return intents.map((intent, index) => ({
-    kind: intent.kind ?? "state",
-    description: intent.description ?? `Intent ${index + 1}`,
-    confidence: intent.confidence ?? 0.9,
+export function createAmbiguousDraftMockAdapter(reason: string = "Ambiguous interpretation"): LLMAdapter {
+  const baseDraft = (DEFAULT_STATE_DRAFT_RESPONSE as { ok: true; data: { draft: RawDraftOutput } }).data.draft;
+  return createMockAdapter({
+    generateResponse: {
+      ok: "ambiguous",
+      reason,
+      alternatives: [
+        { draft: baseDraft },
+        {
+          draft: {
+            type: "state" as FragmentType,
+            interpretation: {
+              raw: { name: "value", schema: { type: "number", default: 0 } },
+              description: "Alternative interpretation",
+            },
+            confidence: 0.7,
+          },
+        },
+      ],
+    },
+  });
+}
+
+/**
+ * Create custom chunks for testing
+ */
+export function createChunks(chunks: Partial<RawChunkOutput>[]): RawChunkOutput[] {
+  return chunks.map((chunk, index) => ({
+    content: chunk.content ?? `Chunk ${index + 1}`,
+    expectedType: chunk.expectedType ?? ("state" as FragmentType),
+    dependencies: chunk.dependencies ?? [],
+    sourceSpan: chunk.sourceSpan,
   }));
+}
+
+/**
+ * Create a plan with custom chunks
+ */
+export function createPlan(
+  strategy: PlanStrategy,
+  chunks: RawChunkOutput[],
+  rationale?: string
+): RawPlanOutput {
+  return {
+    strategy,
+    chunks,
+    rationale,
+  };
 }

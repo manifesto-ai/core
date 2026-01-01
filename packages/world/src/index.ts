@@ -97,6 +97,31 @@ export type {
   ManifestoWorldConfig,
 } from "./world.js";
 
+// Event System exports (World Protocol Event System v1.1)
+export { WorldEventBus, createWorldEventBus } from "./events/index.js";
+export type {
+  WorldEventType,
+  WorldEvent,
+  WorldEventHandler,
+  Unsubscribe,
+  ErrorInfo,
+  AuthorityDecision,
+  // Individual event types
+  ProposalSubmittedEvent,
+  ProposalEvaluatingEvent,
+  ProposalDecidedEvent,
+  ExecutionStartedEvent,
+  ExecutionComputingEvent,
+  ExecutionPatchesEvent,
+  ExecutionEffectEvent,
+  ExecutionEffectResultEvent,
+  ExecutionCompletedEvent,
+  ExecutionFailedEvent,
+  SnapshotChangedEvent,
+  WorldCreatedEvent,
+  WorldForkedEvent,
+} from "./events/index.js";
+
 // Re-export core types for convenience
 export {
   createIntent,

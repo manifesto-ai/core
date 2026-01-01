@@ -333,11 +333,20 @@ describe("ManifestoWorld", () => {
       );
 
       // Host receives simple Intent format (type, input, intentId), not IntentInstance
-      expect(host.dispatch).toHaveBeenCalledWith({
-        type: intent.body.type,
-        input: intent.body.input,
-        intentId: intent.intentId,
-      });
+      // Also receives optional loopOptions for event callbacks
+      expect(host.dispatch).toHaveBeenCalledWith(
+        {
+          type: intent.body.type,
+          input: intent.body.input,
+          intentId: intent.intentId,
+        },
+        expect.objectContaining({
+          onBeforeCompute: expect.any(Function),
+          onAfterCompute: expect.any(Function),
+          onBeforeEffect: expect.any(Function),
+          onAfterEffect: expect.any(Function),
+        })
+      );
       expect(result.proposal.status).toBe("completed");
       expect(result.resultWorld).toBeDefined();
     });

@@ -275,8 +275,8 @@ expr.add(state.subtotal, expr.mul(state.subtotal, state.taxRate))
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/builder/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/builder/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/builder/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 

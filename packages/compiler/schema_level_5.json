@@ -1,243 +1,121 @@
 {
-  "id": "account-management-schema",
-  "version": "1.0.0",
-  "hash": "",
-  "state": {
-    "fields": {
-      "accountStatus": {
-        "type": {
-          "enum": [
-            "inactive",
-            "pending",
-            "active",
-            "locked"
+  "id": "spec_8aSTIS5t",
+  "version": "20251231.070726.VQJl",
+  "hash": "451ff9f0",
+  "schema": {
+    "state": {
+      "accounts": {
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "initial": []
+      }
+    },
+    "computed": {},
+    "actions": {
+      "signUp": {
+        "input": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "email",
+            "password"
           ]
         },
-        "required": true,
-        "default": "inactive",
-        "description": "Current status of the account"
-      },
-      "verificationAttempts": {
-        "type": "number",
-        "required": true,
-        "default": 0,
-        "description": "Number of consecutive verification failures"
-      },
-      "verificationExpiry": {
-        "type": "string",
-        "required": false,
-        "description": "Timestamp when the verification link expires"
-      },
-      "adminActivated": {
-        "type": "boolean",
-        "required": true,
-        "default": false,
-        "description": "Indicates if the account was activated by an admin"
-      }
-    }
-  },
-  "computed": {
-    "fields": {
-      "computed.currentAccountStatus": {
-        "deps": [
-          "state.accountStatus"
-        ],
-        "expr": {
-          "kind": "get",
-          "path": "state.accountStatus"
-        },
-        "description": "Displays the current account status"
-      }
-    }
-  },
-  "actions": {
-    "registerAccount": {
-      "flow": {
-        "kind": "patch",
-        "op": "set",
-        "path": "state.accountStatus",
-        "value": {
-          "kind": "lit",
-          "value": "inactive"
-        }
-      },
-      "description": "User registers an account, setting it to inactive"
-    },
-    "completeEmailVerification": {
-      "flow": {
-        "kind": "if",
-        "cond": {
-          "kind": "and",
-          "args": [
+        "available": {
+          "$and": [
             {
-              "kind": "neq",
-              "left": {
-                "kind": "get",
-                "path": "state.accountStatus"
-              },
-              "right": {
-                "kind": "lit",
-                "value": "active"
+              "$not": {
+                "$isEmpty": "$input.email"
               }
             },
             {
-              "kind": "lt",
-              "left": {
-                "kind": "get",
-                "path": "state.verificationAttempts"
-              },
-              "right": {
-                "kind": "lit",
-                "value": 3
+              "$not": {
+                "$isEmpty": "$input.password"
               }
             }
           ]
         },
-        "then": {
-          "kind": "patch",
-          "op": "set",
-          "path": "state.accountStatus",
-          "value": {
-            "kind": "lit",
-            "value": "active"
-          }
-        },
-        "else": {
-          "kind": "patch",
-          "op": "set",
-          "path": "state.accountStatus",
-          "value": {
-            "kind": "lit",
-            "value": "inactive"
-          }
-        }
-      },
-      "description": "Account becomes active upon email verification completion"
-    },
-    "adminActivateAccount": {
-      "flow": {
-        "kind": "seq",
-        "steps": [
+        "flow": [
           {
-            "kind": "patch",
-            "op": "set",
-            "path": "state.accountStatus",
-            "value": {
-              "kind": "lit",
-              "value": "active"
-            }
-          },
-          {
-            "kind": "patch",
-            "op": "set",
-            "path": "state.adminActivated",
-            "value": {
-              "kind": "lit",
-              "value": true
+            "set": {
+              "accounts": {
+                "$append": [
+                  "$accounts",
+                  {
+                    "id": "$uuid()",
+                    "email": "$input.email",
+                    "status": "inactive"
+                  }
+                ]
+              }
             }
           }
         ]
-      },
-      "description": "Admin can activate account without email verification"
+      }
     },
-    "attemptVerificationAfterExpiry": {
-      "flow": {
-        "kind": "if",
-        "cond": {
-          "kind": "gt",
-          "left": {
-            "kind": "get",
-            "path": "state.verificationAttempts"
-          },
-          "right": {
-            "kind": "lit",
-            "value": 3
-          }
+    "constraints": []
+  },
+  "provenance": {
+    "planId": "plan_GTuRLR8t",
+    "fragmentIds": [
+      "fragment_gmoVC0gs",
+      "fragment_Mf6F50G-"
+    ],
+    "compiledAt": 1767164846047,
+    "compilerVersion": "1.1.0"
+  },
+  "verification": {
+    "valid": true,
+    "issues": [
+      [
+        {
+          "id": "issue_XR1l9pWp",
+          "code": "MISSING_PROVENANCE_SOURCE",
+          "severity": "warning",
+          "message": "Fragment 'signUp' missing provenance.source",
+          "fragmentId": "fragment_gmoVC0gs"
         },
-        "then": {
-          "kind": "patch",
-          "op": "set",
-          "path": "state.accountStatus",
-          "value": {
-            "kind": "lit",
-            "value": "locked"
-          }
+        {
+          "id": "issue_YdiYKfQb",
+          "code": "MISSING_PROVENANCE_INPUT_ID",
+          "severity": "warning",
+          "message": "Fragment 'signUp' missing provenance.inputId",
+          "fragmentId": "fragment_gmoVC0gs"
         },
-        "else": {
-          "kind": "patch",
-          "op": "set",
-          "path": "state.accountStatus",
-          "value": {
-            "kind": "lit",
-            "value": "inactive"
-          }
-        }
-      },
-      "description": "If verification is attempted after expiration, account returns to inactive state"
-    },
-    "requestNewVerification": {
-      "flow": {
-        "kind": "patch",
-        "op": "set",
-        "path": "state.verificationAttempts",
-        "value": {
-          "kind": "lit",
-          "value": 0
-        }
-      },
-      "description": "New verification request is required after expiration"
-    },
-    "lockAccountAfterFailures": {
-      "flow": {
-        "kind": "if",
-        "cond": {
-          "kind": "gte",
-          "left": {
-            "kind": "get",
-            "path": "state.verificationAttempts"
-          },
-          "right": {
-            "kind": "lit",
-            "value": 3
-          }
+        {
+          "id": "issue_jpqVryQ5",
+          "code": "MISSING_PROVENANCE_SOURCE",
+          "severity": "warning",
+          "message": "Fragment 'accounts' missing provenance.source",
+          "fragmentId": "fragment_Mf6F50G-"
         },
-        "then": {
-          "kind": "patch",
-          "op": "set",
-          "path": "state.accountStatus",
-          "value": {
-            "kind": "lit",
-            "value": "locked"
-          }
+        {
+          "id": "issue_wQfI_vH5",
+          "code": "MISSING_PROVENANCE_INPUT_ID",
+          "severity": "warning",
+          "message": "Fragment 'accounts' missing provenance.inputId",
+          "fragmentId": "fragment_Mf6F50G-"
         }
-      },
-      "description": "Account is locked after three consecutive verification failures"
-    },
-    "adminUnlockAccount": {
-      "flow": {
-        "kind": "seq",
-        "steps": [
-          {
-            "kind": "patch",
-            "op": "set",
-            "path": "state.accountStatus",
-            "value": {
-              "kind": "lit",
-              "value": "inactive"
-            }
-          },
-          {
-            "kind": "patch",
-            "op": "set",
-            "path": "state.verificationAttempts",
-            "value": {
-              "kind": "lit",
-              "value": 0
-            }
-          }
-        ]
-      },
-      "description": "Admin must unlock the account and reset verification attempts"
-    }
+      ]
+    ]
   }
 }

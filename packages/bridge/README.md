@@ -227,8 +227,8 @@ For React applications, see [`@manifesto-ai/react`](../react/).
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/bridge/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/bridge/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/bridge/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 

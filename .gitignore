@@ -6,3 +6,6 @@ dist
 .env*
 .idea
 .DS_Store
+
+apps/llm-babybench
+/COMPILER_TEST.md

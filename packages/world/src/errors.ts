@@ -21,6 +21,7 @@ export type WorldErrorCode =
 
   // World errors
   | "WORLD_NOT_FOUND"
+  | "SNAPSHOT_NOT_FOUND"
   | "INVALID_BASE_WORLD"
   | "GENESIS_ALREADY_EXISTS"
   | "NO_GENESIS"

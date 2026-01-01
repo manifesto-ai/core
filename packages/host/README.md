@@ -197,8 +197,8 @@ For typical usage with governance, see [`@manifesto-ai/world`](../world/).
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](../../docs/packages/host/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](../../docs/packages/host/SPEC.md) | Complete specification |
-| [FDR.md](../../docs/packages/host/FDR.md) | Design rationale |
+| [SPEC.md](docs/SPEC.md) | Complete specification |
+| [FDR.md](docs/FDR.md) | Design rationale |
 
 ---
 
