@@ -1,0 +1,137 @@
+// ============================================
+// Title: Once (Per-Intent Idempotency)
+// Description: Ensure blocks run once per intent
+// Prerequisites: control/when.mel
+// ============================================
+
+domain ControlOnce {
+  // --- State ---
+  state {
+    count: number = 0
+
+    // Intent markers (string | null)
+    lastIncrement: string | null = null
+    lastDecrement: string | null = null
+
+    // Multi-step markers
+    step1: string | null = null
+    step2: string | null = null
+    step3: string | null = null
+
+    // Data
+    items: Array<Item> | null = null
+    processed: Array<Item> | null = null
+  }
+
+  // --- Basic once ---
+  // Runs once per intent, prevents duplicate execution
+  action increment() {
+    once(lastIncrement) {
+      patch lastIncrement = $meta.intentId    // MUST be first!
+      patch count = add(count, 1)
+    }
+  }
+
+  action decrement() {
+    once(lastDecrement) {
+      patch lastDecrement = $meta.intentId
+      patch count = sub(count, 1)
+    }
+  }
+
+  // --- Once with condition ---
+  // Combines idempotency with additional condition
+  action incrementIfPositive() {
+    once(lastIncrement) when gt(count, 0) {
+      patch lastIncrement = $meta.intentId
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Once with effect ---
+  // Effect runs only once per intent
+  action fetchData() {
+    once(step1) {
+      patch step1 = $meta.intentId
+      effect api.fetch({ url: "/items", into: items })
+    }
+  }
+
+  // --- Multi-step pipeline ---
+  action processItems() {
+    // Step 1: Fetch
+    once(step1) {
+      patch step1 = $meta.intentId
+      effect api.fetch({ url: "/items", into: items })
+    }
+
+    // Step 2: Filter (waits for items)
+    once(step2) when isNotNull(items) {
+      patch step2 = $meta.intentId
+      effect array.filter({
+        source: items,
+        where: eq($item.active, true),
+        into: processed
+      })
+    }
+
+    // Step 3: Complete (waits for processed)
+    once(step3) when isNotNull(processed) {
+      patch step3 = $meta.intentId
+      patch count = len(processed)
+    }
+  }
+
+  // --- True "once ever" pattern ---
+  // Different from once() - uses when isNull()
+  action submitOnce() {
+    // This action can only ever run once (not per-intent)
+    when isNull(step1) {
+      patch step1 = $meta.intentId
+      effect api.submit({ data: items, into: processed })
+    }
+  }
+
+  // --- Reset markers for retry ---
+  action reset() {
+    when true {
+      patch lastIncrement = null
+      patch lastDecrement = null
+      patch step1 = null
+      patch step2 = null
+      patch step3 = null
+      patch items = null
+      patch processed = null
+      patch count = 0
+    }
+  }
+}
+
+// ============================================
+// How once() works:
+//
+//   once(marker) { body }
+//   ->
+//   when neq(marker, $meta.intentId) { body }
+//
+// Intent A (first call):
+//   marker = null, intentId = "A"
+//   neq(null, "A") = true -> runs, sets marker = "A"
+//
+// Intent A (re-entry):
+//   marker = "A", intentId = "A"
+//   neq("A", "A") = false -> skips
+//
+// Intent B:
+//   marker = "A", intentId = "B"
+//   neq("A", "B") = true -> runs again!
+//
+// Key Rules:
+//   - Marker patch MUST be first statement
+//   - Marker should be string | null type
+//   - Each once block needs unique marker
+//
+// once() vs when isNull():
+//   once(m) { }         -> Per-intent (can repeat with new intent)
+//   when isNull(m) { }  -> Once ever (permanent)
+// ============================================

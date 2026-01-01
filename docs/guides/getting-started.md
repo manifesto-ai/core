@@ -1,0 +1,531 @@
+# Getting Started with Manifesto
+
+> **Covers:** Domain definition, Core computation, Host execution, basic patterns
+> **Purpose:** Quick start guide for developers new to Manifesto
+> **Time to complete:** 15-20 minutes
+
+---
+
+## Prerequisites
+
+- Node.js 18+ or Bun
+- Basic TypeScript knowledge
+- Familiarity with Zod (for schema definition)
+
+---
+
+## Installation
+
+```bash
+npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+# or
+pnpm add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+# or
+bun add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+```
+
+---
+
+## Your First Manifesto App: Counter
+
+### Step 1: Define the Domain
+
+```typescript
+// counter-domain.ts
+import { z } from "zod";
+import { defineDomain } from "@manifesto-ai/builder";
+
+// Define state schema using Zod
+const CounterStateSchema = z.object({
+  count: z.number().default(0),
+  lastAction: z.string().optional(),
+});
+
+// Define domain with actions and computed values
+export const CounterDomain = defineDomain(
+  CounterStateSchema,
+  ({ state, actions, expr, flow }) => {
+    // Define actions
+    const { increment, decrement, reset } = actions.define({
+      increment: {
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.add(state.count, 1)),
+          flow.patch(state.lastAction).set(expr.lit("increment"))
+        ),
+      },
+
+      decrement: {
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.sub(state.count, 1)),
+          flow.patch(state.lastAction).set(expr.lit("decrement"))
+        ),
+      },
+
+      reset: {
+        flow: flow.seq(
+          flow.patch(state.count).set(expr.lit(0)),
+          flow.patch(state.lastAction).set(expr.lit("reset"))
+        ),
+      },
+    });
+
+    return {
+      actions: { increment, decrement, reset },
+    };
+  },
+  { id: "counter-domain", version: "1.0.0" }
+);
+```
+
+**What you just did:**
+- Defined state shape with Zod (`count` is a number, `lastAction` is an optional string)
+- Created three actions: `increment`, `decrement`, and `reset`
+- Each action uses `flow.patch()` to describe state changes
+- Actions are **declarative** — they describe what should happen, not how to execute it
+
+---
+
+### Step 2: Create Core and Host
+
+```typescript
+// main.ts
+import { createCore } from "@manifesto-ai/core";
+import { createHost } from "@manifesto-ai/host";
+import { CounterDomain } from "./counter-domain";
+
+// Create Core (pure computation engine)
+const core = createCore();
+
+// Create initial snapshot
+const initialSnapshot = core.createSnapshot(CounterDomain.schema, {
+  count: 0,
+});
+
+// Create Host (execution engine)
+const host = createHost({
+  schema: CounterDomain.schema,
+  snapshot: initialSnapshot,
+});
+
+// Subscribe to state changes
+host.subscribe((snapshot) => {
+  console.log("Count:", snapshot.data.count);
+  console.log("Last action:", snapshot.data.lastAction);
+});
+
+// Dispatch actions
+await host.dispatch({ type: "increment" });
+// → Count: 1, Last action: increment
+
+await host.dispatch({ type: "increment" });
+// → Count: 2, Last action: increment
+
+await host.dispatch({ type: "decrement" });
+// → Count: 1, Last action: decrement
+
+await host.dispatch({ type: "reset" });
+// → Count: 0, Last action: reset
+```
+
+**What you just did:**
+- Created Core (handles pure computation)
+- Created Host (handles execution and side effects)
+- Subscribed to state changes
+- Dispatched intents to change state
+
+---
+
+### Step 3: Add Computed Values
+
+```typescript
+// counter-domain.ts (updated)
+export const CounterDomain = defineDomain(
+  CounterStateSchema,
+  ({ state, computed, actions, expr, flow }) => {
+    // Add computed values
+    const { isPositive, isZero, description } = computed.define({
+      isPositive: expr.gt(state.count, 0),
+      isZero: expr.eq(state.count, 0),
+      description: expr.cond(
+        expr.gt(state.count, 0),
+        expr.lit("positive"),
+        expr.cond(
+          expr.lt(state.count, 0),
+          expr.lit("negative"),
+          expr.lit("zero")
+        )
+      ),
+    });
+
+    // ... actions ...
+
+    return {
+      computed: { isPositive, isZero, description },
+      actions: { increment, decrement, reset },
+    };
+  }
+);
+
+// Use computed values
+host.subscribe((snapshot) => {
+  console.log("Count:", snapshot.data.count);
+  console.log("Is positive?", snapshot.computed.isPositive);
+  console.log("Is zero?", snapshot.computed.isZero);
+  console.log("Description:", snapshot.computed.description);
+});
+```
+
+**What computed values are:**
+- Derived values calculated from state
+- **Always recalculated** (never stored)
+- Form a Directed Acyclic Graph (DAG)
+- Declared once, available everywhere
+
+---
+
+### Step 4: Add Actions with Input
+
+```typescript
+// counter-domain.ts (updated)
+export const CounterDomain = defineDomain(
+  CounterStateSchema,
+  ({ state, actions, expr, flow }) => {
+    const { setCount, addAmount } = actions.define({
+      // Action with required input
+      setCount: {
+        input: z.object({ value: z.number() }),
+        flow: flow.patch(state.count).set(expr.input("value")),
+      },
+
+      // Action with optional input
+      addAmount: {
+        input: z.object({
+          amount: z.number().default(1),
+        }),
+        flow: flow.patch(state.count).set(
+          expr.add(state.count, expr.input("amount"))
+        ),
+      },
+    });
+
+    return { actions: { setCount, addAmount } };
+  }
+);
+
+// Use actions with input
+await host.dispatch({
+  type: "setCount",
+  input: { value: 10 }
+});
+// → Count: 10
+
+await host.dispatch({
+  type: "addAmount",
+  input: { amount: 5 }
+});
+// → Count: 15
+
+await host.dispatch({
+  type: "addAmount",
+  input: {} // Uses default amount: 1
+});
+// → Count: 16
+```
+
+**What you just did:**
+- Added input validation with Zod
+- Used `expr.input()` to access input values in flows
+- Specified default values for optional input
+
+---
+
+## Understanding Core Concepts
+
+### Snapshot: The Single Source of Truth
+
+```typescript
+type Snapshot = {
+  data: {
+    count: number;
+    lastAction?: string;
+  };
+  computed: {
+    isPositive: boolean;
+    isZero: boolean;
+    description: string;
+  };
+  system: {
+    status: 'idle' | 'computing' | 'pending' | 'error';
+    // ...
+  };
+  input: unknown;
+  meta: {
+    version: number;
+    timestamp: number;
+    schemaHash: string;
+  };
+};
+```
+
+**Key principle:** All communication happens through Snapshot. There is no other channel.
+
+### Flow: Declarative Computation
+
+Flows are data structures that describe computations:
+
+```typescript
+// This is DATA, not CODE
+{
+  kind: "seq",
+  steps: [
+    { kind: "patch", op: "set", path: "data.count", value: { kind: "lit", value: 0 } },
+    { kind: "patch", op: "set", path: "data.lastAction", value: { kind: "lit", value: "reset" } }
+  ]
+}
+```
+
+Flows:
+- Do NOT execute; they describe
+- Do NOT return values; they modify Snapshot
+- Are NOT Turing-complete; they always terminate
+- Have no memory between executions
+
+### Intent: What You Want to Happen
+
+```typescript
+type IntentBody = {
+  type: string;      // Action name
+  input?: unknown;   // Optional input data
+};
+
+// Example
+const intent: IntentBody = {
+  type: "increment"
+};
+```
+
+Intents are requests to perform an action. They trigger Flow execution.
+
+---
+
+## Next Steps
+
+### Add Effects (API Calls, etc.)
+
+```typescript
+// Define action with effect
+const { fetchUser } = actions.define({
+  fetchUser: {
+    input: z.object({ id: z.string() }),
+    flow: flow.seq(
+      // Mark as loading
+      flow.patch(state.loading).set(expr.lit(true)),
+
+      // Declare effect (NOT executed yet)
+      flow.effect("api:fetchUser", {
+        userId: expr.input("id")
+      }),
+
+      // Mark as loaded (executed after effect completes)
+      flow.patch(state.loading).set(expr.lit(false))
+    ),
+  },
+});
+
+// Register effect handler in Host
+host.registerEffect("api:fetchUser", async (type, params) => {
+  const response = await fetch(`/api/users/${params.userId}`);
+  const user = await response.json();
+
+  return [
+    { op: "set", path: "data.user", value: user }
+  ];
+});
+```
+
+**Important:** Effects return **patches**, not values. The next compute cycle reads the result from Snapshot.
+
+### Add Re-entry Safety
+
+```typescript
+// WRONG: Runs every time
+flow.patch(state.count).set(expr.add(state.count, 1))
+
+// RIGHT: Only runs once
+flow.onceNull(state.initialized, ({ patch }) => {
+  patch(state.count).set(expr.add(state.count, 1));
+  patch(state.initialized).set(expr.lit(true));
+})
+```
+
+See [Re-entry Safe Flows Guide](./reentry-safe-flows.md) for details.
+
+---
+
+## Common Beginner Mistakes
+
+### Mistake 1: Expecting Effects to Execute Immediately
+
+```typescript
+// WRONG expectation
+const result = await core.compute(schema, snapshot, intent);
+console.log(result.snapshot.data.user); // → undefined (effect not executed!)
+```
+
+**Why:** Core only **declares** effects. It never executes them. Host executes effects.
+
+**Fix:** Use Host, which handles the compute-effect loop automatically:
+
+```typescript
+// RIGHT
+await host.dispatch(intent);
+console.log(host.getSnapshot().data.user); // → { id: "123", ... }
+```
+
+### Mistake 2: Mutating Snapshots
+
+```typescript
+// WRONG
+snapshot.data.count = 5; // Direct mutation!
+```
+
+**Fix:** Use patches:
+
+```typescript
+// RIGHT
+const newSnapshot = core.apply(schema, snapshot, [
+  { op: "set", path: "data.count", value: 5 }
+]);
+```
+
+### Mistake 3: Using Async in Expressions
+
+```typescript
+// WRONG
+const expr = async () => await fetchData(); // Expressions must be pure!
+```
+
+**Fix:** Use effects for async:
+
+```typescript
+// RIGHT
+flow.effect("api:fetchData", {})
+// Effect handler does the async work and returns patches
+```
+
+---
+
+## Minimal Example: Complete File
+
+```typescript
+// counter-app.ts
+import { z } from "zod";
+import { defineDomain } from "@manifesto-ai/builder";
+import { createCore } from "@manifesto-ai/core";
+import { createHost } from "@manifesto-ai/host";
+
+// 1. Define domain
+const CounterDomain = defineDomain(
+  z.object({
+    count: z.number().default(0),
+  }),
+  ({ state, actions, expr, flow }) => {
+    const { increment } = actions.define({
+      increment: {
+        flow: flow.patch(state.count).set(expr.add(state.count, 1)),
+      },
+    });
+
+    return { actions: { increment } };
+  }
+);
+
+// 2. Create core and host
+const core = createCore();
+const host = createHost({
+  schema: CounterDomain.schema,
+  snapshot: core.createSnapshot(CounterDomain.schema, { count: 0 }),
+});
+
+// 3. Subscribe and dispatch
+host.subscribe((snapshot) => {
+  console.log("Count:", snapshot.data.count);
+});
+
+await host.dispatch({ type: "increment" });
+// → Count: 1
+```
+
+---
+
+## What to Learn Next
+
+| Topic | Guide | Why |
+|-------|-------|-----|
+| **Re-entry safety** | [Re-entry Safe Flows](./reentry-safe-flows.md) | Prevent duplicate effects |
+| **Effect handlers** | [Effect Handlers Guide](./effect-handlers.md) | Handle API calls, DB, etc. |
+| **Complete example** | [Todo App Example](./todo-example.md) | Full-stack integration |
+| **React integration** | [Getting Started](/guides/getting-started) | Build UIs (React guide coming soon) |
+
+---
+
+## Troubleshooting
+
+### Error: "Schema validation failed"
+
+**Cause:** State doesn't match Zod schema.
+
+**Fix:** Check your initial state:
+
+```typescript
+const initialSnapshot = core.createSnapshot(schema, {
+  count: "0" // WRONG: should be number
+});
+
+// Fix:
+const initialSnapshot = core.createSnapshot(schema, {
+  count: 0 // RIGHT
+});
+```
+
+### Error: "No handler for effect type X"
+
+**Cause:** Effect handler not registered.
+
+**Fix:** Register handler before dispatching:
+
+```typescript
+host.registerEffect("api:fetchUser", async (type, params) => {
+  // ... handler implementation
+  return [];
+});
+```
+
+### Computed value is undefined
+
+**Cause:** Dependencies not specified correctly.
+
+**Fix:** Ensure `deps` includes all state fields used:
+
+```typescript
+const { total } = computed.define({
+  total: {
+    deps: [state.items], // Must include dependencies
+    expr: expr.len(state.items),
+  },
+});
+```
+
+---
+
+## Summary
+
+You've learned:
+- How to define a domain with Builder
+- How to create Core and Host
+- How to dispatch intents
+- How to add computed values
+- How to handle input validation
+- How to avoid common pitfalls
+
+Next: Try building the [Todo App Example](./todo-example.md) to see all layers working together.

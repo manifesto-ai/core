@@ -78,9 +78,13 @@ export async function compute(
   }
 
   // 3. Prepare snapshot with input and system state
+  // Include intentId in input for $meta.intentId access (used by once() guards)
+  const inputWithMeta = typeof intent.input === "object" && intent.input !== null
+    ? { ...intent.input, intentId: intent.intentId }
+    : { intentId: intent.intentId, _value: intent.input };
   const preparedSnapshot: Snapshot = {
     ...currentSnapshot,
-    input: intent.input,
+    input: inputWithMeta,
     system: {
       ...currentSnapshot.system,
       status: "computing",

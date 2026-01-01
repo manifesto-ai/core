@@ -1,0 +1,80 @@
+// ============================================
+// Title: Boolean Conditions
+// Description: Comparison and logical operations
+// Prerequisites: computed/basic.mel
+// ============================================
+
+domain ComputedBoolean {
+  // --- State ---
+  state {
+    count: number = 0
+    limit: number = 100
+    score: number = 75
+    status: "idle" | "loading" | "done" = "idle"
+    isEnabled: boolean = true
+    items: Array<string> = []
+    name: string = ""
+  }
+
+  // --- Equality ---
+  computed isZero = eq(count, 0)
+  computed isIdle = eq(status, "idle")
+  computed isDone = eq(status, "done")
+  computed isNotZero = neq(count, 0)
+  computed isActive = neq(status, "idle")
+
+  // --- Comparison ---
+  computed isPositive = gt(count, 0)
+  computed isNegative = lt(count, 0)
+  computed isAtLimit = gte(count, limit)
+  computed isBelowLimit = lt(count, limit)
+  computed hasRoom = lte(count, limit)
+
+  // --- Range checks ---
+  computed isPassing = gte(score, 60)
+  computed isExcellent = gte(score, 90)
+  computed inRange = and(gte(score, 0), lte(score, 100))
+
+  // --- Logical AND ---
+  computed canProceed = and(isEnabled, isDone)
+  computed isValidAndPositive = and(gt(count, 0), lt(count, limit))
+
+  // --- Logical OR ---
+  computed isIdleOrDone = or(eq(status, "idle"), eq(status, "done"))
+  computed needsAttention = or(isNegative, isAtLimit)
+
+  // --- Logical NOT ---
+  computed isDisabled = not(isEnabled)
+  computed isNotDone = not(isDone)
+  computed hasItems = not(eq(len(items), 0))
+
+  // --- Combined conditions ---
+  computed canSubmit = and(
+    isEnabled,
+    and(
+      eq(status, "idle"),
+      gt(len(items), 0)
+    )
+  )
+
+  computed shouldRetry = and(
+    eq(status, "done"),
+    or(isNegative, eq(count, 0))
+  )
+
+  // --- String checks ---
+  computed hasName = neq(trim(name), "")
+  computed isEmptyName = eq(trim(name), "")
+}
+
+// ============================================
+// Important Rules:
+//   - eq/neq only for primitives (null, boolean, number, string)
+//   - No eq(array, []) or eq(record, {})
+//   - Use len() to check collection emptiness
+//
+// Anti-patterns:
+//   ❌ eq(items, [])       // Cannot compare arrays
+//   ❌ when count { }      // Number is not boolean
+//   ❌ when name { }       // String is not boolean
+// ============================================

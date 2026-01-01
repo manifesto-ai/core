@@ -1,210 +1,141 @@
 /**
- * @manifesto-ai/compiler v1.1
- *
- * Natural language to Manifesto DomainSchema compiler.
- *
- * v1.1 introduces the Fragment Pipeline architecture:
- * Plan → Generate → Lower → Link → Verify → Emit
- *
- * @example Using Anthropic (built-in)
- * ```typescript
- * import { createCompiler } from '@manifesto-ai/compiler';
- *
- * const compiler = createCompiler({
- *   anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
- * });
- *
- * compiler.subscribe((snapshot) => {
- *   if (snapshot.status === 'success') {
- *     console.log('Compiled schema:', snapshot.domainSpec);
- *   }
- * });
- *
- * await compiler.start({
- *   text: 'Track user name and email. Allow users to update their profile.',
- * });
- * ```
+ * MEL Compiler - Public API
+ * Compiles MEL source code to Manifesto Schema IR
  */
 
-// ════════════════════════════════════════════════════════════════════════════
-// Main API
-// ════════════════════════════════════════════════════════════════════════════
+import type { Diagnostic } from "./diagnostics/index.js";
+import { tokenize } from "./lexer/index.js";
+import { parse } from "./parser/index.js";
+import { generate, lowerSystemValues, type DomainSchema } from "./generator/index.js";
+import { analyzeScope, validateSemantics } from "./analyzer/index.js";
 
-export { createCompiler } from "./api/factory.js";
-export { ManifestoCompiler } from "./api/compiler.js";
+// Re-export lexer
+export { tokenize, type LexResult } from "./lexer/index.js";
+export type { Token, TokenKind } from "./lexer/index.js";
+export type { SourceLocation, Position } from "./lexer/index.js";
 
-// ════════════════════════════════════════════════════════════════════════════
-// Core Types
-// ════════════════════════════════════════════════════════════════════════════
+// Re-export parser
+export { parse } from "./parser/index.js";
+export type { ProgramNode, ExprNode } from "./parser/index.js";
 
+// Re-export generator
+export { generate, lowerSystemValues } from "./generator/index.js";
 export type {
-  // Compiler interface
-  Compiler,
-  CompilerOptions,
-  CompilerSnapshot,
-  CompilerState,
-  CompileInput,
-  CompilerStatus,
-  Unsubscribe,
+  DomainSchema,
+  StateSpec,
+  ComputedSpec,
+  ActionSpec,
+  FieldSpec,
+  CoreExprNode,
+  CoreFlowNode,
+} from "./generator/index.js";
 
-  // Resolution policy
-  ResolutionPolicy,
-  ResolutionOption,
-  ResolutionRequest,
-  ResolutionResponse,
-  ResolutionRecord,
+// Re-export analyzer
+export { analyzeScope, validateSemantics } from "./analyzer/index.js";
+export type { Scope, Symbol, SymbolKind } from "./analyzer/index.js";
 
-  // Telemetry
-  CompilerTelemetry,
+// Re-export diagnostics
+export type { Diagnostic, DiagnosticSeverity } from "./diagnostics/index.js";
+export { hasErrors, isError } from "./diagnostics/index.js";
 
-  // LLM types
-  LLMAdapter,
-  LLMResult,
-  RawPlanOutput,
-  RawChunkOutput,
-  RawDraftOutput,
-  RawInterpretationOutput,
-} from "./domain/types.js";
+// ============ Main Compile API ============
 
-// ════════════════════════════════════════════════════════════════════════════
-// Pipeline Types (v1.1)
-// ════════════════════════════════════════════════════════════════════════════
+/**
+ * Compilation result
+ */
+export type CompileResult =
+  | { success: true; schema: DomainSchema }
+  | { success: false; errors: Diagnostic[] };
 
-export type {
-  // Input
-  SourceInput,
-  SourceInputType,
+/**
+ * Compile options
+ */
+export interface CompileOptions {
+  skipSemanticAnalysis?: boolean;
+  lowerSystemValues?: boolean; // Apply system value lowering (default: false)
+}
 
-  // Plan phase
-  Plan,
-  PlanStrategy,
-  Chunk,
-  ChunkDependency,
+/**
+ * Compile MEL source code to Manifesto Schema IR
+ */
+export function compile(source: string, options: CompileOptions = {}): CompileResult {
+  // Tokenize
+  const { tokens, diagnostics: lexDiagnostics } = tokenize(source);
 
-  // Generate phase
-  FragmentDraft,
-  FragmentType,
-  FragmentInterpretation,
+  if (lexDiagnostics.some(d => d.severity === "error")) {
+    return {
+      success: false,
+      errors: lexDiagnostics.filter(d => d.severity === "error"),
+    };
+  }
 
-  // Pipeline phase
-  Fragment,
-  FragmentContent,
-  Provenance,
-  DomainDraft,
-  DependencyGraph,
-  Issue,
-  IssueSeverity,
+  // Parse
+  const { program, diagnostics: parseDiagnostics } = parse(tokens);
 
-  // Output
-  DomainSpec,
-  DomainSpecProvenance,
-  DomainSpecVerification,
+  if (parseDiagnostics.some(d => d.severity === "error") || !program) {
+    return {
+      success: false,
+      errors: parseDiagnostics.filter(d => d.severity === "error"),
+    };
+  }
 
-  // Conflicts
-  Conflict,
-  ConflictType,
-} from "./domain/types.js";
+  // Semantic Analysis (optional)
+  if (!options.skipSemanticAnalysis) {
+    const { diagnostics: scopeDiagnostics } = analyzeScope(program);
+    const { diagnostics: validationDiagnostics } = validateSemantics(program);
 
-// ════════════════════════════════════════════════════════════════════════════
-// Domain (for advanced usage)
-// ════════════════════════════════════════════════════════════════════════════
+    const allSemanticErrors = [...scopeDiagnostics, ...validationDiagnostics]
+      .filter(d => d.severity === "error");
 
-export { CompilerDomain, INITIAL_STATE } from "./domain/domain.js";
-export { CompilerStateSchema } from "./domain/schema.js";
+    if (allSemanticErrors.length > 0) {
+      return {
+        success: false,
+        errors: allSemanticErrors,
+      };
+    }
+  }
 
-// ════════════════════════════════════════════════════════════════════════════
-// Pipeline Components (v1.1)
-// ════════════════════════════════════════════════════════════════════════════
+  // Generate IR
+  const { schema: rawSchema, diagnostics: genDiagnostics } = generate(program);
 
-export {
-  createPassLayer,
-  PASS_LAYER_VERSION,
-  type PassLayer,
-  type PassContext,
-  type PassResult,
-} from "./pipeline/index.js";
+  if (genDiagnostics.some(d => d.severity === "error") || !rawSchema) {
+    return {
+      success: false,
+      errors: genDiagnostics.filter(d => d.severity === "error"),
+    };
+  }
 
-export {
-  createLinker,
-  LINKER_VERSION,
-  type Linker,
-  type LinkContext,
-  type LinkResult,
-} from "./pipeline/index.js";
+  // Apply system value lowering if requested
+  const schema = options.lowerSystemValues
+    ? lowerSystemValues(rawSchema)
+    : rawSchema;
 
-export {
-  createVerifier,
-  VERIFIER_VERSION,
-  type Verifier,
-  type VerifyContext,
-  type VerifyResult,
-} from "./pipeline/index.js";
+  return {
+    success: true,
+    schema,
+  };
+}
 
-export {
-  createEmitter,
-  EMITTER_VERSION,
-  COMPILER_VERSION,
-  type Emitter,
-  type EmitContext,
-  type EmitResult,
-} from "./pipeline/index.js";
+/**
+ * Parse MEL source code (without IR generation)
+ */
+export function parseSource(source: string) {
+  const { tokens, diagnostics: lexDiagnostics } = tokenize(source);
+  const { program, diagnostics: parseDiagnostics } = parse(tokens);
 
-// ════════════════════════════════════════════════════════════════════════════
-// LLM Adapters
-// ════════════════════════════════════════════════════════════════════════════
+  return {
+    program,
+    diagnostics: [...lexDiagnostics, ...parseDiagnostics],
+  };
+}
 
-export {
-  createAnthropicAdapter,
-  AnthropicAdapter,
-  type AnthropicAdapterOptions,
-} from "./effects/llm/anthropic-adapter.js";
-
-export {
-  createOpenAIAdapter,
-  OpenAIAdapter,
-  type OpenAIAdapterOptions,
-} from "./effects/llm/openai-adapter.js";
-
-export { DEFAULT_LLM_CONFIG, type LLMAdapterConfig } from "./effects/llm/adapter.js";
-
-// ════════════════════════════════════════════════════════════════════════════
-// Effect Handlers (for custom integration)
-// ════════════════════════════════════════════════════════════════════════════
-
-export {
-  createLLMEffectHandlers,
-  createPlanHandler,
-  createGenerateHandler,
-  DEFAULT_RESOLUTION_POLICY,
-  type LLMEffectHandler,
-  type EffectHandlerResult,
-} from "./effects/llm/handlers.js";
-
-export {
-  createBuilderValidateHandler,
-  type BuilderValidateHandler,
-  type ValidateResult,
-} from "./effects/builder/validate-handler.js";
-
-// ════════════════════════════════════════════════════════════════════════════
-// Prompt Utilities (for customization)
-// ════════════════════════════════════════════════════════════════════════════
-
-export { createPlanPrompt } from "./effects/llm/prompts/plan.js";
-export { createGeneratePrompt } from "./effects/llm/prompts/generate.js";
-
-// ════════════════════════════════════════════════════════════════════════════
-// Parser Utilities (for testing)
-// ════════════════════════════════════════════════════════════════════════════
-
-export {
-  parseJSONResponse,
-  extractAmbiguity,
-  validatePlanResponse,
-  validateFragmentDraftResponse,
-  type ParseResult,
-  type AmbiguityInfo,
-  type RawPlan,
-  type RawChunk,
-  type RawFragmentDraft,
-} from "./effects/llm/parser.js";
+/**
+ * Check MEL source code for errors without generating IR
+ */
+export function check(source: string): Diagnostic[] {
+  const result = compile(source);
+  if (!result.success) {
+    return result.errors;
+  }
+  return [];
+}

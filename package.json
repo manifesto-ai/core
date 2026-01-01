@@ -9,12 +9,17 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
-    "vitest": "^4.0.16"
+    "vitepress": "^1.6.4",
+    "vitest": "^4.0.16",
+    "vue": "^3.5.26"
   },
   "dependencies": {
     "zod": "^4.2.1"

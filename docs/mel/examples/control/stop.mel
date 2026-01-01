@@ -1,0 +1,146 @@
+// ============================================
+// Title: Stop (Early Exit)
+// Description: Terminating actions successfully with no-op
+// Prerequisites: control/when.mel, control/fail.mel
+// ============================================
+
+domain ControlStop {
+  // --- State ---
+  state {
+    count: number = 0
+    status: "idle" | "loading" | "done" = "idle"
+    items: Record<string, Item> = {}
+    processedIds: Array<string> = []
+    lastProcessed: string | null = null
+  }
+
+  // --- Already in desired state ---
+  action complete() {
+    // Already done - no action needed
+    when eq(status, "done") {
+      stop "already_completed"
+    }
+
+    // Not done - complete it
+    when neq(status, "done") {
+      patch status = "done"
+    }
+  }
+
+  // --- Idempotent toggle ---
+  action markDone(id: string) {
+    // Item doesn't exist - fail
+    when eq(at(items, id), null) {
+      fail "NOT_FOUND" with concat("Item not found: ", id)
+    }
+
+    // Already done - early exit (success)
+    when and(isNotNull(at(items, id)), eq(at(items, id).done, true)) {
+      stop "already_done"
+    }
+
+    // Not done - mark it
+    when and(isNotNull(at(items, id)), eq(at(items, id).done, false)) {
+      patch items[id].done = true
+    }
+  }
+
+  // --- Skip if already processed ---
+  action processItem(id: string) {
+    // Already processed this item
+    when eq(lastProcessed, id) {
+      stop "already_processed"
+    }
+
+    // Process it
+    when neq(lastProcessed, id) {
+      patch lastProcessed = id
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Nothing to do ---
+  action incrementIfNeeded() {
+    // Already at max
+    when gte(count, 100) {
+      stop "at_maximum"
+    }
+
+    // Increment
+    when lt(count, 100) {
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Skip based on state ---
+  action load() {
+    // Already loading
+    when eq(status, "loading") {
+      stop "already_loading"
+    }
+
+    // Already done
+    when eq(status, "done") {
+      stop "already_loaded"
+    }
+
+    // Start loading
+    when eq(status, "idle") {
+      patch status = "loading"
+    }
+  }
+
+  // --- Combined fail and stop ---
+  action updateItem(id: string, value: number) {
+    // Fail: Item doesn't exist
+    when eq(at(items, id), null) {
+      fail "NOT_FOUND" with concat("Item not found: ", id)
+    }
+
+    // Fail: Invalid value
+    when and(isNotNull(at(items, id)), lt(value, 0)) {
+      fail "INVALID_VALUE" with "Value must be non-negative"
+    }
+
+    // Stop: Already has this value
+    when and(
+      isNotNull(at(items, id)),
+      and(gte(value, 0), eq(at(items, id).value, value))
+    ) {
+      stop "no_change_needed"
+    }
+
+    // Update
+    when and(
+      isNotNull(at(items, id)),
+      and(gte(value, 0), neq(at(items, id).value, value))
+    ) {
+      patch items[id].value = value
+    }
+  }
+}
+
+// ============================================
+// stop vs fail:
+//
+//   | Aspect    | stop              | fail               |
+//   |-----------|-------------------|-------------------|
+//   | Outcome   | Success (no-op)   | Error             |
+//   | Use case  | Already done      | Validation failed |
+//   | Example   | "already_completed" | "NOT_FOUND"      |
+//
+// Valid stop reasons:
+//   ✅ "already_processed"
+//   ✅ "already_done"
+//   ✅ "no_change_needed"
+//   ✅ "at_maximum"
+//   ✅ "skipped"
+//
+// Invalid stop reasons (implies waiting):
+//   ❌ "Waiting for approval"
+//   ❌ "Pending review"
+//   ❌ "Awaiting confirmation"
+//   ❌ "On hold"
+//
+// MEL has NO suspend/resume semantics!
+// ============================================
