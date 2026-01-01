@@ -30,9 +30,22 @@ export type ExprNode =
   | MulExpr
   | DivExpr
   | ModExpr
+  | NegExpr
+  | AbsExpr
+  | MinExpr
+  | MaxExpr
+  | FloorExpr
+  | CeilExpr
+  | RoundExpr
+  | SqrtExpr
+  | PowExpr
   // String
   | ConcatExpr
   | SubstringExpr
+  | TrimExpr
+  | ToLowerExpr
+  | ToUpperExpr
+  | StrLenExpr
   // Collection
   | LenExpr
   | AtExpr
@@ -55,7 +68,9 @@ export type ExprNode =
   // Type
   | TypeofExpr
   | IsNullExpr
-  | CoalesceExpr;
+  | CoalesceExpr
+  // Conversion
+  | ToStringExpr;
 
 // ============ Literals ============
 
@@ -182,6 +197,61 @@ export const ModExpr: z.ZodType<{ kind: "mod"; left: ExprNode; right: ExprNode }
 });
 export type ModExpr = z.infer<typeof ModExpr>;
 
+export const NegExpr: z.ZodType<{ kind: "neg"; arg: ExprNode }> = z.object({
+  kind: z.literal("neg"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type NegExpr = z.infer<typeof NegExpr>;
+
+export const AbsExpr: z.ZodType<{ kind: "abs"; arg: ExprNode }> = z.object({
+  kind: z.literal("abs"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type AbsExpr = z.infer<typeof AbsExpr>;
+
+export const MinExpr: z.ZodType<{ kind: "min"; args: ExprNode[] }> = z.object({
+  kind: z.literal("min"),
+  args: z.array(z.lazy(() => ExprNodeSchema)),
+});
+export type MinExpr = z.infer<typeof MinExpr>;
+
+export const MaxExpr: z.ZodType<{ kind: "max"; args: ExprNode[] }> = z.object({
+  kind: z.literal("max"),
+  args: z.array(z.lazy(() => ExprNodeSchema)),
+});
+export type MaxExpr = z.infer<typeof MaxExpr>;
+
+export const FloorExpr: z.ZodType<{ kind: "floor"; arg: ExprNode }> = z.object({
+  kind: z.literal("floor"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type FloorExpr = z.infer<typeof FloorExpr>;
+
+export const CeilExpr: z.ZodType<{ kind: "ceil"; arg: ExprNode }> = z.object({
+  kind: z.literal("ceil"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type CeilExpr = z.infer<typeof CeilExpr>;
+
+export const RoundExpr: z.ZodType<{ kind: "round"; arg: ExprNode }> = z.object({
+  kind: z.literal("round"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type RoundExpr = z.infer<typeof RoundExpr>;
+
+export const SqrtExpr: z.ZodType<{ kind: "sqrt"; arg: ExprNode }> = z.object({
+  kind: z.literal("sqrt"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type SqrtExpr = z.infer<typeof SqrtExpr>;
+
+export const PowExpr: z.ZodType<{ kind: "pow"; base: ExprNode; exponent: ExprNode }> = z.object({
+  kind: z.literal("pow"),
+  base: z.lazy(() => ExprNodeSchema),
+  exponent: z.lazy(() => ExprNodeSchema),
+});
+export type PowExpr = z.infer<typeof PowExpr>;
+
 // ============ String ============
 
 export const ConcatExpr: z.ZodType<{ kind: "concat"; args: ExprNode[] }> = z.object({
@@ -197,6 +267,30 @@ export const SubstringExpr: z.ZodType<{ kind: "substring"; str: ExprNode; start:
   end: z.lazy(() => ExprNodeSchema).optional(),
 });
 export type SubstringExpr = z.infer<typeof SubstringExpr>;
+
+export const TrimExpr: z.ZodType<{ kind: "trim"; str: ExprNode }> = z.object({
+  kind: z.literal("trim"),
+  str: z.lazy(() => ExprNodeSchema),
+});
+export type TrimExpr = z.infer<typeof TrimExpr>;
+
+export const ToLowerExpr: z.ZodType<{ kind: "toLowerCase"; str: ExprNode }> = z.object({
+  kind: z.literal("toLowerCase"),
+  str: z.lazy(() => ExprNodeSchema),
+});
+export type ToLowerExpr = z.infer<typeof ToLowerExpr>;
+
+export const ToUpperExpr: z.ZodType<{ kind: "toUpperCase"; str: ExprNode }> = z.object({
+  kind: z.literal("toUpperCase"),
+  str: z.lazy(() => ExprNodeSchema),
+});
+export type ToUpperExpr = z.infer<typeof ToUpperExpr>;
+
+export const StrLenExpr: z.ZodType<{ kind: "strLen"; str: ExprNode }> = z.object({
+  kind: z.literal("strLen"),
+  str: z.lazy(() => ExprNodeSchema),
+});
+export type StrLenExpr = z.infer<typeof StrLenExpr>;
 
 // ============ Collection ============
 
@@ -334,6 +428,14 @@ export const CoalesceExpr: z.ZodType<{ kind: "coalesce"; args: ExprNode[] }> = z
 });
 export type CoalesceExpr = z.infer<typeof CoalesceExpr>;
 
+// ============ Conversion ============
+
+export const ToStringExpr: z.ZodType<{ kind: "toString"; arg: ExprNode }> = z.object({
+  kind: z.literal("toString"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type ToStringExpr = z.infer<typeof ToStringExpr>;
+
 // ============ Combined Schema ============
 
 export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
@@ -359,9 +461,22 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   MulExpr,
   DivExpr,
   ModExpr,
+  NegExpr,
+  AbsExpr,
+  MinExpr,
+  MaxExpr,
+  FloorExpr,
+  CeilExpr,
+  RoundExpr,
+  SqrtExpr,
+  PowExpr,
   // String
   ConcatExpr,
   SubstringExpr,
+  TrimExpr,
+  ToLowerExpr,
+  ToUpperExpr,
+  StrLenExpr,
   // Collection
   LenExpr,
   AtExpr,
@@ -385,6 +500,8 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   TypeofExpr,
   IsNullExpr,
   CoalesceExpr,
+  // Conversion
+  ToStringExpr,
 ]) as z.ZodType<ExprNode>;
 
 /**
@@ -395,10 +512,11 @@ export const ExprKind = z.enum([
   "eq", "neq", "gt", "gte", "lt", "lte",
   "and", "or", "not",
   "if",
-  "add", "sub", "mul", "div", "mod",
-  "concat", "substring",
+  "add", "sub", "mul", "div", "mod", "neg", "abs", "min", "max", "floor", "ceil", "round", "sqrt", "pow",
+  "concat", "substring", "trim", "toLowerCase", "toUpperCase", "strLen",
   "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some", "append",
   "object", "keys", "values", "entries", "merge",
   "typeof", "isNull", "coalesce",
+  "toString",
 ]);
 export type ExprKind = z.infer<typeof ExprKind>;

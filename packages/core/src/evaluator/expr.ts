@@ -58,12 +58,38 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateDiv(expr.left, expr.right, ctx);
     case "mod":
       return evaluateMod(expr.left, expr.right, ctx);
+    case "neg":
+      return evaluateNeg(expr.arg, ctx);
+    case "abs":
+      return evaluateAbs(expr.arg, ctx);
+    case "min":
+      return evaluateMin(expr.args, ctx);
+    case "max":
+      return evaluateMax(expr.args, ctx);
+    case "floor":
+      return evaluateFloor(expr.arg, ctx);
+    case "ceil":
+      return evaluateCeil(expr.arg, ctx);
+    case "round":
+      return evaluateRound(expr.arg, ctx);
+    case "sqrt":
+      return evaluateSqrt(expr.arg, ctx);
+    case "pow":
+      return evaluatePow(expr.base, expr.exponent, ctx);
 
     // String
     case "concat":
       return evaluateConcat(expr.args, ctx);
     case "substring":
       return evaluateSubstring(expr, ctx);
+    case "trim":
+      return evaluateTrim(expr.str, ctx);
+    case "toLowerCase":
+      return evaluateToLower(expr.str, ctx);
+    case "toUpperCase":
+      return evaluateToUpper(expr.str, ctx);
+    case "strLen":
+      return evaluateStrLen(expr.str, ctx);
 
     // Collection
     case "len":
@@ -110,6 +136,10 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateIsNull(expr.arg, ctx);
     case "coalesce":
       return evaluateCoalesce(expr.args, ctx);
+
+    // Conversion
+    case "toString":
+      return evaluateToStringExpr(expr.arg, ctx);
 
     default:
       return err(createError(
@@ -269,6 +299,74 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvalContext): ExprRes
   return ok(toNumber(leftResult.value) % divisor);
 }
 
+function evaluateNeg(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(-toNumber(result.value));
+}
+
+function evaluateAbs(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.abs(toNumber(result.value)));
+}
+
+function evaluateMin(args: ExprNode[], ctx: EvalContext): ExprResult {
+  if (args.length === 0) return ok(null);
+  const values: number[] = [];
+  for (const arg of args) {
+    const result = evaluateExpr(arg, ctx);
+    if (!result.ok) return result;
+    values.push(toNumber(result.value));
+  }
+  return ok(Math.min(...values));
+}
+
+function evaluateMax(args: ExprNode[], ctx: EvalContext): ExprResult {
+  if (args.length === 0) return ok(null);
+  const values: number[] = [];
+  for (const arg of args) {
+    const result = evaluateExpr(arg, ctx);
+    if (!result.ok) return result;
+    values.push(toNumber(result.value));
+  }
+  return ok(Math.max(...values));
+}
+
+function evaluateFloor(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.floor(toNumber(result.value)));
+}
+
+function evaluateCeil(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.ceil(toNumber(result.value)));
+}
+
+function evaluateRound(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.round(toNumber(result.value)));
+}
+
+function evaluateSqrt(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  const num = toNumber(result.value);
+  if (num < 0) return ok(null); // Totality: return null for negative
+  return ok(Math.sqrt(num));
+}
+
+function evaluatePow(base: ExprNode, exponent: ExprNode, ctx: EvalContext): ExprResult {
+  const baseResult = evaluateExpr(base, ctx);
+  if (!baseResult.ok) return baseResult;
+  const expResult = evaluateExpr(exponent, ctx);
+  if (!expResult.ok) return expResult;
+  return ok(Math.pow(toNumber(baseResult.value), toNumber(expResult.value)));
+}
+
 // ============ String ============
 
 function evaluateConcat(args: ExprNode[], ctx: EvalContext): ExprResult {
@@ -301,6 +399,30 @@ function evaluateSubstring(
   }
 
   return ok(str.substring(start));
+}
+
+function evaluateTrim(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).trim());
+}
+
+function evaluateToLower(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).toLowerCase());
+}
+
+function evaluateToUpper(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).toUpperCase());
+}
+
+function evaluateStrLen(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).length);
 }
 
 // ============ Collection ============
@@ -583,4 +705,12 @@ function evaluateCoalesce(args: ExprNode[], ctx: EvalContext): ExprResult {
     }
   }
   return ok(null);
+}
+
+// ============ Conversion ============
+
+function evaluateToStringExpr(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value));
 }
