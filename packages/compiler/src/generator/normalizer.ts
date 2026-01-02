@@ -146,6 +146,7 @@ export function normalizeFunctionCall(
 
     // ============ Collection ============
     case "len":
+    case "length":
       return { kind: "len", arg: args[0] };
     case "at":
       return { kind: "at", array: args[0], index: args[1] };

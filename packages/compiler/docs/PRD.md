@@ -37,17 +37,19 @@
 Manifesto는 AI-Native Semantic State Engine으로, LLM 에이전트가 도메인 상태를 이해하고 조작할 수 있는 시스템입니다. MEL은 이 시스템의 도메인 정의를 위한 순수하고 결정론적인 언어입니다.
 
 현재 상태:
-- ✅ MEL SPEC v0.3.2 완성 (Core Alignment)
-- ✅ MEL FDR v0.3.2 완성 (61 FDR entries)
+- ✅ MEL SPEC v0.3.3 완성 (Core Alignment)
+- ✅ MEL FDR v0.3.3 완성 (63 FDR entries)
 - ❌ 컴파일러 구현 없음
 - ❌ SPEC 실전 검증 없음
 
-**v0.3.2 핵심 변경사항:**
+**v0.3.3 핵심 변경사항:**
 - System values (`$system.*`)를 Effects로 처리
 - 컴파일러가 `system.get` effects 자동 삽입
 - `__sys__` namespace 예약
 - Intent-based readiness guards로 stale value 방지
 - **available, fail, stop 문법 추가 (Core Alignment)**
+- **Primitive Aggregation (sum, min, max) — reduce/fold 금지**
+- **Named Types Required — anonymous object types 금지**
 
 ### 1.3 Scope
 
@@ -55,7 +57,9 @@ Manifesto는 AI-Native Semantic State Engine으로, LLM 에이전트가 도메�
 - MEL 소스 파싱 (Lexer + Parser)
 - AST 생성 및 검증
 - **System Value Lowering (`$system.*` → `system.get` effects)** ← v0.3.0
-- **Flow Control (available, fail, stop)** ← v0.3.2
+- **Flow Control (available, fail, stop)** ← v0.3.3
+- **Primitive Aggregation (sum, min, max)** ← v0.3.3
+- **Type Declaration & Named Types** ← v0.3.3
 - Manifesto Schema IR 생성
 - CLI 도구
 - 기본적인 에러 리포팅
@@ -111,7 +115,7 @@ MEL로 생성하면:
 ```
 문제 3: SPEC 검증 불가
 ────────────────────
-MEL SPEC v0.3.2가 완성되었으나:
+MEL SPEC v0.3.3가 완성되었으나:
 - 실제 파싱 가능한지 미확인
 - 문법 모호성 미발견
 - 엣지 케이스 미테스트
@@ -121,7 +125,7 @@ MEL SPEC v0.3.2가 완성되었으나:
 
 ### 2.2 Why Now?
 
-1. **SPEC 완성**: MEL v0.3.2 SPEC과 FDR이 완성, Architecture Review 통과
+1. **SPEC 완성**: MEL v0.3.3 SPEC과 FDR이 완성, Architecture Review 통과
 2. **AI-Native 검증**: 컴파일러가 있어야 LLM 생성 → 검증 → 실행 파이프라인 테스트 가능
 3. **Manifesto 통합**: Core 런타임과 통합하여 E2E 검증 필요
 4. **Core Purity 보장**: System Value Lowering 구현으로 Core 순수성 검증
@@ -219,15 +223,18 @@ US-5: 개발자로서, 빌드 파이프라인에 MEL 컴파일을 통합하고 �
 출력: AST (Abstract Syntax Tree)
 
 요구사항:
-├── MEL SPEC v0.3.2 문법 완전 지원
+├── MEL SPEC v0.3.3 문법 완전 지원
 ├── 연산자 우선순위 정확히 처리
 ├── 문법 오류 시 복구 및 계속 파싱 (다중 에러 리포트)
 ├── 위치 정보 AST 노드에 보존
 ├── 중첩 Effect 감지 및 거부 (FDR-MEL-018)
 ├── $system.* 참조를 sys AST 노드로 파싱
-├── available when <Expr> 파싱 (v0.3.2)
-├── fail "CODE" with "msg" 파싱 (v0.3.2)
-└── stop "reason" 파싱 (v0.3.2)
+├── available when <Expr> 파싱 (v0.3.3)
+├── fail "CODE" with "msg" 파싱 (v0.3.3)
+├── stop "reason" 파싱 (v0.3.3)
+├── type 선언 파싱 (v0.3.3)
+├── sum/min/max(array) 파싱 (v0.3.3)
+└── anonymous object type 감지 및 거부 (v0.3.3)
 ```
 
 #### FR-3: Semantic Analysis
@@ -245,7 +252,7 @@ US-5: 개발자로서, 빌드 파이프라인에 MEL 컴파일을 통합하고 �
 ├── 타입 호환성 기본 검사 (리터럴 타입)
 └── 중복 정의 감지
 
-Compile Errors (v0.3.2):
+Compile Errors (v0.3.3):
 ├── E001: $system.* in computed
 ├── E002: $system.* in state init  
 ├── E003: Invalid $system reference format
@@ -256,7 +263,8 @@ Compile Errors (v0.3.2):
 ├── E008: stop message suggests waiting/pending (lint)
 ├── E009: Primitive aggregation only allowed in computed
 ├── E010: Primitive aggregation does not allow composition
-└── E011: reduce/fold/scan is forbidden
+├── E011: reduce/fold/scan is forbidden
+└── E012: Anonymous object type in state field
 ```
 
 #### FR-4: System Value Lowering (v0.3.1)
@@ -729,8 +737,8 @@ domain TaskManager {
 
 | Dependency | Type | Description |
 |------------|------|-------------|
-| **MEL SPEC v0.3.2** | Document | 문법 및 시맨틱 정의 |
-| **MEL FDR v0.3.2** | Document | 설계 결정 근거 |
+| **MEL SPEC v0.3.3** | Document | 문법 및 시맨틱 정의 |
+| **MEL FDR v0.3.3** | Document | 설계 결정 근거 |
 | **Manifesto Core** | Package | Schema 타입 정의, 런타임 |
 | **Node.js >= 18** | Runtime | CLI 실행 환경 |
 | **TypeScript >= 5** | Language | 구현 언어 |
@@ -742,18 +750,22 @@ domain TaskManager {
 | **Browser Compatibility** | 브라우저에서 실행 가능해야 함 | Node.js 전용 API 사용 금지 |
 | **No External Parser** | 외부 파서 라이브러리 사용 안 함 | 직접 구현 필요 |
 | **Bundle Size** | < 100KB gzipped | 코드 최적화 필요 |
-| **SPEC Compliance** | MEL SPEC v0.3.2 100% 준수 | 문법 변경 시 SPEC 먼저 수정 |
+| **SPEC Compliance** | MEL SPEC v0.3.3 100% 준수 | 문법 변경 시 SPEC 먼저 수정 |
 | **System Value Lowering** | FDR-MEL-051, 055, 056 준수 | __sys__ namespace, intent-based readiness |
 | **Flow Control** | FDR-MEL-058 ~ 061 준수 | available, fail, stop 구현 |
+| **Primitive Aggregation** | FDR-MEL-062 준수 | sum/min/max 허용, reduce/fold 금지 |
+| **Named Types** | FDR-MEL-063 준수 | type 선언, anonymous object type 금지 |
 
 ### 10.3 Assumptions
 
-1. MEL SPEC v0.3.2는 Architecture Review를 통과했으며 안정적
+1. MEL SPEC v0.3.3는 Architecture Review를 통과했으며 안정적
 2. Manifesto Core의 Schema 타입은 안정적
 3. TypeScript 구현으로 성능 충분 (Phase 1 기준)
 4. 브라우저 번들 사이즈 100KB 이내 달성 가능
 5. System Value Lowering은 컴파일 타임에 완료됨 (런타임 변환 없음)
 6. Flow Control (available, fail, stop)은 Core FlowNode와 1:1 대응
+7. Primitive Aggregation (sum, min, max)은 Core builtin으로 평가
+8. Type declarations는 IR에 별도 섹션으로 출력
 
 ---
 
@@ -818,8 +830,8 @@ domain TaskManager {
 
 | Document | Description |
 |----------|-------------|
-| [MEL-SPEC-v0.3.2.md](./MEL-SPEC-v0.3.2.md) | MEL 문법 명세 |
-| [MEL-FDR-v0.3.2.md](./MEL-FDR-v0.3.2.md) | MEL 설계 결정 근거 |
+| [MEL-SPEC-v0.3.3.md](./MEL-SPEC-v0.3.3.md) | MEL 문법 명세 |
+| [MEL-FDR-v0.3.3.md](./MEL-FDR-v0.3.3.md) | MEL 설계 결정 근거 |
 | [Manifesto Constitution](./CONSTITUTION.md) | Manifesto 아키텍처 원칙 |
 
 ### 13.2 Glossary
