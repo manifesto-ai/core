@@ -49,6 +49,10 @@
     "packages/compiler": {
       "package-name": "@manifesto-ai/compiler",
       "changelog-path": "CHANGELOG.md"
+    },
+    "packages/translator": {
+      "package-name": "@manifesto-ai/translator",
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }
