@@ -1,0 +1,164 @@
+// ============================================
+// Title: Record Effects
+// Description: keys, values, entries for Record types
+// Prerequisites: control/once.mel
+// ============================================
+
+domain EffectsRecord {
+  // --- State ---
+  state {
+    tasks: Record<string, Task> = {}
+    users: Record<string, User> = {}
+    settings: Record<string, Setting> = {}
+
+    // Results
+    taskIds: Array<string> | null = null
+    taskList: Array<Task> | null = null
+    taskEntries: Array<Entry> | null = null
+
+    userIds: Array<string> | null = null
+    userList: Array<User> | null = null
+
+    settingKeys: Array<string> | null = null
+    settingValues: Array<Setting> | null = null
+
+    // Markers
+    gettingKeys: string | null = null
+    gettingValues: string | null = null
+    gettingEntries: string | null = null
+  }
+
+  // --- Get Keys ---
+  // Extract all keys from a Record
+  action getTaskIds() {
+    once(gettingKeys) {
+      patch gettingKeys = $meta.intentId
+      effect record.keys({
+        source: tasks,
+        into: taskIds
+      })
+    }
+  }
+
+  action getUserIds() {
+    once(gettingKeys) {
+      patch gettingKeys = $meta.intentId
+      effect record.keys({
+        source: users,
+        into: userIds
+      })
+    }
+  }
+
+  // --- Get Values ---
+  // Extract all values from a Record
+  action getTaskList() {
+    once(gettingValues) {
+      patch gettingValues = $meta.intentId
+      effect record.values({
+        source: tasks,
+        into: taskList
+      })
+    }
+  }
+
+  action getUserList() {
+    once(gettingValues) {
+      patch gettingValues = $meta.intentId
+      effect record.values({
+        source: users,
+        into: userList
+      })
+    }
+  }
+
+  // --- Get Entries ---
+  // Extract key-value pairs
+  action getTaskEntries() {
+    once(gettingEntries) {
+      patch gettingEntries = $meta.intentId
+      effect record.entries({
+        source: tasks,
+        into: taskEntries
+      })
+    }
+  }
+
+  // --- Pipeline: Keys -> Filter -> Process ---
+  action processActiveTasks() {
+    // Step 1: Get all task values
+    once(gettingValues) {
+      patch gettingValues = $meta.intentId
+      effect record.values({
+        source: tasks,
+        into: taskList
+      })
+    }
+
+    // Step 2: Filter active tasks
+    once(gettingKeys) when isNotNull(taskList) {
+      patch gettingKeys = $meta.intentId
+      effect array.filter({
+        source: taskList,
+        where: eq($item.active, true),
+        into: taskEntries
+      })
+    }
+  }
+
+  // --- Count Record Entries ---
+  // Note: len() doesn't work on Records directly
+  computed taskCount = isNotNull(taskIds) ? len(taskIds) : 0
+  computed userCount = isNotNull(userIds) ? len(userIds) : 0
+
+  // --- Check if Record has key ---
+  computed hasTask1 = isNotNull(at(tasks, "task-1"))
+  computed hasAdmin = isNotNull(at(users, "admin"))
+
+  // --- Access Record value ---
+  computed task1 = at(tasks, "task-1")
+  computed adminUser = at(users, "admin")
+
+  // --- Reset ---
+  action reset() {
+    when true {
+      patch taskIds = null
+      patch taskList = null
+      patch taskEntries = null
+      patch userIds = null
+      patch userList = null
+      patch settingKeys = null
+      patch settingValues = null
+      patch gettingKeys = null
+      patch gettingValues = null
+      patch gettingEntries = null
+    }
+  }
+}
+
+// ============================================
+// Record Effects:
+//
+//   effect record.keys({ source, into })
+//   -> Extracts keys as Array<K>
+//
+//   effect record.values({ source, into })
+//   -> Extracts values as Array<V>
+//
+//   effect record.entries({ source, into })
+//   -> Extracts as Array<{ key: K, value: V }>
+//
+// Record Access (in computed):
+//
+//   at(record, key) -> V | null
+//   isNotNull(at(record, key)) -> has key?
+//
+// Why effects for keys/values?
+//   - len(Record) is not allowed
+//   - Iteration requires explicit extraction
+//   - Ensures all operations are traceable
+//
+// Pattern: Count Record entries
+//   1. effect record.keys({ source: rec, into: keys })
+//   2. computed count = len(keys)
+// ============================================

@@ -1,0 +1,101 @@
+// ============================================
+// Title: Action Parameters
+// Description: Using input parameters in actions
+// Prerequisites: action/basic.mel
+// ============================================
+
+domain ActionParameters {
+  // --- State ---
+  state {
+    count: number = 0
+    name: string = ""
+    items: Record<string, Item> = {}
+    lastUpdated: string | null = null
+  }
+
+  // --- Single parameter ---
+  action addAmount(amount: number) {
+    when gt(amount, 0) {
+      patch count = add(count, amount)
+    }
+  }
+
+  action setName(name: string) {
+    when neq(trim(name), "") {
+      patch name = trim(name)
+    }
+  }
+
+  // --- Multiple parameters ---
+  action addItem(id: string, title: string) {
+    when and(neq(id, ""), neq(trim(title), "")) {
+      patch items[id] = {
+        id: id,
+        title: trim(title),
+        done: false
+      }
+    }
+  }
+
+  action updateItem(id: string, title: string, done: boolean) {
+    when isNotNull(at(items, id)) {
+      patch items[id] = {
+        id: id,
+        title: title,
+        done: done
+      }
+    }
+  }
+
+  // --- Using $input prefix ---
+  // $input.paramName is equivalent to paramName
+  action addWithInput(amount: number) {
+    when gt($input.amount, 0) {
+      patch count = add(count, $input.amount)
+    }
+  }
+
+  // --- Using $input for dynamic keys ---
+  action removeItem(id: string) {
+    when isNotNull(at(items, $input.id)) {
+      patch items[$input.id] unset
+    }
+  }
+
+  // --- Complex parameter usage ---
+  action createTask(id: string, title: string, priority: number) {
+    when and(
+      neq(trim(title), ""),
+      and(gte(priority, 1), lte(priority, 5))
+    ) {
+      patch items[id] = {
+        id: id,
+        title: trim(title),
+        priority: priority,
+        done: false,
+        createdAt: $input.now
+      }
+    }
+  }
+
+  // --- Parameter validation ---
+  action setScore(score: number) {
+    // Only accept valid scores
+    when and(gte(score, 0), lte(score, 100)) {
+      patch count = score
+    }
+  }
+}
+
+// ============================================
+// Parameter Access:
+//   paramName       -> Direct reference
+//   $input.paramName -> Explicit input reference
+//
+// $input also provides:
+//   $input.now      -> Current timestamp (Host-provided)
+//   $input.id       -> Intent ID or generated ID
+//
+// Anti-patterns:
+//   ❌ computed x = $input.amount  // $input not in computed
+// ============================================

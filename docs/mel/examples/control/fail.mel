@@ -1,0 +1,143 @@
+// ============================================
+// Title: Fail (Error Termination)
+// Description: Terminating actions with errors
+// Prerequisites: control/when.mel
+// ============================================
+
+domain ControlFail {
+  // --- State ---
+  state {
+    email: string = ""
+    password: string = ""
+    age: number = 0
+    balance: number = 100
+    items: Record<string, Item> = {}
+    status: "idle" | "loading" | "done" = "idle"
+    registering: string | null = null
+  }
+
+  // --- Simple fail (code only) ---
+  action validateEmail() {
+    when eq(trim(email), "") {
+      fail "MISSING_EMAIL"
+    }
+
+    when neq(trim(email), "") {
+      patch status = "done"
+    }
+  }
+
+  // --- Fail with message ---
+  action validatePassword() {
+    when eq(password, "") {
+      fail "MISSING_PASSWORD" with "Password is required"
+    }
+
+    when lt(strlen(password), 8) {
+      fail "WEAK_PASSWORD" with "Password must be at least 8 characters"
+    }
+
+    when gte(strlen(password), 8) {
+      patch status = "done"
+    }
+  }
+
+  // --- Fail with dynamic message ---
+  action validateAge() {
+    when lt(age, 0) {
+      fail "INVALID_AGE" with concat("Age cannot be negative: ", age)
+    }
+
+    when gt(age, 150) {
+      fail "INVALID_AGE" with concat("Age seems unrealistic: ", age)
+    }
+  }
+
+  // --- Business rule validation ---
+  action withdraw(amount: number) {
+    when lte(amount, 0) {
+      fail "INVALID_AMOUNT" with "Amount must be positive"
+    }
+
+    when gt(amount, balance) {
+      fail "INSUFFICIENT_FUNDS" with concat(
+        "Cannot withdraw ", amount, ". Balance: ", balance
+      )
+    }
+
+    when and(gt(amount, 0), lte(amount, balance)) {
+      patch balance = sub(balance, amount)
+    }
+  }
+
+  // --- Entity not found ---
+  action deleteItem(id: string) {
+    when eq(at(items, id), null) {
+      fail "NOT_FOUND" with concat("Item not found: ", id)
+    }
+
+    when isNotNull(at(items, id)) {
+      patch items[id] unset
+    }
+  }
+
+  // --- Multiple validations ---
+  action register(email: string, password: string, age: number) {
+    // Check email
+    when eq(trim(email), "") {
+      fail "MISSING_EMAIL"
+    }
+
+    // Check password
+    when and(neq(trim(email), ""), eq(password, "")) {
+      fail "MISSING_PASSWORD"
+    }
+
+    // Check password strength
+    when and(
+      neq(trim(email), ""),
+      and(neq(password, ""), lt(strlen(password), 8))
+    ) {
+      fail "WEAK_PASSWORD" with "Password must be at least 8 characters"
+    }
+
+    // Check age
+    when and(
+      neq(trim(email), ""),
+      and(gte(strlen(password), 8), lt(age, 18))
+    ) {
+      fail "UNDERAGE" with "Must be 18 or older to register"
+    }
+
+    // Success - all validations passed
+    once(registering) when and(
+      neq(trim(email), ""),
+      and(gte(strlen(password), 8), gte(age, 18))
+    ) {
+      patch registering = $meta.intentId
+      patch status = "done"
+    }
+  }
+}
+
+// ============================================
+// fail Syntax:
+//
+//   fail "ERROR_CODE"
+//   fail "ERROR_CODE" with "message"
+//   fail "ERROR_CODE" with concat("dynamic ", value)
+//
+// Key Points:
+//   - fail MUST be inside when or once
+//   - fail terminates action immediately
+//   - Errors are values, not exceptions
+//   - Error code should be SCREAMING_SNAKE_CASE
+//
+// fail vs stop:
+//   fail -> Error (something went wrong)
+//   stop -> Success (no action needed)
+//
+// Anti-patterns:
+//   ❌ action bad() { fail "ERROR" }  // Unguarded
+//   ❌ fail 404                       // Code must be string
+// ============================================

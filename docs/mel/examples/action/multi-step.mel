@@ -1,0 +1,125 @@
+// ============================================
+// Title: Multi-Step Actions
+// Description: Sequential operations with once blocks
+// Prerequisites: action/basic.mel, control/once.mel
+// ============================================
+
+domain ActionMultiStep {
+  // --- State ---
+  state {
+    // Raw data
+    rawItems: Array<Item> | null = null
+
+    // Processed data (each step)
+    filteredItems: Array<Item> | null = null
+    sortedItems: Array<Item> | null = null
+    mappedItems: Array<Summary> | null = null
+
+    // Step markers
+    step1: string | null = null
+    step2: string | null = null
+    step3: string | null = null
+
+    // Status
+    status: "idle" | "loading" | "processing" | "done" = "idle"
+  }
+
+  // --- Multi-step data pipeline ---
+  action processData() {
+    // Step 1: Fetch data
+    once(step1) {
+      patch step1 = $meta.intentId
+      patch status = "loading"
+      effect api.fetch({ url: "/items", into: rawItems })
+    }
+
+    // Step 2: Filter (waits for step 1)
+    once(step2) when isNotNull(rawItems) {
+      patch step2 = $meta.intentId
+      patch status = "processing"
+      effect array.filter({
+        source: rawItems,
+        where: eq($item.active, true),
+        into: filteredItems
+      })
+    }
+
+    // Step 3: Sort (waits for step 2)
+    once(step3) when isNotNull(filteredItems) {
+      patch step3 = $meta.intentId
+      effect array.sort({
+        source: filteredItems,
+        by: $item.createdAt,
+        order: "desc",
+        into: sortedItems
+      })
+    }
+
+    // Final: Mark complete (waits for step 3)
+    when isNotNull(sortedItems) {
+      patch status = "done"
+    }
+  }
+
+  // --- Alternative: Transform pipeline ---
+  action transformData() {
+    // Flatten nested arrays
+    once(step1) when isNotNull(rawItems) {
+      patch step1 = $meta.intentId
+      effect array.flatMap({
+        source: rawItems,
+        select: $item.children,
+        into: filteredItems
+      })
+    }
+
+    // Map to summary objects
+    once(step2) when isNotNull(filteredItems) {
+      patch step2 = $meta.intentId
+      effect array.map({
+        source: filteredItems,
+        select: {
+          id: $item.id,
+          name: upper($item.name),
+          count: len($item.tags)
+        },
+        into: mappedItems
+      })
+    }
+  }
+
+  // --- Reset for retry ---
+  action reset() {
+    when neq(status, "idle") {
+      patch rawItems = null
+      patch filteredItems = null
+      patch sortedItems = null
+      patch mappedItems = null
+      patch step1 = null
+      patch step2 = null
+      patch step3 = null
+      patch status = "idle"
+    }
+  }
+}
+
+// ============================================
+// Multi-Step Pattern:
+//
+//   once(stepN) when <previous step ready> {
+//     patch stepN = $meta.intentId   // MUST be first
+//     effect ...
+//   }
+//
+// Key points:
+//   - Each step has its own marker (step1, step2, ...)
+//   - Each step waits for previous step's result
+//   - Marker patch MUST be first statement in once block
+//   - Effects write results to state for next step
+//
+// Host Loop:
+//   1. Host calls compute() -> step1 runs, returns effect
+//   2. Host executes effect, patches rawItems
+//   3. Host calls compute() -> step1 skips (marker set), step2 runs
+//   4. Repeat until no more effects
+// ============================================

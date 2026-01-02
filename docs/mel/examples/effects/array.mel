@@ -1,0 +1,213 @@
+// ============================================
+// Title: Array Effects
+// Description: filter, map, sort, flatMap operations
+// Prerequisites: control/once.mel, effects/api.mel
+// ============================================
+
+domain EffectsArray {
+  // --- State ---
+  state {
+    items: Array<Item> = []
+    users: Array<User> = []
+    teams: Array<Team> = []
+
+    // Results
+    filtered: Array<Item> | null = null
+    mapped: Array<Summary> | null = null
+    sorted: Array<Item> | null = null
+    flattened: Array<Member> | null = null
+    partitionPass: Array<Item> | null = null
+    partitionFail: Array<Item> | null = null
+
+    // Markers
+    filtering: string | null = null
+    mapping: string | null = null
+    sorting: string | null = null
+    flattening: string | null = null
+    partitioning: string | null = null
+  }
+
+  // --- Filter ---
+  // Keep elements where condition is true
+  action filterActive() {
+    once(filtering) when gt(len(items), 0) {
+      patch filtering = $meta.intentId
+      effect array.filter({
+        source: items,
+        where: eq($item.active, true),
+        into: filtered
+      })
+    }
+  }
+
+  // Filter with complex condition
+  action filterHighPriority() {
+    once(filtering) when gt(len(items), 0) {
+      patch filtering = $meta.intentId
+      effect array.filter({
+        source: items,
+        where: and(
+          eq($item.active, true),
+          gte($item.priority, 3)
+        ),
+        into: filtered
+      })
+    }
+  }
+
+  // --- Map ---
+  // Transform each element
+  action mapToSummary() {
+    once(mapping) when gt(len(items), 0) {
+      patch mapping = $meta.intentId
+      effect array.map({
+        source: items,
+        select: {
+          id: $item.id,
+          name: upper($item.name),
+          status: $item.active ? "Active" : "Inactive"
+        },
+        into: mapped
+      })
+    }
+  }
+
+  // Map to single value
+  action extractNames() {
+    once(mapping) when gt(len(users), 0) {
+      patch mapping = $meta.intentId
+      effect array.map({
+        source: users,
+        select: $item.name,
+        into: mapped
+      })
+    }
+  }
+
+  // --- Sort ---
+  // Order elements
+  action sortByDate() {
+    once(sorting) when gt(len(items), 0) {
+      patch sorting = $meta.intentId
+      effect array.sort({
+        source: items,
+        by: $item.createdAt,
+        order: "desc",
+        into: sorted
+      })
+    }
+  }
+
+  // Sort ascending
+  action sortByName() {
+    once(sorting) when gt(len(items), 0) {
+      patch sorting = $meta.intentId
+      effect array.sort({
+        source: items,
+        by: $item.name,
+        order: "asc",
+        into: sorted
+      })
+    }
+  }
+
+  // Sort by numeric field
+  action sortByPriority() {
+    once(sorting) when gt(len(items), 0) {
+      patch sorting = $meta.intentId
+      effect array.sort({
+        source: items,
+        by: $item.priority,
+        order: "desc",
+        into: sorted
+      })
+    }
+  }
+
+  // --- FlatMap ---
+  // Flatten nested arrays
+  action flattenMembers() {
+    once(flattening) when gt(len(teams), 0) {
+      patch flattening = $meta.intentId
+      effect array.flatMap({
+        source: teams,
+        select: $item.members,
+        into: flattened
+      })
+    }
+  }
+
+  // FlatMap with transform
+  action flattenAndTransform() {
+    once(flattening) when gt(len(teams), 0) {
+      patch flattening = $meta.intentId
+      effect array.flatMap({
+        source: teams,
+        select: $item.tasks,
+        into: flattened
+      })
+    }
+  }
+
+  // --- Partition ---
+  // Split into pass/fail groups
+  action partitionByStatus() {
+    once(partitioning) when gt(len(items), 0) {
+      patch partitioning = $meta.intentId
+      effect array.partition({
+        source: items,
+        where: eq($item.active, true),
+        pass: partitionPass,
+        reject: partitionFail
+      })
+    }
+  }
+
+  // --- Pipeline: Filter then Sort ---
+  action filterAndSort() {
+    once(filtering) when gt(len(items), 0) {
+      patch filtering = $meta.intentId
+      effect array.filter({
+        source: items,
+        where: eq($item.active, true),
+        into: filtered
+      })
+    }
+
+    once(sorting) when isNotNull(filtered) {
+      patch sorting = $meta.intentId
+      effect array.sort({
+        source: filtered,
+        by: $item.createdAt,
+        order: "desc",
+        into: sorted
+      })
+    }
+  }
+}
+
+// ============================================
+// $item Reference:
+//
+//   $item           -> Current element
+//   $item.field     -> Access field
+//   $item.nested.x  -> Nested access
+//
+// Available in:
+//   - where: condition
+//   - select: transformation
+//   - by: sort key
+//
+// NOT available in:
+//   - computed expressions
+//   - outside effect context
+//
+// Pipeline Pattern:
+//   1. once(step1) { effect ... into: temp1 }
+//   2. once(step2) when isNotNull(temp1) { effect ... into: temp2 }
+//   3. Continue chaining...
+//
+// Anti-patterns:
+//   ❌ Nested effects (effect inside effect)
+//   ❌ $item in computed
+// ============================================

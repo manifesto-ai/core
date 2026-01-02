@@ -1,0 +1,64 @@
+// ============================================
+// Title: Basic Computed Expressions
+// Description: Fundamental computed patterns
+// Prerequisites: None
+// ============================================
+
+domain ComputedBasic {
+  // --- State ---
+  state {
+    count: number = 0
+    price: number = 100
+    quantity: number = 5
+    firstName: string = "John"
+    lastName: string = "Doe"
+  }
+
+  // --- Arithmetic ---
+  // Addition
+  computed doubled = mul(count, 2)
+  computed total = add(count, 10)
+
+  // Subtraction
+  computed remaining = sub(100, count)
+
+  // Multiplication
+  computed subtotal = mul(price, quantity)
+
+  // Division (returns null if divisor is 0)
+  computed average = div(subtotal, quantity)
+
+  // Modulo
+  computed remainder = mod(count, 3)
+
+  // Negation
+  computed negative = neg(count)
+
+  // --- Chained arithmetic ---
+  computed totalWithTax = mul(subtotal, 1.1)
+  computed discounted = sub(subtotal, div(subtotal, 10))
+
+  // --- String concatenation ---
+  computed fullName = concat(firstName, " ", lastName)
+  computed greeting = concat("Hello, ", firstName, "!")
+  computed label = concat("Count: ", count)
+
+  // --- Property access ---
+  // Direct field access
+  computed currentCount = count
+  computed currentPrice = price
+}
+
+// ============================================
+// Anti-patterns (what NOT to do)
+// ============================================
+//
+// ❌ computed wrong = count + 1
+//    Use: add(count, 1)
+//
+// ❌ computed wrong = `Hello, ${name}`
+//    Use: concat("Hello, ", name)
+//
+// ❌ computed wrong = firstName.toUpperCase()
+//    Use: upper(firstName)
+// ============================================

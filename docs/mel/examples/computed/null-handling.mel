@@ -1,0 +1,82 @@
+// ============================================
+// Title: Null Handling Patterns
+// Description: isNull, isNotNull, coalesce, ternary
+// Prerequisites: computed/basic.mel
+// ============================================
+
+domain ComputedNullHandling {
+  // --- State ---
+  state {
+    selectedId: string | null = null
+    userName: string | null = null
+    score: number | null = null
+    items: Array<string> = ["a", "b", "c"]
+    tasks: Record<string, Task> = {}
+    defaultName: string = "Anonymous"
+    threshold: number = 50
+  }
+
+  // --- Null checks ---
+  computed hasSelection = isNotNull(selectedId)
+  computed noSelection = isNull(selectedId)
+  computed hasUserName = isNotNull(userName)
+  computed hasScore = isNotNull(score)
+
+  // --- Coalesce (null fallback) ---
+  // Returns first arg if not null, otherwise second
+  computed displayName = coalesce(userName, "Guest")
+  computed safeScore = coalesce(score, 0)
+  computed effectiveId = coalesce(selectedId, "none")
+
+  // --- Chained coalesce ---
+  computed finalName = coalesce(userName, defaultName)
+
+  // --- Ternary expressions ---
+  // condition ? valueIfTrue : valueIfFalse
+  computed greeting = isNotNull(userName)
+    ? concat("Hello, ", userName)
+    : "Hello, Guest"
+
+  computed status = isNotNull(score)
+    ? (gte(score, threshold) ? "pass" : "fail")
+    : "pending"
+
+  computed label = eq(len(items), 0)
+    ? "No items"
+    : concat("Items: ", len(items))
+
+  // --- Array element access (may return null) ---
+  computed firstItem = first(items)      // T | null
+  computed lastItem = last(items)        // T | null
+  computed secondItem = at(items, 1)     // T | null
+
+  // Safe access with fallback
+  computed safeFirst = coalesce(first(items), "default")
+
+  // --- Record access (may return null) ---
+  // at(record, key) returns V | null
+  computed hasTask = isNotNull(at(tasks, "task-1"))
+
+  // --- Combined patterns ---
+  computed displayScore = isNotNull(score)
+    ? concat("Score: ", score)
+    : "No score yet"
+
+  computed actionLabel = and(isNotNull(selectedId), gt(len(items), 0))
+    ? "Ready to process"
+    : "Select an item first"
+}
+
+// ============================================
+// Key Functions:
+//   isNull(x)       -> boolean (x === null)
+//   isNotNull(x)    -> boolean (x !== null)
+//   coalesce(a, b)  -> a ?? b
+//   first(arr)      -> T | null
+//   last(arr)       -> T | null
+//   at(arr, i)      -> T | null
+//   at(rec, k)      -> V | null
+//
+// Ternary:
+//   condition ? trueValue : falseValue
+// ============================================

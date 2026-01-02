@@ -1,0 +1,91 @@
+// ============================================
+// Title: Basic Actions
+// Description: Simple state mutations with when guards
+// Prerequisites: computed/basic.mel
+// ============================================
+
+domain ActionBasic {
+  // --- State ---
+  state {
+    count: number = 0
+    name: string = ""
+    isActive: boolean = false
+    status: "idle" | "running" | "done" = "idle"
+  }
+
+  // --- Simple increment ---
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Conditional increment ---
+  action incrementIfPositive() {
+    when gt(count, 0) {
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Decrement with guard ---
+  action decrement() {
+    when gt(count, 0) {
+      patch count = sub(count, 1)
+    }
+  }
+
+  // --- Reset ---
+  action reset() {
+    when neq(count, 0) {
+      patch count = 0
+    }
+  }
+
+  // --- Multiple patches in one guard ---
+  action resetAll() {
+    when true {
+      patch count = 0
+      patch name = ""
+      patch isActive = false
+      patch status = "idle"
+    }
+  }
+
+  // --- Boolean toggle ---
+  action toggle() {
+    when true {
+      patch isActive = not(isActive)
+    }
+  }
+
+  // --- Status transitions ---
+  action start() {
+    when eq(status, "idle") {
+      patch status = "running"
+    }
+  }
+
+  action complete() {
+    when eq(status, "running") {
+      patch status = "done"
+    }
+  }
+
+  // --- String update ---
+  action clearName() {
+    when neq(name, "") {
+      patch name = ""
+    }
+  }
+}
+
+// ============================================
+// Key Rules:
+//   - All patches MUST be inside when or once
+//   - when condition MUST be boolean
+//   - Multiple patches allowed in one guard
+//
+// Anti-patterns:
+//   ❌ action bad() { patch count = 1 }  // Unguarded
+//   ❌ when count { }                    // Not boolean
+// ============================================
