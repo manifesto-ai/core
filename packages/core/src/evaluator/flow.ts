@@ -2,12 +2,14 @@ import type { FlowNode } from "../schema/flow.js";
 import type { Snapshot, Requirement, ErrorValue } from "../schema/snapshot.js";
 import type { Patch } from "../schema/patch.js";
 import type { TraceNode } from "../schema/trace.js";
+import type { FieldSpec } from "../schema/field.js";
 import { createTraceNode } from "../schema/trace.js";
 import { createError } from "../errors.js";
 import { setByPath, unsetByPath, mergeAtPath } from "../utils/path.js";
 import { generateRequirementId } from "../utils/hash.js";
 import { type EvalContext, withSnapshot, withNodePath } from "./context.js";
 import { evaluateExpr } from "./expr.js";
+import { getFieldSpecAtPath, validateValueAgainstFieldSpec } from "../core/validation-utils.js";
 
 /**
  * Flow execution status
@@ -33,6 +35,18 @@ export type FlowResult = {
   readonly trace: TraceNode;
 };
 
+const SYSTEM_FIELD_SPEC: FieldSpec = {
+  type: "object",
+  required: true,
+  fields: {
+    status: { type: { enum: ["idle", "computing", "pending", "error"] }, required: true },
+    lastError: { type: "object", required: true },
+    errors: { type: "array", required: true, items: { type: "object", required: true } },
+    pendingRequirements: { type: "array", required: true, items: { type: "object", required: true } },
+    currentAction: { type: "string", required: true },
+  },
+};
+
 /**
  * Create initial flow state
  */
@@ -50,6 +64,32 @@ export function createFlowState(snapshot: Snapshot): FlowState {
  * Apply a patch to flow state
  */
 function applyPatchToState(state: FlowState, patch: Patch): FlowState {
+  if (patch.path === "system" || patch.path.startsWith("system.")) {
+    const subPath = patch.path === "system" ? "" : patch.path.slice(7);
+    let newSystem = state.snapshot.system;
+
+    switch (patch.op) {
+      case "set":
+        newSystem = setByPath(newSystem, subPath, patch.value) as typeof newSystem;
+        break;
+      case "unset":
+        newSystem = unsetByPath(newSystem, subPath) as typeof newSystem;
+        break;
+      case "merge":
+        newSystem = mergeAtPath(newSystem, subPath, patch.value) as typeof newSystem;
+        break;
+    }
+
+    return {
+      ...state,
+      snapshot: {
+        ...state.snapshot,
+        system: newSystem,
+      },
+      patches: [...state.patches, patch],
+    };
+  }
+
   let newData = state.snapshot.data;
 
   switch (patch.op) {
@@ -109,7 +149,7 @@ export async function evaluateFlow(
   if (state.status !== "running") {
     return {
       state,
-      trace: createTraceNode("flow", nodePath, {}, null, []),
+      trace: createTraceNode(ctx.trace, "flow", nodePath, {}, null, []),
     };
   }
 
@@ -130,7 +170,7 @@ export async function evaluateFlow(
       return evaluateCall(flow.flow, ctx, state, nodePath);
 
     case "halt":
-      return evaluateHalt(flow.reason, state, nodePath);
+      return evaluateHalt(flow.reason, ctx, state, nodePath);
 
     case "fail":
       return evaluateFail(flow, ctx, state, nodePath);
@@ -141,9 +181,10 @@ export async function evaluateFlow(
           "INTERNAL_ERROR",
           `Unknown flow kind: ${(flow as FlowNode).kind}`,
           ctx.currentAction ?? "",
-          nodePath
+          nodePath,
+          ctx.trace.timestamp
         )),
-        trace: createTraceNode("error", nodePath, {}, null, []),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
       };
   }
 }
@@ -175,7 +216,7 @@ async function evaluateSeq(
 
   return {
     state: currentState,
-    trace: createTraceNode("flow", nodePath, { kind: "seq" }, null, children),
+    trace: createTraceNode(ctx.trace, "flow", nodePath, { kind: "seq" }, null, children),
   };
 }
 
@@ -190,7 +231,7 @@ async function evaluateIf(
   if (!condResult.ok) {
     return {
       state: setError(state, condResult.error),
-      trace: createTraceNode("branch", nodePath, { cond: false }, null, []),
+      trace: createTraceNode(ctx.trace, "branch", nodePath, { cond: false }, null, []),
     };
   }
 
@@ -203,7 +244,7 @@ async function evaluateIf(
   if (!branchFlow) {
     return {
       state,
-      trace: createTraceNode("branch", nodePath, { cond: isTruthy }, null, []),
+      trace: createTraceNode(ctx.trace, "branch", nodePath, { cond: isTruthy }, null, []),
     };
   }
 
@@ -212,7 +253,7 @@ async function evaluateIf(
 
   return {
     state: result.state,
-    trace: createTraceNode("branch", nodePath, { cond: isTruthy }, null, [result.trace]),
+    trace: createTraceNode(ctx.trace, "branch", nodePath, { cond: isTruthy }, null, [result.trace]),
   };
 }
 
@@ -229,10 +270,51 @@ async function evaluatePatch(
     if (!valueResult.ok) {
       return {
         state: setError(state, valueResult.error),
-        trace: createTraceNode("error", nodePath, {}, null, []),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
       };
     }
     patchValue = valueResult.value;
+  }
+
+  const rootSpec: FieldSpec = {
+    type: "object",
+    required: true,
+    fields: {
+      ...ctx.schema.state.fields,
+      system: SYSTEM_FIELD_SPEC,
+    },
+  };
+  const fieldSpec = getFieldSpecAtPath(rootSpec, flow.path);
+  if (!fieldSpec) {
+    return {
+      state: setError(state, createError(
+        "PATH_NOT_FOUND",
+        `Unknown patch path: ${flow.path}`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
+  }
+
+  if (flow.op !== "unset") {
+    const validation = validateValueAgainstFieldSpec(patchValue, fieldSpec, {
+      allowPartial: flow.op === "merge",
+      allowUndefined: false,
+    });
+    if (!validation.ok) {
+      return {
+        state: setError(state, createError(
+          "TYPE_MISMATCH",
+          `Invalid patch value at ${flow.path}: ${validation.message ?? "type mismatch"}`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp
+        )),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+      };
+    }
   }
 
   const patch: Patch = flow.op === "unset"
@@ -245,7 +327,7 @@ async function evaluatePatch(
 
   return {
     state: newState,
-    trace: createTraceNode("patch", nodePath, { op: flow.op, path: flow.path }, patchValue, []),
+    trace: createTraceNode(ctx.trace, "patch", nodePath, { op: flow.op, path: flow.path }, patchValue, []),
   };
 }
 
@@ -262,7 +344,7 @@ async function evaluateEffect(
     if (!result.ok) {
       return {
         state: setError(state, result.error),
-        trace: createTraceNode("error", nodePath, {}, null, []),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
       };
     }
     params[key] = result.value;
@@ -271,7 +353,7 @@ async function evaluateEffect(
   // Generate deterministic requirement ID
   const requirementId = await generateRequirementId(
     ctx.snapshot.meta.schemaHash,
-    (ctx.snapshot.input as { intentId?: string })?.intentId ?? "",
+    ctx.meta.intentId,
     ctx.currentAction ?? "",
     nodePath
   );
@@ -285,14 +367,14 @@ async function evaluateEffect(
       nodePath,
       snapshotVersion: ctx.snapshot.meta.version,
     },
-    createdAt: Date.now(),
+    createdAt: ctx.trace.timestamp,
   };
 
   const newState = addRequirement(state, requirement);
 
   return {
     state: newState,
-    trace: createTraceNode("effect", nodePath, { type: flow.type }, params, []),
+    trace: createTraceNode(ctx.trace, "effect", nodePath, { type: flow.type }, params, []),
   };
 }
 
@@ -310,9 +392,10 @@ async function evaluateCall(
         "UNKNOWN_FLOW",
         `Unknown flow: ${flowName}`,
         ctx.currentAction ?? "",
-        nodePath
+        nodePath,
+        ctx.trace.timestamp
       )),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -323,18 +406,19 @@ async function evaluateCall(
 
   return {
     state: result.state,
-    trace: createTraceNode("call", nodePath, { flow: flowName }, null, [result.trace]),
+    trace: createTraceNode(ctx.trace, "call", nodePath, { flow: flowName }, null, [result.trace]),
   };
 }
 
 async function evaluateHalt(
   reason: string | undefined,
+  ctx: EvalContext,
   state: FlowState,
   nodePath: string
 ): Promise<FlowResult> {
   return {
     state: { ...state, status: "halted" },
-    trace: createTraceNode("halt", nodePath, { reason }, null, []),
+    trace: createTraceNode(ctx.trace, "halt", nodePath, { reason }, null, []),
   };
 }
 
@@ -358,11 +442,12 @@ async function evaluateFail(
     message,
     ctx.currentAction ?? "",
     nodePath,
+    ctx.trace.timestamp,
     { code: flow.code }
   );
 
   return {
     state: setError(state, error),
-    trace: createTraceNode("error", nodePath, { code: flow.code }, message, []),
+    trace: createTraceNode(ctx.trace, "error", nodePath, { code: flow.code }, message, []),
   };
 }

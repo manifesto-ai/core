@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { generateTraceId } from "../utils/hash.js";
 
 /**
  * TraceNodeKind - Types of trace nodes
@@ -120,9 +121,29 @@ export const TraceGraph = z.object({
 export type TraceGraph = z.infer<typeof TraceGraph>;
 
 /**
+ * TraceContext - Deterministic trace ID generation
+ */
+export type TraceContext = {
+  readonly nextId: () => string;
+  readonly timestamp: number;
+};
+
+/**
+ * Create a trace context for a single compute pass
+ */
+export function createTraceContext(timestamp: number): TraceContext {
+  let index = 0;
+  return {
+    timestamp,
+    nextId: () => generateTraceId(index++),
+  };
+}
+
+/**
  * Create a trace node
  */
 export function createTraceNode(
+  trace: TraceContext,
   kind: TraceNodeKind,
   sourcePath: string,
   inputs: Record<string, unknown>,
@@ -130,12 +151,12 @@ export function createTraceNode(
   children: TraceNode[] = []
 ): TraceNode {
   return {
-    id: `trace-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    id: trace.nextId(),
     kind,
     sourcePath,
     inputs,
     output,
     children,
-    timestamp: Date.now(),
+    timestamp: trace.timestamp,
   };
 }

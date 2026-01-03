@@ -30,10 +30,13 @@ npm install @manifesto-ai/bridge @manifesto-ai/world @manifesto-ai/host @manifes
 ```typescript
 import { createBridge } from "@manifesto-ai/bridge";
 import { createManifestoWorld, createAutoApproveHandler } from "@manifesto-ai/world";
-import { createHost, createSnapshot } from "@manifesto-ai/host";
+import { createHost } from "@manifesto-ai/host";
 
 // 1. Create host and world
-const host = createHost({ schema, snapshot: createSnapshot(schema) });
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
+});
 const world = createManifestoWorld({
   schemaHash: "my-app-v1",
   host,
@@ -48,7 +51,8 @@ const bridge = createBridge({
 });
 
 // 3. Verify
-console.log(bridge.get("/data"));
+const snapshot = bridge.getSnapshot();
+console.log(snapshot?.data);
 // → { ... initial state }
 ```
 
@@ -275,9 +279,9 @@ console.log(records);
 
 ```typescript
 // Get value by path
-const todos = bridge.get("/data/todos");
-const filter = bridge.get("/data/filter");
-const remaining = bridge.get("/computed/remaining");
+const todos = bridge.get("todos");
+const filter = bridge.get("filter");
+const remaining = bridge.get("computed.remaining");
 
 // Typed access (if you have the schema)
 const snapshot = bridge.getSnapshot();
@@ -626,7 +630,7 @@ describe("Todo projection", () => {
 | `bridge.dispatch()` | Direct intent | `await bridge.dispatch(body)` |
 | `bridge.dispatchEvent()` | Event routing | `await bridge.dispatchEvent(event)` |
 | `bridge.registerProjection()` | Add projection | `bridge.registerProjection(projection)` |
-| `bridge.get()` | Read value | `bridge.get("/data/todos")` |
+| `bridge.get()` | Read value | `bridge.get("todos")` |
 | `bridge.dispose()` | Cleanup | `bridge.dispose()` |
 
 ### SourceEvent Kinds

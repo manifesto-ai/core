@@ -16,7 +16,7 @@
  * - intentId is unique per processing attempt
  */
 import { z } from "zod";
-import { sha256, toCanonical } from "@manifesto-ai/core";
+import { sha256, toJcs } from "@manifesto-ai/core";
 import { ActorRef } from "./actor.js";
 
 // ============================================================================
@@ -172,7 +172,7 @@ export type IntentInstance = z.infer<typeof IntentInstance>;
  *   JCS(body.scopeProposal ?? null)
  * )
  *
- * Where JCS = JSON Canonicalization Scheme (we use toCanonical)
+ * Where JCS = JSON Canonicalization Scheme (RFC 8785)
  */
 export async function computeIntentKey(
   schemaHash: string,
@@ -181,8 +181,8 @@ export async function computeIntentKey(
   const parts = [
     schemaHash,
     body.type,
-    toCanonical(body.input ?? null),
-    toCanonical(body.scopeProposal ?? null),
+    toJcs(body.input ?? null),
+    toJcs(body.scopeProposal ?? null),
   ];
 
   const input = parts.join(":");
@@ -238,7 +238,7 @@ export async function createIntentInstance(
   // Compute intentKey
   const key = await computeIntentKey(schemaHash, body);
 
-  return {
+  return deepFreeze({
     body,
     intentId: id,
     intentKey: key,
@@ -250,7 +250,7 @@ export async function createIntentInstance(
         note,
       },
     },
-  };
+  });
 }
 
 /**
@@ -264,12 +264,28 @@ export function createIntentInstanceSync(
   intentKey: string,
   origin: IntentOrigin
 ): IntentInstance {
-  return {
+  return deepFreeze({
     body,
     intentId,
     intentKey,
     meta: { origin },
-  };
+  });
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  const propNames = Object.getOwnPropertyNames(value);
+  for (const name of propNames) {
+    const prop = (value as Record<string, unknown>)[name];
+    if (prop && typeof prop === "object") {
+      deepFreeze(prop);
+    }
+  }
+
+  return Object.freeze(value);
 }
 
 // ============================================================================

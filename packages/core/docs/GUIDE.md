@@ -36,26 +36,46 @@ const core = createCore();
 
 // 2. Define a minimal schema
 const schema: DomainSchema = {
+  id: "example:counter",
   version: "1.0.0",
+  hash: "example-hash",
+  types: {},
   state: {
-    count: { type: "number", default: 0 },
+    fields: {
+      count: { type: "number", required: true, default: 0 },
+    },
+  },
+  computed: {
+    fields: {
+      "computed.count": {
+        deps: ["count"],
+        expr: { kind: "get", path: "count" },
+      },
+    },
   },
   actions: {
     increment: {
       flow: {
         kind: "patch",
         op: "set",
-        path: "/data/count",
-        value: { kind: "add", left: { kind: "get", path: "/data/count" }, right: 1 },
+        path: "count",
+        value: {
+          kind: "add",
+          left: { kind: "get", path: "count" },
+          right: { kind: "lit", value: 1 },
+        },
       },
     },
   },
 };
 
-// 3. Create initial snapshot
-const snapshot = createSnapshot(schema);
+// 3. Provide host context (deterministic inputs)
+const context = { now: 0, randomSeed: "seed" };
 
-// 4. Verify
+// 4. Create initial snapshot
+const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
+
+// 5. Verify
 console.log(snapshot.data.count);
 // → 0
 ```
@@ -72,20 +92,21 @@ console.log(snapshot.data.count);
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
 
 const core = createCore();
+const context = { now: 0, randomSeed: "seed" };
 
 // Create initial snapshot
-const snapshot = createSnapshot(schema);
+const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 console.log(snapshot.data.count); // → 0
 
 // Create intent
-const intent = createIntent("increment");
+const intent = createIntent("increment", "intent-1");
 
 // Compute result
-const result = await core.compute(schema, snapshot, intent);
+const result = await core.compute(schema, snapshot, intent, context);
 
 // Check result
-console.log(result.status);           // → "completed"
-console.log(result.patches.length);   // → 1
+console.log(result.status);           // → "complete"
+console.log(result.requirements.length); // → 0
 console.log(result.snapshot.data.count); // → 1
 ```
 
@@ -98,16 +119,17 @@ import { createCore, createSnapshot } from "@manifesto-ai/core";
 import type { Patch } from "@manifesto-ai/core";
 
 const core = createCore();
-const snapshot = createSnapshot(schema);
+const context = { now: 0, randomSeed: "seed" };
+const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // Define patches
 const patches: Patch[] = [
-  { op: "set", path: "/data/count", value: 10 },
-  { op: "set", path: "/data/name", value: "Alice" },
+  { op: "set", path: "count", value: 10 },
+  { op: "set", path: "name", value: "Alice" },
 ];
 
 // Apply patches
-const newSnapshot = core.apply(schema, snapshot, patches);
+const newSnapshot = core.apply(schema, snapshot, patches, context);
 
 console.log(newSnapshot.data.count); // → 10
 console.log(newSnapshot.data.name);  // → "Alice"
@@ -119,34 +141,66 @@ console.log(newSnapshot.data.name);  // → "Alice"
 
 ```typescript
 const schemaWithEffect: DomainSchema = {
+  id: "example:fetch-user",
   version: "1.0.0",
+  hash: "example-fetch-hash",
+  types: {},
   state: {
-    user: { type: "object", default: null },
+    fields: {
+      user: {
+        type: "object",
+        required: false,
+        default: null,
+        fields: {
+          id: { type: "string", required: true },
+        },
+      },
+    },
+  },
+  computed: {
+    fields: {
+      "computed.user": {
+        deps: ["user"],
+        expr: { kind: "get", path: "user" },
+      },
+    },
   },
   actions: {
     fetchUser: {
-      input: { type: "object", properties: { id: { type: "string" } } },
+      input: {
+        type: "object",
+        required: true,
+        fields: {
+          id: { type: "string", required: true },
+        },
+      },
       flow: {
         kind: "effect",
         type: "api.fetch",
         params: {
-          url: { kind: "concat", args: ["/api/users/", { kind: "get", path: "/input/id" }] },
+          url: {
+            kind: "concat",
+            args: [
+              { kind: "lit", value: "/api/users/" },
+              { kind: "get", path: "input.id" },
+            ],
+          },
         },
       },
     },
   },
 };
 
-const result = await core.compute(schemaWithEffect, snapshot, {
-  type: "fetchUser",
-  input: { id: "123" },
-  intentId: "i_1",
-});
+const context = { now: 0, randomSeed: "seed" };
+const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
+const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
+
+const result = await core.compute(schemaWithEffect, snapshot, intent, context);
 
 // Effect is recorded as a requirement, not executed
 console.log(result.status); // → "pending"
 console.log(result.requirements.length); // → 1
-console.log(result.requirements[0].effect.type); // → "api.fetch"
+console.log(result.requirements[0].type); // → "api.fetch"
 ```
 
 ---
@@ -160,9 +214,13 @@ console.log(result.requirements[0].effect.type); // → "api.fetch"
 ```typescript
 const flow = {
   kind: "if",
-  condition: { kind: "gt", left: { kind: "get", path: "/data/count" }, right: 10 },
-  then: { kind: "patch", op: "set", path: "/data/status", value: "high" },
-  else: { kind: "patch", op: "set", path: "/data/status", value: "low" },
+  cond: {
+    kind: "gt",
+    left: { kind: "get", path: "count" },
+    right: { kind: "lit", value: 10 },
+  },
+  then: { kind: "patch", op: "set", path: "status", value: { kind: "lit", value: "high" } },
+  else: { kind: "patch", op: "set", path: "status", value: { kind: "lit", value: "low" } },
 };
 ```
 
@@ -174,8 +232,8 @@ const flow = {
 const flow = {
   kind: "seq",
   steps: [
-    { kind: "patch", op: "set", path: "/data/loading", value: true },
-    { kind: "effect", type: "api.fetch", params: { url: "/data" } },
+    { kind: "patch", op: "set", path: "loading", value: { kind: "lit", value: true } },
+    { kind: "effect", type: "api.fetch", params: { url: { kind: "lit", value: "/data" } } },
   ],
 };
 ```
@@ -191,11 +249,11 @@ const flow = {
     // Halt if already processed
     {
       kind: "if",
-      condition: { kind: "get", path: "/data/processed" },
+      cond: { kind: "get", path: "processed" },
       then: { kind: "halt" },
     },
     // Continue with processing
-    { kind: "patch", op: "set", path: "/data/processed", value: true },
+    { kind: "patch", op: "set", path: "processed", value: { kind: "lit", value: true } },
   ],
 };
 ```
@@ -210,23 +268,39 @@ const flow = {
 
 ```typescript
 const schema: DomainSchema = {
+  id: "example:items",
   version: "1.0.0",
+  hash: "example-items-hash",
+  types: {},
   state: {
-    items: { type: "array", default: [] },
+    fields: {
+      items: {
+        type: "array",
+        required: true,
+        default: [],
+        items: { type: "string", required: true },
+      },
+    },
   },
   computed: {
-    total: {
-      deps: ["/data/items"],
-      expr: { kind: "length", arg: { kind: "get", path: "/data/items" } },
+    fields: {
+      "computed.total": {
+        deps: ["items"],
+        expr: { kind: "length", arg: { kind: "get", path: "items" } },
+      },
     },
+  },
+  actions: {
+    noop: { flow: { kind: "halt", reason: "noop" } },
   },
 };
 
-const snapshot = createSnapshot(schema);
-const explanation = core.explain(schema, snapshot, "/computed/total");
+const context = { now: 0, randomSeed: "seed" };
+const snapshot = createSnapshot({ items: [] }, schema.hash, context);
+const explanation = core.explain(schema, snapshot, "computed.total");
 
 console.log(explanation);
-// → { value: 0, deps: ["/data/items"], trace: [...] }
+// → { value: 0, deps: ["items"], trace: [...] }
 ```
 
 ### Validating Schemas
@@ -249,7 +323,9 @@ if (!result.valid) {
 
 ```typescript
 // Wrong: Expecting the API call to happen
-const result = await core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
+const result = await core.compute(schema, snapshot, intent, context);
 console.log(result.snapshot.data.user); // → undefined (effect not executed!)
 ```
 
@@ -259,7 +335,7 @@ console.log(result.snapshot.data.user); // → undefined (effect not executed!)
 
 ```typescript
 // Right: Check for requirements and use Host to execute
-const result = await core.compute(schema, snapshot, intent);
+const result = await core.compute(schema, snapshot, intent, context);
 
 if (result.requirements.length > 0) {
   // Use Host to execute effects
@@ -283,8 +359,8 @@ snapshot.data.count = 5;
 ```typescript
 // Right: Use patches
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: "set", path: "/data/count", value: 5 },
-]);
+  { op: "set", path: "count", value: 5 },
+], context);
 ```
 
 ### Mistake 3: Using Async in Expressions
@@ -308,9 +384,9 @@ const expr = {
 const flow = {
   kind: "seq",
   steps: [
-    { kind: "effect", type: "api.fetch", params: { url: "/data" } },
+    { kind: "effect", type: "api.fetch", params: { url: { kind: "lit", value: "/data" } } },
     // After Host executes effect and applies patches:
-    { kind: "patch", op: "set", path: "/data/processed", value: true },
+    { kind: "patch", op: "set", path: "processed", value: { kind: "lit", value: true } },
   ],
 };
 ```
@@ -327,10 +403,10 @@ const flow = {
 
 ```typescript
 // Check your path format
-// Correct: "/data/todos/0/title"
-// Wrong: "data.todos[0].title"
+// Correct: "todos.0.title"
+// Wrong: "/data/todos/0/title"
 
-const patch = { op: "set", path: "/data/count", value: 5 }; // Use JSON Pointer format
+const patch = { op: "set", path: "count", value: 5 }; // Use dot-separated semantic paths
 ```
 
 ### Error: "Schema validation failed"
@@ -342,7 +418,7 @@ const patch = { op: "set", path: "/data/count", value: 5 }; // Use JSON Pointer 
 ```typescript
 const result = core.validate(schema);
 console.log(result.errors);
-// → [{ path: "/actions/foo", message: "Missing flow" }]
+// → [{ path: "actions.foo", message: "Missing flow" }]
 ```
 
 **Solution:** Fix the schema according to error messages.
@@ -356,9 +432,11 @@ console.log(result.errors);
 ```typescript
 // Ensure deps are correct
 const computed = {
-  total: {
-    deps: ["/data/items"],  // Must match actual paths
-    expr: { kind: "length", arg: { kind: "get", path: "/data/items" } },
+  fields: {
+    "computed.total": {
+      deps: ["items"],  // Must match actual paths
+      expr: { kind: "length", arg: { kind: "get", path: "items" } },
+    },
   },
 };
 ```
@@ -377,32 +455,36 @@ describe("Counter domain", () => {
   it("increments count", async () => {
     // Arrange
     const core = createCore();
-    const snapshot = createSnapshot(schema);
+    const context = { now: 0, randomSeed: "seed" };
+    const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
     // Act
-    const result = await core.compute(schema, snapshot, createIntent("increment"));
+    const result = await core.compute(
+      schema,
+      snapshot,
+      createIntent("increment", "intent-1"),
+      context
+    );
 
     // Assert
-    expect(result.status).toBe("completed");
+    expect(result.status).toBe("complete");
     expect(result.snapshot.data.count).toBe(1);
   });
 
   it("handles effects correctly", async () => {
     // Arrange
     const core = createCore();
-    const snapshot = createSnapshot(schemaWithEffect);
+    const context = { now: 0, randomSeed: "seed" };
+    const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
+    const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 
     // Act
-    const result = await core.compute(schemaWithEffect, snapshot, {
-      type: "fetchUser",
-      input: { id: "123" },
-      intentId: "i_1",
-    });
+    const result = await core.compute(schemaWithEffect, snapshot, intent, context);
 
     // Assert
     expect(result.status).toBe("pending");
     expect(result.requirements).toHaveLength(1);
-    expect(result.requirements[0].effect.type).toBe("api.fetch");
+    expect(result.requirements[0].type).toBe("api.fetch");
   });
 });
 ```
@@ -416,8 +498,8 @@ describe("Counter domain", () => {
 | API | Purpose | Example |
 |-----|---------|---------|
 | `createCore()` | Create core instance | `const core = createCore()` |
-| `core.compute()` | Compute state transition | `await core.compute(schema, snapshot, intent)` |
-| `core.apply()` | Apply patches | `core.apply(schema, snapshot, patches)` |
+| `core.compute()` | Compute state transition | `await core.compute(schema, snapshot, intent, context)` |
+| `core.apply()` | Apply patches | `core.apply(schema, snapshot, patches, context)` |
 | `core.validate()` | Validate schema | `core.validate(schema)` |
 | `core.explain()` | Explain value | `core.explain(schema, snapshot, path)` |
 
@@ -425,9 +507,9 @@ describe("Counter domain", () => {
 
 | Status | Meaning |
 |--------|---------|
-| `completed` | All done, no pending effects |
+| `complete` | All done, no pending effects |
 | `pending` | Has pending requirements (effects) |
-| `failed` | Error occurred during computation |
+| `error` | Error occurred during computation |
 
 ---
 

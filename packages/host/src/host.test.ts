@@ -1,21 +1,70 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ManifestoHost, createHost, type HostOptions } from "./host.js";
 import { createMemoryStore } from "./persistence/memory.js";
-import { createSnapshot, createIntent, type DomainSchema } from "@manifesto-ai/core";
+import { createIntent, createSnapshot, type DomainSchema, hashSchemaSync } from "@manifesto-ai/core";
 import type { EffectHandler } from "./effects/types.js";
+
+const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
+  dummy: { type: "string", required: true },
+  count: { type: "number", required: true },
+  name: { type: "string", required: true },
+  response: { type: "object", required: true },
+  itemsTotal: { type: "number", required: true },
+  shipping: { type: "number", required: true },
+  data: { type: "string", required: true },
+};
+
+const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
+  "computed.dummy": {
+    expr: { kind: "get", path: "dummy" },
+    deps: ["dummy"],
+  },
+};
+
+const BASE_ACTIONS: DomainSchema["actions"] = {
+  noop: { flow: { kind: "halt", reason: "noop" } },
+};
+
+const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
 
 // Helper to create a minimal domain schema
 function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
-  return {
-    id: "test",
+  const { state, computed, actions: overrideActions, hash, types, ...restOverrides } = overrides;
+  const stateFields = {
+    ...BASE_STATE_FIELDS,
+    ...(state?.fields ?? {}),
+  };
+  const computedFields = {
+    ...BASE_COMPUTED_FIELDS,
+    ...(computed?.fields ?? {}),
+  };
+  const actions = {
+    ...BASE_ACTIONS,
+    ...(overrideActions ?? {}),
+  };
+
+  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
+    id: "manifesto:test",
     version: "1.0.0",
-    hash: "test-hash",
-    state: { fields: {} },
-    computed: { fields: {} },
-    actions: {},
-    ...overrides,
+    ...restOverrides,
+    types: types ?? {},
+    state: { fields: stateFields },
+    computed: { fields: computedFields },
+    actions,
+  };
+
+  return {
+    ...schemaWithoutHash,
+    hash: hash ?? hashSchemaSync(schemaWithoutHash),
   };
 }
+
+let intentCounter = 0;
+const nextIntentId = () => `intent-${intentCounter++}`;
+const createTestIntent = (type: string, input?: unknown) =>
+  input === undefined
+    ? createIntent(type, nextIntentId())
+    : createIntent(type, input, nextIntentId());
 
 describe("ManifestoHost", () => {
   let schema: DomainSchema;
@@ -69,7 +118,7 @@ describe("ManifestoHost", () => {
     it("should process a simple intent", async () => {
       const host = createHost(schema, { initialData: { count: 0 } });
 
-      const result = await host.dispatch(createIntent("increment"));
+      const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ count: 1 });
@@ -78,9 +127,9 @@ describe("ManifestoHost", () => {
     it("should accumulate state across dispatches", async () => {
       const host = createHost(schema, { initialData: { count: 0 } });
 
-      await host.dispatch(createIntent("increment"));
-      await host.dispatch(createIntent("increment"));
-      const result = await host.dispatch(createIntent("increment"));
+      await host.dispatch(createTestIntent("increment"));
+      await host.dispatch(createTestIntent("increment"));
+      const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ count: 3 });
@@ -89,16 +138,52 @@ describe("ManifestoHost", () => {
     it("should handle intent with input", async () => {
       const host = createHost(schema, { initialData: {} });
 
-      const result = await host.dispatch(createIntent("setName", { name: "Alice" }));
+      const result = await host.dispatch(createTestIntent("setName", { name: "Alice" }));
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ name: "Alice" });
     });
 
+    it("should clear stale pending requirements before compute", async () => {
+      const store = createMemoryStore();
+      const requirement = {
+        id: "req-test-1",
+        type: "test-effect",
+        params: { value: 1 },
+        actionId: "noop",
+        flowPosition: { nodePath: "actions.noop.flow", snapshotVersion: 0 },
+        createdAt: 0,
+      };
+      const snapshot = createSnapshot({ response: null }, schema.hash, HOST_CONTEXT);
+      const snapshotWithRequirement = {
+        ...snapshot,
+        system: {
+          ...snapshot.system,
+          status: "pending" as const,
+          pendingRequirements: [requirement],
+        },
+      };
+      await store.save(snapshotWithRequirement);
+
+      const host = createHost(schema, { store });
+      let handlerCalled = false;
+      host.registerEffect("test-effect", async () => {
+        handlerCalled = true;
+        return [{ op: "set", path: "response", value: { ok: true } }];
+      });
+
+      const result = await host.dispatch(createTestIntent("noop"));
+
+      expect(result.snapshot.system.pendingRequirements).toEqual([]);
+      const data = result.snapshot.data as Record<string, unknown>;
+      expect(data.response).toBeNull();
+      expect(handlerCalled).toBe(false);
+    });
+
     it("should return error for unknown action", async () => {
       const host = createHost(schema, { initialData: {} });
 
-      const result = await host.dispatch(createIntent("unknownAction"));
+      const result = await host.dispatch(createTestIntent("unknownAction"));
 
       expect(result.status).toBe("error");
     });
@@ -107,7 +192,7 @@ describe("ManifestoHost", () => {
       const host = createHost(schema);
       // No initial data provided
 
-      const result = await host.dispatch(createIntent("increment"));
+      const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("error");
       expect(result.error?.code).toBe("HOST_NOT_INITIALIZED");
@@ -139,7 +224,7 @@ describe("ManifestoHost", () => {
       };
       host.registerEffect("http", httpHandler);
 
-      const result = await host.dispatch(createIntent("fetchData"));
+      const result = await host.dispatch(createTestIntent("fetchData"));
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({
@@ -196,7 +281,7 @@ describe("ManifestoHost", () => {
     it("should persist snapshot after dispatch", async () => {
       const host = createHost(schema, { initialData: { count: 0 } });
 
-      await host.dispatch(createIntent("increment"));
+      await host.dispatch(createTestIntent("increment"));
       const snapshot = await host.getSnapshot();
 
       expect(snapshot?.data).toEqual({ count: 1 });
@@ -206,7 +291,7 @@ describe("ManifestoHost", () => {
     it("should reset to new initial state", async () => {
       const host = createHost(schema, { initialData: { count: 100 } });
 
-      await host.dispatch(createIntent("increment"));
+      await host.dispatch(createTestIntent("increment"));
       expect((await host.getSnapshot())?.data).toEqual({ count: 101 });
 
       await host.reset({ count: 0 });
@@ -258,7 +343,7 @@ describe("ManifestoHost", () => {
 
       host.registerEffect("loop", async () => []);
 
-      const result = await host.dispatch(createIntent("infinite"));
+      const result = await host.dispatch(createTestIntent("infinite"));
 
       expect(result.status).toBe("error");
       expect(result.error?.code).toBe("LOOP_MAX_ITERATIONS");
@@ -306,9 +391,9 @@ describe("ManifestoHost", () => {
 
       const host = createHost(workflowSchema, { initialData: {} });
 
-      await host.dispatch(createIntent("addItem", { price: 100 }));
-      await host.dispatch(createIntent("addItem", { price: 50 }));
-      await host.dispatch(createIntent("setShipping", { amount: 10 }));
+      await host.dispatch(createTestIntent("addItem", { price: 100 }));
+      await host.dispatch(createTestIntent("addItem", { price: 50 }));
+      await host.dispatch(createTestIntent("setShipping", { amount: 10 }));
 
       const snapshot = await host.getSnapshot();
 
@@ -342,7 +427,7 @@ describe("ManifestoHost", () => {
 
       host.registerEffect("flaky", flakyHandler, { retries: 3, retryDelay: 10 });
 
-      const result = await host.dispatch(createIntent("fetchWithRetry"));
+      const result = await host.dispatch(createTestIntent("fetchWithRetry"));
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ data: "success" });
@@ -354,7 +439,7 @@ describe("ManifestoHost", () => {
     it("should return traces from dispatch", async () => {
       const host = createHost(schema, { initialData: { count: 0 } });
 
-      const result = await host.dispatch(createIntent("increment"));
+      const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.traces).toBeDefined();
       expect(result.traces).toHaveLength(1);

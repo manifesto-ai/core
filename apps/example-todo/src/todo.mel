@@ -1,0 +1,143 @@
+/**
+ * Todo Domain - Demonstrates MEL with Effect-Utils
+ *
+ * Features:
+ * - CRUD operations on todos
+ * - API effects for persistence
+ * - Computed values for filtering
+ * - Re-entry safety with once()
+ */
+
+domain Todo {
+  // ===========================================
+  // State
+  // ===========================================
+  state {
+    // Todo list (stored as opaque array - type validated by handlers)
+    todos: Array<Todo> = []
+
+    // Filter
+    filter: "all" | "active" | "completed" = "all"
+
+    // Status tracking
+    status: "idle" | "loading" | "error" = "idle"
+    lastError: string | null = null
+
+    // Re-entry markers
+    addingTodo: string | null = null
+    togglingTodo: string | null = null
+    deletingTodo: string | null = null
+    loadingTodos: string | null = null
+    savingTodos: string | null = null
+  }
+
+  // ===========================================
+  // Computed Values
+  // ===========================================
+
+  // Total count
+  computed totalCount = length(todos)
+
+  // Check if we have todos
+  computed hasTodos = gt(totalCount, 0)
+
+  // ===========================================
+  // Actions
+  // ===========================================
+
+  /**
+   * Load todos from API
+   */
+  action loadTodos() {
+    once(loadingTodos) {
+      patch loadingTodos = $meta.intentId
+      patch status = "loading"
+      effect todo.load({ into: todos })
+    }
+
+    when isNotNull(loadingTodos) {
+      patch status = "idle"
+    }
+  }
+
+  /**
+   * Add a new todo
+   */
+  action addTodo(title: string) {
+    // Validate input
+    when eq(trim(title), "") {
+      fail "EMPTY_TITLE"
+    }
+
+    // Add todo once
+    once(addingTodo) when neq(trim(title), "") {
+      patch addingTodo = $meta.intentId
+      patch status = "loading"
+
+      effect todo.add({
+        title: trim(title),
+        into: todos
+      })
+    }
+
+    // Clear status when done
+    when isNotNull(addingTodo) {
+      patch status = "idle"
+    }
+  }
+
+  /**
+   * Toggle todo completion status
+   */
+  action toggleTodo(id: string) {
+    once(togglingTodo) {
+      patch togglingTodo = $meta.intentId
+
+      effect todo.toggle({
+        id: id,
+        todos: todos,
+        into: todos
+      })
+    }
+  }
+
+  /**
+   * Remove a todo
+   */
+  action removeTodo(id: string) {
+    once(deletingTodo) {
+      patch deletingTodo = $meta.intentId
+
+      effect todo.remove({
+        id: id,
+        todos: todos,
+        into: todos
+      })
+    }
+  }
+
+  /**
+   * Set the filter
+   */
+  action setFilter(newFilter: "all" | "active" | "completed") {
+    when neq(filter, newFilter) {
+      patch filter = newFilter
+    }
+  }
+
+  /**
+   * Save todos to API
+   */
+  action saveTodos() {
+    once(savingTodos) {
+      patch savingTodos = $meta.intentId
+      patch status = "loading"
+
+      effect todo.save({ todos: todos })
+    }
+
+    when isNotNull(savingTodos) {
+      patch status = "idle"
+    }
+  }
+}

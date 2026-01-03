@@ -31,7 +31,8 @@ describe("toSnapshotView", () => {
     input: { type: "test", input: {} },
     meta: {
       version: 5,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "hash-123",
     },
   });
@@ -119,7 +120,7 @@ describe("toSnapshotView", () => {
       currentAction: null,
       },
       input: null,
-      meta: { version: 1, timestamp: Date.now(), schemaHash: "hash" },
+      meta: { version: 1, timestamp: 0, randomSeed: "seed", schemaHash: "hash" },
     };
 
     const view = toSnapshotView(snapshot);
@@ -194,7 +195,7 @@ describe("toDeepFrozenSnapshotView", () => {
       currentAction: null,
       },
       input: null,
-      meta: { version: 1, timestamp: Date.now(), schemaHash: "hash" },
+      meta: { version: 1, timestamp: 0, randomSeed: "seed", schemaHash: "hash" },
     };
 
     const view = toDeepFrozenSnapshotView(snapshot);
@@ -219,7 +220,7 @@ describe("toDeepFrozenSnapshotView", () => {
       currentAction: null,
       },
       input: null,
-      meta: { version: 1, timestamp: Date.now(), schemaHash: "hash" },
+      meta: { version: 1, timestamp: 0, randomSeed: "seed", schemaHash: "hash" },
     };
 
     const view = toDeepFrozenSnapshotView(snapshot);

@@ -20,7 +20,7 @@
  * | Host    | Executes effects, applies patches |
  * | World   | Governs legitimacy, lineage       |
  */
-import type { Intent, Snapshot } from "@manifesto-ai/core";
+import type { Intent, Snapshot, TraceGraph } from "@manifesto-ai/core";
 import type { HostLoopOptions } from "@manifesto-ai/host";
 import type {
   World,
@@ -35,6 +35,7 @@ import type {
   IntentInstance,
   IntentScope,
 } from "./schema/index.js";
+import { IntentInstance as IntentInstanceSchema, computeIntentKey } from "./schema/intent.js";
 import { createProposalId, createDecisionId } from "./schema/world.js";
 import { isApprovedDecision, createApprovedDecision, createRejectedDecision } from "./schema/decision.js";
 import {
@@ -82,8 +83,10 @@ export interface HostInterface {
  * Host execution result
  */
 export interface HostResult {
-  status: "complete" | "error";
+  status: "complete" | "halted" | "error";
   snapshot: Snapshot;
+  traces?: TraceGraph[];
+  error?: unknown;
 }
 
 /**
@@ -363,10 +366,38 @@ export class ManifestoWorld {
       );
     }
 
-    // 3. Create proposal using queue's submit method
+    // 3. Validate intent instance + actor consistency
+    const intentValidation = IntentInstanceSchema.safeParse(intent);
+    if (!intentValidation.success) {
+      throw createWorldError(
+        "INVALID_ARGUMENT",
+        "IntentInstance is invalid",
+        { issues: intentValidation.error.issues }
+      );
+    }
+
+    const originActor = intent.meta.origin.actor;
+    if (originActor.actorId !== binding.actor.actorId || originActor.kind !== binding.actor.kind) {
+      throw createWorldError(
+        "INVALID_ARGUMENT",
+        "Intent origin actor must match proposal actor",
+        { originActor, proposalActor: binding.actor }
+      );
+    }
+
+    const expectedIntentKey = await computeIntentKey(this._schemaHash, intent.body);
+    if (expectedIntentKey !== intent.intentKey) {
+      throw createWorldError(
+        "INVALID_ARGUMENT",
+        "IntentInstance intentKey does not match computed value",
+        { expectedIntentKey, intentKey: intent.intentKey }
+      );
+    }
+
+    // 4. Create proposal using queue's submit method
     const proposal = this.proposalQueue.submit(binding.actor, intent, baseWorld, trace);
 
-    // 4. Emit proposal:submitted event
+    // 5. Emit proposal:submitted event
     this.eventBus.emit({
       type: "proposal:submitted",
       timestamp: Date.now(),
@@ -374,10 +405,10 @@ export class ManifestoWorld {
       actor: binding.actor,
     });
 
-    // 5. Save to store
+    // 6. Save to store
     await this.store.saveProposal(proposal);
 
-    // 6. Check if this is a blocking authority (HITL/tribunal)
+    // 7. Check if this is a blocking authority (HITL/tribunal)
     const isBlocking = binding.policy.mode === "hitl" || binding.policy.mode === "tribunal";
 
     // Emit proposal:evaluating event
@@ -411,10 +442,10 @@ export class ManifestoWorld {
       return { proposal: updatedProposal! };
     }
 
-    // 7. For non-blocking authorities, evaluate synchronously
+    // 8. For non-blocking authorities, evaluate synchronously
     const evaluationResult = await this.authorityEvaluator.evaluate(proposal, binding);
 
-    // 8. Handle evaluation result
+    // 9. Handle evaluation result
     if (evaluationResult.kind === "pending") {
       // Shouldn't happen for non-blocking, but handle anyway
       this.proposalQueue.transition(proposal.proposalId, "pending");
@@ -433,10 +464,14 @@ export class ManifestoWorld {
       return { proposal: updatedProposal! };
     }
 
-    // 9. Record terminal decision with approvedScope
+    // 10. Record terminal decision with approvedScope
     const isApproved = evaluationResult.kind === "approved";
     const reason = evaluationResult.kind === "rejected" ? evaluationResult.reason : undefined;
-    const approvedScope = evaluationResult.kind === "approved" ? evaluationResult.approvedScope : undefined;
+    const approvedScope = isApproved
+      ? (evaluationResult.approvedScope !== undefined
+        ? evaluationResult.approvedScope
+        : proposal.intent.body.scopeProposal ?? null)
+      : undefined;
 
     const decision = createDecisionRecord(
       proposal.proposalId,
@@ -458,7 +493,7 @@ export class ManifestoWorld {
       decisionRecord: decision,
     });
 
-    // 9. Update proposal with decision and approvedScope
+    // 11. Update proposal with decision and approvedScope
     const newStatus = isApproved ? "approved" : "rejected";
 
     this.proposalQueue.transition(proposal.proposalId, newStatus, {
@@ -473,7 +508,7 @@ export class ManifestoWorld {
       approvedScope: approvedScope,
     });
 
-    // 10. If rejected, we're done
+    // 12. If rejected, we're done
     if (!isApproved) {
       const updatedProposal = this.proposalQueue.get(proposal.proposalId);
       return {
@@ -482,12 +517,12 @@ export class ManifestoWorld {
       };
     }
 
-    // 11. Execute if host is configured
+    // 13. Execute if host is configured
     if (this.host) {
       return this.executeProposal(proposal.proposalId, decision);
     }
 
-    // 12. If no host, return approved proposal (execution is caller's responsibility)
+    // 14. If no host, return approved proposal (execution is caller's responsibility)
     const updatedProposal = this.proposalQueue.get(proposal.proposalId);
     return {
       proposal: updatedProposal!,
@@ -654,7 +689,10 @@ export class ManifestoWorld {
       };
 
       // Execute via host with execution listener callbacks
-      const result = await this.host.dispatch(intent, executionListener.options);
+      const result = await this.host.dispatch(intent, {
+        ...executionListener.options,
+        approvedScope: proposal.approvedScope,
+      });
 
       // Get execution stats from listener
       const listenerState = executionListener.getState();
@@ -669,6 +707,7 @@ export class ManifestoWorld {
       // Check if world already exists (content-addressable: same data = same worldId)
       // This can happen when state returns to a previous value (e.g., filter: all -> active -> all)
       const existingWorld = await this.store.getWorld(newWorld.worldId);
+      let forked = false;
 
       if (existingWorld) {
         // World already exists - this is valid for content-addressable systems
@@ -684,6 +723,7 @@ export class ManifestoWorld {
         await this.store.saveSnapshot(newWorld.worldId, result.snapshot);
 
         // Add to lineage using addWorldWithEdge
+        forked = this.lineage.hasChildren(proposal.baseWorld);
         this.lineage.addWorldWithEdge(
           newWorld,
           proposal.baseWorld,
@@ -696,6 +736,7 @@ export class ManifestoWorld {
         if (parentEdge) {
           await this.store.saveEdge(parentEdge);
         }
+
       }
 
       // Determine final status
@@ -732,6 +773,16 @@ export class ManifestoWorld {
           proposalId,
           parentWorldId: proposal.baseWorld,
         });
+
+        if (forked) {
+          this.eventBus.emit({
+            type: "world:forked",
+            timestamp: Date.now(),
+            parentWorldId: proposal.baseWorld,
+            childWorldId: newWorld.worldId,
+            proposalId,
+          });
+        }
       }
 
       // Update proposal

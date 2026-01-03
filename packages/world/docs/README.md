@@ -59,9 +59,14 @@ import { createManifestoWorld, createAutoApproveHandler } from "@manifesto-ai/wo
 import { createHost } from "@manifesto-ai/host";
 
 // Create world with auto-approve authority
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
+});
+
 const world = createManifestoWorld({
   schemaHash: "todo-v1",
-  host: createHost({ schema, snapshot }),
+  host,
   defaultAuthority: createAutoApproveHandler(),
 });
 

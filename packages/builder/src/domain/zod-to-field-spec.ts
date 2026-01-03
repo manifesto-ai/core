@@ -37,7 +37,8 @@ function isZodUnion(schema: z.ZodTypeAny): boolean {
 }
 
 function isZodOptional(schema: z.ZodTypeAny): schema is z.ZodOptional<z.ZodTypeAny> {
-  return "unwrap" in schema && !("removeDefault" in schema) && !isZodNullable(schema);
+  const def = (schema as unknown as { _zod?: { def?: { type?: string } } })._zod?.def;
+  return def?.type === "optional";
 }
 
 function isZodNullable(schema: z.ZodTypeAny): schema is z.ZodNullable<z.ZodTypeAny> {

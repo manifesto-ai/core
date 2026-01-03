@@ -13,7 +13,14 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/builder#readme",
-  "keywords": ["manifesto", "builder", "dsl", "zod", "typescript", "type-safe"],
+  "keywords": [
+    "manifesto",
+    "builder",
+    "dsl",
+    "zod",
+    "typescript",
+    "type-safe"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { SemanticPath } from "./common.js";
-import { Snapshot } from "./snapshot.js";
+import { Snapshot, Requirement } from "./snapshot.js";
 import { TraceGraph, TraceNode } from "./trace.js";
 
 /**
@@ -22,6 +22,11 @@ export const ComputeResult = z.object({
    * New snapshot after computation
    */
   snapshot: Snapshot,
+
+  /**
+   * Pending requirements (effects) declared by the flow
+   */
+  requirements: z.array(Requirement),
 
   /**
    * Computation trace

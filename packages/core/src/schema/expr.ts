@@ -34,6 +34,10 @@ export type ExprNode =
   | AbsExpr
   | MinExpr
   | MaxExpr
+  // v0.3.2: Array aggregation
+  | SumArrayExpr
+  | MinArrayExpr
+  | MaxArrayExpr
   | FloorExpr
   | CeilExpr
   | RoundExpr
@@ -220,6 +224,25 @@ export const MaxExpr: z.ZodType<{ kind: "max"; args: ExprNode[] }> = z.object({
   args: z.array(z.lazy(() => ExprNodeSchema)),
 });
 export type MaxExpr = z.infer<typeof MaxExpr>;
+
+// v0.3.2: Array aggregation expressions
+export const SumArrayExpr: z.ZodType<{ kind: "sumArray"; array: ExprNode }> = z.object({
+  kind: z.literal("sumArray"),
+  array: z.lazy(() => ExprNodeSchema),
+});
+export type SumArrayExpr = z.infer<typeof SumArrayExpr>;
+
+export const MinArrayExpr: z.ZodType<{ kind: "minArray"; array: ExprNode }> = z.object({
+  kind: z.literal("minArray"),
+  array: z.lazy(() => ExprNodeSchema),
+});
+export type MinArrayExpr = z.infer<typeof MinArrayExpr>;
+
+export const MaxArrayExpr: z.ZodType<{ kind: "maxArray"; array: ExprNode }> = z.object({
+  kind: z.literal("maxArray"),
+  array: z.lazy(() => ExprNodeSchema),
+});
+export type MaxArrayExpr = z.infer<typeof MaxArrayExpr>;
 
 export const FloorExpr: z.ZodType<{ kind: "floor"; arg: ExprNode }> = z.object({
   kind: z.literal("floor"),
@@ -465,6 +488,10 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   AbsExpr,
   MinExpr,
   MaxExpr,
+  // v0.3.2: Array aggregation
+  SumArrayExpr,
+  MinArrayExpr,
+  MaxArrayExpr,
   FloorExpr,
   CeilExpr,
   RoundExpr,
@@ -512,7 +539,9 @@ export const ExprKind = z.enum([
   "eq", "neq", "gt", "gte", "lt", "lte",
   "and", "or", "not",
   "if",
-  "add", "sub", "mul", "div", "mod", "neg", "abs", "min", "max", "floor", "ceil", "round", "sqrt", "pow",
+  "add", "sub", "mul", "div", "mod", "neg", "abs", "min", "max",
+  "sumArray", "minArray", "maxArray",  // v0.3.2: Array aggregation
+  "floor", "ceil", "round", "sqrt", "pow",
   "concat", "substring", "trim", "toLowerCase", "toUpperCase", "strLen",
   "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some", "append",
   "object", "keys", "values", "entries", "merge",

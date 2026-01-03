@@ -49,6 +49,14 @@
     "packages/compiler": {
       "package-name": "@manifesto-ai/compiler",
       "changelog-path": "CHANGELOG.md"
+    },
+    "packages/effect-utils": {
+      "package-name": "@manifesto-ai/effect-utils",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/lab": {
+      "package-name": "@manifesto-ai/lab",
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }

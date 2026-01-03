@@ -38,7 +38,7 @@ const CounterDomain = defineDomain(
   ({ state, actions }) => ({
     actions: {
       increment: actions.define({
-        flow: () => flow.patch("add", "/data/count", expr.add(state.count, 1)),
+        flow: () => flow.patch(state.count).set(expr.add(state.count, 1)),
       }),
     },
   })

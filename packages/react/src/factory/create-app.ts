@@ -13,7 +13,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { createSnapshot, evaluateComputed, isOk, type DomainSchema } from "@manifesto-ai/core";
-import { createHost } from "@manifesto-ai/host";
+import { createHost, createInitialHostContext } from "@manifesto-ai/host";
 import {
   createManifestoWorld,
   type ActorRef,
@@ -184,7 +184,8 @@ export function createManifestoApp<
 
     initPromise = (async () => {
       // Create genesis world with initial snapshot
-      let snapshot = createSnapshot(options.initialState, domain.schema.hash);
+      const initialContext = createInitialHostContext();
+      let snapshot = createSnapshot(options.initialState, domain.schema.hash, initialContext);
 
       // Evaluate computed values for the initial snapshot
       // Cast schema - the actual DomainModule.schema has full DomainSchema structure

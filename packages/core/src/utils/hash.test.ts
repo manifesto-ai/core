@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { sha256, hashSchema, generateRequirementId, generateTraceId } from "./hash.js";
+import {
+  sha256,
+  sha256Sync,
+  hashSchema,
+  hashSchemaSync,
+  generateRequirementId,
+  generateTraceId,
+} from "./hash.js";
 
 describe("Hash Utilities", () => {
   describe("sha256", () => {
@@ -38,11 +45,25 @@ describe("Hash Utilities", () => {
     });
   });
 
+  describe("sha256Sync", () => {
+    it("should match async sha256", async () => {
+      const syncHash = sha256Sync("hello world");
+      const asyncHash = await sha256("hello world");
+      expect(syncHash).toBe(asyncHash);
+    });
+
+    it("should match known SHA-256 hash", () => {
+      const hash = sha256Sync("test");
+      expect(hash).toBe("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08");
+    });
+  });
+
   describe("hashSchema", () => {
     it("should produce consistent hash for same schema", async () => {
       const schema = {
-        id: "test",
+        id: "manifesto:test",
         version: "1.0.0",
+        types: {},
         state: { fields: {} },
         computed: { fields: {} },
         actions: {},
@@ -55,8 +76,9 @@ describe("Hash Utilities", () => {
 
     it("should produce same hash regardless of key order", async () => {
       const schema1 = {
-        id: "test",
+        id: "manifesto:test",
         version: "1.0.0",
+        types: {},
         state: { fields: {} },
         computed: { fields: {} },
         actions: {},
@@ -66,8 +88,9 @@ describe("Hash Utilities", () => {
         actions: {},
         computed: { fields: {} },
         state: { fields: {} },
+        types: {},
         version: "1.0.0",
-        id: "test",
+        id: "manifesto:test",
       };
 
       const hash1 = await hashSchema(schema1);
@@ -79,6 +102,7 @@ describe("Hash Utilities", () => {
       const schema1 = {
         id: "test1",
         version: "1.0.0",
+        types: {},
         state: { fields: {} },
         computed: { fields: {} },
         actions: {},
@@ -87,6 +111,7 @@ describe("Hash Utilities", () => {
       const schema2 = {
         id: "test2",
         version: "1.0.0",
+        types: {},
         state: { fields: {} },
         computed: { fields: {} },
         actions: {},
@@ -99,16 +124,18 @@ describe("Hash Utilities", () => {
 
     it("should detect changes in nested structures", async () => {
       const schema1 = {
-        id: "test",
+        id: "manifesto:test",
         version: "1.0.0",
+        types: {},
         state: { fields: { count: { type: "number", required: true } } },
         computed: { fields: {} },
         actions: {},
       };
 
       const schema2 = {
-        id: "test",
+        id: "manifesto:test",
         version: "1.0.0",
+        types: {},
         state: { fields: { count: { type: "string", required: true } } },
         computed: { fields: {} },
         actions: {},
@@ -117,6 +144,23 @@ describe("Hash Utilities", () => {
       const hash1 = await hashSchema(schema1 as Parameters<typeof hashSchema>[0]);
       const hash2 = await hashSchema(schema2 as Parameters<typeof hashSchema>[0]);
       expect(hash1).not.toBe(hash2);
+    });
+  });
+
+  describe("hashSchemaSync", () => {
+    it("should match async hashSchema", async () => {
+      const schema = {
+        id: "manifesto:test",
+        version: "1.0.0",
+        types: {},
+        state: { fields: {} },
+        computed: { fields: {} },
+        actions: {},
+      };
+
+      const syncHash = hashSchemaSync(schema);
+      const asyncHash = await hashSchema(schema);
+      expect(syncHash).toBe(asyncHash);
     });
   });
 
@@ -145,27 +189,15 @@ describe("Hash Utilities", () => {
   });
 
   describe("generateTraceId", () => {
-    it("should produce unique IDs", () => {
-      const id1 = generateTraceId();
-      const id2 = generateTraceId();
+    it("should produce unique IDs for different indexes", () => {
+      const id1 = generateTraceId(0);
+      const id2 = generateTraceId(1);
       expect(id1).not.toBe(id2);
     });
 
     it("should produce ID with trace- prefix", () => {
-      const id = generateTraceId();
-      expect(id).toMatch(/^trace-\d+-[a-z0-9]+$/);
-    });
-
-    it("should include timestamp", () => {
-      const before = Date.now();
-      const id = generateTraceId();
-      const after = Date.now();
-
-      const parts = id.split("-");
-      const timestamp = parseInt(parts[1], 10);
-
-      expect(timestamp).toBeGreaterThanOrEqual(before);
-      expect(timestamp).toBeLessThanOrEqual(after);
+      const id = generateTraceId(42);
+      expect(id).toBe("trace-42");
     });
   });
 });

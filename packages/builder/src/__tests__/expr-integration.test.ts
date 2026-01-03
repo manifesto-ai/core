@@ -16,6 +16,7 @@ import { buildAccessor } from "../accessor/accessor-builder.js";
 import {
   evaluateExpr,
   createContext,
+  createTraceContext,
   type Snapshot,
   type DomainSchema,
   isOk,
@@ -23,6 +24,7 @@ import {
 
 // Helper to create a minimal test context
 function createTestContext(data: unknown = {}): ReturnType<typeof createContext> {
+  const trace = createTraceContext(0);
   const snapshot: Snapshot = {
     data,
     computed: {},
@@ -36,21 +38,23 @@ function createTestContext(data: unknown = {}): ReturnType<typeof createContext>
     input: undefined,
     meta: {
       version: 0,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "test-hash",
     },
   };
 
   const schema: DomainSchema = {
-    id: "test",
+    id: "manifesto:test",
     version: "1.0.0",
     hash: "test-hash",
+    types: {},
     state: { fields: {} },
     computed: { fields: {} },
     actions: {},
   };
 
-  return createContext(snapshot, schema, null, "test");
+  return createContext(snapshot, schema, null, "test", trace);
 }
 
 // Helper to evaluate an expression with given context

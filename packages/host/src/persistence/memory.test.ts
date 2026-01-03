@@ -15,7 +15,8 @@ function createTestSnapshot(version: number, data: unknown = {}): Snapshot {
     },
     meta: {
       version,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "test-hash",
     },
     computed: {},

@@ -1,0 +1,110 @@
+// ============================================
+// Title: Available When (Preconditions)
+// Description: Declaring when actions can be invoked
+// Prerequisites: action/basic.mel
+// ============================================
+
+domain ActionAvailable {
+  // --- State ---
+  state {
+    count: number = 0
+    balance: number = 100
+    status: "idle" | "loading" | "done" = "idle"
+    isLocked: boolean = false
+    items: Array<string> = []
+    submittedAt: string | null = null
+    submitting: string | null = null
+  }
+
+  // --- Basic precondition ---
+  // Action can only be called when count > 0
+  action decrement() available when gt(count, 0) {
+    when true {
+      patch count = sub(count, 1)
+    }
+  }
+
+  // --- Balance check ---
+  action withdraw(amount: number) available when gt(balance, 0) {
+    when gte(balance, amount) {
+      patch balance = sub(balance, amount)
+    }
+  }
+
+  // --- Status-based availability ---
+  action start() available when eq(status, "idle") {
+    when true {
+      patch status = "loading"
+    }
+  }
+
+  action cancel() available when eq(status, "loading") {
+    when true {
+      patch status = "idle"
+    }
+  }
+
+  action complete() available when eq(status, "loading") {
+    when true {
+      patch status = "done"
+    }
+  }
+
+  // --- Lock check ---
+  action modify() available when not(isLocked) {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Multiple conditions ---
+  action submit() available when and(
+    eq(status, "idle"),
+    and(
+      gt(len(items), 0),
+      isNull(submittedAt)
+    )
+  ) {
+    once(submitting) {
+      patch submitting = $meta.intentId
+      patch submittedAt = $input.now
+      patch status = "done"
+    }
+  }
+
+  // --- Available based on collection ---
+  action processItems() available when gt(len(items), 0) {
+    when true {
+      patch status = "loading"
+    }
+  }
+
+  action clear() available when and(
+    gt(len(items), 0),
+    not(isLocked)
+  ) {
+    when true {
+      patch items = []
+    }
+  }
+}
+
+// ============================================
+// available when vs when:
+//
+//   available when: Precondition - can the action be called?
+//                   Used by UI to enable/disable buttons
+//
+//   when:           Guard - should this block execute?
+//                   Checked during action execution
+//
+// Example flow:
+//   1. UI checks `available when gt(count, 0)` -> button enabled
+//   2. User clicks button
+//   3. Action runs, `when true { }` executes
+//
+// Anti-patterns:
+//   ❌ Duplicating available condition in every when
+//      available when gt(x, 0) { when gt(x, 0) { } }
+//      Better: available when gt(x, 0) { when true { } }
+// ============================================

@@ -17,7 +17,8 @@ function createTestSnapshot(data: unknown = {}): Snapshot {
     },
     meta: {
       version: 1,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "test-hash",
     },
     computed: {},
@@ -101,6 +102,41 @@ describe("EffectExecutor", () => {
 
       expect(receivedContext.snapshot).toEqual(snapshot);
       expect(receivedContext.requirement).toEqual(requirement);
+    });
+
+    it("should provide a frozen snapshot to handler", async () => {
+      let receivedContext: any;
+      const handler: EffectHandler = async (_type, _params, context) => {
+        receivedContext = context;
+        return [];
+      };
+      registry.register("test", handler);
+
+      const requirement = createTestRequirement("test");
+      const snapshot = createTestSnapshot({ value: 42 });
+
+      await executor.execute(requirement, snapshot);
+
+      expect(Object.isFrozen(receivedContext.snapshot)).toBe(true);
+      expect(Object.isFrozen(receivedContext.snapshot.data)).toBe(true);
+      expect(Object.isFrozen(receivedContext.snapshot.system)).toBe(true);
+    });
+
+    it("should provide a frozen requirement to handler", async () => {
+      let receivedContext: any;
+      const handler: EffectHandler = async (_type, _params, context) => {
+        receivedContext = context;
+        return [];
+      };
+      registry.register("test", handler);
+
+      const requirement = createTestRequirement("test", { foo: "bar" });
+      const snapshot = createTestSnapshot();
+
+      await executor.execute(requirement, snapshot);
+
+      expect(Object.isFrozen(receivedContext.requirement)).toBe(true);
+      expect(Object.isFrozen(receivedContext.requirement.params)).toBe(true);
     });
 
     it("should pass type and params to handler", async () => {

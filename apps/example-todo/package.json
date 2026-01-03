@@ -1,34 +1,24 @@
 {
-  "name": "@manifesto-ai/example-todo",
-  "version": "0.0.0",
-  "private": true,
+  "name": "example-todo",
+  "version": "1.0.0",
+  "description": "Todo example using MEL compiler, Host, and Effect-Utils",
   "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "tsc",
+    "start": "node --import=tsx src/main.ts",
+    "dev": "tsx watch src/main.ts"
   },
   "dependencies": {
-    "@manifesto-ai/builder": "workspace:*",
-    "@manifesto-ai/react": "workspace:*",
-    "@radix-ui/react-checkbox": "^1.1.4",
-    "@radix-ui/react-slot": "^1.1.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.469.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "tailwind-merge": "^2.6.0",
-    "zod": "^4.2.1"
+    "@manifesto-ai/compiler": "workspace:*",
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/effect-utils": "workspace:*",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@types/react": "^18.3.17",
-    "@types/react-dom": "^18.3.5",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.6"
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.3"
   }
 }

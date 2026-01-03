@@ -66,6 +66,13 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateMin(expr.args, ctx);
     case "max":
       return evaluateMax(expr.args, ctx);
+    // v0.3.2: Array aggregation
+    case "sumArray":
+      return evaluateSumArray(expr.array, ctx);
+    case "minArray":
+      return evaluateMinArray(expr.array, ctx);
+    case "maxArray":
+      return evaluateMaxArray(expr.array, ctx);
     case "floor":
       return evaluateFloor(expr.arg, ctx);
     case "ceil":
@@ -146,7 +153,8 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
         "INTERNAL_ERROR",
         `Unknown expression kind: ${(expr as ExprNode).kind}`,
         ctx.currentAction ?? "",
-        ctx.nodePath
+        ctx.nodePath,
+        ctx.trace.timestamp
       ));
   }
 }
@@ -202,6 +210,12 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   if (path.startsWith("input.") || path === "input") {
     const subPath = path === "input" ? "" : path.slice(6);
     return ok(subPath ? getByPath(ctx.snapshot.input, subPath) : ctx.snapshot.input);
+  }
+
+  // Handle meta path (intent/action/timestamp)
+  if (path.startsWith("meta.") || path === "meta") {
+    const subPath = path === "meta" ? "" : path.slice(5);
+    return ok(subPath ? getByPath(ctx.meta, subPath) : ctx.meta);
   }
 
   // Handle computed path
@@ -331,6 +345,55 @@ function evaluateMax(args: ExprNode[], ctx: EvalContext): ExprResult {
     values.push(toNumber(result.value));
   }
   return ok(Math.max(...values));
+}
+
+// v0.3.2: Array aggregation functions
+
+function evaluateSumArray(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok(0);
+  if (arr.length === 0) return ok(0);
+
+  let sum = 0;
+  for (const item of arr) {
+    sum += toNumber(item);
+  }
+  return ok(sum);
+}
+
+function evaluateMinArray(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok(null);
+  if (arr.length === 0) return ok(null);
+
+  let min = toNumber(arr[0]);
+  for (let i = 1; i < arr.length; i++) {
+    const val = toNumber(arr[i]);
+    if (val < min) min = val;
+  }
+  return ok(min);
+}
+
+function evaluateMaxArray(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok(null);
+  if (arr.length === 0) return ok(null);
+
+  let max = toNumber(arr[0]);
+  for (let i = 1; i < arr.length; i++) {
+    const val = toNumber(arr[i]);
+    if (val > max) max = val;
+  }
+  return ok(max);
 }
 
 function evaluateFloor(arg: ExprNode, ctx: EvalContext): ExprResult {

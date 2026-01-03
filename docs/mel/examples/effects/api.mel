@@ -1,0 +1,184 @@
+// ============================================
+// Title: API Effects
+// Description: HTTP requests and external API calls
+// Prerequisites: action/basic.mel, control/once.mel
+// ============================================
+
+domain EffectsApi {
+  // --- State ---
+  state {
+    // Data storage
+    users: Array<User> | null = null
+    user: User | null = null
+    posts: Array<Post> | null = null
+    createResult: Result | null = null
+    updateResult: Result | null = null
+    deleteResult: Result | null = null
+
+    // Markers
+    fetchingUsers: string | null = null
+    fetchingUser: string | null = null
+    fetchingPosts: string | null = null
+    creating: string | null = null
+    updating: string | null = null
+    deleting: string | null = null
+
+    // Status
+    status: "idle" | "loading" | "done" | "error" = "idle"
+  }
+
+  // --- GET request ---
+  action fetchUsers() {
+    once(fetchingUsers) {
+      patch fetchingUsers = $meta.intentId
+      patch status = "loading"
+      effect api.fetch({
+        url: "/users",
+        method: "GET",
+        into: users
+      })
+    }
+
+    when isNotNull(users) {
+      patch status = "done"
+    }
+  }
+
+  // --- GET with path parameter ---
+  action fetchUser(id: string) {
+    once(fetchingUser) {
+      patch fetchingUser = $meta.intentId
+      patch status = "loading"
+      effect api.fetch({
+        url: concat("/users/", id),
+        method: "GET",
+        into: user
+      })
+    }
+
+    when isNotNull(user) {
+      patch status = "done"
+    }
+  }
+
+  // --- GET with query parameters ---
+  action fetchPosts(userId: string, limit: number) {
+    once(fetchingPosts) {
+      patch fetchingPosts = $meta.intentId
+      patch status = "loading"
+      effect api.fetch({
+        url: concat("/posts?userId=", userId, "&limit=", limit),
+        method: "GET",
+        into: posts
+      })
+    }
+
+    when isNotNull(posts) {
+      patch status = "done"
+    }
+  }
+
+  // --- POST request ---
+  action createUser(name: string, email: string) {
+    when eq(trim(name), "") {
+      fail "MISSING_NAME"
+    }
+
+    when eq(trim(email), "") {
+      fail "MISSING_EMAIL"
+    }
+
+    once(creating) when and(neq(trim(name), ""), neq(trim(email), "")) {
+      patch creating = $meta.intentId
+      patch status = "loading"
+      effect api.post({
+        url: "/users",
+        body: {
+          name: trim(name),
+          email: trim(email),
+          createdAt: $input.now
+        },
+        into: createResult
+      })
+    }
+
+    when isNotNull(createResult) {
+      patch status = "done"
+    }
+  }
+
+  // --- PUT request ---
+  action updateUser(id: string, name: string) {
+    once(updating) {
+      patch updating = $meta.intentId
+      patch status = "loading"
+      effect api.put({
+        url: concat("/users/", id),
+        body: {
+          name: trim(name),
+          updatedAt: $input.now
+        },
+        into: updateResult
+      })
+    }
+
+    when isNotNull(updateResult) {
+      patch status = "done"
+    }
+  }
+
+  // --- DELETE request ---
+  action deleteUser(id: string) {
+    once(deleting) {
+      patch deleting = $meta.intentId
+      patch status = "loading"
+      effect api.remove({
+        url: concat("/users/", id),
+        into: deleteResult
+      })
+    }
+
+    when isNotNull(deleteResult) {
+      patch status = "done"
+    }
+  }
+
+  // --- Reset ---
+  action reset() {
+    when neq(status, "idle") {
+      patch users = null
+      patch user = null
+      patch posts = null
+      patch createResult = null
+      patch updateResult = null
+      patch deleteResult = null
+      patch fetchingUsers = null
+      patch fetchingUser = null
+      patch fetchingPosts = null
+      patch creating = null
+      patch updating = null
+      patch deleting = null
+      patch status = "idle"
+    }
+  }
+}
+
+// ============================================
+// API Effect Patterns:
+//
+//   effect api.fetch({ url, method, into })
+//   effect api.post({ url, body, into })
+//   effect api.put({ url, body, into })
+//   effect api.delete({ url, into })
+//
+// Key Points:
+//   - `into:` specifies where result is stored
+//   - Results are available in next compute cycle
+//   - Use concat() for dynamic URLs
+//   - Always guard with once() to prevent duplicates
+//
+// Host is responsible for:
+//   - Actually making HTTP requests
+//   - Parsing responses
+//   - Writing results to `into:` path
+// ============================================

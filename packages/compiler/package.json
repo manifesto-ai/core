@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/compiler",
   "version": "1.0.0",
-  "description": "Manifesto Compiler - Natural language to DomainSchema compiler",
+  "description": "Manifesto Compiler - MEL (Manifesto Expression Language) to DomainSchema compiler",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -13,12 +13,18 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/compiler#readme",
-  "keywords": ["manifesto", "compiler", "natural-language", "llm", "ai", "schema-generation"],
+  "keywords": [
+    "manifesto",
+    "mel",
+    "compiler",
+    "dsl",
+    "expression-language"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "manifesto-compile": "./dist/cli/index.js"
+    "mel": "./dist/cli/index.js"
   },
   "exports": {
     ".": {
@@ -26,51 +32,26 @@
       "import": "./dist/index.js"
     }
   },
-  "scripts": {
-    "build": "tsc",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "example": "npx tsx examples/simple-compile.ts",
-    "cli": "node ./dist/cli/index.js"
-  },
-  "peerDependencies": {
-    "@manifesto-ai/core": "^1.0.0",
-    "@manifesto-ai/builder": "^1.0.0",
-    "@manifesto-ai/host": "^1.0.0",
-    "@anthropic-ai/sdk": "^0.26.0",
-    "openai": "^4.0.0",
-    "zod": "^4.2.1"
-  },
-  "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "openai": {
-      "optional": true
-    }
-  },
-  "dependencies": {
-    "ink": "^5.0.1",
-    "ink-select-input": "^6.0.0",
-    "ink-spinner": "^5.0.0",
-    "nanoid": "^5.0.0",
-    "react": "^18.3.1",
-    "meow": "^13.2.0"
-  },
-  "devDependencies": {
-    "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/builder": "workspace:*",
-    "@manifesto-ai/host": "workspace:*",
-    "@anthropic-ai/sdk": "^0.26.0",
-    "@types/react": "^18.3.0",
-    "dotenv": "^16.4.0",
-    "openai": "^4.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.16",
-    "zod": "^4.2.1"
-  },
   "files": [
     "dist"
-  ]
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "echo 'lint not configured'",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/world": "workspace:*",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^1.0.0"
+  }
 }

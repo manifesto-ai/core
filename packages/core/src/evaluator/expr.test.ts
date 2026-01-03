@@ -1,13 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { evaluateExpr } from "./expr.js";
 import { createContext } from "./context.js";
+import { createTraceContext } from "../schema/trace.js";
 import type { ExprNode } from "../schema/expr.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
 import { isOk, isErr } from "../schema/common.js";
 
 // Helper to create a minimal test context
-function createTestContext(data: unknown = {}, input?: unknown): ReturnType<typeof createContext> {
+function createTestContext(
+  data: unknown = {},
+  input?: unknown,
+  meta?: { intentId: string; actionName: string | null; timestamp: number }
+): ReturnType<typeof createContext> {
+  const trace = createTraceContext(0);
   const snapshot: Snapshot = {
     data,
     computed: {},
@@ -21,21 +27,23 @@ function createTestContext(data: unknown = {}, input?: unknown): ReturnType<type
     input,
     meta: {
       version: 0,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "test-hash",
     },
   };
 
   const schema: DomainSchema = {
-    id: "test",
+    id: "manifesto:test",
     version: "1.0.0",
     hash: "test-hash",
+    types: {},
     state: { fields: {} },
     computed: { fields: {} },
     actions: {},
   };
 
-  return createContext(snapshot, schema, null, "test");
+  return createContext(snapshot, schema, null, "test", trace, meta);
 }
 
 // Helper to evaluate and unwrap result
@@ -74,6 +82,17 @@ describe("Expression Evaluator", () => {
     it("get - should get values from system", () => {
       const ctx = createTestContext();
       expect(evaluate({ kind: "get", path: "system.status" }, ctx)).toBe("idle");
+    });
+
+    it("get - should get values from meta", () => {
+      const ctx = createTestContext({}, undefined, {
+        intentId: "intent-123",
+        actionName: "testAction",
+        timestamp: 1234,
+      });
+      expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBe("intent-123");
+      expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBe("testAction");
+      expect(evaluate({ kind: "get", path: "meta.timestamp" }, ctx)).toBe(1234);
     });
   });
 
@@ -663,6 +682,83 @@ describe("Expression Evaluator", () => {
         then: { kind: "first", array: { kind: "get", path: "items" } },
         else: { kind: "last", array: { kind: "get", path: "items" } },
       }, ctx)).toBe(1);
+    });
+  });
+
+  // v0.3.2: Array Aggregation Functions
+  describe("Array Aggregation", () => {
+    it("sumArray - should sum numeric array", () => {
+      const ctx = createTestContext({ values: [1, 2, 3, 4, 5] });
+      expect(evaluate({
+        kind: "sumArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(15);
+    });
+
+    it("sumArray - should return 0 for empty array", () => {
+      const ctx = createTestContext({ values: [] });
+      expect(evaluate({
+        kind: "sumArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(0);
+    });
+
+    it("sumArray - should return 0 for non-array", () => {
+      expect(evaluate({
+        kind: "sumArray",
+        array: { kind: "lit", value: "not an array" },
+      })).toBe(0);
+    });
+
+    it("minArray - should find minimum in array", () => {
+      const ctx = createTestContext({ values: [5, 2, 8, 1, 9] });
+      expect(evaluate({
+        kind: "minArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(1);
+    });
+
+    it("minArray - should return null for empty array", () => {
+      const ctx = createTestContext({ values: [] });
+      expect(evaluate({
+        kind: "minArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBeNull();
+    });
+
+    it("maxArray - should find maximum in array", () => {
+      const ctx = createTestContext({ values: [5, 2, 8, 1, 9] });
+      expect(evaluate({
+        kind: "maxArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBe(9);
+    });
+
+    it("maxArray - should return null for empty array", () => {
+      const ctx = createTestContext({ values: [] });
+      expect(evaluate({
+        kind: "maxArray",
+        array: { kind: "get", path: "values" },
+      }, ctx)).toBeNull();
+    });
+
+    it("sumArray - should work with nested expressions", () => {
+      const ctx = createTestContext({
+        items: [
+          { price: 10 },
+          { price: 20 },
+          { price: 30 },
+        ],
+      });
+      // sum(map(items, $item.price))
+      expect(evaluate({
+        kind: "sumArray",
+        array: {
+          kind: "map",
+          array: { kind: "get", path: "items" },
+          mapper: { kind: "get", path: "$item.price" },
+        },
+      }, ctx)).toBe(60);
     });
   });
 });

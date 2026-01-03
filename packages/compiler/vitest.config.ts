@@ -2,16 +2,14 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts"],
-    // Increase test timeout for complex integration tests
-    testTimeout: 30000,
-    // Run tests sequentially to reduce memory pressure
-    sequence: {
-      concurrent: false,
-    },
-    // Disable coverage to reduce memory usage
+    globals: true,
+    environment: "node",
+    include: ["__tests__/**/*.test.ts"],
     coverage: {
-      enabled: false,
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/**/*.ts"],
+      exclude: ["src/cli/**"],
     },
   },
 });

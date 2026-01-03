@@ -1,0 +1,69 @@
+// ============================================
+// Title: Aggregation Functions
+// Description: sum, min, max, len for arrays
+// Prerequisites: computed/basic.mel
+// ============================================
+
+domain ComputedAggregation {
+  // --- State ---
+  state {
+    prices: Array<number> = [10, 20, 30, 40, 50]
+    scores: Array<number> = [85, 92, 78, 95, 88]
+    temperatures: Array<number> = [-5, 0, 15, 25, 30]
+    emptyArray: Array<number> = []
+
+    // For value comparison examples
+    valueA: number = 10
+    valueB: number = 25
+    valueC: number = 15
+  }
+
+  // --- Array Length ---
+  computed itemCount = len(prices)
+  computed scoreCount = len(scores)
+  computed isEmpty = eq(len(emptyArray), 0)
+
+  // --- Sum (Array<number> -> number) ---
+  computed totalPrice = sum(prices)
+  computed totalScore = sum(scores)
+  computed emptySum = sum(emptyArray)  // Returns 0
+
+  // --- Min (Array<T> -> T | null) ---
+  // Returns null if array is empty
+  computed lowestPrice = min(prices)
+  computed lowestScore = min(scores)
+  computed coldest = min(temperatures)
+  computed emptyMin = min(emptyArray)  // Returns null
+
+  // --- Max (Array<T> -> T | null) ---
+  // Returns null if array is empty
+  computed highestPrice = max(prices)
+  computed highestScore = max(scores)
+  computed hottest = max(temperatures)
+  computed emptyMax = max(emptyArray)  // Returns null
+
+  // --- Derived calculations ---
+  computed averagePrice = div(sum(prices), len(prices))
+  computed averageScore = div(sum(scores), len(scores))
+  computed priceRange = sub(max(prices), min(prices))
+  computed tempRange = sub(max(temperatures), min(temperatures))
+
+  // --- Value Comparison (multiple args) ---
+  // Different from array aggregation!
+  computed smallerValue = min(valueA, valueB)
+  computed smallestValue = min(valueA, valueB, valueC)
+  computed largerValue = max(valueA, valueB)
+  computed largestValue = max(valueA, valueB, valueC)
+}
+
+// ============================================
+// Key Distinction:
+//   sum(array)     -> Array aggregation
+//   min(array)     -> Array aggregation (single arg)
+//   min(a, b, c)   -> Value comparison (multiple args)
+//
+// Anti-patterns:
+//   ❌ sum(filter(prices))  // No nested calls
+//   ❌ sum(a, b, c)         // sum is array-only
+//   ❌ min(prices, 0)       // Cannot mix array and value
+// ============================================

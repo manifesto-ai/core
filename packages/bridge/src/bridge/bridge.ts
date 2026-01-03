@@ -25,7 +25,7 @@ import type {
 } from "@manifesto-ai/world";
 import type { SnapshotView } from "../schema/snapshot-view.js";
 import type { SourceEvent } from "../schema/source-event.js";
-import type { Projection, ProjectionRequest, ProjectionResult } from "../schema/projection.js";
+import { type Projection, type ProjectionRequest, type ProjectionResult, noneResult } from "../schema/projection.js";
 import { createUISourceEvent } from "../schema/source-event.js";
 import { toSnapshotView } from "../utils/snapshot-adapter.js";
 import type { ProjectionRegistry } from "../projection/registry.js";
@@ -107,6 +107,9 @@ export class Bridge {
 
   /** Current cached snapshot view */
   private currentSnapshot: SnapshotView | null = null;
+
+  /** Current snapshot version for audit records */
+  private currentSnapshotVersion: number | null = null;
 
   /** Current world ID for tracking */
   private currentWorldId: WorldId | null = null;
@@ -289,7 +292,7 @@ export class Bridge {
       effectiveSource,
       { kind: "intent", body },
       {
-        snapshotVersion: this.currentSnapshot ? 0 : undefined,
+        snapshotVersion: this.currentSnapshotVersion ?? undefined,
         intentId: intent.intentId,
         intentKey: intent.intentKey,
       }
@@ -353,11 +356,10 @@ export class Bridge {
       source,
     };
 
-    // Route through projections
-    const result = this.registry.route(request);
+    const projections = this.registry.list();
+    let selectedResult: ProjectionResult | null = null;
 
-    // Record the projection result
-    for (const projection of this.registry.list()) {
+    for (const projection of projections) {
       const projectionResult = projection.project(request);
       this.recorder.record(
         projection.projectionId,
@@ -365,10 +367,16 @@ export class Bridge {
         source,
         projectionResult,
         {
-          snapshotVersion: this.currentSnapshot ? 0 : undefined,
+          snapshotVersion: this.currentSnapshotVersion ?? undefined,
         }
       );
+
+      if (!selectedResult && projectionResult.kind === "intent") {
+        selectedResult = projectionResult;
+      }
     }
+
+    const result = selectedResult ?? noneResult("No projection matched");
 
     // If we got an intent, dispatch it
     if (result.kind === "intent") {
@@ -463,6 +471,7 @@ export class Bridge {
    */
   private updateSnapshot(snapshot: Snapshot, worldId: WorldId): void {
     this.currentSnapshot = toSnapshotView(snapshot);
+    this.currentSnapshotVersion = snapshot.meta.version;
     this.currentWorldId = worldId;
 
     // Notify all subscribers

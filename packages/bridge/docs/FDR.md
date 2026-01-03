@@ -488,7 +488,8 @@ type Snapshot = {
   input: unknown;
   meta: {
     version: number;      // Incremented by Core
-    timestamp: number;    // Wall-clock time
+    timestamp: number;    // Set by Core from HostContext
+    randomSeed: string;   // Set by Core from HostContext
     schemaHash: string;   // Schema identifier
   };
 };
@@ -750,7 +751,7 @@ Who decides the write boundaries for an Intent?
 
 ```
 Projection: "This form submit should only write to data.profile.*"
-    ↓ scopeProposal: { allowedPaths: ['data.profile.*'] }
+    ↓ scopeProposal: { allowedPaths: ['profile.*'] }
     
 Authority: "I approve this scope" OR "I'm widening/narrowing this" OR "No scope restriction"
     ↓ approvedScope: { allowedPaths: [...] } OR null
@@ -803,7 +804,7 @@ Consider:
 { type: 'profile.update', input: {...}, scopeProposal: null }
 
 // Request 2: "Update profile, only name field"
-{ type: 'profile.update', input: {...}, scopeProposal: { allowedPaths: ['data.profile.name'] } }
+{ type: 'profile.update', input: {...}, scopeProposal: { allowedPaths: ['profile.name'] } }
 ```
 
 These are **semantically different requests**:

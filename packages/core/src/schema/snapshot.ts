@@ -136,6 +136,11 @@ export const SnapshotMeta = z.object({
   timestamp: z.number(),
 
   /**
+   * Deterministic random seed from Host context
+   */
+  randomSeed: z.string(),
+
+  /**
    * Hash of the schema this snapshot conforms to.
    */
   schemaHash: z.string(),

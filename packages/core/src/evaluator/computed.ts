@@ -5,6 +5,7 @@ import type { ErrorValue } from "../schema/snapshot.js";
 import { ok, err, isErr } from "../schema/common.js";
 import { createError } from "../errors.js";
 import { createContext } from "./context.js";
+import { createTraceContext } from "../schema/trace.js";
 import { evaluateExpr } from "./expr.js";
 import { buildDependencyGraph, topologicalSort } from "./dag.js";
 
@@ -16,6 +17,7 @@ export function evaluateComputed(
   schema: DomainSchema,
   snapshot: Snapshot
 ): Result<Record<SemanticPath, unknown>, ErrorValue> {
+  const trace = createTraceContext(snapshot.meta.timestamp);
   // Build dependency graph
   const graph = buildDependencyGraph(schema.computed);
 
@@ -26,7 +28,8 @@ export function evaluateComputed(
       "CYCLIC_DEPENDENCY",
       sortResult.error.message,
       "",
-      sortResult.error.path ?? ""
+      sortResult.error.path ?? "",
+      trace.timestamp
     ));
   }
 
@@ -44,7 +47,7 @@ export function evaluateComputed(
     if (!spec) continue;
 
     // Create context with current state of computed values
-    const ctx = createContext(tempSnapshot, schema, null, path);
+    const ctx = createContext(tempSnapshot, schema, null, path, trace);
 
     // Evaluate the expression
     const result = evaluateExpr(spec.expr, ctx);
@@ -74,16 +77,18 @@ export function evaluateSingleComputed(
   snapshot: Snapshot,
   path: SemanticPath
 ): Result<unknown, ErrorValue> {
+  const trace = createTraceContext(snapshot.meta.timestamp);
   const spec = schema.computed.fields[path];
   if (!spec) {
     return err(createError(
       "PATH_NOT_FOUND",
       `Computed field not found: ${path}`,
       "",
-      path
+      path,
+      trace.timestamp
     ));
   }
 
-  const ctx = createContext(snapshot, schema, null, path);
+  const ctx = createContext(snapshot, schema, null, path, trace);
   return evaluateExpr(spec.expr, ctx);
 }

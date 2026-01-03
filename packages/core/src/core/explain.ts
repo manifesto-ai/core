@@ -2,7 +2,7 @@ import type { DomainSchema } from "../schema/domain.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { SemanticPath } from "../schema/common.js";
 import type { ExplainResult } from "../schema/result.js";
-import { createTraceNode } from "../schema/trace.js";
+import { createTraceContext, createTraceNode } from "../schema/trace.js";
 import { getByPath } from "../utils/path.js";
 import { createContext } from "../evaluator/context.js";
 import { evaluateExpr } from "../evaluator/expr.js";
@@ -21,9 +21,19 @@ export function explain(
   snapshot: Snapshot,
   path: SemanticPath
 ): ExplainResult {
+  const trace = createTraceContext(snapshot.meta.timestamp);
+  return explainWithTrace(schema, snapshot, path, trace);
+}
+
+function explainWithTrace(
+  schema: DomainSchema,
+  snapshot: Snapshot,
+  path: SemanticPath,
+  trace: ReturnType<typeof createTraceContext>
+): ExplainResult {
   // Check if it's a computed path
   if (path.startsWith("computed.")) {
-    return explainComputed(schema, snapshot, path);
+    return explainComputed(schema, snapshot, path, trace);
   }
 
   // Check if it's a system path
@@ -31,7 +41,7 @@ export function explain(
     const value = getByPath(snapshot.system, path.slice(7));
     return {
       value,
-      trace: createTraceNode("expr", path, { path }, value, []),
+      trace: createTraceNode(trace, "expr", path, { path }, value, []),
       deps: [],
     };
   }
@@ -41,7 +51,7 @@ export function explain(
     const value = path === "input" ? snapshot.input : getByPath(snapshot.input, path.slice(6));
     return {
       value,
-      trace: createTraceNode("expr", path, { path }, value, []),
+      trace: createTraceNode(trace, "expr", path, { path }, value, []),
       deps: [],
     };
   }
@@ -50,7 +60,7 @@ export function explain(
   const value = getByPath(snapshot.data, path);
   return {
     value,
-    trace: createTraceNode("expr", path, { path }, value, []),
+    trace: createTraceNode(trace, "expr", path, { path }, value, []),
     deps: [],
   };
 }
@@ -61,7 +71,8 @@ export function explain(
 function explainComputed(
   schema: DomainSchema,
   snapshot: Snapshot,
-  path: SemanticPath
+  path: SemanticPath,
+  trace: ReturnType<typeof createTraceContext>
 ): ExplainResult {
   const spec = schema.computed.fields[path];
 
@@ -70,26 +81,26 @@ function explainComputed(
     const value = snapshot.computed[path];
     return {
       value,
-      trace: createTraceNode("computed", path, { path }, value, []),
+      trace: createTraceNode(trace, "computed", path, { path }, value, []),
       deps: [],
     };
   }
 
   // Evaluate the expression to get the trace
-  const ctx = createContext(snapshot, schema, null, path);
+  const ctx = createContext(snapshot, schema, null, path, trace);
   const result = evaluateExpr(spec.expr, ctx);
 
   const value = isOk(result) ? result.value : null;
 
   // Build trace with dependency information
   const childTraces = spec.deps.map((dep) => {
-    const depResult = explain(schema, snapshot, dep);
+    const depResult = explainWithTrace(schema, snapshot, dep, trace);
     return depResult.trace;
   });
 
   return {
     value,
-    trace: createTraceNode("computed", path, { expr: spec.expr }, value, childTraces),
+    trace: createTraceNode(trace, "computed", path, { expr: spec.expr }, value, childTraces),
     deps: spec.deps,
   };
 }

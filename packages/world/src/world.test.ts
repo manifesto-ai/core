@@ -16,18 +16,22 @@ import type {
 import { createWorldId } from "./schema/world.js";
 import type { HITLNotificationCallback } from "./authority/index.js";
 import type { Snapshot } from "@manifesto-ai/core";
+import { createIntentInstance } from "./schema/intent.js";
 
 // ============================================================================
 // Test Fixtures
 // ============================================================================
 
+const TEST_SCHEMA_HASH = "test-schema-hash";
+
 function createTestSnapshot(data: Record<string, unknown> = {}): Snapshot {
   return {
     data,
     meta: {
-      schemaHash: "test-schema-hash",
+      schemaHash: TEST_SCHEMA_HASH,
       version: 1,
       timestamp: Date.now(),
+      randomSeed: "seed",
     },
     system: {
       status: "idle" as const,
@@ -41,23 +45,21 @@ function createTestSnapshot(data: Record<string, unknown> = {}): Snapshot {
   };
 }
 
-function createTestIntent(type: string = "test-action", input: unknown = {}): IntentInstance {
-  const intentId = `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return {
+async function createTestIntent(
+  type: string = "test-action",
+  input: unknown = {},
+  actor: ActorRef = { actorId: "human-1", kind: "human" }
+): Promise<IntentInstance> {
+  return createIntentInstance({
     body: {
       type,
       input,
     },
-    intentId,
-    intentKey: `test-key-${intentId}`,
-    meta: {
-      origin: {
-        projectionId: "test:projection",
-        source: { kind: "ui" as const, eventId: `event-${Date.now()}` },
-        actor: { actorId: "test-actor", kind: "human" as const },
-      },
-    },
-  };
+    schemaHash: TEST_SCHEMA_HASH,
+    projectionId: "test:projection",
+    source: { kind: "ui", eventId: `event-${Date.now()}` },
+    actor,
+  });
 }
 
 function createTestActor(id: string, kind: "human" | "agent" | "system" = "agent"): ActorRef {
@@ -87,7 +89,7 @@ function createMockHost(resultSnapshot?: Snapshot): HostInterface {
 
 describe("ManifestoWorld", () => {
   let world: ManifestoWorld;
-  const schemaHash = "test-schema-hash";
+  const schemaHash = TEST_SCHEMA_HASH;
 
   beforeEach(() => {
     world = createManifestoWorld({ schemaHash });
@@ -249,7 +251,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("submits and auto-approves proposal", async () => {
-      const intent = createTestIntent("test-action");
+      const intent = await createTestIntent("test-action");
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -262,7 +264,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("rejects submission from unregistered actor", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
 
       await expect(
         world.submitProposal("unknown", intent, genesis.worldId)
@@ -270,7 +272,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("rejects submission to non-existent base world", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const fakeWorld = createWorldId("fake-world");
 
       await expect(
@@ -279,7 +281,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("stores proposal in store", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -292,7 +294,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("stores decision in store", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -304,6 +306,34 @@ describe("ManifestoWorld", () => {
       );
       expect(decision).toBeDefined();
       expect(decision?.proposalId).toBe(result.proposal.proposalId);
+    });
+  });
+
+  describe("Intent Validation", () => {
+    let genesis: World;
+
+    beforeEach(async () => {
+      genesis = await world.createGenesis(createTestSnapshot());
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+    });
+
+    it("rejects when origin actor mismatches proposal actor", async () => {
+      const intent = await createTestIntent("test-action", {}, { actorId: "human-2", kind: "human" });
+
+      await expect(
+        world.submitProposal("human-1", intent, genesis.worldId)
+      ).rejects.toThrow("origin actor");
+    });
+
+    it("rejects when intentKey does not match computed value", async () => {
+      const intent = await createTestIntent();
+      const invalidIntent = { ...intent, intentKey: "bad-key" };
+
+      await expect(
+        world.submitProposal("human-1", invalidIntent, genesis.worldId)
+      ).rejects.toThrow("intentKey");
     });
   });
 
@@ -325,7 +355,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("executes approved proposal via host", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -352,7 +382,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("creates new world from execution", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -373,7 +403,7 @@ describe("ManifestoWorld", () => {
       });
 
       const genesis = await world.getGenesis();
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -388,7 +418,7 @@ describe("ManifestoWorld", () => {
     });
 
     it("adds edge to lineage", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -417,7 +447,7 @@ describe("ManifestoWorld", () => {
       });
 
       const genesis = await world.getGenesis();
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal(
         "human-1",
         intent,
@@ -441,7 +471,8 @@ describe("ManifestoWorld", () => {
     });
 
     it("approves based on intent type rule", async () => {
-      world.registerActor(createTestActor("agent-1", "agent"), {
+      const actor = createTestActor("agent-1", "agent");
+      world.registerActor(actor, {
         mode: "policy_rules",
         rules: [
           {
@@ -452,7 +483,7 @@ describe("ManifestoWorld", () => {
         defaultDecision: "reject",
       });
 
-      const intent = createTestIntent("allowed-action");
+      const intent = await createTestIntent("allowed-action", {}, actor);
       const result = await world.submitProposal(
         "agent-1",
         intent,
@@ -463,7 +494,8 @@ describe("ManifestoWorld", () => {
     });
 
     it("rejects based on default decision", async () => {
-      world.registerActor(createTestActor("agent-1", "agent"), {
+      const actor = createTestActor("agent-1", "agent");
+      world.registerActor(actor, {
         mode: "policy_rules",
         rules: [
           {
@@ -474,7 +506,7 @@ describe("ManifestoWorld", () => {
         defaultDecision: "reject",
       });
 
-      const intent = createTestIntent("disallowed-action");
+      const intent = await createTestIntent("disallowed-action", {}, actor);
       const result = await world.submitProposal(
         "agent-1",
         intent,
@@ -493,6 +525,7 @@ describe("ManifestoWorld", () => {
   describe("Proposal Submission - HITL", () => {
     let genesis: World;
     let onHITLRequired: HITLNotificationCallback;
+    let agentActor: ActorRef;
 
     beforeEach(async () => {
       onHITLRequired = vi.fn();
@@ -500,14 +533,15 @@ describe("ManifestoWorld", () => {
       genesis = await world.createGenesis(createTestSnapshot());
 
       const owner = createTestActor("owner", "human");
-      world.registerActor(createTestActor("agent-1", "agent"), {
+      agentActor = createTestActor("agent-1", "agent");
+      world.registerActor(agentActor, {
         mode: "hitl",
         delegate: owner,
       });
     });
 
     it("returns pending status for HITL proposals", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, agentActor);
       const result = await world.submitProposal(
         "agent-1",
         intent,
@@ -519,14 +553,14 @@ describe("ManifestoWorld", () => {
     });
 
     it("notifies via onHITLRequired callback", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, agentActor);
       await world.submitProposal("agent-1", intent, genesis.worldId);
 
       expect(onHITLRequired).toHaveBeenCalled();
     });
 
     it("lists pending proposals", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, agentActor);
       await world.submitProposal("agent-1", intent, genesis.worldId);
 
       const pending = await world.getPendingProposals();
@@ -541,20 +575,22 @@ describe("ManifestoWorld", () => {
   describe("HITL Decision Processing", () => {
     let genesis: World;
     let pendingProposal: Proposal;
+    let agentActor: ActorRef;
 
     beforeEach(async () => {
       world = createManifestoWorld({ schemaHash, onHITLRequired: vi.fn() });
       genesis = await world.createGenesis(createTestSnapshot());
 
       const owner = createTestActor("owner", "human");
-      world.registerActor(createTestActor("agent-1", "agent"), {
+      agentActor = createTestActor("agent-1", "agent");
+      world.registerActor(agentActor, {
         mode: "hitl",
         delegate: owner,
       });
 
       const result = await world.submitProposal(
         "agent-1",
-        createTestIntent(),
+        await createTestIntent("test-action", {}, agentActor),
         genesis.worldId
       );
       pendingProposal = result.proposal;
@@ -593,14 +629,15 @@ describe("ManifestoWorld", () => {
       genesis = await world.createGenesis(createTestSnapshot());
 
       const owner = createTestActor("owner", "human");
-      world.registerActor(createTestActor("agent-1", "agent"), {
+      const agent = createTestActor("agent-1", "agent");
+      world.registerActor(agent, {
         mode: "hitl",
         delegate: owner,
       });
 
       const submitResult = await world.submitProposal(
         "agent-1",
-        createTestIntent(),
+        await createTestIntent("test-action", {}, agent),
         genesis.worldId
       );
 
@@ -653,13 +690,13 @@ describe("ManifestoWorld", () => {
     it("handles sequential proposals", async () => {
       const result1 = await world.submitProposal(
         "human-1",
-        createTestIntent("action-1"),
+        await createTestIntent("action-1"),
         genesis.worldId
       );
 
       const result2 = await world.submitProposal(
         "human-1",
-        createTestIntent("action-2"),
+        await createTestIntent("action-2"),
         result1.resultWorld!.worldId
       );
 
@@ -674,13 +711,13 @@ describe("ManifestoWorld", () => {
     it("handles branching from same world", async () => {
       const result1 = await world.submitProposal(
         "human-1",
-        createTestIntent("branch-1"),
+        await createTestIntent("branch-1"),
         genesis.worldId
       );
 
       const result2 = await world.submitProposal(
         "human-1",
-        createTestIntent("branch-2"),
+        await createTestIntent("branch-2"),
         genesis.worldId
       );
 
@@ -698,17 +735,17 @@ describe("ManifestoWorld", () => {
       // Create a chain: genesis -> w1 -> w2 -> w3
       const r1 = await world.submitProposal(
         "human-1",
-        createTestIntent(),
+        await createTestIntent(),
         genesis.worldId
       );
       const r2 = await world.submitProposal(
         "human-1",
-        createTestIntent(),
+        await createTestIntent(),
         r1.resultWorld!.worldId
       );
       const r3 = await world.submitProposal(
         "human-1",
-        createTestIntent(),
+        await createTestIntent(),
         r2.resultWorld!.worldId
       );
 
@@ -755,7 +792,7 @@ describe("ManifestoWorld", () => {
     it("gets proposal by ID", async () => {
       const result = await world.submitProposal(
         "human-1",
-        createTestIntent(),
+        await createTestIntent(),
         genesis.worldId
       );
 
@@ -767,7 +804,7 @@ describe("ManifestoWorld", () => {
     it("gets decision by proposal ID", async () => {
       const result = await world.submitProposal(
         "human-1",
-        createTestIntent(),
+        await createTestIntent(),
         genesis.worldId
       );
 
@@ -806,14 +843,14 @@ describe("ManifestoWorld", () => {
       // Admin makes initial change
       const adminResult = await world.submitProposal(
         "admin",
-        createTestIntent("init"),
+        await createTestIntent("init", {}, createTestActor("admin", "human")),
         genesis.worldId
       );
 
       // Developer builds on admin's work
       const devResult = await world.submitProposal(
         "developer",
-        createTestIntent("feature"),
+        await createTestIntent("feature", {}, createTestActor("developer", "human")),
         adminResult.resultWorld!.worldId
       );
 
@@ -860,7 +897,7 @@ describe("ManifestoWorld", () => {
       // Owner is auto-approved
       const ownerResult = await world.submitProposal(
         "owner",
-        createTestIntent("owner-action"),
+        await createTestIntent("owner-action", {}, owner),
         genesis.worldId
       );
       expect(ownerResult.proposal.status).toBe("approved");
@@ -868,7 +905,7 @@ describe("ManifestoWorld", () => {
       // Agent goes to pending
       const agentResult = await world.submitProposal(
         "agent",
-        createTestIntent("agent-action"),
+        await createTestIntent("agent-action", {}, createTestActor("agent", "agent")),
         genesis.worldId
       );
       expect(agentResult.proposal.status).toBe("pending");
@@ -876,7 +913,7 @@ describe("ManifestoWorld", () => {
       // System approved by policy
       const systemResult = await world.submitProposal(
         "system",
-        createTestIntent("system-task"),
+        await createTestIntent("system-task", {}, createTestActor("system", "system")),
         genesis.worldId
       );
       expect(systemResult.proposal.status).toBe("approved");
@@ -884,7 +921,7 @@ describe("ManifestoWorld", () => {
       // System rejected by policy
       const systemResult2 = await world.submitProposal(
         "system",
-        createTestIntent("unknown-task"),
+        await createTestIntent("unknown-task", {}, createTestActor("system", "system")),
         genesis.worldId
       );
       expect(systemResult2.proposal.status).toBe("rejected");
@@ -905,7 +942,7 @@ describe("ManifestoWorld", () => {
       for (let i = 1; i <= 3; i++) {
         const result = await world.submitProposal(
           "user",
-          createTestIntent(`action-${i}`),
+          await createTestIntent(`action-${i}`, {}, createTestActor("user", "human")),
           currentWorld
         );
         currentWorld = result.resultWorld!.worldId;

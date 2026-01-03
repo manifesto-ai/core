@@ -1,17 +1,70 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validate.js";
+import { hashSchemaSync } from "../utils/hash.js";
 import type { DomainSchema } from "../schema/domain.js";
+
+const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
+  dummy: { type: "string", required: true },
+  a: { type: "number", required: true },
+  b: { type: "number", required: true },
+  x: { type: "number", required: true },
+  count: { type: "number", required: true },
+  balance: { type: "number", required: true },
+  flag: { type: "boolean", required: true },
+  result: { type: "string", required: true },
+  items: {
+    type: "array",
+    required: true,
+    items: {
+      type: "object",
+      required: true,
+      fields: {
+        active: { type: "boolean", required: true },
+      },
+    },
+  },
+};
+
+const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
+  "computed.dummy": {
+    expr: { kind: "get", path: "dummy" },
+    deps: ["dummy"],
+  },
+};
+
+const BASE_ACTIONS: DomainSchema["actions"] = {
+  noop: { flow: { kind: "halt", reason: "noop" } },
+};
 
 // Helper to create a valid minimal schema
 function createValidSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
-  return {
-    id: "test",
+  const { state, computed, actions: overrideActions, hash, types, ...restOverrides } = overrides;
+  const stateFields = {
+    ...BASE_STATE_FIELDS,
+    ...(state?.fields ?? {}),
+  };
+  const computedFields = {
+    ...BASE_COMPUTED_FIELDS,
+    ...(computed?.fields ?? {}),
+  };
+  const actions = {
+    ...BASE_ACTIONS,
+    ...(overrideActions ?? {}),
+  };
+
+  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
+    id: "manifesto:test",
     version: "1.0.0",
-    hash: "test-hash",
-    state: { fields: {} },
-    computed: { fields: {} },
-    actions: {},
-    ...overrides,
+    ...restOverrides,
+    types: types ?? {},
+    state: { fields: stateFields },
+    computed: { fields: computedFields },
+    actions,
+  };
+
+  return {
+    ...schemaWithoutHash,
+    hash: hash ?? hashSchemaSync(schemaWithoutHash),
   };
 }
 
@@ -41,7 +94,7 @@ describe("validate", () => {
 
     it("should reject schema with invalid version format", () => {
       const result = validate({
-        id: "test",
+        id: "manifesto:test",
         version: 123, // Should be string
         hash: "test-hash",
         state: { fields: {} },
@@ -50,6 +103,73 @@ describe("validate", () => {
       });
 
       expect(result.valid).toBe(false);
+    });
+
+    it("should reject schema with invalid id", () => {
+      const schema = createValidSchema({ id: "not-a-uri" });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "id")).toBe(true);
+    });
+
+    it("should reject schema with invalid semver", () => {
+      const schema = createValidSchema({ version: "1.0" });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "version")).toBe(true);
+    });
+
+    it("should reject schema with empty computed fields", () => {
+      const schema = createValidSchema();
+      schema.computed = { fields: {} };
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "computed.fields")).toBe(true);
+    });
+
+    it("should reject schema with hash mismatch", () => {
+      const schema = createValidSchema({ hash: "bad-hash" });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-008")).toBe(true);
+    });
+
+    it("should accept schemas with extra compiler fields when hash matches raw canonical", () => {
+      const schemaWithoutHash = {
+        id: "manifesto:test",
+        version: "1.0.0",
+        state: { fields: BASE_STATE_FIELDS },
+        computed: { fields: BASE_COMPUTED_FIELDS },
+        actions: BASE_ACTIONS,
+        types: {
+          CustomType: {
+            name: "CustomType",
+            definition: {
+              kind: "object",
+              fields: {
+                a: { type: { kind: "primitive", type: "string" }, optional: false },
+                b: { type: { kind: "primitive", type: "number" }, optional: false },
+              },
+            },
+          },
+        },
+      };
+      const schema = {
+        ...schemaWithoutHash,
+        hash: hashSchemaSync(schemaWithoutHash as Parameters<typeof hashSchemaSync>[0]),
+      };
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(true);
     });
   });
 
@@ -68,6 +188,62 @@ describe("validate", () => {
 
       const result = validate(schema);
       expect(result.valid).toBe(true);
+    });
+
+    it("should require deps to cover all expression paths", () => {
+      const schema = createValidSchema({
+        computed: {
+          fields: {
+            "computed.sum": {
+              expr: { kind: "add", left: { kind: "get", path: "a" }, right: { kind: "get", path: "b" } },
+              deps: ["a"],
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.message.includes("Missing dependency"))).toBe(true);
+    });
+
+    it("should reject deps with unknown paths", () => {
+      const schema = createValidSchema({
+        computed: {
+          fields: {
+            "computed.sum": {
+              expr: { kind: "get", path: "a" },
+              deps: ["a", "missing.path"],
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-001")).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("missing.path"))).toBe(true);
+    });
+
+    it("should reject computed expressions that read system paths", () => {
+      const schema = createValidSchema({
+        computed: {
+          fields: {
+            "computed.invalid": {
+              expr: { kind: "get", path: "system.status" },
+              deps: ["dummy"],
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("system.status"))).toBe(true);
     });
 
     it("should detect cyclic dependencies in computed fields (V-002)", () => {
@@ -201,6 +377,52 @@ describe("validate", () => {
 
       const result = validate(schema);
       expect(result.valid).toBe(true);
+    });
+
+    it("should allow meta paths in action flow", () => {
+      const schema = createValidSchema({
+        actions: {
+          mark: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "dummy",
+              value: { kind: "get", path: "meta.intentId" },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should reject unknown input paths in action expressions", () => {
+      const schema = createValidSchema({
+        actions: {
+          update: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "string", required: true },
+              },
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "dummy",
+              value: { kind: "get", path: "input.missing" },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("input.missing"))).toBe(true);
     });
   });
 

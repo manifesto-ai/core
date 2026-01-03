@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { DomainSchema, ActionSpec } from "@manifesto-ai/core";
+import { toCanonical } from "@manifesto-ai/core";
 import { buildAccessor } from "../accessor/accessor-builder.js";
 import type { StateAccessor } from "../accessor/state-accessor.js";
 import { createComputedBuilder, type ComputedBuilder } from "../computed/computed-builder.js";
@@ -13,6 +14,7 @@ import type { DomainContext, DomainOutput, DomainOptions } from "./domain-contex
 import { zodToStateSpec, zodToFieldSpec } from "./zod-to-field-spec.js";
 import type { DomainDiagnostics } from "../diagnostics/diagnostic-types.js";
 import { createDiagnostics } from "../diagnostics/index.js";
+import { sha256Sync } from "../utils/sha256.js";
 
 /**
  * DomainModule - Complete domain output from defineDomain()
@@ -150,14 +152,10 @@ export function defineDomain<
   const domainId = options?.id ?? `domain:${generateId()}`;
   const version = options?.version ?? "0.0.0-dev";
 
-  // Compute schema hash (simplified - in production should use canonical JSON + SHA256)
-  const schemaHash = computeSchemaHash(domainId, version, computedSpec, coreActionsSpec);
-
-  // Build DomainSchema
-  const schema: DomainSchema = {
+  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
     id: domainId,
     version,
-    hash: schemaHash,
+    types: {},
     state: zodToStateSpec(stateSchema),
     computed: {
       fields: Object.fromEntries(
@@ -173,6 +171,13 @@ export function defineDomain<
     },
     actions: coreActionsSpec,
     meta: options?.meta,
+  };
+  const schemaHash = computeSchemaHash(schemaWithoutHash);
+
+  // Build DomainSchema
+  const schema: DomainSchema = {
+    ...schemaWithoutHash,
+    hash: schemaHash,
   };
 
   // Run diagnostics
@@ -199,23 +204,7 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
-/**
- * Compute schema hash (simplified)
- * In production, should use JCS (JSON Canonicalization Scheme) + SHA-256
- */
-function computeSchemaHash(
-  id: string,
-  version: string,
-  computed: unknown,
-  actions: unknown
-): string {
-  const content = JSON.stringify({ id, version, computed, actions });
-  // Simple hash for now - in production use crypto.subtle.digest
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16).padStart(8, "0");
+function computeSchemaHash(schema: Omit<DomainSchema, "hash">): string {
+  const canonical = toCanonical(schema);
+  return sha256Sync(canonical);
 }

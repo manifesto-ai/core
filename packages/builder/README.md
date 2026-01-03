@@ -189,7 +189,7 @@ Builder eliminates error-prone string paths:
 
 ```typescript
 // Without Builder (error-prone)
-{ path: "/data/todos/0/completed" }  // Typo? Wrong index?
+{ path: "todos.0.completedd" }  // Typo? Wrong index?
 
 // With Builder (type-safe)
 state.todos[0].completed  // TypeScript catches errors
@@ -203,7 +203,7 @@ Flows are evaluated from the beginning each time. Use guards to prevent duplicat
 // Guard pattern - only runs if condition is false
 flow.seq([
   guard(state.initialized, [
-    flow.patch("set", "/initialized", true),
+    flow.patch("set", "initialized", true),
     flow.effect("api.init", {}),
   ]),
 ]);

@@ -63,32 +63,52 @@ const core = createCore();
 
 // Define a simple schema (usually from @manifesto-ai/builder)
 const schema: DomainSchema = {
+  id: "example:counter",
   version: "1.0.0",
+  hash: "example-hash",
+  types: {},
   state: {
-    count: { type: "number", default: 0 },
+    fields: {
+      count: { type: "number", required: true, default: 0 },
+    },
+  },
+  computed: {
+    fields: {
+      "computed.count": {
+        deps: ["count"],
+        expr: { kind: "get", path: "count" },
+      },
+    },
   },
   actions: {
     increment: {
       flow: {
         kind: "patch",
         op: "set",
-        path: "/data/count",
-        value: { kind: "add", left: { kind: "get", path: "/data/count" }, right: 1 },
+        path: "count",
+        value: {
+          kind: "add",
+          left: { kind: "get", path: "count" },
+          right: { kind: "lit", value: 1 },
+        },
       },
     },
   },
 };
 
+// Create host context (deterministic inputs)
+const context = { now: 0, randomSeed: "seed" };
+
 // Create initial snapshot
-const snapshot = createSnapshot(schema);
+const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // Create intent
-const intent = createIntent("increment");
+const intent = createIntent("increment", "intent-1");
 
 // Compute result (pure, deterministic)
-const result = await core.compute(schema, snapshot, intent);
+const result = await core.compute(schema, snapshot, intent, context);
 
-console.log(result.status); // → "completed"
+console.log(result.status); // → "complete"
 console.log(result.snapshot.data.count); // → 1
 ```
 
@@ -106,18 +126,18 @@ function createCore(): ManifestoCore;
 
 // Core interface
 interface ManifestoCore {
-  compute(schema, snapshot, intent): Promise<ComputeResult>;
-  apply(schema, snapshot, patches): Snapshot;
+  compute(schema, snapshot, intent, context): Promise<ComputeResult>;
+  apply(schema, snapshot, patches, context): Snapshot;
   validate(schema): ValidationResult;
   explain(schema, snapshot, path): ExplainResult;
 }
 
 // Key types
-type DomainSchema = { version, state, computed?, actions?, flows?, meta? };
+type DomainSchema = { id, version, hash, types, state, computed, actions, meta? };
 type Snapshot = { data, computed, system, input, meta };
 type Intent = { type, input?, intentId };
 type Patch = { op: "set" | "unset" | "merge", path, value? };
-type ComputeResult = { status, snapshot, patches, requirements, trace };
+type ComputeResult = { status, snapshot, requirements, trace };
 ```
 
 > See [SPEC.md](../../docs/packages/core/SPEC.md) for complete API reference.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortKeys, toCanonical, fromCanonical, canonicalEqual } from "./canonical.js";
+import { sortKeys, toCanonical, toJcs, fromCanonical, canonicalEqual } from "./canonical.js";
 
 describe("Canonical Utilities", () => {
   describe("sortKeys", () => {
@@ -95,6 +95,43 @@ describe("Canonical Utilities", () => {
       expect(toCanonical("hello")).toBe('"hello"');
       expect(toCanonical(true)).toBe("true");
       expect(toCanonical(null)).toBe("null");
+    });
+  });
+
+  describe("toJcs", () => {
+    it("should sort object keys by code point order", () => {
+      const obj = { b: 1, a: 2 };
+      expect(toJcs(obj)).toBe('{"a":2,"b":1}');
+    });
+
+    it("should sort unicode keys by code point order", () => {
+      const obj = { b: 1, "\u00e4": 2, a: 3 };
+      expect(toJcs(obj)).toBe('{"a":3,"b":1,"\u00e4":2}');
+    });
+
+    it("should omit undefined object values", () => {
+      const obj = { a: 1, b: undefined };
+      expect(toJcs(obj)).toBe('{"a":1}');
+    });
+
+    it("should omit function object values", () => {
+      const obj = { a: 1, b: () => {} };
+      expect(toJcs(obj)).toBe('{"a":1}');
+    });
+
+    it("should convert undefined array items to null", () => {
+      const obj = [1, undefined, 2];
+      expect(toJcs(obj)).toBe("[1,null,2]");
+    });
+
+    it("should normalize non-finite numbers to null", () => {
+      const obj = { value: Infinity };
+      expect(toJcs(obj)).toBe('{"value":null}');
+    });
+
+    it("should normalize non-finite numbers in arrays to null", () => {
+      const obj = [NaN, Infinity, -Infinity, 1];
+      expect(toJcs(obj)).toBe("[null,null,null,1]");
     });
   });
 

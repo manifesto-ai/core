@@ -1,0 +1,132 @@
+// ============================================
+// Title: When Guards
+// Description: Conditional execution with boolean guards
+// Prerequisites: computed/boolean.mel
+// ============================================
+
+domain ControlWhen {
+  // --- State ---
+  state {
+    count: number = 0
+    status: "idle" | "loading" | "done" = "idle"
+    items: Array<string> = []
+    name: string = ""
+    isEnabled: boolean = true
+  }
+
+  // --- Basic when ---
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+
+  // --- Comparison conditions ---
+  action incrementIfPositive() {
+    when gt(count, 0) {
+      patch count = add(count, 1)
+    }
+  }
+
+  action decrementIfAboveZero() {
+    when gt(count, 0) {
+      patch count = sub(count, 1)
+    }
+  }
+
+  // --- Equality conditions ---
+  action startIfIdle() {
+    when eq(status, "idle") {
+      patch status = "loading"
+    }
+  }
+
+  action completeIfLoading() {
+    when eq(status, "loading") {
+      patch status = "done"
+    }
+  }
+
+  // --- Collection checks ---
+  action processIfHasItems() {
+    when gt(len(items), 0) {
+      patch status = "loading"
+    }
+  }
+
+  action clearIfNotEmpty() {
+    when neq(len(items), 0) {
+      patch items = []
+    }
+  }
+
+  // --- String checks ---
+  action saveIfNameValid() {
+    when neq(trim(name), "") {
+      patch status = "done"
+    }
+  }
+
+  // --- Combined conditions (AND) ---
+  action submitIfReady() {
+    when and(eq(status, "idle"), gt(len(items), 0)) {
+      patch status = "loading"
+    }
+  }
+
+  action processIfEnabledAndIdle() {
+    when and(isEnabled, eq(status, "idle")) {
+      patch status = "loading"
+    }
+  }
+
+  // --- Combined conditions (OR) ---
+  action resetIfDoneOrError() {
+    when or(eq(status, "done"), lt(count, 0)) {
+      patch status = "idle"
+      patch count = 0
+    }
+  }
+
+  // --- Nested when ---
+  action complexFlow() {
+    when eq(status, "idle") {
+      when gt(len(items), 0) {
+        patch status = "loading"
+      }
+      when eq(len(items), 0) {
+        patch status = "done"
+      }
+    }
+  }
+
+  // --- Multiple when blocks ---
+  action multiCondition() {
+    when and(eq(status, "idle"), gt(count, 10)) {
+      patch status = "loading"
+    }
+
+    when and(eq(status, "idle"), lte(count, 10)) {
+      patch count = add(count, 1)
+    }
+  }
+}
+
+// ============================================
+// Key Rules:
+//   - Condition MUST be boolean
+//   - No truthy/falsy coercion
+//
+// Valid conditions:
+//   ✅ when true { }
+//   ✅ when eq(x, 0) { }
+//   ✅ when gt(len(items), 0) { }
+//   ✅ when isNotNull(x) { }
+//   ✅ when and(a, b) { }
+//
+// Invalid conditions:
+//   ❌ when count { }        // Number not boolean
+//   ❌ when items { }        // Array not boolean
+//   ❌ when name { }         // String not boolean
+//   ❌ when user { }         // Object not boolean
+// ============================================

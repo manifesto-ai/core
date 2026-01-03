@@ -1,0 +1,23 @@
+{
+  "name": "shipment-app",
+  "version": "1.0.0",
+  "description": "Global Ocean Logistics example using MEL compiler and Host",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node --import=tsx src/main.ts"
+  },
+  "dependencies": {
+    "@manifesto-ai/compiler": "workspace:*",
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/effect-utils": "workspace:*",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.3"
+  }
+}

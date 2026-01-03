@@ -13,6 +13,7 @@ import { z } from "zod";
 import { IntentBody, ActorRef } from "@manifesto-ai/world";
 import type { SnapshotView } from "./snapshot-view.js";
 import type { SourceEvent } from "./source-event.js";
+import { deepFreeze } from "../utils/snapshot-adapter.js";
 
 // ============================================================================
 // Projection Result
@@ -116,7 +117,7 @@ export function noneResult(reason?: string): ProjectionResultNone {
  * Create a projection result with an intent
  */
 export function intentResult(body: IntentBody): ProjectionResultIntent {
-  return { kind: "intent", body };
+  return deepFreeze({ kind: "intent", body });
 }
 
 /**

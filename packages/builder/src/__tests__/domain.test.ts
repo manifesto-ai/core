@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { defineDomain } from "../domain/define-domain.js";
+import { hashSchema } from "@manifesto-ai/core";
 import { setupDomain, validateDomain } from "../domain/setup-domain.js";
 import { isFieldRef } from "../refs/field-ref.js";
 import { isComputedRef } from "../refs/computed-ref.js";
@@ -34,6 +35,28 @@ describe("defineDomain", () => {
       expect(EventDomain.schema.id).toBeDefined();
       expect(EventDomain.schema.version).toBe("0.0.0-dev");
       expect(EventDomain.schema.hash).toBeDefined();
+    });
+
+    it("computes schema hash using canonical SHA-256", async () => {
+      const Schema = z.object({
+        value: z.number(),
+      });
+
+      const domain = defineDomain(Schema, ({ state, computed, actions, expr, flow }) => {
+        const { isPositive } = computed.define({
+          isPositive: expr.gt(state.value, 0),
+        });
+        const { setValue } = actions.define({
+          setValue: {
+            flow: flow.patch(state.value).set(expr.lit(1)),
+          },
+        });
+        return { computed: { isPositive }, actions: { setValue } };
+      });
+
+      const { hash, ...schemaWithoutHash } = domain.schema;
+      const expected = await hashSchema(schemaWithoutHash);
+      expect(hash).toBe(expected);
     });
 
     it("provides state accessor", () => {

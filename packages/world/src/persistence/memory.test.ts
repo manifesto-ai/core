@@ -35,6 +35,7 @@ function createTestSnapshot(): Snapshot {
       schemaHash: "schema-hash-123",
       version: 1,
       timestamp: Date.now(),
+      randomSeed: "seed",
     },
     system: {
       status: "idle" as const,
