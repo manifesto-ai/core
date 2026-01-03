@@ -64,6 +64,8 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateConcat(expr.args, ctx);
     case "substring":
       return evaluateSubstring(expr, ctx);
+    case "trim":
+      return evaluateTrim(expr.str, ctx);
 
     // Collection
     case "len":
@@ -88,8 +90,12 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateEvery(expr.array, expr.predicate, ctx);
     case "some":
       return evaluateSome(expr.array, expr.predicate, ctx);
+    case "append":
+      return evaluateAppend(expr.array, expr.items, ctx);
 
     // Object
+    case "object":
+      return evaluateObject(expr.fields, ctx);
     case "keys":
       return evaluateKeys(expr.obj, ctx);
     case "values":
@@ -142,6 +148,31 @@ function toString(value: unknown): string {
 
 // ============ Get ============
 
+/**
+ * Generate a deterministic UUID from intentId and counter
+ * Uses a simple hash to create reproducible UUIDs
+ */
+function generateDeterministicUuid(intentId: string, counter: number): string {
+  // Create a simple hash-based UUID from intentId and counter
+  // This ensures the same intentId + counter always produces the same UUID
+  const seed = `${intentId}-${counter}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+
+  // Convert hash to hex string and format as UUID
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  const hex2 = Math.abs(hash * 31).toString(16).padStart(4, '0');
+  const hex3 = Math.abs(hash * 37).toString(16).padStart(4, '0');
+  const hex4 = Math.abs(hash * 41).toString(16).padStart(4, '0');
+  const hex5 = Math.abs(hash * 43).toString(16).padStart(12, '0');
+
+  return `${hex.slice(0, 8)}-${hex2.slice(0, 4)}-4${hex3.slice(1, 4)}-${hex4.slice(0, 4)}-${hex5.slice(0, 12)}`;
+}
+
 function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Handle collection context variables
   if (path.startsWith("$item")) {
@@ -164,6 +195,41 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(ctx.$array);
   }
 
+  // Handle $system paths (special runtime values)
+  if (path.startsWith("$system.")) {
+    const systemPath = path.slice(8); // Remove "$system."
+
+    if (systemPath === "uuid") {
+      // Generate deterministic UUID from intentId + counter
+      const intentId = ctx.intentId ?? "no-intent";
+      const counter = ctx.uuidCounter ?? 0;
+      // Increment counter for next uuid call (mutable on purpose for determinism across calls)
+      if (ctx.uuidCounter !== undefined) {
+        ctx.uuidCounter = counter + 1;
+      }
+      return ok(generateDeterministicUuid(intentId, counter));
+    }
+
+    if (systemPath === "timestamp") {
+      // Return the snapshot's timestamp (set by Host)
+      return ok(new Date(ctx.snapshot.meta.timestamp).toISOString());
+    }
+
+    // Unknown $system path
+    return ok(undefined);
+  }
+
+  // Handle meta path (snapshot metadata)
+  if (path.startsWith("meta.")) {
+    const metaPath = path.slice(5); // Remove "meta."
+
+    if (metaPath === "intentId") {
+      return ok(ctx.intentId);
+    }
+
+    return ok(getByPath(ctx.snapshot.meta, metaPath));
+  }
+
   // Handle input path
   if (path.startsWith("input.") || path === "input") {
     const subPath = path === "input" ? "" : path.slice(6);
@@ -175,7 +241,7 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(ctx.snapshot.computed[path]);
   }
 
-  // Handle system path
+  // Handle system path (snapshot.system, not $system)
   if (path.startsWith("system.")) {
     const subPath = path.slice(7);
     return ok(getByPath(ctx.snapshot.system, subPath));
@@ -268,12 +334,31 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvalContext): ExprRes
 // ============ String ============
 
 function evaluateConcat(args: ExprNode[], ctx: EvalContext): ExprResult {
-  const parts: string[] = [];
+  // First, evaluate all arguments to determine if this is array or string concat
+  const values: unknown[] = [];
   for (const arg of args) {
     const result = evaluateExpr(arg, ctx);
     if (!result.ok) return result;
-    parts.push(toString(result.value));
+    values.push(result.value);
   }
+
+  // If any argument is an array, treat as array concatenation
+  const hasArray = values.some(v => Array.isArray(v));
+  if (hasArray) {
+    const result: unknown[] = [];
+    for (const value of values) {
+      if (Array.isArray(value)) {
+        result.push(...value);
+      } else if (value !== null && value !== undefined) {
+        // Single value gets added as element
+        result.push(value);
+      }
+    }
+    return ok(result);
+  }
+
+  // Otherwise, string concatenation
+  const parts = values.map(v => toString(v));
   return ok(parts.join(""));
 }
 
@@ -297,6 +382,12 @@ function evaluateSubstring(
   }
 
   return ok(str.substring(start));
+}
+
+function evaluateTrim(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).trim());
 }
 
 // ============ Collection ============
@@ -478,7 +569,35 @@ function evaluateSome(array: ExprNode, predicate: ExprNode, ctx: EvalContext): E
   return ok(false);
 }
 
+function evaluateAppend(array: ExprNode, items: ExprNode[], ctx: EvalContext): ExprResult {
+  const arrayResult = evaluateExpr(array, ctx);
+  if (!arrayResult.ok) return arrayResult;
+
+  const arr = arrayResult.value;
+  const baseArray = Array.isArray(arr) ? [...arr] : [];
+
+  for (const itemExpr of items) {
+    const itemResult = evaluateExpr(itemExpr, ctx);
+    if (!itemResult.ok) return itemResult;
+    baseArray.push(itemResult.value);
+  }
+
+  return ok(baseArray);
+}
+
 // ============ Object ============
+
+function evaluateObject(fields: Record<string, ExprNode>, ctx: EvalContext): ExprResult {
+  const result: Record<string, unknown> = {};
+
+  for (const [key, valueExpr] of Object.entries(fields)) {
+    const valueResult = evaluateExpr(valueExpr, ctx);
+    if (!valueResult.ok) return valueResult;
+    result[key] = valueResult.value;
+  }
+
+  return ok(result);
+}
 
 function evaluateKeys(obj: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(obj, ctx);

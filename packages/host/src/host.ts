@@ -2,6 +2,8 @@ import {
   createCore,
   createSnapshot,
   createIntent,
+  evaluateComputed,
+  isOk,
   type ManifestoCore,
   type DomainSchema,
   type Snapshot,
@@ -98,7 +100,13 @@ export class ManifestoHost {
     const existing = await this.store.get();
     if (!existing && initialData !== undefined) {
       const snapshot = createSnapshot(initialData, this.schema.hash);
-      await this.store.save(snapshot);
+      // Evaluate computed values on initial snapshot
+      const computedResult = evaluateComputed(this.schema, snapshot);
+      const snapshotWithComputed: Snapshot = {
+        ...snapshot,
+        computed: isOk(computedResult) ? computedResult.value : {},
+      };
+      await this.store.save(snapshotWithComputed);
     }
     this.initialized = true;
   }
@@ -238,7 +246,13 @@ export class ManifestoHost {
   async reset(initialData: unknown): Promise<void> {
     await this.store.clear();
     const snapshot = createSnapshot(initialData, this.schema.hash);
-    await this.store.save(snapshot);
+    // Evaluate computed values on reset snapshot
+    const computedResult = evaluateComputed(this.schema, snapshot);
+    const snapshotWithComputed: Snapshot = {
+      ...snapshot,
+      computed: isOk(computedResult) ? computedResult.value : {},
+    };
+    await this.store.save(snapshotWithComputed);
   }
 }
 

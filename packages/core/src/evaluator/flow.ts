@@ -6,7 +6,7 @@ import { createTraceNode } from "../schema/trace.js";
 import { createError } from "../errors.js";
 import { setByPath, unsetByPath, mergeAtPath } from "../utils/path.js";
 import { generateRequirementId } from "../utils/hash.js";
-import { type EvalContext, withSnapshot, withNodePath } from "./context.js";
+import { type EvalContext, withSnapshot, withNodePath, withCollectionContext } from "./context.js";
 import { evaluateExpr } from "./expr.js";
 
 /**
@@ -255,6 +255,11 @@ async function evaluateEffect(
   state: FlowState,
   nodePath: string
 ): Promise<FlowResult> {
+  // Handle pure array operations inline (no IO needed)
+  if (flow.type === "array.map" || flow.type === "array.filter") {
+    return evaluateArrayOperation(flow, ctx, state, nodePath);
+  }
+
   // Evaluate params
   const params: Record<string, unknown> = {};
   for (const [key, expr] of Object.entries(flow.params)) {
@@ -293,6 +298,133 @@ async function evaluateEffect(
   return {
     state: newState,
     trace: createTraceNode("effect", nodePath, { type: flow.type }, params, []),
+  };
+}
+
+/**
+ * Evaluate pure array operations (map/filter) inline
+ * These are pure transformations that don't need Host effect handlers
+ */
+async function evaluateArrayOperation(
+  flow: { type: string; params: Record<string, import("../schema/expr.js").ExprNode> },
+  ctx: EvalContext,
+  state: FlowState,
+  nodePath: string
+): Promise<FlowResult> {
+  const { params } = flow;
+
+  // Use the current state's snapshot (which reflects patches applied so far)
+  const currentCtx = withSnapshot(ctx, state.snapshot);
+
+  // Get source array
+  const sourceExpr = params.source;
+  if (!sourceExpr) {
+    return {
+      state: setError(state, createError(
+        "INVALID_INPUT",
+        `${flow.type} requires 'source' parameter`,
+        ctx.currentAction ?? "",
+        nodePath
+      )),
+      trace: createTraceNode("error", nodePath, {}, null, []),
+    };
+  }
+
+  const sourceResult = evaluateExpr(sourceExpr, currentCtx);
+  if (!sourceResult.ok) {
+    return {
+      state: setError(state, sourceResult.error),
+      trace: createTraceNode("error", nodePath, {}, null, []),
+    };
+  }
+
+  const sourceArray = sourceResult.value;
+  if (!Array.isArray(sourceArray)) {
+    return {
+      state: setError(state, createError(
+        "TYPE_MISMATCH",
+        `${flow.type} source must be an array`,
+        currentCtx.currentAction ?? "",
+        nodePath
+      )),
+      trace: createTraceNode("error", nodePath, {}, null, []),
+    };
+  }
+
+  // Get target path
+  const intoExpr = params.into;
+  if (!intoExpr) {
+    return {
+      state: setError(state, createError(
+        "INVALID_INPUT",
+        `${flow.type} requires 'into' parameter`,
+        currentCtx.currentAction ?? "",
+        nodePath
+      )),
+      trace: createTraceNode("error", nodePath, {}, null, []),
+    };
+  }
+
+  const intoResult = evaluateExpr(intoExpr, currentCtx);
+  if (!intoResult.ok) {
+    return {
+      state: setError(state, intoResult.error),
+      trace: createTraceNode("error", nodePath, {}, null, []),
+    };
+  }
+
+  const targetPath = String(intoResult.value);
+
+  // Get the transformation expression
+  const transformExpr = flow.type === "array.map" ? params.select : params.where;
+  if (!transformExpr) {
+    return {
+      state: setError(state, createError(
+        "INVALID_INPUT",
+        `${flow.type} requires '${flow.type === "array.map" ? "select" : "where"}' parameter`,
+        currentCtx.currentAction ?? "",
+        nodePath
+      )),
+      trace: createTraceNode("error", nodePath, {}, null, []),
+    };
+  }
+
+  // Process the array
+  const resultArray: unknown[] = [];
+
+  for (let index = 0; index < sourceArray.length; index++) {
+    const item = sourceArray[index];
+
+    // Create context with $item, $index, $array
+    const itemCtx = withCollectionContext(currentCtx, item, index, sourceArray);
+
+    const itemResult = evaluateExpr(transformExpr, itemCtx);
+    if (!itemResult.ok) {
+      return {
+        state: setError(state, itemResult.error),
+        trace: createTraceNode("error", nodePath, {}, null, []),
+      };
+    }
+
+    if (flow.type === "array.map") {
+      // For map, add the transformed value
+      resultArray.push(itemResult.value);
+    } else {
+      // For filter, add original item if predicate is truthy
+      const predicate = itemResult.value;
+      if (predicate !== null && predicate !== undefined && predicate !== false) {
+        resultArray.push(item);
+      }
+    }
+  }
+
+  // Create patch to set the result
+  const patch: Patch = { op: "set", path: targetPath, value: resultArray };
+  const newState = applyPatchToState(state, patch);
+
+  return {
+    state: newState,
+    trace: createTraceNode("effect", nodePath, { type: flow.type, target: targetPath }, { count: resultArray.length }, []),
   };
 }
 

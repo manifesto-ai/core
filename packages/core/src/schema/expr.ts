@@ -33,6 +33,7 @@ export type ExprNode =
   // String
   | ConcatExpr
   | SubstringExpr
+  | TrimExpr
   // Collection
   | LenExpr
   | AtExpr
@@ -45,7 +46,9 @@ export type ExprNode =
   | FindExpr
   | EveryExpr
   | SomeExpr
+  | AppendExpr
   // Object
+  | ObjectExpr
   | KeysExpr
   | ValuesExpr
   | EntriesExpr
@@ -196,6 +199,12 @@ export const SubstringExpr: z.ZodType<{ kind: "substring"; str: ExprNode; start:
 });
 export type SubstringExpr = z.infer<typeof SubstringExpr>;
 
+export const TrimExpr: z.ZodType<{ kind: "trim"; str: ExprNode }> = z.object({
+  kind: z.literal("trim"),
+  str: z.lazy(() => ExprNodeSchema),
+});
+export type TrimExpr = z.infer<typeof TrimExpr>;
+
 // ============ Collection ============
 
 export const LenExpr: z.ZodType<{ kind: "len"; arg: ExprNode }> = z.object({
@@ -273,7 +282,20 @@ export const SomeExpr: z.ZodType<{ kind: "some"; array: ExprNode; predicate: Exp
 });
 export type SomeExpr = z.infer<typeof SomeExpr>;
 
+export const AppendExpr: z.ZodType<{ kind: "append"; array: ExprNode; items: ExprNode[] }> = z.object({
+  kind: z.literal("append"),
+  array: z.lazy(() => ExprNodeSchema),
+  items: z.array(z.lazy(() => ExprNodeSchema)),
+});
+export type AppendExpr = z.infer<typeof AppendExpr>;
+
 // ============ Object ============
+
+export const ObjectExpr: z.ZodType<{ kind: "object"; fields: Record<string, ExprNode> }> = z.object({
+  kind: z.literal("object"),
+  fields: z.record(z.string(), z.lazy(() => ExprNodeSchema)),
+});
+export type ObjectExpr = z.infer<typeof ObjectExpr>;
 
 export const KeysExpr: z.ZodType<{ kind: "keys"; obj: ExprNode }> = z.object({
   kind: z.literal("keys"),
@@ -347,6 +369,7 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   // String
   ConcatExpr,
   SubstringExpr,
+  TrimExpr,
   // Collection
   LenExpr,
   AtExpr,
@@ -359,7 +382,9 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   FindExpr,
   EveryExpr,
   SomeExpr,
+  AppendExpr,
   // Object
+  ObjectExpr,
   KeysExpr,
   ValuesExpr,
   EntriesExpr,
@@ -379,9 +404,9 @@ export const ExprKind = z.enum([
   "and", "or", "not",
   "if",
   "add", "sub", "mul", "div", "mod",
-  "concat", "substring",
-  "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some",
-  "keys", "values", "entries", "merge",
+  "concat", "substring", "trim",
+  "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some", "append",
+  "object", "keys", "values", "entries", "merge",
   "typeof", "isNull", "coalesce",
 ]);
 export type ExprKind = z.infer<typeof ExprKind>;

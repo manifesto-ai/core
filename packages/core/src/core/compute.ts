@@ -52,7 +52,7 @@ export async function compute(
 
   // 2. Check availability condition
   if (action.available) {
-    const ctx = createContext(currentSnapshot, schema, intent.type, "available");
+    const ctx = createContext(currentSnapshot, schema, intent.type, "available", intent.intentId);
     const availResult = evaluateExpr(action.available, ctx);
 
     if (isErr(availResult)) {
@@ -89,7 +89,7 @@ export async function compute(
   };
 
   // 4. Create evaluation context and flow state
-  const ctx = createContext(preparedSnapshot, schema, intent.type, `actions.${intent.type}.flow`);
+  const ctx = createContext(preparedSnapshot, schema, intent.type, `actions.${intent.type}.flow`, intent.intentId);
   const flowState = createFlowState(preparedSnapshot);
 
   // 5. Evaluate the flow

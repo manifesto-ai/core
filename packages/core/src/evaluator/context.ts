@@ -26,6 +26,16 @@ export type EvalContext = {
   readonly nodePath: string;
 
   /**
+   * Intent ID for the current intent (for re-entry safety)
+   */
+  readonly intentId?: string;
+
+  /**
+   * UUID generator counter (for deterministic UUID generation)
+   */
+  uuidCounter?: number;
+
+  /**
    * Collection context variables (for filter, map, find, etc.)
    */
   readonly $item?: unknown;
@@ -40,13 +50,16 @@ export function createContext(
   snapshot: Snapshot,
   schema: DomainSchema,
   currentAction?: string | null,
-  nodePath?: string
+  nodePath?: string,
+  intentId?: string
 ): EvalContext {
   return {
     snapshot,
     schema,
     currentAction: currentAction ?? null,
     nodePath: nodePath ?? "",
+    intentId,
+    uuidCounter: 0,
   };
 }
 
