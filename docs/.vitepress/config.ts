@@ -127,6 +127,7 @@ export default defineConfig({
             { text: 'Todo Example', link: '/guides/todo-example' },
             { text: 'Re-entry Safe Flows', link: '/guides/reentry-safe-flows' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+            { text: 'Using Memory', link: '/guides/using-memory' },
             { text: 'Debugging', link: '/guides/debugging' },
             { text: 'Performance Report', link: '/guides/performance-report' },
           ]
