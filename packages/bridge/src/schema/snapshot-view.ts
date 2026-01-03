@@ -16,6 +16,7 @@
  * - input: Transient effect input
  */
 import { z } from "zod";
+import { deepFreeze } from "../utils/snapshot-adapter.js";
 
 // ============================================================================
 // SnapshotView Schema
@@ -54,9 +55,9 @@ export function createSnapshotView(
   data: unknown,
   computed: Record<string, unknown> = {}
 ): SnapshotView {
-  return Object.freeze({
+  return deepFreeze({
     data,
-    computed: Object.freeze({ ...computed }),
+    computed: { ...computed },
   });
 }
 

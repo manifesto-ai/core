@@ -43,7 +43,7 @@ const createMockWorld = () => {
           currentAction: null,
         },
         input: null,
-        meta: { version: 1, timestamp: Date.now(), schemaHash: "test-schema-hash" },
+        meta: { version: 1, timestamp: Date.now(), randomSeed: "seed", schemaHash: "test-schema-hash" },
       };
       snapshots.set(newWorldId, newSnapshot);
 
@@ -80,7 +80,7 @@ const createMockSnapshot = (): Snapshot => ({
     currentAction: null,
   },
   input: null,
-  meta: { version: 1, timestamp: Date.now(), schemaHash: "test-schema-hash" },
+  meta: { version: 1, timestamp: Date.now(), randomSeed: "seed", schemaHash: "test-schema-hash" },
 });
 
 const createDefaultActor = (): ActorRef => ({
@@ -339,6 +339,24 @@ describe("Bridge", () => {
       });
 
       expect(result.kind).toBe("intent");
+    });
+
+    it("should evaluate each projection only once", async () => {
+      const project = vi.fn(() => noneResult("no match"));
+      const projection: Projection = {
+        projectionId: "single-eval",
+        project,
+      };
+
+      bridge.registerProjection(projection);
+
+      await bridge.dispatchEvent({
+        kind: "ui",
+        eventId: "event-1",
+        payload: {},
+      });
+
+      expect(project).toHaveBeenCalledTimes(1);
     });
 
     it("should return none if no projection matches", async () => {
