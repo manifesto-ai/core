@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: Backfill tags/releases for merged release PRs
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -12,6 +19,7 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
@@ -20,15 +28,28 @@ jobs:
         id: release
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  backfill:
+    name: Release Please (Backfill)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill }}
+    steps:
+      - name: Release Please (github-release)
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          command: github-release
 
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    if: ${{ github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -57,7 +78,7 @@ jobs:
         run: pnpm test
 
       - name: Publish to npm
-        run: pnpm -r publish --access public --no-git-checks
+        run: node scripts/release/publish-packages.mjs '${{ needs.release-please.outputs.paths_released }}'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
