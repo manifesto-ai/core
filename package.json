@@ -12,10 +12,14 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "docs:archive": "node scripts/archive-docs.mjs",
+    "docs:api": "typedoc --options typedoc.json",
+    "docs:api:clean": "rm -rf docs/api"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
+    "typedoc": "^0.25.13",
     "typescript": "^5.7.2",
     "vitepress": "^1.6.4",
     "vitest": "^4.0.16",

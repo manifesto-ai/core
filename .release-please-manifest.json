@@ -5,5 +5,7 @@
   "packages/bridge": "1.0.0",
   "packages/builder": "1.0.0",
   "packages/react": "1.0.0",
-  "packages/compiler": "1.0.0"
+  "packages/compiler": "1.0.0",
+  "packages/effect-utils": "1.0.0",
+  "packages/lab": "1.0.0"
 }

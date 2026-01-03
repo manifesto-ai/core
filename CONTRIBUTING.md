@@ -21,7 +21,7 @@ pnpm test
 
 ## Commit Convention
 
-We use [Conventional Commits](https://www.conventionalcommits.org/) for automatic changelog generation.
+We use [Conventional Commits](https://www.conventionalcommits.org/) so Release Please can generate version bumps and changelogs automatically. Avoid editing `CHANGELOG.md` by hand.
 
 ### Commit Format
 
@@ -40,6 +40,8 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) for automati
 | `feat` | A new feature | Features |
 | `fix` | A bug fix | Bug Fixes |
 | `perf` | Performance improvement | Performance |
+| `deps` | Dependency updates | Dependencies |
+| `revert` | Revert a prior commit | Reverts |
 | `docs` | Documentation only | Hidden |
 | `style` | Code style (formatting, etc.) | Hidden |
 | `refactor` | Code refactoring | Hidden |
@@ -59,6 +61,11 @@ Use the package name as scope:
 - `builder` - @manifesto-ai/builder
 - `react` - @manifesto-ai/react
 - `compiler` - @manifesto-ai/compiler
+- `effect-utils` - @manifesto-ai/effect-utils
+- `lab` - @manifesto-ai/lab
+- `memory` - @manifesto-ai/memory
+
+If a change spans multiple packages, use a comma-separated list without spaces (e.g. `core,host`). If the change is repo-wide (docs, tooling), omit the scope or use `chore`/`docs` without scope.
 
 ### Examples
 
@@ -76,6 +83,12 @@ BREAKING CHANGE: The second parameter is now required.
 
 # Multiple scopes
 feat(core,host): add shared utility functions
+
+# Dependency update
+deps(core): bump zod to v4
+
+# Revert
+revert(core): revert "feat(core): add explain() method"
 ```
 
 ## Pull Request Process
