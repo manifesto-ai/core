@@ -91,14 +91,16 @@ Core declares effect
 **Effects do NOT return values to Flows.** They return patches that modify Snapshot. The next compute() reads the result from Snapshot.
 
 ```typescript
+const context = { now: 0, randomSeed: "seed" };
+
 // WRONG: Effect returning value
 const result = await executeEffect();
-core.compute(schema, snapshot, { ...intent, result }); // Hidden channel!
+await core.compute(schema, snapshot, { ...intent, result }, context); // Hidden channel!
 
 // RIGHT: Effect returns patches
-const patches = await executeEffect(); // [{ op: "set", path: "data.result", value: ... }]
-snapshot = core.apply(schema, snapshot, patches);
-core.compute(schema, snapshot, intent); // Reads result from Snapshot
+const patches = await executeEffect(); // [{ op: "set", path: "result", value: ... }]
+snapshot = core.apply(schema, snapshot, patches, context);
+await core.compute(schema, snapshot, intent, context); // Reads result from Snapshot
 ```
 
 ---
@@ -167,7 +169,7 @@ RIGHT:  effect('api:call')             // Declares requirement
 Each `compute()` call is **complete and independent**:
 
 ```
-compute(snapshot₀, intent) → (snapshot₁, requirements[], trace)
+compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 ```
 
 - If `requirements` is empty: computation is **complete**
@@ -179,7 +181,7 @@ compute(snapshot₀, intent) → (snapshot₁, requirements[], trace)
 │                    COMPUTATION CYCLE                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Host calls: compute(snapshot, intent)                          │
+│  Host calls: compute(snapshot, intent, context)                 │
 │                     │                                            │
 │                     ▼                                            │
 │  ┌─────────────────────────────────────┐                        │
@@ -202,6 +204,7 @@ compute(snapshot₀, intent) → (snapshot₁, requirements[], trace)
 │                               │                                 │
 │                               ▼                                 │
 │                    Host calls compute() AGAIN                   │
+│                    with same intent + context                   │
 │                    with new snapshot                            │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘

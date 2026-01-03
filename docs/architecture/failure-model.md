@@ -172,19 +172,19 @@ async function fetchUserHandler(params) {
     const response = await fetch(`/users/${params.id}`);
     if (!response.ok) {
       return [
-        { op: 'set', path: 'data.user', value: null },
-        { op: 'set', path: 'data.fetchError', value: `HTTP ${response.status}` }
+        { op: 'set', path: 'user', value: null },
+        { op: 'set', path: 'fetchError', value: `HTTP ${response.status}` }
       ];
     }
     const user = await response.json();
     return [
-      { op: 'set', path: 'data.user', value: user },
-      { op: 'set', path: 'data.fetchError', value: null }
+      { op: 'set', path: 'user', value: user },
+      { op: 'set', path: 'fetchError', value: null }
     ];
   } catch (e) {
     return [
-      { op: 'set', path: 'data.user', value: null },
-      { op: 'set', path: 'data.fetchError', value: e.message }
+      { op: 'set', path: 'user', value: null },
+      { op: 'set', path: 'fetchError', value: e.message }
     ];
   }
 }
@@ -230,7 +230,7 @@ async function fetchUserHandler(params) {
     {
       "kind": "patch",
       "op": "set",
-      "path": "data.user",
+      "path": "user",
       "value": { "kind": "get", "path": "input.user" }
     }
   ]
@@ -259,14 +259,14 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
 ```json
 {
   "kind": "if",
-  "cond": { "kind": "get", "path": "data.syncError" },
+  "cond": { "kind": "get", "path": "syncError" },
   "then": {
     "kind": "seq",
     "steps": [
       {
         "kind": "patch",
         "op": "set",
-        "path": "data.syncStatus",
+        "path": "syncStatus",
         "value": { "kind": "lit", "value": "error" }
       },
       {
@@ -280,7 +280,7 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
   "else": {
     "kind": "patch",
     "op": "set",
-    "path": "data.syncStatus",
+    "path": "syncStatus",
     "value": { "kind": "lit", "value": "synced" }
   }
 }
@@ -303,10 +303,10 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
     {
       "kind": "patch",
       "op": "set",
-      "path": "data.retryCount",
+      "path": "retryCount",
       "value": {
         "kind": "add",
-        "left": { "kind": "get", "path": "data.retryCount" },
+        "left": { "kind": "get", "path": "retryCount" },
         "right": { "kind": "lit", "value": 1 }
       }
     },
@@ -404,13 +404,13 @@ type EffectHandler = (
 
 // Handler returns patches directly
 return [
-  { op: 'set', path: 'data.result', value: result },
-  { op: 'set', path: 'data.error', value: null }
+  { op: 'set', path: 'result', value: result },
+  { op: 'set', path: 'error', value: null }
 ];
 // OR
 return [
-  { op: 'set', path: 'data.result', value: null },
-  { op: 'set', path: 'data.error', value: errorMessage }
+  { op: 'set', path: 'result', value: null },
+  { op: 'set', path: 'error', value: errorMessage }
 ];
 ```
 
@@ -443,18 +443,18 @@ try {
 const response = await api.call();
 if (response.status === 404) {
   return [
-    { op: 'set', path: 'data.found', value: false },
-    { op: 'set', path: 'data.notFoundReason', value: 'Resource does not exist' }
+    { op: 'set', path: 'found', value: false },
+    { op: 'set', path: 'notFoundReason', value: 'Resource does not exist' }
   ];
 }
 if (!response.ok) {
   return [
-    { op: 'set', path: 'data.error', value: `HTTP ${response.status}` }
+    { op: 'set', path: 'error', value: `HTTP ${response.status}` }
   ];
 }
 return [
-  { op: 'set', path: 'data.result', value: await response.json() },
-  { op: 'set', path: 'data.found', value: true }
+  { op: 'set', path: 'result', value: await response.json() },
+  { op: 'set', path: 'found', value: true }
 ];
 ```
 
@@ -480,17 +480,19 @@ try {
 
 ```typescript
 // DO THIS
-try {
-  await someOperation();
-  return [
-    { op: 'set', path: 'data.operationStatus', value: 'success' }
-  ];
-} catch (error) {
-  return [
-    { op: 'set', path: 'data.operationStatus', value: 'error' },
-    { op: 'set', path: 'data.errorMessage', value: error.message },
-    { op: 'set', path: 'data.errorTimestamp', value: Date.now() }
-  ];
+async function handler(type, params, context) {
+  try {
+    await someOperation();
+    return [
+      { op: 'set', path: 'operationStatus', value: 'success' }
+    ];
+  } catch (error) {
+    return [
+      { op: 'set', path: 'operationStatus', value: 'error' },
+      { op: 'set', path: 'errorMessage', value: error.message },
+      { op: 'set', path: 'errorTimestamp', value: context.requirement.createdAt }
+    ];
+  }
 }
 ```
 
@@ -526,8 +528,8 @@ try {
 
 ```typescript
 return [
-  { op: 'set', path: 'data.syncStatus', value: 'error' },
-  { op: 'set', path: 'data.errorMessage', value: 'Network timeout' }
+  { op: 'set', path: 'syncStatus', value: 'error' },
+  { op: 'set', path: 'errorMessage', value: 'Network timeout' }
 ];
 ```
 
@@ -543,7 +545,8 @@ return [
 
 ```typescript
 try {
-  const result = await core.compute(schema, snapshot, intent);
+  const context = { now: 0, randomSeed: "seed" };
+  const result = await core.compute(schema, snapshot, intent, context);
   // ...
 } catch (error) {
   // System error - should be rare
@@ -554,9 +557,9 @@ try {
       code: 'SYSTEM_ERROR',
       message: error.message,
       source: { actionId: '', nodePath: '' },
-      timestamp: Date.now()
+      timestamp: context.now
     }}
-  ]);
+  ], context);
 }
 ```
 
@@ -592,13 +595,14 @@ async function processIntentWithRetry(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
+  context: HostContext,
   maxRetries = 3
 ): Promise<Snapshot> {
   let current = snapshot;
   let attempts = 0;
 
   while (attempts < maxRetries) {
-    const result = await processIntent(core, schema, current, intent);
+    const result = await processIntent(core, schema, current, intent, context);
 
     if (result.system.status !== 'error') {
       return result;  // Success
@@ -611,8 +615,8 @@ async function processIntentWithRetry(
       await sleep(Math.pow(2, attempts) * 1000);  // Exponential backoff
       current = core.apply(schema, result, [
         { op: 'set', path: 'system.lastError', value: null },
-        { op: 'set', path: 'data.retryAttempt', value: attempts }
-      ]);
+        { op: 'set', path: 'retryAttempt', value: attempts }
+      ], context);
     } else {
       return result;  // Non-retryable error
     }
@@ -633,21 +637,21 @@ async function fetchWithFallback(params: unknown): Promise<Patch[]> {
   try {
     const result = await api.fetchPrimary(params);
     return [
-      { op: 'set', path: 'data.result', value: result },
-      { op: 'set', path: 'data.source', value: 'primary' }
+      { op: 'set', path: 'result', value: result },
+      { op: 'set', path: 'source', value: 'primary' }
     ];
   } catch (primaryError) {
     try {
       const result = await api.fetchFallback(params);
       return [
-        { op: 'set', path: 'data.result', value: result },
-        { op: 'set', path: 'data.source', value: 'fallback' },
-        { op: 'set', path: 'data.fallbackReason', value: primaryError.message }
+        { op: 'set', path: 'result', value: result },
+        { op: 'set', path: 'source', value: 'fallback' },
+        { op: 'set', path: 'fallbackReason', value: primaryError.message }
       ];
     } catch (fallbackError) {
       return [
-        { op: 'set', path: 'data.result', value: null },
-        { op: 'set', path: 'data.error', value: 'All sources failed' }
+        { op: 'set', path: 'result', value: null },
+        { op: 'set', path: 'error', value: 'All sources failed' }
       ];
     }
   }
@@ -664,7 +668,7 @@ type BatchResult = {
   errors: ErrorValue[];
 };
 
-async function batchProcess(items: unknown[]): Promise<Patch[]> {
+async function batchProcess(items: unknown[], context: EffectContext): Promise<Patch[]> {
   const results: BatchResult = {
     succeeded: 0,
     failed: 0,
@@ -682,13 +686,13 @@ async function batchProcess(items: unknown[]): Promise<Patch[]> {
         message: error.message,
         context: { item },
         source: { actionId: 'batchProcess', nodePath: '' },
-        timestamp: Date.now()
+        timestamp: context.requirement.createdAt
       });
     }
   }
 
   return [
-    { op: 'set', path: 'data.batchResult', value: results }
+    { op: 'set', path: 'batchResult', value: results }
   ];
 }
 ```
@@ -702,14 +706,15 @@ async function batchProcess(items: unknown[]): Promise<Patch[]> {
 ```typescript
 test('fails when title is empty', () => {
   const schema = buildSchema();
-  const snapshot = createSnapshot(schema);
+  const context = { now: 0, randomSeed: "seed" };
+  const snapshot = createSnapshot({}, schema.hash, context);
   const intent = {
     type: 'addTodo',
     input: { title: '' },
     intentId: 'i_1'
   };
 
-  const result = core.compute(schema, snapshot, intent);
+  const result = await core.compute(schema, snapshot, intent, context);
 
   expect(result.status).toBe('error');
   expect(result.snapshot.system.lastError).toMatchObject({
@@ -723,12 +728,13 @@ test('fails when title is empty', () => {
 ```typescript
 test('handles network failure gracefully', async () => {
   const schema = buildSchema();
-  let snapshot = createSnapshot(schema);
+  const context = { now: 0, randomSeed: "seed" };
+  let snapshot = createSnapshot({}, schema.hash, context);
 
   // Register failing effect handler
   host.registerEffect('api:fetch', async () => {
     return [
-      { op: 'set', path: 'data.fetchError', value: 'Network timeout' }
+      { op: 'set', path: 'fetchError', value: 'Network timeout' }
     ];
   });
 
@@ -782,13 +788,16 @@ async function executeEffect(req: Requirement): Promise<Patch[]> {
         code: 'UNKNOWN_EFFECT',
         message: `No handler for: ${req.type}`,
         source: { actionId: req.actionId, nodePath: '' },
-        timestamp: Date.now()
+        timestamp: req.createdAt
       }}
     ];
   }
 
   try {
-    return await handler(req.type, req.params, snapshot);
+    return await handler(req.type, req.params, {
+      snapshot,
+      requirement: req,
+    });
   } catch (error) {
     // Handler threw unexpectedly - convert to error patch
     return [
@@ -796,7 +805,7 @@ async function executeEffect(req: Requirement): Promise<Patch[]> {
         code: 'EFFECT_HANDLER_ERROR',
         message: error.message,
         source: { actionId: req.actionId, nodePath: '' },
-        timestamp: Date.now(),
+        timestamp: req.createdAt,
         context: { effectType: req.type }
       }}
     ];
@@ -860,7 +869,7 @@ Business errors should be handled in Flow logic. System errors typically trigger
 
 // Or effect handler returns error
 return [
-  { op: 'set', path: 'data.error', value: errorMessage }
+  { op: 'set', path: 'error', value: errorMessage }
 ];
 
 // Flow checks for error

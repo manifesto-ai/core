@@ -68,7 +68,7 @@ Effects are **not executed by Core**. Core declares requirements, Host fulfills 
 // Host executes
 async (type, params) => {
   const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
-  return [{ op: 'set', path: 'data.user', value: user }];  // Return patches
+  return [{ op: 'set', path: 'user', value: user }];  // Return patches
 }
 ```
 
@@ -87,7 +87,7 @@ Flows describe what should happen, not how to execute it. They are **not Turing-
 {
   kind: 'seq',
   steps: [
-    { kind: 'patch', op: 'set', path: 'data.count', value: { kind: 'lit', value: 0 } },
+    { kind: 'patch', op: 'set', path: 'count', value: { kind: 'lit', value: 0 } },
     { kind: 'effect', type: 'api:log', params: {} }
   ]
 }
@@ -269,8 +269,8 @@ It's the **complete picture**, not just business state.
 
 | What You Want | Which Concept | Key Method |
 |---------------|---------------|------------|
-| Define domain state | Snapshot | `createSnapshot(schema, data)` |
-| Request state change | Intent | `{ type: 'actionName', input: {...} }` |
+| Define domain state | Snapshot | `createSnapshot(data, schema.hash, context)` |
+| Request state change | Intent | `createIntent('actionName', input, intentId)` |
 | Perform IO (API, DB) | Effect | `flow.effect('type', params)` |
 | Describe computation | Flow | `flow.seq([...])`, `flow.when(...)` |
 | Execute effects | Host | `host.registerEffect(type, handler)` |

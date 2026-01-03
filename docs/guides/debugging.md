@@ -26,28 +26,24 @@ Every `compute()` call produces a **Trace** — a complete record of what happen
 ### Trace Structure
 
 ```typescript
-type Trace = {
-  // Input
-  intent: IntentInstance;
-  snapshotBefore: Snapshot;
-  schema: DomainSchema;
-
-  // Output
-  snapshotAfter: Snapshot;
-  requirements: Requirement[];
-
-  // Execution details
-  steps: TraceStep[];
-  errors: ErrorValue[];
+type TraceGraph = {
+  root: TraceNode;
+  nodes: Record<string, TraceNode>;
+  intent: { type: string; input: unknown };
+  baseVersion: number;
+  resultVersion: number;
   duration: number;
+  terminatedBy: 'complete' | 'effect' | 'halt' | 'error';
 };
 
-type TraceStep = {
-  kind: 'flow' | 'expr' | 'patch' | 'effect';
-  path: string;          // Where in Flow/Expr tree
-  input: unknown;        // Input to this step
-  output: unknown;       // Output from this step
-  duration: number;
+type TraceNode = {
+  id: string;
+  kind: 'expr' | 'computed' | 'flow' | 'patch' | 'effect' | 'branch' | 'call' | 'halt' | 'error';
+  sourcePath: string;          // Where in Flow/Expr tree
+  inputs: Record<string, unknown>;
+  output: unknown;
+  children: TraceNode[];
+  timestamp: number;
 };
 ```
 
@@ -55,48 +51,37 @@ type TraceStep = {
 
 ```typescript
 // From Host
-const result = await host.dispatch({ type: 'addTodo', input: { title: 'Test' } });
-console.log(result.trace);
+const result = await host.dispatch(createIntent('addTodo', { title: 'Test' }, 'intent-1'));
+const trace = result.traces[result.traces.length - 1];
+console.log(trace);
 
 // From Core directly
-const result = core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+const intent = createIntent('addTodo', { title: 'Test' }, 'intent-1');
+const result = await core.compute(schema, snapshot, intent, context);
 console.log(result.trace);
 ```
 
 ### Trace Visualization
 
 ```typescript
-import { formatTrace } from '@manifesto-ai/core/debug';
+const printTrace = (node, depth = 0) => {
+  const indent = '  '.repeat(depth);
+  console.log(`${indent}${node.kind} ${node.sourcePath}`);
+  node.children.forEach(child => printTrace(child, depth + 1));
+};
 
-const formatted = formatTrace(result.trace);
-console.log(formatted);
+printTrace(trace.root);
 ```
 
 **Output:**
 
 ```
-Trace for intent: addTodo
-─────────────────────────────────────────────────
-Input:
-  { title: "Test" }
-
-Snapshot before:
-  data.todos: []
-
-Steps:
-  1. Flow.seq
-  2.   Flow.patch (state.todos)
-  3.     Expr.concat
-  4.       Expr.get (state.todos) → []
-  5.       Expr.array → [{ id: "...", title: "Test", completed: false }]
-  6.     Result: [{ ... }]
-  7.   Patch applied: set data.todos = [{ ... }]
-
-Snapshot after:
-  data.todos: [{ id: "...", title: "Test", completed: false }]
-
-Requirements: []
-Duration: 2ms
+TraceGraph summary:
+  intent: addTodo
+  terminatedBy: complete
+  baseVersion: 0 → resultVersion: 1
+  root: flow root
 ```
 
 ---
@@ -110,8 +95,10 @@ Duration: 2ms
 #### Step 1: Check Trace
 
 ```typescript
-const result = await host.dispatch({ type: 'toggleTodo', input: { id: '123' } });
-console.log('Snapshot changed?', result.trace.snapshotAfter !== result.trace.snapshotBefore);
+const before = await host.getSnapshot();
+const intent = createIntent('toggleTodo', { id: '123' }, 'intent-1');
+const result = await host.dispatch(intent);
+console.log('Snapshot changed?', before?.meta.version !== result.snapshot.meta.version);
 ```
 
 If `false`, the Flow didn't produce any patches.
@@ -119,7 +106,8 @@ If `false`, the Flow didn't produce any patches.
 #### Step 2: Inspect Flow Execution
 
 ```typescript
-console.log('Steps:', result.trace.steps);
+const trace = result.traces[result.traces.length - 1];
+console.log('Trace nodes:', Object.values(trace.nodes));
 ```
 
 Look for:
@@ -149,8 +137,8 @@ console.log(snapshot.data.filter); // → 'all' (not 'completed')
 
 ```typescript
 // Does the path exist?
-console.log('Before:', result.trace.snapshotBefore.data.todos);
-console.log('After:', result.trace.snapshotAfter.data.todos);
+console.log('Before:', before?.data.todos);
+console.log('After:', result.snapshot.data.todos);
 
 // Is the value what you expect?
 console.log('Filter:', snapshot.data.filter);
@@ -165,8 +153,10 @@ console.log('Filter:', snapshot.data.filter);
 #### Step 1: Check Requirements
 
 ```typescript
-const result = await host.dispatch({ type: 'fetchUser', input: { id: '123' } });
-console.log('Requirements:', result.trace.requirements);
+const intent = createIntent('fetchUser', { id: '123' }, 'intent-1');
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
+console.log('Requirements:', result.requirements);
 ```
 
 If empty, the effect wasn't declared.
@@ -214,7 +204,7 @@ host.registerEffect('api:getUser', ...)  // ← Wrong name!
 
 ```typescript
 // Check registered handlers
-console.log('Registered effects:', host.getRegisteredEffects());
+console.log('Registered effects:', host.getEffectTypes());
 
 // Verify name matches
 if (!host.hasEffect('api:fetchUser')) {
@@ -264,10 +254,10 @@ core.compute = (...args) => {
 
 ```typescript
 // Check trace for repeated steps
-const steps = result.trace.steps;
-const patchSteps = steps.filter(s => s.kind === 'patch');
+const nodes = Object.values(result.trace.nodes);
+const patchSteps = nodes.filter(node => node.kind === 'patch');
 
-console.log('Patches applied:', patchSteps.map(s => s.path));
+console.log('Patches applied:', patchSteps.map(node => node.sourcePath));
 // If you see the same path multiple times, it's re-entering
 ```
 
@@ -361,30 +351,11 @@ if (actor.role !== 'admin') {
 Compare snapshots to see exactly what changed:
 
 ```typescript
-import { diffSnapshots } from '@manifesto-ai/core/debug';
+const before = snapshot;
+const after = result.snapshot;
 
-const before = result.trace.snapshotBefore;
-const after = result.trace.snapshotAfter;
-
-const diff = diffSnapshots(before, after);
-console.log(diff);
-```
-
-**Output:**
-
-```json
-{
-  "changed": [
-    {
-      "path": "data.todos",
-      "before": [],
-      "after": [{ "id": "1", "title": "Test", "completed": false }],
-      "op": "set"
-    }
-  ],
-  "added": [],
-  "removed": []
-}
+console.log({ before: before.data, after: after.data });
+// For deep diffs, use a JSON diff tool on before.data/after.data
 ```
 
 ### 2. Expression Evaluator
@@ -392,50 +363,31 @@ console.log(diff);
 Test expressions in isolation:
 
 ```typescript
-import { evaluateExpr } from '@manifesto-ai/core';
+import { evaluateExpr, createContext } from '@manifesto-ai/core';
 
 const expr = {
   kind: 'add',
-  left: { kind: 'get', path: 'data.count' },
+  left: { kind: 'get', path: 'count' },
   right: { kind: 'lit', value: 1 }
 };
 
-const result = evaluateExpr(expr, snapshot);
+const ctx = createContext(snapshot, schema);
+const result = evaluateExpr(expr, ctx);
 console.log('Result:', result);  // → 6 (if count was 5)
 ```
 
-### 3. Flow Stepper
+### 3. Deterministic Replay
 
-Step through Flow execution:
-
-```typescript
-import { stepFlow } from '@manifesto-ai/core/debug';
-
-const stepper = stepFlow(schema, snapshot, flow);
-
-while (!stepper.done) {
-  console.log('Current step:', stepper.current);
-  stepper.next();
-}
-
-console.log('Final result:', stepper.result);
-```
-
-### 4. Trace Replay
-
-Replay a trace exactly:
+Replay a computation with the same inputs:
 
 ```typescript
-import { replayTrace } from '@manifesto-ai/core/debug';
+const context = {
+  now: snapshot.meta.timestamp,
+  randomSeed: snapshot.meta.randomSeed,
+};
+const replay = await core.compute(schema, snapshot, intent, context);
 
-// Load trace from production
-const trace = await loadTrace('incident-abc-123');
-
-// Replay locally
-const result = replayTrace(trace);
-
-// Compare results
-expect(result.snapshotAfter).toEqual(trace.snapshotAfter);  // Should match!
+expect(replay.snapshot).toEqual(result.snapshot);
 ```
 
 ---
@@ -448,7 +400,7 @@ expect(result.snapshotAfter).toEqual(trace.snapshotAfter);  // Should match!
 
 ```
 SchemaValidationError: Snapshot does not match schema
-  Path: data.todos[0].title
+  Path: todos.0.title
   Expected: string
   Received: undefined
 ```
@@ -489,11 +441,11 @@ EffectHandlerError: No handler registered for effect type: api:fetchUser
 // Register handler BEFORE dispatching
 host.registerEffect('api:fetchUser', async (type, params) => {
   const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
-  return [{ op: 'set', path: 'data.user', value: user }];
+  return [{ op: 'set', path: 'user', value: user }];
 });
 
 // Now dispatch
-await host.dispatch({ type: 'fetchUser', input: { id: '123' } });
+await host.dispatch(createIntent('fetchUser', { id: '123' }, 'intent-1'));
 ```
 
 ### Error: "Circular computed dependency"
@@ -528,7 +480,7 @@ computed.define({
 **Message:**
 
 ```
-PatchError: Cannot set path: data.todos[5].completed
+PatchError: Cannot set path: todos.5.completed
   Reason: Array index out of bounds (length: 2)
 ```
 
@@ -556,59 +508,56 @@ flow.when(
 
 ```typescript
 // In production Host
-host.subscribe((snapshot, trace) => {
-  // Send trace to logging service
-  logger.captureTrace({
-    userId: currentUser.id,
-    intentType: trace.intent.type,
-    timestamp: Date.now(),
-    trace: trace,
-  });
-});
+async function dispatchWithTrace(intent) {
+  const before = await host.getSnapshot();
+  const result = await host.dispatch(intent);
+  const trace = result.traces[result.traces.length - 1];
+
+  if (before) {
+    logger.captureTrace({
+      userId: currentUser.id,
+      intentType: trace.intent.type,
+      timestamp: Date.now(),
+      record: { intent, before, after: result.snapshot, trace },
+    });
+  }
+
+  return result;
+}
 ```
 
 #### Step 2: Load Trace Locally
 
 ```typescript
 // In development
-const trace = await loadTraceFromLogging('incident-abc-123');
+const record = await loadTraceFromLogging('incident-abc-123');
 
-console.log('Intent:', trace.intent);
-console.log('Snapshot before:', trace.snapshotBefore);
-console.log('Snapshot after:', trace.snapshotAfter);
+console.log('Intent:', record.intent);
+console.log('Snapshot before:', record.before);
+console.log('Snapshot after:', record.after);
 ```
 
 #### Step 3: Replay Exactly
 
 ```typescript
 // Replay with exact same inputs
-const result = core.compute(
-  trace.schema,
-  trace.snapshotBefore,
-  trace.intent
-);
+const context = {
+  now: record.before.meta.timestamp,
+  randomSeed: record.before.meta.randomSeed,
+};
+const result = await core.compute(schema, record.before, record.intent, context);
 
 // Result MUST match production
-expect(result.snapshotAfter).toEqual(trace.snapshotAfter);
-expect(result.requirements).toEqual(trace.requirements);
+expect(result.snapshot).toEqual(record.after);
 ```
 
 #### Step 4: Debug with Breakpoints
 
 ```typescript
-// Set breakpoints in Flow execution
-const stepper = stepFlow(trace.schema, trace.snapshotBefore, flow);
-
-while (!stepper.done) {
-  console.log('Step:', stepper.current);
-
-  // Set conditional breakpoint
-  if (stepper.current.kind === 'patch' && stepper.current.path.includes('todos')) {
-    debugger;  // Pause here
-  }
-
-  stepper.next();
-}
+// Inspect trace nodes and focus on patches
+const nodes = Object.values(record.trace.nodes);
+const patches = nodes.filter(node => node.kind === 'patch');
+console.log('Patch nodes:', patches.map(node => node.sourcePath));
 ```
 
 #### Step 5: Identify Root Cause
@@ -620,7 +569,7 @@ while (!stepper.done) {
 //   Body: skipped
 
 // Root cause: 'completed' array is empty
-console.log('completed:', trace.snapshotBefore.data.todos.filter(t => t.completed));
+console.log('completed:', record.before.data.todos.filter(t => t.completed));
 // → [] (no completed todos!)
 
 // Bug: User thought there were completed todos, but there weren't
@@ -635,18 +584,29 @@ console.log('completed:', trace.snapshotBefore.data.todos.filter(t => t.complete
 Install Manifesto DevTools extension (coming soon) or use console:
 
 ```typescript
+let lastTrace = null;
+
+// Capture last trace on each compute
+const host = createHost(schema, {
+  loop: {
+    onAfterCompute: (_iteration, result) => {
+      lastTrace = result.trace;
+    },
+  },
+});
+
 // Add to window for inspection
 window.__MANIFESTO__ = {
   core,
   host,
   world,
   getSnapshot: () => host.getSnapshot(),
-  getTrace: () => host.getLastTrace(),
+  getTrace: () => lastTrace,
 };
 
 // In console:
-__MANIFESTO__.getSnapshot().data.todos
-__MANIFESTO__.getTrace().steps
+await __MANIFESTO__.getSnapshot();
+__MANIFESTO__.getTrace();
 ```
 
 ### React DevTools
@@ -665,12 +625,15 @@ const TodoApp = createManifestoApp(TodoDomain, {
 Manifesto can integrate with Redux DevTools:
 
 ```typescript
-import { createDevToolsMiddleware } from '@manifesto-ai/host/devtools';
-
-const host = createHost({
-  schema,
-  snapshot,
-  middleware: [createDevToolsMiddleware()],
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
+  loop: {
+    onAfterCompute: (_iteration, result) => {
+      // Send state/trace to your DevTools integration
+      devtools.send(result.snapshot, result.trace);
+    },
+  },
 });
 ```
 
@@ -684,10 +647,11 @@ Verify same input → same output:
 
 ```typescript
 it('is deterministic', () => {
-  const result1 = core.compute(schema, snapshot, intent);
-  const result2 = core.compute(schema, snapshot, intent);
+  const context = { now: 0, randomSeed: "seed" };
+  const result1 = await core.compute(schema, snapshot, intent, context);
+  const result2 = await core.compute(schema, snapshot, intent, context);
 
-  expect(result1.snapshotAfter).toEqual(result2.snapshotAfter);
+  expect(result1.snapshot).toEqual(result2.snapshot);
   expect(result1.requirements).toEqual(result2.requirements);
 });
 ```
@@ -698,8 +662,9 @@ Use Jest snapshots for regression testing:
 
 ```typescript
 it('computes correct state', () => {
-  const result = core.compute(schema, snapshot, intent);
-  expect(result.snapshotAfter.data).toMatchSnapshot();
+  const context = { now: 0, randomSeed: "seed" };
+  const result = await core.compute(schema, snapshot, intent, context);
+  expect(result.snapshot.data).toMatchSnapshot();
 });
 ```
 
@@ -709,12 +674,11 @@ Assert on trace structure:
 
 ```typescript
 it('executes expected steps', () => {
-  const result = core.compute(schema, snapshot, intent);
+  const context = { now: 0, randomSeed: "seed" };
+  const result = await core.compute(schema, snapshot, intent, context);
 
-  expect(result.trace.steps).toEqual([
-    { kind: 'flow', path: 'seq', ... },
-    { kind: 'patch', path: 'data.todos', ... },
-  ]);
+  const nodes = Object.values(result.trace.nodes);
+  expect(nodes.some(node => node.kind === 'patch' && node.sourcePath === 'todos')).toBe(true);
 });
 ```
 
@@ -725,24 +689,28 @@ it('executes expected steps', () => {
 ### Identify Slow Computations
 
 ```typescript
-host.subscribe((snapshot, trace) => {
-  if (trace.duration > 100) {  // More than 100ms
-    console.warn('Slow computation:', {
-      intent: trace.intent.type,
-      duration: trace.duration,
-      steps: trace.steps.length,
-    });
-  }
+const host = createHost(schema, {
+  loop: {
+    onAfterCompute: (_iteration, result) => {
+      const trace = result.trace;
+      if (trace.duration > 100) {  // More than 100ms
+        console.warn('Slow computation:', {
+          intent: trace.intent.type,
+          duration: trace.duration,
+          steps: Object.keys(trace.nodes).length,
+        });
+      }
+    },
+  },
 });
 ```
 
 ### Profile Expression Evaluation
 
 ```typescript
-const steps = trace.steps.filter(s => s.kind === 'expr');
-const slowSteps = steps.filter(s => s.duration > 10);
-
-console.log('Slow expressions:', slowSteps);
+const exprNodes = Object.values(trace.nodes).filter(node => node.kind === 'expr');
+console.log('Expression nodes:', exprNodes.map(node => node.sourcePath));
+// For per-node timings, wrap compute/evaluateExpr with custom timers.
 ```
 
 ### Optimize Computed Values

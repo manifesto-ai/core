@@ -238,7 +238,7 @@ It can't effectively test impure code.
 ```typescript
 // Core is pure - no mocks needed
 it('creates user', () => {
-  const result = core.compute(schema, snapshot, {
+  const result = await core.compute(schema, snapshot, {
     type: 'createUser',
     input: { email: 'test@example.com' }
   });
@@ -270,7 +270,7 @@ Effects are declared but not executed. Testing is:
 ┌──────────────────────────────────────────────┐
 │ Core (Pure Computation)                      │
 │                                              │
-│ compute(schema, snapshot, intent)            │
+│ compute(schema, snapshot, intent, context)   │
 │   → (snapshot', requirements, trace)         │
 │                                              │
 │ - No IO                                      │
@@ -330,12 +330,13 @@ Every committed World records:
 ```typescript
 // WRONG: Effect returns value
 const result = await executeEffect();
-core.compute(snapshot, { ...intent, result });  // Hidden channel!
+const context = { now: 0, randomSeed: "seed" };
+await core.compute(schema, snapshot, { ...intent, result }, context);  // Hidden channel!
 
 // RIGHT: Effect returns patches
 const patches = await executeEffect();
-snapshot = core.apply(snapshot, patches);
-core.compute(snapshot, intent);  // Reads from Snapshot
+snapshot = core.apply(schema, snapshot, patches, context);
+await core.compute(schema, snapshot, intent, context);  // Reads from Snapshot
 ```
 
 **Benefits:**
@@ -383,7 +384,8 @@ world.registerAuthority('code:refactor', async (proposal) => {
 
 // If approved, deterministic execution
 if (proposal.approved) {
-  const result = core.compute(schema, snapshot, intent);
+  const context = { now: 0, randomSeed: "seed" };
+  const result = await core.compute(schema, snapshot, intent, context);
   // Replay is guaranteed to produce same result
 }
 ```
@@ -477,7 +479,7 @@ world.registerAuthority('todos:delete', async (proposal, context) => {
 const trace = await trace.load('incident-abc-123');
 
 // Replay locally
-const result = core.compute(
+const result = await core.compute(
   trace.schema,
   trace.snapshotBefore,
   trace.intent
@@ -593,7 +595,7 @@ const { addTodo } = actions.define({
     input: z.object({ text: z.string() }),
     flow: flow.seq([
       effect('api:addTodo', { text: expr.input('text') }),
-      patch(state.todos).set(expr.concat(state.todos, [expr.get('data.newTodo')])),
+      patch(state.todos).set(expr.concat(state.todos, [expr.get('newTodo')])),
     ]),
   },
 });

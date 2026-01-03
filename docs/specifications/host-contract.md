@@ -93,6 +93,22 @@ An **Intent** is a request to perform an action, consisting of:
 
 A **Requirement** is a recorded effect declaration waiting for Host fulfillment.
 
+### 2.6 HostContext
+
+**HostContext** provides deterministic inputs for Core computation:
+
+- `now`: Logical time provided by Host
+- `randomSeed`: Deterministic seed for this intent execution
+- `env`: Optional environment metadata
+- `durationMs`: Optional measured compute duration
+
+**Reference Host defaults (informative):**
+- If `now` is not provided, `@manifesto-ai/host` uses `Date.now()`.
+- If `randomSeed` is not provided, `@manifesto-ai/host` uses `intent.intentId`.
+- For initial snapshot creation, `@manifesto-ai/host` uses `randomSeed: "initial"`.
+
+For deterministic replay across runs, Hosts SHOULD provide explicit `now` and `randomSeed`.
+
 ---
 
 ## 3. Core–Host Boundary
@@ -117,6 +133,7 @@ The boundary between Core and Host is **absolute**.
 | Persistence | ❌ | ✅ |
 | Policy decisions | ❌ | ✅ |
 | Version/Timestamp management | ✅ | ❌ |
+| Host context inputs (now/randomSeed) | ❌ | ✅ |
 
 ---
 
@@ -129,30 +146,43 @@ A compliant Host **MUST** satisfy all requirements in this section.
 The Host **MUST** invoke Core computation exclusively via:
 
 ```typescript
-compute(schema: DomainSchema, snapshot: Snapshot, intent: Intent): ComputeResult
+compute(
+  schema: DomainSchema,
+  snapshot: Snapshot,
+  intent: Intent,
+  context: HostContext
+): ComputeResult
 ```
 
 - Host **MUST NOT** partially evaluate, skip, or short-circuit Core logic.
 - Host **MUST NOT** attempt to infer outcomes without calling `compute()`.
 - Host **MUST** provide a valid `intentId` with each Intent.
+- Host **MUST** provide a HostContext for every compute call.
 
 ### 4.2 State Mutation
 
 The Host **MUST** mutate state **only** by applying patches via:
 
 ```typescript
-apply(schema: DomainSchema, snapshot: Snapshot, patches: Patch[]): Snapshot
+apply(
+  schema: DomainSchema,
+  snapshot: Snapshot,
+  patches: Patch[],
+  context: HostContext
+): Snapshot
 ```
 
 - Host **MUST NOT** mutate Snapshot directly.
 - Host **MUST NOT** infer diffs or modify Snapshot implicitly.
-- Host **MUST NOT** modify `snapshot.meta.version` or `snapshot.meta.timestamp`.
+- Host **MUST NOT** modify Snapshot metadata directly.
+- Host **MUST** supply HostContext for every apply call.
 
 ### 4.3 Re-Invocation After Effect
 
 After fulfilling Requirements and applying result patches:
 
 - Host **MUST** re-invoke `compute()` with the **same Intent** (same `intentId`).
+- Host **MUST** keep `context.randomSeed` stable across re-invocations for the same intent.
 - Host **MUST** clear fulfilled Requirements before re-invocation.
 
 There is **no resume**. There is **no continuation**.
@@ -189,7 +219,7 @@ A Host **MUST NOT**:
 ```typescript
 // FORBIDDEN
 const result = await executeEffect();
-core.compute(schema, snapshot, { ...intent, injectedResult: result });
+await core.compute(schema, snapshot, { ...intent, injectedResult: result }, context);
 ```
 
 All information **MUST** be written to Snapshot via patches.
@@ -210,10 +240,10 @@ The Host is **not an interpreter**.
 A Host **MUST NOT**:
 
 - Manually set `snapshot.meta.version`
-- Manually set `snapshot.meta.timestamp`
+- Manually set `snapshot.meta.timestamp` or `snapshot.meta.randomSeed`
 - Reset or decrement version numbers
 
-These are Core's exclusive responsibility.
+These are Core's responsibility. Hosts provide time/seed **only** via `HostContext`.
 
 ---
 
@@ -296,7 +326,8 @@ Effect handlers **MUST** conform to:
 ```typescript
 type EffectHandler = (
   type: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  context: EffectContext
 ) => Promise<Patch[]>;
 ```
 
@@ -340,19 +371,16 @@ async function createTodoHandler(type: string, params: Record<string, unknown>):
 }
 ```
 
-### 7.5 Snapshot Context (OPTIONAL)
+### 7.5 EffectContext
 
-A Host **MAY** provide Snapshot as read-only context to handlers:
+Handlers receive read-only context:
 
 ```typescript
-type EffectHandlerWithContext = (
-  type: string,
-  params: Record<string, unknown>,
-  snapshot: Readonly<Snapshot>  // Read-only context
-) => Promise<Patch[]>;
+type EffectContext = {
+  snapshot: Readonly<Snapshot>;
+  requirement: Requirement;
+};
 ```
-
-If provided:
 
 - Handler **MAY** read Snapshot for observational context.
 - Handler **MUST NOT** implement domain decision logic based on Snapshot.
@@ -403,27 +431,35 @@ Two acceptable patterns:
 **Pattern A: Clear All After Processing**
 
 ```typescript
+const context = { now: 0, randomSeed: "seed" };
+
 // Process all requirements
 for (const req of snapshot.system.pendingRequirements) {
-  const patches = await executeEffect(req.type, req.params);
-  snapshot = core.apply(schema, snapshot, patches);
+  const patches = await executeEffect(req.type, req.params, {
+    snapshot,
+    requirement: req,
+  });
+  snapshot = core.apply(schema, snapshot, patches, context);
 }
 // Clear all
 snapshot = core.apply(schema, snapshot, [
   { op: 'set', path: 'system.pendingRequirements', value: [] }
-]);
+], context);
 ```
 
 **Pattern B: Clear Each After Fulfillment**
 
 ```typescript
 for (const req of [...snapshot.system.pendingRequirements]) {
-  const patches = await executeEffect(req.type, req.params);
+  const patches = await executeEffect(req.type, req.params, {
+    snapshot,
+    requirement: req,
+  });
   snapshot = core.apply(schema, snapshot, [
     ...patches,
     { op: 'set', path: 'system.pendingRequirements', 
       value: snapshot.system.pendingRequirements.filter(r => r.id !== req.id) }
-  ]);
+  ], context);
 }
 ```
 
@@ -485,20 +521,21 @@ IntentId enables:
 ```typescript
 // User clicks "Add Todo"
 const intentId = crypto.randomUUID();  // "550e8400-e29b-41d4-a716-446655440000"
+const context = { now: 0, randomSeed: intentId };
 
 // First compute
-let result = core.compute(schema, snapshot, {
+let result = await core.compute(schema, snapshot, {
   type: 'addTodo',
   input: { title: 'Buy milk', localId: 'local-1' },
   intentId: intentId  // New intentId
-});
+}, context);
 
 // After effect fulfillment, re-invoke with SAME intentId
-result = core.compute(schema, newSnapshot, {
+result = await core.compute(schema, newSnapshot, {
   type: 'addTodo',
   input: { title: 'Buy milk', localId: 'local-1' },
   intentId: intentId  // Same intentId
-});
+}, context);
 ```
 
 ---
@@ -535,21 +572,25 @@ A Host **MAY** execute multiple effects in parallel, subject to:
 ```typescript
 // ALLOWED: Parallel execution with sequential application
 const requirements = snapshot.system.pendingRequirements;
+const context = { now: 0, randomSeed: "seed" };
 
 // Execute in parallel
 const results = await Promise.all(
-  requirements.map(req => executeEffect(req.type, req.params))
+  requirements.map(req => executeEffect(req.type, req.params, {
+    snapshot,
+    requirement: req,
+  }))
 );
 
 // Apply sequentially in deterministic order
 for (let i = 0; i < requirements.length; i++) {
-  snapshot = core.apply(schema, snapshot, results[i]);
+  snapshot = core.apply(schema, snapshot, results[i], context);
 }
 
 // Clear requirements
 snapshot = core.apply(schema, snapshot, [
   { op: 'set', path: 'system.pendingRequirements', value: [] }
-]);
+], context);
 ```
 
 ### 10.5 Multi-Snapshot Concurrency (MAY)
@@ -562,12 +603,13 @@ A Host **MAY** process multiple Snapshots concurrently if they represent **indep
 
 ### 11.1 Core Responsibility
 
-**Core is exclusively responsible for version and timestamp management.**
+**Core is exclusively responsible for snapshot metadata updates.**
 
 When `apply()` is called:
 
 - Core **MUST** increment `snapshot.meta.version`.
-- Core **MUST** update `snapshot.meta.timestamp` to current time.
+- Core **MUST** set `snapshot.meta.timestamp` from `HostContext.now`.
+- Core **MUST** set `snapshot.meta.randomSeed` from `HostContext.randomSeed`.
 - Core **MUST** ensure version is monotonically increasing.
 
 ### 11.2 Host Prohibition
@@ -588,6 +630,9 @@ type SnapshotMeta = {
   
   /** Timestamp of last apply(), set by Core */
   readonly timestamp: number;
+
+  /** Deterministic random seed from Host context */
+  readonly randomSeed: string;
   
   /** Schema hash this Snapshot conforms to */
   readonly schemaHash: string;
@@ -638,30 +683,37 @@ The following Host loop pattern is **normative**, not illustrative.
 A compliant Host **MUST** implement equivalent behavior.
 
 ```typescript
+type HostLoopResult = {
+  status: "complete" | "halted" | "error";
+  snapshot: Snapshot;
+};
+
 async function processIntent(
   core: ManifestoCore,
   schema: DomainSchema,
   snapshot: Snapshot,
-  intent: Intent
-): Promise<Snapshot> {
+  intent: Intent,
+  getContext: () => HostContext
+): Promise<HostLoopResult> {
   
   // Validate intentId presence
   if (!intent.intentId) {
-    throw new Error('Intent MUST have intentId');
+    return { status: "error", snapshot: snapshot };
   }
   
   let current = snapshot;
   
   while (true) {
+    const context = getContext();
     // Clear any stale requirements before compute (defensive)
     if (current.system.pendingRequirements.length > 0) {
       current = core.apply(schema, current, [
         { op: 'set', path: 'system.pendingRequirements', value: [] }
-      ]);
+      ], context);
     }
     
     // Compute
-    const result = core.compute(schema, current, intent);
+    const result = await core.compute(schema, current, intent, context);
     current = result.snapshot;
     
     // Handle result status
@@ -669,29 +721,32 @@ async function processIntent(
       case 'complete':
       case 'halted':
         // Terminal states - return final snapshot
-        return current;
+        return { status: result.status, snapshot: current };
         
       case 'error':
         // Error state - Host policy applies
         // Options: return, retry, escalate
-        return current;
+        return { status: "error", snapshot: current };
         
       case 'pending':
         // Effect(s) required - fulfill and re-enter
         
         // Process requirements in deterministic order
-        for (const req of current.system.pendingRequirements) {
+        for (const req of result.requirements) {
           // Execute effect handler
-          const patches = await executeEffect(req.type, req.params);
+          const patches = await executeEffect(req.type, req.params, {
+            snapshot: current,
+            requirement: req,
+          });
           
           // Apply result patches
-          current = core.apply(schema, current, patches);
+          current = core.apply(schema, current, patches, context);
         }
         
         // Clear fulfilled requirements
         current = core.apply(schema, current, [
           { op: 'set', path: 'system.pendingRequirements', value: [] }
-        ]);
+        ], context);
         
         // Loop continues - compute() will be called again with same intentId
         break;
@@ -701,7 +756,8 @@ async function processIntent(
 
 async function executeEffect(
   type: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  context: EffectContext
 ): Promise<Patch[]> {
   const handler = effectHandlers[type];
   
@@ -711,21 +767,21 @@ async function executeEffect(
       { op: 'set', path: 'system.lastError', value: {
         code: 'UNKNOWN_EFFECT_TYPE',
         message: `No handler registered for effect type: ${type}`,
-        timestamp: Date.now()
+        timestamp: context.requirement.createdAt
       }}
     ];
   }
   
   // Handler MUST NOT throw - but defensive wrapping is acceptable
   try {
-    return await handler(type, params);
+    return await handler(type, params, context);
   } catch (error) {
     // Convert unexpected throw to error patches
     return [
       { op: 'set', path: 'system.lastError', value: {
         code: 'EFFECT_HANDLER_ERROR',
         message: error.message,
-        timestamp: Date.now()
+        timestamp: context.requirement.createdAt
       }}
     ];
   }

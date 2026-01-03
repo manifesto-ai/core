@@ -83,9 +83,10 @@ snapshot.data.count = 5;
 snapshot.meta.version++;
 
 // REQUIRED
+const context = { now: 0, randomSeed: "seed" };
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'data.count', value: 5 }
-]);
+  { op: 'set', path: 'count', value: 5 }
+], context);
 ```
 
 **Why this matters:** Time-travel debugging, safe concurrency, reproducible computation.

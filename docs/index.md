@@ -56,7 +56,7 @@ World governs who can do what.
 The fundamental equation:
 
 ```typescript
-compute(schema, snapshot, intent) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
 ```
 
 This equation is:
@@ -140,7 +140,7 @@ Flows are **data structures** that describe computations:
 {
   kind: "seq",
   steps: [
-    { kind: "patch", op: "set", path: "data.count", value: { kind: "lit", value: 0 } }
+    { kind: "patch", op: "set", path: "count", value: { kind: "lit", value: 0 } }
   ]
 }
 ```
@@ -160,7 +160,7 @@ flow.effect("api:fetchUser", { userId: "123" });
 // Execute effect (Host)
 host.registerEffect("api:fetchUser", async (type, params) => {
   const user = await fetch(`/api/users/${params.userId}`).then(r => r.json());
-  return [{ op: "set", path: "data.user", value: user }]; // Return patches
+  return [{ op: "set", path: "user", value: user }]; // Return patches
 });
 ```
 
@@ -309,12 +309,12 @@ sequenceDiagram
     Bridge->>World: Submit proposal
     World->>World: Evaluate authority
     World->>Host: Execute approved intent
-    Host->>Core: compute(schema, snapshot, intent)
+    Host->>Core: compute(schema, snapshot, intent, context)
     Core->>Core: Evaluate Flow
-    Core-->>Host: (patches, requirements, trace)
+    Core-->>Host: (snapshot', requirements, trace)
     Host->>Host: Execute effects
     Host->>Host: Apply patches
-    Host->>Core: compute(new snapshot, intent)
+    Host->>Core: compute(new snapshot, intent, context)
     Core-->>Host: (snapshot', [], trace)
     Host->>Bridge: Notify snapshot changed
     Bridge->>React: Re-render

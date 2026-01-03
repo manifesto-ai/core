@@ -280,7 +280,7 @@ Manifesto separates them:
 **The guarantee:**
 
 ```typescript
-compute(schema, snapshot, intent) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
 ```
 
 Same inputs → same outputs, **always**.

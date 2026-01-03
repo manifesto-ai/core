@@ -315,7 +315,10 @@ type SnapshotHashInput = {
 // Create World
 const world = createManifestoWorld({
   schemaHash: 'todo-v1',
-  host: createHost({ schema, snapshot }),
+  host: createHost(schema, {
+    initialData: {},
+    context: { now: () => Date.now() },
+  }),
   defaultAuthority: createAutoApproveHandler()
 });
 
@@ -365,18 +368,24 @@ world.bindAuthority('user-1', 'auto', authority);
 ### Pattern 2: Policy Rules
 
 ```typescript
-const authority = createPolicyRulesHandler({
+const policy = {
+  mode: "policy_rules",
   rules: [
     {
-      // Only allow writes to own user data
-      path: '/data/users/*',
-      condition: (proposal, actorId) => {
-        const userId = extractUserId(proposal.intent.input);
-        return userId === actorId;
-      }
-    }
-  ]
-});
+      condition: { kind: "intent_type", types: ["user.update"] },
+      decision: "approve",
+      reason: "Allow user profile updates",
+    },
+    {
+      condition: { kind: "scope_pattern", pattern: "todos.*" },
+      decision: "approve",
+      reason: "Allow todo intents",
+    },
+  ],
+  defaultDecision: "reject",
+};
+
+world.registerActor({ actorId: "user-1", kind: "user" }, policy);
 ```
 
 ### Pattern 3: HITL (Agent Supervision)

@@ -10,7 +10,7 @@
 In Manifesto, determinism means that **the same input always produces the same output, always**. This is not a convenience—it is the foundational constraint that makes every other guarantee possible.
 
 ```typescript
-compute(schema, snapshot, intent) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
 ```
 
 This equation is:
@@ -92,16 +92,18 @@ type Snapshot = {
   data: Record<string, unknown>;      // Domain state
   computed: Record<string, unknown>;  // Derived values (recalculated, never stored)
   system: {
-    status: 'idle' | 'running' | 'completed' | 'failed';
+    status: 'idle' | 'computing' | 'pending' | 'error';
     pendingRequirements: Requirement[];
-    currentAction?: string;
+    currentAction: string | null;
+    lastError: ErrorValue | null;
     errors: ErrorValue[];
   };
-  input: Record<string, unknown>;     // Transient action input
+  input: unknown;                     // Transient action input
   meta: {
     version: number;                  // Monotonically increasing
-    timestamp: string;                // ISO 8601
-    hash: string;                     // Content-addressable
+    timestamp: number;                // Host-provided logical time
+    randomSeed: string;               // Host-provided deterministic seed
+    schemaHash: string;               // Schema hash this snapshot conforms to
   };
 };
 ```
@@ -122,7 +124,7 @@ Initial designs considered a `resume()` API:
 
 ```typescript
 // Old design (rejected)
-const result = core.compute(snapshot, intent);
+const result = await core.compute(schema, snapshot, intent, context);
 if (result.status === 'paused') {
   // Execute effects...
   core.resume(result.context, patches);  // Suspended state!
@@ -187,7 +189,7 @@ await fetch('/api/data');
 │                    COMPUTATION CYCLE                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Host calls: compute(snapshot, intent)                      │
+│  Host calls: compute(snapshot, intent, context)             │
 │                     │                                       │
 │                     ▼                                       │
 │  ┌─────────────────────────────────────┐                   │
@@ -291,7 +293,8 @@ When you use Manifesto, you get these guarantees:
 ```typescript
 // No mocks needed
 test('computes transition', () => {
-  const result = core.compute(schema, snapshot, intent);
+  const context = { now: 0, randomSeed: "seed" };
+  const result = await core.compute(schema, snapshot, intent, context);
   expect(result.snapshot.data.count).toBe(1);
 });
 ```
@@ -308,7 +311,8 @@ Because computation is pure and traceable:
 
 ```typescript
 // Trace shows the complete computation
-const result = core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
 console.log(result.trace);
 // Every step, every input, every output
 ```
@@ -355,7 +359,7 @@ Determinism requires strict boundaries:
 │  - User interaction                                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              │ compute(snapshot, intent)
+                              │ compute(snapshot, intent, context)
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                           Core                               │
@@ -370,8 +374,8 @@ Determinism requires strict boundaries:
 
 | Direction | Allowed | Forbidden |
 |-----------|---------|-----------|
-| Host → Core | DomainSchema, Snapshot, Intent | Side effects, async operations |
-| Core → Host | ComputeResult (patches, requirements) | Direct IO, network calls |
+| Host → Core | DomainSchema, Snapshot, Intent, HostContext | Side effects, async operations |
+| Core → Host | ComputeResult (snapshot, requirements, trace) | Direct IO, network calls |
 
 **Contract rules:**
 - Core MUST be pure (same input → same output)
@@ -452,9 +456,7 @@ For very deep Flows (100+ nodes) or high-frequency updates (1000+/sec):
 const now = Date.now();
 
 // Right: Deterministic
-const now = snapshot.input.timestamp;
-// or
-const now = snapshot.meta.timestamp;
+const now = snapshot.input.__host.now;
 ```
 
 Host provides time as input. Core reads it from Snapshot.
@@ -476,10 +478,10 @@ But Core's computation remains pure.
 const id = Math.random().toString();
 
 // Right: Deterministic
-const id = snapshot.input.randomSeed;
+const id = snapshot.input.__host.randomSeed;
 ```
 
-Host provides randomness as input. Core uses it deterministically.
+Host provides randomness via HostContext (available under `input.__host`). Core uses it deterministically.
 
 ---
 
@@ -514,7 +516,7 @@ Determinism is not a feature of Manifesto—it is the constraint that defines wh
 **The fundamental equation:**
 
 ```
-compute(schema, snapshot, intent) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
 ```
 
 This equation is pure, total, traceable, and complete.

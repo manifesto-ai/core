@@ -61,35 +61,41 @@ The heart of Host is the compute-effect loop:
 async function runHostLoop(
   schema: DomainSchema,
   snapshot: Snapshot,
-  intent: IntentInstance,
-  effectHandlers: EffectRegistry
-): Promise<ComputeResult> {
+  intent: Intent,
+  effectHandlers: EffectRegistry,
+  getContext: () => HostContext
+): Promise<HostLoopResult> {
   let currentSnapshot = snapshot;
   let iterations = 0;
 
   while (iterations < MAX_ITERATIONS) {
+    const context = getContext();
+
     // Step 1: Compute
-    const result = core.compute(schema, currentSnapshot, intent);
+    const result = await core.compute(schema, currentSnapshot, intent, context);
 
     // Step 2: Check status
-    if (result.status === 'completed' || result.status === 'failed') {
+    if (result.status === 'complete' || result.status === 'halted' || result.status === 'error') {
       return result; // Done
     }
 
     if (result.status === 'pending') {
       // Step 3: Execute effects
-      for (const req of result.snapshot.system.pendingRequirements) {
+      for (const req of result.requirements) {
         const handler = effectHandlers.get(req.type);
-        const patches = await handler(req.type, req.params, currentSnapshot);
+        const patches = await handler(req.type, req.params, {
+          snapshot: currentSnapshot,
+          requirement: req,
+        });
 
         // Step 4: Apply effect result patches
-        currentSnapshot = core.apply(schema, currentSnapshot, patches);
+        currentSnapshot = core.apply(schema, currentSnapshot, patches, context);
       }
 
       // Step 5: Clear requirements
       currentSnapshot = core.apply(schema, currentSnapshot, [
         { op: 'set', path: 'system.pendingRequirements', value: [] }
-      ]);
+      ], context);
 
       // Step 6: Loop (re-compute with new snapshot)
       iterations++;
@@ -97,7 +103,7 @@ async function runHostLoop(
     }
   }
 
-  throw new Error('Max iterations exceeded');
+  return { status: "error", snapshot: currentSnapshot, traces: [], iterations };
 }
 ```
 
@@ -128,12 +134,18 @@ Host maintains a registry of effect handlers:
 type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
-  snapshot: Snapshot
+  context: EffectContext
 ) => Promise<Patch[]>;
+
+type EffectContext = {
+  snapshot: Readonly<Snapshot>;
+  requirement: Requirement;
+};
 
 const registry = new Map<string, EffectHandler>();
 
-registry.set('api:fetch', async (type, params, snapshot) => {
+registry.set('api:fetch', async (type, params, context) => {
+  const { snapshot } = context;
   const response = await fetch(params.url);
   const data = await response.json();
 
@@ -147,20 +159,20 @@ registry.set('api:fetch', async (type, params, snapshot) => {
 
 Effect handlers MUST:
 
-1. **Accept** `(type, params, snapshot)`
+1. **Accept** `(type, params, context)`
 2. **Return** `Patch[]` (never throw)
 3. **Express errors as patches**, not exceptions
 
 ```typescript
 // WRONG: Throwing
-async function handler(type, params, snapshot) {
+async function handler(type, params, context) {
   const result = await api.call(params);
   if (!result.ok) throw new Error('Failed'); // WRONG!
   return [{ op: 'set', path: 'result', value: result }];
 }
 
 // RIGHT: Error as patch
-async function handler(type, params, snapshot) {
+async function handler(type, params, context) {
   try {
     const result = await api.call(params);
     if (!result.ok) {
@@ -184,7 +196,7 @@ async function handler(type, params, snapshot) {
 Host delegates patch application to Core via `apply()`:
 
 ```typescript
-const newSnapshot = core.apply(schema, snapshot, patches);
+const newSnapshot = core.apply(schema, snapshot, patches, context);
 ```
 
 **Host does NOT modify snapshots directly.** All mutation goes through Core's `apply()`.
@@ -205,9 +217,9 @@ interface SnapshotStore {
   set(key: string, snapshot: Snapshot): void;
 }
 
-const host = createHost({
-  schema,
+const host = createHost(schema, {
   snapshot: initialSnapshot,
+  context: { now: () => Date.now() },
   store: {
     get: (key) => JSON.parse(localStorage.getItem(key) || 'null'),
     set: (key, snapshot) => localStorage.setItem(key, JSON.stringify(snapshot))
@@ -240,9 +252,10 @@ async function executeEffect(req: Requirement) {
 ```typescript
 // WRONG: Host filtering
 async function runHostLoop(...) {
-  const result = core.compute(schema, snapshot, intent);
+  const context = { now: 0, randomSeed: "seed" };
+  const result = await core.compute(schema, snapshot, intent, context);
 
-  const safeRequirements = result.snapshot.system.pendingRequirements
+  const safeRequirements = result.requirements
     .filter(req => req.type !== 'dangerous'); // WRONG!
 
   for (const req of safeRequirements) {
@@ -257,7 +270,8 @@ async function runHostLoop(...) {
 
 ```typescript
 // WRONG: Business logic in effect handler
-async function createTodoHandler(type, params, snapshot) {
+async function createTodoHandler(type, params, context) {
+  const { snapshot } = context;
   // Business rule in handler!
   if (snapshot.data.todos.length >= 100) {
     return [{ op: 'set', path: 'error', value: 'Too many todos' }];
@@ -288,11 +302,11 @@ async function createTodoHandler(type, params, snapshot) {
 function createHost(config: HostConfig): Host;
 
 type HostConfig = {
-  schema: DomainSchema;
-  snapshot: Snapshot;
+  snapshot?: Snapshot;
+  initialData?: unknown;
   store?: SnapshotStore;
-  maxIterations?: number;
-  timeout?: number;
+  loop?: HostLoopOptions;
+  context?: HostContextOptions;
 };
 ```
 
@@ -301,16 +315,13 @@ type HostConfig = {
 ```typescript
 interface Host {
   /** Execute an intent */
-  dispatch(intent: IntentBody): Promise<ComputeResult>;
+  dispatch(intent: Intent): Promise<HostResult>;
 
   /** Register an effect handler */
   registerEffect(type: string, handler: EffectHandler): void;
 
   /** Get current snapshot */
-  getSnapshot(): Snapshot;
-
-  /** Subscribe to snapshot changes */
-  subscribe(listener: (snapshot: Snapshot) => void): () => void;
+  getSnapshot(): Promise<Snapshot | null>;
 }
 ```
 
@@ -319,19 +330,18 @@ interface Host {
 ## Complete Example
 
 ```typescript
+import { createIntent } from "@manifesto-ai/core";
 import { createHost } from "@manifesto-ai/host";
-import { createCore } from "@manifesto-ai/core";
 
 // 1. Create host
-const host = createHost({
-  schema: TodoSchema,
+const host = createHost(TodoSchema, {
   snapshot: initialSnapshot,
-  maxIterations: 10,
-  timeout: 30000
+  loop: { maxIterations: 10 },
+  context: { now: () => Date.now() },
 });
 
 // 2. Register effect handlers
-host.registerEffect('api:createTodo', async (type, params, snapshot) => {
+host.registerEffect('api:createTodo', async (type, params, _context) => {
   const response = await fetch('/api/todos', {
     method: 'POST',
     body: JSON.stringify({
@@ -343,22 +353,22 @@ host.registerEffect('api:createTodo', async (type, params, snapshot) => {
   const todo = await response.json();
 
   return [
-    { op: 'set', path: `data.todos.${params.localId}.serverId`, value: todo.id },
-    { op: 'set', path: `data.todos.${params.localId}.syncStatus`, value: 'synced' }
+    { op: 'set', path: `todos.${params.localId}.serverId`, value: todo.id },
+    { op: 'set', path: `todos.${params.localId}.syncStatus`, value: 'synced' }
   ];
 });
 
 // 3. Dispatch intent
-const result = await host.dispatch({
-  type: 'addTodo',
-  input: {
-    title: 'Buy milk',
-    localId: 'local-123'
-  }
-});
+const intent = createIntent(
+  'addTodo',
+  { title: 'Buy milk', localId: 'local-123' },
+  'intent-1'
+);
+const result = await host.dispatch(intent);
 
-console.log(result.status); // 'completed'
-console.log(host.getSnapshot().data.todos);
+console.log(result.status); // 'complete'
+const snapshot = await host.getSnapshot();
+console.log(snapshot?.data.todos);
 ```
 
 ---
@@ -369,8 +379,11 @@ console.log(host.getSnapshot().data.todos);
 
 ```typescript
 // WRONG: No handler registered
-const host = createHost({ schema, snapshot });
-await host.dispatch({ type: 'fetchUser', input: { id: '123' } });
+const host = createHost(schema, {
+  initialData: { user: null },
+  context: { now: () => Date.now() },
+});
+await host.dispatch(createIntent('fetchUser', { id: '123' }, 'intent-1'));
 // Error: No handler for effect type "api:fetchUser"
 ```
 
@@ -380,7 +393,7 @@ await host.dispatch({ type: 'fetchUser', input: { id: '123' } });
 
 ```typescript
 // WRONG: Throwing
-host.registerEffect('api:fetch', async (type, params) => {
+host.registerEffect('api:fetch', async (type, params, _context) => {
   const response = await fetch(params.url);
   if (!response.ok) throw new Error('Failed'); // WRONG!
 });
@@ -392,7 +405,8 @@ host.registerEffect('api:fetch', async (type, params) => {
 
 ```typescript
 // WRONG: Direct mutation
-host.registerEffect('increment', async (type, params, snapshot) => {
+host.registerEffect('increment', async (type, params, context) => {
+  const { snapshot } = context;
   snapshot.data.count++; // WRONG!
   return [];
 });

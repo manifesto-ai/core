@@ -445,11 +445,11 @@ Effects are already non-deterministic (LLM calls, I/O). Timestamps belong there:
 
 ```typescript
 // Effect handler
-async function validateHandler(params) {
+async function validateHandler(params, context) {
   const result = validate(params.draft);
   return {
     ...result,
-    timestamp: Date.now(),  // Non-determinism contained here
+    timestamp: context.requirement.createdAt,  // Deterministic from HostContext
   };
 }
 

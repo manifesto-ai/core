@@ -238,7 +238,7 @@ flow.seq([
 // Host handler
 host.registerEffect('api:fetchUser', async (type, params) => {
   const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
-  return [{ op: 'set', path: 'data.user', value: user }];
+  return [{ op: 'set', path: 'user', value: user }];
 });
 ```
 

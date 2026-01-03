@@ -89,7 +89,7 @@ type Requirement = {
 {
   kind: "seq",
   steps: [
-    { kind: "patch", op: "set", path: "data.loading", value: true },
+    { kind: "patch", op: "set", path: "loading", value: true },
     {
       kind: "effect",
       type: "api:fetch",
@@ -115,25 +115,29 @@ When Core evaluates the effect node:
 
 Host loop:
 ```typescript
-const result = core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
 
 if (result.status === 'pending') {
   // Execute effects
-  for (const req of result.snapshot.system.pendingRequirements) {
+  for (const req of result.requirements) {
     const handler = effectHandlers[req.type];
-    const patches = await handler(req.type, req.params, snapshot);
+    const patches = await handler(req.type, req.params, {
+      snapshot,
+      requirement: req,
+    });
 
     // Apply result patches
-    snapshot = core.apply(schema, snapshot, patches);
+    snapshot = core.apply(schema, snapshot, patches, context);
   }
 
   // Clear requirements
   snapshot = core.apply(schema, snapshot, [
     { op: 'set', path: 'system.pendingRequirements', value: [] }
-  ]);
+  ], context);
 
   // Re-compute
-  const nextResult = core.compute(schema, snapshot, intent);
+  const nextResult = await core.compute(schema, snapshot, intent, context);
   // Flow continues...
 }
 ```
@@ -145,11 +149,11 @@ if (result.status === 'pending') {
 {
   kind: "seq",
   steps: [
-    { kind: "patch", op: "set", path: "data.loading", value: true },
+    { kind: "patch", op: "set", path: "loading", value: true },
     { kind: "effect", type: "api:fetch", params: {...} },
     // ↑ Already executed
     // ↓ Continues here
-    { kind: "patch", op: "set", path: "data.loading", value: false }
+    { kind: "patch", op: "set", path: "loading", value: false }
   ]
 }
 ```
@@ -162,7 +166,7 @@ if (result.status === 'pending') {
 
 Effect handlers (implemented by Host) MUST:
 
-1. Accept `(type: string, params: Record<string, unknown>)`
+1. Accept `(type: string, params: Record<string, unknown>, context: EffectContext)`
 2. Return `Patch[]` (success case) or `Patch[]` with error info (failure case)
 3. **Never throw.** Errors are expressed as Patches.
 
@@ -170,11 +174,17 @@ Effect handlers (implemented by Host) MUST:
 
 ```typescript
 // Host-side effect handler
+type EffectContext = {
+  snapshot: Readonly<Snapshot>;
+  requirement: Requirement;
+};
+
 async function apiCreateTodoHandler(
   type: string,
   params: Record<string, unknown>,
-  snapshot: Snapshot
+  context: EffectContext
 ): Promise<Patch[]> {
+  const { snapshot } = context;
   try {
     const result = await api.createTodo({
       title: params.title as string,
@@ -184,12 +194,12 @@ async function apiCreateTodoHandler(
     return [
       {
         op: 'set',
-        path: `data.todos.${params.localId}.serverId`,
+        path: `todos.${params.localId}.serverId`,
         value: result.id
       },
       {
         op: 'set',
-        path: `data.todos.${params.localId}.syncStatus`,
+        path: `todos.${params.localId}.syncStatus`,
         value: 'synced'
       }
     ];
@@ -197,12 +207,12 @@ async function apiCreateTodoHandler(
     return [
       {
         op: 'set',
-        path: `data.todos.${params.localId}.syncStatus`,
+        path: `todos.${params.localId}.syncStatus`,
         value: 'error'
       },
       {
         op: 'set',
-        path: `data.todos.${params.localId}.errorMessage`,
+        path: `todos.${params.localId}.errorMessage`,
         value: error.message
       }
     ];
@@ -238,14 +248,15 @@ if (result.ok) {
 // RIGHT: Effect returns patches
 const patches = await executeEffect('api:fetch');
 // patches = [
-//   { op: 'set', path: 'data.apiResult', value: {...} }
+//   { op: 'set', path: 'apiResult', value: {...} }
 // ]
 
-snapshot = core.apply(schema, snapshot, patches);
+const context = { now: 0, randomSeed: "seed" };
+snapshot = core.apply(schema, snapshot, patches, context);
 // Now snapshot.data.apiResult contains the result
 
 // Next compute() reads from Snapshot
-const nextResult = core.compute(schema, snapshot, intent);
+const nextResult = await core.compute(schema, snapshot, intent, context);
 // Flow can now check snapshot.data.apiResult
 ```
 
@@ -279,7 +290,7 @@ From FDR-004:
 
 ```typescript
 // WRONG: Domain logic in handler
-async function handler(type, params) {
+async function handler(type, params, context) {
   if (params.amount > 1000) {  // Business rule!
     return [{ op: 'set', path: 'approval.required', value: true }];
   }
@@ -299,7 +310,7 @@ async function handler(type, params) {
 }
 
 // Handler just does IO
-async function handler(type, params) {
+async function handler(type, params, context) {
   await paymentGateway.charge(params.amount);
   return [{ op: 'set', path: 'payment.status', value: 'completed' }];
 }
@@ -309,26 +320,26 @@ async function handler(type, params) {
 
 ```typescript
 // WRONG
-async function handler(type, params) {
+async function handler(type, params, context) {
   const response = await fetch(params.url);
   if (!response.ok) throw new Error('Failed'); // WRONG!
 }
 
 // RIGHT
-async function handler(type, params) {
+async function handler(type, params, context) {
   try {
     const response = await fetch(params.url);
     if (!response.ok) {
       return [
-        { op: 'set', path: 'data.status', value: 'error' },
-        { op: 'set', path: 'data.errorMessage', value: `HTTP ${response.status}` }
+        { op: 'set', path: 'status', value: 'error' },
+        { op: 'set', path: 'errorMessage', value: `HTTP ${response.status}` }
       ];
     }
     // ...
   } catch (error) {
     return [
-      { op: 'set', path: 'data.status', value: 'error' },
-      { op: 'set', path: 'data.errorMessage', value: error.message }
+      { op: 'set', path: 'status', value: 'error' },
+      { op: 'set', path: 'errorMessage', value: error.message }
     ];
   }
 }
@@ -345,14 +356,14 @@ async function createUserHandler(type, params) {
   if (existing) {
     // Already exists, just return
     return [
-      { op: 'set', path: `data.users.${params.id}`, value: existing }
+      { op: 'set', path: `users.${params.id}`, value: existing }
     ];
   }
 
   // Create new
   const user = await db.users.create(params);
   return [
-    { op: 'set', path: `data.users.${params.id}`, value: user }
+    { op: 'set', path: `users.${params.id}`, value: user }
   ];
 }
 ```
@@ -400,29 +411,31 @@ async function createUserHandler(type, params) {
 
 ```typescript
 // WRONG: Host forgets to clear
-const result = core.compute(schema, snapshot, intent);
-for (const req of result.snapshot.system.pendingRequirements) {
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
+for (const req of result.requirements) {
   const patches = await executeEffect(req);
-  snapshot = core.apply(schema, snapshot, patches);
+  snapshot = core.apply(schema, snapshot, patches, context);
 }
 // Missing: clear pendingRequirements!
-core.compute(schema, snapshot, intent); // Infinite loop!
+await core.compute(schema, snapshot, intent, context); // Infinite loop!
 ```
 
 **Fix:** Always clear after execution.
 
 ```typescript
 // RIGHT
-const result = core.compute(schema, snapshot, intent);
-for (const req of result.snapshot.system.pendingRequirements) {
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
+for (const req of result.requirements) {
   const patches = await executeEffect(req);
-  snapshot = core.apply(schema, snapshot, patches);
+  snapshot = core.apply(schema, snapshot, patches, context);
 }
 // Clear requirements
 snapshot = core.apply(schema, snapshot, [
   { op: 'set', path: 'system.pendingRequirements', value: [] }
-]);
-core.compute(schema, snapshot, intent);
+], context);
+await core.compute(schema, snapshot, intent, context);
 ```
 
 ---

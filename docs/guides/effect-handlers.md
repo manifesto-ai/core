@@ -19,7 +19,7 @@ Core: "I need effect 'api.fetch' with params {url: '/users'}"
        ↓
 Host: "Let me find the handler for 'api.fetch'"
        ↓
-Handler: async (type, params) => { ... }
+Handler: async (type, params, context) => { ... }
        ↓
 Returns: Patch[]
 ```
@@ -30,15 +30,20 @@ Returns: Patch[]
 
 Effect handlers MUST:
 
-1. **Accept** `(type: string, params: Record<string, unknown>, snapshot: Snapshot)`
+1. **Accept** `(type: string, params: Record<string, unknown>, context: EffectContext)`
 2. **Return** `Promise<Patch[]>` (never throw)
 3. **Express errors as patches**, not exceptions
 
 ```typescript
+type EffectContext = {
+  snapshot: Readonly<Snapshot>;
+  requirement: Requirement;
+};
+
 type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
-  snapshot: Snapshot
+  context: EffectContext
 ) => Promise<Patch[]>;
 ```
 
@@ -48,7 +53,7 @@ type EffectHandler = (
 
 ```typescript
 // Register handler
-host.registerEffect('api.fetch', async (type, params, snapshot) => {
+host.registerEffect('api.fetch', async (type, params, context) => {
   try {
     // 1. Execute IO
     const response = await fetch(params.url as string);
@@ -57,13 +62,13 @@ host.registerEffect('api.fetch', async (type, params, snapshot) => {
     // 2. Return success patches
     return [
       { op: 'set', path: params.target as string, value: data },
-      { op: 'set', path: 'data.status', value: 'success' }
+      { op: 'set', path: 'status', value: 'success' }
     ];
   } catch (error) {
     // 3. Return error patches (NOT throw!)
     return [
-      { op: 'set', path: 'data.status', value: 'error' },
-      { op: 'set', path: 'data.errorMessage', value: error.message }
+      { op: 'set', path: 'status', value: 'error' },
+      { op: 'set', path: 'errorMessage', value: error.message }
     ];
   }
 });
@@ -82,7 +87,7 @@ host.registerEffect('api.fetch', async (type, params, snapshot) => {
 ### 1. API GET Request
 
 ```typescript
-host.registerEffect('api.get', async (type, params) => {
+host.registerEffect('api.get', async (type, params, _context) => {
   const url = params.url as string;
   const target = params.target as string;
 
@@ -91,18 +96,18 @@ host.registerEffect('api.get', async (type, params) => {
 
     if (!response.ok) {
       return [
-        { op: 'set', path: 'data.error', value: `HTTP ${response.status}` }
+        { op: 'set', path: 'error', value: `HTTP ${response.status}` }
       ];
     }
 
     const data = await response.json();
     return [
       { op: 'set', path: target, value: data },
-      { op: 'unset', path: 'data.error' }
+      { op: 'unset', path: 'error' }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.error', value: error.message }
+      { op: 'set', path: 'error', value: error.message }
     ];
   }
 });
@@ -111,7 +116,7 @@ host.registerEffect('api.get', async (type, params) => {
 ### 2. API POST Request
 
 ```typescript
-host.registerEffect('api.post', async (type, params) => {
+host.registerEffect('api.post', async (type, params, _context) => {
   const url = params.url as string;
   const body = params.body;
   const target = params.target as string | undefined;
@@ -126,7 +131,7 @@ host.registerEffect('api.post', async (type, params) => {
     const data = await response.json();
 
     const patches: Patch[] = [
-      { op: 'set', path: 'data.lastPostStatus', value: response.status }
+      { op: 'set', path: 'lastPostStatus', value: response.status }
     ];
 
     if (target) {
@@ -136,7 +141,7 @@ host.registerEffect('api.post', async (type, params) => {
     return patches;
   } catch (error) {
     return [
-      { op: 'set', path: 'data.error', value: error.message }
+      { op: 'set', path: 'error', value: error.message }
     ];
   }
 });
@@ -145,7 +150,7 @@ host.registerEffect('api.post', async (type, params) => {
 ### 3. Database Write
 
 ```typescript
-host.registerEffect('db.save', async (type, params, snapshot) => {
+host.registerEffect('db.save', async (type, params, context) => {
   const table = params.table as string;
   const record = params.record as Record<string, unknown>;
 
@@ -155,18 +160,18 @@ host.registerEffect('db.save', async (type, params, snapshot) => {
     return [
       {
         op: 'set',
-        path: `data.${table}.${savedRecord.id}`,
+        path: `${table}.${savedRecord.id}`,
         value: savedRecord
       },
       {
         op: 'set',
-        path: `data.${table}.lastSaved`,
-        value: Date.now()
+        path: `${table}.lastSaved`,
+        value: context.requirement.createdAt
       }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.dbError', value: error.message }
+      { op: 'set', path: 'dbError', value: error.message }
     ];
   }
 });
@@ -175,13 +180,13 @@ host.registerEffect('db.save', async (type, params, snapshot) => {
 ### 4. Timer/Delay
 
 ```typescript
-host.registerEffect('timer.delay', async (type, params) => {
+host.registerEffect('timer.delay', async (type, params, _context) => {
   const ms = params.ms as number;
 
   await new Promise(resolve => setTimeout(resolve, ms));
 
   return [
-    { op: 'set', path: 'data.delayCompleted', value: true }
+    { op: 'set', path: 'delayCompleted', value: true }
   ];
 });
 ```
@@ -189,7 +194,7 @@ host.registerEffect('timer.delay', async (type, params) => {
 ### 5. Logging
 
 ```typescript
-host.registerEffect('log.info', async (type, params) => {
+host.registerEffect('log.info', async (type, params, _context) => {
   const message = params.message as string;
   const level = params.level as string || 'info';
 
@@ -221,7 +226,7 @@ async function retryHandler(
 
         return [
           { op: 'set', path: params.target as string, value: data },
-          { op: 'set', path: 'data.retryAttempts', value: attempt + 1 }
+          { op: 'set', path: 'retryAttempts', value: attempt + 1 }
         ];
       } catch (error) {
         lastError = error as Error;
@@ -237,8 +242,8 @@ async function retryHandler(
 
     // All retries failed
     return [
-      { op: 'set', path: 'data.error', value: lastError?.message },
-      { op: 'set', path: 'data.retryAttempts', value: maxRetries }
+      { op: 'set', path: 'error', value: lastError?.message },
+      { op: 'set', path: 'retryAttempts', value: maxRetries }
     ];
   };
 }
@@ -250,7 +255,7 @@ host.registerEffect('api.fetchWithRetry', retryHandler(3, 1000));
 ### Pattern 2: Timeout Handling
 
 ```typescript
-host.registerEffect('api.fetchWithTimeout', async (type, params) => {
+host.registerEffect('api.fetchWithTimeout', async (type, params, _context) => {
   const url = params.url as string;
   const timeoutMs = (params.timeout as number) || 10000;
 
@@ -271,12 +276,12 @@ host.registerEffect('api.fetchWithTimeout', async (type, params) => {
 
     if (error.name === 'AbortError') {
       return [
-        { op: 'set', path: 'data.error', value: 'Request timeout' }
+        { op: 'set', path: 'error', value: 'Request timeout' }
       ];
     }
 
     return [
-      { op: 'set', path: 'data.error', value: error.message }
+      { op: 'set', path: 'error', value: error.message }
     ];
   }
 });
@@ -285,7 +290,7 @@ host.registerEffect('api.fetchWithTimeout', async (type, params) => {
 ### Pattern 3: Cleanup on Failure
 
 ```typescript
-host.registerEffect('file.upload', async (type, params, snapshot) => {
+host.registerEffect('file.upload', async (type, params, context) => {
   let uploadId: string | undefined;
 
   try {
@@ -303,7 +308,7 @@ host.registerEffect('file.upload', async (type, params, snapshot) => {
     await fetch(`/api/upload/${uploadId}/finalize`, { method: 'POST' });
 
     return [
-      { op: 'set', path: 'data.uploadResult', value: { uploadId } }
+      { op: 'set', path: 'uploadResult', value: { uploadId } }
     ];
   } catch (error) {
     // Cleanup: delete partial upload
@@ -313,7 +318,7 @@ host.registerEffect('file.upload', async (type, params, snapshot) => {
     }
 
     return [
-      { op: 'set', path: 'data.uploadError', value: error.message }
+      { op: 'set', path: 'uploadError', value: error.message }
     ];
   }
 });
@@ -323,7 +328,7 @@ host.registerEffect('file.upload', async (type, params, snapshot) => {
 
 ```typescript
 // Batch multiple API calls into one
-host.registerEffect('api.batchFetch', async (type, params) => {
+host.registerEffect('api.batchFetch', async (type, params, _context) => {
   const urls = params.urls as string[];
   const targets = params.targets as string[];
 
@@ -349,12 +354,12 @@ host.registerEffect('api.batchFetch', async (type, params) => {
 
 ```typescript
 // WRONG: Throwing
-host.registerEffect('api.fetch', async (type, params) => {
+host.registerEffect('api.fetch', async (type, params, _context) => {
   const response = await fetch(params.url);
   if (!response.ok) {
     throw new Error('API failed'); // WRONG!
   }
-  return [{ op: 'set', path: 'data.result', value: await response.json() }];
+  return [{ op: 'set', path: 'result', value: await response.json() }];
 });
 ```
 
@@ -364,20 +369,20 @@ host.registerEffect('api.fetch', async (type, params) => {
 
 ```typescript
 // RIGHT: Return error patches
-host.registerEffect('api.fetch', async (type, params) => {
+host.registerEffect('api.fetch', async (type, params, _context) => {
   try {
     const response = await fetch(params.url);
     if (!response.ok) {
       return [
-        { op: 'set', path: 'data.error', value: `HTTP ${response.status}` }
+        { op: 'set', path: 'error', value: `HTTP ${response.status}` }
       ];
     }
     return [
-      { op: 'set', path: 'data.result', value: await response.json() }
+      { op: 'set', path: 'result', value: await response.json() }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.error', value: error.message }
+      { op: 'set', path: 'error', value: error.message }
     ];
   }
 });
@@ -387,16 +392,17 @@ host.registerEffect('api.fetch', async (type, params) => {
 
 ```typescript
 // WRONG: Business rule in handler
-host.registerEffect('api.createTodo', async (type, params, snapshot) => {
+host.registerEffect('api.createTodo', async (type, params, context) => {
+  const { snapshot } = context;
   // Business rule!
   if (snapshot.data.todos.length >= 100) {
     return [
-      { op: 'set', path: 'data.error', value: 'Too many todos' }
+      { op: 'set', path: 'error', value: 'Too many todos' }
     ];
   }
 
   const result = await api.createTodo(params);
-  return [{ op: 'set', path: 'data.newTodo', value: result }];
+  return [{ op: 'set', path: 'newTodo', value: result }];
 });
 ```
 
@@ -419,10 +425,10 @@ flow.seq(
 )
 
 // Handler just does IO
-host.registerEffect('api.createTodo', async (type, params) => {
+host.registerEffect('api.createTodo', async (type, params, _context) => {
   const result = await api.createTodo(params.title);
   return [
-    { op: 'set', path: 'data.newTodo', value: result }
+    { op: 'set', path: 'newTodo', value: result }
   ];
 });
 ```
@@ -431,10 +437,10 @@ host.registerEffect('api.createTodo', async (type, params) => {
 
 ```typescript
 // WRONG: Missing guard state
-host.registerEffect('api.init', async (type, params) => {
+host.registerEffect('api.init', async (type, params, _context) => {
   const result = await api.init();
   return [
-    { op: 'set', path: 'data.initResult', value: result }
+    { op: 'set', path: 'initResult', value: result }
     // Missing: set initialized flag!
   ];
 });
@@ -446,11 +452,11 @@ host.registerEffect('api.init', async (type, params) => {
 
 ```typescript
 // RIGHT: Set guard state
-host.registerEffect('api.init', async (type, params) => {
+host.registerEffect('api.init', async (type, params, _context) => {
   const result = await api.init();
   return [
-    { op: 'set', path: 'data.initResult', value: result },
-    { op: 'set', path: 'data.initialized', value: true } // Guard state!
+    { op: 'set', path: 'initResult', value: result },
+    { op: 'set', path: 'initialized', value: true } // Guard state!
   ];
 });
 ```
@@ -458,8 +464,9 @@ host.registerEffect('api.init', async (type, params) => {
 ### Anti-Pattern 4: Mutating Snapshot
 
 ```typescript
-// WRONG: Mutating snapshot parameter
-host.registerEffect('increment', async (type, params, snapshot) => {
+// WRONG: Mutating snapshot from context
+host.registerEffect('increment', async (type, params, context) => {
+  const { snapshot } = context;
   snapshot.data.count++; // WRONG! Direct mutation
   return [];
 });
@@ -471,9 +478,10 @@ host.registerEffect('increment', async (type, params, snapshot) => {
 
 ```typescript
 // RIGHT: Return patches
-host.registerEffect('increment', async (type, params, snapshot) => {
+host.registerEffect('increment', async (type, params, context) => {
+  const { snapshot } = context;
   return [
-    { op: 'set', path: 'data.count', value: snapshot.data.count + 1 }
+    { op: 'set', path: 'count', value: snapshot.data.count + 1 }
   ];
 });
 ```
@@ -482,12 +490,12 @@ host.registerEffect('increment', async (type, params, snapshot) => {
 
 ```typescript
 // WRONG: Returning function
-host.registerEffect('api.fetch', async (type, params) => {
+host.registerEffect('api.fetch', async (type, params, _context) => {
   const result = await api.fetch();
   return [
     {
       op: 'set',
-      path: 'data.result',
+      path: 'result',
       value: {
         data: result.data,
         refresh: () => api.fetch() // Function! Not serializable!
@@ -503,15 +511,15 @@ host.registerEffect('api.fetch', async (type, params) => {
 
 ```typescript
 // RIGHT: Only serializable data
-host.registerEffect('api.fetch', async (type, params) => {
+host.registerEffect('api.fetch', async (type, params, context) => {
   const result = await api.fetch();
   return [
     {
       op: 'set',
-      path: 'data.result',
+      path: 'result',
       value: {
         data: result.data,
-        fetchedAt: Date.now() // Number, not Date object
+        fetchedAt: context.requirement.createdAt // Number, not Date object
       }
     }
   ];
@@ -534,22 +542,51 @@ describe("Effect handlers", () => {
     });
 
     // Create handler
-    const handler = async (type, params) => {
+    const handler = async (type, params, _context) => {
       const response = await fetch(params.url);
       const data = await response.json();
       return [{ op: 'set', path: params.target, value: data }];
     };
 
+    const context = {
+      snapshot: {
+        data: {},
+        computed: {},
+        system: {
+          status: "idle",
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: undefined,
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: "test-hash",
+        },
+      },
+      requirement: {
+        id: "req-1",
+        type: "api.get",
+        params: {},
+        actionId: "fetchUser",
+        flowPosition: { nodePath: "root", snapshotVersion: 0 },
+        createdAt: 0,
+      },
+    };
+
     // Test
     const result = await handler('api.get', {
       url: '/api/users/123',
-      target: 'data.user'
-    });
+      target: 'user'
+    }, context);
 
     expect(result).toEqual([
       {
         op: 'set',
-        path: 'data.user',
+        path: 'user',
         value: { id: "123", name: "Test" }
       }
     ]);
@@ -559,41 +596,41 @@ describe("Effect handlers", () => {
     // Mock fetch error
     global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
-    const handler = async (type, params) => {
+    const handler = async (type, params, _context) => {
       try {
         const response = await fetch(params.url);
         const data = await response.json();
         return [{ op: 'set', path: params.target, value: data }];
       } catch (error) {
-        return [{ op: 'set', path: 'data.error', value: error.message }];
+        return [{ op: 'set', path: 'error', value: error.message }];
       }
     };
 
     const result = await handler('api.get', {
       url: '/api/users/123',
-      target: 'data.user'
-    });
+      target: 'user'
+    }, context);
 
     expect(result).toEqual([
-      { op: 'set', path: 'data.error', value: 'Network error' }
+      { op: 'set', path: 'error', value: 'Network error' }
     ]);
   });
 
   it("never throws", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('Fatal error'));
 
-    const handler = async (type, params) => {
+    const handler = async (type, params, _context) => {
       try {
         const response = await fetch(params.url);
-        return [{ op: 'set', path: 'data.result', value: response }];
+        return [{ op: 'set', path: 'result', value: response }];
       } catch (error) {
-        return [{ op: 'set', path: 'data.error', value: error.message }];
+        return [{ op: 'set', path: 'error', value: error.message }];
       }
     };
 
     // Should not throw
     await expect(
-      handler('api.get', { url: '/api/fail' })
+      handler('api.get', { url: '/api/fail' }, context)
     ).resolves.toBeDefined();
   });
 });
@@ -603,13 +640,13 @@ describe("Effect handlers", () => {
 
 ## Checklist: Is My Handler Correct?
 
-- [ ] Accepts `(type, params, snapshot)`
+- [ ] Accepts `(type, params, context)`
 - [ ] Returns `Promise<Patch[]>`
 - [ ] Never throws (all errors as patches)
 - [ ] No domain logic (only IO)
 - [ ] Sets guard state for re-entry safety
 - [ ] Returns only JSON-serializable values
-- [ ] Does not mutate snapshot parameter
+- [ ] Does not mutate snapshot from context
 - [ ] Handles success and error cases
 - [ ] Has tests for both success and error
 

@@ -40,7 +40,7 @@ flow.seq(
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Host executes effect "api.init"                                 │
-│ Returns patches: [{ op: "set", path: "/data/initData", ... }]  │
+│ Returns patches: [{ op: "set", path: "initData", ... }]  │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -104,8 +104,8 @@ flow.seq(
 ┌─────────────────────────────────────────────────────────────────┐
 │ Host executes effect "api.init"                                 │
 │ Returns patches:                                                │
-│   [{ op: "set", path: "/data/initialized", value: true },      │
-│    { op: "set", path: "/data/initData", value: {...} }]        │
+│   [{ op: "set", path: "initialized", value: true },      │
+│    { op: "set", path: "initData", value: {...} }]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -117,7 +117,7 @@ flow.seq(
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
 │   1. if (NOT state.initialized)  → false, SKIP branch           │
-│ Result: status="completed", requirements=[]                     │
+│ Result: status="complete", requirements=[]                      │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
                       ✓ Flow completes
@@ -409,25 +409,26 @@ Effect handlers also play a role in re-entry safety by **setting the guard state
 
 ```typescript
 // Effect handler MUST set the guard state
-host.registerEffect('api.submit', async (type, params, snapshot) => {
+host.registerEffect('api.submit', async (type, params, context) => {
+  const { requirement } = context;
   try {
     const result = await api.submit(params.data);
 
     return [
       // Set result
-      { op: 'set', path: 'data.result', value: result },
+      { op: 'set', path: 'result', value: result },
 
       // CRITICAL: Set the guard state
-      { op: 'set', path: 'data.submitted', value: true },
-      { op: 'set', path: 'data.submittedAt', value: Date.now() }
+      { op: 'set', path: 'submitted', value: true },
+      { op: 'set', path: 'submittedAt', value: requirement.createdAt }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.error', value: error.message },
+      { op: 'set', path: 'error', value: error.message },
 
       // Even on error, mark as attempted
-      { op: 'set', path: 'data.submitted', value: true },
-      { op: 'set', path: 'data.submittedAt', value: Date.now() }
+      { op: 'set', path: 'submitted', value: true },
+      { op: 'set', path: 'submittedAt', value: requirement.createdAt }
     ];
   }
 });
@@ -441,27 +442,27 @@ host.registerEffect('api.submit', async (type, params, snapshot) => {
 
 ```typescript
 import { describe, it, expect } from "vitest";
-import { createCore } from "@manifesto-ai/core";
+import { createCore, createIntent } from "@manifesto-ai/core";
 import { createHost } from "@manifesto-ai/host";
 
 describe("Re-entry safety", () => {
   it("effect executes only once per intent", async () => {
     let effectCallCount = 0;
 
-    const host = createHost({
-      schema: MyDomain.schema,
-      snapshot: initialSnapshot
+    const host = createHost(MyDomain.schema, {
+      snapshot: initialSnapshot,
+      context: { now: () => Date.now() },
     });
 
-    host.registerEffect('api.submit', async () => {
+    host.registerEffect('api.submit', async (_type, _params) => {
       effectCallCount++;
       return [
-        { op: 'set', path: 'data.submitted', value: true }
+        { op: 'set', path: 'submitted', value: true }
       ];
     });
 
     // Dispatch intent
-    await host.dispatch({ type: 'submit', input: {} });
+    await host.dispatch(createIntent('submit', {}, 'intent-1'));
 
     // Effect should have been called exactly once
     expect(effectCallCount).toBe(1);
@@ -470,21 +471,22 @@ describe("Re-entry safety", () => {
   it("same intent dispatched twice executes effect once", async () => {
     let effectCallCount = 0;
 
-    const host = createHost({
-      schema: MyDomain.schema,
-      snapshot: initialSnapshot
+    const host = createHost(MyDomain.schema, {
+      snapshot: initialSnapshot,
+      context: { now: () => Date.now() },
     });
 
-    host.registerEffect('api.submit', async () => {
+    host.registerEffect('api.submit', async (_type, _params) => {
       effectCallCount++;
       return [
-        { op: 'set', path: 'data.submitted', value: true }
+        { op: 'set', path: 'submitted', value: true }
       ];
     });
 
     // Dispatch same intent twice
-    await host.dispatch({ type: 'submit', input: {} });
-    await host.dispatch({ type: 'submit', input: {} });
+    const intent = createIntent('submit', {}, 'intent-1');
+    await host.dispatch(intent);
+    await host.dispatch(intent);
 
     // Effect should still only have been called once (guarded by submitted flag)
     expect(effectCallCount).toBe(1);

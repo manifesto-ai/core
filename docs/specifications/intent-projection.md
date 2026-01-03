@@ -91,6 +91,7 @@ Projection reads a **read-only** view of semantic state.
 ```typescript
 type SnapshotView = Readonly<{
   data: unknown;
+  // Keys are SemanticPath without the "computed." prefix
   computed: Record<string, unknown>;
 }>;
 ```
@@ -183,7 +184,7 @@ Scope defines proposed write boundaries.
 
 ```typescript
 type IntentScope = {
-  readonly allowedPaths?: string[];  // Path patterns allowed to write (e.g., "data.profile.*")
+  readonly allowedPaths?: string[];  // Path patterns allowed to write (e.g., "profile.*")
   readonly note?: string;            // Optional human description
 };
 ```
@@ -401,7 +402,7 @@ Projection MAY:
 | Gate emission on computed availability | `if (!computed.canSubmit) → none` |
 | Extract input from source payload | `body.input = { title: payload.title }` |
 | Perform lossless transport normalization | Ensure JSON-compatible primitives |
-| Propose scope | `body.scopeProposal = { allowedPaths: ['data.todos.*'] }` |
+| Propose scope | `body.scopeProposal = { allowedPaths: ['todos.*'] }` |
 
 ### 9.2 Forbidden Operations (MUST NOT)
 
@@ -481,7 +482,16 @@ SnapshotView intentionally excludes:
 | `system.*` | Internal state, not for Projection |
 | `input` | Transient effect input |
 
-### 10.3 UI State Guidance
+### 10.3 Computed Key Normalization
+
+SnapshotView exposes computed values **without** the `"computed."` prefix.
+
+Example:
+
+- Schema key: `"computed.form.canSubmit"`
+- SnapshotView key: `snapshot.computed["form.canSubmit"]`
+
+### 10.4 UI State Guidance
 
 If a UI needs loading/error states:
 
@@ -774,16 +784,18 @@ Bridge packages preserve familiar FE DX:
 interface Bridge {
   // Read current state
   subscribe(callback: (snapshot: SnapshotView) => void): Unsubscribe;
-  get(path: string): unknown;
+  get(path: SemanticPath): unknown;
   
   // Dispatch intent (bridge acts as issuer internally)
   dispatch(body: IntentBody): Promise<void>;
   
   // Convenience: sugar for common patterns
-  set(path: string, value: unknown): Promise<void>;
+  set(path: SemanticPath, value: unknown): Promise<void>;
   // Equivalent to: dispatch({ type: 'field.set', input: { path, value } })
 }
 ```
+
+`SemanticPath` is the dot-separated path used by Core (rooted at data; no `/data` prefix).
 
 ### 15.3 Dispatch Flow
 

@@ -809,17 +809,17 @@ import { createHost } from '@manifesto-ai/host';
 import { CompilerDomain } from './domain';
 
 function createCompilerHost(options: CompilerHostOptions) {
-  return createHost({
-    domain: CompilerDomain,
-    initialState: INITIAL_STATE,
-    effectHandlers: {
-      'llm:segment': options.llmHandlers.segment,
-      'llm:normalize': options.llmHandlers.normalize,
-      'llm:propose': options.llmHandlers.propose,
-      'builder:validate': createBuilderValidateHandler(),
-    },
-    resolutionPolicy: options.policy ?? DEFAULT_POLICY,
+  const host = createHost(CompilerDomain.schema, {
+    initialData: INITIAL_STATE,
+    context: { now: () => Date.now() },
   });
+
+  host.registerEffect('llm:segment', options.llmHandlers.segment);
+  host.registerEffect('llm:normalize', options.llmHandlers.normalize);
+  host.registerEffect('llm:propose', options.llmHandlers.propose);
+  host.registerEffect('builder:validate', createBuilderValidateHandler());
+
+  return host;
 }
 ```
 
@@ -829,7 +829,7 @@ function createCompilerHost(options: CompilerHostOptions) {
 import { validateDomain } from '@manifesto-ai/builder';
 
 function createBuilderValidateHandler() {
-  return async (params: { draft: unknown }) => {
+  return async (params: { draft: unknown }, context: EffectContext) => {
     const result = validateDomain(params.draft);
 
     return {
@@ -837,7 +837,7 @@ function createBuilderValidateHandler() {
       schema: result.valid ? result.schema : null,
       diagnostics: result.diagnostics,
       schemaHash: result.valid ? result.schemaHash : null,
-      timestamp: Date.now(),
+      timestamp: context.requirement.createdAt,
     };
   };
 }

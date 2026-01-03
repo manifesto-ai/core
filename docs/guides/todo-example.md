@@ -60,7 +60,7 @@ Use this full-stack pattern when building interactive applications where users d
 │                         Host                                     │
 │  (Orchestration: compute loop, effect execution, patch apply)   │
 └────────────────────────┬────────────────────────────────────────┘
-                         │ compute(schema, snapshot, intent)
+                         │ compute(schema, snapshot, intent, context)
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Core                                     │
@@ -295,14 +295,14 @@ export function App() {
    Decision: "approved"
 
 5. Host dispatches to Core
-   compute(schema, snapshot, intent)
+   compute(schema, snapshot, intent, context)
 
 6. Core evaluates Flow
    flow.patch(state.todos).set(expr.append(...))
-   → Generates patches: [{ op: "set", path: "data.todos", value: [...] }]
+   → Generates patches: [{ op: "set", path: "todos", value: [...] }]
 
 7. Host applies patches
-   apply(schema, snapshot, patches)
+   apply(schema, snapshot, patches, context)
    → New Snapshot with updated todos array
 
 8. World creates new World
@@ -411,7 +411,7 @@ npx vite
 |---------|--------------|----------|
 | **Re-entry unsafe flows** | `flow.patch(state.count).set(expr.add(state.count, 1))` runs every compute cycle, incrementing forever | Use `flow.onceNull` to guard: `flow.onceNull(state.submittedAt, ({ patch }) => patch(...))` |
 | **Direct state mutation** | `snapshot.data.todos.push(newTodo)` bypasses Core, breaks determinism | Always use actions: `add({ ... })` |
-| **Effect handler throws** | `async function handler() { throw new Error() }` crashes app | Return patches for errors: `return [{ op: "set", path: "data.error", value: error.message }]` |
+| **Effect handler throws** | `async function handler() { throw new Error() }` crashes app | Return patches for errors: `return [{ op: "set", path: "error", value: error.message }]` |
 | **Snapshot isolation** | Passing `snapshot.data` to external code that mutates it | Clone before passing out: `JSON.parse(JSON.stringify(snapshot.data))` |
 
 ---
@@ -455,7 +455,7 @@ const { sync } = actions.define({
 });
 
 // Register effect handler
-host.registerEffect('api:sync', async (type, params) => {
+host.registerEffect('api:sync', async (type, params, context) => {
   try {
     await fetch('/api/todos', {
       method: 'POST',
@@ -463,13 +463,13 @@ host.registerEffect('api:sync', async (type, params) => {
     });
 
     return [
-      { op: 'set', path: 'data.syncStatus', value: 'synced' },
-      { op: 'set', path: 'data.lastSyncedAt', value: Date.now() }
+      { op: 'set', path: 'syncStatus', value: 'synced' },
+      { op: 'set', path: 'lastSyncedAt', value: context.requirement.createdAt }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.syncStatus', value: 'error' },
-      { op: 'set', path: 'data.syncError', value: error.message }
+      { op: 'set', path: 'syncStatus', value: 'error' },
+      { op: 'set', path: 'syncError', value: error.message }
     ];
   }
 });

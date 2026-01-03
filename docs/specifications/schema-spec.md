@@ -90,7 +90,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 │  - User interaction                                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              │ compute(snapshot, intent)
+                              │ compute(snapshot, intent, context)
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                         CORE                                 │
@@ -126,7 +126,7 @@ RIGHT:  effect('api:call')             // Declares requirement
 Each `compute()` call is **complete and independent**:
 
 ```
-compute(snapshot₀, intent) → (snapshot₁, requirements[], trace)
+compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 ```
 
 - If `requirements` is empty: computation is **complete**.
@@ -138,7 +138,7 @@ compute(snapshot₀, intent) → (snapshot₁, requirements[], trace)
 │                    COMPUTATION CYCLE                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Host calls: compute(snapshot, intent)                      │
+│  Host calls: compute(snapshot, intent, context)             │
 │                     │                                       │
 │                     ▼                                       │
 │  ┌─────────────────────────────────────┐                   │
@@ -161,7 +161,7 @@ compute(snapshot₀, intent) → (snapshot₁, requirements[], trace)
 │                               │                            │
 │                               ▼                            │
 │                    Host calls compute() AGAIN              │
-│                    with new snapshot                       │
+│                    with same intent + context              │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -182,6 +182,9 @@ type DomainSchema = {
   
   /** Content hash for integrity verification */
   readonly hash: string;
+  
+  /** Named type declarations (compiler v0.3.3) */
+  readonly types: Record<string, TypeSpec>;
   
   /** State structure definition */
   readonly state: StateSpec;
@@ -206,7 +209,35 @@ type DomainSchema = {
 - `id` MUST be a valid URI or UUID.
 - `version` MUST follow [Semantic Versioning 2.0](https://semver.org/).
 - `hash` MUST be computed using the [Canonical Form](#15-canonical-form) algorithm.
+- `types` MUST be present (may be empty).
 - `state`, `computed`, and `actions` MUST NOT be empty.
+
+---
+
+### 4.3 Named Types (TypeSpec)
+
+`types` carries named type declarations produced by the compiler. Core treats these as metadata and does not interpret them directly.
+
+```typescript
+type TypeSpec = {
+  readonly name: string;
+  readonly definition: TypeDefinition;
+};
+
+type TypeDefinition =
+  | { kind: "primitive"; type: string }
+  | { kind: "array"; element: TypeDefinition }
+  | { kind: "record"; key: TypeDefinition; value: TypeDefinition }
+  | { kind: "object"; fields: Record<string, { type: TypeDefinition; optional: boolean }> }
+  | { kind: "union"; types: TypeDefinition[] }
+  | { kind: "literal"; value: string | number | boolean | null }
+  | { kind: "ref"; name: string };
+```
+
+Requirements:
+
+- Each `types` entry MUST use its map key as `TypeSpec.name`.
+- `ref.name` MUST refer to a key in `types`.
 
 ---
 
@@ -320,7 +351,7 @@ type ComputedFieldSpec = {
   readonly description?: string;
 };
 
-/** Dot-separated path (e.g., "user.profile.name", "computed.isValid") */
+/** Dot-separated path (e.g., "user.profile.name", "computed.isValid", "todos.0.title") */
 type SemanticPath = string;
 ```
 
@@ -409,10 +440,26 @@ type ExprNode =
   | { kind: 'mul'; left: ExprNode; right: ExprNode }
   | { kind: 'div'; left: ExprNode; right: ExprNode }
   | { kind: 'mod'; left: ExprNode; right: ExprNode }
+  | { kind: 'neg'; arg: ExprNode }
+  | { kind: 'abs'; arg: ExprNode }
+  | { kind: 'min'; args: readonly ExprNode[] }
+  | { kind: 'max'; args: readonly ExprNode[] }
+  | { kind: 'sumArray'; array: ExprNode }
+  | { kind: 'minArray'; array: ExprNode }
+  | { kind: 'maxArray'; array: ExprNode }
+  | { kind: 'floor'; arg: ExprNode }
+  | { kind: 'ceil'; arg: ExprNode }
+  | { kind: 'round'; arg: ExprNode }
+  | { kind: 'sqrt'; arg: ExprNode }
+  | { kind: 'pow'; base: ExprNode; exponent: ExprNode }
   
   // String
   | { kind: 'concat'; args: readonly ExprNode[] }
   | { kind: 'substring'; str: ExprNode; start: ExprNode; end?: ExprNode }
+  | { kind: 'trim'; str: ExprNode }
+  | { kind: 'toLowerCase'; str: ExprNode }
+  | { kind: 'toUpperCase'; str: ExprNode }
+  | { kind: 'strLen'; str: ExprNode }
   
   // Collection
   | { kind: 'len'; arg: ExprNode }
@@ -426,8 +473,10 @@ type ExprNode =
   | { kind: 'find'; array: ExprNode; predicate: ExprNode }
   | { kind: 'every'; array: ExprNode; predicate: ExprNode }
   | { kind: 'some'; array: ExprNode; predicate: ExprNode }
+  | { kind: 'append'; array: ExprNode; items: readonly ExprNode[] }
   
   // Object
+  | { kind: 'object'; fields: Record<string, ExprNode> }
   | { kind: 'keys'; obj: ExprNode }
   | { kind: 'values'; obj: ExprNode }
   | { kind: 'entries'; obj: ExprNode }
@@ -436,7 +485,10 @@ type ExprNode =
   // Type
   | { kind: 'typeof'; arg: ExprNode }
   | { kind: 'isNull'; arg: ExprNode }
-  | { kind: 'coalesce'; args: readonly ExprNode[] };
+  | { kind: 'coalesce'; args: readonly ExprNode[] }
+  
+  // Conversion
+  | { kind: 'toString'; arg: ExprNode };
 ```
 
 ### 7.3 Special Variables
@@ -817,7 +869,7 @@ type FlowPosition = {
 │                   REQUIREMENT LIFECYCLE                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. Host calls compute(snapshot, intent)                    │
+│  1. Host calls compute(snapshot, intent, context)           │
 │                                                             │
 │  2. Core evaluates Flow                                     │
 │     - Applies patches to snapshot                           │
@@ -837,9 +889,9 @@ type FlowPosition = {
 │  5. Host executes effect (IO, network, etc.)                │
 │                                                             │
 │  6. Host applies result patches to snapshot:                │
-│     snapshot'' = apply(snapshot', resultPatches)            │
+│     snapshot'' = apply(snapshot', resultPatches, context)   │
 │                                                             │
-│  7. Host calls compute(snapshot'', intent) AGAIN            │
+│  7. Host calls compute(snapshot'', intent, context) AGAIN   │
 │     - This is a NEW computation, not a resume               │
 │     - Flow will check snapshot state and proceed            │
 │                                                             │
@@ -850,21 +902,27 @@ type FlowPosition = {
 
 Effect handlers (implemented by Host) MUST:
 
-1. Accept `(type: string, params: Record<string, unknown>)`.
+1. Accept `(type: string, params: Record<string, unknown>, context: EffectContext)`.
 2. Return `Patch[]` (success case) or `Patch[]` with error info (failure case).
 3. **Never throw.** Errors are expressed as Patches.
 
 ```typescript
 // Host-side effect handler
+type EffectContext = {
+  snapshot: Readonly<Snapshot>;
+  requirement: Requirement;
+};
+
 type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
-  snapshot: Snapshot  // Read-only reference
+  context: EffectContext
 ) => Promise<Patch[]>;
 
 // Example handler
 const handlers: Record<string, EffectHandler> = {
-  'api:createTodo': async (type, params, snapshot) => {
+  'api:createTodo': async (type, params, context) => {
+    const { snapshot } = context;
     try {
       const result = await api.createTodo(params.title);
       return [
@@ -1080,6 +1138,9 @@ type SnapshotMeta = {
   
   /** Timestamp of last modification */
   readonly timestamp: number;
+
+  /** Deterministic random seed from Host context */
+  readonly randomSeed: string;
   
   /** Hash of the schema this snapshot conforms to */
   readonly schemaHash: string;
@@ -1108,6 +1169,7 @@ type SnapshotMeta = {
 | V-005 | FlowSpec `call` graph MUST be acyclic |
 | V-006 | ActionSpec.available expression MUST return boolean |
 | V-007 | ActionSpec.input MUST be valid FieldSpec |
+| V-008 | Schema hash MUST match canonical hash |
 
 ### 14.2 Runtime Validation
 
@@ -1183,8 +1245,9 @@ interface ManifestoCore {
   compute(
     schema: DomainSchema,
     snapshot: Snapshot,
-    intent: Intent
-  ): ComputeResult;
+    intent: Intent,
+    context: HostContext
+  ): Promise<ComputeResult>;
   
   /**
    * Apply patches to a snapshot.
@@ -1193,7 +1256,8 @@ interface ManifestoCore {
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
-    patches: readonly Patch[]
+    patches: readonly Patch[],
+    context: HostContext
   ): Snapshot;
   
   /**
@@ -1214,11 +1278,29 @@ interface ManifestoCore {
 type Intent = {
   readonly type: string;
   readonly input?: unknown;
+  readonly intentId: string;
+};
+
+type HostContext = {
+  /** Logical time provided by Host */
+  readonly now: number;
+
+  /** Deterministic random seed provided by Host */
+  readonly randomSeed: string;
+
+  /** Optional host environment metadata */
+  readonly env?: Record<string, unknown>;
+
+  /** Optional measured compute duration (ms) */
+  readonly durationMs?: number;
 };
 
 type ComputeResult = {
   /** New snapshot after computation */
   readonly snapshot: Snapshot;
+
+  /** Pending requirements (effects) declared by the flow */
+  readonly requirements: readonly Requirement[];
   
   /** Computation trace */
   readonly trace: TraceGraph;
@@ -1252,13 +1334,14 @@ async function processIntent(
   core: ManifestoCore,
   schema: DomainSchema,
   snapshot: Snapshot,
-  intent: Intent
+  intent: Intent,
+  context: HostContext
 ): Promise<Snapshot> {
   let current = snapshot;
   
   while (true) {
     // Compute
-    const result = core.compute(schema, current, intent);
+    const result = await core.compute(schema, current, intent, context);
     current = result.snapshot;
     
     // Check status
@@ -1274,14 +1357,14 @@ async function processIntent(
         
       case 'pending':
         // Fulfill requirements
-        for (const req of current.system.pendingRequirements) {
-          const patches = await executeEffect(req.type, req.params, current);
-          current = core.apply(schema, current, patches);
+        for (const req of result.requirements) {
+          const patches = await executeEffect(req, current, context);
+          current = core.apply(schema, current, patches, context);
         }
         // Clear pending requirements
         current = core.apply(schema, current, [
           { op: 'set', path: 'system.pendingRequirements', value: [] }
-        ]);
+        ], context);
         // Loop continues - compute() will be called again
         break;
     }
@@ -1289,22 +1372,25 @@ async function processIntent(
 }
 
 async function executeEffect(
-  type: string,
-  params: Record<string, unknown>,
-  snapshot: Snapshot
+  requirement: Requirement,
+  snapshot: Snapshot,
+  context: HostContext
 ): Promise<Patch[]> {
-  const handler = effectHandlers[type];
+  const handler = effectHandlers[requirement.type];
   if (!handler) {
     return [
       { op: 'set', path: 'system.lastError', value: {
         code: 'UNKNOWN_EFFECT',
-        message: `No handler for effect type: ${type}`,
+        message: `No handler for effect type: ${requirement.type}`,
         source: { actionId: snapshot.system.currentAction, nodePath: '' },
-        timestamp: Date.now()
+        timestamp: context.now
       }}
     ];
   }
-  return handler(type, params, snapshot);
+  return handler(requirement.type, requirement.params, {
+    snapshot,
+    requirement,
+  });
 }
 ```
 
@@ -1338,6 +1424,7 @@ The Flow will naturally proceed because:
   "id": "urn:manifesto:example:todo-app",
   "version": "1.0.0",
   "hash": "sha256:...",
+  "types": {},
   
   "state": {
     "fields": {

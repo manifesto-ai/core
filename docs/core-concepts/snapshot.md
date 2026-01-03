@@ -61,6 +61,9 @@ type SnapshotMeta = {
   /** Timestamp of last modification */
   readonly timestamp: number;
 
+  /** Deterministic random seed from Host context */
+  readonly randomSeed: string;
+
   /** Hash of the schema this snapshot conforms to */
   readonly schemaHash: string;
 };
@@ -145,6 +148,7 @@ snapshot.input = {
 snapshot.meta = {
   version: 42,
   timestamp: 1704067200000,
+  randomSeed: "seed",
   schemaHash: "sha256:abc..."
 }
 ```
@@ -162,9 +166,10 @@ Snapshots are **immutable after creation**. Any change creates a new Snapshot.
 snapshot.data.count = 5; // Direct mutation!
 
 // REQUIRED
+const context = { now: 0, randomSeed: "seed" };
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'data.count', value: 5 }
-]);
+  { op: 'set', path: 'count', value: 5 }
+], context);
 ```
 
 ### Version Monotonicity
@@ -191,9 +196,13 @@ Computed values are recalculated every time Snapshot is accessed. They are not p
 const loaded = JSON.parse(storage);
 // loaded.computed is empty or stale
 
-// Core recomputes:
-const fresh = core.recompute(schema, loaded);
-// fresh.computed is now up-to-date
+// Recompute computed values when needed:
+import { evaluateComputed } from "@manifesto-ai/core";
+const result = evaluateComputed(schema, loaded);
+if (result.ok) {
+  const fresh = { ...loaded, computed: result.value };
+  // fresh.computed is now up-to-date
+}
 ```
 
 ---
@@ -225,8 +234,9 @@ Manifesto has **one and only one** channel:
 ```typescript
 // Manifesto (single channel)
 const patches = await executeEffect();
-snapshot = core.apply(schema, snapshot, patches);
-core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+snapshot = core.apply(schema, snapshot, patches, context);
+await core.compute(schema, snapshot, intent, context);
 ```
 
 Benefits:
@@ -278,7 +288,7 @@ async function handler() {
   const result = await api.call();
   return [{
     op: 'set',
-    path: 'data.apiResult',
+    path: 'apiResult',
     value: result
   }];
 }

@@ -63,8 +63,8 @@ Executes steps in order. Each step sees the Snapshot as modified by previous ste
 {
   "kind": "seq",
   "steps": [
-    { "kind": "patch", "op": "set", "path": "data.a", "value": { "kind": "lit", "value": 1 } },
-    { "kind": "patch", "op": "set", "path": "data.b", "value": { "kind": "get", "path": "data.a" } }
+    { "kind": "patch", "op": "set", "path": "a", "value": { "kind": "lit", "value": 1 } },
+    { "kind": "patch", "op": "set", "path": "b", "value": { "kind": "get", "path": "a" } }
   ]
 }
 // Result: a = 1, b = 1
@@ -89,9 +89,9 @@ Declares a state change. Three operations:
 
 | Operation | Description | Example |
 |-----------|-------------|---------|
-| `set` | Set value at path | `{ op: "set", path: "data.count", value: 5 }` |
-| `unset` | Remove value at path | `{ op: "unset", path: "data.temp" }` |
-| `merge` | Shallow merge object at path | `{ op: "merge", path: "data.user", value: {...} }` |
+| `set` | Set value at path | `{ op: "set", path: "count", value: 5 }` |
+| `unset` | Remove value at path | `{ op: "unset", path: "temp" }` |
+| `merge` | Shallow merge object at path | `{ op: "merge", path: "user", value: {...} }` |
 
 ### effect (Requirement Declaration)
 
@@ -201,8 +201,9 @@ By limiting expressiveness:
 For unbounded iteration, **Host controls the loop**:
 
 ```typescript
+const context = { now: 0, randomSeed: "seed" };
 while (needsMoreWork(snapshot)) {
-  const result = core.compute(schema, snapshot, intent);
+  const result = await core.compute(schema, snapshot, intent, context);
   snapshot = result.snapshot;
 }
 ```
@@ -267,11 +268,11 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
     {
       "kind": "patch",
       "op": "set",
-      "path": "data.todos",
+      "path": "todos",
       "value": {
         "kind": "concat",
         "args": [
-          { "kind": "get", "path": "data.todos" },
+          { "kind": "get", "path": "todos" },
           [{
             "id": { "kind": "get", "path": "input.localId" },
             "title": { "kind": "get", "path": "input.title" },
@@ -348,7 +349,7 @@ Core evaluates Flows step by step:
 
 ```
 ┌─────────────────────────────────────────┐
-│ compute(schema, snapshot, intent)       │
+│ compute(schema, snapshot, intent, context)       │
 └────────────────┬────────────────────────┘
                  │
                  ▼

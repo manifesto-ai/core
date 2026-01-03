@@ -19,7 +19,7 @@ It separates:
 **The fundamental equation:**
 
 ```
-compute(schema, snapshot, intent) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
 ```
 
 This equation is pure, deterministic, traceable, and complete.
@@ -120,7 +120,7 @@ flow: ({ flow, state, effect }) =>
 host.registerEffect('api:addTodo', async (params) => {
   const result = await api.addTodo(params.todo);
   return [
-    { op: 'set', path: 'data.todos[0].serverId', value: result.id }
+    { op: 'set', path: 'todos.0.serverId', value: result.id }
   ];
 });
 ```
@@ -225,7 +225,8 @@ const useStore = create((set) => ({
 **Manifesto:**
 ```typescript
 // Pure, deterministic Flow
-const result = core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
 // Same inputs → same outputs, always
 ```
 
@@ -235,7 +236,7 @@ const result = core.compute(schema, snapshot, intent);
 
 **Manifesto:** Every value can answer "why?":
 ```typescript
-const result = core.explain(schema, snapshot, 'data.todos[0].completed');
+const result = core.explain(schema, snapshot, 'todos.0.completed');
 // Returns trace showing how value was derived
 ```
 

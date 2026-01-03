@@ -85,45 +85,42 @@ export const CounterDomain = defineDomain(
 
 ---
 
-### Step 2: Create Core and Host
+### Step 2: Create Host
 
 ```typescript
 // main.ts
-import { createCore } from "@manifesto-ai/core";
 import { createHost } from "@manifesto-ai/host";
+import { createIntent } from "@manifesto-ai/core";
 import { CounterDomain } from "./counter-domain";
 
-// Create Core (pure computation engine)
-const core = createCore();
-
-// Create initial snapshot
-const initialSnapshot = core.createSnapshot(CounterDomain.schema, {
-  count: 0,
-});
-
 // Create Host (execution engine)
-const host = createHost({
-  schema: CounterDomain.schema,
-  snapshot: initialSnapshot,
+const host = createHost(CounterDomain.schema, {
+  initialData: { count: 0 },
+  context: { now: () => Date.now() },
 });
 
-// Subscribe to state changes
-host.subscribe((snapshot) => {
+const logSnapshot = async () => {
+  const snapshot = await host.getSnapshot();
+  if (!snapshot) return;
   console.log("Count:", snapshot.data.count);
   console.log("Last action:", snapshot.data.lastAction);
-});
+};
 
 // Dispatch actions
-await host.dispatch({ type: "increment" });
+await host.dispatch(createIntent("increment", "intent-1"));
+await logSnapshot();
 // → Count: 1, Last action: increment
 
-await host.dispatch({ type: "increment" });
+await host.dispatch(createIntent("increment", "intent-2"));
+await logSnapshot();
 // → Count: 2, Last action: increment
 
-await host.dispatch({ type: "decrement" });
+await host.dispatch(createIntent("decrement", "intent-3"));
+await logSnapshot();
 // → Count: 1, Last action: decrement
 
-await host.dispatch({ type: "reset" });
+await host.dispatch(createIntent("reset", "intent-4"));
+await logSnapshot();
 // → Count: 0, Last action: reset
 ```
 
@@ -167,12 +164,14 @@ export const CounterDomain = defineDomain(
 );
 
 // Use computed values
-host.subscribe((snapshot) => {
+const logComputed = async () => {
+  const snapshot = await host.getSnapshot();
+  if (!snapshot) return;
   console.log("Count:", snapshot.data.count);
-  console.log("Is positive?", snapshot.computed.isPositive);
-  console.log("Is zero?", snapshot.computed.isZero);
-  console.log("Description:", snapshot.computed.description);
-});
+  console.log("Is positive?", snapshot.computed["computed.isPositive"]);
+  console.log("Is zero?", snapshot.computed["computed.isZero"]);
+  console.log("Description:", snapshot.computed["computed.description"]);
+};
 ```
 
 **What computed values are:**
@@ -213,22 +212,13 @@ export const CounterDomain = defineDomain(
 );
 
 // Use actions with input
-await host.dispatch({
-  type: "setCount",
-  input: { value: 10 }
-});
+await host.dispatch(createIntent("setCount", { value: 10 }, "intent-5"));
 // → Count: 10
 
-await host.dispatch({
-  type: "addAmount",
-  input: { amount: 5 }
-});
+await host.dispatch(createIntent("addAmount", { amount: 5 }, "intent-6"));
 // → Count: 15
 
-await host.dispatch({
-  type: "addAmount",
-  input: {} // Uses default amount: 1
-});
+await host.dispatch(createIntent("addAmount", {}, "intent-7")); // Uses default amount: 1
 // → Count: 16
 ```
 
@@ -262,6 +252,7 @@ type Snapshot = {
   meta: {
     version: number;
     timestamp: number;
+    randomSeed: string;
     schemaHash: string;
   };
 };
@@ -278,8 +269,8 @@ Flows are data structures that describe computations:
 {
   kind: "seq",
   steps: [
-    { kind: "patch", op: "set", path: "data.count", value: { kind: "lit", value: 0 } },
-    { kind: "patch", op: "set", path: "data.lastAction", value: { kind: "lit", value: "reset" } }
+    { kind: "patch", op: "set", path: "count", value: { kind: "lit", value: 0 } },
+    { kind: "patch", op: "set", path: "lastAction", value: { kind: "lit", value: "reset" } }
   ]
 }
 ```
@@ -338,7 +329,7 @@ host.registerEffect("api:fetchUser", async (type, params) => {
   const user = await response.json();
 
   return [
-    { op: "set", path: "data.user", value: user }
+    { op: "set", path: "user", value: user }
   ];
 });
 ```
@@ -368,7 +359,8 @@ See [Re-entry Safe Flows Guide](./reentry-safe-flows.md) for details.
 
 ```typescript
 // WRONG expectation
-const result = await core.compute(schema, snapshot, intent);
+const context = { now: 0, randomSeed: "seed" };
+const result = await core.compute(schema, snapshot, intent, context);
 console.log(result.snapshot.data.user); // → undefined (effect not executed!)
 ```
 
@@ -379,7 +371,8 @@ console.log(result.snapshot.data.user); // → undefined (effect not executed!)
 ```typescript
 // RIGHT
 await host.dispatch(intent);
-console.log(host.getSnapshot().data.user); // → { id: "123", ... }
+const snapshot = await host.getSnapshot();
+console.log(snapshot?.data.user); // → { id: "123", ... }
 ```
 
 ### Mistake 2: Mutating Snapshots
@@ -393,9 +386,10 @@ snapshot.data.count = 5; // Direct mutation!
 
 ```typescript
 // RIGHT
+const context = { now: 0, randomSeed: "seed" };
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: "set", path: "data.count", value: 5 }
-]);
+  { op: "set", path: "count", value: 5 }
+], context);
 ```
 
 ### Mistake 3: Using Async in Expressions
@@ -421,7 +415,7 @@ flow.effect("api:fetchData", {})
 // counter-app.ts
 import { z } from "zod";
 import { defineDomain } from "@manifesto-ai/builder";
-import { createCore } from "@manifesto-ai/core";
+import { createIntent } from "@manifesto-ai/core";
 import { createHost } from "@manifesto-ai/host";
 
 // 1. Define domain
@@ -440,19 +434,16 @@ const CounterDomain = defineDomain(
   }
 );
 
-// 2. Create core and host
-const core = createCore();
-const host = createHost({
-  schema: CounterDomain.schema,
-  snapshot: core.createSnapshot(CounterDomain.schema, { count: 0 }),
+// 2. Create host
+const host = createHost(CounterDomain.schema, {
+  initialData: { count: 0 },
+  context: { now: () => Date.now() },
 });
 
-// 3. Subscribe and dispatch
-host.subscribe((snapshot) => {
-  console.log("Count:", snapshot.data.count);
-});
-
-await host.dispatch({ type: "increment" });
+// 3. Dispatch and read snapshot
+await host.dispatch(createIntent("increment", "intent-1"));
+const snapshot = await host.getSnapshot();
+console.log("Count:", snapshot?.data.count);
 // → Count: 1
 ```
 
@@ -478,14 +469,13 @@ await host.dispatch({ type: "increment" });
 **Fix:** Check your initial state:
 
 ```typescript
-const initialSnapshot = core.createSnapshot(schema, {
-  count: "0" // WRONG: should be number
-});
+import { createSnapshot } from "@manifesto-ai/core";
+
+const context = { now: 0, randomSeed: "seed" };
+const initialSnapshot = createSnapshot({ count: "0" }, schema.hash, context); // WRONG: should be number
 
 // Fix:
-const initialSnapshot = core.createSnapshot(schema, {
-  count: 0 // RIGHT
-});
+const initialSnapshot = createSnapshot({ count: 0 }, schema.hash, context); // RIGHT
 ```
 
 ### Error: "No handler for effect type X"

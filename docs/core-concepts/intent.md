@@ -152,15 +152,15 @@ Every Intent MUST carry a stable `intentId` that uniquely identifies a processin
 ```typescript
 // User clicks "Save"
 // → Generate intentId: "abc-123"
-// → compute(snapshot, { type: 'save', intentId: 'abc-123' })
+// → compute(snapshot, { type: 'save', intentId: 'abc-123' }, context)
 // → Effect required, pending
 // → Execute effect
-// → compute(snapshot, { type: 'save', intentId: 'abc-123' }) // Same intentId!
+// → compute(snapshot, { type: 'save', intentId: 'abc-123' }, context) // Same intentId!
 // → Complete
 
 // User clicks "Save" again
 // → Generate intentId: "def-456" // New intentId!
-// → compute(snapshot, { type: 'save', intentId: 'def-456' })
+// → compute(snapshot, { type: 'save', intentId: 'def-456' }, context)
 ```
 
 ### Rules for intentId
@@ -262,13 +262,13 @@ If unavailable Intent is dispatched:
 
 ```typescript
 // Flow declares effect
-compute(snapshot, intent) → status: 'pending', requirements: [effect]
+compute(snapshot, intent, context) → status: 'pending', requirements: [effect]
 
 // Host executes effect, applies patches
-snapshot' = apply(snapshot, patches)
+snapshot' = apply(snapshot, patches, context)
 
 // Flow continues
-compute(snapshot', intent) → status: 'complete'
+compute(snapshot', intent, context) → status: 'complete'
 ```
 
 ### Misconception 3: "Intent has return value"
@@ -311,17 +311,19 @@ addTodo({ title: "Buy milk" });
 
 ```typescript
 import { createHost } from "@manifesto-ai/host";
+import { createIntent } from "@manifesto-ai/core";
 
-const host = createHost({ schema, snapshot });
-
-// Dispatch intent
-const result = await host.dispatch({
-  type: "addTodo",
-  input: { title: "Buy milk" },
-  intentId: crypto.randomUUID()
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
 });
 
-console.log(result.status); // "completed" | "pending" | "error"
+// Dispatch intent
+const result = await host.dispatch(
+  createIntent("addTodo", { title: "Buy milk" }, crypto.randomUUID())
+);
+
+console.log(result.status); // "complete" | "pending" | "error"
 console.log(result.snapshot.data); // Updated state
 ```
 
