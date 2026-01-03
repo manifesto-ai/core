@@ -19,7 +19,8 @@ const createMockContext = (): EffectContext => ({
     input: undefined,
     meta: {
       version: 0,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "",
     },
   },

@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   createManifestoWorld,
+  createIntentInstance,
   type IntentInstance,
   type HostInterface,
   type HostResult,
@@ -38,7 +39,8 @@ function createTestSnapshot(data: Record<string, unknown> = {}): Snapshot {
     meta: {
       schemaHash: TEST_SCHEMA_HASH,
       version: 1,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
     },
     system: {
       status: "idle" as const,
@@ -52,24 +54,19 @@ function createTestSnapshot(data: Record<string, unknown> = {}): Snapshot {
   };
 }
 
-function createTestIntent(
+async function createTestIntent(
   type: string,
   input: unknown,
-  actorId: string
-): IntentInstance {
-  const intentId = `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return {
+  actorId: string,
+  actorKind: "human" | "agent" | "system" = "human"
+): Promise<IntentInstance> {
+  return createIntentInstance({
     body: { type, input },
-    intentId,
-    intentKey: `key-${intentId}`,
-    meta: {
-      origin: {
-        projectionId: "test:projection",
-        source: { kind: "ui" as const, eventId: `event-${Date.now()}` },
-        actor: { actorId, kind: "human" as const },
-      },
-    },
-  };
+    schemaHash: TEST_SCHEMA_HASH,
+    projectionId: "test:projection",
+    source: { kind: "ui", eventId: `event-${Date.now()}` },
+    actor: { actorId, kind: actorKind },
+  });
 }
 
 // Create a mock EffectContext for effect-utils handlers
@@ -209,7 +206,7 @@ describe("World + Effect-Utils Integration", () => {
       const genesis = await world.createGenesis(createTestSnapshot());
 
       // 8. Submit intent
-      const intent = createTestIntent("fetch-user", { userId: "user-123" }, "test-user");
+      const intent = await createTestIntent("fetch-user", { userId: "user-123" }, "test-user");
       const result = await world.submitProposal("test-user", intent, genesis.worldId);
 
       // 9. Verify
@@ -252,7 +249,7 @@ describe("World + Effect-Utils Integration", () => {
       const genesis = await world.createGenesis(createTestSnapshot());
 
       // Invalid input - empty string
-      const intent = createTestIntent("fetch-user", { userId: "" }, "test-user");
+      const intent = await createTestIntent("fetch-user", { userId: "" }, "test-user");
       const result = await world.submitProposal("test-user", intent, genesis.worldId);
 
       expect(result.proposal.status).toBe("completed");
@@ -288,7 +285,7 @@ describe("World + Effect-Utils Integration", () => {
       );
 
       const genesis = await world.createGenesis(createTestSnapshot());
-      const intent = createTestIntent("fetch-user", { userId: "1" }, "test-user");
+      const intent = await createTestIntent("fetch-user", { userId: "1" }, "test-user");
       const result = await world.submitProposal("test-user", intent, genesis.worldId);
 
       // Handler should not throw - it returns error patches
@@ -350,7 +347,12 @@ describe("World + Effect-Utils Integration", () => {
       );
 
       const genesis = await world.createGenesis(createTestSnapshot());
-      const intent = createTestIntent("aggregate-signals", { customerId: "cust-123" }, "system");
+      const intent = await createTestIntent(
+        "aggregate-signals",
+        { customerId: "cust-123" },
+        "system",
+        "system"
+      );
       const result = await world.submitProposal("system", intent, genesis.worldId);
 
       expect(result.proposal.status).toBe("completed");
@@ -409,10 +411,11 @@ describe("World + Effect-Utils Integration", () => {
       );
 
       const genesis = await world.createGenesis(createTestSnapshot());
-      const intent = createTestIntent(
+      const intent = await createTestIntent(
         "resilient-fetch",
         { url: "https://api.example.com" },
-        "app"
+        "app",
+        "system"
       );
       const result = await world.submitProposal("app", intent, genesis.worldId);
 
@@ -457,10 +460,11 @@ describe("World + Effect-Utils Integration", () => {
       );
 
       const genesis = await world.createGenesis(createTestSnapshot());
-      const intent = createTestIntent(
+      const intent = await createTestIntent(
         "resilient-fetch",
         { url: "https://api.example.com" },
-        "app"
+        "app",
+        "system"
       );
       const result = await world.submitProposal("app", intent, genesis.worldId);
 
@@ -503,7 +507,7 @@ describe("World + Effect-Utils Integration", () => {
       const genesis = await world.createGenesis(createTestSnapshot());
 
       // Agent submits - goes to pending
-      const intent = createTestIntent("fetch-user", { userId: "1" }, "agent");
+      const intent = await createTestIntent("fetch-user", { userId: "1" }, "agent", "agent");
       const submitResult = await world.submitProposal("agent", intent, genesis.worldId);
 
       expect(submitResult.proposal.status).toBe("pending");
@@ -549,7 +553,7 @@ describe("World + Effect-Utils Integration", () => {
       world.registerActor(agent, { mode: "hitl", delegate: owner });
 
       const genesis = await world.createGenesis(createTestSnapshot());
-      const intent = createTestIntent("fetch-user", { userId: "1" }, "agent");
+      const intent = await createTestIntent("fetch-user", { userId: "1" }, "agent", "agent");
       const submitResult = await world.submitProposal("agent", intent, genesis.worldId);
 
       // Owner rejects
@@ -594,7 +598,7 @@ describe("World + Effect-Utils Integration", () => {
       );
 
       const genesis = await world.createGenesis(createTestSnapshot());
-      const intent = createTestIntent("fetch-user", { userId: "1" }, "bot");
+      const intent = await createTestIntent("fetch-user", { userId: "1" }, "bot", "agent");
       const result = await world.submitProposal("bot", intent, genesis.worldId);
 
       expect(result.proposal.status).toBe("completed");
@@ -633,14 +637,14 @@ describe("World + Effect-Utils Integration", () => {
       const genesis = await world.createGenesis(createTestSnapshot());
 
       // First intent
-      const intent1 = createTestIntent("fetch-user", { userId: "1" }, "user");
+      const intent1 = await createTestIntent("fetch-user", { userId: "1" }, "user");
       const result1 = await world.submitProposal("user", intent1, genesis.worldId);
 
       expect(result1.proposal.status).toBe("completed");
       expect(mockApi).toHaveBeenCalledWith("1");
 
       // Second intent from first result
-      const intent2 = createTestIntent("fetch-user", { userId: "2" }, "user");
+      const intent2 = await createTestIntent("fetch-user", { userId: "2" }, "user");
       const result2 = await world.submitProposal("user", intent2, result1.resultWorld!.worldId);
 
       expect(result2.proposal.status).toBe("completed");

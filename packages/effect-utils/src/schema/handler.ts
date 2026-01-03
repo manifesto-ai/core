@@ -38,7 +38,7 @@ import { toErrorPatches, toPatch } from "../transforms/index.js";
  * });
  *
  * // Register with Host
- * const host = createHost({
+ * const host = createHost(schema, {
  *   effects: {
  *     'api.user.fetch': fetchUserHandler,
  *   }

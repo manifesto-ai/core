@@ -13,6 +13,7 @@ import React, { StrictMode } from "react";
 import { render, screen, waitFor, cleanup, fireEvent, act } from "@testing-library/react";
 import { z } from "zod";
 import { defineDomain, type DomainOutput, type Expr, type FieldRef } from "@manifesto-ai/builder";
+import { validate } from "@manifesto-ai/core";
 import { createManifestoApp } from "../factory/create-app.js";
 
 // ============================================================================
@@ -42,7 +43,7 @@ afterAll(() => {
 // ============================================================================
 
 function createTestDomain() {
-  return defineDomain(
+  const domain = defineDomain(
     CounterSchema,
     ({ state, computed, actions, expr, flow }): DomainOutput => {
       // Define computed values
@@ -73,8 +74,15 @@ function createTestDomain() {
         actions: { increment, decrement, addItem },
       } as any;
     },
-    { id: "test-counter", version: "1.0.0" }
+    { id: "manifesto:test-counter", version: "1.0.0" }
   );
+
+  const validation = validate(domain.schema);
+  if (!validation.valid) {
+    throw new Error(`Invalid test domain schema: ${JSON.stringify(validation.errors)}`);
+  }
+
+  return domain;
 }
 
 const initialState: CounterState = { count: 0, items: [] };
@@ -487,7 +495,7 @@ describe("createManifestoApp", () => {
     type FilterType = "all" | "active" | "completed";
 
     function createFilterDomain() {
-      return defineDomain(
+      const domain = defineDomain(
         FilterSchema,
         ({ state, computed, actions, expr, flow }): DomainOutput => {
           // Helper to convert ItemProxy property to Expr (workaround for type system)
@@ -535,8 +543,15 @@ describe("createManifestoApp", () => {
             actions: { setFilter, addItem },
           } as any;
         },
-        { id: "test-filter", version: "1.0.0" }
+        { id: "manifesto:test-filter", version: "1.0.0" }
       );
+
+      const validation = validate(domain.schema);
+      if (!validation.valid) {
+        throw new Error(`Invalid filter domain schema: ${JSON.stringify(validation.errors)}`);
+      }
+
+      return domain;
     }
 
     const filterInitialState: FilterState = {

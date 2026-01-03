@@ -13,7 +13,14 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/effect-utils#readme",
-  "keywords": ["manifesto", "effects", "utilities", "handlers", "retry", "timeout"],
+  "keywords": [
+    "manifesto",
+    "effects",
+    "utilities",
+    "handlers",
+    "retry",
+    "timeout"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

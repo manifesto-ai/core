@@ -32,7 +32,8 @@ export function createTestSnapshot(
     meta: {
       schemaHash: "test-schema-hash",
       version: 1,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
     },
     system: {
       status: "idle" as const,
