@@ -727,7 +727,7 @@ See [Manifesto vs. Others](/what-is-manifesto/manifesto-vs-others) for detailed 
 
 1. Review [Core Concepts](/core-concepts/) and [Guides](/guides/)
 2. Join our [Discord](https://discord.gg/manifesto)
-3. Open a [GitHub Discussion](https://github.com/manifesto-ai/manifesto/discussions)
+3. Open a [GitHub Discussion](https://github.com/manifesto-ai/core/discussions)
 
 ---
 

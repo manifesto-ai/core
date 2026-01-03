@@ -183,7 +183,7 @@ Scope defines proposed write boundaries.
 
 ```typescript
 type IntentScope = {
-  readonly allowedPaths?: string[];  // Path patterns allowed to write (e.g., "data.profile.*")
+  readonly allowedPaths?: string[];  // Path patterns allowed to write (e.g., "profile.*")
   readonly note?: string;            // Optional human description
 };
 ```
@@ -401,7 +401,7 @@ Projection MAY:
 | Gate emission on computed availability | `if (!computed.canSubmit) → none` |
 | Extract input from source payload | `body.input = { title: payload.title }` |
 | Perform lossless transport normalization | Ensure JSON-compatible primitives |
-| Propose scope | `body.scopeProposal = { allowedPaths: ['data.todos.*'] }` |
+| Propose scope | `body.scopeProposal = { allowedPaths: ['todos.*'] }` |
 
 ### 9.2 Forbidden Operations (MUST NOT)
 

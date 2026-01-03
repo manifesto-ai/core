@@ -1,6 +1,4 @@
-Host Contract의 FDR을 정리하겠습니다. Schema Spec FDR과 일부 중복되는 원칙이 있지만, **Host 관점에서의 근거와 결과**를 명확히 분리합니다.
 
----
 
 # Host Contract — Foundational Design Rationale (FDR)
 

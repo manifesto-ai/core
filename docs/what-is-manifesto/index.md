@@ -213,7 +213,7 @@ Manifesto doesn't replace your stack. It provides semantic state management.
 ## Get Help
 
 - **Discord:** [Join our community](https://discord.gg/manifesto)
-- **GitHub:** [Discussions](https://github.com/manifesto-ai/manifesto/discussions)
+- **GitHub:** [Discussions](https://github.com/manifesto-ai/core/discussions)
 - **Documentation:** [Guides](/guides/) and [Architecture](/architecture/)
 
 ---

@@ -1,6 +1,4 @@
-Host Contract의 FDR을 정리하겠습니다. Schema Spec FDR과 일부 중복되는 원칙이 있지만, **Host 관점에서의 근거와 결과**를 명확히 분리합니다.
 
----
 
 # Host Contract — Foundational Design Rationale (FDR)
 
@@ -96,8 +94,9 @@ core.resume(result);  // Hidden state!
 
 // REQUIRED: Effect result as Snapshot mutation
 const patches = await executeEffect();
-snapshot = core.apply(schema, snapshot, patches);
-core.compute(schema, snapshot, intent);  // All state visible
+const context = { now: 0, randomSeed: "seed" };
+snapshot = core.apply(schema, snapshot, patches, context);
+await core.compute(schema, snapshot, intent, context);  // All state visible
 ```
 
 | Benefit | Description |
@@ -158,9 +157,10 @@ If there's a continuation waiting to be resumed:
 
 ```typescript
 // Manifesto model
-result = compute(schema, snapshot, intent);  // Terminates
+const context = { now: 0, randomSeed: "seed" };
+result = compute(schema, snapshot, intent, context);  // Terminates
 // ... effect execution, patch application ...
-result = compute(schema, snapshot, intent);  // Fresh evaluation
+result = compute(schema, snapshot, intent, context);  // Fresh evaluation
 ```
 
 Each `compute()` evaluates the Flow from the beginning. The Flow checks Snapshot state to determine what to do.
@@ -336,15 +336,15 @@ Without intent identity:
 ```
 User clicks "Save"
   → Generate intentId: "abc-123"
-  → compute(snapshot, { type: 'save', intentId: 'abc-123' })
+  → compute(snapshot, { type: 'save', intentId: 'abc-123' }, context)
   → Effect required, pending
   → Execute effect
-  → compute(snapshot, { type: 'save', intentId: 'abc-123' })  // Same intentId!
+  → compute(snapshot, { type: 'save', intentId: 'abc-123' }, context)  // Same intentId!
   → Complete
 
 User clicks "Save" again
   → Generate intentId: "def-456"  // New intentId!
-  → compute(snapshot, { type: 'save', intentId: 'def-456' })
+  → compute(snapshot, { type: 'save', intentId: 'def-456' }, context)
 ```
 
 | Use Case | How IntentId Helps |
@@ -503,14 +503,15 @@ Core controls `apply()`, which is the only state mutation path. Therefore, Core 
 
 ```typescript
 // Inside Core.apply()
-function apply(schema, snapshot, patches) {
+function apply(schema, snapshot, patches, context) {
   const newSnapshot = applyPatches(snapshot, patches);
   return {
     ...newSnapshot,
     meta: {
       ...newSnapshot.meta,
       version: snapshot.meta.version + 1,  // Core increments
-      timestamp: Date.now()                 // Core sets
+      timestamp: context.now,               // Core sets from HostContext
+      randomSeed: context.randomSeed
     }
   };
 }

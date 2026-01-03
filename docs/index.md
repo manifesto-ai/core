@@ -14,7 +14,7 @@ hero:
       link: /what-is-manifesto/
     - theme: alt
       text: View on GitHub
-      link: https://github.com/manifesto-ai/manifesto
+      link: https://github.com/manifesto-ai/core
 
 features:
   - icon: 🎯
@@ -406,13 +406,13 @@ See [When to Use Manifesto](/what-is-manifesto/problem#who-should-use-manifesto)
 
 ## Community
 
-- **GitHub**: [manifesto-ai/manifesto](https://github.com/manifesto-ai/manifesto)
+- **GitHub**: [manifesto-ai/core](https://github.com/manifesto-ai/core)
 - **Discord**: [Join our community](https://discord.gg/manifesto)
-- **Twitter**: [@manifesto_ai](https://twitter.com/manifesto_ai)
+- **Twitter**: [@manifesto_ai](https://x.com/manifesto__ai)
 
 ## Contributing
 
-We welcome contributions! See our [Contributing Guide](https://github.com/manifesto-ai/manifesto/blob/main/CONTRIBUTING.md).
+We welcome contributions! See our [Contributing Guide](https://github.com/manifesto-ai/core/blob/main/CONTRIBUTING.md).
 
 ## License
 

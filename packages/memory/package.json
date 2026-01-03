@@ -1,0 +1,53 @@
+{
+  "name": "@manifesto-ai/memory",
+  "version": "1.0.0",
+  "description": "Manifesto Memory Layer - Memory retrieval, verification, and tracing",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/memory"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/memory#readme",
+  "keywords": [
+    "manifesto",
+    "memory",
+    "verification",
+    "merkle",
+    "trace",
+    "ai-agents"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/world": "^1.0.0"
+  },
+  "dependencies": {
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@manifesto-ai/world": "workspace:*",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.16"
+  },
+  "files": [
+    "dist"
+  ]
+}

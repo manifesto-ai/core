@@ -423,7 +423,7 @@ These guides are planned:
 - **Performance Optimization** — Making Manifesto apps fast
 - **Production Deployment** — Running Manifesto in production
 
-Want to contribute a guide? See [Contributing](https://github.com/manifesto-ai/manifesto/blob/main/CONTRIBUTING.md).
+Want to contribute a guide? See [Contributing](https://github.com/manifesto-ai/core/blob/main/CONTRIBUTING.md).
 
 ---
 
@@ -433,26 +433,26 @@ Want to contribute a guide? See [Contributing](https://github.com/manifesto-ai/m
 
 1. Check **[Debugging](./debugging)** guide
 2. Review **[Manifesto vs. Others](/what-is-manifesto/manifesto-vs-others)** for comparisons
-3. Search **[GitHub Discussions](https://github.com/manifesto-ai/manifesto/discussions)**
+3. Search **[GitHub Discussions](https://github.com/manifesto-ai/core/discussions)**
 4. Ask in **[Discord](https://discord.gg/manifesto)**
 
 ### If You Found a Bug
 
 1. Verify it's not in **[Debugging](./debugging)** or **[Re-entry Safe Flows](./reentry-safe-flows)**
 2. Create minimal reproduction
-3. Open **[GitHub Issue](https://github.com/manifesto-ai/manifesto/issues)**
+3. Open **[GitHub Issue](https://github.com/manifesto-ai/core/issues)**
 
 ### If You Want a New Guide
 
 1. Check "Coming Soon" list above
-2. Open **[GitHub Discussion](https://github.com/manifesto-ai/manifesto/discussions)** requesting it
+2. Open **[GitHub Discussion](https://github.com/manifesto-ai/core/discussions)** requesting it
 3. Consider contributing it yourself!
 
 ---
 
 ## Contributing Guides
 
-We welcome guide contributions! See our [Guide Writing Guidelines](https://github.com/manifesto-ai/manifesto/blob/main/docs/GUIDE_TEMPLATE.md).
+We welcome guide contributions! See our [Guide Writing Guidelines](https://github.com/manifesto-ai/core/blob/main/docs/GUIDE_TEMPLATE.md).
 
 **Good guide topics:**
 - Common patterns you discovered
