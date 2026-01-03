@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/react",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "React bindings for Manifesto Bridge",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -36,11 +36,11 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/bridge": "^1.0.0",
-    "@manifesto-ai/builder": "^1.0.0",
-    "@manifesto-ai/core": "^1.0.0",
-    "@manifesto-ai/host": "^1.0.0",
-    "@manifesto-ai/world": "^1.0.0",
+    "@manifesto-ai/bridge": "^1.1.0",
+    "@manifesto-ai/builder": "^1.1.0",
+    "@manifesto-ai/core": "^1.1.0",
+    "@manifesto-ai/host": "^1.1.0",
+    "@manifesto-ai/world": "^1.1.0",
     "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {

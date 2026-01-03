@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/lab",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Manifesto Lab - LLM governance, experimentation, and tracing for Manifesto systems",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -46,7 +46,7 @@
     "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "@manifesto-ai/world": "^1.0.0"
+    "@manifesto-ai/world": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

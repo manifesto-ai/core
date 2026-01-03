@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Manifesto Core - Pure semantic calculator for deterministic state computation",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

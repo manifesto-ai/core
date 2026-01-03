@@ -57,6 +57,10 @@
     "packages/lab": {
       "package-name": "@manifesto-ai/lab",
       "changelog-path": "CHANGELOG.md"
+    },
+    "packages/memory": {
+      "package-name": "@manifesto-ai/memory",
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }

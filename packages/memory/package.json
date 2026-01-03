@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/memory",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Manifesto Memory Layer - Memory retrieval, verification, and tracing",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -37,7 +37,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/world": "^1.0.0"
+    "@manifesto-ai/world": "^1.1.0"
   },
   "dependencies": {
     "zod": "^4.2.1"
