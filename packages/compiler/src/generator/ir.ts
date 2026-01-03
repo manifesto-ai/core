@@ -209,6 +209,8 @@ interface GeneratorContext {
   actionParams: Map<string, Set<string>>; // action -> params
   currentAction: string | null;
   diagnostics: Diagnostic[];
+  /** v0.3.3: Type declarations for expanding user-defined types */
+  typeDefs: Map<string, TypeDeclNode>;
 }
 
 function createContext(domainName: string): GeneratorContext {
@@ -219,6 +221,7 @@ function createContext(domainName: string): GeneratorContext {
     actionParams: new Map(),
     currentAction: null,
     diagnostics: [],
+    typeDefs: new Map(),
   };
 }
 
@@ -285,6 +288,11 @@ export function generate(program: ProgramNode): GenerateResult {
 // ============ Field Collection ============
 
 function collectFieldNames(domain: DomainNode, ctx: GeneratorContext): void {
+  // Collect type declarations first
+  for (const typeDecl of domain.types) {
+    ctx.typeDefs.set(typeDecl.name, typeDecl);
+  }
+
   for (const member of domain.members) {
     if (member.kind === "state") {
       for (const field of member.fields) {
@@ -377,40 +385,52 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
 }
 
 function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldSpec {
-  const type = typeExprToFieldType(field.typeExpr, ctx);
+  const spec = typeExprToFieldSpec(field.typeExpr, ctx);
   const defaultValue = field.initializer
     ? evaluateInitializer(field.initializer, ctx)
     : undefined;
 
   return {
-    type,
+    ...spec,
     required: true,
     default: defaultValue,
   };
 }
 
-function typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldType {
+/**
+ * Convert TypeExprNode to complete FieldSpec (including nested fields)
+ * This is the full conversion that includes `fields` for object types
+ */
+function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldSpec {
   switch (typeExpr.kind) {
     case "simpleType":
       switch (typeExpr.name) {
-        case "string": return "string";
-        case "number": return "number";
-        case "boolean": return "boolean";
-        case "null": return "null";
-        default:
-          // User-defined type - treat as object
-          return "object";
+        case "string": return { type: "string", required: true };
+        case "number": return { type: "number", required: true };
+        case "boolean": return { type: "boolean", required: true };
+        case "null": return { type: "null", required: true };
+        default: {
+          // User-defined type - look up and expand
+          const typeDef = ctx.typeDefs.get(typeExpr.name);
+          if (typeDef) {
+            return typeExprToFieldSpec(typeDef.typeExpr, ctx);
+          }
+          // Unknown type - treat as opaque object
+          return { type: "object", required: true };
+        }
       }
 
     case "unionType": {
       // Check if it's a literal union (enum)
       const literals: unknown[] = [];
       let isLiteralUnion = true;
+      let hasNull = false;
 
       for (const t of typeExpr.types) {
         if (t.kind === "literalType") {
           literals.push(t.value);
         } else if (t.kind === "simpleType" && t.name === "null") {
+          hasNull = true;
           literals.push(null);
         } else {
           isLiteralUnion = false;
@@ -419,35 +439,72 @@ function typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
       }
 
       if (isLiteralUnion && literals.length > 0) {
-        return { enum: literals };
+        return { type: { enum: literals }, required: true };
+      }
+
+      // Nullable type: T | null -> get spec of T
+      if (hasNull) {
+        for (const t of typeExpr.types) {
+          if (t.kind !== "simpleType" || t.name !== "null") {
+            const innerSpec = typeExprToFieldSpec(t, ctx);
+            return { ...innerSpec, required: false };
+          }
+        }
       }
 
       // Mixed union - default to first non-null type
       for (const t of typeExpr.types) {
         if (t.kind !== "simpleType" || t.name !== "null") {
-          return typeExprToFieldType(t, ctx);
+          return typeExprToFieldSpec(t, ctx);
         }
       }
-      return "null";
+      return { type: "null", required: true };
     }
 
-    case "arrayType":
-      return "array";
+    case "arrayType": {
+      const itemSpec = typeExprToFieldSpec(typeExpr.elementType, ctx);
+      return {
+        type: "array",
+        required: true,
+        items: itemSpec,
+      };
+    }
 
     case "recordType":
-      return "object";
+      return { type: "object", required: true };
 
     case "literalType":
       // Single literal type - use its base type
-      if (typeof typeExpr.value === "string") return "string";
-      if (typeof typeExpr.value === "number") return "number";
-      if (typeof typeExpr.value === "boolean") return "boolean";
-      return "null";
+      if (typeof typeExpr.value === "string") return { type: "string", required: true };
+      if (typeof typeExpr.value === "number") return { type: "number", required: true };
+      if (typeof typeExpr.value === "boolean") return { type: "boolean", required: true };
+      return { type: "null", required: true };
 
-    case "objectType":
-      // v0.3.3: Inline object type
-      return "object";
+    case "objectType": {
+      // v0.3.3: Inline object type - expand to fields
+      const objectFields: Record<string, FieldSpec> = {};
+      for (const field of typeExpr.fields) {
+        const fieldSpec = typeExprToFieldSpec(field.typeExpr, ctx);
+        objectFields[field.name] = {
+          ...fieldSpec,
+          required: !field.optional,
+        };
+      }
+      return {
+        type: "object",
+        required: true,
+        fields: objectFields,
+      };
+    }
   }
+}
+
+/**
+ * Simple type extraction (for backward compat with action input specs)
+ */
+function typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldType {
+  const spec = typeExprToFieldSpec(typeExpr, ctx);
+  return spec.type;
 }
 
 function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
