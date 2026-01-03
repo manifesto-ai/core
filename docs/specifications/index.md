@@ -193,20 +193,18 @@ Defines Intent structure and projection semantics.
 ### [Compiler Specification](./compiler-spec)
 
 **Status:** Normative
-**Version:** 1.0 (with 1.1v experimental)
+**Version:** 1.1
 
-Defines natural language to schema compilation.
+Defines MEL compilation to DomainSchema.
 
 **What it covers:**
 - Compiler input/output contract
-- NL parsing requirements
-- Schema generation semantics
-- Validation requirements
-- Error handling
+- MEL parsing and semantic validation
+- DomainSchema generation and lowering
+- Error handling and diagnostics
 
 **Who needs this:**
 - Compiler implementers
-- AI integration builders
 - Schema validation tool authors
 
 **Reading time:** 20 minutes
@@ -439,11 +437,11 @@ Spec will be updated with PATCH version (no semantic change).
 
 ### Compiler Specification
 
-**One sentence:** Defines how natural language is compiled to DomainSchema.
+**One sentence:** Defines how MEL is compiled to DomainSchema.
 
 **Key requirements:**
 - Compiler MUST produce valid DomainSchema
-- Compilation MUST be reproducible (same NL → same schema)
+- Compilation MUST be reproducible (same MEL source -> same schema)
 - Validation MUST catch all schema errors
 - Error messages MUST be actionable
 
