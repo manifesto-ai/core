@@ -7,5 +7,6 @@
   "packages/react": "1.0.0",
   "packages/compiler": "1.0.0",
   "packages/effect-utils": "1.0.0",
-  "packages/lab": "1.0.0"
+  "packages/lab": "1.0.0",
+  "packages/memory": "1.0.0"
 }
