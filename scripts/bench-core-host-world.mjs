@@ -24,6 +24,9 @@ function printUsage() {
       "  --array-size <number>",
       "  --warmup <number>",
       "  --effects | --no-effects",
+      "  --mem                  sample memory usage",
+      "  --mem-sample-every <number>",
+      "  --retain-snapshots      retain snapshots on sample ticks",
       "  --delta <number>",
       "  --debug                print per-run sanity samples",
       "  --json <path>           write results to JSON",
@@ -71,6 +74,15 @@ function parseArgs(argv) {
       case "--no-effects":
         overrides.effects = false;
         break;
+      case "--mem":
+        overrides.mem = true;
+        break;
+      case "--mem-sample-every":
+        overrides.memSampleEvery = Number(value ?? argv[++i]);
+        break;
+      case "--retain-snapshots":
+        overrides.retainSnapshots = true;
+        break;
       case "--delta":
         overrides.delta = Number(value ?? argv[++i]);
         break;
@@ -101,6 +113,9 @@ function parseArgs(argv) {
     warmup: profileConfig.warmup,
     arraySize: profileConfig.arraySize,
     effects: true,
+    mem: false,
+    memSampleEvery: 50,
+    retainSnapshots: false,
     delta: 1,
     json: null,
     debug: false,
@@ -121,6 +136,10 @@ function parseArgs(argv) {
   }
   if (!Number.isFinite(config.warmup) || config.warmup < 0) {
     console.error("warmup must be zero or a positive number");
+    process.exit(1);
+  }
+  if (!Number.isFinite(config.memSampleEvery) || config.memSampleEvery <= 0) {
+    console.error("mem-sample-every must be a positive number");
     process.exit(1);
   }
   if (!Number.isFinite(config.delta)) {
@@ -173,6 +192,18 @@ function formatOps(value) {
   return `${value.toFixed(2)} ops/s`;
 }
 
+function formatBytes(value) {
+  if (!Number.isFinite(value)) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let amount = value;
+  let unitIndex = 0;
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024;
+    unitIndex += 1;
+  }
+  return `${amount.toFixed(2)} ${units[unitIndex]}`;
+}
+
 function printResult(label, stats) {
   console.log(
     [
@@ -186,6 +217,66 @@ function printResult(label, stats) {
       `  min/max:  ${formatMs(stats.minMs)} / ${formatMs(stats.maxMs)}`,
     ].join("\n")
   );
+}
+
+function shouldSampleMemory(iteration, totalIterations, sampleEvery) {
+  if (sampleEvery <= 0) return false;
+  return iteration % sampleEvery === 0 || iteration === totalIterations;
+}
+
+function sampleMemory(samples, iteration, elapsedMs, retainedSnapshots) {
+  const usage = process.memoryUsage();
+  samples.push({
+    iter: iteration,
+    elapsedMs,
+    heapUsed: usage.heapUsed,
+    heapTotal: usage.heapTotal,
+    rss: usage.rss,
+    external: usage.external,
+    arrayBuffers: usage.arrayBuffers ?? 0,
+    retainedSnapshots: retainedSnapshots ?? 0,
+  });
+}
+
+function summarizeMemorySamples(samples) {
+  if (!samples || samples.length === 0) return null;
+  const heapUsed = samples.map((sample) => sample.heapUsed);
+  const rss = samples.map((sample) => sample.rss);
+  const start = samples[0];
+  const end = samples[samples.length - 1];
+
+  return {
+    samples: samples.length,
+    heapUsed: {
+      start: start.heapUsed,
+      end: end.heapUsed,
+      min: Math.min(...heapUsed),
+      max: Math.max(...heapUsed),
+      delta: end.heapUsed - start.heapUsed,
+    },
+    rss: {
+      start: start.rss,
+      end: end.rss,
+      min: Math.min(...rss),
+      max: Math.max(...rss),
+      delta: end.rss - start.rss,
+    },
+    retainedSnapshots: end.retainedSnapshots ?? 0,
+  };
+}
+
+function printMemorySummary(label, summary) {
+  if (!summary) return;
+  console.log(`${label} memory:`);
+  console.log(
+    `  heapUsed: start ${formatBytes(summary.heapUsed.start)} end ${formatBytes(summary.heapUsed.end)} peak ${formatBytes(summary.heapUsed.max)} delta ${formatBytes(summary.heapUsed.delta)}`
+  );
+  console.log(
+    `  rss:      start ${formatBytes(summary.rss.start)} end ${formatBytes(summary.rss.end)} peak ${formatBytes(summary.rss.max)} delta ${formatBytes(summary.rss.delta)}`
+  );
+  if (summary.retainedSnapshots) {
+    console.log(`  retained snapshots: ${summary.retainedSnapshots}`);
+  }
 }
 
 function buildInitialData(arraySize) {
@@ -273,9 +364,14 @@ async function runHostLoop({
   }
 
   const durations = measure ? new Array(iterations) : [];
+  const memorySamples = config.mem ? [] : null;
+  const retainedSnapshots = config.retainSnapshots ? [] : null;
   let lastSnapshot = initialSnapshot;
 
   const startTotal = performance.now();
+  if (memorySamples) {
+    sampleMemory(memorySamples, 0, 0, retainedSnapshots?.length ?? 0);
+  }
   for (let i = 0; i < iterations; i++) {
     const intent = createIntent(
       "tick",
@@ -300,6 +396,18 @@ async function runHostLoop({
       durations[i] = performance.now() - start;
     }
     lastSnapshot = result.snapshot;
+
+    if (memorySamples && shouldSampleMemory(i + 1, iterations, config.memSampleEvery)) {
+      if (retainedSnapshots) {
+        retainedSnapshots.push(result.snapshot);
+      }
+      sampleMemory(
+        memorySamples,
+        i + 1,
+        performance.now() - startTotal,
+        retainedSnapshots?.length ?? 0
+      );
+    }
   }
   const totalMs = performance.now() - startTotal;
 
@@ -307,6 +415,7 @@ async function runHostLoop({
     totalMs,
     durations,
     snapshot: lastSnapshot,
+    memorySamples,
   };
 }
 
@@ -338,7 +447,12 @@ async function runWorldLoop({
   let currentWorldId = genesis.worldId;
 
   const durations = measure ? new Array(iterations) : [];
+  const memorySamples = config.mem ? [] : null;
+  const retainedSnapshots = config.retainSnapshots ? [] : null;
   const startTotal = performance.now();
+  if (memorySamples) {
+    sampleMemory(memorySamples, 0, 0, retainedSnapshots?.length ?? 0);
+  }
 
   for (let i = 0; i < iterations; i++) {
     const intentInstance = await createIntentInstance({
@@ -366,12 +480,25 @@ async function runWorldLoop({
       throw new Error(result.error?.message ?? "World execution failed");
     }
     currentWorldId = result.resultWorld.worldId;
+
+    if (memorySamples && shouldSampleMemory(i + 1, iterations, config.memSampleEvery)) {
+      if (retainedSnapshots) {
+        const snapshot = await world.getSnapshot(currentWorldId);
+        retainedSnapshots.push(snapshot);
+      }
+      sampleMemory(
+        memorySamples,
+        i + 1,
+        performance.now() - startTotal,
+        retainedSnapshots?.length ?? 0
+      );
+    }
   }
 
   const totalMs = performance.now() - startTotal;
   const snapshot = await world.getSnapshot(currentWorldId);
 
-  return { totalMs, durations, snapshot };
+  return { totalMs, durations, snapshot, memorySamples };
 }
 
 async function main() {
@@ -441,6 +568,9 @@ async function main() {
   console.log(`  warmup: ${config.warmup}`);
   console.log(`  arraySize: ${config.arraySize}`);
   console.log(`  effects: ${config.effects}`);
+  console.log(`  mem: ${config.mem}`);
+  console.log(`  memSampleEvery: ${config.memSampleEvery}`);
+  console.log(`  retainSnapshots: ${config.retainSnapshots}`);
   console.log(`  delta: ${config.delta}`);
   console.log("");
 
@@ -470,8 +600,17 @@ async function main() {
     });
 
     const stats = summarizeSamples(hostResult.durations, hostResult.totalMs);
+    const memorySummary = summarizeMemorySamples(hostResult.memorySamples);
     printResult("Host", stats);
-    results.push({ name: "host", stats });
+    if (config.mem) {
+      printMemorySummary("Host", memorySummary);
+    }
+    results.push({
+      name: "host",
+      stats,
+      memory: memorySummary,
+      memorySamples: hostResult.memorySamples ?? null,
+    });
 
     const hostCounter = hostResult.snapshot?.data?.counter;
     if (hostCounter !== config.iterations) {
@@ -529,8 +668,17 @@ async function main() {
     });
 
     const stats = summarizeSamples(worldResult.durations, worldResult.totalMs);
+    const memorySummary = summarizeMemorySamples(worldResult.memorySamples);
     printResult("World (includes Host + Core)", stats);
-    results.push({ name: "world", stats });
+    if (config.mem) {
+      printMemorySummary("World", memorySummary);
+    }
+    results.push({
+      name: "world",
+      stats,
+      memory: memorySummary,
+      memorySamples: worldResult.memorySamples ?? null,
+    });
 
     const worldCounter = worldResult.snapshot?.data?.counter;
     if (config.debug) {

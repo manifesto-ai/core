@@ -108,6 +108,7 @@ export default defineConfig({
             { text: 'Re-entry Safe Flows', link: '/guides/reentry-safe-flows' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Performance Report', link: '/guides/performance-report' },
           ]
         }
       ],

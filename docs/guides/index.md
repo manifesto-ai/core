@@ -129,6 +129,24 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 
 ---
 
+### [Performance Report](./performance-report)
+
+**Goal:** Review benchmark results for Core, Host, and World on real workloads
+
+**What you'll learn:**
+- Benchmark methodology and scenarios
+- Throughput and latency results (p50/p95/p99)
+- Memory growth trends under snapshot retention
+- Reproduction commands for your own environment
+
+**Prerequisites:** `pnpm build` (benchmarks use `dist/` outputs)
+
+**Reading time:** 10 minutes
+
+**Start here if:** You need performance baselines or want to validate deployment readiness.
+
+---
+
 ## Recommended Learning Path
 
 ### Path 1: Beginner (2-3 hours)
