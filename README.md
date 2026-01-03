@@ -157,7 +157,7 @@ domain TodoDomain {
 | [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](packages/bridge/README.md) |
 | [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](packages/builder/README.md) |
 | [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [README](packages/react/README.md) |
-| [`@manifesto-ai/compiler`](packages/compiler) | MEL/NL compiler. Compiles MEL or natural language to DomainSchema. | [README](packages/compiler/README.md) |
+| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema. | [README](packages/compiler/README.md) |
 | [`@manifesto-ai/effect-utils`](packages/effect-utils) | Effect handler utilities and helpers. | [SPEC](packages/effect-utils/docs/SPEC.md) |
 | [`@manifesto-ai/lab`](packages/lab) | LLM governance, tracing, and HITL tooling. | [README](packages/lab/README.md) |
 | [`@manifesto-ai/memory`](packages/memory) | Memory retrieval, verification, and tracing. | [README](packages/memory/README.md) |
