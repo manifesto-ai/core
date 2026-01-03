@@ -42,7 +42,7 @@ const CounterDomain = defineDomain(
   ({ state, actions }) => ({
     actions: {
       increment: actions.define({
-        flow: () => flow.patch("add", "/data/count", expr.add(state.count, 1)),
+        flow: () => flow.patch(state.count).set(expr.add(state.count, 1)),
       }),
     },
   })
@@ -155,33 +155,40 @@ const TodoDomain = defineDomain(
         input: z.object({
           title: z.string().min(1, "Title required"),
         }),
-        flow: ({ input }) =>
-          flow.patch("add", "/data/todos/-", {
-            id: expr.uuid(),
-            title: input.title,
-            completed: false,
-            createdAt: expr.now(),
-          }),
+        flow: flow.patch(state.todos).set(
+          expr.append(
+            state.todos,
+            expr.object({
+              id: expr.uuid(),
+              title: expr.input("title"),
+              completed: expr.lit(false),
+              createdAt: expr.now(),
+            })
+          )
+        ),
       }),
 
       // Action with ID lookup
       toggle: actions.define({
         input: z.object({ id: z.string() }),
-        flow: ({ input, state }) => {
-          const todo = expr.find(state.todos, (t) => expr.eq(expr.get(t, "id"), input.id));
-          return flow.patch("replace",
-            expr.concat("/data/todos/", expr.indexOf(state.todos, todo), "/completed"),
-            expr.not(expr.get(todo, "completed"))
-          );
-        },
+        flow: flow.patch(state.todos).set(
+          expr.map(state.todos, (todo) =>
+            expr.cond(
+              expr.eq(expr.get(todo, "id"), expr.input("id")),
+              expr.merge(todo, expr.object({
+                completed: expr.not(expr.get(todo, "completed")),
+              })),
+              todo
+            )
+          )
+        ),
       }),
 
       // Action with no input
       clearCompleted: actions.define({
-        flow: ({ state }) =>
-          flow.patch("replace", "/data/todos",
-            expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))
-          ),
+        flow: flow.patch(state.todos).set(
+          expr.filter(state.todos, (todo) => expr.not(expr.get(todo, "completed")))
+        ),
       }),
     },
   })
@@ -201,14 +208,10 @@ import { guard } from "@manifesto-ai/builder";
 
 const actions = {
   submit: actions.define({
-    flow: ({ state }) =>
-      flow.seq([
-        // Only proceed if not already submitted
-        guard(expr.not(state.submitted), [
-          flow.patch("set", "/data/submitted", true),
-          flow.effect("api.submit", { data: state.formData }),
-        ]),
-      ]),
+    flow: guard(expr.not(state.submitted), ({ patch, effect }) => {
+      patch(state.submitted).set(true);
+      effect("api.submit", { data: state.formData });
+    }),
   }),
 };
 ```
@@ -223,15 +226,12 @@ import { onceNull } from "@manifesto-ai/builder";
 const actions = {
   loadUser: actions.define({
     input: z.object({ id: z.string() }),
-    flow: ({ input, state }) =>
-      flow.seq([
-        // Only fetch if user is null
-        onceNull(state.user, [
-          flow.patch("set", "/data/loading", true),
-          flow.effect("api.fetchUser", { id: input.id }),
-          flow.patch("set", "/data/loading", false),
-        ]),
-      ]),
+    flow: onceNull(state.user, ({ patch, effect }) => {
+      // Only fetch if user is null
+      patch(state.loading).set(true);
+      effect("api.fetchUser", { id: expr.input("id") });
+      patch(state.loading).set(false);
+    }),
   }),
 };
 ```
@@ -243,15 +243,14 @@ const actions = {
 ```typescript
 const actions = {
   fetchPosts: actions.define({
-    flow: () =>
-      flow.seq([
-        flow.patch("set", "/data/loading", true),
-        flow.effect("api.get", {
-          url: "/api/posts",
-          target: "/data/posts", // Effect handler will set result here
-        }),
-        flow.patch("set", "/data/loading", false),
-      ]),
+    flow: flow.seq(
+      flow.patch(state.loading).set(true),
+      flow.effect("api.get", {
+        url: "/api/posts",
+        target: "posts", // Effect handler will set result here
+      }),
+      flow.patch(state.loading).set(false)
+    ),
   }),
 };
 ```
@@ -265,22 +264,20 @@ const actions = {
 ```typescript
 const AppDomain = defineDomain(
   z.object({
-    users: z.record(z.string(), z.object({
+    users: z.array(z.object({
       id: z.string(),
       name: z.string(),
       email: z.string(),
-    })).default({}),
+    })).default([]),
     selectedUserId: z.string().optional(),
   }),
 
-  ({ state, computed, actions }) => ({
+  ({ state, computed, actions, expr, flow }) => ({
     computed: {
       selectedUser: computed.define({
         deps: [state.users, state.selectedUserId],
-        expr: expr.cond(
-          [[expr.isSet(state.selectedUserId),
-            expr.get(state.users, state.selectedUserId)]],
-          null
+        expr: expr.find(state.users, (user) =>
+          expr.eq(expr.get(user, "id"), state.selectedUserId)
         ),
       }),
     },
@@ -288,14 +285,16 @@ const AppDomain = defineDomain(
     actions: {
       addUser: actions.define({
         input: z.object({ name: z.string(), email: z.string() }),
-        flow: ({ input }) => {
-          const id = expr.uuid();
-          return flow.patch("set", expr.concat("/data/users/", id), {
-            id,
-            name: input.name,
-            email: input.email,
-          });
-        },
+        flow: flow.patch(state.users).set(
+          expr.append(
+            state.users,
+            expr.object({
+              id: expr.uuid(),
+              name: expr.input("name"),
+              email: expr.input("email"),
+            })
+          )
+        ),
       }),
     },
   })
@@ -329,11 +328,11 @@ const OrderDomain = defineDomain(
     actions: {
       submit: actions.define({
         flow: ({ state }) =>
-          flow.seq([
+          flow.seq(
             flow.call("validateOrder"), // Call named flow
-            flow.patch("set", "/data/order/status", "submitted"),
-            flow.effect("api.submitOrder", { items: state.order.items }),
-          ]),
+            flow.patch(state.order.status).set("submitted"),
+            flow.effect("api.submitOrder", { items: state.order.items })
+          ),
       }),
     },
   })
@@ -350,7 +349,7 @@ const OrderDomain = defineDomain(
 
 ```typescript
 // Wrong: String path (typo-prone)
-expr: { kind: "get", path: "/data/todoss" } // Typo!
+expr: { kind: "get", path: "todoss" } // Typo!
 ```
 
 **Why it's wrong:** No type checking, easy to make typos.
@@ -368,11 +367,11 @@ expr: state.todos // TypeScript catches typos
 
 ```typescript
 // Wrong: No guard
-flow: () =>
-  flow.seq([
+flow: ({ state }) =>
+  flow.seq(
     flow.effect("api.init", {}),
-    flow.patch("set", "/data/initialized", true),
-  ])
+    flow.patch(state.initialized).set(true)
+  )
 // Effect runs every time!
 ```
 
@@ -394,7 +393,7 @@ flow: () =>
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Host executes effect "api.init"                                 │
-│ Returns patches: [{ op: "set", path: "/data/initData", ... }]  │
+│ Returns patches: [{ op: "set", path: "initData", ... }]  │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -441,8 +440,8 @@ flow: () =>
 ┌─────────────────────────────────────────────────────────────────┐
 │ Host executes effect "api.init"                                 │
 │ Returns patches:                                                │
-│   [{ op: "set", path: "/data/initialized", value: true },      │
-│    { op: "set", path: "/data/initData", value: {...} }]        │
+│   [{ op: "set", path: "initialized", value: true },      │
+│    { op: "set", path: "initData", value: {...} }]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -455,7 +454,7 @@ flow: () =>
 │ Flow evaluation:                                                │
 │   1. guard(expr.not(state.initialized), [...])                  │
 │      → state.initialized = true → SKIP guard body               │
-│ Result: status="completed", requirements=[]                     │
+│ Result: status="complete", requirements=[]                      │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
                       ✓ Flow completes
@@ -472,13 +471,10 @@ flow: () =>
 
 ```typescript
 // Right: Guard with state check
-flow: ({ state }) =>
-  flow.seq([
-    guard(expr.not(state.initialized), [
-      flow.effect("api.init", {}),
-      flow.patch("set", "/data/initialized", true),
-    ]),
-  ])
+flow: guard(expr.not(state.initialized), ({ patch, effect }) => {
+  effect("api.init", {});
+  patch(state.initialized).set(true);
+})
 ```
 
 **Alternative: Use `onceNull` helper**
@@ -487,11 +483,10 @@ flow: ({ state }) =>
 import { onceNull } from "@manifesto-ai/builder";
 
 // Simpler: Only execute if state.initData is null
-flow: ({ state }) =>
-  onceNull(state.initData, [
-    flow.effect("api.fetchData", {}),
-    // Effect handler will set initData
-  ])
+flow: onceNull(state.initData, ({ effect }) => {
+  effect("api.fetchData", {});
+  // Effect handler will set initData
+})
 ```
 
 **Key principle:** Every effect MUST be guarded by state that the effect changes. This creates a feedback loop that prevents re-execution.
@@ -518,12 +513,9 @@ computed: {
 // Right: Use effect for async, store in state
 actions: {
   loadUser: actions.define({
-    flow: ({ state }) =>
-      flow.seq([
-        onceNull(state.userData, [
-          flow.effect("api.fetchUser", { id: state.userId }),
-        ]),
-      ]),
+    flow: onceNull(state.userData, ({ effect }) => {
+      effect("api.fetchUser", { id: state.userId });
+    }),
   }),
 },
 computed: {
@@ -551,7 +543,7 @@ const schema = z.object({
 });
 
 // Then in actions:
-flow.patch("set", "/data/count", 5) // number, not string
+flow.patch(state.count).set(5) // number, not string
 ```
 
 ### Error: "Cannot find property X"
@@ -688,15 +680,20 @@ const core = createCore();
 
 // ============ Step 3: Create Initial Snapshot ============
 
-const initialSnapshot = createSnapshot(CounterDomain.schema);
+const context = { now: 0, randomSeed: "seed" };
+const initialSnapshot = createSnapshot(
+  { count: 0, lastAction: undefined, history: [] },
+  CounterDomain.schema.hash,
+  context
+);
 console.log("Initial state:", initialSnapshot.data);
 // → { count: 0, lastAction: undefined, history: [] }
 
 // ============ Step 4: Create Host ============
 
-const host = createHost({
-  schema: CounterDomain.schema,
+const host = createHost(CounterDomain.schema, {
   snapshot: initialSnapshot,
+  context: { now: () => Date.now() },
 });
 
 // ============ Step 5: Create World with Auto-Approve Authority ============
@@ -895,26 +892,32 @@ import { createCore, createSnapshot } from "@manifesto-ai/core";
 
 describe("TodoDomain", () => {
   const core = createCore();
+  const context = { now: 0, randomSeed: "seed" };
 
   it("adds todo correctly", async () => {
-    const snapshot = createSnapshot(TodoDomain.schema);
+    const snapshot = createSnapshot({ todos: [] }, TodoDomain.schema.hash, context);
 
-    const result = await core.compute(TodoDomain.schema, snapshot, {
-      type: "add",
-      input: { title: "Test todo" },
-      intentId: "i_1",
-    });
+    const result = await core.compute(
+      TodoDomain.schema,
+      snapshot,
+      {
+        type: "add",
+        input: { title: "Test todo" },
+        intentId: "i_1",
+      },
+      context
+    );
 
-    expect(result.status).toBe("completed");
+    expect(result.status).toBe("complete");
     expect(result.snapshot.data.todos).toHaveLength(1);
     expect(result.snapshot.data.todos[0].title).toBe("Test todo");
   });
 
   it("computes remaining correctly", async () => {
-    const snapshot = createSnapshot(TodoDomain.schema);
+    const snapshot = createSnapshot({ todos: [] }, TodoDomain.schema.hash, context);
     // Add some todos...
 
-    expect(snapshot.computed.remaining).toBe(0);
+    expect(snapshot.computed["computed.remaining"]).toBe(0);
   });
 });
 ```
@@ -944,14 +947,14 @@ describe("TodoDomain", () => {
 
 | Helper | Purpose | Example |
 |--------|---------|---------|
-| `flow.seq([...])` | Sequential steps | `flow.seq([step1, step2])` |
-| `flow.if(cond, then, else)` | Conditional | `flow.if(cond, thenFlow, elseFlow)` |
-| `flow.patch(op, path, value)` | State change | `flow.patch("set", "/data/x", 5)` |
+| `flow.seq(...steps)` | Sequential steps | `flow.seq(step1, step2)` |
+| `flow.when(cond, then, else)` | Conditional | `flow.when(cond, thenFlow, elseFlow)` |
+| `flow.patch(ref).set(value)` | State change | `flow.patch(state.x).set(5)` |
 | `flow.effect(type, params)` | External op | `flow.effect("api.get", { url })` |
 | `flow.halt()` | Stop success | `flow.halt()` |
 | `flow.fail(msg)` | Stop error | `flow.fail("Invalid")` |
-| `guard(cond, steps)` | Guarded exec | `guard(state.ready, [...])` |
-| `onceNull(ref, steps)` | Init if null | `onceNull(state.data, [...])` |
+| `guard(cond, body)` | Guarded exec | `guard(state.ready, ({ patch }) => patch(state.readyAt).set(expr.now()))` |
+| `onceNull(ref, body)` | Init if null | `onceNull(state.data, ({ effect }) => effect("api.load", {}))` |
 
 ---
 
