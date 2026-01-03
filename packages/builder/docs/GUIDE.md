@@ -103,7 +103,7 @@ const TodoDomain = defineDomain(
       // Count of incomplete todos
       remaining: computed.define({
         deps: [state.todos],
-        expr: expr.length(
+        expr: expr.len(
           expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))
         ),
       }),
@@ -112,13 +112,13 @@ const TodoDomain = defineDomain(
       visibleTodos: computed.define({
         deps: [state.todos, state.filter],
         expr: expr.cond(
-          [
-            [expr.eq(state.filter, "active"),
-             expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))],
-            [expr.eq(state.filter, "completed"),
-             expr.filter(state.todos, (t) => expr.get(t, "completed"))],
-          ],
-          state.todos // default: all
+          expr.eq(state.filter, "active"),
+          expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed"))),
+          expr.cond(
+            expr.eq(state.filter, "completed"),
+            expr.filter(state.todos, (t) => expr.get(t, "completed")),
+            state.todos // default: all
+          )
         ),
       }),
 
@@ -126,9 +126,9 @@ const TodoDomain = defineDomain(
       allCompleted: computed.define({
         deps: [state.todos],
         expr: expr.and(
-          expr.gt(expr.length(state.todos), 0),
+          expr.gt(expr.len(state.todos), 0),
           expr.eq(
-            expr.length(expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))),
+            expr.len(expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))),
             0
           )
         ),
@@ -316,9 +316,8 @@ const OrderDomain = defineDomain(
     flows: {
       // Reusable flow
       validateOrder: flows.define({
-        flow: ({ state }) =>
-          flow.if(
-            expr.eq(expr.length(state.order.items), 0),
+        flow: flow.when(
+            expr.eq(expr.len(state.order.items), 0),
             flow.fail("Order has no items"),
             flow.halt()
           ),
@@ -387,7 +386,7 @@ flow: ({ state }) =>
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
 │   1. flow.effect("api.init", {})  → Requirement declared        │
-│   2. flow.patch("set", "initialized", true)  → Skipped (pending)│
+│   2. flow.patch(state.initialized).set(true)  → Skipped (pending)│
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -401,7 +400,7 @@ flow: ({ state }) =>
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
 │   1. flow.effect("api.init", {})  → Requirement declared AGAIN! │
-│   2. flow.patch("set", "initialized", true)  → Skipped          │
+│   2. flow.patch(state.initialized).set(true)  → Skipped          │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -433,7 +432,7 @@ flow: ({ state }) =>
 │   1. guard(expr.not(state.initialized), [...])                  │
 │      → state.initialized = false → ENTER guard                  │
 │   2. flow.effect("api.init", {})  → Requirement declared        │
-│   3. flow.patch("set", "initialized", true)  → Skipped (pending)│
+│   3. flow.patch(state.initialized).set(true)  → Skipped (pending)│
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -570,7 +569,7 @@ const schema = z.object({
 computed: {
   total: computed.define({
     deps: [state.items], // Must include all dependencies!
-    expr: expr.length(state.items),
+    expr: expr.len(state.items),
   }),
 }
 ```
@@ -938,7 +937,7 @@ describe("TodoDomain", () => {
 | `expr.add(a, b)` | Addition | `expr.add(state.count, 1)` |
 | `expr.filter(arr, fn)` | Filter array | `expr.filter(state.todos, t => ...)` |
 | `expr.map(arr, fn)` | Map array | `expr.map(state.items, i => ...)` |
-| `expr.length(arr)` | Array length | `expr.length(state.todos)` |
+| `expr.len(arr)` | Array length | `expr.len(state.todos)` |
 | `expr.get(obj, key)` | Get property | `expr.get(todo, "title")` |
 | `expr.uuid()` | Generate UUID | `id: expr.uuid()` |
 | `expr.now()` | Current timestamp | `createdAt: expr.now()` |
