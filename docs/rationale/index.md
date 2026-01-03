@@ -123,20 +123,21 @@ FDRs document these decisions so:
 
 ### [Compiler FDR](./compiler-fdr)
 
-**Why natural language compilation is deterministic.**
+**Why MEL exists and how it stays deterministic.**
 
 **Key decisions explained:**
-- Why compile NL to schemas?
-- Why not interpret NL directly?
-- Why is compilation deterministic?
-- Why validate generated schemas?
+- Why MEL uses explicit keywords and function-only syntax
+- Why patches and effects are statements (not expressions)
+- Why expressions are canonical and deterministic
+- Why system values are modeled as effects
+- Why `available`, `fail`, and `stop` exist for Core alignment
 
 **Alternatives rejected:**
-- Direct NL interpretation
-- Non-deterministic generation
-- Unvalidated schema generation
+- Using JavaScript/TypeScript directly
+- Implicit operators and template literals
+- Special-case "magic" system values
 
-**Reading time:** 15 minutes
+**Reading time:** 60 minutes
 
 ---
 
@@ -529,7 +530,7 @@ We welcome FDR improvements:
 3. Community reviews
 4. If accepted, add to repository
 
-See [FDR Template](https://github.com/manifesto-ai/manifesto/blob/main/docs/FDR_TEMPLATE.md).
+See [FDR Template](https://github.com/manifesto-ai/core/blob/main/docs/FDR_TEMPLATE.md).
 
 ---
 

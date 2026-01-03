@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.16",
+    "mermaid": "^11.4.1",
     "turbo": "^2.3.3",
     "typedoc": "^0.25.13",
     "typescript": "^5.7.2",

@@ -87,4 +87,4 @@ pnpm exec mel compile path/to/domain.mel --stdout
 - [MEL Error Guide](/mel/ERROR-GUIDE)
 - [MEL LLM Context](/mel/LLM-CONTEXT)
 - [Compiler Spec](/specifications/compiler-spec)
-- [Compiler FDR](/rationale/compiler-fdr)
+- [MEL FDR](/rationale/compiler-fdr)

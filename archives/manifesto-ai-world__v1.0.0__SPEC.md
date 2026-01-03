@@ -732,24 +732,24 @@ World Protocol integrates with Host at a single point:
 
 ```typescript
 interface WorldToHostInterface {
-  execute(
-    schema: DomainSchema,
-    baseSnapshot: Snapshot,
-    intent: IntentInstance,
-    approvedScope?: IntentScope | null
+  dispatch(
+    intent: Intent,
+    options?: HostExecutionOptions
   ): Promise<HostExecutionResult>;
 }
 
-type HostExecutionResult =
-  | { ok: true; snapshot: Snapshot; trace?: ExecutionTrace }
-  | { ok: false; snapshot: Snapshot; error: ErrorInfo; trace?: ExecutionTrace };
-
-type ExecutionTrace = {
-  readonly traceId: string;
-  readonly events: TraceEvent[];
-  readonly startedAt: number;
-  readonly completedAt: number;
+type HostExecutionOptions = {
+  approvedScope?: IntentScope | null;
 };
+
+type HostExecutionResult = {
+  status: 'complete' | 'halted' | 'error';
+  snapshot: Snapshot;
+  traces?: TraceGraph[];
+  error?: ErrorInfo;
+};
+
+// TraceGraph is defined in Core SPEC
 ```
 
 ### 11.2 Integration Rules (MUST)
@@ -761,7 +761,7 @@ type ExecutionTrace = {
 | I-3 | Host **MUST NOT** know about Proposals, Authority, or Actors |
 | I-4 | Host **MUST NOT** pause for approval during execution |
 | I-5 | Both success and failure from Host **MUST** create a World |
-| I-6 | World Protocol **SHOULD** store ExecutionTrace if provided |
+| I-6 | World Protocol **SHOULD** store TraceGraph[] if provided |
 | I-7 | World Protocol **MUST** pass `approvedScope` to Host (for optional enforcement) |
 
 ### 11.3 Intent Identity During Execution
@@ -791,13 +791,16 @@ async function executeApprovedProposal(
   // 3. Update status
   proposal.status = 'executing';
   
-  // 4. Hand to Host with IntentInstance and approvedScope
-  const result = await host.execute(
-    schema,
-    baseSnapshot,
-    proposal.intent,  // IntentInstance
-    proposal.approvedScope  // May be used for enforcement
-  );
+  // 4. Hand to Host with Intent and approvedScope
+  const intent: Intent = {
+    type: proposal.intent.body.type,
+    input: proposal.intent.body.input,
+    intentId: proposal.intent.intentId,
+  };
+  // Host MUST be initialized with baseSnapshot before dispatch.
+  const result = await host.dispatch(intent, {
+    approvedScope: proposal.approvedScope  // May be used for enforcement
+  });
   
   // 5. Compute snapshotHash (excluding non-deterministic fields)
   const snapshotHash = computeSnapshotHash(result.snapshot);
@@ -809,7 +812,7 @@ async function executeApprovedProposal(
     snapshotHash: snapshotHash,
     createdAt: Date.now(),
     createdBy: proposal.proposalId,
-    executionTraceRef: result.trace ? storeTrace(result.trace) : undefined
+    executionTraceRef: result.traces ? storeTrace(result.traces) : undefined
   };
   
   world.addWorld(newWorld);
@@ -825,7 +828,7 @@ async function executeApprovedProposal(
   });
   
   // 8. Update proposal status
-  proposal.status = result.ok ? 'completed' : 'failed';
+  proposal.status = result.status === 'complete' ? 'completed' : 'failed';
   proposal.resultWorld = newWorld.worldId;
   proposal.completedAt = Date.now();
   
@@ -992,12 +995,15 @@ async function reproduceWorld(
   for (const edge of path) {
     const proposal = getProposal(edge.proposalId);
     const decision = getDecisionRecord(edge.decisionId);
-    const result = await host.execute(
-      schema,
-      snapshot,
-      proposal.intent,
-      decision.approvedScope
-    );
+    const intent: Intent = {
+      type: proposal.intent.body.type,
+      input: proposal.intent.body.input,
+      intentId: proposal.intent.intentId,
+    };
+    // Host MUST be initialized with current snapshot before dispatch.
+    const result = await host.dispatch(intent, {
+      approvedScope: decision.approvedScope
+    });
     snapshot = result.snapshot;
     
     // Verify we got expected World
@@ -1124,7 +1130,7 @@ The following invariants **MUST ALWAYS HOLD**:
 
 | ID | Invariant |
 |----|-----------|
-| INV-I1 | Host only receives approved Intents (as IntentInstance) |
+| INV-I1 | Host only receives approved Intents (derived from IntentInstance) |
 | INV-I2 | Host execution (success or failure) always creates a World |
 | INV-I3 | Core semantics are never bypassed |
 | INV-I4 | Rejected Proposals do NOT create Worlds |

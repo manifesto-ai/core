@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import { defineConfig } from 'vitepress'
+import type { MarkdownRenderer } from 'vitepress'
 
 const markdownLanguages = loadMarkdownLanguages()
 
@@ -13,11 +14,30 @@ function loadMarkdownLanguages() {
     })
 }
 
+function addMermaidRenderer(md: MarkdownRenderer) {
+  const defaultFence = md.renderer.rules.fence
+  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]
+    const info = token.info.trim().split(/\s+/)[0]
+    if (info === 'mermaid') {
+      const code = encodeURIComponent(token.content)
+      return `<MermaidDiagram code="${code}"></MermaidDiagram>`
+    }
+    if (defaultFence) {
+      return defaultFence(tokens, idx, options, env, self)
+    }
+    return self.renderToken(tokens, idx, options)
+  }
+}
+
 export default defineConfig({
   title: 'Manifesto',
   description: 'Accountable state management for AI-powered applications',
   markdown: {
-    languages: markdownLanguages
+    languages: markdownLanguages,
+    config: (md) => {
+      addMermaidRenderer(md)
+    }
   },
 
   themeConfig: {
@@ -128,7 +148,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/manifesto-ai/manifesto' }
+      { icon: 'github', link: 'https://github.com/manifesto-ai/core' }
     ],
 
     search: {

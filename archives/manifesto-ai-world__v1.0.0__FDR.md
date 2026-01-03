@@ -553,7 +553,8 @@ type Snapshot = {
   input: unknown;
   meta: {
     version: number;    // Incremented by Core
-    timestamp: number;  // Set by Core to current time
+    timestamp: number;  // Set by Core from HostContext
+    randomSeed: string; // Set by Core from HostContext
     schemaHash: string;
   }
 };
