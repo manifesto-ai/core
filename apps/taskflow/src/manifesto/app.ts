@@ -379,7 +379,7 @@ export async function createTaskFlowApp(
     changeView: async (viewMode) => {
       await dispatchIntent({
         type: "changeView",
-        input: { viewMode },
+        input: { newViewMode: viewMode },
       });
     },
 

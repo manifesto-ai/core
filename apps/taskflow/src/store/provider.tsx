@@ -253,17 +253,18 @@ export function TasksProvider({ children }: TasksProviderProps) {
               deletedTasks: (data.deletedTasks ?? null) as Task[] | null,
             });
 
+            // Computed values are namespaced with "computed." prefix
             setComputed({
-              totalCount: (computedVals.totalCount ?? 0) as number,
-              todoCount: (computedVals.todoCount ?? 0) as number,
-              inProgressCount: (computedVals.inProgressCount ?? 0) as number,
-              reviewCount: (computedVals.reviewCount ?? 0) as number,
-              doneCount: (computedVals.doneCount ?? 0) as number,
-              deletedCount: (computedVals.deletedCount ?? 0) as number,
-              hasSelection: (computedVals.hasSelection ?? false) as boolean,
-              canCreate: (computedVals.canCreate ?? true) as boolean,
-              canEdit: (computedVals.canEdit ?? false) as boolean,
-              canDelete: (computedVals.canDelete ?? false) as boolean,
+              totalCount: (computedVals["computed.totalCount"] ?? 0) as number,
+              todoCount: (computedVals["computed.todoCount"] ?? 0) as number,
+              inProgressCount: (computedVals["computed.inProgressCount"] ?? 0) as number,
+              reviewCount: (computedVals["computed.reviewCount"] ?? 0) as number,
+              doneCount: (computedVals["computed.doneCount"] ?? 0) as number,
+              deletedCount: (computedVals["computed.deletedCount"] ?? 0) as number,
+              hasSelection: (computedVals["computed.hasSelection"] ?? false) as boolean,
+              canCreate: (computedVals["computed.canCreate"] ?? true) as boolean,
+              canEdit: (computedVals["computed.canEdit"] ?? false) as boolean,
+              canDelete: (computedVals["computed.canDelete"] ?? false) as boolean,
             });
           },
         });

@@ -287,11 +287,24 @@ export function AssistantPanel({ onClose }: AssistantPanelProps) {
         const message = payload.message as string;
         const effects = payload.effects as AgentEffect[];
 
+        console.log('[AssistantPanel] ========== DONE EVENT ==========');
+        console.log('[AssistantPanel] Raw payload:', JSON.stringify(payload, null, 2));
+        console.log('[AssistantPanel] Effects type:', typeof effects);
+        console.log('[AssistantPanel] Effects is array:', Array.isArray(effects));
+        console.log('[AssistantPanel] Effects length:', effects?.length);
+
         if (effects && effects.length > 0) {
+          console.log('[AssistantPanel] Calling applyEffects...');
           // Apply effects asynchronously with error handling
-          applyEffects(effects).catch((err) => {
-            console.error('[AssistantPanel] Error applying effects:', err);
-          });
+          applyEffects(effects)
+            .then(() => {
+              console.log('[AssistantPanel] applyEffects completed successfully');
+            })
+            .catch((err) => {
+              console.error('[AssistantPanel] Error applying effects:', err);
+            });
+        } else {
+          console.log('[AssistantPanel] No effects to apply');
         }
 
         updateExecutionMessage(msgId, (msg) => ({

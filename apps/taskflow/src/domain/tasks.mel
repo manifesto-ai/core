@@ -202,9 +202,9 @@ domain Tasks {
   }
 
   // Change View
-  action changeView(viewMode: "todo" | "kanban" | "table" | "trash") {
+  action changeView(newViewMode: "todo" | "kanban" | "table" | "trash") {
     when true {
-      patch viewMode = viewMode
+      patch viewMode = newViewMode
     }
   }
 

@@ -16,6 +16,18 @@ import type { Task, ViewMode, Filter } from '@/manifesto';
 import type { DateFilter } from '@/components/ui/date-range-picker';
 import type { ChatMessage } from '@/lib/storage/types';
 
+// Import from provider
+import {
+  TasksProvider,
+  useTasks,
+  useTasksDerived,
+  useTasksState,
+  useTasksComputed,
+  type TaskFlowState,
+  type TaskFlowComputed,
+  type TaskFlowApp,
+} from './provider';
+
 // Re-export everything from provider for new code
 export {
   TasksProvider,
@@ -29,7 +41,7 @@ export {
   type TaskFlowState,
   type TaskFlowComputed,
   type TaskFlowApp,
-} from './provider';
+};
 
 // ============================================================================
 // Legacy UI State Store (for backward compatibility)
@@ -131,7 +143,7 @@ function logDeprecationWarning() {
  * @deprecated Use useTasks(), useTasksDerived(), or useTasksState() instead
  *
  * This provides a Zustand-like API but:
- * - Domain state (tasks, selectedTaskId, viewMode) comes from Manifesto
+ * - Domain state (tasks, selectedTaskId, viewMode) comes from Manifesto context
  * - UI state (dateFilter, chatHistory) comes from local store
  * - Setter functions for domain state are no-ops (use useTasks() actions)
  */
@@ -141,37 +153,39 @@ export function useTasksStore<T>(selector: (state: LegacyTasksStore) => T): T {
   // Get UI state from local store
   const uiState = useUIStore();
 
-  // Create a mock state object
-  // Domain state will be default values - components should use useTasksDerived() instead
-  const mockState: LegacyTasksStore = {
-    // Domain state (use defaults - should use new hooks)
-    tasks: [],
-    currentFilter: { status: null, priority: null, assignee: null },
-    selectedTaskId: null,
-    viewMode: 'kanban',
-    isCreating: false,
-    isEditing: false,
+  // Get domain state from Manifesto context (via useTasksState hook)
+  const tasksState = useTasksState();
+
+  // Create a combined state object
+  const combinedState: LegacyTasksStore = {
+    // Domain state from Manifesto context
+    tasks: tasksState?.tasks ?? [],
+    currentFilter: tasksState?.currentFilter ?? { status: null, priority: null, assignee: null },
+    selectedTaskId: tasksState?.selectedTaskId ?? null,
+    viewMode: tasksState?.viewMode ?? 'kanban',
+    isCreating: tasksState?.isCreating ?? false,
+    isEditing: tasksState?.isEditing ?? false,
 
     // UI state from local store
     ...uiState,
 
-    // No-op setters for domain state
-    setTasks: () => console.warn('useTasksStore.setTasks is deprecated'),
-    addTask: () => console.warn('useTasksStore.addTask is deprecated'),
-    updateTask: () => console.warn('useTasksStore.updateTask is deprecated'),
-    removeTask: () => console.warn('useTasksStore.removeTask is deprecated'),
-    softDeleteTask: () => console.warn('useTasksStore.softDeleteTask is deprecated'),
-    restoreTask: () => console.warn('useTasksStore.restoreTask is deprecated'),
+    // No-op setters for domain state (use useTasks() actions instead)
+    setTasks: () => console.warn('useTasksStore.setTasks is deprecated - use useTasks() actions'),
+    addTask: () => console.warn('useTasksStore.addTask is deprecated - use useTasks().createTask'),
+    updateTask: () => console.warn('useTasksStore.updateTask is deprecated - use useTasks().updateTask'),
+    removeTask: () => console.warn('useTasksStore.removeTask is deprecated - use useTasks().deleteTask'),
+    softDeleteTask: () => console.warn('useTasksStore.softDeleteTask is deprecated - use useTasks().deleteTask'),
+    restoreTask: () => console.warn('useTasksStore.restoreTask is deprecated - use useTasks().restoreTask'),
     permanentlyDeleteTask: () => console.warn('useTasksStore.permanentlyDeleteTask is deprecated'),
     emptyTrash: () => console.warn('useTasksStore.emptyTrash is deprecated'),
-    setFilter: () => console.warn('useTasksStore.setFilter is deprecated'),
-    setSelectedTaskId: () => console.warn('useTasksStore.setSelectedTaskId is deprecated'),
-    setViewMode: () => console.warn('useTasksStore.setViewMode is deprecated'),
+    setFilter: () => console.warn('useTasksStore.setFilter is deprecated - use useTasks().setFilter'),
+    setSelectedTaskId: () => console.warn('useTasksStore.setSelectedTaskId is deprecated - use useTasks().selectTask'),
+    setViewMode: () => console.warn('useTasksStore.setViewMode is deprecated - use useTasks().changeView'),
     setIsCreating: () => console.warn('useTasksStore.setIsCreating is deprecated'),
     setIsEditing: () => console.warn('useTasksStore.setIsEditing is deprecated'),
   };
 
-  return selector(mockState);
+  return selector(combinedState);
 }
 
 // Add getState for legacy compatibility (returns mock state)

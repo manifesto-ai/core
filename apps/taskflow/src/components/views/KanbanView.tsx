@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from '@/components/shared/TaskCard';
-import { useTasksStore } from '@/store/useTasksStore';
+import { useTasksStore, useTasks } from '@/store/useTasksStore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Task } from '@/manifesto';
@@ -173,9 +173,8 @@ function filterTasksByDate(tasks: Task[], dateFilter: ReturnType<typeof useTasks
 export function KanbanView() {
   const allTasks = useTasksStore((state) => state.tasks);
   const selectedTaskId = useTasksStore((state) => state.selectedTaskId);
-  const setSelectedTaskId = useTasksStore((state) => state.setSelectedTaskId);
-  const updateTask = useTasksStore((state) => state.updateTask);
   const dateFilter = useTasksStore((state) => state.dateFilter);
+  const { selectTask, moveTask } = useTasks();
 
   // Filter out deleted tasks, then apply date filter
   const activeTasks = allTasks.filter((t) => !t.deletedAt);
@@ -252,10 +251,8 @@ export function KanbanView() {
     // This is simplified - in a full implementation, we'd track which column was dropped on
     const overTask = allTasks.find((t) => t.id === over.id);
     if (overTask && draggedTask.status !== overTask.status) {
-      updateTask(draggedTask.id, {
-        status: overTask.status,
-        updatedAt: new Date().toISOString(),
-      });
+      // Use Manifesto's moveTask action
+      moveTask(draggedTask.id, overTask.status);
     }
   };
 
@@ -276,7 +273,7 @@ export function KanbanView() {
                 status={status}
                 tasks={tasksByStatus[status]}
                 selectedTaskId={selectedTaskId}
-                onSelectTask={setSelectedTaskId}
+                onSelectTask={(id) => selectTask(id)}
                 scrollToBottom={scrollToColumn === status}
                 onScrollComplete={handleScrollComplete}
               />

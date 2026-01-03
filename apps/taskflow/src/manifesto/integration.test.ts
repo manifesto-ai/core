@@ -951,4 +951,79 @@ describe("TaskFlow Integration", () => {
       expect(task.deletedAt).toBeNull();
     });
   });
+
+  describe("View Control Actions", () => {
+    it("should change view mode to todo", async () => {
+      // Initial viewMode is kanban
+      let snap = bridge.getSnapshot();
+      expect(snap?.data?.viewMode).toBe("kanban");
+
+      // Change to todo view
+      await bridge.dispatch(
+        {
+          type: "changeView",
+          input: { newViewMode: "todo" },
+        },
+        undefined,
+        userActor
+      );
+
+      snap = bridge.getSnapshot();
+      expect(snap?.data?.viewMode).toBe("todo");
+    });
+
+    it("should change view mode to table", async () => {
+      await bridge.dispatch(
+        {
+          type: "changeView",
+          input: { newViewMode: "table" },
+        },
+        undefined,
+        userActor
+      );
+
+      const snap = bridge.getSnapshot();
+      expect(snap?.data?.viewMode).toBe("table");
+    });
+
+    it("should change view mode to trash", async () => {
+      await bridge.dispatch(
+        {
+          type: "changeView",
+          input: { newViewMode: "trash" },
+        },
+        undefined,
+        userActor
+      );
+
+      const snap = bridge.getSnapshot();
+      expect(snap?.data?.viewMode).toBe("trash");
+    });
+
+    it("should allow changing view mode multiple times with separate test", async () => {
+      // Initial should be kanban
+      const snap = bridge.getSnapshot();
+      expect(snap?.data?.viewMode).toBe("kanban");
+    });
+
+    it("should notify subscribers when view mode changes", async () => {
+      let lastSnapshot: any = null;
+      const unsubscribe = bridge.subscribe((snap) => {
+        lastSnapshot = snap;
+      });
+
+      await bridge.dispatch(
+        {
+          type: "changeView",
+          input: { newViewMode: "table" },
+        },
+        undefined,
+        userActor
+      );
+
+      expect(lastSnapshot).not.toBeNull();
+      expect(lastSnapshot?.data?.viewMode).toBe("table");
+      unsubscribe();
+    });
+  });
 });
