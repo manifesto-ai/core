@@ -42,11 +42,36 @@ const { deleteCompleted } = actions.define({
     flow: flow.onceNull(state.deletingCompleted, ({ patch, effect }) => {
       patch(state.deletingCompleted).set(expr.input('timestamp'));
       effect('api:deleteCompleted', {
-        ids: expr.filter(state.todos, t => t.completed).map(t => t.id)
+        ids: expr.map(
+          expr.filter(state.todos, t => t.completed),
+          t => t.id
+        )
       });
     }),
   },
 });
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type TodoItem = { id: string, completed: boolean }
+
+  state {
+    todos: Array<TodoItem> = []
+    deletingCompleted: number | null = null
+  }
+
+  action deleteCompleted(timestamp: number) {
+    when isNull(deletingCompleted) {
+      patch deletingCompleted = timestamp
+      effect api:deleteCompleted({
+        ids: map(filter(todos, $item.completed), $item.id)
+      })
+    }
+  }
+}
 ```
 
 **When the bug is reported:**
@@ -111,12 +136,25 @@ It can't. The logic is opaque.
 
 ```typescript
 // Flow is pure data
-flow: ({ effect, patch }) =>
-  flow.seq([
-    patch(state.loading).set(expr.lit(true)),
-    effect('api:addTodo', { text: expr.input('text') }),  // Declaration only
-    patch(state.loading).set(expr.lit(false)),
-  ]);
+flow: flow.seq(
+  flow.patch(state.loading).set(expr.lit(true)),
+  flow.effect('api:addTodo', { text: expr.input('text') })  // Declaration only
+);
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    loading: boolean = false
+  }
+
+  action addTodo(text: string) {
+    patch loading = true
+    effect api:addTodo({ text: text })
+  }
+}
 ```
 
 - **Deterministic**: Same flow definition → same patches/effects
@@ -592,13 +630,43 @@ const addTodo = async (text) => {
 // Manifesto (explicit architecture)
 const { addTodo } = actions.define({
   addTodo: {
-    input: z.object({ text: z.string() }),
-    flow: flow.seq([
-      effect('api:addTodo', { text: expr.input('text') }),
-      patch(state.todos).set(expr.concat(state.todos, [expr.get('newTodo')])),
-    ]),
+    input: z.object({ id: z.string(), text: z.string() }),
+    flow: flow.seq(
+      flow.patch(state.todos).set(
+        expr.append(
+          state.todos,
+          expr.object({
+            id: expr.input('id'),
+            text: expr.input('text'),
+            completed: expr.lit(false),
+          })
+        )
+      ),
+      flow.effect('api:addTodo', { text: expr.input('text') })
+    ),
   },
 });
+```
+
+MEL equivalent (Manifesto):
+
+```mel
+domain TodoDomain {
+  type TodoItem = { id: string, text: string, completed: boolean }
+
+  state {
+    todos: Array<TodoItem> = []
+  }
+
+  action addTodo(id: string, text: string) {
+    patch todos = append(todos, {
+      id: id,
+      text: text,
+      completed: false
+    })
+    effect api:addTodo({ text: text })
+  }
+}
 ```
 
 Manifesto is more verbose, but:

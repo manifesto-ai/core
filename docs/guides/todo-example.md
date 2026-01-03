@@ -108,16 +108,12 @@ export type TodoItem = z.infer<typeof TodoItemSchema>;
 export const TodoDomain = defineDomain(
   TodoStateSchema,
   ({ state, computed, actions, expr, flow }) => {
-    // Helper to convert ItemProxy property to Expr
-    const itemField = <T>(proxy: unknown) =>
-      expr.get(proxy as any);
-
     // ============ Computed Values ============
 
     const { activeCount } = computed.define({
       activeCount: expr.len(
         expr.filter(state.todos, (item) =>
-          expr.not(itemField(item.completed))
+          expr.not(item.completed)
         )
       ),
     });
@@ -126,12 +122,12 @@ export const TodoDomain = defineDomain(
       filteredTodos: expr.cond(
         expr.eq(state.filter, "active"),
         expr.filter(state.todos, (item) =>
-          expr.not(itemField(item.completed))
+          expr.not(item.completed)
         ),
         expr.cond(
           expr.eq(state.filter, "completed"),
           expr.filter(state.todos, (item) =>
-            itemField(item.completed)
+            item.completed
           ),
           state.todos
         )
@@ -164,12 +160,12 @@ export const TodoDomain = defineDomain(
         flow: flow.patch(state.todos).set(
           expr.map(state.todos, (item) =>
             expr.cond(
-              expr.eq(itemField(item.id), expr.input("id")),
+              expr.eq(item.id, expr.input("id")),
               expr.merge(
-                itemField(item),
-                expr.object({ completed: expr.not(itemField(item.completed)) })
+                item,
+                expr.object({ completed: expr.not(item.completed) })
               ),
-              itemField(item)
+              item
             )
           )
         ),
@@ -181,7 +177,7 @@ export const TodoDomain = defineDomain(
         input: z.object({ id: z.string() }),
         flow: flow.patch(state.todos).set(
           expr.filter(state.todos, (item) =>
-            expr.neq(itemField(item.id), expr.input("id"))
+            expr.neq(item.id, expr.input("id"))
           )
         ),
       },
@@ -200,6 +196,64 @@ export const initialState: TodoState = {
   filter: "all",
   editingId: null,
 };
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type TodoItem = {
+    id: string,
+    title: string,
+    completed: boolean,
+    createdAt: number
+  }
+
+  state {
+    todos: Array<TodoItem> = []
+    filter: "all" | "active" | "completed" = "all"
+    editingId: string | null = null
+  }
+
+  computed activeCount = len(filter(todos, not($item.completed)))
+
+  computed filteredTodos = cond(
+    eq(filter, "active"),
+    filter(todos, not($item.completed)),
+    cond(
+      eq(filter, "completed"),
+      filter(todos, $item.completed),
+      todos
+    )
+  )
+
+  action add(id: string, title: string, createdAt: number) {
+    when true {
+      patch todos = append(todos, {
+        id: id,
+        title: title,
+        completed: false,
+        createdAt: createdAt
+      })
+    }
+  }
+
+  action toggle(id: string) {
+    when true {
+      patch todos = map(todos, cond(
+        eq($item.id, id),
+        merge($item, { completed: not($item.completed) }),
+        $item
+      ))
+    }
+  }
+
+  action remove(id: string) {
+    when true {
+      patch todos = filter(todos, neq($item.id, id))
+    }
+  }
+}
 ```
 
 ---

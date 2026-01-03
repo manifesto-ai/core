@@ -12,7 +12,7 @@ domain ActionAvailable {
     status: "idle" | "loading" | "done" = "idle"
     isLocked: boolean = false
     items: Array<string> = []
-    submittedAt: string | null = null
+    submittedAt: number | null = null
     submitting: string | null = null
   }
 
@@ -67,7 +67,7 @@ domain ActionAvailable {
   ) {
     once(submitting) {
       patch submitting = $meta.intentId
-      patch submittedAt = $input.now
+      patch submittedAt = $system.timestamp
       patch status = "done"
     }
   }

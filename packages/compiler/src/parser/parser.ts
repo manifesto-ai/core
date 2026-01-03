@@ -428,7 +428,9 @@ export class Parser {
   }
 
   private parseEffectArg(): EffectArgNode {
-    const nameToken = this.consume("IDENTIFIER", "Expected argument name");
+    const nameToken = this.match("IDENTIFIER", "FAIL")
+      ? this.previous()
+      : this.consume("IDENTIFIER", "Expected argument name");
     this.consume("COLON", "Expected ':' after argument name");
 
     // 'into', 'pass', 'fail' are path arguments

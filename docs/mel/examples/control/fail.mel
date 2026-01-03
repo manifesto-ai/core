@@ -5,6 +5,8 @@
 // ============================================
 
 domain ControlFail {
+  type Item = { id: string }
+
   // --- State ---
   state {
     email: string = ""

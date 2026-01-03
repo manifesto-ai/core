@@ -77,6 +77,38 @@ export const CounterDomain = defineDomain(
 );
 ```
 
+MEL equivalent:
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+    lastAction: string | null = null
+  }
+
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+      patch lastAction = "increment"
+    }
+  }
+
+  action decrement() {
+    when true {
+      patch count = sub(count, 1)
+      patch lastAction = "decrement"
+    }
+  }
+
+  action reset() {
+    when true {
+      patch count = 0
+      patch lastAction = "reset"
+    }
+  }
+}
+```
+
 **What you just did:**
 - Defined state shape with Zod (`count` is a number, `lastAction` is an optional string)
 - Created three actions: `increment`, `decrement`, and `reset`
@@ -174,6 +206,29 @@ const logComputed = async () => {
 };
 ```
 
+MEL equivalent (computed section):
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+    lastAction: string | null = null
+  }
+
+  computed isPositive = gt(count, 0)
+  computed isZero = eq(count, 0)
+  computed description = cond(
+    gt(count, 0),
+    "positive",
+    cond(
+      lt(count, 0),
+      "negative",
+      "zero"
+    )
+  )
+}
+```
+
 **What computed values are:**
 - Derived values calculated from state
 - **Always recalculated** (never stored)
@@ -220,6 +275,28 @@ await host.dispatch(createIntent("addAmount", { amount: 5 }, "intent-6"));
 
 await host.dispatch(createIntent("addAmount", {}, "intent-7")); // Uses default amount: 1
 // → Count: 16
+```
+
+MEL equivalent:
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+  }
+
+  action setCount(value: number) {
+    when true {
+      patch count = value
+    }
+  }
+
+  action addAmount(amount: number | null) {
+    when true {
+      patch count = add(count, coalesce(amount, 1))
+    }
+  }
+}
 ```
 
 **What you just did:**
@@ -334,6 +411,26 @@ host.registerEffect("api:fetchUser", async (type, params) => {
 });
 ```
 
+MEL equivalent:
+
+```mel
+domain UsersDomain {
+  state {
+    loading: boolean = false
+  }
+
+  action fetchUser(id: string) {
+    when true {
+      patch loading = true
+      effect api.fetchUser({
+        userId: id
+      })
+      patch loading = false
+    }
+  }
+}
+```
+
 **Important:** Effects return **patches**, not values. The next compute cycle reads the result from Snapshot.
 
 ### Add Re-entry Safety
@@ -347,6 +444,24 @@ flow.onceNull(state.initialized, ({ patch }) => {
   patch(state.count).set(expr.add(state.count, 1));
   patch(state.initialized).set(expr.lit(true));
 })
+```
+
+MEL equivalent:
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+    initialized: boolean | null = null
+  }
+
+  action init() {
+    when isNull(initialized) {
+      patch count = add(count, 1)
+      patch initialized = true
+    }
+  }
+}
 ```
 
 See [Re-entry Safe Flows Guide](./reentry-safe-flows.md) for details.
@@ -447,6 +562,22 @@ console.log("Count:", snapshot?.data.count);
 // → Count: 1
 ```
 
+MEL equivalent (domain definition):
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+  }
+
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+}
+```
+
 ---
 
 ## What to Learn Next
@@ -504,6 +635,18 @@ const { total } = computed.define({
     expr: expr.len(state.items),
   },
 });
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    items: Array<number> = []
+  }
+
+  computed total = len(items)
+}
 ```
 
 ---

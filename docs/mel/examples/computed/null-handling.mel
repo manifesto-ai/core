@@ -5,6 +5,8 @@
 // ============================================
 
 domain ComputedNullHandling {
+  type Task = { id: string }
+
   // --- State ---
   state {
     selectedId: string | null = null

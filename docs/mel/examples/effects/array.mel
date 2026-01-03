@@ -5,6 +5,18 @@
 // ============================================
 
 domain EffectsArray {
+  type Item = {
+    id: string,
+    name: string,
+    active: boolean,
+    priority: number,
+    createdAt: number
+  }
+  type User = { id: string, name: string }
+  type Member = { id: string, name: string }
+  type Team = { members: Array<Member>, tasks: Array<Member> }
+  type Summary = { id: string, name: string, status: string }
+
   // --- State ---
   state {
     items: Array<Item> = []
@@ -14,6 +26,7 @@ domain EffectsArray {
     // Results
     filtered: Array<Item> | null = null
     mapped: Array<Summary> | null = null
+    names: Array<string> | null = null
     sorted: Array<Item> | null = null
     flattened: Array<Member> | null = null
     partitionPass: Array<Item> | null = null
@@ -79,7 +92,7 @@ domain EffectsArray {
       effect array.map({
         source: users,
         select: $item.name,
-        into: mapped
+        into: names
       })
     }
   }
@@ -158,7 +171,7 @@ domain EffectsArray {
         source: items,
         where: eq($item.active, true),
         pass: partitionPass,
-        reject: partitionFail
+        fail: partitionFail
       })
     }
   }

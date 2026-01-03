@@ -5,5 +5,20 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     globals: true,
+    coverage: {
+      all: true,
+      provider: "v8",
+      reporter: ["text-summary", "lcov", "html"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: [
+        "**/*.d.ts",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/__tests__/**",
+        "src/cli/**",
+      ],
+    },
   },
 });

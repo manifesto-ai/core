@@ -5,12 +5,20 @@
 // ============================================
 
 domain ActionParameters {
+  type Item = {
+    id: string,
+    title: string,
+    done: boolean,
+    priority?: number,
+    createdAt?: number
+  }
+
   // --- State ---
   state {
     count: number = 0
     name: string = ""
     items: Record<string, Item> = {}
-    lastUpdated: string | null = null
+    lastUpdated: number | null = null
   }
 
   // --- Single parameter ---
@@ -73,7 +81,7 @@ domain ActionParameters {
         title: trim(title),
         priority: priority,
         done: false,
-        createdAt: $input.now
+        createdAt: $system.timestamp
       }
     }
   }
@@ -92,10 +100,11 @@ domain ActionParameters {
 //   paramName       -> Direct reference
 //   $input.paramName -> Explicit input reference
 //
-// $input also provides:
-//   $input.now      -> Current timestamp (Host-provided)
-//   $input.id       -> Intent ID or generated ID
+// Intent/system values:
+//   $meta.intentId   -> Intent identifier
+//   $system.uuid     -> UUID (action only)
+//   $system.timestamp -> Timestamp (action only)
 //
 // Anti-patterns:
-//   ❌ computed x = $input.amount  // $input not in computed
+//   ❌ available when gt($input.x, 0)  // $input not allowed in available
 // ============================================

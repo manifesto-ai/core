@@ -38,7 +38,7 @@ const CounterDomain = defineDomain(
   ({ state, actions }) => ({
     actions: {
       increment: actions.define({
-        flow: () => flow.patch(state.count).set(expr.add(state.count, 1)),
+        flow: flow.patch(state.count).set(expr.add(state.count, 1)),
       }),
     },
   })
@@ -70,6 +70,22 @@ function CounterDisplay() {
 }
 ```
 
+MEL equivalent (domain definition):
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+  }
+
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+}
+```
+
 ---
 
 ## Basic Usage
@@ -81,9 +97,9 @@ function CounterDisplay() {
 ```tsx
 function TodoStats() {
   // Only re-renders when these values change
-  const total = Counter.useValue((s) => s.todos.length);
-  const remaining = Counter.useValue((s) => s.remaining);
-  const filter = Counter.useValue((s) => s.filter);
+  const total = TodoApp.useValue((s) => s.todos.length);
+  const remaining = TodoApp.useComputed((c) => c.remaining);
+  const filter = TodoApp.useValue((s) => s.filter);
 
   return (
     <div>
@@ -106,7 +122,7 @@ function TodoForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
-      add({ title: title.trim() });
+      add({ id: crypto.randomUUID(), title: title.trim() });
       setTitle("");
     }
   };
@@ -131,7 +147,7 @@ function TodoForm() {
 ```tsx
 function FilteredTodoList() {
   // Computed value from domain
-  const visibleTodos = TodoApp.useValue((s) => s.visibleTodos);
+  const visibleTodos = TodoApp.useComputed((c) => c.visibleTodos);
   const { toggle, remove } = TodoApp.useActions();
 
   return (

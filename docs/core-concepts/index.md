@@ -272,7 +272,7 @@ It's the **complete picture**, not just business state.
 | Define domain state | Snapshot | `createSnapshot(data, schema.hash, context)` |
 | Request state change | Intent | `createIntent('actionName', input, intentId)` |
 | Perform IO (API, DB) | Effect | `flow.effect('type', params)` |
-| Describe computation | Flow | `flow.seq([...])`, `flow.when(...)` |
+| Describe computation | Flow | `flow.seq(...)`, `flow.when(...)` |
 | Execute effects | Host | `host.registerEffect(type, handler)` |
 | Authorize actions | World | `world.registerAuthority(type, evaluator)` |
 

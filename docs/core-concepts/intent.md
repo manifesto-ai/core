@@ -92,6 +92,20 @@ actions.define({
 })
 ```
 
+MEL equivalent (action):
+
+```mel
+domain TodoDomain {
+  state {
+    todos: Array<string> = []
+  }
+
+  action addTodo(title: string) {
+    patch todos = append(todos, title)
+  }
+}
+```
+
 ---
 
 ## Intent Lifecycle
@@ -191,6 +205,24 @@ actions.define({
 })
 ```
 
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  state {
+    todos: Array<string> = []
+  }
+
+  action addTodo(title: string, priority: "low" | "medium" | "high" | null) {
+    when eq(trim(title), "") {
+      fail "TITLE_REQUIRED"
+    }
+
+    patch todos = append(todos, title)
+  }
+}
+```
+
 When Intent is dispatched:
 1. Core validates input against ActionSpec.input
 2. If invalid → error
@@ -229,6 +261,20 @@ actions.define({
     flow: (...)
   }
 })
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    completedCount: number = 0
+  }
+
+  action clearCompleted() available when gt(completedCount, 0) {
+    patch completedCount = 0
+  }
+}
 ```
 
 If unavailable Intent is dispatched:

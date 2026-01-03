@@ -1,0 +1,117 @@
+{
+  "name": "mel",
+  "scopeName": "source.mel",
+  "displayName": "MEL",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#effectTypes"
+    },
+    {
+      "include": "#builtins"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#systemIdentifiers"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.mel",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.mel",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mel",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.mel",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.mel",
+      "match": "\\b\\d+(?:\\.\\d+)?\\b"
+    },
+    "constants": {
+      "name": "constant.language.mel",
+      "match": "\\b(true|false|null)\\b"
+    },
+    "effectTypes": {
+      "patterns": [
+        {
+          "match": "\\b(effect)\\b\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.mel"
+            },
+            "2": {
+              "name": "entity.name.function.mel"
+            }
+          }
+        }
+      ]
+    },
+    "builtins": {
+      "name": "support.function.mel",
+      "match": "\\b(?:abs|add|and|append|at|ceil|coalesce|concat|cond|div|entries|eq|every|filter|find|first|floor|gt|gte|if|includes|isNotNull|isNull|keys|last|len|length|lower|lt|lte|map|max|merge|min|mod|mul|neg|neq|not|or|pow|round|slice|some|sqrt|strlen|strLen|sub|substr|substring|sum|toLowerCase|toString|toUpperCase|trim|typeof|upper|values)\\b(?=\\s*\\()"
+    },
+    "keywords": {
+      "name": "keyword.control.mel",
+      "match": "\\b(domain|state|computed|action|effect|when|once|patch|unset|merge|available|fail|stop|with|type|import|from|export|as)\\b"
+    },
+    "types": {
+      "name": "storage.type.mel",
+      "match": "\\b(string|number|boolean|Array|Record)\\b"
+    },
+    "systemIdentifiers": {
+      "name": "variable.language.mel",
+      "match": "\\$(system|meta|input)(?:\\.[A-Za-z_][A-Za-z0-9_]*)*|\\$item\\b"
+    },
+    "operators": {
+      "name": "keyword.operator.mel",
+      "match": "(==|!=|<=|>=|&&|\\|\\||\\?\\?|\\+|\\-|\\*|/|%|<|>|=)"
+    },
+    "punctuation": {
+      "name": "punctuation.separator.mel",
+      "match": "[\\{\\}\\[\\]\\(\\),\\.:]"
+    }
+  }
+}

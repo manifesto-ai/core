@@ -34,7 +34,7 @@ flow.seq(
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
 │   1. flow.effect("api.init", {})  → Requirement declared        │
-│   2. flow.patch("initialized", true)  → Skipped (pending)       │
+│   2. flow.patch(state.initialized).set(true)  → Skipped (pending)       │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -48,7 +48,7 @@ flow.seq(
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
 │   1. flow.effect("api.init", {})  → Requirement declared AGAIN! │
-│   2. flow.patch("initialized", true)  → Skipped (pending)       │
+│   2. flow.patch(state.initialized).set(true)  → Skipped (pending)       │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -74,7 +74,7 @@ flow.seq(
 ```typescript
 flow.seq(
   // Guard: only execute if NOT already initialized
-  flow.if(
+  flow.when(
     expr.not(state.initialized),
     flow.seq(
       flow.effect('api.init', {}),
@@ -97,7 +97,7 @@ flow.seq(
 │ Flow evaluation:                                                │
 │   1. if (NOT state.initialized)  → true, enter branch           │
 │   2. flow.effect("api.init", {})  → Requirement declared        │
-│   3. flow.patch("initialized", true)  → Skipped (pending)       │
+│   3. flow.patch(state.initialized).set(true)  → Skipped (pending)       │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -160,14 +160,31 @@ The `@manifesto-ai/builder` package provides helpers for common patterns:
 import { onceNull } from "@manifesto-ai/builder";
 
 // Only execute if state.user is null
-flow.seq(
-  onceNull(state.user, [
-    flow.patch(state.loading).set(expr.lit(true)),
-    flow.effect('api.fetchUser', { id: expr.input('userId') }),
-    // Effect handler will set state.user
-    flow.patch(state.loading).set(expr.lit(false))
-  ])
-)
+onceNull(state.user, ({ patch, effect }) => {
+  patch(state.loading).set(expr.lit(true));
+  effect('api.fetchUser', { id: expr.input('userId') });
+  // Effect handler will set state.user
+  patch(state.loading).set(expr.lit(false));
+})
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    user: string | null = null
+    loading: boolean = false
+  }
+
+  action loadUser(userId: string) {
+    when isNull(user) {
+      patch loading = true
+      effect api.fetchUser({ id: userId })
+      patch loading = false
+    }
+  }
+}
 ```
 
 **When to use:**
@@ -177,9 +194,9 @@ flow.seq(
 **How it works:**
 ```typescript
 // onceNull expands to:
-flow.if(
+flow.when(
   expr.isNull(state.user),
-  flow.seq([...steps])
+  flow.seq(...steps)
 )
 ```
 
@@ -189,12 +206,28 @@ flow.if(
 import { guard } from "@manifesto-ai/builder";
 
 // Only execute if condition is true
-flow.seq(
-  guard(expr.not(state.submitted), [
-    flow.patch(state.submitted).set(expr.lit(true)),
-    flow.effect('api.submit', { data: state.formData })
-  ])
-)
+guard(expr.not(state.submitted), ({ patch, effect }) => {
+  patch(state.submitted).set(expr.lit(true));
+  effect('api.submit', { data: state.formData });
+})
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    submitted: boolean = false
+    formData: string = ""
+  }
+
+  action submit() {
+    when not(submitted) {
+      patch submitted = true
+      effect api.submit({ data: formData })
+    }
+  }
+}
 ```
 
 **When to use:**
@@ -204,7 +237,7 @@ flow.seq(
 **How it works:**
 ```typescript
 // guard expands to:
-flow.if(condition, flow.seq([...steps]))
+flow.when(condition, flow.seq(...steps))
 ```
 
 ---
@@ -223,12 +256,29 @@ const StateSchema = z.object({
 // Action with initialization
 actions.define({
   init: {
-    flow: onceNull(state.userData, [
-      flow.effect('api.fetchUserData', {}),
+    flow: onceNull(state.userData, ({ effect }) => {
+      effect('api.fetchUserData', {});
       // Effect handler sets userData
-    ])
+    })
   }
 })
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    initialized: boolean = false
+    userData: string | null = null
+  }
+
+  action init() {
+    when isNull(userData) {
+      effect api.fetchUserData({})
+    }
+  }
+}
 ```
 
 ### Pattern 2: Submitted/Pending Flag
@@ -245,13 +295,33 @@ const StateSchema = z.object({
 actions.define({
   submit: {
     input: z.object({ timestamp: z.number() }),
-    flow: guard(expr.not(state.submitted), [
-      flow.patch(state.submitted).set(expr.lit(true)),
-      flow.patch(state.submittedAt).set(expr.input('timestamp')),
-      flow.effect('api.submit', { data: state.formData })
-    ])
+    flow: guard(expr.not(state.submitted), ({ patch, effect }) => {
+      patch(state.submitted).set(expr.lit(true));
+      patch(state.submittedAt).set(expr.input('timestamp'));
+      effect('api.submit', { data: state.formData });
+    })
   }
 })
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    formData: string = ""
+    submitted: boolean = false
+    submittedAt: number | null = null
+  }
+
+  action submit(timestamp: number) {
+    when not(submitted) {
+      patch submitted = true
+      patch submittedAt = timestamp
+      effect api.submit({ data: formData })
+    }
+  }
+}
 ```
 
 ### Pattern 3: Status-Based Guards
@@ -268,7 +338,7 @@ actions.define({
   load: {
     flow: flow.seq(
       // Only load if idle or error
-      flow.if(
+      flow.when(
         expr.or(
           expr.eq(state.status, 'idle'),
           expr.eq(state.status, 'error')
@@ -282,6 +352,24 @@ actions.define({
     )
   }
 })
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    status: "idle" | "loading" | "loaded" | "error" = "idle"
+    data: string | null = null
+  }
+
+  action load() {
+    when or(eq(status, "idle"), eq(status, "error")) {
+      patch status = "loading"
+      effect api.load({})
+    }
+  }
+}
 ```
 
 ### Pattern 4: Timestamp-Based Guards
@@ -299,7 +387,7 @@ actions.define({
     input: z.object({ now: z.number() }),
     flow: flow.seq(
       // Only fetch if cache expired
-      flow.if(
+      flow.when(
         expr.or(
           expr.isNull(state.lastFetchedAt),
           expr.gt(
@@ -317,6 +405,27 @@ actions.define({
 })
 ```
 
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    lastFetchedAt: number | null = null
+    cacheMs: number = 60000
+  }
+
+  action fetchWithCache(now: number) {
+    when or(
+      isNull(lastFetchedAt),
+      gt(sub(now, lastFetchedAt), cacheMs)
+    ) {
+      effect api.fetch({})
+      patch lastFetchedAt = now
+    }
+  }
+}
+```
+
 ---
 
 ## Anti-Patterns (What NOT to Do)
@@ -329,6 +438,21 @@ flow.seq(
   flow.patch(state.count).set(expr.add(state.count, 1)),
   flow.effect('api.submit', {})
 )
+```
+
+MEL equivalent (wrong):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+  }
+
+  action submit() {
+    patch count = add(count, 1)
+    effect api.submit({})
+  }
+}
 ```
 
 **Problem:** Runs every compute cycle. Count increments forever, API called repeatedly.
@@ -344,6 +468,25 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
 })
 ```
 
+MEL equivalent (fix):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+    submittedAt: number | null = null
+  }
+
+  action submit(timestamp: number) {
+    when isNull(submittedAt) {
+      patch count = add(count, 1)
+      patch submittedAt = timestamp
+      effect api.submit({})
+    }
+  }
+}
+```
+
 ### Anti-Pattern 2: Incrementing Without Guard
 
 ```typescript
@@ -353,6 +496,20 @@ actions.define({
     flow: flow.patch(state.count).set(expr.add(state.count, 1))
   }
 })
+```
+
+MEL equivalent (wrong):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+  }
+
+  action increment() {
+    patch count = add(count, 1)
+  }
+}
 ```
 
 **Problem:** If this action has effects later (or is called as part of a larger flow with effects), the increment will run every compute cycle.
@@ -376,6 +533,25 @@ actions.define({
 })
 ```
 
+MEL equivalent (fix):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+    lastRequestId: string | null = null
+  }
+
+  action incrementAndLog(requestId: string) {
+    when neq(lastRequestId, requestId) {
+      patch count = add(count, 1)
+      patch lastRequestId = requestId
+      effect log.increment({ count: count })
+    }
+  }
+}
+```
+
 ### Anti-Pattern 3: Boolean Toggle Without Guard
 
 ```typescript
@@ -385,6 +561,20 @@ actions.define({
     flow: flow.patch(state.flag).set(expr.not(state.flag))
   }
 })
+```
+
+MEL equivalent (wrong):
+
+```mel
+domain Example {
+  state {
+    flag: boolean = false
+  }
+
+  action toggle() {
+    patch flag = not(flag)
+  }
+}
 ```
 
 **Problem:** If called multiple times or with effects, the flag oscillates.
@@ -399,6 +589,20 @@ actions.define({
     flow: flow.patch(state.flag).set(expr.input('value'))
   }
 })
+```
+
+MEL equivalent (fix):
+
+```mel
+domain Example {
+  state {
+    flag: boolean = false
+  }
+
+  action setFlag(value: boolean) {
+    patch flag = value
+  }
+}
 ```
 
 ---

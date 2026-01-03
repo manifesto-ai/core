@@ -129,6 +129,24 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 
 ---
 
+### [Performance Report](./performance-report)
+
+**Goal:** Review benchmark results for Core, Host, and World on real workloads
+
+**What you'll learn:**
+- Benchmark methodology and scenarios
+- Throughput and latency results (p50/p95/p99)
+- Memory growth trends under snapshot retention
+- Reproduction commands for your own environment
+
+**Prerequisites:** `pnpm build` (benchmarks use `dist/` outputs)
+
+**Reading time:** 10 minutes
+
+**Start here if:** You need performance baselines or want to validate deployment readiness.
+
+---
+
 ## Recommended Learning Path
 
 ### Path 1: Beginner (2-3 hours)
@@ -217,6 +235,16 @@ flow.onceNull(state.initialized, ({ patch }) => {
 })
 ```
 
+MEL equivalent:
+
+```mel
+action init() {
+  when isNull(initialized) {
+    patch initialized = true
+  }
+}
+```
+
 **Guides using this:** Re-entry Safe Flows, Effect Handlers
 
 ---
@@ -229,17 +257,27 @@ flow.onceNull(state.initialized, ({ patch }) => {
 
 ```typescript
 // Flow declares effect
-flow.seq([
+flow.seq(
   flow.effect('api:fetchUser', { id: expr.input('id') }),
   // Effect handler returns patches
   // Next compute reads from snapshot.data.user
-])
+)
 
 // Host handler
 host.registerEffect('api:fetchUser', async (type, params) => {
   const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
   return [{ op: 'set', path: 'user', value: user }];
 });
+```
+
+MEL equivalent:
+
+```mel
+action fetchUser(id: string) {
+  when true {
+    effect api:fetchUser({ id: id })
+  }
+}
 ```
 
 **Guides using this:** Getting Started, Todo Example, Effect Handlers
@@ -259,6 +297,16 @@ flow.when(
 )
 ```
 
+MEL equivalent:
+
+```mel
+action showCompleted() {
+  when eq(filter, "completed") {
+    patch showCompleted = true
+  }
+}
+```
+
 **Guides using this:** Todo Example, Re-entry Safe Flows
 
 ---
@@ -272,7 +320,7 @@ flow.when(
 ```typescript
 // Add item
 flow.patch(state.todos).set(
-  expr.concat(state.todos, [newTodo])
+  expr.append(state.todos, newTodo)
 )
 
 // Remove item
@@ -283,13 +331,27 @@ flow.patch(state.todos).set(
 // Update item
 flow.patch(state.todos).set(
   expr.map(state.todos, t =>
-    expr.when(
+    expr.cond(
       expr.eq(t.id, idToUpdate),
-      { ...t, completed: true },
+      expr.merge(t, expr.object({ completed: expr.lit(true) })),
       t
     )
   )
 )
+```
+
+MEL equivalent:
+
+```mel
+action updateTodo(idToUpdate: string) {
+  when true {
+    patch todos = map(todos, cond(
+      eq($item.id, idToUpdate),
+      merge($item, { completed: true }),
+      $item
+    ))
+  }
+}
 ```
 
 **Guides using this:** Getting Started, Todo Example

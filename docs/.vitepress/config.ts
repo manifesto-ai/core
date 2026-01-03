@@ -1,12 +1,29 @@
+import fs from 'node:fs'
 import { defineConfig } from 'vitepress'
+
+const markdownLanguages = loadMarkdownLanguages()
+
+function loadMarkdownLanguages() {
+  const languagesDir = new URL('./languages/', import.meta.url)
+  return fs.readdirSync(languagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.tmLanguage.json'))
+    .map((entry) => {
+      const fileUrl = new URL(entry.name, languagesDir)
+      return JSON.parse(fs.readFileSync(fileUrl, 'utf-8'))
+    })
+}
 
 export default defineConfig({
   title: 'Manifesto',
   description: 'Accountable state management for AI-powered applications',
+  markdown: {
+    languages: markdownLanguages
+  },
 
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guides/' },
+      { text: 'MEL', link: '/mel/' },
       { text: 'Concepts', link: '/core-concepts/' },
       { text: 'Architecture', link: '/architecture/' },
       { text: 'Specifications', link: '/specifications/' },
@@ -37,6 +54,19 @@ export default defineConfig({
             { text: 'Flow', link: '/core-concepts/flow' },
             { text: 'Host', link: '/core-concepts/host' },
             { text: 'World', link: '/core-concepts/world' },
+          ]
+        }
+      ],
+
+      '/mel/': [
+        {
+          text: 'MEL',
+          items: [
+            { text: 'Overview', link: '/mel/' },
+            { text: 'Syntax', link: '/mel/SYNTAX' },
+            { text: 'Examples', link: '/mel/EXAMPLES' },
+            { text: 'Error Guide', link: '/mel/ERROR-GUIDE' },
+            { text: 'LLM Context', link: '/mel/LLM-CONTEXT' },
           ]
         }
       ],
@@ -78,6 +108,7 @@ export default defineConfig({
             { text: 'Re-entry Safe Flows', link: '/guides/reentry-safe-flows' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Performance Report', link: '/guides/performance-report' },
           ]
         }
       ],

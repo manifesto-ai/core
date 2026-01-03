@@ -79,20 +79,34 @@ const TodoDomain = defineDomain(
   ({ state, actions }) => ({
     actions: {
       add: actions.define({
-        input: z.object({ title: z.string() }),
-        flow: ({ input }) =>
-          flow.patch("add", `/todos/-`, {
-            id: expr.uuid(),
-            title: input.title,
-            completed: false,
-          }),
+        input: z.object({ id: z.string(), title: z.string() }),
+        flow: flow.patch(state.todos).set(
+          expr.append(
+            state.todos,
+            expr.object({
+              id: expr.input("id"),
+              title: expr.input("title"),
+              completed: expr.lit(false),
+            })
+          )
+        ),
       }),
       toggle: actions.define({
         input: z.object({ id: z.string() }),
-        flow: ({ input, state }) =>
-          flow.patch("replace", `/todos/${input.id}/completed`,
-            expr.not(expr.get(state.todos.byId(input.id), "completed"))
-          ),
+        flow: flow.patch(state.todos).set(
+          expr.map(state.todos, (todo) =>
+            expr.cond(
+              expr.eq(todo.id, expr.input("id")),
+              expr.merge(
+                todo,
+                expr.object({
+                  completed: expr.not(todo.completed),
+                })
+              ),
+              todo
+            )
+          )
+        ),
       }),
     },
   })
@@ -115,7 +129,7 @@ function TodoList() {
           {t.completed ? "✓" : "○"} {t.title}
         </li>
       ))}
-      <button onClick={() => add({ title: "New Todo" })}>Add</button>
+      <button onClick={() => add({ id: crypto.randomUUID(), title: "New Todo" })}>Add</button>
     </ul>
   );
 }
@@ -127,6 +141,42 @@ function Root() {
       <TodoList />
     </App.Provider>
   );
+}
+```
+
+MEL equivalent (domain definition):
+
+```mel
+domain TodoDomain {
+  type TodoItem = {
+    id: string,
+    title: string,
+    completed: boolean
+  }
+
+  state {
+    todos: Array<TodoItem> = []
+  }
+
+  action add(id: string, title: string) {
+    when true {
+      patch todos = append(todos, {
+        id: id,
+        title: title,
+        completed: false
+      })
+    }
+  }
+
+  action toggle(id: string) {
+    when true {
+      patch todos = map(todos, cond(
+        eq($item.id, id),
+        merge($item, { completed: not($item.completed) }),
+        $item
+      ))
+    }
+  }
 }
 ```
 
@@ -147,6 +197,7 @@ function createManifestoApp<TDomain>(
 interface ManifestoApp<TDomain> {
   Provider: React.FC<{ children: ReactNode }>;
   useValue<T>(selector: (state: TDomain) => T): T;
+  useComputed<T>(selector: (computed: Record<string, unknown>) => T): T;
   useDispatch(): DispatchFn;
   useActions(): ActionDispatchers<TDomain>;
 }

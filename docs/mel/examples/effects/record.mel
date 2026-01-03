@@ -5,6 +5,11 @@
 // ============================================
 
 domain EffectsRecord {
+  type Task = { id: string, active: boolean }
+  type User = { id: string }
+  type Setting = { key: string, value: string }
+  type Entry = { key: string, value: Task }
+
   // --- State ---
   state {
     tasks: Record<string, Task> = {}
@@ -15,6 +20,7 @@ domain EffectsRecord {
     taskIds: Array<string> | null = null
     taskList: Array<Task> | null = null
     taskEntries: Array<Entry> | null = null
+    activeTasks: Array<Task> | null = null
 
     userIds: Array<string> | null = null
     userList: Array<User> | null = null
@@ -101,7 +107,7 @@ domain EffectsRecord {
       effect array.filter({
         source: taskList,
         where: eq($item.active, true),
-        into: taskEntries
+        into: activeTasks
       })
     }
   }
@@ -125,6 +131,7 @@ domain EffectsRecord {
       patch taskIds = null
       patch taskList = null
       patch taskEntries = null
+      patch activeTasks = null
       patch userIds = null
       patch userList = null
       patch settingKeys = null

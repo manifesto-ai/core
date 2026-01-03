@@ -44,6 +44,15 @@ domain Counter {
 
 State declares the domain's mutable fields with types and default values.
 
+### Named Types (v0.3.3)
+
+Complex object types in state must be declared via `type`.
+
+```mel
+type User = { name: string, age: number }
+type Task = { id: string, done: boolean }
+```
+
 ### Basic State
 
 ```mel
@@ -78,6 +87,7 @@ state {
 state {
   tasks: Record<string, Task> = {}
   users: Record<string, User> = {}
+  taskIds: Array<string> | null = null
 }
 ```
 
@@ -90,11 +100,11 @@ state {
 }
 ```
 
-### Object Types
+### Object Types (Named)
 
 ```mel
 state {
-  user: { name: string, age: number } = { name: "", age: 0 }
+  user: User = { name: "", age: 0 }
 }
 ```
 
@@ -114,8 +124,8 @@ state {
 
 // ❌ COMPILE ERROR: System value in initializer (v0.3.0+)
 state {
-  id: string = $input.id         // Error: Must be deterministic
-  createdAt: number = $input.now // Error: Must be deterministic
+  id: string = $system.uuid          // Error: Must be deterministic
+  createdAt: number = $system.timestamp // Error: Must be deterministic
 }
 ```
 
@@ -175,7 +185,8 @@ computed latest = max(timestamps)
 
 // Len: Array<T> → number
 computed itemCount = len(items)
-computed taskCount = len(keys(tasks))
+// taskIds should be populated via record.keys effect
+computed taskCount = isNotNull(taskIds) ? len(taskIds) : 0
 ```
 
 ### Value Comparison (Multiple Args)
@@ -206,7 +217,8 @@ computed sameRecord = eq(tasks, {})      // Error: Cannot compare Record
 
 // ✅ CORRECT: Check emptiness
 computed isEmpty = eq(len(items), 0)
-computed hasNoTasks = eq(len(keys(tasks)), 0)
+// For records, use record.keys effect + derived array
+computed hasNoTasks = isNotNull(taskIds) ? eq(len(taskIds), 0) : true
 
 // ❌ COMPILE ERROR: Method calls
 computed trimmed = email.trim()          // Error: No method calls
@@ -216,8 +228,8 @@ computed lower = name.toLowerCase()      // Error: No method calls
 computed trimmed = trim(email)
 computed lower = lower(name)
 
-// ❌ COMPILE ERROR: Accessing $input in computed
-computed value = $input.amount           // Error: $input only in actions
+// ❌ COMPILE ERROR: System values in computed
+computed now = $system.timestamp          // Error: System values are IO
 ```
 
 ---
@@ -292,6 +304,15 @@ action submit() available when and(isNotNull(email), eq(submittedAt, null)) {
 }
 ```
 
+**Note:** `available when` cannot reference `$input.*`.
+
+```mel
+// ❌ COMPILE ERROR: $input not allowed in available
+action process(x: number) available when gt($input.x, 0) {
+  when true { patch count = add(count, 1) }
+}
+```
+
 ### Patch Operations
 
 ```mel
@@ -306,6 +327,25 @@ patch tasks[completedId] unset
 // Merge: Shallow merge objects
 patch user merge { name: "Bob" }
 patch settings merge $input.partialSettings
+```
+
+### System Values (v0.3.0+)
+
+System values are IO and only allowed inside action bodies.
+
+```mel
+action create() {
+  when true {
+    patch id = $system.uuid
+    patch createdAt = $system.timestamp
+  }
+}
+```
+
+**Forbidden:**
+```mel
+computed now = $system.timestamp   // System values not allowed in computed
+state { id: string = $system.uuid } // Not allowed in state defaults
 ```
 
 ### Forbidden Action Examples
@@ -341,7 +381,7 @@ Guards execute their body only when the condition is true. Re-entry safe.
 action submit() {
   // Only runs when not already submitted
   when eq(submittedAt, null) {
-    patch submittedAt = $input.now
+    patch submittedAt = $system.timestamp
     effect api.submit({ data: form, into: result })
   }
 }
@@ -380,7 +420,7 @@ action increment() {
 action addTask(title: string) {
   once(addingTask) when neq(trim(title), "") {
     patch addingTask = $meta.intentId
-    patch tasks[$input.id] = { title: title, done: false }
+    patch tasks[$system.uuid] = { id: $system.uuid, title: title, done: false }
   }
 }
 ```
@@ -425,7 +465,7 @@ action createUser(email: string) {
   // Success path
   once(creating) when eq(at(users, email), null) {
     patch creating = $meta.intentId
-    patch users[email] = { email: email, createdAt: $input.now }
+    patch users[email] = { email: email, createdAt: $system.timestamp }
   }
 }
 ```
@@ -627,8 +667,6 @@ action process() {
 | `at(rec, k)` | `(Record<K,V>, K) → V \| null` | Value for key |
 | `first(arr)` | `Array<T> → T \| null` | First element |
 | `last(arr)` | `Array<T> → T \| null` | Last element |
-| `keys(rec)` | `Record<K,V> → Array<K>` | Record keys |
-| `values(rec)` | `Record<K,V> → Array<V>` | Record values |
 | `isNull(x)` | `T → boolean` | Is null |
 | `isNotNull(x)` | `T → boolean` | Is not null |
 | `trim(s)` | `string → string` | Remove whitespace |
@@ -636,6 +674,14 @@ action process() {
 | `upper(s)` | `string → string` | Uppercase |
 | `strlen(s)` | `string → number` | String length |
 | `concat(...)` | `(...string) → string` | Join strings |
+
+### Record Effects (Quick Reference)
+
+| Effect | Purpose | Example |
+|--------|---------|---------|
+| `record.keys` | Extract keys | `effect record.keys({ source: tasks, into: taskIds })` |
+| `record.values` | Extract values | `effect record.values({ source: tasks, into: taskList })` |
+| `record.entries` | Extract entries | `effect record.entries({ source: tasks, into: taskEntries })` |
 
 ### Statement Summary
 

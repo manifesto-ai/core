@@ -7,6 +7,7 @@ import {
   createIntentIssuer,
   toSourceRef,
 } from "./intent-issuer.js";
+import { sha256 } from "@manifesto-ai/core";
 import type { ActorRef, IntentBody } from "@manifesto-ai/world";
 import type { SourceEvent } from "../schema/source-event.js";
 import type { ProjectionResultIntent } from "../schema/projection.js";
@@ -79,6 +80,32 @@ describe("DefaultIntentIssuer", () => {
       expect(instance.intentKey).toBeDefined();
       expect(typeof instance.intentKey).toBe("string");
       expect(instance.intentKey.length).toBeGreaterThan(0);
+    });
+
+    it("should compute intentKey using JCS canonicalization", async () => {
+      const schemaHash = "schema-hash";
+      const body: IntentBody = {
+        type: "todo.create",
+        input: { b: 2, a: 1, c: undefined },
+        scopeProposal: {
+          note: "create",
+          allowedPaths: ["data.todos.*"],
+        },
+      };
+
+      const instance = await issuer.issue({
+        projectionId: "proj-1",
+        schemaHash,
+        actor: createActor(),
+        source: createSource(),
+        body,
+      });
+
+      const inputJcs = "{\"a\":1,\"b\":2}";
+      const scopeJcs = "{\"allowedPaths\":[\"data.todos.*\"],\"note\":\"create\"}";
+      const expected = await sha256(`${schemaHash}:${body.type}:${inputJcs}:${scopeJcs}`);
+
+      expect(instance.intentKey).toBe(expected);
     });
 
     it("should produce same intentKey for same body and schemaHash", async () => {
