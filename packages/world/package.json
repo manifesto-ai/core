@@ -40,7 +40,7 @@
     "@manifesto-ai/host": "^1.1.0"
   },
   "dependencies": {
-    "uuid": "^11.0.5"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
