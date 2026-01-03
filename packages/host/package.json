@@ -13,7 +13,12 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/host#readme",
-  "keywords": ["manifesto", "effects", "runtime", "state-management"],
+  "keywords": [
+    "manifesto",
+    "effects",
+    "runtime",
+    "state-management"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

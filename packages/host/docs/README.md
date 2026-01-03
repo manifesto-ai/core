@@ -55,32 +55,27 @@ pnpm add @manifesto-ai/host @manifesto-ai/core
 
 ```typescript
 import { createHost } from "@manifesto-ai/host";
-import { createCore, createSnapshot } from "@manifesto-ai/core";
+import { createIntent } from "@manifesto-ai/core";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // Create host
-const host = createHost({
-  schema,
-  snapshot: createSnapshot(schema),
+const host = createHost(schema, {
+  initialData: { user: null },
+  context: { now: () => Date.now() },
 });
 
 // Register effect handler
-host.registerEffect("api.fetch", async ({ params }) => {
+host.registerEffect("api.fetch", async (_type, params) => {
   const response = await fetch(params.url);
   const data = await response.json();
-  return {
-    ok: true,
-    patches: [{ op: "set", path: params.targetPath, value: data }],
-  };
+  return [{ op: "set", path: params.targetPath, value: data }];
 });
 
 // Dispatch intent
-const result = await host.dispatch({
-  type: "loadUser",
-  input: { userId: "123" },
-});
+const intent = createIntent("loadUser", { userId: "123" }, "intent-1");
+const result = await host.dispatch(intent);
 
-console.log(result.status); // → "completed"
+console.log(result.status); // → "complete"
 console.log(result.snapshot.data.user); // → { id: "123", name: "..." }
 ```
 
@@ -94,26 +89,39 @@ console.log(result.snapshot.data.user); // → { id: "123", name: "..." }
 
 ```typescript
 // Factory
-function createHost(options: HostOptions): ManifestoHost;
+function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost;
 
 // Host class
 class ManifestoHost {
   registerEffect(type: string, handler: EffectHandler): void;
   dispatch(intent: Intent): Promise<HostResult>;
-  getSnapshot(): Snapshot;
+  getSnapshot(): Promise<Snapshot | null>;
 }
 
 // Host loop (low-level)
-function runHostLoop(options: HostLoopOptions): Promise<HostLoopResult>;
+function runHostLoop(
+  core: ManifestoCore,
+  schema: DomainSchema,
+  snapshot: Snapshot,
+  intent: Intent,
+  executor: EffectExecutor,
+  options?: HostLoopOptions
+): Promise<HostLoopResult>;
 
 // Effect types
-type EffectHandler = (context: EffectContext) => Promise<EffectResult>;
-type EffectResult = { ok: boolean; patches?: Patch[]; error?: string };
+type EffectHandler = (
+  type: string,
+  params: Record<string, unknown>,
+  context: EffectContext
+) => Promise<Patch[]>;
 
 // Persistence
 interface SnapshotStore {
-  get(): Snapshot | undefined;
-  set(snapshot: Snapshot): void;
+  get(): Promise<Snapshot | null>;
+  save(snapshot: Snapshot): Promise<void>;
+  getVersion(version: number): Promise<Snapshot | null>;
+  getLatestVersion(): Promise<number>;
+  clear(): Promise<void>;
 }
 class MemorySnapshotStore implements SnapshotStore;
 ```
@@ -129,21 +137,21 @@ class MemorySnapshotStore implements SnapshotStore;
 Effects are handled by registered handlers. Each handler is keyed by effect type:
 
 ```typescript
-host.registerEffect("timer.delay", async ({ params }) => {
+host.registerEffect("timer.delay", async (_type, params) => {
   await new Promise(resolve => setTimeout(resolve, params.ms));
-  return { ok: true };
+  return [];
 });
 
-host.registerEffect("api.post", async ({ params }) => {
+host.registerEffect("api.post", async (_type, params) => {
   const res = await fetch(params.url, { method: "POST", body: params.body });
-  return { ok: res.ok, patches: [{ op: "set", path: "/response", value: await res.json() }] };
+  return [{ op: "set", path: "response", value: await res.json() }];
 });
 ```
 
 ### Compute-Effect Loop
 
 Host runs a loop:
-1. Call `core.compute(snapshot, intent)`
+1. Call `await core.compute(schema, snapshot, intent, context)`
 2. If there are requirements (pending effects), execute them
 3. Apply resulting patches
 4. Repeat until no more requirements

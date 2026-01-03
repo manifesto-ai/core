@@ -6,7 +6,30 @@
  */
 import { describe, it, expect } from "vitest";
 import { createHost } from "../host.js";
-import { createIntent, type DomainSchema } from "@manifesto-ai/core";
+import { createIntent, type DomainSchema, hashSchemaSync } from "@manifesto-ai/core";
+
+const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
+  dummy: { type: "string", required: true },
+  result: { type: "number", required: true },
+  value: { type: "number", required: true },
+  username: { type: "string", required: true },
+  discount: { type: "number", required: true },
+  bioLength: { type: "number", required: true },
+  bioTooLong: { type: "boolean", required: true },
+  message: { type: "string", required: true },
+  formattedPrice: { type: "string", required: true },
+};
+
+const STRING_RESULT_FIELDS: DomainSchema["state"]["fields"] = {
+  result: { type: "string", required: true },
+};
+
+const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
+  "computed.dummy": {
+    expr: { kind: "get", path: "dummy" },
+    deps: ["dummy"],
+  },
+};
 
 // Type for test data
 type TestData = Record<string, unknown>;
@@ -17,16 +40,36 @@ function getData(snapshot: { data: unknown }): TestData {
 }
 
 // Helper to create a minimal domain schema with custom actions
-function createTestSchema(actions: DomainSchema["actions"]): DomainSchema {
-  return {
-    id: "test",
+function createTestSchema(
+  actions: DomainSchema["actions"],
+  stateOverrides: DomainSchema["state"]["fields"] = {}
+): DomainSchema {
+  const stateFields = {
+    ...BASE_STATE_FIELDS,
+    ...stateOverrides,
+  };
+
+  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
+    id: "manifesto:test",
     version: "1.0.0",
-    hash: "test-hash",
-    state: { fields: {} },
-    computed: { fields: {} },
+    types: {},
+    state: { fields: stateFields },
+    computed: { fields: BASE_COMPUTED_FIELDS },
     actions,
   };
+
+  return {
+    ...schemaWithoutHash,
+    hash: hashSchemaSync(schemaWithoutHash),
+  };
 }
+
+let intentCounter = 0;
+const nextIntentId = () => `intent-${intentCounter++}`;
+const createTestIntent = (type: string, input?: unknown) =>
+  input === undefined
+    ? createIntent(type, nextIntentId())
+    : createIntent(type, input, nextIntentId());
 
 // ============================================================================
 // Math Expressions: neg, abs, min, max, floor, ceil, round, sqrt, pow
@@ -47,7 +90,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("negate", { value: 5 }));
+      const result = await host.dispatch(createTestIntent("negate", { value: 5 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(-5);
@@ -66,7 +109,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("negate", { value: -3 }));
+      const result = await host.dispatch(createTestIntent("negate", { value: -3 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(3);
@@ -87,7 +130,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("absolute", { value: -42 }));
+      const result = await host.dispatch(createTestIntent("absolute", { value: -42 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(42);
@@ -106,7 +149,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("absolute", { value: 42 }));
+      const result = await host.dispatch(createTestIntent("absolute", { value: 42 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(42);
@@ -134,7 +177,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("findMin", { a: 10, b: 5, c: 15 }));
+      const result = await host.dispatch(createTestIntent("findMin", { a: 10, b: 5, c: 15 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(5);
@@ -156,7 +199,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("clampMin", { value: -10 }));
+      const result = await host.dispatch(createTestIntent("clampMin", { value: -10 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).value).toBe(0);
@@ -184,7 +227,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("findMax", { a: 10, b: 25, c: 15 }));
+      const result = await host.dispatch(createTestIntent("findMax", { a: 10, b: 25, c: 15 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(25);
@@ -205,7 +248,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("floorValue", { value: 3.7 }));
+      const result = await host.dispatch(createTestIntent("floorValue", { value: 3.7 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(3);
@@ -224,7 +267,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("ceilValue", { value: 3.2 }));
+      const result = await host.dispatch(createTestIntent("ceilValue", { value: 3.2 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(4);
@@ -244,10 +287,10 @@ describe("Math Expressions via Host", () => {
 
       const host = createHost(schema, { initialData: {} });
 
-      let result = await host.dispatch(createIntent("roundValue", { value: 3.4 }));
+      let result = await host.dispatch(createTestIntent("roundValue", { value: 3.4 }));
       expect(getData(result.snapshot).result).toBe(3);
 
-      result = await host.dispatch(createIntent("roundValue", { value: 3.5 }));
+      result = await host.dispatch(createTestIntent("roundValue", { value: 3.5 }));
       expect(getData(result.snapshot).result).toBe(4);
     });
   });
@@ -266,7 +309,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("sqrtValue", { value: 16 }));
+      const result = await host.dispatch(createTestIntent("sqrtValue", { value: 16 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(4);
@@ -285,7 +328,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("sqrtValue", { value: -9 }));
+      const result = await host.dispatch(createTestIntent("sqrtValue", { value: -9 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(null);
@@ -310,7 +353,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("safeSqrt", { value: -16 }));
+      const result = await host.dispatch(createTestIntent("safeSqrt", { value: -16 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(0);
@@ -335,7 +378,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("power", { base: 2, exp: 10 }));
+      const result = await host.dispatch(createTestIntent("power", { base: 2, exp: 10 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(1024);
@@ -358,7 +401,7 @@ describe("Math Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("square", { value: 7 }));
+      const result = await host.dispatch(createTestIntent("square", { value: 7 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(49);
@@ -382,10 +425,10 @@ describe("String Expressions via Host", () => {
             value: { kind: "trim", str: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("trimValue", { value: "  hello world  " }));
+      const result = await host.dispatch(createTestIntent("trimValue", { value: "  hello world  " }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("hello world");
@@ -401,10 +444,10 @@ describe("String Expressions via Host", () => {
             value: { kind: "trim", str: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("trimValue", { value: "   " }));
+      const result = await host.dispatch(createTestIntent("trimValue", { value: "   " }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("");
@@ -422,10 +465,10 @@ describe("String Expressions via Host", () => {
             value: { kind: "toLowerCase", str: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("toLower", { value: "Hello WORLD" }));
+      const result = await host.dispatch(createTestIntent("toLower", { value: "Hello WORLD" }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("hello world");
@@ -443,10 +486,10 @@ describe("String Expressions via Host", () => {
             value: { kind: "toUpperCase", str: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("toUpper", { value: "Hello World" }));
+      const result = await host.dispatch(createTestIntent("toUpper", { value: "Hello World" }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("HELLO WORLD");
@@ -467,7 +510,7 @@ describe("String Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("getLength", { value: "hello" }));
+      const result = await host.dispatch(createTestIntent("getLength", { value: "hello" }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(5);
@@ -486,7 +529,7 @@ describe("String Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("getLength", { value: "" }));
+      const result = await host.dispatch(createTestIntent("getLength", { value: "" }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(0);
@@ -505,7 +548,7 @@ describe("String Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("getLength", { value: "한글" }));
+      const result = await host.dispatch(createTestIntent("getLength", { value: "한글" }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe(2);
@@ -535,7 +578,7 @@ describe("Complex Expression Combinations via Host", () => {
 
     const host = createHost(schema, { initialData: {} });
     const result = await host.dispatch(
-      createIntent("normalizeUsername", { username: "  JohnDoe123  " })
+      createTestIntent("normalizeUsername", { username: "  JohnDoe123  " })
     );
 
     expect(result.status).toBe("complete");
@@ -569,15 +612,15 @@ describe("Complex Expression Combinations via Host", () => {
     const host = createHost(schema, { initialData: {} });
 
     // Value below min
-    let result = await host.dispatch(createIntent("clamp", { value: -10, min: 0, max: 100 }));
+    let result = await host.dispatch(createTestIntent("clamp", { value: -10, min: 0, max: 100 }));
     expect(getData(result.snapshot).result).toBe(0);
 
     // Value above max
-    result = await host.dispatch(createIntent("clamp", { value: 150, min: 0, max: 100 }));
+    result = await host.dispatch(createTestIntent("clamp", { value: 150, min: 0, max: 100 }));
     expect(getData(result.snapshot).result).toBe(100);
 
     // Value in range
-    result = await host.dispatch(createIntent("clamp", { value: 50, min: 0, max: 100 }));
+    result = await host.dispatch(createTestIntent("clamp", { value: 50, min: 0, max: 100 }));
     expect(getData(result.snapshot).result).toBe(50);
   });
 
@@ -618,7 +661,7 @@ describe("Complex Expression Combinations via Host", () => {
 
     const host = createHost(schema, { initialData: {} });
     const result = await host.dispatch(
-      createIntent("distance", { x1: 0, y1: 0, x2: 3, y2: 4 })
+      createTestIntent("distance", { x1: 0, y1: 0, x2: 3, y2: 4 })
     );
 
     expect(result.status).toBe("complete");
@@ -651,7 +694,7 @@ describe("Complex Expression Combinations via Host", () => {
     const host = createHost(schema, { initialData: {} });
     // 99 * 15% = 14.85, floor = 14
     const result = await host.dispatch(
-      createIntent("calculateDiscount", { price: 99, percent: 15 })
+      createTestIntent("calculateDiscount", { price: 99, percent: 15 })
     );
 
     expect(result.status).toBe("complete");
@@ -688,12 +731,12 @@ describe("Complex Expression Combinations via Host", () => {
     const host = createHost(schema, { initialData: {} });
 
     // Short bio
-    let result = await host.dispatch(createIntent("checkBio", { bio: "Hello world" }));
+    let result = await host.dispatch(createTestIntent("checkBio", { bio: "Hello world" }));
     expect(getData(result.snapshot).bioLength).toBe(11);
     expect(getData(result.snapshot).bioTooLong).toBe(false);
 
     // Long bio
-    result = await host.dispatch(createIntent("checkBio", { bio: "a".repeat(141) }));
+    result = await host.dispatch(createTestIntent("checkBio", { bio: "a".repeat(141) }));
     expect(getData(result.snapshot).bioLength).toBe(141);
     expect(getData(result.snapshot).bioTooLong).toBe(true);
   });
@@ -715,10 +758,10 @@ describe("Conversion Expressions via Host", () => {
             value: { kind: "toString", arg: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("convertToString", { value: 42 }));
+      const result = await host.dispatch(createTestIntent("convertToString", { value: 42 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("42");
@@ -734,14 +777,14 @@ describe("Conversion Expressions via Host", () => {
             value: { kind: "toString", arg: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
 
-      let result = await host.dispatch(createIntent("convertToString", { value: true }));
+      let result = await host.dispatch(createTestIntent("convertToString", { value: true }));
       expect(getData(result.snapshot).result).toBe("true");
 
-      result = await host.dispatch(createIntent("convertToString", { value: false }));
+      result = await host.dispatch(createTestIntent("convertToString", { value: false }));
       expect(getData(result.snapshot).result).toBe("false");
     });
 
@@ -755,10 +798,10 @@ describe("Conversion Expressions via Host", () => {
             value: { kind: "toString", arg: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("convertToString", { value: null }));
+      const result = await host.dispatch(createTestIntent("convertToString", { value: null }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("");
@@ -774,10 +817,10 @@ describe("Conversion Expressions via Host", () => {
             value: { kind: "toString", arg: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("convertToString", { value: "hello" }));
+      const result = await host.dispatch(createTestIntent("convertToString", { value: "hello" }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("hello");
@@ -793,10 +836,10 @@ describe("Conversion Expressions via Host", () => {
             value: { kind: "toString", arg: { kind: "get", path: "input.value" } },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("convertToString", { value: 3.14159 }));
+      const result = await host.dispatch(createTestIntent("convertToString", { value: 3.14159 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("3.14159");
@@ -821,10 +864,10 @@ describe("Conversion Expressions via Host", () => {
             },
           },
         },
-      });
+      }, STRING_RESULT_FIELDS);
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("sumToString", { a: 10, b: 20 }));
+      const result = await host.dispatch(createTestIntent("sumToString", { a: 10, b: 20 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).result).toBe("30");
@@ -850,7 +893,7 @@ describe("Conversion Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("buildMessage", { count: 42 }));
+      const result = await host.dispatch(createTestIntent("buildMessage", { count: 42 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).message).toBe("Count: 42");
@@ -876,7 +919,7 @@ describe("Conversion Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("formatPrice", { price: 99.99 }));
+      const result = await host.dispatch(createTestIntent("formatPrice", { price: 99.99 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).formattedPrice).toBe("$99.99");
@@ -905,7 +948,7 @@ describe("Conversion Expressions via Host", () => {
       });
 
       const host = createHost(schema, { initialData: {} });
-      const result = await host.dispatch(createIntent("buildUserMessage", { id: 123, points: 500 }));
+      const result = await host.dispatch(createTestIntent("buildUserMessage", { id: 123, points: 500 }));
 
       expect(result.status).toBe("complete");
       expect(getData(result.snapshot).message).toBe("User 123 has 500 points");

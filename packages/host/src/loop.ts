@@ -7,9 +7,12 @@ import type {
   TraceGraph,
   Patch,
   Requirement,
+  HostContext,
 } from "@manifesto-ai/core";
+import { createError } from "@manifesto-ai/core";
 import type { EffectExecutor } from "./effects/executor.js";
 import { createHostError, HostError } from "./errors.js";
+import { createHostContextBuilder, type HostContextOptions } from "./context.js";
 
 /**
  * Host loop result
@@ -52,24 +55,44 @@ export interface HostLoopOptions {
   maxIterations?: number;
 
   /**
+   * Optional approved scope for enforcement (opaque to Host by default)
+   */
+  approvedScope?: unknown;
+
+  /**
    * Called before each compute call
    */
-  onBeforeCompute?: (iteration: number, snapshot: Snapshot) => void;
+  onBeforeCompute?: (iteration: number, snapshot: Snapshot) => void | Promise<void>;
 
   /**
    * Called after each compute call
    */
-  onAfterCompute?: (iteration: number, result: ComputeResult) => void;
+  onAfterCompute?: (iteration: number, result: ComputeResult) => void | Promise<void>;
 
   /**
    * Called before effect execution
    */
-  onBeforeEffect?: (requirement: Requirement) => void;
+  onBeforeEffect?: (requirement: Requirement) => void | Promise<void>;
 
   /**
    * Called after effect execution
    */
-  onAfterEffect?: (requirement: Requirement, patches: Patch[], error?: string) => void;
+  onAfterEffect?: (requirement: Requirement, patches: Patch[], error?: string) => void | Promise<void>;
+
+  /**
+   * Called after patches are applied
+   */
+  onAfterApply?: (
+    source: "effect",
+    patches: Patch[],
+    before: Snapshot,
+    after: Snapshot
+  ) => void | Promise<void>;
+
+  /**
+   * Host context providers for deterministic inputs
+   */
+  context?: HostContextOptions;
 }
 
 const DEFAULT_MAX_ITERATIONS = 100;
@@ -99,22 +122,86 @@ export async function runHostLoop(
 ): Promise<HostLoopResult> {
   const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   const traces: TraceGraph[] = [];
+  const getContext = createHostContextBuilder(intent, options.context);
 
   let currentSnapshot = snapshot;
   let iteration = 0;
 
+  const executeRequirements = async (
+    requirements: Requirement[],
+    snapshotState: Snapshot
+  ): Promise<{ snapshot: Snapshot; shouldRecompute: boolean }> => {
+    let workingSnapshot = snapshotState;
+    let shouldRecompute = false;
+
+    for (const requirement of requirements) {
+      await options.onBeforeEffect?.(requirement);
+
+      const effectResult = await executor.execute(requirement, workingSnapshot);
+
+      await options.onAfterEffect?.(requirement, effectResult.patches, effectResult.error);
+
+      if (!effectResult.success) {
+        const context = getContext();
+        const failurePatches = buildEffectFailurePatches(
+          requirement,
+          effectResult.error ?? "Effect execution failed",
+          workingSnapshot,
+          context
+        );
+        const beforeApply = workingSnapshot;
+        workingSnapshot = core.apply(schema, workingSnapshot, failurePatches, context);
+        await options.onAfterApply?.("effect", failurePatches, beforeApply, workingSnapshot);
+        shouldRecompute = true;
+        break;
+      }
+
+      const clearPatches = buildClearRequirementPatches(workingSnapshot, requirement);
+      const appliedPatches = [...effectResult.patches, ...clearPatches];
+      const beforeApply = workingSnapshot;
+      workingSnapshot = core.apply(schema, workingSnapshot, appliedPatches, getContext());
+      await options.onAfterApply?.("effect", appliedPatches, beforeApply, workingSnapshot);
+    }
+
+    return { snapshot: workingSnapshot, shouldRecompute };
+  };
+
+  if (!intent.intentId) {
+    return {
+      status: "error",
+      snapshot: currentSnapshot,
+      traces,
+      iterations: iteration,
+      error: createHostError(
+        "INVALID_STATE",
+        "Intent must have intentId",
+        { intent }
+      ),
+    };
+  }
+
   while (iteration < maxIterations) {
     iteration++;
 
+    if (currentSnapshot.system.pendingRequirements.length > 0) {
+      const clearPatches: Patch[] = [
+        { op: "set", path: "system.pendingRequirements", value: [] },
+        { op: "set", path: "system.status", value: "idle" },
+      ];
+      const beforeApply = currentSnapshot;
+      currentSnapshot = core.apply(schema, currentSnapshot, clearPatches, getContext());
+      await options.onAfterApply?.("effect", clearPatches, beforeApply, currentSnapshot);
+    }
+
     // Notify before compute
-    options.onBeforeCompute?.(iteration, currentSnapshot);
+    await options.onBeforeCompute?.(iteration, currentSnapshot);
 
     // 1. Call core.compute()
-    const result = await core.compute(schema, currentSnapshot, intent);
+    const result = await core.compute(schema, currentSnapshot, intent, getContext());
     traces.push(result.trace);
 
     // Notify after compute
-    options.onAfterCompute?.(iteration, result);
+    await options.onAfterCompute?.(iteration, result);
 
     // 2. Check terminal states
     if (result.status === "complete") {
@@ -151,54 +238,15 @@ export async function runHostLoop(
 
     // 3. Status is "pending" - execute effects
     if (result.status === "pending") {
-      const requirements = result.snapshot.system.pendingRequirements;
+      const requirementResult = await executeRequirements(
+        result.requirements,
+        result.snapshot
+      );
+      currentSnapshot = requirementResult.snapshot;
 
-      // Check for missing handlers
-      const missingHandlers = executor.getMissingHandlers(requirements);
-      if (missingHandlers.length > 0) {
-        return {
-          status: "error",
-          snapshot: result.snapshot,
-          traces,
-          iterations: iteration,
-          error: createHostError(
-            "UNKNOWN_EFFECT_TYPE",
-            `Unknown effect types: ${missingHandlers.join(", ")}`,
-            { missingHandlers }
-          ),
-        };
+      if (requirementResult.shouldRecompute) {
+        continue;
       }
-
-      // Execute all effects
-      const allPatches: Patch[] = [];
-
-      for (const requirement of requirements) {
-        options.onBeforeEffect?.(requirement);
-
-        const effectResult = await executor.execute(requirement, result.snapshot);
-
-        options.onAfterEffect?.(requirement, effectResult.patches, effectResult.error);
-
-        if (!effectResult.success) {
-          return {
-            status: "error",
-            snapshot: result.snapshot,
-            traces,
-            iterations: iteration,
-            error: createHostError(
-              "EFFECT_EXECUTION_FAILED",
-              effectResult.error ?? "Effect execution failed",
-              { requirement, error: effectResult.error }
-            ),
-          };
-        }
-
-        allPatches.push(...effectResult.patches);
-      }
-
-      // 4. Apply effect patches and clear requirements
-      currentSnapshot = core.apply(schema, result.snapshot, allPatches);
-      currentSnapshot = clearRequirements(currentSnapshot, requirements);
 
       // 5. Continue loop with same intentId (intent is unchanged)
     }
@@ -218,25 +266,46 @@ export async function runHostLoop(
   };
 }
 
-/**
- * Clear fulfilled requirements from snapshot
- */
-function clearRequirements(
+function buildClearRequirementPatches(
   snapshot: Snapshot,
-  fulfilledRequirements: readonly Requirement[]
-): Snapshot {
-  const fulfilledIds = new Set(fulfilledRequirements.map((r) => r.id));
-
+  requirement: Requirement,
+  options?: { setIdle?: boolean }
+): Patch[] {
   const remainingRequirements = snapshot.system.pendingRequirements.filter(
-    (r) => !fulfilledIds.has(r.id)
+    (req) => req.id !== requirement.id
   );
 
-  return {
-    ...snapshot,
-    system: {
-      ...snapshot.system,
-      pendingRequirements: remainingRequirements,
-      status: remainingRequirements.length === 0 ? "idle" : snapshot.system.status,
-    },
-  };
+  const patches: Patch[] = [
+    { op: "set", path: "system.pendingRequirements", value: remainingRequirements },
+  ];
+
+  if (options?.setIdle !== false && remainingRequirements.length === 0) {
+    patches.push({ op: "set", path: "system.status", value: "idle" });
+  }
+
+  return patches;
+}
+
+function buildEffectFailurePatches(
+  requirement: Requirement,
+  message: string,
+  snapshot: Snapshot,
+  context: HostContext
+): Patch[] {
+  const code = message.startsWith("Unknown effect type") ? "UNKNOWN_EFFECT" : "INTERNAL_ERROR";
+  const error = createError(
+    code,
+    message,
+    requirement.actionId,
+    requirement.flowPosition.nodePath,
+    context.now,
+    { requirement }
+  );
+
+  return [
+    { op: "set", path: "system.lastError", value: error },
+    { op: "set", path: "system.errors", value: [...snapshot.system.errors, error] },
+    { op: "set", path: "system.status", value: "error" },
+    ...buildClearRequirementPatches(snapshot, requirement, { setIdle: false }),
+  ];
 }

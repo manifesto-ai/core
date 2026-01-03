@@ -13,6 +13,13 @@ export { ManifestoHost, createHost, type HostOptions, type HostResult } from "./
 // Loop
 export { runHostLoop, type HostLoopOptions, type HostLoopResult } from "./loop.js";
 
+// Context
+export {
+  createHostContextBuilder,
+  createInitialHostContext,
+  type HostContextOptions,
+} from "./context.js";
+
 // Effects
 export {
   // Types

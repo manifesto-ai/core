@@ -7,6 +7,7 @@ import {
   type Snapshot,
   type Intent,
   type TraceGraph,
+  type HostContext,
 } from "@manifesto-ai/core";
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
@@ -15,6 +16,7 @@ import type { SnapshotStore } from "./persistence/interface.js";
 import { createMemoryStore } from "./persistence/memory.js";
 import { runHostLoop, type HostLoopOptions, type HostLoopResult } from "./loop.js";
 import { createHostError, HostError } from "./errors.js";
+import { createInitialHostContext, type HostContextOptions } from "./context.js";
 
 /**
  * Host result returned from dispatch
@@ -56,9 +58,24 @@ export interface HostOptions {
   loop?: HostLoopOptions;
 
   /**
+   * Initial snapshot (preferred over initialData)
+   */
+  snapshot?: Snapshot;
+
+  /**
    * Initial snapshot data (if no snapshot in store)
    */
   initialData?: unknown;
+
+  /**
+   * Host context for initial snapshot creation
+   */
+  initialContext?: HostContext;
+
+  /**
+   * Host context providers (merged into loop options)
+   */
+  context?: HostContextOptions;
 }
 
 /**
@@ -70,7 +87,8 @@ export interface HostOptions {
  * ```typescript
  * const host = createHost(schema);
  * host.registerEffect("http", httpHandler);
- * const result = await host.dispatch(createIntent("myAction", { ... }));
+ * const intent = createIntent("myAction", { ... }, "intent-1");
+ * const result = await host.dispatch(intent);
  * ```
  */
 export class ManifestoHost {
@@ -88,17 +106,33 @@ export class ManifestoHost {
     this.registry = createEffectRegistry();
     this.executor = createEffectExecutor(this.registry);
     this.store = options.store ?? createMemoryStore();
-    this.loopOptions = options.loop ?? {};
+    this.loopOptions = {
+      ...options.loop,
+      context: {
+        ...options.context,
+        ...options.loop?.context,
+      },
+    };
 
     // Initialize with initial data if store is empty
-    this.initializeIfNeeded(options.initialData);
+    this.initializeIfNeeded(options.initialData, options.snapshot, options.initialContext);
   }
 
-  private async initializeIfNeeded(initialData?: unknown): Promise<void> {
+  private async initializeIfNeeded(
+    initialData?: unknown,
+    snapshot?: Snapshot,
+    initialContext?: HostContext
+  ): Promise<void> {
     const existing = await this.store.get();
-    if (!existing && initialData !== undefined) {
-      const snapshot = createSnapshot(initialData, this.schema.hash);
-      await this.store.save(snapshot);
+    if (!existing) {
+      if (snapshot) {
+        await this.store.save(snapshot);
+      } else if (initialData !== undefined) {
+        const context =
+          initialContext ?? createInitialHostContext(this.loopOptions.context);
+        const nextSnapshot = createSnapshot(initialData, this.schema.hash, context);
+        await this.store.save(nextSnapshot);
+      }
     }
     this.initialized = true;
   }
@@ -165,7 +199,11 @@ export class ManifestoHost {
     if (!snapshot) {
       return {
         status: "error",
-        snapshot: createSnapshot({}, this.schema.hash),
+        snapshot: createSnapshot(
+          {},
+          this.schema.hash,
+          createInitialHostContext(this.loopOptions.context)
+        ),
         traces: [],
         error: createHostError(
           "HOST_NOT_INITIALIZED",
@@ -245,7 +283,11 @@ export class ManifestoHost {
    */
   async reset(initialData: unknown): Promise<void> {
     await this.store.clear();
-    const snapshot = createSnapshot(initialData, this.schema.hash);
+    const snapshot = createSnapshot(
+      initialData,
+      this.schema.hash,
+      createInitialHostContext(this.loopOptions.context)
+    );
     await this.store.save(snapshot);
   }
 }
