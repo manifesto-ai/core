@@ -29,10 +29,13 @@ npm install @manifesto-ai/world @manifesto-ai/host @manifesto-ai/core
 
 ```typescript
 import { createManifestoWorld, createAutoApproveHandler } from "@manifesto-ai/world";
-import { createHost, createSnapshot } from "@manifesto-ai/host";
+import { createHost } from "@manifesto-ai/host";
 
 // 1. Create host
-const host = createHost({ schema, snapshot: createSnapshot(schema) });
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
+});
 
 // 2. Create world with auto-approve authority
 const world = createManifestoWorld({
@@ -358,7 +361,10 @@ const hitlAuthority = createHITLHandler({
 
 // ============ World Setup ============
 
-const host = createHost({ schema, snapshot: createSnapshot(schema) });
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
+});
 
 const world = createManifestoWorld({
   schemaHash: "my-app-v1",
@@ -511,8 +517,11 @@ console.log(result.proposal.proposalId); // → "p_abc123"
 // Wrong: Execute directly on Host, skipping World Protocol
 import { createHost } from "@manifesto-ai/host";
 
-const host = createHost({ schema, snapshot });
-await host.execute(snapshot, intent); // NO GOVERNANCE!
+const host = createHost(schema, {
+  initialData: {},
+  context: { now: () => Date.now() },
+});
+await host.dispatch(createIntent("someAction", {}, "intent-1")); // NO GOVERNANCE!
 ```
 
 **Why it's wrong:** This violates the Manifesto sovereignty model. All intents MUST flow through World Protocol for Authority evaluation, lineage tracking, and accountability. Direct Host execution:

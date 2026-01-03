@@ -13,7 +13,13 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/world#readme",
-  "keywords": ["manifesto", "governance", "authority", "lineage", "ai-agents"],
+  "keywords": [
+    "manifesto",
+    "governance",
+    "authority",
+    "lineage",
+    "ai-agents"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -5,11 +5,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createSnapshot } from "@manifesto-ai/core";
+import type { DomainSchema } from "@manifesto-ai/core";
+import { createSnapshot, hashSchemaSync } from "@manifesto-ai/core";
+import { createHost, type HostLoopOptions } from "@manifesto-ai/host";
 import {
   ManifestoWorld,
   createManifestoWorld,
 } from "../index.js";
+import { createIntentInstance } from "../schema/intent.js";
 import type {
   World,
   WorldEvent,
@@ -18,8 +21,14 @@ import type {
   ProposalEvaluatingEvent,
   ProposalDecidedEvent,
   ExecutionStartedEvent,
+  ExecutionComputingEvent,
+  ExecutionPatchesEvent,
+  ExecutionEffectEvent,
+  ExecutionEffectResultEvent,
   ExecutionCompletedEvent,
+  SnapshotChangedEvent,
   WorldCreatedEvent,
+  WorldForkedEvent,
   IntentInstance,
 } from "../index.js";
 
@@ -27,33 +36,80 @@ import type {
 // Test Helpers
 // =============================================================================
 
-const TEST_SCHEMA_HASH = "test-schema-hash-events";
+const TEST_FLOW = {
+  kind: "seq" as const,
+  steps: [
+    { kind: "patch" as const, op: "set" as const, path: "started", value: { kind: "lit" as const, value: true } },
+    {
+      kind: "if" as const,
+      cond: { kind: "isNull" as const, arg: { kind: "get" as const, path: "result" } },
+      then: {
+        kind: "effect" as const,
+        type: "test.effect",
+        params: { value: { kind: "get" as const, path: "input.value" } },
+      },
+      else: { kind: "patch" as const, op: "set" as const, path: "done", value: { kind: "lit" as const, value: true } },
+    },
+  ],
+};
+
+const TEST_SCHEMA_BASE: Omit<DomainSchema, "hash"> = {
+  id: "manifesto:test-world-events",
+  version: "1.0.0",
+  types: {},
+  state: {
+    fields: {
+      started: { type: "boolean", required: false, default: false },
+      result: { type: "string", required: false, default: null },
+      done: { type: "boolean", required: false, default: false },
+    },
+  },
+  computed: {
+    fields: {
+      "computed.started": {
+        expr: { kind: "get", path: "started" },
+        deps: ["started"],
+      },
+    },
+  },
+  actions: {
+    "test-action": { flow: TEST_FLOW },
+    "action-1": { flow: TEST_FLOW },
+    "action-2": { flow: TEST_FLOW },
+  },
+};
+
+const TEST_SCHEMA_HASH = hashSchemaSync(TEST_SCHEMA_BASE);
+const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+
+const TEST_SCHEMA: DomainSchema = {
+  ...TEST_SCHEMA_BASE,
+  hash: TEST_SCHEMA_HASH,
+};
 
 function createTestSnapshot(data: Record<string, unknown> = {}) {
-  return createSnapshot(data, TEST_SCHEMA_HASH);
+  return createSnapshot(data, TEST_SCHEMA_HASH, HOST_CONTEXT);
 }
 
 function createTestActor(id: string, kind: "human" | "agent" | "system" = "human") {
   return { actorId: id, kind };
 }
 
-function createTestIntent(type: string = "test-action", input: Record<string, unknown> = {}): IntentInstance {
-  const intentId = `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return {
+async function createTestIntent(
+  type: string = "test-action",
+  input: Record<string, unknown> = {},
+  actor: { actorId: string; kind: "human" | "agent" | "system" } = { actorId: "human-1", kind: "human" }
+): Promise<IntentInstance> {
+  return createIntentInstance({
     body: {
       type,
       input,
     },
-    intentId,
-    intentKey: `test-key-${intentId}`,
-    meta: {
-      origin: {
-        projectionId: "test:projection",
-        source: { kind: "ui" as const, eventId: `event-${Date.now()}` },
-        actor: { actorId: "test-actor", kind: "human" as const },
-      },
-    },
-  };
+    schemaHash: TEST_SCHEMA_HASH,
+    projectionId: "test:projection",
+    source: { kind: "ui", eventId: `event-${Date.now()}` },
+    actor,
+  });
 }
 
 function createMockHost(resultSnapshot = createTestSnapshot({ executed: true })) {
@@ -65,6 +121,21 @@ function createMockHost(resultSnapshot = createTestSnapshot({ executed: true }))
   };
 }
 
+function createTestHost() {
+  const host = createHost(TEST_SCHEMA, { initialData: {} });
+  host.registerEffect("test.effect", async (_type, params) => {
+    const value = (params as { value?: string }).value ?? "ok";
+    return [{ op: "set", path: "result", value }];
+  });
+
+  return {
+    dispatch: (
+      intent: { type: string; input?: unknown; intentId: string },
+      loopOptions?: Partial<HostLoopOptions>
+    ) => host.dispatch(intent, loopOptions),
+  };
+}
+
 // =============================================================================
 // Event Integration Tests
 // =============================================================================
@@ -73,11 +144,11 @@ describe("World Protocol Event System", () => {
   let world: ManifestoWorld;
   let genesis: World;
   let events: WorldEvent[];
-  let host: ReturnType<typeof createMockHost>;
+  let host: ReturnType<typeof createTestHost>;
 
   beforeEach(async () => {
     events = [];
-    host = createMockHost();
+    host = createTestHost();
     world = createManifestoWorld({
       schemaHash: TEST_SCHEMA_HASH,
       host,
@@ -117,7 +188,7 @@ describe("World Protocol Event System", () => {
 
   describe("Proposal Lifecycle Events", () => {
     it("emits proposal:submitted when proposal is submitted", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const submittedEvents = events.filter((e) => e.type === "proposal:submitted");
@@ -130,7 +201,7 @@ describe("World Protocol Event System", () => {
     });
 
     it("emits proposal:evaluating when authority begins evaluation", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const evaluatingEvents = events.filter((e) => e.type === "proposal:evaluating");
@@ -142,7 +213,7 @@ describe("World Protocol Event System", () => {
     });
 
     it("emits proposal:decided with approved decision", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const decidedEvents = events.filter((e) => e.type === "proposal:decided");
@@ -155,13 +226,14 @@ describe("World Protocol Event System", () => {
 
     it("emits proposal:decided with rejected decision", async () => {
       // Register actor with policy that rejects
-      world.registerActor(createTestActor("rejector", "human"), {
+      const rejector = createTestActor("rejector", "human");
+      world.registerActor(rejector, {
         mode: "policy_rules",
         rules: [],
         defaultDecision: "reject",
       });
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, rejector);
       await world.submitProposal("rejector", intent, genesis.worldId);
 
       const decidedEvents = events.filter((e) => e.type === "proposal:decided");
@@ -172,12 +244,13 @@ describe("World Protocol Event System", () => {
     });
 
     it("emits proposal:decided with pending for HITL", async () => {
-      world.registerActor(createTestActor("hitl-actor", "human"), {
+      const hitlActor = createTestActor("hitl-actor", "human");
+      world.registerActor(hitlActor, {
         mode: "hitl",
         delegate: { actorId: "human-reviewer", kind: "human" as const },
       });
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, hitlActor);
       await world.submitProposal("hitl-actor", intent, genesis.worldId);
 
       const decidedEvents = events.filter((e) => e.type === "proposal:decided");
@@ -190,7 +263,7 @@ describe("World Protocol Event System", () => {
 
   describe("Execution Lifecycle Events", () => {
     it("emits execution:started when execution begins", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const startedEvents = events.filter((e) => e.type === "execution:started");
@@ -202,8 +275,57 @@ describe("World Protocol Event System", () => {
       expect(event.baseSnapshot).toBeDefined();
     });
 
+    it("emits execution:computing and execution:patches during compute", async () => {
+      const intent = await createTestIntent();
+      await world.submitProposal("human-1", intent, genesis.worldId);
+
+      const computingEvents = events.filter((e) => e.type === "execution:computing");
+      expect(computingEvents.length).toBeGreaterThan(0);
+
+      const patchesEvents = events.filter((e) => e.type === "execution:patches");
+      expect(patchesEvents.length).toBeGreaterThan(0);
+
+      const computeEvent = computingEvents[0] as ExecutionComputingEvent;
+      expect(computeEvent.iteration).toBe(0);
+
+      const patchesEvent = patchesEvents[0] as ExecutionPatchesEvent;
+      expect(patchesEvent.source).toBe("compute");
+      expect(Array.isArray(patchesEvent.patches)).toBe(true);
+    });
+
+    it("emits execution:effect and execution:effect_result for effects", async () => {
+      const intent = await createTestIntent();
+      await world.submitProposal("human-1", intent, genesis.worldId);
+
+      const effectEvents = events.filter((e) => e.type === "execution:effect");
+      expect(effectEvents).toHaveLength(1);
+
+      const effectEvent = effectEvents[0] as ExecutionEffectEvent;
+      expect(effectEvent.effectType).toBe("test.effect");
+
+      const resultEvents = events.filter((e) => e.type === "execution:effect_result");
+      expect(resultEvents).toHaveLength(1);
+
+      const resultEvent = resultEvents[0] as ExecutionEffectResultEvent;
+      expect(resultEvent.effectType).toBe("test.effect");
+      expect(resultEvent.success).toBe(true);
+    });
+
+    it("emits snapshot:changed for state transitions", async () => {
+      const intent = await createTestIntent();
+      await world.submitProposal("human-1", intent, genesis.worldId);
+
+      const snapshotEvents = events.filter((e) => e.type === "snapshot:changed");
+      expect(snapshotEvents.length).toBeGreaterThan(0);
+
+      const event = snapshotEvents[0] as SnapshotChangedEvent;
+      expect(event.before.snapshotHash).toBeDefined();
+      expect(event.after.snapshotHash).toBeDefined();
+      expect(event.after.snapshot).toBeDefined();
+    });
+
     it("emits execution:completed on successful execution", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const completedEvents = events.filter((e) => e.type === "execution:completed");
@@ -231,7 +353,7 @@ describe("World Protocol Event System", () => {
       await failWorld.createGenesis(createTestSnapshot());
       failWorld.registerActor(createTestActor("human-1"), { mode: "auto_approve" });
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await failWorld.submitProposal("human-1", intent, (await failWorld.getGenesis())!.worldId);
 
       const failedEvents = failEvents.filter((e) => e.type === "execution:failed");
@@ -247,7 +369,7 @@ describe("World Protocol Event System", () => {
 
   describe("World Lifecycle Events", () => {
     it("emits world:created after successful execution", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       const result = await world.submitProposal("human-1", intent, genesis.worldId);
 
       const createdEvents = events.filter((e) => e.type === "world:created");
@@ -260,52 +382,77 @@ describe("World Protocol Event System", () => {
     });
 
     it("does not emit world:created for rejected proposals", async () => {
-      world.registerActor(createTestActor("rejector", "human"), {
+      const rejector = createTestActor("rejector", "human");
+      world.registerActor(rejector, {
         mode: "policy_rules",
         rules: [],
         defaultDecision: "reject",
       });
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, rejector);
       await world.submitProposal("rejector", intent, genesis.worldId);
 
       const createdEvents = events.filter((e) => e.type === "world:created");
       expect(createdEvents).toHaveLength(0);
     });
+
+    it("emits world:forked when a parent gains a second child", async () => {
+      const forkEvents: WorldEvent[] = [];
+      const forkHost = {
+        dispatch: vi.fn()
+          .mockResolvedValueOnce({ status: "complete" as const, snapshot: createTestSnapshot({ result: "a" }) })
+          .mockResolvedValueOnce({ status: "complete" as const, snapshot: createTestSnapshot({ result: "b" }) }),
+      };
+      const forkWorld = createManifestoWorld({
+        schemaHash: TEST_SCHEMA_HASH,
+        host: forkHost,
+      });
+      forkWorld.subscribe((e) => forkEvents.push(e));
+
+      const forkGenesis = await forkWorld.createGenesis(createTestSnapshot());
+      forkWorld.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      await forkWorld.submitProposal(
+        "human-1",
+        await createTestIntent("test-action", { value: "a" }),
+        forkGenesis.worldId
+      );
+      await forkWorld.submitProposal(
+        "human-1",
+        await createTestIntent("test-action", { value: "b" }),
+        forkGenesis.worldId
+      );
+
+      const forkedEvents = forkEvents.filter((e) => e.type === "world:forked");
+      expect(forkedEvents).toHaveLength(1);
+
+      const event = forkedEvents[0] as WorldForkedEvent;
+      expect(event.parentWorldId).toBe(forkGenesis.worldId);
+      expect(event.childWorldId).toBeDefined();
+      expect(event.proposalId).toBeDefined();
+    });
   });
 
   describe("Event Ordering (EVT-R2)", () => {
     it("emits events in causal order for full proposal lifecycle", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
-      const eventTypes = events.map((e) => e.type);
+      const indexOf = (type: WorldEventType) => events.findIndex((e) => e.type === type);
 
-      // Expected order per spec
-      const expectedOrder = [
-        "proposal:submitted",
-        "proposal:evaluating",
-        "proposal:decided",
-        "execution:started",
-        // execution:computing, execution:patches, etc. may or may not appear depending on host
-        "execution:completed",
-        "world:created",
-      ];
-
-      // Filter to only the events we expect in order
-      const relevantEvents = eventTypes.filter((t) => expectedOrder.includes(t));
-
-      // Check order
-      let lastIndex = -1;
-      for (const eventType of relevantEvents) {
-        const index = expectedOrder.indexOf(eventType);
-        expect(index).toBeGreaterThan(lastIndex);
-        lastIndex = index;
-      }
+      expect(indexOf("proposal:submitted")).toBeLessThan(indexOf("proposal:decided"));
+      expect(indexOf("proposal:decided")).toBeLessThan(indexOf("execution:started"));
+      expect(indexOf("execution:started")).toBeLessThan(indexOf("execution:computing"));
+      expect(indexOf("execution:computing")).toBeLessThan(indexOf("execution:patches"));
+      expect(indexOf("execution:patches")).toBeLessThan(indexOf("snapshot:changed"));
+      expect(indexOf("snapshot:changed")).toBeLessThan(indexOf("execution:completed"));
+      expect(indexOf("execution:completed")).toBeLessThan(indexOf("world:created"));
     });
 
     it("proposal:submitted comes before proposal:decided", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const submittedIndex = events.findIndex((e) => e.type === "proposal:submitted");
@@ -315,7 +462,7 @@ describe("World Protocol Event System", () => {
     });
 
     it("execution:started comes before execution:completed", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const startedIndex = events.findIndex((e) => e.type === "execution:started");
@@ -325,7 +472,7 @@ describe("World Protocol Event System", () => {
     });
 
     it("execution:completed comes before world:created", async () => {
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       const completedIndex = events.findIndex((e) => e.type === "execution:completed");
@@ -342,7 +489,7 @@ describe("World Protocol Event System", () => {
         filteredEvents.push(e);
       });
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent();
       await world.submitProposal("human-1", intent, genesis.worldId);
 
       expect(filteredEvents.every((e) =>
@@ -357,13 +504,13 @@ describe("World Protocol Event System", () => {
       const laterEvents: WorldEvent[] = [];
       const unsubscribe = world.subscribe((e) => laterEvents.push(e));
 
-      const intent1 = createTestIntent("action-1");
+      const intent1 = await createTestIntent("action-1");
       await world.submitProposal("human-1", intent1, genesis.worldId);
       const countAfterFirst = laterEvents.length;
 
       unsubscribe();
 
-      const intent2 = createTestIntent("action-2");
+      const intent2 = await createTestIntent("action-2");
       const result = await world.submitProposal("human-1", intent2, (await world.getWorld(laterEvents.find(e => e.type === "world:created")?.world?.worldId ?? genesis.worldId))?.worldId ?? genesis.worldId);
 
       // Should not have received any new events
@@ -374,14 +521,15 @@ describe("World Protocol Event System", () => {
   describe("HITL Decision Events", () => {
     it("emits proposal:decided after processHITLDecision approval", async () => {
       const hitlEvents: WorldEvent[] = [];
-      world.registerActor(createTestActor("hitl-actor", "human"), {
+      const hitlActor = createTestActor("hitl-actor", "human");
+      world.registerActor(hitlActor, {
         mode: "hitl",
         delegate: { actorId: "human-reviewer", kind: "human" as const },
       });
 
       world.subscribe((e) => hitlEvents.push(e));
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, hitlActor);
       const pendingResult = await world.submitProposal("hitl-actor", intent, genesis.worldId);
 
       // Clear events from initial submission
@@ -403,14 +551,15 @@ describe("World Protocol Event System", () => {
       // Create a new world without host to avoid execution
       const noHostWorld = createManifestoWorld({ schemaHash: TEST_SCHEMA_HASH });
       const noHostGenesis = await noHostWorld.createGenesis(createTestSnapshot());
-      noHostWorld.registerActor(createTestActor("hitl-actor", "human"), {
+      const hitlActor = createTestActor("hitl-actor", "human");
+      noHostWorld.registerActor(hitlActor, {
         mode: "hitl",
         delegate: { actorId: "human-reviewer", kind: "human" as const },
       });
 
       noHostWorld.subscribe((e) => hitlEvents.push(e));
 
-      const intent = createTestIntent();
+      const intent = await createTestIntent("test-action", {}, hitlActor);
       const pendingResult = await noHostWorld.submitProposal("hitl-actor", intent, noHostGenesis.worldId);
 
       // Clear events
@@ -433,14 +582,14 @@ describe("World Protocol Event System", () => {
 
   describe("Multiple Proposals", () => {
     it("emits correct events for sequential proposals", async () => {
-      const intent1 = createTestIntent("action-1");
+      const intent1 = await createTestIntent("action-1");
       const result1 = await world.submitProposal("human-1", intent1, genesis.worldId);
 
       expect(result1.resultWorld).toBeDefined();
 
       const eventsAfterFirst = events.length;
 
-      const intent2 = createTestIntent("action-2");
+      const intent2 = await createTestIntent("action-2");
       await world.submitProposal("human-1", intent2, result1.resultWorld!.worldId);
 
       // Should have events for second proposal too
