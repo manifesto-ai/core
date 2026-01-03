@@ -294,6 +294,8 @@ describe("runHostLoop", () => {
         loading: false,
         response: { data: "fetched" },
       });
+      expect(result.snapshot.system.pendingRequirements).toEqual([]);
+      expect(result.snapshot.system.status).toBe("idle");
       expect(result.iterations).toBe(2); // First compute returns pending, second completes
     });
 
@@ -387,6 +389,9 @@ describe("runHostLoop", () => {
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ skipped: true });
       expect(result.snapshot.system.pendingRequirements).toEqual([]);
+      expect(result.snapshot.system.errors).toHaveLength(1);
+      expect(result.snapshot.system.errors[0]?.code).toBe("UNKNOWN_EFFECT");
+      expect(result.snapshot.system.errors[0]?.message).toContain("Unknown effect type");
       expect(result.iterations).toBe(2);
     });
 
@@ -425,6 +430,9 @@ describe("runHostLoop", () => {
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ skipped: true });
       expect(result.snapshot.system.pendingRequirements).toEqual([]);
+      expect(result.snapshot.system.errors).toHaveLength(1);
+      expect(result.snapshot.system.errors[0]?.code).toBe("INTERNAL_ERROR");
+      expect(result.snapshot.system.errors[0]?.message).toContain("Effect handler error");
       expect(result.iterations).toBe(2);
     });
   });
