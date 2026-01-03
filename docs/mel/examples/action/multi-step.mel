@@ -5,6 +5,23 @@
 // ============================================
 
 domain ActionMultiStep {
+  type ChildItem = {
+    id: string,
+    name: string,
+    active: boolean,
+    createdAt: number,
+    tags: Array<string>
+  }
+  type Item = {
+    id: string,
+    name: string,
+    active: boolean,
+    createdAt: number,
+    children: Array<ChildItem>,
+    tags: Array<string>
+  }
+  type Summary = { id: string, name: string, count: number }
+
   // --- State ---
   state {
     // Raw data
@@ -14,6 +31,7 @@ domain ActionMultiStep {
     filteredItems: Array<Item> | null = null
     sortedItems: Array<Item> | null = null
     mappedItems: Array<Summary> | null = null
+    childItems: Array<ChildItem> | null = null
 
     // Step markers
     step1: string | null = null
@@ -69,15 +87,15 @@ domain ActionMultiStep {
       effect array.flatMap({
         source: rawItems,
         select: $item.children,
-        into: filteredItems
+        into: childItems
       })
     }
 
     // Map to summary objects
-    once(step2) when isNotNull(filteredItems) {
+    once(step2) when isNotNull(childItems) {
       patch step2 = $meta.intentId
       effect array.map({
-        source: filteredItems,
+        source: childItems,
         select: {
           id: $item.id,
           name: upper($item.name),
@@ -95,6 +113,7 @@ domain ActionMultiStep {
       patch filteredItems = null
       patch sortedItems = null
       patch mappedItems = null
+      patch childItems = null
       patch step1 = null
       patch step2 = null
       patch step3 = null

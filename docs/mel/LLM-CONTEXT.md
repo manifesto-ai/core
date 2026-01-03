@@ -48,8 +48,10 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 1. `when` condition must be boolean — no truthy/falsy
 2. `eq`/`neq` only compare primitives (null, boolean, number, string)
 3. `len()` only works on arrays, not records
-4. `sum()`/`min()`/`max()` with single arg = array aggregation
-5. `min(a,b)`/`max(a,b)` with multiple args = value comparison
+4. Record iteration uses `record.*` effects (no `keys()` / `values()` builtins)
+5. `sum()`/`min()`/`max()` with single arg = array aggregation
+6. `min(a,b)`/`max(a,b)` with multiple args = value comparison
+7. Complex object types in state must be named (`type X = { ... }`)
 
 ---
 
@@ -79,6 +81,9 @@ domain DomainName {
 ## State Declaration
 
 ```mel
+type User = { name: string, age: number }
+type Task = { id: string, done: boolean }
+
 state {
   // Primitives
   count: number = 0
@@ -96,7 +101,7 @@ state {
   tasks: Record<string, Task> = {}
 
   // Objects
-  user: { name: string, age: number } = { name: "", age: 0 }
+  user: User = { name: "", age: 0 }
 }
 ```
 
@@ -133,8 +138,8 @@ computed length = len(items)         // Array<T> → number
 // ❌ effect in computed
 computed filtered = effect array.filter(...)
 
-// ❌ $input in computed
-computed value = $input.amount
+// ❌ $system in computed
+computed now = $system.timestamp
 
 // ❌ Nested aggregation
 computed total = sum(filter(prices))
@@ -166,6 +171,9 @@ action decrement() available when gt(count, 0) {
   }
 }
 ```
+
+**Input access:** `$input.field` is an explicit alias for action parameters.  
+**Note:** `$input` is **not** allowed in `available when`.
 
 ---
 
@@ -383,8 +391,13 @@ stop "skipped_no_action_needed"
 | Function | Description |
 |----------|-------------|
 | `at(rec, k)` | Value for key or null |
-| `keys(rec)` | Array of keys |
-| `values(rec)` | Array of values |
+
+### Record Effects
+| Effect | Description |
+|--------|-------------|
+| `effect record.keys({ source, into })` | Extract record keys |
+| `effect record.values({ source, into })` | Extract record values |
+| `effect record.entries({ source, into })` | Extract record entries |
 
 ### String
 | Function | Description |
@@ -430,6 +443,23 @@ action loadData() {
 }
 ```
 
+### System Values (v0.3.0+)
+
+System values are IO and only allowed inside action bodies.
+
+```mel
+// Allowed in actions (compiler inserts system.get effects)
+patch id = $system.uuid
+patch createdAt = $system.timestamp
+patch random = $system.random
+```
+
+**Forbidden:**
+```mel
+computed now = $system.timestamp   // System values not allowed in computed
+state { id: string = $system.uuid } // Not allowed in state defaults
+```
+
 ### CRUD with Validation
 
 ```mel
@@ -440,8 +470,8 @@ action create(title: string) {
 
   once(creating) when neq(trim(title), "") {
     patch creating = $meta.intentId
-    patch items[$input.id] = {
-      id: $input.id,
+    patch items[$system.uuid] = {
+      id: $system.uuid,
       title: trim(title),
       done: false
     }
@@ -490,6 +520,8 @@ When generating MEL:
 8. [ ] Effects are sequential, not nested?
 9. [ ] Using `eq(len(arr), 0)` not `eq(arr, [])`?
 10. [ ] Using `isNotNull()` not truthy check?
+11. [ ] Record keys/values via `record.*` effects (not `keys()` / `values()`)?
+12. [ ] $system.* only in action bodies (never in computed/state init)?
 
 ---
 

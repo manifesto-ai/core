@@ -392,6 +392,24 @@ describe("Parser", () => {
       expect(diagnostics).toHaveLength(0);
     });
 
+    it("parses effect args named fail", () => {
+      const { diagnostics } = parseSource(`
+        domain T {
+          action test() {
+            when true {
+              effect array.partition({
+                source: items,
+                where: eq($item.active, true),
+                pass: activeItems,
+                fail: inactiveItems
+              })
+            }
+          }
+        }
+      `);
+      expect(diagnostics).toHaveLength(0);
+    });
+
     it("parses nested guards", () => {
       const { program, diagnostics } = parseSource(`
         domain T {

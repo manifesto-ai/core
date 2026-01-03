@@ -414,13 +414,11 @@ host.registerEffect('api.createTodo', async (type, params, context) => {
 // RIGHT: Domain logic in Flow
 flow.seq(
   // Business rule in Flow (traceable)
-  flow.if(
+  flow.when(
     expr.gte(expr.len(state.todos), 100),
     flow.fail('TOO_MANY_TODOS'),
-    flow.seq(
-      // Only IO in effect
-      flow.effect('api.createTodo', { title: expr.input('title') })
-    )
+    // Only IO in effect
+    flow.effect('api.createTodo', { title: expr.input('title') })
   )
 )
 
@@ -431,6 +429,26 @@ host.registerEffect('api.createTodo', async (type, params, _context) => {
     { op: 'set', path: 'newTodo', value: result }
   ];
 });
+```
+
+MEL equivalent (flow only):
+
+```mel
+domain TodoDomain {
+  state {
+    todos: Array<string> = []
+  }
+
+  action addTodo(title: string) {
+    when gte(len(todos), 100) {
+      fail "TOO_MANY_TODOS"
+    }
+
+    when lt(len(todos), 100) {
+      effect api.createTodo({ title: title })
+    }
+  }
+}
 ```
 
 ### Anti-Pattern 3: Not Setting Guard State

@@ -133,6 +133,23 @@ flow.when(
 console.log(snapshot.data.filter); // → 'all' (not 'completed')
 ```
 
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    filter: string = "all"
+    showAll: boolean = false
+  }
+
+  action updateFilter() {
+    when eq(filter, "completed") {
+      patch showAll = true
+    }
+  }
+}
+```
+
 #### Step 3: Verify Snapshot Structure
 
 ```typescript
@@ -178,6 +195,22 @@ flow.when(
 console.log('needsSync:', snapshot.data.needsSync);  // → false (effect skipped)
 ```
 
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    needsSync: boolean = false
+  }
+
+  action sync() {
+    when eq(needsSync, true) {
+      effect api:sync({})
+    }
+  }
+}
+```
+
 **Cause 2: Effect inside re-entry guard**
 
 ```typescript
@@ -190,6 +223,22 @@ flow.onceNull(state.synced, ({ effect }) => {
 console.log('synced:', snapshot.data.synced);  // → true (already ran)
 ```
 
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    synced: string | null = null
+  }
+
+  action sync() {
+    when isNull(synced) {
+      effect api:sync({})
+    }
+  }
+}
+```
+
 **Cause 3: Effect type mismatch**
 
 ```typescript
@@ -198,6 +247,16 @@ flow.effect('api:fetchUser', { id: '123' })
 
 // Handler registered as:
 host.registerEffect('api:getUser', ...)  // ← Wrong name!
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  action fetchUser() {
+    effect api:fetchUser({ id: "123" })
+  }
+}
 ```
 
 #### Step 3: Verify Handler Registration
@@ -227,6 +286,20 @@ Re-entry happens when a Flow runs **every time** `compute()` is called, instead 
 ```typescript
 // WRONG: Runs every compute cycle
 flow.patch(state.count).set(expr.add(state.count, 1))  // Increments forever!
+```
+
+MEL equivalent (wrong):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+  }
+
+  action increment() {
+    patch count = add(count, 1)
+  }
+}
 ```
 
 Each time `compute()` runs:
@@ -280,6 +353,38 @@ flow.onceNull(state.synced, ({ effect, patch }) => {
   effect('api:sync', {});
   patch(state.synced).set(expr.input('timestamp'));
 })
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    initialized: boolean | null = null
+    synced: number | null = null
+  }
+
+  action initWrong() {
+    patch initialized = true
+  }
+
+  action initRight() {
+    when isNull(initialized) {
+      patch initialized = true
+    }
+  }
+
+  action syncWrong() {
+    effect api:sync({})
+  }
+
+  action syncRight(timestamp: number) {
+    when isNull(synced) {
+      effect api:sync({})
+      patch synced = timestamp
+    }
+  }
+}
 ```
 
 See [Re-entry Safe Flows Guide](/guides/reentry-safe-flows) for comprehensive patterns.
@@ -475,6 +580,32 @@ computed.define({
 });
 ```
 
+MEL equivalent (wrong):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+  }
+
+  computed a = b
+  computed b = a
+}
+```
+
+MEL equivalent (right):
+
+```mel
+domain Example {
+  state {
+    count: number = 0
+  }
+
+  computed a = count
+  computed b = add(a, 1)
+}
+```
+
 ### Error: "Patch path does not exist"
 
 **Message:**
@@ -494,6 +625,24 @@ flow.when(
   expr.lt(expr.input('index'), expr.len(state.todos)),  // Guard
   flow.patch(state.todos[expr.input('index')].completed).set(expr.lit(true))
 )
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  type TodoItem = { completed: boolean }
+
+  state {
+    todos: Array<TodoItem> = []
+  }
+
+  action completeTodo(index: number) {
+    when lt(index, len(todos)) {
+      patch todos[index].completed = true
+    }
+  }
+}
 ```
 
 ---
@@ -725,14 +874,48 @@ computed.define({
 actions.define({
   setFilter: {
     input: z.object({ filter: z.string() }),
-    flow: flow.seq([
+    flow: flow.seq(
       flow.patch(state.filter).set(expr.input('filter')),
       flow.patch(state.filteredTodos).set(
         expr.filter(state.todos, t => expr.eq(t.completed, expr.input('filter')))
       ),
-    ]),
+    ),
   },
 });
+```
+
+MEL equivalent (before):
+
+```mel
+domain Example {
+  type TodoItem = { completed: boolean }
+
+  state {
+    todos: Array<TodoItem> = []
+    filter: string = "all"
+  }
+
+  computed filteredTodos = filter(todos, eq($item.completed, filter))
+}
+```
+
+MEL equivalent (after):
+
+```mel
+domain Example {
+  type TodoItem = { completed: boolean }
+
+  state {
+    todos: Array<TodoItem> = []
+    filter: string = "all"
+    filteredTodos: Array<TodoItem> = []
+  }
+
+  action setFilter(filterValue: string) {
+    patch filter = filterValue
+    patch filteredTodos = filter(todos, eq($item.completed, filterValue))
+  }
+}
 ```
 
 ---

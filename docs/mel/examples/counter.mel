@@ -8,8 +8,8 @@ domain Counter {
   computed isPositive = gt(count, 0)
 
   action increment() {
-    // once() automatically patches the marker with $meta.intentId
     once(lastIntent) {
+      patch lastIntent = $meta.intentId
       patch count = add(count, 1)
     }
   }

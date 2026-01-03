@@ -6,10 +6,19 @@ export default defineConfig({
     environment: "node",
     include: ["__tests__/**/*.test.ts"],
     coverage: {
+      all: true,
       provider: "v8",
-      reporter: ["text", "json", "html"],
-      include: ["src/**/*.ts"],
-      exclude: ["src/cli/**"],
+      reporter: ["text-summary", "lcov", "html"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: [
+        "**/*.d.ts",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/__tests__/**",
+        "src/cli/**",
+      ],
     },
   },
 });

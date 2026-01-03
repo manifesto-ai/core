@@ -108,13 +108,18 @@ function addTodoThunk(text) {
 **Manifesto:**
 ```typescript
 // Flow is pure - declares effects, doesn't execute them
-flow: ({ flow, state, effect }) =>
-  flow.seq([
-    flow.patch(state.todos).set(
-      expr.concat(state.todos, [newTodo])
-    ),
-    effect('api:addTodo', { todo: newTodo })  // Declaration only
-  ]);
+const newTodo = expr.object({
+  id: expr.input('id'),
+  title: expr.input('title'),
+  completed: expr.lit(false),
+});
+
+flow: flow.seq(
+  flow.patch(state.todos).set(
+    expr.append(state.todos, newTodo)
+  ),
+  flow.effect('api:addTodo', { todo: newTodo })  // Declaration only
+);
 
 // Host executes effects separately
 host.registerEffect('api:addTodo', async (params) => {
@@ -123,6 +128,29 @@ host.registerEffect('api:addTodo', async (params) => {
     { op: 'set', path: 'todos.0.serverId', value: result.id }
   ];
 });
+```
+
+MEL equivalent (flow only):
+
+```mel
+domain TodoDomain {
+  type TodoItem = { id: string, title: string, completed: boolean }
+
+  state {
+    todos: Array<TodoItem> = []
+  }
+
+  action addTodo(id: string, title: string) {
+    patch todos = append(todos, {
+      id: id,
+      title: title,
+      completed: false
+    })
+    effect api:addTodo({
+      todo: { id: id, title: title, completed: false }
+    })
+  }
+}
 ```
 
 **Why this matters:**

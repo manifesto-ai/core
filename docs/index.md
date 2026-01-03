@@ -93,6 +93,28 @@ const CounterDomain = defineDomain(
 );
 ```
 
+MEL equivalent:
+
+```mel
+domain Counter {
+  state {
+    count: number = 0
+  }
+
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+
+  action decrement() {
+    when true {
+      patch count = sub(count, 1)
+    }
+  }
+}
+```
+
 That's it. Five lines of actual logic. No reducers, no middleware, no thunks.
 
 **What just happened?**

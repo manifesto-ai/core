@@ -72,18 +72,22 @@ const TodoDomain = defineDomain(
     computed: {
       remaining: computed.define({
         deps: [state.todos],
-        expr: expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed"))).length,
+        expr: expr.len(expr.filter(state.todos, (t) => expr.not(t.completed))),
       }),
     },
     actions: {
       add: actions.define({
-        input: z.object({ title: z.string() }),
-        flow: ({ input }) =>
-          flow.patch("add", `/todos/-`, {
-            id: expr.uuid(),
-            title: input.title,
-            completed: false,
-          }),
+        input: z.object({ id: z.string(), title: z.string() }),
+        flow: flow.patch(state.todos).set(
+          expr.append(
+            state.todos,
+            expr.object({
+              id: expr.input("id"),
+              title: expr.input("title"),
+              completed: expr.lit(false),
+            })
+          )
+        ),
       }),
     },
   })
@@ -97,15 +101,43 @@ const App = createManifestoApp(TodoDomain, {
 // 3. Use in components
 function TodoList() {
   const todos = App.useValue((s) => s.todos);
-  const remaining = App.useValue((s) => s.remaining);
+  const remaining = App.useComputed((c) => c.remaining);
   const { add } = App.useActions();
 
   return (
     <div>
       <p>{remaining} remaining</p>
-      <button onClick={() => add({ title: "New Todo" })}>Add</button>
+      <button onClick={() => add({ id: crypto.randomUUID(), title: "New Todo" })}>Add</button>
     </div>
   );
+}
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type TodoItem = {
+    id: string,
+    title: string,
+    completed: boolean
+  }
+
+  state {
+    todos: Array<TodoItem> = []
+  }
+
+  computed remaining = len(filter(todos, not($item.completed)))
+
+  action add(id: string, title: string) {
+    when true {
+      patch todos = append(todos, {
+        id: id,
+        title: title,
+        completed: false
+      })
+    }
+  }
 }
 ```
 

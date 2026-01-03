@@ -455,9 +455,12 @@ async function validateHandler(params, context) {
 
 // Action receives timestamp as input
 flow.patch(state.attempts).set(
-  expr.append(state.attempts, {
-    timestamp: expr.input('timestamp'),  // Deterministic
-  })
+  expr.append(
+    state.attempts,
+    expr.object({
+      timestamp: expr.input('timestamp'),  // Deterministic
+    })
+  )
 )
 ```
 

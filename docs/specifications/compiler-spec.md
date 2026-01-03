@@ -471,12 +471,15 @@ Receives validation result from Builder. Handles success, retry, or discard.
             flow.when(
               state.traceDrafts,
               flow.patch(state.attempts).set(
-                expr.append(state.attempts, {
-                  attemptNumber: state.attemptCount,
-                  draftHash: expr.coalesce(expr.input('schemaHash'), ''),
-                  diagnostics: expr.input('diagnostics'),
-                  timestamp: expr.input('timestamp'),
-                })
+                expr.append(
+                  state.attempts,
+                  expr.object({
+                    attemptNumber: state.attemptCount,
+                    draftHash: expr.coalesce(expr.input('schemaHash'), ''),
+                    diagnostics: expr.input('diagnostics'),
+                    timestamp: expr.input('timestamp'),
+                  })
+                )
               )
             ),
 

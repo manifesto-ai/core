@@ -6,7 +6,11 @@ dist
 .env*
 .idea
 .DS_Store
+coverage
 
-apps/llm-babybench
 /COMPILER_TEST.md
 archives
+docs/.vitepress/cache
+
+apps/llm-babybench
+#apps/taskflow

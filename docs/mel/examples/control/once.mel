@@ -5,6 +5,8 @@
 // ============================================
 
 domain ControlOnce {
+  type Item = { id?: string, active: boolean }
+
   // --- State ---
   state {
     count: number = 0

@@ -42,7 +42,7 @@ const CounterDomain = defineDomain(
   ({ state, actions }) => ({
     actions: {
       increment: actions.define({
-        flow: () => flow.patch(state.count).set(expr.add(state.count, 1)),
+        flow: flow.patch(state.count).set(expr.add(state.count, 1)),
       }),
     },
   })
@@ -51,6 +51,22 @@ const CounterDomain = defineDomain(
 // Verify
 console.log(CounterDomain.schema);
 // → DomainSchema IR for Core
+```
+
+MEL equivalent:
+
+```mel
+domain CounterDomain {
+  state {
+    count: number = 0
+  }
+
+  action increment() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+}
 ```
 
 ---
@@ -87,6 +103,25 @@ const AppDomain = defineDomain(
 );
 ```
 
+MEL equivalent:
+
+```mel
+domain AppDomain {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean,
+    createdAt: string
+  }
+
+  state {
+    todos: Array<Todo> = []
+    filter: "all" | "active" | "completed" = "all"
+    lastUpdated: string | null = null
+  }
+}
+```
+
 ### Use Case 2: Defining Computed Values
 
 **Goal:** Define derived values from state.
@@ -104,7 +139,7 @@ const TodoDomain = defineDomain(
       remaining: computed.define({
         deps: [state.todos],
         expr: expr.len(
-          expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))
+          expr.filter(state.todos, (t) => expr.not(t.completed))
         ),
       }),
 
@@ -113,10 +148,10 @@ const TodoDomain = defineDomain(
         deps: [state.todos, state.filter],
         expr: expr.cond(
           expr.eq(state.filter, "active"),
-          expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed"))),
+          expr.filter(state.todos, (t) => expr.not(t.completed)),
           expr.cond(
             expr.eq(state.filter, "completed"),
-            expr.filter(state.todos, (t) => expr.get(t, "completed")),
+            expr.filter(state.todos, (t) => t.completed),
             state.todos // default: all
           )
         ),
@@ -128,7 +163,7 @@ const TodoDomain = defineDomain(
         expr: expr.and(
           expr.gt(expr.len(state.todos), 0),
           expr.eq(
-            expr.len(expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))),
+            expr.len(expr.filter(state.todos, (t) => expr.not(t.completed))),
             0
           )
         ),
@@ -136,6 +171,38 @@ const TodoDomain = defineDomain(
     },
   })
 );
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type Todo = {
+    completed: boolean
+  }
+
+  state {
+    todos: Array<Todo> = []
+    filter: "all" | "active" | "completed" = "all"
+  }
+
+  computed remaining = len(filter(todos, not($item.completed)))
+
+  computed visibleTodos = cond(
+    eq(filter, "active"),
+    filter(todos, not($item.completed)),
+    cond(
+      eq(filter, "completed"),
+      filter(todos, $item.completed),
+      todos
+    )
+  )
+
+  computed allCompleted = and(
+    gt(len(todos), 0),
+    eq(len(filter(todos, not($item.completed))), 0)
+  )
+}
 ```
 
 ### Use Case 3: Defining Actions
@@ -153,16 +220,18 @@ const TodoDomain = defineDomain(
       // Action with input
       add: actions.define({
         input: z.object({
+          id: z.string(),
           title: z.string().min(1, "Title required"),
+          timestamp: z.number(),
         }),
         flow: flow.patch(state.todos).set(
           expr.append(
             state.todos,
             expr.object({
-              id: expr.uuid(),
+              id: expr.input("id"),
               title: expr.input("title"),
               completed: expr.lit(false),
-              createdAt: expr.now(),
+              createdAt: expr.input("timestamp"),
             })
           )
         ),
@@ -174,9 +243,9 @@ const TodoDomain = defineDomain(
         flow: flow.patch(state.todos).set(
           expr.map(state.todos, (todo) =>
             expr.cond(
-              expr.eq(expr.get(todo, "id"), expr.input("id")),
+              expr.eq(todo.id, expr.input("id")),
               expr.merge(todo, expr.object({
-                completed: expr.not(expr.get(todo, "completed")),
+                completed: expr.not(todo.completed),
               })),
               todo
             )
@@ -187,12 +256,56 @@ const TodoDomain = defineDomain(
       // Action with no input
       clearCompleted: actions.define({
         flow: flow.patch(state.todos).set(
-          expr.filter(state.todos, (todo) => expr.not(expr.get(todo, "completed")))
+          expr.filter(state.todos, (todo) => expr.not(todo.completed))
         ),
       }),
     },
   })
 );
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean,
+    createdAt: number
+  }
+
+  state {
+    todos: Array<Todo> = []
+  }
+
+  action add(id: string, title: string, timestamp: number) {
+    when true {
+      patch todos = append(todos, {
+        id: id,
+        title: title,
+        completed: false,
+        createdAt: timestamp
+      })
+    }
+  }
+
+  action toggle(id: string) {
+    when true {
+      patch todos = map(todos, cond(
+        eq($item.id, id),
+        merge($item, { completed: not($item.completed) }),
+        $item
+      ))
+    }
+  }
+
+  action clearCompleted() {
+    when true {
+      patch todos = filter(todos, not($item.completed))
+    }
+  }
+}
 ```
 
 ---
@@ -216,6 +329,24 @@ const actions = {
 };
 ```
 
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    submitted: boolean = false
+    formData: string = ""
+  }
+
+  action submit() {
+    when not(submitted) {
+      patch submitted = true
+      effect api.submit({ data: formData })
+    }
+  }
+}
+```
+
 ### Pattern 2: onceNull (Initialize If Null)
 
 **When to use:** Fetch data only if not already loaded.
@@ -236,6 +367,25 @@ const actions = {
 };
 ```
 
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    user: string | null = null
+    loading: boolean = false
+  }
+
+  action loadUser(id: string) {
+    when isNull(user) {
+      patch loading = true
+      effect api.fetchUser({ id: id })
+      patch loading = false
+    }
+  }
+}
+```
+
 ### Pattern 3: Effect with Target Path
 
 **When to use:** API call that stores result at specific path.
@@ -253,6 +403,28 @@ const actions = {
     ),
   }),
 };
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    loading: boolean = false
+    posts: string | null = null
+  }
+
+  action fetchPosts() {
+    when true {
+      patch loading = true
+      effect api.get({
+        url: "/api/posts",
+        target: "posts"
+      })
+      patch loading = false
+    }
+  }
+}
 ```
 
 ---
@@ -277,19 +449,19 @@ const AppDomain = defineDomain(
       selectedUser: computed.define({
         deps: [state.users, state.selectedUserId],
         expr: expr.find(state.users, (user) =>
-          expr.eq(expr.get(user, "id"), state.selectedUserId)
+          expr.eq(user.id, state.selectedUserId)
         ),
       }),
     },
 
     actions: {
       addUser: actions.define({
-        input: z.object({ name: z.string(), email: z.string() }),
+        input: z.object({ id: z.string(), name: z.string(), email: z.string() }),
         flow: flow.patch(state.users).set(
           expr.append(
             state.users,
             expr.object({
-              id: expr.uuid(),
+              id: expr.input("id"),
               name: expr.input("name"),
               email: expr.input("email"),
             })
@@ -299,6 +471,35 @@ const AppDomain = defineDomain(
     },
   })
 );
+```
+
+MEL equivalent:
+
+```mel
+domain AppDomain {
+  type User = {
+    id: string,
+    name: string,
+    email: string
+  }
+
+  state {
+    users: Array<User> = []
+    selectedUserId: string | null = null
+  }
+
+  computed selectedUser = find(users, eq($item.id, selectedUserId))
+
+  action addUser(id: string, name: string, email: string) {
+    when true {
+      patch users = append(users, {
+        id: id,
+        name: name,
+        email: email
+      })
+    }
+  }
+}
 ```
 
 ### Nested Flows
@@ -326,16 +527,46 @@ const OrderDomain = defineDomain(
 
     actions: {
       submit: actions.define({
-        flow: ({ state }) =>
-          flow.seq(
-            flow.call("validateOrder"), // Call named flow
-            flow.patch(state.order.status).set("submitted"),
-            flow.effect("api.submitOrder", { items: state.order.items })
-          ),
+        flow: flow.seq(
+          flow.call("validateOrder"), // Call named flow
+          flow.patch(state.order.status).set("submitted"),
+          flow.effect("api.submitOrder", { items: state.order.items })
+        ),
       }),
     },
   })
 );
+```
+
+MEL equivalent (inline validation instead of named flows):
+
+```mel
+domain OrderDomain {
+  type OrderItem = {
+    id: string,
+    qty: number
+  }
+
+  type Order = {
+    status: "draft" | "submitted" | "paid" | "shipped",
+    items: Array<OrderItem>
+  }
+
+  state {
+    order: Order = { status: "draft", items: [] }
+  }
+
+  action submit() {
+    when eq(len(order.items), 0) {
+      fail "ORDER_EMPTY" with "Order has no items"
+    }
+
+    when gt(len(order.items), 0) {
+      patch order.status = "submitted"
+      effect api.submitOrder({ items: order.items })
+    }
+  }
+}
 ```
 
 ---
@@ -366,11 +597,10 @@ expr: state.todos // TypeScript catches typos
 
 ```typescript
 // Wrong: No guard
-flow: ({ state }) =>
-  flow.seq(
-    flow.effect("api.init", {}),
-    flow.patch(state.initialized).set(true)
-  )
+flow: flow.seq(
+  flow.effect("api.init", {}),
+  flow.patch(state.initialized).set(true)
+)
 // Effect runs every time!
 ```
 
@@ -520,7 +750,7 @@ actions: {
 computed: {
   userName: computed.define({
     deps: [state.userData],
-    expr: expr.get(state.userData, "name"),
+    expr: expr.get(state.userData.name),
   }),
 }
 ```
@@ -938,9 +1168,8 @@ describe("TodoDomain", () => {
 | `expr.filter(arr, fn)` | Filter array | `expr.filter(state.todos, t => ...)` |
 | `expr.map(arr, fn)` | Map array | `expr.map(state.items, i => ...)` |
 | `expr.len(arr)` | Array length | `expr.len(state.todos)` |
-| `expr.get(obj, key)` | Get property | `expr.get(todo, "title")` |
-| `expr.uuid()` | Generate UUID | `id: expr.uuid()` |
-| `expr.now()` | Current timestamp | `createdAt: expr.now()` |
+| `expr.input(field)` | Action input | `expr.input("title")` |
+| `expr.get(ref)` | Read ref | `expr.get(state.user.name)` |
 
 ### Flow Helpers
 
@@ -952,7 +1181,7 @@ describe("TodoDomain", () => {
 | `flow.effect(type, params)` | External op | `flow.effect("api.get", { url })` |
 | `flow.halt()` | Stop success | `flow.halt()` |
 | `flow.fail(msg)` | Stop error | `flow.fail("Invalid")` |
-| `guard(cond, body)` | Guarded exec | `guard(state.ready, ({ patch }) => patch(state.readyAt).set(expr.now()))` |
+| `guard(cond, body)` | Guarded exec | `guard(state.ready, ({ patch }) => patch(state.readyAt).set(expr.input("timestamp")))` |
 | `onceNull(ref, body)` | Init if null | `onceNull(state.data, ({ effect }) => effect("api.load", {}))` |
 
 ---

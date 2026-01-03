@@ -39,7 +39,19 @@ jobs:
         run: pnpm build
 
       - name: Test
+        if: matrix.node-version != 20
         run: pnpm test
+
+      - name: Test (Coverage)
+        if: matrix.node-version == 20
+        run: pnpm test:coverage
+
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 20
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./packages
+          fail_ci_if_error: false
 
   typecheck:
     name: Type Check

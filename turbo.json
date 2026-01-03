@@ -15,6 +15,10 @@
     "test": {
       "dependsOn": ["build"]
     },
+    "test:coverage": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"]
+    },
     "clean": {
       "cache": false
     }

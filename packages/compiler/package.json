@@ -41,6 +41,7 @@
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -50,6 +51,7 @@
   "devDependencies": {
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*",
+    "@vitest/coverage-v8": "^1.0.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.7.2",
     "vitest": "^1.0.0"

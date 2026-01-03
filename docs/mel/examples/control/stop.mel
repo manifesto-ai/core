@@ -5,6 +5,8 @@
 // ============================================
 
 domain ControlStop {
+  type Item = { done: boolean, value: number }
+
   // --- State ---
   state {
     count: number = 0

@@ -429,7 +429,14 @@ when eq(tasks, {}) { ... }
 ```mel
 // ✅ FIXED: Check properties
 when eq(len(items), 0) { ... }           // Check length
-when eq(len(keys(tasks)), 0) { ... }     // Check key count
+
+action loadTaskIds() {
+  once(loadingKeys) {
+    patch loadingKeys = $meta.intentId
+    effect record.keys({ source: tasks, into: taskIds })
+  }
+}
+when eq(len(taskIds), 0) { ... }         // Check key count
 ```
 
 ---
@@ -505,8 +512,8 @@ state {
 ```mel
 // ❌ BROKEN (v0.3.0+)
 state {
-  id: string = $input.id
-  createdAt: number = $input.now
+  id: string = $system.uuid
+  createdAt: number = $system.timestamp
 }
 ```
 
@@ -524,8 +531,8 @@ state {
 action initialize() {
   once(init) {
     patch init = $meta.intentId
-    patch id = $input.id
-    patch createdAt = $input.now
+    patch id = $system.uuid
+    patch createdAt = $system.timestamp
   }
 }
 ```
@@ -625,14 +632,19 @@ action loadKeys() {
   }
 }
 
-// For time, use $input (provided by Host)
+// For time, use $system.timestamp (provided by Host)
 action timestamp() {
   when true {
-    patch createdAt = $input.now
+    patch createdAt = $system.timestamp
   }
 }
 
-// Random is not supported — MEL is deterministic
+// Random is only allowed via $system.random inside actions
+action seed() {
+  when true {
+    patch seed = $system.random
+  }
+}
 ```
 
 ---

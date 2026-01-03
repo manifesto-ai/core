@@ -5,6 +5,10 @@
 // ============================================
 
 domain EffectsApi {
+  type User = { id: string, name: string, email: string }
+  type Post = { id: string, title: string }
+  type Result = { id: string }
+
   // --- State ---
   state {
     // Data storage
@@ -96,7 +100,7 @@ domain EffectsApi {
         body: {
           name: trim(name),
           email: trim(email),
-          createdAt: $input.now
+          createdAt: $system.timestamp
         },
         into: createResult
       })
@@ -116,7 +120,7 @@ domain EffectsApi {
         url: concat("/users/", id),
         body: {
           name: trim(name),
-          updatedAt: $input.now
+          updatedAt: $system.timestamp
         },
         into: updateResult
       })

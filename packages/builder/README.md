@@ -81,38 +81,54 @@ const TodoDomain = defineDomain(
       // Type-safe computed with dependencies
       remaining: computed.define({
         deps: [state.todos],
-        expr: expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed"))).length,
+        expr: expr.len(
+          expr.filter(state.todos, (t) => expr.not(t.completed))
+        ),
       }),
 
       filteredTodos: computed.define({
         deps: [state.todos, state.filter],
-        expr: expr.cond([
-          [expr.eq(state.filter, "active"), expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))],
-          [expr.eq(state.filter, "completed"), expr.filter(state.todos, (t) => expr.get(t, "completed"))],
-        ], state.todos),
+        expr: expr.cond(
+          expr.eq(state.filter, "active"),
+          expr.filter(state.todos, (t) => expr.not(t.completed)),
+          expr.cond(
+            expr.eq(state.filter, "completed"),
+            expr.filter(state.todos, (t) => t.completed),
+            state.todos
+          )
+        ),
       }),
     },
 
     actions: {
       // Type-safe action with input validation
       add: actions.define({
-        input: z.object({ title: z.string().min(1) }),
-        flow: ({ input }) =>
-          flow.patch("add", `/todos/-`, {
-            id: expr.uuid(),
-            title: input.title,
-            completed: false,
-          }),
+        input: z.object({ id: z.string(), title: z.string().min(1) }),
+        flow: flow.patch(state.todos).set(
+          expr.append(
+            state.todos,
+            expr.object({
+              id: expr.input("id"),
+              title: expr.input("title"),
+              completed: expr.lit(false),
+            })
+          )
+        ),
       }),
 
       toggle: actions.define({
         input: z.object({ id: z.string() }),
-        flow: ({ input, state }) =>
-          flow.seq([
-            flow.patch("replace", `/todos/${input.id}/completed`,
-              expr.not(expr.get(state.todos.byId(input.id), "completed"))
-            ),
-          ]),
+        flow: flow.patch(state.todos).set(
+          expr.map(state.todos, (todo) =>
+            expr.cond(
+              expr.eq(todo.id, expr.input("id")),
+              expr.merge(todo, expr.object({
+                completed: expr.not(todo.completed),
+              })),
+              todo
+            )
+          )
+        ),
       }),
     },
   })
@@ -121,7 +137,56 @@ const TodoDomain = defineDomain(
 // Use the domain
 console.log(TodoDomain.schema);        // → DomainSchema IR for Core
 console.log(TodoDomain.state.todos);   // → FieldRef<Todo[]>
-console.log(TodoDomain.actions.add);   // → ActionRef<{ title: string }>
+console.log(TodoDomain.actions.add);   // → ActionRef<{ id: string; title: string }>
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type TodoItem = {
+    id: string,
+    title: string,
+    completed: boolean
+  }
+
+  state {
+    todos: Array<TodoItem> = []
+    filter: "all" | "active" | "completed" = "all"
+  }
+
+  computed remaining = len(filter(todos, not($item.completed)))
+
+  computed filteredTodos = cond(
+    eq(filter, "active"),
+    filter(todos, not($item.completed)),
+    cond(
+      eq(filter, "completed"),
+      filter(todos, $item.completed),
+      todos
+    )
+  )
+
+  action add(id: string, title: string) {
+    when true {
+      patch todos = append(todos, {
+        id: id,
+        title: title,
+        completed: false
+      })
+    }
+  }
+
+  action toggle(id: string) {
+    when true {
+      patch todos = map(todos, cond(
+        eq($item.id, id),
+        merge($item, { completed: not($item.completed) }),
+        $item
+      ))
+    }
+  }
+}
 ```
 
 > See [GUIDE.md](../../docs/packages/builder/GUIDE.md) for the full tutorial.
@@ -201,17 +266,39 @@ Flows are evaluated from the beginning each time. Use guards to prevent duplicat
 
 ```typescript
 // Guard pattern - only runs if condition is false
-flow.seq([
-  guard(state.initialized, [
-    flow.patch("set", "initialized", true),
-    flow.effect("api.init", {}),
-  ]),
-]);
+guard(expr.not(state.initialized), ({ patch, effect }) => {
+  patch(state.initialized).set(true);
+  effect("api.init", {});
+});
 
 // onceNull pattern - only runs if value is null
-onceNull(state.user, [
-  flow.effect("api.fetchUser", {}),
-]);
+onceNull(state.user, ({ effect }) => {
+  effect("api.fetchUser", {});
+});
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  state {
+    initialized: boolean = false
+    user: string | null = null
+  }
+
+  action init() {
+    when not(initialized) {
+      patch initialized = true
+      effect api.init({})
+    }
+  }
+
+  action loadUser() {
+    when isNull(user) {
+      effect api.fetchUser({})
+    }
+  }
+}
 ```
 
 ### Expression DSL
@@ -220,16 +307,52 @@ All expressions are pure and deterministic:
 
 ```typescript
 // Filtering
-expr.filter(state.todos, (t) => expr.not(expr.get(t, "completed")))
+expr.filter(state.todos, (t) => expr.not(t.completed))
 
 // Conditionals
-expr.cond([
-  [expr.gt(state.count, 10), "high"],
-  [expr.gt(state.count, 5), "medium"],
-], "low")
+expr.cond(
+  expr.gt(state.count, 10),
+  "high",
+  expr.cond(
+    expr.gt(state.count, 5),
+    "medium",
+    "low"
+  )
+)
 
 // Arithmetic
 expr.add(state.subtotal, expr.mul(state.subtotal, state.taxRate))
+```
+
+MEL equivalent:
+
+```mel
+domain Example {
+  type Todo = {
+    completed: boolean
+  }
+
+  state {
+    todos: Array<Todo> = []
+    count: number = 0
+    subtotal: number = 0
+    taxRate: number = 0
+  }
+
+  computed filtered = filter(todos, not($item.completed))
+
+  computed level = cond(
+    gt(count, 10),
+    "high",
+    cond(
+      gt(count, 5),
+      "medium",
+      "low"
+    )
+  )
+
+  computed total = add(subtotal, mul(subtotal, taxRate))
+}
 ```
 
 ---

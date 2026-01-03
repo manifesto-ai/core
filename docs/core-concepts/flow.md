@@ -314,18 +314,21 @@ const TodoDomain = defineDomain(
         }),
         flow: flow.seq(
           // Validation
-          flow.if(
+          flow.when(
             expr.lte(expr.len(expr.input('title')), 0),
             flow.fail('EMPTY_TITLE')
           ),
           // Optimistic update
           flow.patch(state.todos).set(
-            expr.append(state.todos, {
-              id: expr.input('localId'),
-              title: expr.input('title'),
-              completed: false,
-              syncStatus: 'pending'
-            })
+            expr.append(
+              state.todos,
+              expr.object({
+                id: expr.input('localId'),
+                title: expr.input('title'),
+                completed: expr.lit(false),
+                syncStatus: expr.lit('pending')
+              })
+            )
           ),
           // API call
           flow.effect('api:createTodo', {
@@ -339,6 +342,43 @@ const TodoDomain = defineDomain(
     return { actions: { addTodo } };
   }
 );
+```
+
+MEL equivalent:
+
+```mel
+domain TodoDomain {
+  type TodoItem = {
+    id: string,
+    title: string,
+    completed: boolean,
+    syncStatus: string
+  }
+
+  state {
+    todos: Array<TodoItem> = []
+  }
+
+  action addTodo(title: string, localId: string) {
+    when eq(trim(title), "") {
+      fail "EMPTY_TITLE"
+    }
+
+    when neq(trim(title), "") {
+      patch todos = append(todos, {
+        id: localId,
+        title: title,
+        completed: false,
+        syncStatus: "pending"
+      })
+
+      effect api:createTodo({
+        localId: localId,
+        title: title
+      })
+    }
+  }
+}
 ```
 
 ---
