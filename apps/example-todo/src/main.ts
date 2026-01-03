@@ -76,7 +76,7 @@ async function runIntent(
 ) {
   console.log(`\n🚀 Dispatching: ${action}(${JSON.stringify(input)})`);
 
-  const intent = createIntent(action, input);
+  const intent = createIntent(action, input, createIntentId());
   const result = await host.dispatch(intent);
 
   console.log(`   Result: ${result.status}`);
@@ -86,6 +86,13 @@ async function runIntent(
   }
 
   return result;
+}
+
+function createIntentId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `intent-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function printSnapshotFromResult(result: { snapshot: unknown }, label: string) {
@@ -203,7 +210,7 @@ async function main() {
   console.log("\n🎬 Step 4: Running scenarios...");
 
   // Initialize Host
-  await host.dispatch(createIntent("__init__", {}));
+  await host.dispatch(createIntent("__init__", {}, createIntentId()));
 
   // Scenario 1: Load todos
   console.log("\n--- Scenario 1: Load todos ---");

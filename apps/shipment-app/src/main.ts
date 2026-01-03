@@ -93,7 +93,7 @@ async function runIntent(
   const inputStr = Object.keys(input).length > 0 ? JSON.stringify(input) : "";
   console.log(`\n🚀 ${action}(${inputStr})`);
 
-  const intent = createIntent(action, input);
+  const intent = createIntent(action, input, createIntentId());
   const result = await host.dispatch(intent);
 
   if (result.status === "error") {
@@ -103,6 +103,13 @@ async function runIntent(
   }
 
   return result;
+}
+
+function createIntentId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `intent-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 // =============================================================================
@@ -146,7 +153,7 @@ async function main() {
   registerMockHandlers(host);
 
   // Initialize
-  await host.dispatch(createIntent("__init__", {}));
+  await host.dispatch(createIntent("__init__", {}, createIntentId()));
   console.log("✅ Host initialized");
 
   // -------------------------------------------------------------------------
