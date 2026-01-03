@@ -28,6 +28,7 @@ import type {
 } from "../parser/ast.js";
 import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
 import { createHash } from "crypto";
+import { toCanonical } from "@manifesto-ai/core";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -625,10 +626,10 @@ function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CoreFlowNode {
 function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CoreFlowNode {
   // Desugar once(marker) { ... } to:
   // when neq(marker, $meta.intentId) { patch marker = $meta.intentId; ... }
-  // Note: Core accesses intentId via input.intentId
+  // Note: Core accesses $meta intent values via meta.*
 
   const markerPath = generatePath(stmt.marker, ctx);
-  const intentIdExpr: CoreExprNode = { kind: "get", path: "input.intentId" };
+  const intentIdExpr: CoreExprNode = { kind: "get", path: "meta.intentId" };
 
   // Condition: marker != $meta.intentId
   let cond: CoreExprNode = {
@@ -876,7 +877,7 @@ function generateIdentifier(name: string, ctx: GeneratorContext): CoreExprNode {
 
 function generateSystemIdent(path: string[], ctx: GeneratorContext): CoreExprNode {
   // $system.uuid -> will be lowered later
-  // $meta.intentId -> input.intentId (Core accesses intentId via input.intentId)
+  // $meta.intentId -> meta.intentId
   // $input.* -> input.*
 
   const [namespace, ...rest] = path;
@@ -887,9 +888,7 @@ function generateSystemIdent(path: string[], ctx: GeneratorContext): CoreExprNod
       return { kind: "get", path: `$system.${rest.join(".")}` };
 
     case "meta":
-      // Core accesses $meta.intentId via input.intentId
-      // The caller must pass intentId in intent.input for this to work
-      return { kind: "get", path: `input.${rest.join(".")}` };
+      return { kind: "get", path: `meta.${rest.join(".")}` };
 
     case "input":
       return { kind: "get", path: `input.${rest.join(".")}` };
@@ -925,21 +924,7 @@ function generatePropertyAccess(expr: { kind: "propertyAccess"; object: ExprNode
 
 // ============ Hash Computation ============
 
-function sortObjectKeys(obj: unknown): unknown {
-  if (obj === null || typeof obj !== "object") {
-    return obj;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(sortObjectKeys);
-  }
-  const sorted: Record<string, unknown> = {};
-  for (const key of Object.keys(obj).sort()) {
-    sorted[key] = sortObjectKeys((obj as Record<string, unknown>)[key]);
-  }
-  return sorted;
-}
-
 function computeHash(schema: Omit<DomainSchema, "hash">): string {
-  const canonical = JSON.stringify(sortObjectKeys(schema));
-  return createHash("sha256").update(canonical).digest("hex").slice(0, 16);
+  const canonical = toCanonical(schema);
+  return createHash("sha256").update(canonical).digest("hex");
 }

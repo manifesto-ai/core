@@ -321,8 +321,7 @@ describe("IR Generator", () => {
         const flow = result.schema.actions.increment.flow;
         if (flow.kind === "if") {
           const patchFlow = flow.then as { kind: "patch"; value?: CoreExprNode };
-          // Core accesses intentId via input.intentId
-          expect(patchFlow.value).toEqual({ kind: "get", path: "input.intentId" });
+          expect(patchFlow.value).toEqual({ kind: "get", path: "meta.intentId" });
         }
       }
     });

@@ -4,6 +4,7 @@
  * Based on MEL SPEC v0.3.1 Section 5.4
  */
 
+import { hashSchemaSync, type DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
 import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } from "./ir.js";
 
 // ============ Types ============
@@ -13,8 +14,8 @@ import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } 
  */
 interface SystemSlot {
   key: string; // e.g., "uuid"
-  valuePath: string; // e.g., "data.__sys__addTask_uuid_value"
-  intentPath: string; // e.g., "data.__sys__addTask_uuid_intent"
+  valuePath: string; // e.g., "__sys__addTask_uuid_value"
+  intentPath: string; // e.g., "__sys__addTask_uuid_intent"
 }
 
 /**
@@ -33,6 +34,7 @@ interface LoweringContext {
 export function lowerSystemValues(schema: DomainSchema): DomainSchema {
   // Clone schema
   const result = structuredClone(schema);
+  let lowered = false;
 
   // Process each action
   for (const [actionName, action] of Object.entries(result.actions)) {
@@ -44,16 +46,17 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
     if (ctx.slots.size === 0) {
       continue; // No system values to lower
     }
+    lowered = true;
 
     // Add state slots
     for (const slot of ctx.slots.values()) {
       result.state.fields[slotName(slot.valuePath)] = {
-        type: { enum: [null, "string"] } as any, // nullable
+        type: systemValueType(slot.key),
         required: true,
         default: null,
       };
       result.state.fields[slotName(slot.intentPath)] = {
-        type: { enum: [null, "string"] } as any,
+        type: "string",
         required: true,
         default: null,
       };
@@ -66,11 +69,20 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
     };
   }
 
-  return result;
+  if (!lowered) {
+    return result;
+  }
+
+  const { hash: _hash, ...schemaWithoutHash } = result;
+  const nextHash = hashSchemaSync(schemaWithoutHash as Omit<CoreDomainSchema, "hash">);
+  return {
+    ...schemaWithoutHash,
+    hash: nextHash,
+  };
 }
 
 function slotName(path: string): string {
-  // Extract field name from path like "data.__sys__addTask_uuid_value"
+  // Extract field name from path like "__sys__addTask_uuid_value"
   const parts = path.split(".");
   return parts[parts.length - 1];
 }
@@ -80,6 +92,16 @@ function createContext(actionName: string): LoweringContext {
     actionName,
     slots: new Map(),
   };
+}
+
+function systemValueType(key: string): FieldSpec["type"] {
+  switch (key) {
+    case "timestamp":
+    case "time.now":
+      return "number";
+    default:
+      return "string";
+  }
 }
 
 // ============ Collection Phase ============
@@ -132,8 +154,8 @@ function collectSystemRefsFromExpr(expr: CoreExprNode, ctx: LoweringContext): vo
     if (!ctx.slots.has(key)) {
       ctx.slots.set(key, {
         key,
-        valuePath: `data.__sys__${ctx.actionName}_${key}_value`,
-        intentPath: `data.__sys__${ctx.actionName}_${key}_intent`,
+        valuePath: `__sys__${ctx.actionName}_${key}_value`,
+        intentPath: `__sys__${ctx.actionName}_${key}_intent`,
       });
     }
     return;

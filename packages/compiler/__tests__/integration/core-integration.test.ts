@@ -20,6 +20,22 @@ function adaptSchema(melSchema: MelDomainSchema): CoreDomainSchema {
   return melSchema as unknown as CoreDomainSchema;
 }
 
+const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+let intentCounter = 0;
+const nextIntentId = () => `intent-${intentCounter++}`;
+const createTestIntent = (type: string, input?: unknown) =>
+  input === undefined
+    ? createIntent(type, nextIntentId())
+    : createIntent(type, input, nextIntentId());
+const createTestSnapshot = (data: unknown, schemaHash: string) =>
+  createSnapshot(data, schemaHash, HOST_CONTEXT);
+const computeWithContext = (
+  core: ReturnType<typeof createCore>,
+  schema: CoreDomainSchema,
+  snapshot: Snapshot,
+  intent: ReturnType<typeof createIntent>
+) => core.compute(schema, snapshot, intent, HOST_CONTEXT);
+
 describe("Core Integration", () => {
   describe("Schema Type Compatibility", () => {
     it("generates valid Core DomainSchema structure", () => {
@@ -70,6 +86,7 @@ describe("Core Integration", () => {
       const result = compile(`
         domain Test {
           state { x: number = 0 }
+          computed isPositive = gt(x, 0)
           action test() {
             when gt(x, 0) {
               patch x = 0
@@ -115,6 +132,7 @@ describe("Core Integration", () => {
           state {
             count: number = 0
           }
+          computed countValue = count
           action increment() {
             when true {
               patch count = add(count, 1)
@@ -128,10 +146,10 @@ describe("Core Integration", () => {
 
       const schema = adaptSchema(result.schema);
       const core = createCore();
-      const snapshot = createSnapshot({ count: 0 }, schema.hash);
-      const intent = createIntent("increment");
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("increment");
 
-      const computeResult = await core.compute(schema, snapshot, intent);
+      const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
       expect(computeResult.snapshot.data.count).toBe(1);
@@ -143,6 +161,7 @@ describe("Core Integration", () => {
           state {
             count: number = 0
           }
+          computed countValue = count
           action add(amount: number) {
             when true {
               patch count = add(count, amount)
@@ -156,10 +175,10 @@ describe("Core Integration", () => {
 
       const schema = adaptSchema(result.schema);
       const core = createCore();
-      const snapshot = createSnapshot({ count: 5 }, schema.hash);
-      const intent = createIntent("add", { amount: 10 });
+      const snapshot = createTestSnapshot({ count: 5 }, schema.hash);
+      const intent = createTestIntent("add", { amount: 10 });
 
-      const computeResult = await core.compute(schema, snapshot, intent);
+      const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
       expect(computeResult.snapshot.data.count).toBe(15);
@@ -171,6 +190,7 @@ describe("Core Integration", () => {
           state {
             count: number = 0
           }
+          computed isPositive = gt(count, 0)
           action decrement() {
             when gt(count, 0) {
               patch count = sub(count, 1)
@@ -186,15 +206,15 @@ describe("Core Integration", () => {
       const core = createCore();
 
       // When count is 0, guard should prevent decrement
-      const snapshot1 = createSnapshot({ count: 0 }, schema.hash);
-      const intent1 = createIntent("decrement");
-      const result1 = await core.compute(schema, snapshot1, intent1);
+      const snapshot1 = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent1 = createTestIntent("decrement");
+      const result1 = await computeWithContext(core, schema, snapshot1, intent1);
       expect(result1.snapshot.data.count).toBe(0); // Should not change
 
       // When count is positive, decrement should work
-      const snapshot2 = createSnapshot({ count: 5 }, schema.hash);
-      const intent2 = createIntent("decrement");
-      const result2 = await core.compute(schema, snapshot2, intent2);
+      const snapshot2 = createTestSnapshot({ count: 5 }, schema.hash);
+      const intent2 = createTestIntent("decrement");
+      const result2 = await computeWithContext(core, schema, snapshot2, intent2);
       expect(result2.snapshot.data.count).toBe(4);
     });
 
@@ -219,10 +239,10 @@ describe("Core Integration", () => {
 
       const schema = adaptSchema(result.schema);
       const core = createCore();
-      const snapshot = createSnapshot({ count: 5 }, schema.hash);
-      const intent = createIntent("increment");
+      const snapshot = createTestSnapshot({ count: 5 }, schema.hash);
+      const intent = createTestIntent("increment");
 
-      const computeResult = await core.compute(schema, snapshot, intent);
+      const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
       expect(computeResult.snapshot.data.count).toBe(6);
@@ -237,6 +257,7 @@ describe("Core Integration", () => {
             count: number = 0
             lastIntent: string | null = null
           }
+          computed lastIntentValue = lastIntent
           action increment() {
             once(lastIntent) {
               patch count = add(count, 1)
@@ -252,20 +273,20 @@ describe("Core Integration", () => {
       const core = createCore();
 
       // First call should increment
-      // Note: intentId must be passed in input for Core to access it via input.intentId
-      const snapshot1 = createSnapshot({ count: 0, lastIntent: null }, schema.hash);
-      const intent1 = createIntent("increment", { intentId: "intent-1" }, "intent-1");
-      const result1 = await core.compute(schema, snapshot1, intent1);
+      // Note: Core exposes intentId via meta for once() guards
+      const snapshot1 = createTestSnapshot({ count: 0, lastIntent: null }, schema.hash);
+      const intent1 = createIntent("increment", "intent-1");
+      const result1 = await computeWithContext(core, schema, snapshot1, intent1);
       expect(result1.snapshot.data.count).toBe(1);
       expect(result1.snapshot.data.lastIntent).toBe("intent-1");
 
       // Second call with same intent should NOT increment (idempotent)
-      const result2 = await core.compute(schema, result1.snapshot, intent1);
+      const result2 = await computeWithContext(core, schema, result1.snapshot, intent1);
       expect(result2.snapshot.data.count).toBe(1); // Still 1
 
       // Call with different intent should increment
-      const intent2 = createIntent("increment", { intentId: "intent-2" }, "intent-2");
-      const result3 = await core.compute(schema, result2.snapshot, intent2);
+      const intent2 = createIntent("increment", "intent-2");
+      const result3 = await computeWithContext(core, schema, result2.snapshot, intent2);
       expect(result3.snapshot.data.count).toBe(2);
     });
 
@@ -277,6 +298,7 @@ describe("Core Integration", () => {
             b: number = 0
             c: number = 0
           }
+          computed sum = add(a, b)
           action setAll() {
             when true {
               patch a = 1
@@ -292,10 +314,10 @@ describe("Core Integration", () => {
 
       const schema = adaptSchema(result.schema);
       const core = createCore();
-      const snapshot = createSnapshot({ a: 0, b: 0, c: 0 }, schema.hash);
-      const intent = createIntent("setAll");
+      const snapshot = createTestSnapshot({ a: 0, b: 0, c: 0 }, schema.hash);
+      const intent = createTestIntent("setAll");
 
-      const computeResult = await core.compute(schema, snapshot, intent);
+      const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
       expect(computeResult.snapshot.data.a).toBe(1);
@@ -310,6 +332,7 @@ describe("Core Integration", () => {
             x: number = 0
             y: number = 0
           }
+          computed total = add(x, y)
           action update() {
             when gt(x, 0) {
               when gt(y, 0) {
@@ -327,18 +350,18 @@ describe("Core Integration", () => {
       const core = createCore();
 
       // Both x and y are 0 - should not update
-      const snapshot1 = createSnapshot({ x: 0, y: 0 }, schema.hash);
-      const result1 = await core.compute(schema, snapshot1, createIntent("update"));
+      const snapshot1 = createTestSnapshot({ x: 0, y: 0 }, schema.hash);
+      const result1 = await computeWithContext(core, schema, snapshot1, createTestIntent("update"));
       expect(result1.snapshot.data.x).toBe(0);
 
       // Only x > 0 - should not update (inner guard fails)
-      const snapshot2 = createSnapshot({ x: 5, y: 0 }, schema.hash);
-      const result2 = await core.compute(schema, snapshot2, createIntent("update"));
+      const snapshot2 = createTestSnapshot({ x: 5, y: 0 }, schema.hash);
+      const result2 = await computeWithContext(core, schema, snapshot2, createTestIntent("update"));
       expect(result2.snapshot.data.x).toBe(5);
 
       // Both x > 0 and y > 0 - should update
-      const snapshot3 = createSnapshot({ x: 5, y: 3 }, schema.hash);
-      const result3 = await core.compute(schema, snapshot3, createIntent("update"));
+      const snapshot3 = createTestSnapshot({ x: 5, y: 3 }, schema.hash);
+      const result3 = await computeWithContext(core, schema, snapshot3, createTestIntent("update"));
       expect(result3.snapshot.data.x).toBe(8);
     });
   });
@@ -368,13 +391,13 @@ describe("Core Integration", () => {
 
       const schema = adaptSchema(result.schema);
       const core = createCore();
-      const snapshot = createSnapshot({ nextId: 1, items: [] }, schema.hash);
+      const snapshot = createTestSnapshot({ nextId: 1, items: [] }, schema.hash);
 
       // Add first todo
-      const result1 = await core.compute(
+      const result1 = await computeWithContext(core, 
         schema,
         snapshot,
-        createIntent("addTodo", { title: "Buy milk" })
+        createTestIntent("addTodo", { title: "Buy milk" })
       );
 
       expect(result1.status).toBe("complete");
@@ -387,10 +410,10 @@ describe("Core Integration", () => {
       expect(result1.snapshot.computed["computed.itemCount"]).toBe(1);
 
       // Add second todo
-      const result2 = await core.compute(
+      const result2 = await computeWithContext(core, 
         schema,
         result1.snapshot,
-        createIntent("addTodo", { title: "Walk dog" })
+        createTestIntent("addTodo", { title: "Walk dog" })
       );
 
       expect(result2.snapshot.data.items).toHaveLength(2);
@@ -419,11 +442,11 @@ describe("Core Integration", () => {
       const core = createCore();
 
       const test = async (score: number, expectedGrade: string) => {
-        const snapshot = createSnapshot({ score: 0 }, schema.hash);
-        const r = await core.compute(
+        const snapshot = createTestSnapshot({ score: 0 }, schema.hash);
+        const r = await computeWithContext(core, 
           schema,
           snapshot,
-          createIntent("setScore", { value: score })
+          createTestIntent("setScore", { value: score })
         );
         expect(r.snapshot.computed["computed.grade"]).toBe(expectedGrade);
       };
@@ -453,10 +476,10 @@ describe("Core Integration", () => {
 
       const schema = adaptSchema(result.schema);
       const core = createCore();
-      const snapshot = createSnapshot({ x: 0 }, schema.hash);
-      const intent = createIntent("unknown");
+      const snapshot = createTestSnapshot({ x: 0 }, schema.hash);
+      const intent = createTestIntent("unknown");
 
-      const computeResult = await core.compute(schema, snapshot, intent);
+      const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       // Should return error status
       expect(computeResult.status).toBe("error");

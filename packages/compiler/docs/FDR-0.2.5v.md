@@ -4170,7 +4170,7 @@ v0.2.3 defined stability scopes but not **generation rules**:
 - `$system.time.now`: "stable per compute()"
 
 But if `uuid` comes from a random generator, then:
-- `compute(snapshot, intent)` called twice produces different results
+- `compute(snapshot, intent, context)` called twice produces different results
 - Replay/audit is impossible
 - "Same input → same output" (Axiom A2) is violated
 
