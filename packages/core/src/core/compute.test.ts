@@ -1,20 +1,95 @@
 import { describe, it, expect } from "vitest";
 import { compute } from "./compute.js";
 import { createSnapshot, createIntent } from "../factories.js";
+import { hashSchemaSync } from "../utils/hash.js";
 import type { DomainSchema } from "../schema/domain.js";
+
+const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
+  dummy: { type: "string", required: true },
+  count: { type: "number", required: true },
+  name: { type: "string", required: true },
+  balance: { type: "number", required: true },
+  a: { type: "number", required: true },
+  b: { type: "number", required: true },
+  loading: { type: "boolean", required: true },
+  started: { type: "boolean", required: true },
+  completed: { type: "boolean", required: true },
+  value: { type: "string", required: true },
+  todos: {
+    type: "array",
+    required: true,
+    items: {
+      type: "object",
+      required: true,
+      fields: {
+        completed: { type: "boolean", required: true },
+      },
+    },
+  },
+  fromBalance: { type: "number", required: true },
+  toBalance: { type: "number", required: true },
+  done: { type: "boolean", required: true },
+};
+
+const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
+  "computed.dummy": {
+    expr: { kind: "get", path: "dummy" },
+    deps: ["dummy"],
+  },
+};
+
+const BASE_ACTIONS: DomainSchema["actions"] = {
+  noop: {
+    flow: { kind: "halt", reason: "noop" },
+  },
+};
 
 // Helper to create a minimal domain schema
 function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
-  return {
-    id: "test",
+  const { state, computed, actions: overrideActions, hash, types, ...restOverrides } = overrides;
+  const stateFields = {
+    ...BASE_STATE_FIELDS,
+    ...(state?.fields ?? {}),
+  };
+  const computedFields = {
+    ...BASE_COMPUTED_FIELDS,
+    ...(computed?.fields ?? {}),
+  };
+  const actions = {
+    ...BASE_ACTIONS,
+    ...(overrideActions ?? {}),
+  };
+
+  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
+    id: "manifesto:test",
     version: "1.0.0",
-    hash: "test-hash",
-    state: { fields: {} },
-    computed: { fields: {} },
-    actions: {},
-    ...overrides,
+    ...restOverrides,
+    types: types ?? {},
+    state: { fields: stateFields },
+    computed: { fields: computedFields },
+    actions,
+  };
+
+  return {
+    ...schemaWithoutHash,
+    hash: hash ?? hashSchemaSync(schemaWithoutHash),
   };
 }
+
+const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+let intentCounter = 0;
+const nextIntentId = () => `intent-${intentCounter++}`;
+const createTestIntent = (type: string, input?: unknown) =>
+  input === undefined
+    ? createIntent(type, nextIntentId())
+    : createIntent(type, input, nextIntentId());
+const createTestSnapshot = (data: unknown, schemaHash: string) =>
+  createSnapshot(data, schemaHash, HOST_CONTEXT);
+const computeWithContext = (
+  schema: DomainSchema,
+  snapshot: ReturnType<typeof createSnapshot>,
+  intent: ReturnType<typeof createIntent>
+) => compute(schema, snapshot, intent, HOST_CONTEXT);
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {
@@ -36,10 +111,10 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({ count: 0 }, "test-hash");
-      const intent = createIntent("increment");
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("increment");
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ count: 1 });
@@ -48,10 +123,10 @@ describe("compute", () => {
 
     it("should handle unknown action", async () => {
       const schema = createTestSchema();
-      const snapshot = createSnapshot({}, "test-hash");
-      const intent = createIntent("nonexistent");
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("nonexistent");
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("error");
       expect(result.snapshot.system.lastError?.code).toBe("UNKNOWN_ACTION");
@@ -71,13 +146,62 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({}, "test-hash");
-      const intent = createIntent("setName", { name: "Alice" });
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("setName", { name: "Alice" });
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ name: "Alice" });
+    });
+
+    it("should reject intent without intentId", async () => {
+      const schema = createTestSchema({
+        actions: {
+          increment: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: { kind: "lit", value: 1 },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = { type: "increment", input: undefined, intentId: "" };
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
+    });
+  });
+
+  describe("Meta Access", () => {
+    it("should expose meta intentId without mutating input", async () => {
+      const schema = createTestSchema({
+        actions: {
+          markIntent: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "value",
+              value: { kind: "get", path: "meta.intentId" },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("markIntent", { name: "Alice" });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("complete");
+      expect(result.snapshot.data).toEqual({ value: intent.intentId });
+      expect(result.snapshot.input).toEqual({ name: "Alice" });
     });
   });
 
@@ -106,20 +230,140 @@ describe("compute", () => {
       });
 
       // Should succeed when balance > 0
-      const snapshot1 = createSnapshot({ balance: 100 }, "test-hash");
-      const intent1 = createIntent("withdraw", { amount: 50 });
-      const result1 = await compute(schema, snapshot1, intent1);
+      const snapshot1 = createTestSnapshot({ balance: 100 }, schema.hash);
+      const intent1 = createTestIntent("withdraw", { amount: 50 });
+      const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("complete");
       expect(result1.snapshot.data).toEqual({ balance: 50 });
 
       // Should fail when balance = 0
-      const snapshot2 = createSnapshot({ balance: 0 }, "test-hash");
-      const intent2 = createIntent("withdraw", { amount: 50 });
-      const result2 = await compute(schema, snapshot2, intent2);
+      const snapshot2 = createTestSnapshot({ balance: 0 }, schema.hash);
+      const intent2 = createTestIntent("withdraw", { amount: 50 });
+      const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("error");
       expect(result2.snapshot.system.lastError?.code).toBe("ACTION_UNAVAILABLE");
+    });
+
+    it("should fail when availability does not return boolean", async () => {
+      const schema = createTestSchema({
+        actions: {
+          invalidAvailable: {
+            available: {
+              kind: "add",
+              left: { kind: "lit", value: 1 },
+              right: { kind: "lit", value: 2 },
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: { kind: "lit", value: 1 },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("invalidAvailable");
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("TYPE_MISMATCH");
+    });
+  });
+
+  describe("Input Validation", () => {
+    it("should reject invalid input types", async () => {
+      const schema = createTestSchema({
+        actions: {
+          setCount: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "number", required: true },
+              },
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: { kind: "get", path: "input.value" },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("setCount", { value: "not-a-number" });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
+    });
+
+    it("should reject missing required input fields", async () => {
+      const schema = createTestSchema({
+        actions: {
+          setCount: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "number", required: true },
+              },
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: { kind: "get", path: "input.value" },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("setCount", {});
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
+    });
+
+    it("should reject unknown input fields", async () => {
+      const schema = createTestSchema({
+        actions: {
+          setCount: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "number", required: true },
+              },
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: { kind: "get", path: "input.value" },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("setCount", { value: 1, extra: 2 });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
     });
   });
 
@@ -150,10 +394,10 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({ a: 10, b: 20 }, "test-hash");
-      const intent = createIntent("setA", { value: 100 });
+      const snapshot = createTestSnapshot({ a: 10, b: 20 }, schema.hash);
+      const intent = createTestIntent("setA", { value: 100 });
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ a: 100, b: 20 });
@@ -183,10 +427,10 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({}, "test-hash");
-      const intent = createIntent("fetchData");
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("fetchData");
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("pending");
       expect(result.snapshot.data).toEqual({ loading: true });
@@ -217,17 +461,17 @@ describe("compute", () => {
       });
 
       // With halt
-      const snapshot1 = createSnapshot({}, "test-hash");
-      const intent1 = createIntent("conditionalHalt", { shouldHalt: true });
-      const result1 = await compute(schema, snapshot1, intent1);
+      const snapshot1 = createTestSnapshot({}, schema.hash);
+      const intent1 = createTestIntent("conditionalHalt", { shouldHalt: true });
+      const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("halted");
       expect(result1.snapshot.data).toEqual({ started: true });
 
       // Without halt
-      const snapshot2 = createSnapshot({}, "test-hash");
-      const intent2 = createIntent("conditionalHalt", { shouldHalt: false });
-      const result2 = await compute(schema, snapshot2, intent2);
+      const snapshot2 = createTestSnapshot({}, schema.hash);
+      const intent2 = createTestIntent("conditionalHalt", { shouldHalt: false });
+      const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("complete");
       expect(result2.snapshot.data).toEqual({ started: true, completed: true });
@@ -250,17 +494,17 @@ describe("compute", () => {
       });
 
       // With null input
-      const snapshot1 = createSnapshot({}, "test-hash");
-      const intent1 = createIntent("validateInput", { value: null });
-      const result1 = await compute(schema, snapshot1, intent1);
+      const snapshot1 = createTestSnapshot({}, schema.hash);
+      const intent1 = createTestIntent("validateInput", { value: null });
+      const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("error");
       expect(result1.snapshot.system.lastError?.message).toBe("Value is required");
 
       // With valid input
-      const snapshot2 = createSnapshot({}, "test-hash");
-      const intent2 = createIntent("validateInput", { value: "test" });
-      const result2 = await compute(schema, snapshot2, intent2);
+      const snapshot2 = createTestSnapshot({}, schema.hash);
+      const intent2 = createTestIntent("validateInput", { value: "test" });
+      const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("complete");
       expect(result2.snapshot.data).toEqual({ value: "test" });
@@ -283,10 +527,10 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({}, "test-hash");
-      const intent = createIntent("simpleAction");
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("simpleAction");
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.trace).toBeDefined();
       expect(result.trace.intent).toEqual({ type: "simpleAction", input: undefined });
@@ -339,10 +583,10 @@ describe("compute", () => {
       });
 
       // First add - initialize todos array
-      const snapshot = createSnapshot({}, "test-hash");
-      const intent = createIntent("addTodo", { text: "Test todo" });
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("addTodo", { text: "Test todo" });
 
-      const result = await compute(schema, snapshot, intent);
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.computed["computed.activeCount"]).toBe(0);
@@ -381,13 +625,13 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({
+      const snapshot = createTestSnapshot({
         fromBalance: 100,
         toBalance: 50,
-      }, "test-hash");
+      }, schema.hash);
 
-      const intent = createIntent("transfer", { amount: 30 });
-      const result = await compute(schema, snapshot, intent);
+      const intent = createTestIntent("transfer", { amount: 30 });
+      const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({
@@ -407,13 +651,13 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({}, "test-hash");
+      const snapshot = createTestSnapshot({}, schema.hash);
       expect(snapshot.meta.version).toBe(0);
 
-      const result1 = await compute(schema, snapshot, createIntent("noop"));
+      const result1 = await computeWithContext(schema, snapshot, createTestIntent("noop"));
       expect(result1.snapshot.meta.version).toBe(1);
 
-      const result2 = await compute(schema, result1.snapshot, createIntent("noop"));
+      const result2 = await computeWithContext(schema, result1.snapshot, createTestIntent("noop"));
       expect(result2.snapshot.meta.version).toBe(2);
     });
   });
@@ -428,14 +672,14 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({}, "test-hash");
-      const result1 = await compute(schema, snapshot, createIntent("fail"));
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const result1 = await computeWithContext(schema, snapshot, createTestIntent("fail"));
 
       expect(result1.snapshot.system.errors).toHaveLength(1);
       expect(result1.snapshot.system.lastError?.code).toBe("VALIDATION_ERROR");
 
       // Run again to accumulate errors
-      const result2 = await compute(schema, result1.snapshot, createIntent("fail"));
+      const result2 = await computeWithContext(schema, result1.snapshot, createTestIntent("fail"));
       expect(result2.snapshot.system.errors).toHaveLength(2);
     });
 
@@ -448,11 +692,40 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createSnapshot({}, "test-hash");
-      const result = await compute(schema, snapshot, createIntent("test"));
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const result = await computeWithContext(schema, snapshot, createTestIntent("test"));
 
       expect(result.snapshot.system.currentAction).toBeNull();
       expect(result.snapshot.system.status).toBe("idle");
+    });
+  });
+
+  describe("Determinism", () => {
+    it("should produce identical results for same inputs", async () => {
+      const schema = createTestSchema({
+        actions: {
+          increment: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: {
+                kind: "add",
+                left: { kind: "get", path: "count" },
+                right: { kind: "lit", value: 1 },
+              },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 1 }, schema.hash);
+      const intent = createIntent("increment", "intent-fixed");
+
+      const result1 = await compute(schema, snapshot, intent, HOST_CONTEXT);
+      const result2 = await compute(schema, snapshot, intent, HOST_CONTEXT);
+
+      expect(result1).toEqual(result2);
     });
   });
 });

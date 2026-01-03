@@ -153,7 +153,8 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
         "INTERNAL_ERROR",
         `Unknown expression kind: ${(expr as ExprNode).kind}`,
         ctx.currentAction ?? "",
-        ctx.nodePath
+        ctx.nodePath,
+        ctx.trace.timestamp
       ));
   }
 }
@@ -209,6 +210,12 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   if (path.startsWith("input.") || path === "input") {
     const subPath = path === "input" ? "" : path.slice(6);
     return ok(subPath ? getByPath(ctx.snapshot.input, subPath) : ctx.snapshot.input);
+  }
+
+  // Handle meta path (intent/action/timestamp)
+  if (path.startsWith("meta.") || path === "meta") {
+    const subPath = path === "meta" ? "" : path.slice(5);
+    return ok(subPath ? getByPath(ctx.meta, subPath) : ctx.meta);
   }
 
   // Handle computed path

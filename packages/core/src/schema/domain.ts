@@ -2,6 +2,7 @@ import { z } from "zod";
 import { StateSpec } from "./field.js";
 import { ComputedSpec } from "./computed.js";
 import { ActionSpec } from "./action.js";
+import { TypeSpec } from "./type-spec.js";
 
 /**
  * Schema metadata
@@ -39,6 +40,12 @@ export const DomainSchema = z.object({
    * MUST be computed using the Canonical Form algorithm.
    */
   hash: z.string(),
+
+  /**
+   * Named type declarations (compiler v0.3.3).
+   * Pure metadata; Core does not interpret these.
+   */
+  types: z.record(z.string(), TypeSpec),
 
   /**
    * State structure definition

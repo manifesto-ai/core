@@ -13,6 +13,7 @@ import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent, Patch } from "./schema/patch.js";
 import type { SemanticPath } from "./schema/common.js";
 import type { ComputeResult, ValidationResult, ExplainResult } from "./schema/result.js";
+import type { HostContext } from "./schema/host-context.js";
 
 import { compute } from "./core/compute.js";
 import { apply } from "./core/apply.js";
@@ -32,7 +33,8 @@ export interface ManifestoCore {
   compute(
     schema: DomainSchema,
     snapshot: Snapshot,
-    intent: Intent
+    intent: Intent,
+    context: HostContext
   ): Promise<ComputeResult>;
 
   /**
@@ -42,7 +44,8 @@ export interface ManifestoCore {
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
-    patches: readonly Patch[]
+    patches: readonly Patch[],
+    context: HostContext
   ): Snapshot;
 
   /**

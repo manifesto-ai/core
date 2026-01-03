@@ -1,9 +1,14 @@
 import type { DomainSchema } from "../schema/domain.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { Patch } from "../schema/patch.js";
+import type { HostContext } from "../schema/host-context.js";
+import type { FieldSpec } from "../schema/field.js";
 import { setByPath, unsetByPath, mergeAtPath } from "../utils/path.js";
 import { evaluateComputed } from "../evaluator/computed.js";
-import { isOk } from "../schema/common.js";
+import { isOk, isErr } from "../schema/common.js";
+import type { SystemState, ErrorValue } from "../schema/snapshot.js";
+import { createError } from "../errors.js";
+import { getFieldSpecAtPath, validateValueAgainstFieldSpec } from "./validation-utils.js";
 
 /**
  * Apply patches to a snapshot
@@ -19,45 +24,142 @@ import { isOk } from "../schema/common.js";
 export function apply(
   schema: DomainSchema,
   snapshot: Snapshot,
-  patches: readonly Patch[]
+  patches: readonly Patch[],
+  context: HostContext
 ): Snapshot {
-  // 1. Apply patches to data
+  // 1. Apply patches to data/system/input (data is default root)
   let newData = snapshot.data;
+  let newSystem: SystemState = snapshot.system;
+  let newInput = snapshot.input;
+  const validationErrors: ErrorValue[] = [];
+  const rootSpec: FieldSpec = { type: "object", required: true, fields: schema.state.fields };
 
   for (const patch of patches) {
-    switch (patch.op) {
-      case "set":
-        newData = setByPath(newData, patch.path, patch.value);
+    const { root, subPath } = splitPatchPath(patch.path);
+    switch (root) {
+      case "data":
+        {
+          const fieldSpec = getFieldSpecAtPath(rootSpec, subPath);
+          if (!fieldSpec) {
+            validationErrors.push(createError(
+              "PATH_NOT_FOUND",
+              `Unknown patch path: ${patch.path}`,
+              snapshot.system.currentAction ?? "",
+              patch.path,
+              context.now,
+              { patch }
+            ));
+            break;
+          }
+
+          if (patch.op !== "unset") {
+            const result = validateValueAgainstFieldSpec(patch.value, fieldSpec, {
+              allowPartial: patch.op === "merge",
+              allowUndefined: false,
+            });
+            if (!result.ok) {
+              validationErrors.push(createError(
+                "TYPE_MISMATCH",
+                `Invalid patch value at ${patch.path}: ${result.message ?? "type mismatch"}`,
+                snapshot.system.currentAction ?? "",
+                patch.path,
+                context.now,
+                { patch }
+              ));
+              break;
+            }
+          }
+
+          newData = applyPatch(newData, patch, subPath);
+        }
         break;
-      case "unset":
-        newData = unsetByPath(newData, patch.path);
+      case "system":
+        newSystem = applyPatch(newSystem, patch, subPath) as SystemState;
         break;
-      case "merge":
-        newData = mergeAtPath(newData, patch.path, patch.value);
+      case "input":
+        newInput = applyPatch(newInput, patch, subPath);
+        break;
+      case "computed":
+      case "meta":
+        // Computed/meta are Core-owned; ignore external patch attempts.
         break;
     }
+  }
+
+  if (validationErrors.length > 0) {
+    const lastError = validationErrors[validationErrors.length - 1];
+    newSystem = {
+      ...newSystem,
+      status: "error",
+      lastError,
+      errors: [...newSystem.errors, ...validationErrors],
+    };
   }
 
   // 2. Create intermediate snapshot with new data
   const intermediateSnapshot: Snapshot = {
     ...snapshot,
     data: newData,
+    system: newSystem,
+    input: newInput,
   };
 
   // 3. Recompute all computed values
   const computedResult = evaluateComputed(schema, intermediateSnapshot);
-  const computed = isOk(computedResult) ? computedResult.value : snapshot.computed;
+  let computed = snapshot.computed;
+  if (isOk(computedResult)) {
+    computed = computedResult.value;
+  } else if (isErr(computedResult)) {
+    const error = computedResult.error;
+    computed = {};
+    newSystem = {
+      ...newSystem,
+      status: "error",
+      lastError: error,
+      errors: [...newSystem.errors, error],
+    };
+  }
 
   // 4. Return new snapshot with updated metadata
   return {
     data: newData,
     computed,
-    system: snapshot.system,
-    input: snapshot.input,
+    system: newSystem,
+    input: newInput,
     meta: {
       ...snapshot.meta,
       version: snapshot.meta.version + 1,
-      timestamp: Date.now(),
+      timestamp: context.now,
+      randomSeed: context.randomSeed,
     },
   };
+}
+
+type PatchRoot = "data" | "system" | "input" | "computed" | "meta";
+
+function splitPatchPath(path: string): { root: PatchRoot; subPath: string } {
+  if (path === "system" || path.startsWith("system.")) {
+    return { root: "system", subPath: path === "system" ? "" : path.slice(7) };
+  }
+  if (path === "input" || path.startsWith("input.")) {
+    return { root: "input", subPath: path === "input" ? "" : path.slice(6) };
+  }
+  if (path === "computed" || path.startsWith("computed.")) {
+    return { root: "computed", subPath: path === "computed" ? "" : path.slice(9) };
+  }
+  if (path === "meta" || path.startsWith("meta.")) {
+    return { root: "meta", subPath: path === "meta" ? "" : path.slice(5) };
+  }
+  return { root: "data", subPath: path };
+}
+
+function applyPatch(value: unknown, patch: Patch, subPath: string): unknown {
+  switch (patch.op) {
+    case "set":
+      return setByPath(value, subPath, patch.value);
+    case "unset":
+      return unsetByPath(value, subPath);
+    case "merge":
+      return mergeAtPath(value, subPath, patch.value);
+  }
 }

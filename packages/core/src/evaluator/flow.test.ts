@@ -1,9 +1,48 @@
 import { describe, it, expect } from "vitest";
 import { evaluateFlow, createFlowState, type FlowState } from "./flow.js";
 import { createContext } from "./context.js";
+import { createTraceContext } from "../schema/trace.js";
 import type { FlowNode } from "../schema/flow.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
+
+const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
+  a: { type: "number", required: true },
+  b: { type: "number", required: true },
+  count: { type: "number", required: true },
+  result: { type: "string", required: true },
+  enabled: { type: "boolean", required: true },
+  toRemove: { type: "string", required: true },
+  doubled: { type: "number", required: true },
+  fromHelper: { type: "boolean", required: true },
+  before: { type: "boolean", required: true },
+  after: { type: "boolean", required: true },
+  x: { type: "number", required: true },
+  value: { type: "number", required: true },
+  category: { type: "string", required: true },
+  activeItems: { type: "array", required: true, items: { type: "object", required: true } },
+  activeCount: { type: "number", required: true },
+  items: {
+    type: "array",
+    required: true,
+    items: {
+      type: "object",
+      required: true,
+      fields: {
+        active: { type: "boolean", required: true },
+      },
+    },
+  },
+  user: {
+    type: "object",
+    required: true,
+    fields: {
+      name: { type: "string", required: true },
+      age: { type: "number", required: true },
+      city: { type: "string", required: true },
+    },
+  },
+};
 
 // Helper to create a minimal test context
 function createTestContext(
@@ -11,6 +50,7 @@ function createTestContext(
   input?: unknown,
   actions: DomainSchema["actions"] = {}
 ): ReturnType<typeof createContext> {
+  const trace = createTraceContext(0);
   const snapshot: Snapshot = {
     data,
     computed: {},
@@ -24,21 +64,23 @@ function createTestContext(
     input,
     meta: {
       version: 0,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "test-hash",
     },
   };
 
   const schema: DomainSchema = {
-    id: "test",
+    id: "manifesto:test",
     version: "1.0.0",
     hash: "test-hash",
-    state: { fields: {} },
+    types: {},
+    state: { fields: BASE_STATE_FIELDS },
     computed: { fields: {} },
     actions,
   };
 
-  return createContext(snapshot, schema, "testAction", "test");
+  return createContext(snapshot, schema, "testAction", "test", trace);
 }
 
 function createTestFlowState(data: unknown = {}): FlowState {
@@ -55,7 +97,8 @@ function createTestFlowState(data: unknown = {}): FlowState {
     input: undefined,
     meta: {
       version: 0,
-      timestamp: Date.now(),
+      timestamp: 0,
+      randomSeed: "seed",
       schemaHash: "test-hash",
     },
   };
@@ -234,6 +277,22 @@ describe("Flow Evaluator", () => {
       expect(result.state.snapshot.data).toEqual({ user: { name: "Alice" } });
     });
 
+    it("should allow patching system fields", async () => {
+      const flow: FlowNode = {
+        kind: "patch",
+        op: "set",
+        path: "system.status",
+        value: { kind: "lit", value: "error" },
+      };
+
+      const ctx = createTestContext();
+      const state = createTestFlowState();
+      const result = await evaluateFlow(flow, ctx, state, "test");
+
+      expect(result.state.snapshot.system.status).toBe("error");
+      expect(result.state.snapshot.data).toEqual({});
+    });
+
     it("should unset a value", async () => {
       const flow: FlowNode = {
         kind: "patch",
@@ -287,7 +346,7 @@ describe("Flow Evaluator", () => {
           currentAction: null,
         },
         input: { value: 21 },
-        meta: { version: 0, timestamp: Date.now(), schemaHash: "test-hash" },
+        meta: { version: 0, timestamp: 0, randomSeed: "seed", schemaHash: "test-hash" },
       });
       const result = await evaluateFlow(flow, ctx, state, "test");
 

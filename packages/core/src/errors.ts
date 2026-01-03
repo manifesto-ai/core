@@ -29,6 +29,7 @@ export function createError(
   message: string,
   actionId: string,
   nodePath: string,
+  timestamp: number,
   context?: Record<string, unknown>
 ): ErrorValue {
   return {
@@ -38,7 +39,7 @@ export function createError(
       actionId,
       nodePath,
     },
-    timestamp: Date.now(),
+    timestamp,
     context,
   };
 }

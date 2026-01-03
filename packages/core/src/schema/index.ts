@@ -18,12 +18,16 @@ export * from "./action.js";
 
 // Domain schema
 export * from "./domain.js";
+export * from "./type-spec.js";
 
 // Snapshot types
 export * from "./snapshot.js";
 
 // Patch and Intent types
 export * from "./patch.js";
+
+// Host context types
+export * from "./host-context.js";
 
 // Trace types
 export * from "./trace.js";
