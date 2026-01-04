@@ -1,20 +1,10 @@
 /**
- * Memory Schema
+ * Schema Types - Barrel Export
  *
- * Re-exports all schema types for the Memory layer.
+ * Re-exports all schema types for memory package.
  */
-
-// Reference types
 export * from "./ref.js";
-
-// Proof and verification types
 export * from "./proof.js";
-
-// Selection types
 export * from "./selection.js";
-
-// Trace types
 export * from "./trace.js";
-
-// Merkle types
 export * from "./merkle.js";

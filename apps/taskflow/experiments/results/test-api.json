@@ -1,0 +1,431 @@
+[
+  {
+    "runId": "L1-01-openai-func-gpt-0-mjzmnwth",
+    "method": "openai-func",
+    "model": "gpt-4o-mini",
+    "taskId": "L1-01",
+    "taskCategory": "simple",
+    "llmCalls": 2,
+    "success": true,
+    "totalTokens": 711,
+    "inputTokens": 663,
+    "outputTokens": 48,
+    "costUsd": 0.00012825,
+    "latencyMs": 2367,
+    "toolCalls": 1,
+    "minRequiredTools": 1,
+    "expectedState": {
+      "tasks": [
+        {
+          "id": "task-001",
+          "title": "투자자 미팅 준비",
+          "description": "강남에서 투자자 미팅 진행",
+          "status": "todo",
+          "priority": "high",
+          "tags": [
+            "미팅",
+            "투자",
+            "강남"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-05",
+          "createdAt": "2026-01-01T09:00:00.000Z",
+          "updatedAt": "2026-01-01T09:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-002",
+          "title": "디자인 시안 검토",
+          "description": "UI/UX 디자인 시안 리뷰",
+          "status": "in-progress",
+          "priority": "medium",
+          "tags": [
+            "디자인",
+            "UI"
+          ],
+          "assignee": "수진",
+          "dueDate": "2026-01-06",
+          "createdAt": "2026-01-01T10:00:00.000Z",
+          "updatedAt": "2026-01-02T14:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-003",
+          "title": "백엔드 API 개발",
+          "description": "REST API 엔드포인트 구현",
+          "status": "review",
+          "priority": "high",
+          "tags": [
+            "개발",
+            "API",
+            "백엔드"
+          ],
+          "assignee": "영희",
+          "dueDate": "2026-01-04",
+          "createdAt": "2026-01-01T11:00:00.000Z",
+          "updatedAt": "2026-01-03T16:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-004",
+          "title": "사용자 테스트",
+          "description": "베타 테스터 대상 사용성 테스트",
+          "status": "todo",
+          "priority": "low",
+          "tags": [
+            "QA",
+            "테스트"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-07",
+          "createdAt": "2026-01-01T12:00:00.000Z",
+          "updatedAt": "2026-01-01T12:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-005",
+          "title": "문서화 작업",
+          "description": "API 문서 및 사용자 가이드 작성",
+          "status": "done",
+          "priority": "low",
+          "tags": [
+            "문서"
+          ],
+          "assignee": null,
+          "dueDate": null,
+          "createdAt": "2026-01-01T13:00:00.000Z",
+          "updatedAt": "2026-01-02T10:00:00.000Z",
+          "deletedAt": null
+        }
+      ],
+      "viewMode": "kanban",
+      "currentFilter": {
+        "status": null,
+        "priority": null
+      }
+    },
+    "actualState": {
+      "tasks": [
+        {
+          "id": "task-001",
+          "title": "투자자 미팅 준비",
+          "description": "강남에서 투자자 미팅 진행",
+          "status": "todo",
+          "priority": "high",
+          "tags": [
+            "미팅",
+            "투자",
+            "강남"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-05",
+          "createdAt": "2026-01-01T09:00:00.000Z",
+          "updatedAt": "2026-01-01T09:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-002",
+          "title": "디자인 시안 검토",
+          "description": "UI/UX 디자인 시안 리뷰",
+          "status": "in-progress",
+          "priority": "medium",
+          "tags": [
+            "디자인",
+            "UI"
+          ],
+          "assignee": "수진",
+          "dueDate": "2026-01-06",
+          "createdAt": "2026-01-01T10:00:00.000Z",
+          "updatedAt": "2026-01-02T14:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-003",
+          "title": "백엔드 API 개발",
+          "description": "REST API 엔드포인트 구현",
+          "status": "review",
+          "priority": "high",
+          "tags": [
+            "개발",
+            "API",
+            "백엔드"
+          ],
+          "assignee": "영희",
+          "dueDate": "2026-01-04",
+          "createdAt": "2026-01-01T11:00:00.000Z",
+          "updatedAt": "2026-01-03T16:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-004",
+          "title": "사용자 테스트",
+          "description": "베타 테스터 대상 사용성 테스트",
+          "status": "todo",
+          "priority": "low",
+          "tags": [
+            "QA",
+            "테스트"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-07",
+          "createdAt": "2026-01-01T12:00:00.000Z",
+          "updatedAt": "2026-01-01T12:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-005",
+          "title": "문서화 작업",
+          "description": "API 문서 및 사용자 가이드 작성",
+          "status": "done",
+          "priority": "low",
+          "tags": [
+            "문서"
+          ],
+          "assignee": null,
+          "dueDate": null,
+          "createdAt": "2026-01-01T13:00:00.000Z",
+          "updatedAt": "2026-01-02T10:00:00.000Z",
+          "deletedAt": null
+        }
+      ],
+      "viewMode": "kanban",
+      "currentFilter": {
+        "status": null,
+        "priority": null
+      }
+    },
+    "stateDiff": null,
+    "trace": [
+      {
+        "timestamp": 1767524858753,
+        "type": "llm_call",
+        "model": "gpt-4o-mini",
+        "tokensIn": 290,
+        "tokensOut": 10
+      },
+      {
+        "timestamp": 1767524858754,
+        "type": "tool_call",
+        "toolName": "create_task",
+        "toolArgs": {},
+        "toolResult": {
+          "success": false,
+          "error": "[\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"tasks\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]"
+        }
+      },
+      {
+        "timestamp": 1767524860196,
+        "type": "llm_call",
+        "model": "gpt-4o-mini",
+        "tokensIn": 373,
+        "tokensOut": 38
+      }
+    ]
+  },
+  {
+    "runId": "L1-01-openai-func-gpt-0-mjzmnyn9",
+    "method": "openai-func",
+    "model": "gpt-4o",
+    "taskId": "L1-01",
+    "taskCategory": "simple",
+    "llmCalls": 1,
+    "success": false,
+    "totalTokens": 335,
+    "inputTokens": 290,
+    "outputTokens": 45,
+    "costUsd": 0.0021249999999999997,
+    "latencyMs": 728,
+    "toolCalls": 0,
+    "minRequiredTools": 1,
+    "expectedState": {
+      "tasks": [
+        {
+          "id": "task-001",
+          "title": "투자자 미팅 준비",
+          "description": "강남에서 투자자 미팅 진행",
+          "status": "todo",
+          "priority": "high",
+          "tags": [
+            "미팅",
+            "투자",
+            "강남"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-05",
+          "createdAt": "2026-01-01T09:00:00.000Z",
+          "updatedAt": "2026-01-01T09:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-002",
+          "title": "디자인 시안 검토",
+          "description": "UI/UX 디자인 시안 리뷰",
+          "status": "in-progress",
+          "priority": "medium",
+          "tags": [
+            "디자인",
+            "UI"
+          ],
+          "assignee": "수진",
+          "dueDate": "2026-01-06",
+          "createdAt": "2026-01-01T10:00:00.000Z",
+          "updatedAt": "2026-01-02T14:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-003",
+          "title": "백엔드 API 개발",
+          "description": "REST API 엔드포인트 구현",
+          "status": "review",
+          "priority": "high",
+          "tags": [
+            "개발",
+            "API",
+            "백엔드"
+          ],
+          "assignee": "영희",
+          "dueDate": "2026-01-04",
+          "createdAt": "2026-01-01T11:00:00.000Z",
+          "updatedAt": "2026-01-03T16:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-004",
+          "title": "사용자 테스트",
+          "description": "베타 테스터 대상 사용성 테스트",
+          "status": "todo",
+          "priority": "low",
+          "tags": [
+            "QA",
+            "테스트"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-07",
+          "createdAt": "2026-01-01T12:00:00.000Z",
+          "updatedAt": "2026-01-01T12:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-005",
+          "title": "문서화 작업",
+          "description": "API 문서 및 사용자 가이드 작성",
+          "status": "done",
+          "priority": "low",
+          "tags": [
+            "문서"
+          ],
+          "assignee": null,
+          "dueDate": null,
+          "createdAt": "2026-01-01T13:00:00.000Z",
+          "updatedAt": "2026-01-02T10:00:00.000Z",
+          "deletedAt": null
+        }
+      ],
+      "viewMode": "kanban",
+      "currentFilter": {
+        "status": null,
+        "priority": null
+      }
+    },
+    "actualState": {
+      "tasks": [
+        {
+          "id": "task-001",
+          "title": "투자자 미팅 준비",
+          "description": "강남에서 투자자 미팅 진행",
+          "status": "todo",
+          "priority": "high",
+          "tags": [
+            "미팅",
+            "투자",
+            "강남"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-05",
+          "createdAt": "2026-01-01T09:00:00.000Z",
+          "updatedAt": "2026-01-01T09:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-002",
+          "title": "디자인 시안 검토",
+          "description": "UI/UX 디자인 시안 리뷰",
+          "status": "in-progress",
+          "priority": "medium",
+          "tags": [
+            "디자인",
+            "UI"
+          ],
+          "assignee": "수진",
+          "dueDate": "2026-01-06",
+          "createdAt": "2026-01-01T10:00:00.000Z",
+          "updatedAt": "2026-01-02T14:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-003",
+          "title": "백엔드 API 개발",
+          "description": "REST API 엔드포인트 구현",
+          "status": "review",
+          "priority": "high",
+          "tags": [
+            "개발",
+            "API",
+            "백엔드"
+          ],
+          "assignee": "영희",
+          "dueDate": "2026-01-04",
+          "createdAt": "2026-01-01T11:00:00.000Z",
+          "updatedAt": "2026-01-03T16:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-004",
+          "title": "사용자 테스트",
+          "description": "베타 테스터 대상 사용성 테스트",
+          "status": "todo",
+          "priority": "low",
+          "tags": [
+            "QA",
+            "테스트"
+          ],
+          "assignee": "민수",
+          "dueDate": "2026-01-07",
+          "createdAt": "2026-01-01T12:00:00.000Z",
+          "updatedAt": "2026-01-01T12:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "task-005",
+          "title": "문서화 작업",
+          "description": "API 문서 및 사용자 가이드 작성",
+          "status": "done",
+          "priority": "low",
+          "tags": [
+            "문서"
+          ],
+          "assignee": null,
+          "dueDate": null,
+          "createdAt": "2026-01-01T13:00:00.000Z",
+          "updatedAt": "2026-01-02T10:00:00.000Z",
+          "deletedAt": null
+        }
+      ],
+      "viewMode": "kanban",
+      "currentFilter": {
+        "status": null,
+        "priority": null
+      }
+    },
+    "stateDiff": null,
+    "trace": [
+      {
+        "timestamp": 1767524860925,
+        "type": "llm_call",
+        "model": "gpt-4o",
+        "tokensIn": 290,
+        "tokensOut": 45
+      }
+    ]
+  }
+]

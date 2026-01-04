@@ -74,7 +74,7 @@ This conflation creates systems that are:
 
 By making Core a pure calculator:
 
-1. **Determinism**: `compute(snapshot, intent, context)` always produces the same result.
+1. **Determinism**: `compute(snapshot, intent)` always produces the same result.
 2. **Testability**: No mocking needed; just provide snapshot and intent.
 3. **Explainability**: Every step can be traced without IO interference.
 4. **Portability**: Core can run anywhere (browser, server, edge, WASM).
@@ -161,8 +161,7 @@ Initial design had:
 
 ```typescript
 // Old design
-const context = { now: 0, randomSeed: "seed" };
-const result = await core.compute(schema, snapshot, intent, context);
+const result = core.compute(snapshot, intent);
 if (result.status === 'paused') {
   // Execute effects...
   core.resume(result.context, patches);  // Resume suspended computation
@@ -374,9 +373,8 @@ By limiting expressiveness:
 For unbounded iteration, **Host controls the loop**:
 
 ```typescript
-const context = { now: 0, randomSeed: "seed" };
 while (needsMoreWork(snapshot)) {
-  const result = await core.compute(schema, snapshot, intent, context);
+  const result = core.compute(schema, snapshot, intent);
   snapshot = result.snapshot;
 }
 ```
@@ -836,7 +834,7 @@ Manifesto IS NOT:
 ### The Fundamental Equation
 
 ```
-compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent) → (snapshot', requirements, trace)
 ```
 
 This equation is:

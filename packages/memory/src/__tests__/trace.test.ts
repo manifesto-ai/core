@@ -1,352 +1,571 @@
 /**
- * Trace Tests
+ * Trace Utility Tests
  *
- * Tests for trace utilities.
+ * Tests for trace creation, attachment, and validation utilities.
  */
-import { describe, it, expect } from "vitest";
-import type { ActorRef, Proposal } from "@manifesto-ai/world";
+import { describe, it, expect, beforeEach } from "vitest";
+import type { Proposal, ActorRef, WorldId } from "@manifesto-ai/world";
+import type { SelectedMemory, SelectionResult } from "../schema/selection.js";
+import type { MemoryTrace } from "../schema/trace.js";
 import {
   createMemoryTrace,
   createMemoryTraceFromResult,
+} from "../trace/create.js";
+import {
   attachToProposal,
   getFromProposal,
   hasTrace,
+} from "../trace/attach.js";
+import {
   validateMemoryTrace,
   validateSelectedMemory,
-  isMemoryTrace,
-  extractProof,
-} from "../trace/index.js";
-import type { SelectionResult, SelectedMemory } from "../schema/selection.js";
-import type { VerificationEvidence } from "../schema/proof.js";
-import { MEMORY_TRACE_KEY } from "../schema/trace.js";
+  validateVerificationEvidence,
+  hasRequiredEvidence,
+  allVerified,
+  filterByConfidence,
+  meetsConstraints,
+} from "../trace/validate.js";
 
-// Helper to create a mock ActorRef
-function createMockActor(id: string): ActorRef {
-  return {
-    actorId: id,
-    kind: "human",
-  };
-}
+// Test fixtures
+const testActor: ActorRef = { actorId: "test-user", kind: "human" };
+const testWorldId: WorldId = "world-123" as WorldId;
 
-// Helper to create a mock Proposal
-function createMockProposal(): Proposal {
-  return {
-    proposalId: "proposal-123" as any,
-    actor: createMockActor("actor-1"),
-    intent: {
-      intentId: "intent-123",
-      intentKey: "action:test",
-      body: {
-        action: "test",
-        input: {},
-      },
-    },
-    baseWorld: "world-123" as any,
-    status: "submitted",
-    submittedAt: Date.now(),
-  };
-}
+const createSelectedMemory = (
+  overrides: Partial<SelectedMemory> = {}
+): SelectedMemory => ({
+  ref: { worldId: "memory-world-1" },
+  reason: "Test selection",
+  confidence: 0.8,
+  verified: true,
+  ...overrides,
+});
 
-describe("createMemoryTrace()", () => {
-  it("should create a valid MemoryTrace", () => {
-    const selector = createMockActor("selector-1");
-    const query = "search query";
-    const atWorldId = "world-123" as any;
-    const selected: SelectedMemory[] = [];
+const createMinimalProposal = (): Proposal =>
+  ({
+    proposalId: "proposal-123",
+    worldId: testWorldId,
+    actor: testActor,
+    intents: [],
+    createdAt: Date.now(),
+  }) as unknown as Proposal;
 
-    const trace = createMemoryTrace(selector, query, atWorldId, selected);
+describe("createMemoryTrace", () => {
+  it("should create a valid memory trace", () => {
+    const selected = [createSelectedMemory()];
+    const trace = createMemoryTrace(testActor, "test query", testWorldId, selected);
 
-    expect(trace.selector).toEqual(selector);
-    expect(trace.query).toBe(query);
-    expect(trace.atWorldId).toBe(atWorldId);
-    expect(trace.selected).toEqual([]);
+    expect(trace.selector).toEqual(testActor);
+    expect(trace.query).toBe("test query");
+    expect(trace.atWorldId).toBe(testWorldId);
+    expect(trace.selected).toHaveLength(1);
+    expect(typeof trace.selectedAt).toBe("number");
     expect(trace.selectedAt).toBeGreaterThan(0);
   });
 
-  it("should include selected memories", () => {
-    const selector = createMockActor("selector-1");
-    const selected: SelectedMemory[] = [
-      {
-        ref: { worldId: "world-456" as any },
-        reason: "Matched",
-        confidence: 0.9,
-        verified: true,
-      },
-    ];
+  it("should handle empty selections", () => {
+    const trace = createMemoryTrace(testActor, "empty query", testWorldId, []);
 
-    const trace = createMemoryTrace(
-      selector,
-      "query",
-      "world-123" as any,
-      selected
-    );
+    expect(trace.selected).toHaveLength(0);
+    expect(trace.query).toBe("empty query");
+  });
 
+  it("should copy the selected array", () => {
+    const selected = [createSelectedMemory()];
+    const trace = createMemoryTrace(testActor, "query", testWorldId, selected);
+
+    // Modifying original array should not affect trace
+    selected.push(createSelectedMemory({ confidence: 0.5 }));
     expect(trace.selected).toHaveLength(1);
-    expect(trace.selected[0].reason).toBe("Matched");
+  });
+
+  it("should set selectedAt to current time", () => {
+    const before = Date.now();
+    const trace = createMemoryTrace(testActor, "query", testWorldId, []);
+    const after = Date.now();
+
+    expect(trace.selectedAt).toBeGreaterThanOrEqual(before);
+    expect(trace.selectedAt).toBeLessThanOrEqual(after);
   });
 });
 
-describe("createMemoryTraceFromResult()", () => {
-  it("should create trace from SelectionResult", () => {
-    const selector = createMockActor("selector-1");
+describe("createMemoryTraceFromResult", () => {
+  it("should use selectedAt from result", () => {
     const result: SelectionResult = {
-      selected: [
-        {
-          ref: { worldId: "world-456" as any },
-          reason: "Matched",
-          confidence: 0.9,
-          verified: true,
-        },
-      ],
+      selected: [createSelectedMemory()],
       selectedAt: 1704067200000,
     };
 
     const trace = createMemoryTraceFromResult(
-      selector,
+      testActor,
       "query",
-      "world-123" as any,
+      testWorldId,
       result
     );
 
     expect(trace.selectedAt).toBe(1704067200000);
-    expect(trace.selected).toHaveLength(1);
+  });
+
+  it("should copy selected from result", () => {
+    const result: SelectionResult = {
+      selected: [
+        createSelectedMemory({ confidence: 0.9 }),
+        createSelectedMemory({ confidence: 0.7 }),
+      ],
+      selectedAt: Date.now(),
+    };
+
+    const trace = createMemoryTraceFromResult(
+      testActor,
+      "query",
+      testWorldId,
+      result
+    );
+
+    expect(trace.selected).toHaveLength(2);
+    expect(trace.selected[0].confidence).toBe(0.9);
+    expect(trace.selected[1].confidence).toBe(0.7);
   });
 });
 
-describe("attachToProposal()", () => {
+describe("attachToProposal", () => {
   it("should attach trace to proposal without existing trace", () => {
-    const proposal = createMockProposal();
-    const memoryTrace = createMemoryTrace(
-      createMockActor("selector"),
-      "query",
-      "world-123" as any,
-      []
-    );
+    const proposal = createMinimalProposal();
+    const trace = createMemoryTrace(testActor, "query", testWorldId, []);
 
-    const result = attachToProposal(proposal, memoryTrace);
+    const result = attachToProposal(proposal, trace);
 
     expect(result.trace).toBeDefined();
-    expect(result.trace?.context?.[MEMORY_TRACE_KEY]).toEqual(memoryTrace);
+    expect(result.trace?.context?.memory).toEqual(trace);
   });
 
   it("should preserve existing trace fields", () => {
-    const proposal: Proposal = {
-      ...createMockProposal(),
+    const proposal = {
+      ...createMinimalProposal(),
       trace: {
         summary: "Existing summary",
         reasoning: "Existing reasoning",
       },
-    };
-    const memoryTrace = createMemoryTrace(
-      createMockActor("selector"),
-      "query",
-      "world-123" as any,
-      []
-    );
+    } as unknown as Proposal;
+    const trace = createMemoryTrace(testActor, "query", testWorldId, []);
 
-    const result = attachToProposal(proposal, memoryTrace);
+    const result = attachToProposal(proposal, trace);
 
     expect(result.trace?.summary).toBe("Existing summary");
     expect(result.trace?.reasoning).toBe("Existing reasoning");
-    expect(result.trace?.context?.[MEMORY_TRACE_KEY]).toEqual(memoryTrace);
+    expect(result.trace?.context?.memory).toEqual(trace);
   });
 
   it("should preserve existing context fields", () => {
-    const proposal: Proposal = {
-      ...createMockProposal(),
+    const proposal = {
+      ...createMinimalProposal(),
       trace: {
         summary: "Summary",
-        context: { other: "data" },
+        context: {
+          existingKey: "existingValue",
+        },
       },
-    };
-    const memoryTrace = createMemoryTrace(
-      createMockActor("selector"),
-      "query",
-      "world-123" as any,
-      []
-    );
+    } as unknown as Proposal;
+    const trace = createMemoryTrace(testActor, "query", testWorldId, []);
 
-    const result = attachToProposal(proposal, memoryTrace);
+    const result = attachToProposal(proposal, trace);
 
-    expect(result.trace?.context?.other).toBe("data");
-    expect(result.trace?.context?.[MEMORY_TRACE_KEY]).toEqual(memoryTrace);
+    expect((result.trace?.context as Record<string, unknown>)?.existingKey).toBe("existingValue");
+    expect(result.trace?.context?.memory).toEqual(trace);
+  });
+
+  it("should not mutate original proposal", () => {
+    const proposal = createMinimalProposal();
+    const trace = createMemoryTrace(testActor, "query", testWorldId, []);
+
+    attachToProposal(proposal, trace);
+
+    expect(proposal.trace).toBeUndefined();
   });
 });
 
-describe("getFromProposal()", () => {
+describe("getFromProposal", () => {
   it("should return undefined for proposal without trace", () => {
-    const proposal = createMockProposal();
-
+    const proposal = createMinimalProposal();
     const result = getFromProposal(proposal);
-
     expect(result).toBeUndefined();
   });
 
-  it("should return undefined for proposal without memory trace", () => {
-    const proposal: Proposal = {
-      ...createMockProposal(),
-      trace: {
-        summary: "Summary",
-      },
-    };
-
+  it("should return undefined for proposal without context", () => {
+    const proposal = {
+      ...createMinimalProposal(),
+      trace: { summary: "No context" },
+    } as unknown as Proposal;
     const result = getFromProposal(proposal);
-
     expect(result).toBeUndefined();
   });
 
-  it("should return memory trace from proposal", () => {
-    const memoryTrace = createMemoryTrace(
-      createMockActor("selector"),
-      "query",
-      "world-123" as any,
-      []
-    );
-    const proposal = attachToProposal(createMockProposal(), memoryTrace);
-
+  it("should return undefined for proposal without memory key", () => {
+    const proposal = {
+      ...createMinimalProposal(),
+      trace: { summary: "Has context", context: { other: "value" } },
+    } as unknown as Proposal;
     const result = getFromProposal(proposal);
+    expect(result).toBeUndefined();
+  });
 
-    expect(result).toEqual(memoryTrace);
+  it("should return trace for proposal with memory trace", () => {
+    const proposal = createMinimalProposal();
+    const trace = createMemoryTrace(testActor, "query", testWorldId, [
+      createSelectedMemory(),
+    ]);
+    const withTrace = attachToProposal(proposal, trace);
+
+    const result = getFromProposal(withTrace);
+
+    expect(result).toEqual(trace);
   });
 });
 
-describe("hasTrace()", () => {
-  it("should return false for proposal without memory trace", () => {
-    const proposal = createMockProposal();
-
+describe("hasTrace", () => {
+  it("should return false for proposal without trace", () => {
+    const proposal = createMinimalProposal();
     expect(hasTrace(proposal)).toBe(false);
   });
 
-  it("should return true for proposal with memory trace", () => {
-    const memoryTrace = createMemoryTrace(
-      createMockActor("selector"),
-      "query",
-      "world-123" as any,
-      []
-    );
-    const proposal = attachToProposal(createMockProposal(), memoryTrace);
+  it("should return true for proposal with trace", () => {
+    const proposal = createMinimalProposal();
+    const trace = createMemoryTrace(testActor, "query", testWorldId, []);
+    const withTrace = attachToProposal(proposal, trace);
 
-    expect(hasTrace(proposal)).toBe(true);
+    expect(hasTrace(withTrace)).toBe(true);
   });
 });
 
-describe("validateMemoryTrace()", () => {
-  it("should validate correct trace", () => {
-    const trace = {
-      selector: { actorId: "actor-1", kind: "human" },
-      query: "search query",
+describe("validateMemoryTrace", () => {
+  it("should validate a valid trace", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "test query",
       selectedAt: Date.now(),
-      atWorldId: "world-123",
+      atWorldId: testWorldId,
       selected: [],
     };
 
     const result = validateMemoryTrace(trace);
-
     expect(result.valid).toBe(true);
-    expect(result.errors).toHaveLength(0);
   });
 
-  it("should reject empty query", () => {
+  it("should invalidate trace with empty query", () => {
     const trace = {
-      selector: { actorId: "actor-1", kind: "human" },
+      selector: testActor,
       query: "",
       selectedAt: Date.now(),
-      atWorldId: "world-123",
+      atWorldId: testWorldId,
       selected: [],
     };
 
     const result = validateMemoryTrace(trace);
-
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("query"))).toBe(true);
+    if (!result.valid) {
+      expect(result.errors.length).toBeGreaterThan(0);
+    }
   });
 
-  it("should validate selected memories", () => {
+  it("should invalidate trace with missing selector", () => {
     const trace = {
-      selector: { actorId: "actor-1", kind: "human" },
       query: "query",
       selectedAt: Date.now(),
-      atWorldId: "world-123",
+      atWorldId: testWorldId,
+      selected: [],
+    };
+
+    const result = validateMemoryTrace(trace);
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("validateSelectedMemory", () => {
+  it("should validate a valid selected memory", () => {
+    const memory = createSelectedMemory();
+    const result = validateSelectedMemory(memory);
+    expect(result.valid).toBe(true);
+  });
+
+  it("should invalidate memory with empty reason", () => {
+    const memory = createSelectedMemory({ reason: "" });
+    const result = validateSelectedMemory(memory);
+    expect(result.valid).toBe(false);
+  });
+
+  it("should invalidate memory with out-of-range confidence", () => {
+    const memory = createSelectedMemory({ confidence: 1.5 });
+    const result = validateSelectedMemory(memory);
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("validateVerificationEvidence", () => {
+  it("should validate valid evidence", () => {
+    const evidence = {
+      method: "hash",
+      proof: { computedHash: "abc" },
+      verifiedAt: Date.now(),
+      verifiedBy: testActor,
+    };
+
+    const result = validateVerificationEvidence(evidence);
+    expect(result.valid).toBe(true);
+  });
+
+  it("should invalidate evidence with missing verifiedBy", () => {
+    const evidence = {
+      method: "hash",
+      verifiedAt: Date.now(),
+    };
+
+    const result = validateVerificationEvidence(evidence);
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("hasRequiredEvidence", () => {
+  it("should return true when all memories have required evidence", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
       selected: [
-        {
-          ref: { worldId: "world-456" },
-          reason: "", // Invalid: empty reason
-          confidence: 0.9,
-          verified: true,
-        },
+        createSelectedMemory({
+          evidence: {
+            method: "hash",
+            verifiedAt: Date.now(),
+            verifiedBy: testActor,
+          },
+        }),
+        createSelectedMemory({
+          evidence: {
+            method: "merkle",
+            verifiedAt: Date.now(),
+            verifiedBy: testActor,
+          },
+        }),
       ],
     };
 
-    const result = validateMemoryTrace(trace);
-
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("reason"))).toBe(true);
-  });
-});
-
-describe("validateSelectedMemory()", () => {
-  it("should validate correct memory", () => {
-    const memory = {
-      ref: { worldId: "world-123" },
-      reason: "Matched query",
-      confidence: 0.8,
-      verified: true,
-    };
-
-    const result = validateSelectedMemory(memory);
-
-    expect(result.valid).toBe(true);
+    expect(hasRequiredEvidence(trace)).toBe(true);
   });
 
-  it("should reject invalid confidence", () => {
-    const memory = {
-      ref: { worldId: "world-123" },
-      reason: "Matched",
-      confidence: 1.5, // Invalid
-      verified: true,
-    };
-
-    const result = validateSelectedMemory(memory);
-
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("confidence"))).toBe(true);
-  });
-});
-
-describe("isMemoryTrace()", () => {
-  it("should return true for valid trace", () => {
-    const trace = {
-      selector: { actorId: "actor-1", kind: "human" },
+  it("should return false when method is 'none'", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
       query: "query",
       selectedAt: Date.now(),
-      atWorldId: "world-123",
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({
+          evidence: {
+            method: "none",
+            verifiedAt: Date.now(),
+            verifiedBy: testActor,
+          },
+        }),
+      ],
+    };
+
+    expect(hasRequiredEvidence(trace)).toBe(false);
+  });
+
+  it("should return false when evidence is missing", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({ evidence: undefined }),
+      ],
+    };
+
+    expect(hasRequiredEvidence(trace)).toBe(false);
+  });
+
+  it("should return true for empty selected array", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
       selected: [],
     };
 
-    expect(isMemoryTrace(trace)).toBe(true);
-  });
-
-  it("should return false for invalid trace", () => {
-    const trace = { invalid: "data" };
-
-    expect(isMemoryTrace(trace)).toBe(false);
+    expect(hasRequiredEvidence(trace)).toBe(true);
   });
 });
 
-describe("extractProof()", () => {
-  it("should extract proof from evidence (M-12)", () => {
-    const evidence: VerificationEvidence = {
-      method: "merkle",
-      proof: { computedRoot: "root:abc" },
-      verifiedAt: Date.now(),
-      verifiedBy: createMockActor("verifier"),
+describe("allVerified", () => {
+  it("should return true when all memories are verified", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({ verified: true }),
+        createSelectedMemory({ verified: true }),
+      ],
     };
 
-    const proof = extractProof(evidence);
+    expect(allVerified(trace)).toBe(true);
+  });
 
-    expect(proof.method).toBe("merkle");
-    expect(proof.proof).toEqual({ computedRoot: "root:abc" });
-    expect((proof as any).verifiedAt).toBeUndefined();
-    expect((proof as any).verifiedBy).toBeUndefined();
+  it("should return false when any memory is not verified", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({ verified: true }),
+        createSelectedMemory({ verified: false }),
+      ],
+    };
+
+    expect(allVerified(trace)).toBe(false);
+  });
+
+  it("should return true for empty selected array", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [],
+    };
+
+    expect(allVerified(trace)).toBe(true);
+  });
+});
+
+describe("filterByConfidence", () => {
+  it("should filter memories by minimum confidence", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({ confidence: 0.9 }),
+        createSelectedMemory({ confidence: 0.5 }),
+        createSelectedMemory({ confidence: 0.3 }),
+      ],
+    };
+
+    const filtered = filterByConfidence(trace, 0.5);
+
+    expect(filtered).toHaveLength(2);
+    expect(filtered[0].confidence).toBe(0.9);
+    expect(filtered[1].confidence).toBe(0.5);
+  });
+
+  it("should return all memories if minConfidence is 0", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({ confidence: 0.1 }),
+        createSelectedMemory({ confidence: 0.0 }),
+      ],
+    };
+
+    const filtered = filterByConfidence(trace, 0);
+
+    expect(filtered).toHaveLength(2);
+  });
+
+  it("should return empty array if no memories meet threshold", () => {
+    const trace: MemoryTrace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({ confidence: 0.3 }),
+      ],
+    };
+
+    const filtered = filterByConfidence(trace, 0.5);
+
+    expect(filtered).toHaveLength(0);
+  });
+});
+
+describe("meetsConstraints", () => {
+  let trace: MemoryTrace;
+
+  beforeEach(() => {
+    trace = {
+      selector: testActor,
+      query: "query",
+      selectedAt: Date.now(),
+      atWorldId: testWorldId,
+      selected: [
+        createSelectedMemory({
+          confidence: 0.8,
+          verified: true,
+          evidence: {
+            method: "hash",
+            verifiedAt: Date.now(),
+            verifiedBy: testActor,
+          },
+        }),
+        createSelectedMemory({
+          confidence: 0.6,
+          verified: true,
+          evidence: {
+            method: "merkle",
+            verifiedAt: Date.now(),
+            verifiedBy: testActor,
+          },
+        }),
+      ],
+    };
+  });
+
+  it("should return true for empty constraints", () => {
+    expect(meetsConstraints(trace, {})).toBe(true);
+  });
+
+  it("should check maxResults constraint", () => {
+    expect(meetsConstraints(trace, { maxResults: 3 })).toBe(true);
+    expect(meetsConstraints(trace, { maxResults: 2 })).toBe(true);
+    expect(meetsConstraints(trace, { maxResults: 1 })).toBe(false);
+  });
+
+  it("should check minConfidence constraint", () => {
+    expect(meetsConstraints(trace, { minConfidence: 0.5 })).toBe(true);
+    expect(meetsConstraints(trace, { minConfidence: 0.7 })).toBe(false);
+  });
+
+  it("should check requireVerified constraint", () => {
+    expect(meetsConstraints(trace, { requireVerified: true })).toBe(true);
+
+    trace.selected[0] = createSelectedMemory({ verified: false });
+    expect(meetsConstraints(trace, { requireVerified: true })).toBe(false);
+  });
+
+  it("should check requireEvidence constraint", () => {
+    expect(meetsConstraints(trace, { requireEvidence: true })).toBe(true);
+
+    trace.selected[0] = createSelectedMemory({ evidence: undefined });
+    expect(meetsConstraints(trace, { requireEvidence: true })).toBe(false);
+  });
+
+  it("should check multiple constraints together", () => {
+    expect(
+      meetsConstraints(trace, {
+        maxResults: 5,
+        minConfidence: 0.5,
+        requireVerified: true,
+        requireEvidence: true,
+      })
+    ).toBe(true);
   });
 });

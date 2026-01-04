@@ -9,6 +9,9 @@ import { intentResult, noneResult } from "../schema/projection.js";
 import { createProjectionRegistry } from "../projection/registry.js";
 import { createProjectionRecorder } from "../projection/recorder.js";
 import { createIntentIssuer } from "../issuer/intent-issuer.js";
+import { createActionCatalogProjector } from "../catalog/projector.js";
+import type { ActionDescriptor, AvailabilityContext } from "../catalog/types.js";
+import type { ExprNode } from "@manifesto-ai/core";
 import type { Snapshot } from "@manifesto-ai/core";
 import type { ManifestoWorld, ActorRef, WorldId } from "@manifesto-ai/world";
 
@@ -514,5 +517,340 @@ describe("createBridge factory", () => {
     });
 
     expect(bridge.getRegistry()).toBe(registry);
+  });
+});
+
+// ============================================================================
+// Action Catalog Integration Tests (v1.1)
+// ============================================================================
+
+describe("Bridge Action Catalog Integration", () => {
+  let mockWorld: ReturnType<typeof createMockWorld>;
+  let bridge: Bridge;
+  const catalogProjector = createActionCatalogProjector();
+
+  beforeEach(() => {
+    mockWorld = createMockWorld();
+
+    // Set up genesis with rich snapshot for availability testing
+    const richSnapshot: Snapshot = {
+      data: {
+        user: { role: "admin", active: true },
+        todos: [{ id: "1", title: "Test" }],
+        balance: 100,
+      },
+      computed: {
+        canCreateTodo: true,
+        canDeleteTodo: false,
+        todoCount: 1,
+        isAdmin: true,
+      },
+      system: {
+        status: "idle",
+        lastError: null,
+        errors: [],
+        pendingRequirements: [],
+        currentAction: null,
+      },
+      input: null,
+      meta: { version: 1, timestamp: Date.now(), schemaHash: "test-schema-hash" },
+    };
+    mockWorld._setGenesis("genesis-world", richSnapshot);
+
+    bridge = new Bridge({
+      world: mockWorld,
+      schemaHash: "test-schema-hash",
+      defaultActor: {
+        actorId: "user-1",
+        kind: "human",
+        name: "Test User",
+      },
+      catalogProjector,
+    });
+  });
+
+  describe("hasActionCatalog", () => {
+    it("should return true when catalogProjector is configured", () => {
+      expect(bridge.hasActionCatalog()).toBe(true);
+    });
+
+    it("should return false when catalogProjector is not configured", () => {
+      const bridgeWithoutCatalog = new Bridge({
+        world: mockWorld,
+        schemaHash: "test-schema-hash",
+        defaultActor: { actorId: "user-1", kind: "human" },
+      });
+
+      expect(bridgeWithoutCatalog.hasActionCatalog()).toBe(false);
+    });
+  });
+
+  describe("projectActionCatalog", () => {
+    it("should return null when catalogProjector is not configured", async () => {
+      const bridgeWithoutCatalog = new Bridge({
+        world: mockWorld,
+        schemaHash: "test-schema-hash",
+        defaultActor: { actorId: "user-1", kind: "human" },
+      });
+      await bridgeWithoutCatalog.refresh();
+
+      const catalog = await bridgeWithoutCatalog.projectActionCatalog([
+        { type: "test.action" },
+      ]);
+
+      expect(catalog).toBeNull();
+    });
+
+    it("should return null when no snapshot available", async () => {
+      // Don't refresh - no snapshot
+      const catalog = await bridge.projectActionCatalog([
+        { type: "test.action" },
+      ]);
+
+      expect(catalog).toBeNull();
+    });
+
+    it("should return null when no actor configured", async () => {
+      const bridgeNoActor = new Bridge({
+        world: mockWorld,
+        schemaHash: "test-schema-hash",
+        catalogProjector,
+        // No defaultActor
+      });
+      await bridgeNoActor.refresh();
+
+      const catalog = await bridgeNoActor.projectActionCatalog([
+        { type: "test.action" },
+      ]);
+
+      expect(catalog).toBeNull();
+    });
+
+    it("should project action catalog successfully", async () => {
+      await bridge.refresh();
+
+      const actions: ActionDescriptor[] = [
+        { type: "todo.create", label: "Create Todo" },
+        { type: "todo.list", label: "List Todos" },
+      ];
+
+      const catalog = await bridge.projectActionCatalog(actions);
+
+      expect(catalog).not.toBeNull();
+      expect(catalog!.kind).toBe("action_catalog");
+      expect(catalog!.schemaHash).toBe("test-schema-hash");
+      expect(catalog!.actions).toHaveLength(2);
+    });
+
+    it("should evaluate availability using snapshot data", async () => {
+      await bridge.refresh();
+
+      const actions: ActionDescriptor[] = [
+        {
+          type: "admin.action",
+          available: {
+            kind: "fn",
+            evaluate: (ctx: AvailabilityContext) =>
+              (ctx.data as { user: { role: string } }).user.role === "admin",
+          },
+        },
+        {
+          type: "user.action",
+          available: {
+            kind: "fn",
+            evaluate: (ctx: AvailabilityContext) =>
+              (ctx.data as { user: { role: string } }).user.role === "user",
+          },
+        },
+      ];
+
+      const catalog = await bridge.projectActionCatalog(actions);
+
+      expect(catalog).not.toBeNull();
+      // user.action should be filtered out (unavailable with drop_unavailable default)
+      expect(catalog!.actions).toHaveLength(1);
+      expect(catalog!.actions[0].type).toBe("admin.action");
+      expect(catalog!.actions[0].availability.status).toBe("available");
+    });
+
+    it("should evaluate ExprNode availability predicates", async () => {
+      await bridge.refresh();
+
+      // ExprNode that checks computed.canCreateTodo
+      const canCreateExpr: ExprNode = {
+        kind: "get",
+        path: "computed.canCreateTodo",
+      };
+
+      // ExprNode that checks computed.canDeleteTodo (false)
+      const canDeleteExpr: ExprNode = {
+        kind: "get",
+        path: "computed.canDeleteTodo",
+      };
+
+      const actions: ActionDescriptor[] = [
+        { type: "todo.create", available: canCreateExpr },
+        { type: "todo.delete", available: canDeleteExpr },
+      ];
+
+      const catalog = await bridge.projectActionCatalog(actions, {
+        pruning: { policy: "mark_only" },
+      });
+
+      expect(catalog).not.toBeNull();
+      expect(catalog!.actions).toHaveLength(2);
+
+      const createAction = catalog!.actions.find((a) => a.type === "todo.create");
+      const deleteAction = catalog!.actions.find((a) => a.type === "todo.delete");
+
+      expect(createAction!.availability.status).toBe("available");
+      expect(deleteAction!.availability.status).toBe("unavailable");
+    });
+
+    it("should apply pruning options", async () => {
+      await bridge.refresh();
+
+      const actions: ActionDescriptor[] = [
+        { type: "action.a", available: { kind: "lit", value: true } as ExprNode },
+        { type: "action.b", available: { kind: "lit", value: false } as ExprNode },
+        { type: "action.c", available: { kind: "lit", value: true } as ExprNode },
+      ];
+
+      // Test drop_unavailable (default)
+      const catalog1 = await bridge.projectActionCatalog(actions);
+      expect(catalog1!.actions).toHaveLength(2);
+
+      // Test mark_only
+      const catalog2 = await bridge.projectActionCatalog(actions, {
+        pruning: { policy: "mark_only" },
+      });
+      expect(catalog2!.actions).toHaveLength(3);
+
+      // Test maxActions
+      const catalog3 = await bridge.projectActionCatalog(actions, {
+        pruning: { maxActions: 1 },
+      });
+      expect(catalog3!.actions).toHaveLength(1);
+    });
+
+    it("should respect mode parameter", async () => {
+      await bridge.refresh();
+
+      const actions: ActionDescriptor[] = [
+        {
+          type: "test.action",
+          label: "Test Action",
+          description: "A test action for validation",
+        },
+      ];
+
+      const llmCatalog = await bridge.projectActionCatalog(actions, { mode: "llm" });
+      const uiCatalog = await bridge.projectActionCatalog(actions, { mode: "ui" });
+
+      // Both should contain the action with all fields
+      expect(llmCatalog!.actions[0].label).toBe("Test Action");
+      expect(llmCatalog!.actions[0].description).toBe("A test action for validation");
+      expect(uiCatalog!.actions[0].label).toBe("Test Action");
+    });
+
+    it("should compute deterministic catalogHash", async () => {
+      await bridge.refresh();
+
+      const actions: ActionDescriptor[] = [
+        { type: "action.a" },
+        { type: "action.b" },
+      ];
+
+      const catalog1 = await bridge.projectActionCatalog(actions);
+      const catalog2 = await bridge.projectActionCatalog(actions);
+
+      expect(catalog1!.catalogHash).toBe(catalog2!.catalogHash);
+    });
+
+    it("should integrate with state changes", async () => {
+      await bridge.refresh();
+
+      // Define actions that depend on computed values
+      const actions: ActionDescriptor[] = [
+        {
+          type: "withdraw",
+          available: {
+            kind: "fn",
+            evaluate: (ctx: AvailabilityContext) =>
+              ((ctx.data as { balance: number }).balance ?? 0) > 0,
+          },
+        },
+      ];
+
+      // Initially balance is 100, so withdraw should be available
+      const catalog1 = await bridge.projectActionCatalog(actions);
+      expect(catalog1!.actions).toHaveLength(1);
+      expect(catalog1!.actions[0].availability.status).toBe("available");
+
+      // After dispatch, world updates - simulate state change
+      await bridge.dispatch({ type: "test.action", input: {} });
+
+      // The new snapshot has data.updated = true but we need to test with new snapshot
+      // For this test, the key point is that catalog projection uses current snapshot
+    });
+  });
+
+  describe("end-to-end workflow", () => {
+    it("should support full LLM agent workflow", async () => {
+      // 1. Initialize bridge
+      await bridge.refresh();
+      expect(bridge.getSnapshot()).not.toBeNull();
+
+      // 2. Get action catalog for LLM context
+      const actions: ActionDescriptor[] = [
+        {
+          type: "todo.create",
+          label: "Create Todo",
+          description: "Creates a new todo item",
+          inputSchema: {
+            type: "object",
+            properties: { title: { type: "string" } },
+          },
+        },
+        {
+          type: "todo.complete",
+          label: "Complete Todo",
+          description: "Marks a todo as complete",
+          available: {
+            kind: "fn",
+            evaluate: (ctx: AvailabilityContext) =>
+              ((ctx.computed as { todoCount: number }).todoCount ?? 0) > 0,
+          },
+        },
+        {
+          type: "todo.delete",
+          label: "Delete Todo",
+          description: "Deletes a todo",
+          available: { kind: "get", path: "computed.canDeleteTodo" } as ExprNode,
+        },
+      ];
+
+      const catalog = await bridge.projectActionCatalog(actions, { mode: "llm" });
+
+      // 3. Verify catalog for LLM consumption
+      expect(catalog).not.toBeNull();
+      expect(catalog!.kind).toBe("action_catalog");
+
+      // todo.create and todo.complete should be available
+      // todo.delete should be filtered (canDeleteTodo is false)
+      const availableTypes = catalog!.actions.map((a) => a.type);
+      expect(availableTypes).toContain("todo.create");
+      expect(availableTypes).toContain("todo.complete");
+      expect(availableTypes).not.toContain("todo.delete");
+
+      // 4. LLM would select an action, then dispatch
+      await bridge.dispatch({
+        type: "todo.create",
+        input: { title: "New todo from LLM" },
+      });
+
+      // 5. Verify state updated
+      expect(bridge.getWorldId()).not.toBe("genesis-world");
+    });
   });
 });

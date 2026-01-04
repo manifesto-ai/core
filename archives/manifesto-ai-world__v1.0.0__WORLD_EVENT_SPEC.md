@@ -145,7 +145,7 @@ type ExecutionStartedEvent = {
 };
 
 /**
- * Emitted when await core.compute() is called.
+ * Emitted when core.compute() is called.
  * May be emitted multiple times per execution (for effect continuations).
  */
 type ExecutionComputingEvent = {

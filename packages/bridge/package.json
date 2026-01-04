@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/bridge",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "Manifesto Bridge - Two-way binding between UI and Domain",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -13,13 +13,7 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/bridge#readme",
-  "keywords": [
-    "manifesto",
-    "bridge",
-    "binding",
-    "events",
-    "state-management"
-  ],
+  "keywords": ["manifesto", "bridge", "binding", "events", "state-management"],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,15 +26,16 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^1.1.0",
-    "@manifesto-ai/host": "^1.1.0",
-    "@manifesto-ai/world": "^1.1.0"
+    "@manifesto-ai/compiler": "^1.0.0",
+    "@manifesto-ai/core": "^1.0.0",
+    "@manifesto-ai/host": "^1.0.0",
+    "@manifesto-ai/world": "^1.0.0"
   },
   "devDependencies": {
+    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*",

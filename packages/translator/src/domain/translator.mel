@@ -1,0 +1,636 @@
+/**
+ * Translator Domain Definition
+ *
+ * Translator 1.1.1v - Compiler Frontend with deterministic contracts.
+ * Natural Language -> PatchFragment transformation pipeline.
+ *
+ * MEL v0.3.3 compliant domain definition.
+ */
+
+domain Translator {
+  // ===========================================================================
+  // Named Types - Translator Core Types
+  // ===========================================================================
+
+  // Simple field type for object type definitions
+  type TypeField = {
+    typeRef: string,
+    optional: boolean
+  }
+
+  // Type expression (simplified for MEL compatibility)
+  type TypeExpr = {
+    kind: "primitive" | "literal" | "ref" | "array" | "record" | "union" | "object",
+    name: string | null,
+    value: string | number | boolean | null,
+    element: string | null,
+    fields: string | null,
+    members: string | null,
+    refName: string | null
+  }
+
+  // Expression node (simplified for MEL compatibility)
+  type ExprNode = {
+    kind: "lit" | "var" | "sys" | "get" | "call" | "obj" | "arr",
+    value: string | number | boolean | null,
+    name: string | null,
+    path: string | null,
+    target: string | null,
+    key: string | null,
+    fn: string | null,
+    args: string | null,
+    fields: string | null,
+    items: string | null
+  }
+
+  // Action parameter definition
+  type ActionParam = {
+    typeRef: string,
+    optional: boolean,
+    defaultValue: string | number | boolean | null
+  }
+
+  // Guard definition
+  type Guard = {
+    guardKind: string,
+    condition: string | null,
+    marker: string | null
+  }
+
+  // Action body block
+  type ActionBlock = {
+    guard: string,
+    body: string
+  }
+
+  // Patch operation
+  type PatchOp = {
+    kind: "defineType" | "addField" | "addConstraint" | "setDefaultValue"
+        | "widenFieldType" | "addComputed" | "addAction"
+        | "addActionParam" | "addActionAvailable" | "addActionGuard",
+    typeName: string | null,
+    definition: string | null,
+    path: string | null,
+    fieldType: string | null,
+    defaultValue: string | number | boolean | null,
+    constraintId: string | null,
+    rule: string | null,
+    message: string | null,
+    value: string | number | boolean | null,
+    newType: string | null,
+    expr: string | null,
+    returnType: string | null,
+    actionName: string | null,
+    params: string | null,
+    body: string | null,
+    paramName: string | null,
+    param: string | null,
+    block: string | null
+  }
+
+  // Patch fragment
+  type PatchFragment = {
+    fragmentId: string,
+    sourceIntentId: string,
+    opJson: string,
+    confidence: number,
+    evidenceJson: string,
+    createdAt: string
+  }
+
+  // Ambiguity candidate
+  type AmbiguityCandidate = {
+    optionId: string,
+    description: string,
+    fragmentsJson: string,
+    confidence: number,
+    evidenceJson: string | null
+  }
+
+  // Resolution prompt
+  type ResolutionPrompt = {
+    question: string,
+    optionIdsJson: string | null
+  }
+
+  // Ambiguity report
+  type AmbiguityReport = {
+    reportId: string,
+    kind: "intent" | "target" | "value" | "conflict" | "policy",
+    normalizedInput: string,
+    candidatesJson: string,
+    resolutionPrompt: ResolutionPrompt | null,
+    createdAt: string | null,
+    partialFragmentsJson: string | null
+  }
+
+  // Translation error
+  type TranslationError = {
+    code: string,
+    message: string,
+    stage: string | null,
+    detailsJson: string | null
+  }
+
+  // Text section
+  type Section = {
+    text: string,
+    index: number
+  }
+
+  // Glossary hit
+  type GlossaryHit = {
+    term: string,
+    normalized: string
+  }
+
+  // Token
+  type Token = {
+    text: string,
+    kind: string
+  }
+
+  // Normalization result
+  type NormalizationResult = {
+    canonical: string,
+    language: string,
+    glossaryHitsJson: string,
+    tokensJson: string
+  }
+
+  // Fast path candidate
+  type FastPathCandidate = {
+    patternId: string,
+    confidence: number,
+    fragmentsJson: string
+  }
+
+  // Fast path result
+  type FastPathResult = {
+    matched: boolean,
+    bestJson: string | null,
+    candidatesJson: string
+  }
+
+  // Anchor candidate
+  type AnchorCandidate = {
+    path: string,
+    confidence: number,
+    reason: string
+  }
+
+  // Retrieval result
+  type RetrievalResult = {
+    anchorsJson: string,
+    tier: number
+  }
+
+  // Memory example
+  type MemoryExample = {
+    input: string,
+    outputJson: string,
+    worldId: string
+  }
+
+  // Schema snapshot
+  type SchemaSnapshot = {
+    worldId: string,
+    schemaHash: string
+  }
+
+  // Glossary term
+  type GlossaryTerm = {
+    term: string,
+    meaning: string
+  }
+
+  // Resolution record
+  type ResolutionRecord = {
+    reportId: string,
+    choice: string
+  }
+
+  // Memory content
+  type MemoryContent = {
+    examplesJson: string,
+    schemaSnapshotsJson: string,
+    glossaryTermsJson: string,
+    resolutionRecordsJson: string
+  }
+
+  // Memory stage result
+  type MemoryStageResult = {
+    contentJson: string,
+    selectedCount: number,
+    degraded: boolean
+  }
+
+  // ===========================================================================
+  // State
+  // ===========================================================================
+
+  state {
+    // Pipeline status
+    status: "idle" | "chunking" | "normalizing" | "fast_path"
+          | "retrieval" | "memory" | "proposing" | "assembling"
+          | "awaiting_resolution" | "success" | "error" = "idle"
+
+    // Input
+    input: string | null = null
+    atWorldId: string | null = null
+    schemaHash: string | null = null
+
+    // Intent tracking (for once() guards)
+    intentId: string | null = null
+    translateIntent: string | null = null
+    resolveIntent: string | null = null
+
+    // Stage results (JSON serialized for MEL compatibility)
+    chunksJson: string | null = null
+    normalizationJson: string | null = null
+    fastPathJson: string | null = null
+    retrievalJson: string | null = null
+    memoryResultJson: string | null = null
+
+    // Proposer
+    proposedFragmentsJson: string | null = null
+
+    // Assembly output
+    fragmentsJson: string | null = null
+
+    // Ambiguity
+    ambiguityReportJson: string | null = null
+
+    // Error
+    errorJson: string | null = null
+
+    // Trace
+    traceId: string | null = null
+    startedAt: number | null = null
+    completedAt: number | null = null
+
+    // Stage timing (ms)
+    chunkingDuration: number | null = null
+    normalizationDuration: number | null = null
+    fastPathDuration: number | null = null
+    retrievalDuration: number | null = null
+    memoryDuration: number | null = null
+    proposerDuration: number | null = null
+    assemblyDuration: number | null = null
+  }
+
+  // ===========================================================================
+  // Computed Values
+  // ===========================================================================
+
+  computed isIdle = eq(status, "idle")
+  computed isProcessing = and(
+    not(eq(status, "idle")),
+    not(eq(status, "success")),
+    not(eq(status, "error")),
+    not(eq(status, "awaiting_resolution"))
+  )
+  computed isTerminal = or(eq(status, "success"), eq(status, "error"))
+  computed hasAmbiguity = eq(status, "awaiting_resolution")
+  computed hasError = isNotNull(errorJson)
+  computed hasResult = and(eq(status, "success"), isNotNull(fragmentsJson))
+
+  // Stage progress
+  computed chunkingComplete = isNotNull(chunkingDuration)
+  computed normalizationComplete = isNotNull(normalizationDuration)
+  computed fastPathComplete = isNotNull(fastPathDuration)
+  computed retrievalComplete = isNotNull(retrievalDuration)
+  computed memoryComplete = isNotNull(memoryDuration)
+  computed proposerComplete = isNotNull(proposerDuration)
+  computed assemblyComplete = isNotNull(assemblyDuration)
+
+  // Total duration
+  computed totalDuration = isNotNull(completedAt)
+    ? sub(completedAt, coalesce(startedAt, 0))
+    : null
+
+  // ===========================================================================
+  // Actions
+  // ===========================================================================
+
+  /**
+   * Start translation pipeline
+   *
+   * Available only when idle.
+   * Initializes state and triggers chunking effect.
+   */
+  action translate(
+    input: string,
+    atWorldId: string,
+    schemaHash: string
+  ) available when isIdle {
+    once(translateIntent) {
+      patch translateIntent = $meta.intentId
+      patch intentId = $meta.intentId
+      patch input = input
+      patch atWorldId = atWorldId
+      patch schemaHash = schemaHash
+      patch status = "chunking"
+      patch startedAt = $system.timestamp
+      patch traceId = $system.uuid
+
+      // Clear previous results
+      patch chunksJson = null
+      patch normalizationJson = null
+      patch fastPathJson = null
+      patch retrievalJson = null
+      patch memoryResultJson = null
+      patch proposedFragmentsJson = null
+      patch fragmentsJson = null
+      patch ambiguityReportJson = null
+      patch errorJson = null
+      patch completedAt = null
+      patch chunkingDuration = null
+      patch normalizationDuration = null
+      patch fastPathDuration = null
+      patch retrievalDuration = null
+      patch memoryDuration = null
+      patch proposerDuration = null
+      patch assemblyDuration = null
+
+      effect translator.chunk({
+        input: input,
+        atWorldId: atWorldId
+      })
+    }
+  }
+
+  /**
+   * Receive chunking result
+   *
+   * Called by effect handler after chunking completes.
+   */
+  action receiveChunks(
+    sectionsJson: string,
+    durationMs: number
+  ) available when eq(status, "chunking") {
+    when true {
+      patch chunksJson = sectionsJson
+      patch chunkingDuration = durationMs
+      patch status = "normalizing"
+
+      effect translator.normalize({
+        sectionsJson: sectionsJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Receive normalization result
+   */
+  action receiveNormalization(
+    resultJson: string,
+    durationMs: number
+  ) available when eq(status, "normalizing") {
+    when true {
+      patch normalizationJson = resultJson
+      patch normalizationDuration = durationMs
+      patch status = "fast_path"
+
+      effect translator.fastPath({
+        normalizationJson: resultJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Receive fast path result - matched
+   *
+   * If matched, skip to assembly.
+   */
+  action receiveFastPathMatch(
+    resultJson: string,
+    bestFragmentsJson: string,
+    durationMs: number
+  ) available when eq(status, "fast_path") {
+    when true {
+      patch fastPathJson = resultJson
+      patch fastPathDuration = durationMs
+      patch proposedFragmentsJson = bestFragmentsJson
+      patch status = "assembling"
+
+      effect translator.assemble({
+        fragmentsJson: bestFragmentsJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Receive fast path result - miss
+   *
+   * Continue to retrieval.
+   */
+  action receiveFastPathMiss(
+    resultJson: string,
+    durationMs: number
+  ) available when eq(status, "fast_path") {
+    when true {
+      patch fastPathJson = resultJson
+      patch fastPathDuration = durationMs
+      patch status = "retrieval"
+
+      effect translator.retrieve({
+        normalizationJson: normalizationJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Receive retrieval result
+   */
+  action receiveRetrieval(
+    resultJson: string,
+    durationMs: number
+  ) available when eq(status, "retrieval") {
+    when true {
+      patch retrievalJson = resultJson
+      patch retrievalDuration = durationMs
+      patch status = "memory"
+
+      effect translator.memory({
+        normalizationJson: normalizationJson,
+        anchorsJson: resultJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Receive memory result
+   */
+  action receiveMemory(
+    resultJson: string,
+    durationMs: number
+  ) available when eq(status, "memory") {
+    when true {
+      patch memoryResultJson = resultJson
+      patch memoryDuration = durationMs
+      patch status = "proposing"
+
+      effect translator.propose({
+        normalizationJson: normalizationJson,
+        anchorsJson: retrievalJson,
+        memoryContentJson: resultJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Receive proposer result - fragments produced
+   */
+  action receiveProposal(
+    proposedFragmentsJson: string,
+    durationMs: number
+  ) available when eq(status, "proposing") {
+    when true {
+      patch proposedFragmentsJson = proposedFragmentsJson
+      patch proposerDuration = durationMs
+      patch status = "assembling"
+
+      effect translator.assemble({
+        fragmentsJson: proposedFragmentsJson,
+        atWorldId: atWorldId,
+        schemaHash: schemaHash
+      })
+    }
+  }
+
+  /**
+   * Request ambiguity resolution
+   *
+   * Called when proposer detects ambiguity requiring Human decision.
+   * Human Escalation is a constitutional right (INV-011).
+   */
+  action requestResolution(
+    reportJson: string
+  ) available when eq(status, "proposing") {
+    when true {
+      patch ambiguityReportJson = reportJson
+      patch status = "awaiting_resolution"
+    }
+  }
+
+  /**
+   * Resolve ambiguity
+   *
+   * Called by Human (or authorized delegate) to resolve ambiguity.
+   * Agent auto-resolution is prohibited (INV-011).
+   */
+  action resolve(
+    reportId: string,
+    selectedOptionId: string
+  ) available when hasAmbiguity {
+    once(resolveIntent) {
+      patch resolveIntent = $meta.intentId
+      patch status = "proposing"
+
+      // Clear ambiguity report
+      patch ambiguityReportJson = null
+
+      // Re-run proposer with resolution
+      effect translator.propose({
+        normalizationJson: normalizationJson,
+        anchorsJson: coalesce(retrievalJson, "[]"),
+        memoryContentJson: coalesce(memoryResultJson, "{}"),
+        atWorldId: atWorldId,
+        schemaHash: schemaHash,
+        resolution: selectedOptionId
+      })
+    }
+  }
+
+  /**
+   * Receive assembly result - final fragments
+   */
+  action receiveAssembly(
+    assembledFragmentsJson: string,
+    durationMs: number
+  ) available when eq(status, "assembling") {
+    when true {
+      patch fragmentsJson = assembledFragmentsJson
+      patch assemblyDuration = durationMs
+      patch status = "success"
+      patch completedAt = $system.timestamp
+    }
+  }
+
+  /**
+   * Handle error
+   *
+   * Called when any stage fails.
+   */
+  action handleError(
+    errorInfoJson: string
+  ) available when isProcessing {
+    when true {
+      patch errorJson = errorInfoJson
+      patch status = "error"
+      patch completedAt = $system.timestamp
+    }
+  }
+
+  /**
+   * Cancel translation
+   *
+   * User-initiated cancellation.
+   */
+  action cancel() available when isProcessing {
+    when true {
+      patch errorJson = "{\"code\":\"CANCELLED\",\"message\":\"Translation cancelled by user\"}"
+      patch status = "error"
+      patch completedAt = $system.timestamp
+    }
+  }
+
+  /**
+   * Reset state
+   *
+   * Available only when terminal (success or error).
+   */
+  action reset() available when isTerminal {
+    when true {
+      patch status = "idle"
+      patch input = null
+      patch atWorldId = null
+      patch schemaHash = null
+      patch intentId = null
+      patch translateIntent = null
+      patch resolveIntent = null
+      patch chunksJson = null
+      patch normalizationJson = null
+      patch fastPathJson = null
+      patch retrievalJson = null
+      patch memoryResultJson = null
+      patch proposedFragmentsJson = null
+      patch fragmentsJson = null
+      patch ambiguityReportJson = null
+      patch errorJson = null
+      patch traceId = null
+      patch startedAt = null
+      patch completedAt = null
+      patch chunkingDuration = null
+      patch normalizationDuration = null
+      patch fastPathDuration = null
+      patch retrievalDuration = null
+      patch memoryDuration = null
+      patch proposerDuration = null
+      patch assemblyDuration = null
+    }
+  }
+}

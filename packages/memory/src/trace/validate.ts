@@ -1,170 +1,173 @@
 /**
- * Memory Trace Validation
+ * Memory Trace Validation Utilities
  *
- * Utilities for validating MemoryTrace objects.
+ * Provides validation functions for MemoryTrace and related types.
  *
- * @see SPEC-1.2v §12
+ * @see SPEC-1.2v §5.1.5, §8.4
  */
-import { MemoryTrace } from "../schema/trace.js";
-import { SelectedMemory } from "../schema/selection.js";
+import { MemoryTrace, type MemoryTrace as MemoryTraceType } from "../schema/trace.js";
+import {
+  SelectedMemory,
+  type SelectedMemory as SelectedMemoryType,
+} from "../schema/selection.js";
+import {
+  VerificationEvidence,
+  type VerificationEvidence as VerificationEvidenceType,
+} from "../schema/proof.js";
 
 /**
- * Validation result with detailed error information.
+ * Result of validation operation.
  */
-export interface ValidationResult {
-  /** Whether the trace is valid */
-  valid: boolean;
-  /** Error messages if invalid */
-  errors: string[];
-}
+export type ValidationResult =
+  | { valid: true }
+  | { valid: false; errors: string[] };
 
 /**
- * Validate a SelectedMemory object.
+ * Validate a MemoryTrace.
  *
- * Checks:
- * - CR-07: reason MUST be non-empty string
- * - CR-08: confidence MUST be in [0, 1] and finite
- * - verified is boolean
- *
- * @param memory - The SelectedMemory to validate
- * @returns ValidationResult
- */
-export function validateSelectedMemory(memory: unknown): ValidationResult {
-  const errors: string[] = [];
-
-  if (!memory || typeof memory !== "object") {
-    return { valid: false, errors: ["SelectedMemory must be an object"] };
-  }
-
-  const m = memory as Record<string, unknown>;
-
-  // Check ref
-  if (!m.ref || typeof m.ref !== "object") {
-    errors.push("ref must be an object");
-  } else {
-    const ref = m.ref as Record<string, unknown>;
-    if (typeof ref.worldId !== "string") {
-      errors.push("ref.worldId must be a string");
-    }
-  }
-
-  // Check reason (CR-07)
-  if (typeof m.reason !== "string" || m.reason.length === 0) {
-    errors.push("reason must be a non-empty string (CR-07)");
-  }
-
-  // Check confidence (CR-08)
-  if (typeof m.confidence !== "number") {
-    errors.push("confidence must be a number (CR-08)");
-  } else if (m.confidence < 0 || m.confidence > 1) {
-    errors.push("confidence must be in range [0, 1] (CR-08)");
-  } else if (!Number.isFinite(m.confidence)) {
-    errors.push("confidence must be finite, not NaN or Infinity (CR-08)");
-  }
-
-  // Check verified
-  if (typeof m.verified !== "boolean") {
-    errors.push("verified must be a boolean");
-  }
-
-  // Check evidence (optional)
-  if (m.evidence !== undefined) {
-    if (typeof m.evidence !== "object" || m.evidence === null) {
-      errors.push("evidence must be an object if present");
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-/**
- * Validate a MemoryTrace object.
- *
- * Checks all constraints from SPEC-1.2v §5.1.5.
- *
- * @param trace - The value to validate
- * @returns ValidationResult
+ * @param trace - Unknown value to validate
+ * @returns ValidationResult with errors if invalid
  */
 export function validateMemoryTrace(trace: unknown): ValidationResult {
-  const errors: string[] = [];
-
-  if (!trace || typeof trace !== "object") {
-    return { valid: false, errors: ["MemoryTrace must be an object"] };
-  }
-
-  const t = trace as Record<string, unknown>;
-
-  // Check selector
-  if (!t.selector || typeof t.selector !== "object") {
-    errors.push("selector must be an object (ActorRef)");
-  } else {
-    const selector = t.selector as Record<string, unknown>;
-    if (typeof selector.actorId !== "string") {
-      errors.push("selector.actorId must be a string");
-    }
-    if (typeof selector.kind !== "string") {
-      errors.push("selector.kind must be a string");
-    }
-  }
-
-  // Check query
-  if (typeof t.query !== "string" || t.query.length === 0) {
-    errors.push("query must be a non-empty string");
-  }
-
-  // Check selectedAt
-  if (typeof t.selectedAt !== "number" || t.selectedAt <= 0) {
-    errors.push("selectedAt must be a positive integer");
-  }
-
-  // Check atWorldId
-  if (typeof t.atWorldId !== "string") {
-    errors.push("atWorldId must be a string (WorldId)");
-  }
-
-  // Check selected array
-  if (!Array.isArray(t.selected)) {
-    errors.push("selected must be an array");
-  } else {
-    for (let i = 0; i < t.selected.length; i++) {
-      const memoryResult = validateSelectedMemory(t.selected[i]);
-      if (!memoryResult.valid) {
-        errors.push(`selected[${i}]: ${memoryResult.errors.join(", ")}`);
-      }
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-/**
- * Type guard for MemoryTrace.
- *
- * @param trace - The value to check
- * @returns true if the value is a valid MemoryTrace
- */
-export function isMemoryTrace(trace: unknown): trace is MemoryTrace {
   const result = MemoryTrace.safeParse(trace);
-  return result.success;
+  if (result.success) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    errors: result.error.issues.map(
+      (e) => `${e.path.join(".")}: ${e.message}`
+    ),
+  };
 }
 
 /**
- * Parse and validate a MemoryTrace.
+ * Validate a SelectedMemory.
  *
- * @param trace - The value to parse
- * @returns The parsed MemoryTrace or throws on validation failure
+ * @param memory - Unknown value to validate
+ * @returns ValidationResult with errors if invalid
  */
-export function parseMemoryTrace(trace: unknown): MemoryTrace {
-  return MemoryTrace.parse(trace);
+export function validateSelectedMemory(memory: unknown): ValidationResult {
+  const result = SelectedMemory.safeParse(memory);
+  if (result.success) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    errors: result.error.issues.map(
+      (e) => `${e.path.join(".")}: ${e.message}`
+    ),
+  };
 }
 
 /**
- * Safely parse a MemoryTrace.
+ * Validate a VerificationEvidence.
  *
- * @param trace - The value to parse
- * @returns The parsed MemoryTrace or undefined if invalid
+ * @param evidence - Unknown value to validate
+ * @returns ValidationResult with errors if invalid
  */
-export function safeParseMemoryTrace(trace: unknown): MemoryTrace | undefined {
-  const result = MemoryTrace.safeParse(trace);
-  return result.success ? result.data : undefined;
+export function validateVerificationEvidence(
+  evidence: unknown
+): ValidationResult {
+  const result = VerificationEvidence.safeParse(evidence);
+  if (result.success) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    errors: result.error.issues.map(
+      (e) => `${e.path.join(".")}: ${e.message}`
+    ),
+  };
+}
+
+/**
+ * Check if all memories in a trace have required evidence.
+ *
+ * "Required evidence" means:
+ * - evidence field is present (not undefined)
+ * - evidence.method is NOT 'none'
+ *
+ * This is used for `requireEvidence` constraint validation.
+ *
+ * @param trace - The MemoryTrace to check
+ * @returns true if all memories have required evidence
+ */
+export function hasRequiredEvidence(trace: MemoryTraceType): boolean {
+  return trace.selected.every(
+    (memory) =>
+      memory.evidence !== undefined && memory.evidence.method !== "none"
+  );
+}
+
+/**
+ * Check if all memories in a trace are verified.
+ *
+ * @param trace - The MemoryTrace to check
+ * @returns true if all memories have verified === true
+ */
+export function allVerified(trace: MemoryTraceType): boolean {
+  return trace.selected.every((memory) => memory.verified === true);
+}
+
+/**
+ * Filter memories by minimum confidence threshold.
+ *
+ * @param trace - The MemoryTrace to filter
+ * @param minConfidence - Minimum confidence threshold (0-1)
+ * @returns Array of memories meeting the threshold
+ */
+export function filterByConfidence(
+  trace: MemoryTraceType,
+  minConfidence: number
+): SelectedMemoryType[] {
+  return trace.selected.filter((memory) => memory.confidence >= minConfidence);
+}
+
+/**
+ * Check if a trace meets all selection constraints.
+ *
+ * @param trace - The MemoryTrace to check
+ * @param constraints - Selection constraints to verify
+ * @returns true if trace meets all constraints
+ */
+export function meetsConstraints(
+  trace: MemoryTraceType,
+  constraints: {
+    maxResults?: number;
+    minConfidence?: number;
+    requireVerified?: boolean;
+    requireEvidence?: boolean;
+  }
+): boolean {
+  const { maxResults, minConfidence, requireVerified, requireEvidence } =
+    constraints;
+
+  // Check maxResults
+  if (maxResults !== undefined && trace.selected.length > maxResults) {
+    return false;
+  }
+
+  // Check minConfidence
+  if (minConfidence !== undefined) {
+    if (!trace.selected.every((m) => m.confidence >= minConfidence)) {
+      return false;
+    }
+  }
+
+  // Check requireVerified
+  if (requireVerified === true) {
+    if (!allVerified(trace)) {
+      return false;
+    }
+  }
+
+  // Check requireEvidence
+  if (requireEvidence === true) {
+    if (!hasRequiredEvidence(trace)) {
+      return false;
+    }
+  }
+
+  return true;
 }

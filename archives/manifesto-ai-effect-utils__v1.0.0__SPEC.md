@@ -641,14 +641,14 @@ function toPatch(path: string, value: unknown, op: 'merge'): Patch;
 #### Example
 
 ```typescript
-toPatch('user', { name: 'Alice' });
-// → { op: 'set', path: 'user', value: { name: 'Alice' } }
+toPatch('data.user', { name: 'Alice' });
+// → { op: 'set', path: 'data.user', value: { name: 'Alice' } }
 
-toPatch('temp', undefined, 'unset');
-// → { op: 'unset', path: 'temp' }
+toPatch('data.temp', undefined, 'unset');
+// → { op: 'unset', path: 'data.temp' }
 
-toPatch('settings', { theme: 'dark' }, 'merge');
-// → { op: 'merge', path: 'settings', value: { theme: 'dark' } }
+toPatch('data.settings', { theme: 'dark' }, 'merge');
+// → { op: 'merge', path: 'data.settings', value: { theme: 'dark' } }
 ```
 
 ---
@@ -670,14 +670,14 @@ function toPatches(
 
 ```typescript
 toPatches({
-  'user': userData,
-  'loadedAt': context.requirement.createdAt,
-  'status': 'ready',
+  'data.user': userData,
+  'data.loadedAt': Date.now(),
+  'data.status': 'ready',
 });
 // → [
-//   { op: 'set', path: 'user', value: userData },
-//   { op: 'set', path: 'loadedAt', value: 1234567890 },
-//   { op: 'set', path: 'status', value: 'ready' },
+//   { op: 'set', path: 'data.user', value: userData },
+//   { op: 'set', path: 'data.loadedAt', value: 1234567890 },
+//   { op: 'set', path: 'data.status', value: 'ready' },
 // ]
 ```
 
@@ -709,10 +709,10 @@ type ErrorValue = {
 #### Example
 
 ```typescript
-toErrorPatch('error', new Error('Network failed'));
+toErrorPatch('data.error', new Error('Network failed'));
 // → {
 //   op: 'set',
-//   path: 'error',
+//   path: 'data.error',
 //   value: {
 //     $error: true,
 //     code: 'Error',
@@ -722,10 +722,10 @@ toErrorPatch('error', new Error('Network failed'));
 //   }
 // }
 
-toErrorPatch('error', { code: 'NETWORK_ERROR', message: 'Connection refused' });
+toErrorPatch('data.error', { code: 'NETWORK_ERROR', message: 'Connection refused' });
 // → {
 //   op: 'set',
-//   path: 'error',
+//   path: 'data.error',
 //   value: {
 //     $error: true,
 //     code: 'NETWORK_ERROR',
@@ -750,10 +750,10 @@ function toErrorPatches(error: Error, customPath?: string): Patch[];
 #### Example
 
 ```typescript
-toErrorPatches(new Error('Failed'), 'loadError');
+toErrorPatches(new Error('Failed'), 'data.loadError');
 // → [
 //   { op: 'set', path: 'system.lastError', value: { $error: true, ... } },
-//   { op: 'set', path: 'loadError', value: { $error: true, ... } },
+//   { op: 'set', path: 'data.loadError', value: { $error: true, ... } },
 // ]
 ```
 
@@ -887,7 +887,7 @@ const fetchUserSchema = defineEffectSchema({
       bio: z.string(),
     }).optional(),
   }),
-  outputPath: 'user',
+  outputPath: 'data.user',
   description: 'Fetches user data by ID',
 });
 ```
@@ -950,11 +950,11 @@ const fetchUserHandler = createHandler(fetchUserSchema, async (input, context) =
 });
 
 // Register with Host — handler signature matches exactly
-const host = createHost(schema, {
-  initialData: {},
-  context: { now: () => Date.now() },
+const host = createHost({
+  effects: {
+    'api.user.fetch': fetchUserHandler,
+  }
 });
-host.registerEffect('api.user.fetch', fetchUserHandler);
 ```
 
 #### Context Usage Patterns
@@ -985,7 +985,7 @@ const handler = createHandler(schema, async (input, context) => {
 **On success:**
 ```typescript
 [
-  { op: 'set', path: 'user', value: { id: '...', name: '...', ... } }
+  { op: 'set', path: 'data.user', value: { id: '...', name: '...', ... } }
 ]
 ```
 
@@ -1010,7 +1010,7 @@ const handler = createHandler(schema, async (input, context) => {
     message: 'Network request failed',
     ...
   }},
-  { op: 'set', path: 'user', value: null }
+  { op: 'set', path: 'data.user', value: null }
 ]
 ```
 
@@ -1042,7 +1042,7 @@ Host Contract §7.3 prohibits domain logic in handlers:
 
 ```typescript
 // ❌ WRONG: Domain logic in handler
-const handler = createHandler(schema, async (input, _context) => {
+const handler = createHandler(schema, async (input, snapshot) => {
   if (input.amount > 1000) {  // Business rule!
     return { requiresApproval: true };
   }
@@ -1050,7 +1050,7 @@ const handler = createHandler(schema, async (input, _context) => {
 });
 
 // ✅ CORRECT: Pure IO, no decisions
-const handler = createHandler(schema, async (input, _context) => {
+const handler = createHandler(schema, async (input, snapshot) => {
   const result = await api.fetchData(input.id);
   return result;  // Return data, let Flow/Computed decide
 });
@@ -1076,10 +1076,10 @@ const schema = defineEffectSchema({
   type: 'api.data.fetch',
   input: z.object({ id: z.string() }),
   output: z.object({ data: DataSchema, fromCache: z.boolean() }),
-  outputPath: 'result',
+  outputPath: 'data.result',
 });
 
-const handler = createHandler(schema, async (input, _context) => {
+const handler = createHandler(schema, async (input) => {
   const resilientFetch = withFallback(
     withRetry(
       withTimeout(
@@ -1111,7 +1111,7 @@ const aggregateSchema = defineEffectSchema({
   outputPath: 'tracking.signals',
 });
 
-const aggregateHandler = createHandler(aggregateSchema, async (input, _context) => {
+const aggregateHandler = createHandler(aggregateSchema, async (input) => {
   const { customerId, timeout } = input;
   
   const results = await parallel({
@@ -1147,7 +1147,7 @@ const processSchema = defineEffectSchema({
   outputPath: 'documents.processed',
 });
 
-const processHandler = createHandler(processSchema, async (input, _context) => {
+const processHandler = createHandler(processSchema, async (input) => {
   const results = await sequential([
     () => fetchPdf(input.orderId),
     () => runOcr(results[0]),      // Note: Can't access like this
@@ -1200,8 +1200,8 @@ type ErrorValue = {
 
 ```typescript
 // In Flow/Computed (MEL)
-computed hasError = isNotNull(error)
-computed isErrorValue = eq(error.$error, true)
+computed hasError = isNotNull(data.error)
+computed isErrorValue = eq(data.error.$error, true)
 
 // In TypeScript
 function isErrorValue(value: unknown): value is ErrorValue {
@@ -1309,10 +1309,10 @@ const schema = defineEffectSchema({
   type: 'api.myEffect',
   input: z.object({ ... }),
   output: z.object({ ... }),
-  outputPath: 'result',
+  outputPath: 'data.result',
 });
 
-const handler = createHandler(schema, async (input, _context) => {
+const handler = createHandler(schema, async (input, snapshot) => {
   // input is typed
   // return is validated
   return result;
@@ -1326,7 +1326,7 @@ const handler = createHandler(schema, async (input, _context) => {
 ### Before (manual)
 
 ```typescript
-const handler: EffectHandler = async (type, params, _context) => {
+const handler: EffectHandler = async (type, params) => {
   try {
     const { userId } = params as { userId: string };
     
@@ -1345,7 +1345,7 @@ const handler: EffectHandler = async (type, params, _context) => {
         clearTimeout(timeout);
         const data = await response.json();
         
-        return [{ op: 'set', path: 'user', value: data }];
+        return [{ op: 'set', path: 'data.user', value: data }];
       } catch (e) {
         lastError = e as Error;
         attempts++;
@@ -1373,10 +1373,10 @@ const schema = defineEffectSchema({
   type: 'api.user.fetch',
   input: z.object({ userId: z.string() }),
   output: UserSchema,
-  outputPath: 'user',
+  outputPath: 'data.user',
 });
 
-const handler = createHandler(schema, async (input, _context) => {
+const handler = createHandler(schema, async (input) => {
   const fetchUser = withRetry(
     withTimeout(
       () => fetch(`/api/users/${input.userId}`).then(r => r.json()),

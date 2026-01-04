@@ -58,31 +58,6 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateDiv(expr.left, expr.right, ctx);
     case "mod":
       return evaluateMod(expr.left, expr.right, ctx);
-    case "neg":
-      return evaluateNeg(expr.arg, ctx);
-    case "abs":
-      return evaluateAbs(expr.arg, ctx);
-    case "min":
-      return evaluateMin(expr.args, ctx);
-    case "max":
-      return evaluateMax(expr.args, ctx);
-    // v0.3.2: Array aggregation
-    case "sumArray":
-      return evaluateSumArray(expr.array, ctx);
-    case "minArray":
-      return evaluateMinArray(expr.array, ctx);
-    case "maxArray":
-      return evaluateMaxArray(expr.array, ctx);
-    case "floor":
-      return evaluateFloor(expr.arg, ctx);
-    case "ceil":
-      return evaluateCeil(expr.arg, ctx);
-    case "round":
-      return evaluateRound(expr.arg, ctx);
-    case "sqrt":
-      return evaluateSqrt(expr.arg, ctx);
-    case "pow":
-      return evaluatePow(expr.base, expr.exponent, ctx);
 
     // String
     case "concat":
@@ -91,12 +66,6 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateSubstring(expr, ctx);
     case "trim":
       return evaluateTrim(expr.str, ctx);
-    case "toLowerCase":
-      return evaluateToLower(expr.str, ctx);
-    case "toUpperCase":
-      return evaluateToUpper(expr.str, ctx);
-    case "strLen":
-      return evaluateStrLen(expr.str, ctx);
 
     // Collection
     case "len":
@@ -144,17 +113,12 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
     case "coalesce":
       return evaluateCoalesce(expr.args, ctx);
 
-    // Conversion
-    case "toString":
-      return evaluateToStringExpr(expr.arg, ctx);
-
     default:
       return err(createError(
         "INTERNAL_ERROR",
         `Unknown expression kind: ${(expr as ExprNode).kind}`,
         ctx.currentAction ?? "",
-        ctx.nodePath,
-        ctx.trace.timestamp
+        ctx.nodePath
       ));
   }
 }
@@ -184,6 +148,31 @@ function toString(value: unknown): string {
 
 // ============ Get ============
 
+/**
+ * Generate a deterministic UUID from intentId and counter
+ * Uses a simple hash to create reproducible UUIDs
+ */
+function generateDeterministicUuid(intentId: string, counter: number): string {
+  // Create a simple hash-based UUID from intentId and counter
+  // This ensures the same intentId + counter always produces the same UUID
+  const seed = `${intentId}-${counter}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+
+  // Convert hash to hex string and format as UUID
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  const hex2 = Math.abs(hash * 31).toString(16).padStart(4, '0');
+  const hex3 = Math.abs(hash * 37).toString(16).padStart(4, '0');
+  const hex4 = Math.abs(hash * 41).toString(16).padStart(4, '0');
+  const hex5 = Math.abs(hash * 43).toString(16).padStart(12, '0');
+
+  return `${hex.slice(0, 8)}-${hex2.slice(0, 4)}-4${hex3.slice(1, 4)}-${hex4.slice(0, 4)}-${hex5.slice(0, 12)}`;
+}
+
 function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Handle collection context variables
   if (path.startsWith("$item")) {
@@ -206,16 +195,45 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(ctx.$array);
   }
 
+  // Handle $system paths (special runtime values)
+  if (path.startsWith("$system.")) {
+    const systemPath = path.slice(8); // Remove "$system."
+
+    if (systemPath === "uuid") {
+      // Generate deterministic UUID from intentId + counter
+      const intentId = ctx.intentId ?? "no-intent";
+      const counter = ctx.uuidCounter ?? 0;
+      // Increment counter for next uuid call (mutable on purpose for determinism across calls)
+      if (ctx.uuidCounter !== undefined) {
+        ctx.uuidCounter = counter + 1;
+      }
+      return ok(generateDeterministicUuid(intentId, counter));
+    }
+
+    if (systemPath === "timestamp") {
+      // Return the snapshot's timestamp (set by Host)
+      return ok(new Date(ctx.snapshot.meta.timestamp).toISOString());
+    }
+
+    // Unknown $system path
+    return ok(undefined);
+  }
+
+  // Handle meta path (snapshot metadata)
+  if (path.startsWith("meta.")) {
+    const metaPath = path.slice(5); // Remove "meta."
+
+    if (metaPath === "intentId") {
+      return ok(ctx.intentId);
+    }
+
+    return ok(getByPath(ctx.snapshot.meta, metaPath));
+  }
+
   // Handle input path
   if (path.startsWith("input.") || path === "input") {
     const subPath = path === "input" ? "" : path.slice(6);
     return ok(subPath ? getByPath(ctx.snapshot.input, subPath) : ctx.snapshot.input);
-  }
-
-  // Handle meta path (intent/action/timestamp)
-  if (path.startsWith("meta.") || path === "meta") {
-    const subPath = path === "meta" ? "" : path.slice(5);
-    return ok(subPath ? getByPath(ctx.meta, subPath) : ctx.meta);
   }
 
   // Handle computed path
@@ -223,7 +241,7 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(ctx.snapshot.computed[path]);
   }
 
-  // Handle system path
+  // Handle system path (snapshot.system, not $system)
   if (path.startsWith("system.")) {
     const subPath = path.slice(7);
     return ok(getByPath(ctx.snapshot.system, subPath));
@@ -313,132 +331,34 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvalContext): ExprRes
   return ok(toNumber(leftResult.value) % divisor);
 }
 
-function evaluateNeg(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  return ok(-toNumber(result.value));
-}
-
-function evaluateAbs(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  return ok(Math.abs(toNumber(result.value)));
-}
-
-function evaluateMin(args: ExprNode[], ctx: EvalContext): ExprResult {
-  if (args.length === 0) return ok(null);
-  const values: number[] = [];
-  for (const arg of args) {
-    const result = evaluateExpr(arg, ctx);
-    if (!result.ok) return result;
-    values.push(toNumber(result.value));
-  }
-  return ok(Math.min(...values));
-}
-
-function evaluateMax(args: ExprNode[], ctx: EvalContext): ExprResult {
-  if (args.length === 0) return ok(null);
-  const values: number[] = [];
-  for (const arg of args) {
-    const result = evaluateExpr(arg, ctx);
-    if (!result.ok) return result;
-    values.push(toNumber(result.value));
-  }
-  return ok(Math.max(...values));
-}
-
-// v0.3.2: Array aggregation functions
-
-function evaluateSumArray(array: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(array, ctx);
-  if (!result.ok) return result;
-
-  const arr = result.value;
-  if (!Array.isArray(arr)) return ok(0);
-  if (arr.length === 0) return ok(0);
-
-  let sum = 0;
-  for (const item of arr) {
-    sum += toNumber(item);
-  }
-  return ok(sum);
-}
-
-function evaluateMinArray(array: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(array, ctx);
-  if (!result.ok) return result;
-
-  const arr = result.value;
-  if (!Array.isArray(arr)) return ok(null);
-  if (arr.length === 0) return ok(null);
-
-  let min = toNumber(arr[0]);
-  for (let i = 1; i < arr.length; i++) {
-    const val = toNumber(arr[i]);
-    if (val < min) min = val;
-  }
-  return ok(min);
-}
-
-function evaluateMaxArray(array: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(array, ctx);
-  if (!result.ok) return result;
-
-  const arr = result.value;
-  if (!Array.isArray(arr)) return ok(null);
-  if (arr.length === 0) return ok(null);
-
-  let max = toNumber(arr[0]);
-  for (let i = 1; i < arr.length; i++) {
-    const val = toNumber(arr[i]);
-    if (val > max) max = val;
-  }
-  return ok(max);
-}
-
-function evaluateFloor(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  return ok(Math.floor(toNumber(result.value)));
-}
-
-function evaluateCeil(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  return ok(Math.ceil(toNumber(result.value)));
-}
-
-function evaluateRound(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  return ok(Math.round(toNumber(result.value)));
-}
-
-function evaluateSqrt(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  const num = toNumber(result.value);
-  if (num < 0) return ok(null); // Totality: return null for negative
-  return ok(Math.sqrt(num));
-}
-
-function evaluatePow(base: ExprNode, exponent: ExprNode, ctx: EvalContext): ExprResult {
-  const baseResult = evaluateExpr(base, ctx);
-  if (!baseResult.ok) return baseResult;
-  const expResult = evaluateExpr(exponent, ctx);
-  if (!expResult.ok) return expResult;
-  return ok(Math.pow(toNumber(baseResult.value), toNumber(expResult.value)));
-}
-
 // ============ String ============
 
 function evaluateConcat(args: ExprNode[], ctx: EvalContext): ExprResult {
-  const parts: string[] = [];
+  // First, evaluate all arguments to determine if this is array or string concat
+  const values: unknown[] = [];
   for (const arg of args) {
     const result = evaluateExpr(arg, ctx);
     if (!result.ok) return result;
-    parts.push(toString(result.value));
+    values.push(result.value);
   }
+
+  // If any argument is an array, treat as array concatenation
+  const hasArray = values.some(v => Array.isArray(v));
+  if (hasArray) {
+    const result: unknown[] = [];
+    for (const value of values) {
+      if (Array.isArray(value)) {
+        result.push(...value);
+      } else if (value !== null && value !== undefined) {
+        // Single value gets added as element
+        result.push(value);
+      }
+    }
+    return ok(result);
+  }
+
+  // Otherwise, string concatenation
+  const parts = values.map(v => toString(v));
   return ok(parts.join(""));
 }
 
@@ -468,24 +388,6 @@ function evaluateTrim(str: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(str, ctx);
   if (!result.ok) return result;
   return ok(toString(result.value).trim());
-}
-
-function evaluateToLower(str: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(str, ctx);
-  if (!result.ok) return result;
-  return ok(toString(result.value).toLowerCase());
-}
-
-function evaluateToUpper(str: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(str, ctx);
-  if (!result.ok) return result;
-  return ok(toString(result.value).toUpperCase());
-}
-
-function evaluateStrLen(str: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(str, ctx);
-  if (!result.ok) return result;
-  return ok(toString(result.value).length);
 }
 
 // ============ Collection ============
@@ -672,16 +574,15 @@ function evaluateAppend(array: ExprNode, items: ExprNode[], ctx: EvalContext): E
   if (!arrayResult.ok) return arrayResult;
 
   const arr = arrayResult.value;
-  if (!Array.isArray(arr)) return ok([]);
+  const baseArray = Array.isArray(arr) ? [...arr] : [];
 
-  const result = [...arr];
   for (const itemExpr of items) {
     const itemResult = evaluateExpr(itemExpr, ctx);
     if (!itemResult.ok) return itemResult;
-    result.push(itemResult.value);
+    baseArray.push(itemResult.value);
   }
 
-  return ok(result);
+  return ok(baseArray);
 }
 
 // ============ Object ============
@@ -689,10 +590,10 @@ function evaluateAppend(array: ExprNode, items: ExprNode[], ctx: EvalContext): E
 function evaluateObject(fields: Record<string, ExprNode>, ctx: EvalContext): ExprResult {
   const result: Record<string, unknown> = {};
 
-  for (const [key, fieldExpr] of Object.entries(fields)) {
-    const fieldResult = evaluateExpr(fieldExpr, ctx);
-    if (!fieldResult.ok) return fieldResult;
-    result[key] = fieldResult.value;
+  for (const [key, valueExpr] of Object.entries(fields)) {
+    const valueResult = evaluateExpr(valueExpr, ctx);
+    if (!valueResult.ok) return valueResult;
+    result[key] = valueResult.value;
   }
 
   return ok(result);
@@ -768,12 +669,4 @@ function evaluateCoalesce(args: ExprNode[], ctx: EvalContext): ExprResult {
     }
   }
   return ok(null);
-}
-
-// ============ Conversion ============
-
-function evaluateToStringExpr(arg: ExprNode, ctx: EvalContext): ExprResult {
-  const result = evaluateExpr(arg, ctx);
-  if (!result.ok) return result;
-  return ok(toString(result.value));
 }

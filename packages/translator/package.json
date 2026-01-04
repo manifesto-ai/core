@@ -1,0 +1,84 @@
+{
+  "name": "@manifesto-ai/translator",
+  "version": "1.1.1",
+  "description": "Manifesto Translator - Natural language to semantic change proposals (SPEC 1.1.1v)",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/translator"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/translator#readme",
+  "keywords": [
+    "manifesto",
+    "translator",
+    "natural-language",
+    "semantic-change",
+    "llm",
+    "compiler-frontend"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "manifesto-translate": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cli": "node ./dist/cli/index.js"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^1.0.0",
+    "@manifesto-ai/world": "^1.0.0",
+    "@manifesto-ai/bridge": "^1.0.0",
+    "@manifesto-ai/host": "^1.0.0",
+    "@manifesto-ai/memory": "^1.0.0",
+    "@anthropic-ai/sdk": "^0.26.0",
+    "openai": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "ink": "^5.0.1",
+    "ink-select-input": "^6.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^18.3.1",
+    "meow": "^13.2.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/world": "workspace:*",
+    "@manifesto-ai/bridge": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/memory": "workspace:*",
+    "@anthropic-ai/sdk": "^0.26.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.12",
+    "openai": "^4.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.16"
+  },
+  "files": [
+    "dist"
+  ]
+}
