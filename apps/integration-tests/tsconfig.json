@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["vitest/globals"],
+    "paths": {
+      "@fixtures/*": ["./src/fixtures/*"],
+      "@helpers/*": ["./src/helpers/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

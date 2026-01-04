@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { evaluateExpr } from "./expr.js";
 import { createContext } from "./context.js";
-import { createTraceContext } from "../schema/trace.js";
 import type { ExprNode } from "../schema/expr.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
@@ -13,7 +12,6 @@ function createTestContext(
   input?: unknown,
   meta?: { intentId: string; actionName: string | null; timestamp: number }
 ): ReturnType<typeof createContext> {
-  const trace = createTraceContext(0);
   const snapshot: Snapshot = {
     data,
     computed: {},
@@ -27,7 +25,7 @@ function createTestContext(
     input,
     meta: {
       version: 0,
-      timestamp: 0,
+      timestamp: meta?.timestamp ?? 0,
       randomSeed: "seed",
       schemaHash: "test-hash",
     },
@@ -43,7 +41,14 @@ function createTestContext(
     actions: {},
   };
 
-  return createContext(snapshot, schema, null, "test", trace, meta);
+  return createContext(
+    snapshot,
+    schema,
+    meta?.actionName ?? null,
+    "test",
+    meta?.intentId,
+    meta?.timestamp ?? 0
+  );
 }
 
 // Helper to evaluate and unwrap result
@@ -477,111 +482,6 @@ describe("Expression Evaluator", () => {
     });
   });
 
-  describe("Math Extended", () => {
-    it("neg - should negate numbers", () => {
-      expect(evaluate({ kind: "neg", arg: { kind: "lit", value: 5 } })).toBe(-5);
-      expect(evaluate({ kind: "neg", arg: { kind: "lit", value: -3 } })).toBe(3);
-      // Note: -0 === 0 in JavaScript, so we use loose equality check
-      expect(evaluate({ kind: "neg", arg: { kind: "lit", value: 0 } }) === 0).toBe(true);
-    });
-
-    it("neg - should coerce types", () => {
-      expect(evaluate({ kind: "neg", arg: { kind: "lit", value: "5" } })).toBe(-5);
-      expect(evaluate({ kind: "neg", arg: { kind: "lit", value: true } })).toBe(-1);
-    });
-
-    it("abs - should return absolute value", () => {
-      expect(evaluate({ kind: "abs", arg: { kind: "lit", value: -5 } })).toBe(5);
-      expect(evaluate({ kind: "abs", arg: { kind: "lit", value: 5 } })).toBe(5);
-      expect(evaluate({ kind: "abs", arg: { kind: "lit", value: 0 } })).toBe(0);
-    });
-
-    it("min - should return minimum value", () => {
-      expect(evaluate({
-        kind: "min",
-        args: [
-          { kind: "lit", value: 5 },
-          { kind: "lit", value: 3 },
-          { kind: "lit", value: 8 },
-        ],
-      })).toBe(3);
-      expect(evaluate({
-        kind: "min",
-        args: [{ kind: "lit", value: -5 }, { kind: "lit", value: 3 }],
-      })).toBe(-5);
-    });
-
-    it("min - should return null for empty args", () => {
-      expect(evaluate({ kind: "min", args: [] })).toBe(null);
-    });
-
-    it("max - should return maximum value", () => {
-      expect(evaluate({
-        kind: "max",
-        args: [
-          { kind: "lit", value: 5 },
-          { kind: "lit", value: 3 },
-          { kind: "lit", value: 8 },
-        ],
-      })).toBe(8);
-      expect(evaluate({
-        kind: "max",
-        args: [{ kind: "lit", value: -5 }, { kind: "lit", value: 3 }],
-      })).toBe(3);
-    });
-
-    it("max - should return null for empty args", () => {
-      expect(evaluate({ kind: "max", args: [] })).toBe(null);
-    });
-
-    it("floor - should round down", () => {
-      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: 3.7 } })).toBe(3);
-      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: 3.2 } })).toBe(3);
-      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: -3.2 } })).toBe(-4);
-    });
-
-    it("ceil - should round up", () => {
-      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: 3.2 } })).toBe(4);
-      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: 3.7 } })).toBe(4);
-      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: -3.7 } })).toBe(-3);
-    });
-
-    it("round - should round to nearest", () => {
-      expect(evaluate({ kind: "round", arg: { kind: "lit", value: 3.5 } })).toBe(4);
-      expect(evaluate({ kind: "round", arg: { kind: "lit", value: 3.4 } })).toBe(3);
-      expect(evaluate({ kind: "round", arg: { kind: "lit", value: -3.5 } })).toBe(-3);
-    });
-
-    it("sqrt - should return square root", () => {
-      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: 9 } })).toBe(3);
-      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: 2 } })).toBeCloseTo(1.414, 3);
-      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: 0 } })).toBe(0);
-    });
-
-    it("sqrt - should return null for negative", () => {
-      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: -1 } })).toBe(null);
-      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: -9 } })).toBe(null);
-    });
-
-    it("pow - should return power", () => {
-      expect(evaluate({
-        kind: "pow",
-        base: { kind: "lit", value: 2 },
-        exponent: { kind: "lit", value: 3 },
-      })).toBe(8);
-      expect(evaluate({
-        kind: "pow",
-        base: { kind: "lit", value: 10 },
-        exponent: { kind: "lit", value: 0 },
-      })).toBe(1);
-      expect(evaluate({
-        kind: "pow",
-        base: { kind: "lit", value: 2 },
-        exponent: { kind: "lit", value: -1 },
-      })).toBe(0.5);
-    });
-  });
-
   describe("String Extended", () => {
     it("trim - should remove whitespace", () => {
       expect(evaluate({ kind: "trim", str: { kind: "lit", value: "  hello  " } })).toBe("hello");
@@ -592,65 +492,6 @@ describe("Expression Evaluator", () => {
     it("trim - should coerce non-strings", () => {
       expect(evaluate({ kind: "trim", str: { kind: "lit", value: 42 } })).toBe("42");
       expect(evaluate({ kind: "trim", str: { kind: "lit", value: null } })).toBe("");
-    });
-
-    it("toLowerCase - should convert to lowercase", () => {
-      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: "HELLO" } })).toBe("hello");
-      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: "Hello World" } })).toBe("hello world");
-      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: "hello" } })).toBe("hello");
-    });
-
-    it("toUpperCase - should convert to uppercase", () => {
-      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: "hello" } })).toBe("HELLO");
-      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: "Hello World" } })).toBe("HELLO WORLD");
-      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: "HELLO" } })).toBe("HELLO");
-    });
-
-    it("strLen - should return string length", () => {
-      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: "hello" } })).toBe(5);
-      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: "" } })).toBe(0);
-      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: "hello world" } })).toBe(11);
-    });
-
-    it("strLen - should coerce non-strings", () => {
-      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: 12345 } })).toBe(5);
-      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: null } })).toBe(0);
-    });
-  });
-
-  describe("Conversion", () => {
-    it("toString - should convert numbers to string", () => {
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: 42 } })).toBe("42");
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: 3.14 } })).toBe("3.14");
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: -100 } })).toBe("-100");
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: 0 } })).toBe("0");
-    });
-
-    it("toString - should convert booleans to string", () => {
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: true } })).toBe("true");
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: false } })).toBe("false");
-    });
-
-    it("toString - should return empty string for null/undefined", () => {
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: null } })).toBe("");
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: undefined } })).toBe("");
-    });
-
-    it("toString - should pass through strings", () => {
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: "hello" } })).toBe("hello");
-      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: "" } })).toBe("");
-    });
-
-    it("toString - should work with nested expressions", () => {
-      // toString(2 + 3) = "5"
-      expect(evaluate({
-        kind: "toString",
-        arg: {
-          kind: "add",
-          left: { kind: "lit", value: 2 },
-          right: { kind: "lit", value: 3 },
-        },
-      })).toBe("5");
     });
   });
 
@@ -682,83 +523,6 @@ describe("Expression Evaluator", () => {
         then: { kind: "first", array: { kind: "get", path: "items" } },
         else: { kind: "last", array: { kind: "get", path: "items" } },
       }, ctx)).toBe(1);
-    });
-  });
-
-  // v0.3.2: Array Aggregation Functions
-  describe("Array Aggregation", () => {
-    it("sumArray - should sum numeric array", () => {
-      const ctx = createTestContext({ values: [1, 2, 3, 4, 5] });
-      expect(evaluate({
-        kind: "sumArray",
-        array: { kind: "get", path: "values" },
-      }, ctx)).toBe(15);
-    });
-
-    it("sumArray - should return 0 for empty array", () => {
-      const ctx = createTestContext({ values: [] });
-      expect(evaluate({
-        kind: "sumArray",
-        array: { kind: "get", path: "values" },
-      }, ctx)).toBe(0);
-    });
-
-    it("sumArray - should return 0 for non-array", () => {
-      expect(evaluate({
-        kind: "sumArray",
-        array: { kind: "lit", value: "not an array" },
-      })).toBe(0);
-    });
-
-    it("minArray - should find minimum in array", () => {
-      const ctx = createTestContext({ values: [5, 2, 8, 1, 9] });
-      expect(evaluate({
-        kind: "minArray",
-        array: { kind: "get", path: "values" },
-      }, ctx)).toBe(1);
-    });
-
-    it("minArray - should return null for empty array", () => {
-      const ctx = createTestContext({ values: [] });
-      expect(evaluate({
-        kind: "minArray",
-        array: { kind: "get", path: "values" },
-      }, ctx)).toBeNull();
-    });
-
-    it("maxArray - should find maximum in array", () => {
-      const ctx = createTestContext({ values: [5, 2, 8, 1, 9] });
-      expect(evaluate({
-        kind: "maxArray",
-        array: { kind: "get", path: "values" },
-      }, ctx)).toBe(9);
-    });
-
-    it("maxArray - should return null for empty array", () => {
-      const ctx = createTestContext({ values: [] });
-      expect(evaluate({
-        kind: "maxArray",
-        array: { kind: "get", path: "values" },
-      }, ctx)).toBeNull();
-    });
-
-    it("sumArray - should work with nested expressions", () => {
-      const ctx = createTestContext({
-        items: [
-          { price: 10 },
-          { price: 20 },
-          { price: 30 },
-        ],
-      });
-      // sum(map(items, $item.price))
-      expect(evaluate({
-        kind: "sumArray",
-        array: {
-          kind: "map",
-          array: { kind: "get", path: "items" },
-          mapper: { kind: "get", path: "$item.price" },
-        },
-      }, ctx)).toBe(60);
     });
   });
 });

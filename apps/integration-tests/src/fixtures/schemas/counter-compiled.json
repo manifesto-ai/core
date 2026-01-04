@@ -1,0 +1,248 @@
+{
+  "id": "mel:counter",
+  "version": "1.0.0",
+  "types": {},
+  "state": {
+    "fields": {
+      "count": {
+        "type": "number",
+        "required": true,
+        "default": 0
+      },
+      "lastIntent": {
+        "type": "string",
+        "required": true,
+        "default": null
+      }
+    }
+  },
+  "computed": {
+    "fields": {
+      "computed.doubled": {
+        "deps": [
+          "count"
+        ],
+        "expr": {
+          "kind": "mul",
+          "left": {
+            "kind": "get",
+            "path": "count"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 2
+          }
+        }
+      },
+      "computed.isPositive": {
+        "deps": [
+          "count"
+        ],
+        "expr": {
+          "kind": "gt",
+          "left": {
+            "kind": "get",
+            "path": "count"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      },
+      "computed.isNegative": {
+        "deps": [
+          "count"
+        ],
+        "expr": {
+          "kind": "lt",
+          "left": {
+            "kind": "get",
+            "path": "count"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "increment": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "neq",
+          "left": {
+            "kind": "get",
+            "path": "lastIntent"
+          },
+          "right": {
+            "kind": "get",
+            "path": "meta.intentId"
+          }
+        },
+        "then": {
+          "kind": "seq",
+          "steps": [
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "lastIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "lastIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "count",
+              "value": {
+                "kind": "add",
+                "left": {
+                  "kind": "get",
+                  "path": "count"
+                },
+                "right": {
+                  "kind": "lit",
+                  "value": 1
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "decrement": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "get",
+          "path": "computed.isPositive"
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "count",
+          "value": {
+            "kind": "sub",
+            "left": {
+              "kind": "get",
+              "path": "count"
+            },
+            "right": {
+              "kind": "lit",
+              "value": 1
+            }
+          }
+        }
+      }
+    },
+    "reset": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "gte",
+          "left": {
+            "kind": "get",
+            "path": "input.value"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 0
+          }
+        },
+        "then": {
+          "kind": "seq",
+          "steps": [
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "count",
+              "value": {
+                "kind": "get",
+                "path": "input.value"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "lastIntent",
+              "value": {
+                "kind": "lit",
+                "value": null
+              }
+            }
+          ]
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "value": {
+            "type": "number",
+            "required": true
+          }
+        }
+      }
+    },
+    "add": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "gte",
+          "left": {
+            "kind": "get",
+            "path": "input.amount"
+          },
+          "right": {
+            "kind": "lit",
+            "value": 0
+          }
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "count",
+          "value": {
+            "kind": "add",
+            "left": {
+              "kind": "get",
+              "path": "count"
+            },
+            "right": {
+              "kind": "get",
+              "path": "input.amount"
+            }
+          }
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "amount": {
+            "type": "number",
+            "required": true
+          }
+        }
+      }
+    }
+  },
+  "meta": {
+    "name": "Counter"
+  },
+  "hash": "ab63714e352f36cab24e44ddc3d6e11322701d42d55922e67f5d772ef932a40e"
+}

@@ -1,0 +1,34 @@
+{
+  "name": "@manifesto-ai/integration-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:l1": "vitest run src/L1-compiler/",
+    "test:l2": "vitest run src/L2-lowering/",
+    "test:l3": "vitest run src/L3-core-host/",
+    "test:l4": "vitest run src/L4-world/",
+    "test:l5": "vitest run src/L5-bridge/",
+    "test:l6": "vitest run src/L6-e2e/",
+    "test:llm": "vitest run src/L6-e2e/llm/",
+    "test:no-llm": "vitest run --exclude src/L6-e2e/llm/"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/world": "workspace:*",
+    "@manifesto-ai/bridge": "workspace:*",
+    "@manifesto-ai/compiler": "workspace:*",
+    "@manifesto-ai/builder": "workspace:*",
+    "@manifesto-ai/effect-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.16",
+    "@vitest/coverage-v8": "^4.0.16",
+    "typescript": "^5.7.2"
+  }
+}

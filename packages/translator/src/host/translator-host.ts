@@ -220,7 +220,8 @@ export class TranslatorHost {
 
     // Create snapshot with data and schema hash
     const schemaHash = this.schema.hash ?? "translator-1.1.1v";
-    this.snapshot = createSnapshot(initialData, schemaHash);
+    const hostContext = { now: Date.now(), randomSeed: "translator-init", durationMs: 0 };
+    this.snapshot = createSnapshot(initialData, schemaHash, hostContext);
   }
 
   /**
@@ -259,7 +260,8 @@ export class TranslatorHost {
    */
   private applyPatches(patches: Patch[]): void {
     if (patches.length > 0) {
-      this.snapshot = apply(this.schema, this.snapshot, patches);
+      const hostContext = { now: Date.now(), randomSeed: "translator-apply", durationMs: 0 };
+      this.snapshot = apply(this.schema, this.snapshot, patches, hostContext);
     }
     this.notifyListeners();
   }

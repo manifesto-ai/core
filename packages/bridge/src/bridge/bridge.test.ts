@@ -553,7 +553,7 @@ describe("Bridge Action Catalog Integration", () => {
         currentAction: null,
       },
       input: null,
-      meta: { version: 1, timestamp: Date.now(), schemaHash: "test-schema-hash" },
+      meta: { version: 1, timestamp: Date.now(), randomSeed: "test-seed", schemaHash: "test-schema-hash" },
     };
     mockWorld._setGenesis("genesis-world", richSnapshot);
 

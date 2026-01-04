@@ -47,7 +47,7 @@ export function evaluateComputed(
     if (!spec) continue;
 
     // Create context with current state of computed values
-    const ctx = createContext(tempSnapshot, schema, null, path, trace);
+    const ctx = createContext(tempSnapshot, schema, null, path, undefined, trace);
 
     // Evaluate the expression
     const result = evaluateExpr(spec.expr, ctx);
@@ -89,6 +89,6 @@ export function evaluateSingleComputed(
     ));
   }
 
-  const ctx = createContext(snapshot, schema, null, path, trace);
+  const ctx = createContext(snapshot, schema, null, path, undefined, trace);
   return evaluateExpr(spec.expr, ctx);
 }

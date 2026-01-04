@@ -118,7 +118,8 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
         "INTERNAL_ERROR",
         `Unknown expression kind: ${(expr as ExprNode).kind}`,
         ctx.currentAction ?? "",
-        ctx.nodePath
+        ctx.nodePath,
+        ctx.trace.timestamp
       ));
   }
 }
@@ -225,6 +226,10 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
 
     if (metaPath === "intentId") {
       return ok(ctx.intentId);
+    }
+
+    if (metaPath === "actionName") {
+      return ok(ctx.currentAction);
     }
 
     return ok(getByPath(ctx.snapshot.meta, metaPath));

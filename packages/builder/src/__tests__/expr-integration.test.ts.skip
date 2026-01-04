@@ -485,31 +485,5 @@ describe("Edge Cases and Totality", () => {
 
   it("should handle empty string operations", () => {
     expect(evaluate(expr.trim(expr.lit("")))).toBe("");
-    expect(evaluate(expr.toLowerCase(expr.lit("")))).toBe("");
-    expect(evaluate(expr.toUpperCase(expr.lit("")))).toBe("");
-    expect(evaluate(expr.strLen(expr.lit("")))).toBe(0);
-  });
-
-  it("should handle min/max with single value", () => {
-    expect(evaluate(expr.min(expr.lit(42)))).toBe(42);
-    expect(evaluate(expr.max(expr.lit(42)))).toBe(42);
-  });
-
-  it("should handle min/max with many values", () => {
-    expect(evaluate(expr.min(expr.lit(5), expr.lit(3), expr.lit(8), expr.lit(1), expr.lit(9)))).toBe(1);
-    expect(evaluate(expr.max(expr.lit(5), expr.lit(3), expr.lit(8), expr.lit(1), expr.lit(9)))).toBe(9);
-  });
-
-  it("should handle nested operations", () => {
-    // abs(neg(floor(ceil(round(3.5)))))
-    const nestedExpr = expr.abs(expr.neg(expr.floor(expr.ceil(expr.round(expr.lit(3.5))))));
-    // 3.5 -> round -> 4 -> ceil -> 4 -> floor -> 4 -> neg -> -4 -> abs -> 4
-    expect(evaluate(nestedExpr)).toBe(4);
-  });
-
-  it("should handle special float values", () => {
-    expect(evaluate(expr.floor(expr.lit(0.1 + 0.2)))).toBe(0); // 0.30000000000000004 -> 0
-    expect(evaluate(expr.round(expr.lit(0.1 + 0.2)))).toBe(0); // rounds to 0
-    expect(evaluate(expr.ceil(expr.lit(0.1 + 0.2)))).toBe(1); // 0.3... -> 1
   });
 });

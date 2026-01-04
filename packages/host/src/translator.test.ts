@@ -15,12 +15,13 @@ import {
   hasAmbiguity,
   type TranslatorOutput,
 } from "./translator.js";
+import { createInitialHostContext } from "./context.js";
 
 // Test fixtures
 const SCHEMA_HASH = "test-hash-123";
 
 function createTestSnapshot(data: unknown) {
-  return createSnapshot(data, SCHEMA_HASH);
+  return createSnapshot(data, SCHEMA_HASH, createInitialHostContext());
 }
 
 function createTestFragment(overrides: Partial<MelPatchFragment> = {}): MelPatchFragment {

@@ -35,12 +35,16 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^1.1.0",
-    "@manifesto-ai/compiler": "^0.4.0"
+    "@manifesto-ai/core": "^1.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@manifesto-ai/compiler": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/compiler": "workspace:*",
     "typescript": "^5.7.3",
     "vitest": "^4.0.16"
   },
