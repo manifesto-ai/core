@@ -1,141 +1,280 @@
 /**
- * MEL Compiler - Public API
- * Compiles MEL source code to Manifesto Schema IR
+ * @manifesto-ai/compiler
+ *
+ * Natural language to Manifesto DomainSchema compiler.
+ *
+ * Implemented as a Manifesto Application (dogfooding per FDR-C001).
+ *
+ * @example Using Anthropic (built-in)
+ * ```typescript
+ * import { createCompiler } from '@manifesto-ai/compiler';
+ *
+ * const compiler = createCompiler({
+ *   anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
+ * });
+ *
+ * compiler.subscribe((state) => {
+ *   if (state.status === 'success') {
+ *     console.log('Compiled schema:', state.result);
+ *   }
+ * });
+ *
+ * await compiler.start({
+ *   text: 'Track user name and email. Allow users to update their profile.',
+ * });
+ * ```
+ *
+ * @example Using custom LLM adapter (e.g., OpenAI)
+ * ```typescript
+ * import { createCompiler, type LLMAdapter } from '@manifesto-ai/compiler';
+ * import OpenAI from 'openai';
+ *
+ * // Implement your own adapter
+ * const openaiAdapter: LLMAdapter = {
+ *   async segment({ text }) {
+ *     const openai = new OpenAI();
+ *     const response = await openai.chat.completions.create({ ... });
+ *     return { ok: true, data: { segments: [...] } };
+ *   },
+ *   async normalize({ segments, schema, context }) {
+ *     // ...
+ *   },
+ *   async propose({ schema, intents, history, context, resolution }) {
+ *     // ...
+ *   },
+ * };
+ *
+ * const compiler = createCompiler({
+ *   llmAdapter: openaiAdapter,  // Inject custom adapter
+ * });
+ * ```
  */
 
-import type { Diagnostic } from "./diagnostics/index.js";
-import { tokenize } from "./lexer/index.js";
-import { parse } from "./parser/index.js";
-import { generate, lowerSystemValues, type DomainSchema } from "./generator/index.js";
-import { analyzeScope, validateSemantics } from "./analyzer/index.js";
+// ════════════════════════════════════════════════════════════════════════════
+// Main API
+// ════════════════════════════════════════════════════════════════════════════
 
-// Re-export lexer
-export { tokenize, type LexResult } from "./lexer/index.js";
-export type { Token, TokenKind } from "./lexer/index.js";
-export type { SourceLocation, Position } from "./lexer/index.js";
+export { createCompiler } from "./api/factory.js";
+export { ManifestoCompiler } from "./api/compiler.js";
 
-// Re-export parser
-export { parse } from "./parser/index.js";
-export type { ProgramNode, ExprNode } from "./parser/index.js";
+// ════════════════════════════════════════════════════════════════════════════
+// Types
+// ════════════════════════════════════════════════════════════════════════════
 
-// Re-export generator
-export { generate, lowerSystemValues } from "./generator/index.js";
 export type {
-  DomainSchema,
-  StateSpec,
-  ComputedSpec,
-  ActionSpec,
-  FieldSpec,
-  CoreExprNode,
-  CoreFlowNode,
-} from "./generator/index.js";
+  // Core types
+  Compiler,
+  CompilerOptions,
+  CompilerSnapshot,
+  CompilerState,
+  CompileInput,
+  CompilerStatus,
+  Unsubscribe,
 
-// Re-export analyzer
-export { analyzeScope, validateSemantics } from "./analyzer/index.js";
-export type { Scope, Symbol, SymbolKind } from "./analyzer/index.js";
+  // Resolution
+  CompilerResolutionPolicy,
+  ResolutionOption,
+  DiscardReason,
 
-// Re-export diagnostics
-export type { Diagnostic, DiagnosticSeverity } from "./diagnostics/index.js";
-export { hasErrors, isError } from "./diagnostics/index.js";
+  // Pipeline types
+  CompilerContext,
+  NormalizedIntent,
+  AttemptRecord,
+  CompilerDiagnostics,
+  CompilerDiagnostic,
 
-// ============ Main Compile API ============
+  // Telemetry (SPEC §15.2)
+  CompilerTelemetry,
 
-/**
- * Compilation result
- */
-export type CompileResult =
-  | { success: true; schema: DomainSchema }
-  | { success: false; errors: Diagnostic[] };
+  // LLM types
+  LLMAdapter,
+  LLMResult,
+  SegmentResult,
+  NormalizeResult,
+  ProposeResult,
+} from "./domain/types.js";
 
-/**
- * Compile options
- */
-export interface CompileOptions {
-  skipSemanticAnalysis?: boolean;
-  lowerSystemValues?: boolean; // Apply system value lowering (default: false)
-}
+// ════════════════════════════════════════════════════════════════════════════
+// Domain (for advanced usage)
+// ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Compile MEL source code to Manifesto Schema IR
- */
-export function compile(source: string, options: CompileOptions = {}): CompileResult {
-  // Tokenize
-  const { tokens, diagnostics: lexDiagnostics } = tokenize(source);
+export { CompilerDomain, INITIAL_STATE } from "./domain/domain.js";
+export { CompilerStateSchema } from "./domain/schema.js";
 
-  if (lexDiagnostics.some(d => d.severity === "error")) {
-    return {
-      success: false,
-      errors: lexDiagnostics.filter(d => d.severity === "error"),
-    };
-  }
+// ════════════════════════════════════════════════════════════════════════════
+// LLM Adapters
+// ════════════════════════════════════════════════════════════════════════════
 
-  // Parse
-  const { program, diagnostics: parseDiagnostics } = parse(tokens);
+export {
+  createAnthropicAdapter,
+  AnthropicAdapter,
+  type AnthropicAdapterOptions,
+} from "./effects/llm/anthropic-adapter.js";
 
-  if (parseDiagnostics.some(d => d.severity === "error") || !program) {
-    return {
-      success: false,
-      errors: parseDiagnostics.filter(d => d.severity === "error"),
-    };
-  }
+export {
+  createOpenAIAdapter,
+  OpenAIAdapter,
+  type OpenAIAdapterOptions,
+} from "./effects/llm/openai-adapter.js";
 
-  // Semantic Analysis (optional)
-  if (!options.skipSemanticAnalysis) {
-    const { diagnostics: scopeDiagnostics } = analyzeScope(program);
-    const { diagnostics: validationDiagnostics } = validateSemantics(program);
+export { DEFAULT_LLM_CONFIG, type LLMAdapterConfig } from "./effects/llm/adapter.js";
 
-    const allSemanticErrors = [...scopeDiagnostics, ...validationDiagnostics]
-      .filter(d => d.severity === "error");
+// ════════════════════════════════════════════════════════════════════════════
+// Effect Handlers (for custom integration)
+// ════════════════════════════════════════════════════════════════════════════
 
-    if (allSemanticErrors.length > 0) {
-      return {
-        success: false,
-        errors: allSemanticErrors,
-      };
-    }
-  }
+export {
+  createLLMEffectHandlers,
+  createSegmentHandler,
+  createNormalizeHandler,
+  createProposeHandler,
+  type LLMEffectHandler,
+  type EffectHandlerResult,
+} from "./effects/llm/handlers.js";
 
-  // Generate IR
-  const { schema: rawSchema, diagnostics: genDiagnostics } = generate(program);
+export {
+  createBuilderValidateHandler,
+  type BuilderValidateHandler,
+  type ValidateResult,
+} from "./effects/builder/validate-handler.js";
 
-  if (genDiagnostics.some(d => d.severity === "error") || !rawSchema) {
-    return {
-      success: false,
-      errors: genDiagnostics.filter(d => d.severity === "error"),
-    };
-  }
+// ════════════════════════════════════════════════════════════════════════════
+// Prompt Utilities (for customization)
+// ════════════════════════════════════════════════════════════════════════════
 
-  // Apply system value lowering if requested
-  const schema = options.lowerSystemValues
-    ? lowerSystemValues(rawSchema)
-    : rawSchema;
+export {
+  createSegmentPrompt,
+  createNormalizePrompt,
+  createProposePrompt,
+} from "./effects/llm/prompts/index.js";
 
-  return {
-    success: true,
-    schema,
-  };
-}
+// ════════════════════════════════════════════════════════════════════════════
+// Parser Utilities (for testing)
+// ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Parse MEL source code (without IR generation)
- */
-export function parseSource(source: string) {
-  const { tokens, diagnostics: lexDiagnostics } = tokenize(source);
-  const { program, diagnostics: parseDiagnostics } = parse(tokens);
+export {
+  parseJSONResponse,
+  extractResolutionRequest,
+  validateSegmentsResponse,
+  validateIntentsResponse,
+  validateDraftResponse,
+  type ParseResult,
+  type ResolutionRequest,
+} from "./effects/llm/parser.js";
 
-  return {
-    program,
-    diagnostics: [...lexDiagnostics, ...parseDiagnostics],
-  };
-}
+// ════════════════════════════════════════════════════════════════════════════
+// MEL Renderer (PatchFragment → MEL text)
+// ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Check MEL source code for errors without generating IR
- */
-export function check(source: string): Diagnostic[] {
-  const result = compile(source);
-  if (!result.success) {
-    return result.errors;
-  }
-  return [];
-}
+export {
+  // Type expression renderer
+  renderTypeExpr,
+  renderTypeField,
+  renderValue,
+
+  // Expression node renderer
+  renderExprNode,
+
+  // Patch operation renderer
+  renderPatchOp,
+  extractTypeName,
+
+  // Fragment renderer
+  renderFragment,
+  renderFragments,
+  renderFragmentsByKind,
+  renderAsDomain,
+
+  // Types
+  type TypeExpr,
+  type TypeField,
+  type ExprNode,
+  type PatchOp,
+  type AddTypeOp,
+  type AddFieldOp,
+  type SetFieldTypeOp,
+  type SetDefaultValueOp,
+  type AddConstraintOp,
+  type AddComputedOp,
+  type AddActionAvailableOp,
+  type RenderOptions,
+  type PatchFragment,
+  type FragmentRenderOptions,
+} from "./renderer/index.js";
+
+// ════════════════════════════════════════════════════════════════════════════
+// Lowering (MEL IR → Core IR)
+// @see SPEC v0.4.0 §17
+// ════════════════════════════════════════════════════════════════════════════
+
+export {
+  // Expression lowering
+  lowerExprNode,
+
+  // Patch lowering
+  lowerPatchFragments,
+
+  // Context types
+  DEFAULT_SCHEMA_CONTEXT,
+  DEFAULT_ACTION_CONTEXT,
+  EFFECT_ARGS_CONTEXT,
+  DEFAULT_PATCH_CONTEXT,
+
+  // Error types
+  LoweringError,
+  invalidKindForContext,
+  unknownCallFn,
+  invalidSysPath,
+  unsupportedBase,
+  invalidShape,
+  unknownNodeKind,
+
+  // Types
+  type AllowedSysPrefix,
+  type ExprLoweringContext,
+  type PatchLoweringContext,
+  type LoweringErrorCode,
+  type MelPrimitive,
+  type MelPathSegment,
+  type MelPathNode,
+  type MelSystemPath,
+  type MelObjField,
+  type MelExprNode,
+  type MelTypeExpr,
+  type MelTypeField,
+  type MelPatchOp,
+  type MelPatchFragment,
+  type LoweredTypeExpr,
+  type LoweredTypeField,
+  type LoweredPatchOp,
+  type ConditionalPatchOp,
+} from "./lowering/index.js";
+
+// ════════════════════════════════════════════════════════════════════════════
+// Evaluation (Core IR → Concrete Values)
+// @see SPEC v0.4.0 §18
+// ════════════════════════════════════════════════════════════════════════════
+
+export {
+  // Expression evaluation
+  evaluateExpr,
+
+  // Patch evaluation
+  evaluateConditionalPatchOps,
+  evaluatePatches,
+  evaluatePatchExpressions,
+  evaluateCondition,
+  classifyCondition,
+
+  // Context utilities
+  createEvaluationContext,
+  applyPatchToWorkingSnapshot,
+
+  // Types
+  type EvaluationSnapshot,
+  type EvaluationMeta,
+  type EvaluationContext,
+  type EvaluatedPatchOp,
+  type EvaluatedPatch,
+  type PatchEvaluationResult,
+} from "./evaluation/index.js";

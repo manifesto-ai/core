@@ -1,7 +1,5 @@
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
-import type { TraceContext } from "../schema/trace.js";
-import { createTraceContext } from "../schema/trace.js";
 
 /**
  * Evaluation context for expressions and flows
@@ -28,18 +26,14 @@ export type EvalContext = {
   readonly nodePath: string;
 
   /**
-   * Trace context (deterministic IDs + timestamp)
+   * Intent ID for the current intent (for re-entry safety)
    */
-  readonly trace: TraceContext;
+  readonly intentId?: string;
 
   /**
-   * Computation metadata (derived from intent/host context)
+   * UUID generator counter (for deterministic UUID generation)
    */
-  readonly meta: {
-    readonly intentId: string;
-    readonly actionName: string | null;
-    readonly timestamp: number;
-  };
+  uuidCounter?: number;
 
   /**
    * Collection context variables (for filter, map, find, etc.)
@@ -57,22 +51,15 @@ export function createContext(
   schema: DomainSchema,
   currentAction?: string | null,
   nodePath?: string,
-  trace?: TraceContext,
-  meta?: { intentId: string; actionName: string | null; timestamp: number }
+  intentId?: string
 ): EvalContext {
-  const resolvedTrace = trace ?? createTraceContext(snapshot.meta.timestamp);
-  const resolvedMeta = meta ?? {
-    intentId: "",
-    actionName: currentAction ?? null,
-    timestamp: resolvedTrace.timestamp,
-  };
   return {
     snapshot,
     schema,
     currentAction: currentAction ?? null,
     nodePath: nodePath ?? "",
-    trace: resolvedTrace,
-    meta: resolvedMeta,
+    intentId,
+    uuidCounter: 0,
   };
 }
 

@@ -1,6 +1,6 @@
-# Manifesto Host Contract Specification v1.0
+# Manifesto Host Contract Specification v1.1
 
-> **Status:** Draft
+> **Status:** Stable
 > **Scope:** Normative
 > **Authors:** eggplantiny
 > **Applies to:** All Manifesto Hosts
@@ -24,8 +24,9 @@
 12. [Schema Validation](#12-schema-validation)
 13. [Normative Host Loop](#13-normative-host-loop)
 14. [Host Policy Freedom (MAY)](#14-host-policy-freedom-may)
-15. [Explicit Non-Goals](#15-explicit-non-goals)
-16. [Compliance Statement](#16-compliance-statement)
+15. [Translator Integration (v1.1)](#15-translator-integration-v11)
+16. [Explicit Non-Goals](#16-explicit-non-goals)
+17. [Compliance Statement](#17-compliance-statement)
 
 ---
 
@@ -811,7 +812,128 @@ These are **policy decisions**, not part of the Contract.
 
 ---
 
-## 15. Explicit Non-Goals
+## 15. Translator Integration (v1.1)
+
+> **Added in v1.1**
+
+### 15.1 Overview
+
+Host v1.1 adds integration with `@manifesto-ai/translator` for processing natural language inputs into schema changes. This enables AI agents to propose state modifications using natural language.
+
+The integration follows a **two-step processing model**:
+
+1. **Lowering**: MEL IR → Core IR (via `@manifesto-ai/compiler`)
+2. **Evaluation**: Core IR → Concrete `Patch[]`
+
+### 15.2 processTranslatorOutput
+
+```typescript
+function processTranslatorOutput(
+  output: TranslatorOutput,
+  snapshot: Snapshot,
+  options: ProcessTranslatorOptions
+): ProcessTranslatorResult;
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `output` | `TranslatorOutput` | Translator output with MEL IR fragments |
+| `snapshot` | `Snapshot` | Current snapshot for expression evaluation |
+| `options.intentId` | `string` | **REQUIRED.** Intent ID for the compute loop |
+
+**Returns:**
+
+```typescript
+interface ProcessTranslatorResult {
+  /** Concrete patches ready for core.apply() */
+  patches: ConcretePatch[];
+
+  /** Lowered conditional operations (for debugging) */
+  lowered: ConditionalPatchOp[];
+
+  /** Evaluated patches (for debugging) */
+  evaluated: EvaluatedPatch[];
+
+  /** Intent to use in compute loop (same intentId) */
+  intent: Intent;
+
+  /** Patches skipped due to false conditions */
+  skipped: Array<{ fragmentId: string; reason: string }>;
+}
+```
+
+### 15.3 dispatchWithTranslator
+
+Convenience method on `ManifestoHost` for end-to-end translator processing:
+
+```typescript
+class ManifestoHost {
+  async dispatchWithTranslator(
+    translatorOutput: TranslatorOutput,
+    options?: DispatchWithTranslatorOptions
+  ): Promise<DispatchResult>;
+}
+```
+
+This method:
+1. Calls `processTranslatorOutput()` to lower and evaluate
+2. Applies concrete patches via `core.apply()`
+3. Runs the compute loop with the same `intentId`
+4. Returns the final `DispatchResult`
+
+### 15.4 Error Codes
+
+| Code | Description |
+|------|-------------|
+| `TRANSLATOR_LOWERING_ERROR` | MEL IR lowering failed (invalid expressions, unsupported constructs) |
+| `TRANSLATOR_AMBIGUOUS` | Translator output contains unresolved ambiguity |
+
+### 15.5 Compliance Requirements
+
+A Host implementing Translator integration **MUST**:
+
+| Requirement | Level | Description |
+|-------------|-------|-------------|
+| Use Compiler for lowering | MUST | Lowering via `@manifesto-ai/compiler`, not custom logic |
+| Concrete patches only | MUST | `core.apply()` receives only concrete `Patch[]`, no expressions |
+| Single intentId | MUST | Same `intentId` throughout evaluation AND compute loop |
+| Exclude system paths | MUST | Translator forbidden from `$system.*` paths |
+| Use snapshot.data | MUST | Evaluation uses `snapshot.data`, not `snapshot.state` |
+
+### 15.6 Example Usage
+
+```typescript
+import { ManifestoHost, createTranslatorIntentId } from "@manifesto-ai/host";
+
+const host = new ManifestoHost({ schema, initialSnapshot });
+
+// Option 1: Using dispatchWithTranslator (recommended)
+const result = await host.dispatchWithTranslator(translatorOutput);
+
+// Option 2: Manual processing
+const intentId = createTranslatorIntentId();
+const processed = processTranslatorOutput(translatorOutput, snapshot, { intentId });
+
+// Apply patches
+let current = core.apply(schema, snapshot, processed.patches);
+
+// Run compute loop with SAME intentId
+const computeResult = await host.dispatch(processed.intent);
+```
+
+### 15.7 Security Considerations
+
+Translator output comes from LLM processing and is **untrusted**:
+
+- Host **SHOULD** validate patches before applying
+- Host **SHOULD** enforce authorization via World Protocol
+- Host **MUST NOT** allow `$system.*` path modifications from Translator
+
+---
+
+## 16. Explicit Non-Goals
+
+> **Note:** Section numbers shifted in v1.1 due to addition of §15.
 
 The Host Contract intentionally does **NOT** specify:
 
@@ -830,9 +952,9 @@ These concerns are **out of scope** for this specification.
 
 ---
 
-## 16. Compliance Statement
+## 17. Compliance Statement
 
-### 16.1 Compliance Requirements
+### 17.1 Compliance Requirements
 
 A system claiming to be a **Manifesto Host** MUST:
 
@@ -842,7 +964,7 @@ A system claiming to be a **Manifesto Host** MUST:
 4. Ensure Flows are re-entrant under repeated `compute()` calls.
 5. Provide stable `intentId` across re-invocations.
 
-### 16.2 Compliance Verification
+### 17.2 Compliance Verification
 
 Compliance can be verified by:
 
@@ -850,7 +972,7 @@ Compliance can be verified by:
 2. **Dynamic testing**: Run standard test scenarios.
 3. **Replay testing**: Verify deterministic replay of recorded intents.
 
-### 16.3 Non-Compliance Consequences
+### 17.3 Non-Compliance Consequences
 
 Failure to comply with this Contract:
 
@@ -912,8 +1034,9 @@ Failure to comply with this Contract:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0.0 | TBD | Initial release |
+| 1.1.0 | 2025-01-04 | Added §15 Translator Integration |
+| 1.0.0 | 2024-12-15 | Initial release |
 
 ---
 
-*End of Host Contract Specification v1.0*
+*End of Host Contract Specification v1.1*

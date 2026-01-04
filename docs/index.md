@@ -277,7 +277,7 @@ See [Manifesto vs. Others](/what-is-manifesto/manifesto-vs-others) for detailed 
 
 ## Architecture at a Glance
 
-Manifesto is structured as **six distinct layers**, each with a single responsibility:
+Manifesto is structured as **eight distinct layers**, each with a single responsibility:
 
 ```mermaid
 graph TD
@@ -287,12 +287,16 @@ graph TD
     Host["Host<br/>Execute effects, apply patches"]
     Core["Core<br/>Pure computation"]
     Builder["Builder<br/>Define domains (DSL)"]
+    Translator["Translator<br/>Natural language → semantic changes"]
+    Memory["Memory<br/>Context retrieval, verification"]
 
     React --> Bridge
     Bridge --> World
     World --> Host
     Host --> Core
     Builder -.generates.-> Core
+    Translator --> Host
+    Memory --> Translator
 
     style Core fill:#e1f5ff
     style Host fill:#fff4e1
@@ -300,6 +304,8 @@ graph TD
     style Bridge fill:#f0f0f0
     style React fill:#e8f5e9
     style Builder fill:#fff9c4
+    style Translator fill:#e1ffe1
+    style Memory fill:#ffe1e1
 ```
 
 **Key separations:**
@@ -309,6 +315,8 @@ graph TD
 - **World** governs who can do what (authority)
 - **Bridge** connects external events to intents (routing)
 - **Builder** provides type-safe DSL (developer experience)
+- **Translator** transforms natural language to schema changes
+- **Memory** retrieves context with verification
 - **React** (or any UI) presents state (view)
 
 See [Architecture Overview](/architecture/) for complete details.
@@ -354,9 +362,13 @@ Ready to build with Manifesto?
 ### Installation
 
 ```bash
+# Core packages
 npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
 # or
 pnpm add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+
+# For natural language translation
+pnpm add @manifesto-ai/translator @manifesto-ai/memory
 ```
 
 ### Next Steps
@@ -373,6 +385,20 @@ pnpm add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
 - **Core Concepts**: [Snapshot](/core-concepts/snapshot), [Intent](/core-concepts/intent), [Effect](/core-concepts/effect), [Flow](/core-concepts/flow)
 - **Architecture**: [Layers](/architecture/layers), [Data Flow](/architecture/data-flow), [Determinism](/architecture/determinism)
 - **Guides**: [Re-entry Safe Flows](/guides/reentry-safe-flows), [Effect Handlers](/guides/effect-handlers), [Debugging](/guides/debugging)
+
+### Packages
+
+| Package | Description | Docs |
+|---------|-------------|------|
+| `@manifesto-ai/core` | Pure computation engine | [README](/packages/core/) · [SPEC](/packages/core/SPEC) |
+| `@manifesto-ai/host` | Effect execution runtime | [README](/packages/host/) · [SPEC](/packages/host/SPEC) |
+| `@manifesto-ai/world` | World Protocol governance | [README](/packages/world/) · [SPEC](/packages/world/SPEC) |
+| `@manifesto-ai/bridge` | Event sourcing bridge | [README](/packages/bridge/) · [SPEC](/packages/bridge/SPEC) |
+| `@manifesto-ai/builder` | Type-safe DSL | [README](/packages/builder/) · [SPEC](/packages/builder/SPEC) |
+| `@manifesto-ai/compiler` | MEL compiler | [README](/packages/compiler/) · [SPEC](/packages/compiler/SPEC) |
+| `@manifesto-ai/translator` | Natural language translation | [README](/packages/translator/) · [SPEC](/packages/translator/SPEC) |
+| `@manifesto-ai/memory` | Memory retrieval & verification | [README](/packages/memory/) · [SPEC](/packages/memory/SPEC) |
+| `@manifesto-ai/react` | React bindings | [README](/packages/react/) · [SPEC](/packages/react/SPEC) |
 
 ## Who Should Use Manifesto?
 
@@ -407,7 +433,7 @@ See [When to Use Manifesto](/what-is-manifesto/problem#who-should-use-manifesto)
 ## Community
 
 - **GitHub**: [manifesto-ai/core](https://github.com/manifesto-ai/core)
-- **Discord**: [Join our community](https://discord.gg/manifesto)
+- **Discord**: [Join our community](https://discord.gg/manifesto-ai)
 - **Twitter**: [@manifesto_ai](https://x.com/manifesto__ai)
 
 ## Contributing

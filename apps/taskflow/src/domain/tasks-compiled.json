@@ -1,0 +1,2493 @@
+{
+  "id": "mel:tasks",
+  "version": "1.0.0",
+  "types": {
+    "Task": {
+      "name": "Task",
+      "definition": {
+        "kind": "object",
+        "fields": {
+          "id": {
+            "type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "optional": false
+          },
+          "title": {
+            "type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "optional": false
+          },
+          "description": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "primitive",
+                  "type": "string"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          },
+          "status": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "literal",
+                  "value": "todo"
+                },
+                {
+                  "kind": "literal",
+                  "value": "in-progress"
+                },
+                {
+                  "kind": "literal",
+                  "value": "review"
+                },
+                {
+                  "kind": "literal",
+                  "value": "done"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "priority": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "literal",
+                  "value": "low"
+                },
+                {
+                  "kind": "literal",
+                  "value": "medium"
+                },
+                {
+                  "kind": "literal",
+                  "value": "high"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "assignee": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "primitive",
+                  "type": "string"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          },
+          "dueDate": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "primitive",
+                  "type": "string"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          },
+          "tags": {
+            "type": {
+              "kind": "array",
+              "element": {
+                "kind": "primitive",
+                "type": "string"
+              }
+            },
+            "optional": false
+          },
+          "createdAt": {
+            "type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "optional": false
+          },
+          "updatedAt": {
+            "type": {
+              "kind": "primitive",
+              "type": "string"
+            },
+            "optional": false
+          },
+          "deletedAt": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "primitive",
+                  "type": "string"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          }
+        }
+      }
+    },
+    "Filter": {
+      "name": "Filter",
+      "definition": {
+        "kind": "object",
+        "fields": {
+          "status": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "literal",
+                  "value": "all"
+                },
+                {
+                  "kind": "literal",
+                  "value": "todo"
+                },
+                {
+                  "kind": "literal",
+                  "value": "in-progress"
+                },
+                {
+                  "kind": "literal",
+                  "value": "review"
+                },
+                {
+                  "kind": "literal",
+                  "value": "done"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          },
+          "priority": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "literal",
+                  "value": "all"
+                },
+                {
+                  "kind": "literal",
+                  "value": "low"
+                },
+                {
+                  "kind": "literal",
+                  "value": "medium"
+                },
+                {
+                  "kind": "literal",
+                  "value": "high"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          },
+          "assignee": {
+            "type": {
+              "kind": "union",
+              "types": [
+                {
+                  "kind": "primitive",
+                  "type": "string"
+                },
+                {
+                  "kind": "literal",
+                  "value": null
+                }
+              ]
+            },
+            "optional": false
+          }
+        }
+      }
+    }
+  },
+  "state": {
+    "fields": {
+      "tasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": []
+      },
+      "currentFilter": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "status": {
+            "type": {
+              "enum": [
+                "all",
+                "todo",
+                "in-progress",
+                "review",
+                "done",
+                null
+              ]
+            },
+            "required": true
+          },
+          "priority": {
+            "type": {
+              "enum": [
+                "all",
+                "low",
+                "medium",
+                "high",
+                null
+              ]
+            },
+            "required": true
+          },
+          "assignee": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "default": {
+          "status": null,
+          "priority": null,
+          "assignee": null
+        }
+      },
+      "selectedTaskId": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "viewMode": {
+        "type": {
+          "enum": [
+            "todo",
+            "kanban",
+            "table",
+            "trash"
+          ]
+        },
+        "required": true,
+        "default": "kanban"
+      },
+      "isCreating": {
+        "type": "boolean",
+        "required": true,
+        "default": false
+      },
+      "isEditing": {
+        "type": "boolean",
+        "required": true,
+        "default": false
+      },
+      "createIntent": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "updateIntent": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "deleteIntent": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "moveIntent": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "filterStep1": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "filterStep2": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "filterStep3": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "filterStep4": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "filterStep5": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "filterStep6": {
+        "type": "string",
+        "required": true,
+        "default": null
+      },
+      "activeTasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": null
+      },
+      "todoTasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": null
+      },
+      "inProgressTasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": null
+      },
+      "reviewTasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": null
+      },
+      "doneTasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": null
+      },
+      "deletedTasks": {
+        "type": "array",
+        "required": true,
+        "items": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "id": {
+              "type": "string",
+              "required": true
+            },
+            "title": {
+              "type": "string",
+              "required": true
+            },
+            "description": {
+              "type": "string",
+              "required": true
+            },
+            "status": {
+              "type": {
+                "enum": [
+                  "todo",
+                  "in-progress",
+                  "review",
+                  "done"
+                ]
+              },
+              "required": true
+            },
+            "priority": {
+              "type": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "required": true
+            },
+            "assignee": {
+              "type": "string",
+              "required": true
+            },
+            "dueDate": {
+              "type": "string",
+              "required": true
+            },
+            "tags": {
+              "type": "array",
+              "required": true,
+              "items": {
+                "type": "string",
+                "required": true
+              }
+            },
+            "createdAt": {
+              "type": "string",
+              "required": true
+            },
+            "updatedAt": {
+              "type": "string",
+              "required": true
+            },
+            "deletedAt": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "default": null
+      }
+    }
+  },
+  "computed": {
+    "fields": {
+      "computed.totalCount": {
+        "deps": [
+          "tasks"
+        ],
+        "expr": {
+          "kind": "len",
+          "arg": {
+            "kind": "get",
+            "path": "tasks"
+          }
+        }
+      },
+      "computed.todoCount": {
+        "deps": [
+          "todoTasks"
+        ],
+        "expr": {
+          "kind": "if",
+          "cond": {
+            "kind": "not",
+            "arg": {
+              "kind": "isNull",
+              "arg": {
+                "kind": "get",
+                "path": "todoTasks"
+              }
+            }
+          },
+          "then": {
+            "kind": "len",
+            "arg": {
+              "kind": "get",
+              "path": "todoTasks"
+            }
+          },
+          "else": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      },
+      "computed.inProgressCount": {
+        "deps": [
+          "inProgressTasks"
+        ],
+        "expr": {
+          "kind": "if",
+          "cond": {
+            "kind": "not",
+            "arg": {
+              "kind": "isNull",
+              "arg": {
+                "kind": "get",
+                "path": "inProgressTasks"
+              }
+            }
+          },
+          "then": {
+            "kind": "len",
+            "arg": {
+              "kind": "get",
+              "path": "inProgressTasks"
+            }
+          },
+          "else": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      },
+      "computed.reviewCount": {
+        "deps": [
+          "reviewTasks"
+        ],
+        "expr": {
+          "kind": "if",
+          "cond": {
+            "kind": "not",
+            "arg": {
+              "kind": "isNull",
+              "arg": {
+                "kind": "get",
+                "path": "reviewTasks"
+              }
+            }
+          },
+          "then": {
+            "kind": "len",
+            "arg": {
+              "kind": "get",
+              "path": "reviewTasks"
+            }
+          },
+          "else": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      },
+      "computed.doneCount": {
+        "deps": [
+          "doneTasks"
+        ],
+        "expr": {
+          "kind": "if",
+          "cond": {
+            "kind": "not",
+            "arg": {
+              "kind": "isNull",
+              "arg": {
+                "kind": "get",
+                "path": "doneTasks"
+              }
+            }
+          },
+          "then": {
+            "kind": "len",
+            "arg": {
+              "kind": "get",
+              "path": "doneTasks"
+            }
+          },
+          "else": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      },
+      "computed.deletedCount": {
+        "deps": [
+          "deletedTasks"
+        ],
+        "expr": {
+          "kind": "if",
+          "cond": {
+            "kind": "not",
+            "arg": {
+              "kind": "isNull",
+              "arg": {
+                "kind": "get",
+                "path": "deletedTasks"
+              }
+            }
+          },
+          "then": {
+            "kind": "len",
+            "arg": {
+              "kind": "get",
+              "path": "deletedTasks"
+            }
+          },
+          "else": {
+            "kind": "lit",
+            "value": 0
+          }
+        }
+      },
+      "computed.hasSelection": {
+        "deps": [
+          "selectedTaskId"
+        ],
+        "expr": {
+          "kind": "not",
+          "arg": {
+            "kind": "isNull",
+            "arg": {
+              "kind": "get",
+              "path": "selectedTaskId"
+            }
+          }
+        }
+      },
+      "computed.canCreate": {
+        "deps": [
+          "isCreating"
+        ],
+        "expr": {
+          "kind": "not",
+          "arg": {
+            "kind": "get",
+            "path": "isCreating"
+          }
+        }
+      },
+      "computed.canEdit": {
+        "deps": [
+          "computed.hasSelection",
+          "isEditing"
+        ],
+        "expr": {
+          "kind": "and",
+          "args": [
+            {
+              "kind": "get",
+              "path": "computed.hasSelection"
+            },
+            {
+              "kind": "not",
+              "arg": {
+                "kind": "get",
+                "path": "isEditing"
+              }
+            }
+          ]
+        }
+      },
+      "computed.canDelete": {
+        "deps": [
+          "computed.hasSelection"
+        ],
+        "expr": {
+          "kind": "get",
+          "path": "computed.hasSelection"
+        }
+      }
+    }
+  },
+  "actions": {
+    "createTask": {
+      "flow": {
+        "kind": "seq",
+        "steps": [
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "eq",
+              "left": {
+                "kind": "trim",
+                "str": {
+                  "kind": "get",
+                  "path": "input.title"
+                }
+              },
+              "right": {
+                "kind": "lit",
+                "value": ""
+              }
+            },
+            "then": {
+              "kind": "fail",
+              "code": "EMPTY_TITLE",
+              "message": {
+                "kind": "lit",
+                "value": "Task title is required"
+              }
+            }
+          },
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "neq",
+              "left": {
+                "kind": "get",
+                "path": "createIntent"
+              },
+              "right": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "createIntent",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "createIntent",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "tasks",
+                  "value": {
+                    "kind": "concat",
+                    "args": [
+                      {
+                        "kind": "get",
+                        "path": "tasks"
+                      },
+                      {
+                        "kind": "append",
+                        "array": {
+                          "kind": "lit",
+                          "value": []
+                        },
+                        "items": [
+                          {
+                            "kind": "object",
+                            "fields": {
+                              "id": {
+                                "kind": "get",
+                                "path": "$system.uuid"
+                              },
+                              "title": {
+                                "kind": "trim",
+                                "str": {
+                                  "kind": "get",
+                                  "path": "input.title"
+                                }
+                              },
+                              "description": {
+                                "kind": "get",
+                                "path": "input.description"
+                              },
+                              "status": {
+                                "kind": "lit",
+                                "value": "todo"
+                              },
+                              "priority": {
+                                "kind": "get",
+                                "path": "input.priority"
+                              },
+                              "assignee": {
+                                "kind": "lit",
+                                "value": null
+                              },
+                              "dueDate": {
+                                "kind": "get",
+                                "path": "input.dueDate"
+                              },
+                              "tags": {
+                                "kind": "get",
+                                "path": "input.tags"
+                              },
+                              "createdAt": {
+                                "kind": "get",
+                                "path": "$system.timestamp"
+                              },
+                              "updatedAt": {
+                                "kind": "get",
+                                "path": "$system.timestamp"
+                              },
+                              "deletedAt": {
+                                "kind": "lit",
+                                "value": null
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "title": {
+            "type": "string",
+            "required": true
+          },
+          "description": {
+            "type": "string",
+            "required": true
+          },
+          "priority": {
+            "type": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "required": true
+          },
+          "dueDate": {
+            "type": "string",
+            "required": true
+          },
+          "tags": {
+            "type": "array",
+            "required": true
+          }
+        }
+      },
+      "available": {
+        "kind": "get",
+        "path": "computed.canCreate"
+      }
+    },
+    "updateTask": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "neq",
+          "left": {
+            "kind": "get",
+            "path": "updateIntent"
+          },
+          "right": {
+            "kind": "get",
+            "path": "meta.intentId"
+          }
+        },
+        "then": {
+          "kind": "seq",
+          "steps": [
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "updateIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "updateIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "effect",
+              "type": "array.map",
+              "params": {
+                "source": {
+                  "kind": "get",
+                  "path": "tasks"
+                },
+                "select": {
+                  "kind": "if",
+                  "cond": {
+                    "kind": "eq",
+                    "left": {
+                      "kind": "get",
+                      "path": "$item.id"
+                    },
+                    "right": {
+                      "kind": "get",
+                      "path": "input.id"
+                    }
+                  },
+                  "then": {
+                    "kind": "object",
+                    "fields": {
+                      "id": {
+                        "kind": "get",
+                        "path": "$item.id"
+                      },
+                      "title": {
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.title"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.title"
+                          }
+                        ]
+                      },
+                      "description": {
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.description"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.description"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "priority": {
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.priority"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.priority"
+                          }
+                        ]
+                      },
+                      "assignee": {
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.assignee"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.assignee"
+                          }
+                        ]
+                      },
+                      "dueDate": {
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.dueDate"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.dueDate"
+                          }
+                        ]
+                      },
+                      "tags": {
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.tags"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.tags"
+                          }
+                        ]
+                      },
+                      "createdAt": {
+                        "kind": "get",
+                        "path": "$item.createdAt"
+                      },
+                      "updatedAt": {
+                        "kind": "get",
+                        "path": "$system.timestamp"
+                      },
+                      "deletedAt": {
+                        "kind": "get",
+                        "path": "$item.deletedAt"
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "get",
+                    "path": "$item"
+                  }
+                },
+                "into": {
+                  "kind": "lit",
+                  "value": "tasks"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "id": {
+            "type": "string",
+            "required": true
+          },
+          "title": {
+            "type": "string",
+            "required": true
+          },
+          "description": {
+            "type": "string",
+            "required": true
+          },
+          "priority": {
+            "type": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                null
+              ]
+            },
+            "required": true
+          },
+          "dueDate": {
+            "type": "string",
+            "required": true
+          },
+          "assignee": {
+            "type": "string",
+            "required": true
+          },
+          "tags": {
+            "type": "array",
+            "required": true
+          }
+        }
+      }
+    },
+    "deleteTask": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "neq",
+          "left": {
+            "kind": "get",
+            "path": "deleteIntent"
+          },
+          "right": {
+            "kind": "get",
+            "path": "meta.intentId"
+          }
+        },
+        "then": {
+          "kind": "seq",
+          "steps": [
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "deleteIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "deleteIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "effect",
+              "type": "array.map",
+              "params": {
+                "source": {
+                  "kind": "get",
+                  "path": "tasks"
+                },
+                "select": {
+                  "kind": "if",
+                  "cond": {
+                    "kind": "eq",
+                    "left": {
+                      "kind": "get",
+                      "path": "$item.id"
+                    },
+                    "right": {
+                      "kind": "get",
+                      "path": "input.id"
+                    }
+                  },
+                  "then": {
+                    "kind": "object",
+                    "fields": {
+                      "id": {
+                        "kind": "get",
+                        "path": "$item.id"
+                      },
+                      "title": {
+                        "kind": "get",
+                        "path": "$item.title"
+                      },
+                      "description": {
+                        "kind": "get",
+                        "path": "$item.description"
+                      },
+                      "status": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "priority": {
+                        "kind": "get",
+                        "path": "$item.priority"
+                      },
+                      "assignee": {
+                        "kind": "get",
+                        "path": "$item.assignee"
+                      },
+                      "dueDate": {
+                        "kind": "get",
+                        "path": "$item.dueDate"
+                      },
+                      "tags": {
+                        "kind": "get",
+                        "path": "$item.tags"
+                      },
+                      "createdAt": {
+                        "kind": "get",
+                        "path": "$item.createdAt"
+                      },
+                      "updatedAt": {
+                        "kind": "get",
+                        "path": "$system.timestamp"
+                      },
+                      "deletedAt": {
+                        "kind": "get",
+                        "path": "$system.timestamp"
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "get",
+                    "path": "$item"
+                  }
+                },
+                "into": {
+                  "kind": "lit",
+                  "value": "tasks"
+                }
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "selectedTaskId",
+              "value": {
+                "kind": "lit",
+                "value": null
+              }
+            }
+          ]
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "id": {
+            "type": "string",
+            "required": true
+          }
+        }
+      },
+      "available": {
+        "kind": "get",
+        "path": "computed.canDelete"
+      }
+    },
+    "moveTask": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "neq",
+          "left": {
+            "kind": "get",
+            "path": "moveIntent"
+          },
+          "right": {
+            "kind": "get",
+            "path": "meta.intentId"
+          }
+        },
+        "then": {
+          "kind": "seq",
+          "steps": [
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "moveIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "moveIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "effect",
+              "type": "array.map",
+              "params": {
+                "source": {
+                  "kind": "get",
+                  "path": "tasks"
+                },
+                "select": {
+                  "kind": "if",
+                  "cond": {
+                    "kind": "eq",
+                    "left": {
+                      "kind": "get",
+                      "path": "$item.id"
+                    },
+                    "right": {
+                      "kind": "get",
+                      "path": "input.id"
+                    }
+                  },
+                  "then": {
+                    "kind": "object",
+                    "fields": {
+                      "id": {
+                        "kind": "get",
+                        "path": "$item.id"
+                      },
+                      "title": {
+                        "kind": "get",
+                        "path": "$item.title"
+                      },
+                      "description": {
+                        "kind": "get",
+                        "path": "$item.description"
+                      },
+                      "status": {
+                        "kind": "get",
+                        "path": "input.newStatus"
+                      },
+                      "priority": {
+                        "kind": "get",
+                        "path": "$item.priority"
+                      },
+                      "assignee": {
+                        "kind": "get",
+                        "path": "$item.assignee"
+                      },
+                      "dueDate": {
+                        "kind": "get",
+                        "path": "$item.dueDate"
+                      },
+                      "tags": {
+                        "kind": "get",
+                        "path": "$item.tags"
+                      },
+                      "createdAt": {
+                        "kind": "get",
+                        "path": "$item.createdAt"
+                      },
+                      "updatedAt": {
+                        "kind": "get",
+                        "path": "$system.timestamp"
+                      },
+                      "deletedAt": {
+                        "kind": "get",
+                        "path": "$item.deletedAt"
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "get",
+                    "path": "$item"
+                  }
+                },
+                "into": {
+                  "kind": "lit",
+                  "value": "tasks"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "id": {
+            "type": "string",
+            "required": true
+          },
+          "newStatus": {
+            "type": {
+              "enum": [
+                "todo",
+                "in-progress",
+                "review",
+                "done"
+              ]
+            },
+            "required": true
+          }
+        }
+      }
+    },
+    "selectTask": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "lit",
+          "value": true
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "selectedTaskId",
+          "value": {
+            "kind": "get",
+            "path": "input.taskId"
+          }
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "taskId": {
+            "type": "string",
+            "required": true
+          }
+        }
+      }
+    },
+    "changeView": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "lit",
+          "value": true
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "viewMode",
+          "value": {
+            "kind": "get",
+            "path": "input.newViewMode"
+          }
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "newViewMode": {
+            "type": {
+              "enum": [
+                "todo",
+                "kanban",
+                "table",
+                "trash"
+              ]
+            },
+            "required": true
+          }
+        }
+      }
+    },
+    "restoreTask": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "neq",
+          "left": {
+            "kind": "get",
+            "path": "updateIntent"
+          },
+          "right": {
+            "kind": "get",
+            "path": "meta.intentId"
+          }
+        },
+        "then": {
+          "kind": "seq",
+          "steps": [
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "updateIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "patch",
+              "op": "set",
+              "path": "updateIntent",
+              "value": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            {
+              "kind": "effect",
+              "type": "array.map",
+              "params": {
+                "source": {
+                  "kind": "get",
+                  "path": "tasks"
+                },
+                "select": {
+                  "kind": "if",
+                  "cond": {
+                    "kind": "eq",
+                    "left": {
+                      "kind": "get",
+                      "path": "$item.id"
+                    },
+                    "right": {
+                      "kind": "get",
+                      "path": "input.id"
+                    }
+                  },
+                  "then": {
+                    "kind": "object",
+                    "fields": {
+                      "id": {
+                        "kind": "get",
+                        "path": "$item.id"
+                      },
+                      "title": {
+                        "kind": "get",
+                        "path": "$item.title"
+                      },
+                      "description": {
+                        "kind": "get",
+                        "path": "$item.description"
+                      },
+                      "status": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "priority": {
+                        "kind": "get",
+                        "path": "$item.priority"
+                      },
+                      "assignee": {
+                        "kind": "get",
+                        "path": "$item.assignee"
+                      },
+                      "dueDate": {
+                        "kind": "get",
+                        "path": "$item.dueDate"
+                      },
+                      "tags": {
+                        "kind": "get",
+                        "path": "$item.tags"
+                      },
+                      "createdAt": {
+                        "kind": "get",
+                        "path": "$item.createdAt"
+                      },
+                      "updatedAt": {
+                        "kind": "get",
+                        "path": "$system.timestamp"
+                      },
+                      "deletedAt": {
+                        "kind": "lit",
+                        "value": null
+                      }
+                    }
+                  },
+                  "else": {
+                    "kind": "get",
+                    "path": "$item"
+                  }
+                },
+                "into": {
+                  "kind": "lit",
+                  "value": "tasks"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "id": {
+            "type": "string",
+            "required": true
+          }
+        }
+      }
+    },
+    "refreshFilters": {
+      "flow": {
+        "kind": "seq",
+        "steps": [
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "neq",
+              "left": {
+                "kind": "get",
+                "path": "filterStep1"
+              },
+              "right": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep1",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep1",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "effect",
+                  "type": "array.filter",
+                  "params": {
+                    "source": {
+                      "kind": "get",
+                      "path": "tasks"
+                    },
+                    "where": {
+                      "kind": "isNull",
+                      "arg": {
+                        "kind": "get",
+                        "path": "$item.deletedAt"
+                      }
+                    },
+                    "into": {
+                      "kind": "lit",
+                      "value": "activeTasks"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "and",
+              "args": [
+                {
+                  "kind": "neq",
+                  "left": {
+                    "kind": "get",
+                    "path": "filterStep2"
+                  },
+                  "right": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "not",
+                  "arg": {
+                    "kind": "isNull",
+                    "arg": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep2",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep2",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "effect",
+                  "type": "array.filter",
+                  "params": {
+                    "source": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    },
+                    "where": {
+                      "kind": "eq",
+                      "left": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "right": {
+                        "kind": "lit",
+                        "value": "todo"
+                      }
+                    },
+                    "into": {
+                      "kind": "lit",
+                      "value": "todoTasks"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "and",
+              "args": [
+                {
+                  "kind": "neq",
+                  "left": {
+                    "kind": "get",
+                    "path": "filterStep3"
+                  },
+                  "right": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "not",
+                  "arg": {
+                    "kind": "isNull",
+                    "arg": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep3",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep3",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "effect",
+                  "type": "array.filter",
+                  "params": {
+                    "source": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    },
+                    "where": {
+                      "kind": "eq",
+                      "left": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "right": {
+                        "kind": "lit",
+                        "value": "in-progress"
+                      }
+                    },
+                    "into": {
+                      "kind": "lit",
+                      "value": "inProgressTasks"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "and",
+              "args": [
+                {
+                  "kind": "neq",
+                  "left": {
+                    "kind": "get",
+                    "path": "filterStep4"
+                  },
+                  "right": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "not",
+                  "arg": {
+                    "kind": "isNull",
+                    "arg": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep4",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep4",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "effect",
+                  "type": "array.filter",
+                  "params": {
+                    "source": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    },
+                    "where": {
+                      "kind": "eq",
+                      "left": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "right": {
+                        "kind": "lit",
+                        "value": "review"
+                      }
+                    },
+                    "into": {
+                      "kind": "lit",
+                      "value": "reviewTasks"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "and",
+              "args": [
+                {
+                  "kind": "neq",
+                  "left": {
+                    "kind": "get",
+                    "path": "filterStep5"
+                  },
+                  "right": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "not",
+                  "arg": {
+                    "kind": "isNull",
+                    "arg": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep5",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep5",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "effect",
+                  "type": "array.filter",
+                  "params": {
+                    "source": {
+                      "kind": "get",
+                      "path": "activeTasks"
+                    },
+                    "where": {
+                      "kind": "eq",
+                      "left": {
+                        "kind": "get",
+                        "path": "$item.status"
+                      },
+                      "right": {
+                        "kind": "lit",
+                        "value": "done"
+                      }
+                    },
+                    "into": {
+                      "kind": "lit",
+                      "value": "doneTasks"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "if",
+            "cond": {
+              "kind": "neq",
+              "left": {
+                "kind": "get",
+                "path": "filterStep6"
+              },
+              "right": {
+                "kind": "get",
+                "path": "meta.intentId"
+              }
+            },
+            "then": {
+              "kind": "seq",
+              "steps": [
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep6",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "patch",
+                  "op": "set",
+                  "path": "filterStep6",
+                  "value": {
+                    "kind": "get",
+                    "path": "meta.intentId"
+                  }
+                },
+                {
+                  "kind": "effect",
+                  "type": "array.filter",
+                  "params": {
+                    "source": {
+                      "kind": "get",
+                      "path": "tasks"
+                    },
+                    "where": {
+                      "kind": "not",
+                      "arg": {
+                        "kind": "isNull",
+                        "arg": {
+                          "kind": "get",
+                          "path": "$item.deletedAt"
+                        }
+                      }
+                    },
+                    "into": {
+                      "kind": "lit",
+                      "value": "deletedTasks"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "setFilter": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "lit",
+          "value": true
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "currentFilter",
+          "value": {
+            "kind": "object",
+            "fields": {
+              "status": {
+                "kind": "get",
+                "path": "input.status"
+              },
+              "priority": {
+                "kind": "get",
+                "path": "input.priority"
+              },
+              "assignee": {
+                "kind": "lit",
+                "value": null
+              }
+            }
+          }
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "status": {
+            "type": {
+              "enum": [
+                "all",
+                "todo",
+                "in-progress",
+                "review",
+                "done",
+                null
+              ]
+            },
+            "required": true
+          },
+          "priority": {
+            "type": {
+              "enum": [
+                "all",
+                "low",
+                "medium",
+                "high",
+                null
+              ]
+            },
+            "required": true
+          }
+        }
+      }
+    },
+    "clearFilter": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "lit",
+          "value": true
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "currentFilter",
+          "value": {
+            "kind": "object",
+            "fields": {
+              "status": {
+                "kind": "lit",
+                "value": null
+              },
+              "priority": {
+                "kind": "lit",
+                "value": null
+              },
+              "assignee": {
+                "kind": "lit",
+                "value": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "meta": {
+    "name": "Tasks"
+  },
+  "hash": "da2915bbd6f5206830c13933ce5090e886211f04d5088b436fde7af3cf354f15"
+}

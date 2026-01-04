@@ -488,7 +488,7 @@ const myEffectSchema = defineEffectSchema({
     items: z.array(ItemSchema),
     total: z.number()
   }),
-  outputPath: 'items'
+  outputPath: 'data.items'
 });
 
 // 2. Create handler with full type inference
@@ -552,7 +552,7 @@ type Input = z.infer<typeof schema>;  // { userId: string }
 
 ```
 MEL Effect Declaration:
-effect api.myEffect({ userId: customerId, into: items })
+effect api.myEffect({ userId: customerId, into: data.items })
                       ↓
 Effect Schema (effect-utils):
 defineEffectSchema({ type: 'api.myEffect', input: z.object({...}) })
@@ -725,20 +725,20 @@ effect-utils provides helpers to transform results into `Patch[]`.
 
 ```typescript
 // Single patch
-toPatch('user', userData);
-// → { op: 'set', path: 'user', value: userData }
+toPatch('data.user', userData);
+// → { op: 'set', path: 'data.user', value: userData }
 
 // Multiple patches
 toPatches({
-  'user': userData,
-  'loadedAt': context.requirement.createdAt
+  'data.user': userData,
+  'data.loadedAt': Date.now()
 });
-// → [{ op: 'set', path: 'user', value: userData },
-//    { op: 'set', path: 'loadedAt', value: 1234567890 }]
+// → [{ op: 'set', path: 'data.user', value: userData },
+//    { op: 'set', path: 'data.loadedAt', value: 1234567890 }]
 
 // Error patch
-toErrorPatch('error', new Error('Failed'));
-// → { op: 'set', path: 'error', value: { code: 'Error', message: 'Failed' } }
+toErrorPatch('data.error', new Error('Failed'));
+// → { op: 'set', path: 'data.error', value: { code: 'Error', message: 'Failed' } }
 
 // Collect errors from Settled results
 collectErrors(settledResults, 'signals.errors');
@@ -750,14 +750,14 @@ collectErrors(settledResults, 'signals.errors');
 Every Effect Handler must return `Patch[]`. Without helpers:
 
 ```typescript
-async function handler(params, context) {
+async function handler(params) {
   const data = await fetchData();
   
   // Manual patch construction — verbose, error-prone
   return [
-    { op: 'set', path: 'result', value: data },
-    { op: 'set', path: 'loadedAt', value: context.requirement.createdAt },
-    { op: 'set', path: 'status', value: 'ready' },
+    { op: 'set', path: 'data.result', value: data },
+    { op: 'set', path: 'data.loadedAt', value: Date.now() },
+    { op: 'set', path: 'data.status', value: 'ready' },
   ];
 }
 ```
@@ -765,13 +765,13 @@ async function handler(params, context) {
 With helpers:
 
 ```typescript
-async function handler(params, context) {
+async function handler(params) {
   const data = await fetchData();
   
   return toPatches({
-    'result': data,
-    'loadedAt': context.requirement.createdAt,
-    'status': 'ready',
+    'data.result': data,
+    'data.loadedAt': Date.now(),
+    'data.status': 'ready',
   });
 }
 ```
@@ -790,10 +790,10 @@ async function handler(params, context) {
 
 ```typescript
 // Before: What is 'set'? What is 'op'? Easy to typo.
-{ op: 'set', path: 'x', value: y }
+{ op: 'set', path: 'data.x', value: y }
 
 // After: Clear intent, less syntax
-toPatch('x', y)
+toPatch('data.x', y)
 ```
 
 **Type safety:**
@@ -805,8 +805,8 @@ function toPatch(path: string, value: unknown): Patch {
 }
 
 // Can't accidentally create invalid patch
-toPatch('x', y);  // Always valid
-{ op: 'ste', path: 'x', value: y };  // Typo goes unnoticed
+toPatch('data.x', y);  // Always valid
+{ op: 'ste', path: 'data.x', value: y };  // Typo goes unnoticed
 ```
 
 ### Consequences
@@ -965,11 +965,11 @@ class QuoteStreamIngress {
 }
 
 // Effect handler (effect-utils territory) — just handles the batch
-const quotesUpdateHandler = createHandler(quotesUpdateSchema, async (input, context) => {
+const quotesUpdateHandler = createHandler(quotesUpdateSchema, async (input) => {
   // input.quotes is already batched by ingress layer
   return {
     latest: input.quotes,
-    updatedAt: context.requirement.createdAt
+    updatedAt: Date.now()
   };
 });
 ```

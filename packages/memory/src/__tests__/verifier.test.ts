@@ -1,39 +1,47 @@
 /**
  * Verifier Tests
  *
- * Tests for Verifier implementations.
- * All verifiers MUST be pure (M-8).
+ * Tests for ExistenceVerifier, HashVerifier, and MerkleVerifier.
+ * Verifies M-8 purity requirements.
  */
 import { describe, it, expect } from "vitest";
 import type { World } from "@manifesto-ai/world";
+import { createMemoryRef } from "../schema/ref.js";
+import { extractProof } from "../schema/proof.js";
 import {
   ExistenceVerifier,
   createExistenceVerifier,
+} from "../verifier/existence.js";
+import {
   HashVerifier,
   createHashVerifier,
-} from "../verifier/index.js";
-import type { MemoryRef } from "../schema/ref.js";
+  computeHash,
+} from "../verifier/hash.js";
+import {
+  MerkleVerifier,
+  createMerkleVerifier,
+} from "../verifier/merkle.js";
 
 // Helper to create a mock World
-function createMockWorld(worldId: string): World {
+function createMockWorld(overrides: Partial<World> = {}): World {
   return {
-    worldId: worldId as any,
-    schemaHash: "schema:abc123",
-    snapshotHash: "snapshot:def456",
-    createdAt: Date.now(),
-    createdBy: null,
-  };
+    worldId: "test-world-123",
+    schemaHash: "schema-hash-abc",
+    snapshotHash: "snapshot-hash-xyz",
+    createdAt: 1704067200000,
+    createdBy: { actorId: "test-system", kind: "system" },
+    ...overrides,
+  } as World;
 }
 
 describe("ExistenceVerifier", () => {
   const verifier = createExistenceVerifier();
+  const ref = createMemoryRef("test-world-123");
 
-  describe("prove()", () => {
-    it("should return valid=true for existing World", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-      const world = createMockWorld("world-123");
-
-      const result = verifier.prove(memory, world);
+  describe("prove", () => {
+    it("should return valid=true for existing world", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
 
       expect(result.valid).toBe(true);
       expect(result.proof).toBeDefined();
@@ -41,122 +49,308 @@ describe("ExistenceVerifier", () => {
       expect(result.error).toBeUndefined();
     });
 
-    it("should return valid=false for null World", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-
-      const result = verifier.prove(memory, null as any);
+    it("should return valid=false for null world", () => {
+      const result = verifier.prove(ref, null as unknown as World);
 
       expect(result.valid).toBe(false);
       expect(result.proof).toBeUndefined();
       expect(result.error).toBe("World not found");
     });
 
-    it("should return valid=false for undefined World", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-
-      const result = verifier.prove(memory, undefined as any);
+    it("should return valid=false for undefined world", () => {
+      const result = verifier.prove(ref, undefined as unknown as World);
 
       expect(result.valid).toBe(false);
-      expect(result.error).toBe("World not found");
+      expect(result.proof).toBeUndefined();
     });
 
-    it("should be pure: same inputs produce same outputs", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-      const world = createMockWorld("world-123");
+    it("should be pure - same inputs produce same outputs", () => {
+      const world = createMockWorld();
+      const result1 = verifier.prove(ref, world);
+      const result2 = verifier.prove(ref, world);
 
-      const result1 = verifier.prove(memory, world);
-      const result2 = verifier.prove(memory, world);
+      expect(result1).toEqual(result2);
+    });
 
-      expect(result1.valid).toBe(result2.valid);
-      expect(result1.proof?.method).toBe(result2.proof?.method);
+    it("M-8: should not include timestamps in output", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect((result as unknown as Record<string, unknown>).verifiedAt).toBeUndefined();
+      expect((result.proof as unknown as Record<string, unknown> | undefined)?.verifiedAt).toBeUndefined();
+    });
+
+    it("M-8: should not include actor refs in output", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect((result as unknown as Record<string, unknown>).verifiedBy).toBeUndefined();
+      expect((result.proof as unknown as Record<string, unknown> | undefined)?.verifiedBy).toBeUndefined();
     });
   });
 
-  describe("verifyProof()", () => {
-    it("should return true for existence proof", () => {
+  describe("verifyProof", () => {
+    it("should return true for existence method", () => {
       const proof = { method: "existence" as const };
-
-      const result = verifier.verifyProof(proof);
-
-      expect(result).toBe(true);
+      expect(verifier.verifyProof(proof)).toBe(true);
     });
 
-    it("should return false for non-existence proof", () => {
+    it("should return false for other methods", () => {
       const proof = { method: "hash" as const };
+      expect(verifier.verifyProof(proof)).toBe(false);
+    });
+  });
 
-      const result = verifier.verifyProof(proof);
+  describe("M-12 integration", () => {
+    it("proof extracted from evidence can be verified", () => {
+      const world = createMockWorld();
+      const proveResult = verifier.prove(ref, world);
 
-      expect(result).toBe(false);
+      // Simulate Selector creating evidence
+      const evidence = {
+        method: proveResult.proof!.method,
+        proof: proveResult.proof!.proof,
+        verifiedAt: Date.now(),
+        verifiedBy: { actorId: "user-1", kind: "human" as const },
+      };
+
+      // Authority extracts proof (M-12)
+      const extractedProof = extractProof(evidence);
+
+      // Authority verifies
+      expect(verifier.verifyProof(extractedProof)).toBe(true);
     });
   });
 });
 
 describe("HashVerifier", () => {
   const verifier = createHashVerifier();
+  const ref = createMemoryRef("test-world-123");
 
-  describe("prove()", () => {
-    it("should return valid=true for existing World with hashes", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-      const world = createMockWorld("world-123");
+  describe("computeHash", () => {
+    it("should produce consistent hashes", () => {
+      const data = { a: 1, b: 2 };
+      const hash1 = computeHash(data);
+      const hash2 = computeHash(data);
 
-      const result = verifier.prove(memory, world);
+      expect(hash1).toBe(hash2);
+    });
+
+    it("should produce different hashes for different data", () => {
+      const hash1 = computeHash({ a: 1 });
+      const hash2 = computeHash({ a: 2 });
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it("should produce hash string starting with 'hash:'", () => {
+      const hash = computeHash({ test: "data" });
+      expect(hash.startsWith("hash:")).toBe(true);
+    });
+  });
+
+  describe("prove", () => {
+    it("should return valid proof for existing world", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
 
       expect(result.valid).toBe(true);
       expect(result.proof).toBeDefined();
       expect(result.proof?.method).toBe("hash");
-      expect(result.proof?.proof).toBeDefined();
+      expect(result.proof?.proof).toHaveProperty("computedHash");
     });
 
-    it("should return valid=false for null World", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-
-      const result = verifier.prove(memory, null as any);
+    it("should return valid=false for null world", () => {
+      const result = verifier.prove(ref, null as unknown as World);
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe("World not found");
     });
 
-    it("should be pure: same inputs produce same outputs", () => {
-      const memory: MemoryRef = { worldId: "world-123" as any };
-      const world = createMockWorld("world-123");
+    it("should be pure - same inputs produce same outputs", () => {
+      const world = createMockWorld();
+      const result1 = verifier.prove(ref, world);
+      const result2 = verifier.prove(ref, world);
 
-      const result1 = verifier.prove(memory, world);
-      const result2 = verifier.prove(memory, world);
+      expect(result1).toEqual(result2);
+    });
 
-      expect(result1.valid).toBe(result2.valid);
-      expect(result1.proof?.method).toBe(result2.proof?.method);
-      expect(JSON.stringify(result1.proof?.proof)).toBe(
-        JSON.stringify(result2.proof?.proof)
-      );
+    it("M-8: should not include timestamps in output", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect((result as unknown as Record<string, unknown>).verifiedAt).toBeUndefined();
+    });
+
+    it("M-8: should not include actor refs in output", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect((result as unknown as Record<string, unknown>).verifiedBy).toBeUndefined();
     });
   });
 
-  describe("verifyProof()", () => {
-    it("should return true for hash proof with valid structure", () => {
+  describe("verifyProof", () => {
+    it("should return true for valid hash proof", () => {
       const proof = {
         method: "hash" as const,
         proof: { computedHash: "hash:abc123" },
       };
-
-      const result = verifier.verifyProof(proof);
-
-      expect(result).toBe(true);
+      expect(verifier.verifyProof(proof)).toBe(true);
     });
 
-    it("should return false for non-hash proof", () => {
+    it("should return false for non-hash method", () => {
       const proof = { method: "existence" as const };
-
-      const result = verifier.verifyProof(proof);
-
-      expect(result).toBe(false);
+      expect(verifier.verifyProof(proof)).toBe(false);
     });
 
-    it("should return false for hash proof without data", () => {
+    it("should return false for missing proof data", () => {
       const proof = { method: "hash" as const };
-
-      const result = verifier.verifyProof(proof);
-
-      expect(result).toBe(false);
+      expect(verifier.verifyProof(proof)).toBe(false);
     });
+
+    it("should return false for missing computedHash", () => {
+      const proof = { method: "hash" as const, proof: {} };
+      expect(verifier.verifyProof(proof)).toBe(false);
+    });
+  });
+
+  describe("M-12 integration", () => {
+    it("proof extracted from evidence can be verified", () => {
+      const world = createMockWorld();
+      const proveResult = verifier.prove(ref, world);
+
+      const evidence = {
+        method: proveResult.proof!.method,
+        proof: proveResult.proof!.proof,
+        verifiedAt: Date.now(),
+        verifiedBy: { actorId: "user-1", kind: "human" as const },
+      };
+
+      const extractedProof = extractProof(evidence);
+      expect(verifier.verifyProof(extractedProof)).toBe(true);
+    });
+  });
+});
+
+describe("MerkleVerifier", () => {
+  const verifier = createMerkleVerifier();
+  const ref = createMemoryRef("test-world-123");
+
+  describe("prove", () => {
+    it("should return valid proof for existing world", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect(result.valid).toBe(true);
+      expect(result.proof).toBeDefined();
+      expect(result.proof?.method).toBe("merkle");
+      expect(result.proof?.proof).toHaveProperty("computedRoot");
+    });
+
+    it("should return valid=false for null world", () => {
+      const result = verifier.prove(ref, null as unknown as World);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("World not found");
+    });
+
+    it("should be pure - same inputs produce same outputs", () => {
+      const world = createMockWorld();
+      const result1 = verifier.prove(ref, world);
+      const result2 = verifier.prove(ref, world);
+
+      expect(result1).toEqual(result2);
+    });
+
+    it("M-8: should not include timestamps in output", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect((result as unknown as Record<string, unknown>).verifiedAt).toBeUndefined();
+    });
+
+    it("M-8: should not include actor refs in output", () => {
+      const world = createMockWorld();
+      const result = verifier.prove(ref, world);
+
+      expect((result as unknown as Record<string, unknown>).verifiedBy).toBeUndefined();
+    });
+  });
+
+  describe("verifyProof", () => {
+    it("should return true for valid merkle proof", () => {
+      const proof = {
+        method: "merkle" as const,
+        proof: { computedRoot: "root:abc123" },
+      };
+      expect(verifier.verifyProof(proof)).toBe(true);
+    });
+
+    it("should return false for non-merkle method", () => {
+      const proof = { method: "existence" as const };
+      expect(verifier.verifyProof(proof)).toBe(false);
+    });
+
+    it("should return false for missing computedRoot", () => {
+      const proof = { method: "merkle" as const, proof: {} };
+      expect(verifier.verifyProof(proof)).toBe(false);
+    });
+
+    it("should verify matching roots", () => {
+      const proof = {
+        method: "merkle" as const,
+        proof: {
+          computedRoot: "root:abc123",
+          expectedRoot: "root:abc123",
+        },
+      };
+      expect(verifier.verifyProof(proof)).toBe(true);
+    });
+
+    it("should fail for mismatched roots", () => {
+      const proof = {
+        method: "merkle" as const,
+        proof: {
+          computedRoot: "root:abc123",
+          expectedRoot: "root:different",
+        },
+      };
+      expect(verifier.verifyProof(proof)).toBe(false);
+    });
+  });
+
+  describe("M-12 integration", () => {
+    it("proof extracted from evidence can be verified", () => {
+      const world = createMockWorld();
+      const proveResult = verifier.prove(ref, world);
+
+      const evidence = {
+        method: proveResult.proof!.method,
+        proof: proveResult.proof!.proof,
+        verifiedAt: Date.now(),
+        verifiedBy: { actorId: "user-1", kind: "human" as const },
+      };
+
+      const extractedProof = extractProof(evidence);
+      expect(verifier.verifyProof(extractedProof)).toBe(true);
+    });
+  });
+});
+
+describe("Factory Functions", () => {
+  it("createExistenceVerifier should create an ExistenceVerifier", () => {
+    const verifier = createExistenceVerifier();
+    expect(verifier).toBeInstanceOf(ExistenceVerifier);
+  });
+
+  it("createHashVerifier should create a HashVerifier", () => {
+    const verifier = createHashVerifier();
+    expect(verifier).toBeInstanceOf(HashVerifier);
+  });
+
+  it("createMerkleVerifier should create a MerkleVerifier", () => {
+    const verifier = createMerkleVerifier();
+    expect(verifier).toBeInstanceOf(MerkleVerifier);
   });
 });

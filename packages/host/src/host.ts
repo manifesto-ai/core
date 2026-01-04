@@ -2,12 +2,14 @@ import {
   createCore,
   createSnapshot,
   createIntent,
+  evaluateComputed,
+  isOk,
   type ManifestoCore,
   type DomainSchema,
   type Snapshot,
   type Intent,
   type TraceGraph,
-  type HostContext,
+  type Patch,
 } from "@manifesto-ai/core";
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
@@ -16,7 +18,12 @@ import type { SnapshotStore } from "./persistence/interface.js";
 import { createMemoryStore } from "./persistence/memory.js";
 import { runHostLoop, type HostLoopOptions, type HostLoopResult } from "./loop.js";
 import { createHostError, HostError } from "./errors.js";
-import { createInitialHostContext, type HostContextOptions } from "./context.js";
+import {
+  processTranslatorOutput,
+  createTranslatorIntentId,
+  hasAmbiguity,
+  type TranslatorOutput,
+} from "./translator.js";
 
 /**
  * Host result returned from dispatch
@@ -58,24 +65,9 @@ export interface HostOptions {
   loop?: HostLoopOptions;
 
   /**
-   * Initial snapshot (preferred over initialData)
-   */
-  snapshot?: Snapshot;
-
-  /**
    * Initial snapshot data (if no snapshot in store)
    */
   initialData?: unknown;
-
-  /**
-   * Host context for initial snapshot creation
-   */
-  initialContext?: HostContext;
-
-  /**
-   * Host context providers (merged into loop options)
-   */
-  context?: HostContextOptions;
 }
 
 /**
@@ -87,8 +79,7 @@ export interface HostOptions {
  * ```typescript
  * const host = createHost(schema);
  * host.registerEffect("http", httpHandler);
- * const intent = createIntent("myAction", { ... }, "intent-1");
- * const result = await host.dispatch(intent);
+ * const result = await host.dispatch(createIntent("myAction", { ... }));
  * ```
  */
 export class ManifestoHost {
@@ -106,33 +97,23 @@ export class ManifestoHost {
     this.registry = createEffectRegistry();
     this.executor = createEffectExecutor(this.registry);
     this.store = options.store ?? createMemoryStore();
-    this.loopOptions = {
-      ...options.loop,
-      context: {
-        ...options.context,
-        ...options.loop?.context,
-      },
-    };
+    this.loopOptions = options.loop ?? {};
 
     // Initialize with initial data if store is empty
-    this.initializeIfNeeded(options.initialData, options.snapshot, options.initialContext);
+    this.initializeIfNeeded(options.initialData);
   }
 
-  private async initializeIfNeeded(
-    initialData?: unknown,
-    snapshot?: Snapshot,
-    initialContext?: HostContext
-  ): Promise<void> {
+  private async initializeIfNeeded(initialData?: unknown): Promise<void> {
     const existing = await this.store.get();
-    if (!existing) {
-      if (snapshot) {
-        await this.store.save(snapshot);
-      } else if (initialData !== undefined) {
-        const context =
-          initialContext ?? createInitialHostContext(this.loopOptions.context);
-        const nextSnapshot = createSnapshot(initialData, this.schema.hash, context);
-        await this.store.save(nextSnapshot);
-      }
+    if (!existing && initialData !== undefined) {
+      const snapshot = createSnapshot(initialData, this.schema.hash);
+      // Evaluate computed values on initial snapshot
+      const computedResult = evaluateComputed(this.schema, snapshot);
+      const snapshotWithComputed: Snapshot = {
+        ...snapshot,
+        computed: isOk(computedResult) ? computedResult.value : {},
+      };
+      await this.store.save(snapshotWithComputed);
     }
     this.initialized = true;
   }
@@ -182,13 +163,9 @@ export class ManifestoHost {
    * It runs the host loop until completion, halt, or error.
    *
    * @param intent - Intent to dispatch (use createIntent helper)
-   * @param loopOptions - Optional loop options to merge with constructor options
    * @returns Host result with final snapshot and traces
    */
-  async dispatch(
-    intent: Intent,
-    loopOptions?: Partial<HostLoopOptions>
-  ): Promise<HostResult> {
+  async dispatch(intent: Intent): Promise<HostResult> {
     // Wait for initialization
     if (!this.initialized) {
       await this.initializeIfNeeded();
@@ -199,11 +176,7 @@ export class ManifestoHost {
     if (!snapshot) {
       return {
         status: "error",
-        snapshot: createSnapshot(
-          {},
-          this.schema.hash,
-          createInitialHostContext(this.loopOptions.context)
-        ),
+        snapshot: createSnapshot({}, this.schema.hash),
         traces: [],
         error: createHostError(
           "HOST_NOT_INITIALIZED",
@@ -212,18 +185,14 @@ export class ManifestoHost {
       };
     }
 
-    // Run the host loop with merged options
-    const mergedOptions: HostLoopOptions = {
-      ...this.loopOptions,
-      ...loopOptions,
-    };
+    // Run the host loop
     const result = await runHostLoop(
       this.core,
       this.schema,
       snapshot,
       intent,
       this.executor,
-      mergedOptions
+      this.loopOptions
     );
 
     // Save final snapshot
@@ -235,6 +204,96 @@ export class ManifestoHost {
       traces: result.traces,
       error: result.error,
     };
+  }
+
+  /**
+   * Dispatch with Translator output.
+   *
+   * Processes Translator output through Compiler lowering and evaluation,
+   * applies the concrete patches, then runs the standard Host loop.
+   *
+   * @param output - Translator output with MEL IR fragments
+   * @param options - Optional configuration (intentId, actionName)
+   * @returns Host result with final snapshot and traces
+   *
+   * @see Host SPEC v1.1 §4.3, §13.2
+   */
+  async dispatchWithTranslator(
+    output: TranslatorOutput,
+    options?: { intentId?: string; actionName?: string }
+  ): Promise<HostResult> {
+    // Wait for initialization
+    if (!this.initialized) {
+      await this.initializeIfNeeded();
+    }
+
+    // Check for ambiguity - caller should handle before dispatch
+    if (hasAmbiguity(output)) {
+      return {
+        status: "error",
+        snapshot: (await this.store.get()) ?? createSnapshot({}, this.schema.hash),
+        traces: [],
+        error: createHostError(
+          "TRANSLATOR_AMBIGUOUS",
+          "Translator output has ambiguity. Resolve before dispatch.",
+          { ambiguity: output.ambiguity }
+        ),
+      };
+    }
+
+    // Get current snapshot
+    let snapshot = await this.store.get();
+    if (!snapshot) {
+      return {
+        status: "error",
+        snapshot: createSnapshot({}, this.schema.hash),
+        traces: [],
+        error: createHostError(
+          "HOST_NOT_INITIALIZED",
+          "No snapshot in store. Initialize the host with initial data."
+        ),
+      };
+    }
+
+    // FDR-H014: Single intentId throughout
+    const intentId = options?.intentId ?? createTranslatorIntentId();
+
+    try {
+      // Process translator output (lower + evaluate)
+      const result = processTranslatorOutput(output, snapshot, {
+        intentId,
+        actionName: options?.actionName,
+      });
+
+      // Apply concrete patches to snapshot
+      // Convert ConcretePatch[] to Patch[] format expected by core.apply()
+      if (result.patches.length > 0) {
+        const corePatches = result.patches.map((p): Patch => {
+          if (p.op === "unset") {
+            return { op: "unset", path: p.path };
+          } else if (p.op === "merge") {
+            return { op: "merge", path: p.path, value: p.value as Record<string, unknown> };
+          } else {
+            return { op: "set", path: p.path, value: p.value };
+          }
+        });
+        snapshot = this.core.apply(this.schema, snapshot, corePatches);
+        await this.store.save(snapshot);
+      }
+
+      // Run standard host loop with same intentId
+      return this.dispatch(result.intent);
+    } catch (error) {
+      if (error instanceof HostError) {
+        return {
+          status: "error",
+          snapshot,
+          traces: [],
+          error,
+        };
+      }
+      throw error;
+    }
   }
 
   /**
@@ -283,12 +342,14 @@ export class ManifestoHost {
    */
   async reset(initialData: unknown): Promise<void> {
     await this.store.clear();
-    const snapshot = createSnapshot(
-      initialData,
-      this.schema.hash,
-      createInitialHostContext(this.loopOptions.context)
-    );
-    await this.store.save(snapshot);
+    const snapshot = createSnapshot(initialData, this.schema.hash);
+    // Evaluate computed values on reset snapshot
+    const computedResult = evaluateComputed(this.schema, snapshot);
+    const snapshotWithComputed: Snapshot = {
+      ...snapshot,
+      computed: isOk(computedResult) ? computedResult.value : {},
+    };
+    await this.store.save(snapshotWithComputed);
   }
 }
 
