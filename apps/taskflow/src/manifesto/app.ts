@@ -141,6 +141,8 @@ export interface TaskFlowApp {
     description?: string | null;
     priority?: "low" | "medium" | "high" | null;
     dueDate?: string | null;
+    assignee?: string | null;
+    tags?: string[] | null;
   }) => Promise<void>;
 
   /**
@@ -348,6 +350,8 @@ export async function createTaskFlowApp(
           description: params.description ?? null,
           priority: params.priority ?? null,
           dueDate: params.dueDate ?? null,
+          assignee: params.assignee ?? null,
+          tags: params.tags ?? null,
         },
       });
       await dispatchIntent({ type: "refreshFilters" });

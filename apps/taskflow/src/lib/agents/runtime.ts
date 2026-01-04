@@ -17,6 +17,8 @@ import type {
   Intent,
   ChangeViewIntent,
   SetDateFilterIntent,
+  SetFilterIntent,
+  ClearFilterIntent,
   CreateTaskIntent,
   UpdateTaskIntent,
   ChangeStatusIntent,
@@ -45,6 +47,10 @@ export interface Snapshot {
       startDate?: string;
       endDate?: string;
     } | null;
+    currentFilter?: {
+      status: 'all' | 'todo' | 'in-progress' | 'review' | 'done' | null;
+      priority: 'all' | 'low' | 'medium' | 'high' | null;
+    };
     selectedTaskId: string | null;
     /** IDs of recently created tasks (for "what I just added" queries) */
     lastCreatedTaskIds?: string[];
@@ -135,6 +141,14 @@ function generateEffects(intent: Intent, snapshot: Snapshot): AgentEffect[] {
       ops.push(...generateSetDateFilterEffects(intent));
       break;
 
+    case 'SetFilter':
+      ops.push(...generateSetFilterEffects(intent));
+      break;
+
+    case 'ClearFilter':
+      ops.push(...generateClearFilterEffects());
+      break;
+
     case 'CreateTask':
       ops.push(...generateCreateTaskEffects(intent));
       break;
@@ -211,6 +225,28 @@ function generateSetDateFilterEffects(intent: SetDateFilterIntent): PatchOp[] {
   }];
 }
 
+function generateSetFilterEffects(intent: SetFilterIntent): PatchOp[] {
+  return [{
+    op: 'set',
+    path: 'state.currentFilter',
+    value: {
+      status: intent.status ?? null,
+      priority: intent.priority ?? null,
+    },
+  }];
+}
+
+function generateClearFilterEffects(): PatchOp[] {
+  return [{
+    op: 'set',
+    path: 'state.currentFilter',
+    value: {
+      status: null,
+      priority: null,
+    },
+  }];
+}
+
 function generateCreateTaskEffects(intent: CreateTaskIntent): PatchOp[] {
   const now = new Date().toISOString();
   const ops: PatchOp[] = [];
@@ -224,7 +260,7 @@ function generateCreateTaskEffects(intent: CreateTaskIntent): PatchOp[] {
       description: taskDef.description ?? null,
       status: 'todo', // 새 태스크는 항상 todo
       priority: taskDef.priority || 'medium',
-      assignee: null,
+      assignee: taskDef.assignee ?? null,
       tags: taskDef.tags || [],
       dueDate: taskDef.dueDate ?? null,
       createdAt: now,
@@ -243,31 +279,52 @@ function generateCreateTaskEffects(intent: CreateTaskIntent): PatchOp[] {
 }
 
 function generateUpdateTaskEffects(intent: UpdateTaskIntent, snapshot: Snapshot): PatchOp[] {
-  // Task 존재 여부 확인
-  const task = snapshot.data.tasks.find(t => t.id === intent.taskId);
-  if (!task) {
-    throw new Error(`Task not found: ${intent.taskId}`);
+  // Support both single taskId and multiple taskIds (bulk)
+  const ids = intent.taskIds ?? (intent.taskId ? [intent.taskId] : []);
+
+  if (ids.length === 0) {
+    throw new Error('UpdateTask requires taskId or taskIds');
   }
 
   const ops: PatchOp[] = [];
   const now = new Date().toISOString();
 
-  // 각 변경 사항에 대해 set operation 생성 (taskId 사용)
-  for (const [key, value] of Object.entries(intent.changes)) {
-    if (value !== undefined) {
+  // 필수 필드: null이면 무시 (기존 값 유지)
+  // nullable 필드: null은 명시적 clear로 허용
+  const requiredFields = ['title', 'priority', 'status'];
+
+  for (const id of ids) {
+    // Task 존재 여부 확인
+    const task = snapshot.data.tasks.find(t => t.id === id);
+    if (!task) {
+      // bulk 작업시 없는 태스크는 건너뜀 (단일일 때만 에러)
+      if (ids.length === 1) {
+        throw new Error(`Task not found: ${id}`);
+      }
+      continue;
+    }
+
+    // 각 변경 사항에 대해 set operation 생성
+    for (const [key, value] of Object.entries(intent.changes)) {
+      if (value === undefined) continue;
+
+      // 필수 필드가 null이면 무시 (partial update에서 기존 값 유지)
+      if (value === null && requiredFields.includes(key)) continue;
+
+      // tags가 null이면 무시 (빈 배열로 clear 해야 함)
+      if (key === 'tags' && value === null) continue;
+
       ops.push({
         op: 'set',
-        path: `data.tasks.id:${intent.taskId}.${key}`,
+        path: `data.tasks.id:${id}.${key}`,
         value,
       });
     }
-  }
 
-  // updatedAt 자동 업데이트
-  if (ops.length > 0) {
+    // updatedAt 자동 업데이트
     ops.push({
       op: 'set',
-      path: `data.tasks.id:${intent.taskId}.updatedAt`,
+      path: `data.tasks.id:${id}.updatedAt`,
       value: now,
     });
   }
@@ -284,26 +341,42 @@ function generateUpdateTaskEffects(intent: UpdateTaskIntent, snapshot: Snapshot)
  * - 명확한 의미 단위로 처리됨
  */
 function generateChangeStatusEffects(intent: ChangeStatusIntent, snapshot: Snapshot): PatchOp[] {
-  // Task 존재 여부 확인
-  const task = snapshot.data.tasks.find(t => t.id === intent.taskId);
-  if (!task) {
-    throw new Error(`Task not found: ${intent.taskId}`);
+  // Support both single taskId and multiple taskIds
+  const ids = intent.taskIds ?? (intent.taskId ? [intent.taskId] : []);
+
+  if (ids.length === 0) {
+    throw new Error('ChangeStatus requires taskId or taskIds');
   }
 
   const now = new Date().toISOString();
+  const ops: PatchOp[] = [];
 
-  return [
-    {
-      op: 'set',
-      path: `data.tasks.id:${intent.taskId}.status`,
-      value: intent.toStatus,
-    },
-    {
-      op: 'set',
-      path: `data.tasks.id:${intent.taskId}.updatedAt`,
-      value: now,
-    },
-  ];
+  for (const id of ids) {
+    // Task 존재 여부 확인
+    const task = snapshot.data.tasks.find(t => t.id === id);
+    if (!task) {
+      // bulk 작업시 없는 태스크는 건너뜀 (단일일 때만 에러)
+      if (ids.length === 1) {
+        throw new Error(`Task not found: ${id}`);
+      }
+      continue;
+    }
+
+    ops.push(
+      {
+        op: 'set',
+        path: `data.tasks.id:${id}.status`,
+        value: intent.toStatus,
+      },
+      {
+        op: 'set',
+        path: `data.tasks.id:${id}.updatedAt`,
+        value: now,
+      },
+    );
+  }
+
+  return ops;
 }
 
 function generateDeleteTaskEffects(intent: DeleteTaskIntent): PatchOp[] {

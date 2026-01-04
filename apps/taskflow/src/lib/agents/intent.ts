@@ -49,6 +49,22 @@ export interface SetDateFilterIntent extends BaseIntent {
 }
 
 /**
+ * SetFilter - 상태/우선순위 필터 설정
+ */
+export interface SetFilterIntent extends BaseIntent {
+  kind: 'SetFilter';
+  status?: 'all' | 'todo' | 'in-progress' | 'review' | 'done' | null;
+  priority?: 'all' | 'low' | 'medium' | 'high' | null;
+}
+
+/**
+ * ClearFilter - 필터 초기화
+ */
+export interface ClearFilterIntent extends BaseIntent {
+  kind: 'ClearFilter';
+}
+
+/**
  * CreateTask - 태스크 생성 (단일 또는 복수)
  */
 export interface TaskToCreate {
@@ -57,6 +73,7 @@ export interface TaskToCreate {
   priority?: 'low' | 'medium' | 'high';
   tags?: string[];
   dueDate?: string; // ISO date
+  assignee?: string; // 담당자
 }
 
 export interface CreateTaskIntent extends BaseIntent {
@@ -67,10 +84,15 @@ export interface CreateTaskIntent extends BaseIntent {
 /**
  * UpdateTask - 태스크 수정 (제목, 설명, 우선순위, 태그, 마감일 등)
  * Note: 상태 변경은 ChangeStatus를 사용할 것을 권장
+ *
+ * Bulk operations:
+ * - taskId: 단일 태스크 수정
+ * - taskIds: 복수 태스크 일괄 수정 (semantic filter로 선택됨)
  */
 export interface UpdateTaskIntent extends BaseIntent {
   kind: 'UpdateTask';
-  taskId: string;
+  taskId?: string;      // 단일 변경
+  taskIds?: string[];   // 복수 변경 (bulk)
   changes: {
     title?: string;
     description?: string;
@@ -94,7 +116,8 @@ export type TaskStatus = 'todo' | 'in-progress' | 'review' | 'done';
 
 export interface ChangeStatusIntent extends BaseIntent {
   kind: 'ChangeStatus';
-  taskId: string;
+  taskId?: string;      // 단일 변경
+  taskIds?: string[];   // 복수 변경 (bulk)
   toStatus: TaskStatus;
   fromStatus?: TaskStatus; // optional, 검증용
 }
@@ -182,6 +205,8 @@ export interface RequestClarificationIntent extends BaseIntent {
 export type Intent =
   | ChangeViewIntent
   | SetDateFilterIntent
+  | SetFilterIntent
+  | ClearFilterIntent
   | CreateTaskIntent
   | UpdateTaskIntent
   | ChangeStatusIntent
@@ -199,6 +224,8 @@ export type Intent =
 export const INTENT_KINDS = [
   'ChangeView',
   'SetDateFilter',
+  'SetFilter',
+  'ClearFilter',
   'CreateTask',
   'UpdateTask',
   'ChangeStatus',
@@ -226,6 +253,66 @@ export interface IntentValidationResult {
 }
 
 /**
+ * MEL 파라미터 이름을 Intent 필드 이름으로 정규화
+ * LLM이 MEL action 파라미터 이름을 그대로 출력하는 경우를 처리
+ */
+function normalizeIntent(raw: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...raw };
+
+  // ChangeView: newViewMode -> viewMode
+  if (normalized.kind === 'ChangeView' && 'newViewMode' in normalized) {
+    normalized.viewMode = normalized.newViewMode;
+    delete normalized.newViewMode;
+  }
+
+  // ChangeStatus: newStatus -> toStatus
+  if (normalized.kind === 'ChangeStatus' && 'newStatus' in normalized) {
+    normalized.toStatus = normalized.newStatus;
+    delete normalized.newStatus;
+  }
+
+  // DeleteTask: id -> taskId (단일 삭제)
+  if (normalized.kind === 'DeleteTask' && 'id' in normalized && !('taskId' in normalized)) {
+    normalized.taskId = normalized.id;
+    delete normalized.id;
+  }
+
+  // DeleteTask: ids -> taskIds (복수 삭제)
+  if (normalized.kind === 'DeleteTask' && 'ids' in normalized && !('taskIds' in normalized)) {
+    normalized.taskIds = normalized.ids;
+    delete normalized.ids;
+  }
+
+  // SetFilter: status/priority 필터 처리
+  if (normalized.kind === 'SetFilter') {
+    // SetDateFilter로 매핑 시도 (filter 객체가 없는 경우)
+    if (!('filter' in normalized) && ('status' in normalized || 'priority' in normalized)) {
+      // SetFilter는 별도 Intent로 처리 - 여기서는 그대로 둠
+    }
+  }
+
+  // RestoreTask: id -> taskId
+  if (normalized.kind === 'RestoreTask' && 'id' in normalized && !('taskId' in normalized)) {
+    normalized.taskId = normalized.id;
+    delete normalized.id;
+  }
+
+  // UpdateTask: id -> taskId
+  if (normalized.kind === 'UpdateTask' && 'id' in normalized && !('taskId' in normalized)) {
+    normalized.taskId = normalized.id;
+    delete normalized.id;
+  }
+
+  // SelectTask: id -> taskId
+  if (normalized.kind === 'SelectTask' && 'id' in normalized && !('taskId' in normalized)) {
+    normalized.taskId = normalized.id;
+    delete normalized.id;
+  }
+
+  return normalized;
+}
+
+/**
  * Intent 검증
  *
  * @param intent - 검증할 Intent
@@ -238,7 +325,11 @@ export function validateIntent(intent: unknown): IntentValidationResult {
     return { valid: false, errors: ['Intent must be an object'] };
   }
 
-  const obj = intent as Record<string, unknown>;
+  // Normalize field names (MEL param names -> Intent field names)
+  const obj = normalizeIntent(intent as Record<string, unknown>);
+
+  // Copy normalized values back to original object for downstream use
+  Object.assign(intent, obj);
 
   // kind 검증
   if (!obj.kind || typeof obj.kind !== 'string') {
@@ -290,6 +381,36 @@ function validateIntentByKind(intent: Intent): string[] {
       }
       break;
 
+    case 'SetFilter':
+      // status and priority are optional, but if present must be valid
+      if (intent.status !== undefined && intent.status !== null) {
+        if (!['all', 'todo', 'in-progress', 'review', 'done'].includes(intent.status)) {
+          errors.push('SetFilter: invalid status');
+        }
+      }
+      if (intent.priority !== undefined && intent.priority !== null) {
+        if (!['all', 'low', 'medium', 'high'].includes(intent.priority)) {
+          errors.push('SetFilter: invalid priority');
+        }
+      }
+      break;
+
+    case 'ClearFilter':
+      // No additional fields required for ClearFilter
+      break;
+
+    case 'ChangeStatus': {
+      const hasTaskId = intent.taskId && typeof intent.taskId === 'string';
+      const hasTaskIds = intent.taskIds && Array.isArray(intent.taskIds) && intent.taskIds.length > 0;
+      if (!hasTaskId && !hasTaskIds) {
+        errors.push('ChangeStatus: either taskId or taskIds is required');
+      }
+      if (!intent.toStatus || !['todo', 'in-progress', 'review', 'done'].includes(intent.toStatus)) {
+        errors.push('ChangeStatus: valid toStatus is required');
+      }
+      break;
+    }
+
     case 'CreateTask':
       if (!intent.tasks || !Array.isArray(intent.tasks) || intent.tasks.length === 0) {
         errors.push('CreateTask: tasks array is required and must not be empty');
@@ -306,14 +427,20 @@ function validateIntentByKind(intent: Intent): string[] {
       }
       break;
 
-    case 'UpdateTask':
-      if (!intent.taskId || typeof intent.taskId !== 'string') {
-        errors.push('UpdateTask: taskId is required');
+    case 'UpdateTask': {
+      const hasTaskId = intent.taskId && typeof intent.taskId === 'string';
+      const hasTaskIds = intent.taskIds && Array.isArray(intent.taskIds) && intent.taskIds.length > 0;
+      if (!hasTaskId && !hasTaskIds) {
+        errors.push('UpdateTask: either taskId or taskIds is required');
+      }
+      if (hasTaskIds && !intent.taskIds!.every(id => typeof id === 'string')) {
+        errors.push('UpdateTask: all taskIds must be strings');
       }
       if (!intent.changes || typeof intent.changes !== 'object') {
         errors.push('UpdateTask: changes is required');
       }
       break;
+    }
 
     case 'DeleteTask': {
       const hasTaskId = intent.taskId && typeof intent.taskId === 'string';

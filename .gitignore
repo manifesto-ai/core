@@ -7,3 +7,7 @@ dist
 .idea
 .DS_Store
 docs/.vitepress
+.worktrees
+apps/llm-babybench
+.bench
+coverage

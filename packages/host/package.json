@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/host",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Manifesto Host - Effect execution runtime for @manifesto-ai/core",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -13,7 +13,12 @@
     "url": "https://github.com/manifesto-ai/core/issues"
   },
   "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/host#readme",
-  "keywords": ["manifesto", "effects", "runtime", "state-management"],
+  "keywords": [
+    "manifesto",
+    "effects",
+    "runtime",
+    "state-management"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,15 +31,16 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^1.0.0",
+    "@manifesto-ai/core": "^1.1.0",
     "@manifesto-ai/compiler": "^0.4.0"
   },
   "devDependencies": {
-    "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/compiler": "workspace:*",
+    "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.7.3",
     "vitest": "^4.0.16"
   },

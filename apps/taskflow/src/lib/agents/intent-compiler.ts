@@ -48,7 +48,7 @@ const SKELETON_COMPILER_SYSTEM_PROMPT = `COMPILE instruction → JSON
 OUTPUT ::= { kind, confidence: 0.9, source: "human", ...KIND_FIELDS }
 
 KIND_FIELDS ::=
-  | ChangeStatus  { targetHint: string, toStatus: STATUS }
+  | ChangeStatus  { targetHint: string, toStatus: STATUS, fromStatus?: STATUS }
   | SelectTask    { targetHint: string }
   | UpdateTask    { targetHint: string, changes: {} }
   | DeleteTask    { targetHint: string }
@@ -65,6 +65,12 @@ RULES:
   /done|finished|completed/ → toStatus: done
   /undo|cancel|revert|rollback/ → kind: Undo
 
+  # BULK STATUS CHANGE (move all tasks from one status to another)
+  /all.*todo.*to|todo.*all.*to|전부.*todo|모두.*todo/ → targetHint: "*", fromStatus: "todo"
+  /all.*in-progress.*to|in-progress.*all.*to|전부.*진행|모두.*진행/ → targetHint: "*", fromStatus: "in-progress"
+  /all.*review.*to|review.*all.*to|전부.*리뷰|모두.*리뷰/ → targetHint: "*", fromStatus: "review"
+  /all.*done.*to|done.*all.*to|전부.*완료|모두.*완료/ → targetHint: "*", fromStatus: "done"
+
   # Greetings & casual chat → QueryTasks
   /^CHAT\s/ → QueryTasks (use message as query)
   /^QUERY\s/ → QueryTasks (use question as query)
@@ -75,7 +81,8 @@ RULES:
   /\?$|^what|^how|^which|^when|^where|^who|^why/ → QueryTasks
 
 ⚠️ CRITICAL: DO NOT output taskId. Use targetHint with the user's text.
-   Example: "보고서 완료" → { targetHint: "보고서" } NOT { taskId: "t_xxx" }`;
+   Example: "보고서 완료" → { targetHint: "보고서" } NOT { taskId: "t_xxx" }
+   Example: "todo 전부 in-progress로" → { targetHint: "*", fromStatus: "todo", toStatus: "in-progress" }`;
 
 // ============================================
 // Compiler Input/Output Types

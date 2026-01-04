@@ -1373,8 +1373,17 @@
                         ]
                       },
                       "assignee": {
-                        "kind": "get",
-                        "path": "$item.assignee"
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.assignee"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.assignee"
+                          }
+                        ]
                       },
                       "dueDate": {
                         "kind": "coalesce",
@@ -1390,8 +1399,17 @@
                         ]
                       },
                       "tags": {
-                        "kind": "get",
-                        "path": "$item.tags"
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.tags"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.tags"
+                          }
+                        ]
                       },
                       "createdAt": {
                         "kind": "get",
@@ -1450,6 +1468,14 @@
           },
           "dueDate": {
             "type": "string",
+            "required": true
+          },
+          "assignee": {
+            "type": "string",
+            "required": true
+          },
+          "tags": {
+            "type": "array",
             "required": true
           }
         }

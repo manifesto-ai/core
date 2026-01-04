@@ -387,7 +387,7 @@ export function AssistantPanel({ onClose }: AssistantPanelProps) {
         requestBody.sessionId = clarificationSessionId;
       }
 
-      const response = await fetch('/api/agent/simple/stream', {
+      const response = await fetch('/api/agent/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -474,7 +474,7 @@ export function AssistantPanel({ onClose }: AssistantPanelProps) {
     setMessages((prev) => [...prev, initialExecMsg]);
 
     try {
-      const response = await fetch('/api/agent/simple/stream', {
+      const response = await fetch('/api/agent/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

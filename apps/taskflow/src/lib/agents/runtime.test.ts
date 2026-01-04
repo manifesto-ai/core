@@ -168,6 +168,31 @@ describe('executeIntent', () => {
       expect(ops.some((op: { path: string; value: unknown }) => op.path === 'data.tasks.id:task-1.status' && op.value === 'done')).toBe(true);
     });
 
+    it('should generate effect to update task assignee', () => {
+      const snapshot = createTestSnapshot();
+      const intent = IntentBuilder.updateTask('task-1', { assignee: '정성우' });
+
+      const result = executeIntent(intent, snapshot);
+
+      expect(result.success).toBe(true);
+      const ops = getPatchOps(result.effects);
+      expect(ops.some((op: { path: string; value: unknown }) => op.path === 'data.tasks.id:task-1.assignee' && op.value === '정성우')).toBe(true);
+    });
+
+    it('should generate effect to update task tags', () => {
+      const snapshot = createTestSnapshot();
+      const intent = IntentBuilder.updateTask('task-1', { tags: ['urgent', 'frontend'] });
+
+      const result = executeIntent(intent, snapshot);
+
+      expect(result.success).toBe(true);
+      const ops = getPatchOps(result.effects);
+      expect(ops.some((op: { path: string; value: unknown }) =>
+        op.path === 'data.tasks.id:task-1.tags' &&
+        JSON.stringify(op.value) === JSON.stringify(['urgent', 'frontend'])
+      )).toBe(true);
+    });
+
     it('should fail if task not found', () => {
       const snapshot = createTestSnapshot();
       const intent = IntentBuilder.updateTask('nonexistent', { status: 'done' });

@@ -1,0 +1,85 @@
+{
+  "version": "1.0.0",
+  "description": "Base initial state for all TaskBench experiments (from PRD Section 4.3)",
+  "baseState": {
+    "tasks": [
+      {
+        "id": "task-001",
+        "title": "투자자 미팅 준비",
+        "description": "강남에서 투자자 미팅 진행",
+        "status": "todo",
+        "priority": "high",
+        "tags": ["미팅", "투자", "강남"],
+        "assignee": "민수",
+        "dueDate": "2026-01-05",
+        "createdAt": "2026-01-01T09:00:00.000Z",
+        "updatedAt": "2026-01-01T09:00:00.000Z",
+        "deletedAt": null
+      },
+      {
+        "id": "task-002",
+        "title": "디자인 시안 검토",
+        "description": "UI/UX 디자인 시안 리뷰",
+        "status": "in-progress",
+        "priority": "medium",
+        "tags": ["디자인", "UI"],
+        "assignee": "수진",
+        "dueDate": "2026-01-06",
+        "createdAt": "2026-01-01T10:00:00.000Z",
+        "updatedAt": "2026-01-02T14:00:00.000Z",
+        "deletedAt": null
+      },
+      {
+        "id": "task-003",
+        "title": "백엔드 API 개발",
+        "description": "REST API 엔드포인트 구현",
+        "status": "review",
+        "priority": "high",
+        "tags": ["개발", "API", "백엔드"],
+        "assignee": "영희",
+        "dueDate": "2026-01-04",
+        "createdAt": "2026-01-01T11:00:00.000Z",
+        "updatedAt": "2026-01-03T16:00:00.000Z",
+        "deletedAt": null
+      },
+      {
+        "id": "task-004",
+        "title": "사용자 테스트",
+        "description": "베타 테스터 대상 사용성 테스트",
+        "status": "todo",
+        "priority": "low",
+        "tags": ["QA", "테스트"],
+        "assignee": "민수",
+        "dueDate": "2026-01-07",
+        "createdAt": "2026-01-01T12:00:00.000Z",
+        "updatedAt": "2026-01-01T12:00:00.000Z",
+        "deletedAt": null
+      },
+      {
+        "id": "task-005",
+        "title": "문서화 작업",
+        "description": "API 문서 및 사용자 가이드 작성",
+        "status": "done",
+        "priority": "low",
+        "tags": ["문서"],
+        "assignee": null,
+        "dueDate": null,
+        "createdAt": "2026-01-01T13:00:00.000Z",
+        "updatedAt": "2026-01-02T10:00:00.000Z",
+        "deletedAt": null
+      }
+    ],
+    "viewMode": "kanban",
+    "currentFilter": {
+      "status": null,
+      "priority": null
+    }
+  },
+  "notes": [
+    "All experiments start from this identical state",
+    "Task IDs are fixed to enable consistent state comparison",
+    "Dates are relative to experiment date (2026-01-04)",
+    "5 tasks: 2 todo, 1 in-progress, 1 review, 1 done",
+    "3 assignees: 민수 (2), 수진 (1), 영희 (1), unassigned (1)"
+  ]
+}

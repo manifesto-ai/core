@@ -23,8 +23,9 @@ export interface BaseSkeleton {
 
 export interface ChangeStatusSkeleton extends BaseSkeleton {
   kind: 'ChangeStatus';
-  targetHint: string;  // User's text, NOT taskId
+  targetHint: string;  // User's text, NOT taskId. Use "*" for bulk operations
   toStatus: TaskStatus;
+  fromStatus?: TaskStatus;  // For bulk: filter by current status (e.g., "all todo → in-progress")
 }
 
 export interface UpdateTaskSkeleton extends BaseSkeleton {

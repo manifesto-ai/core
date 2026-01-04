@@ -454,6 +454,8 @@ describe("TaskFlow Integration", () => {
             description: null,
             priority: null,
             dueDate: null,
+            assignee: null,
+            tags: null,
           },
         },
         undefined,
@@ -476,6 +478,8 @@ describe("TaskFlow Integration", () => {
             description: null,
             priority: "high",
             dueDate: null,
+            assignee: null,
+            tags: null,
           },
         },
         undefined,
@@ -498,6 +502,8 @@ describe("TaskFlow Integration", () => {
             description: null,
             priority: null,
             dueDate: "2026-01-15",
+            assignee: null,
+            tags: null,
           },
         },
         undefined,
@@ -510,6 +516,54 @@ describe("TaskFlow Integration", () => {
       expect(task.dueDate).toBe("2026-01-15");
     });
 
+    it("should update task assignee", async () => {
+      await bridge.dispatch(
+        {
+          type: "updateTask",
+          input: {
+            id: taskId,
+            title: null,
+            description: null,
+            priority: null,
+            dueDate: null,
+            assignee: "정성우",
+            tags: null,
+          },
+        },
+        undefined,
+        assistantActor
+      );
+
+      const snap = bridge.getSnapshot();
+      const task = (snap?.data?.tasks as any[]).find((t) => t.id === taskId);
+
+      expect(task.assignee).toBe("정성우");
+    });
+
+    it("should update task tags", async () => {
+      await bridge.dispatch(
+        {
+          type: "updateTask",
+          input: {
+            id: taskId,
+            title: null,
+            description: null,
+            priority: null,
+            dueDate: null,
+            assignee: null,
+            tags: ["urgent", "frontend"],
+          },
+        },
+        undefined,
+        assistantActor
+      );
+
+      const snap = bridge.getSnapshot();
+      const task = (snap?.data?.tasks as any[]).find((t) => t.id === taskId);
+
+      expect(task.tags).toEqual(["urgent", "frontend"]);
+    });
+
     it("should preserve unchanged fields with coalesce", async () => {
       await bridge.dispatch(
         {
@@ -520,6 +574,8 @@ describe("TaskFlow Integration", () => {
             description: null,
             priority: null,
             dueDate: null,
+            assignee: null,
+            tags: null,
           },
         },
         undefined,
