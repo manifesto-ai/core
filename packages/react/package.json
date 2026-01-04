@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/react",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "React bindings for Manifesto Bridge",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

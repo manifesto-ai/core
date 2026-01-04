@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/lab",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Manifesto Lab - LLM governance, experimentation, and tracing for Manifesto systems",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

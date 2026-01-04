@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/host",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Manifesto Host - Effect execution runtime for @manifesto-ai/core",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
