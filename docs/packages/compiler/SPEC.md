@@ -1,6 +1,6 @@
-# @manifesto-ai/compiler Specification v1.0
+# @manifesto-ai/compiler Specification v0.4
 
-> **Version:** 1.0
+> **Version:** 0.4.0
 > **Status:** Normative
 > **Role:** LLM-Assisted Structural Compiler
 > **Implementation:** Manifesto Application (dogfooding)
@@ -1119,6 +1119,263 @@ type CompilerTelemetry = {
 
 ---
 
+## §16. Lowering Module
+
+> **Added in v0.4.0**
+
+### 16.1 Overview
+
+The Lowering Module transforms MEL Canonical IR (7 kinds) to Core Runtime IR (30+ kinds).
+
+```
+MEL Canonical IR (7 kinds) ──lowerExprNode()──> Core Runtime IR (30+ kinds)
+```
+
+### 16.2 MEL Expression Kinds
+
+| Kind | Structure | Description |
+|------|-----------|-------------|
+| `lit` | `{ kind: "lit", value: Primitive }` | Literal value |
+| `var` | `{ kind: "var", name: "item" }` | Iterator variable |
+| `sys` | `{ kind: "sys", path: string[] }` | System path reference |
+| `get` | `{ kind: "get", base?, path: PathNode[] }` | Property access |
+| `call` | `{ kind: "call", fn: string, args: Expr[] }` | Function call |
+| `obj` | `{ kind: "obj", fields: Field[] }` | Object literal |
+| `arr` | `{ kind: "arr", elements: Expr[] }` | Array literal |
+
+### 16.3 Lowering Context
+
+```typescript
+interface ExprLoweringContext {
+  /** Allowed system path prefixes */
+  allowSysPaths: { prefixes: string[] };
+
+  /** Function table version */
+  fnTableVersion: "1.0";
+
+  /** Whether var(item) is allowed */
+  allowVar?: boolean;
+}
+```
+
+**Predefined Contexts:**
+
+| Context | Purpose | `allowVar` | Sys Prefixes |
+|---------|---------|------------|--------------|
+| `DEFAULT_SCHEMA_CONTEXT` | Schema definitions | `false` | `["meta"]` |
+| `DEFAULT_ACTION_CONTEXT` | Action flows | `false` | `["meta", "input"]` |
+| `EFFECT_ARGS_CONTEXT` | Effect arguments | `true` | `["meta", "input"]` |
+| `DEFAULT_PATCH_CONTEXT` | Patch values | `false` | `["meta", "input"]` |
+
+### 16.4 Context-Dependent Rules
+
+#### var(item) → get($item)
+
+The `var` node is **only allowed in effect.args context**:
+
+```typescript
+// In EFFECT_ARGS_CONTEXT:
+{ kind: "var", name: "item" }
+// Lowers to:
+{ kind: "get", path: "$item" }
+
+// In other contexts: throws INVALID_KIND_FOR_CONTEXT
+```
+
+#### sys([meta, x]) → get(meta.x)
+
+System paths are restricted:
+
+```typescript
+// sys([meta, intentId]) → get("meta.intentId")
+{ kind: "sys", path: ["meta", "intentId"] }
+// Lowers to:
+{ kind: "get", path: "meta.intentId" }
+
+// sys([system, ...]) → REJECTED (forbidden in Translator path)
+{ kind: "sys", path: ["system", "timestamp"] }
+// Throws: INVALID_SYS_PATH
+```
+
+### 16.5 API Reference
+
+```typescript
+/**
+ * Lower MEL expression to Core expression.
+ *
+ * @throws LoweringError if expression cannot be lowered
+ */
+function lowerExprNode(
+  input: MelExprNode,
+  ctx: ExprLoweringContext
+): CoreExprNode;
+
+/**
+ * Lower patch fragments to conditional operations.
+ */
+function lowerPatchFragments(
+  fragments: MelPatchFragment[],
+  ctx: PatchLoweringContext
+): ConditionalPatchOp[];
+```
+
+### 16.6 Error Codes
+
+| Code | Description |
+|------|-------------|
+| `INVALID_KIND_FOR_CONTEXT` | Node kind not allowed in current context |
+| `UNKNOWN_CALL_FN` | Unknown function name |
+| `INVALID_SYS_PATH` | System path not allowed |
+| `UNSUPPORTED_BASE` | Base expression type not supported |
+| `INVALID_SHAPE` | Malformed node structure |
+| `UNKNOWN_NODE_KIND` | Unrecognized node kind |
+
+---
+
+## §17. Evaluation Module
+
+> **Added in v0.4.0**
+
+### 17.1 Overview
+
+The Evaluation Module evaluates Core IR expressions against a context.
+
+**AXIOM A35:** Expression evaluation is a **total function**; invalid operations return `null`, never throw.
+
+### 17.2 Evaluation Context
+
+```typescript
+interface EvaluationContext {
+  /** Snapshot data for path resolution */
+  snapshot: {
+    data: Record<string, unknown>;
+    computed: Record<string, unknown>;
+  };
+
+  /** Intent metadata */
+  meta: { intentId: string };
+
+  /** Action input */
+  input: Record<string, unknown>;
+
+  /** Current iteration item (for effect.args) */
+  $item?: unknown;
+}
+```
+
+### 17.3 Path Resolution Hierarchy
+
+When resolving a path, the evaluator checks in order:
+
+| Priority | Prefix | Source |
+|----------|--------|--------|
+| 1 | `meta.*` | `ctx.meta` |
+| 2 | `input.*` | `ctx.input` |
+| 3 | `$item.*` | `ctx.$item` |
+| 4 | `computed.*` | `ctx.snapshot.computed` |
+| 5 | (default) | `ctx.snapshot.data` |
+
+```typescript
+// get("meta.intentId") → ctx.meta.intentId
+// get("input.title") → ctx.input.title
+// get("count") → ctx.snapshot.data.count
+// get("computed.total") → ctx.snapshot.computed.total
+```
+
+### 17.4 Supported Expression Kinds
+
+| Category | Kinds |
+|----------|-------|
+| Literals | `lit` |
+| Path access | `get` |
+| Comparison | `eq`, `neq`, `gt`, `gte`, `lt`, `lte` |
+| Logical | `and`, `or`, `not` |
+| Conditional | `if` |
+| Arithmetic | `add`, `sub`, `mul`, `div`, `mod` |
+| String | `concat` |
+| Array | `len`, `at`, `map`, `filter`, `find`, `every`, `some` |
+| Object | `keys`, `values`, `hasOwn` |
+| Type | `isNull`, `isArray`, `isString`, `isNumber`, `typeof` |
+
+### 17.5 Conditional Patch Evaluation
+
+Patches are evaluated **sequentially** with working snapshot applied between:
+
+```typescript
+interface PatchEvaluationResult {
+  /** Patches that passed their conditions */
+  patches: EvaluatedPatch[];
+
+  /** Patches skipped due to conditions */
+  skipped: Array<{
+    fragmentId: string;
+    reason: "false" | "null" | "non-boolean";
+  }>;
+}
+```
+
+**Condition Classification:**
+
+| Evaluated Value | Classification | Action |
+|-----------------|----------------|--------|
+| `true` | truthy | Apply patch |
+| `false` | falsy | Skip patch |
+| `null`/`undefined` | null | Skip patch (reason: "null") |
+| non-boolean | invalid | Skip patch (reason: "non-boolean") |
+
+### 17.6 API Reference
+
+```typescript
+/**
+ * Evaluate a Core IR expression.
+ *
+ * Total function: returns null on any error, never throws.
+ */
+function evaluateExpr(
+  expr: ExprNode,
+  ctx: EvaluationContext
+): unknown;
+
+/**
+ * Evaluate conditional patch operations.
+ *
+ * Returns evaluated patches and skipped entries.
+ */
+function evaluateConditionalPatchOps(
+  ops: ConditionalPatchOp[],
+  ctx: EvaluationContext
+): PatchEvaluationResult;
+
+/**
+ * Create evaluation context from snapshot and intent.
+ */
+function createEvaluationContext(
+  snapshot: Snapshot,
+  intentId: string,
+  input?: Record<string, unknown>
+): EvaluationContext;
+```
+
+### 17.7 Total Function Semantics
+
+The evaluator **never throws**. Error cases return `null`:
+
+```typescript
+// Division by zero
+evaluateExpr({ kind: "div", left: { kind: "lit", value: 10 }, right: { kind: "lit", value: 0 } }, ctx)
+// Returns: null (not throw)
+
+// Invalid path
+evaluateExpr({ kind: "get", path: "nonexistent.deep.path" }, ctx)
+// Returns: null (not throw)
+
+// Type mismatch
+evaluateExpr({ kind: "add", left: { kind: "lit", value: "string" }, right: { kind: "lit", value: 5 } }, ctx)
+// Returns: null (not throw)
+```
+
+---
+
 ## Appendix A: Determinism Guarantees (Informative)
 
 ### A.1 What is Deterministic
@@ -1180,4 +1437,13 @@ compiler.subscribe(async (state) => {
 
 ---
 
-*End of @manifesto-ai/compiler Specification v1.0*
+## Appendix C: Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 0.4.0 | 2025-01-04 | Added §16 Lowering Module, §17 Evaluation Module |
+| 1.0.0 | 2024-12-15 | Initial release |
+
+---
+
+*End of @manifesto-ai/compiler Specification v0.4*
