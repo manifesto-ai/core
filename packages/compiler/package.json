@@ -60,6 +60,7 @@
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/translator": "workspace:*",
     "@anthropic-ai/sdk": "^0.26.0",
     "@types/react": "^18.3.0",
     "dotenv": "^16.4.0",

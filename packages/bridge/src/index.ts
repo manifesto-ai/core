@@ -3,10 +3,11 @@
  *
  * Two-way binding between UI/external sources and Manifesto Domain.
  *
- * Per Intent & Projection Specification v1.0:
+ * Per Intent & Projection Specification v1.0 / v1.1:
  * - Domain → UI: subscribe(callback) for SnapshotView changes
  * - UI → Domain: dispatch(body) for direct IntentBody submission
  * - UI → Domain: dispatchEvent(source) for Projection-based routing
+ * - Action Catalog: projectActionCatalog() for LLM/UI context injection (v1.1)
  *
  * @example
  * ```typescript
@@ -159,6 +160,34 @@ export {
   projectionError,
   invalidArgument,
 } from "./errors.js";
+
+// =============================================================================
+// Action Catalog (v1.1)
+// =============================================================================
+
+// Types
+export type {
+  ExpressionIR,
+  AvailabilityContext,
+  AvailabilityPredicate,
+  ActionDescriptor,
+  AvailabilityStatus,
+  ProjectedAction,
+  ActionCatalog,
+  PruningOptions,
+  AppliedPruningOptions,
+  ActionCatalogProjectionRequest,
+  ActionCatalogProjector,
+} from "./catalog/index.js";
+
+// Hash utilities
+export { computeCatalogHash, getAppliedPruningOptions } from "./catalog/index.js";
+
+// Projector
+export {
+  DefaultActionCatalogProjector,
+  createActionCatalogProjector,
+} from "./catalog/index.js";
 
 // =============================================================================
 // Re-exports from @manifesto-ai/world

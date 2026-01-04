@@ -3,16 +3,18 @@
  *
  * Two-way binding between UI/external sources and Manifesto Domain.
  *
- * Per Intent & Projection Specification v1.0:
+ * Per Intent & Projection Specification v1.0 / v1.1:
  * - Domain → UI: subscribe(callback) for SnapshotView changes
  * - UI → Domain: dispatch(body) for direct IntentBody submission
  * - UI → Domain: dispatchEvent(source) for Projection-based routing
+ * - Action Catalog: projectActionCatalog() for LLM/UI context injection (v1.1)
  *
  * Bridge coordinates:
  * - ManifestoWorld for proposal submission
  * - ProjectionRegistry for SourceEvent → IntentBody routing
  * - ProjectionRecorder for audit logging
  * - IntentIssuer for IntentBody → IntentInstance conversion
+ * - ActionCatalogProjector for action enumeration (v1.1)
  */
 import type { Snapshot } from "@manifesto-ai/core";
 import { getByPath } from "@manifesto-ai/core";
@@ -40,6 +42,12 @@ import {
   noSnapshotAvailable,
   dispatchFailed,
 } from "../errors.js";
+import type {
+  ActionCatalogProjector,
+  ActionDescriptor,
+  ActionCatalog,
+  PruningOptions,
+} from "../catalog/index.js";
 
 // ============================================================================
 // Types
@@ -79,6 +87,14 @@ export interface BridgeConfig {
 
   /** Default projection ID for direct dispatch (default: "bridge:direct") */
   defaultProjectionId?: string;
+
+  /**
+   * Optional Action Catalog projector (v1.1)
+   *
+   * If provided, enables projectActionCatalog() method for LLM/UI context injection.
+   * Per FDR-IP019, Bridge can omit this initially and LLM runtimes will use fallback.
+   */
+  catalogProjector?: ActionCatalogProjector;
 }
 
 // ============================================================================
@@ -95,6 +111,7 @@ export interface BridgeConfig {
  * - dispatchEvent(): Route SourceEvent through Projections
  * - set(): Convenience method for field.set
  * - registerProjection(): Add projections
+ * - projectActionCatalog(): Enumerate available actions (v1.1)
  */
 export class Bridge {
   private readonly world: ManifestoWorld;
@@ -104,6 +121,7 @@ export class Bridge {
   private readonly issuer: IntentIssuer;
   private readonly defaultActor?: ActorRef;
   private readonly defaultProjectionId: string;
+  private readonly catalogProjector?: ActionCatalogProjector;
 
   /** Current cached snapshot view */
   private currentSnapshot: SnapshotView | null = null;
@@ -129,6 +147,7 @@ export class Bridge {
     this.issuer = config.issuer ?? createIntentIssuer();
     this.defaultActor = config.defaultActor;
     this.defaultProjectionId = config.defaultProjectionId ?? "bridge:direct";
+    this.catalogProjector = config.catalogProjector;
   }
 
   // ==========================================================================
@@ -428,6 +447,70 @@ export class Bridge {
    */
   getRecorder(): ProjectionRecorder {
     return this.recorder;
+  }
+
+  // ==========================================================================
+  // Action Catalog (v1.1)
+  // ==========================================================================
+
+  /**
+   * Project action catalog for LLM/UI context injection (v1.1)
+   *
+   * Per Intent & Projection Specification v1.1 (§7.4):
+   * This projection enumerates currently relevant actions based on
+   * state-dependent availability evaluation.
+   *
+   * IMPORTANT: Action Catalog is NOT a security boundary (FDR-IP015).
+   * Final enforcement is Authority governance + Core runtime validation.
+   *
+   * Per FDR-IP019: If catalogProjector is not configured, returns null.
+   * LLM runtimes should fall back to schema-defined static action list.
+   *
+   * @param actions - Source action descriptors (typically from schema)
+   * @param options - Optional mode and pruning configuration
+   * @returns ActionCatalog or null if projector not configured
+   */
+  async projectActionCatalog(
+    actions: readonly ActionDescriptor[],
+    options?: {
+      mode?: "llm" | "ui" | "debug";
+      pruning?: PruningOptions;
+    }
+  ): Promise<ActionCatalog | null> {
+    // Per FDR-IP019: Optional method fallback
+    if (!this.catalogProjector) {
+      return null;
+    }
+
+    // Need snapshot for availability evaluation
+    const snapshot = this.getSnapshot();
+    if (!snapshot) {
+      return null;
+    }
+
+    // Need actor for availability context
+    const actor = this.defaultActor;
+    if (!actor) {
+      return null;
+    }
+
+    return this.catalogProjector.projectActionCatalog({
+      schemaHash: this.schemaHash,
+      snapshot,
+      actor,
+      actions,
+      mode: options?.mode,
+      pruning: options?.pruning,
+    });
+  }
+
+  /**
+   * Check if Action Catalog projection is available
+   *
+   * @returns true if catalogProjector is configured
+   */
+  hasActionCatalog(): boolean {
+    return !!this.catalogProjector;
   }
 
   // ==========================================================================

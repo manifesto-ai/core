@@ -29,11 +29,13 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
+    "@manifesto-ai/compiler": "^1.0.0",
     "@manifesto-ai/core": "^1.0.0",
     "@manifesto-ai/host": "^1.0.0",
     "@manifesto-ai/world": "^1.0.0"
   },
   "devDependencies": {
+    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*",

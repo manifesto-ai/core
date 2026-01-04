@@ -1,6 +1,6 @@
 # @manifesto-ai/bridge
 
-> **Bridge** is the two-way binding layer of Manifesto. It routes external events to intents and delivers snapshot changes to subscribers.
+> **Bridge** is the two-way binding layer of Manifesto. It routes external events to intents, delivers snapshot changes to subscribers, and provides action catalogs for LLM/UI context injection.
 
 ---
 
@@ -9,15 +9,18 @@
 Bridge connects the outside world (UI, API, agents) to the Manifesto domain. It:
 - Routes incoming events through Projections to create Intents
 - Subscribes to Snapshot changes and notifies listeners
+- Projects Action Catalogs for LLM/UI context injection (v1.1)
 - Provides a framework-agnostic integration point
 
 In the Manifesto architecture:
 
 ```
 React/UI ──→ BRIDGE ──→ World
-               │
-    Routes events → Intents
-    Delivers Snapshot → Subscribers
+   │            │
+   │   Routes events → Intents
+   │   Delivers Snapshot → Subscribers
+   │
+LLM Agent ←── Action Catalog (v1.1)
 ```
 
 ---
@@ -30,6 +33,7 @@ React/UI ──→ BRIDGE ──→ World
 | Subscribe to changes | Deliver SnapshotView updates to subscribers |
 | Manage projections | Register and execute projection functions |
 | Issue intents | Create IntentInstances from IntentBodies |
+| Project action catalogs | Enumerate available actions with state-dependent availability (v1.1) |
 
 ---
 
@@ -104,6 +108,95 @@ bridge.dispose();
 
 ---
 
+## Action Catalog (v1.1)
+
+Action Catalog enables LLM agents and UIs to discover available actions based on current state:
+
+```typescript
+import {
+  createBridge,
+  createActionCatalogProjector,
+} from "@manifesto-ai/bridge";
+
+// Create bridge with catalog projector
+const bridge = createBridge({
+  world,
+  schemaHash: world.schemaHash,
+  defaultActor: { actorId: "agent-1", kind: "agent" },
+  catalogProjector: createActionCatalogProjector(),
+});
+
+await bridge.refresh();
+
+// Define actions with availability predicates
+const actions = [
+  {
+    type: "todo.create",
+    label: "Create Todo",
+    description: "Creates a new todo item",
+    inputSchema: { type: "object", properties: { title: { type: "string" } } },
+  },
+  {
+    type: "todo.delete",
+    label: "Delete Todo",
+    description: "Deletes a todo item",
+    // Available only when canDelete is true
+    available: { kind: "get", path: "computed.canDelete" },
+  },
+  {
+    type: "admin.reset",
+    label: "Reset All",
+    description: "Resets all todos (admin only)",
+    available: {
+      kind: "fn",
+      evaluate: (ctx) => ctx.data.user?.role === "admin",
+    },
+  },
+];
+
+// Project catalog for LLM context
+const catalog = await bridge.projectActionCatalog(actions, {
+  mode: "llm",
+  pruning: {
+    policy: "drop_unavailable",  // Filter unavailable actions
+    includeUnknown: true,        // Include actions with unknown status
+    sort: "type_lex",            // Sort alphabetically
+  },
+});
+
+// Use catalog in LLM prompt
+console.log(catalog.actions);
+// [
+//   { type: "todo.create", label: "Create Todo", availability: { status: "available" } },
+//   { type: "admin.reset", label: "Reset All", availability: { status: "available" } },
+// ]
+
+// LLM selects action, then dispatch
+await bridge.dispatch({
+  type: "todo.create",
+  input: { title: "Task from LLM" },
+});
+```
+
+### Availability Predicates
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `null` / `undefined` | Always available | `{ type: "action" }` |
+| `ExprNode` | MEL-compiled expression | `{ kind: "get", path: "computed.canEdit" }` |
+| `fn` | Runtime function (non-portable) | `{ kind: "fn", evaluate: (ctx) => ctx.data.role === "admin" }` |
+
+### Pruning Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `policy` | `"drop_unavailable"` | `"drop_unavailable"` or `"mark_only"` |
+| `includeUnknown` | `true` | Include actions with unknown availability |
+| `maxActions` | `null` | Limit number of actions |
+| `sort` | `"type_lex"` | `"type_lex"` or `"schema_order"` |
+
+---
+
 ## Bridge API
 
 ### Main Exports
@@ -114,12 +207,28 @@ function createBridge(config: BridgeConfig): Bridge;
 
 // Bridge class
 class Bridge {
+  // Subscription
   subscribe(callback: SnapshotSubscriber): Unsubscribe;
-  dispatch(body: IntentBody): Promise<ProposalResult>;
-  dispatchEvent(source: SourceEvent): Promise<ProposalResult | undefined>;
-  registerProjection(projection: Projection): void;
   get(path: string): unknown;
+  getSnapshot(): SnapshotView | null;
+  refresh(): Promise<void>;
+
+  // Dispatch
+  dispatch(body: IntentBody): Promise<void>;
+  dispatchEvent(source: SourceEvent): Promise<ProjectionResult>;
+  set(path: string, value: unknown): Promise<void>;
+
+  // Projections
+  registerProjection(projection: Projection): void;
+  unregisterProjection(projectionId: string): boolean;
+
+  // Action Catalog (v1.1)
+  projectActionCatalog(actions, options?): Promise<ActionCatalog | null>;
+  hasActionCatalog(): boolean;
+
+  // Lifecycle
   dispose(): void;
+  isDisposed(): boolean;
 }
 
 // SourceEvent factories
@@ -136,7 +245,23 @@ type Projection = {
 type ProjectionResult = { kind: "intent"; body: IntentBody } | { kind: "none" };
 
 // Snapshot view
-type SnapshotView = Readonly<{ data, computed, system, input, meta }>;
+type SnapshotView = Readonly<{ data, computed }>;
+
+// Action Catalog types (v1.1)
+type ActionDescriptor = {
+  type: string;
+  label?: string;
+  description?: string;
+  inputSchema?: unknown;
+  available?: AvailabilityPredicate;
+};
+type ActionCatalog = {
+  kind: "action_catalog";
+  schemaHash: string;
+  catalogHash: string;
+  actions: ProjectedAction[];
+};
+function createActionCatalogProjector(): ActionCatalogProjector;
 ```
 
 > See [SPEC.md](../../docs/packages/bridge/SPEC.md) for complete API reference.
@@ -192,9 +317,9 @@ Subscribers receive a `SnapshotView` - a frozen, read-only view of the current s
 └──────┬──────┘
        │
        ▼
-┌─────────────┐
-│   BRIDGE    │
-└──────┬──────┘
+┌─────────────┐     ┌─────────────┐
+│   BRIDGE    │ ←── │  Compiler   │ (v1.1: ExprNode evaluation)
+└──────┬──────┘     └─────────────┘
        │
        ▼
 ┌─────────────┐
@@ -205,6 +330,7 @@ Subscribers receive a `SnapshotView` - a frozen, read-only view of the current s
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/world` | Submits proposals to World |
+| Depends on | `@manifesto-ai/compiler` | Evaluates ExprNode availability predicates (v1.1) |
 | Used by | `@manifesto-ai/react` | React hooks wrap Bridge |
 
 ---
@@ -217,6 +343,7 @@ Use Bridge directly when:
 - Building non-React UI integrations (Vue, Svelte, vanilla JS)
 - Implementing custom event routing logic
 - Building API endpoints that dispatch intents
+- Building LLM agents that need action catalogs (v1.1)
 
 For React applications, see [`@manifesto-ai/react`](../react/).
 
