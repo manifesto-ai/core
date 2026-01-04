@@ -53,7 +53,11 @@ Intent → Core (compute) → Patches + Effects → Host (execute) → New Snaps
 ## Quick Start
 
 ```bash
+# Core packages
 npm install @manifesto-ai/react @manifesto-ai/builder zod react
+
+# For natural language translation (optional)
+npm install @manifesto-ai/translator @manifesto-ai/memory
 ```
 
 ```typescript
@@ -157,10 +161,11 @@ domain TodoDomain {
 | [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](packages/bridge/README.md) |
 | [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](packages/builder/README.md) |
 | [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [README](packages/react/README.md) |
-| [`@manifesto-ai/compiler`](packages/compiler) | MEL/NL compiler. Compiles MEL or natural language to DomainSchema. | [README](packages/compiler/README.md) |
+| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema with lowering/evaluation. | [README](packages/compiler/README.md) |
+| [`@manifesto-ai/translator`](packages/translator) | Natural language to semantic changes. 6-stage pipeline with memory. | [README](packages/translator/README.md) |
+| [`@manifesto-ai/memory`](packages/memory) | Memory retrieval, verification, and tracing. | [README](packages/memory/README.md) |
 | [`@manifesto-ai/effect-utils`](packages/effect-utils) | Effect handler utilities and helpers. | [SPEC](packages/effect-utils/docs/SPEC.md) |
 | [`@manifesto-ai/lab`](packages/lab) | LLM governance, tracing, and HITL tooling. | [README](packages/lab/README.md) |
-| [`@manifesto-ai/memory`](packages/memory) | Memory retrieval, verification, and tracing. | [README](packages/memory/README.md) |
 
 ---
 
@@ -188,16 +193,26 @@ domain TodoDomain {
 ┌─────────────────────────────────────────────────────────────────┐
 │                           Host                                   │
 │  Executes effects, applies patches, runs compute-effect loop    │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                           Core                                   │
-│  Pure computation. No IO. Same input → same output.             │
-└─────────────────────────────────────────────────────────────────┘
+└───────────┬─────────────────┴───────────────────────────────────┘
+            │                 │
+            ▼                 ▼
+┌───────────────────┐  ┌─────────────────────────────────────────┐
+│    Translator     │  │                  Core                    │
+│  NL → Semantic    │  │  Pure computation. No IO.               │
+│  changes (6-stage)│  │  Same input → same output.              │
+└─────────┬─────────┘  └─────────────────────────────────────────┘
+          │
+          ▼
+┌───────────────────┐
+│      Memory       │
+│  Context retrieval│
+│  & verification   │
+└───────────────────┘
 ```
 
-Builder generates the DomainSchema consumed by Core (build-time only).
+- **Builder** generates the DomainSchema consumed by Core (build-time only).
+- **Translator** transforms natural language to semantic changes via Host.
+- **Memory** provides context retrieval with verification for Translator.
 
 > See https://docs.manifesto-ai.dev/architecture/ for detailed explanation.
 
