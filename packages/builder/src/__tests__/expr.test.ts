@@ -520,27 +520,4 @@ describe("expr builder", () => {
       });
     });
   });
-
-  describe("conversion", () => {
-    it("expr.toString compiles to toString expression", () => {
-      const e = expr.toString(42);
-      expect(e.compile()).toEqual({
-        kind: "toString",
-        arg: { kind: "lit", value: 42 },
-      });
-    });
-
-    it("expr.toString works with field refs", () => {
-      const e = expr.toString(state.age);
-      expect(e.compile()).toEqual({
-        kind: "toString",
-        arg: { kind: "get", path: "age" },
-      });
-    });
-
-    it("expr.toString tracks dependencies", () => {
-      const e = expr.toString(state.score);
-      expect(e.deps()).toContain("score");
-    });
-  });
 });

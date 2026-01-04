@@ -358,7 +358,7 @@ async function evaluateEffect(
   // Generate deterministic requirement ID
   const requirementId = await generateRequirementId(
     ctx.snapshot.meta.schemaHash,
-    ctx.meta.intentId,
+    ctx.intentId ?? "",
     ctx.currentAction ?? "",
     nodePath
   );
@@ -406,9 +406,10 @@ async function evaluateArrayOperation(
         "INVALID_INPUT",
         `${flow.type} requires 'source' parameter`,
         ctx.currentAction ?? "",
-        nodePath
+        nodePath,
+        ctx.trace.timestamp
       )),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -416,7 +417,7 @@ async function evaluateArrayOperation(
   if (!sourceResult.ok) {
     return {
       state: setError(state, sourceResult.error),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -427,9 +428,10 @@ async function evaluateArrayOperation(
         "TYPE_MISMATCH",
         `${flow.type} source must be an array`,
         currentCtx.currentAction ?? "",
-        nodePath
+        nodePath,
+        currentCtx.trace.timestamp
       )),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -441,9 +443,10 @@ async function evaluateArrayOperation(
         "INVALID_INPUT",
         `${flow.type} requires 'into' parameter`,
         currentCtx.currentAction ?? "",
-        nodePath
+        nodePath,
+        currentCtx.trace.timestamp
       )),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -451,7 +454,7 @@ async function evaluateArrayOperation(
   if (!intoResult.ok) {
     return {
       state: setError(state, intoResult.error),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -465,9 +468,10 @@ async function evaluateArrayOperation(
         "INVALID_INPUT",
         `${flow.type} requires '${flow.type === "array.map" ? "select" : "where"}' parameter`,
         currentCtx.currentAction ?? "",
-        nodePath
+        nodePath,
+        currentCtx.trace.timestamp
       )),
-      trace: createTraceNode("error", nodePath, {}, null, []),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
 
@@ -484,7 +488,7 @@ async function evaluateArrayOperation(
     if (!itemResult.ok) {
       return {
         state: setError(state, itemResult.error),
-        trace: createTraceNode("error", nodePath, {}, null, []),
+        trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
       };
     }
 
@@ -506,7 +510,7 @@ async function evaluateArrayOperation(
 
   return {
     state: newState,
-    trace: createTraceNode("effect", nodePath, { type: flow.type, target: targetPath }, { count: resultArray.length }, []),
+    trace: createTraceNode(currentCtx.trace, "effect", nodePath, { type: flow.type, target: targetPath }, { count: resultArray.length }, []),
   };
 }
 

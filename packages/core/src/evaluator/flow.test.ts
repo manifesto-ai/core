@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { evaluateFlow, createFlowState, type FlowState } from "./flow.js";
 import { createContext } from "./context.js";
-import { createTraceContext } from "../schema/trace.js";
 import type { FlowNode } from "../schema/flow.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
@@ -50,7 +49,6 @@ function createTestContext(
   input?: unknown,
   actions: DomainSchema["actions"] = {}
 ): ReturnType<typeof createContext> {
-  const trace = createTraceContext(0);
   const snapshot: Snapshot = {
     data,
     computed: {},
@@ -80,7 +78,7 @@ function createTestContext(
     actions,
   };
 
-  return createContext(snapshot, schema, "testAction", "test", trace);
+  return createContext(snapshot, schema, "testAction", "test", "test-intent-id", 0);
 }
 
 function createTestFlowState(data: unknown = {}): FlowState {

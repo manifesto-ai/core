@@ -87,7 +87,7 @@ function explainComputed(
   }
 
   // Evaluate the expression to get the trace
-  const ctx = createContext(snapshot, schema, null, path, trace);
+  const ctx = createContext(snapshot, schema, null, path, undefined, trace);
   const result = evaluateExpr(spec.expr, ctx);
 
   const value = isOk(result) ? result.value : null;

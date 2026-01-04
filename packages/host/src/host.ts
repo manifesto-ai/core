@@ -24,6 +24,7 @@ import {
   hasAmbiguity,
   type TranslatorOutput,
 } from "./translator.js";
+import { createInitialHostContext } from "./context.js";
 
 /**
  * Host result returned from dispatch
@@ -106,7 +107,7 @@ export class ManifestoHost {
   private async initializeIfNeeded(initialData?: unknown): Promise<void> {
     const existing = await this.store.get();
     if (!existing && initialData !== undefined) {
-      const snapshot = createSnapshot(initialData, this.schema.hash);
+      const snapshot = createSnapshot(initialData, this.schema.hash, createInitialHostContext());
       // Evaluate computed values on initial snapshot
       const computedResult = evaluateComputed(this.schema, snapshot);
       const snapshotWithComputed: Snapshot = {
@@ -163,9 +164,10 @@ export class ManifestoHost {
    * It runs the host loop until completion, halt, or error.
    *
    * @param intent - Intent to dispatch (use createIntent helper)
+   * @param loopOptions - Optional loop options to merge with defaults
    * @returns Host result with final snapshot and traces
    */
-  async dispatch(intent: Intent): Promise<HostResult> {
+  async dispatch(intent: Intent, loopOptions?: Partial<HostLoopOptions>): Promise<HostResult> {
     // Wait for initialization
     if (!this.initialized) {
       await this.initializeIfNeeded();
@@ -176,7 +178,7 @@ export class ManifestoHost {
     if (!snapshot) {
       return {
         status: "error",
-        snapshot: createSnapshot({}, this.schema.hash),
+        snapshot: createSnapshot({}, this.schema.hash, createInitialHostContext()),
         traces: [],
         error: createHostError(
           "HOST_NOT_INITIALIZED",
@@ -185,6 +187,12 @@ export class ManifestoHost {
       };
     }
 
+    // Merge loop options with defaults
+    const mergedOptions: HostLoopOptions = {
+      ...this.loopOptions,
+      ...loopOptions,
+    };
+
     // Run the host loop
     const result = await runHostLoop(
       this.core,
@@ -192,7 +200,7 @@ export class ManifestoHost {
       snapshot,
       intent,
       this.executor,
-      this.loopOptions
+      mergedOptions
     );
 
     // Save final snapshot
@@ -231,7 +239,7 @@ export class ManifestoHost {
     if (hasAmbiguity(output)) {
       return {
         status: "error",
-        snapshot: (await this.store.get()) ?? createSnapshot({}, this.schema.hash),
+        snapshot: (await this.store.get()) ?? createSnapshot({}, this.schema.hash, createInitialHostContext()),
         traces: [],
         error: createHostError(
           "TRANSLATOR_AMBIGUOUS",
@@ -246,7 +254,7 @@ export class ManifestoHost {
     if (!snapshot) {
       return {
         status: "error",
-        snapshot: createSnapshot({}, this.schema.hash),
+        snapshot: createSnapshot({}, this.schema.hash, createInitialHostContext()),
         traces: [],
         error: createHostError(
           "HOST_NOT_INITIALIZED",
@@ -277,7 +285,7 @@ export class ManifestoHost {
             return { op: "set", path: p.path, value: p.value };
           }
         });
-        snapshot = this.core.apply(this.schema, snapshot, corePatches);
+        snapshot = this.core.apply(this.schema, snapshot, corePatches, createInitialHostContext());
         await this.store.save(snapshot);
       }
 
@@ -342,7 +350,7 @@ export class ManifestoHost {
    */
   async reset(initialData: unknown): Promise<void> {
     await this.store.clear();
-    const snapshot = createSnapshot(initialData, this.schema.hash);
+    const snapshot = createSnapshot(initialData, this.schema.hash, createInitialHostContext());
     // Evaluate computed values on reset snapshot
     const computedResult = evaluateComputed(this.schema, snapshot);
     const snapshotWithComputed: Snapshot = {

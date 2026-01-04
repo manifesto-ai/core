@@ -1,5 +1,6 @@
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
+import { type TraceContext, createTraceContext } from "../schema/trace.js";
 
 /**
  * Evaluation context for expressions and flows
@@ -36,6 +37,11 @@ export type EvalContext = {
   uuidCounter?: number;
 
   /**
+   * Trace context for deterministic trace ID generation
+   */
+  readonly trace: TraceContext;
+
+  /**
    * Collection context variables (for filter, map, find, etc.)
    */
   readonly $item?: unknown;
@@ -51,7 +57,8 @@ export function createContext(
   schema: DomainSchema,
   currentAction?: string | null,
   nodePath?: string,
-  intentId?: string
+  intentId?: string,
+  timestampOrTrace?: number | TraceContext
 ): EvalContext {
   return {
     snapshot,
@@ -60,6 +67,9 @@ export function createContext(
     nodePath: nodePath ?? "",
     intentId,
     uuidCounter: 0,
+    trace: typeof timestampOrTrace === "object"
+      ? timestampOrTrace
+      : createTraceContext(timestampOrTrace ?? Date.now()),
   };
 }
 

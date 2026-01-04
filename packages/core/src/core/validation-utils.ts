@@ -41,34 +41,18 @@ export function collectGetPathsFromExpr(expr: ExprNode): string[] {
         visit(node.left);
         visit(node.right);
         return;
-      case "pow":
-        visit(node.base);
-        visit(node.exponent);
-        return;
       case "and":
       case "or":
       case "concat":
-      case "min":
-      case "max":
       case "coalesce":
         node.args.forEach(visit);
         return;
       case "not":
-      case "neg":
-      case "abs":
-      case "floor":
-      case "ceil":
-      case "round":
-      case "sqrt":
       case "typeof":
       case "isNull":
-      case "toString":
       case "len":
         visit(node.arg);
         return;
-      case "sumArray":
-      case "minArray":
-      case "maxArray":
       case "first":
       case "last":
         visit(node.array);
@@ -84,9 +68,6 @@ export function collectGetPathsFromExpr(expr: ExprNode): string[] {
         if (node.end) visit(node.end);
         return;
       case "trim":
-      case "toLowerCase":
-      case "toUpperCase":
-      case "strLen":
         visit(node.str);
         return;
       case "at":

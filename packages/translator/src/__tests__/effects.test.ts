@@ -52,6 +52,7 @@ function createTestDeps(overrides?: Partial<TranslatorEffectDependencies>): Tran
 }
 
 function createTestSnapshot(data: Record<string, unknown> = {}): ReturnType<typeof createSnapshot> {
+  const hostContext = { now: Date.now(), randomSeed: "test-seed", durationMs: 0 };
   return createSnapshot(
     {
       status: "idle",
@@ -70,7 +71,8 @@ function createTestSnapshot(data: Record<string, unknown> = {}): ReturnType<type
       errorJson: null,
       ...data,
     },
-    "test-schema-hash"
+    "test-schema-hash",
+    hostContext
   );
 }
 

@@ -42,13 +42,16 @@
   "peerDependencies": {
     "@manifesto-ai/core": "^1.0.0",
     "@manifesto-ai/world": "^1.0.0",
-    "@manifesto-ai/bridge": "^1.0.0",
     "@manifesto-ai/host": "^1.0.0",
     "@manifesto-ai/memory": "^1.0.0",
+    "@manifesto-ai/bridge": "^1.0.0",
     "@anthropic-ai/sdk": "^0.26.0",
     "openai": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@manifesto-ai/bridge": {
+      "optional": true
+    },
     "@anthropic-ai/sdk": {
       "optional": true
     },
@@ -68,7 +71,6 @@
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/world": "workspace:*",
-    "@manifesto-ai/bridge": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/memory": "workspace:*",
     "@anthropic-ai/sdk": "^0.26.0",
