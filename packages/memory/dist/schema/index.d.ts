@@ -1,7 +1,7 @@
 /**
- * Memory Schema
+ * Schema Types - Barrel Export
  *
- * Re-exports all schema types for the Memory layer.
+ * Re-exports all schema types for memory package.
  */
 export * from "./ref.js";
 export * from "./proof.js";

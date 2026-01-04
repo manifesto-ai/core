@@ -20,22 +20,22 @@ import { z } from "zod";
  * - selected[*] Each element MUST satisfy SelectedMemory constraints
  */
 export declare const MemoryTrace: z.ZodObject<{
-    selector: z.ZodObject<{
-        actorId: z.ZodString;
-        kind: z.ZodEnum<{
+    selector: import("zod").ZodObject<{
+        actorId: import("zod").ZodString;
+        kind: import("zod").ZodEnum<{
             human: "human";
             agent: "agent";
             system: "system";
         }>;
-        name: z.ZodOptional<z.ZodString>;
-        meta: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-    }, z.core.$strip>;
+        name: import("zod").ZodOptional<import("zod").ZodString>;
+        meta: import("zod").ZodOptional<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodUnknown>>;
+    }, import("zod/v4/core").$strip>;
     query: z.ZodString;
     selectedAt: z.ZodNumber;
-    atWorldId: z.core.$ZodBranded<z.ZodString, "WorldId">;
+    atWorldId: import("zod/v4/core").$ZodBranded<import("zod").ZodString, "WorldId", "out">;
     selected: z.ZodArray<z.ZodObject<{
         ref: z.ZodObject<{
-            worldId: z.core.$ZodBranded<z.ZodString, "WorldId">;
+            worldId: import("zod/v4/core").$ZodBranded<import("zod").ZodString, "WorldId", "out">;
         }, z.core.$strip>;
         reason: z.ZodString;
         confidence: z.ZodNumber;
@@ -44,16 +44,16 @@ export declare const MemoryTrace: z.ZodObject<{
             method: z.ZodUnion<readonly [z.ZodLiteral<"existence">, z.ZodLiteral<"hash">, z.ZodLiteral<"merkle">, z.ZodLiteral<"signature">, z.ZodLiteral<"none">, z.ZodString]>;
             proof: z.ZodOptional<z.ZodUnknown>;
             verifiedAt: z.ZodNumber;
-            verifiedBy: z.ZodObject<{
-                actorId: z.ZodString;
-                kind: z.ZodEnum<{
+            verifiedBy: import("zod").ZodObject<{
+                actorId: import("zod").ZodString;
+                kind: import("zod").ZodEnum<{
                     human: "human";
                     agent: "agent";
                     system: "system";
                 }>;
-                name: z.ZodOptional<z.ZodString>;
-                meta: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-            }, z.core.$strip>;
+                name: import("zod").ZodOptional<import("zod").ZodString>;
+                meta: import("zod").ZodOptional<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodUnknown>>;
+            }, import("zod/v4/core").$strip>;
         }, z.core.$strip>>;
     }, z.core.$strip>>;
 }, z.core.$strip>;

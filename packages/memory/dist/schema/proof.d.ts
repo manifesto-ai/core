@@ -49,16 +49,16 @@ export declare const VerificationEvidence: z.ZodObject<{
     method: z.ZodUnion<readonly [z.ZodLiteral<"existence">, z.ZodLiteral<"hash">, z.ZodLiteral<"merkle">, z.ZodLiteral<"signature">, z.ZodLiteral<"none">, z.ZodString]>;
     proof: z.ZodOptional<z.ZodUnknown>;
     verifiedAt: z.ZodNumber;
-    verifiedBy: z.ZodObject<{
-        actorId: z.ZodString;
-        kind: z.ZodEnum<{
+    verifiedBy: import("zod").ZodObject<{
+        actorId: import("zod").ZodString;
+        kind: import("zod").ZodEnum<{
             human: "human";
             agent: "agent";
             system: "system";
         }>;
-        name: z.ZodOptional<z.ZodString>;
-        meta: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-    }, z.core.$strip>;
+        name: import("zod").ZodOptional<import("zod").ZodString>;
+        meta: import("zod").ZodOptional<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodUnknown>>;
+    }, import("zod/v4/core").$strip>;
 }, z.core.$strip>;
 export type VerificationEvidence = z.infer<typeof VerificationEvidence>;
 /**

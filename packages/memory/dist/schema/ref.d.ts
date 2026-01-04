@@ -16,7 +16,7 @@ import { z } from "zod";
  * - WorldId MUST NOT be parsed or decomposed by Memory implementations
  */
 export declare const MemoryRef: z.ZodObject<{
-    worldId: z.core.$ZodBranded<z.ZodString, "WorldId">;
+    worldId: import("zod/v4/core").$ZodBranded<import("zod").ZodString, "WorldId", "out">;
 }, z.core.$strip>;
 export type MemoryRef = z.infer<typeof MemoryRef>;
 /**

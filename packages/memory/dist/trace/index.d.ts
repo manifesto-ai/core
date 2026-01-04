@@ -1,11 +1,9 @@
 /**
- * Memory Trace Utilities
+ * Trace Utilities - Barrel Export
  *
- * Re-exports all trace utilities for the Memory layer.
+ * Re-exports all trace-related utilities.
  */
-export { createMemoryTrace, createMemoryTraceFromResult } from "./create.js";
-export { attachToProposal, getFromProposal, hasTrace } from "./attach.js";
-export { validateMemoryTrace, validateSelectedMemory, isMemoryTrace, parseMemoryTrace, safeParseMemoryTrace, } from "./validate.js";
-export type { ValidationResult } from "./validate.js";
-export { extractProof } from "../schema/proof.js";
+export * from "./create.js";
+export * from "./attach.js";
+export * from "./validate.js";
 //# sourceMappingURL=index.d.ts.map

@@ -1,7 +1,9 @@
 /**
- * Memory Interfaces
+ * Interfaces - Barrel Export
  *
- * Re-exports all interface types for the Memory layer.
+ * Re-exports all interfaces for memory package.
  */
-export {};
+export * from "./store.js";
+export * from "./verifier.js";
+export * from "./selector.js";
 //# sourceMappingURL=index.js.map

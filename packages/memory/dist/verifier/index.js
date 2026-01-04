@@ -1,17 +1,10 @@
 /**
- * Memory Verifiers
+ * Verifiers - Barrel Export
  *
  * Re-exports all verifier implementations.
- *
- * Available verifiers:
- * - ExistenceVerifier: Simple existence check
- * - HashVerifier: Content hash comparison
- * - MerkleVerifier: Merkle tree verification
+ * All verifiers are PURE (M-8).
  */
-// Existence Verifier
-export { ExistenceVerifier, createExistenceVerifier } from "./existence.js";
-// Hash Verifier
-export { HashVerifier, createHashVerifier, computeHash } from "./hash.js";
-// Merkle Verifier
-export { MerkleVerifier, createMerkleVerifier, hashData, hashLeaf, computeParentHash, computeMerkleRoot, verifyMerklePathProof, generateMerklePathProof, } from "./merkle.js";
+export * from "./existence.js";
+export * from "./hash.js";
+export * from "./merkle.js";
 //# sourceMappingURL=index.js.map

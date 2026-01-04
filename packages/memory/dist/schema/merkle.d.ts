@@ -1,22 +1,15 @@
 /**
- * Merkle Proof Schema
+ * Merkle Tree Schema Types
  *
- * Defines types for Merkle-based verification.
- * Reference implementation from SPEC-1.2v Appendix E.
+ * Defines types for Merkle tree verification proofs.
+ * These types are used by MerkleVerifier and HashVerifier.
  *
  * @see SPEC-1.2v Appendix E
  */
 import { z } from "zod";
 /**
- * Position of a sibling node in the Merkle tree.
- */
-export declare const MerklePosition: z.ZodEnum<{
-    left: "left";
-    right: "right";
-}>;
-export type MerklePosition = z.infer<typeof MerklePosition>;
-/**
- * A sibling node in the Merkle proof path.
+ * Sibling node in a Merkle path proof.
+ * Position indicates whether this sibling is on the left or right.
  */
 export declare const MerkleSibling: z.ZodObject<{
     hash: z.ZodString;
@@ -27,8 +20,8 @@ export declare const MerkleSibling: z.ZodObject<{
 }, z.core.$strip>;
 export type MerkleSibling = z.infer<typeof MerkleSibling>;
 /**
- * Path proof for partial Merkle verification.
- * Used to prove a specific leaf is part of the tree.
+ * Path proof from a leaf to the root.
+ * Contains the leaf hash and all sibling nodes along the path.
  */
 export declare const MerklePathProof: z.ZodObject<{
     leafHash: z.ZodString;
@@ -42,8 +35,8 @@ export declare const MerklePathProof: z.ZodObject<{
 }, z.core.$strip>;
 export type MerklePathProof = z.infer<typeof MerklePathProof>;
 /**
- * Merkle-specific proof data.
- * This is what goes into VerificationProof.proof when method === 'merkle'.
+ * Proof data for Merkle verification method.
+ * Goes into VerificationProof.proof when method === 'merkle'.
  */
 export declare const MerkleProofData: z.ZodObject<{
     computedRoot: z.ZodString;
@@ -61,8 +54,8 @@ export declare const MerkleProofData: z.ZodObject<{
 }, z.core.$strip>;
 export type MerkleProofData = z.infer<typeof MerkleProofData>;
 /**
- * Hash-specific proof data.
- * This is what goes into VerificationProof.proof when method === 'hash'.
+ * Proof data for Hash verification method.
+ * Goes into VerificationProof.proof when method === 'hash'.
  */
 export declare const HashProofData: z.ZodObject<{
     computedHash: z.ZodString;
