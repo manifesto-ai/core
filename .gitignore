@@ -11,3 +11,4 @@ docs/.vitepress
 apps/llm-babybench
 .bench
 coverage
+archives
