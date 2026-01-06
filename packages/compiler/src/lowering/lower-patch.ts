@@ -146,13 +146,14 @@ export type LoweredPatchOp =
   | { kind: "addActionAvailable"; actionName: string; expr: CoreExprNode };
 
 /**
- * Conditional patch operation (intermediate IR for Host).
+ * Schema conditional patch operation (intermediate IR for Translator → Host).
  *
+ * Used for schema evolution operations (addType, addField, addComputed, etc.).
  * Preserves fragment condition for later evaluation.
  *
  * @see SPEC v0.4.0 §17.5
  */
-export interface ConditionalPatchOp {
+export interface SchemaConditionalPatchOp {
   /**
    * Fragment identifier (for tracing).
    */
@@ -177,34 +178,39 @@ export interface ConditionalPatchOp {
   confidence: number;
 }
 
+/**
+ * @deprecated Use SchemaConditionalPatchOp instead.
+ */
+export type ConditionalPatchOp = SchemaConditionalPatchOp;
+
 // ============ Lowering Functions ============
 
 /**
- * Lower PatchFragment[] to ConditionalPatchOp[].
+ * Lower PatchFragment[] to SchemaConditionalPatchOp[].
  *
  * Transforms MEL IR expressions to Core IR expressions.
  * Preserves fragment conditions for evaluation phase.
  *
  * @param fragments - MEL IR patch fragments from Translator
  * @param ctx - Patch lowering context
- * @returns Core IR conditional patch operations
+ * @returns Core IR schema conditional patch operations
  *
  * @see SPEC v0.4.0 §17.5
  */
 export function lowerPatchFragments(
   fragments: MelPatchFragment[],
   ctx: PatchLoweringContext
-): ConditionalPatchOp[] {
+): SchemaConditionalPatchOp[] {
   return fragments.map((fragment) => lowerPatchFragment(fragment, ctx));
 }
 
 /**
- * Lower a single PatchFragment to ConditionalPatchOp.
+ * Lower a single PatchFragment to SchemaConditionalPatchOp.
  */
 function lowerPatchFragment(
   fragment: MelPatchFragment,
   ctx: PatchLoweringContext
-): ConditionalPatchOp {
+): SchemaConditionalPatchOp {
   // Lower condition if present
   const condition = fragment.condition
     ? lowerExprNode(fragment.condition, createExprContext(ctx, "action"))

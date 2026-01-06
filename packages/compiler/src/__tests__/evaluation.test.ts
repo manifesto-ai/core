@@ -12,10 +12,12 @@ import {
   evaluateExpr,
   evaluateConditionalPatchOps,
   evaluateCondition,
+  evaluateRuntimePatches,
+  evaluateRuntimePatchesWithTrace,
   createEvaluationContext,
   type EvaluationContext,
 } from "../evaluation/index.js";
-import type { ConditionalPatchOp } from "../lowering/index.js";
+import type { ConditionalPatchOp, RuntimeConditionalPatchOp } from "../lowering/index.js";
 
 // Test helpers
 function createTestContext(
@@ -716,6 +718,391 @@ describe("evaluateConditionalPatchOps", () => {
     expect(result.finalSnapshot.data).toEqual({
       value: 10,
       result: "success",
+    });
+  });
+});
+
+describe("evaluateRuntimePatches", () => {
+  describe("basic operations", () => {
+    it("should evaluate set patches with literal values", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "newValue",
+          value: { kind: "lit", value: 42 },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ op: "set", path: "newValue", value: 42 });
+    });
+
+    it("should evaluate unset patches", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "unset",
+          path: "count",
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ op: "unset", path: "count" });
+    });
+
+    it("should evaluate merge patches with object values", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "merge",
+          path: "user",
+          value: {
+            kind: "object",
+            fields: {
+              name: { kind: "lit", value: "Alice" },
+              age: { kind: "lit", value: 30 },
+            },
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        op: "merge",
+        path: "user",
+        value: { name: "Alice", age: 30 },
+      });
+    });
+
+    it("should fallback to set with null for invalid merge values", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "merge",
+          path: "items",
+          value: { kind: "lit", value: [1, 2, 3] }, // Array is not valid for merge
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ op: "set", path: "items", value: null });
+    });
+  });
+
+  describe("value expression evaluation", () => {
+    it("should evaluate expressions referencing snapshot data", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "doubled",
+          value: {
+            kind: "mul",
+            left: { kind: "get", path: "count" },
+            right: { kind: "lit", value: 2 },
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result[0]).toEqual({ op: "set", path: "doubled", value: 20 });
+    });
+
+    it("should evaluate expressions referencing input", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "newTitle",
+          value: { kind: "get", path: "input.title" },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result[0]).toEqual({ op: "set", path: "newTitle", value: "Hello" });
+    });
+
+    it("should evaluate expressions referencing meta", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "lastIntentId",
+          value: { kind: "get", path: "meta.intentId" },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result[0]).toEqual({
+        op: "set",
+        path: "lastIntentId",
+        value: "test-intent-123",
+      });
+    });
+
+    it("should evaluate expressions referencing computed values", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "cachedTotal",
+          value: { kind: "get", path: "computed.total" },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result[0]).toEqual({ op: "set", path: "cachedTotal", value: 100 });
+    });
+  });
+
+  describe("condition evaluation (§18.6 boolean-only)", () => {
+    it("should include patches with true conditions", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: { kind: "lit", value: "yes" },
+          condition: { kind: "lit", value: true },
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(1);
+      expect(result.skipped).toHaveLength(0);
+    });
+
+    it("should skip patches with false conditions", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: { kind: "lit", value: "yes" },
+          condition: { kind: "lit", value: false },
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(0);
+      expect(result.skipped).toHaveLength(1);
+      expect(result.skipped[0]).toEqual({
+        index: 0,
+        path: "result",
+        reason: "false",
+      });
+    });
+
+    it("should skip patches with null conditions", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: { kind: "lit", value: "yes" },
+          condition: { kind: "get", path: "nonexistent" }, // returns null
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(0);
+      expect(result.skipped).toHaveLength(1);
+      expect(result.skipped[0].reason).toBe("null");
+    });
+
+    it("should skip patches with non-boolean conditions", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: { kind: "lit", value: "yes" },
+          condition: { kind: "lit", value: 1 }, // truthy but not boolean
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(0);
+      expect(result.skipped).toHaveLength(1);
+      expect(result.skipped[0].reason).toBe("non-boolean");
+    });
+
+    it("should evaluate expression conditions", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: { kind: "lit", value: "big" },
+          condition: {
+            kind: "gt",
+            left: { kind: "get", path: "count" },
+            right: { kind: "lit", value: 5 },
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].value).toBe("big");
+    });
+  });
+
+  describe("sequential evaluation (§18.5)", () => {
+    it("should apply patches sequentially (later patches see earlier changes)", () => {
+      const ctx = createEvaluationContext({
+        meta: { intentId: "test" },
+        snapshot: { data: { count: 0 }, computed: {} },
+        input: {},
+      });
+
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "count",
+          value: { kind: "lit", value: 10 },
+        },
+        {
+          op: "set",
+          path: "doubled",
+          value: {
+            kind: "mul",
+            left: { kind: "get", path: "count" },
+            right: { kind: "lit", value: 2 },
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(2);
+      expect(result.patches[0]).toEqual({ op: "set", path: "count", value: 10 });
+      expect(result.patches[1]).toEqual({ op: "set", path: "doubled", value: 20 });
+      expect(result.finalSnapshot.data).toEqual({ count: 10, doubled: 20 });
+    });
+
+    it("should handle conditions based on previous patches", () => {
+      const ctx = createEvaluationContext({
+        meta: { intentId: "test" },
+        snapshot: { data: { status: null }, computed: {} },
+        input: {},
+      });
+
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "status",
+          value: { kind: "lit", value: "processing" },
+        },
+        {
+          op: "set",
+          path: "message",
+          value: { kind: "lit", value: "Started" },
+          condition: {
+            kind: "eq",
+            left: { kind: "get", path: "status" },
+            right: { kind: "lit", value: "processing" },
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(2);
+      expect(result.patches[1]).toEqual({
+        op: "set",
+        path: "message",
+        value: "Started",
+      });
+    });
+
+    it("should handle unset in sequence", () => {
+      const ctx = createEvaluationContext({
+        meta: { intentId: "test" },
+        snapshot: { data: { temp: "value", final: null }, computed: {} },
+        input: {},
+      });
+
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "unset",
+          path: "temp",
+        },
+        {
+          op: "set",
+          path: "final",
+          value: { kind: "lit", value: "done" },
+          condition: {
+            kind: "isNull",
+            arg: { kind: "get", path: "temp" },
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatchesWithTrace(ops, ctx);
+
+      expect(result.patches).toHaveLength(2);
+      expect(result.patches[1]).toEqual({
+        op: "set",
+        path: "final",
+        value: "done",
+      });
+    });
+  });
+
+  describe("total function semantics (A35)", () => {
+    it("should return null values for expression errors, not throw", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: {
+            kind: "div",
+            left: { kind: "lit", value: 10 },
+            right: { kind: "lit", value: 0 }, // Division by zero
+          },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ op: "set", path: "result", value: null });
+    });
+
+    it("should handle missing path references gracefully", () => {
+      const ctx = createTestContext();
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "result",
+          value: { kind: "get", path: "deep.nested.missing.path" },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ op: "set", path: "result", value: null });
     });
   });
 });
