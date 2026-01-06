@@ -1,0 +1,55 @@
+{
+  "name": "@manifesto-ai/app",
+  "version": "0.4.7",
+  "description": "Manifesto App - Facade and orchestration layer over the Manifesto protocol stack",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/app"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/app#readme",
+  "keywords": [
+    "manifesto",
+    "state-management",
+    "deterministic",
+    "semantic",
+    "app",
+    "facade"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:tsc": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "echo 'lint not configured'",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/world": "workspace:*",
+    "@manifesto-ai/memory": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

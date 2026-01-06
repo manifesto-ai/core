@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { compile } from "@manifesto-ai/compiler";
+import { compileMelDomain } from "@manifesto-ai/compiler";
 import { createHost, createIntent } from "@manifesto-ai/host";
 import { registerMockHandlers } from "./mock-handlers.js";
 
@@ -128,17 +128,17 @@ async function main() {
   const melPath = join(__dirname, "..", "shipment.mel");
   const melSource = readFileSync(melPath, "utf-8");
 
-  const compileResult = compile(melSource);
+  const compileResult = compileMelDomain(melSource, { mode: "domain" });
 
-  if (!compileResult.success) {
+  if (compileResult.errors.length > 0) {
     console.error("\n❌ Compilation failed:");
-    compileResult.errors.forEach((err) => {
+    compileResult.errors.forEach((err: { code: string; message: string }) => {
       console.error(`   [${err.code}] ${err.message}`);
     });
     process.exit(1);
   }
 
-  const schema = compileResult.schema;
+  const schema = compileResult.schema!;
   console.log(`✅ Compiled: ${schema.id} v${schema.version}`);
   console.log(`   State: ${Object.keys(schema.state.fields).length} fields`);
   console.log(`   Computed: ${Object.keys(schema.computed.fields).length} fields`);
@@ -149,7 +149,8 @@ async function main() {
   // -------------------------------------------------------------------------
   console.log("\n⚙️  Creating Host...");
 
-  const host = createHost(schema, { initialData: {} });
+  // Type assertion needed due to DomainSchema type differences between packages
+  const host = createHost(schema as Parameters<typeof createHost>[0], { initialData: {} });
   registerMockHandlers(host);
 
   // Initialize
