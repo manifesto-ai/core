@@ -23,7 +23,8 @@
 13. [FDR-012: Patch Operations Limited to Three](#fdr-012-patch-operations-limited-to-three)
 14. [FDR-013: Host Responsibility Boundary](#fdr-013-host-responsibility-boundary)
 15. [FDR-014: Browser Compatibility](#fdr-014-browser-compatibility)
-16. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
+16. [FDR-015: Static Patch Paths](#fdr-015-static-patch-paths)
+17. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
 
 ---
 
@@ -887,6 +888,88 @@ function computeHash(schema: Omit<DomainSchema, "hash">): string {
 
 ---
 
+## FDR-015: Static Patch Paths
+
+### Decision
+
+Patch paths MUST be **statically resolvable** at apply-time. `core.apply()` does NOT evaluate expressions in paths.
+
+### Context
+
+MEL syntax allows dynamic path expressions:
+
+```mel
+// MEL allows this syntax
+patch items[$system.uuid] = { id: $system.uuid, name: "New Item" }
+```
+
+However, when this is lowered to IR and eventually reaches `core.apply()`, the path cannot contain unresolved expressions.
+
+The question arose: Should `core.apply()` evaluate path expressions?
+
+### Alternatives Considered
+
+| Alternative | Description | Why Rejected |
+|-------------|-------------|--------------|
+| **Dynamic Path Evaluation** | `apply()` evaluates path expressions at runtime | Breaks purity, determinism, introduces hidden execution |
+| **Compiler-time Resolution** | Compiler resolves all paths statically | Impossible for runtime values like `$system.uuid` |
+| **Two-phase Lowering** | Compiler lowers to effect + static patch | **Chosen**: Maintains purity, explicit IO |
+
+### Rationale
+
+If `core.apply()` evaluated dynamic paths:
+
+1. **Determinism Lost**: Path depends on snapshot state at apply-time
+2. **Purity Violated**: `$system.uuid` requires IO (it's non-deterministic)
+3. **Hidden Execution**: Path construction becomes an implicit computation
+4. **Replay Broken**: Same IR with different state → different paths → different outcomes
+
+By requiring static paths:
+
+1. **Core Stays Pure**: No expression evaluation in `apply()`
+2. **IO is Explicit**: Dynamic values come through Effects
+3. **Replay Works**: Same snapshot + same patches = same result
+4. **Traceability**: Every path is visible in the Patch
+
+### Implementation Pattern
+
+Dynamic paths in MEL MUST be lowered to a two-step pattern:
+
+```mel
+// STEP 1: Fix the dynamic value to Snapshot
+once(creating) {
+  patch creating = $meta.intentId
+  patch newId = $system.uuid  // Effect: system.get → stores UUID in snapshot
+}
+
+// STEP 2: Use the now-static value from Snapshot
+when isNotNull(newId) {
+  // At this point, newId is a known string value in Snapshot
+  // Compiler/Host can resolve `items[newId]` to `items.abc-123`
+  patch items[newId] = { id: newId, ... }
+}
+```
+
+The second `patch` becomes static because:
+1. `newId` is a state field (not `$system.*`)
+2. Its value is known after Step 1
+3. The compiler/host can resolve `items[newId]` to `items.{actual-value}`
+
+### Consequences
+
+| Enables | Constrains |
+|---------|------------|
+| Pure `apply()` function | Two-step pattern for dynamic keys |
+| Deterministic replay | Compiler must handle lowering |
+| Transparent path construction | More verbose MEL for dynamic cases |
+| No hidden computation | Users must understand the pattern |
+
+### Canonical Statement
+
+> **Patch paths are data, not computation. Dynamic resolution is IO, and IO belongs to Host.**
+
+---
+
 ## Summary: The Manifesto Identity
 
 These design decisions collectively define what Manifesto IS:
@@ -956,7 +1039,13 @@ FDR-009 (Schema-First)
 
 FDR-012 (Three Patch Operations)
     │
-    └─► (Simplicity principle)
+    └─► FDR-015 (Static Patch Paths)
+
+FDR-015 (Static Patch Paths)
+    │
+    ├─► Depends on FDR-001 (Core is pure, no execution in apply)
+    ├─► Depends on FDR-002 (All info through Snapshot)
+    └─► Depends on FDR-004 (Dynamic values = IO = Effects)
 ```
 
 ---

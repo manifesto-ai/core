@@ -613,6 +613,54 @@ Declares a state change. Three operations:
 { "kind": "patch", "op": "merge", "path": "user", "value": { "kind": "get", "path": "input.updates" } }
 ```
 
+**CRITICAL: Patch Path Resolution**
+
+Patch paths MUST be **statically resolvable** at apply-time. Dynamic path expressions are NOT evaluated by `core.apply()`.
+
+```
+ALLOWED:
+  patch todos = ...           // Static path
+  patch user.profile.name = ...  // Static nested path
+
+NOT ALLOWED at apply-time:
+  patch items[$system.uuid] = ...   // Dynamic key from expression
+  patch records[activeId] = ...     // Dynamic key from state value
+```
+
+When MEL source contains a dynamic path like `patch items[$system.uuid] = value`:
+
+1. The **Compiler** parses this as valid syntax.
+2. The **Compiler** MUST lower this to a two-step pattern:
+   - First: Store the dynamic key to a known state field (e.g., via `system.get` effect for `$system.*`)
+   - Then: Use the stored value to construct a static patch path
+3. **Core.apply()** receives only static paths — it NEVER evaluates expressions in paths.
+
+**Rationale:**
+
+| Concern | Why Dynamic Paths Violate It |
+|---------|------------------------------|
+| **Determinism** | Path evaluation could depend on execution order |
+| **Purity** | `$system.*` values require IO (effect execution) |
+| **Reproducibility** | Same IR with different system state → different paths |
+| **Traceability** | Path construction becomes opaque |
+
+**Correct Pattern for Dynamic Keys:**
+
+```mel
+// Step 1: Fix the dynamic value to Snapshot first
+once(creating) {
+  patch creating = $meta.intentId
+  patch newItemId = $system.uuid  // UUID is now in Snapshot
+}
+
+// Step 2: Use the fixed value (this works because newItemId is a state path)
+when isNotNull(newItemId) {
+  patch items[newItemId] = { id: newItemId, ... }
+}
+```
+
+After lowering, the second patch becomes a static path like `items.abc-123` where `abc-123` is the resolved UUID from Snapshot.
+
 #### 8.4.4 `effect`
 
 Declares that an external operation is required.
@@ -1270,6 +1318,11 @@ interface ManifestoCore {
   /**
    * Apply patches to a snapshot.
    * Returns new snapshot with recomputed values.
+   *
+   * IMPORTANT: Patch paths MUST be static strings.
+   * This function does NOT evaluate path expressions.
+   * Dynamic paths (e.g., `items[someVar]`) MUST be resolved
+   * to static paths BEFORE calling apply().
    */
   apply(
     schema: DomainSchema,
