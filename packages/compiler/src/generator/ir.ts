@@ -27,8 +27,7 @@ import type {
   BinaryOperator,
 } from "../parser/ast.js";
 import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
-import { createHash } from "crypto";
-import { toCanonical } from "@manifesto-ai/core";
+import { toCanonical, sha256Sync } from "@manifesto-ai/core";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -981,7 +980,11 @@ function generatePropertyAccess(expr: { kind: "propertyAccess"; object: ExprNode
 
 // ============ Hash Computation ============
 
+/**
+ * Compute schema hash using browser-compatible SHA-256.
+ * Uses @manifesto-ai/core's sha256Sync for universal compatibility.
+ */
 function computeHash(schema: Omit<DomainSchema, "hash">): string {
   const canonical = toCanonical(schema);
-  return createHash("sha256").update(canonical).digest("hex");
+  return sha256Sync(canonical);
 }

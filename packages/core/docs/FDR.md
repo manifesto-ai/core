@@ -22,7 +22,8 @@
 12. [FDR-011: Computed as DAG](#fdr-011-computed-as-dag)
 13. [FDR-012: Patch Operations Limited to Three](#fdr-012-patch-operations-limited-to-three)
 14. [FDR-013: Host Responsibility Boundary](#fdr-013-host-responsibility-boundary)
-15. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
+15. [FDR-014: Browser Compatibility](#fdr-014-browser-compatibility)
+16. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
 
 ---
 
@@ -804,6 +805,85 @@ Clear boundary:
 ### Canonical Statement
 
 > **Core is pure and portable. Host is practical and platform-specific.**
+
+---
+
+## FDR-014: Browser Compatibility
+
+### Decision
+
+All packages in the Manifesto stack MUST use **browser-compatible APIs only**. Node.js-specific APIs are forbidden.
+
+### Context
+
+The Manifesto stack was initially developed in Node.js, using Node.js-specific APIs like `crypto.createHash()` for SHA-256 hashing in the Compiler's IR generator.
+
+When building a React application with Vite for browser deployment, this caused a critical runtime error:
+
+```
+Uncaught Error: Module "crypto" has been externalized for browser compatibility.
+Cannot access "crypto.createHash" in client code.
+```
+
+Dependency chain:
+```
+React App (browser)
+    → @manifesto-ai/app
+        → @manifesto-ai/host
+            → @manifesto-ai/compiler (build-time only expected)
+                → crypto.createHash() ← FAILS in browser
+```
+
+### Alternatives Considered
+
+| Alternative | Description | Why Rejected |
+|-------------|-------------|--------------|
+| **Bundle Node.js polyfills** | Include crypto-browserify | Increases bundle size significantly |
+| **Make Compiler Node-only** | Strict boundary at build time | Breaks runtime MEL compilation use cases |
+| **Use Web Crypto API** | `crypto.subtle.digest()` | Async-only, not suitable for synchronous `computeHash()` |
+| **Pure JS Implementation** | JavaScript-only SHA-256 | Chosen: Works everywhere, deterministic |
+
+### Rationale
+
+Using browser-compatible APIs ensures:
+
+1. **Universal Execution**: Core, Host, Compiler can run in browser, Node.js, Deno, Bun, edge workers.
+2. **No Polyfills**: Zero external crypto polyfills needed.
+3. **Bundle Size**: No bloated crypto libraries.
+4. **Build Simplicity**: No special Vite/Webpack configuration for Node.js modules.
+
+Implementation:
+
+```typescript
+// BEFORE (Node.js only)
+import { createHash } from "crypto";
+function computeHash(schema: Omit<DomainSchema, "hash">): string {
+  return createHash("sha256").update(toCanonical(schema)).digest("hex");
+}
+
+// AFTER (Browser-compatible)
+import { sha256Sync, toCanonical } from "@manifesto-ai/core";
+function computeHash(schema: Omit<DomainSchema, "hash">): string {
+  return sha256Sync(toCanonical(schema));
+}
+```
+
+`@manifesto-ai/core` provides:
+- `sha256Sync(data)`: Pure JavaScript, synchronous
+- `sha256(data)`: Web Crypto API, async (for larger payloads)
+
+### Consequences
+
+| Enables | Constrains |
+|---------|------------|
+| Browser React apps | Slightly slower than native crypto |
+| Edge worker deployment | Must use Core's hash utilities |
+| No build configuration | Cannot use Node.js crypto directly |
+| Universal package compatibility | |
+
+### Canonical Statement
+
+> **Manifesto runs everywhere. Browser compatibility is non-negotiable.**
 
 ---
 

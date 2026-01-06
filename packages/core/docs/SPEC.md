@@ -1219,6 +1219,29 @@ sha256(canonical) = "..."
 - **Versioning**: Track schema evolution
 - **Comparison**: Diff between schemas
 
+### 15.5 Browser Compatibility
+
+The hashing implementation MUST be browser-compatible.
+
+**Requirements:**
+
+- Implementations MUST NOT use Node.js-specific crypto APIs (e.g., `crypto.createHash`).
+- Implementations SHOULD use Web Crypto API (`crypto.subtle.digest`) when available.
+- Implementations MAY use a pure JavaScript SHA-256 fallback for synchronous operations.
+
+**Reference Implementation:**
+
+`@manifesto-ai/core` provides two browser-compatible hash utilities:
+
+| Function | Async | Description |
+|----------|-------|-------------|
+| `sha256(data)` | Yes | Uses Web Crypto API (`crypto.subtle.digest`) |
+| `sha256Sync(data)` | No | Pure JavaScript implementation for synchronous contexts |
+
+**Rationale:**
+
+Core and its dependent packages (Host, Compiler, App) must work in browsers for client-side React applications. Using Node.js `crypto` would cause runtime errors in browser environments. See [FDR-014](#fdr-014-browser-compatibility) for the design decision.
+
 ---
 
 ## 16. Host Interface

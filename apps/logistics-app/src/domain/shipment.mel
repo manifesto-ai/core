@@ -30,12 +30,13 @@ domain GlobalOceanLogistics {
     // 2) Quoting
     // ===========================================
     quotingActiveId: string | null = null
-    quotingRequests: Json = {}
+    quotingCredit: Json | null = null
+    quotingQuotes: Json | null = null
+    quotingStatus: string = "idle"
 
     // Re-entry guards
     quotingRequestIntent: string | null = null
     quotingFilterFastIntent: string | null = null
-    quotingExtractPendingIntent: string | null = null
 
     // ===========================================
     // 3) Documents (B/L)
@@ -60,7 +61,6 @@ domain GlobalOceanLogistics {
     // 4) Disruptions
     // ===========================================
     disruptionEventId: string | null = null
-    disruptionEvents: Json = {}
     disruptionImpactedOrders: Json | null = null
     disruptionAlternatives: Json | null = null
     disruptionBeforeAfter: Json | null = null
@@ -169,69 +169,29 @@ domain GlobalOceanLogistics {
     once(quotingRequestIntent) {
       patch quotingRequestIntent = $meta.intentId
       patch quotingActiveId = $system.uuid
+      patch quotingStatus = "loading"
 
-      // Initialize request
-      patch quotingRequests[$system.uuid] = {
-        id: $system.uuid,
-        customerId: customerId,
-        origin: trim(origin),
-        destination: trim(destination),
-        createdAt: $system.timestamp,
-        status: "loading",
-        credit: null,
-        quotes: {},
-        fastQuotes: {},
-        fastCarriers: null,
-        pendingCarriers: null
-      }
+      // Reset previous results
+      patch quotingCredit = null
+      patch quotingQuotes = null
 
       // ERP credit check
       effect api.erp.getCustomerCredit({
-        customerId: customerId,
-        into: quotingRequests[quotingActiveId].credit
+        customerId: customerId
       })
 
       // Multi-carrier rate request
       effect api.quote.requestAllCarriers({
         customerId: customerId,
         origin: trim(origin),
-        destination: trim(destination),
-        into: quotingRequests[quotingActiveId].quotes
+        destination: trim(destination)
       })
     }
 
-    // Filter fast quotes (responded within 3s with ok status)
-    once(quotingFilterFastIntent) when isNotNull(quotingActiveId) {
+    // Mark ready when quotes arrive
+    once(quotingFilterFastIntent) when isNotNull(quotingQuotes) {
       patch quotingFilterFastIntent = $meta.intentId
-
-      effect record.filter({
-        source: quotingRequests[quotingActiveId].quotes,
-        where: and(eq($item.status, "ok"), lte($item.receivedWithinMs, 3000)),
-        into: quotingRequests[quotingActiveId].fastQuotes
-      })
-
-      effect record.keys({
-        source: quotingRequests[quotingActiveId].fastQuotes,
-        into: quotingRequests[quotingActiveId].fastCarriers
-      })
-
-      patch quotingRequests[quotingActiveId].status = "partial"
-    }
-
-    // Extract pending carriers
-    once(quotingExtractPendingIntent) when isNotNull(quotingActiveId) {
-      patch quotingExtractPendingIntent = $meta.intentId
-
-      effect record.filter({
-        source: quotingRequests[quotingActiveId].quotes,
-        where: not(and(eq($item.status, "ok"), lte($item.receivedWithinMs, 3000))),
-        into: quotingRequests[quotingActiveId].pendingQuotes
-      })
-
-      effect record.keys({
-        source: quotingRequests[quotingActiveId].pendingQuotes,
-        into: quotingRequests[quotingActiveId].pendingCarriers
-      })
+      patch quotingStatus = "ready"
     }
   }
 
@@ -340,60 +300,36 @@ domain GlobalOceanLogistics {
       patch disruptionEventId = eventId
       patch disruptionStatus = "loading"
 
-      // Record event
-      patch disruptionEvents[eventId] = {
-        id: eventId,
-        portCode: trim(portCode),
-        kind: kind,
-        createdAt: $system.timestamp
-      }
+      // Reset state
+      patch disruptionImpactedOrders = null
+      patch disruptionAlternatives = null
+      patch disruptionNotification = null
 
       // Find impacted orders
       effect api.orders.searchActiveByPort({
-        portCode: trim(portCode),
-        into: disruptionImpactedOrders
+        portCode: trim(portCode)
       })
 
       // Broadcast notifications
       effect api.notify.broadcastDisruption({
         eventId: eventId,
         portCode: trim(portCode),
-        kind: kind,
-        into: disruptionNotification
+        kind: kind
       })
 
       // Find alternative routes
       effect api.route.findAlternativeRoutes({
         eventId: eventId,
-        portCode: trim(portCode),
-        into: disruptionAlternatives
+        portCode: trim(portCode)
       })
     }
 
-    // Build before/after comparison
+    // Mark ready when all data arrives
     once(disruptionCompareIntent) when and(
       isNotNull(disruptionImpactedOrders),
       isNotNull(disruptionAlternatives)
     ) {
       patch disruptionCompareIntent = $meta.intentId
-
-      effect record.mapValues({
-        source: disruptionImpactedOrders,
-        select: {
-          orderId: $item.id,
-          before: {
-            eta: $item.schedule.eta,
-            route: $item.schedule.route
-          },
-          after: {
-            eta: disruptionAlternatives[$item.id].eta,
-            route: disruptionAlternatives[$item.id].route,
-            deltaHours: disruptionAlternatives[$item.id].deltaHours
-          }
-        },
-        into: disruptionBeforeAfter
-      })
-
       patch disruptionStatus = "ready"
     }
   }
