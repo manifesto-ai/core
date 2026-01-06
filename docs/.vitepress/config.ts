@@ -44,6 +44,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guides/' },
       { text: 'MEL', link: '/mel/' },
+      { text: 'Packages', link: '/packages/app/' },
       { text: 'Concepts', link: '/core-concepts/' },
       { text: 'Architecture', link: '/architecture/' },
       { text: 'Specifications', link: '/specifications/' },
@@ -51,6 +52,23 @@ export default defineConfig({
     ],
 
     sidebar: {
+      '/packages/app/': [
+        {
+          text: '@manifesto-ai/app',
+          items: [
+            { text: 'Overview', link: '/packages/app/' },
+            { text: 'Getting Started', link: '/packages/app/getting-started' },
+            { text: 'API Reference', link: '/packages/app/api-reference' },
+            { text: 'Service Handlers', link: '/packages/app/services' },
+            { text: 'Subscriptions', link: '/packages/app/subscriptions' },
+            { text: 'Actions', link: '/packages/app/actions' },
+            { text: 'Branch Management', link: '/packages/app/branches' },
+            { text: 'Advanced Topics', link: '/packages/app/advanced' },
+            { text: 'Examples', link: '/packages/app/examples' },
+          ]
+        }
+      ],
+
       '/what-is-manifesto/': [
         {
           text: 'What is Manifesto',
