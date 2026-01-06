@@ -166,6 +166,23 @@ Implementations MUST NOT:
 └───────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
+### 4.1 Architectural Invariants
+
+The following invariants are **constitutional** and MUST NOT be violated:
+
+| ID | Invariant |
+|----|-----------|
+| **ARCH-1** | A Branch is a logical pointer to a worldId. A Branch is NOT a runtime, executor, thread, or scheduling context. Branch isolation refers to worldline separation, not execution engine separation. |
+| **ARCH-2** | The Host is branch-agnostic and does not participate in scheduling. The Host executes exactly one Action atomically. Version checks in Host are safety guards, not concurrency resolution mechanisms. |
+| **ARCH-3** | Single-writer (FIFO) execution within a branch is an App-level execution policy. This policy MUST NOT be implemented by Host or World. Violation of this policy MAY surface as version conflicts in Host. |
+| **ARCH-4** | A version conflict during snapshot save indicates a violation of App execution policy, not a defect in Host or World semantics. |
+
+**Interpretation guidance:**
+- ARCH-1 prevents the misconception that "per-branch parallelism requires per-branch Host instances"
+- ARCH-2 clarifies that Host is a stateless executor, not a scheduler
+- ARCH-3 establishes that concurrency control belongs to App, not lower layers
+- ARCH-4 ensures version conflicts are diagnosed as policy violations, not engine bugs
+
 ---
 
 ## 5. App Creation and Lifecycle
