@@ -22,7 +22,9 @@
 12. [FDR-011: Computed as DAG](#fdr-011-computed-as-dag)
 13. [FDR-012: Patch Operations Limited to Three](#fdr-012-patch-operations-limited-to-three)
 14. [FDR-013: Host Responsibility Boundary](#fdr-013-host-responsibility-boundary)
-15. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
+15. [FDR-014: Browser Compatibility](#fdr-014-browser-compatibility)
+16. [FDR-015: Static Patch Paths](#fdr-015-static-patch-paths)
+17. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
 
 ---
 
@@ -807,6 +809,167 @@ Clear boundary:
 
 ---
 
+## FDR-014: Browser Compatibility
+
+### Decision
+
+All packages in the Manifesto stack MUST use **browser-compatible APIs only**. Node.js-specific APIs are forbidden.
+
+### Context
+
+The Manifesto stack was initially developed in Node.js, using Node.js-specific APIs like `crypto.createHash()` for SHA-256 hashing in the Compiler's IR generator.
+
+When building a React application with Vite for browser deployment, this caused a critical runtime error:
+
+```
+Uncaught Error: Module "crypto" has been externalized for browser compatibility.
+Cannot access "crypto.createHash" in client code.
+```
+
+Dependency chain:
+```
+React App (browser)
+    → @manifesto-ai/app
+        → @manifesto-ai/host
+            → @manifesto-ai/compiler (build-time only expected)
+                → crypto.createHash() ← FAILS in browser
+```
+
+### Alternatives Considered
+
+| Alternative | Description | Why Rejected |
+|-------------|-------------|--------------|
+| **Bundle Node.js polyfills** | Include crypto-browserify | Increases bundle size significantly |
+| **Make Compiler Node-only** | Strict boundary at build time | Breaks runtime MEL compilation use cases |
+| **Use Web Crypto API** | `crypto.subtle.digest()` | Async-only, not suitable for synchronous `computeHash()` |
+| **Pure JS Implementation** | JavaScript-only SHA-256 | Chosen: Works everywhere, deterministic |
+
+### Rationale
+
+Using browser-compatible APIs ensures:
+
+1. **Universal Execution**: Core, Host, Compiler can run in browser, Node.js, Deno, Bun, edge workers.
+2. **No Polyfills**: Zero external crypto polyfills needed.
+3. **Bundle Size**: No bloated crypto libraries.
+4. **Build Simplicity**: No special Vite/Webpack configuration for Node.js modules.
+
+Implementation:
+
+```typescript
+// BEFORE (Node.js only)
+import { createHash } from "crypto";
+function computeHash(schema: Omit<DomainSchema, "hash">): string {
+  return createHash("sha256").update(toCanonical(schema)).digest("hex");
+}
+
+// AFTER (Browser-compatible)
+import { sha256Sync, toCanonical } from "@manifesto-ai/core";
+function computeHash(schema: Omit<DomainSchema, "hash">): string {
+  return sha256Sync(toCanonical(schema));
+}
+```
+
+`@manifesto-ai/core` provides:
+- `sha256Sync(data)`: Pure JavaScript, synchronous
+- `sha256(data)`: Web Crypto API, async (for larger payloads)
+
+### Consequences
+
+| Enables | Constrains |
+|---------|------------|
+| Browser React apps | Slightly slower than native crypto |
+| Edge worker deployment | Must use Core's hash utilities |
+| No build configuration | Cannot use Node.js crypto directly |
+| Universal package compatibility | |
+
+### Canonical Statement
+
+> **Manifesto runs everywhere. Browser compatibility is non-negotiable.**
+
+---
+
+## FDR-015: Static Patch Paths
+
+### Decision
+
+Patch paths MUST be **statically resolvable** at apply-time. `core.apply()` does NOT evaluate expressions in paths.
+
+### Context
+
+MEL syntax allows dynamic path expressions:
+
+```mel
+// MEL allows this syntax
+patch items[$system.uuid] = { id: $system.uuid, name: "New Item" }
+```
+
+However, when this is lowered to IR and eventually reaches `core.apply()`, the path cannot contain unresolved expressions.
+
+The question arose: Should `core.apply()` evaluate path expressions?
+
+### Alternatives Considered
+
+| Alternative | Description | Why Rejected |
+|-------------|-------------|--------------|
+| **Dynamic Path Evaluation** | `apply()` evaluates path expressions at runtime | Breaks purity, determinism, introduces hidden execution |
+| **Compiler-time Resolution** | Compiler resolves all paths statically | Impossible for runtime values like `$system.uuid` |
+| **Two-phase Lowering** | Compiler lowers to effect + static patch | **Chosen**: Maintains purity, explicit IO |
+
+### Rationale
+
+If `core.apply()` evaluated dynamic paths:
+
+1. **Determinism Lost**: Path depends on snapshot state at apply-time
+2. **Purity Violated**: `$system.uuid` requires IO (it's non-deterministic)
+3. **Hidden Execution**: Path construction becomes an implicit computation
+4. **Replay Broken**: Same IR with different state → different paths → different outcomes
+
+By requiring static paths:
+
+1. **Core Stays Pure**: No expression evaluation in `apply()`
+2. **IO is Explicit**: Dynamic values come through Effects
+3. **Replay Works**: Same snapshot + same patches = same result
+4. **Traceability**: Every path is visible in the Patch
+
+### Implementation Pattern
+
+Dynamic paths in MEL MUST be lowered to a two-step pattern:
+
+```mel
+// STEP 1: Fix the dynamic value to Snapshot
+once(creating) {
+  patch creating = $meta.intentId
+  patch newId = $system.uuid  // Effect: system.get → stores UUID in snapshot
+}
+
+// STEP 2: Use the now-static value from Snapshot
+when isNotNull(newId) {
+  // At this point, newId is a known string value in Snapshot
+  // Compiler/Host can resolve `items[newId]` to `items.abc-123`
+  patch items[newId] = { id: newId, ... }
+}
+```
+
+The second `patch` becomes static because:
+1. `newId` is a state field (not `$system.*`)
+2. Its value is known after Step 1
+3. The compiler/host can resolve `items[newId]` to `items.{actual-value}`
+
+### Consequences
+
+| Enables | Constrains |
+|---------|------------|
+| Pure `apply()` function | Two-step pattern for dynamic keys |
+| Deterministic replay | Compiler must handle lowering |
+| Transparent path construction | More verbose MEL for dynamic cases |
+| No hidden computation | Users must understand the pattern |
+
+### Canonical Statement
+
+> **Patch paths are data, not computation. Dynamic resolution is IO, and IO belongs to Host.**
+
+---
+
 ## Summary: The Manifesto Identity
 
 These design decisions collectively define what Manifesto IS:
@@ -876,7 +1039,13 @@ FDR-009 (Schema-First)
 
 FDR-012 (Three Patch Operations)
     │
-    └─► (Simplicity principle)
+    └─► FDR-015 (Static Patch Paths)
+
+FDR-015 (Static Patch Paths)
+    │
+    ├─► Depends on FDR-001 (Core is pure, no execution in apply)
+    ├─► Depends on FDR-002 (All info through Snapshot)
+    └─► Depends on FDR-004 (Dynamic values = IO = Effects)
 ```
 
 ---

@@ -6,7 +6,8 @@ dist
 .env*
 .idea
 .DS_Store
-docs/.vitepress
+docs/.vitepress/cache
+docs/.vitepress/dist
 .worktrees
 apps/llm-babybench
 .bench
