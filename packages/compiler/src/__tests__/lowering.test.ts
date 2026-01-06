@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import {
   lowerExprNode,
   lowerPatchFragments,
+  lowerRuntimePatches,
   DEFAULT_SCHEMA_CONTEXT,
   DEFAULT_ACTION_CONTEXT,
   EFFECT_ARGS_CONTEXT,
@@ -17,6 +18,7 @@ import {
   LoweringError,
   type MelExprNode,
   type MelPatchFragment,
+  type MelRuntimePatch,
 } from "../lowering/index.js";
 
 describe("lowerExprNode", () => {
@@ -369,5 +371,175 @@ describe("lowerPatchFragments", () => {
     expect(result[0].fragmentId).toBe("frag-2");
     expect(result[0].confidence).toBe(0.85);
     expect(result[0].condition).toBeUndefined();
+  });
+});
+
+describe("lowerRuntimePatches", () => {
+  it("should lower set operations with literal values", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "set",
+        path: "count",
+        value: { kind: "lit", value: 42 },
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].op).toBe("set");
+    expect(result[0].path).toBe("count");
+    expect(result[0].value).toEqual({ kind: "lit", value: 42 });
+    expect(result[0].condition).toBeUndefined();
+  });
+
+  it("should lower unset operations", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "unset",
+        path: "obsoleteField",
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].op).toBe("unset");
+    expect(result[0].path).toBe("obsoleteField");
+    expect(result[0].value).toBeUndefined();
+  });
+
+  it("should lower merge operations", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "merge",
+        path: "user",
+        value: {
+          kind: "obj",
+          fields: [
+            { key: "name", value: { kind: "lit", value: "Alice" } },
+          ],
+        },
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].op).toBe("merge");
+    expect(result[0].path).toBe("user");
+    expect(result[0].value).toEqual({
+      kind: "object",
+      fields: { name: { kind: "lit", value: "Alice" } },
+    });
+  });
+
+  it("should lower conditions", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "set",
+        path: "status",
+        value: { kind: "lit", value: "completed" },
+        condition: {
+          kind: "call",
+          fn: "isNull",
+          args: [{ kind: "get", path: [{ kind: "prop", name: "status" }] }],
+        },
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].condition).toEqual({
+      kind: "isNull",
+      arg: { kind: "get", path: "status" },
+    });
+  });
+
+  it("should lower value expressions with input references", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "set",
+        path: "title",
+        value: { kind: "sys", path: ["input", "newTitle"] },
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toEqual({ kind: "get", path: "input.newTitle" });
+  });
+
+  it("should lower value expressions with meta references", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "set",
+        path: "lastUpdatedBy",
+        value: { kind: "sys", path: ["meta", "intentId"] },
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toEqual({ kind: "get", path: "meta.intentId" });
+  });
+
+  it("should lower complex expressions", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "set",
+        path: "total",
+        value: {
+          kind: "call",
+          fn: "add",
+          args: [
+            { kind: "get", path: [{ kind: "prop", name: "count" }] },
+            { kind: "lit", value: 1 },
+          ],
+        },
+      },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toEqual({
+      kind: "add",
+      left: { kind: "get", path: "count" },
+      right: { kind: "lit", value: 1 },
+    });
+  });
+
+  it("should throw for forbidden $system paths", () => {
+    const patches: MelRuntimePatch[] = [
+      {
+        op: "set",
+        path: "uuid",
+        value: { kind: "sys", path: ["system", "uuid"] },
+      },
+    ];
+
+    expect(() => lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT)).toThrow(
+      LoweringError
+    );
+  });
+
+  it("should lower multiple patches", () => {
+    const patches: MelRuntimePatch[] = [
+      { op: "set", path: "a", value: { kind: "lit", value: 1 } },
+      { op: "set", path: "b", value: { kind: "lit", value: 2 } },
+      { op: "unset", path: "c" },
+    ];
+
+    const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].path).toBe("a");
+    expect(result[1].path).toBe("b");
+    expect(result[2].path).toBe("c");
+    expect(result[2].op).toBe("unset");
   });
 });

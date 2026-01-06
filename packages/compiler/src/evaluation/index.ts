@@ -21,7 +21,7 @@ export {
 // Expression evaluation
 export { evaluateExpr } from "./evaluate-expr.js";
 
-// Patch evaluation
+// Schema patch evaluation
 export type {
   EvaluatedPatchOp,
   EvaluatedPatch,
@@ -35,3 +35,15 @@ export {
   evaluateCondition,
   classifyCondition,
 } from "./evaluate-patch.js";
+
+// Runtime patch evaluation
+export type {
+  RuntimePatchSkipReason,
+  SkippedRuntimePatch,
+  RuntimePatchEvaluationResult,
+} from "./evaluate-runtime-patch.js";
+
+export {
+  evaluateRuntimePatches,
+  evaluateRuntimePatchesWithTrace,
+} from "./evaluate-runtime-patch.js";

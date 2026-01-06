@@ -45,7 +45,7 @@ export type {
 
 export { lowerExprNode } from "./lower-expr.js";
 
-// Patch lowering
+// Schema patch lowering
 export type {
   MelTypeExpr,
   MelTypeField,
@@ -54,7 +54,18 @@ export type {
   LoweredTypeExpr,
   LoweredTypeField,
   LoweredPatchOp,
+  SchemaConditionalPatchOp,
+  /** @deprecated Use SchemaConditionalPatchOp */
   ConditionalPatchOp,
 } from "./lower-patch.js";
 
 export { lowerPatchFragments } from "./lower-patch.js";
+
+// Runtime patch lowering
+export type {
+  MelRuntimePatchOp,
+  MelRuntimePatch,
+  RuntimeConditionalPatchOp,
+} from "./lower-runtime-patch.js";
+
+export { lowerRuntimePatches, lowerRuntimePatch } from "./lower-runtime-patch.js";
