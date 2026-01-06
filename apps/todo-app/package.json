@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.2.3",
     "@manifesto-ai/app": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@manifesto-ai/compiler": "workspace:*",
     "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
     "postcss": "^8.4.35",
