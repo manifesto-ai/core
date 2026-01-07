@@ -835,7 +835,7 @@ Business errors should be handled in Flow logic. System errors typically trigger
 
 ## Related Documents
 
-- [Schema Specification](/specifications/schema-spec) — Normative ErrorValue specification
+- [Schema Specification](/specifications/core-spec) — Normative ErrorValue specification
 - [Core FDR](/rationale/core-fdr) — Design rationale for errors as values
 - [Effect Handlers Guide](/guides/effect-handlers) — Effect handler implementation patterns
 - [Determinism](./determinism) — How error handling preserves determinism

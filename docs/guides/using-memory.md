@@ -371,5 +371,5 @@ Before using Memory in production:
 ## See Also
 
 - [World Concept](/core-concepts/world) - Governance and authority
-- [World Protocol](/specifications/world-protocol) - Proposal lifecycle
+- [World Protocol](/specifications/world-spec) - Proposal lifecycle
 - [Memory Package README](https://github.com/manifesto-ai/core/tree/main/packages/memory) - Package documentation

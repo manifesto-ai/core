@@ -182,10 +182,10 @@ type DomainSchema = {
   
   /** Content hash for integrity verification */
   readonly hash: string;
-  
+
   /** Named type declarations (compiler v0.3.3) */
   readonly types: Record<string, TypeSpec>;
-  
+
   /** State structure definition */
   readonly state: StateSpec;
   
@@ -208,15 +208,15 @@ type DomainSchema = {
 
 - `id` MUST be a valid URI or UUID.
 - `version` MUST follow [Semantic Versioning 2.0](https://semver.org/).
-- `hash` MUST be computed using the [Canonical Form](#15-canonical-form) algorithm.
-- `types` MUST be present (may be empty).
+- `hash` MUST be computed using the [Canonical Form](#15-canonical-form) algorithm
+  over the full schema (excluding the `hash` field), including `types`.
 - `state`, `computed`, and `actions` MUST NOT be empty.
 
----
+### 4.3 Types (Compiler v0.3.3)
 
-### 4.3 Named Types (TypeSpec)
-
-`types` carries named type declarations produced by the compiler. Core treats these as metadata and does not interpret them directly.
+`types` carries **named type declarations** produced by the compiler.
+They are **schema metadata** only; Core does not interpret them during compute/apply,
+but they are part of the schema hash.
 
 ```typescript
 type TypeSpec = {
@@ -233,11 +233,6 @@ type TypeDefinition =
   | { kind: "literal"; value: string | number | boolean | null }
   | { kind: "ref"; name: string };
 ```
-
-Requirements:
-
-- Each `types` entry MUST use its map key as `TypeSpec.name`.
-- `ref.name` MUST refer to a key in `types`.
 
 ---
 
@@ -351,7 +346,7 @@ type ComputedFieldSpec = {
   readonly description?: string;
 };
 
-/** Dot-separated path (e.g., "user.profile.name", "computed.isValid", "todos.0.title") */
+/** Dot-separated path (e.g., "user.profile.name", "computed.isValid") */
 type SemanticPath = string;
 ```
 
@@ -617,6 +612,54 @@ Declares a state change. Three operations:
 { "kind": "patch", "op": "unset", "path": "user.tempData" }
 { "kind": "patch", "op": "merge", "path": "user", "value": { "kind": "get", "path": "input.updates" } }
 ```
+
+**CRITICAL: Patch Path Resolution**
+
+Patch paths MUST be **statically resolvable** at apply-time. Dynamic path expressions are NOT evaluated by `core.apply()`.
+
+```
+ALLOWED:
+  patch todos = ...           // Static path
+  patch user.profile.name = ...  // Static nested path
+
+NOT ALLOWED at apply-time:
+  patch items[$system.uuid] = ...   // Dynamic key from expression
+  patch records[activeId] = ...     // Dynamic key from state value
+```
+
+When MEL source contains a dynamic path like `patch items[$system.uuid] = value`:
+
+1. The **Compiler** parses this as valid syntax.
+2. The **Compiler** MUST lower this to a two-step pattern:
+   - First: Store the dynamic key to a known state field (e.g., via `system.get` effect for `$system.*`)
+   - Then: Use the stored value to construct a static patch path
+3. **Core.apply()** receives only static paths — it NEVER evaluates expressions in paths.
+
+**Rationale:**
+
+| Concern | Why Dynamic Paths Violate It |
+|---------|------------------------------|
+| **Determinism** | Path evaluation could depend on execution order |
+| **Purity** | `$system.*` values require IO (effect execution) |
+| **Reproducibility** | Same IR with different system state → different paths |
+| **Traceability** | Path construction becomes opaque |
+
+**Correct Pattern for Dynamic Keys:**
+
+```mel
+// Step 1: Fix the dynamic value to Snapshot first
+once(creating) {
+  patch creating = $meta.intentId
+  patch newItemId = $system.uuid  // UUID is now in Snapshot
+}
+
+// Step 2: Use the fixed value (this works because newItemId is a state path)
+when isNotNull(newItemId) {
+  patch items[newItemId] = { id: newItemId, ... }
+}
+```
+
+After lowering, the second patch becomes a static path like `items.abc-123` where `abc-123` is the resolved UUID from Snapshot.
 
 #### 8.4.4 `effect`
 
@@ -1224,6 +1267,29 @@ sha256(canonical) = "..."
 - **Versioning**: Track schema evolution
 - **Comparison**: Diff between schemas
 
+### 15.5 Browser Compatibility
+
+The hashing implementation MUST be browser-compatible.
+
+**Requirements:**
+
+- Implementations MUST NOT use Node.js-specific crypto APIs (e.g., `crypto.createHash`).
+- Implementations SHOULD use Web Crypto API (`crypto.subtle.digest`) when available.
+- Implementations MAY use a pure JavaScript SHA-256 fallback for synchronous operations.
+
+**Reference Implementation:**
+
+`@manifesto-ai/core` provides two browser-compatible hash utilities:
+
+| Function | Async | Description |
+|----------|-------|-------------|
+| `sha256(data)` | Yes | Uses Web Crypto API (`crypto.subtle.digest`) |
+| `sha256Sync(data)` | No | Pure JavaScript implementation for synchronous contexts |
+
+**Rationale:**
+
+Core and its dependent packages (Host, Compiler, App) must work in browsers for client-side React applications. Using Node.js `crypto` would cause runtime errors in browser environments. See [FDR-014](#fdr-014-browser-compatibility) for the design decision.
+
 ---
 
 ## 16. Host Interface
@@ -1252,6 +1318,11 @@ interface ManifestoCore {
   /**
    * Apply patches to a snapshot.
    * Returns new snapshot with recomputed values.
+   *
+   * IMPORTANT: Patch paths MUST be static strings.
+   * This function does NOT evaluate path expressions.
+   * Dynamic paths (e.g., `items[someVar]`) MUST be resolved
+   * to static paths BEFORE calling apply().
    */
   apply(
     schema: DomainSchema,
@@ -1424,7 +1495,6 @@ The Flow will naturally proceed because:
   "id": "urn:manifesto:example:todo-app",
   "version": "1.0.0",
   "hash": "sha256:...",
-  "types": {},
   
   "state": {
     "fields": {

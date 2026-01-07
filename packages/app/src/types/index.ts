@@ -1,7 +1,7 @@
 /**
  * Manifesto App Type Definitions
  *
- * @see SPEC v0.4.7 Appendix A
+ * @see SPEC v0.4.9 Appendix A
  * @module
  */
 
@@ -716,11 +716,145 @@ export interface MemoryProvider {
   /** Verifier (optional; NoneVerifier used if absent) */
   verifier?: MemoryVerifier;
 
+  /**
+   * Maintain memories (optional).
+   *
+   * @see SPEC §17.5 MEM-MAINT-1~10
+   * @since v0.4.8
+   */
+  maintain?: (
+    op: MemoryMaintenanceOp,
+    ctx: MemoryMaintenanceContext
+  ) => Promise<MemoryMaintenanceResult>;
+
   meta?: {
     name?: string;
     version?: string;
-    capabilities?: readonly ("ingest" | "select" | "verify")[];
+    capabilities?: readonly ("ingest" | "select" | "verify" | "maintain")[];
   };
+}
+
+// =============================================================================
+// Memory Maintenance Types (v0.4.8+)
+// =============================================================================
+
+/**
+ * Memory reference for maintenance operations.
+ *
+ * @see SPEC §17.5.1
+ * @since v0.4.8
+ */
+export interface MemoryRef {
+  readonly worldId: string;
+}
+
+/**
+ * Memory maintenance operation.
+ *
+ * @see SPEC §17.5.1 MEM-MAINT-2~5
+ * @since v0.4.8
+ */
+export interface MemoryMaintenanceOp {
+  /**
+   * Operation kind. Currently only 'forget' is supported.
+   *
+   * MEM-MAINT-2: Forget MUST NOT modify Cold Store
+   * MEM-MAINT-3: Forget applies tombstone markers to indexes
+   */
+  readonly kind: "forget";
+
+  /** Reference to the memory to operate on */
+  readonly ref: MemoryRef;
+
+  /**
+   * Scope of the operation.
+   * - 'actor': Only affects current actor's view (MEM-MAINT-8)
+   * - 'global': Affects all actors (MEM-MAINT-9, requires elevated Authority)
+   *
+   * @default 'actor'
+   */
+  readonly scope?: "actor" | "global";
+
+  /** Human-readable reason for the operation */
+  readonly reason?: string;
+
+  /**
+   * Tombstone expiry in milliseconds.
+   * If provided, the tombstone will be removed after this duration.
+   */
+  readonly ttl?: number;
+}
+
+/**
+ * Context for memory maintenance operations.
+ *
+ * CRITICAL: actor MUST come from Proposal.actorId, NOT from user input.
+ *
+ * @see SPEC §17.5.1 MEM-MAINT-10
+ * @since v0.4.9
+ */
+export interface MemoryMaintenanceContext {
+  /**
+   * Actor performing the operation.
+   *
+   * MEM-MAINT-10: This MUST be derived from Proposal.actorId,
+   * NOT from user-provided input.
+   */
+  readonly actor: ActorRef;
+
+  /**
+   * Effective scope of the operation.
+   */
+  readonly scope: "actor" | "global";
+}
+
+/**
+ * Result of a single memory maintenance operation.
+ *
+ * @see SPEC §17.5.1
+ * @since v0.4.8
+ */
+export interface MemoryMaintenanceResult {
+  readonly success: boolean;
+  readonly op: MemoryMaintenanceOp;
+  readonly tombstoneId?: string;
+  readonly error?: string;
+}
+
+/**
+ * Input for system.memory.maintain action.
+ *
+ * @see SPEC §17.5
+ * @since v0.4.8
+ */
+export interface MemoryMaintenanceInput {
+  readonly ops: readonly MemoryMaintenanceOp[];
+}
+
+/**
+ * Output for system.memory.maintain action.
+ *
+ * @see SPEC §17.5
+ * @since v0.4.8
+ */
+export interface MemoryMaintenanceOutput {
+  readonly results: readonly MemoryMaintenanceResult[];
+  readonly trace?: MemoryHygieneTrace;
+}
+
+/**
+ * Trace for memory hygiene operations.
+ *
+ * @see SPEC §17.5.1 MEM-MAINT-6
+ * @since v0.4.8
+ */
+export interface MemoryHygieneTrace {
+  readonly traceId: string;
+  readonly timestamp: number;
+  readonly actor: ActorRef;
+  readonly ops: readonly MemoryMaintenanceOp[];
+  readonly results: readonly MemoryMaintenanceResult[];
+  readonly durationMs: number;
 }
 
 // =============================================================================
@@ -1144,6 +1278,17 @@ export interface MemoryFacade {
   ): Promise<RecallResult>;
   providers(): readonly string[];
   backfill(opts: { worldId: string; depth?: number }): Promise<void>;
+
+  /**
+   * Perform memory maintenance operations.
+   *
+   * @see SPEC §17.5 MEM-MAINT-1~10
+   * @since v0.4.8
+   */
+  maintain(
+    ops: readonly MemoryMaintenanceOp[],
+    ctx: MemoryMaintenanceContext
+  ): Promise<MemoryMaintenanceOutput>;
 }
 
 /**

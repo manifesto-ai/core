@@ -37,30 +37,25 @@ If you're new, read [Core Concepts](/core-concepts/) first.
 
 ---
 
-## Why Design Decisions Are Documented
+## FDR Documents
 
-Manifesto makes **strong architectural commitments**:
-- Core must be pure (no IO)
-- Flows must terminate (no unbounded loops)
-- Snapshot is the only medium (no hidden channels)
-- World Protocol is mandatory (no direct execution)
+### High-Level Package
 
-These aren't arbitrary. Each decision:
-- Solves a specific problem
-- Rejects alternatives for documented reasons
-- Makes explicit trade-offs
+#### [App FDR](./app-fdr)
 
-FDRs document these decisions so:
-- **Contributors** understand constraints
-- **Reviewers** can verify consistency
-- **Users** understand trade-offs
-- **Future maintainers** don't accidentally violate principles
+**Why the App facade exists and how it simplifies Manifesto usage.**
+
+**Key decisions explained:**
+- Why provide a high-level facade over Host/World?
+- Why `ready()` is async and returns a promise
+- Why actions return `ActionHandle` with `.done()`
+- Why subscriptions use selector functions
 
 ---
 
-## FDR Documents in This Section
+### Core Layer
 
-### [Core FDR](./core-fdr)
+#### [Core FDR](./core-fdr)
 
 **Why Core is pure. Why effects are declarations.**
 
@@ -77,51 +72,9 @@ FDRs document these decisions so:
 - Value passing outside Snapshot
 - Turing-complete flows
 
-**Reading time:** 25 minutes
-
 ---
 
-### [Host FDR](./host-fdr)
-
-**Why Host executes but doesn't decide.**
-
-**Key decisions explained:**
-- Why does Host not interpret effects?
-- Why must effect handlers return patches?
-- Why does Host loop until requirements are empty?
-- Why is persistence optional?
-
-**Alternatives rejected:**
-- Intelligent Host (interpreting requirements)
-- Effect handlers returning values
-- Single compute-execute cycle
-- Mandatory persistence
-
-**Reading time:** 20 minutes
-
----
-
-### [World FDR](./world-fdr)
-
-**Why governance is built-in, not optional.**
-
-**Key decisions explained:**
-- Why is World Protocol mandatory?
-- Why store Intents instead of Events?
-- Why is authority evaluation separate from execution?
-- Why is lineage a DAG?
-
-**Alternatives rejected:**
-- Optional governance
-- Event Sourcing model
-- Inline authorization checks
-- Linear history
-
-**Reading time:** 25 minutes
-
----
-
-### [Compiler FDR](./compiler-fdr)
+#### [Compiler FDR](./compiler-fdr)
 
 **Why MEL exists and how it stays deterministic.**
 
@@ -137,153 +90,129 @@ FDRs document these decisions so:
 - Implicit operators and template literals
 - Special-case "magic" system values
 
-**Reading time:** 60 minutes
+---
+
+### Runtime Layer
+
+#### [Host FDR](./host-fdr)
+
+**Why Host executes but doesn't decide.**
+
+**Key decisions explained:**
+- Why does Host not interpret effects?
+- Why must effect handlers return patches?
+- Why does Host loop until requirements are empty?
+- Why is persistence optional?
+- Why FIFO serialization for dispatch?
+
+**Alternatives rejected:**
+- Intelligent Host (interpreting requirements)
+- Effect handlers returning values
+- Single compute-execute cycle
+- Mandatory persistence
 
 ---
 
-## How to Read FDRs
+#### [World FDR](./world-fdr)
 
-### Structure of an FDR
+**Why governance is built-in, not optional.**
 
-Each FDR follows this structure:
+**Key decisions explained:**
+- Why is World Protocol mandatory?
+- Why store Intents instead of Events?
+- Why is authority evaluation separate from execution?
+- Why is lineage a DAG?
 
-```markdown
-# [Component] FDR
-
-## Problem Statement
-What problem are we solving?
-
-## Alternatives Considered
-What approaches did we consider?
-
-## Decision
-What did we choose?
-
-## Rationale
-Why did we choose this?
-
-## Trade-offs
-What did we give up?
-
-## Consequences
-What does this decision imply?
-```
-
-### Reading Strategy
-
-**For understanding:**
-1. Read "Problem Statement" to understand context
-2. Read "Decision" to see what was chosen
-3. Read "Rationale" to understand why
-
-**For evaluation:**
-1. Read "Alternatives Considered" to see what was rejected
-2. Read "Trade-offs" to understand costs
-3. Form your own opinion
-
-**For contribution:**
-1. Read all sections
-2. Understand constraints
-3. Propose changes that respect principles (or challenge principles with new FDR)
+**Alternatives rejected:**
+- Optional governance
+- Event Sourcing model
+- Inline authorization checks
+- Linear history
 
 ---
 
-## Reading Order
+#### [Bridge FDR](./bridge-fdr)
 
-### For Contributors
+**Why Bridge exists as a separate layer.**
 
-**Goal:** Understand architectural constraints before contributing
-
-1. **[Core FDR](./core-fdr)** — Understand purity requirement
-2. **[Host FDR](./host-fdr)** — Understand execution model
-3. **[World FDR](./world-fdr)** — Understand governance model
-
-**Total time:** ~1 hour
-
-Then: Read [Specifications](/specifications/) for normative requirements.
+**Key decisions explained:**
+- Why separate event routing from Host?
+- Why projections are functions, not declarations
+- Why two-way binding is explicit
+- Why SourceEvents are distinct from Intents
 
 ---
 
-### For Skeptics/Evaluators
+### Builder & DSL
 
-**Goal:** Decide if Manifesto's approach is sound
+#### [Builder FDR](./builder-fdr)
 
-1. **[Core FDR](./core-fdr)** — Evaluate purity vs. convenience trade-off
-2. **[World FDR](./world-fdr)** — Evaluate mandatory governance trade-off
-3. **"Trade-offs" sections** — Assess if costs are worth benefits
+**Why the type-safe DSL exists.**
 
-**Total time:** ~45 minutes
-
-Then: Compare with [Manifesto vs. Others](/what-is-manifesto/manifesto-vs-others).
-
----
-
-### For Researchers
-
-**Goal:** Understand philosophical foundations
-
-1. Read all FDRs (~1.5 hours)
-2. Read "Alternatives Considered" sections carefully
-3. Read "Consequences" sections for implications
-
-Then: Compare with academic literature on:
-- Pure functional programming
-- Event Sourcing
-- Capability-based security
-- Deterministic systems
+**Key decisions explained:**
+- Why Zod-first schema definition?
+- Why zero-string-path APIs?
+- Why re-entry helpers are built-in
+- Why `defineDomain()` returns schema, not runtime
 
 ---
 
-## Common Questions
+### UI Integration
 
-### Why not just read the code?
+#### [React FDR](./react-fdr)
 
-**Code shows what. FDRs explain why.**
+**Why React bindings are designed this way.**
 
-Code changes over time. Principles shouldn't. FDRs document the invariants that code must respect.
+**Key decisions explained:**
+- Why hooks over HOCs?
+- Why Bridge integration is required?
+- Why selective re-render matters?
 
-### Can I propose changes to FDRs?
+---
 
-**Yes, but carefully.**
+### AI & Memory
 
-FDRs document fundamental decisions. Changing them means changing Manifesto's identity.
+#### [Translator FDR](./translator-fdr)
 
-**Process:**
-1. Open GitHub Discussion explaining why decision should change
-2. Propose new FDR with:
-   - New problem statement
-   - New alternatives considered
-   - New rationale
-3. Community reviews and discusses
-4. If accepted, FDR is updated and code follows
+**Why natural language translation uses a 6-stage pipeline.**
 
-### What if I disagree with a decision?
+**Key decisions explained:**
+- Why schema-guided interpretation?
+- Why verification is separate from translation?
+- Why multiple LLM calls instead of one?
 
-**Good! That means FDRs are doing their job.**
+---
 
-FDRs make trade-offs explicit so you can evaluate them.
+#### [Memory FDR](./memory-fdr)
 
-If you disagree:
-1. Identify which FDR you disagree with
-2. Explain which alternative you prefer
-3. Explain why you think the trade-off is wrong
-4. Open Discussion
+**Why memory retrieval is verified.**
 
-Disagreement is welcome. It keeps us honest.
+**Key decisions explained:**
+- Why verification before use?
+- Why retrieval is separate from storage?
 
-### Do FDRs ever change?
+---
 
-**Rarely, and only for good reason.**
+### Utilities
 
-FDRs can change if:
-- Original problem statement was incomplete
-- New information invalidates original reasoning
-- Original decision had unforeseen consequences
+#### [Effect Utils FDR](./effect-utils-fdr)
 
-Changes require:
-- Strong justification
-- Community consensus
-- Migration path for existing code
+**Why common patterns are extracted.**
+
+**Key decisions explained:**
+- Why composition over inheritance?
+- Why declarative error handling?
+
+---
+
+#### [Lab FDR](./lab-fdr)
+
+**Why HITL tooling is built-in.**
+
+**Key decisions explained:**
+- Why trace-based replay?
+- Why LLM necessity governance?
+- Why human-in-the-loop is first-class?
 
 ---
 
@@ -299,8 +228,6 @@ Changes require:
 - Reliable testing
 - Verifiable computation
 
-**Trade-off:** More verbose (effects as declarations), but guaranteed correctness.
-
 **FDR:** [Core FDR](./core-fdr)
 
 ---
@@ -313,8 +240,6 @@ Changes require:
 - Independent testing
 - Replaceable implementations
 - Clear reasoning boundaries
-
-**Trade-off:** More layers, but each layer is simple and testable.
 
 **FDR:** [Core FDR](./core-fdr), [Host FDR](./host-fdr), [World FDR](./world-fdr)
 
@@ -330,8 +255,6 @@ Changes require:
 - Audit trails
 - Trust in multi-actor systems
 
-**Trade-off:** Less flexibility (can't skip governance), but guaranteed accountability.
-
 **FDR:** [World FDR](./world-fdr)
 
 ---
@@ -345,9 +268,7 @@ Changes require:
 - Serialization
 - Reproducibility
 
-**Trade-off:** More explicit patch handling, but no hidden state bugs.
-
-**FDR:** [Core FDR](./core-fdr#snapshot-as-sole-medium)
+**FDR:** [Core FDR](./core-fdr)
 
 ---
 
@@ -360,149 +281,30 @@ Changes require:
 - Complete traces
 - Guaranteed halt
 
-**Trade-off:** Less expressiveness (no while loops in Flows), but guaranteed termination.
-
-**FDR:** [Core FDR](./core-fdr#flow-termination)
+**FDR:** [Core FDR](./core-fdr)
 
 ---
 
-## Philosophical Foundations
+## Reading Order
 
-Manifesto draws inspiration from:
+### For Contributors
 
-### Pure Functional Programming
+**Goal:** Understand architectural constraints before contributing
 
-- Haskell's separation of pure and impure code
-- Effect systems (Effect-TS)
-- Elm Architecture
+1. **[Core FDR](./core-fdr)** — Understand purity requirement
+2. **[Host FDR](./host-fdr)** — Understand execution model
+3. **[World FDR](./world-fdr)** — Understand governance model
 
-**What we borrowed:**
-- Pure computation layer
-- Effects as data
-- Immutability
+**Total time:** ~1 hour
 
-**What we didn't:**
-- Lazy evaluation
-- Higher-kinded types
-- Monadic composition
+### For App Developers
 
----
+**Goal:** Understand high-level design decisions
 
-### Event Sourcing
+1. **[App FDR](./app-fdr)** — Why the facade exists
+2. **[Compiler FDR](./compiler-fdr)** — Why MEL is designed this way
 
-- Event Store
-- CQRS pattern
-- Audit logging
-
-**What we borrowed:**
-- Immutable history
-- Replay capability
-- Audit trails
-
-**What we didn't:**
-- Event log as source of truth (we use Snapshot)
-- Event-first modeling (we use Intent-first)
-
----
-
-### Capability-Based Security
-
-- Object-capability model
-- Principle of least authority
-- Explicit authority delegation
-
-**What we borrowed:**
-- Authority as first-class concept
-- Explicit authorization
-- Audit trails
-
-**What we didn't:**
-- Pure object-capability model (we use World Protocol)
-
----
-
-### Finite State Machines
-
-- XState
-- State charts
-- Formal verification
-
-**What we borrowed:**
-- Explicit state transitions
-- Termination guarantees
-- Visualization potential
-
-**What we didn't:**
-- FSM as primary abstraction (we use domain state)
-- Nested/parallel states (we use World DAG)
-
----
-
-## Trade-offs We Accept
-
-Manifesto is **not** for everyone. We accept these trade-offs:
-
-### More Upfront Structure
-
-**Trade-off:** More boilerplate than imperative code.
-
-**We accept this because:** Structure enables tooling, verification, and AI generation.
-
-**Alternative:** Redux/Zustand (less structure, more flexibility)
-
----
-
-### Less Imperative Flexibility
-
-**Trade-off:** Can't write arbitrary async/await code in Core.
-
-**We accept this because:** Pure Core enables determinism and testing without mocks.
-
-**Alternative:** MobX/Vue (imperative reactions, less determinism)
-
----
-
-### Mandatory Governance
-
-**Trade-off:** Can't skip World Protocol for "simple" intents.
-
-**We accept this because:** Accountability is non-negotiable.
-
-**Alternative:** Skip governance for trusted environments (we don't allow this)
-
----
-
-### Larger State Snapshots
-
-**Trade-off:** Store full snapshots, not just events.
-
-**We accept this because:** Instant state access > smaller storage.
-
-**Alternative:** Event Sourcing (smaller logs, rebuild required)
-
----
-
-## Next Steps
-
-### After Reading FDRs
-
-1. **Contribute:** Understand constraints, propose changes
-2. **Evaluate:** Decide if trade-offs fit your needs
-3. **Research:** Compare with other systems
-
-### If You Want to Contribute
-
-1. Read relevant FDRs
-2. Read [Specifications](/specifications/)
-3. Read [Architecture](/architecture/)
-4. Open Discussion for proposals
-
-### If You Want to Challenge a Decision
-
-1. Identify the FDR
-2. Explain your alternative
-3. Show why trade-off is wrong
-4. Open Discussion
+**Total time:** ~30 minutes
 
 ---
 
@@ -511,49 +313,6 @@ Manifesto is **not** for everyone. We accept these trade-offs:
 - **[Architecture](/architecture/)** — How design is implemented
 - **[Specifications](/specifications/)** — Normative requirements
 - **[Core Concepts](/core-concepts/)** — What FDRs formalize
-
----
-
-## Contributing to FDRs
-
-We welcome FDR improvements:
-
-**Good contributions:**
-- Clarifying existing decisions
-- Adding new alternatives considered
-- Documenting unforeseen consequences
-- Proposing new FDRs for new components
-
-**Process:**
-1. Open GitHub Discussion
-2. Draft FDR following template
-3. Community reviews
-4. If accepted, add to repository
-
-See [FDR Template](https://github.com/manifesto-ai/core/blob/main/docs/FDR_TEMPLATE.md).
-
----
-
-## Summary
-
-**FDRs explain why Manifesto is designed the way it is.**
-
-**Core principles:**
-1. Determinism over convenience
-2. Separation of concerns
-3. Accountability over flexibility
-4. Snapshot as sole medium
-5. Termination guarantees
-
-**Trade-offs we accept:**
-- More structure, less flexibility
-- Mandatory governance
-- Larger snapshots
-
-**Read FDRs if:**
-- You want to contribute
-- You're skeptical of design
-- You're researching alternatives
 
 ---
 

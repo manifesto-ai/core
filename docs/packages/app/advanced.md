@@ -167,6 +167,83 @@ await app.memory.backfill({
 });
 ```
 
+### Memory Maintenance (v0.4.9+)
+
+Memory maintenance allows removing memories from retrieval while preserving audit history.
+
+#### Key Concepts
+
+- **Forget** — Applies tombstone markers to memory indexes (doesn't delete raw data)
+- **Tombstone** — Marker that excludes memory from future selection
+- **Scope** — `actor` limits to current actor; `global` affects all actors
+
+#### Using system.memory.maintain
+
+```typescript
+// Forget a specific memory (actor scope)
+await app.act("system.memory.maintain", {
+  ops: [{
+    kind: "forget",
+    ref: { worldId: "world_abc123" },
+    scope: "actor",
+    reason: "User requested deletion",
+  }],
+}).done();
+
+// Forget with TTL (tombstone expires after 30 days)
+await app.act("system.memory.maintain", {
+  ops: [{
+    kind: "forget",
+    ref: { worldId: "world_xyz789" },
+    ttl: 30 * 24 * 60 * 60 * 1000,  // 30 days
+    reason: "Temporary forget for testing",
+  }],
+}).done();
+```
+
+#### Security: Actor Context Binding (MEM-MAINT-10)
+
+The actor context is **always** derived from the authenticated `Proposal.actorId`, never from user input:
+
+```typescript
+// SECURE: Actor comes from proposal, not from input
+await session.act("system.memory.maintain", {
+  ops: [{ kind: "forget", ref: { worldId: "..." } }],
+}).done();
+// → session.actorId is used, cannot be spoofed
+```
+
+#### Memory Maintenance Rules
+
+| Rule | Description |
+|------|-------------|
+| MEM-MAINT-1 | Requires Authority approval |
+| MEM-MAINT-2 | Forget does NOT modify Cold Store (raw data preserved) |
+| MEM-MAINT-3 | Forget applies tombstone markers to indexes |
+| MEM-MAINT-4 | Forgotten refs excluded from Selection |
+| MEM-MAINT-5 | Forget is idempotent (safe to retry) |
+| MEM-MAINT-6 | MemoryHygieneTrace recorded for audit |
+| MEM-MAINT-8 | `scope: 'actor'` limits forget to current actor |
+| MEM-MAINT-9 | `scope: 'global'` requires elevated Authority |
+| MEM-MAINT-10 | Actor MUST come from Proposal.actorId |
+
+#### Provider Capabilities
+
+Memory providers must declare `maintain` capability:
+
+```typescript
+const provider: MemoryProvider = {
+  meta: {
+    capabilities: ["ingest", "select", "maintain"],
+  },
+  // ...
+  maintain: async (op, ctx) => {
+    // Apply tombstone
+    return { success: true, op, tombstoneId: "tomb_..." };
+  },
+};
+```
+
 ---
 
 ## Hooks System

@@ -1,698 +1,496 @@
-
 # Host Contract — Foundational Design Rationale (FDR)
 
-> **Version:** 1.0
-> **Status:** Normative
-> **Purpose:** Document the "Why" behind every constitutional decision in the Host Contract
+> **Version:** 1.1  
+> **Status:** Normative  
+> **Purpose:** Document the "Why" behind every constitutional decision in the Host Contract  
+> **Changelog:**
+> - v1.0: Initial release (FDR-H001 ~ H010)
+> - **v1.1: Compiler Integration, Expression Evaluation (FDR-H011 ~ H017)**
 
 ---
 
-## Overview
+## Part III: Compiler Integration (v1.1)
 
-This document records the foundational design decisions that shape the Host Contract.
+This section documents the foundational decisions for Compiler integration and Translator output handling.
 
-Each FDR entry follows the format:
+### Table of Contents (v1.1)
 
-- **Decision**: What was decided
-- **Context**: Why this decision was needed
-- **Rationale**: The reasoning behind the choice
-- **Alternatives Rejected**: Other options considered and why they were rejected
-- **Consequences**: What this decision enables and constrains
+| FDR | Title | Key Decision |
+|-----|-------|--------------|
+| FDR-H011 | Mandatory Compiler Dependency | Host MUST use @manifesto-ai/compiler |
+| FDR-H012 | Two-Step Processing | Lower then Evaluate |
+| FDR-H013 | Core.apply() Receives Concrete Only | No expressions to apply() |
+| FDR-H014 | Single IntentId Throughout | Same ID for evaluation and compute |
+| FDR-H015 | $system Exclusion | Translator path forbids system |
+| FDR-H016 | snapshot.data Convention | Not snapshot.state |
+| FDR-H017 | Informative Translator Loop | §13.2 is guidance, not normative |
 
 ---
 
-## FDR-H001: Absolute Core-Host Boundary
+## FDR-H011: Mandatory Compiler Dependency
 
 ### Decision
 
-The boundary between Core and Host is absolute and non-negotiable.
-
-```
-Core computes meaning.
-Host executes reality.
-```
-
-### Context
-
-Systems that mix semantic computation with execution become unpredictable, hard to test, and impossible to reason about formally.
-
-### Rationale
-
-| Concern | Why Separation Matters |
-|---------|------------------------|
-| **Testability** | Core can be tested without mocks, network, or IO |
-| **Portability** | Same Core runs in browser, server, CLI, agent |
-| **Determinism** | Pure computation guarantees same input → same output |
-| **Auditability** | Every state change is traceable through explicit patches |
-| **Replayability** | Recorded intents can reproduce exact computation |
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Core executes effects directly | Breaks purity, introduces non-determinism |
-| Host interprets Flow semantics | Duplicates logic, creates inconsistencies |
-| Hybrid model (Core does "safe" IO) | No clear boundary, slippery slope |
-
-### Consequences
-
-- Host MUST handle all IO, network, persistence
-- Core MUST remain pure (no side effects)
-- Testing is dramatically simplified
-- Cross-platform portability is guaranteed
-
----
-
-## FDR-H002: Snapshot as Sole Communication Channel
-
-### Decision
-
-Snapshot is the **only** valid communication channel between Core and Host.
-
-There are no return values, no callbacks, no events, no context passing.
-
-### Context
-
-Traditional systems use multiple channels:
-- Function return values
-- Callbacks
-- Events
-- Shared mutable state
-- Context objects
-
-This creates hidden dependencies and makes reasoning impossible.
-
-### Rationale
-
-**Single source of truth eliminates hidden state.**
-
-```
-// FORBIDDEN: Effect result as return value
-const result = await executeEffect();
-core.resume(result);  // Hidden state!
-
-// REQUIRED: Effect result as Snapshot mutation
-const patches = await executeEffect();
-const context = { now: 0, randomSeed: "seed" };
-snapshot = core.apply(schema, snapshot, patches, context);
-await core.compute(schema, snapshot, intent, context);  // All state visible
-```
-
-| Benefit | Description |
-|---------|-------------|
-| **Complete visibility** | All state is in one place |
-| **Serializable** | Entire world can be saved/restored |
-| **Debuggable** | Inspect Snapshot at any point |
-| **Replayable** | Reproduce any state by replaying patches |
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Return values from effects | Creates hidden execution context |
-| Event-based communication | Non-deterministic ordering |
-| Context injection | Hidden dependencies, hard to trace |
-| Shared mutable state | Race conditions, non-reproducible |
-
-### Consequences
-
-- Effect handlers return Patch[], not values
-- All "state" is visible in Snapshot
-- No hidden execution context exists
-- Complete auditability
-
----
-
-## FDR-H003: No Resume, No Continuation
-
-### Decision
-
-There is no `resume()` API. Each `compute()` call is complete and independent.
-
-### Context
-
-Traditional effect systems use continuations:
-
-```typescript
-// Traditional continuation model
-const continuation = core.computeUntilEffect(snapshot, intent);
-const result = await executeEffect(continuation.effect);
-core.resume(continuation, result);  // Suspended context
-```
-
-This implies a **suspended execution context** that must be maintained.
-
-### Rationale
-
-**Suspended execution context is hidden state.**
-
-If there's a continuation waiting to be resumed:
-- Where is it stored?
-- What happens if Host crashes?
-- How do you serialize it?
-- How do you replay it?
-
-**The Manifesto answer: There is no suspended context.**
-
-```typescript
-// Manifesto model
-const context = { now: 0, randomSeed: "seed" };
-result = compute(schema, snapshot, intent, context);  // Terminates
-// ... effect execution, patch application ...
-result = compute(schema, snapshot, intent, context);  // Fresh evaluation
-```
-
-Each `compute()` evaluates the Flow from the beginning. The Flow checks Snapshot state to determine what to do.
-
-| Benefit | Description |
-|---------|-------------|
-| **Crash recovery** | No continuation to lose |
-| **Serializable** | Only need to persist Snapshot |
-| **Debuggable** | No hidden execution stack |
-| **Portable** | No continuation serialization needed |
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Continuation-passing style | Hidden state, serialization complexity |
-| Coroutines/generators | Platform-dependent, hard to persist |
-| Event sourcing with suspended state | Still requires continuation storage |
-
-### Consequences
-
-- **Flows MUST be re-entrant** (evaluated multiple times safely)
-- All progress state MUST be in Snapshot
-- Host loop is simple: compute → execute → apply → compute
-- No special "resume" logic needed
-
----
-
-## FDR-H004: Flow Re-Entry as Constitutional Requirement
-
-### Decision
-
-**Flows MUST be re-entrant under repeated `compute()` calls for the same Intent.**
-
-This is not a recommendation. It is a constitutional requirement.
-
-### Context
-
-Given FDR-H003 (no resume), the same Flow will be evaluated multiple times for a single user action:
-
-1. First `compute()`: Flow runs until effect, returns `pending`
-2. Host executes effect, applies patches
-3. Second `compute()`: Flow runs **from the beginning**
-
-If the Flow is not re-entrant, step 3 will duplicate the work from step 1.
-
-### Rationale
-
-**Re-entry safety is the contract between Host semantics and Flow design.**
-
-The Host Contract mandates re-invocation. Therefore, Flow design MUST accommodate this.
-
-### The State-Guarded Pattern
-
-The canonical solution is **state-guarded** steps:
+**Host MUST declare dependency on `@manifesto-ai/compiler` and MUST use it for all Translator output processing.**
 
 ```json
 {
-  "kind": "if",
-  "cond": { "kind": "not", "arg": { "kind": "get", "path": "item.exists" } },
-  "then": { "kind": "patch", "..." : "..." }
-}
-```
-
-This is not optional. **State-guarding is MUST for Host compatibility.**
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Idempotent patches only | Too restrictive, many operations aren't naturally idempotent |
-| Flow position tracking | Reintroduces hidden state, violates FDR-H003 |
-| Different intent for continuation | Complicates Host, breaks intent identity |
-
-### Consequences
-
-- Flow authors MUST design for re-entry
-- Patches MUST be guarded by state conditions
-- Effects MUST be guarded to prevent duplicate execution
-- Progress is tracked via Snapshot data, not execution position
-
----
-
-## FDR-H005: Effect Handlers Never Throw
-
-### Decision
-
-Effect handlers MUST return `Patch[]` and MUST NOT throw exceptions.
-
-### Context
-
-Traditional effect handlers throw on failure:
-
-```typescript
-// Traditional
-async function fetchUser(id: string): Promise<User> {
-  const response = await fetch(`/users/${id}`);
-  if (!response.ok) throw new Error('Not found');
-  return response.json();
-}
-```
-
-This creates control flow outside the Snapshot model.
-
-### Rationale
-
-**Exceptions are hidden control flow.**
-
-If an effect throws:
-- How does the Flow know what happened?
-- What state is the system in?
-- How do you replay this?
-
-**The Manifesto answer: Failures are values in Snapshot.**
-
-```typescript
-// Manifesto
-async function fetchUserHandler(type: string, params: any): Promise<Patch[]> {
-  try {
-    const response = await fetch(`/users/${params.id}`);
-    const user = await response.json();
-    return [
-      { op: 'set', path: `users.${params.id}`, value: user },
-      { op: 'set', path: 'system.lastError', value: null }
-    ];
-  } catch (error) {
-    return [
-      { op: 'set', path: 'system.lastError', value: {
-        code: 'FETCH_ERROR',
-        message: error.message
-      }}
-    ];
+  "dependencies": {
+    "@manifesto-ai/compiler": "^0.4.0"
   }
 }
 ```
 
-Now the Flow can check `system.lastError` and branch accordingly.
+### Context
+
+Translator produces `PatchFragment[]` containing MEL Canonical IR. Core expects Core Runtime IR and concrete values.
+
+Without mandatory Compiler usage:
+- Hosts might pass MEL IR directly to Core
+- Hosts might implement custom lowering with bugs
+- Different Hosts might produce different results
+
+### Rationale
+
+| Approach | Pros | Cons | Decision |
+|----------|------|------|----------|
+| Optional Compiler | Flexibility | Inconsistent behavior | ❌ Rejected |
+| Host-specific lowering | No dependency | Logic duplication, drift | ❌ Rejected |
+| **Mandatory Compiler** | Consistent behavior | Additional dependency | ✅ Adopted |
 
 ### Alternatives Rejected
 
 | Alternative | Why Rejected |
 |-------------|--------------|
-| Throw on failure | Hidden control flow, not in Snapshot |
-| Result<T, E> return type | More complex, still needs patch conversion |
-| Error events | Violates single-channel (Snapshot only) |
+| Core accepts MEL IR | Complicates Core; no single source of truth |
+| Translator outputs Core IR | Couples Translator to Core internals |
+| Host implements lowering | Duplicated logic; drift risk |
 
 ### Consequences
 
-- All effect outcomes are Patch[]
-- Failures are data, not exceptions
-- Flow can handle errors via state conditions
-- Host loop is simple (no try/catch complexity)
+- Host MUST import from `@manifesto-ai/compiler`
+- Custom lowering implementations are SPEC VIOLATIONS
+- All Hosts behave identically for same input
+- Compiler upgrades automatically apply to all Hosts
 
 ---
 
-## FDR-H006: Intent Identity (intentId)
+## FDR-H012: Two-Step Processing
 
 ### Decision
 
-Every Intent MUST carry a stable `intentId` that uniquely identifies a processing attempt.
-
-### Context
-
-Without intent identity:
-- How do we distinguish "re-entry" from "new request"?
-- How do we correlate Requirements to their originating action?
-- How do we implement at-most-once semantics?
-
-### Rationale
-
-**IntentId creates a stable reference for a processing attempt.**
-
-```
-User clicks "Save"
-  → Generate intentId: "abc-123"
-  → compute(snapshot, { type: 'save', intentId: 'abc-123' }, context)
-  → Effect required, pending
-  → Execute effect
-  → compute(snapshot, { type: 'save', intentId: 'abc-123' }, context)  // Same intentId!
-  → Complete
-
-User clicks "Save" again
-  → Generate intentId: "def-456"  // New intentId!
-  → compute(snapshot, { type: 'save', intentId: 'def-456' }, context)
-```
-
-| Use Case | How IntentId Helps |
-|----------|-------------------|
-| Re-entry detection | Same intentId = continuation, new intentId = fresh |
-| Requirement correlation | requirementId derived from intentId |
-| Deduplication | Same intentId + same state = skip |
-| Audit trail | All computations linked to originating action |
-| Replay | Reproduce exact sequence of intents |
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| No identity (stateless) | Cannot distinguish re-entry from new request |
-| Timestamp-based | Not unique enough, clock issues |
-| Implicit from input | Same input might be intentional re-submission |
-
-### Consequences
-
-- Host MUST generate unique intentId per user action
-- Host MUST preserve intentId across re-invocations
-- Requirement.id can be derived from intentId
-- Audit logs can trace full intent lifecycle
-
----
-
-## FDR-H007: Deterministic Requirement Identity
-
-### Decision
-
-Requirement `id` SHOULD be deterministic: `hash(schemaHash, intentId, actionId, flowNodePath)`.
-
-### Context
-
-Requirements need stable identity for:
-- Deduplication (don't execute same effect twice)
-- Replay verification (same intent produces same requirements)
-- At-most-once semantics
-
-### Rationale
-
-**Deterministic identity enables deduplication without external coordination.**
-
-If requirementId is computed from:
-- schemaHash: Different schema = different requirement
-- intentId: Different intent = different requirement
-- actionId: Different action = different requirement
-- flowNodePath: Different effect node = different requirement
-
-Then the **same effect for the same intent will always have the same requirementId**.
+**Host MUST perform two distinct steps: lowering (MEL IR → Core IR) and evaluation (Core IR → concrete values).**
 
 ```typescript
-// Example
-const requirementId = hash(
-  schema.hash,           // "sha256:abc..."
-  intent.intentId,       // "550e8400-..."
-  action.id,             // "addTodo"
-  flowNode.path          // "steps.1.then"
-);
-// Always produces same ID for same computation
+// Step 1: Lower
+const lowered = lowerPatchFragments(fragments, loweringCtx);
+
+// Step 2: Evaluate
+const patches = evaluateConditionalPatchOps(lowered, evalCtx);
+
+// Step 3: Apply
+core.apply(schema, snapshot, patches);
 ```
 
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Random UUID | Cannot deduplicate, cannot verify replay |
-| Sequence number | Requires global state, not deterministic |
-| Timestamp-based | Clock skew issues, not reproducible |
-
-### Consequences
-
-- Same computation always produces same requirementId
-- Deduplication is trivial: check if already processed
-- Replay verification: expected requirements must match
-- No external coordination needed
-
----
-
-## FDR-H008: Single-Writer Concurrency
-
-### Decision
-
-Intent processing MUST be serialized per Snapshot lineage. No concurrent `compute()` on same Snapshot version.
-
 ### Context
 
-What happens if two Hosts (or threads) call `compute()` on the same Snapshot simultaneously?
-
-- Both read version N
-- Both produce patches
-- Both try to apply
-- Result: Conflict, lost updates, inconsistent state
-
-### Rationale
-
-**Determinism requires serialization.**
-
-Manifesto guarantees:
-> Given the same DomainSchema, Snapshot, and Intent, Core computation is deterministic and reproducible.
-
-This guarantee is void if concurrent modifications occur.
-
-| Model | Determinism | Complexity |
-|-------|-------------|------------|
-| Single-writer | ✅ Guaranteed | Simple |
-| Optimistic locking | ❓ Requires retry | Medium |
-| CRDT/merge | ❓ Depends on merge | Complex |
-
-For v1.0, single-writer is the only compliant model.
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Optimistic locking | Retries break determinism without careful design |
-| CRDTs | Requires semantic-aware merge, out of scope for v1 |
-| Last-write-wins | Loses updates, non-deterministic |
-
-### Consequences
-
-- One intent at a time per Snapshot lineage
-- Host MUST serialize intent processing
-- Simple reasoning, guaranteed determinism
-- Future versions MAY relax with explicit merge semantics
-
----
-
-## FDR-H009: Core-Owned Versioning
-
-### Decision
-
-Core is exclusively responsible for `snapshot.meta.version` and `snapshot.meta.timestamp`.
-
-Host MUST NOT modify these fields.
-
-### Context
-
-If Host can modify version:
-- Version can be reset (breaks monotonicity)
-- Version can skip (breaks gaplessness)
-- Two Hosts might assign same version (breaks uniqueness)
-
-### Rationale
-
-**Version is the foundation of ordering and causality.**
-
-| Property | Why It Matters |
-|----------|---------------|
-| Monotonic | Later is always > earlier |
-| Gapless | No missing history |
-| Single source | No conflicts |
-
-Core controls `apply()`, which is the only state mutation path. Therefore, Core should control versioning.
-
+Core.apply() expects concrete `Patch[]`:
 ```typescript
-// Inside Core.apply()
-function apply(schema, snapshot, patches, context) {
-  const newSnapshot = applyPatches(snapshot, patches);
-  return {
-    ...newSnapshot,
-    meta: {
-      ...newSnapshot.meta,
-      version: snapshot.meta.version + 1,  // Core increments
-      timestamp: context.now,               // Core sets from HostContext
-      randomSeed: context.randomSeed
-    }
-  };
+{ op: "set", path: "count", value: 6 }  // concrete number
+```
+
+Lowering produces Core IR expressions:
+```typescript
+{ op: "set", path: "count", value: { kind: 'add', left: {...}, right: {...} } }
+```
+
+If we pass expressions to Core.apply():
+```typescript
+snapshot.data.count = { kind: 'add', ... }  // WRONG!
+```
+
+### Rationale
+
+```
+PROBLEM (single step):
+  lowerAndApply(fragments) → ???
+  - Who evaluates expressions?
+  - Against which snapshot?
+  - With what context (meta, input)?
+
+SOLUTION (two steps):
+  lower(fragments) → expressions with structure
+  evaluate(expressions, ctx) → concrete values
+  - Clear responsibility
+  - Explicit context
+  - Testable separately
+```
+
+### Consequences
+
+- Host calls `lowerPatchFragments()` first
+- Host calls `evaluateConditionalPatchOps()` second
+- Each step has clear input/output types
+- Skipping either step is a SPEC VIOLATION
+
+---
+
+## FDR-H013: Core.apply() Receives Concrete Only
+
+### Decision
+
+**Core.apply() MUST receive `Patch[]` with concrete values. Passing expressions is a SPEC VIOLATION.**
+
+### Context
+
+Core.apply() was designed for effect handler results:
+```typescript
+async function createTodoHandler(params): Promise<Patch[]> {
+  const response = await api.post('/todos', params);
+  return [
+    { op: 'set', path: `todos.${response.id}`, value: response.data }
+  ];
 }
 ```
 
-### Alternatives Rejected
+Effect handlers return concrete values (API responses, timestamps, UUIDs).
 
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Host assigns version | Risk of conflicts, resets, gaps |
-| Vector clocks | More complex, needed only for distributed case |
-| No versioning | Cannot order or replay |
-
-### Consequences
-
-- Version always increases by exactly 1 per `apply()`
-- Timestamp reflects actual mutation time
-- History is gapless and monotonic
-- Replay can verify version sequence
-
----
-
-## FDR-H010: Requirement Clearing Obligation
-
-### Decision
-
-Host MUST clear fulfilled Requirements before re-invoking `compute()`.
-
-### Context
-
-After effect execution, `pendingRequirements` still contains the fulfilled Requirement.
-
-If not cleared:
-- Next `compute()` sees same Requirement
-- Host might re-execute same effect
-- Infinite loop possible
+Translator output contains expressions that need evaluation.
 
 ### Rationale
 
-**The consumption contract: read → execute → clear → continue.**
+| If apply() receives... | Result |
+|-----------------------|--------|
+| `{ value: 6 }` | `snapshot.data.count = 6` ✓ |
+| `{ value: { kind: 'add', ... } }` | `snapshot.data.count = { kind: 'add', ... }` ✗ |
 
 ```
-snapshot.system.pendingRequirements = [{ id: 'req-1', type: 'api:create' }]
-                ↓
-        Host reads req-1
-                ↓
-        Host executes api:create
-                ↓
-        Host applies result patches
-                ↓
-        Host clears req-1  ← CRITICAL
-                ↓
-snapshot.system.pendingRequirements = []
-                ↓
-        Host calls compute()
+PROBLEM:
+  User expects: count = 6
+  User gets: count = { kind: 'add', left: {...}, right: {...} }
+  
+  This object is stored as the value!
+  Computed properties break, comparisons fail, UI shows "[object Object]"
 ```
-
-Without the clear step, the system cannot make progress.
-
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Core auto-clears on next compute | Implicit, hard to debug |
-| Never clear (idempotent requirements) | Most effects aren't idempotent |
-| Separate "consumed" flag | Extra complexity, still needs management |
 
 ### Consequences
 
-- Host MUST explicitly clear requirements
-- Clearing is done via `apply()` (consistent with all mutations)
-- Clear can be per-requirement or all-at-once
-- Unfulfilled requirements MUST still be cleared (with failure patches)
+- Host MUST evaluate before apply
+- Passing `ConditionalPatchOp[]` to apply() is VIOLATION
+- Passing `PatchFragment[]` to apply() is VIOLATION
+- Only `Patch[]` with concrete values is valid
 
 ---
 
-## FDR-H011: Effect Handler Domain Logic Prohibition
+## FDR-H014: Single IntentId Throughout
 
 ### Decision
 
-Effect handlers MUST NOT contain domain logic. All domain decisions belong in Flow or Computed.
+**The same `intentId` MUST be used for EvaluationContext.meta.intentId and Intent.intentId in compute loop.**
+
+```typescript
+const intentId = crypto.randomUUID();  // ONE ID
+
+const patches = evaluateConditionalPatchOps(lowered, {
+  meta: { intentId },  // same
+  ...
+});
+
+const intent = {
+  type: actionName,
+  intentId  // same
+};
+```
 
 ### Context
 
-It's tempting to put business logic in handlers:
+`$meta.intentId` is used for:
+- Once-markers (idempotency guards)
+- Request tracking
+- System value slot association
 
-```typescript
-// WRONG: Domain logic in handler
-async function purchaseHandler(type, params) {
-  if (params.amount > 1000) {  // Business rule!
-    return [{ op: 'set', path: 'approval.required', value: true }];
-  }
-  // ...
-}
+If evaluation and compute use different intentIds:
 ```
+Evaluation: $meta.intentId = "id-1"
+Compute: intent.intentId = "id-2"
 
-This is forbidden.
+Once-marker written with "id-1"
+Readiness check with "id-2" → always false!
+```
 
 ### Rationale
 
-**Domain logic must be explainable and traceable.**
-
-| Concern | Flow/Computed | Effect Handler |
-|---------|---------------|----------------|
-| Traceable | ✅ In Trace | ❌ Invisible |
-| Explainable | ✅ Via Explain | ❌ Black box |
-| Testable | ✅ Pure | ❓ Requires mocks |
-| Replayable | ✅ Deterministic | ❌ May vary |
-
-If domain logic is in handlers:
-- Trace doesn't show it
-- Explain can't explain it
-- Tests require complex mocks
-- Replay may diverge
-
-### The Correct Pattern
-
-```typescript
-// CORRECT: Domain logic in Flow
-{
-  "kind": "if",
-  "cond": { "kind": "gt", 
-    "left": { "kind": "get", "path": "order.amount" },
-    "right": { "kind": "lit", "value": 1000 }
-  },
-  "then": { "kind": "patch", "op": "set", "path": "approval.required", "value": true },
-  "else": { "kind": "effect", "type": "payment:process", "params": { "...": "..." } }
-}
-
-// Handler just does IO
-async function paymentHandler(type, params) {
-  await paymentGateway.charge(params.amount);
-  return [{ op: 'set', path: 'payment.status', value: 'completed' }];
-}
 ```
+PROBLEM (split IDs):
+  // Evaluation
+  ctx.meta.intentId = crypto.randomUUID()  // "abc"
+  patch creating = $meta.intentId  // stores "abc"
+  
+  // Compute loop
+  intent.intentId = crypto.randomUUID()  // "xyz"
+  when eq(creating, $meta.intentId)  // "abc" ≠ "xyz" → NEVER TRUE!
+  
+  Result: once() block never executes, or executes infinitely
 
-### Alternatives Rejected
-
-| Alternative | Why Rejected |
-|-------------|--------------|
-| Allow "simple" logic in handlers | Slippery slope, no clear boundary |
-| Trace handlers separately | Duplicates tracing, complex |
+SOLUTION (single ID):
+  const intentId = crypto.randomUUID()  // "abc"
+  
+  // Evaluation
+  ctx.meta.intentId = intentId  // "abc"
+  patch creating = $meta.intentId  // stores "abc"
+  
+  // Compute loop
+  intent.intentId = intentId  // "abc"
+  when eq(creating, $meta.intentId)  // "abc" = "abc" → TRUE ✓
+```
 
 ### Consequences
 
-- Handlers are pure IO adapters
-- All business rules in Flow/Computed
-- Complete traceability
-- Handler testing is simple (just IO)
+- Generate intentId once at the start of processing
+- Pass same intentId to EvaluationContext and Intent
+- Once-markers and readiness checks work correctly
+- Request tracking is consistent
 
 ---
 
-## Summary Table
+## FDR-H015: $system Exclusion from Translator Path
 
-| FDR | Decision | Key Principle |
-|-----|----------|---------------|
-| H001 | Absolute Core-Host boundary | Compute ≠ Execute |
-| H002 | Snapshot as sole channel | No hidden state |
-| H003 | No resume/continuation | No suspended context |
-| H004 | Flow re-entry requirement | State-guarded is MUST |
-| H005 | Handlers never throw | Errors are values |
-| H006 | Intent identity (intentId) | Stable processing reference |
-| H007 | Deterministic requirement ID | Content-addressable effects |
-| H008 | Single-writer concurrency | Determinism over parallelism |
-| H009 | Core-owned versioning | Single source of version truth |
-| H010 | Requirement clearing | Explicit consumption contract |
-| H011 | No domain logic in handlers | IO only, logic in Flow |
+### Decision
+
+**Host MUST exclude `system` from `allowSysPaths.prefixes` when processing Translator output.**
+
+```typescript
+// CORRECT
+{ allowSysPaths: { prefixes: ["meta", "input"] } }
+
+// VIOLATION
+{ allowSysPaths: { prefixes: ["meta", "input", "system"] } }
+```
+
+### Context
+
+System values require the effect lifecycle:
+1. core.compute() encounters $system.*
+2. Compiler inserts system.get effect
+3. Host executes effect (produces UUID, timestamp, etc.)
+4. Host patches result into Snapshot
+5. core.compute() resumes with value available
+
+Translator path bypasses this:
+```
+Translator → lower → evaluate → core.apply
+           (no core.compute, no effects!)
+```
+
+### Rationale
+
+```
+PROBLEM:
+  Translator output: patch id = $system.uuid
+  
+  lower(): __sys__action_uuid_value (slot reference)
+  evaluate(): snapshot.data['__sys__action_uuid_value'] = undefined
+  
+  The slot is never filled! No effect executed!
+  Result: id = undefined (or null)
+
+SOLUTION:
+  Translator path: forbid $system.*
+  lower(): INVALID_SYS_PATH error
+  
+  If system values needed: use Flow via core.compute()
+```
+
+### Consequences
+
+- Translator patches cannot use $system.*
+- Lowering rejects system prefix with INVALID_SYS_PATH
+- System values work via Flow execution (core.compute)
+- Clear separation between Translator patches and Flow actions
 
 ---
 
-## Cross-Reference: Schema Spec FDR
+## FDR-H016: snapshot.data Convention
 
-The following Schema Spec FDRs are foundational to Host Contract:
+### Decision
 
-| Schema FDR | Relevance to Host Contract |
-|------------|---------------------------|
-| FDR-001 (Core as Calculator) | Foundation of Core-Host boundary |
-| FDR-002 (Snapshot as Only Medium) | Foundation of single-channel communication |
-| FDR-003 (No Pause/Resume) | Foundation of re-entry model |
-| FDR-004 (Effects as Declarations) | Foundation of handler contract |
-| FDR-005 (Errors as Values) | Foundation of no-throw handlers |
+**Host MUST use `snapshot.data` (not `snapshot.state`) for domain data. Evaluation resolves paths against `snapshot.data`.**
+
+### Context
+
+Core/Bridge Snapshot structure:
+```typescript
+type Snapshot = {
+  data: Record<string, unknown>;      // Domain state
+  computed: Record<string, unknown>;  // Derived values
+  system: SystemState;                // System state
+  meta: SnapshotMeta;                 // Metadata
+};
+```
+
+Some documentation used `snapshot.state` which is incorrect.
+
+### Rationale
+
+```
+PROBLEM (wrong field):
+  Path resolution: get("user.name")
+  Code: ctx.snapshot.state.user?.name
+  Result: undefined (field doesn't exist!)
+
+SOLUTION (correct field):
+  Path resolution: get("user.name")
+  Code: ctx.snapshot.data.user?.name
+  Result: "Alice" ✓
+```
+
+### Consequences
+
+- Evaluation resolves non-prefixed paths to `snapshot.data.*`
+- Evaluation resolves `computed.*` paths to `snapshot.computed.*`
+- All documentation uses `snapshot.data` consistently
+- Type errors caught at compile time
 
 ---
 
-*End of Host Contract FDR*
+## FDR-H017: Informative Translator Loop
+
+### Decision
+
+**§13.2 (Host Loop with Translator) is INFORMATIVE, not normative. It is guidance for one integration pattern, not a required implementation.**
+
+### Context
+
+Translator SPEC defines Translator as proposal-only:
+- Translator produces proposals
+- Actor submits to Authority
+- Authority approves/rejects
+- Host executes approved intents
+
+§13.2 shows a pattern where Host directly executes Translator output, bypassing Authority.
+
+This is valid but not required.
+
+### Rationale
+
+| Approach | Description | Valid? |
+|----------|-------------|--------|
+| Authority model | Actor → Authority → Host | ✅ |
+| Direct execution | Translator → Host (bypasses Authority) | ✅ |
+| Human review | Translator → Human → Host | ✅ |
+| Batch processing | Translator → Queue → Host | ✅ |
+
+All approaches are valid. §13.2 shows one pattern.
+
+### Consequences
+
+- §13.2 is labeled "INFORMATIVE"
+- Hosts MAY use different integration patterns
+- Authority/Actor model is not bypassed by this section
+- Ambiguity handling is Host policy, not mandated
+
+---
+
+## Appendix: v1.0 to v1.1 Changes
+
+### New Requirements (MUST)
+
+| Requirement | FDR |
+|-------------|-----|
+| Import `@manifesto-ai/compiler` | FDR-H011 |
+| Call `lowerPatchFragments()` | FDR-H012 |
+| Call `evaluateConditionalPatchOps()` | FDR-H012 |
+| Pass `Patch[]` to `core.apply()` | FDR-H013 |
+| Use single intentId | FDR-H014 |
+| Exclude `system` from allowSysPaths | FDR-H015 |
+
+### New Prohibitions (MUST NOT)
+
+| Prohibition | FDR |
+|-------------|-----|
+| Pass MEL IR to core.apply() | FDR-H013 |
+| Pass ConditionalPatchOp[] to core.apply() | FDR-H013 |
+| Skip evaluation step | FDR-H012 |
+| Include `system` in Translator allowSysPaths | FDR-H015 |
+| Use different intentIds for eval/compute | FDR-H014 |
+
+### Data Flow
+
+```
+Translator.translate()
+    │
+    ▼
+PatchFragment[] (MEL IR + condition)
+    │
+    │ lowerPatchFragments() [FDR-H011, H015]
+    │ • Compiler transforms IR
+    │ • Rejects $system.*
+    ▼
+ConditionalPatchOp[] (Core IR + condition)
+    │
+    │ evaluateConditionalPatchOps() [FDR-H012, H016]
+    │ • Sequential evaluation
+    │ • Boolean-only conditions
+    │ • Resolves against snapshot.data
+    ▼
+Patch[] (concrete values) [FDR-H013]
+    │
+    │ core.apply()
+    ▼
+Snapshot
+```
+
+### IntentId Flow
+
+```
+const intentId = crypto.randomUUID()  [FDR-H014]
+           │
+           ├──► EvaluationContext.meta.intentId
+           │
+           └──► Intent.intentId (compute loop)
+           
+Both MUST be the same value.
+```
+
+---
+
+## Appendix: Key Quotes (v1.1)
+
+> "Host MUST declare dependency on @manifesto-ai/compiler. Bypassing Compiler is a SPEC VIOLATION."
+> — FDR-H011
+
+> "Host MUST perform two steps: lowering (MEL IR → Core IR) and evaluation (Core IR → concrete). Skipping either is VIOLATION."
+> — FDR-H012
+
+> "Core.apply() receives concrete Patch[] only. Expressions stored as values break everything."
+> — FDR-H013
+
+> "Same intentId for evaluation and compute loop. Split IDs break once-markers and readiness checks."
+> — FDR-H014
+
+> "$system.* is forbidden in Translator path. No effect lifecycle means no system values."
+> — FDR-H015
+
+> "Use snapshot.data, not snapshot.state. The field is called data in Core/Bridge."
+> — FDR-H016
+
+> "§13.2 is informative. There are many valid ways to integrate Translator with Host."
+> — FDR-H017
+
+---
+
+## Appendix: Cross-Reference with Compiler FDR
+
+| Host FDR | Related Compiler FDR | Topic |
+|----------|---------------------|-------|
+| FDR-H011 | FDR-MEL-065 | Mandatory Compiler |
+| FDR-H012 | FDR-MEL-069, 070 | Evaluation semantics |
+| FDR-H013 | FDR-MEL-072 | ConditionalPatchOp |
+| FDR-H014 | — | IntentId (Host-only) |
+| FDR-H015 | FDR-MEL-071 | $system restriction |
+| FDR-H016 | FDR-MEL-067 | Path conventions |
+| FDR-H017 | — | Informative section |
+
+---
+
+*End of Host Contract FDR Document v1.1*

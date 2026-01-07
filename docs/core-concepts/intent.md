@@ -408,7 +408,7 @@ This enables:
 
 ## See Also
 
-- [Schema Specification](/specifications/schema-spec) - Normative specification including ActionSpec
+- [Schema Specification](/specifications/core-spec) - Normative specification including ActionSpec
 - [World FDR](/rationale/world-fdr) - Design rationale including Proposal accountability
 - [Flow](./flow) - How Intents are executed
 - [World](./world) - How Intents are governed

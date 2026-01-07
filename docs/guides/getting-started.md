@@ -4,6 +4,18 @@
 > **Purpose:** Quick start guide for developers new to Manifesto
 > **Time to complete:** 15-20 minutes
 
+::: tip Recommended Approach
+For most users, we recommend using **MEL** with **@manifesto-ai/app** for a simpler, more streamlined experience:
+
+```bash
+npm install @manifesto-ai/app @manifesto-ai/compiler
+```
+
+See the [@manifesto-ai/app Getting Started Guide](/packages/app/getting-started) for the recommended approach.
+
+This guide covers the **low-level approach** using Builder, Core, and Host directly.
+:::
+
 ---
 
 ## Prerequisites
@@ -14,7 +26,7 @@
 
 ---
 
-## Installation
+## Installation (Low-Level Approach)
 
 ```bash
 npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod

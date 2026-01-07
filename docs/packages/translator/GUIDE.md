@@ -609,6 +609,6 @@ DEBUG=translator:*
 ## Related Guides
 
 - [Core Concepts](/core-concepts/) - Understanding Snapshot, Intent, Effect
-- [Host Guide](/packages/host/GUIDE) - Effect execution
-- [Compiler Guide](/packages/compiler/GUIDE) - Lowering and evaluation
+- [Host Guide](/specifications/host-spec) - Effect execution
+- [Compiler Guide](/specifications/compiler-spec) - Lowering and evaluation
 - [Memory Guide](/packages/memory/GUIDE) - Memory selection

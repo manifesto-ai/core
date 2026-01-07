@@ -951,5 +951,5 @@ domain Example {
 
 - [Re-entry Safe Flows](/guides/reentry-safe-flows) - Prevent infinite loops
 - [Effect Handlers](/guides/effect-handlers) - Debug effect execution
-- [Schema Specification](/specifications/schema-spec) - Normative trace format
+- [Schema Specification](/specifications/core-spec) - Normative trace format
 - [Core FDR](/rationale/core-fdr) - Why determinism matters

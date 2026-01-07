@@ -32,7 +32,7 @@ export function createSystemSchema(): DomainSchema {
   }
 
   return {
-    schemaHash: "system-runtime-v0.4.7",
+    schemaHash: "system-runtime-v0.4.9",
     actions,
     computed: {},
     state: createSystemStateSchema(),
@@ -173,6 +173,34 @@ function getInputSchemaForAction(
           depth: { type: "number" },
         },
         required: ["worldId"],
+      };
+
+    case "system.memory.maintain":
+      return {
+        type: "object",
+        properties: {
+          ops: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                kind: { type: "string", enum: ["forget"] },
+                ref: {
+                  type: "object",
+                  properties: {
+                    worldId: { type: "string" },
+                  },
+                  required: ["worldId"],
+                },
+                scope: { type: "string", enum: ["actor", "global"] },
+                reason: { type: "string" },
+                ttl: { type: "number" },
+              },
+              required: ["kind", "ref"],
+            },
+          },
+        },
+        required: ["ops"],
       };
 
     // Workflow

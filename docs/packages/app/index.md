@@ -83,7 +83,7 @@ Fork application state into branches for A/B testing, undo/redo, or speculative 
 
 ### Memory Integration
 
-Optional semantic memory system for AI-powered recall and context injection.
+Optional semantic memory system for AI-powered recall and context injection. Includes memory maintenance for GDPR-compliant data management (v0.4.9+).
 
 ---
 
@@ -150,7 +150,7 @@ await app.act("increment").done();
 | [Subscriptions](./subscriptions) | Reactive state subscription patterns |
 | [Actions](./actions) | Action lifecycle and execution |
 | [Branch Management](./branches) | Forking and branch switching |
-| [Advanced Topics](./advanced) | Sessions, memory, hooks, and plugins |
+| [Advanced Topics](./advanced) | Sessions, memory, memory maintenance, hooks, and plugins |
 | [Examples](./examples) | Real-world application examples |
 
 ---

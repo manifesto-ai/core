@@ -610,6 +610,56 @@ app.memory.backfill(opts: {
 }): Promise<void>
 ```
 
+### memory.maintain()
+
+Performs memory maintenance operations (forget-only in v0.4.9).
+
+```typescript
+app.memory.maintain(
+  ops: readonly MemoryMaintenanceOp[],
+  ctx: MemoryMaintenanceContext
+): Promise<MemoryMaintenanceOutput>
+```
+
+#### MemoryMaintenanceOp
+
+```typescript
+interface MemoryMaintenanceOp {
+  readonly kind: "forget";           // Only "forget" supported in v0.4.9
+  readonly ref: MemoryRef;           // Memory reference to forget
+  readonly scope?: "actor" | "global"; // Default: "actor"
+  readonly reason?: string;          // Audit reason
+  readonly ttl?: number;             // Tombstone expiry (ms)
+}
+```
+
+#### MemoryMaintenanceContext
+
+```typescript
+interface MemoryMaintenanceContext {
+  readonly actor: ActorRef;          // From Proposal.actorId (authenticated)
+  readonly scope: "actor" | "global";
+}
+```
+
+#### MemoryMaintenanceOutput
+
+```typescript
+interface MemoryMaintenanceOutput {
+  readonly results: readonly MemoryMaintenanceResult[];
+  readonly trace: MemoryHygieneTrace;
+}
+
+interface MemoryMaintenanceResult {
+  readonly success: boolean;
+  readonly op: MemoryMaintenanceOp;
+  readonly tombstoneId?: string;
+  readonly error?: string;
+}
+```
+
+> **Note:** Memory maintenance is typically invoked via the `system.memory.maintain` system action, which ensures proper actor context binding (MEM-MAINT-10).
+
 ### Example
 
 ```typescript
@@ -620,6 +670,16 @@ if (app.memory.enabled()) {
   // Use in action
   await app.act("personalizeUI", {}, {
     recall: ["user preferences", "recent actions"],
+  }).done();
+
+  // Forget specific memory via system action (v0.4.9+)
+  await app.act("system.memory.maintain", {
+    ops: [{
+      kind: "forget",
+      ref: { worldId: "world_abc123" },
+      scope: "actor",
+      reason: "User requested deletion",
+    }],
   }).done();
 }
 ```

@@ -341,7 +341,7 @@ From SPEC.md:
 
 ## See Also
 
-- [Schema Specification](/specifications/schema-spec) - Normative specification
+- [Schema Specification](/specifications/core-spec) - Normative specification
 - [Core FDR](/rationale/core-fdr) - Design rationale including Snapshot as Only Medium
 - [Data Flow](/architecture/data-flow) - How Snapshot moves through layers
 - [Effect](./effect) - How effects modify Snapshot
