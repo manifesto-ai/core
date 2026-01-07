@@ -451,7 +451,7 @@ From Host FDR:
 
 ## See Also
 
-- [Host Contract](/specifications/host-contract) - Normative specification
+- [Host Contract](/specifications/host-spec) - Normative specification
 - [Host FDR](/rationale/host-fdr) - Why decisions were made
 - [Getting Started Guide](/guides/getting-started) - Practical guide
 - [Effect Handlers Guide](/guides/effect-handlers) - Writing effect handlers

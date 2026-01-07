@@ -451,7 +451,7 @@ await core.compute(schema, snapshot, intent, context);
 
 ## See Also
 
-- [Schema Specification](/specifications/schema-spec) - Normative specification including EffectNode
+- [Schema Specification](/specifications/core-spec) - Normative specification including EffectNode
 - [Core FDR](/rationale/core-fdr) - Design rationale including Effects as Declarations
 - [Effect Handlers Guide](/guides/effect-handlers) - Practical guide
 - [Host](./host) - The execution layer

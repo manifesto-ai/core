@@ -309,12 +309,12 @@ ANTHROPIC_API_KEY=sk-...   # For Anthropic provider
 
 ## Related Packages
 
-- [`@manifesto-ai/core`](../core) - Core compute engine
-- [`@manifesto-ai/host`](../host) - Effect execution runtime
-- [`@manifesto-ai/world`](../world) - World protocol
-- [`@manifesto-ai/memory`](../memory) - Memory selection
-- [`@manifesto-ai/bridge`](../bridge) - Event sourcing bridge
-- [`@manifesto-ai/compiler`](../compiler) - MEL compiler
+- [`@manifesto-ai/core`](/specifications/core-spec) - Core compute engine
+- [`@manifesto-ai/host`](/specifications/host-spec) - Effect execution runtime
+- [`@manifesto-ai/world`](/specifications/world-spec) - World protocol
+- [`@manifesto-ai/memory`](/specifications/memory-spec) - Memory selection
+- [`@manifesto-ai/bridge`](/specifications/bridge-spec) - Event sourcing bridge
+- [`@manifesto-ai/compiler`](/specifications/compiler-spec) - MEL compiler
 
 ## License
 

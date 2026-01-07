@@ -383,16 +383,16 @@ pnpm add @manifesto-ai/translator @manifesto-ai/memory
 
 | Package | Description | Docs |
 |---------|-------------|------|
-| `@manifesto-ai/app` | **High-level app facade (recommended)** | [Guide](/packages/app/) |
-| `@manifesto-ai/compiler` | MEL compiler | [README](/packages/compiler/) · [SPEC](/packages/compiler/SPEC) |
-| `@manifesto-ai/core` | Pure computation engine | [README](/packages/core/) · [SPEC](/packages/core/SPEC) |
-| `@manifesto-ai/host` | Effect execution runtime | [README](/packages/host/) · [SPEC](/packages/host/SPEC) |
-| `@manifesto-ai/world` | World Protocol governance | [README](/packages/world/) · [SPEC](/packages/world/SPEC) |
-| `@manifesto-ai/bridge` | Event sourcing bridge | [README](/packages/bridge/) · [SPEC](/packages/bridge/SPEC) |
-| `@manifesto-ai/builder` | Type-safe DSL (advanced) | [README](/packages/builder/) · [SPEC](/packages/builder/SPEC) |
-| `@manifesto-ai/translator` | Natural language translation | [README](/packages/translator/) · [SPEC](/packages/translator/SPEC) |
-| `@manifesto-ai/memory` | Memory retrieval & verification | [README](/packages/memory/) · [SPEC](/packages/memory/SPEC) |
-| `@manifesto-ai/react` | React bindings (low-level) | [README](/packages/react/) · [SPEC](/packages/react/SPEC) |
+| `@manifesto-ai/app` | **High-level app facade (recommended)** | [Guide](/packages/app/) · [SPEC](/specifications/app-spec) |
+| `@manifesto-ai/compiler` | MEL compiler | [SPEC](/specifications/compiler-spec) · [FDR](/rationale/compiler-fdr) |
+| `@manifesto-ai/core` | Pure computation engine | [SPEC](/specifications/core-spec) · [FDR](/rationale/core-fdr) |
+| `@manifesto-ai/host` | Effect execution runtime | [SPEC](/specifications/host-spec) · [FDR](/rationale/host-fdr) |
+| `@manifesto-ai/world` | World Protocol governance | [SPEC](/specifications/world-spec) · [FDR](/rationale/world-fdr) |
+| `@manifesto-ai/bridge` | Event sourcing bridge | [SPEC](/specifications/bridge-spec) · [FDR](/rationale/bridge-fdr) |
+| `@manifesto-ai/builder` | Type-safe DSL (advanced) | [SPEC](/specifications/builder-spec) · [FDR](/rationale/builder-fdr) |
+| `@manifesto-ai/translator` | Natural language translation | [SPEC](/specifications/translator-spec) · [FDR](/rationale/translator-fdr) |
+| `@manifesto-ai/memory` | Memory retrieval & verification | [SPEC](/specifications/memory-spec) · [FDR](/rationale/memory-fdr) |
+| `@manifesto-ai/react` | React bindings (low-level) | [SPEC](/specifications/react-spec) · [FDR](/rationale/react-fdr) |
 
 ## Who Should Use Manifesto?
 

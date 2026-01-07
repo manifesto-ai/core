@@ -178,9 +178,9 @@ const finalTrace = attachTrace(trace, selectionResult);
 
 ## Related Packages
 
-- [`@manifesto-ai/core`](../core) - Core compute engine
-- [`@manifesto-ai/world`](../world) - World protocol
-- [`@manifesto-ai/translator`](../translator) - Natural language translation
+- [`@manifesto-ai/core`](/specifications/core-spec) - Core compute engine
+- [`@manifesto-ai/world`](/specifications/world-spec) - World protocol
+- [`@manifesto-ai/translator`](/specifications/translator-spec) - Natural language translation
 
 ## License
 

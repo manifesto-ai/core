@@ -127,11 +127,18 @@ export default defineConfig({
           text: 'Specifications',
           items: [
             { text: 'Overview', link: '/specifications/' },
-            { text: 'Schema Spec', link: '/specifications/schema-spec' },
-            { text: 'Host Contract', link: '/specifications/host-contract' },
-            { text: 'World Protocol', link: '/specifications/world-protocol' },
-            { text: 'Intent Projection', link: '/specifications/intent-projection' },
+            { text: 'App Spec', link: '/specifications/app-spec' },
+            { text: 'Core Spec', link: '/specifications/core-spec' },
             { text: 'Compiler Spec', link: '/specifications/compiler-spec' },
+            { text: 'Host Spec', link: '/specifications/host-spec' },
+            { text: 'World Spec', link: '/specifications/world-spec' },
+            { text: 'Bridge Spec', link: '/specifications/bridge-spec' },
+            { text: 'Builder Spec', link: '/specifications/builder-spec' },
+            { text: 'React Spec', link: '/specifications/react-spec' },
+            { text: 'Memory Spec', link: '/specifications/memory-spec' },
+            { text: 'Translator Spec', link: '/specifications/translator-spec' },
+            { text: 'Effect Utils Spec', link: '/specifications/effect-utils-spec' },
+            { text: 'Lab Spec', link: '/specifications/lab-spec' },
           ]
         }
       ],
@@ -157,10 +164,18 @@ export default defineConfig({
           text: 'Design Rationale',
           items: [
             { text: 'Overview', link: '/rationale/' },
+            { text: 'App FDR', link: '/rationale/app-fdr' },
             { text: 'Core FDR', link: '/rationale/core-fdr' },
+            { text: 'Compiler FDR', link: '/rationale/compiler-fdr' },
             { text: 'Host FDR', link: '/rationale/host-fdr' },
             { text: 'World FDR', link: '/rationale/world-fdr' },
-            { text: 'Compiler FDR', link: '/rationale/compiler-fdr' },
+            { text: 'Bridge FDR', link: '/rationale/bridge-fdr' },
+            { text: 'Builder FDR', link: '/rationale/builder-fdr' },
+            { text: 'React FDR', link: '/rationale/react-fdr' },
+            { text: 'Memory FDR', link: '/rationale/memory-fdr' },
+            { text: 'Translator FDR', link: '/rationale/translator-fdr' },
+            { text: 'Effect Utils FDR', link: '/rationale/effect-utils-fdr' },
+            { text: 'Lab FDR', link: '/rationale/lab-fdr' },
           ]
         }
       ],

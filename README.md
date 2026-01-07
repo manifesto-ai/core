@@ -120,15 +120,17 @@ app.subscribe(
 | Package | Description | Docs |
 |---------|-------------|------|
 | [`@manifesto-ai/app`](packages/app) | **High-level facade for building Manifesto apps.** | [Docs](https://docs.manifesto-ai.dev/packages/app/) |
-| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema. | [README](packages/compiler/README.md) |
-| [`@manifesto-ai/core`](packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [README](packages/core/README.md) |
-| [`@manifesto-ai/host`](packages/host) | Effect execution runtime. Executes effects and applies patches. | [README](packages/host/README.md) |
-| [`@manifesto-ai/world`](packages/world) | Governance layer. Manages authority, proposals, and lineage. | [README](packages/world/README.md) |
-| [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](packages/bridge/README.md) |
-| [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](packages/builder/README.md) |
-| [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [README](packages/react/README.md) |
+| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema. | [SPEC](packages/compiler/docs/SPEC-0.4.0v.md) |
+| [`@manifesto-ai/core`](packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [SPEC](packages/core/docs/SPEC.md) |
+| [`@manifesto-ai/host`](packages/host) | Effect execution runtime. Executes effects and applies patches. | [SPEC](packages/host/docs/SPEC-1.1.0v.md) |
+| [`@manifesto-ai/world`](packages/world) | Governance layer. Manages authority, proposals, and lineage. | [SPEC](packages/world/docs/SPEC.md) |
+| [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [SPEC](packages/bridge/docs/SPEC-1.1.0v.md) |
+| [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [SPEC](packages/builder/docs/SPEC.md) |
+| [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [SPEC](packages/react/docs/SPEC.md) |
+| [`@manifesto-ai/translator`](packages/translator) | Natural language to semantic change translation. | [SPEC](packages/translator/docs/SPEC-1.1.1v.md) |
+| [`@manifesto-ai/memory`](packages/memory) | Memory retrieval and verification. | [SPEC](packages/memory/docs/SPEC-1.2v.md) |
 | [`@manifesto-ai/effect-utils`](packages/effect-utils) | Effect handler utilities and helpers. | [SPEC](packages/effect-utils/docs/SPEC.md) |
-| [`@manifesto-ai/lab`](packages/lab) | LLM governance, tracing, and HITL tooling. | [README](packages/lab/README.md) |
+| [`@manifesto-ai/lab`](packages/lab) | LLM governance, tracing, and HITL tooling. | [SPEC](packages/lab/docs/SPEC.md) |
 
 ---
 

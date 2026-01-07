@@ -1,10 +1,11 @@
-# Manifesto Intent & Projection Specification v1.0
+# Manifesto Intent & Projection Specification v1.1
 
-> **Status:** Release
+> **Status:** Proposed
 > **Scope:** Normative (except where marked Informative)
 > **Authors:** Manifesto Team
 > **Applies to:** All Manifesto Intent Producers & Projections
 > **License:** MIT
+> **Changelog:** v1.1 adds Action Catalog system (§3.4, §7.4), clarifies ExpressionIR cross-reference, adds catalogHash algorithm
 
 ---
 
@@ -42,6 +43,7 @@ It specifies:
 - Projection may read **SnapshotView (data + computed)** read-only
 - Projection **MUST** be **deterministic**
 - Scope is **proposed by Projection, approved by Authority**
+- **Action Catalog** is a projection output for context injection (v1.1)
 
 ---
 
@@ -91,12 +93,87 @@ Projection reads a **read-only** view of semantic state.
 ```typescript
 type SnapshotView = Readonly<{
   data: unknown;
-  // Keys are SemanticPath without the "computed." prefix
   computed: Record<string, unknown>;
 }>;
 ```
 
 > SnapshotView intentionally excludes `meta`, `version`, and `timestamp`.
+
+### 3.4 Action Catalog (Context Injection)
+
+An **Action Catalog** is a *projection output* used by UIs and LLM runtimes to enumerate
+which actions are currently relevant and/or callable.
+
+This specification defines a **standard** Action Catalog shape for Bridge runtimes.
+
+```typescript
+/**
+ * ExpressionIR: Opaque Intermediate Representation for availability predicates.
+ * 
+ * When MEL is used, this is the compiler output ExprNode.
+ * See manifesto-ai-compiler SPEC §7 (IR Mapping).
+ * 
+ * Constraints:
+ * - MUST be JSON-serializable (for cross-system transport)
+ * - MUST be deterministic (same inputs → same output)
+ * - MUST yield boolean result
+ */
+type ExpressionIR = unknown;  // Opaque; structure defined by compiler/builder
+
+/**
+ * AvailabilityContext: Input for availability evaluation.
+ */
+type AvailabilityContext = Readonly<{
+  data: unknown;
+  computed: Record<string, unknown>;
+  actor: ActorRef;
+}>;
+
+/**
+ * AvailabilityPredicate: What ActionDescriptor.available can hold.
+ * 
+ * - ExpressionIR: Portable, MEL-compiled expression (preferred)
+ * - fn: Non-portable extension for local runtimes only (not cross-system)
+ * - null/undefined: Always available
+ */
+type AvailabilityPredicate =
+  | ExpressionIR
+  | { readonly kind: 'fn'; readonly evaluate: (ctx: AvailabilityContext) => boolean }  // Non-portable
+  | null;
+
+type ActionDescriptor = Readonly<{
+  type: string;                      // Stable action identifier
+  label?: string;                    // Optional UI label
+  description?: string;              // Optional description
+  inputSchema?: unknown;             // JSON-serializable schema for tool/UI input
+  available?: AvailabilityPredicate; // Optional availability predicate (pure)
+}>;
+
+type AvailabilityStatus =
+  | { readonly status: 'available' }
+  | { readonly status: 'unavailable'; readonly reason?: string }
+  | { readonly status: 'unknown'; readonly reason: 'missing_context' | 'indeterminate' };
+
+type ProjectedAction = Readonly<{
+  type: string;
+  label?: string;
+  description?: string;
+  inputSchema?: unknown;
+  availability: AvailabilityStatus;
+}>;
+
+type ActionCatalog = Readonly<{
+  kind: 'action_catalog';
+  schemaHash: string;
+  catalogHash: string;          // Deterministic hash of actions + options (see §7.4.4)
+  actions: readonly ProjectedAction[];
+}>;
+```
+
+> Action Catalog is **NOT** a security boundary.
+> Final enforcement remains the responsibility of World Protocol (Authority) and Core runtime validation.
+> See FDR-IP015 for rationale.
+
 > If `schemaHash` is needed (it is, for intentKey), it is passed separately in ProjectionRequest.
 
 ---
@@ -184,7 +261,7 @@ Scope defines proposed write boundaries.
 
 ```typescript
 type IntentScope = {
-  readonly allowedPaths?: string[];  // Path patterns allowed to write (e.g., "profile.*")
+  readonly allowedPaths?: string[];  // Path patterns allowed to write (e.g., "data.profile.*")
   readonly note?: string;            // Optional human description
 };
 ```
@@ -338,7 +415,133 @@ type IssueRequest = {
 | Agent | Agent runtime |
 | System | System runtime or scheduler |
 
+### 7.4 Action Catalog Projection (Standard, Optional)
+
+In addition to Intent-producing projections, Bridge runtimes **MAY** provide a deterministic
+**Action Catalog Projection** that supports state-dependent context injection for UIs and LLM toolsets.
+
+This projection **does not** produce Intents and **does not** interact with World Protocol.
+It is a read-only *selection & shaping* operation that enumerates currently relevant actions.
+
+#### 7.4.1 Contract
+
+```typescript
+type ActionCatalogProjectionRequest = Readonly<{
+  schemaHash: string;
+  snapshot: SnapshotView;                 // data + computed (read-only)
+  actor: ActorRef;                        // acting actor (for meta/roles)
+  actions: readonly ActionDescriptor[];    // source catalog (typically from schema)
+  mode?: 'llm' | 'ui' | 'debug';           // default: 'llm'
+  pruning?: Readonly<{
+    policy?: 'drop_unavailable' | 'mark_only';  // default: drop_unavailable
+    includeUnknown?: boolean;                   // default: true
+    maxActions?: number;                        // OPTIONAL
+    sort?: 'type_lex' | 'schema_order';         // default: type_lex
+  }>;
+}>;
+
+/**
+ * Sort order definitions:
+ * - `type_lex`: Lexicographic sort by `action.type` (deterministic, interoperable)
+ * - `schema_order`: Preserve the order of `req.actions` as provided.
+ *   Callers MUST provide `req.actions` in a deterministic order when using `schema_order`.
+ */
+
+interface ActionCatalogProjector {
+  projectActionCatalog(req: ActionCatalogProjectionRequest): ActionCatalog;
+}
+```
+
+#### 7.4.2 Availability Evaluation
+
+- If `ActionDescriptor.available` is absent or `null`, the action is treated as **available**.
+- If `available` is present, implementations MUST evaluate it deterministically from:
+    - `snapshot.data`
+    - `snapshot.computed`
+    - actor context (at minimum `actorId`, `kind`, and `actor.meta`)
+
+**Purity requirement:** availability evaluation MUST NOT depend on:
+- time, randomness, network, external IO
+- `$system.*`, `$input.*`, or effects (as defined by MEL availability purity constraints)
+
+If evaluation cannot be completed due to missing context (e.g., required actor meta is absent),
+the action MUST be marked `{ status: 'unknown', reason: 'missing_context' }` rather than forced to false.
+
+If evaluation cannot be completed due to expression complexity (e.g., requires runtime-only data),
+the action MUST be marked `{ status: 'unknown', reason: 'indeterminate' }`.
+
+> Implementations SHOULD use IR/AST dependency inspection (or builder-provided deps) to detect
+> missing context and avoid false-negative pruning.
+
+#### 7.4.3 Pruning Policy
+
+Default behavior (when `pruning` is omitted):
+
+- `policy = drop_unavailable`
+- `includeUnknown = true`
+- `sort = type_lex`
+
+Rules:
+
+- `drop_unavailable`: remove actions where `availability.status === 'unavailable'`
+- `mark_only`: keep all actions, but set `availability` accordingly (debug tooling)
+
+If `maxActions` is set, implementations MUST apply it deterministically
+(e.g., after sorting, take the first N).
+
+#### 7.4.4 Determinism and catalogHash
+
+Action Catalog Projection MUST be deterministic.
+
+**appliedPruningOptions** is the effective pruning configuration after applying defaults:
+```typescript
+const appliedPruningOptions = {
+  policy: req.pruning?.policy ?? 'drop_unavailable',
+  includeUnknown: req.pruning?.includeUnknown ?? true,
+  sort: req.pruning?.sort ?? 'type_lex',
+  maxActions: req.pruning?.maxActions ?? null
+};
+```
+
+`catalogHash` **MUST** be computed as:
+
+```
+catalogHash = SHA-256(
+  schemaHash + ":" +
+  JCS(actions.map(a => ({
+    type: a.type,
+    status: a.availability.status,
+    reason: a.availability.status === 'unknown' ? a.availability.reason : null
+  }))) + ":" +
+  JCS(appliedPruningOptions)
+)
+```
+
+Where:
+
+- `SHA-256` produces a lowercase hex string
+- `JCS(x)` is JSON Canonicalization Scheme (RFC 8785) applied to `x`
+- `actions` is the **final** list after pruning (not the input list)
+
+**Note on `mode`:** The `mode` parameter (`'llm' | 'ui' | 'debug'`) affects which fields are included
+in the output (e.g., description for LLM, label for UI), but is **NOT** included in `catalogHash`.
+If implementations need mode-specific caching, they SHOULD use a composite key: `(catalogHash, mode)`.
+
+Non-deterministic fields (timestamps, counters) MUST NOT contribute to `catalogHash`.
+
 **Critical:** World Protocol **MUST** receive `IntentInstance`, not `IntentBody`.
+
+#### 7.4.5 Unknown Status and Runtime Behavior
+
+If an action with `status: 'unknown'` is subsequently invoked via Intent:
+
+- Core runtime **MUST** evaluate the action availability predicate before executing the flow
+- Authority **MAY** evaluate availability while judging a Proposal, but it is not required by this spec
+- Authority and Host **MUST NOT** treat projection-time `unknown` as `unavailable`
+- Unknown status is a **projection-time optimization hint**, not a final determination
+
+This ensures that honest uncertainty at projection time does not incorrectly block valid actions.
+The enforcement responsibility lies with Core runtime, not Authority.
 
 ---
 
@@ -402,7 +605,7 @@ Projection MAY:
 | Gate emission on computed availability | `if (!computed.canSubmit) → none` |
 | Extract input from source payload | `body.input = { title: payload.title }` |
 | Perform lossless transport normalization | Ensure JSON-compatible primitives |
-| Propose scope | `body.scopeProposal = { allowedPaths: ['todos.*'] }` |
+| Propose scope | `body.scopeProposal = { allowedPaths: ['data.todos.*'] }` |
 
 ### 9.2 Forbidden Operations (MUST NOT)
 
@@ -482,16 +685,7 @@ SnapshotView intentionally excludes:
 | `system.*` | Internal state, not for Projection |
 | `input` | Transient effect input |
 
-### 10.3 Computed Key Normalization
-
-SnapshotView exposes computed values **without** the `"computed."` prefix.
-
-Example:
-
-- Schema key: `"computed.form.canSubmit"`
-- SnapshotView key: `snapshot.computed["form.canSubmit"]`
-
-### 10.4 UI State Guidance
+### 10.3 UI State Guidance
 
 If a UI needs loading/error states:
 
@@ -784,18 +978,20 @@ Bridge packages preserve familiar FE DX:
 interface Bridge {
   // Read current state
   subscribe(callback: (snapshot: SnapshotView) => void): Unsubscribe;
-  get(path: SemanticPath): unknown;
+  get(path: string): unknown;
   
   // Dispatch intent (bridge acts as issuer internally)
   dispatch(body: IntentBody): Promise<void>;
+
+  // Optional: state-dependent tool / command catalog
+  // (See §7.4 Action Catalog Projection)
+  projectActionCatalog?(req: ActionCatalogProjectionRequest): ActionCatalog;
   
   // Convenience: sugar for common patterns
-  set(path: SemanticPath, value: unknown): Promise<void>;
+  set(path: string, value: unknown): Promise<void>;
   // Equivalent to: dispatch({ type: 'field.set', input: { path, value } })
 }
 ```
-
-`SemanticPath` is the dot-separated path used by Core (rooted at data; no `/data` prefix).
 
 ### 15.3 Dispatch Flow
 
@@ -807,6 +1003,23 @@ interface Bridge {
 ### 15.4 Intent Type Convention
 
 The specific Intent types (`field.set`, `form.submit`, etc.) are **schema-defined**, not protocol-defined.
+
+### 15.5 Action Catalog Fallback (Optional Method)
+
+If `projectActionCatalog` is not implemented:
+
+- LLM runtimes **SHOULD** fall back to schema-defined static action list
+- LLM runtimes **MUST NOT** fail; instead, treat all actions as `available`
+- UI runtimes **MAY** omit availability-based rendering
+
+```typescript
+// Recommended LLM runtime fallback pattern
+const catalog = bridge.projectActionCatalog?.(req) 
+  ?? staticCatalogFromSchema(schema, { allAvailable: true });
+```
+
+This enables progressive enhancement: simple implementations can omit Action Catalog initially,
+and LLM runtimes will still function (with reduced optimization).
 
 ---
 
@@ -831,6 +1044,7 @@ The specific Intent types (`field.set`, `form.submit`, etc.) are **schema-define
 | INV-P3 | Projection reads SnapshotView (data + computed) read-only |
 | INV-P4 | Projection is weak interpreter only (selection, not domain logic) |
 | INV-P5 | Projection MUST NOT depend on non-deterministic inputs |
+| INV-P6 | Any auxiliary projection (e.g., Action Catalog Projection) MUST be deterministic and MUST NOT invent actions |
 
 ### 16.3 Issuer Invariants (MUST ALWAYS HOLD)
 
@@ -849,6 +1063,16 @@ The specific Intent types (`field.set`, `form.submit`, etc.) are **schema-define
 | INV-SD2 | System direct intent MUST have `origin.source.kind === 'system'` |
 | INV-SD3 | All Intent invariants (INV-I*) apply to system direct intents |
 
+### 16.5 Action Catalog Invariants (v1.1)
+
+| ID | Invariant |
+|----|-----------|
+| INV-AC1 | Action Catalog Projection MUST be deterministic |
+| INV-AC2 | `catalogHash` MUST be computed using §7.4.4 algorithm |
+| INV-AC3 | Action Catalog is NOT a security boundary; final enforcement is outside projection (Authority governance + Core runtime validation) |
+| INV-AC4 | Availability predicates MUST be pure functions (no time, network, $system.*, $input.*, effects) |
+| INV-AC5 | Unknown availability MUST NOT be treated as unavailable; Core runtime evaluates at execution |
+
 ---
 
 ## 17. Explicit Non-Goals
@@ -858,12 +1082,14 @@ This specification does **NOT** define:
 | Non-Goal | Reason |
 |----------|--------|
 | Authentication / security | Orthogonal concern |
+| Prompt/tool pruning as a security boundary | Pruning is UX/cost/hallucination mitigation; enforcement belongs to Authority/Core |
 | Authority policy logic | Defined by World Protocol |
 | Patch semantics | Defined by Schema Spec |
 | Effect execution | Defined by Host Contract |
 | UI framework specifics | Implementation detail |
 | Scope enforcement mechanism | v1.0 defers to host trust model |
 | Agent planning / reasoning | Application layer |
+| MEL/ExpressionIR structure | Defined by Compiler Spec |
 
 ---
 
@@ -905,6 +1131,14 @@ type IntentOrigin = {
   readonly actor: ActorRef;
   readonly note?: string;
 };
+
+// Action Catalog (v1.1)
+type ActionCatalog = {
+  readonly kind: 'action_catalog';
+  readonly schemaHash: string;
+  readonly catalogHash: string;
+  readonly actions: readonly ProjectedAction[];
+};
 ```
 
 ### A.2 intentKey Algorithm
@@ -918,7 +1152,21 @@ intentKey = SHA-256(
 )
 ```
 
-### A.3 Key Invariants Summary
+### A.3 catalogHash Algorithm (v1.1)
+
+```
+catalogHash = SHA-256(
+  schemaHash + ":" +
+  JCS(actions.map(a => ({
+    type: a.type,
+    status: a.availability.status,
+    reason: a.availability.status === 'unknown' ? a.availability.reason : null
+  }))) + ":" +
+  JCS(appliedPruningOptions)
+)
+```
+
+### A.4 Key Invariants Summary
 
 | Category | Key Rule |
 |----------|----------|
@@ -926,6 +1174,7 @@ intentKey = SHA-256(
 | Projection | Deterministic, weak interpreter, read-only |
 | Issuer | Adds identity, doesn't modify body |
 | Scope | Proposed by Projection, approved by Authority |
+| Action Catalog | Deterministic, NOT security boundary, pure predicates (no $input) |
 
 ---
 
@@ -938,6 +1187,7 @@ intentKey = SHA-256(
 | World Protocol Spec | Uses `IntentInstance` in Proposal |
 | Host Contract | Executes approved Intents |
 | Schema Spec | Defines domain types and validation |
+| Compiler Spec | Defines ExpressionIR structure for availability predicates |
 
 ### B.2 World Protocol Alignment
 
@@ -947,8 +1197,16 @@ This spec defines Intent types that World Protocol MUST use:
 - `scopeProposal` is in `intent.body.scopeProposal`
 - `approvedScope` is set by Authority, stored in DecisionRecord
 
+### B.3 Compiler Spec Alignment (v1.1)
+
+This spec references Compiler types:
+
+- `ExpressionIR` for availability predicates is the compiler output ExprNode
+- Purity constraints for availability evaluation follow MEL availability purity rules
+- See manifesto-ai-compiler SPEC §7 (IR Mapping) for structure details
+
 ---
 
-*End of Manifesto Intent & Projection Specification v1.0*
+*End of Manifesto Intent & Projection Specification v1.1*
 
 ---

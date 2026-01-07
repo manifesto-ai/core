@@ -527,5 +527,5 @@ if (!result.success) {
 ## Related Guides
 
 - [Translator Guide](/packages/translator/GUIDE) - Using memory with Translator
-- [World Guide](/packages/world/GUIDE) - WorldId and ActorRef
-- [Core Guide](/packages/core/GUIDE) - Snapshot structure
+- [World Guide](/specifications/world-spec) - WorldId and ActorRef
+- [Core Guide](/specifications/core-spec) - Snapshot structure

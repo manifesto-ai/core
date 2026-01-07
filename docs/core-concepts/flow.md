@@ -461,7 +461,7 @@ From SPEC.md:
 
 ## See Also
 
-- [Schema Specification](/specifications/schema-spec) - Normative specification including FlowSpec
+- [Schema Specification](/specifications/core-spec) - Normative specification including FlowSpec
 - [Core FDR](/rationale/core-fdr) - Design rationale including Flow termination guarantees
 - [Re-entry Safe Flows Guide](/guides/reentry-safe-flows) - Practical patterns
 - [Effect](./effect) - Understanding effects

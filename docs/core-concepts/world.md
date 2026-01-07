@@ -486,7 +486,7 @@ From World FDR:
 
 ## See Also
 
-- [World Protocol](/specifications/world-protocol) - Normative specification
+- [World Protocol](/specifications/world-spec) - Normative specification
 - [World FDR](/rationale/world-fdr) - Why decisions were made
 - [Getting Started Guide](/guides/getting-started) - Practical guide
 - [Intent](./intent) - Understanding intents

@@ -135,6 +135,6 @@ Manifesto is structured as a **layered computation architecture** where each lay
 
 - [Architecture Overview](/architecture/) - Complete architecture overview
 - [Data Flow](./data-flow) - How data moves through layers
-- [Schema Specification](/specifications/schema-spec) - Core layer specification
-- [Host Contract](/specifications/host-contract) - Host layer specification
-- [World Protocol](/specifications/world-protocol) - World layer specification
+- [Schema Specification](/specifications/core-spec) - Core layer specification
+- [Host Contract](/specifications/host-spec) - Host layer specification
+- [World Protocol](/specifications/world-spec) - World layer specification
