@@ -53,101 +53,65 @@ Intent → Core (compute) → Patches + Effects → Host (execute) → New Snaps
 ## Quick Start
 
 ```bash
-# Core packages
-npm install @manifesto-ai/react @manifesto-ai/builder zod react
-
-# For natural language translation (optional)
-npm install @manifesto-ai/translator @manifesto-ai/memory
+npm install @manifesto-ai/app @manifesto-ai/compiler
 ```
 
-```typescript
-import { z } from "zod";
-import { defineDomain, expr, flow } from "@manifesto-ai/builder";
-import { createManifestoApp } from "@manifesto-ai/react";
-
-// 1. Define your domain
-const TodoDomain = defineDomain(
-  z.object({
-    todos: z.array(z.object({
-      id: z.string(),
-      title: z.string(),
-      completed: z.boolean(),
-    })),
-  }),
-  ({ state, computed, actions }) => ({
-    computed: {
-      remaining: computed.define({
-        deps: [state.todos],
-        expr: expr.len(expr.filter(state.todos, (t) => expr.not(t.completed))),
-      }),
-    },
-    actions: {
-      add: actions.define({
-        input: z.object({ id: z.string(), title: z.string() }),
-        flow: flow.patch(state.todos).set(
-          expr.append(
-            state.todos,
-            expr.object({
-              id: expr.input("id"),
-              title: expr.input("title"),
-              completed: expr.lit(false),
-            })
-          )
-        ),
-      }),
-    },
-  })
-);
-
-// 2. Create React app
-const App = createManifestoApp(TodoDomain, {
-  initialState: { todos: [] },
-});
-
-// 3. Use in components
-function TodoList() {
-  const todos = App.useValue((s) => s.todos);
-  const remaining = App.useComputed((c) => c.remaining);
-  const { add } = App.useActions();
-
-  return (
-    <div>
-      <p>{remaining} remaining</p>
-      <button onClick={() => add({ id: crypto.randomUUID(), title: "New Todo" })}>Add</button>
-    </div>
-  );
-}
-```
-
-MEL equivalent:
+Define your domain in **MEL** (Manifesto Expression Language):
 
 ```mel
-domain TodoDomain {
-  type TodoItem = {
-    id: string,
-    title: string,
-    completed: boolean
-  }
-
+// todo.mel
+domain TodoApp {
   state {
-    todos: Array<TodoItem> = []
+    todos: Array<{ id: string, title: string, completed: boolean }> = []
   }
 
-  computed remaining = len(filter(todos, not($item.completed)))
+  computed remaining = len(filter(todos, fn(t) => not(t.completed)))
 
-  action add(id: string, title: string) {
-    when true {
+  action addTodo(title: string) {
+    once(addTodoIntent) {
+      patch addTodoIntent = $meta.intentId
       patch todos = append(todos, {
-        id: id,
+        id: $system.uuid,
         title: title,
         completed: false
       })
     }
   }
+
+  action toggleTodo(id: string) {
+    once(toggleTodoIntent) {
+      patch toggleTodoIntent = $meta.intentId
+      patch todos = map(todos, fn(t) =>
+        cond(eq(t.id, id), merge(t, { completed: not(t.completed) }), t)
+      )
+    }
+  }
 }
 ```
 
-> See https://docs.manifesto-ai.dev/guides/getting-started for the full tutorial.
+Create and use your app:
+
+```typescript
+import { createApp } from "@manifesto-ai/app";
+import TodoMel from "./todo.mel";
+
+// Create app
+const app = createApp(TodoMel);
+await app.ready();
+
+// Execute actions
+await app.act("addTodo", { title: "Learn Manifesto" }).done();
+console.log(app.getState().data.todos);
+// → [{ id: "...", title: "Learn Manifesto", completed: false }]
+
+// Subscribe to state changes
+app.subscribe(
+  (state) => state.data.todos.length,
+  (count) => console.log("Todo count:", count)
+);
+```
+
+> See https://docs.manifesto-ai.dev/packages/app/getting-started for the full tutorial.
 
 ---
 
@@ -155,13 +119,14 @@ domain TodoDomain {
 
 | Package | Description | Docs |
 |---------|-------------|------|
+| [`@manifesto-ai/app`](packages/app) | **High-level facade for building Manifesto apps.** | [Docs](https://docs.manifesto-ai.dev/packages/app/) |
+| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema. | [README](packages/compiler/README.md) |
 | [`@manifesto-ai/core`](packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [README](packages/core/README.md) |
 | [`@manifesto-ai/host`](packages/host) | Effect execution runtime. Executes effects and applies patches. | [README](packages/host/README.md) |
 | [`@manifesto-ai/world`](packages/world) | Governance layer. Manages authority, proposals, and lineage. | [README](packages/world/README.md) |
 | [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [README](packages/bridge/README.md) |
 | [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [README](packages/builder/README.md) |
 | [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [README](packages/react/README.md) |
-| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema. | [README](packages/compiler/README.md) |
 | [`@manifesto-ai/effect-utils`](packages/effect-utils) | Effect handler utilities and helpers. | [SPEC](packages/effect-utils/docs/SPEC.md) |
 | [`@manifesto-ai/lab`](packages/lab) | LLM governance, tracing, and HITL tooling. | [README](packages/lab/README.md) |
 
@@ -220,10 +185,8 @@ domain TodoDomain {
 
 | Example | What it demonstrates |
 |---------|---------------------|
-| [example-todo](./apps/example-todo) | Todo example using MEL compiler, Host, and effect-utils |
-| [shipment-app](./apps/shipment-app) | Global ocean logistics example using MEL compiler and Host |
-| [taskflow](./apps/taskflow) | TaskFlow demo with intent-native UI and LLM-driven intents |
-| [llm-babybench](./apps/llm-babybench) | BabyBench LLM benchmark suite for Manifesto systems |
+| [todo-app](./apps/todo-app) | Todo application with React, MEL, and @manifesto-ai/app |
+| [logistics-app](./apps/logistics-app) | Multi-step logistics workflow with MEL and @manifesto-ai/app |
 
 ---
 

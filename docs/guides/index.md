@@ -4,6 +4,12 @@
 > **Audience:** Developers building applications
 > **Focus:** How to accomplish specific tasks
 
+::: tip Recommended Starting Point
+For new users, we recommend starting with the **[@manifesto-ai/app Guide](/packages/app/getting-started)** which covers MEL + the high-level App API.
+
+The guides below cover low-level APIs (Builder, Core, Host) for advanced use cases.
+:::
+
 ---
 
 ## What Are Guides?

@@ -67,62 +67,55 @@ This equation is:
 
 ## Quick Example
 
-Here's a complete counter application in Manifesto:
-
-```typescript
-import { z } from "zod";
-import { defineDomain } from "@manifesto-ai/builder";
-
-// Define domain with Zod schema
-const CounterDomain = defineDomain(
-  z.object({
-    count: z.number().default(0),
-  }),
-  ({ state, actions, expr, flow }) => {
-    const { increment, decrement } = actions.define({
-      increment: {
-        flow: flow.patch(state.count).set(expr.add(state.count, 1)),
-      },
-      decrement: {
-        flow: flow.patch(state.count).set(expr.sub(state.count, 1)),
-      },
-    });
-
-    return { actions: { increment, decrement } };
-  }
-);
-```
-
-MEL equivalent:
+Here's a complete counter application in Manifesto using **MEL** and **@manifesto-ai/app**:
 
 ```mel
+// counter.mel
 domain Counter {
   state {
     count: number = 0
   }
 
   action increment() {
-    when true {
+    once(incrementIntent) {
+      patch incrementIntent = $meta.intentId
       patch count = add(count, 1)
     }
   }
 
   action decrement() {
-    when true {
+    once(decrementIntent) {
+      patch decrementIntent = $meta.intentId
       patch count = sub(count, 1)
     }
   }
 }
 ```
 
-That's it. Five lines of actual logic. No reducers, no middleware, no thunks.
+```typescript
+import { createApp } from "@manifesto-ai/app";
+import CounterMel from "./counter.mel";
+
+const app = createApp(CounterMel);
+await app.ready();
+
+await app.act("increment").done();
+console.log(app.getState().data.count); // 1
+
+app.subscribe(
+  (state) => state.data.count,
+  (count) => console.log("Count:", count)
+);
+```
+
+That's it. Five lines of domain logic in MEL. No reducers, no middleware, no thunks.
 
 **What just happened?**
 
-- State schema defined with Zod (type-safe)
-- Actions declared as pure flows (deterministic)
-- No execution code (Host handles that)
-- Zero string paths (TypeScript autocomplete works)
+- Domain defined in MEL (human-readable, AI-friendly)
+- Actions with re-entry safety (`once()` guards)
+- Pure declarative flows (deterministic)
+- App facade handles all orchestration
 - Fully serializable (AI can generate this)
 
 ## Key Concepts (5-Minute Overview)
@@ -362,12 +355,12 @@ Ready to build with Manifesto?
 ### Installation
 
 ```bash
-# Core packages
-npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+# Core packages (recommended)
+npm install @manifesto-ai/app @manifesto-ai/compiler
 # or
-pnpm add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+pnpm add @manifesto-ai/app @manifesto-ai/compiler
 
-# For natural language translation
+# For natural language translation (optional)
 pnpm add @manifesto-ai/translator @manifesto-ai/memory
 ```
 
@@ -375,9 +368,9 @@ pnpm add @manifesto-ai/translator @manifesto-ai/memory
 
 | Path | For Whom | Start Here |
 |------|----------|------------|
-| **Quick Start** | Developers new to Manifesto | [Getting Started](/guides/getting-started) |
+| **Quick Start** | Developers new to Manifesto | [@manifesto-ai/app Guide](/packages/app/getting-started) |
 | **Deep Dive** | Understanding the architecture | [Core Concepts](/core-concepts/) |
-| **Examples** | Learning by doing | [Todo App Example](/guides/todo-example) |
+| **MEL Language** | Domain definition syntax | [MEL Syntax](/mel/SYNTAX) |
 | **Specifications** | Implementers & reviewers | [Specifications](/specifications/) |
 
 ### Learn More
@@ -390,15 +383,16 @@ pnpm add @manifesto-ai/translator @manifesto-ai/memory
 
 | Package | Description | Docs |
 |---------|-------------|------|
+| `@manifesto-ai/app` | **High-level app facade (recommended)** | [Guide](/packages/app/) |
+| `@manifesto-ai/compiler` | MEL compiler | [README](/packages/compiler/) · [SPEC](/packages/compiler/SPEC) |
 | `@manifesto-ai/core` | Pure computation engine | [README](/packages/core/) · [SPEC](/packages/core/SPEC) |
 | `@manifesto-ai/host` | Effect execution runtime | [README](/packages/host/) · [SPEC](/packages/host/SPEC) |
 | `@manifesto-ai/world` | World Protocol governance | [README](/packages/world/) · [SPEC](/packages/world/SPEC) |
 | `@manifesto-ai/bridge` | Event sourcing bridge | [README](/packages/bridge/) · [SPEC](/packages/bridge/SPEC) |
-| `@manifesto-ai/builder` | Type-safe DSL | [README](/packages/builder/) · [SPEC](/packages/builder/SPEC) |
-| `@manifesto-ai/compiler` | MEL compiler | [README](/packages/compiler/) · [SPEC](/packages/compiler/SPEC) |
+| `@manifesto-ai/builder` | Type-safe DSL (advanced) | [README](/packages/builder/) · [SPEC](/packages/builder/SPEC) |
 | `@manifesto-ai/translator` | Natural language translation | [README](/packages/translator/) · [SPEC](/packages/translator/SPEC) |
 | `@manifesto-ai/memory` | Memory retrieval & verification | [README](/packages/memory/) · [SPEC](/packages/memory/SPEC) |
-| `@manifesto-ai/react` | React bindings | [README](/packages/react/) · [SPEC](/packages/react/SPEC) |
+| `@manifesto-ai/react` | React bindings (low-level) | [README](/packages/react/) · [SPEC](/packages/react/SPEC) |
 
 ## Who Should Use Manifesto?
 
