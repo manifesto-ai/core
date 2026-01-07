@@ -39,7 +39,7 @@ describe("System Runtime", () => {
     it("should have separate schema from domain", () => {
       const runtime = new SystemRuntime();
 
-      expect(runtime.schema.schemaHash).toBe("system-runtime-v0.4.7");
+      expect(runtime.schema.schemaHash).toBe("system-runtime-v0.4.9");
       expect(runtime.schema.schemaHash).not.toBe(mockDomainSchema.schemaHash);
     });
   });
@@ -348,7 +348,7 @@ describe("System Facade", () => {
     expect(facade.lineage()).toEqual(runtime.lineage());
   });
 
-  it("should support subscription via facade", () => {
+  it("should support subscription via facade", async () => {
     const runtime = new SystemRuntime();
     const facade = createSystemFacade(runtime);
     const listener = vi.fn();
@@ -356,7 +356,7 @@ describe("System Facade", () => {
     facade.subscribe(listener);
 
     // Direct execution on runtime should trigger listener
-    runtime.execute(
+    await runtime.execute(
       "system.actor.register",
       { actorId: "user1", kind: "human" },
       { actorId: "admin", proposalId: "prop_1", timestamp: Date.now() }

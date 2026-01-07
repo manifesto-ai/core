@@ -68,6 +68,12 @@ export class ManifestoApp implements App {
   private _domain: string | DomainSchema;
   private _domainSchema: DomainSchema | null = null;
 
+  // Schema cache for referential identity (SCHEMA-4)
+  private _schemaCache: Map<string, DomainSchema> = new Map();
+
+  // Tracks if schema is resolved (for SCHEMA-2, READY-6)
+  private _schemaResolved: boolean = false;
+
   // Options
   private _options: CreateAppOptions;
 
@@ -143,16 +149,30 @@ export class ManifestoApp implements App {
     // 2. Compile domain if MEL text
     await this._compileDomain();
 
-    // 3. Validate reserved namespaces
+    // 3. Validate reserved namespaces (NS-ACT-2) - BEFORE cache
     this._validateReservedNamespaces();
 
-    // 4. Validate services
+    // 4. Cache schema (READY-6: before plugins)
+    this._cacheSchema(this._domainSchema!);
+    this._schemaResolved = true;
+
+    // 5. Emit domain:resolved hook (only after validation passes)
+    await this._hooks.emit(
+      "domain:resolved",
+      {
+        schemaHash: this._domainSchema!.schemaHash,
+        schema: this._domainSchema!,
+      },
+      this._createHookContext()
+    );
+
+    // 6. Validate services
     this._validateServices();
 
-    // 5. Initialize plugins
+    // 7. Initialize plugins (can now call getDomainSchema())
     await this._initializePlugins();
 
-    // 6. Initialize state
+    // 8. Initialize state
     this._initializeState();
 
     // Mark as ready
@@ -185,6 +205,41 @@ export class ManifestoApp implements App {
 
     // Emit app:dispose
     await this._hooks.emit("app:dispose", this._createHookContext());
+  }
+
+  // ===========================================================================
+  // Domain Schema Access (v0.4.10)
+  // ===========================================================================
+
+  /**
+   * Returns the DomainSchema for the current branch's schemaHash.
+   *
+   * @see SPEC §6.2 SCHEMA-1~6
+   * @since v0.4.10
+   */
+  getDomainSchema(): DomainSchema {
+    // SCHEMA-2: Check if schema is resolved (NOT ready status!)
+    if (!this._schemaResolved) {
+      throw new AppNotReadyError("getDomainSchema");
+    }
+
+    // Check for disposed
+    if (this._status === "disposed" || this._status === "disposing") {
+      throw new AppDisposedError("getDomainSchema");
+    }
+
+    // SCHEMA-1, SCHEMA-6: Get current branch's schemaHash
+    const currentSchemaHash = this._getCurrentSchemaHash();
+
+    // SCHEMA-4: Return cached instance
+    const schema = this._schemaCache.get(currentSchemaHash);
+
+    // SCHEMA-3: Must NOT return undefined
+    if (!schema) {
+      throw new Error(`Schema not found for hash: ${currentSchemaHash}`);
+    }
+
+    return schema;
   }
 
   // ===========================================================================
@@ -679,6 +734,43 @@ export class ManifestoApp implements App {
   }
 
   /**
+   * Get current schema hash (from branch or domain schema).
+   *
+   * @see SPEC §6.2 SCHEMA-1, SCHEMA-6
+   */
+  private _getCurrentSchemaHash(): string {
+    // If BranchManager initialized, use current branch's schemaHash
+    if (this._branchManager) {
+      return this._branchManager.currentBranch().schemaHash;
+    }
+    // Before BranchManager (during ready()), use _domainSchema
+    return this._domainSchema!.schemaHash;
+  }
+
+  /**
+   * Cache schema for referential identity.
+   *
+   * @see SPEC §6.2 SCHEMA-4
+   */
+  private _cacheSchema(schema: DomainSchema): void {
+    if (!this._schemaCache.has(schema.schemaHash)) {
+      this._schemaCache.set(schema.schemaHash, schema);
+
+      // Emit domain:schema:added for new schemas (only after initial ready)
+      if (this._status === "ready") {
+        void this._hooks.emit(
+          "domain:schema:added",
+          {
+            schemaHash: schema.schemaHash,
+            schema,
+          },
+          this._createHookContext()
+        );
+      }
+    }
+  }
+
+  /**
    * Enqueue a domain action execution.
    *
    * All domain actions are serialized via single FIFO queue,
@@ -769,6 +861,15 @@ export class ManifestoApp implements App {
       }
     } else {
       this._domainSchema = this._domain;
+    }
+
+    // Normalize schemaHash from hash for consistency
+    // Core DomainSchema uses 'hash', app layer uses 'schemaHash'
+    if (this._domainSchema) {
+      const schema = this._domainSchema as DomainSchema & { schemaHash?: string };
+      if (!schema.schemaHash && schema.hash) {
+        (schema as any).schemaHash = schema.hash;
+      }
     }
   }
 

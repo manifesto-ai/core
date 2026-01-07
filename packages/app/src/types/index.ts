@@ -999,7 +999,26 @@ export interface AppHooks {
   "app:dispose": (ctx: HookContext) => void | Promise<void>;
 
   // Domain/Runtime
+  /**
+   * Emitted when DomainSchema is resolved during ready().
+   *
+   * This hook emits BEFORE plugins execute (per READY-6).
+   * Plugins should use app.getDomainSchema() for reliable access
+   * rather than capturing schema from this hook payload.
+   *
+   * @see SCHEMA-1~6 for getDomainSchema() API
+   */
   "domain:resolved": (
+    payload: { schemaHash: string; schema: DomainSchema },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  /**
+   * Emitted when a new schema is resolved (e.g., schema-changing fork).
+   * Only emits for schemas not previously seen in this App instance.
+   *
+   * @since v0.4.10
+   */
+  "domain:schema:added": (
     payload: { schemaHash: string; schema: DomainSchema },
     ctx: HookContext
   ) => void | Promise<void>;
@@ -1329,6 +1348,26 @@ export interface App {
   readonly hooks: Hookable<AppHooks>;
   ready(): Promise<void>;
   dispose(opts?: DisposeOptions): Promise<void>;
+
+  // Domain Schema Access (v0.4.10)
+  /**
+   * Returns the DomainSchema for the current branch's schemaHash.
+   *
+   * This provides synchronous pull-based access to the domain schema,
+   * enabling plugins and user code to reliably obtain schema without
+   * timing dependencies on the 'domain:resolved' hook.
+   *
+   * NOTE: In multi-schema scenarios (schema-changing fork), this returns
+   * the schema for the CURRENT branch's schemaHash, which may differ from
+   * the initial domain's schema.
+   *
+   * @throws AppNotReadyError if called before schema is resolved (READY-6)
+   * @throws AppDisposedError if called after dispose()
+   * @returns DomainSchema for current branch's schemaHash
+   * @see SPEC §6.2 SCHEMA-1~6
+   * @since v0.4.10
+   */
+  getDomainSchema(): DomainSchema;
 
   // Branch Management (Domain Runtime)
   currentBranch(): Branch;
