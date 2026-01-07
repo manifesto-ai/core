@@ -30,6 +30,7 @@ export const SYSTEM_ACTION_TYPES = [
   // Memory Operations
   "system.memory.configure",
   "system.memory.backfill",
+  "system.memory.maintain",
 
   // Workflow
   "system.workflow.enable",

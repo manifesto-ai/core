@@ -13,8 +13,14 @@ import type {
   MemoryProvider,
   RecallRequest,
   RecallResult,
+  MemoryMaintenanceOp,
+  MemoryMaintenanceContext,
+  MemoryMaintenanceResult,
+  MemoryMaintenanceOutput,
+  MemoryHygieneTrace,
 } from "../types/index.js";
-import type { SelectionResult, SelectedMemory, MemoryTrace, ActorRef } from "@manifesto-ai/memory";
+import type { SelectionResult, SelectedMemory, MemoryTrace } from "@manifesto-ai/memory";
+import type { ActorRef } from "@manifesto-ai/world";
 import { NoneVerifier, computeVerified } from "./verifier.js";
 
 /**
@@ -176,6 +182,121 @@ export class MemoryHub {
    */
   getProvider(name: string): MemoryProvider | undefined {
     return this._providers[name];
+  }
+
+  /**
+   * Perform memory maintenance operations.
+   *
+   * MEM-MAINT-1: Requires Authority approval (handled by System Runtime)
+   * MEM-MAINT-6: MemoryHygieneTrace recorded
+   * MEM-MAINT-10: actor MUST come from ctx (derived from Proposal.actorId)
+   *
+   * @see SPEC §17.5 MEM-MAINT-1~10
+   * @since v0.4.8
+   */
+  async maintain(
+    ops: readonly MemoryMaintenanceOp[],
+    ctx: MemoryMaintenanceContext
+  ): Promise<MemoryMaintenanceOutput> {
+    const startTime = Date.now();
+    const results: MemoryMaintenanceResult[] = [];
+
+    // Get providers with maintain capability
+    const maintainableProviders = this._getMaintainableProviders();
+
+    if (maintainableProviders.length === 0) {
+      // No providers support maintain - return empty success
+      // MEM-MAINT-5: Forget is idempotent (no-op is valid)
+      for (const op of ops) {
+        results.push({
+          success: true,
+          op,
+          error: "No providers support maintain capability",
+        });
+      }
+    } else {
+      // Execute each operation
+      for (const op of ops) {
+        const opResults = await this._executeMaintenanceOp(op, ctx, maintainableProviders);
+        results.push(...opResults);
+      }
+    }
+
+    // MEM-MAINT-6: Create hygiene trace
+    const trace: MemoryHygieneTrace = {
+      traceId: `mht_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: startTime,
+      actor: ctx.actor,
+      ops: [...ops],
+      results: [...results],
+      durationMs: Date.now() - startTime,
+    };
+
+    return {
+      results,
+      trace,
+    };
+  }
+
+  /**
+   * Execute a single maintenance operation across providers.
+   */
+  private async _executeMaintenanceOp(
+    op: MemoryMaintenanceOp,
+    ctx: MemoryMaintenanceContext,
+    providers: Array<[string, MemoryProvider]>
+  ): Promise<MemoryMaintenanceResult[]> {
+    const results: MemoryMaintenanceResult[] = [];
+
+    // Fan-out to all maintainable providers
+    const promises = providers.map(async ([providerName, provider]) => {
+      try {
+        // provider.maintain is guaranteed to exist by _getMaintainableProviders
+        const result = await provider.maintain!(op, ctx);
+        return result;
+      } catch (error) {
+        // Log but don't fail - maintain errors are captured in result
+        console.error(
+          `[Manifesto] Memory maintain failed for provider "${providerName}":`,
+          error
+        );
+        return {
+          success: false,
+          op,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    const providerResults = await Promise.all(promises);
+
+    // Aggregate results - if any provider succeeded, overall success
+    // MEM-MAINT-5: Forget is idempotent
+    const anySuccess = providerResults.some(r => r.success);
+    const allErrors = providerResults
+      .filter(r => !r.success && r.error)
+      .map(r => r.error)
+      .join("; ");
+
+    results.push({
+      success: anySuccess || providerResults.length === 0,
+      op,
+      tombstoneId: providerResults.find(r => r.tombstoneId)?.tombstoneId,
+      error: anySuccess ? undefined : allErrors || undefined,
+    });
+
+    return results;
+  }
+
+  /**
+   * Get providers that support the maintain capability.
+   */
+  private _getMaintainableProviders(): Array<[string, MemoryProvider]> {
+    return Object.entries(this._providers).filter(
+      ([, provider]) =>
+        provider.maintain !== undefined &&
+        (provider.meta?.capabilities?.includes("maintain") ?? true)
+    );
   }
 
   /**

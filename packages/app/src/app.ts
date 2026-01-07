@@ -946,6 +946,10 @@ export class ManifestoApp implements App {
     // Create System Facade
     this._systemFacade = createSystemFacade(this._systemRuntime);
 
+    // Wire memory facade to System Runtime for maintain operations (v0.4.8+)
+    // MEM-MAINT-1~10: System Runtime needs memory facade for system.memory.maintain
+    this._systemRuntime.setMemoryFacade(this._memoryFacade);
+
     // Initialize Domain Executor (Host integration)
     this._domainExecutor = new DomainExecutor({
       schema: this._domainSchema!,

@@ -507,3 +507,245 @@ describe("System Action Error Handling", () => {
     expect(result.status).toBe("failed");
   });
 });
+
+/**
+ * Memory Maintenance Tests
+ *
+ * @see SPEC §17.5 MEM-MAINT-1~10
+ * @since v0.4.8
+ */
+describe("Memory Maintenance (v0.4.8+)", () => {
+  describe("system.memory.maintain action existence", () => {
+    it("should be in SYSTEM_ACTION_TYPES", () => {
+      expect(SYSTEM_ACTION_TYPES).toContain("system.memory.maintain");
+    });
+  });
+
+  describe("MEM-MAINT-10: Actor context from Proposal", () => {
+    it("should fail when memory is disabled", async () => {
+      // Create app with memory disabled (default)
+      const app = createApp(mockDomainSchema);
+      await app.ready();
+
+      const handle = app.act("system.memory.maintain", {
+        ops: [
+          {
+            kind: "forget",
+            ref: { worldId: "world-123" },
+          },
+        ],
+      });
+
+      const result = await handle.result();
+      expect(result.status).toBe("failed");
+    });
+
+    it("should include maintain in audit log", async () => {
+      // Create mock memory provider with maintain capability
+      const mockProvider = {
+        select: vi.fn().mockResolvedValue({ selected: [], selectedAt: Date.now() }),
+        maintain: vi.fn().mockResolvedValue({
+          success: true,
+          op: { kind: "forget", ref: { worldId: "world-123" } },
+          tombstoneId: "tomb-123",
+        }),
+        meta: {
+          capabilities: ["select", "maintain"],
+        },
+      };
+
+      const app = createApp(mockDomainSchema, {
+        memory: {
+          providers: { default: mockProvider },
+          defaultProvider: "default",
+        },
+      });
+      await app.ready();
+
+      const handle = app.act("system.memory.maintain", {
+        ops: [
+          {
+            kind: "forget",
+            ref: { worldId: "world-123" },
+            scope: "actor",
+            reason: "Test forget",
+          },
+        ],
+      });
+
+      const result = await handle.result();
+      expect(result.status).toBe("completed");
+
+      // Check audit log
+      const state = app.system.getState();
+      const maintainEntry = state.auditLog.find(
+        (e) => e.actionType === "system.memory.maintain"
+      );
+      expect(maintainEntry).toBeDefined();
+    });
+
+    it("should pass actor from Proposal context, not from input", async () => {
+      // Create mock memory provider with maintain capability
+      let capturedContext: unknown = null;
+      const mockProvider = {
+        select: vi.fn().mockResolvedValue({ selected: [], selectedAt: Date.now() }),
+        maintain: vi.fn().mockImplementation((_op, ctx) => {
+          capturedContext = ctx;
+          return Promise.resolve({
+            success: true,
+            op: { kind: "forget", ref: { worldId: "world-123" } },
+            tombstoneId: "tomb-456",
+          });
+        }),
+        meta: {
+          capabilities: ["select", "maintain"],
+        },
+      };
+
+      const app = createApp(mockDomainSchema, {
+        actorPolicy: {
+          defaultActor: { actorId: "authenticated-user", kind: "human" },
+        },
+        memory: {
+          providers: { default: mockProvider },
+          defaultProvider: "default",
+        },
+      });
+      await app.ready();
+
+      // Execute maintain action
+      const handle = app.act("system.memory.maintain", {
+        ops: [
+          {
+            kind: "forget",
+            ref: { worldId: "world-123" },
+          },
+        ],
+      });
+
+      await handle.done();
+
+      // Verify the actor in context came from authenticated default actor
+      expect(capturedContext).toBeDefined();
+      expect((capturedContext as { actor: { actorId: string } }).actor.actorId).toBe(
+        "authenticated-user"
+      );
+    });
+  });
+
+  describe("MEM-MAINT-5: Forget is idempotent", () => {
+    it("should succeed even without maintain-capable providers", async () => {
+      // Create mock provider WITHOUT maintain capability
+      const mockProvider = {
+        select: vi.fn().mockResolvedValue({ selected: [], selectedAt: Date.now() }),
+        // No maintain method
+        meta: {
+          capabilities: ["select"],
+        },
+      };
+
+      const app = createApp(mockDomainSchema, {
+        memory: {
+          providers: { default: mockProvider },
+          defaultProvider: "default",
+        },
+      });
+      await app.ready();
+
+      const handle = app.act("system.memory.maintain", {
+        ops: [
+          {
+            kind: "forget",
+            ref: { worldId: "world-123" },
+          },
+        ],
+      });
+
+      const result = await handle.result();
+      // Should complete (idempotent - no-op is valid)
+      expect(result.status).toBe("completed");
+    });
+  });
+
+  describe("MEM-MAINT-8/9: Scope handling", () => {
+    it("should default scope to 'actor'", async () => {
+      let capturedContext: unknown = null;
+      const mockProvider = {
+        select: vi.fn().mockResolvedValue({ selected: [], selectedAt: Date.now() }),
+        maintain: vi.fn().mockImplementation((_op, ctx) => {
+          capturedContext = ctx;
+          return Promise.resolve({
+            success: true,
+            op: { kind: "forget", ref: { worldId: "world-123" } },
+          });
+        }),
+        meta: {
+          capabilities: ["select", "maintain"],
+        },
+      };
+
+      const app = createApp(mockDomainSchema, {
+        memory: {
+          providers: { default: mockProvider },
+          defaultProvider: "default",
+        },
+      });
+      await app.ready();
+
+      // Execute without explicit scope
+      const handle = app.act("system.memory.maintain", {
+        ops: [
+          {
+            kind: "forget",
+            ref: { worldId: "world-123" },
+            // No scope specified
+          },
+        ],
+      });
+
+      await handle.done();
+
+      expect((capturedContext as { scope: string }).scope).toBe("actor");
+    });
+
+    it("should respect explicit 'global' scope", async () => {
+      let capturedContext: unknown = null;
+      const mockProvider = {
+        select: vi.fn().mockResolvedValue({ selected: [], selectedAt: Date.now() }),
+        maintain: vi.fn().mockImplementation((_op, ctx) => {
+          capturedContext = ctx;
+          return Promise.resolve({
+            success: true,
+            op: { kind: "forget", ref: { worldId: "world-123" }, scope: "global" },
+          });
+        }),
+        meta: {
+          capabilities: ["select", "maintain"],
+        },
+      };
+
+      const app = createApp(mockDomainSchema, {
+        memory: {
+          providers: { default: mockProvider },
+          defaultProvider: "default",
+        },
+      });
+      await app.ready();
+
+      // Execute with explicit global scope
+      const handle = app.act("system.memory.maintain", {
+        ops: [
+          {
+            kind: "forget",
+            ref: { worldId: "world-123" },
+            scope: "global",
+          },
+        ],
+      });
+
+      await handle.done();
+
+      expect((capturedContext as { scope: string }).scope).toBe("global");
+    });
+  });
+});

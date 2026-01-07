@@ -14,7 +14,12 @@ import type {
   LineageOptions,
   ActionResult,
   ErrorValue,
+  MemoryMaintenanceInput,
+  MemoryMaintenanceOutput,
+  MemoryMaintenanceContext,
+  MemoryFacade,
 } from "../types/index.js";
+import type { ActorRef } from "@manifesto-ai/world";
 import { createSystemSchema, createInitialSystemState } from "./schema.js";
 import { SYSTEM_ACTION_TYPES, type SystemActionType } from "../constants.js";
 
@@ -35,6 +40,12 @@ export interface SystemRuntimeConfig {
 
   /** Default memory provider */
   defaultMemoryProvider?: string;
+
+  /**
+   * Memory facade for maintain operations.
+   * @since v0.4.8
+   */
+  memoryFacade?: MemoryFacade;
 }
 
 /**
@@ -59,6 +70,7 @@ export class SystemRuntime {
   private _worldLineage: string[] = [];
   private _currentWorldId: string;
   private _subscribers: Set<(state: SystemRuntimeState) => void> = new Set();
+  private _memoryFacade?: MemoryFacade;
 
   constructor(config?: SystemRuntimeConfig) {
     // SYSRT-2: System Runtime has its own schema
@@ -74,7 +86,19 @@ export class SystemRuntime {
     // Apply initial configuration
     if (config) {
       this._applyInitialConfig(config);
+      // Store memory facade for maintain operations (v0.4.8+)
+      this._memoryFacade = config.memoryFacade;
     }
+  }
+
+  /**
+   * Set the memory facade for maintain operations.
+   *
+   * @since v0.4.8
+   * @internal
+   */
+  setMemoryFacade(facade: MemoryFacade): void {
+    this._memoryFacade = facade;
   }
 
   /**
@@ -153,7 +177,7 @@ export class SystemRuntime {
 
     try {
       // Execute the action and get state updates
-      const updates = this._executeAction(actionType, input, ctx);
+      const updates = await this._executeAction(actionType, input, ctx);
 
       // Apply state updates
       this._state = { ...this._state, ...updates };
@@ -233,11 +257,11 @@ export class SystemRuntime {
   /**
    * Execute a system action and return state updates.
    */
-  private _executeAction(
+  private async _executeAction(
     actionType: SystemActionType,
     input: Record<string, unknown>,
     ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
+  ): Promise<Partial<SystemRuntimeState>> {
     switch (actionType) {
       // Actor Management
       case "system.actor.register":
@@ -270,6 +294,8 @@ export class SystemRuntime {
         return this._memoryConfigure(input);
       case "system.memory.backfill":
         return this._memoryBackfill(input);
+      case "system.memory.maintain":
+        return await this._memoryMaintain(input, ctx);
 
       // Workflow
       case "system.workflow.enable":
@@ -521,6 +547,85 @@ export class SystemRuntime {
     return {};
   }
 
+  /**
+   * Execute memory maintenance (forget) operations.
+   *
+   * MEM-MAINT-1: Requires Authority approval (handled externally)
+   * MEM-MAINT-10: actor MUST come from ctx.actorId (Proposal.actorId), NOT user input
+   *
+   * @see SPEC §17.5 MEM-MAINT-1~10
+   * @since v0.4.8
+   */
+  private async _memoryMaintain(
+    input: Record<string, unknown>,
+    ctx: SystemExecutionContext
+  ): Promise<Partial<SystemRuntimeState>> {
+    if (!this._memoryFacade) {
+      throw new Error("Memory facade not configured for maintain operations");
+    }
+
+    if (!this._memoryFacade.enabled()) {
+      throw new Error("Memory is disabled; cannot perform maintain operations");
+    }
+
+    const maintainInput = input as unknown as MemoryMaintenanceInput;
+
+    // MEM-MAINT-10: CRITICAL - actor MUST come from ctx (Proposal.actorId)
+    // NOT from user-provided input to prevent actor spoofing
+    const actor: ActorRef = { actorId: ctx.actorId, kind: "human" };
+
+    // Determine scope from first op (or default to 'actor')
+    const scope = maintainInput.ops[0]?.scope ?? "actor";
+
+    // MEM-MAINT-9: scope: 'global' requires elevated Authority
+    // Authority check is handled by System Runtime's authority policy
+
+    const maintenanceCtx: MemoryMaintenanceContext = {
+      actor,
+      scope,
+    };
+
+    // Execute maintain operations
+    const output = await this._memoryFacade.maintain(
+      maintainInput.ops,
+      maintenanceCtx
+    );
+
+    // Record trace in audit log (MEM-MAINT-6)
+    if (output.trace) {
+      const entry = {
+        timestamp: ctx.timestamp,
+        actorId: ctx.actorId,
+        actionType: "system.memory.maintain",
+        proposalId: ctx.proposalId,
+        worldId: this._currentWorldId,
+        summary: this._createMaintainAuditSummary(maintainInput, output),
+      };
+
+      this._state = {
+        ...this._state,
+        auditLog: [...this._state.auditLog, entry],
+      };
+    }
+
+    // State updates are minimal - just recording the operation occurred
+    return {};
+  }
+
+  /**
+   * Create audit summary for maintain operation.
+   */
+  private _createMaintainAuditSummary(
+    input: MemoryMaintenanceInput,
+    output: MemoryMaintenanceOutput
+  ): string {
+    const successCount = output.results.filter(r => r.success).length;
+    const totalCount = input.ops.length;
+    const worldIds = input.ops.map(op => op.ref.worldId).join(", ");
+
+    return `Memory maintenance: ${successCount}/${totalCount} ops succeeded (worldIds: ${worldIds})`;
+  }
+
   // ===========================================================================
   // Workflow Actions
   // ===========================================================================
@@ -644,6 +749,8 @@ export class SystemRuntime {
         return `Configured memory settings`;
       case "system.memory.backfill":
         return `Backfilled memory for world '${input.worldId}'`;
+      case "system.memory.maintain":
+        return `Maintained memory (${(input.ops as unknown[])?.length ?? 0} ops)`;
       case "system.workflow.enable":
         return `Enabled workflow '${input.workflowId}'`;
       case "system.workflow.disable":

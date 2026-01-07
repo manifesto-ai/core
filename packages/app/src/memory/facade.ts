@@ -12,8 +12,11 @@ import type {
   MemoryHubConfig,
   RecallRequest,
   RecallResult,
+  MemoryMaintenanceOp,
+  MemoryMaintenanceContext,
+  MemoryMaintenanceOutput,
 } from "../types/index.js";
-import type { ActorRef } from "@manifesto-ai/memory";
+import type { ActorRef } from "@manifesto-ai/world";
 import { MemoryDisabledError, BranchNotFoundError } from "../errors/index.js";
 import { MemoryHub } from "./hub.js";
 
@@ -89,7 +92,7 @@ export class EnabledMemoryFacade implements MemoryFacade {
 
     // MEM-REC-4: Determine selector
     const actorId = ctx?.actorId ?? this._context.getDefaultActorId();
-    const selector: ActorRef = { actorId };
+    const selector: ActorRef = { actorId, kind: "human" };
 
     // Perform recall via hub
     return this._hub.recall(requests, atWorldId, selector);
@@ -111,6 +114,19 @@ export class EnabledMemoryFacade implements MemoryFacade {
     // TODO: Implement backfill traversal
     // This requires World lineage traversal which depends on World integration
     console.warn("[Manifesto] Memory backfill not yet fully implemented");
+  }
+
+  /**
+   * Perform memory maintenance operations.
+   *
+   * @see SPEC §17.5 MEM-MAINT-1~10
+   * @since v0.4.8
+   */
+  async maintain(
+    ops: readonly MemoryMaintenanceOp[],
+    ctx: MemoryMaintenanceContext
+  ): Promise<MemoryMaintenanceOutput> {
+    return this._hub.maintain(ops, ctx);
   }
 
   /**
@@ -159,6 +175,18 @@ export class DisabledMemoryFacade implements MemoryFacade {
    */
   async backfill(opts: { worldId: string; depth?: number }): Promise<void> {
     throw new MemoryDisabledError("backfill");
+  }
+
+  /**
+   * MEM-DIS-5: maintain() MUST throw MemoryDisabledError
+   *
+   * @since v0.4.8
+   */
+  async maintain(
+    ops: readonly MemoryMaintenanceOp[],
+    ctx: MemoryMaintenanceContext
+  ): Promise<MemoryMaintenanceOutput> {
+    throw new MemoryDisabledError("maintain");
   }
 }
 
