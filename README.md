@@ -6,7 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Docs:** https://docs.manifesto-ai.dev
+
 **Early Live Demo**: https://taskflow.manifesto-ai.dev
+
 ---
 
 ## What is Manifesto?
