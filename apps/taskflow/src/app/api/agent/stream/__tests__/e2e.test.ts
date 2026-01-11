@@ -139,21 +139,39 @@ ${SCHEMA_DSL}
 ## Intent Schema (use exactly these field names and values)
 ${JSON.stringify(INTENT_SCHEMA, null, 2)}
 
+## Date Extraction Rules (CRITICAL)
+When creating a task, you MUST:
+1. EXTRACT date expressions from the input
+2. Convert to dueDate in YYYY-MM-DD format
+3. REMOVE the date from the title (title should NOT contain the date word)
+
+Date mappings:
+- "내일", "tomorrow" → dueDate: "${tomorrowStr}"
+- "오늘", "today" → dueDate: "${todayStr}"
+- "다음주", "next week" → compute date from today
+- "금요일까지", "by Friday" → compute next Friday date
+
 ## Rules
 1. Match tasks by keywords from task list. Use exact taskId from the list.
 2. "this", "it", "that" = Currently Selected Task.
-3. Extract dates: "tomorrow" = ${tomorrowStr}, "next Monday" = compute YYYY-MM-DD. ALWAYS set dueDate when a date is mentioned.
-4. Greetings, questions, casual chat = QueryTasks.
-5. Use user's exact words as task title. Do not paraphrase.
-6. Priority: "urgent/critical/important" = "high", "normal/regular" = "medium", "later/someday" = "low".
-7. "delete all" = DeleteTask with taskIds array containing ALL task IDs.
-8. RequestClarification ONLY when 2+ tasks match the same keyword. Never for new tasks.
+3. Greetings, questions, casual chat = QueryTasks.
+4. Priority: "urgent/critical/important" = "high", "normal/regular" = "medium", "later/someday" = "low".
+5. "delete all" = DeleteTask with taskIds array containing ALL task IDs.
+6. RequestClarification ONLY when 2+ tasks match the same keyword. Never for new tasks.
 
 ## Output Format
 Return a FLAT JSON object with "kind" at the root level.
 
-Example for CreateTask:
+Example for CreateTask (without date):
+Input: "buy milk"
 {"kind":"CreateTask","tasks":[{"title":"buy milk"}],"confidence":0.9,"source":"human"}
+
+Example for CreateTask (with date):
+Input: "내일 백화점 가야해" (I need to go to department store tomorrow)
+{"kind":"CreateTask","tasks":[{"title":"백화점 가기","dueDate":"${tomorrowStr}"}],"confidence":0.9,"source":"human"}
+
+Input: "tomorrow buy apples"
+{"kind":"CreateTask","tasks":[{"title":"buy apples","dueDate":"${tomorrowStr}"}],"confidence":0.9,"source":"human"}
 
 Example for ChangeStatus:
 {"kind":"ChangeStatus","taskId":"task-1","toStatus":"done","confidence":0.9,"source":"human"}
