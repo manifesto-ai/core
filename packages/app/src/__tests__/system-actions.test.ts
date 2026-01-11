@@ -15,19 +15,17 @@ import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("System Action Invocation Rules", () => {
@@ -550,7 +548,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
           tombstoneId: "tomb-123",
         }),
         meta: {
-          capabilities: ["select", "maintain"],
+          capabilities: ["select", "maintain"] as const,
         },
       };
 
@@ -598,7 +596,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
           });
         }),
         meta: {
-          capabilities: ["select", "maintain"],
+          capabilities: ["select", "maintain"] as const,
         },
       };
 
@@ -640,7 +638,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
         select: vi.fn().mockResolvedValue({ selected: [], selectedAt: Date.now() }),
         // No maintain method
         meta: {
-          capabilities: ["select"],
+          capabilities: ["select"] as const,
         },
       };
 
@@ -680,7 +678,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
           });
         }),
         meta: {
-          capabilities: ["select", "maintain"],
+          capabilities: ["select", "maintain"] as const,
         },
       };
 
@@ -720,7 +718,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
           });
         }),
         meta: {
-          capabilities: ["select", "maintain"],
+          capabilities: ["select", "maintain"] as const,
         },
       };
 

@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@manifesto-ai/world": "workspace:*",
-    "zod": "^4.0.0"
+    "zod": "^4.3.5"
   },
   "peerDependencies": {
     "@manifesto-ai/world": "^1.1.0"

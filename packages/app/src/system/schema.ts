@@ -24,236 +24,40 @@ export function createSystemSchema(): DomainSchema {
 
   for (const actionType of SYSTEM_ACTION_TYPES) {
     actions[actionType] = {
-      type: actionType,
-      inputSchema: getInputSchemaForAction(actionType),
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] }, // Empty seq - system actions executed by System Runtime
+      description: `System action: ${actionType}`,
     };
   }
 
   return {
-    schemaHash: "system-runtime-v0.4.9",
+    id: "manifesto:system-runtime",
+    version: "0.4.9",
+    hash: "system-runtime-v0.4.9",
+    types: {},
+    state: { fields: createSystemStateFields() },
+    computed: { fields: {} },
     actions,
-    computed: {},
-    state: createSystemStateSchema(),
-    effects: {},
-    flows: {},
   };
 }
 
 /**
- * Get input schema for a system action type.
+ * Create the state field definitions for System Runtime.
  */
-function getInputSchemaForAction(
-  actionType: string
-): Record<string, unknown> {
-  switch (actionType) {
-    // Actor Management
-    case "system.actor.register":
-      return {
-        type: "object",
-        properties: {
-          actorId: { type: "string" },
-          kind: { type: "string", enum: ["human", "agent", "system"] },
-          name: { type: "string" },
-          meta: { type: "object" },
-        },
-        required: ["actorId", "kind"],
-      };
-
-    case "system.actor.disable":
-      return {
-        type: "object",
-        properties: {
-          actorId: { type: "string" },
-        },
-        required: ["actorId"],
-      };
-
-    case "system.actor.updateMeta":
-      return {
-        type: "object",
-        properties: {
-          actorId: { type: "string" },
-          meta: { type: "object" },
-        },
-        required: ["actorId", "meta"],
-      };
-
-    case "system.actor.bindAuthority":
-      return {
-        type: "object",
-        properties: {
-          actorId: { type: "string" },
-          authorityIds: { type: "array", items: { type: "string" } },
-        },
-        required: ["actorId", "authorityIds"],
-      };
-
-    // Branch Management
-    case "system.branch.create":
-      return {
-        type: "object",
-        properties: {
-          branchId: { type: "string" },
-          fromWorldId: { type: "string" },
-          name: { type: "string" },
-        },
-        required: ["branchId"],
-      };
-
-    case "system.branch.checkout":
-      return {
-        type: "object",
-        properties: {
-          branchId: { type: "string" },
-          worldId: { type: "string" },
-        },
-        required: ["branchId", "worldId"],
-      };
-
-    case "system.schema.migrate":
-      return {
-        type: "object",
-        properties: {
-          fromSchemaHash: { type: "string" },
-          toSchemaHash: { type: "string" },
-          strategy: { type: "string", enum: ["auto", "custom"] },
-        },
-        required: ["fromSchemaHash", "toSchemaHash"],
-      };
-
-    // Services Management
-    case "system.service.register":
-      return {
-        type: "object",
-        properties: {
-          effectType: { type: "string" },
-          handlerRef: { type: "string" },
-        },
-        required: ["effectType", "handlerRef"],
-      };
-
-    case "system.service.unregister":
-      return {
-        type: "object",
-        properties: {
-          effectType: { type: "string" },
-        },
-        required: ["effectType"],
-      };
-
-    case "system.service.replace":
-      return {
-        type: "object",
-        properties: {
-          effectType: { type: "string" },
-          handlerRef: { type: "string" },
-        },
-        required: ["effectType", "handlerRef"],
-      };
-
-    // Memory Operations
-    case "system.memory.configure":
-      return {
-        type: "object",
-        properties: {
-          providers: { type: "array", items: { type: "string" } },
-          defaultProvider: { type: "string" },
-          routing: { type: "object" },
-          backfill: { type: "object" },
-        },
-      };
-
-    case "system.memory.backfill":
-      return {
-        type: "object",
-        properties: {
-          worldId: { type: "string" },
-          depth: { type: "number" },
-        },
-        required: ["worldId"],
-      };
-
-    case "system.memory.maintain":
-      return {
-        type: "object",
-        properties: {
-          ops: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                kind: { type: "string", enum: ["forget"] },
-                ref: {
-                  type: "object",
-                  properties: {
-                    worldId: { type: "string" },
-                  },
-                  required: ["worldId"],
-                },
-                scope: { type: "string", enum: ["actor", "global"] },
-                reason: { type: "string" },
-                ttl: { type: "number" },
-              },
-              required: ["kind", "ref"],
-            },
-          },
-        },
-        required: ["ops"],
-      };
-
-    // Workflow
-    case "system.workflow.enable":
-      return {
-        type: "object",
-        properties: {
-          workflowId: { type: "string" },
-        },
-        required: ["workflowId"],
-      };
-
-    case "system.workflow.disable":
-      return {
-        type: "object",
-        properties: {
-          workflowId: { type: "string" },
-        },
-        required: ["workflowId"],
-      };
-
-    case "system.workflow.setPolicy":
-      return {
-        type: "object",
-        properties: {
-          workflowId: { type: "string" },
-          policy: { type: "object" },
-        },
-        required: ["workflowId", "policy"],
-      };
-
-    default:
-      return {};
-  }
-}
-
-/**
- * Create the state schema for System Runtime.
- */
-function createSystemStateSchema(): Record<string, unknown> {
+function createSystemStateFields(): Record<string, import("@manifesto-ai/core").FieldSpec> {
   return {
-    actors: { type: "object", default: {} },
-    services: { type: "object", default: {} },
+    actors: { type: "object", required: false, default: {} },
+    services: { type: "object", required: false, default: {} },
     memoryConfig: {
       type: "object",
+      required: false,
       default: {
         providers: [],
         defaultProvider: "",
       },
     },
-    workflows: { type: "object", default: {} },
-    branchPointers: { type: "object", default: {} },
-    auditLog: { type: "array", default: [] },
+    workflows: { type: "object", required: false, default: {} },
+    branchPointers: { type: "object", required: false, default: {} },
+    auditLog: { type: "array", required: false, default: [] },
   };
 }
 

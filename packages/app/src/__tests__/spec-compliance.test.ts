@@ -29,25 +29,20 @@ import type { ActionPhase, App, Branch } from "../types/index.js";
 // =============================================================================
 
 const createMockSchema = (overrides?: Partial<DomainSchema>): DomainSchema => ({
-  schemaHash: "test-hash-" + Math.random().toString(36).slice(2),
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-hash-" + Math.random().toString(36).slice(2),
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: { type: "object" },
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
     "todo.remove": {
-      type: "todo.remove",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
   ...overrides,
 });
 
@@ -74,7 +69,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
         actions: Object.fromEntries(
           Array.from({ length: 100 }, (_, i) => [
             `action.${i}`,
-            { type: `action.${i}`, inputSchema: {}, outputSchema: {}, flow: { kind: "noop" } },
+            { flow: { kind: "seq", steps: [] } },
           ])
         ),
       });
@@ -119,8 +114,8 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
       const app = createApp(createMockSchema());
       const order: string[] = [];
 
-      app.hooks.on("app:ready:before", () => order.push("before"));
-      app.hooks.on("app:ready", () => order.push("ready"));
+      app.hooks.on("app:ready:before", () => { order.push("before"); });
+      app.hooks.on("app:ready", () => { order.push("ready"); });
 
       await app.ready();
 
@@ -131,10 +126,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
       const schema = createMockSchema({
         actions: {
           "system.custom": {
-            type: "system.custom",
-            inputSchema: {},
-            outputSchema: {},
-            flow: { kind: "noop" },
+            flow: { kind: "seq", steps: [] },
           },
         },
       });
@@ -189,8 +181,8 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
       await app.ready();
 
       const order: string[] = [];
-      app.hooks.on("app:dispose:before", () => order.push("before"));
-      app.hooks.on("app:dispose", () => order.push("dispose"));
+      app.hooks.on("app:dispose:before", () => { order.push("before"); });
+      app.hooks.on("app:dispose", () => { order.push("dispose"); });
 
       await app.dispose();
 
@@ -626,7 +618,7 @@ describe("SPEC §9: Branch Management", () => {
       const app = createApp(schema);
       await app.ready();
 
-      expect(app.currentBranch().schemaHash).toBe(schema.schemaHash);
+      expect(app.currentBranch().schemaHash).toBe(schema.hash);
     });
 
     it("BRANCH-3: Main branch has genesis world", async () => {
@@ -727,7 +719,7 @@ describe("SPEC §9: Branch Management", () => {
 
       const newBranch = await app.fork();
 
-      expect(newBranch.schemaHash).toBe(schema.schemaHash);
+      expect(newBranch.schemaHash).toBe(schema.hash);
     });
   });
 
@@ -808,9 +800,9 @@ describe("SPEC §15: Plugin System", () => {
 
       const app = createApp(createMockSchema(), {
         plugins: [
-          () => order.push(1),
-          () => order.push(2),
-          () => order.push(3),
+          () => { order.push(1); },
+          () => { order.push(2); },
+          () => { order.push(3); },
         ],
       });
 

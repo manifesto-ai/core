@@ -121,7 +121,7 @@ describe("Debug Executor", () => {
     }
 
     expect(result.status).not.toBe("error");
-    expect(result.snapshot.data.value).toBe(42);
+    expect((result.snapshot.data as { value: number }).value).toBe(42);
   });
 
   it("should debug effect execution via app", async () => {

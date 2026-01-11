@@ -120,7 +120,7 @@ export class BranchManager {
       const newSchemaHash =
         typeof opts.domain === "string"
           ? "pending-compile" // MEL text needs compilation
-          : opts.domain.schemaHash;
+          : opts.domain.hash;
 
       if (newSchemaHash !== this._schemaHash && !opts.migrate) {
         throw new ForkMigrationError(this._schemaHash, newSchemaHash);

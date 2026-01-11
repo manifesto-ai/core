@@ -220,7 +220,7 @@ describe("Package Scaffold", () => {
     });
 
     it("should return an App instance in created state", () => {
-      const app = createApp({ schemaHash: "test", actions: {}, computed: {}, state: {}, effects: {}, flows: {} });
+      const app = createApp({ id: "test:app", version: "1.0.0", hash: "test", types: {}, actions: {}, computed: { fields: {} }, state: { fields: {} } });
       expect(app).toBeDefined();
       expect(app.status).toBe("created");
     });

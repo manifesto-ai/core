@@ -30,6 +30,10 @@ export type ExprNode =
   | MulExpr
   | DivExpr
   | ModExpr
+  | MinExpr
+  | MaxExpr
+  | AbsExpr
+  | NegExpr
   // String
   | ConcatExpr
   | SubstringExpr
@@ -182,6 +186,30 @@ export const ModExpr: z.ZodType<{ kind: "mod"; left: ExprNode; right: ExprNode }
   right: z.lazy(() => ExprNodeSchema),
 });
 export type ModExpr = z.infer<typeof ModExpr>;
+
+export const MinExpr: z.ZodType<{ kind: "min"; args: ExprNode[] }> = z.object({
+  kind: z.literal("min"),
+  args: z.array(z.lazy(() => ExprNodeSchema)),
+});
+export type MinExpr = z.infer<typeof MinExpr>;
+
+export const MaxExpr: z.ZodType<{ kind: "max"; args: ExprNode[] }> = z.object({
+  kind: z.literal("max"),
+  args: z.array(z.lazy(() => ExprNodeSchema)),
+});
+export type MaxExpr = z.infer<typeof MaxExpr>;
+
+export const AbsExpr: z.ZodType<{ kind: "abs"; arg: ExprNode }> = z.object({
+  kind: z.literal("abs"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type AbsExpr = z.infer<typeof AbsExpr>;
+
+export const NegExpr: z.ZodType<{ kind: "neg"; arg: ExprNode }> = z.object({
+  kind: z.literal("neg"),
+  arg: z.lazy(() => ExprNodeSchema),
+});
+export type NegExpr = z.infer<typeof NegExpr>;
 
 // ============ String ============
 
@@ -366,6 +394,10 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   MulExpr,
   DivExpr,
   ModExpr,
+  MinExpr,
+  MaxExpr,
+  AbsExpr,
+  NegExpr,
   // String
   ConcatExpr,
   SubstringExpr,
@@ -403,7 +435,7 @@ export const ExprKind = z.enum([
   "eq", "neq", "gt", "gte", "lt", "lte",
   "and", "or", "not",
   "if",
-  "add", "sub", "mul", "div", "mod",
+  "add", "sub", "mul", "div", "mod", "min", "max", "abs", "neg",
   "concat", "substring", "trim",
   "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some", "append",
   "object", "keys", "values", "entries", "merge",

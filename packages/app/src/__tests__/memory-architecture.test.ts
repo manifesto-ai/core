@@ -19,32 +19,36 @@ import type {
   AppState,
   RecallResult,
 } from "../types/index.js";
-import type { SelectionResult, SelectedMemory, ActorRef } from "@manifesto-ai/memory";
+import type { SelectionResult, SelectedMemory } from "@manifesto-ai/memory";
+import type { WorldId } from "@manifesto-ai/world";
+
+// ActorRef type definition (aligned with @manifesto-ai/world)
+interface ActorRef {
+  actorId: string;
+  kind: "human" | "agent" | "system";
+  name?: string;
+  meta?: Record<string, unknown>;
+}
 
 // =============================================================================
 // Test Domain Schema
 // =============================================================================
 
 const testDomainSchema: DomainSchema = {
-  schemaHash: "memory-test-schema",
+  id: "test:memory",
+  version: "1.0.0",
+  hash: "memory-test-schema",
+  types: {},
   actions: {
     "chat.message": {
-      type: "chat.message",
-      inputSchema: { content: "string" },
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
     "note.create": {
-      type: "note.create",
-      inputSchema: { title: "string", body: "string" },
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 // =============================================================================
@@ -122,13 +126,10 @@ class MemoryStore {
 
     // Apply limit and convert to SelectedMemory
     return matched.slice(0, limit).map((m) => ({
-      worldId: m.worldId,
+      ref: { worldId: m.worldId as WorldId },
+      reason: `Matched query: ${query}`,
+      confidence: 0.9,
       verified: false, // NoneVerifier always produces false
-      content: {
-        data: m.snapshot.data,
-        tier: m.tier,
-        createdAt: m.createdAt,
-      },
     }));
   }
 
@@ -164,16 +165,16 @@ function createTieredMemoryProvider(
       query: string;
       atWorldId: string;
       selector: ActorRef;
-      constraints?: { limit?: number; requireVerified?: boolean };
+      constraints?: { maxResults?: number; requireVerified?: boolean };
     }): Promise<SelectionResult> => {
       const selected = store.select(req.query, req.atWorldId, {
         tier,
-        limit: req.constraints?.limit,
+        limit: req.constraints?.maxResults,
       });
 
       return {
         selected,
-        views: [],
+        selectedAt: Date.now(),
       };
     },
     meta: {
@@ -204,6 +205,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ message: "Hello world" }),
         createdAt: Date.now(),
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       expect(store.getAll()).toHaveLength(1);
@@ -220,6 +222,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ type: "short-term" }),
         createdAt: now - 1000, // 1 second ago
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       // Medium-term (hours ago)
@@ -228,6 +231,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ type: "medium-term" }),
         createdAt: now - 2 * 60 * 60 * 1000, // 2 hours ago
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       // Long-term (days ago)
@@ -236,6 +240,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ type: "long-term" }),
         createdAt: now - 48 * 60 * 60 * 1000, // 48 hours ago
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       expect(store.getByTier("short")).toHaveLength(1);
@@ -247,6 +252,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
   describe("Memory Recall - Tier Filtering", () => {
     beforeEach(async () => {
       const now = Date.now();
+      const testActor = { actorId: "test-user", kind: "human" as const };
 
       // Populate store with memories from different tiers
       store.ingest({
@@ -254,6 +260,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ content: "recent chat about cats" }),
         createdAt: now - 1000,
+        createdBy: testActor,
       });
 
       store.ingest({
@@ -261,6 +268,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ content: "recent discussion about dogs" }),
         createdAt: now - 2000,
+        createdBy: testActor,
       });
 
       store.ingest({
@@ -268,6 +276,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ content: "yesterday conversation about cats" }),
         createdAt: now - 6 * 60 * 60 * 1000, // 6 hours ago
+        createdBy: testActor,
       });
 
       store.ingest({
@@ -275,6 +284,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ content: "old memory about cats from last week" }),
         createdAt: now - 7 * 24 * 60 * 60 * 1000, // 7 days ago
+        createdBy: testActor,
       });
     });
 
@@ -284,11 +294,11 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await shortTermProvider.select({
         query: "cats",
         atWorldId: "world-current",
-        selector: { actorId: "user-1" },
+        selector: { actorId: "user-1", kind: "human" },
       });
 
       expect(result.selected).toHaveLength(1);
-      expect(result.selected[0].worldId).toBe("world-short-1");
+      expect(result.selected[0].ref.worldId).toBe("world-short-1");
     });
 
     it("should recall only medium-term memories", async () => {
@@ -297,11 +307,11 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await mediumTermProvider.select({
         query: "cats",
         atWorldId: "world-current",
-        selector: { actorId: "user-1" },
+        selector: { actorId: "user-1", kind: "human" },
       });
 
       expect(result.selected).toHaveLength(1);
-      expect(result.selected[0].worldId).toBe("world-medium-1");
+      expect(result.selected[0].ref.worldId).toBe("world-medium-1");
     });
 
     it("should recall only long-term memories", async () => {
@@ -310,11 +320,11 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await longTermProvider.select({
         query: "cats",
         atWorldId: "world-current",
-        selector: { actorId: "user-1" },
+        selector: { actorId: "user-1", kind: "human" },
       });
 
       expect(result.selected).toHaveLength(1);
-      expect(result.selected[0].worldId).toBe("world-long-1");
+      expect(result.selected[0].ref.worldId).toBe("world-long-1");
     });
 
     it("should recall from all tiers", async () => {
@@ -323,7 +333,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await allProvider.select({
         query: "cats",
         atWorldId: "world-current",
-        selector: { actorId: "user-1" },
+        selector: { actorId: "user-1", kind: "human" },
       });
 
       // Should find 3 memories about cats (short, medium, long)
@@ -352,6 +362,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ data: "test" }),
         createdAt: Date.now(),
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       // Both stores should receive the ingest
@@ -368,6 +379,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ topic: "TypeScript generics" }),
         createdAt: now - 1000,
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       const hub = new MemoryHub(
@@ -385,7 +397,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await hub.recall(
         [{ query: "TypeScript", provider: "short-term" }],
         "world-current",
-        { actorId: "user-1" }
+        { actorId: "user-1", kind: "human" }
       );
 
       expect(result.selected).toHaveLength(1);
@@ -408,6 +420,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
           ],
         }),
         createdAt: now - 1000,
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       const app = createApp(testDomainSchema, {
@@ -437,6 +450,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "memory-test-schema",
         snapshot: createMockState({ topic: "machine learning" }),
         createdAt: now - 1000,
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
       const app = createApp(testDomainSchema, {
@@ -458,12 +472,14 @@ describe("Memory Architecture - Tiered Memory System", () => {
 
     it("should support multiple recall requests", async () => {
       const now = Date.now();
+      const testActor = { actorId: "test-user", kind: "human" as const };
 
       store.ingest({
         worldId: "world-cats",
         schemaHash: "memory-test-schema",
         snapshot: createMockState({ animal: "cats are independent" }),
         createdAt: now - 1000,
+        createdBy: testActor,
       });
 
       store.ingest({
@@ -471,6 +487,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "memory-test-schema",
         snapshot: createMockState({ animal: "dogs are loyal" }),
         createdAt: now - 2000,
+        createdBy: testActor,
       });
 
       const app = createApp(testDomainSchema, {
@@ -535,6 +552,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
           schemaHash: "memory-test-schema",
           snapshot: createMockState(conv.content),
           createdAt: conv.createdAt,
+          createdBy: { actorId: "test-user", kind: "human" as const },
         });
       }
 
@@ -566,6 +584,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
   describe("Memory Limit and Constraints", () => {
     it("should respect limit constraint", async () => {
       const now = Date.now();
+      const testActor = { actorId: "test-user", kind: "human" as const };
 
       // Add many memories
       for (let i = 0; i < 20; i++) {
@@ -574,6 +593,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
           schemaHash: "test-schema",
           snapshot: createMockState({ topic: "machine learning", index: i }),
           createdAt: now - i * 1000,
+          createdBy: testActor,
         });
       }
 
@@ -582,8 +602,8 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await provider.select({
         query: "machine learning",
         atWorldId: "world-current",
-        selector: { actorId: "user-1" },
-        constraints: { limit: 5 },
+        selector: { actorId: "user-1", kind: "human" },
+        constraints: { maxResults: 5 },
       });
 
       expect(result.selected).toHaveLength(5);
@@ -591,12 +611,14 @@ describe("Memory Architecture - Tiered Memory System", () => {
 
     it("should return most recent memories first", async () => {
       const now = Date.now();
+      const testActor = { actorId: "test-user", kind: "human" as const };
 
       store.ingest({
         worldId: "world-old",
         schemaHash: "test-schema",
         snapshot: createMockState({ topic: "AI", age: "old" }),
         createdAt: now - 10000,
+        createdBy: testActor,
       });
 
       store.ingest({
@@ -604,6 +626,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         schemaHash: "test-schema",
         snapshot: createMockState({ topic: "AI", age: "new" }),
         createdAt: now - 1000,
+        createdBy: testActor,
       });
 
       const provider = createTieredMemoryProvider(store, "all");
@@ -611,11 +634,11 @@ describe("Memory Architecture - Tiered Memory System", () => {
       const result = await provider.select({
         query: "AI",
         atWorldId: "world-current",
-        selector: { actorId: "user-1" },
+        selector: { actorId: "user-1", kind: "human" },
       });
 
-      expect(result.selected[0].worldId).toBe("world-new");
-      expect(result.selected[1].worldId).toBe("world-old");
+      expect(result.selected[0].ref.worldId).toBe("world-new");
+      expect(result.selected[1].ref.worldId).toBe("world-old");
     });
   });
 });
@@ -648,6 +671,7 @@ describe("Memory Architecture Report", () => {
         schemaHash: "report-schema",
         snapshot: createMockState(tc.data),
         createdAt: now - tc.age,
+        createdBy: { actorId: "test-user", kind: "human" as const },
       });
     }
 
@@ -694,8 +718,8 @@ function createMockState<T>(data: T): AppState<T> {
     },
     meta: {
       version: 1,
-      timestamp: new Date().toISOString(),
-      hash: `hash-${Date.now()}`,
+      timestamp: Date.now(),
+      randomSeed: `seed-${Date.now()}`,
       schemaHash: "test-schema",
     },
   };

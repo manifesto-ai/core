@@ -18,19 +18,17 @@ import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema for testing
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("App Lifecycle", () => {
@@ -259,10 +257,7 @@ describe("App Lifecycle", () => {
         ...mockDomainSchema,
         actions: {
           "system.custom": {
-            type: "system.custom",
-            inputSchema: {},
-            outputSchema: {},
-            flow: { kind: "noop" },
+            flow: { kind: "seq", steps: [] },
           },
         },
       };

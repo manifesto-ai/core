@@ -58,6 +58,14 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateDiv(expr.left, expr.right, ctx);
     case "mod":
       return evaluateMod(expr.left, expr.right, ctx);
+    case "min":
+      return evaluateMin(expr.args, ctx);
+    case "max":
+      return evaluateMax(expr.args, ctx);
+    case "abs":
+      return evaluateAbs(expr.arg, ctx);
+    case "neg":
+      return evaluateNeg(expr.arg, ctx);
 
     // String
     case "concat":
@@ -334,6 +342,44 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvalContext): ExprRes
   if (divisor === 0) return ok(null);
 
   return ok(toNumber(leftResult.value) % divisor);
+}
+
+function evaluateMin(args: ExprNode[], ctx: EvalContext): ExprResult {
+  if (args.length === 0) return ok(null);
+
+  const values: number[] = [];
+  for (const arg of args) {
+    const result = evaluateExpr(arg, ctx);
+    if (!result.ok) return result;
+    values.push(toNumber(result.value));
+  }
+
+  return ok(Math.min(...values));
+}
+
+function evaluateMax(args: ExprNode[], ctx: EvalContext): ExprResult {
+  if (args.length === 0) return ok(null);
+
+  const values: number[] = [];
+  for (const arg of args) {
+    const result = evaluateExpr(arg, ctx);
+    if (!result.ok) return result;
+    values.push(toNumber(result.value));
+  }
+
+  return ok(Math.max(...values));
+}
+
+function evaluateAbs(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.abs(toNumber(result.value)));
+}
+
+function evaluateNeg(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(-toNumber(result.value));
 }
 
 // ============ String ============

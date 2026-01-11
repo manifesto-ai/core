@@ -87,7 +87,7 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: number[] = [];
 
-      queue.enqueue(() => executed.push(1));
+      queue.enqueue(() => { executed.push(1); });
       await queue.processAll();
 
       expect(executed).toEqual([1]);
@@ -115,8 +115,8 @@ describe("JobQueue Edge Cases", () => {
 
       queue.enqueue(() => {
         executed.push(1);
-        queue.enqueue(() => executed.push(2));
-        queue.enqueue(() => executed.push(3));
+        queue.enqueue(() => { executed.push(2); });
+        queue.enqueue(() => { executed.push(3); });
       });
 
       await queue.processAll();
@@ -148,9 +148,9 @@ describe("JobQueue Edge Cases", () => {
 
       queue.enqueue(() => {
         executed.push("first-normal");
-        queue.enqueue(() => executed.push("nested-immediate"), { priority: "immediate" });
-        queue.enqueue(() => executed.push("nested-defer"), { priority: "defer" });
-        queue.enqueue(() => executed.push("nested-normal"), { priority: "normal" });
+        queue.enqueue(() => { executed.push("nested-immediate"); }, { priority: "immediate" });
+        queue.enqueue(() => { executed.push("nested-defer"); }, { priority: "defer" });
+        queue.enqueue(() => { executed.push("nested-normal"); }, { priority: "normal" });
       });
 
       await queue.processAll();
@@ -192,12 +192,12 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: string[] = [];
 
-      queue.enqueue(() => executed.push("sync-1"));
+      queue.enqueue(() => { executed.push("sync-1"); });
       queue.enqueue(async () => {
         await new Promise((r) => setTimeout(r, 10));
         executed.push("async-1");
       });
-      queue.enqueue(() => executed.push("sync-2"));
+      queue.enqueue(() => { executed.push("sync-2"); });
       queue.enqueue(async () => {
         await new Promise((r) => setTimeout(r, 5));
         executed.push("async-2");
@@ -213,11 +213,11 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: number[] = [];
 
-      queue.enqueue(() => executed.push(1));
+      queue.enqueue(() => { executed.push(1); });
       queue.enqueue(async () => {
         await new Promise((_, reject) => setTimeout(() => reject(new Error("async error")), 5));
       });
-      queue.enqueue(() => executed.push(3));
+      queue.enqueue(() => { executed.push(3); });
 
       await queue.processAll();
 
@@ -229,11 +229,11 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: number[] = [];
 
-      queue.enqueue(() => executed.push(1));
+      queue.enqueue(() => { executed.push(1); });
       queue.enqueue(async () => {
         throw new Error("sync throw in async");
       });
-      queue.enqueue(() => executed.push(3));
+      queue.enqueue(() => { executed.push(3); });
 
       await queue.processAll();
 
@@ -248,7 +248,7 @@ describe("JobQueue Edge Cases", () => {
         await new Promise((r) => setTimeout(r, 100));
         executed.push("slow");
       });
-      queue.enqueue(() => executed.push("fast"));
+      queue.enqueue(() => { executed.push("fast"); });
 
       await queue.processAll();
 
@@ -268,7 +268,7 @@ describe("JobQueue Edge Cases", () => {
       queue.enqueue(() => { throw new Error("error 1"); });
       queue.enqueue(() => { throw new Error("error 2"); });
       queue.enqueue(() => { throw new Error("error 3"); });
-      queue.enqueue(() => executed.push(4));
+      queue.enqueue(() => { executed.push(4); });
 
       await queue.processAll();
 
@@ -281,8 +281,8 @@ describe("JobQueue Edge Cases", () => {
       const executed: number[] = [];
 
       queue.enqueue(() => { throw new Error("first error"); });
-      queue.enqueue(() => executed.push(2));
-      queue.enqueue(() => executed.push(3));
+      queue.enqueue(() => { executed.push(2); });
+      queue.enqueue(() => { executed.push(3); });
 
       await queue.processAll();
 
@@ -293,8 +293,8 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: number[] = [];
 
-      queue.enqueue(() => executed.push(1));
-      queue.enqueue(() => executed.push(2));
+      queue.enqueue(() => { executed.push(1); });
+      queue.enqueue(() => { executed.push(2); });
       queue.enqueue(() => { throw new Error("last error"); });
 
       await queue.processAll();
@@ -306,9 +306,9 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: string[] = [];
 
-      queue.enqueue(() => executed.push("normal-1"), { priority: "normal" });
+      queue.enqueue(() => { executed.push("normal-1"); }, { priority: "normal" });
       queue.enqueue(() => { throw new Error("immediate error"); }, { priority: "immediate" });
-      queue.enqueue(() => executed.push("normal-2"), { priority: "normal" });
+      queue.enqueue(() => { executed.push("normal-2"); }, { priority: "normal" });
 
       await queue.processAll();
 
@@ -339,7 +339,8 @@ describe("JobQueue Edge Cases", () => {
       const executed: number[] = [];
 
       for (let i = 1; i <= 5; i++) {
-        queue.enqueue(() => executed.push(i), { priority: "immediate" });
+        const val = i;
+        queue.enqueue(() => { executed.push(val); }, { priority: "immediate" });
       }
 
       await queue.processAll();
@@ -352,7 +353,8 @@ describe("JobQueue Edge Cases", () => {
       const executed: number[] = [];
 
       for (let i = 1; i <= 5; i++) {
-        queue.enqueue(() => executed.push(i), { priority: "defer" });
+        const val = i;
+        queue.enqueue(() => { executed.push(val); }, { priority: "defer" });
       }
 
       await queue.processAll();
@@ -366,9 +368,9 @@ describe("JobQueue Edge Cases", () => {
 
       queue.enqueue(() => {
         executed.push("normal-1");
-        queue.enqueue(() => executed.push("immediate-added"), { priority: "immediate" });
+        queue.enqueue(() => { executed.push("immediate-added"); }, { priority: "immediate" });
       }, { priority: "normal" });
-      queue.enqueue(() => executed.push("normal-2"), { priority: "normal" });
+      queue.enqueue(() => { executed.push("normal-2"); }, { priority: "normal" });
 
       await queue.processAll();
 
@@ -382,9 +384,9 @@ describe("JobQueue Edge Cases", () => {
 
       queue.enqueue(() => {
         executed.push("immediate-1");
-        queue.enqueue(() => executed.push("defer-added"), { priority: "defer" });
+        queue.enqueue(() => { executed.push("defer-added"); }, { priority: "defer" });
       }, { priority: "immediate" });
-      queue.enqueue(() => executed.push("normal-1"), { priority: "normal" });
+      queue.enqueue(() => { executed.push("normal-1"); }, { priority: "normal" });
 
       await queue.processAll();
 
@@ -396,13 +398,13 @@ describe("JobQueue Edge Cases", () => {
       const executed: string[] = [];
 
       // Initial batch
-      queue.enqueue(() => executed.push("defer-1"), { priority: "defer" });
-      queue.enqueue(() => executed.push("normal-1"), { priority: "normal" });
+      queue.enqueue(() => { executed.push("defer-1"); }, { priority: "defer" });
+      queue.enqueue(() => { executed.push("normal-1"); }, { priority: "normal" });
       queue.enqueue(() => {
         executed.push("immediate-1");
         // Add more during processing
-        queue.enqueue(() => executed.push("defer-2"), { priority: "defer" });
-        queue.enqueue(() => executed.push("immediate-2"), { priority: "immediate" });
+        queue.enqueue(() => { executed.push("defer-2"); }, { priority: "defer" });
+        queue.enqueue(() => { executed.push("immediate-2"); }, { priority: "immediate" });
       }, { priority: "immediate" });
 
       await queue.processAll();
@@ -426,9 +428,9 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const counts: number[] = [];
 
-      queue.enqueue(() => counts.push(queue.pendingCount()));
-      queue.enqueue(() => counts.push(queue.pendingCount()));
-      queue.enqueue(() => counts.push(queue.pendingCount()));
+      queue.enqueue(() => { counts.push(queue.pendingCount()); });
+      queue.enqueue(() => { counts.push(queue.pendingCount()); });
+      queue.enqueue(() => { counts.push(queue.pendingCount()); });
 
       expect(queue.pendingCount()).toBe(3);
       await queue.processAll();
@@ -441,8 +443,8 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const states: boolean[] = [];
 
-      queue.enqueue(() => states.push(queue.hasPendingJobs()));
-      queue.enqueue(() => states.push(queue.hasPendingJobs()));
+      queue.enqueue(() => { states.push(queue.hasPendingJobs()); });
+      queue.enqueue(() => { states.push(queue.hasPendingJobs()); });
 
       await queue.processAll();
 
@@ -453,8 +455,8 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: number[] = [];
 
-      queue.enqueue(() => executed.push(1));
-      queue.enqueue(() => executed.push(2));
+      queue.enqueue(() => { executed.push(1); });
+      queue.enqueue(() => { executed.push(2); });
 
       queue.clear();
 
@@ -471,8 +473,8 @@ describe("JobQueue Edge Cases", () => {
         executed.push("first");
         queue.clear(); // Clear remaining jobs
       });
-      queue.enqueue(() => executed.push("second"));
-      queue.enqueue(() => executed.push("third"));
+      queue.enqueue(() => { executed.push("second"); });
+      queue.enqueue(() => { executed.push("third"); });
 
       await queue.processAll();
 
@@ -491,9 +493,9 @@ describe("JobQueue Edge Cases", () => {
       const executed: number[] = [];
 
       // All these should be batched
-      queue.enqueue(() => executed.push(1));
-      queue.enqueue(() => executed.push(2));
-      queue.enqueue(() => executed.push(3));
+      queue.enqueue(() => { executed.push(1); });
+      queue.enqueue(() => { executed.push(2); });
+      queue.enqueue(() => { executed.push(3); });
 
       // Wait for auto-processing
       await new Promise((r) => setTimeout(r, 10));
@@ -512,7 +514,7 @@ describe("JobQueue Edge Cases", () => {
 
       // Wait a bit, then enqueue more
       await new Promise((r) => setTimeout(r, 5));
-      queue.enqueue(() => executed.push(2));
+      queue.enqueue(() => { executed.push(2); });
 
       // Wait for all to complete
       await new Promise((r) => setTimeout(r, 50));
@@ -525,7 +527,8 @@ describe("JobQueue Edge Cases", () => {
       const executed: number[] = [];
 
       for (let i = 0; i < 10; i++) {
-        queue.enqueue(() => executed.push(i));
+        const val = i;
+        queue.enqueue(() => { executed.push(val); });
         if (i % 3 === 0) {
           await queue.processAll();
         }
@@ -548,7 +551,7 @@ describe("JobQueue Edge Cases", () => {
       let executed = 0;
 
       for (let i = 0; i < count; i++) {
-        queue.enqueue(() => executed++);
+        queue.enqueue(() => { executed++; });
       }
 
       await queue.processAll();
@@ -563,7 +566,8 @@ describe("JobQueue Edge Cases", () => {
 
       for (let i = 0; i < count; i++) {
         const priority = i % 3 === 0 ? "immediate" : i % 3 === 1 ? "normal" : "defer";
-        queue.enqueue(() => results.push(`${priority}-${i}`), { priority });
+        const val = i;
+        queue.enqueue(() => { results.push(`${priority}-${val}`); }, { priority });
       }
 
       await queue.processAll();
@@ -619,9 +623,9 @@ describe("JobQueue Edge Cases", () => {
       const queue = new JobQueue();
       const executed: number[] = [];
 
-      queue.enqueue(() => executed.push(1), { priority: undefined });
-      queue.enqueue(() => executed.push(2), {});
-      queue.enqueue(() => executed.push(3));
+      queue.enqueue(() => { executed.push(1); }, { priority: undefined });
+      queue.enqueue(() => { executed.push(2); }, {});
+      queue.enqueue(() => { executed.push(3); });
 
       await queue.processAll();
 
@@ -649,7 +653,7 @@ describe("JobQueue Edge Cases", () => {
           },
         } as Promise<void>;
       });
-      queue.enqueue(() => executed.push(3));
+      queue.enqueue(() => { executed.push(3); });
 
       await queue.processAll();
 

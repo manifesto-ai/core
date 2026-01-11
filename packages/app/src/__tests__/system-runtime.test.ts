@@ -12,19 +12,17 @@ import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("System Runtime", () => {
@@ -39,8 +37,8 @@ describe("System Runtime", () => {
     it("should have separate schema from domain", () => {
       const runtime = new SystemRuntime();
 
-      expect(runtime.schema.schemaHash).toBe("system-runtime-v0.4.9");
-      expect(runtime.schema.schemaHash).not.toBe(mockDomainSchema.schemaHash);
+      expect(runtime.schema.hash).toBe("system-runtime-v0.4.9");
+      expect(runtime.schema.hash).not.toBe(mockDomainSchema.hash);
     });
   });
 
