@@ -14,36 +14,32 @@ import type { AppPlugin } from "../types/index.js";
 
 // Mock DomainSchema for testing
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash-001",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash-001",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 // Another mock schema with different hash
 const mockDomainSchema2: DomainSchema = {
-  schemaHash: "test-schema-hash-002",
+  id: "test:mock2",
+  version: "1.0.0",
+  hash: "test-schema-hash-002",
+  types: {},
   actions: {
     "task.create": {
-      type: "task.create",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("getDomainSchema() API", () => {
@@ -55,7 +51,7 @@ describe("getDomainSchema() API", () => {
       const schema = app.getDomainSchema();
 
       expect(schema).toBeDefined();
-      expect(schema.schemaHash).toBe("test-schema-hash-001");
+      expect(schema.hash).toBe("test-schema-hash-001");
       expect(schema.actions).toHaveProperty("todo.add");
     });
 
@@ -66,7 +62,7 @@ describe("getDomainSchema() API", () => {
       const schema = app.getDomainSchema();
       const branch = app.currentBranch();
 
-      expect(schema.schemaHash).toBe(branch.schemaHash);
+      expect(schema.hash).toBe(branch.schemaHash);
     });
   });
 
@@ -93,7 +89,7 @@ describe("getDomainSchema() API", () => {
 
       // Plugin should have successfully called getDomainSchema()
       expect(capturedSchema).not.toBeNull();
-      expect(capturedSchema!.schemaHash).toBe("test-schema-hash-001");
+      expect(capturedSchema!.hash).toBe("test-schema-hash-001");
     });
   });
 
@@ -114,11 +110,10 @@ describe("getDomainSchema() API", () => {
 
       const schema = app.getDomainSchema();
 
-      expect(schema.schemaHash).toBeDefined();
+      expect(schema.hash).toBeDefined();
       expect(schema.actions).toBeDefined();
       expect(schema.computed).toBeDefined();
       expect(schema.state).toBeDefined();
-      expect(schema.effects).toBeDefined();
     });
   });
 
@@ -177,7 +172,7 @@ describe("getDomainSchema() API", () => {
       const schema = app.getDomainSchema();
 
       expect(schema).toBeDefined();
-      expect(schema.schemaHash).toBeDefined();
+      expect(schema.hash).toBeDefined();
       expect(schema.actions).toHaveProperty("increment");
     });
   });
@@ -201,7 +196,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
       try {
         const schema = app.getDomainSchema();
         schemaAccess.success = true;
-        schemaAccess.hash = schema.schemaHash;
+        schemaAccess.hash = schema.hash;
       } catch {
         schemaAccess.success = false;
       }
@@ -214,7 +209,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
     await app.ready();
 
     expect(schemaAccess.success).toBe(true);
-    expect(schemaAccess.hash).toBe("test-schema-hash-001");
+    expect(schemaAccess.hash).toBe(mockDomainSchema.hash);
   });
 
   it("should have schema available before state initialization", async () => {
@@ -225,7 +220,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
     const testPlugin: AppPlugin = (app) => {
       pluginExecutionOrder.push("plugin");
       const schema = app.getDomainSchema();
-      schemaHashDuringPlugin = schema.schemaHash;
+      schemaHashDuringPlugin = schema.hash;
     };
 
     const app = createApp(mockDomainSchema, {
@@ -235,7 +230,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
     await app.ready();
 
     expect(pluginExecutionOrder).toContain("plugin");
-    expect(schemaHashDuringPlugin).toBe("test-schema-hash-001");
+    expect(schemaHashDuringPlugin).toBe(mockDomainSchema.hash);
   });
 
   it("should provide same schema instance to multiple plugins", async () => {
@@ -276,7 +271,7 @@ describe("domain:resolved hook", () => {
 
     await app.ready();
 
-    expect(hookPayload.schemaHash).toBe("test-schema-hash-001");
+    expect(hookPayload.schemaHash).toBe(mockDomainSchema.hash);
     expect(hookPayload.schema).toBe(app.getDomainSchema());
   });
 
@@ -285,19 +280,17 @@ describe("domain:resolved hook", () => {
 
     // Schema with reserved namespace action (should fail validation)
     const invalidSchema: DomainSchema = {
-      schemaHash: "invalid-schema",
+      id: "test:invalid",
+      version: "1.0.0",
+      hash: "invalid-schema",
+      types: {},
       actions: {
         "system.reserved": {
-          type: "system.reserved",
-          inputSchema: {},
-          outputSchema: {},
-          flow: { kind: "noop" },
+          flow: { kind: "seq", steps: [] },
         },
       },
-      computed: {},
-      state: {},
-      effects: {},
-      flows: {},
+      computed: { fields: {} },
+      state: { fields: {} },
     };
 
     const app = createApp(invalidSchema);

@@ -16,25 +16,20 @@ import type { Session } from "../types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
     "todo.remove": {
-      type: "todo.remove",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("Session Management", () => {

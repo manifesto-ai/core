@@ -76,7 +76,13 @@ export function appStateToSnapshot<T = unknown>(
   return {
     data: state.data,
     computed: state.computed,
-    system: state.system,
+    system: {
+      status: state.system.status,
+      lastError: state.system.lastError,
+      errors: [...state.system.errors],
+      pendingRequirements: [...state.system.pendingRequirements],
+      currentAction: state.system.currentAction,
+    },
     input: input ?? {},
     meta: state.meta,
   };

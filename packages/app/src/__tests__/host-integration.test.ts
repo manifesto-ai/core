@@ -34,7 +34,7 @@ const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
   "computed.doubled": {
     deps: ["data.count"],
     expr: {
-      kind: "multiply",
+      kind: "mul",
       left: { kind: "coalesce", args: [{ kind: "get", path: "data.count" }, { kind: "lit", value: 0 }] },
       right: { kind: "lit", value: 2 },
     },
@@ -582,16 +582,7 @@ describe("Host Integration - Error Handling", () => {
         ...createTestSchema(),
         actions: {
           "test.validated": {
-            type: "test.validated",
-            inputSchema: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-              },
-              required: ["name"],
-            },
-            outputSchema: {},
-            flow: { kind: "noop" },
+            flow: { kind: "seq", steps: [] },
           },
         },
       };

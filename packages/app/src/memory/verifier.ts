@@ -6,6 +6,7 @@
  */
 
 import type { World } from "@manifesto-ai/world";
+import type { VerificationProof } from "@manifesto-ai/memory";
 import type { MemoryVerifier, ProveResult } from "../types/index.js";
 
 /**
@@ -26,7 +27,7 @@ export const NoneVerifier: MemoryVerifier = {
   ): ProveResult {
     return {
       valid: false,
-      reason: "NoneVerifier does not support verification",
+      error: "NoneVerifier does not support verification",
     };
   },
 
@@ -49,7 +50,7 @@ export const NoneVerifier: MemoryVerifier = {
 export function computeVerified(
   proveResult: ProveResult,
   verifier: MemoryVerifier,
-  proof: unknown
+  proof: VerificationProof
 ): boolean {
   return proveResult.valid && verifier.verifyProof(proof);
 }

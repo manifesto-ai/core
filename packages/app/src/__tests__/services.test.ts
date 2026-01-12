@@ -28,8 +28,8 @@ function createMockState<T>(data: T): AppState<T> {
     },
     meta: {
       version: 1,
-      timestamp: new Date().toISOString(),
-      hash: "test-hash",
+      timestamp: Date.now(),
+      randomSeed: "test-seed",
       schemaHash: "test-schema-hash",
     },
   };

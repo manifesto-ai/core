@@ -15,19 +15,17 @@ import type { HookContext } from "../types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("Hook System", () => {
@@ -37,8 +35,8 @@ describe("Hook System", () => {
         const queue = new JobQueue();
         const executed: number[] = [];
 
-        queue.enqueue(() => executed.push(1));
-        queue.enqueue(() => executed.push(2));
+        queue.enqueue(() => { executed.push(1); });
+        queue.enqueue(() => { executed.push(2); });
 
         // Jobs should not execute synchronously
         expect(executed).toEqual([]);
@@ -55,9 +53,9 @@ describe("Hook System", () => {
         const queue = new JobQueue();
         const executed: string[] = [];
 
-        queue.enqueue(() => executed.push("normal-1"), { priority: "normal" });
-        queue.enqueue(() => executed.push("immediate"), { priority: "immediate" });
-        queue.enqueue(() => executed.push("normal-2"), { priority: "normal" });
+        queue.enqueue(() => { executed.push("normal-1"); }, { priority: "normal" });
+        queue.enqueue(() => { executed.push("immediate"); }, { priority: "immediate" });
+        queue.enqueue(() => { executed.push("normal-2"); }, { priority: "normal" });
 
         await queue.processAll();
 
@@ -68,8 +66,8 @@ describe("Hook System", () => {
         const queue = new JobQueue();
         const executed: string[] = [];
 
-        queue.enqueue(() => executed.push("defer"), { priority: "defer" });
-        queue.enqueue(() => executed.push("normal"), { priority: "normal" });
+        queue.enqueue(() => { executed.push("defer"); }, { priority: "defer" });
+        queue.enqueue(() => { executed.push("normal"); }, { priority: "normal" });
 
         await queue.processAll();
 
@@ -80,12 +78,12 @@ describe("Hook System", () => {
         const queue = new JobQueue();
         const executed: string[] = [];
 
-        queue.enqueue(() => executed.push("defer-1"), { priority: "defer" });
-        queue.enqueue(() => executed.push("normal-1"), { priority: "normal" });
-        queue.enqueue(() => executed.push("immediate-1"), { priority: "immediate" });
-        queue.enqueue(() => executed.push("defer-2"), { priority: "defer" });
-        queue.enqueue(() => executed.push("normal-2"), { priority: "normal" });
-        queue.enqueue(() => executed.push("immediate-2"), { priority: "immediate" });
+        queue.enqueue(() => { executed.push("defer-1"); }, { priority: "defer" });
+        queue.enqueue(() => { executed.push("normal-1"); }, { priority: "normal" });
+        queue.enqueue(() => { executed.push("immediate-1"); }, { priority: "immediate" });
+        queue.enqueue(() => { executed.push("defer-2"); }, { priority: "defer" });
+        queue.enqueue(() => { executed.push("normal-2"); }, { priority: "normal" });
+        queue.enqueue(() => { executed.push("immediate-2"); }, { priority: "immediate" });
 
         await queue.processAll();
 
@@ -106,7 +104,7 @@ describe("Hook System", () => {
         const executed: number[] = [];
 
         for (let i = 1; i <= 5; i++) {
-          queue.enqueue(() => executed.push(i));
+          queue.enqueue(() => { executed.push(i); });
         }
 
         await queue.processAll();
@@ -119,7 +117,7 @@ describe("Hook System", () => {
         const executed: number[] = [];
 
         for (let i = 1; i <= 5; i++) {
-          queue.enqueue(() => executed.push(i), { priority: "immediate" });
+          queue.enqueue(() => { executed.push(i); }, { priority: "immediate" });
         }
 
         await queue.processAll();
@@ -134,11 +132,11 @@ describe("Hook System", () => {
         const executed: number[] = [];
         const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-        queue.enqueue(() => executed.push(1));
+        queue.enqueue(() => { executed.push(1); });
         queue.enqueue(() => {
           throw new Error("Job failed");
         });
-        queue.enqueue(() => executed.push(3));
+        queue.enqueue(() => { executed.push(3); });
 
         await queue.processAll();
 
@@ -156,7 +154,7 @@ describe("Hook System", () => {
 
         queue.enqueue(() => {
           executed.push("first");
-          queue.enqueue(() => executed.push("nested"));
+          queue.enqueue(() => { executed.push("nested"); });
         });
 
         await queue.processAll();
@@ -190,8 +188,8 @@ describe("Hook System", () => {
         const queue = new JobQueue();
         const executed: number[] = [];
 
-        queue.enqueue(() => executed.push(1));
-        queue.enqueue(() => executed.push(2));
+        queue.enqueue(() => { executed.push(1); });
+        queue.enqueue(() => { executed.push(2); });
 
         queue.clear();
 
@@ -210,7 +208,7 @@ describe("Hook System", () => {
           await new Promise((r) => setTimeout(r, 10));
           executed.push(1);
         });
-        queue.enqueue(() => executed.push(2));
+        queue.enqueue(() => { executed.push(2); });
 
         await queue.processAll();
 
@@ -376,7 +374,7 @@ describe("Hook System", () => {
 
         hookable.on("test", (ctx) => {
           executed.push("handler");
-          ctx.enqueue(() => executed.push("job"));
+          ctx.enqueue(() => { executed.push("job"); });
         });
 
         await hookable.emit("test", ctx);
@@ -420,8 +418,8 @@ describe("Hook System", () => {
       const ctx = createHookContext(queue);
       const executed: number[] = [];
 
-      ctx.enqueue(() => executed.push(1));
-      ctx.enqueue(() => executed.push(2));
+      ctx.enqueue(() => { executed.push(1); });
+      ctx.enqueue(() => { executed.push(2); });
 
       await queue.processAll();
 
@@ -452,15 +450,15 @@ describe("Hook System", () => {
         },
       });
 
-      let receivedCtx: HookContext | null = null;
+      let receivedActorId: string | undefined;
 
       app.hooks.on("app:ready", (ctx) => {
-        receivedCtx = ctx;
+        receivedActorId = ctx.actorId;
       });
 
       await app.ready();
 
-      expect(receivedCtx?.actorId).toBe("test-actor");
+      expect(receivedActorId).toBe("test-actor");
     });
 
     it("should execute enqueued jobs after hook completes", async () => {
@@ -469,7 +467,7 @@ describe("Hook System", () => {
 
       app.hooks.on("app:ready", (ctx) => {
         executed.push("handler");
-        ctx.enqueue(() => executed.push("enqueued-job"));
+        ctx.enqueue(() => { executed.push("enqueued-job"); });
       });
 
       await app.ready();
@@ -482,9 +480,9 @@ describe("Hook System", () => {
       const executed: string[] = [];
 
       app.hooks.on("app:ready", (ctx) => {
-        ctx.enqueue(() => executed.push("normal"), { priority: "normal" });
-        ctx.enqueue(() => executed.push("immediate"), { priority: "immediate" });
-        ctx.enqueue(() => executed.push("defer"), { priority: "defer" });
+        ctx.enqueue(() => { executed.push("normal"); }, { priority: "normal" });
+        ctx.enqueue(() => { executed.push("immediate"); }, { priority: "immediate" });
+        ctx.enqueue(() => { executed.push("defer"); }, { priority: "defer" });
       });
 
       await app.ready();

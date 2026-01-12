@@ -21,25 +21,20 @@ import type { ActionPhase, ActionUpdate } from "../types/index.js";
 
 // Mock DomainSchema with actions
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
     "todo.remove": {
-      type: "todo.remove",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("Action Execution", () => {
@@ -324,22 +319,23 @@ describe("Action Execution", () => {
   });
 
   describe("Action Hooks", () => {
-    it("should emit action:start hook", async () => {
+    it("should emit action:preparing hook", async () => {
       const app = createApp(mockDomainSchema);
-      const startHandler = vi.fn();
+      const preparingHandler = vi.fn();
 
-      app.hooks.on("action:start", startHandler);
+      app.hooks.on("action:preparing", preparingHandler);
       await app.ready();
 
       const handle = app.act("todo.add", { text: "Test" });
       await handle.done();
 
-      expect(startHandler).toHaveBeenCalledWith(
+      expect(preparingHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           proposalId: handle.proposalId,
-          actionType: "todo.add",
+          type: "todo.add",
           runtime: "domain",
-        })
+        }),
+        expect.anything() // HookContext
       );
     });
 
@@ -359,7 +355,8 @@ describe("Action Execution", () => {
           result: expect.objectContaining({
             status: "completed",
           }),
-        })
+        }),
+        expect.anything() // HookContext
       );
     });
 
@@ -379,7 +376,8 @@ describe("Action Execution", () => {
           result: expect.objectContaining({
             status: "preparation_failed",
           }),
-        })
+        }),
+        expect.anything() // HookContext
       );
     });
   });

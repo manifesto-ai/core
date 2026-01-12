@@ -410,11 +410,34 @@ ${SCHEMA_DSL}
 ${MEL}
 
 
+## Date Extraction Rules (CRITICAL)
+When creating a task, you MUST:
+1. EXTRACT date expressions from the input
+2. Convert to dueDate in YYYY-MM-DD format
+3. REMOVE the date from the title (title should NOT contain the date word)
+
+Date mappings:
+- "내일", "tomorrow" → dueDate: "${tomorrowStr}"
+- "오늘", "today" → dueDate: "${todayStr}"
+- "다음주", "next week" → compute date from today
+- "금요일까지", "by Friday" → compute next Friday date
+
 ## Output Format
 Return a FLAT JSON object with "kind" at the root level.
 
-Example for CreateTask:
+Example for CreateTask (without date):
+Input: "buy milk"
 {"kind":"CreateTask","tasks":[{"title":"buy milk"}],"confidence":0.9,"source":"human"}
+
+Example for CreateTask (with date):
+Input: "내일 백화점 가야해" (I need to go to department store tomorrow)
+{"kind":"CreateTask","tasks":[{"title":"백화점 가기","dueDate":"${tomorrowStr}"}],"confidence":0.9,"source":"human"}
+
+Input: "tomorrow buy apples"
+{"kind":"CreateTask","tasks":[{"title":"buy apples","dueDate":"${tomorrowStr}"}],"confidence":0.9,"source":"human"}
+
+Input: "사과 사기 다음주"
+{"kind":"CreateTask","tasks":[{"title":"사과 사기","dueDate":"COMPUTED_NEXT_WEEK_DATE"}],"confidence":0.9,"source":"human"}
 
 Example for ChangeStatus (single):
 {"kind":"ChangeStatus","taskId":"task-1","toStatus":"done","confidence":0.9,"source":"human"}

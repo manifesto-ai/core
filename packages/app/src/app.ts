@@ -160,7 +160,7 @@ export class ManifestoApp implements App {
     await this._hooks.emit(
       "domain:resolved",
       {
-        schemaHash: this._domainSchema!.schemaHash,
+        schemaHash: this._domainSchema!.hash,
         schema: this._domainSchema!,
       },
       this._createHookContext()
@@ -373,12 +373,13 @@ export class ManifestoApp implements App {
     }
 
     try {
-      // Emit action:start hook
-      await this._hooks.emit("action:start", {
+      // Emit action:preparing hook
+      await this._hooks.emit("action:preparing", {
         proposalId: handle.proposalId,
-        actionType,
+        actorId: this._defaultActorId,
+        type: actionType,
         runtime: "system",
-      });
+      }, this._createHookContext());
 
       // Phase: preparing
       handle._transitionTo("preparing");
@@ -442,7 +443,7 @@ export class ManifestoApp implements App {
       await this._hooks.emit("action:completed", {
         proposalId: handle.proposalId,
         result,
-      });
+      }, this._createHookContext());
     } catch (error) {
       const errorValue = {
         code: "SYSTEM_ACTION_ERROR",
@@ -470,7 +471,7 @@ export class ManifestoApp implements App {
       await this._hooks.emit("action:completed", {
         proposalId: handle.proposalId,
         result,
-      });
+      }, this._createHookContext());
     }
   }
 
@@ -495,12 +496,13 @@ export class ManifestoApp implements App {
     this._subscriptionStore.startTransaction();
 
     try {
-      // Emit action:start hook
-      await this._hooks.emit("action:start", {
+      // Emit action:preparing hook
+      await this._hooks.emit("action:preparing", {
         proposalId: handle.proposalId,
-        actionType,
+        actorId: opts?.actorId ?? ctx.defaultActorId,
+        type: actionType,
         runtime: handle.runtime,
-      });
+      }, this._createHookContext());
 
       // Phase: preparing
       // Validate action type exists
@@ -534,7 +536,7 @@ export class ManifestoApp implements App {
             error,
             runtime: handle.runtime,
           },
-        });
+        }, this._createHookContext());
         return;
       }
 
@@ -608,7 +610,7 @@ export class ManifestoApp implements App {
       await this._hooks.emit("action:completed", {
         proposalId: handle.proposalId,
         result: execResult.result,
-      });
+      }, this._createHookContext());
     } catch (error) {
       // Unexpected error
       const errorValue = {
@@ -643,7 +645,7 @@ export class ManifestoApp implements App {
       await this._hooks.emit("action:completed", {
         proposalId: handle.proposalId,
         result,
-      });
+      }, this._createHookContext());
     }
   }
 
@@ -744,7 +746,7 @@ export class ManifestoApp implements App {
       return this._branchManager.currentBranch().schemaHash;
     }
     // Before BranchManager (during ready()), use _domainSchema
-    return this._domainSchema!.schemaHash;
+    return this._domainSchema!.hash;
   }
 
   /**
@@ -753,15 +755,15 @@ export class ManifestoApp implements App {
    * @see SPEC §6.2 SCHEMA-4
    */
   private _cacheSchema(schema: DomainSchema): void {
-    if (!this._schemaCache.has(schema.schemaHash)) {
-      this._schemaCache.set(schema.schemaHash, schema);
+    if (!this._schemaCache.has(schema.hash)) {
+      this._schemaCache.set(schema.hash, schema);
 
       // Emit domain:schema:added for new schemas (only after initial ready)
       if (this._status === "ready") {
         void this._hooks.emit(
           "domain:schema:added",
           {
-            schemaHash: schema.schemaHash,
+            schemaHash: schema.hash,
             schema,
           },
           this._createHookContext()
@@ -849,7 +851,8 @@ export class ManifestoApp implements App {
           throw new DomainCompileError("MEL compilation produced no schema");
         }
 
-        this._domainSchema = result.schema;
+        // Cast compiler's DomainSchema to core's DomainSchema (they are structurally compatible)
+        this._domainSchema = result.schema as DomainSchema;
       } catch (error) {
         if (error instanceof DomainCompileError) {
           throw error;
@@ -863,20 +866,12 @@ export class ManifestoApp implements App {
       this._domainSchema = this._domain;
     }
 
-    // Normalize schemaHash from hash for consistency
-    // Core DomainSchema uses 'hash', app layer uses 'schemaHash'
-    if (this._domainSchema) {
-      const schema = this._domainSchema as DomainSchema & { schemaHash?: string };
-      if (!schema.schemaHash && schema.hash) {
-        (schema as any).schemaHash = schema.hash;
-      }
-    }
   }
 
   /**
    * Validate reserved namespace usage.
    *
-   * @see SPEC §18 NS-ACT-1~4, NS-EFF-1~4
+   * @see SPEC §18 NS-ACT-1~4
    */
   private _validateReservedNamespaces(): void {
     if (!this._domainSchema) return;
@@ -889,18 +884,8 @@ export class ManifestoApp implements App {
       }
     }
 
-    // NS-EFF-2: Check effect types for reserved namespace
-    const effects = this._domainSchema.effects || {};
-    for (const effectType of Object.keys(effects)) {
-      // NS-EFF-3: system.get is allowed (reserved but valid)
-      if (effectType === RESERVED_EFFECT_TYPE) {
-        continue;
-      }
-      // NS-EFF-4: Other system.* effect types are forbidden
-      if (effectType.startsWith(RESERVED_NAMESPACE_PREFIX)) {
-        throw new ReservedNamespaceError(effectType, "effect");
-      }
-    }
+    // Note: Effect types are defined in services, not in DomainSchema
+    // Effect namespace validation happens at service registration time
   }
 
   /**
@@ -931,16 +916,9 @@ export class ManifestoApp implements App {
    * Extract effect types from domain schema.
    */
   private _extractEffectTypes(): string[] {
-    if (!this._domainSchema) return [];
-
-    const effectTypes: string[] = [];
-
-    // Extract from effects definition
-    if (this._domainSchema.effects) {
-      effectTypes.push(...Object.keys(this._domainSchema.effects));
-    }
-
-    return effectTypes;
+    // Effect types are determined by services registration, not schema
+    // Schema flows reference effect types, but don't declare them
+    return [];
   }
 
   /**
@@ -970,7 +948,7 @@ export class ManifestoApp implements App {
    * @see SPEC §7 State Model
    */
   private _initializeState(): void {
-    const schemaHash = this._domainSchema?.schemaHash ?? "unknown";
+    const schemaHash = this._domainSchema?.hash ?? "unknown";
     const initialData = this._options.initialData;
     this._currentState = createInitialAppState(schemaHash, initialData);
 
@@ -1040,8 +1018,9 @@ export class ManifestoApp implements App {
           )
         : [],
       defaultMemoryProvider:
-        (this._options.memory as { defaultProvider?: string } | false)
-          ?.defaultProvider ?? "",
+        this._options.memory && typeof this._options.memory === "object"
+          ? (this._options.memory.defaultProvider ?? "")
+          : "",
     });
 
     // Create System Facade

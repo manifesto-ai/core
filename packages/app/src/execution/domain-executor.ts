@@ -210,12 +210,7 @@ function appStateToSnapshot(state: AppState<unknown>, schema: DomainSchema): Sna
               state.system.status === "error" ? "error" : "idle",
       lastError: state.system.lastError,
       errors: state.system.errors as ErrorValue[],
-      pendingRequirements: state.system.pendingRequirements as Array<{
-        id: string;
-        type: string;
-        params: Record<string, unknown>;
-        description?: string;
-      }>,
+      pendingRequirements: state.system.pendingRequirements as Snapshot["system"]["pendingRequirements"],
       currentAction: state.system.currentAction,
     },
     meta: {

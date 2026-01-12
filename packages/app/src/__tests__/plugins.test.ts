@@ -7,23 +7,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { createApp } from "../index.js";
 import { PluginInitError } from "../errors/index.js";
-import type { App, AppPlugin, DomainSchema } from "../types/index.js";
+import type { App, AppPlugin } from "../types/index.js";
+import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("Plugin System", () => {
@@ -365,11 +364,11 @@ describe("Plugin System", () => {
       };
 
       const metricsPlugin: AppPlugin = (app) => {
-        app.hooks.on("action:start" as any, () => {
+        app.hooks.on("action:preparing", () => {
           metrics.actionsStarted++;
         });
 
-        app.hooks.on("action:completed" as any, () => {
+        app.hooks.on("action:completed", () => {
           metrics.actionsCompleted++;
         });
       };

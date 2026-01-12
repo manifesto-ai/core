@@ -15,12 +15,13 @@ import {
 
 // Mock DomainSchema for testing
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash-abc123",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash-abc123",
+  types: {},
   actions: {},
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("State Model", () => {

@@ -23,19 +23,17 @@ import type {
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 // Mock memory provider
@@ -45,17 +43,18 @@ function createMockProvider(name: string): MemoryProvider {
     select: vi.fn().mockResolvedValue({
       selected: [
         {
-          worldId: "world-123",
+          ref: { worldId: "world-123" },
+          reason: "test match",
+          confidence: 0.9,
           verified: false,
-          content: { data: "test" },
         },
       ],
-      views: [],
+      selectedAt: Date.now(),
     }),
     meta: {
       name,
       version: "1.0.0",
-      capabilities: ["ingest", "select"],
+      capabilities: ["ingest", "select"] as const,
     },
   };
 }
@@ -70,11 +69,11 @@ describe("Memory Integration", () => {
         );
 
         expect(result.valid).toBe(false);
-        expect(result.reason).toBeDefined();
+        expect(result.error).toBeDefined();
       });
 
       it("verifyProof() should return false", () => {
-        const result = NoneVerifier.verifyProof({ someProof: "data" });
+        const result = NoneVerifier.verifyProof({ method: "none" });
 
         expect(result).toBe(false);
       });
@@ -131,6 +130,7 @@ describe("Memory Integration", () => {
           schemaHash: "schema-hash",
           snapshot: {} as AppState<unknown>,
           createdAt: Date.now(),
+          createdBy: { actorId: "test-user", kind: "human" as const },
         });
 
         expect(providerA.ingest).toHaveBeenCalled();
@@ -157,6 +157,7 @@ describe("Memory Integration", () => {
           schemaHash: "schema-hash",
           snapshot: {} as AppState<unknown>,
           createdAt: Date.now(),
+          createdBy: { actorId: "test-user", kind: "human" as const },
         });
 
         expect(providerA.ingest).toHaveBeenCalled();
@@ -178,7 +179,7 @@ describe("Memory Integration", () => {
         const result = await hub.recall(
           ["test query"],
           "world-123",
-          { actorId: "user-123" }
+          { actorId: "user-123", kind: "human" as const }
         );
 
         expect(result.attachments).toHaveLength(1);

@@ -37,28 +37,6 @@ importers:
         specifier: ^3.5.26
         version: 3.5.26(typescript@5.9.3)
 
-  apps/example-todo:
-    dependencies:
-      '@manifesto-ai/app':
-        specifier: workspace:*
-        version: link:../../packages/app
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.27
-      tsx:
-        specifier: ^4.19.4
-        version: 4.21.0
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-
   apps/integration-tests:
     dependencies:
       '@manifesto-ai/bridge':
@@ -92,58 +70,6 @@ importers:
       vitest:
         specifier: ^4.0.16
         version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
-  apps/llm-babybench:
-    dependencies:
-      '@manifesto-ai/builder':
-        specifier: workspace:*
-        version: link:../../packages/builder
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../../packages/host
-      '@manifesto-ai/lab':
-        specifier: workspace:*
-        version: link:../../packages/lab
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../../packages/world
-      chalk:
-        specifier: ^5.3.0
-        version: 5.6.2
-      dotenv:
-        specifier: ^16.4.0
-        version: 16.6.1
-      openai:
-        specifier: ^4.0.0
-        version: 4.104.0(ws@8.18.3)(zod@4.2.1)
-      yaml:
-        specifier: ^2.3.0
-        version: 2.8.2
-      zod:
-        specifier: ^4.0.0
-        version: 4.2.1
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.19.3
-      '@types/react':
-        specifier: ^18.3.12
-        version: 18.3.27
-      ink:
-        specifier: ^5.0.1
-        version: 5.2.1(@types/react@18.3.27)(react@18.3.1)
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.16
-        version: 4.0.16(@types/node@22.19.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/logistics-app:
     dependencies:
@@ -217,34 +143,6 @@ importers:
       vite:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@25.0.3)(lightningcss@1.30.2)
-
-  apps/shipment-app:
-    dependencies:
-      '@manifesto-ai/compiler':
-        specifier: workspace:*
-        version: link:../../packages/compiler
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@manifesto-ai/effect-utils':
-        specifier: workspace:*
-        version: link:../../packages/effect-utils
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../../packages/host
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.27
-      tsx:
-        specifier: ^4.19.4
-        version: 4.21.0
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
 
   apps/taskflow:
     dependencies:
@@ -571,8 +469,8 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
       zod:
-        specifier: ^4.2.1
-        version: 4.2.1
+        specifier: ^4.3.5
+        version: 4.3.5
 
   packages/compiler:
     dependencies:
@@ -615,7 +513,7 @@ importers:
         version: 16.6.1
       openai:
         specifier: ^4.0.0
-        version: 4.104.0(ws@8.18.3)(zod@4.2.1)
+        version: 4.104.0(ws@8.18.3)(zod@4.3.5)
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
@@ -626,8 +524,8 @@ importers:
         specifier: ^4.0.16
         version: 4.0.16(@types/node@22.19.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
       zod:
-        specifier: ^4.2.1
-        version: 4.2.1
+        specifier: ^4.3.5
+        version: 4.3.5
 
   packages/core:
     devDependencies:
@@ -678,8 +576,8 @@ importers:
         specifier: workspace:*
         version: link:../world
       zod:
-        specifier: ^4.0.0
-        version: 4.2.1
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
@@ -709,8 +607,8 @@ importers:
   packages/memory:
     dependencies:
       zod:
-        specifier: ^4.2.1
-        version: 4.2.1
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       '@manifesto-ai/world':
         specifier: workspace:*
@@ -2731,9 +2629,6 @@ packages:
 
   '@types/node@18.19.130':
     resolution: {integrity: sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==}
-
-  '@types/node@20.19.27':
-    resolution: {integrity: sha512-N2clP5pJhB2YnZJ3PIHFk5RkygRX5WO/5f0WC08tp0wd+sv0rsJk3MqWn3CbNmT2J505a5336jaQj4ph1AdMug==}
 
   '@types/node@22.19.3':
     resolution: {integrity: sha512-1N9SBnWYOJTrNZCdh/yJE+t910Y128BoyY+zBLWhL3r0TYzlTmFdXrPwHL9DyFZmlEXNQQolTZh3KHV31QDhyA==}
@@ -6517,9 +6412,6 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.2.1:
-    resolution: {integrity: sha512-0wZ1IRqGGhMP76gLqz8EyfBXKk0J2qo2+H3fi4mcUP/KtTocoX08nmIAHl1Z2kJIZbZee8KOpBCSNPRgauucjw==}
-
   zod@4.3.5:
     resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
 
@@ -8684,10 +8576,6 @@ snapshots:
     dependencies:
       undici-types: 5.26.5
 
-  '@types/node@20.19.27':
-    dependencies:
-      undici-types: 6.21.0
-
   '@types/node@22.19.3':
     dependencies:
       undici-types: 6.21.0
@@ -10129,8 +10017,8 @@ snapshots:
       '@babel/parser': 7.28.5
       eslint: 9.39.2(jiti@2.6.1)
       hermes-parser: 0.25.1
-      zod: 4.3.5
-      zod-validation-error: 4.0.2(zod@4.3.5)
+      zod: 3.25.76
+      zod-validation-error: 4.0.2(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -11671,7 +11559,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  openai@4.104.0(ws@8.18.3)(zod@4.2.1):
+  openai@4.104.0(ws@8.18.3)(zod@4.3.5):
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -11682,7 +11570,7 @@ snapshots:
       node-fetch: 2.7.0
     optionalDependencies:
       ws: 8.18.3
-      zod: 4.2.1
+      zod: 4.3.5
     transitivePeerDependencies:
       - encoding
 
@@ -13209,7 +13097,8 @@ snapshots:
 
   yallist@3.1.1: {}
 
-  yaml@2.8.2: {}
+  yaml@2.8.2:
+    optional: true
 
   yocto-queue@0.1.0: {}
 
@@ -13219,13 +13108,11 @@ snapshots:
     dependencies:
       zod: 4.3.5
 
-  zod-validation-error@4.0.2(zod@4.3.5):
+  zod-validation-error@4.0.2(zod@3.25.76):
     dependencies:
-      zod: 4.3.5
+      zod: 3.25.76
 
   zod@3.25.76: {}
-
-  zod@4.2.1: {}
 
   zod@4.3.5: {}
 

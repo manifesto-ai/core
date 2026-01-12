@@ -20,7 +20,7 @@ import type {
   MemoryHygieneTrace,
 } from "../types/index.js";
 import type { SelectionResult, SelectedMemory, MemoryTrace } from "@manifesto-ai/memory";
-import type { ActorRef } from "@manifesto-ai/world";
+import type { ActorRef, WorldId } from "@manifesto-ai/world";
 import { NoneVerifier, computeVerified } from "./verifier.js";
 
 /**
@@ -143,10 +143,10 @@ export class MemoryHub {
       // Create trace for this recall
       const trace: MemoryTrace = {
         query,
-        atWorldId,
+        atWorldId: atWorldId as WorldId,
         selector,
-        constraints,
         selectedAt: Date.now(),
+        selected: filteredSelected,
       };
 
       attachments.push({
@@ -156,16 +156,14 @@ export class MemoryHub {
 
       allSelected.push(...filteredSelected);
 
-      // Collect views
-      if (selectionResult.views) {
-        for (const view of selectionResult.views) {
-          const existing = viewsByProvider.get(targetProvider);
-          if (!existing) {
-            viewsByProvider.set(targetProvider, {
-              provider: targetProvider,
-              view,
-            });
-          }
+      // Create views from selected memories for UI display
+      for (const memory of filteredSelected) {
+        if (!viewsByProvider.has(`${targetProvider}:${memory.ref.worldId}`)) {
+          viewsByProvider.set(`${targetProvider}:${memory.ref.worldId}`, {
+            ref: { worldId: memory.ref.worldId as string },
+            summary: memory.reason,
+            relevance: memory.confidence,
+          });
         }
       }
     }

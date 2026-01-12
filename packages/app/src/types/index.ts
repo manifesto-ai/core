@@ -5,7 +5,10 @@
  * @module
  */
 
-import type { DomainSchema, Patch, Snapshot } from "@manifesto-ai/core";
+import type { DomainSchema, Patch, Requirement, Snapshot } from "@manifesto-ai/core";
+
+// Re-export Patch and Requirement from core
+export type { Patch, Requirement };
 import type {
   ActorRef,
   AuthorityPolicy,
@@ -213,17 +216,7 @@ export interface SystemState {
   readonly currentAction: string | null;
 }
 
-/**
- * Pending HITL requirement.
- *
- * @see SPEC Appendix A.3
- */
-export interface Requirement {
-  readonly id: string;
-  readonly type: string;
-  readonly description: string;
-  readonly requiredApprovers?: readonly string[];
-}
+// Note: Requirement is re-exported from @manifesto-ai/core
 
 /**
  * Complete app state.

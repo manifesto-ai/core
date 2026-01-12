@@ -135,7 +135,7 @@ export function createSystemGetHandler() {
     ctx: ServiceContext
   ): Promise<Patch[]> => {
     const { patches } = executeSystemGet(
-      params as SystemGetParams,
+      params as unknown as SystemGetParams,
       ctx.snapshot
     );
     return patches;

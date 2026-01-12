@@ -12,19 +12,17 @@ import type { AppState } from "../types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
-  schemaHash: "test-schema-hash",
+  id: "test:mock",
+  version: "1.0.0",
+  hash: "test-schema-hash",
+  types: {},
   actions: {
     "todo.add": {
-      type: "todo.add",
-      inputSchema: {},
-      outputSchema: {},
-      flow: { kind: "noop" },
+      flow: { kind: "seq", steps: [] },
     },
   },
-  computed: {},
-  state: {},
-  effects: {},
-  flows: {},
+  computed: { fields: {} },
+  state: { fields: {} },
 };
 
 describe("Subscription System", () => {
@@ -442,8 +440,8 @@ function createMockState<T>(data: T): AppState<T> {
     },
     meta: {
       version: 1,
-      timestamp: new Date().toISOString(),
-      hash: "test-hash",
+      timestamp: Date.now(),
+      randomSeed: "test-seed",
       schemaHash: "test-schema-hash",
     },
   };
