@@ -69,6 +69,17 @@ export default defineConfig({
         }
       ],
 
+      '/packages/intent-ir/': [
+        {
+          text: '@manifesto-ai/intent-ir',
+          items: [
+            { text: 'Overview', link: '/packages/intent-ir/README' },
+            { text: 'Specification', link: '/packages/intent-ir/SPEC' },
+            { text: 'Design Rationale', link: '/packages/intent-ir/FDR' },
+          ]
+        }
+      ],
+
       '/what-is-manifesto/': [
         {
           text: 'What is Manifesto',
@@ -137,6 +148,7 @@ export default defineConfig({
             { text: 'React Spec', link: '/specifications/react-spec' },
             { text: 'Memory Spec', link: '/specifications/memory-spec' },
             { text: 'Translator Spec', link: '/specifications/translator-spec' },
+            { text: 'Intent IR Spec', link: '/specifications/intent-ir-spec' },
             { text: 'Effect Utils Spec', link: '/specifications/effect-utils-spec' },
             { text: 'Lab Spec', link: '/specifications/lab-spec' },
           ]
@@ -174,6 +186,7 @@ export default defineConfig({
             { text: 'React FDR', link: '/rationale/react-fdr' },
             { text: 'Memory FDR', link: '/rationale/memory-fdr' },
             { text: 'Translator FDR', link: '/rationale/translator-fdr' },
+            { text: 'Intent IR FDR', link: '/rationale/intent-ir-fdr' },
             { text: 'Effect Utils FDR', link: '/rationale/effect-utils-fdr' },
             { text: 'Lab FDR', link: '/rationale/lab-fdr' },
           ]
