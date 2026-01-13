@@ -33,6 +33,8 @@
 
 This document defines the **Manifesto World Protocol**.
 
+World is the **governance layer** that maintains the complete history of coordinate transitions in Manifesto's semantic space. Every position change is recorded as a Decision in the lineage DAG, ensuring full accountability of how the system navigated through semantic space.
+
 The World Protocol governs:
 - **Who** may propose changes to a world (Actor)
 - **How** proposals are judged (Authority)

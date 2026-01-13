@@ -9,7 +9,8 @@
 ## Table of Contents
 
 1. [Purpose of This Document](#1-purpose-of-this-document)
-2. [FDR-001: Core as Calculator](#fdr-001-core-as-calculator)
+2. [FDR-000: Semantic Space Foundation](#fdr-000-semantic-space-foundation)
+3. [FDR-001: Core as Calculator](#fdr-001-core-as-calculator)
 3. [FDR-002: Snapshot as Only Medium](#fdr-002-snapshot-as-only-medium)
 4. [FDR-003: No Pause/Resume](#fdr-003-no-pauseresume)
 5. [FDR-004: Effects as Declarations](#fdr-004-effects-as-declarations)
@@ -43,6 +44,82 @@ For each decision, we document:
 | **Consequences** | What this enables and constrains |
 
 These decisions are **constitutional** — they define what Manifesto IS and IS NOT.
+
+---
+
+## FDR-000: Semantic Space Foundation
+
+### Decision
+
+Manifesto treats **domain state as coordinates in a semantic space** defined by schema.
+
+### Context
+
+State management systems traditionally focus on **data mutation**:
+
+```typescript
+// Traditional approach
+state.count = state.count + 1;
+state.items.push(newItem);
+```
+
+This leads to:
+- **Non-deterministic behavior**: Order-dependent updates produce different results
+- **Untraceable changes**: No history of how we arrived at current state
+- **Unexplainable values**: Cannot answer "why is this the current state?"
+
+### The Semantic Space Model
+
+| Concept | Role in Manifesto |
+|---------|-------------------|
+| **DomainSchema** | Defines the semantic space — dimensions (fields), valid regions (types), navigation rules (actions) |
+| **Snapshot** | A coordinate — one point in that space |
+| **Intent** | A navigation command — where to move in the space |
+| **Computation** | Coordinate calculation — finding the next valid position |
+
+```
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
+        ↓        ↓         ↓        ↓              ↓           ↓          ↓
+      space   current   navigation  env        next coord   effects   path taken
+      defn    coord     command
+```
+
+### Rationale
+
+By modeling state as a semantic space:
+
+1. **Determinism**: Same coordinate + same navigation = same destination. Always.
+2. **Accountability**: Every coordinate transition is recorded (lineage DAG).
+3. **Explainability**: Every position can trace its derivation path through semantic space.
+
+The key insight:
+
+> Traditional state management asks: *"How do I mutate this data?"*
+> Manifesto asks: *"What is the next valid position in semantic space?"*
+
+This shift from data mutation to coordinate calculation is what enables all other guarantees.
+
+### Consequences
+
+| Enables | Constrains |
+|---------|------------|
+| Complete state tracking | Schema must be defined upfront |
+| Reproducible computation | All state must be serializable |
+| Path-based explanation | Requires coordinate-aware tooling |
+| Semantic versioning | Schema evolution must be managed |
+
+### Why This Is FDR-000
+
+This decision is numbered 000 because it is the **foundational insight** upon which all other design decisions build. Every subsequent FDR can be understood as a consequence of this spatial model:
+
+- FDR-001 (Core as Calculator): Core computes coordinate transitions
+- FDR-002 (Snapshot as Only Medium): Snapshot is the coordinate representation
+- FDR-003 (No Pause/Resume): Each computation is a single coordinate calculation
+- FDR-004 (Effects as Declarations): Effects are requirements to reach a destination
+
+### Canonical Statement
+
+> **Domain state is a coordinate in semantic space. Computation is navigation.**
 
 ---
 
@@ -1013,39 +1090,39 @@ This equation is:
 ## Appendix: Decision Dependency Graph
 
 ```
-FDR-001 (Core as Calculator)
+FDR-000 (Semantic Space Foundation)
     │
-    ├─► FDR-002 (Snapshot as Only Medium)
+    ├─► FDR-001 (Core as Calculator)
     │       │
-    │       ├─► FDR-003 (No Pause/Resume)
+    │       ├─► FDR-002 (Snapshot as Only Medium)
+    │       │       │
+    │       │       ├─► FDR-003 (No Pause/Resume)
+    │       │       │
+    │       │       ├─► FDR-007 (No Value Binding)
+    │       │       │
+    │       │       └─► FDR-008 (Call Without Arguments)
     │       │
-    │       ├─► FDR-007 (No Value Binding)
+    │       ├─► FDR-004 (Effects as Declarations)
+    │       │       │
+    │       │       └─► FDR-013 (Host Responsibility Boundary)
     │       │
-    │       └─► FDR-008 (Call Without Arguments)
-    │
-    ├─► FDR-004 (Effects as Declarations)
+    │       ├─► FDR-005 (Errors as Values)
     │       │
-    │       └─► FDR-013 (Host Responsibility Boundary)
+    │       └─► FDR-006 (Flow Not Turing-Complete)
     │
-    ├─► FDR-005 (Errors as Values)
-    │
-    └─► FDR-006 (Flow Not Turing-Complete)
-
-FDR-009 (Schema-First)
-    │
-    ├─► FDR-010 (Canonical Form)
-    │
-    └─► FDR-011 (Computed as DAG)
+    └─► FDR-009 (Schema-First)
+            │
+            ├─► FDR-010 (Canonical Form)
+            │
+            └─► FDR-011 (Computed as DAG)
 
 FDR-012 (Three Patch Operations)
     │
     └─► FDR-015 (Static Patch Paths)
-
-FDR-015 (Static Patch Paths)
-    │
-    ├─► Depends on FDR-001 (Core is pure, no execution in apply)
-    ├─► Depends on FDR-002 (All info through Snapshot)
-    └─► Depends on FDR-004 (Dynamic values = IO = Effects)
+            │
+            ├─► Depends on FDR-001 (Core is pure, no execution in apply)
+            ├─► Depends on FDR-002 (All info through Snapshot)
+            └─► Depends on FDR-004 (Dynamic values = IO = Effects)
 ```
 
 ---

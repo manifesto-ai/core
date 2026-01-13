@@ -21,6 +21,39 @@ This is not API documentation. This is structural understanding.
 
 ---
 
+## The Semantic Space Model
+
+Before understanding the layers and components, grasp the foundational model that drives all of Manifesto's architecture:
+
+**Manifesto treats domain state as coordinates in a semantic space.**
+
+| Concept | In Manifesto |
+|---------|--------------|
+| **Schema** | Defines the semantic space — dimensions, valid regions, navigation rules |
+| **Snapshot** | A coordinate — one point in that space |
+| **Intent** | A navigation command — where to move in the space |
+| **Computation** | Coordinate calculation — finding the next valid position |
+
+```
+compute(schema, snapshot, intent) → snapshot'
+        ↓        ↓         ↓           ↓
+      space   current   navigation    next
+      defn    coord     command       coord
+```
+
+This model explains **why** Manifesto guarantees:
+
+- **Determinism**: Same coordinate + same navigation = same destination. Always.
+- **Accountability**: Every coordinate transition is recorded in the lineage DAG.
+- **Explainability**: Every position can trace its derivation path through semantic space.
+
+Traditional state management asks: *"How do I mutate this data?"*
+Manifesto asks: *"What is the next valid position in semantic space?"*
+
+This shift from data mutation to coordinate calculation is the foundational insight that enables all other guarantees.
+
+---
+
 ## The Core Architectural Principles
 
 ### Principle 1: Separation of Concerns
