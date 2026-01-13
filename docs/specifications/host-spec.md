@@ -1,10 +1,21 @@
 # Host Contract SPEC v1.1 Patch Document (Rev.5)
 
-> **Patch Target:** Host Contract SPEC v1.0 → v1.1  
-> **Status:** Draft for Review (Rev.5)  
-> **Date:** 2026-01-04  
-> **Revision:** All GO-Blocking issues resolved (including snapshot.data, boolean-only condition)  
+> **Patch Target:** Host Contract SPEC v1.0 → v1.1
+> **Status:** Draft for Review (Rev.5)
+> **Date:** 2026-01-04
+> **Revision:** All GO-Blocking issues resolved (including snapshot.data, boolean-only condition)
 > **Depends On:** MEL SPEC v0.4.0
+
+---
+
+## Overview
+
+Host is the **execution layer** that realizes coordinate transitions calculated by Core. In Manifesto's semantic space model:
+
+- **Core** determines: "Where should we be in semantic space?"
+- **Host** handles: "How do we get there in the physical world?"
+
+Host executes effects, applies patches, and orchestrates the compute-effect cycle—transforming the abstract coordinate calculation into concrete state changes.
 
 ---
 

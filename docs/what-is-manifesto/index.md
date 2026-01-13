@@ -16,6 +16,34 @@ This section provides multiple entry points depending on your background and nee
 
 ---
 
+## The Core Insight
+
+Manifesto is built on a single powerful idea: **your domain state is a coordinate in a semantic space**.
+
+| Concept | In Manifesto |
+|---------|--------------|
+| **Domain Schema** | Defines the semantic space (dimensions, constraints, navigation rules) |
+| **Snapshot** | A coordinate (point) in that space |
+| **Intent** | A navigation command (where to move) |
+| **Computation** | Calculating the next valid coordinate |
+
+```
+compute(schema, snapshot, intent) → snapshot'
+        ↓        ↓         ↓           ↓
+      space   current   navigation    next
+      defn    coord     command       coord
+```
+
+Traditional state management asks: *"How do I update this data?"*
+Manifesto asks: *"What is the next valid position in semantic space?"*
+
+This shift enables:
+- **Determinism** — Same coordinate + same navigation = same destination
+- **Accountability** — Every coordinate transition is recorded
+- **Explainability** — Every position can trace its derivation path
+
+---
+
 ## What You'll Learn
 
 ### Quick Understanding

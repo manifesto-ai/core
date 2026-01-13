@@ -27,6 +27,34 @@ Intent → Core (compute) → Patches + Effects → Host (execute) → New Snaps
 
 ---
 
+## The Foundational Insight
+
+Manifesto is built on a single powerful idea: **your domain state is a coordinate in a semantic space**.
+
+| Concept | In Manifesto |
+|---------|--------------|
+| **Domain Schema** | Defines the semantic space (dimensions, valid regions, navigation rules) |
+| **Snapshot** | A coordinate — one point in that space |
+| **Intent** | A navigation command — where to move in the space |
+| **Computation** | Coordinate calculation — finding the next valid position |
+
+```
+compute(schema, snapshot, intent) → snapshot'
+        ↓        ↓         ↓           ↓
+      space   current   navigation    next
+      defn    coord     command       coord
+```
+
+Traditional state management asks: *"How do I mutate this data?"*
+Manifesto asks: *"What is the next valid position in semantic space?"*
+
+This shift is why Manifesto guarantees:
+- **Determinism** — Same coordinate + same navigation = same destination
+- **Accountability** — Every coordinate transition is recorded (lineage)
+- **Explainability** — Every position can trace its derivation path
+
+---
+
 ## What This Is NOT
 
 | Manifesto is NOT... | Instead, it is... |

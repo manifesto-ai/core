@@ -32,6 +32,8 @@
 
 `@manifesto-ai/builder` is the **DX layer** for Manifesto.
 
+Builder provides a type-safe DSL for **defining semantic spaces**. Each schema you create establishes the dimensions (state fields), constraints (types), and navigation rules (actions) of your domain's semantic space.
+
 It provides:
 
 - `defineDomain` to author `DomainSchema` with **Zod-first typing**

@@ -91,7 +91,27 @@
 - Runtime — Core is a subset of runtime functionality
 - Engine — Core does not "run" anything; it computes
 
-**See also:** [Host](#host), [Snapshot](#snapshot)
+**See also:** [Host](#host), [Snapshot](#snapshot), [Semantic Space](#semantic-space)
+
+---
+
+### Coordinate
+
+**Definition:** A single point in a semantic space, represented by a Snapshot. The complete state of a domain at a specific moment in time.
+
+**Key insight:** Traditional state management treats state as data to mutate. Manifesto treats state as a coordinate to navigate.
+
+**See also:** [Semantic Space](#semantic-space), [Snapshot](#snapshot)
+
+---
+
+### Coordinate Calculation
+
+**Definition:** The process by which Core determines the next valid position in semantic space given current position and navigation intent. This is the fundamental operation of Manifesto.
+
+**Equation:** `compute(schema, snapshot, intent) → snapshot'`
+
+**See also:** [Core](#core), [Coordinate](#coordinate)
 
 ---
 
@@ -314,9 +334,25 @@
 
 ## S
 
+### Semantic Space
+
+**Definition:** The mathematical space defined by a DomainSchema. Each dimension corresponds to a state field or computed field. Valid regions are constrained by types and invariants. Navigation rules are defined by actions.
+
+**The foundational model:**
+- Schema = space definition (dimensions, constraints, rules)
+- Snapshot = coordinate (current position)
+- Intent = navigation command (where to go)
+- Computation = coordinate calculation (finding next position)
+
+**Key insight:** Traditional state management asks "How do I mutate this data?" Manifesto asks "What is the next valid position in semantic space?"
+
+**See also:** [Coordinate](#coordinate), [DomainSchema](#domainschema), [Snapshot](#snapshot)
+
+---
+
 ### Snapshot
 
-**Definition:** The complete state of a system at a point in time. Snapshot is the single source of truth and the only communication channel between Core and Host.
+**Definition:** The complete state of a system at a point in time. In the semantic space model, a Snapshot is a coordinate—one point in the space defined by the schema. Snapshot is the single source of truth and the only communication channel between Core and Host.
 
 **Structure:**
 - `data` — Domain state
@@ -371,6 +407,8 @@
 | Bridge | Two-way binding between UI and domain |
 | Builder | Type-safe domain authoring DSL |
 | Computed | Derived values from state |
+| **Coordinate** | A point in semantic space (Snapshot) |
+| **Coordinate Calculation** | Finding the next valid position in semantic space |
 | Core | Pure computation layer |
 | Decision Record | Immutable audit of judgment |
 | DomainModule | Output of defineDomain() |
@@ -387,7 +425,8 @@
 | Projection | Routes SourceEvent to IntentBody |
 | Proposal | Accountability envelope for Intent |
 | Requirement | Pending Effect to execute |
-| Snapshot | Complete state at a point in time |
+| **Semantic Space** | Mathematical space defined by DomainSchema |
+| Snapshot | Complete state at a point in time (a coordinate) |
 | SourceEvent | External event from UI/API/Agent |
 | World | Immutable committed Snapshot |
 

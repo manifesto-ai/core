@@ -14,6 +14,35 @@ Core Concepts are the fundamental building blocks of Manifesto's mental model. U
 
 ---
 
+## The Foundational Model: Semantic Space
+
+Before understanding individual concepts, grasp the underlying model:
+
+**A domain is a semantic space.** The schema defines its dimensions—what properties exist, what values are valid, what computations derive new values. Every possible state is a point in this space.
+
+**A snapshot is a coordinate.** At any moment, your application occupies exactly one point in semantic space. The snapshot captures this position completely.
+
+**Computation is coordinate calculation.** When an intent arrives, Core calculates: "Given where we are and where we want to go, what is the next valid coordinate?"
+
+```
+compute(schema, snapshot, intent) → snapshot'
+        ↓        ↓         ↓           ↓
+      space   current   navigation    next
+      defn    coord     command       coord
+```
+
+This is why Manifesto is called a "semantic calculator"—it computes positions in meaning-space, not just data transformations.
+
+All six concepts below derive from this foundational model:
+- **Snapshot** is the coordinate representation
+- **Intent** is the navigation command
+- **Effect** is a required external operation to reach the destination
+- **Flow** describes the calculation procedure
+- **Host** performs the physical work of moving to the new coordinate
+- **World** governs which navigation commands are permitted
+
+---
+
 ## The Six Core Concepts
 
 ### 1. [Snapshot](./snapshot)

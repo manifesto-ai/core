@@ -101,7 +101,36 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 The Snapshot Principle
+### 3.3 The Semantic Space Model
+
+Manifesto operates on the foundational principle that **domain state forms a semantic space**:
+
+| Concept | Role in Manifesto |
+|---------|-------------------|
+| **DomainSchema** | Defines the semantic space — dimensions (fields), valid regions (types), navigation rules (actions) |
+| **Snapshot** | A coordinate — one point in that space |
+| **Intent** | A navigation command — where to move in the space |
+| **Computation** | Coordinate calculation — finding the next valid position |
+
+```
+compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
+        ↓        ↓         ↓        ↓              ↓           ↓          ↓
+      space   current   navigation  env        next coord   effects   path taken
+      defn    coord     command
+```
+
+**Why this model matters:**
+
+- **Determinism**: Same coordinate + same navigation = same destination. Always.
+- **Accountability**: Every coordinate transition is recorded (lineage).
+- **Explainability**: Every position can trace its derivation path through semantic space.
+
+Traditional state management asks: *"How do I mutate this data?"*
+Manifesto asks: *"What is the next valid position in semantic space?"*
+
+This shift from data mutation to coordinate calculation is what enables all other guarantees.
+
+### 3.4 The Snapshot Principle
 
 > **All communication happens through Snapshot. There is no other channel.**
 
@@ -121,7 +150,7 @@ RIGHT:  effect('api:call')             // Declares requirement
         if snapshot.api.result.ok then ...
 ```
 
-### 3.4 Computation Model
+### 3.5 Computation Model
 
 Each `compute()` call is **complete and independent**:
 
