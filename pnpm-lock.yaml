@@ -674,27 +674,9 @@ importers:
 
   packages/translator:
     dependencies:
-      '@manifesto-ai/bridge':
-        specifier: ^1.0.0
-        version: 1.0.0(@manifesto-ai/core@packages+core)(@manifesto-ai/host@packages+host)(@manifesto-ai/world@packages+world)
-      ink:
-        specifier: ^5.0.1
-        version: 5.2.1(@types/react@18.3.27)(react@18.3.1)
-      ink-select-input:
-        specifier: ^6.0.0
-        version: 6.2.0(ink@5.2.1(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
-      ink-spinner:
-        specifier: ^5.0.0
-        version: 5.0.0(ink@5.2.1(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
-      ink-text-input:
-        specifier: ^6.0.0
-        version: 6.0.0(ink@5.2.1(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
-      meow:
-        specifier: ^13.2.0
-        version: 13.2.0
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
+      '@manifesto-ai/intent-ir':
+        specifier: workspace:*
+        version: link:../intent-ir
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -702,18 +684,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.26.0
         version: 0.26.1
-      '@manifesto-ai/core':
+      '@manifesto-ai/app':
         specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../host
-      '@manifesto-ai/memory':
-        specifier: workspace:*
-        version: link:../memory
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
+        version: link:../app
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.3
@@ -1618,13 +1591,6 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       '@langchain/core': ^1.0.0
-
-  '@manifesto-ai/bridge@1.0.0':
-    resolution: {integrity: sha512-W8OMJcOQiqxHoU1LDSTbG8xifGoq0U7RCJHbJXpTbiIOanhJpWRrDD3XNbzloVUwvxoifcEn7Z5Xo0zpdiI+WA==}
-    peerDependencies:
-      '@manifesto-ai/core': ^1.0.0
-      '@manifesto-ai/host': ^1.0.0
-      '@manifesto-ai/world': ^1.0.0
 
   '@manifesto-ai/host@1.0.0':
     resolution: {integrity: sha512-tou/fIDBW8nzh+kiI/fJiT34U1bkqpMD0f2tyxJaoiwnZRPEPyp3ZYUPz0ICJXNTMufogV4KNLeKejmgU6ubyA==}
@@ -4302,13 +4268,6 @@ packages:
     peerDependencies:
       ink: '>=4.0.0'
       react: '>=18.0.0'
-
-  ink-text-input@6.0.0:
-    resolution: {integrity: sha512-Fw64n7Yha5deb1rHY137zHTAbSTNelUKuB5Kkk2HACXEtwIHBCf9OH2tP/LQ9fRYTl1F0dZgbW0zPnZk6FA9Lw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      ink: '>=5'
-      react: '>=18'
 
   ink@5.2.1:
     resolution: {integrity: sha512-BqcUyWrG9zq5HIwW6JcfFHsIYebJkWWb4fczNah1goUO0vv5vneIlfwuS85twyJ5hYR/y18FlAYUxrO9ChIWVg==}
@@ -7237,12 +7196,6 @@ snapshots:
       zod: 4.3.5
     transitivePeerDependencies:
       - ws
-
-  '@manifesto-ai/bridge@1.0.0(@manifesto-ai/core@packages+core)(@manifesto-ai/host@packages+host)(@manifesto-ai/world@packages+world)':
-    dependencies:
-      '@manifesto-ai/core': link:packages/core
-      '@manifesto-ai/host': link:packages/host
-      '@manifesto-ai/world': link:packages/world
 
   '@manifesto-ai/host@1.0.0(@manifesto-ai/core@packages+core)':
     dependencies:
@@ -10509,13 +10462,6 @@ snapshots:
       cli-spinners: 2.9.2
       ink: 5.2.1(@types/react@18.3.27)(react@18.3.1)
       react: 18.3.1
-
-  ink-text-input@6.0.0(ink@5.2.1(@types/react@18.3.27)(react@18.3.1))(react@18.3.1):
-    dependencies:
-      chalk: 5.6.2
-      ink: 5.2.1(@types/react@18.3.27)(react@18.3.1)
-      react: 18.3.1
-      type-fest: 4.41.0
 
   ink@5.2.1(@types/react@18.3.27)(react@18.3.1):
     dependencies:

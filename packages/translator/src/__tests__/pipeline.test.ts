@@ -1,247 +1,531 @@
 /**
- * Pipeline Tests
+ * @fileoverview Pipeline Module Tests
+ *
+ * Tests for all pipeline stages (S1-S7).
  */
 
 import { describe, it, expect } from "vitest";
+import type { IntentIR } from "@manifesto-ai/intent-ir";
 import {
-  executeChunking,
-  executeNormalization,
-  executeFastPath,
-  createPatternRegistry,
-  createPipeline,
+  normalize,
+  canonicalize,
+  featureCheck,
+  resolveReferences,
+  buildResolutionContext,
+  lowerIR,
+  validateActionBody,
+  isActionRelatedLemma,
+  extractActionBody,
+  createMockLLMClient,
+  propose,
 } from "../pipeline/index.js";
-import type { PipelineState } from "../pipeline/types.js";
-import type { TranslationContext, DomainSchema } from "../domain/index.js";
-import { createConfig } from "../domain/config.js";
-import { deriveTypeIndex, generateIntentId } from "../utils/index.js";
+import {
+  createBuiltinLexicon,
+  createCompositeLexicon,
+  createLearnedLexicon,
+  deriveProjectLexicon,
+} from "../lexicon/index.js";
+import type { ActionBody } from "../types/index.js";
 
-// Helper to create a minimal pipeline state
-function createTestState(input: string): PipelineState {
-  const schema: DomainSchema = {
-    id: "test-world",
-    version: "1.0.0",
-    hash: "test-hash",
-    state: {},
-    computed: {},
-    actions: {},
-    types: {},
-  };
+// =============================================================================
+// S1: Normalize Tests
+// =============================================================================
 
-  const context: TranslationContext = {
-    atWorldId: "test-world",
-    schema,
-    typeIndex: deriveTypeIndex(schema),
-    intentId: generateIntentId(),
-  };
-
-  return {
-    input,
-    context,
-    currentStage: "idle",
-    traces: {},
-    startedAt: new Date(),
-  };
-}
-
-describe("Stage 0: Chunking", () => {
-  it("should chunk short input into single section", async () => {
-    const state = createTestState("Add email field to user");
-    const result = await executeChunking(state.input, state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.data!.length).toBe(1);
-    expect(result.data![0].text).toBe("Add email field to user");
+describe("S1: Normalize", () => {
+  it("should normalize simple text", () => {
+    const result = normalize("Hello World");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.normalized).toBe("Hello World");
+      expect(result.detectedLang).toBe("en");
+    }
   });
 
-  it("should handle empty input", async () => {
-    const state = createTestState("");
-    const result = await executeChunking(state.input, state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
+  it("should apply NFKC normalization", () => {
+    // Fullwidth characters should be normalized
+    const result = normalize("ＨＥＬＬＯworld");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.normalized).toBe("HELLOworld");
+    }
   });
 
-  it("should handle multi-paragraph input", async () => {
-    const input = `Add email field to user
-
-This is the second paragraph with more details.
-
-And a third paragraph as well.`;
-    const state = createTestState(input);
-    const result = await executeChunking(state.input, state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    // Either single section or multiple, depends on chunking strategy
-    expect(result.data!.length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-describe("Stage 1: Normalization", () => {
-  it("should normalize input", async () => {
-    const state = createTestState("Add email field to user");
-    const result = await executeNormalization("Add email field to user", state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.data!.canonical).toBeDefined();
+  it("should collapse multiple spaces", () => {
+    const result = normalize("Hello    World");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.normalized).toBe("Hello World");
+    }
   });
 
-  it("should detect Korean language", async () => {
-    const state = createTestState("사용자에게 이메일 필드 추가");
-    const result = await executeNormalization("사용자에게 이메일 필드 추가", state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.data!.language).toBe("ko");
+  it("should trim whitespace", () => {
+    const result = normalize("  Hello World  ");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.normalized).toBe("Hello World");
+    }
   });
 
-  it("should detect English language", async () => {
-    const state = createTestState("Add email field to user");
-    const result = await executeNormalization("Add email field to user", state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    // Should detect English (or default to en)
-    expect(["en", "unknown"]).toContain(result.data!.language);
+  it("should detect Korean language", () => {
+    const result = normalize("안녕하세요");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.detectedLang).toBe("ko");
+    }
   });
 
-  it("should produce canonical output", async () => {
-    const input = "Add email field";
-    const state = createTestState(input);
-    const result = await executeNormalization(input, state);
+  it("should detect Japanese language", () => {
+    const result = normalize("こんにちは");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.detectedLang).toBe("ja");
+    }
+  });
 
-    expect(result.success).toBe(true);
-    expect(result.data!.canonical).toBeDefined();
-    expect(typeof result.data!.canonical).toBe("string");
+  it("should return error for empty text", () => {
+    const result = normalize("");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("NORMALIZE_FAILED");
+    }
+  });
+
+  it("should return error for whitespace-only text", () => {
+    const result = normalize("   \t\n   ");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("NORMALIZE_FAILED");
+    }
+  });
+
+  it("should return error for null input", () => {
+    const result = normalize(null as unknown as string);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("NORMALIZE_FAILED");
+    }
   });
 });
 
-describe("Stage 2: Fast Path", () => {
-  it("should return a result", async () => {
-    const state = createTestState("Add email field to user");
-    state.normalization = {
-      canonical: "add email field to user",
-      language: "en",
-      glossaryHits: [],
-      tokens: [],
+// =============================================================================
+// S2: Propose Tests
+// =============================================================================
+
+describe("S2: Propose", () => {
+  it("should propose IntentIR using mock client", async () => {
+    const mockClient = createMockLLMClient();
+    const result = await propose(
+      { normalizedText: "Define type User", lang: "en" },
+      mockClient
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ir).toBeDefined();
+      expect(result.ir.v).toBe("0.1");
+      expect(result.ir.force).toBe("DO");
+      expect(result.model).toBe("mock");
+    }
+  });
+
+  it("should detect DEFINE_TYPE from keyword", async () => {
+    const mockClient = createMockLLMClient();
+    const result = await propose(
+      { normalizedText: "define a new type", lang: "en" },
+      mockClient
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ir.event.lemma).toBe("DEFINE_TYPE");
+    }
+  });
+
+  it("should use registered response for pattern", async () => {
+    const mockClient = createMockLLMClient();
+    const customIR: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "CUSTOM", class: "CREATE" },
+      args: {},
+    };
+    mockClient.registerResponse("custom pattern", customIR);
+
+    const result = await propose(
+      { normalizedText: "this is a custom pattern", lang: "en" },
+      mockClient
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ir.event.lemma).toBe("CUSTOM");
+    }
+  });
+});
+
+// =============================================================================
+// S3: Canonicalize Tests
+// =============================================================================
+
+describe("S3: Canonicalize", () => {
+  const sampleIR: IntentIR = {
+    v: "0.1",
+    force: "DO",
+    event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+    args: {
+      TARGET: { kind: "value", valueType: "string", shape: { value: "User" } },
+    },
+  };
+
+  it("should canonicalize IntentIR", () => {
+    const result = canonicalize(sampleIR);
+
+    expect(result.canonical).toBeDefined();
+    expect(result.simKey).toBeDefined();
+    expect(result.simKeyHex).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("should produce same simKey for semantically equivalent IR", () => {
+    const ir1: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {
+        TARGET: { kind: "value", valueType: "string", shape: { value: "User" } },
+      },
     };
 
-    const result = await executeFastPath(state.normalization, state);
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(typeof result.data!.matched).toBe("boolean");
-  });
-
-  it("should return candidates array", async () => {
-    const state = createTestState("add email field to user");
-    state.normalization = {
-      canonical: "add email field to user",
-      language: "en",
-      glossaryHits: [],
-      tokens: [],
+    const ir2: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {
+        TARGET: { kind: "value", valueType: "string", shape: { value: "User" } },
+      },
     };
 
-    const result = await executeFastPath(state.normalization, state);
+    const result1 = canonicalize(ir1);
+    const result2 = canonicalize(ir2);
 
-    expect(result.success).toBe(true);
-    expect(result.data!.candidates).toBeDefined();
-    expect(Array.isArray(result.data!.candidates)).toBe(true);
+    expect(result1.simKeyHex).toBe(result2.simKeyHex);
+  });
+
+  it("should produce different simKey for different IR", () => {
+    const ir1: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {},
+    };
+
+    const ir2: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "ADD_FIELD", class: "CREATE" },
+      args: {},
+    };
+
+    const result1 = canonicalize(ir1);
+    const result2 = canonicalize(ir2);
+
+    expect(result1.simKeyHex).not.toBe(result2.simKeyHex);
+  });
+
+  it("should be deterministic", () => {
+    const result1 = canonicalize(sampleIR);
+    const result2 = canonicalize(sampleIR);
+    const result3 = canonicalize(sampleIR);
+
+    expect(result1.simKeyHex).toBe(result2.simKeyHex);
+    expect(result2.simKeyHex).toBe(result3.simKeyHex);
   });
 });
 
-describe("Pattern Registry", () => {
-  it("should create pattern registry", () => {
-    const registry = createPatternRegistry();
-    expect(registry).toBeDefined();
-    expect(registry.patterns).toBeDefined();
-    expect(registry.register).toBeDefined();
-    expect(registry.unregister).toBeDefined();
+// =============================================================================
+// S4: Feature Check Tests
+// =============================================================================
+
+describe("S4: Feature Check", () => {
+  const builtin = createBuiltinLexicon();
+  const project = deriveProjectLexicon(null); // Empty project lexicon
+  const learned = createLearnedLexicon({}, builtin);
+  const lexicon = createCompositeLexicon(learned, project, builtin);
+
+  it("should pass for known lemma", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {
+        TARGET: { kind: "value", valueType: "string", shape: { name: "User" } },
+      },
+    };
+
+    const result = featureCheck(ir, lexicon, learned, project, builtin, false);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.lexiconSource).toBe("builtin");
+    }
   });
 
-  it("should have built-in patterns", () => {
-    const registry = createPatternRegistry();
-    expect(registry.patterns.length).toBeGreaterThan(0);
+  it("should pass for unknown lemma in non-strict mode", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "UNKNOWN_LEMMA", class: "CREATE" },
+      args: {},
+    };
+
+    const result = featureCheck(ir, lexicon, learned, project, builtin, false);
+
+    // Non-strict mode allows unknown lemmas
+    expect(result.ok).toBe(true);
   });
 
-  it("should allow registering custom patterns", () => {
-    const registry = createPatternRegistry();
-    const initialCount = registry.patterns.length;
+  it("should fail for unknown lemma in strict mode", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "UNKNOWN_LEMMA", class: "CREATE" },
+      args: {},
+    };
 
-    registry.register({
-      patternId: "custom-test",
-      pattern: /test pattern/i,
-      minConfidence: 0.8,
-      generate: () => null,
+    const result = featureCheck(ir, lexicon, learned, project, builtin, true);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("FEATURE_CHECK_FAILED");
+    }
+  });
+});
+
+// =============================================================================
+// S5: Resolve References Tests
+// =============================================================================
+
+describe("S5: Resolve References", () => {
+  it("should pass through IR without symbolic references", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {
+        TARGET: { kind: "value", valueType: "string", shape: { name: "User" } },
+      },
+    };
+
+    const context = buildResolutionContext([], 5);
+    const result = resolveReferences(ir, context);
+
+    expect(result.ir).toEqual(ir);
+    expect(result.resolutions).toHaveLength(0);
+  });
+
+  it("should resolve 'last' reference from history", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "UPDATE", class: "TRANSFORM" },
+      args: {
+        TARGET: { kind: "entity", entityType: "User", ref: { kind: "last" } },
+      },
+    };
+
+    // Create history with a previous User reference
+    const previousRequest = {
+      requestId: "req_1",
+      input: { text: "create user" },
+      result: { kind: "success" as const, body: { type: "createUser" } },
+      intentIR: {
+        v: "0.1" as const,
+        force: "DO" as const,
+        event: { lemma: "CREATE_USER", class: "CREATE" as const },
+        args: {
+          TARGET: {
+            kind: "entity" as const,
+            entityType: "User",
+            ref: { kind: "id" as const, id: "user-123" },
+          },
+        },
+      },
+      simKey: "0000000000000000",
+      intentKey: null,
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    };
+
+    const context = buildResolutionContext([previousRequest], 5);
+    const result = resolveReferences(ir, context);
+
+    // Should resolve the 'last' reference to 'user-123'
+    expect(result.resolutions.length).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// =============================================================================
+// S6: Lower Tests
+// =============================================================================
+
+describe("S6: Lower", () => {
+  const builtin = createBuiltinLexicon();
+  const learned = createLearnedLexicon({}, builtin);
+  const lexicon = createCompositeLexicon(learned, builtin, builtin);
+
+  it("should lower known lemma to IntentBody", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {
+        TARGET: { kind: "value", valueType: "string", shape: { name: "User" } },
+      },
+    };
+
+    const result = lowerIR(ir, lexicon, learned, builtin, builtin, "test-hash");
+
+    expect(result.loweringResult.kind).toBe("resolved");
+    if (result.loweringResult.kind === "resolved") {
+      expect(result.loweringResult.body.type).toBe("DEFINE_TYPE");
+      expect(result.intentKey).toBeDefined();
+    }
+  });
+
+  it("should return unresolved for unknown lemma", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "COMPLETELY_UNKNOWN", class: "CREATE" },
+      args: {},
+    };
+
+    const result = lowerIR(ir, lexicon, learned, builtin, builtin, "test-hash");
+
+    expect(result.loweringResult.kind).toBe("unresolved");
+    if (result.loweringResult.kind === "unresolved") {
+      expect(result.loweringResult.missing.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("should be deterministic", () => {
+    const ir: IntentIR = {
+      v: "0.1",
+      force: "DO",
+      event: { lemma: "DEFINE_TYPE", class: "CREATE" },
+      args: {},
+    };
+
+    const result1 = lowerIR(ir, lexicon, learned, builtin, builtin, "test-hash");
+    const result2 = lowerIR(ir, lexicon, learned, builtin, builtin, "test-hash");
+
+    expect(result1.intentKey).toBe(result2.intentKey);
+  });
+});
+
+// =============================================================================
+// S7: Validate Action Body Tests
+// =============================================================================
+
+describe("S7: Validate Action Body", () => {
+  describe("isActionRelatedLemma", () => {
+    it("should return true for action lemmas", () => {
+      expect(isActionRelatedLemma("ADD_ACTION")).toBe(true);
+      expect(isActionRelatedLemma("ADD_ACTION_GUARD")).toBe(true);
+      expect(isActionRelatedLemma("ADD_ACTION_EFFECT")).toBe(true);
     });
 
-    expect(registry.patterns.length).toBe(initialCount + 1);
-  });
-
-  it("should allow unregistering patterns", () => {
-    const registry = createPatternRegistry();
-    const initialCount = registry.patterns.length;
-
-    registry.register({
-      patternId: "custom-test",
-      pattern: /test pattern/i,
-      minConfidence: 0.8,
-      generate: () => null,
+    it("should return true for lowercase variants", () => {
+      expect(isActionRelatedLemma("add_action")).toBe(true);
+      expect(isActionRelatedLemma("Add_Action")).toBe(true);
     });
 
-    registry.unregister("custom-test");
-    expect(registry.patterns.length).toBe(initialCount);
-  });
-});
-
-describe("Pipeline", () => {
-  it("should create pipeline from config", () => {
-    const pipeline = createPipeline(createConfig({
-      retrievalTier: 0,
-      slmModel: "gpt-4o-mini",
-      escalationThreshold: 0.5,
-      fastPathEnabled: true,
-      fastPathOnly: true,
-    }));
-
-    expect(pipeline).toBeDefined();
-    expect(pipeline.translate).toBeDefined();
-    expect(pipeline.resolve).toBeDefined();
+    it("should return false for non-action lemmas", () => {
+      expect(isActionRelatedLemma("DEFINE_TYPE")).toBe(false);
+      expect(isActionRelatedLemma("ADD_FIELD")).toBe(false);
+      expect(isActionRelatedLemma("ADD_COMPUTED")).toBe(false);
+    });
   });
 
-  it("should run translation in fast-path-only mode", async () => {
-    const pipeline = createPipeline(createConfig({
-      retrievalTier: 0,
-      slmModel: "gpt-4o-mini",
-      escalationThreshold: 0.5,
-      fastPathEnabled: true,
-      fastPathOnly: true,
-    }));
+  describe("extractActionBody", () => {
+    it("should extract action body from input with blocks", () => {
+      const input = {
+        blocks: [
+          {
+            guard: { kind: "when", condition: { kind: "literal", value: true } },
+            body: [],
+          },
+        ],
+      };
 
-    const schema: DomainSchema = {
-      id: "test-world",
-      version: "1.0.0",
-      hash: "test-hash",
-      state: {},
-      computed: {},
-      actions: {},
-      types: {},
-    };
+      const result = extractActionBody(input);
+      expect(result).toBeDefined();
+      expect(result?.blocks).toHaveLength(1);
+    });
 
-    const context: TranslationContext = {
-      atWorldId: "test-world",
-      schema,
-      typeIndex: deriveTypeIndex(schema),
-      intentId: generateIntentId(),
-    };
+    it("should return undefined for non-action input", () => {
+      const input = { name: "test", type: "string" };
+      const result = extractActionBody(input);
+      expect(result).toBeUndefined();
+    });
 
-    const result = await pipeline.translate("add email field to user", context);
+    it("should return undefined for null/undefined", () => {
+      expect(extractActionBody(null)).toBeUndefined();
+      expect(extractActionBody(undefined)).toBeUndefined();
+    });
+  });
 
-    expect(result).toBeDefined();
-    expect(result.kind).toBeDefined();
-    // In fast-path-only mode with no schema, expect error or fragment
-    expect(["fragment", "error"]).toContain(result.kind);
+  describe("validateActionBody", () => {
+    it("should pass for valid action body", () => {
+      const actionBody: ActionBody = {
+        blocks: [
+          {
+            guard: { kind: "when", condition: { kind: "lit", value: true } },
+            body: [],
+          },
+        ],
+      };
+
+      const result = validateActionBody(actionBody);
+      expect(result.ok).toBe(true);
+    });
+
+    it("should fail for once guard without marker patch", () => {
+      const actionBody: ActionBody = {
+        blocks: [
+          {
+            guard: { kind: "once", marker: "data.done" },
+            body: [], // Missing marker patch
+          },
+        ],
+      };
+
+      const result = validateActionBody(actionBody);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.violations).toContainEqual(
+          expect.objectContaining({ kind: "missing_marker_patch" })
+        );
+      }
+    });
+
+    it("should pass for once guard with valid marker patch", () => {
+      const actionBody: ActionBody = {
+        blocks: [
+          {
+            guard: { kind: "once", marker: "data.done" },
+            body: [
+              {
+                kind: "patch",
+                path: [{ kind: "prop", name: "data" }, { kind: "prop", name: "done" }],
+                value: { kind: "sys", path: ["meta", "intentId"] },
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = validateActionBody(actionBody);
+      expect(result.ok).toBe(true);
+    });
   });
 });

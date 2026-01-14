@@ -1,191 +1,250 @@
 /**
- * @manifesto-ai/translator
+ * @fileoverview Translator App Public API
  *
- * Translator 1.1.1v - Natural language to semantic change proposals
+ * Transforms natural language (PF) into IntentBody via IntentIR.
  *
- * Per SPEC-1.1.1v:
- * - Translator is a Compiler Frontend with Deterministic Contracts
- * - 6-stage pipeline: Chunking → Normalization → Fast Path → Retrieval → Memory → Proposer → Assembly
- * - Output: PatchFragment[] | AmbiguityReport | TranslationError
- *
- * Three Architectural Pillars:
- * 1. World is the Premise - cannot operate without World
- * 2. Memory is Default - absence triggers graceful degradation
- * 3. Human Escalation is Constitutional - agent auto-resolve forbidden
- *
- * @example
- * ```typescript
- * import { createTranslator, deriveContext } from "@manifesto-ai/translator";
- *
- * // Create translator with configuration
- * const translator = createTranslator({
- *   slmModel: "gpt-4o-mini",
- *   retrievalTier: 0,
- *   fastPathEnabled: true,
- * });
- *
- * // Derive context from World (required)
- * const context = await deriveContext(worldId, { stores });
- *
- * // Translate natural language to semantic changes
- * const result = await translator.translate("Add email field to user profile", context);
- *
- * if (result.kind === "fragment") {
- *   console.log("Fragments:", result.fragments);
- * } else if (result.kind === "ambiguity") {
- *   console.log("Requires Human decision:", result.report);
- * } else {
- *   console.log("Error:", result.error);
- * }
- * ```
+ * @packageDocumentation
+ * @module @manifesto-ai/translator
+ * @version 0.1.0
  */
 
 // =============================================================================
-// Domain Types (SPEC-1.1.1v §6)
+// Types
 // =============================================================================
 
-export * from "./domain/index.js";
+// State & Request Types
+export type {
+  SimKeyHex,
+  PathKeyHex,
+  TranslatorState,
+  TranslatorConfig,
+  TranslateRequest,
+  TranslateResult,
+  TranslateSuccessResult,
+  TranslateAmbiguousResult,
+  TranslateUnresolvedResult,
+  TranslateErrorResult,
+  LoweringResult,
+  ResolvedResult,
+  AmbiguousResult,
+  UnresolvedResult,
+  LoweringEvidence,
+  MissingInfo,
+  FieldMapping,
+  ResolutionRecord,
+  LexiconSource,
+  AmbiguityCandidate,
+  AmbiguityReason,
+} from "./types/index.js";
+
+// Action Types
+export type {
+  TranslateInput,
+  TranslateOutput,
+  LowerInput,
+  LowerOutput,
+  ResolveInput,
+  ResolveOutput,
+  LearnInput,
+  LearnOutput,
+  Resolution,
+  SelectResolution,
+  ProvideResolution,
+  CancelResolution,
+  ConfirmMapping,
+  DirectMapping,
+} from "./types/index.js";
+
+// Lexicon Types
+export type {
+  LearnedEntry,
+  LearnedAliasEntry,
+  LearnedCloneEntry,
+  PendingMapping,
+  MappingSource,
+} from "./types/index.js";
+
+// Error Types
+export type {
+  TranslatorErrorCode,
+  TranslatorError,
+} from "./types/index.js";
+
+// Action Body Types
+export type {
+  ActionBody,
+  GuardedBlock,
+  ActionStmt,
+  ExprNode,
+  ActionBodyViolation,
+} from "./types/index.js";
+
+// Error Factory
+export { createError } from "./types/index.js";
+
+// Type Guards
+export {
+  isOnceGuard,
+  isWhenGuard,
+  isPatchStmt,
+  isEffectStmt,
+  isNestedBlock,
+  isValidMarkerValue,
+  isSysExpr,
+  isSuccessResult,
+  isAmbiguousResult,
+  isUnresolvedResult,
+  isErrorResult,
+  isResolvedLoweringResult,
+  isSelectResolution,
+  isProvideResolution,
+  isCancelResolution,
+  isConfirmMapping,
+  isDirectMapping,
+  isAliasEntry,
+  isCloneEntry,
+} from "./types/index.js";
+
+// State Factory
+export {
+  createInitialState,
+  DEFAULT_CONFIG,
+} from "./types/index.js";
 
 // =============================================================================
-// Public API (to be implemented)
-// =============================================================================
-
-// TODO: Export from ./api/index.js when implemented
-// export { createTranslator, translate, resolve } from "./api/index.js";
-// export { deriveContext } from "./api/derive-context.js";
-
-// =============================================================================
-// Bridge Integration
+// Keys
 // =============================================================================
 
 export {
-  // TranslatorBridge
-  TranslatorBridge,
-  createTranslatorBridge,
-  type TranslatorBridgeConfig,
-  // Projections
-  createTranslateProjection,
-  createResolveProjection,
-  type TranslatePayload,
-  type ResolvePayload,
-  // Source Events
-  createTranslateSourceEvent,
-  createResolveSourceEvent,
-  createCLISourceEvent,
-  createAgentSourceEvent,
-  isTranslatePayload,
-  isResolvePayload,
-  type TranslateEventPayload,
-  type ResolveEventPayload,
-  type CLIEventPayload,
-  type AgentEventPayload,
-} from "./bridge/index.js";
+  serializeSimKey,
+  deserializeSimKey,
+  isValidSimKeyHex,
+} from "./keys/index.js";
 
 // =============================================================================
-// LLM Providers
+// Lexicon
 // =============================================================================
 
 export {
-  // Provider interface
-  type LLMProvider,
-  type ProposeRequest,
-  type ProposeResponse,
-  type ProviderResult,
-  type ProviderMetrics,
-  type TranslationExample,
-  type BaseProviderConfig,
-  type OpenAIProviderConfig,
-  type AnthropicProviderConfig,
-  // Schemas
-  ProposeRequestSchema,
-  ProposeResponseSchema,
-  ProviderMetricsSchema,
-  TranslationExampleSchema,
-  // Providers
-  OpenAIProvider,
-  createOpenAIProvider,
-  AnthropicProvider,
-  createAnthropicProvider,
-  // Factory
-  createLLMProvider,
-  createAutoProvider,
-  getAvailableProviders,
-  type ProviderType,
-  type ProviderConfig,
-} from "./llm/index.js";
+  createBuiltinLexicon,
+  deriveProjectLexicon,
+  createLearnedLexicon,
+  createCompositeLexicon,
+  determineLexiconSource,
+} from "./lexicon/index.js";
 
 // =============================================================================
 // Pipeline
 // =============================================================================
 
+// S1: Normalize
 export {
-  // Pipeline
-  createPipeline,
-  // Stage types
-  type PipelineState,
-  type PipelineConfig,
-  type PipelineStage,
-  type TranslatorPipeline,
-  type PipelineTelemetry,
-  type StageResult,
-  // Stage functions
-  executeChunking,
-  createChunkingTrace,
-  executeNormalization,
-  createNormalizationTrace,
-  executeFastPath,
-  createFastPathTrace,
-  executeAssembly,
-  createAssemblyTrace,
-  buildTranslationResult,
-  // Pattern registry
-  createPatternRegistry,
-  type FastPathPattern,
-  type AssemblyResult,
+  type NormalizeResult,
+  type NormalizeTrace,
+  normalize,
+  createNormalizeTrace,
+} from "./pipeline/index.js";
+
+// S2: Propose
+export {
+  type ProposeInput,
+  type ProposeResult,
+  type ProposeTrace,
+  propose,
+  createProposeTrace,
+} from "./pipeline/index.js";
+
+// LLM Client
+export {
+  type ProposeRequest,
+  type ProposeResponse,
+  type LLMClient,
+  MockLLMClient,
+  createMockLLMClient,
+} from "./pipeline/index.js";
+
+// S3: Canonicalize
+export {
+  type CanonicalizeResult,
+  type CanonicalizeTrace,
+  canonicalize,
+  createCanonicalizeTrace,
+  areSemanticallySame,
+} from "./pipeline/index.js";
+
+// S4: Feature Check
+export {
+  type FeatureCheckResult,
+  type FeatureCheck,
+  type FeatureCheckTrace,
+  featureCheck,
+  createFeatureCheckTrace,
+} from "./pipeline/index.js";
+
+// S5: Resolve References
+export {
+  type ResolveStageOutput,
+  type ResolutionContext,
+  type ResolveStageTrace,
+  buildResolutionContext,
+  resolveReferences,
+  createResolveStageTrace,
+  countSymbolicRefs,
+} from "./pipeline/index.js";
+
+// S6: Lower
+export {
+  type LowerStageResult,
+  type LowerTrace,
+  lowerIR,
+  createLowerTrace,
+  isResolved,
+} from "./pipeline/index.js";
+
+// S7: Validate Action Body
+export {
+  type ValidateActionBodyResult,
+  type ValidateActionBodyTrace,
+  isActionRelatedLemma,
+  validateActionBody,
+  extractActionBody,
+  createValidateActionBodyTrace,
 } from "./pipeline/index.js";
 
 // =============================================================================
-// Utilities
+// Actions
 // =============================================================================
 
+// Translate Action
 export {
-  // Canonicalization
-  canonicalize,
-  validateNoDuplicateKeys,
-  parseAndCanonicalize,
-  // Fragment ID
-  computeFragmentId,
-  verifyFragmentId,
-  generateIntentId,
-  generateTraceId,
-  generateReportId,
-  computeInputHash,
-  // Type Index
-  deriveTypeIndex,
-  getResolvedType,
-  hasPath,
-  getAllPaths,
-  getPathsByPrefix,
-} from "./utils/index.js";
+  type TranslateContext,
+  translate,
+} from "./actions/index.js";
 
-// =============================================================================
-// Effect Handlers (Host Integration)
-// =============================================================================
-
+// Lower Action
 export {
-  createTranslatorEffectHandlers,
-  registerTranslatorEffects,
-  type TranslatorEffectDependencies,
-  type TranslatorEffectRegistry,
-} from "./effects/index.js";
+  type LowerContext,
+  lower,
+} from "./actions/index.js";
 
-// =============================================================================
-// TranslatorHost (Complete Runtime)
-// =============================================================================
-
+// Resolve Action
 export {
-  TranslatorHost,
-  createTranslatorHost,
-  type TranslatorHostConfig,
-  type TranslatorHostResult,
-} from "./host/index.js";
+  type ResolveContext,
+  resolve,
+  findRequest,
+  findAmbiguousRequests,
+  findUnresolvedRequests,
+} from "./actions/index.js";
+
+// Learn Action
+export {
+  type LearnContext,
+  type LearnActionResult,
+  learn,
+  findLearnedEntry,
+  findEntriesByTargetLemma,
+  removeLearnedEntry,
+  listLearnedEntries,
+  findPendingMapping,
+  listPendingMappings,
+} from "./actions/index.js";
