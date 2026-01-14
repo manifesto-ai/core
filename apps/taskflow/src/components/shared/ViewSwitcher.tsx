@@ -2,18 +2,19 @@
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayoutGrid, List, Table2, Trash2 } from 'lucide-react';
-import { useTasksStore, type ViewMode } from '@/store/useTasksStore';
+import { useTasks, useTasksState, useTasksDerived } from '@/store/provider';
+import type { ViewMode } from '@/manifesto';
 
 export function ViewSwitcher() {
-  const viewMode = useTasksStore((state) => state.viewMode);
-  const setViewMode = useTasksStore((state) => state.setViewMode);
-  const tasks = useTasksStore((state) => state.tasks);
+  const tasksContext = useTasks();
+  const tasksState = useTasksState();
+  const derived = useTasksDerived();
 
-  // Count deleted tasks
-  const deletedCount = tasks.filter((t) => t.deletedAt).length;
+  const viewMode = tasksState?.viewMode ?? 'kanban';
+  const deletedCount = derived.deletedCount;
 
   return (
-    <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+    <Tabs value={viewMode} onValueChange={(value) => tasksContext.changeView(value as ViewMode)}>
       <TabsList>
         <TabsTrigger value="todo" className="gap-2">
           <List className="h-4 w-4" />

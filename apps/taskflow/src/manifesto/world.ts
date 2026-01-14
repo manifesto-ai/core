@@ -104,13 +104,84 @@ export interface TaskFlowWorld {
 }
 
 
+// Sample tasks for initial data when persistence is empty
+const sampleTasks: Task[] = [
+  {
+    id: 'task-1',
+    title: 'Set up project structure',
+    description: 'Initialize Next.js app with shadcn/ui',
+    status: 'done',
+    priority: 'high',
+    tags: ['setup', 'infrastructure'],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: 'task-2',
+    title: 'Implement Kanban board',
+    description: 'Create drag and drop Kanban view',
+    status: 'in-progress',
+    priority: 'high',
+    tags: ['feature', 'ui'],
+    assignee: 'Developer',
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: 'task-3',
+    title: 'Add task filtering',
+    description: 'Filter tasks by status and priority',
+    status: 'todo',
+    priority: 'medium',
+    tags: ['feature'],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: 'task-4',
+    title: 'Write documentation',
+    description: 'Document the SPEC issues found',
+    status: 'review',
+    priority: 'medium',
+    tags: ['docs'],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: 'task-5',
+    title: 'Add AI agent integration',
+    description: 'Integrate @manifesto-ai/agent for task assistance',
+    status: 'todo',
+    priority: 'low',
+    tags: ['feature', 'ai'],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+];
+
 /**
  * Create initial data from persistence or defaults
  */
 async function loadInitialData(persistence: TaskFlowPersistence): Promise<Record<string, unknown>> {
   const tasks = await persistence.loadTasks();
+  // Use sample data if persistence is empty
+  const initialTasks = tasks.length > 0 ? tasks : sampleTasks;
   return {
-    tasks,
+    tasks: initialTasks,
     currentFilter: { status: null, priority: null, assignee: null },
   };
 }
