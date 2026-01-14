@@ -40,12 +40,12 @@
     "cli": "node ./dist/cli/index.js"
   },
   "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.26.0",
+    "@manifesto-ai/bridge": "^1.0.0",
     "@manifesto-ai/core": "^1.0.0",
-    "@manifesto-ai/world": "^1.0.0",
     "@manifesto-ai/host": "^1.0.0",
     "@manifesto-ai/memory": "^1.0.0",
-    "@manifesto-ai/bridge": "^1.0.0",
-    "@anthropic-ai/sdk": "^0.26.0",
+    "@manifesto-ai/world": "^1.0.0",
     "openai": "^4.0.0"
   },
   "peerDependenciesMeta": {
@@ -60,25 +60,25 @@
     }
   },
   "dependencies": {
-    "zod": "^3.23.8",
-    "ink": "^5.0.1",
-    "ink-select-input": "^6.0.0",
+    "ink": "^6.6.0",
+    "ink-select-input": "^6.2.0",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
-    "react": "^18.3.1",
-    "meow": "^13.2.0"
+    "meow": "^14.0.0",
+    "react": "^19.2.3",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/world": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/memory": "workspace:*",
-    "@anthropic-ai/sdk": "^0.26.0",
-    "@types/node": "^22.0.0",
-    "@types/react": "^18.3.12",
-    "openai": "^4.0.0",
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.16"
+    "@manifesto-ai/world": "workspace:*",
+    "@types/node": "^25.0.8",
+    "@types/react": "^19.2.8",
+    "openai": "^6.16.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "files": [
     "dist"

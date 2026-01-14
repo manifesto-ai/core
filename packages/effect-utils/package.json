@@ -37,7 +37,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "zod": "^3.22.0"
+    "zod": "^4.3.5"
   },
   "peerDependencies": {
     "@manifesto-ai/core": "^1.1.0"
@@ -46,8 +46,8 @@
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*",
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.16"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "files": [
     "dist"

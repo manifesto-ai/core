@@ -21,16 +21,24 @@
     "docs:api:clean": "rm -rf docs/api"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.0.16",
-    "mermaid": "^11.4.1",
-    "turbo": "^2.3.3",
-    "typedoc": "^0.25.13",
-    "typescript": "^5.7.2",
+    "@vitest/coverage-v8": "^4.0.17",
+    "mermaid": "^11.12.2",
+    "turbo": "^2.7.4",
+    "typedoc": "^0.28.16",
+    "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
-    "vitest": "^4.0.16",
+    "vitest": "^4.0.17",
     "vue": "^3.5.26"
   },
   "dependencies": {
     "zod": "^4.3.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@hono/node-server": "1.19.9",
+      "esbuild": "0.27.2",
+      "hono": "4.11.4",
+      "preact": "10.28.2"
+    }
   }
 }
