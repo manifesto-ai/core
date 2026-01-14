@@ -18,17 +18,17 @@
     "test:no-llm": "vitest run --exclude src/L6-e2e/llm/"
   },
   "dependencies": {
-    "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/host": "workspace:*",
-    "@manifesto-ai/world": "workspace:*",
     "@manifesto-ai/bridge": "workspace:*",
-    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/builder": "workspace:*",
-    "@manifesto-ai/effect-utils": "workspace:*"
+    "@manifesto-ai/compiler": "workspace:*",
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/effect-utils": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/world": "workspace:*"
   },
   "devDependencies": {
-    "vitest": "^4.0.16",
-    "@vitest/coverage-v8": "^4.0.16",
-    "typescript": "^5.7.2"
+    "@vitest/coverage-v8": "^4.0.17",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   }
 }

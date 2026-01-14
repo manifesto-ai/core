@@ -44,8 +44,8 @@
   },
   "devDependencies": {
     "@manifesto-ai/world": "workspace:*",
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.16"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "files": [
     "dist"

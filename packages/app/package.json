@@ -43,13 +43,13 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/world": "workspace:*",
-    "@manifesto-ai/memory": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
-    "@manifesto-ai/compiler": "workspace:*"
+    "@manifesto-ai/memory": "workspace:*",
+    "@manifesto-ai/world": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   }
 }
