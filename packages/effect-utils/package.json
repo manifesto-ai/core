@@ -37,7 +37,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "zod": "^3.22.0"
+    "zod": "^4.3.5"
   },
   "peerDependencies": {
     "@manifesto-ai/core": "^1.1.0"

@@ -60,7 +60,7 @@
     }
   },
   "dependencies": {
-    "zod": "^3.23.8",
+    "zod": "^4.3.5",
     "ink": "^5.0.1",
     "ink-select-input": "^6.0.0",
     "ink-spinner": "^5.0.0",
