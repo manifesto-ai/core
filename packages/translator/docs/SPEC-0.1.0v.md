@@ -88,6 +88,44 @@ P7. Key derivation delegates to Intent IR SPEC functions.
 | Intent IR SPEC v0.1.0 | IntentIR/IntentBody types, Lowering algorithm, Lexicon interface, Key system (deriveSimKey, deriveIntentKey, SimKey type) |
 | MEL Compiler FDR | Action rules (once, guard, $system) |
 
+### 1.5 Position in Manifesto Architecture
+
+Translator App occupies a unique position as the "semantic space transformer":
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Natural Language (PF)                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ [Non-deterministic: LLM]
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 Semantic Space (IntentIR)                       │
+│    ├─ simKey: Semantic coordinate (SimHash 64-bit)              │
+│    └─ Structured intent representation                          │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ [Deterministic: Lexicon + Lowering]
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 Protocol Space (IntentBody)                     │
+│    ├─ intentKey: Identity (JCS + SHA-256)                       │
+│    └─ Executable form                                           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+              Manifesto Execution Loop (Core/Host/World)
+```
+
+**Key Boundaries:**
+
+1. **Translator → App (only)**: Depends only on App contract. Direct Core/Host/World imports are prohibited.
+2. **IntentBody is final output**: Core's compute() processes IntentBody directly. MEL rendering is adapter responsibility.
+3. **Semantic Space concept**: IntentIR exists in a semantic coordinate space where:
+   - simKey provides position (semantic proximity)
+   - Learned aliases map to existing coordinates (not new ones)
+   - Same meaning = same canonical form
+
+See FDR-TAPP-032 for the semantic space model rationale.
+
 ---
 
 ## 2. Conformance
@@ -1021,58 +1059,72 @@ Structural constraints for Action Body included in IntentBody.input when Transla
 
 ```typescript
 type ActionBody = {
-  blocks: GuardedBlock[];
+  blocks: ActionGuardedBlock[];
 };
 
-type GuardedBlock = {
+type ActionGuardedBlock = {
   guard: ActionGuard;
   body: ActionStmt[];
 };
 
-type ActionGuard = 
-  | { kind: 'when'; condition: ExprNode; }
+type ActionGuard =
+  | { kind: 'when'; condition: ActionExprNode; }
   | { kind: 'once'; marker: string; };
 
-type ActionStmt = 
-  | PatchStmt
-  | EffectStmt
-  | NestedGuardedBlock;
+type ActionStmt =
+  | ActionPatchStmt
+  | ActionEffectStmt
+  | ActionNestedBlock;
 
-type PatchStmt = {
+type ActionPatchStmt = {
   kind: 'patch';
-  path: PathNode;
-  value: ExprNode;
+  path: ActionPathNode;
+  value: ActionExprNode;
 };
 
-type EffectStmt = {
+type ActionEffectStmt = {
   kind: 'effect';
   effectType: string;
-  args: Record<string, ExprNode>;
+  args: Record<string, ActionExprNode>;
   into?: string;
 };
 
-type NestedGuardedBlock = {
+type ActionNestedBlock = {
   kind: 'nested';
-  block: GuardedBlock;
+  block: ActionGuardedBlock;
 };
 ```
 
-### 12.2 ExprNode (Simplified for v0.1)
+### 12.2 ActionExprNode (Action Declaration Language)
+
+**IMPORTANT:** ActionExprNode is intentionally separate from Core's ExprNode.
+
+| Aspect | ActionExprNode (Translator) | Core ExprNode |
+|--------|----------------------------|---------------|
+| **Purpose** | Action declaration language | Pure computation language |
+| **Operators** | 5 kinds | 40+ operators |
+| **sys allowed** | Yes ($system, $meta, $input) | No (Core is pure) |
+| **var allowed** | Yes ($item, $acc) | No |
+| **Used in** | ActionBody definition | FlowNode, Computed |
+
+See FDR-TAPP-030 for design rationale.
 
 ```typescript
-type ExprNode = 
+type ActionExprNode =
   | { kind: 'lit'; value: unknown; }
-  | { kind: 'get'; path: PathNode; }
-  | { kind: 'call'; fn: string; args: ExprNode[]; }
+  | { kind: 'get'; path: ActionPathNode; }
+  | { kind: 'call'; fn: string; args: ActionExprNode[]; }
   | { kind: 'sys'; path: string[]; }  // $system.*, $meta.*, $input.*
   | { kind: 'var'; name: string; };   // $item, $acc
 
-type PathNode = PathSegment[];
+type ActionPathNode = ActionPathSegment[];
 
-type PathSegment = 
+type ActionPathSegment =
   | { kind: 'prop'; name: string; }
-  | { kind: 'index'; expr: ExprNode; };
+  | { kind: 'index'; expr: ActionExprNode; };
 ```
+
+**TAPP-AST-PATH (Informative):** ActionPathNode is structural (array of segments), while Core's SemanticPath is string-based (dot-separated). Conversion happens during ActionBody → FlowNode transformation by adapter. See FDR-TAPP-031.
 
 ### 12.3 Structural Constraints
 
@@ -1387,6 +1439,77 @@ type ValidateActionBodyTrace = {
 |----|-----------|
 | INV-ACTION-1 | lower executes S3-S7 (canonicalize through validate_action_body) |
 | INV-ACTION-2 | lower returns error on S7 validation failure |
+
+---
+
+## 16. Package Boundaries
+
+### 16.1 Relationship to Core/Host/World
+
+Translator App is intentionally isolated from the Manifesto execution stack:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Translator App                               │
+│    Responsibility: PF → IntentIR → IntentBody                   │
+│    Depends on: App contract (only)                              │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ IntentBody
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│    Bridge (Adapter Layer)                                       │
+│    - MEL rendering (optional)                                   │
+│    - ActionBody → FlowNode conversion                           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ Intent (with IntentBody)
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│    World → Host → Core                                          │
+│    - Core.compute(schema, snapshot, intent)                     │
+│    - Processes IntentBody.type and IntentBody.input             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 16.2 Type Separation Principle
+
+**TAPP-BOUNDARY-1 (MUST):** Translator MUST NOT import types directly from Core.
+
+**TAPP-BOUNDARY-2 (MUST):** ActionExprNode is separate from Core's ExprNode.
+
+| Type | Package | Purpose |
+|------|---------|---------|
+| ActionExprNode | translator | Action declaration (5 kinds) |
+| ExprNode | core | Pure computation (40+ operators) |
+| ActionPathNode | translator | Structural path (array) |
+| SemanticPath | core | String path (dot-separated) |
+| ActionPatchStmt | translator | Action body patch |
+| PatchFlow | core | Flow node patch |
+
+**TAPP-BOUNDARY-3 (MUST):** ActionBody → FlowNode conversion is adapter responsibility, not Translator's.
+
+### 16.3 Forbidden Imports
+
+```typescript
+// ❌ FORBIDDEN in Translator
+import { ExprNode } from '@manifesto-ai/core';
+import { compute } from '@manifesto-ai/core';
+import { execute } from '@manifesto-ai/host';
+import { World } from '@manifesto-ai/world';
+
+// ✅ ALLOWED in Translator
+import { App } from '@manifesto-ai/app';
+import { IntentIR, IntentBody, Lexicon } from '@manifesto-ai/intent-ir';
+```
+
+### 16.4 Rationale
+
+See FDR-TAPP-030, FDR-TAPP-031, FDR-TAPP-032 for design rationale.
+
+Benefits of separation:
+1. **Independent evolution**: Translator types evolve independently from Core
+2. **Clear boundaries**: No confusion between action declaration and computation
+3. **Testability**: Translator can be tested without Core/Host/World
+4. **Cold start**: Translator works even without full Manifesto stack
 
 ---
 

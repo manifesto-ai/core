@@ -608,7 +608,97 @@ This ensures the semantic layer remains pure; pathKey is purely for retrieval op
 
 ---
 
-## 11. Non-goals (v0.1)
+## 11. Type System and Package Boundaries
+
+### 11.1 ActionExprNode is Separate from Core ExprNode
+
+**FDR-TAPP-036: ActionExprNode is intentionally separate from Core's ExprNode**
+
+| Aspect | ActionExprNode (Translator) | Core ExprNode |
+|--------|----------------------------|---------------|
+| **Purpose** | Action declaration language | Pure computation language |
+| **Operators** | 5 kinds (lit, get, call, sys, var) | 40+ operators (add, eq, filter, map, etc.) |
+| **sys allowed** | Yes ($system, $meta, $input) | No (Core is pure) |
+| **var allowed** | Yes ($item, $acc for iteration) | No |
+| **Scope** | Action body definitions only | All expressions in schema |
+
+**Rationale:**
+- Different purposes require different type systems
+- `sys` expressions (e.g., `$meta.intentId`) are valid only in action context, forbidden in Core
+- `var` expressions for iteration context (`$item`, `$acc`) are action-specific
+- Independent evolution: Core can add operators without affecting Translator
+- Clear ownership: ActionBody → FlowNode conversion is separate adapter responsibility
+
+**Consequences:**
+- No name collision: ActionExprNode vs ExprNode
+- Translator has no dependency on Core types
+- Changes in Core's ExprNode do not propagate to Translator
+
+### 11.2 PathNode vs SemanticPath
+
+**FDR-TAPP-037: ActionPathNode is Translator's internal representation, distinct from Core's SemanticPath**
+
+| Aspect | ActionPathNode (Translator) | SemanticPath (Core) |
+|--------|----------------------------|---------------------|
+| **Structure** | Array of PathSegment | Dot-separated string |
+| **Index access** | Explicit `{ kind: 'index', expr }` | String-based `[0]` |
+| **Dynamic index** | Supported (expr evaluation) | Not directly supported |
+| **Purpose** | Structural manipulation | String-based lookup |
+
+**Example:**
+```typescript
+// ActionPathNode (Translator)
+[
+  { kind: 'prop', name: 'data' },
+  { kind: 'prop', name: 'todos' },
+  { kind: 'index', expr: { kind: 'lit', value: 0 } }
+]
+
+// SemanticPath (Core)
+"data.todos[0]"
+```
+
+**Rationale:**
+- ActionPathNode supports dynamic index expressions (e.g., `$item` as index)
+- Structural representation enables validation without string parsing
+- Conversion to SemanticPath occurs during ActionBody → FlowNode adaptation
+
+### 11.3 Semantic Space Model
+
+**FDR-TAPP-038: Translator operates in domain semantic space with deterministic transformation**
+
+**Transformation Model:**
+```
+PF (Phonetic Form)           ← Natural language input
+    ↓ [Non-deterministic: LLM]
+LF (Logical Form)            ← IntentIR (Chomskyan structure)
+    ├─ simKey: Semantic coordinate (SimHash 64-bit)
+    └─ Structured intent expression
+    ↓ [Deterministic: Lexicon + Lowering]
+Protocol Form                ← IntentBody
+    ├─ intentKey: Identity (JCS + SHA-256)
+    └─ Executable form
+```
+
+**Key Properties:**
+- **PF → LF (S2):** Non-deterministic, LLM-dependent
+- **LF → Protocol (S3-S7):** MUST be deterministic
+- **simKey:** Semantic position in coordinate space (preserves proximity)
+- **intentKey:** Protocol identity (exact match only)
+
+**Coordinate System Semantics:**
+- Same meaning → Same simKey (after canonicalization)
+- Same IntentBody + schemaHash → Same intentKey
+- Alias learning = Attaching new vocabulary to existing coordinate
+
+**Rationale:**
+- Aligns with Chomskyan linguistic model (PF/LF distinction)
+- Determinism boundary is explicit and testable
+- Enables "hippocampus" design: vocabulary grows, coordinates remain stable
+
+---
+
+## 12. Non-goals (v0.1)
 
 | Item | Status | Notes |
 |------|--------|-------|
@@ -623,7 +713,7 @@ This ensures the semantic layer remains pure; pathKey is purely for retrieval op
 
 ---
 
-## 12. Decision Log Summary
+## 13. Decision Log Summary
 
 | ID | Decision | Rationale |
 |----|----------|-----------|
@@ -662,6 +752,9 @@ This ensures the semantic layer remains pure; pathKey is purely for retrieval op
 | FDR-TAPP-033 | lower includes S7 validation | Consistent pipeline coverage |
 | FDR-TAPP-034 | resolve(provide) recalculates simKey | Coordinate consistency after IR modification |
 | FDR-TAPP-035 | pathKey is feature-flagged addendum | Temporal trajectory hint without affecting identity |
+| FDR-TAPP-036 | ActionExprNode separate from Core ExprNode | Different purposes: declaration vs computation |
+| FDR-TAPP-037 | ActionPathNode is internal representation | Structural vs string-based path |
+| FDR-TAPP-038 | Semantic space deterministic transformation | PF → LF non-det, LF → Protocol det |
 
 ---
 
