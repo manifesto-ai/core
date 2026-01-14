@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Calendar } from 'lucide-react';
 import { useTasksStore } from '@/store/useTasksStore';
-import { useTasksDerived, TasksProvider } from '@/store/provider';
+import { useTasks, useTasksDerived, TasksProvider } from '@/store/provider';
 import { ViewSwitcher } from '@/components/shared/ViewSwitcher';
 import { MobileNavigation } from '@/components/shared/MobileNavigation';
 import { TodoView } from '@/components/views/TodoView';
@@ -76,7 +76,8 @@ function TasksHeader() {
 }
 
 function TasksContent() {
-  const viewMode = useTasksStore((state) => state.viewMode);
+  const { state } = useTasks();
+  const viewMode = state?.viewMode ?? 'kanban';
 
   const viewVariants = {
     initial: { opacity: 0, y: 20 },
@@ -187,8 +188,9 @@ function AssistantToggle() {
 function AppLayout() {
   const assistantOpen = useTasksStore((state) => state.assistantOpen);
   const setAssistantOpen = useTasksStore((state) => state.setAssistantOpen);
-  const selectedTaskId = useTasksStore((state) => state.selectedTaskId);
-  const setSelectedTaskId = useTasksStore((state) => state.setSelectedTaskId);
+  const tasksContext = useTasks();
+  const selectedTaskId = tasksContext.state?.selectedTaskId ?? null;
+  const setSelectedTaskId = (id: string | null) => tasksContext.selectTask(id);
 
   const isMobile = useIsMobile();
   const isDesktop = useIsDesktop();

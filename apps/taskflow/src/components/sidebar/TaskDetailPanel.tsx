@@ -19,7 +19,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { useTasksStore } from '@/store/useTasksStore';
+import { useTasks, useTasksState } from '@/store/provider';
 import type { Task } from '@/manifesto';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -115,9 +115,9 @@ function ControlledTextarea({
 }
 
 export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
-  const tasks = useTasksStore((s) => s.tasks);
-  const updateTask = useTasksStore((s) => s.updateTask);
-  const removeTask = useTasksStore((s) => s.removeTask);
+  const tasksContext = useTasks();
+  const tasksState = useTasksState();
+  const tasks = tasksState?.tasks ?? [];
 
   const task = tasks.find((t) => t.id === taskId);
 
@@ -126,35 +126,38 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
 
   const handleUpdate = useCallback((changes: Partial<Task>) => {
     if (task) {
-      updateTask(task.id, { ...changes, updatedAt: new Date().toISOString() });
+      tasksContext.updateTask({
+        id: task.id,
+        ...changes,
+      });
     }
-  }, [task, updateTask]);
+  }, [task, tasksContext]);
 
   const handleAddTag = useCallback(() => {
     if (task && newTag.trim() && !task.tags.includes(newTag.trim())) {
-      updateTask(task.id, {
+      tasksContext.updateTask({
+        id: task.id,
         tags: [...task.tags, newTag.trim()],
-        updatedAt: new Date().toISOString(),
       });
       setNewTag('');
     }
-  }, [newTag, task, updateTask]);
+  }, [newTag, task, tasksContext]);
 
   const handleRemoveTag = useCallback((tagToRemove: string) => {
     if (task) {
-      updateTask(task.id, {
+      tasksContext.updateTask({
+        id: task.id,
         tags: task.tags.filter((t) => t !== tagToRemove),
-        updatedAt: new Date().toISOString(),
       });
     }
-  }, [task, updateTask]);
+  }, [task, tasksContext]);
 
   const handleDelete = useCallback(() => {
     if (task && confirm('Move this task to trash?')) {
-      removeTask(task.id);
+      tasksContext.deleteTask(task.id);
       onClose();
     }
-  }, [task, removeTask, onClose]);
+  }, [task, tasksContext, onClose]);
 
   if (!task) {
     return (
@@ -213,7 +216,7 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
             </div>
             <Select
               value={task.status}
-              onValueChange={(value) => handleUpdate({ status: value as Task['status'] })}
+              onValueChange={(value) => tasksContext.moveTask(task.id, value as Task['status'])}
             >
               <SelectTrigger className="w-full sm:w-40 h-10 sm:h-8">
                 <SelectValue />

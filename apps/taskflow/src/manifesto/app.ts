@@ -133,12 +133,18 @@ export interface TaskFlowApp {
   }) => Promise<void>;
 
   /**
+   * Import a task (for applying server-generated effects, bypasses guards)
+   */
+  importTask: (task: Task) => Promise<void>;
+
+  /**
    * Update an existing task
    */
   updateTask: (params: {
     id: string;
     title?: string | null;
     description?: string | null;
+    status?: "todo" | "in-progress" | "review" | "done" | null;
     priority?: "low" | "medium" | "high" | null;
     dueDate?: string | null;
     assignee?: string | null;
@@ -341,6 +347,22 @@ export async function createTaskFlowApp(
       }
     },
 
+    importTask: async (task) => {
+      console.log('[TaskFlowApp] importTask called with:', task);
+      try {
+        await dispatchIntent({
+          type: "importTask",
+          input: { task },
+        });
+        console.log('[TaskFlowApp] importTask intent dispatched');
+        await dispatchIntent({ type: "refreshFilters" });
+        console.log('[TaskFlowApp] filters refreshed after import');
+      } catch (err) {
+        console.error('[TaskFlowApp] importTask error:', err);
+        throw err;
+      }
+    },
+
     updateTask: async (params) => {
       await dispatchIntent({
         type: "updateTask",
@@ -348,6 +370,7 @@ export async function createTaskFlowApp(
           id: params.id,
           title: params.title ?? null,
           description: params.description ?? null,
+          status: params.status ?? null,
           priority: params.priority ?? null,
           dueDate: params.dueDate ?? null,
           assignee: params.assignee ?? null,

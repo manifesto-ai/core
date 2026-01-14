@@ -108,11 +108,19 @@ domain Tasks {
     }
   }
 
+  // Import Task (for applying server-generated effects, bypasses guards)
+  action importTask(task: Task) {
+    when true {
+      patch tasks = concat(tasks, [task])
+    }
+  }
+
   // Update Task
   action updateTask(
     id: string,
     title: string | null,
     description: string | null,
+    status: "todo" | "in-progress" | "review" | "done" | null,
     priority: "low" | "medium" | "high" | null,
     dueDate: string | null,
     assignee: string | null,
@@ -128,7 +136,7 @@ domain Tasks {
               id: $item.id,
               title: coalesce(title, $item.title),
               description: coalesce(description, $item.description),
-              status: $item.status,
+              status: coalesce(status, $item.status),
               priority: coalesce(priority, $item.priority),
               assignee: coalesce(assignee, $item.assignee),
               dueDate: coalesce(dueDate, $item.dueDate),
