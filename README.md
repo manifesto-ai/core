@@ -7,6 +7,8 @@
 
 **Docs:** https://docs.manifesto-ai.dev
 
+**Early Live Demo**: https://taskflow.manifesto-ai.dev
+
 ---
 
 ## What is Manifesto?
