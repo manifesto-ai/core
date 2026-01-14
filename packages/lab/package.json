@@ -51,7 +51,7 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
-    "ink": "^5.0.1",
+    "ink": "^6.6.0",
     "ink-select-input": "^6.0.0",
     "ink-spinner": "^5.0.0",
     "react": "^18.3.1",
