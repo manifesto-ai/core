@@ -1266,6 +1266,52 @@
         "path": "computed.canCreate"
       }
     },
+    "importTask": {
+      "flow": {
+        "kind": "if",
+        "cond": {
+          "kind": "lit",
+          "value": true
+        },
+        "then": {
+          "kind": "patch",
+          "op": "set",
+          "path": "tasks",
+          "value": {
+            "kind": "concat",
+            "args": [
+              {
+                "kind": "get",
+                "path": "tasks"
+              },
+              {
+                "kind": "append",
+                "array": {
+                  "kind": "lit",
+                  "value": []
+                },
+                "items": [
+                  {
+                    "kind": "get",
+                    "path": "input.task"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "input": {
+        "type": "object",
+        "required": true,
+        "fields": {
+          "task": {
+            "type": "object",
+            "required": true
+          }
+        }
+      }
+    },
     "updateTask": {
       "flow": {
         "kind": "if",
@@ -1356,8 +1402,17 @@
                         ]
                       },
                       "status": {
-                        "kind": "get",
-                        "path": "$item.status"
+                        "kind": "coalesce",
+                        "args": [
+                          {
+                            "kind": "get",
+                            "path": "input.status"
+                          },
+                          {
+                            "kind": "get",
+                            "path": "$item.status"
+                          }
+                        ]
                       },
                       "priority": {
                         "kind": "coalesce",
@@ -1453,6 +1508,18 @@
           },
           "description": {
             "type": "string",
+            "required": true
+          },
+          "status": {
+            "type": {
+              "enum": [
+                "todo",
+                "in-progress",
+                "review",
+                "done",
+                null
+              ]
+            },
             "required": true
           },
           "priority": {

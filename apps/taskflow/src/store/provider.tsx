@@ -117,6 +117,7 @@ interface TasksContextValue {
 
   // Convenience methods
   createTask: TaskFlowApp['createTask'];
+  importTask: TaskFlowApp['importTask'];
   updateTask: TaskFlowApp['updateTask'];
   deleteTask: TaskFlowApp['deleteTask'];
   moveTask: TaskFlowApp['moveTask'];
@@ -253,18 +254,18 @@ export function TasksProvider({ children }: TasksProviderProps) {
               deletedTasks: (data.deletedTasks ?? null) as Task[] | null,
             });
 
-            // Computed values are namespaced with "computed." prefix
+            // Computed values (no prefix in current Bridge implementation)
             setComputed({
-              totalCount: (computedVals["computed.totalCount"] ?? 0) as number,
-              todoCount: (computedVals["computed.todoCount"] ?? 0) as number,
-              inProgressCount: (computedVals["computed.inProgressCount"] ?? 0) as number,
-              reviewCount: (computedVals["computed.reviewCount"] ?? 0) as number,
-              doneCount: (computedVals["computed.doneCount"] ?? 0) as number,
-              deletedCount: (computedVals["computed.deletedCount"] ?? 0) as number,
-              hasSelection: (computedVals["computed.hasSelection"] ?? false) as boolean,
-              canCreate: (computedVals["computed.canCreate"] ?? true) as boolean,
-              canEdit: (computedVals["computed.canEdit"] ?? false) as boolean,
-              canDelete: (computedVals["computed.canDelete"] ?? false) as boolean,
+              totalCount: (computedVals["totalCount"] ?? 0) as number,
+              todoCount: (computedVals["todoCount"] ?? 0) as number,
+              inProgressCount: (computedVals["inProgressCount"] ?? 0) as number,
+              reviewCount: (computedVals["reviewCount"] ?? 0) as number,
+              doneCount: (computedVals["doneCount"] ?? 0) as number,
+              deletedCount: (computedVals["deletedCount"] ?? 0) as number,
+              hasSelection: (computedVals["hasSelection"] ?? false) as boolean,
+              canCreate: (computedVals["canCreate"] ?? true) as boolean,
+              canEdit: (computedVals["canEdit"] ?? false) as boolean,
+              canDelete: (computedVals["canDelete"] ?? false) as boolean,
             });
           },
         });
@@ -338,6 +339,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       isReady,
       dispatch: app?.dispatch ?? noop,
       createTask: app?.createTask ?? noop,
+      importTask: app?.importTask ?? noop,
       updateTask: app?.updateTask ?? noop,
       deleteTask: app?.deleteTask ?? noop,
       moveTask: app?.moveTask ?? noop,

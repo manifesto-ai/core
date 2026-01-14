@@ -592,6 +592,19 @@ importers:
         specifier: ^4.3.5
         version: 4.3.5
 
+  packages/intent-ir:
+    dependencies:
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      zod:
+        specifier: ^4.3.5
+        version: 4.3.5
+
   packages/lab:
     dependencies:
       '@manifesto-ai/world':

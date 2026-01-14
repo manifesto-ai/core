@@ -60,6 +60,7 @@ export function AssistantPanel({ onClose }: AssistantPanelProps) {
 
   // Domain actions from Manifesto (these actually work!)
   const createTaskAction = tasksContext.createTask;
+  const importTaskAction = tasksContext.importTask;
   const updateTaskAction = tasksContext.updateTask;
   const deleteTaskAction = tasksContext.deleteTask;
   const restoreTaskAction = tasksContext.restoreTask;
@@ -153,20 +154,14 @@ export function AssistantPanel({ onClose }: AssistantPanelProps) {
           console.log('[AssistantPanel] Processing op:', op.op, op.path);
           if (op.op === 'append' && op.path === 'data.tasks') {
             const task = op.value as Task;
-            console.log('[AssistantPanel] Adding task via Manifesto:', task.id, task.title);
+            console.log('[AssistantPanel] Importing task via Manifesto:', task.id, task.title);
             try {
-              // Use Manifesto action to create task
-              await createTaskAction({
-                title: task.title,
-                description: task.description,
-                priority: task.priority,
-                dueDate: task.dueDate,
-                tags: task.tags,
-              });
-              console.log('[AssistantPanel] Task created successfully');
+              // Use importTask action to bypass guards and import server-generated task
+              await importTaskAction(task);
+              console.log('[AssistantPanel] Task imported successfully');
               createdTaskIds.push(task.id);
             } catch (createErr) {
-              console.error('[AssistantPanel] Failed to create task:', createErr);
+              console.error('[AssistantPanel] Failed to import task:', createErr);
             }
           } else if (op.op === 'set' && op.path === 'state.viewMode') {
             console.log('[AssistantPanel] Changing view mode:', op.value);
@@ -240,7 +235,7 @@ export function AssistantPanel({ onClose }: AssistantPanelProps) {
       setLastModifiedTaskId(modifiedTaskId);
     }
     console.log('[AssistantPanel] ========== EFFECTS APPLIED ==========');
-  }, [createTaskAction, updateTaskAction, deleteTaskAction, restoreTaskAction, changeViewAction, selectTaskAction, tasksContext, tasks, selectedTaskId, setDateFilter, setAssistantOpen, setLastCreatedTaskIds, setLastModifiedTaskId]);
+  }, [importTaskAction, updateTaskAction, deleteTaskAction, restoreTaskAction, changeViewAction, selectTaskAction, tasksContext, tasks, selectedTaskId, setDateFilter, setAssistantOpen, setLastCreatedTaskIds, setLastModifiedTaskId]);
 
   // SSE 이벤트 처리 (Simple API)
   const handleSSEEvent = useCallback((msgId: string, eventType: string, data: unknown) => {
