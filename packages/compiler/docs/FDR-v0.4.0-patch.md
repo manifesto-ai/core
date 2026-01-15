@@ -1,8 +1,10 @@
-# MEL (Manifesto Expression Language) — Foundational Design Rationale (FDR)
+# MEL Foundational Design Rationale v0.4.0 (Patch)
 
-> **Version:** 0.4.0  
-> **Status:** Normative  
-> **Purpose:** Document the "Why" behind every major design decision in MEL v0.4.0  
+> **Version:** 0.4.0
+> **Type:** Patch
+> **Status:** Normative
+> **Base:** v0.3.3 (REQUIRED - read FDR-v0.3.3.md first)
+> **Purpose:** Document the "Why" behind design decisions in MEL v0.4.0
 > **Changelog:**
 > - v0.3.3: Core alignment — available, fail, stop, call policy, primitive aggregation, named types
 > - **v0.4.0: Translator Lowering, Expression Evaluation, Host Integration**

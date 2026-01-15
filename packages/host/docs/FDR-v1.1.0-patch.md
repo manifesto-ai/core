@@ -1,10 +1,12 @@
-# Host Contract — Foundational Design Rationale (FDR)
+# Host Contract FDR v1.1.0 (Patch)
 
-> **Version:** 1.1  
-> **Status:** Normative  
-> **Purpose:** Document the "Why" behind every constitutional decision in the Host Contract  
+> **Version:** 1.1.0
+> **Type:** Patch
+> **Status:** Normative
+> **Base:** v1.0.0 (REQUIRED - base document NOT in archive)
+> **Purpose:** Document the "Why" behind design decisions in Host Contract v1.1
 > **Changelog:**
-> - v1.0: Initial release (FDR-H001 ~ H010)
+> - v1.0: Initial release (FDR-H001 ~ H010) — NOT in archive
 > - **v1.1: Compiler Integration, Expression Evaluation (FDR-H011 ~ H017)**
 
 ---
