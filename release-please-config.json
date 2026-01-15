@@ -65,6 +65,10 @@
     "packages/translator": {
       "package-name": "@manifesto-ai/translator",
       "changelog-path": "CHANGELOG.md"
+    },
+    "packages/app": {
+      "package-name": "@manifesto-ai/app",
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }
