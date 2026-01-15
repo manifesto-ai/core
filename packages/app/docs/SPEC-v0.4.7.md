@@ -3,7 +3,7 @@
 **Version:** 0.4.7  
 **Status:** Final  
 **Date:** 2026-01-06  
-**License:** Apache-2.0
+**License:** MIT
 
 ## Abstract
 
