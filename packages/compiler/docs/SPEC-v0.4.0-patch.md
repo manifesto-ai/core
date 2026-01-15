@@ -1,10 +1,12 @@
-# MEL Compiler SPEC v0.4.0 Patch Document (Rev.5)
+# MEL Compiler SPEC v0.4.0 (Patch)
 
-> **Patch Target:** MEL SPEC v0.3.3 → v0.4.0  
-> **Status:** Draft for Review (Rev.5)  
-> **Date:** 2026-01-04  
-> **Revision:** All GO-Blocking issues resolved (including snapshot.data, boolean-only condition)  
+> **Version:** 0.4.0
+> **Type:** Patch
+> **Status:** Draft
+> **Date:** 2026-01-04
+> **Base:** v0.3.3 (REQUIRED - read SPEC-v0.3.3.md first)
 > **Scope:** Translator Lowering, Expression Evaluation, Host Integration
+> **Revision:** Rev.5 - All GO-Blocking issues resolved
 
 ---
 

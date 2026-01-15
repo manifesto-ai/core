@@ -1,10 +1,12 @@
-# Host Contract SPEC v1.1 Patch Document (Rev.5)
+# Host Contract SPEC v1.1.0 (Patch)
 
-> **Patch Target:** Host Contract SPEC v1.0 → v1.1  
-> **Status:** Draft for Review (Rev.5)  
-> **Date:** 2026-01-04  
-> **Revision:** All GO-Blocking issues resolved (including snapshot.data, boolean-only condition)  
+> **Version:** 1.1.0
+> **Type:** Patch
+> **Status:** Draft
+> **Date:** 2026-01-04
+> **Base:** v1.0.0 (REQUIRED - base document NOT in archive)
 > **Depends On:** MEL SPEC v0.4.0
+> **Revision:** Rev.5 - All GO-Blocking issues resolved
 
 ---
 
