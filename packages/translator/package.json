@@ -53,6 +53,7 @@
     }
   },
   "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/intent-ir": "workspace:*",
     "zod": "^3.23.8"
   },

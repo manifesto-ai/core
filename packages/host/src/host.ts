@@ -91,6 +91,7 @@ export class ManifestoHost {
   private store: SnapshotStore;
   private loopOptions: HostLoopOptions;
   private initialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor(schema: DomainSchema, options: HostOptions = {}) {
     this.core = createCore();
@@ -101,7 +102,8 @@ export class ManifestoHost {
     this.loopOptions = options.loop ?? {};
 
     // Initialize with initial data if store is empty
-    this.initializeIfNeeded(options.initialData);
+    // Track the promise to avoid race conditions
+    this.initPromise = this.initializeIfNeeded(options.initialData);
   }
 
   private async initializeIfNeeded(initialData?: unknown): Promise<void> {
@@ -117,6 +119,17 @@ export class ManifestoHost {
       await this.store.save(snapshotWithComputed);
     }
     this.initialized = true;
+  }
+
+  /**
+   * Wait for initialization to complete.
+   * Called internally before any operation that requires initialized state.
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+      this.initPromise = null;
+    }
   }
 
   /**
@@ -168,10 +181,8 @@ export class ManifestoHost {
    * @returns Host result with final snapshot and traces
    */
   async dispatch(intent: Intent, loopOptions?: Partial<HostLoopOptions>): Promise<HostResult> {
-    // Wait for initialization
-    if (!this.initialized) {
-      await this.initializeIfNeeded();
-    }
+    // Wait for initialization to complete
+    await this.ensureInitialized();
 
     // Get current snapshot
     let snapshot = await this.store.get();
@@ -230,10 +241,8 @@ export class ManifestoHost {
     output: TranslatorOutput,
     options?: { intentId?: string; actionName?: string }
   ): Promise<HostResult> {
-    // Wait for initialization
-    if (!this.initialized) {
-      await this.initializeIfNeeded();
-    }
+    // Wait for initialization to complete
+    await this.ensureInitialized();
 
     // Check for ambiguity - caller should handle before dispatch
     if (hasAmbiguity(output)) {

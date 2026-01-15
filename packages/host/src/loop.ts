@@ -248,7 +248,7 @@ export async function runHostLoop(
         continue;
       }
 
-      // 5. Continue loop with same intentId (intent is unchanged)
+      // 4. Continue loop with same intentId (intent is unchanged)
     }
   }
 

@@ -312,7 +312,12 @@ export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | n
 
     const fieldType = current.type;
     if (fieldType === "object") {
-      if (!current.fields || !(segment in current.fields)) {
+      if (!current.fields) {
+        // Open object (e.g., Record<string, T>, Json) allows any nested path
+        // Return a permissive spec that accepts any value
+        return { type: "object", required: false };
+      }
+      if (!(segment in current.fields)) {
         return null;
       }
       current = current.fields[segment];

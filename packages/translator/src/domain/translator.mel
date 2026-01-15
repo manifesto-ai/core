@@ -1,0 +1,310 @@
+/**
+ * Translator Domain v0.2.0
+ *
+ * MEL Domain for translating natural language (PF) into IntentBody
+ * through a 7-stage pipeline.
+ *
+ * @see SPEC-0.2.0v.md
+ * @see FDR-0.2.0v.md
+ */
+domain Translator {
+  // =============================================================================
+  // Type Declarations
+  // =============================================================================
+
+  type TranslateInput = {
+    text: string,
+    lang: string | null,
+    strict: boolean | null
+  }
+
+  type LearnedEntry = {
+    kind: "alias" | "clone",
+    lemma: string,
+    targetLemma: string,
+    learnedAt: string,
+    learnedFrom: string
+  }
+
+  type TranslatorConfig = {
+    resolverContextDepth: number,
+    defaultLang: string,
+    strict: boolean
+  }
+
+  // Pipeline stage type
+  type PipelineStage = "pending" | "normalizing" | "proposing" |
+    "canonicalizing" | "checking" | "resolving" | "lowering" |
+    "validating" | "completed" | "failed"
+
+  // =============================================================================
+  // State
+  // =============================================================================
+  state {
+    // Current request input
+    currentInput: TranslateInput | null = null
+
+    // Pipeline stage results (S1-S7)
+    normalized: string | null = null
+    intentIR: Json | null = null
+    canonicalIR: Json | null = null
+    simKey: string | null = null
+    featureCheckPassed: boolean | null = null
+    resolvedIR: Json | null = null
+    resolutions: Array<Json> = []
+    loweringResult: Json | null = null
+    actionBodyValid: boolean | null = null
+
+    // Final result
+    result: Json | null = null
+
+    // Stage tracking
+    currentStage: PipelineStage = "pending"
+    error: Json | null = null
+
+    // Learned lexicon (persistent across requests)
+    learnedLexicon: Record<string, LearnedEntry> = {}
+
+    // Configuration
+    config: TranslatorConfig = {
+      resolverContextDepth: 5,
+      defaultLang: "en",
+      strict: false
+    }
+
+    // Once markers (per-intent idempotency)
+    initMarker: string | null = null
+    normalizeMarker: string | null = null
+    proposeMarker: string | null = null
+    canonicalizeMarker: string | null = null
+    featureCheckMarker: string | null = null
+    resolveRefsMarker: string | null = null
+    lowerMarker: string | null = null
+    validateMarker: string | null = null
+    completeMarker: string | null = null
+    learnMarker: string | null = null
+  }
+
+  // =============================================================================
+  // Computed Values
+  // =============================================================================
+
+  computed isTranslating = and(
+    isNotNull(currentInput),
+    neq(currentStage, "completed"),
+    neq(currentStage, "failed")
+  )
+
+  computed hasResult = isNotNull(result)
+  computed hasFailed = eq(currentStage, "failed")
+  computed isIdle = isNull(currentInput)
+
+  // =============================================================================
+  // Actions
+  // =============================================================================
+
+  /**
+   * translate - Full S1→S7 pipeline
+   *
+   * Transforms natural language text into IntentBody through:
+   * S1: Normalize
+   * S2: Propose (LLM)
+   * S3: Canonicalize + simKey
+   * S4: Feature Check
+   * S5: Resolve References
+   * S6: Lower
+   * S7: Validate ActionBody
+   */
+  action translate(text: string, lang: string | null, strict: boolean | null)
+    available when or(
+      isNull(currentInput),
+      eq(currentStage, "completed"),
+      eq(currentStage, "failed"),
+      eq(initMarker, $meta.intentId)
+    )
+  {
+    // Initialize request
+    once(initMarker) when isNull(currentInput) {
+      patch initMarker = $meta.intentId
+      patch currentInput = {
+        text: $input.text,
+        lang: $input.lang,
+        strict: $input.strict
+      }
+      patch currentStage = "pending"
+      patch error = null
+      patch result = null
+    }
+
+    // S1: Normalize
+    once(normalizeMarker) when eq(currentStage, "pending") {
+      patch normalizeMarker = $meta.intentId
+      patch currentStage = "normalizing"
+      effect translator.normalize({
+        text: currentInput.text,
+        lang: currentInput.lang
+      })
+    }
+
+    // S2: Propose (LLM) - Non-deterministic
+    once(proposeMarker) when and(eq(currentStage, "normalizing"), isNotNull(normalized)) {
+      patch proposeMarker = $meta.intentId
+      patch currentStage = "proposing"
+      effect translator.propose({
+        normalizedText: normalized,
+        lang: currentInput.lang
+      })
+    }
+
+    // S3: Canonicalize + derive simKey
+    once(canonicalizeMarker) when and(eq(currentStage, "proposing"), isNotNull(intentIR)) {
+      patch canonicalizeMarker = $meta.intentId
+      patch currentStage = "canonicalizing"
+      effect translator.canonicalize({
+        ir: intentIR
+      })
+    }
+
+    // S4: Feature Check
+    once(featureCheckMarker) when and(eq(currentStage, "canonicalizing"), isNotNull(canonicalIR)) {
+      patch featureCheckMarker = $meta.intentId
+      patch currentStage = "checking"
+      effect translator.featureCheck({
+        ir: canonicalIR,
+        learnedLexicon: learnedLexicon,
+        strict: coalesce(currentInput.strict, config.strict)
+      })
+    }
+
+    // S5: Resolve References
+    once(resolveRefsMarker) when and(eq(currentStage, "checking"), isNotNull(featureCheckPassed)) {
+      patch resolveRefsMarker = $meta.intentId
+      patch currentStage = "resolving"
+      effect translator.resolveRefs({
+        ir: canonicalIR,
+        depth: config.resolverContextDepth
+      })
+    }
+
+    // S6: Lower
+    once(lowerMarker) when and(eq(currentStage, "resolving"), isNotNull(resolvedIR)) {
+      patch lowerMarker = $meta.intentId
+      patch currentStage = "lowering"
+      effect translator.lower({
+        ir: resolvedIR,
+        learnedLexicon: learnedLexicon,
+        resolutions: resolutions
+      })
+    }
+
+    // S7: Validate ActionBody (conditional - only for action-related lemmas)
+    once(validateMarker) when and(eq(currentStage, "lowering"), isNotNull(loweringResult)) {
+      patch validateMarker = $meta.intentId
+      patch currentStage = "validating"
+      effect translator.validateActionBody({
+        loweringResult: loweringResult
+      })
+    }
+
+    // Complete
+    once(completeMarker) when and(eq(currentStage, "validating"), isNotNull(actionBodyValid)) {
+      patch completeMarker = $meta.intentId
+      patch currentStage = "completed"
+      patch result = loweringResult
+    }
+  }
+
+  /**
+   * learn - Add entry to learnedLexicon
+   *
+   * Maps a new lemma to an existing target lemma in the lexicon.
+   * Uses effect to handle uppercasing (Core doesn't support toUpperCase yet).
+   */
+  action learn(lemma: string, targetLemma: string)
+    available when true
+  {
+    once(learnMarker) when true {
+      patch learnMarker = $meta.intentId
+      effect translator.learn({
+        lemma: $input.lemma,
+        targetLemma: $input.targetLemma
+      })
+    }
+  }
+
+  /**
+   * resetRequest - Clear current request for new translation
+   *
+   * Resets all pipeline state while preserving learnedLexicon and config.
+   */
+  action resetRequest()
+    available when or(isNotNull(result), eq(currentStage, "failed"))
+  {
+    when true {
+      // Clear request state
+      patch currentInput = null
+      patch normalized = null
+      patch intentIR = null
+      patch canonicalIR = null
+      patch simKey = null
+      patch featureCheckPassed = null
+      patch resolvedIR = null
+      patch resolutions = []
+      patch loweringResult = null
+      patch actionBodyValid = null
+      patch result = null
+      patch currentStage = "pending"
+      patch error = null
+
+      // Clear once markers
+      patch initMarker = null
+      patch normalizeMarker = null
+      patch proposeMarker = null
+      patch canonicalizeMarker = null
+      patch featureCheckMarker = null
+      patch resolveRefsMarker = null
+      patch lowerMarker = null
+      patch validateMarker = null
+      patch completeMarker = null
+    }
+  }
+
+  /**
+   * updateConfig - Update translator configuration
+   */
+  action updateConfig(resolverContextDepth: number | null, defaultLang: string | null, strict: boolean | null)
+    available when isNull(currentInput)
+  {
+    when isNotNull($input.resolverContextDepth) {
+      patch config.resolverContextDepth = $input.resolverContextDepth
+    }
+    when isNotNull($input.defaultLang) {
+      patch config.defaultLang = $input.defaultLang
+    }
+    when isNotNull($input.strict) {
+      patch config.strict = $input.strict
+    }
+  }
+
+  /**
+   * clearLearnedLexicon - Remove all learned entries
+   */
+  action clearLearnedLexicon()
+    available when isNull(currentInput)
+  {
+    when true {
+      patch learnedLexicon = {}
+    }
+  }
+
+  /**
+   * removeLearnedEntry - Remove a specific learned entry
+   */
+  action removeLearnedEntry(lemma: string)
+    available when isNull(currentInput)
+  {
+    when true {
+      patch learnedLexicon[upper($input.lemma)] unset
+    }
+  }
+}

@@ -30,6 +30,13 @@ export {
   createMockLLMClient,
 } from "./llm-client.js";
 
+// OpenAI Client
+export {
+  type OpenAIClientOptions,
+  OpenAIClient,
+  createOpenAIClient,
+} from "./openai-client.js";
+
 // S3: Canonicalize
 export {
   type CanonicalizeResult,
