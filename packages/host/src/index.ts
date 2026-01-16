@@ -47,17 +47,6 @@ export {
 // Errors
 export { HostError, createHostError, isHostError, type HostErrorCode } from "./errors.js";
 
-// Translator integration (v1.1)
-export {
-  processTranslatorOutput,
-  createTranslatorIntentId,
-  hasAmbiguity,
-  type TranslatorOutput,
-  type ProcessTranslatorOptions,
-  type ProcessTranslatorResult,
-  type ConcretePatch,
-} from "./translator.js";
-
 // Re-export commonly used types from core for convenience
 export {
   createIntent,

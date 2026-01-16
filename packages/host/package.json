@@ -37,13 +37,7 @@
   "peerDependencies": {
     "@manifesto-ai/core": "^1.1.0"
   },
-  "peerDependenciesMeta": {
-    "@manifesto-ai/compiler": {
-      "optional": true
-    }
-  },
   "devDependencies": {
-    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"

@@ -9,7 +9,6 @@ import {
   type Snapshot,
   type Intent,
   type TraceGraph,
-  type Patch,
 } from "@manifesto-ai/core";
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
@@ -18,12 +17,6 @@ import type { SnapshotStore } from "./persistence/interface.js";
 import { createMemoryStore } from "./persistence/memory.js";
 import { runHostLoop, type HostLoopOptions, type HostLoopResult } from "./loop.js";
 import { createHostError, HostError } from "./errors.js";
-import {
-  processTranslatorOutput,
-  createTranslatorIntentId,
-  hasAmbiguity,
-  type TranslatorOutput,
-} from "./translator.js";
 import { createInitialHostContext } from "./context.js";
 
 /**
@@ -212,96 +205,6 @@ export class ManifestoHost {
       traces: result.traces,
       error: result.error,
     };
-  }
-
-  /**
-   * Dispatch with Translator output.
-   *
-   * Processes Translator output through Compiler lowering and evaluation,
-   * applies the concrete patches, then runs the standard Host loop.
-   *
-   * @param output - Translator output with MEL IR fragments
-   * @param options - Optional configuration (intentId, actionName)
-   * @returns Host result with final snapshot and traces
-   *
-   * @see Host SPEC v1.1 §4.3, §13.2
-   */
-  async dispatchWithTranslator(
-    output: TranslatorOutput,
-    options?: { intentId?: string; actionName?: string }
-  ): Promise<HostResult> {
-    // Wait for initialization
-    if (!this.initialized) {
-      await this.initializeIfNeeded();
-    }
-
-    // Check for ambiguity - caller should handle before dispatch
-    if (hasAmbiguity(output)) {
-      return {
-        status: "error",
-        snapshot: (await this.store.get()) ?? createSnapshot({}, this.schema.hash, createInitialHostContext()),
-        traces: [],
-        error: createHostError(
-          "TRANSLATOR_AMBIGUOUS",
-          "Translator output has ambiguity. Resolve before dispatch.",
-          { ambiguity: output.ambiguity }
-        ),
-      };
-    }
-
-    // Get current snapshot
-    let snapshot = await this.store.get();
-    if (!snapshot) {
-      return {
-        status: "error",
-        snapshot: createSnapshot({}, this.schema.hash, createInitialHostContext()),
-        traces: [],
-        error: createHostError(
-          "HOST_NOT_INITIALIZED",
-          "No snapshot in store. Initialize the host with initial data."
-        ),
-      };
-    }
-
-    // FDR-H014: Single intentId throughout
-    const intentId = options?.intentId ?? createTranslatorIntentId();
-
-    try {
-      // Process translator output (lower + evaluate)
-      const result = processTranslatorOutput(output, snapshot, {
-        intentId,
-        actionName: options?.actionName,
-      });
-
-      // Apply concrete patches to snapshot
-      // Convert ConcretePatch[] to Patch[] format expected by core.apply()
-      if (result.patches.length > 0) {
-        const corePatches = result.patches.map((p): Patch => {
-          if (p.op === "unset") {
-            return { op: "unset", path: p.path };
-          } else if (p.op === "merge") {
-            return { op: "merge", path: p.path, value: p.value as Record<string, unknown> };
-          } else {
-            return { op: "set", path: p.path, value: p.value };
-          }
-        });
-        snapshot = this.core.apply(this.schema, snapshot, corePatches, createInitialHostContext());
-        await this.store.save(snapshot);
-      }
-
-      // Run standard host loop with same intentId
-      return this.dispatch(result.intent);
-    } catch (error) {
-      if (error instanceof HostError) {
-        return {
-          status: "error",
-          snapshot,
-          traces: [],
-          error,
-        };
-      }
-      throw error;
-    }
   }
 
   /**

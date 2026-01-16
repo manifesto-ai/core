@@ -1,16 +1,14 @@
 # Host Documentation Index
 
 > **Package:** `@manifesto-ai/host`
-> **Last Updated:** 2026-01-15
+> **Last Updated:** 2026-01-16
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v1.1.0](SPEC-v1.1.0-patch.md) (Patch - Base v1.0 NOT in archive)
-- **FDR:** [v1.1.0](FDR-v1.1.0-patch.md) (Patch - Base v1.0 NOT in archive)
-
-**WARNING:** Base version v1.0 is NOT available in this archive. These patch documents reference a base specification that must be obtained separately.
+- **SPEC:** [v2.0.1](host-SPEC-v2.0.1.md) (Full)
+- **FDR:** [v2.0.1](host-FDR-v2.0.1.md) (Full)
 
 ---
 
@@ -18,13 +16,15 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v1.1.0 | [SPEC](SPEC-v1.1.0-patch.md) | [FDR](FDR-v1.1.0-patch.md) | Patch (Base: v1.0) | Draft |
+| v2.0.1 | [SPEC](host-SPEC-v2.0.1.md) | [FDR](host-FDR-v2.0.1.md) | Full | Draft |
+| v2.0.0 | — (superseded) | — (superseded) | Full | Superseded |
+| v1.1.0 | [SPEC](SPEC-v1.1.0-patch.md) | [FDR](FDR-v1.1.0-patch.md) | Patch (Base: v1.0) | Superseded |
 | v1.0.0 | — (not in archive) | — (not in archive) | Full | Missing |
 
 ---
 
 ## Reading Guide
 
-To fully understand v1.1.0:
-1. **Base v1.0 is required** but not available in this archive
-2. The patch documents only contain changes from v1.0 to v1.1
+- **v2.0.1**: Adds Context Determinism (FDR-H023) - HostContext frozen per job for `f(snapshot) = snapshot'` preservation.
+- **v2.0.0**: Major update introducing concurrency control via Event-Loop Execution Model (Mailbox, Single-runner).
+- **v1.1.0**: Patch documents requiring base v1.0 (not in archive).
