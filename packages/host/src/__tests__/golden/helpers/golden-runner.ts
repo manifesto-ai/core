@@ -11,7 +11,7 @@
  * @see host-SPEC-v2.0.1.md
  */
 
-import type { DomainSchema, Snapshot, Intent, Patch, Requirement } from "@manifesto-ai/core";
+import type { DomainSchema, Snapshot, Intent, Patch, Requirement, FieldType } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
 import type { TraceEvent, ExecutionKey } from "../../compliance/hcts-types.js";
 import type { DeterministicRuntime } from "../../compliance/hcts-runtime.js";
@@ -143,7 +143,6 @@ export class GoldenRunner {
         type: intentDef.type,
         input: intentDef.input,
         intentId: `golden-intent-${intentCounter}`,
-        intentKey: `${intentDef.type}-${intentCounter}`,
       };
 
       this.adapter.submitIntent(this.executionKey, intent);
@@ -400,7 +399,7 @@ export function createGoldenRunner(): GoldenRunner {
  */
 export function createGoldenSchema(config: {
   id?: string;
-  fields: Record<string, { type: string; required?: boolean }>;
+  fields: Record<string, { type: FieldType; required?: boolean }>;
   actions: Record<string, { flow: any }>;
   computed?: Record<string, { expr: any; deps: string[] }>;
 }): DomainSchema {
