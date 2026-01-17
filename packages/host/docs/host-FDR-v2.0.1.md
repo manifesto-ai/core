@@ -7,7 +7,7 @@
 > - v1.0: Initial release (FDR-H001 ~ H010)
 > - v1.x: Compiler Integration, Expression Evaluation (FDR-H011 ~ H017)
 > - v2.0: Event-Loop Execution Model (FDR-H018 ~ H022)
-> - **v2.0.1: Context Determinism (FDR-H023)**
+> - **v2.0.1: Context Determinism (FDR-H023), Compiler/Translator Decoupling (FDR-H024)**
 
 ---
 
@@ -25,6 +25,7 @@ This section documents the foundational decisions for execution model enforcemen
 | FDR-H021 | Effect Result Reinjection Protocol | Effect results return via FulfillEffect jobs |
 | FDR-H022 | Requirement Lifecycle Enforcement | H007 + H010 as atomic sequence |
 | **FDR-H023** | **Context Determinism (v2.0.1)** | **HostContext frozen per job; f(snapshot) = snapshot' preserved** |
+| **FDR-H024** | **Compiler/Translator Decoupling (v2.0.1)** | **Host receives only Patch[]; no compiler dependency** |
 
 ### Motivation
 
@@ -864,6 +865,134 @@ function replayJob(trace: TraceEntry) {
 
 ---
 
+## FDR-H024: Compiler/Translator Decoupling (v2.0.1)
+
+### Decision
+
+**Host MUST NOT depend on `@manifesto-ai/compiler`. Host receives only concrete `Patch[]` values. Translator output processing is the responsibility of the Bridge/App layer.**
+
+### Context
+
+The v1.x SPEC (§9) required Host to:
+1. Import `@manifesto-ai/compiler`
+2. Process `TranslatorFragment[]` (MEL IR) via lowering and evaluation
+3. Use `ApplyTranslatorOutput` job type
+
+This created unnecessary coupling and violated the single-responsibility principle.
+
+### Rationale
+
+**Host's Single Responsibility:**
+
+Host is the **execution orchestration layer**. Its responsibilities are:
+- Mailbox-based job serialization
+- Effect execution coordination
+- Patch application to Snapshot
+- Single-writer guarantee enforcement
+
+Host should NOT be responsible for:
+- Expression evaluation (that's Core's domain)
+- MEL IR lowering (that's Compiler's domain)
+- Translator output processing (that's Bridge/App's domain)
+
+**Layer Boundary Preservation:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Bridge / App Layer                                         │
+│  ├── TranslatorAdapter (optional)                          │
+│  │   ├── @manifesto-ai/compiler dependency                 │
+│  │   ├── TranslatorFragment[] → Patch[] conversion         │
+│  │   └── Submits concrete Patch[] to Host                  │
+│  └── Intent orchestration                                  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ Patch[] (concrete only)
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Host (compiler-free, translator-free)                      │
+│  ├── Receives only concrete Patch[]                        │
+│  ├── No @manifesto-ai/compiler dependency                  │
+│  ├── Single responsibility: execution orchestration        │
+│  └── FulfillEffect, ApplyPatches jobs only                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Core (pure computation)                                    │
+│  └── compute(), apply() with concrete values only          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+
+| Benefit | Description |
+|---------|-------------|
+| **Reduced coupling** | Host has no transitive dependencies on Compiler |
+| **Testability** | Host tests don't require Compiler mocking |
+| **Flexibility** | Translator processing can evolve independently |
+| **Clarity** | Each layer has a single, clear responsibility |
+| **Bundle size** | Host package is smaller without Compiler |
+
+### Migration
+
+If Translator integration is needed:
+
+```typescript
+// Bridge/App layer - TranslatorAdapter
+import { lowerPatchFragments, evaluateConditionalPatchOps } from '@manifesto-ai/compiler';
+
+class TranslatorAdapter {
+  async processTranslatorOutput(
+    fragments: TranslatorFragment[],
+    snapshot: Snapshot,
+    context: HostContext
+  ): Promise<Patch[]> {
+    // Step 1: Lower MEL IR to Core IR
+    const conditionalOps = lowerPatchFragments(fragments);
+
+    // Step 2: Evaluate to concrete patches
+    const patches = evaluateConditionalPatchOps(conditionalOps, snapshot, context);
+
+    return patches;
+  }
+}
+
+// Usage
+const adapter = new TranslatorAdapter();
+const patches = await adapter.processTranslatorOutput(fragments, snapshot, context);
+
+// Submit to Host as concrete Patch[]
+host.submitPatches(key, patches, 'translator');
+```
+
+### Deprecated Elements
+
+| Element | Status |
+|---------|--------|
+| `ApplyTranslatorOutput` job type | **DEPRECATED** |
+| COMP-1, COMP-2, COMP-3, COMP-6 rules | **DEPRECATED** |
+| TRANS-1, TRANS-2, TRANS-3, TRANS-4 rules | **DEPRECATED** |
+| INV-EX-9 invariant | **DEPRECATED** |
+| Host importing `@manifesto-ai/compiler` | **FORBIDDEN** |
+
+### Retained Elements
+
+| Element | Status |
+|---------|--------|
+| COMP-4: Host passes only concrete `Patch[]` to Core.apply() | **RETAINED** |
+| COMP-5: Passing expressions to Core.apply() is SPEC VIOLATION | **RETAINED** |
+
+### Consequences
+
+- Host is decoupled from Compiler and Translator
+- Host package has no `@manifesto-ai/compiler` dependency
+- Bridge/App layer handles Translator processing if needed
+- Clearer separation of concerns
+- Simpler Host implementation and testing
+
+---
+
 ## Summary Table (v2.0/v2.0.1)
 
 | FDR | Decision | Key Principle |
@@ -874,6 +1003,7 @@ function replayJob(trace: TraceEntry) {
 | H021 | Effect Result Reinjection | Results return via FulfillEffect jobs |
 | H022 | Requirement Lifecycle Enforcement | H007 + H010 as atomic sequence; **stale protection**; **clear even on failure** |
 | **H023** | **Context Determinism (v2.0.1)** | **Frozen per job; f(snapshot) = snapshot' preserved** |
+| **H024** | **Compiler/Translator Decoupling (v2.0.1)** | **Host receives only Patch[]; no compiler dependency** |
 
 ---
 
@@ -889,6 +1019,7 @@ function replayJob(trace: TraceEntry) {
 | FDR-W017 | Parallel Branch Execution (H018 preserves) |
 | FDR-EL-001 | Event-Loop Execution Model (source FDR) |
 | **Core §1** | **Determinism axiom (H023 enforces)** |
+| **CLAUDE.md §3** | **Package boundary rules (H024 enforces)** |
 
 ---
 
@@ -902,8 +1033,9 @@ type Job =
   | { type: 'StartIntent'; intentId: string; intent: Intent }
   | { type: 'ContinueCompute'; intentId: string }
   | { type: 'FulfillEffect'; intentId: string; requirementId: string; resultPatches: Patch[] }
-  | { type: 'ApplyPatches'; patches: Patch[]; source: string }
-  | { type: 'ApplyTranslatorOutput'; intentId: string; fragments: TranslatorFragment[] };
+  | { type: 'ApplyPatches'; patches: Patch[]; source: string };
+  // NOTE: ApplyTranslatorOutput is DEPRECATED (v2.0.1)
+  // Translator processing is now handled by Bridge/App layer (FDR-H024)
 
 // Mailbox per execution (reference)
 const mailboxes = new Map<ExecutionKey, JobQueue>();
@@ -1038,33 +1170,32 @@ async function executeEffect(key: ExecutionKey, req: Requirement): Promise<void>
 }
 ```
 
-### Translator Path Implementation
+### ~~Translator Path Implementation~~ (DEPRECATED)
 
-LLM translate call is treated as a Host-level async operation; Lower→Evaluate→Apply runs as **one job**.
+> **⚠️ DEPRECATED (v2.0.1)**
+>
+> This section is deprecated. Host no longer handles Translator output directly.
+> See FDR-H024 for the decoupling rationale and migration guide.
 
-**Critical:** Translator output uses `ApplyTranslatorOutput`, NOT `FulfillEffect`. This is because:
-- FulfillEffect expects `Patch[]` and does requirement clear
-- Translator output is `TranslatorFragment[]` (MEL IR) and has no Core requirement
+~~LLM translate call is treated as a Host-level async operation; Lower→Evaluate→Apply runs as **one job**.~~
+
+**v2.0.1 Approach:**
 
 ```
 Intent arrives
     ↓
-[Mailbox] StartIntent job
-    ↓
-translateEffect request (async, OUTSIDE mailbox)
-    ↓
-Translation completes with TranslatorFragment[]
-    ↓
-[Mailbox] ApplyTranslatorOutput job ← NOT FulfillEffect
+[Bridge/App] TranslatorAdapter processes fragments
     │
-    ├── lowerPatchFragments()      ─┐
-    ├── evaluateConditionalPatchOps()  ├── ALL SYNCHRONOUS in this job
-    └── Core.apply()               ─┘
+    ├── lowerPatchFragments()         ─┐
+    ├── evaluateConditionalPatchOps()  ├── Done OUTSIDE Host
+    └── Returns concrete Patch[]      ─┘
     ↓
-[Mailbox] ContinueCompute job (if needed)
+[Host] Receives concrete Patch[] via ApplyPatches or FulfillEffect
+    ↓
+[Host] Applies patches to Snapshot
 ```
 
-Splitting Lower/Evaluate/Apply into separate jobs would reintroduce continuation state.
+Host receives only concrete `Patch[]` values. Translator processing is the Bridge/App layer's responsibility.
 
 ---
 

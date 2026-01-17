@@ -1,49 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { EffectExecutor, createEffectExecutor } from "./executor.js";
-import { EffectHandlerRegistry, createEffectRegistry } from "./registry.js";
-import type { EffectHandler } from "./types.js";
-import type { Snapshot, Requirement, Patch } from "@manifesto-ai/core";
-
-// Helper to create a minimal snapshot for testing
-function createTestSnapshot(data: unknown = {}): Snapshot {
-  return {
-    data,
-    system: {
-      status: "idle",
-      pendingRequirements: [],
-      lastError: null,
-      errors: [],
-      currentAction: null,
-    },
-    meta: {
-      version: 1,
-      timestamp: 0,
-      randomSeed: "seed",
-      schemaHash: "test-hash",
-    },
-    computed: {},
-    input: undefined,
-  };
-}
-
-// Helper to create a test requirement
-function createTestRequirement(
-  type: string,
-  params: Record<string, unknown> = {},
-  id?: string
-): Requirement {
-  return {
-    id: id ?? `req-${type}-${Date.now()}`,
-    type,
-    params,
-    actionId: "test-action",
-    flowPosition: {
-      nodePath: "root",
-      snapshotVersion: 0,
-    },
-    createdAt: Date.now(),
-  };
-}
+import { EffectExecutor, createEffectExecutor } from "../../../effects/executor.js";
+import { EffectHandlerRegistry, createEffectRegistry } from "../../../effects/registry.js";
+import type { EffectHandler } from "../../../effects/types.js";
+import type { Patch } from "@manifesto-ai/core";
+import {
+  createMinimalSnapshot as createTestSnapshot,
+  createTestRequirement,
+} from "../../helpers/index.js";
 
 describe("EffectExecutor", () => {
   let registry: EffectHandlerRegistry;
@@ -323,9 +286,9 @@ describe("EffectExecutor", () => {
       registry.register("set", handler);
 
       const requirements = [
-        createTestRequirement("set", { key: "a", value: 1 }, "req-1"),
-        createTestRequirement("set", { key: "b", value: 2 }, "req-2"),
-        createTestRequirement("set", { key: "c", value: 3 }, "req-3"),
+        createTestRequirement("set", { key: "a", value: 1 }, { id: "req-1" }),
+        createTestRequirement("set", { key: "b", value: 2 }, { id: "req-2" }),
+        createTestRequirement("set", { key: "c", value: 3 }, { id: "req-3" }),
       ];
 
       const { results, patches } = await executor.executeAll(
@@ -350,9 +313,9 @@ describe("EffectExecutor", () => {
       registry.register("fail", failHandler);
 
       const requirements = [
-        createTestRequirement("success", {}, "req-1"),
-        createTestRequirement("fail", {}, "req-2"),
-        createTestRequirement("success", {}, "req-3"),
+        createTestRequirement("success", {}, { id: "req-1" }),
+        createTestRequirement("fail", {}, { id: "req-2" }),
+        createTestRequirement("success", {}, { id: "req-3" }),
       ];
 
       const { results, patches } = await executor.executeAll(
@@ -377,9 +340,9 @@ describe("EffectExecutor", () => {
       registry.register("ordered", handler);
 
       const requirements = [
-        createTestRequirement("ordered", { order: 1 }, "req-1"),
-        createTestRequirement("ordered", { order: 2 }, "req-2"),
-        createTestRequirement("ordered", { order: 3 }, "req-3"),
+        createTestRequirement("ordered", { order: 1 }, { id: "req-1" }),
+        createTestRequirement("ordered", { order: 2 }, { id: "req-2" }),
+        createTestRequirement("ordered", { order: 3 }, { id: "req-3" }),
       ];
 
       await executor.executeAll(requirements, createTestSnapshot());
@@ -428,9 +391,9 @@ describe("EffectExecutor", () => {
 
     it("should deduplicate missing types", () => {
       const requirements = [
-        createTestRequirement("unknown", {}, "req-1"),
-        createTestRequirement("unknown", {}, "req-2"),
-        createTestRequirement("unknown", {}, "req-3"),
+        createTestRequirement("unknown", {}, { id: "req-1" }),
+        createTestRequirement("unknown", {}, { id: "req-2" }),
+        createTestRequirement("unknown", {}, { id: "req-3" }),
       ];
 
       const missing = executor.getMissingHandlers(requirements);

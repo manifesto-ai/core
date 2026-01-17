@@ -1,70 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { ManifestoHost, createHost, type HostOptions } from "./host.js";
-import { createMemoryStore } from "./persistence/memory.js";
-import { createIntent, createSnapshot, type DomainSchema, hashSchemaSync } from "@manifesto-ai/core";
-import type { EffectHandler } from "./effects/types.js";
+import { ManifestoHost, createHost, type HostOptions } from "../../host.js";
+import { createSnapshot, type DomainSchema } from "@manifesto-ai/core";
+import type { EffectHandler } from "../../effects/types.js";
+import {
+  createTestSchema,
+  createTestIntent,
+  DEFAULT_HOST_CONTEXT,
+} from "../helpers/index.js";
 
-const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
-  dummy: { type: "string", required: true },
-  count: { type: "number", required: true },
-  name: { type: "string", required: true },
-  response: { type: "object", required: true },
-  itemsTotal: { type: "number", required: true },
-  shipping: { type: "number", required: true },
-  data: { type: "string", required: true },
-};
-
-const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
-  "computed.dummy": {
-    expr: { kind: "get", path: "dummy" },
-    deps: ["dummy"],
-  },
-};
-
-const BASE_ACTIONS: DomainSchema["actions"] = {
-  noop: { flow: { kind: "halt", reason: "noop" } },
-};
-
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
-
-// Helper to create a minimal domain schema
-function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
-  const { state, computed, actions: overrideActions, hash, types, ...restOverrides } = overrides;
-  const stateFields = {
-    ...BASE_STATE_FIELDS,
-    ...(state?.fields ?? {}),
-  };
-  const computedFields = {
-    ...BASE_COMPUTED_FIELDS,
-    ...(computed?.fields ?? {}),
-  };
-  const actions = {
-    ...BASE_ACTIONS,
-    ...(overrideActions ?? {}),
-  };
-
-  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
-    id: "manifesto:test",
-    version: "1.0.0",
-    ...restOverrides,
-    types: types ?? {},
-    state: { fields: stateFields },
-    computed: { fields: computedFields },
-    actions,
-  };
-
-  return {
-    ...schemaWithoutHash,
-    hash: hash ?? hashSchemaSync(schemaWithoutHash),
-  };
-}
-
-let intentCounter = 0;
-const nextIntentId = () => `intent-${intentCounter++}`;
-const createTestIntent = (type: string, input?: unknown) =>
-  input === undefined
-    ? createIntent(type, nextIntentId())
-    : createIntent(type, input, nextIntentId());
+const HOST_CONTEXT = DEFAULT_HOST_CONTEXT;
 
 describe("ManifestoHost", () => {
   let schema: DomainSchema;
@@ -102,12 +46,6 @@ describe("ManifestoHost", () => {
       expect(host).toBeInstanceOf(ManifestoHost);
     });
 
-    it("should accept custom store", () => {
-      const store = createMemoryStore();
-      const host = createHost(schema, { store, initialData: {} });
-      expect(host.getStore()).toBe(store);
-    });
-
     it("should use schema", () => {
       const host = createHost(schema, { initialData: {} });
       expect(host.getSchema()).toBe(schema);
@@ -142,42 +80,6 @@ describe("ManifestoHost", () => {
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ name: "Alice" });
-    });
-
-    it("should clear stale pending requirements before compute", async () => {
-      const store = createMemoryStore();
-      const requirement = {
-        id: "req-test-1",
-        type: "test-effect",
-        params: { value: 1 },
-        actionId: "noop",
-        flowPosition: { nodePath: "actions.noop.flow", snapshotVersion: 0 },
-        createdAt: 0,
-      };
-      const snapshot = createSnapshot({ response: null }, schema.hash, HOST_CONTEXT);
-      const snapshotWithRequirement = {
-        ...snapshot,
-        system: {
-          ...snapshot.system,
-          status: "pending" as const,
-          pendingRequirements: [requirement],
-        },
-      };
-      await store.save(snapshotWithRequirement);
-
-      const host = createHost(schema, { store });
-      let handlerCalled = false;
-      host.registerEffect("test-effect", async () => {
-        handlerCalled = true;
-        return [{ op: "set", path: "response", value: { ok: true } }];
-      });
-
-      const result = await host.dispatch(createTestIntent("noop"));
-
-      expect(result.snapshot.system.pendingRequirements).toEqual([]);
-      const data = result.snapshot.data as Record<string, unknown>;
-      expect(data.response).toBeNull();
-      expect(handlerCalled).toBe(false);
     });
 
     it("should return error for unknown action", async () => {
@@ -338,7 +240,7 @@ describe("ManifestoHost", () => {
 
       const host = createHost(schemaWithInfiniteEffect, {
         initialData: {},
-        loop: { maxIterations: 3 },
+        maxIterations: 3,
       });
 
       host.registerEffect("loop", async () => []);
@@ -436,14 +338,20 @@ describe("ManifestoHost", () => {
   });
 
   describe("Traces", () => {
-    it("should return traces from dispatch", async () => {
-      const host = createHost(schema, { initialData: { count: 0 } });
+    it("should emit trace events via onTrace callback", async () => {
+      const traces: unknown[] = [];
+      const host = createHost(schema, {
+        initialData: { count: 0 },
+        onTrace: (event) => traces.push(event),
+      });
 
-      const result = await host.dispatch(createTestIntent("increment"));
+      await host.dispatch(createTestIntent("increment"));
 
-      expect(result.traces).toBeDefined();
-      expect(result.traces).toHaveLength(1);
-      expect(result.traces[0].intent.type).toBe("increment");
+      // v2.0.1 emits TraceEvent via onTrace callback
+      expect(traces.length).toBeGreaterThan(0);
+      // Should have job:start and job:end events at minimum
+      const jobStartEvents = traces.filter((t: any) => t.t === "job:start");
+      expect(jobStartEvents.length).toBeGreaterThan(0);
     });
   });
 });
@@ -451,15 +359,12 @@ describe("ManifestoHost", () => {
 describe("createHost factory", () => {
   it("should create host with all options", () => {
     const schema = createTestSchema();
-    const store = createMemoryStore();
 
     const host = createHost(schema, {
-      store,
       initialData: { value: 42 },
-      loop: { maxIterations: 50 },
+      maxIterations: 50,
     });
 
-    expect(host.getStore()).toBe(store);
     expect(host.getSchema()).toBe(schema);
   });
 });

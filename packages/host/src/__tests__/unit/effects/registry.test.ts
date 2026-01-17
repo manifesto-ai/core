@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { EffectHandlerRegistry, createEffectRegistry } from "./registry.js";
-import type { EffectHandler, EffectHandlerOptions } from "./types.js";
-import { isHostError } from "../errors.js";
+import { EffectHandlerRegistry, createEffectRegistry } from "../../../effects/registry.js";
+import type { EffectHandler, EffectHandlerOptions } from "../../../effects/types.js";
+import { isHostError } from "../../../errors.js";
 
 describe("EffectHandlerRegistry", () => {
   let registry: EffectHandlerRegistry;

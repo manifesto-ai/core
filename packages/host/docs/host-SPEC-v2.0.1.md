@@ -413,47 +413,69 @@ Iteration 2: compute() → R1 still in pending!
 
 ## 9. Compiler Integration
 
-### 9.1 Mandatory Compiler Dependency
+> **⚠️ DEPRECATED (v2.0.1)**
+>
+> This section is **deprecated** as of v2.0.1. Host is now **decoupled from Compiler and Translator**.
+>
+> **Rationale:** Host should only receive concrete `Patch[]` values. Translator output processing
+> (MEL IR → Patch[]) is the responsibility of the Bridge/App layer, not Host.
+>
+> **Migration:** If Translator integration is needed, implement a `TranslatorAdapter` at the
+> Bridge/App layer that converts `TranslatorFragment[]` to `Patch[]` before submitting to Host.
+>
+> See FDR-H024 for the design rationale.
 
-Host MUST declare dependency on `@manifesto-ai/compiler` and use it for all Translator output processing.
+### 9.1 ~~Mandatory Compiler Dependency~~ (DEPRECATED)
 
-### 9.2 Two-Step Processing
+~~Host MUST declare dependency on `@manifesto-ai/compiler` and use it for all Translator output processing.~~
 
-Host MUST perform two distinct steps:
+**v2.0.1:** Host MUST NOT depend on `@manifesto-ai/compiler`. Host receives only concrete `Patch[]`.
 
-1. **Lowering**: MEL IR → Core IR (`lowerPatchFragments()`)
-2. **Evaluation**: Core IR → concrete values (`evaluateConditionalPatchOps()`)
+### 9.2 ~~Two-Step Processing~~ (DEPRECATED)
 
-### 9.3 Rules (MUST)
+~~Host MUST perform two distinct steps:~~
 
-| Rule ID | Description |
-|---------|-------------|
-| COMP-1 | Host MUST import from `@manifesto-ai/compiler` |
-| COMP-2 | Host MUST call `lowerPatchFragments()` first |
-| COMP-3 | Host MUST call `evaluateConditionalPatchOps()` second |
-| COMP-4 | Host MUST pass only concrete `Patch[]` to `Core.apply()` |
-| COMP-5 | Passing expressions to `Core.apply()` is SPEC VIOLATION |
-| COMP-6 | `$system.*` MUST be excluded from Translator path `allowSysPaths` |
+1. ~~**Lowering**: MEL IR → Core IR (`lowerPatchFragments()`)~~
+2. ~~**Evaluation**: Core IR → concrete values (`evaluateConditionalPatchOps()`)~~
 
-### 9.4 Data Flow
+**v2.0.1:** These steps are performed by Bridge/App layer, not Host.
+
+### 9.3 Rules (DEPRECATED)
+
+| Rule ID | Description | Status |
+|---------|-------------|--------|
+| ~~COMP-1~~ | ~~Host MUST import from `@manifesto-ai/compiler`~~ | **DEPRECATED** |
+| ~~COMP-2~~ | ~~Host MUST call `lowerPatchFragments()` first~~ | **DEPRECATED** |
+| ~~COMP-3~~ | ~~Host MUST call `evaluateConditionalPatchOps()` second~~ | **DEPRECATED** |
+| COMP-4 | Host MUST pass only concrete `Patch[]` to `Core.apply()` | **RETAINED** |
+| COMP-5 | Passing expressions to `Core.apply()` is SPEC VIOLATION | **RETAINED** |
+| ~~COMP-6~~ | ~~`$system.*` MUST be excluded from Translator path `allowSysPaths`~~ | **DEPRECATED** |
+
+### 9.4 ~~Data Flow~~ (DEPRECATED)
+
+**v2.0.1 Architecture:**
 
 ```
-Translator.translate()
-    │
-    ▼
-PatchFragment[] (MEL IR + condition)
-    │
-    │ lowerPatchFragments()
-    ▼
-ConditionalPatchOp[] (Core IR + condition)
-    │
-    │ evaluateConditionalPatchOps()
-    ▼
-Patch[] (concrete values)
-    │
-    │ Core.apply()
-    ▼
-Snapshot
+┌─────────────────────────────────────────────────────────────┐
+│  Bridge / App Layer                                         │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  TranslatorAdapter (optional, outside Host)           │  │
+│  │  ├── Depends on @manifesto-ai/compiler                │  │
+│  │  ├── Translator.translate() → TranslatorFragment[]    │  │
+│  │  ├── lowerPatchFragments()                            │  │
+│  │  ├── evaluateConditionalPatchOps()                    │  │
+│  │  └── Submits concrete Patch[] to Host                 │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ Patch[] (concrete only)
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Host (compiler-free, translator-free)                      │
+│  ├── Receives only concrete Patch[]                         │
+│  ├── No @manifesto-ai/compiler dependency                   │
+│  └── Single responsibility: execution orchestration         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -986,58 +1008,32 @@ function isPendingRequirement(snapshot: Snapshot, reqId: string): boolean {
 
 Silent drops make debugging impossible. Always log.
 
-### 10.8 Translator Output Processing
+### 10.8 ~~Translator Output Processing~~ (DEPRECATED)
 
-Translator output processing is **distinct from Core Requirement lifecycle**.
+> **⚠️ DEPRECATED (v2.0.1)**
+>
+> This section is **deprecated**. Host no longer handles Translator output directly.
+> Translator processing is the responsibility of the Bridge/App layer.
+>
+> See §9 (Compiler Integration - DEPRECATED) and FDR-H024 for details.
 
-**Critical Distinction:**
-- **FulfillEffect**: For Core-generated Requirements (effect in Flow) → receives `Patch[]`
-- **ApplyTranslatorOutput**: For Translator fragments → receives `TranslatorFragment[]`
+~~Translator output processing is **distinct from Core Requirement lifecycle**.~~
 
-Mixing these concepts causes requirement lifecycle corruption (infinite loops, duplicate effects).
+**v2.0.1 Approach:**
+- Host receives only concrete `Patch[]`
+- Bridge/App layer handles Translator processing externally
+- No `ApplyTranslatorOutput` job type in Host
 
-#### 10.8.1 Rules (MUST)
+#### 10.8.1 ~~Rules~~ (DEPRECATED)
 
-| Rule ID | Description |
-|---------|-------------|
-| TRANS-1 | LLM translate call is treated as Host-level async operation (outside mailbox) |
-| TRANS-2 | Translator fragments MUST be processed via `ApplyTranslatorOutput` job (NOT FulfillEffect) |
-| TRANS-3 | Lower → Evaluate → Apply MUST run synchronously in ONE job |
-| TRANS-4 | Splitting Lower/Evaluate/Apply into separate jobs is FORBIDDEN |
+| Rule ID | Description | Status |
+|---------|-------------|--------|
+| ~~TRANS-1~~ | ~~LLM translate call is treated as Host-level async operation~~ | **DEPRECATED** |
+| ~~TRANS-2~~ | ~~Translator fragments MUST be processed via `ApplyTranslatorOutput` job~~ | **DEPRECATED** |
+| ~~TRANS-3~~ | ~~Lower → Evaluate → Apply MUST run synchronously in ONE job~~ | **DEPRECATED** |
+| ~~TRANS-4~~ | ~~Splitting Lower/Evaluate/Apply into separate jobs is FORBIDDEN~~ | **DEPRECATED** |
 
-#### 10.8.2 Correct Sequence
-
-```
-Intent arrives
-    ↓
-[Mailbox] StartIntent job
-    ↓
-translateEffect request (async, OUTSIDE mailbox)
-    ↓
-Translation completes with TranslatorFragment[]
-    ↓
-[Mailbox] ApplyTranslatorOutput job ← NOT FulfillEffect
-    │
-    ├── lowerPatchFragments()      ─┐
-    ├── evaluateConditionalPatchOps()  ├── ALL SYNCHRONOUS in this job
-    └── Core.apply()               ─┘
-    ↓
-[Mailbox] ContinueCompute job (if needed)
-```
-
-#### 10.8.3 Why NOT FulfillEffect?
-
-| Aspect | FulfillEffect | ApplyTranslatorOutput |
-|--------|---------------|----------------------|
-| Input | `Patch[]` (concrete) | `TranslatorFragment[]` (MEL IR) |
-| Source | Core Requirement | Translator (Host-level) |
-| Processing | Direct apply | Lower → Evaluate → Apply |
-| Requirement Clear | YES (REQ-CLEAR-1) | NO (no Core requirement involved) |
-
-Using FulfillEffect for Translator output would:
-1. Attempt to clear a non-existent requirement → error or no-op
-2. Skip the mandatory Lower/Evaluate steps → expressions stored as values
-3. Corrupt requirement lifecycle tracking
+**v2.0.1:** These rules are now the responsibility of the Bridge/App layer's `TranslatorAdapter`.
 
 ### 10.9 Effect Runner Location
 
@@ -1260,7 +1256,7 @@ const context = testProvider.createFrozenContext(intentId);
 | INV-EX-6 | All state mutations go through mailbox |
 | INV-EX-7 | Enqueued jobs MUST eventually be processed (liveness) |
 | INV-EX-8 | Effect results applied in deterministic order (ordering) |
-| INV-EX-9 | FulfillEffect handles Core Requirements; ApplyTranslatorOutput handles Translator fragments |
+| ~~INV-EX-9~~ | ~~FulfillEffect handles Core Requirements; ApplyTranslatorOutput handles Translator fragments~~ **DEPRECATED** |
 | INV-EX-10 | **Runner MUST re-check queue before releasing guard (lost wakeup prevention)** |
 | INV-EX-11 | **Blocked kicks MUST be remembered and retried (no lost wakeup)** |
 | INV-EX-12 | **FulfillEffect MUST guarantee requirement clear even on error** |
@@ -1430,7 +1426,7 @@ function escalateToFatal(intentId: string, error: Error) {
 |------|--------------|
 | Core SPEC | Host executes Core's computation results |
 | World Protocol SPEC | World provides ExecutionKey mapping |
-| Compiler SPEC | Host uses Compiler for Translator integration |
+| ~~Compiler SPEC~~ | ~~Host uses Compiler for Translator integration~~ **DEPRECATED (v2.0.1)** |
 | Bridge SPEC | Bridge uses Host for intent execution |
 | App SPEC | App orchestrates Host and provides scheduling policy |
 
@@ -1439,9 +1435,10 @@ function escalateToFatal(intentId: string, error: Error) {
 | FDR | Topic |
 |-----|-------|
 | FDR-H001 ~ H011 | Core-Host boundary, Snapshot, Intent, Handlers |
-| FDR-H012 ~ H017 | Compiler Integration (v1.x) |
+| ~~FDR-H012 ~ H017~~ | ~~Compiler Integration (v1.x)~~ **DEPRECATED** |
 | FDR-H018 ~ H022 | Execution Model (v2.0) |
 | **FDR-H023** | **Context Determinism (v2.0.1)** |
+| **FDR-H024** | **Compiler/Translator Decoupling (v2.0.1)** |
 | FDR-EL-001 | Event-Loop Execution Model (source) |
 
 ### 14.3 App SPEC Alignment
@@ -1464,7 +1461,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Intent | INTENT-1~5, INTENT-ID-1~4: No resume, re-entry |
 | Handler | HANDLER-1~5: No throw, Patch[], IO only |
 | Requirement | REQ-*: Deterministic ID, clear obligation |
-| Compiler | COMP-1~6: Two-step processing |
+| ~~Compiler~~ | ~~COMP-1~6: Two-step processing~~ **DEPRECATED** (COMP-4,5 retained) |
 | Mailbox | MAIL-1~4: Per-key serialization |
 | Job | JOB-1~5: Await ban, fresh read; **COMP-REQ-INTERLOCK-1~2** |
 | Runner | RUN-1~4: Single runner, **lost wakeup prevention** |
@@ -1472,7 +1469,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Liveness | LIVE-1~4: Enqueue → eventually processed, **blocked kick retry** |
 | Order | ORD-1~4: **Deterministic order**; **ORD-TIMEOUT-1~3** (buffer timeout handling) |
 | FulfillEffect | **FULFILL-0~4**: Stale check, atomic lifecycle |
-| Translator | TRANS-1~4: Separate from FulfillEffect, single job |
+| ~~Translator~~ | ~~TRANS-1~4: Separate from FulfillEffect, single job~~ **DEPRECATED** |
 | Error | ERR-FE-1~5: FulfillEffect must guarantee clear, **error patch best-effort** |
 | **Context** | **CTX-1~5: Frozen per job, deterministic randomSeed (v2.0.1)** |
 
@@ -1483,9 +1480,9 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Await in job handler | Continuation state (INV-EX-3 violation) |
 | Skip requirement clear | Infinite loop, duplicate effects |
 | Direct apply from callback | Single-writer bypass (INV-EX-6 violation) |
-| Split Lower/Evaluate/Apply | Continuation state |
+| ~~Split Lower/Evaluate/Apply~~ | ~~Continuation state~~ **DEPRECATED** (moved to Bridge/App) |
 | Multiple runners same key | Race condition, lost updates |
-| Use FulfillEffect for Translator | Requirement lifecycle corruption |
+| ~~Use FulfillEffect for Translator~~ | ~~Requirement lifecycle corruption~~ **DEPRECATED** |
 | No runner kick on enqueue | Jobs never processed (liveness violation) |
 | **No re-check before guard release** | **Lost wakeup → permanent stall (LIVE-1 violation)** |
 | **Forget blocked kick request** | **Lost wakeup → permanent stall (LIVE-1 violation)** |
@@ -1507,20 +1504,21 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 - [ ] **Runner re-checks queue + kick flag before releasing guard (RUN-4)**
 - [ ] Runner kick on empty→non-empty transition
 - [ ] Effect results via FulfillEffect job (for Core Requirements)
-- [ ] Translator output via ApplyTranslatorOutput job (NOT FulfillEffect)
+- [x] ~~Translator output via ApplyTranslatorOutput job~~ **DEPRECATED** - Host receives only Patch[]
 - [ ] **FulfillEffect checks pendingRequirements before apply (FULFILL-0)**
 - [ ] FulfillEffect performs Apply + Clear + Continue atomically
 - [ ] **FulfillEffect guarantees clear even on apply failure (ERR-FE-2)**
 - [ ] **Error patch recording is best-effort, does not block continue (ERR-FE-5)**
 - [ ] **Compute patches applied BEFORE effect dispatch (COMP-REQ-INTERLOCK-1)**
 - [ ] **Effect dispatch list read from snapshot after apply (COMP-REQ-INTERLOCK-2, SHOULD)**
-- [ ] Translator path as single job (Lower→Evaluate→Apply synchronous)
+- [x] ~~Translator path as single job~~ **DEPRECATED** - moved to Bridge/App layer
 - [ ] Effect execution policy documented (ORD-SERIAL or ORD-PARALLEL)
 - [ ] **If ORD-PARALLEL: timeout/cancel produces fulfillment outcome (ORD-TIMEOUT-1)**
 - [ ] **HostContext frozen at job start, not per operation (CTX-1, CTX-5)**
 - [ ] **Same frozen context used for all Core calls in a job (CTX-2)**
 - [ ] **randomSeed derived from intentId (CTX-4)**
 - [ ] **Frozen context recorded in trace for replay (CTX-5)**
+- [ ] **No @manifesto-ai/compiler dependency (v2.0.1 decoupling)**
 
 ---
 
@@ -1541,7 +1539,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | **Ordering buffer timeout handling** | **ORD-TIMEOUT-1~3** |
 | **Stale/duplicate fulfillment protection** | **FULFILL-0** |
 | FulfillEffect atomic sequence | FULFILL-1~4 |
-| Translator vs FulfillEffect separation | TRANS-1~4 |
+| ~~Translator vs FulfillEffect separation~~ | ~~TRANS-1~4~~ **DEPRECATED** |
 | **FulfillEffect error handling** | **ERR-FE-1~5** |
 | **Compute-effect interlock** | **COMP-REQ-INTERLOCK-1~2** |
 
@@ -1561,7 +1559,9 @@ v2.0/v2.0.1 does not change:
 - Core-Host boundary (§4)
 - Snapshot communication (§5)
 - Effect handler contract (§7)
-- Compiler integration (§9)
+
+v2.0.1 **deprecates**:
+- Compiler integration (§9) - Host is now decoupled from Compiler/Translator
 
 v2.0/v2.0.1 **strengthens enforcement** of existing principles (FDR-H003, H008, H010).
 
@@ -1570,7 +1570,7 @@ v2.0/v2.0.1 **strengthens enforcement** of existing principles (FDR-H003, H008, 
 | Component | Impact |
 |-----------|--------|
 | Effect handlers | No change |
-| Translator integration | Use ApplyTranslatorOutput job (not FulfillEffect) |
+| ~~Translator integration~~ | **DEPRECATED** - Translator processing moved to Bridge/App layer |
 | Intent processing | Restructure as job queue; **apply patches before effect dispatch**; **read requirements from snapshot** |
 | Requirement lifecycle | Ensure atomic Clear step; **stale check before apply** |
 | Error handling | **Clear even on apply failure**; **error patch is best-effort** |
@@ -1593,8 +1593,9 @@ type Job =
   | StartIntent
   | ContinueCompute
   | FulfillEffect
-  | ApplyPatches
-  | ApplyTranslatorOutput;
+  | ApplyPatches;
+  // NOTE: ApplyTranslatorOutput is DEPRECATED (v2.0.1)
+  // Translator processing is now handled by Bridge/App layer
 
 interface StartIntent {
   readonly type: 'StartIntent';
@@ -1620,11 +1621,12 @@ interface ApplyPatches {
   readonly source: string;             // For debugging/tracing
 }
 
-interface ApplyTranslatorOutput {
-  readonly type: 'ApplyTranslatorOutput';
-  readonly intentId: string;
-  readonly fragments: TranslatorFragment[];  // MEL IR, NOT Patch[]
-}
+// DEPRECATED: ApplyTranslatorOutput
+// interface ApplyTranslatorOutput {
+//   readonly type: 'ApplyTranslatorOutput';
+//   readonly intentId: string;
+//   readonly fragments: TranslatorFragment[];  // MEL IR, NOT Patch[]
+// }
 ```
 
 ### C.2 Job Type Distinctions
@@ -1632,18 +1634,18 @@ interface ApplyTranslatorOutput {
 | Job Type | Input | Source | Requirement Clear? |
 |----------|-------|--------|-------------------|
 | FulfillEffect | `Patch[]` | Core Requirement | YES |
-| ApplyTranslatorOutput | `TranslatorFragment[]` | Translator | NO |
 | ApplyPatches | `Patch[]` | Direct patches | NO |
+| ~~ApplyTranslatorOutput~~ | ~~`TranslatorFragment[]`~~ | ~~Translator~~ | **DEPRECATED** |
 
 ### C.3 When to Use Each
 
 | Scenario | Job Type |
 |----------|----------|
 | Effect handler returned | FulfillEffect |
-| Translator completed | ApplyTranslatorOutput |
 | Direct state mutation (rare) | ApplyPatches |
-| Resume after effect/translate | ContinueCompute |
+| Resume after effect | ContinueCompute |
 | New intent arrives | StartIntent |
+| ~~Translator completed~~ | ~~ApplyTranslatorOutput~~ **DEPRECATED** - use Bridge/App layer |
 
 ---
 

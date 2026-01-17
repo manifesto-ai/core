@@ -1,24 +1,88 @@
 /**
- * @manifesto-ai/host
+ * @manifesto-ai/host v2.0.1
  *
  * Manifesto Host - Effect execution runtime for @manifesto-ai/core
  *
- * The Host orchestrates the execution of Manifesto intents,
- * handling effects and managing the compute-effect-resume cycle.
+ * The Host orchestrates the execution of Manifesto intents using
+ * the event-loop execution model with Mailbox + Runner + Job architecture.
+ *
+ * @see host-SPEC-v2.0.1.md
  */
 
 // Host
 export { ManifestoHost, createHost, type HostOptions, type HostResult } from "./host.js";
 
-// Loop
-export { runHostLoop, type HostLoopOptions, type HostLoopResult } from "./loop.js";
+// v2.0.1 Execution Model
+export type {
+  ExecutionKey,
+  Runtime,
+  ExecutionContext,
+  ExecutionContextOptions,
+} from "./types/execution.js";
+export { defaultRuntime } from "./types/execution.js";
 
-// Context
+export type {
+  JobType,
+  Job,
+  StartIntentJob,
+  ContinueComputeJob,
+  FulfillEffectJob,
+  ApplyPatchesJob,
+} from "./types/job.js";
 export {
-  createHostContextBuilder,
-  createInitialHostContext,
-  type HostContextOptions,
-} from "./context.js";
+  generateJobId,
+  createStartIntentJob,
+  createContinueComputeJob,
+  createFulfillEffectJob,
+  createApplyPatchesJob,
+} from "./types/job.js";
+
+export type { TraceEvent } from "./types/trace.js";
+
+// Mailbox
+export {
+  type ExecutionMailbox,
+  DefaultExecutionMailbox,
+  createMailbox,
+  MailboxManager,
+  createMailboxManager,
+} from "./mailbox.js";
+
+// Runner
+export {
+  type RunnerState,
+  createRunnerState,
+  processMailbox,
+  kickRunner,
+  enqueueAndKick,
+  isRunnerActive,
+  isKickPending,
+} from "./runner.js";
+
+// Context Provider
+export {
+  type HostContextProviderOptions,
+  type HostContextProvider,
+  DefaultHostContextProvider,
+  createHostContextProvider,
+  createTestHostContextProvider,
+} from "./context-provider.js";
+
+// Execution Context
+export {
+  type ExecutionContextImplOptions,
+  ExecutionContextImpl,
+  createExecutionContext,
+} from "./execution-context.js";
+
+// Job Handlers
+export {
+  runJob,
+  handleStartIntent,
+  handleContinueCompute,
+  handleFulfillEffect,
+  handleApplyPatches,
+} from "./job-handlers/index.js";
 
 // Effects
 export {
@@ -35,14 +99,6 @@ export {
   EffectExecutor,
   createEffectExecutor,
 } from "./effects/index.js";
-
-// Persistence
-export {
-  type SnapshotStore,
-  type SnapshotStoreWithHistory,
-  MemorySnapshotStore,
-  createMemoryStore,
-} from "./persistence/index.js";
 
 // Errors
 export { HostError, createHostError, isHostError, type HostErrorCode } from "./errors.js";

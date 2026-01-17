@@ -154,6 +154,10 @@ export class EffectExecutor {
    * Effects are executed sequentially to maintain determinism.
    * Failed effects do not stop subsequent effects.
    *
+   * @deprecated v2.0.1 - Use FulfillEffect jobs instead. The v2.0.1 model
+   * processes effects one at a time via the mailbox, not in batches.
+   * This method will be removed in a future major version.
+   *
    * @param requirements - Requirements to fulfill
    * @param snapshot - Current snapshot (read-only)
    * @returns Array of results and aggregated patches
@@ -179,6 +183,10 @@ export class EffectExecutor {
 
   /**
    * Check if all required effect types are registered
+   *
+   * @deprecated v2.0.1 - The v2.0.1 model handles missing handlers
+   * via error patches in FulfillEffect jobs. This method will be
+   * removed in a future major version.
    *
    * @param requirements - Requirements to check
    * @returns Array of missing effect types
