@@ -10,6 +10,23 @@
 
 ---
 
+> **⚠️ PARTIAL SUPERSEDE NOTICE (Host Integration)**
+>
+> Host-Compiler coupling requirements in this document are superseded by
+> Host v2.0.1 FDR-H024 (Compiler/Translator Decoupling).
+>
+> **Affected sections:**
+> - Section 7 (§20): Host Integration Requirements
+> - All "Host MUST use Compiler" requirements
+> - `evaluateConditionalPatchOps()` Host obligation
+>
+> Host no longer requires `@manifesto-ai/compiler` dependency.
+> Translator integration is now Bridge/App layer responsibility.
+>
+> See `packages/host/docs/host-FDR-v2.0.1.md#fdr-h024`.
+
+---
+
 ## Summary of Changes
 
 | Change | Type | Impact |
@@ -595,10 +612,15 @@ function compileMelPatch(
 
 ## 7. Host Integration
 
+> **⚠️ SUPERSEDED** by Host v2.0.1 FDR-H024.
+> Host no longer requires `@manifesto-ai/compiler` dependency.
+> Translator integration is now Bridge/App layer responsibility.
+> See `packages/host/docs/host-FDR-v2.0.1.md#fdr-h024`.
+
 ```markdown
 ---
 
-## 20. Host Integration Requirements
+## 20. Host Integration Requirements (SUPERSEDED)
 
 ### 20.1 Complete Data Flow
 

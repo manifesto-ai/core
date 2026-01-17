@@ -106,7 +106,11 @@ Defines MEL compilation to DomainSchema.
 
 #### [Host Spec](./host-spec)
 
-**Status:** Normative | **Version:** 1.1.0
+**Status:** Normative | **Version:** 1.1.0 (⚠️ **Package docs are authoritative: v2.0.1**)
+
+> **Note:** The global spec here is v1.1. For the current authoritative specification,
+> see `packages/host/docs/host-SPEC-v2.0.1.md` which includes Mailbox + Runner + Job
+> execution model and CTX-1~5 Context Determinism rules.
 
 Defines Host's responsibilities and guarantees.
 

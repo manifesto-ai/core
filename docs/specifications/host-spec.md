@@ -1,5 +1,17 @@
 # Host Contract SPEC v1.1 Patch Document (Rev.5)
 
+> **⚠️ SUPERSEDED**
+>
+> This document (v1.1) is superseded by the package-level specification.
+> See `packages/host/docs/host-SPEC-v2.0.1.md` for the current version.
+>
+> **Key changes in v2.0.1:**
+> - Mailbox + Runner + Job execution model
+> - Compiler/Translator decoupling (FDR-H024)
+> - CTX-1~5 Context Determinism rules
+
+---
+
 > **Patch Target:** Host Contract SPEC v1.0 → v1.1
 > **Status:** Draft for Review (Rev.5)
 > **Date:** 2026-01-04

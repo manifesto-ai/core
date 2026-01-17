@@ -198,7 +198,7 @@ Host executes reality.
 
 Snapshot is the **only** valid communication channel between Core and Host.
 
-There are no return values, no callbacks, no events, no context passing.
+There are no return values, no callbacks, no events, no mutable context passing between jobs; each job receives a fresh frozen HostContext (CTX-1~5).
 
 ### 5.2 Rules (MUST)
 
@@ -218,8 +218,11 @@ core.resume(result);  // Hidden state!
 
 // ✅ REQUIRED: Effect result as Snapshot mutation
 const patches = await executeEffect();
-const context = { now: Date.now(), randomSeed: crypto.randomUUID() };
-snapshot = core.apply(schema, snapshot, patches, context);
+// Context is frozen once per job (CTX-1~5)
+// frozenContext.now is captured once (CTX-3)
+// frozenContext.randomSeed = intentId (CTX-4)
+const frozenContext = createFrozenContext(job.id, job.intentId);
+snapshot = core.apply(schema, snapshot, patches, frozenContext);
 ```
 
 ---

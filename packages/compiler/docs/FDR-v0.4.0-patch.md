@@ -19,8 +19,8 @@ This section documents the foundational decisions for Translator output handling
 
 | FDR | Title | Key Decision |
 |-----|-------|--------------|
-| FDR-MEL-064 | Compiler Owns Lowering Boundary | AD-COMP-LOW-001 |
-| FDR-MEL-065 | Host Must Use Compiler | Mandatory integration |
+| FDR-MEL-064 | Compiler Owns Lowering Boundary | AD-COMP-LOW-001 (Host coupling **SUPERSEDED** by FDR-H024) |
+| FDR-MEL-065 | Host Must Use Compiler | **SUPERSEDED** by Host v2.0.1 FDR-H024 |
 | FDR-MEL-066 | Context Determination Per Op-Field | AD-COMP-LOW-002 |
 | FDR-MEL-067 | Core Path Conventions | No $ prefix for meta/input |
 | FDR-MEL-068 | $item Scope Restriction | effect.args only |
@@ -72,7 +72,7 @@ Prior to v0.4.0, the lowering boundary was implicit. It was unclear who transfor
 - Translator produces MEL Canonical IR only — no Core-specific shapes
 - Core evaluates Core Runtime IR only — no MEL canonical forms
 - Compiler transforms MEL IR to Core IR via explicit lowering API
-- Host MUST call Compiler before applying Translator output to Core
+- ~~Host MUST call Compiler before applying Translator output to Core~~ **SUPERSEDED** by Host v2.0.1 FDR-H024 — Bridge/App layer now handles Translator processing
 - Future MEL/Core changes only require Compiler updates, not Translator changes
 
 ### Axiom
@@ -85,11 +85,18 @@ A34. Compiler is the single boundary between MEL IR and Core IR. [v0.4.0]
 
 ## FDR-MEL-065: Host Must Use Compiler
 
-### Decision
+> **⚠️ SUPERSEDED** by Host v2.0.1 FDR-H024 (Compiler/Translator Decoupling).
+> Host no longer requires `@manifesto-ai/compiler` dependency.
+> Translator integration is now Bridge/App layer responsibility.
+> See `packages/host/docs/host-FDR-v2.0.1.md#fdr-h024`.
 
-**Host MUST use `@manifesto-ai/compiler` for all Translator output processing.**
+### Decision (SUPERSEDED)
 
-Bypassing Compiler is a SPEC VIOLATION.
+~~**Host MUST use `@manifesto-ai/compiler` for all Translator output processing.**~~
+
+~~Bypassing Compiler is a SPEC VIOLATION.~~
+
+**v2.0.1:** Host receives only concrete `Patch[]`. Compiler usage is the responsibility of Bridge/App layer.
 
 ### Context
 
@@ -114,12 +121,12 @@ SOLUTION:
   Same Translator output → same Snapshots ✓
 ```
 
-### Consequences
+### Consequences (SUPERSEDED)
 
-- Host dependency on `@manifesto-ai/compiler` is mandatory
-- Custom lowering implementations are SPEC VIOLATIONS
-- Compiler upgrades automatically propagate to all Hosts
-- Deterministic behavior across all Host implementations
+- ~~Host dependency on `@manifesto-ai/compiler` is mandatory~~ **SUPERSEDED** — Host is now compiler-free
+- ~~Custom lowering implementations are SPEC VIOLATIONS~~ **SUPERSEDED** — Bridge/App layer handles lowering
+- Compiler upgrades automatically propagate to all ~~Hosts~~ Bridge/App layer integrations
+- Deterministic behavior across all ~~Host~~ Compiler consumer implementations
 
 ---
 
