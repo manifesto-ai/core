@@ -7,26 +7,23 @@ import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
 import { createContext } from "../evaluator/context.js";
 import { evaluateExpr } from "../evaluator/expr.js";
-import { evaluateFlow, createFlowState, type FlowStatus } from "../evaluator/flow.js";
+import { evaluateFlowSync, createFlowState, type FlowStatus } from "../evaluator/flow.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk, isErr } from "../schema/common.js";
+import type { HostContext } from "../schema/host-context.js";
 
 /**
- * Compute the result of dispatching an intent
+ * Compute the result of dispatching an intent (synchronous).
  *
- * This is the ONLY entry point for computation.
- * Each call is independent - there is no suspended context.
- *
- * @param schema - The domain schema
- * @param snapshot - Current snapshot state
- * @param intent - The intent to process
- * @returns ComputeResult with new snapshot, trace, and status
+ * This is the canonical computation path. Each call is independent -
+ * there is no suspended context.
  */
-export async function compute(
+export function computeSync(
   schema: DomainSchema,
   snapshot: Snapshot,
-  intent: Intent
-): Promise<ComputeResult> {
+  intent: Intent,
+  _context?: HostContext
+): ComputeResult {
   const startTime = Date.now();
 
   // 0. Ensure computed values are up-to-date before availability check
@@ -129,7 +126,7 @@ export async function compute(
   const flowState = createFlowState(preparedSnapshot);
 
   // 5. Evaluate the flow
-  const flowResult = await evaluateFlow(
+  const flowResult = evaluateFlowSync(
     action.flow,
     ctx,
     flowState,
@@ -187,6 +184,18 @@ export async function compute(
     trace,
     status: systemStatus,
   };
+}
+
+/**
+ * Compute the result of dispatching an intent (async wrapper).
+ */
+export async function compute(
+  schema: DomainSchema,
+  snapshot: Snapshot,
+  intent: Intent,
+  context?: HostContext
+): Promise<ComputeResult> {
+  return computeSync(schema, snapshot, intent, context);
 }
 
 /**

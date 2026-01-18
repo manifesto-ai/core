@@ -6,6 +6,7 @@ describe("core", () => {
     const core = createCore();
     expect(core).toBeDefined();
     expect(core.compute).toBeInstanceOf(Function);
+    expect(core.computeSync).toBeInstanceOf(Function);
     expect(core.apply).toBeInstanceOf(Function);
     expect(core.validate).toBeInstanceOf(Function);
     expect(core.explain).toBeInstanceOf(Function);
