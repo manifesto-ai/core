@@ -80,7 +80,7 @@ SPEC documents have their own version, independent of package versions:
 | `2.0` | Breaking changes from `1.x` |
 
 **Relationship:**
-- Package `@manifesto-ai/core@2.3.4` implements `Core SPEC v1.2`
+- Package `@manifesto-ai/core@2.3.4` implements `Core SPEC v2.0.0`
 - Multiple package versions may implement the same SPEC version
 
 ---

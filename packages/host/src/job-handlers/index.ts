@@ -1,5 +1,5 @@
 /**
- * Job Dispatcher for Host v2.0.1
+ * Job Dispatcher for Host v2.0.2
  *
  * Routes jobs to their appropriate handlers.
  *
@@ -16,20 +16,16 @@ import { handleApplyPatches } from "./apply-patches.js";
 /**
  * Run a job
  *
- * Note: Some job handlers need to await core.compute() which is async.
- * However, core.compute() is internal computation, not external IO.
- * The SPEC JOB-1 bans awaiting "external work (effects, network, translator)".
- *
- * @see SPEC §10.2.1 JOB-1: Job handlers MUST NOT await external work
+ * Job handlers are synchronous; effect execution is split outside the mailbox.
  */
-export async function runJob(job: Job, ctx: ExecutionContext): Promise<void> {
+export function runJob(job: Job, ctx: ExecutionContext): void {
   switch (job.type) {
     case "StartIntent":
-      await handleStartIntent(job, ctx);
+      handleStartIntent(job, ctx);
       break;
 
     case "ContinueCompute":
-      await handleContinueCompute(job, ctx);
+      handleContinueCompute(job, ctx);
       break;
 
     case "FulfillEffect":

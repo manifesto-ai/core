@@ -5,6 +5,7 @@ import type { EffectHandler } from "../../effects/types.js";
 import {
   createTestSchema,
   createTestIntent,
+  stripHostState,
   DEFAULT_HOST_CONTEXT,
 } from "../helpers/index.js";
 
@@ -59,7 +60,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ count: 1 });
+      expect(stripHostState(result.snapshot.data)).toEqual({ count: 1 });
     });
 
     it("should accumulate state across dispatches", async () => {
@@ -70,7 +71,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ count: 3 });
+      expect(stripHostState(result.snapshot.data)).toEqual({ count: 3 });
     });
 
     it("should handle intent with input", async () => {
@@ -79,7 +80,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("setName", { name: "Alice" }));
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ name: "Alice" });
+      expect(stripHostState(result.snapshot.data)).toEqual({ name: "Alice" });
     });
 
     it("should return error for unknown action", async () => {
@@ -129,7 +130,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("fetchData"));
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({
+      expect(stripHostState(result.snapshot.data)).toEqual({
         response: { url: "https://api.test.com" },
       });
     });
@@ -177,7 +178,7 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
 
-      expect(snapshot?.data).toEqual({ count: 5 });
+      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 5 });
     });
 
     it("should persist snapshot after dispatch", async () => {
@@ -186,20 +187,20 @@ describe("ManifestoHost", () => {
       await host.dispatch(createTestIntent("increment"));
       const snapshot = await host.getSnapshot();
 
-      expect(snapshot?.data).toEqual({ count: 1 });
-      expect(snapshot?.meta.version).toBe(1);
+      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 1 });
+      expect(snapshot?.meta.version).toBe(2);
     });
 
     it("should reset to new initial state", async () => {
       const host = createHost(schema, { initialData: { count: 100 } });
 
       await host.dispatch(createTestIntent("increment"));
-      expect((await host.getSnapshot())?.data).toEqual({ count: 101 });
+      expect(stripHostState((await host.getSnapshot())?.data ?? {})).toEqual({ count: 101 });
 
       await host.reset({ count: 0 });
 
       const snapshot = await host.getSnapshot();
-      expect(snapshot?.data).toEqual({ count: 0 });
+      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 0 });
       expect(snapshot?.meta.version).toBe(0);
     });
   });
@@ -299,7 +300,7 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
 
-      expect(snapshot?.data).toEqual({ itemsTotal: 150, shipping: 10 });
+      expect(stripHostState(snapshot?.data ?? {})).toEqual({ itemsTotal: 150, shipping: 10 });
       expect(snapshot?.computed["computed.total"]).toBe(160);
     });
 
@@ -332,7 +333,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("fetchWithRetry"));
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ data: "success" });
+      expect(stripHostState(result.snapshot.data)).toEqual({ data: "success" });
       expect(attempts).toBe(3);
     });
   });

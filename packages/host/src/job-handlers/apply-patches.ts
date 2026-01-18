@@ -28,6 +28,19 @@ export function handleApplyPatches(
     jobId: job.id,
   });
 
+  // Reset and freeze context for this job (CTX-1~5)
+  ctx.resetFrozenContext();
+  const frozenContext = ctx.getFrozenContext();
+
+  // Emit context:frozen trace
+  ctx.trace({
+    t: "context:frozen",
+    key: ctx.key,
+    jobId: job.id,
+    now: frozenContext.now,
+    randomSeed: frozenContext.randomSeed,
+  });
+
   // Apply patches directly
   if (job.patches.length > 0) {
     ctx.applyPatches(job.patches, job.source);

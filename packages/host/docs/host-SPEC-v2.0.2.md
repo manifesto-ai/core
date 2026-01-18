@@ -2,7 +2,7 @@
 
 > **Status:** Normative
 > **Scope:** Manifesto Host Implementations
-> **Compatible with:** Core SPEC v1.2.0, ARCHITECTURE v2.0
+> **Compatible with:** Core SPEC v2.0.0, ARCHITECTURE v2.0
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
@@ -91,10 +91,10 @@ The complete state of a domain at a point in time.
 
 ```typescript
 // Host imports from Core (NOT redefined here)
-import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto/core';
+import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto-ai/core';
 
 // ============================================================
-// AUTHORITATIVE DEFINITION - Core SPEC v1.2.0
+// AUTHORITATIVE DEFINITION - Core SPEC v2.0.0
 // ============================================================
 // type Snapshot<TData = unknown> = {
 //   readonly data: TData;
@@ -163,18 +163,22 @@ type HostOwnedState = {
 const hostState = snapshot.data.$host as HostOwnedState | undefined;
 ```
 
+**Note:** Patch paths are rooted at `data` by default. Use `$host.*` to target
+the Host-owned namespace.
+
 | Rule ID | Description |
 |---------|-------------|
 | HOST-NS-1 | Host-owned state MUST be stored in `data.$host` namespace |
 | HOST-NS-2 | Host MUST NOT extend Core's SystemState with custom fields |
 | HOST-NS-3 | Host MUST treat `data.$host` as opaque to Core |
-| HOST-NS-4 | Patches to `data.$host` follow standard Patch semantics |
+| HOST-NS-4 | Patches targeting `$host` follow standard Patch semantics |
+| HOST-NS-5 | Host error reporting MUST use `$host` or domain paths (never `system.*`) |
 
 **Rationale:**
 - Core's `SystemState` is owned by Core SPEC—Host must not extend it
 - `data` is the domain state container, with `$host` reserved for Host
 - This preserves Core Snapshot structure while allowing Host-specific state
-- Patches to `data.$host` are standard operations, no special handling needed
+- Patches to `$host` are standard operations, no special handling needed
 
 ### 3.4 Intent
 
@@ -1369,6 +1373,8 @@ const context = testProvider.createFrozenContext(intentId);
 ### 13.1 Effect Execution Errors
 
 Effect handlers MUST NOT throw. Errors are expressed as patches.
+Host-generated error patches MUST target `$host` or domain-owned paths.
+Patches to `system.*` are forbidden (INV-SNAP-4).
 
 ### 13.2 Mailbox Processing Errors
 
@@ -1383,8 +1389,8 @@ Effect handlers MUST NOT throw. Errors are expressed as patches.
 
 | Error Type | Handling |
 |------------|----------|
-| Effect timeout | Apply timeout error patch, clear requirement, continue |
-| Effect network error | Apply error patch, clear requirement, continue |
+| Effect timeout | Apply timeout error patch (not `system.*`), clear requirement, continue |
+| Effect network error | Apply error patch (not `system.*`), clear requirement, continue |
 | Clear failed | CRITICAL: Must retry or fail execution |
 
 ### 13.4 FulfillEffect Error Handling (Critical)
@@ -1446,7 +1452,7 @@ function handleFulfillEffect(job: FulfillEffect) {
   // Step 3: Record error if apply failed (best-effort), then continue
   if (applyError) {
     try {
-      applyErrorPatch(job.intentId, job.requirementId, applyError);
+      applyErrorPatch(job.intentId, job.requirementId, applyError); // not system.*
     } catch (patchError) {
       // ERR-FE-5: Error patch failure is logged but does NOT block continue
       logErrorPatchFailure(job, patchError);
@@ -1463,6 +1469,8 @@ function handleFulfillEffect(job: FulfillEffect) {
 | Rule ID | Description |
 |---------|-------------|
 | ERR-FE-5 | Error patch recording is best-effort; failure MUST NOT block ContinueCompute |
+
+Error patches MUST NOT target `system.*`. Use `$host` or domain-owned paths.
 
 **Rationale:** The priority order is:
 1. **Clear** (non-negotiable - prevents infinite loop)

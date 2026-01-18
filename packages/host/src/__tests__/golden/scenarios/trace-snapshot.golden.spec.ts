@@ -18,6 +18,7 @@ import {
   createGoldenRunner,
   createGoldenSchema,
   normalizeTrace,
+  stripHostState,
   type GoldenRunner,
   type GoldenScenario,
   type NormalizedTraceEvent,
@@ -176,7 +177,7 @@ describe("Golden: Trace Snapshots", () => {
     expect(jobStarts.length).toBeGreaterThanOrEqual(4);
 
     // Verify final state is correct
-    expect(result.finalSnapshot.data).toEqual({
+    expect(stripHostState(result.finalSnapshot.data)).toEqual({
       count: 0,
       lastAction: "reset",
     });

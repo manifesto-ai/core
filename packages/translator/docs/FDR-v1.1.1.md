@@ -1,9 +1,10 @@
 # `@manifesto-ai/translator` Foundational Design Rationale v1.1.1
 
-> **Status:** Release
+> **Status:** Deprecated
 > **Version:** 1.1.1
 > **Companion To:** `@manifesto-ai/translator` SPEC v1.1.1
 > **License:** MIT
+> **Deprecation:** Translator is deprecated. Core/Host/World/App are the supported surfaces. This FDR is kept for reference only.
 
 ---
 

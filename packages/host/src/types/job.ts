@@ -97,6 +97,19 @@ export interface FulfillEffectJob extends JobBase {
    * Concrete patches from effect execution (NOT expressions)
    */
   readonly resultPatches: Patch[];
+
+  /**
+   * Effect execution error (if any)
+   */
+  readonly effectError?: EffectErrorInfo;
+}
+
+/**
+ * Effect execution error info
+ */
+export interface EffectErrorInfo {
+  readonly code: string;
+  readonly message: string;
 }
 
 /**
@@ -174,7 +187,8 @@ export function createFulfillEffectJob(
   intentId: string,
   requirementId: string,
   resultPatches: Patch[],
-  intent?: Intent
+  intent?: Intent,
+  effectError?: EffectErrorInfo
 ): FulfillEffectJob {
   return {
     type: "FulfillEffect",
@@ -183,6 +197,7 @@ export function createFulfillEffectJob(
     intent,
     requirementId,
     resultPatches,
+    effectError,
   };
 }
 

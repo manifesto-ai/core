@@ -1,5 +1,5 @@
 /**
- * ContinueCompute Job Handler for Host v2.0.1
+ * ContinueCompute Job Handler for Host v2.0.2
  *
  * Handles re-invocation of compute after effect completion.
  *
@@ -17,14 +17,14 @@ import { createContinueComputeJob } from "../types/job.js";
  * Re-invokes compute with the same intentId to continue processing
  * after effect completion.
  *
- * Note: core.compute() is async but is internal computation, not external IO.
+ * Note: job handlers are synchronous; use computeSync.
  *
  * @see SPEC §6.3 Re-Entry Requirement
  */
-export async function handleContinueCompute(
+export function handleContinueCompute(
   job: ContinueComputeJob,
   ctx: ExecutionContext
-): Promise<void> {
+): void {
   // Emit job:start trace
   ctx.trace({
     t: "job:start",
@@ -36,7 +36,8 @@ export async function handleContinueCompute(
   // Get fresh snapshot (JOB-4)
   const snapshot = ctx.getSnapshot();
 
-  // Get frozen context for this job (CTX-1~5)
+  // Reset and freeze context for this job (CTX-1~5)
+  ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 
   // Emit context:frozen trace
@@ -58,8 +59,8 @@ export async function handleContinueCompute(
 
   const iteration = job.iteration ?? 1;
 
-  // Call core.compute() - async internal computation (not external IO)
-  const result = await ctx.core.compute(
+  // Call core.computeSync() - synchronous internal computation
+  const result = ctx.core.computeSync(
     ctx.schema,
     snapshot,
     intent,
@@ -100,27 +101,26 @@ export async function handleContinueCompute(
 
   // Status is "pending" - execute effects
   if (result.status === "pending") {
-    // Read requirements from computed result (consistent with snapshot)
-    const requirements = result.requirements;
+    // Read requirements from snapshot after apply (COMP-REQ-INTERLOCK-2)
+    const requirements = ctx.getSnapshot().system.pendingRequirements;
+    const requirement = requirements[0];
 
-    if (requirements.length > 0) {
-      // Dispatch effect requests
-      for (const req of requirements) {
-        ctx.trace({
-          t: "effect:dispatch",
-          key: ctx.key,
-          requirementId: req.id,
-          effectType: req.type,
-        });
+    if (requirement) {
+      // Dispatch a single effect request (ORD-SERIAL)
+      ctx.trace({
+        t: "effect:dispatch",
+        key: ctx.key,
+        requirementId: requirement.id,
+        effectType: requirement.type,
+      });
 
-        ctx.requestEffectExecution(
-          job.intentId,
-          req.id,
-          req.type,
-          req.params,
-          intent
-        );
-      }
+      ctx.requestEffectExecution(
+        job.intentId,
+        requirement.id,
+        requirement.type,
+        requirement.params,
+        intent
+      );
     } else {
       // No effects needed, enqueue continue
       ctx.mailbox.enqueue(createContinueComputeJob(job.intentId, iteration + 1, job.intent));

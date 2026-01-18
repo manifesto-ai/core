@@ -7,12 +7,14 @@
  * @see host-SPEC-v2.0.2.md §3.3.1
  */
 
+import type { ErrorValue } from "@manifesto-ai/core";
+
 /**
  * Intent slot storing type and input for an intent
  */
 export interface IntentSlot {
   readonly type: string;
-  readonly input?: Record<string, unknown>;
+  readonly input?: unknown;
 }
 
 /**
@@ -30,6 +32,16 @@ export interface HostOwnedState {
    * Current intent ID being processed
    */
   readonly currentIntentId?: string | null;
+
+  /**
+   * Last host-recorded error (optional)
+   */
+  readonly lastError?: ErrorValue | null;
+
+  /**
+   * Host-recorded error history (optional)
+   */
+  readonly errors?: ErrorValue[];
 }
 
 /**

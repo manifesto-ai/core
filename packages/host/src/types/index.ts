@@ -17,6 +17,7 @@ export type {
   ContinueComputeJob,
   FulfillEffectJob,
   ApplyPatchesJob,
+  EffectErrorInfo,
 } from "./job.js";
 export {
   generateJobId,

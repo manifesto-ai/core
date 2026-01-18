@@ -89,8 +89,8 @@ export async function processMailbox(
       const job = mailbox.dequeue();
       if (!job) break;
 
-      // Run job (may await core.compute which is internal, not external IO)
-      await runJob(job, ctx);
+      // Run job (synchronous)
+      runJob(job, ctx);
 
       // MAY yield between jobs (JOB-5)
       await runtime.yield();

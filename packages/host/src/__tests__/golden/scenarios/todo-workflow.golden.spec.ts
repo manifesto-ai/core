@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
   createGoldenSchema,
+  stripHostState,
   type GoldenRunner,
   type GoldenScenario,
 } from "../helpers/index.js";
@@ -198,7 +199,7 @@ describe("Golden: Workflow End-to-End", () => {
     const result = await runner.execute(scenario);
 
     // Verify final state
-    expect(result.finalSnapshot.data).toEqual({
+    expect(stripHostState(result.finalSnapshot.data)).toEqual({
       count: 2,
       taskName: "Buy groceries",
       isComplete: true,
@@ -286,7 +287,7 @@ describe("Golden: Workflow End-to-End", () => {
 
     const result = await runner.execute(scenario);
 
-    expect(result.finalSnapshot.data).toEqual({
+    expect(stripHostState(result.finalSnapshot.data)).toEqual({
       count: 0,
       taskName: "Important task",
       isComplete: false,
@@ -322,7 +323,9 @@ describe("Golden: Workflow End-to-End", () => {
     expect(verification.differences).toBeUndefined();
 
     // All runs should produce the same final state
-    const finalStates = verification.results.map((r) => r.finalSnapshot.data);
+    const finalStates = verification.results.map((r) =>
+      stripHostState(r.finalSnapshot.data)
+    );
     expect(finalStates[0]).toEqual(finalStates[1]);
     expect(finalStates[1]).toEqual(finalStates[2]);
   });
@@ -353,7 +356,7 @@ describe("Golden: Workflow End-to-End", () => {
     const result = await runner.execute(scenario);
 
     // After reset, all values should be cleared
-    expect(result.finalSnapshot.data).toEqual({
+    expect(stripHostState(result.finalSnapshot.data)).toEqual({
       count: 0,
       taskName: "",
       isComplete: false,

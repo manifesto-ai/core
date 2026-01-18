@@ -94,7 +94,7 @@ SPEC documents have their own version, independent of package versions:
 | `2.0` | Breaking changes from `1.x` |
 
 **Relationship:**
-- Package `@[org]/core@2.3.4` implements `Core SPEC v1.2`
+- Package `@[org]/core@2.3.4` implements `Core SPEC v2.0.0`
 - Multiple package versions may implement the same SPEC version
 
 ---

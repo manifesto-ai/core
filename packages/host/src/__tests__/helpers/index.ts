@@ -22,3 +22,5 @@ export {
   createTestRequirement,
   DEFAULT_HOST_CONTEXT,
 } from "./test-snapshot.js";
+
+export { stripHostState } from "./host-state.js";

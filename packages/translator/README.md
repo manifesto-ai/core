@@ -1,5 +1,8 @@
 # @manifesto-ai/translator
 
+> **Status:** Deprecated  
+> This package is deprecated. Core/Host/World/App are the supported surfaces. Translator may be removed.
+
 Natural language to semantic change proposals (SPEC 1.1.1v)
 
 ## Overview

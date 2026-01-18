@@ -72,7 +72,7 @@ This specification covers:
 
 This specification depends on:
 
-- **Core SPEC v1.2**: Snapshot, patch, and computed semantics
+- **Core SPEC v2.0.0**: Snapshot, patch, and computed semantics
 - **Host SPEC v1.1**: Effect execution model
 - **World Protocol SPEC v1.0**: DAG, Proposal, Decision, Authority model
 - **Memory SPEC v1.2**: Selection, verification, and trace model

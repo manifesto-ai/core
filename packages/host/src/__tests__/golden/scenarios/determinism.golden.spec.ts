@@ -18,6 +18,7 @@ import {
   createGoldenRunner,
   createGoldenSchema,
   compareGoldenResults,
+  stripHostState,
   type GoldenRunner,
   type GoldenScenario,
 } from "../helpers/index.js";
@@ -184,7 +185,7 @@ describe("Golden: Determinism Verification", () => {
 
       // All final states should be identical
       const states = verification.results.map((r) =>
-        JSON.stringify(r.finalSnapshot.data)
+        JSON.stringify(stripHostState(r.finalSnapshot.data))
       );
       const uniqueStates = new Set(states);
       expect(uniqueStates.size).toBe(1);

@@ -121,6 +121,11 @@ export interface ExecutionContext {
   getFrozenContext(): HostContext;
 
   /**
+   * Reset frozen context (call at job start)
+   */
+  resetFrozenContext(): void;
+
+  /**
    * Apply patches to the current snapshot.
    *
    * This is a convenience method that:

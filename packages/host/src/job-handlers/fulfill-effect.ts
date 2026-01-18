@@ -19,10 +19,11 @@
  * - ERR-FE-5: Error patch recording is best-effort; failure MUST NOT block continue
  */
 
-import type { Patch } from "@manifesto-ai/core";
+import type { Patch, Requirement } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
+import { getHostState } from "../types/host-state.js";
 
 /**
  * Handle FulfillEffect job
@@ -48,8 +49,26 @@ export function handleFulfillEffect(
     jobId: job.id,
   });
 
+  // Reset and freeze context for this job (CTX-1~5)
+  ctx.resetFrozenContext();
+  const frozenContext = ctx.getFrozenContext();
+
+  // Emit context:frozen trace
+  ctx.trace({
+    t: "context:frozen",
+    key: ctx.key,
+    jobId: job.id,
+    now: frozenContext.now,
+    randomSeed: frozenContext.randomSeed,
+  });
+
+  const snapshot = ctx.getSnapshot();
+  const requirement = snapshot.system.pendingRequirements.find(
+    (r) => r.id === job.requirementId
+  );
+
   // FULFILL-0: Check if requirement is still pending
-  if (!ctx.isPendingRequirement(job.requirementId)) {
+  if (!requirement) {
     // Stale or duplicate - requirement already processed
     ctx.trace({
       t: "effect:fulfill:drop",
@@ -128,9 +147,29 @@ export function handleFulfillEffect(
   // Step 3: Record error if apply failed (best-effort) (ERR-FE-5)
   if (applyError) {
     try {
-      applyErrorPatch(job.intentId, job.requirementId, applyError, ctx);
+      applyHostErrorPatch(
+        job.intentId,
+        requirement,
+        { code: "EFFECT_APPLY_FAILED", message: applyError.message },
+        ctx
+      );
     } catch (patchError) {
       // ERR-FE-5: Error patch failure is logged but does NOT block continue
+      ctx.trace({
+        t: "effect:fulfill:error",
+        key: ctx.key,
+        requirementId: job.requirementId,
+        phase: "error-patch",
+        error: patchError instanceof Error ? patchError.message : String(patchError),
+      });
+    }
+  }
+
+  // Step 3b: Record effect execution error if present (best-effort)
+  if (job.effectError) {
+    try {
+      applyHostErrorPatch(job.intentId, requirement, job.effectError, ctx);
+    } catch (patchError) {
       ctx.trace({
         t: "effect:fulfill:error",
         key: ctx.key,
@@ -163,31 +202,37 @@ export function handleFulfillEffect(
  *
  * @see SPEC §13.4.4 Error Patch Recording
  */
-function applyErrorPatch(
+function applyHostErrorPatch(
   intentId: string,
-  requirementId: string,
-  error: Error,
+  requirement: Requirement,
+  error: { code: string; message: string },
   ctx: ExecutionContext
 ): void {
   const snapshot = ctx.getSnapshot();
   const frozenContext = ctx.getFrozenContext();
+  const hostState = getHostState(snapshot.data);
+  const existingErrors = hostState?.errors ?? [];
 
   const errorValue = {
-    code: "EFFECT_APPLY_FAILED",
+    code: error.code,
     message: error.message,
     source: {
-      intentId,
-      requirementId,
+      actionId: requirement.actionId,
+      nodePath: requirement.flowPosition.nodePath,
     },
     timestamp: frozenContext.now,
+    context: {
+      intentId,
+      requirementId: requirement.id,
+      effectType: requirement.type,
+    },
   };
 
   const patches: Patch[] = [
-    { op: "set", path: "system.lastError", value: errorValue },
     {
-      op: "set",
-      path: "system.errors",
-      value: [...(snapshot.system.errors || []), errorValue],
+      op: "merge",
+      path: "$host",
+      value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
     },
   ];
 

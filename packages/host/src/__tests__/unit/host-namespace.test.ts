@@ -2,8 +2,7 @@
  * Host Namespace Compliance Tests (v2.0.2)
  *
  * Verifies that Host does NOT write to Core-owned fields in the snapshot.
- * Intent slots are stored internally in ExecutionContext to comply with
- * HOST-NS-1 and INV-SNAP-4.
+ * Intent slots are stored in data.$host to comply with HOST-NS-1 and INV-SNAP-4.
  *
  * @see host-SPEC-v2.0.2.md §3.3.1 HOST-NS-1
  */
@@ -14,6 +13,7 @@ import type { DomainSchema } from "@manifesto-ai/core";
 import {
   createTestSchema,
   createTestIntent,
+  stripHostState,
 } from "../helpers/index.js";
 
 describe("Host Namespace Compliance (v2.0.2)", () => {
@@ -35,7 +35,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
   });
 
   describe("submitIntent() namespace compliance", () => {
-    it("should NOT write to system.intentSlots", () => {
+    it("should NOT write to system.intentSlots", async () => {
       const host = createHost(schema, { initialData: {} });
       const key = "test-key";
       const intent = createTestIntent("simpleAction");
@@ -44,6 +44,8 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       const snapshot = host.getSnapshot()!;
       host.seedSnapshot(key, snapshot);
       host.submitIntent(key, intent);
+      await host.drain(key);
+      await host.drain(key);
 
       // Verify system.intentSlots is NOT written
       const resultSnapshot = host.getContextSnapshot(key)!;
@@ -52,7 +54,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       expect(system.intentSlots).toBeUndefined();
     });
 
-    it("should NOT write to system.currentAction", () => {
+    it("should NOT write to system.currentAction", async () => {
       const host = createHost(schema, { initialData: {} });
       const key = "test-key";
       const intent = createTestIntent("simpleAction");
@@ -64,6 +66,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       // Seed snapshot and submit intent
       host.seedSnapshot(key, snapshot);
       host.submitIntent(key, intent);
+      await host.drain(key);
 
       // Verify system.currentAction is NOT modified by Host
       // (Core manages system.currentAction, Host should not touch it)
@@ -75,7 +78,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       expect(resultSnapshot.system.currentAction).not.toBe(intent.intentId);
     });
 
-    it("should store intent slots internally for effect result injection", async () => {
+    it("should store intent slots in data.$host for effect result injection", async () => {
       const host = createHost(schema, { initialData: {} });
       const key = "test-key";
       const intent = createTestIntent("simpleAction");
@@ -84,10 +87,16 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       const snapshot = host.getSnapshot()!;
       host.seedSnapshot(key, snapshot);
       host.submitIntent(key, intent);
+      await host.drain(key);
 
-      // Verify we can still inject effect results
-      // (this means the intent slot was stored internally)
-      // The effect injection won't throw if the intent is found
+      const resultSnapshot = host.getContextSnapshot(key)!;
+      const hostState = getHostState(resultSnapshot.data);
+
+      expect(hostState?.intentSlots?.[intent.intentId!]).toMatchObject({
+        type: intent.type,
+      });
+
+      // Verify we can still inject effect results using stored intent slot
       const patches = [{ op: "set" as const, path: "data.result", value: "ok" }];
 
       // This should not throw - if intent slots weren't stored, it would fail
@@ -96,7 +105,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
   });
 
   describe("snapshot data integrity", () => {
-    it("should not create $host namespace in snapshot data", () => {
+    it("should create $host namespace in snapshot data", async () => {
       const host = createHost(schema, { initialData: {} });
       const key = "test-key";
       const intent = createTestIntent("simpleAction");
@@ -105,15 +114,16 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       const snapshot = host.getSnapshot()!;
       host.seedSnapshot(key, snapshot);
       host.submitIntent(key, intent);
+      await host.drain(key);
 
-      // Verify $host is NOT in snapshot data
+      // Verify $host is in snapshot data
       const resultSnapshot = host.getContextSnapshot(key)!;
       const hostState = getHostState(resultSnapshot.data);
 
-      expect(hostState).toBeUndefined();
+      expect(hostState).toBeDefined();
     });
 
-    it("should preserve original data during submitIntent", () => {
+    it("should preserve original data during submitIntent", async () => {
       const initialData = { foo: "bar", count: 0 };
       const host = createHost(schema, { initialData });
       const key = "test-key";
@@ -124,9 +134,9 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       host.seedSnapshot(key, snapshot);
       host.submitIntent(key, intent);
 
-      // Verify original data is preserved
+      // Verify original data is preserved (excluding $host)
       const resultSnapshot = host.getContextSnapshot(key)!;
-      expect(resultSnapshot.data).toEqual(initialData);
+      expect(stripHostState(resultSnapshot.data)).toEqual(initialData);
     });
   });
 

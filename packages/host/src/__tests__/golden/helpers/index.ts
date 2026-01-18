@@ -12,3 +12,5 @@ export {
   type GoldenResult,
   type NormalizedTraceEvent,
 } from "./golden-runner.js";
+
+export { stripHostState } from "../../helpers/host-state.js";

@@ -4,8 +4,8 @@
  * Event-loop execution model with Mailbox + Runner + Job architecture.
  *
  * Changes from v2.0.1:
- * - Intent slots stored in ExecutionContext, not Snapshot (HOST-NS-1)
- * - Host no longer writes to system.intentSlots or system.currentAction (INV-SNAP-4)
+ * - Intent slots stored in data.$host (HOST-NS-1)
+ * - Host no longer writes to system.* (INV-SNAP-4)
  *
  * @see host-SPEC-v2.0.2.md
  */
@@ -37,6 +37,7 @@ import type { ExecutionKey, Runtime } from "./types/execution.js";
 import type { TraceEvent } from "./types/trace.js";
 import { createStartIntentJob, createFulfillEffectJob } from "./types/job.js";
 import { defaultRuntime } from "./types/execution.js";
+import { getHostState } from "./types/host-state.js";
 
 /**
  * Host result returned from dispatch
@@ -102,6 +103,13 @@ export interface HostOptions {
 
 const DEFAULT_MAX_ITERATIONS = 100;
 
+type PendingEffect = {
+  intentId: string;
+  requirementId: string;
+  intent: Intent;
+  promise: Promise<void>;
+};
+
 /**
  * ManifestoHost class v2.0.2
  *
@@ -110,7 +118,7 @@ const DEFAULT_MAX_ITERATIONS = 100;
  * - Single-runner with lost-wakeup prevention (RUN-1~4, LIVE-1~4)
  * - Run-to-completion job model (JOB-1~5)
  * - Frozen context per job (CTX-1~5)
- * - Intent slots in ExecutionContext (HOST-NS-1)
+ * - Intent slots in data.$host (HOST-NS-1)
  */
 export class ManifestoHost {
   private core: ManifestoCore;
@@ -128,7 +136,8 @@ export class ManifestoHost {
   private onTrace?: (event: TraceEvent) => void;
 
   // Effect execution tracking
-  private pendingEffects: Map<string, { intentId: string; key: ExecutionKey; intent: Intent; promise: Promise<void> }>;
+  private pendingEffects: Map<ExecutionKey, PendingEffect>;
+  private fatalErrors: Map<ExecutionKey, HostError>;
   private disableAutoEffect: boolean;
 
   // Current snapshot (managed in memory, caller is responsible for persistence)
@@ -152,6 +161,7 @@ export class ManifestoHost {
     this.runnerState = createRunnerState();
     this.executionContexts = new Map();
     this.pendingEffects = new Map();
+    this.fatalErrors = new Map();
 
     // Initialize with initial data if provided
     if (options.initialData !== undefined) {
@@ -254,11 +264,18 @@ export class ManifestoHost {
     let iterations = 0;
     const traces: TraceGraph[] = [];
 
+    let fatalError: HostError | undefined;
+
     while (iterations < this.maxIterations) {
       iterations++;
 
       // Run one processing cycle
       await processMailbox(ctx, this.runnerState);
+
+      if (this.fatalErrors.has(key)) {
+        fatalError = this.fatalErrors.get(key);
+        break;
+      }
 
       // Check if there are pending effects to execute
       if (this.hasPendingEffects(key)) {
@@ -277,10 +294,25 @@ export class ManifestoHost {
     this.currentSnapshot = finalSnapshot;
 
     // Determine status
+    if (fatalError) {
+      // Cleanup
+      this.executionContexts.delete(key);
+      this.mailboxManager.delete(key);
+      this.fatalErrors.delete(key);
+
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        error: fatalError,
+      };
+    }
+
     if (iterations >= this.maxIterations) {
       // Cleanup
       this.executionContexts.delete(key);
       this.mailboxManager.delete(key);
+      this.fatalErrors.delete(key);
 
       return {
         status: "error",
@@ -298,6 +330,7 @@ export class ManifestoHost {
       // Cleanup
       this.executionContexts.delete(key);
       this.mailboxManager.delete(key);
+      this.fatalErrors.delete(key);
 
       return {
         status: "error",
@@ -314,6 +347,7 @@ export class ManifestoHost {
     // Cleanup
     this.executionContexts.delete(key);
     this.mailboxManager.delete(key);
+    this.fatalErrors.delete(key);
 
     const status = finalSnapshot.system.status === "pending" ? "pending" : "complete";
 
@@ -371,10 +405,16 @@ export class ManifestoHost {
       return;
     }
 
+    if (this.pendingEffects.has(key)) {
+      return;
+    }
+
     // Store effect request and start execution
-    const effectId = `${key}:${requirementId}`;
-    const promise = this.executeEffect(key, intentId, requirementId, effectType, params, intent);
-    this.pendingEffects.set(effectId, { intentId, key, intent, promise });
+    const promise = this.executeEffect(key, intentId, requirementId, effectType, params, intent)
+      .finally(() => {
+        this.pendingEffects.delete(key);
+      });
+    this.pendingEffects.set(key, { intentId, requirementId, intent, promise });
   }
 
   /**
@@ -399,10 +439,12 @@ export class ManifestoHost {
 
     // Execute effect
     const result = await this.executor.execute(requirement, snapshot);
-
-    // Clear pending effect tracking
-    const effectId = `${key}:${requirementId}`;
-    this.pendingEffects.delete(effectId);
+    const effectError = result.success
+      ? undefined
+      : {
+          code: result.errorCode ?? "EFFECT_EXECUTION_FAILED",
+          message: result.error ?? "Unknown effect execution error",
+        };
 
     // Inject result as FulfillEffect job (REINJ-1~4)
     const mailbox = this.mailboxManager.get(key);
@@ -411,7 +453,8 @@ export class ManifestoHost {
         intentId,
         requirementId,
         result.patches,
-        intent
+        intent,
+        effectError
       );
       mailbox.enqueue(fulfillJob);
     }
@@ -421,29 +464,16 @@ export class ManifestoHost {
    * Check if there are pending effects for a key
    */
   private hasPendingEffects(key: ExecutionKey): boolean {
-    for (const [effectId] of this.pendingEffects) {
-      if (effectId.startsWith(`${key}:`)) {
-        return true;
-      }
-    }
-    return false;
+    return this.pendingEffects.has(key);
   }
 
   /**
    * Execute all pending effects for a key
    */
   private async executePendingEffects(key: ExecutionKey): Promise<void> {
-    // Collect all pending effect promises for this key
-    const promises: Promise<void>[] = [];
-    for (const [effectId, entry] of this.pendingEffects) {
-      if (effectId.startsWith(`${key}:`)) {
-        promises.push(entry.promise);
-      }
-    }
-
-    // Wait for all effects to complete
-    if (promises.length > 0) {
-      await Promise.all(promises);
+    const entry = this.pendingEffects.get(key);
+    if (entry) {
+      await entry.promise;
     }
   }
 
@@ -455,30 +485,49 @@ export class ManifestoHost {
     intentId: string,
     error: Error
   ): void {
-    // Clear pending effects for this key
-    for (const [effectId] of this.pendingEffects) {
-      if (effectId.startsWith(`${key}:`)) {
-        this.pendingEffects.delete(effectId);
+    // Clear pending effect tracking
+    this.pendingEffects.delete(key);
+
+    const hostError = createHostError(
+      "INVALID_STATE",
+      error.message,
+      { intentId }
+    );
+    this.fatalErrors.set(key, hostError);
+
+    // Mark execution as failed (best-effort) in data.$host
+    const ctx = this.executionContexts.get(key);
+    if (ctx) {
+      try {
+        const snapshot = ctx.getSnapshot();
+        const hostState = getHostState(snapshot.data);
+        const existingErrors = hostState?.errors ?? [];
+        const frozenContext = ctx.getFrozenContext();
+        const errorValue = {
+          code: "FATAL_ERROR",
+          message: error.message,
+          source: { actionId: intentId, nodePath: "host.fatal" },
+          timestamp: frozenContext.now,
+        };
+        const patches: Patch[] = [
+          {
+            op: "merge",
+            path: "$host",
+            value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
+          },
+        ];
+        ctx.applyPatches(patches, "fatal-error");
+      } catch {
+        // Best-effort only
       }
     }
 
-    // Mark execution as failed
-    const ctx = this.executionContexts.get(key);
-    if (ctx) {
-      const patches: Patch[] = [
-        { op: "set", path: "system.status", value: "error" },
-        {
-          op: "set",
-          path: "system.lastError",
-          value: {
-            code: "FATAL_ERROR",
-            message: error.message,
-            source: { intentId },
-            timestamp: this.runtime.now(),
-          },
-        },
-      ];
-      ctx.applyPatches(patches, "fatal-error");
+    // Clear mailbox queue for this key
+    const mailbox = this.mailboxManager.get(key);
+    if (mailbox) {
+      while (!mailbox.isEmpty()) {
+        mailbox.dequeue();
+      }
     }
   }
 
@@ -544,12 +593,6 @@ export class ManifestoHost {
       throw new Error(`No execution context for key: ${key}`);
     }
 
-    // Store intent in ExecutionContext (v2.0.2 HOST-NS-1)
-    // Intent slots are stored internally to avoid writing to Core-owned snapshot fields.
-    ctx.setIntentSlot(intent.intentId!, {
-      type: intent.type,
-      input: intent.input,
-    });
     ctx.setCurrentIntentId(intent.intentId!);
 
     // Enqueue StartIntent job (LIVE-2)
@@ -583,7 +626,7 @@ export class ManifestoHost {
   ): void {
     const mailbox = this.mailboxManager.get(key);
     if (mailbox) {
-      // Try to get intent from ExecutionContext if not provided (v2.0.2 HOST-NS-1)
+      // Try to get intent from data.$host if not provided (v2.0.2 HOST-NS-1)
       const ctx = this.executionContexts.get(key);
       let effectIntent = intent;
       if (!effectIntent && ctx) {
@@ -592,7 +635,7 @@ export class ManifestoHost {
           effectIntent = {
             type: intentSlot.type,
             intentId,
-            input: intentSlot.input as Record<string, unknown>,
+            input: intentSlot.input,
           };
         }
       }

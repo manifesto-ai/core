@@ -26,6 +26,7 @@ import type {
 import type { TraceEvent } from "./types/trace.js";
 import type { ExecutionMailbox } from "./mailbox.js";
 import type { HostContextProvider } from "./context-provider.js";
+import { getHostState, getIntentSlot } from "./types/host-state.js";
 import type { IntentSlot } from "./types/host-state.js";
 
 /**
@@ -51,9 +52,6 @@ export class ExecutionContextImpl implements ExecutionContext {
   private snapshot: Snapshot;
   private frozenContext: HostContext | null = null;
   private currentIntentId: string | null = null;
-
-  // Host-owned intent slot storage (v2.0.2 HOST-NS-1)
-  private intentSlots: Map<string, IntentSlot> = new Map();
 
   private readonly contextProvider: HostContextProvider;
   private readonly onTrace?: (event: TraceEvent) => void;
@@ -120,25 +118,40 @@ export class ExecutionContextImpl implements ExecutionContext {
   /**
    * Store an intent slot (v2.0.2 HOST-NS-1)
    *
-   * Intent slots are stored internally in ExecutionContext to avoid
-   * writing to Core-owned snapshot fields.
+   * Intent slots are stored in data.$host to keep Host-owned state in Snapshot.
    */
   setIntentSlot(intentId: string, slot: IntentSlot): void {
-    this.intentSlots.set(intentId, slot);
+    const hostState = getHostState(this.snapshot.data);
+    const intentSlots = hostState?.intentSlots ?? {};
+    const nextSlots = {
+      ...intentSlots,
+      [intentId]: slot,
+    };
+    const patches: Patch[] = [
+      {
+        op: "merge",
+        path: "$host",
+        value: { intentSlots: nextSlots },
+      },
+    ];
+
+    this.applyPatches(patches, "host-intent-slot");
   }
 
   /**
    * Get an intent slot by ID (v2.0.2 HOST-NS-1)
    */
   getIntentSlot(intentId: string): IntentSlot | undefined {
-    return this.intentSlots.get(intentId);
+    return getIntentSlot(this.snapshot.data, intentId);
   }
 
   /**
    * Get all intent slots
    */
   getAllIntentSlots(): ReadonlyMap<string, IntentSlot> {
-    return this.intentSlots;
+    const hostState = getHostState(this.snapshot.data);
+    const intentSlots = hostState?.intentSlots ?? {};
+    return new Map(Object.entries(intentSlots));
   }
 
   /**
@@ -217,11 +230,6 @@ export class ExecutionContextImpl implements ExecutionContext {
     const patches: Patch[] = [
       { op: "set", path: "system.pendingRequirements", value: remaining },
     ];
-
-    // If no more pending requirements, set status to idle
-    if (remaining.length === 0) {
-      patches.push({ op: "set", path: "system.status", value: "idle" });
-    }
 
     this.applyPatches(patches, "clear-requirement");
   }

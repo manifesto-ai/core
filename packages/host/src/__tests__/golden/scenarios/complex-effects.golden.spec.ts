@@ -20,6 +20,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
   createGoldenSchema,
+  stripHostState,
   type GoldenRunner,
   type GoldenScenario,
 } from "../helpers/index.js";
@@ -369,7 +370,7 @@ describe("Golden: Complex Effect Scenarios", () => {
 
       // All runs should have same final state
       const states = verification.results.map((r) =>
-        JSON.stringify(r.finalSnapshot.data)
+        JSON.stringify(stripHostState(r.finalSnapshot.data))
       );
       expect(new Set(states).size).toBe(1);
 

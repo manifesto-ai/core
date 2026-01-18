@@ -29,6 +29,7 @@ import {
   createTestRequirement,
 } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
+import { getHostState } from "../../../types/host-state.js";
 
 describe("HCTS Fulfillment Tests", () => {
   let adapter: HostTestAdapter;
@@ -198,7 +199,7 @@ describe("HCTS Fulfillment Tests", () => {
           failingEffect: {
             flow: {
               kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "system.lastError" } },
+              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
               then: {
                 kind: "effect",
                 type: "failing",
@@ -227,12 +228,13 @@ describe("HCTS Fulfillment Tests", () => {
       // Verify: Even with error, requirement should be cleared
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
 
+      const hostState = getHostState(finalSnapshot.data);
+
       // The error should be recorded in the errors array
-      // Note: lastError may be cleared by Core when flow completes, but errors persists
-      expect(finalSnapshot.system.errors.length).toBeGreaterThan(0);
+      expect(hostState?.errors?.length ?? 0).toBeGreaterThan(0);
 
       // Verify the error has the expected message
-      const effectError = finalSnapshot.system.errors.find(
+      const effectError = hostState?.errors?.find(
         (e) => e.code === "EFFECT_EXECUTION_FAILED"
       );
       expect(effectError).toBeDefined();
@@ -245,7 +247,7 @@ describe("HCTS Fulfillment Tests", () => {
           unknownEffect: {
             flow: {
               kind: "if",
-              cond: { kind: "get", path: "system.lastError" },
+              cond: { kind: "get", path: "$host.lastError" },
               then: {
                 kind: "patch",
                 op: "set",
@@ -277,8 +279,9 @@ describe("HCTS Fulfillment Tests", () => {
 
       // Verify: Requirement cleared even for unknown effect
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
-      expect(finalSnapshot.system.errors.length).toBeGreaterThan(0);
-      expect(finalSnapshot.system.errors[0]?.code).toBe("UNKNOWN_EFFECT");
+      const hostState = getHostState(finalSnapshot.data);
+      expect(hostState?.errors?.length ?? 0).toBeGreaterThan(0);
+      expect(hostState?.errors?.[0]?.code).toBe("UNKNOWN_EFFECT");
     });
   });
 

@@ -14,6 +14,7 @@ async function executeWithRetry(
 ): Promise<EffectResult> {
   const { options } = handler;
   let lastError: Error | undefined;
+  let lastErrorCode: string | undefined;
 
   for (let attempt = 0; attempt <= options.retries; attempt++) {
     if (attempt > 0) {
@@ -35,6 +36,7 @@ async function executeWithRetry(
       };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      lastErrorCode = isHostError(error) ? error.code : "EFFECT_EXECUTION_FAILED";
 
       // Don't retry on timeout
       if (isHostError(error) && error.code === "EFFECT_TIMEOUT") {
@@ -42,6 +44,7 @@ async function executeWithRetry(
           success: false,
           patches: [],
           error: lastError.message,
+          errorCode: error.code,
           duration: Date.now() - startTime,
         };
       }
@@ -52,6 +55,7 @@ async function executeWithRetry(
     success: false,
     patches: [],
     error: lastError?.message ?? "Unknown error",
+    errorCode: lastErrorCode ?? "EFFECT_EXECUTION_FAILED",
     duration: 0,
   };
 }
@@ -121,6 +125,7 @@ export class EffectExecutor {
         success: false,
         patches: [],
         error: `Unknown effect type: ${requirement.type}`,
+        errorCode: "UNKNOWN_EFFECT",
         duration: 0,
       };
     }
@@ -143,6 +148,7 @@ export class EffectExecutor {
         success: false,
         patches: [],
         error: message,
+        errorCode: isHostError(error) ? error.code : "EFFECT_EXECUTION_FAILED",
         duration: 0,
       };
     }

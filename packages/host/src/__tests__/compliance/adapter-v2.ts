@@ -14,6 +14,7 @@ import type { DeterministicRuntime } from "./hcts-runtime.js";
 import type { HostTestAdapter, TestEffectRunner } from "./hcts-adapter.js";
 import { ManifestoHost } from "../../host.js";
 import type { EffectHandler } from "../../effects/types.js";
+import { getHostState } from "../../types/host-state.js";
 
 /**
  * V2.0.1 adapter implementation
@@ -89,7 +90,7 @@ export class V2HostAdapter implements HostTestAdapter {
     if (!this.host) throw new Error("Host not created");
 
     // Get the intentId from the submitted intent (v2.0.2 HOST-NS-1)
-    // Intent slots are now stored in ExecutionContext, not snapshot
+    // Intent slots are stored in data.$host, but we keep a local map for HCTS
     const intent = this.submittedIntents.get(key);
     const intentId = intent?.intentId ?? "";
 
@@ -126,8 +127,9 @@ export class V2HostAdapter implements HostTestAdapter {
         const intent = this.submittedIntents.get(key);
         const intentId = intent?.intentId ?? "";
 
-        // Execute effects and inject results
-        for (const req of pendingReqs) {
+        // Execute effects and inject results (ORD-SERIAL)
+        const req = pendingReqs[0];
+        if (req) {
           const handler = this.effectRunner.getHandler(req.type);
           let patches: Array<{ op: string; path: string; value?: unknown }> = [];
 
@@ -201,11 +203,15 @@ export class V2HostAdapter implements HostTestAdapter {
       timestamp: this.runtime?.now() ?? Date.now(),
     };
 
-    const existingErrors = snapshot.system.errors || [];
+    const hostState = getHostState(snapshot.data);
+    const existingErrors = hostState?.errors ?? [];
 
     return [
-      { op: "set", path: "system.lastError", value: errorValue },
-      { op: "set", path: "system.errors", value: [...existingErrors, errorValue] },
+      {
+        op: "merge",
+        path: "$host",
+        value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
+      },
     ];
   }
 

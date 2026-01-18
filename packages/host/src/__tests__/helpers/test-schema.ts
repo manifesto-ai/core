@@ -5,6 +5,9 @@ import type { DomainSchema } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
+  // Host-owned namespace (v2.0.2)
+  $host: { type: "object", required: false, default: {} },
+
   // Common test fields
   dummy: { type: "string", required: true },
   count: { type: "number", required: true },

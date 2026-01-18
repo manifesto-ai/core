@@ -1,6 +1,6 @@
-# Migration Guide: v1.x → v2.0.1
+# Migration Guide: v1.x → v2.0.2
 
-> **Purpose:** Step-by-step guide for migrating from Host v1.x to v2.0.1
+> **Purpose:** Step-by-step guide for migrating from Host v1.x to v2.0.2
 > **Audience:** Developers using @manifesto-ai/host in existing projects
 
 ---
@@ -36,6 +36,14 @@
 | Compiler/Translator decoupling | Host no longer depends on compiler | **High** (if using Translator via Host) |
 | `ApplyTranslatorOutput` job deprecated | Translator processing moved | **High** (if using Translator) |
 
+### v2.0.2 Breaking Changes
+
+| Change | Impact | Migration Required |
+|--------|--------|-------------------|
+| Snapshot ownership alignment (Host MUST NOT write `system.*`) | Medium | **Yes** (if you read Host errors from `system.*`) |
+| Host-owned state moved to `data.$host` | High | **Yes** (add `$host` to schema) |
+| Effect execution policy defaulted to ORD-SERIAL | Low | Only if you depended on parallel execution |
+
 ---
 
 ## 2. Step-by-Step Migration
@@ -43,9 +51,9 @@
 ### Step 1: Update Package Version
 
 ```bash
-npm install @manifesto-ai/host@^2.0.1
+npm install @manifesto-ai/host@^2.0.2
 # or
-pnpm add @manifesto-ai/host@^2.0.1
+pnpm add @manifesto-ai/host@^2.0.2
 ```
 
 ### Step 2: Update Host Instantiation
@@ -57,7 +65,7 @@ The `createHost()` factory function is still supported. Both patterns work:
 import { createHost } from "@manifesto-ai/host";
 const host = createHost(schema, { initialData: {}, context: { now: () => Date.now() } });
 
-// v2.0.1 pattern (recommended)
+// v2.0.2 pattern (recommended)
 import { ManifestoHost } from "@manifesto-ai/host";
 const host = new ManifestoHost(schema, { initialData: {} });
 ```
@@ -72,17 +80,40 @@ const host = new ManifestoHost(schema, { initialData: {} });
   store: snapshotStore,                 // ❌ Removed (Host is now stateless)
 }
 
-// v2.0.1 options
+// v2.0.2 options
 {
   initialData: {},
-  runtime: { now: () => Date.now() },  // ✅ Use runtime instead
+  runtime: {
+    now: () => Date.now(),
+    microtask: (fn) => queueMicrotask(fn),
+    yield: () => Promise.resolve(),
+  },                                   // ✅ Runtime interface (now/microtask/yield)
   env: {},                              // ✅ Environment variables
   onTrace: (event) => {},               // ✅ Trace callback
   maxIterations: 100,                   // ✅ Same
 }
 ```
 
-### Step 3: Update Effect Handler Signatures
+### Step 3: Add `$host` Namespace to Schema (v2.0.2)
+
+Host-owned state is stored in `data.$host` (intent slots, host error bookkeeping).
+Your domain schema MUST allow this namespace, or Host patching will trigger
+`PATH_NOT_FOUND` validation errors.
+
+```typescript
+// DomainSchema.state.fields (Core schema)
+state: {
+  fields: {
+    $host: { type: "object", required: false, default: {} },
+    // ...existing fields...
+  },
+}
+```
+
+**Note:** Optional fields MUST define a default value in Core.
+Patch paths are rooted at `data` by default, so use `$host.*` when patching.
+
+### Step 4: Update Effect Handler Signatures
 
 The effect handler signature remains the same, but `EffectContext` has been updated:
 
@@ -94,7 +125,7 @@ host.registerEffect("api.get", async (type, params, context) => {
   return patches;
 });
 
-// v2.0.1 handler (same signature, but context type updated)
+// v2.0.2 handler (same signature, but context type updated)
 host.registerEffect("api.get", async (type, params, context) => {
   const { snapshot, requirement } = context;
   // snapshot.meta now includes randomSeed from intentId
@@ -103,12 +134,15 @@ host.registerEffect("api.get", async (type, params, context) => {
 });
 ```
 
-### Step 4: Handle ExecutionKey (if using low-level APIs)
+Effect handlers MUST NOT return patches targeting `system.*`. Use domain paths or
+`$host` for Host-owned error reporting.
+
+### Step 5: Handle ExecutionKey (if using low-level APIs)
 
 If you're using low-level Host APIs, you need to understand `ExecutionKey`:
 
 ```typescript
-// v2.0.1 low-level API
+// v2.0.2 low-level API
 const key: ExecutionKey = intent.intentId;  // Use intentId as ExecutionKey
 
 // Seed snapshot for an execution
@@ -121,56 +155,13 @@ host.submitIntent(key, intent);
 await host.drain(key);
 ```
 
-### Step 5: Migrate Translator Integration (CRITICAL)
+### Step 6: Translator Deprecation (v2.0.2)
 
-**This is the most significant change.** If you were using Translator integration via Host, you must migrate to the Bridge/App layer:
+Translator is deprecated. Host no longer processes Translator output.
+If you still rely on Translator in legacy code, keep it in the App layer and
+pass only concrete `Patch[]` to Host. Otherwise remove Translator integration.
 
-#### Before (v1.x - Host handled Translator)
-
-```typescript
-// ❌ v1.x: Host processed Translator output directly
-// This is no longer supported
-
-// Host internally:
-// 1. Received TranslatorFragment[]
-// 2. Called lowerPatchFragments()
-// 3. Called evaluateConditionalPatchOps()
-// 4. Applied patches
-```
-
-#### After (v2.0.1 - Bridge/App handles Translator)
-
-```typescript
-// ✅ v2.0.1: Bridge/App processes Translator output
-
-import { lowerPatchFragments, evaluateConditionalPatchOps } from '@manifesto-ai/compiler';
-
-// Create a TranslatorAdapter at Bridge/App layer
-class TranslatorAdapter {
-  async processTranslatorOutput(
-    fragments: TranslatorFragment[],
-    snapshot: Snapshot,
-    context: HostContext
-  ): Promise<Patch[]> {
-    // Step 1: Lower MEL IR to Core IR
-    const conditionalOps = lowerPatchFragments(fragments);
-
-    // Step 2: Evaluate to concrete patches
-    const patches = evaluateConditionalPatchOps(conditionalOps, snapshot, context);
-
-    return patches;  // Concrete Patch[] only
-  }
-}
-
-// Usage
-const adapter = new TranslatorAdapter();
-const patches = await adapter.processTranslatorOutput(fragments, snapshot, context);
-
-// Submit to Host as concrete Patch[]
-host.injectEffectResult(key, requirementId, intentId, patches);
-```
-
-### Step 6: Update Persistence (if applicable)
+### Step 7: Update Persistence (if applicable)
 
 Host no longer manages persistence directly. Snapshot persistence is now the caller's responsibility:
 
@@ -180,7 +171,7 @@ const host = createHost(schema, {
   store: new MemorySnapshotStore(),  // ❌ Removed
 });
 
-// v2.0.1: Caller manages persistence
+// v2.0.2: Caller manages persistence
 const host = new ManifestoHost(schema, { initialData: {} });
 
 // Get snapshot from host
@@ -200,17 +191,17 @@ host.reset(restored.data);
 
 ### Host Creation
 
-| v1.x | v2.0.1 | Notes |
+| v1.x | v2.0.2 | Notes |
 |------|--------|-------|
 | `createHost(schema, options)` | `createHost(schema, options)` | Still works |
 | - | `new ManifestoHost(schema, options)` | New class-based API |
 
 ### Options
 
-| v1.x Option | v2.0.1 Option | Notes |
+| v1.x Option | v2.0.2 Option | Notes |
 |-------------|---------------|-------|
 | `initialData` | `initialData` | Same |
-| `context: { now }` | `runtime: { now }` | Renamed |
+| `context: { now }` | `runtime: { now, microtask, yield }` | Renamed |
 | `store` | - | Removed (external persistence) |
 | `maxIterations` | `maxIterations` | Same |
 | - | `env` | New: environment variables |
@@ -219,7 +210,7 @@ host.reset(restored.data);
 
 ### Effect Handler API
 
-| v1.x | v2.0.1 | Notes |
+| v1.x | v2.0.2 | Notes |
 |------|--------|-------|
 | `registerEffect(type, handler)` | `registerEffect(type, handler)` | Same |
 | `registerEffect(type, handler, options)` | `registerEffect(type, handler, options)` | Same |
@@ -229,12 +220,12 @@ host.reset(restored.data);
 
 ### Dispatch API
 
-| v1.x | v2.0.1 | Notes |
+| v1.x | v2.0.2 | Notes |
 |------|--------|-------|
 | `dispatch(intent)` | `dispatch(intent)` | Same |
 | `getSnapshot()` → `Promise<Snapshot>` | `getSnapshot()` → `Snapshot | null` | Now synchronous |
 
-### New v2.0.1 APIs (Low-level)
+### Low-level APIs (v2.0.x)
 
 | API | Purpose |
 |-----|---------|
@@ -251,7 +242,7 @@ host.reset(restored.data);
 
 ### 4.1 Context Determinism
 
-v2.0.1 guarantees that `HostContext` is frozen at job start:
+v2.0.1+ guarantees that `HostContext` is frozen at job start:
 
 ```typescript
 // All operations in a job see the same timestamp
@@ -261,40 +252,65 @@ v2.0.1 guarantees that `HostContext` is frozen at job start:
 const ctx1 = getContext();  // now = 1000
 const ctx2 = getContext();  // now = 1005 (different!)
 
-// After (v2.0.1): Frozen at job start
+// After (v2.0.1+): Frozen at job start
 const frozenContext = createFrozenContext(intentId);
 // frozenContext.now is captured once
 // frozenContext.randomSeed = intentId (deterministic)
 ```
 
-### 4.2 Trace Events
+### 4.2 Snapshot Ownership Alignment (v2.0.2)
 
-v2.0.1 adds comprehensive tracing:
+Host-owned state is stored under `data.$host` (use `$host.*` patch paths), and Host never writes `system.*`.
+Host error recording must target `$host` or domain-owned paths.
+
+```typescript
+// Host-owned errors (example shape)
+const patches: Patch[] = [
+  {
+    op: "merge",
+    path: "$host",
+    value: {
+      lastError: { code: "EFFECT_FAILED", message: "Network error" },
+      errors: [{ code: "EFFECT_FAILED", message: "Network error" }],
+    },
+  },
+];
+```
+
+### 4.3 Deterministic Effect Ordering (ORD-SERIAL)
+
+Host executes one requirement at a time, in `pendingRequirements` order.
+If you want parallel execution, you MUST implement ordered reinjection.
+
+### 4.4 Trace Events
+
+v2.0.1+ adds comprehensive tracing:
 
 ```typescript
 const host = new ManifestoHost(schema, {
   initialData: {},
   onTrace: (event) => {
     console.log(event);
-    // { t: "job:start", type: "StartIntent", timestamp: 1234567890 }
-    // { t: "job:complete", type: "StartIntent", timestamp: 1234567891 }
-    // { t: "effect:request", type: "api.get", requirementId: "req-1" }
+    // { t: "job:start", jobType: "StartIntent", jobId: "job-1", key: "intent-1" }
+    // { t: "job:end", jobType: "StartIntent", jobId: "job-1", key: "intent-1" }
+    // { t: "effect:dispatch", effectType: "api.get", requirementId: "req-1", key: "intent-1" }
     // { t: "runner:kick", key: "intent-1", timestamp: 1234567892 }
   },
 });
 ```
 
-### 4.3 Runtime Abstraction
+### 4.5 Runtime Abstraction
 
 For deterministic testing:
 
 ```typescript
-import { type Runtime, defaultRuntime } from "@manifesto-ai/host";
+import { type Runtime } from "@manifesto-ai/host";
 
 // Custom runtime for deterministic tests
 const testRuntime: Runtime = {
   now: () => 1704067200000,  // Fixed: 2024-01-01T00:00:00Z
-  randomSeed: () => "test-seed",
+  microtask: (fn) => fn(),
+  yield: () => Promise.resolve(),
 };
 
 const host = new ManifestoHost(schema, {
@@ -328,7 +344,7 @@ const result = await host.dispatch(intent);
 const snapshot = await host.getSnapshot();
 
 
-// ========== v2.0.1 ==========
+// ========== v2.0.2 ==========
 import { ManifestoHost, createIntent } from "@manifesto-ai/host";
 
 const host = new ManifestoHost(schema, {
@@ -346,42 +362,11 @@ const result = await host.dispatch(intent);
 const snapshot = host.getSnapshot();  // Now synchronous
 ```
 
-### With Translator Migration
+### Translator (Deprecated)
 
-```typescript
-// ========== v1.x (Translator via Host) ==========
-// Host internally processed TranslatorFragment[]
-// This is no longer supported
-
-
-// ========== v2.0.1 (Translator via Bridge/App) ==========
-import { ManifestoHost, createIntent } from "@manifesto-ai/host";
-import { lowerPatchFragments, evaluateConditionalPatchOps } from "@manifesto-ai/compiler";
-
-const host = new ManifestoHost(schema, { initialData: {} });
-
-// TranslatorAdapter at Bridge/App layer
-async function processTranslatorOutput(
-  fragments: TranslatorFragment[],
-  snapshot: Snapshot,
-  context: HostContext
-): Promise<Patch[]> {
-  const conditionalOps = lowerPatchFragments(fragments);
-  return evaluateConditionalPatchOps(conditionalOps, snapshot, context);
-}
-
-// When LLM returns TranslatorFragment[]
-const llmResult = await translator.translate(prompt);
-const patches = await processTranslatorOutput(
-  llmResult.fragments,
-  host.getSnapshot()!,
-  { now: Date.now(), randomSeed: intentId, env: {} }
-);
-
-// Inject as concrete patches
-host.injectEffectResult(executionKey, requirementId, intentId, patches);
-await host.drain(executionKey);
-```
+Translator is deprecated. Do not build new integrations.
+If you must keep legacy usage, isolate it in App and pass only concrete `Patch[]`
+to Host.
 
 ---
 
@@ -395,6 +380,7 @@ await host.drain(executionKey);
 | Host Compiler dependency | Removed | v2.0.1 |
 | COMP-1, COMP-2, COMP-3, COMP-6 rules | Deprecated | v2.0.1 |
 | TRANS-1~4 rules | Deprecated | v2.0.1 |
+| Translator package | Deprecated | v2.0.2 |
 
 ---
 
@@ -402,7 +388,8 @@ await host.drain(executionKey);
 
 ### Q: Do I need to change my effect handlers?
 
-**A:** No, effect handler signatures are compatible. The only change is that `EffectContext.snapshot.meta` now includes `randomSeed`.
+**A:** No, effect handler signatures are compatible. Do not return patches to `system.*`.
+If you were recording errors in `system.*`, move them to `$host` or domain paths.
 
 ### Q: Is `createHost()` deprecated?
 
@@ -410,7 +397,12 @@ await host.drain(executionKey);
 
 ### Q: What if I was using Translator via Host?
 
-**A:** You need to migrate Translator processing to the Bridge/App layer. Host no longer depends on `@manifesto-ai/compiler`. See [Step 5](#step-5-migrate-translator-integration-critical) for details.
+**A:** Translator is deprecated. Remove the integration or keep it isolated in App and pass only concrete `Patch[]` to Host. See [Step 6](#step-6-translator-deprecation-v202).
+
+### Q: Do I need to add `$host` to my schema?
+
+**A:** Yes. Host writes intent slots and host error bookkeeping to `data.$host`.
+Add an optional `$host` field with a default `{}` (see Step 3).
 
 ### Q: Is the execution model change visible to users?
 
@@ -425,12 +417,13 @@ const host = new ManifestoHost(schema, {
   initialData: {},
   runtime: {
     now: () => 1704067200000,  // Fixed timestamp
-    randomSeed: () => "test-seed",
+    microtask: (fn) => fn(),
+    yield: () => Promise.resolve(),
   },
 });
 ```
 
-### Q: What's the benefit of v2.0.1 context determinism?
+### Q: What's the benefit of v2.0.1+ context determinism?
 
 **A:** Trace replay now produces identical results. The same intent + snapshot always produces the same output, even with time-dependent computed values.
 
@@ -440,10 +433,12 @@ const host = new ManifestoHost(schema, {
 
 Before completing migration, verify:
 
-- [ ] Updated `@manifesto-ai/host` to `^2.0.1`
+- [ ] Updated `@manifesto-ai/host` to `^2.0.2`
+- [ ] Added `$host` field to schema with default `{}`
 - [ ] Replaced `context` option with `runtime` (if applicable)
 - [ ] Removed `store` option (manage persistence externally)
-- [ ] Migrated Translator integration to Bridge/App layer (if applicable)
+- [ ] Removed Translator integration (deprecated)
+- [ ] Stopped writing to `system.*` from Host or effect handlers
 - [ ] Updated effect handlers if accessing new context fields
 - [ ] Tests pass with new API
 - [ ] Verified deterministic behavior (same input → same output)

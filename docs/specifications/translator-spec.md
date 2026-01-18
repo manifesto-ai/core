@@ -1,10 +1,11 @@
 # `@manifesto-ai/translator` Specification v1.1.1
 
-> **Status:** Release
+> **Status:** Deprecated
 > **Version:** 1.1.1
 > **License:** MIT
-> **Depends On:** MEL v0.3.3, Manifesto Core v1.0, World Protocol v1.0, `@manifesto-ai/memory` v1.2.0
+> **Depends On:** MEL v0.3.3, Manifesto Core v2.0.0, World Protocol v1.0, `@manifesto-ai/memory` v1.2.0
 > **Purpose:** Define the normative contract for translating multilingual natural language into incremental, auditable semantic change proposals for Manifesto domains.
+> **Deprecation:** Translator is deprecated. Core/Host/World/App are the supported surfaces. This spec is kept for reference only.
 
 ---
 

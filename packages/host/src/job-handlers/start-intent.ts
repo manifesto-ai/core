@@ -1,5 +1,5 @@
 /**
- * StartIntent Job Handler for Host v2.0.1
+ * StartIntent Job Handler for Host v2.0.2
  *
  * Handles the initial processing of an intent.
  *
@@ -15,20 +15,20 @@
 import type { ExecutionContext } from "../types/execution.js";
 import type { StartIntentJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
+import { getHostState } from "../types/host-state.js";
 
 /**
  * Handle StartIntent job
  *
- * Note: core.compute() is async but is internal computation, not external IO.
- * The SPEC JOB-1 bans awaiting "external work (effects, network, translator)".
+ * Note: job handlers are synchronous; use computeSync.
  *
  * @see SPEC §10.2.2 Job Handler Await Ban
  * @see SPEC §10.2.4 Compute Result and Effect Request Ordering
  */
-export async function handleStartIntent(
+export function handleStartIntent(
   job: StartIntentJob,
   ctx: ExecutionContext
-): Promise<void> {
+): void {
   // Emit job:start trace
   ctx.trace({
     t: "job:start",
@@ -38,9 +38,10 @@ export async function handleStartIntent(
   });
 
   // Get fresh snapshot (JOB-4)
-  const snapshot = ctx.getSnapshot();
+  let snapshot = ctx.getSnapshot();
 
-  // Get frozen context for this job (CTX-1~5)
+  // Reset and freeze context for this job (CTX-1~5)
+  ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 
   // Emit context:frozen trace
@@ -52,8 +53,31 @@ export async function handleStartIntent(
     randomSeed: frozenContext.randomSeed,
   });
 
-  // Call core.compute() - async internal computation (not external IO)
-  const result = await ctx.core.compute(
+  // Store intent slot in data.$host (HOST-NS-1)
+  const hostState = getHostState(snapshot.data);
+  const intentSlots = hostState?.intentSlots ?? {};
+  const intentSlot =
+    job.intent.input === undefined
+      ? { type: job.intent.type }
+      : { type: job.intent.type, input: job.intent.input };
+  const nextSlots = {
+    ...intentSlots,
+    [job.intentId]: intentSlot,
+  };
+  ctx.applyPatches(
+    [
+      {
+        op: "merge",
+        path: "$host",
+        value: { intentSlots: nextSlots },
+      },
+    ],
+    "host-intent-slot"
+  );
+  snapshot = ctx.getSnapshot();
+
+  // Call core.computeSync() - synchronous internal computation
+  const result = ctx.core.computeSync(
     ctx.schema,
     snapshot,
     job.intent,
@@ -94,27 +118,26 @@ export async function handleStartIntent(
 
   // Status is "pending" - execute effects
   if (result.status === "pending") {
-    // Read requirements from computed result (consistent with snapshot)
-    const requirements = result.requirements;
+    // Read requirements from snapshot after apply (COMP-REQ-INTERLOCK-2)
+    const requirements = ctx.getSnapshot().system.pendingRequirements;
+    const requirement = requirements[0];
 
-    if (requirements.length > 0) {
-      // Dispatch effect requests (async, outside mailbox)
-      for (const req of requirements) {
-        ctx.trace({
-          t: "effect:dispatch",
-          key: ctx.key,
-          requirementId: req.id,
-          effectType: req.type,
-        });
+    if (requirement) {
+      // Dispatch a single effect request (ORD-SERIAL)
+      ctx.trace({
+        t: "effect:dispatch",
+        key: ctx.key,
+        requirementId: requirement.id,
+        effectType: requirement.type,
+      });
 
-        ctx.requestEffectExecution(
-          job.intentId,
-          req.id,
-          req.type,
-          req.params,
-          job.intent
-        );
-      }
+      ctx.requestEffectExecution(
+        job.intentId,
+        requirement.id,
+        requirement.type,
+        requirement.params,
+        job.intent
+      );
       // Job terminates here - no continuation state
     } else {
       // No effects needed, enqueue continue

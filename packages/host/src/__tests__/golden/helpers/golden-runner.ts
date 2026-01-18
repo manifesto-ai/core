@@ -19,6 +19,7 @@ import { createTestRuntime } from "../../compliance/hcts-runtime.js";
 import { V2HostAdapter } from "../../compliance/adapter-v2.js";
 import { SimpleTestEffectRunner } from "../../compliance/hcts-adapter.js";
 import type { EffectHandler, EffectContext } from "../../../effects/types.js";
+import { stripHostState } from "../../helpers/host-state.js";
 
 /**
  * Golden test scenario definition
@@ -201,7 +202,10 @@ export class GoldenRunner {
       const current = results[i];
 
       // Compare final state
-      if (JSON.stringify(baseline.finalSnapshot.data) !== JSON.stringify(current.finalSnapshot.data)) {
+      if (
+        JSON.stringify(stripHostState(baseline.finalSnapshot.data)) !==
+        JSON.stringify(stripHostState(current.finalSnapshot.data))
+      ) {
         differences.push(`Run ${i + 1}: Final state differs from baseline`);
       }
 
@@ -362,7 +366,10 @@ export function compareGoldenResults(
   const differences: string[] = [];
 
   // Compare final state
-  if (JSON.stringify(expected.finalSnapshot.data) !== JSON.stringify(actual.finalSnapshot.data)) {
+  if (
+    JSON.stringify(stripHostState(expected.finalSnapshot.data)) !==
+    JSON.stringify(stripHostState(actual.finalSnapshot.data))
+  ) {
     differences.push("Final snapshot data differs");
   }
 
@@ -408,12 +415,15 @@ export function createGoldenSchema(config: {
     version: "1.0.0",
     types: {},
     state: {
-      fields: Object.fromEntries(
-        Object.entries(config.fields).map(([name, spec]) => [
-          name,
-          { type: spec.type, required: spec.required ?? true },
-        ])
-      ),
+      fields: {
+        $host: { type: "object", required: false },
+        ...Object.fromEntries(
+          Object.entries(config.fields).map(([name, spec]) => [
+            name,
+            { type: spec.type, required: spec.required ?? true },
+          ])
+        ),
+      },
     },
     computed: {
       fields: config.computed ?? {},
