@@ -10,6 +10,7 @@ export type {
   HostExecutionOptions,
   HostExecutionResult,
   HostExecutor,
+  ExecutionKeyContext,
   ExecutionKeyPolicy,
 } from "./host-executor.js";
 

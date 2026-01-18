@@ -13,6 +13,9 @@
 
 import { z } from "zod";
 import type { Snapshot, ErrorValue, Intent } from "@manifesto-ai/core";
+import type { ArtifactRef, ProposalId, WorldId } from "../schema/index.js";
+
+export type { ArtifactRef };
 
 // =============================================================================
 // Branded Types
@@ -37,19 +40,6 @@ export function createExecutionKey(
   attempt: number = 1
 ): ExecutionKey {
   return ExecutionKeySchema.parse(`${proposalId}:${attempt}`);
-}
-
-// =============================================================================
-// Artifact Reference (for traceability)
-// =============================================================================
-
-/**
- * Reference to an external artifact (trace, log, etc.)
- */
-export interface ArtifactRef {
-  readonly kind: "trace" | "log" | "snapshot";
-  readonly uri: string;
-  readonly hash?: string;
 }
 
 // =============================================================================
@@ -184,20 +174,28 @@ export interface HostExecutor {
 // =============================================================================
 
 /**
+ * Context for generating execution keys
+ *
+ * Provides enough information to implement actor/base/world serialization.
+ */
+export interface ExecutionKeyContext {
+  readonly proposalId: ProposalId;
+  readonly actorId: string;
+  readonly baseWorld: WorldId;
+  readonly attempt: number;
+}
+
+/**
  * Policy for generating execution keys
  *
  * Default: `${proposalId}:1` (single attempt)
  * Custom: Apps may implement retry policies
  */
-export type ExecutionKeyPolicy = (
-  proposalId: string,
-  attempt: number
-) => ExecutionKey;
+export type ExecutionKeyPolicy = (context: ExecutionKeyContext) => ExecutionKey;
 
 /**
  * Default execution key policy
  */
 export const defaultExecutionKeyPolicy: ExecutionKeyPolicy = (
-  proposalId,
-  attempt
-) => createExecutionKey(proposalId, attempt);
+  context
+) => createExecutionKey(context.proposalId, context.attempt);

@@ -40,7 +40,7 @@
 
 ## Reading Guide
 
-- **v2.0.2**: WorldId hash determinism (JCS, pendingDigest by requirement IDs, terminalStatus normalization), baseSnapshot responsibility clarification.
+- **v2.0.2**: Host-World Data Contract (`$host` namespace convention formalized as HOST-DATA-* rules), terminology unification (`'failed'` replaces `'error'` in TerminalStatusForHash).
 - **v2.0.1**: ADR-001 Layer Separation - Event ownership clarification, "Does NOT Know" boundary definition, Host v2.0.2 compatibility.
 - **v2.0.0**: Host v2.0.1 Integration - ExecutionKey mapping, HostExecutor abstraction, ScheduleContext for event handlers, strengthened EVT-C constraints, terminal snapshot validation.
 - **v1.0.0**: Initial release defining core governance (Actor, Authority, Proposal, Decision, World, Lineage). (Archived docs)

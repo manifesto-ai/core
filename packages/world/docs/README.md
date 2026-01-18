@@ -7,6 +7,7 @@
 ## What is World?
 
 World operates above Core and Host, governing who can propose changes, who can approve them, and tracking the complete history of all state transitions.
+World never imports Host directly; App provides a HostExecutor adapter.
 
 In the Manifesto architecture:
 

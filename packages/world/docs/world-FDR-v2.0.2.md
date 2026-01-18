@@ -1,15 +1,15 @@
 # Manifesto World Protocol FDR v2.0.2
 
-> **Status:** Accepted  
-> **Scope:** All Manifesto World Implementations  
-> **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, ARCHITECTURE v2.0  
-> **Authors:** Manifesto Team  
-> **License:** MIT  
+> **Status:** Active
+> **Scope:** All Manifesto World Implementations
+> **Compatible with:** Host Contract v2.0.2, ARCHITECTURE v2.0
+> **Authors:** Manifesto Team
+> **License:** MIT
 > **Changelog:**
 > - v1.0: Initial release
 > - v2.0: Host v2.0.1 Integration, Event-Loop Execution Model alignment
 > - v2.0.1: ADR-001 Layer Separation - Event ownership clarification
-> - **v2.0.2: WorldId hash determinism + baseSnapshot responsibility**
+> - **v2.0.2: Host-World Data Contract - `$host` namespace convention, terminology unification**
 
 ---
 
@@ -142,7 +142,6 @@ By separating:
 - **WORLD-EVT-OWN-2 (MUST NOT):** World MUST NOT define telemetry events.
 - **WORLD-EVT-OWN-3 (MUST):** `execution:completed` and `execution:failed` remain World events.
 - **APP-EVT-OWN-1:** App SHOULD define telemetry events from TraceEvent stream.
-- **APP-EVT-OWN-2:** App owns event/listener mechanics; World emits via an App-provided EventSink.
 
 ---
 
@@ -305,66 +304,7 @@ World changes only when governance changes. Execution mechanics are App's proble
 
 ---
 
-## Part IV: Hash Determinism & Snapshot Responsibility (v2.0.2)
-
-### FDR-W032: Deterministic WorldId Hash Input
-
-#### Decision
-
-**WorldId hashing MUST be derived from deterministic, normalized inputs only.**
-
-Specifically:
-- Use JCS (RFC 8785) canonicalization for all hash inputs
-- Derive `terminalStatus` from `system.lastError` and `pendingRequirements` only
-- Compute `pendingDigest` from sorted requirement IDs
-- ErrorSignature excludes `message`, `timestamp`, and `context`
-
-#### Context
-
-WorldId is the identity of a World. Any non-deterministic input (timestamps, status vocabulary, or effect artifacts) breaks replay and lineage invariants across hosts and runtimes.
-
-#### Rationale
-
-**Determinism is the only stable coordinate for lineage.**
-
-By constraining the hash input:
-1. Different runtimes produce the same WorldId for the same terminal snapshot
-2. Host execution mechanics cannot influence governance identity
-3. Pending/failed states cannot collide with successful states
-
-#### Consequences
-
-- **WORLD-HASH-2 (MUST):** terminalStatus derives from `lastError` + `pendingRequirements` only
-- **WORLD-HASH-PENDING-1 (MUST):** pendingDigest uses sorted requirement IDs
-- **WORLD-HASH-ERR-MSG-1 (MUST NOT):** ErrorSignature MUST NOT include `message`, `timestamp`, or `context`
-- **HASH-ENC-1 (MUST):** Hash inputs MUST be JCS canonicalized
-
----
-
-### FDR-W033: BaseSnapshot Retrieval via WorldStore
-
-#### Decision
-
-**World retrieves baseSnapshot through WorldStore; App supplies the storage implementation.**
-
-#### Context
-
-World owns lineage and baseWorld selection, but storage persistence varies by product. World needs a stable abstraction for baseSnapshot retrieval without coupling to app storage details.
-
-#### Rationale
-
-**Separation of concerns:**
-- World requires baseSnapshot to execute approved intents
-- App provides persistence strategy without changing World semantics
-
-#### Consequences
-
-- **PERSIST-BASE-1 (MUST):** World MUST retrieve baseSnapshot via WorldStore
-- **PERSIST-BASE-2 (MUST):** App MUST provide a WorldStore capable of restoring baseSnapshot
-
----
-
-## Summary Table (v2.0.2)
+## Summary Table (v2.0.1)
 
 | FDR | Decision | Key Principle | Reference |
 |-----|----------|---------------|-----------|
@@ -373,8 +313,133 @@ World owns lineage and baseWorld selection, but storage persistence varies by pr
 | W029 | World's "Does NOT Know" principle | Ignorance as Architecture | ADR-001 §3 |
 | W030 | Execution result events only | Governance outcomes | ADR-001 §6 |
 | W031 | App as evolution absorption layer | Change isolation | ADR-001 §7 |
-| W032 | Deterministic WorldId hash input | Determinism first | SPEC §5.5 |
-| W033 | BaseSnapshot via WorldStore | Responsibility clarity | SPEC §9.3 |
+
+---
+
+## Part IV: Host-World Data Contract (v2.0.2)
+
+> These decisions formalize the cross-layer data contract between Host and World.
+
+### FDR-W032: The `$host` Namespace Convention
+
+#### Decision
+
+**Host MUST store its internal execution state in `snapshot.data.$host`. World MUST exclude this namespace from snapshotHash computation.**
+
+```typescript
+// Host writes to data.$host
+snapshot.data.$host = {
+  intentSlots: { ... },
+  // other Host-managed state
+};
+
+// World excludes from hash
+function computeSnapshotHash(snapshot) {
+  const { $host, ...domainData } = snapshot.data;
+  return hash({ data: domainData, ... });  // $host excluded
+}
+```
+
+#### Context
+
+Host needs persistent state across re-entry cycles (intent slots, execution context). This state must survive in Snapshot but should NOT affect World identity.
+
+Without explicit convention:
+- Host could store state anywhere (system.*, data.*, custom fields)
+- World couldn't reliably exclude non-semantic state from hash
+- Same semantic state could produce different WorldIds
+
+#### Rationale
+
+**Namespace Separation:**
+
+| Namespace | Owner | Purpose | Hash Inclusion |
+|-----------|-------|---------|----------------|
+| `data.$host` | Host | Execution context, intent slots | ❌ Excluded |
+| `data.*` (other) | Domain | Semantic state | ✅ Included |
+| `system.*` | Core | Execution status, errors, pending | ✅ Included (normalized) |
+
+**Why `data.$host` not `system.$host`?**
+- `system.*` is Core-owned vocabulary (status, errors, pendingRequirements)
+- Host should not pollute Core's namespace
+- `$` prefix signals "reserved" namespace
+
+**Benefits:**
+1. **Determinism**: Same semantic state → same WorldId (regardless of intent slot state)
+2. **Clarity**: Clear ownership boundary (`$host` = Host-owned)
+3. **Safety**: `$host` prefix unlikely to collide with domain schemas
+4. **Evolvability**: Host can add fields to `$host` without affecting World
+
+#### Alternatives Rejected
+
+| Alternative | Why Rejected |
+|-------------|--------------|
+| Store in `system.$host` | Pollutes Core's namespace |
+| Store in separate channel | Violates "Snapshot is sole truth" principle |
+| Hash everything | Intent slot changes would create new Worlds |
+| Convention without formalization | Implicit contracts lead to bugs |
+
+#### Consequences
+
+- **HOST-DATA-1 (MUST):** Host MUST store internal state under `data.$host`.
+- **HOST-DATA-2 (MUST NOT):** Host MUST NOT store internal state in `system.*`.
+- **HOST-DATA-3 (MUST):** World MUST exclude `data.$host` from snapshotHash.
+- **HOST-DATA-4 (MUST NOT):** World MUST NOT interpret `data.$host` contents.
+- **HOST-DATA-5 (MAY):** App MAY read `data.$host` for debugging/telemetry.
+- **HOST-DATA-6 (MUST NOT):** Domain schemas MUST NOT use `$host` as a key.
+
+---
+
+### FDR-W033: TerminalStatusForHash Terminology Unification
+
+#### Decision
+
+**`TerminalStatusForHash` uses `'completed' | 'failed'`, not `'completed' | 'error'`.**
+
+```typescript
+// v2.0.1 (inconsistent)
+type TerminalStatusForHash = 'completed' | 'error';
+
+// v2.0.2 (unified)
+type TerminalStatusForHash = 'completed' | 'failed';
+```
+
+#### Context
+
+v2.0.1 used `'error'` for the failure case in `TerminalStatusForHash`, while:
+- World outcome: `'completed' | 'failed'`
+- HostExecutionResult.outcome: `'completed' | 'failed'`
+
+This inconsistency was confusing and error-prone.
+
+#### Rationale
+
+**Single Vocabulary:**
+
+| Concept | Term (v2.0.2) |
+|---------|---------------|
+| World outcome | `'failed'` |
+| Host result outcome | `'failed'` |
+| Hash terminal status | `'failed'` |
+
+Using `'failed'` consistently:
+1. Reduces cognitive load
+2. Eliminates mapping between vocabularies
+3. Makes code more self-documenting
+
+#### Consequences
+
+- **TERM-UNIFIED-1:** `TerminalStatusForHash` MUST use `'failed'` (not `'error'`).
+- **TERM-UNIFIED-2:** All World/Host outcome references MUST use `'failed'`.
+
+---
+
+## Summary Table (v2.0.2)
+
+| FDR | Decision | Key Principle | Reference |
+|-----|----------|---------------|-----------|
+| W032 | `$host` namespace convention | Namespace separation | WORLD-HASH-4a |
+| W033 | Terminology unification (`'failed'`) | Single vocabulary | WORLD-TERM-5 |
 
 ---
 
@@ -410,6 +475,23 @@ World owns lineage and baseWorld selection, but storage persistence varies by pr
 | ARCHITECTURE v2.0 | Layer definitions |
 | Host SPEC v2.0.2 | HostExecutor implementation target |
 | World SPEC v2.0.2 | Normative specification |
+
+---
+
+## Migration from v2.0.1
+
+### New Decisions (v2.0.2)
+
+| FDR | Change | Impact |
+|-----|--------|--------|
+| W032 | `$host` namespace formalized | Host MUST use `data.$host` |
+| W033 | `'error'` → `'failed'` | Hash terminology change |
+
+### Breaking Changes
+
+| Change | Migration |
+|--------|-----------|
+| `TerminalStatusForHash = 'error'` | Change to `'failed'` |
 
 ---
 

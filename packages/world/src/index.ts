@@ -105,6 +105,7 @@ export type {
   HostExecutionOptions,
   HostExecutionResult,
   HostExecutor,
+  ExecutionKeyContext,
   ExecutionKeyPolicy,
   ErrorSignature,
   TerminalStatusForHash,

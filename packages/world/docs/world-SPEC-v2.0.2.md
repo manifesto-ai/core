@@ -1,16 +1,16 @@
 # Manifesto World Protocol Specification v2.0.2
 
-> **Status:** Accepted  
-> **Scope:** All Manifesto World Implementations  
-> **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, ARCHITECTURE v2.0  
-> **Implements:** ADR-001 (Layer Separation)  
-> **Authors:** Manifesto Team  
-> **License:** MIT  
+> **Status:** Active
+> **Scope:** All Manifesto World Implementations
+> **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, ARCHITECTURE v2.0
+> **Implements:** ADR-001 (Layer Separation)
+> **Authors:** Manifesto Team
+> **License:** MIT
 > **Changelog:**
 > - v1.0: Initial release
 > - v2.0: Host v2.0.1 Integration, Event-Loop Execution Model alignment
 > - v2.0.1: ADR-001 Layer Separation - Event ownership, "Does NOT Know" boundary
-> - **v2.0.2: WorldId hash determinism (JCS, pendingDigest by requirement IDs), baseSnapshot responsibility, terminalStatus normalization**
+> - **v2.0.2: Host-World Data Contract - `$host` namespace, deterministic hashing, baseSnapshot via WorldStore**
 
 ---
 
@@ -49,7 +49,7 @@ This protocol operates **above** Manifesto Core and Host:
 | **World Protocol** | Governs legitimacy, authority, lineage | Host internals, TraceEvent |
 | **App** | Assembles layers, owns telemetry | Core internals, World constitution |
 
-**v2.0.2 Focus**: Core/Host alignment for WorldId hashing (JCS, pendingDigest by requirement IDs, terminalStatus normalization) and baseSnapshot responsibility clarification.
+**v2.0.2 Focus**: Host-World data contract (`$host` namespace), deterministic WorldId hashing, and baseSnapshot restoration via WorldStore.
 
 This document is **normative**.
 
@@ -79,7 +79,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 |----------|--------|
 | Patch-level authorization | World governs Intent approval only |
 | Host internal job types | Mailbox/runner structure is Host's concern |
-| Translator/Compiler pipeline | Deferred to App layer |
+| Translator/Compiler pipeline | Deferred to App layer (Translator deprecated in v2) |
 | Merge semantics | Fork-only in v2.0; merge is future extension |
 | Effect execution details | Defined by Host Contract |
 | UI/session management | App layer concern |
@@ -201,7 +201,7 @@ type World = {
   
   // Provenance
   readonly createdBy: ProposalId | null;  // null only for genesis
-  readonly baseWorld?: WorldId;           // explicit parent pointer
+  // Parent lineage is tracked via WorldEdge (not embedded here)
   
   // Optional audit artifacts
   readonly executionTraceRef?: ArtifactRef;
@@ -317,7 +317,7 @@ type SnapshotHashInput = {
  * 
  * CRITICAL: Core's `system.errors` is a HISTORY (accumulated array).
  * Using `errors.length > 0` would permanently mark any snapshot that
- * ever had an error as 'failed', even after recovery.
+ * ever had an error as 'error', even after recovery.
  * 
  * Instead, we use `system.lastError` which represents CURRENT error state.
  */
@@ -372,7 +372,7 @@ function computePendingDigest(pending: readonly Requirement[]): string {
 - Using `errors.length > 0` would permanently mark recovered snapshots as failed.
 - `system.lastError` represents current error state (null when no active error).
 - To ensure WorldId consistency, we normalize to exactly two values: `completed` or `failed`.
-- This aligns with World's outcome model while ensuring hash determinism.
+- This aligns with World's outcome model (`'completed' | 'failed'`) and Host's `HostExecutionResult.outcome` while ensuring hash determinism.
 
 #### 5.5.2 Inclusion/Exclusion Rules
 
@@ -417,8 +417,8 @@ Errors included in `snapshotHash` MUST be normalized to exclude non-deterministi
 /**
  * ErrorSignature: Deterministic subset of ErrorValue for hashing.
  * 
- * CRITICAL: `message`, `timestamp`, and `context` are EXCLUDED (non-deterministic).
- * Only `code` and `source` are included.
+ * CRITICAL: `message` and `timestamp` are EXCLUDED (non-deterministic).
+ * Only `code`, `source`, and deterministic `context` are included.
  * 
  * source structure matches Core's ErrorValue.source exactly.
  */
@@ -428,12 +428,13 @@ type ErrorSignature = {
     readonly actionId: string;
     readonly nodePath: string;
   };
-  // NOTE: `message`, `timestamp`, and `context` are intentionally EXCLUDED
+  readonly context?: Record<string, unknown>;  // deterministic subset only
+  // NOTE: `message` and `timestamp` are intentionally EXCLUDED
 };
 
 /**
  * Convert Core's ErrorValue to hash-safe ErrorSignature.
- * message, timestamp, and context are NOT included.
+ * message and timestamp are NOT included.
  */
 function toErrorSignature(error: ErrorValue): ErrorSignature {
   return {
@@ -442,8 +443,20 @@ function toErrorSignature(error: ErrorValue): ErrorSignature {
       actionId: error.source.actionId,
       nodePath: error.source.nodePath,
     },
-    // message, timestamp, and context intentionally omitted (WORLD-HASH-ERR-MSG-1)
+    context: error.context ? normalizeContext(error.context) : undefined,
+    // message and timestamp intentionally omitted (WORLD-HASH-ERR-MSG-1)
   };
+}
+
+/**
+ * Normalize context to deterministic subset.
+ * Remove any runtime-variable values.
+ */
+function normalizeContext(ctx: Record<string, unknown>): Record<string, unknown> | undefined {
+  // Implementation filters out non-deterministic values
+  // (e.g., timestamps, memory addresses, locale strings)
+  const normalized = filterDeterministicValues(ctx);
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 /**
@@ -485,7 +498,8 @@ function sortErrorSignatures(errors: ErrorSignature[]): ErrorSignature[] {
 | WORLD-HASH-ERR-4b | Sort key comparison is simple ASCII string comparison (hex chars only) |
 | WORLD-HASH-ERR-4c | This eliminates UTF-8/UTF-16/locale comparison ambiguity |
 | **WORLD-HASH-ERR-MSG-1** | **ErrorSignature MUST NOT include `message` field (non-deterministic)** |
-| WORLD-HASH-ERR-MSG-2 | Error identification relies on `code` + `source` only |
+| WORLD-HASH-ERR-MSG-2 | Error identification relies on `code` + `source` + `context` only |
+| WORLD-HASH-ERR-CTX-1 | `context` MUST only include deterministic values (no timestamps, addresses, locale strings) |
 
 #### 5.5.4 Hash Computation
 
@@ -814,8 +828,9 @@ interface HostExecutor {
 }
 
 type HostExecutionOptions = {
-  readonly approvedScope?: unknown;  // Future: enforcement
-  readonly trace?: boolean;
+  readonly approvedScope?: unknown;  // Optional scope guard
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
 };
 
 type HostExecutionResult = {
@@ -841,6 +856,9 @@ type HostExecutionResult = {
 
 **App Implementation Pattern (informative):**
 
+Note: method names depend on Host implementation; example uses v2 mailbox APIs
+(`seedSnapshot`, `submitIntent`, `drain`) for clarity.
+
 ```typescript
 // In App (NOT in World)
 class AppHostExecutor implements HostExecutor {
@@ -850,28 +868,21 @@ class AppHostExecutor implements HostExecutor {
   ) {}
   
   async execute(key, baseSnapshot, intent, opts): Promise<HostExecutionResult> {
-    // 1. Subscribe to Host's TraceEvent (World doesn't see this)
-    const unsubscribe = this.host.onTrace((trace) => {
-      // App transforms TraceEvent → telemetry events
-      this.telemetryEmitter.emit(this.mapTraceToTelemetry(trace));
-    });
-    
-    try {
-      // 2. Call Host's dispatch (World doesn't see this)
-      await this.host.dispatch(key, baseSnapshot, intent);
-      
-      // 3. Wait for terminal state
-      const terminalSnapshot = await this.waitForTerminal(key);
-      
-      // 4. Return only the result (World sees only this)
-      return {
-        outcome: this.deriveOutcome(terminalSnapshot),
-        terminalSnapshot,
-        traceRef: opts?.trace ? this.saveTrace() : undefined,
-      };
-    } finally {
-      unsubscribe();
-    }
+    // Host is created with onTrace callback; App transforms TraceEvent → telemetry
+    this.host.seedSnapshot(key, baseSnapshot);
+    this.host.submitIntent(key, intent);
+
+    // Drain mailbox to terminal (Host internal mechanics)
+    await this.host.drain(key);
+
+    const terminalSnapshot = this.host.getContextSnapshot(key) ?? baseSnapshot;
+
+    // Return only the result (World sees only this)
+    return {
+      outcome: this.deriveOutcome(terminalSnapshot),
+      terminalSnapshot,
+      traceRef: this.flushTraceIfEnabled(),
+    };
   }
 }
 ```
@@ -884,19 +895,35 @@ class AppHostExecutor implements HostExecutor {
 | WORLD-EXK-2 | executionKey MUST be fixed in Proposal record (immutable once set) |
 | WORLD-EXK-3 | Host MUST treat executionKey as opaque |
 | WORLD-EXK-4 | World MAY map multiple proposals to the same executionKey to enforce serialization policy |
-| WORLD-EXK-5 | The default policy is RECOMMENDED: `executionKey = proposalId` |
+| WORLD-EXK-5 | The default policy is RECOMMENDED: `executionKey = ${proposalId}:1` |
+
+**ExecutionKey Policy Context (informative):**
+
+```typescript
+type ExecutionKeyContext = {
+  readonly proposalId: ProposalId;
+  readonly actorId: string;
+  readonly baseWorld: WorldId;
+  readonly attempt: number;
+};
+
+type ExecutionKeyPolicy = (ctx: ExecutionKeyContext) => ExecutionKey;
+```
 
 **Policy Examples:**
 
 ```typescript
 // Default: Each proposal gets its own mailbox (parallel)
-const defaultPolicy = (proposal) => proposal.proposalId;
+const defaultPolicy = ({ proposalId, attempt }) =>
+  `${proposalId}:${attempt}`;
 
 // Actor serialization: Same actor's proposals serialize
-const actorSerialPolicy = (proposal) => `actor:${proposal.actorId}`;
+const actorSerialPolicy = ({ actorId, attempt }) =>
+  `actor:${actorId}:${attempt}`;
 
 // Base serialization: Proposals from same base serialize
-const baseSerialPolicy = (proposal) => `base:${proposal.baseWorld}`;
+const baseSerialPolicy = ({ baseWorld, attempt }) =>
+  `base:${baseWorld}:${attempt}`;
 ```
 
 ### 7.3 Outcome Derivation (v2.0.2)
@@ -1023,11 +1050,96 @@ async function createWorldFromExecution(
     snapshotHash,
     createdAt: Date.now(),
     createdBy: proposal.proposalId,
-    baseWorld: proposal.baseWorld,
-    executionTraceRef: result.traceRef,
+    executionTraceRef: result.traceRef,  // Optional audit artifact
   };
 }
 ```
+
+### 7.9 Host-World Data Contract (v2.0.2)
+
+This section defines the **explicit data contract** between Host and World layers for snapshot data structure.
+
+#### 7.9.1 The `$host` Namespace Convention
+
+Host stores its internal execution state in `snapshot.data.$host`. This is a **cross-layer convention** that both Host and World MUST respect.
+
+```typescript
+/**
+ * Host-owned namespace within snapshot.data
+ *
+ * Host uses this namespace to store:
+ * - Intent slot state (intentSlots)
+ * - Execution context
+ * - Other Host-managed transient state
+ *
+ * This namespace is:
+ * - WRITTEN BY: Host (during execution)
+ * - READ BY: Host (for re-entry continuity)
+ * - EXCLUDED BY: World (from snapshotHash computation)
+ */
+type HostNamespace = {
+  readonly intentSlots?: Record<string, IntentSlotState>;
+  // Future: other Host-managed state
+};
+
+// Convention: Host stores its state at data.$host
+type SnapshotData = {
+  readonly $host?: HostNamespace;  // Host-owned, World-excluded
+  // ... domain state (World-owned for hashing)
+};
+```
+
+#### 7.9.2 Rationale
+
+| Concern | Solution |
+|---------|----------|
+| Host needs persistent execution context | Store in `data.$host` |
+| World hash must be deterministic | Exclude `data.$host` from hash |
+| Semantic state must be separated | `data.$host` is non-semantic |
+| Cross-replay consistency | Same semantic state = same WorldId |
+
+**Why not `system.$host`?**
+- `system.*` is Core-owned vocabulary (status, errors, pendingRequirements)
+- Host should not pollute Core's namespace
+- `data.$host` clearly signals "Host's data within snapshot"
+
+#### 7.9.3 Contract Rules (v2.0.2)
+
+| Rule ID | Description |
+|---------|-------------|
+| HOST-DATA-1 | Host MUST store its internal state under `data.$host` namespace |
+| HOST-DATA-2 | Host MUST NOT store internal state in `system.*` namespace |
+| HOST-DATA-3 | World MUST exclude `data.$host` from snapshotHash computation (WORLD-HASH-4a) |
+| HOST-DATA-4 | World MUST NOT interpret or depend on `data.$host` contents |
+| HOST-DATA-5 | App MAY read `data.$host` for debugging/telemetry purposes |
+| HOST-DATA-6 | The `$host` namespace is reserved; domain schemas MUST NOT use `$host` as a key |
+
+#### 7.9.4 Implementation
+
+```typescript
+/**
+ * Strip Host-owned namespace from data before hashing.
+ * WORLD-HASH-4a + HOST-DATA-3: data.$host MUST NOT be included in hash.
+ */
+function stripHostNamespace<T extends Record<string, unknown>>(
+  data: T
+): Omit<T, '$host'> {
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const { $host, ...rest } = data;
+    return rest as Omit<T, '$host'>;
+  }
+  return data;
+}
+```
+
+#### 7.9.5 Cross-Reference
+
+| Layer | Responsibility | `$host` Access |
+|-------|---------------|----------------|
+| **Host** | Write intent slots, execution context | Read/Write |
+| **World** | Hash computation, World creation | Exclude from hash |
+| **App** | Debugging, telemetry | Read-only |
+| **Core** | Pure computation | Unaware |
 
 ---
 
@@ -1050,7 +1162,6 @@ Per **ADR-001** and **FDR-W027**:
 | WORLD-EVT-OWN-2 | World MUST NOT define or emit execution telemetry events |
 | WORLD-EVT-OWN-3 | `execution:completed` and `execution:failed` are governance results (World-owned) |
 | WORLD-EVT-OWN-4 | App MUST emit telemetry events by transforming Host's TraceEvent |
-| WORLD-EVT-OWN-5 | World MUST emit via App-provided EventSink; World MUST NOT provide subscription API |
 
 ### 8.2 World Event Types (v2.0.2)
 
@@ -1073,7 +1184,7 @@ type WorldEventType =
   | 'world:forked';
 
 // ============================================================
-// REMOVED from World (v2.0.2) - Now App's responsibility:
+// REMOVED from World (v2.0.1) - Now App's responsibility:
 // ============================================================
 // The following are execution telemetry events.
 // App emits these by transforming Host's TraceEvent stream.
@@ -1088,46 +1199,55 @@ type WorldEventType =
 // ============================================================
 ```
 
-### 8.3 Event Emission API (World → App)
-
-World does **not** define a subscription API.  
-World only emits governance events via an **App-provided sink**.
+### 8.3 Subscription API
 
 ```typescript
-type WorldEventSink = {
-  emit(event: WorldEvent): void;
-};
-
-// Provided by App at world creation
-type ManifestoWorldConfig = {
-  eventSink?: WorldEventSink; // default: no-op
-};
-```
-
-**App-owned event/listener API** (informative):
-- App defines `WorldEventHandler`, `WorldEventSource`, and `ScheduleContext`.
-- App owns subscription mechanics and scheduling.
-- World remains unaware of listeners.
-
-### 8.4 Event Handling Constraints (App-owned)
-
-**ScheduleContext is provided by App, not World.**
-
-World SPEC defines the **constraints** for governance event handling,
-while App SPEC defines the **concrete API** (action types, scheduling mechanism).
-
-```typescript
-// App-level interface (illustrative)
 type WorldEventHandler = (event: WorldEvent, ctx: ScheduleContext) => void;
 type Unsubscribe = () => void;
 
-interface WorldEventSource {
+interface WorldEventSubscriber {
   subscribe(handler: WorldEventHandler): Unsubscribe;
   subscribe(types: WorldEventType[], handler: WorldEventHandler): Unsubscribe;
 }
 ```
 
-**Non-Interference Constraints (v2.0)**
+### 8.4 ScheduleContext (v2.0)
+
+**ScheduleContext is provided by App, not World.**
+
+World SPEC defines the **behavioral contract** (handlers can schedule actions),
+while App SPEC defines the **concrete API** (action types, scheduling mechanism).
+
+```typescript
+/**
+ * ScheduleContext: Provided by App to event handlers.
+ * 
+ * Ownership:
+ * - DEFINED BY: App (implementation details)
+ * - PROVIDED TO: World event handlers
+ * - PROCESSED BY: App's unified scheduler
+ * 
+ * World declares what handlers may do; App fulfills the mechanism.
+ */
+interface ScheduleContext {
+  /**
+   * Schedule an action to be processed after event dispatch completes.
+   * Actions are processed through App's unified scheduler.
+   */
+  schedule(action: ScheduledAction): void;
+}
+
+/**
+ * ScheduledAction types are ILLUSTRATIVE.
+ * Concrete action types are defined by App SPEC.
+ */
+type ScheduledAction =
+  | { type: 'SubmitProposal'; payload: ProposalInput }
+  | { type: 'CancelProposal'; payload: { proposalId: ProposalId } }
+  | { type: 'Custom'; tag: string; payload: unknown };
+```
+
+### 8.4 Non-Interference Constraints (v2.0)
 
 | Rule ID | Description |
 |---------|-------------|
@@ -1142,8 +1262,8 @@ interface WorldEventSource {
 
 | Rule ID | Description |
 |---------|-------------|
-| SCHED-1 | App MUST provide `ScheduleContext` to handlers |
-| SCHED-2 | App MUST provide `schedule()` method in ScheduleContext |
+| SCHED-1 | Handlers receive `ScheduleContext` as second parameter |
+| SCHED-2 | World MUST provide `schedule()` method in ScheduleContext |
 | SCHED-3 | Scheduled actions MUST be processed AFTER all handlers complete |
 | SCHED-4 | Scheduled actions MUST go through App's unified scheduler |
 | SCHED-5 | Scheduled actions MUST NOT be executed as microtask during event dispatch |
@@ -1228,18 +1348,11 @@ type ProposalSubmittedEvent = BaseEvent & {
   readonly epoch: number;
 };
 
-type ProposalEvaluatingEvent = BaseEvent & {
-  readonly type: 'proposal:evaluating';
-  readonly proposalId: ProposalId;
-  readonly authorityId: AuthorityId;
-};
-
 type ProposalDecidedEvent = BaseEvent & {
   readonly type: 'proposal:decided';
   readonly proposalId: ProposalId;
   readonly decisionId: DecisionId;
   readonly decision: 'approved' | 'rejected';
-  readonly authorityId: AuthorityId;
   readonly reason?: string;
 };
 
@@ -1286,7 +1399,7 @@ type ExecutionFailedEvent = BaseEvent & {
 };
 
 // ============================================================
-// REMOVED from World (v2.0.2) - App-owned telemetry events:
+// REMOVED from World (v2.0.1) - App-owned telemetry events:
 // ============================================================
 // The following event types are NOT defined by World.
 // App defines and emits these by transforming Host's TraceEvent.
@@ -1313,8 +1426,8 @@ type ExecutionFailedEvent = BaseEvent & {
 type WorldCreatedEvent = BaseEvent & {
   readonly type: 'world:created';
   readonly world: World;
-  readonly from: WorldId | null;
-  readonly proposalId: ProposalId | null;
+  readonly from: WorldId;
+  readonly proposalId: ProposalId;
   readonly outcome: 'completed' | 'failed';
 };
 ```
@@ -1325,13 +1438,13 @@ type WorldCreatedEvent = BaseEvent & {
 
 ### 9.1 Required Records
 
-World implementations MUST persist (in serializable form):
+World implementations MUST persist (in serializable form) at minimum:
 
 | Record | Key | Description |
 |--------|-----|-------------|
 | Worlds | WorldId | Immutable World records |
-| **SnapshotHashInputs** | snapshotHash | **Normalized hash input** (NOT full snapshot) |
-| TerminalSnapshots | WorldId | Full terminal snapshot (optional, for audit) |
+| TerminalSnapshots | WorldId | Full terminal snapshot (or sufficient data to restore it) |
+| **SnapshotHashInputs** | snapshotHash | **Normalized hash input** (RECOMMENDED for audit/replay) |
 | Proposals | ProposalId | Proposal records with status |
 | DecisionRecords | DecisionId | Authority decisions |
 | WorldEdges | edgeId | Lineage edges |
@@ -1343,22 +1456,22 @@ World implementations MUST persist (in serializable form):
 
 | Rule ID | Description |
 |---------|-------------|
-| PERSIST-SNAP-1 | `snapshotHash` key MUST store `SnapshotHashInput` (normalized), NOT full snapshot |
+| PERSIST-SNAP-1 | Implementations MUST NOT key full snapshots by `snapshotHash` (ambiguous) |
 | PERSIST-SNAP-2 | Full terminal snapshot (if stored) MUST use `WorldId` as key |
-| PERSIST-SNAP-3 | Implementations MAY store full snapshot in `executionTraceRef` artifact |
-| PERSIST-SNAP-4 | Replay verification uses `SnapshotHashInput`, not full snapshot |
+| PERSIST-SNAP-3 | Implementations SHOULD store `SnapshotHashInput` keyed by `snapshotHash` (recommended for audit/replay) |
+| PERSIST-SNAP-4 | Replay verification SHOULD use `SnapshotHashInput` when available |
 
 **Storage Structure:**
 
 ```typescript
-// CORRECT: snapshotHash → normalized hash input
+// RECOMMENDED: snapshotHash → normalized hash input (audit/replay)
 type StoredSnapshotHashInput = {
   readonly snapshotHash: string;  // Key
   readonly hashInput: SnapshotHashInput;  // What was hashed
   readonly schemaHash: string;  // For context
 };
 
-// OPTIONAL: worldId → full terminal snapshot (for audit/debugging)
+// BASELINE: worldId → full terminal snapshot (for baseSnapshot restore)
 type StoredTerminalSnapshot = {
   readonly worldId: WorldId;  // Key
   readonly terminalSnapshot: Snapshot;  // Full snapshot including meta.timestamp etc.
@@ -1367,8 +1480,8 @@ type StoredTerminalSnapshot = {
 
 **Rationale:**
 - Using `snapshotHash` as key for "full blob" creates ambiguity when different snapshots (different timestamps) produce the same hash.
-- `SnapshotHashInput` is what we actually hash, so it's the content-addressable artifact.
-- Full snapshots are optional audit artifacts, keyed by `WorldId` (unique).
+- `SnapshotHashInput` is what we actually hash, so it's the content-addressable artifact for audit/replay.
+- Full snapshots are keyed by `WorldId` for baseSnapshot restoration (unique per semantic world).
 
 ### 9.3 BaseSnapshot Restoration (v2.0.2)
 
@@ -1390,7 +1503,7 @@ This section clarifies restoration strategies for App implementations and the Wo
 
 | Rule ID | Description |
 |---------|-------------|
-| PERSIST-BASE-1 | World MUST be able to retrieve baseSnapshot for any valid baseWorld |
+| PERSIST-BASE-1 | World MUST be able to retrieve baseSnapshot via WorldStore for any valid baseWorld |
 | PERSIST-BASE-2 | App MUST provide a WorldStore implementation that can restore baseSnapshot |
 | PERSIST-BASE-3 | Restored baseSnapshot MUST produce same snapshotHash as original |
 
@@ -1486,7 +1599,7 @@ type WorldLineage = {
 | INV-W5 | Lineage is append-only |
 | INV-W6 | Every non-genesis World has exactly one parent (v2.0 fork-only) |
 | INV-W7 | snapshotHash excludes non-deterministic fields |
-| INV-W8 | Errors in snapshotHash use ErrorSignature (code, source only) |
+| INV-W8 | Errors in snapshotHash use ErrorSignature (code, source, context only) |
 | INV-W9 | snapshotHash includes pendingDigest for collision prevention |
 | INV-W10 | snapshotHash uses terminalStatus (normalized), not raw status |
 | INV-W11 | Error sorting uses `computeHash(ErrorSignature)` as sort key (64-char hex) |
@@ -1639,6 +1752,7 @@ Compliance can be verified by:
 | Scheduling | SCHED-1~5 |
 | Lineage | WORLD-LIN-1~4 |
 | Replay | REPLAY-1~3 |
+| Host Data Contract | HOST-DATA-1~6 |
 
 ### A.2 State Machine Summary
 
@@ -1702,21 +1816,36 @@ World created: completed or failed only
 | `execution:completed` | Governance result |
 | `execution:failed` | Governance result |
 
-### A.5 v2.0.2 Additions Summary (Hash Determinism + Snapshot Responsibility)
+### A.5 v2.0.2 Additions Summary (Host-World Data Contract)
 
 | Addition | Purpose |
 |----------|---------|
-| WORLD-HASH-2 / WORLD-TERM-STATUS-* | terminalStatus derives from `lastError` + `pendingRequirements` only |
-| WORLD-HASH-PENDING-* | pendingDigest uses sorted requirement IDs (deterministic) |
-| WORLD-HASH-ERR-* | ErrorSignature excludes message/timestamp/context |
-| HASH-ENC-* | JCS + UTF-8 + lowercase hex for hashing |
-| PERSIST-BASE-* | baseSnapshot retrieval clarified via WorldStore (App provides store) |
+| HOST-DATA-* | `$host` namespace convention formalized |
+| §7.9 Host-World Data Contract | Explicit cross-layer data contract |
+| Terminology unification | `'failed'` instead of `'error'` for TerminalStatusForHash |
+
+**New Rules (v2.0.2):**
+
+| Rule ID | Description |
+|---------|-------------|
+| HOST-DATA-1 | Host MUST store internal state under `data.$host` |
+| HOST-DATA-2 | Host MUST NOT use `system.*` for internal state |
+| HOST-DATA-3 | World MUST exclude `data.$host` from hash |
+| HOST-DATA-4 | World MUST NOT interpret `data.$host` contents |
+| HOST-DATA-5 | App MAY read `data.$host` for debugging |
+| HOST-DATA-6 | `$host` is reserved; domain schemas MUST NOT use it |
+
+**Terminology Changes (v2.0.2):**
+
+| Before | After | Rationale |
+|--------|-------|-----------|
+| `TerminalStatusForHash = 'completed' \| 'error'` | `TerminalStatusForHash = 'completed' \| 'failed'` | Align with World outcome and Host's `HostExecutionResult.outcome` |
 
 ---
 
 ## Appendix B: Cross-Reference
 
-### B.1 Host Contract v2.0.2 Alignment
+### B.1 Host Contract v2.0.1 Alignment
 
 | Host Rule | World Rule | Relationship |
 |-----------|------------|--------------|
@@ -1766,14 +1895,7 @@ World created: completed or failed only
 | Event ownership (Results vs Process) | §8.1, §8.2 WORLD-EVT-OWN-* |
 | HostExecutor ownership | §7.1 WORLD-HEXEC-* |
 | "Does NOT Know" matrix | §4.2 WORLD-BOUNDARY-* |
-| No independent runtime layer | Section 4.4 (App runtime) |
-
-### B.6 World FDR v2.0.2 Alignment (Hash + Snapshot Responsibility)
-
-| FDR | SPEC Section | Key Rules |
-|-----|--------------|-----------|
-| W032 | §5.5 | WORLD-HASH-* |
-| W033 | §9.3 | PERSIST-BASE-* |
+| No independent Bridge/Runtime layer | §4.4 (App runtime/) |
 
 ---
 
@@ -1786,12 +1908,12 @@ World created: completed or failed only
 | ExecutionKey in Proposal | §6.2 |
 | Epoch in Proposal | §6.2 |
 | HostExecutor interface | §7.1 |
-| ScheduleContext in handlers | §8.4 |
+| ScheduleContext in handlers | §8.3 |
 | ErrorSignature for hashing | §5.4.3 |
 | BaseWorld validity check | §7.5 |
 | Late-arrival handling | §6.4 |
 
-### C.2 New Requirements (v2.0.1–v2.0.2)
+### C.2 New Requirements (v2.0.1)
 
 | Requirement | Section |
 |-------------|---------|
@@ -1799,10 +1921,6 @@ World created: completed or failed only
 | HostExecutor: World defines, App implements | §7.1 |
 | World package must not depend on Host | §4.2 |
 | Layer boundary invariants | §10.7 |
-| terminalStatus derived from `lastError` + `pendingRequirements` only | §5.5.1 |
-| pendingDigest uses sorted requirement IDs | §5.5.1 |
-| ErrorSignature excludes message/timestamp/context | §5.5.3 |
-| baseSnapshot retrieval clarified via WorldStore | §9.3 |
 
 ### C.3 Backward Compatibility
 
@@ -1818,26 +1936,37 @@ v2.0 strengthens:
 - Terminal validation (WORLD-TERM-*)
 - BaseWorld validation (WORLD-BASE-*)
 
-v2.0.2 changes:
+v2.0.1 changes:
 - **Event types reduced** (telemetry moved to App)
 - **HostExecutor ownership clarified** (World defines, App implements)
 - **Layer boundary enforced** (WORLD-BOUNDARY-*)
-- **WorldId hashing aligned** (JCS, requirement-id pendingDigest, terminalStatus from lastError/pending)
-- **BaseSnapshot responsibility clarified** (WorldStore retrieval, App-provided storage)
+
+v2.0.2 changes:
+- **`$host` namespace formalized** (HOST-DATA-* rules)
+- **Terminology unified** (`'failed'` replaces `'error'` in TerminalStatusForHash)
+- **Cross-layer data contract** (§7.9 added)
 
 ### C.4 Implementation Impact
 
-| Component | Change Required (v2.0) | Change Required (v2.0.2) |
-|-----------|------------------------|--------------------------|
-| Proposal creation | Add executionKey, epoch | - |
-| Event dispatch | Add ScheduleContext, enforce EVT-C* | - |
-| World creation | Add ErrorSignature normalization | - |
-| BaseWorld selection | Add validity check | - |
-| Host integration | Implement HostExecutor adapter | Move to App |
-| **Event types** | - | Remove telemetry events |
-| **Package deps** | - | Remove Host dependency |
-| **Snapshot hashing** | Add ErrorSignature normalization | Align pendingDigest + terminalStatus + JCS |
-| **Snapshot restore** | - | Clarify WorldStore baseSnapshot retrieval |
+| Component | Change Required (v2.0) | Change Required (v2.0.1) | Change Required (v2.0.2) |
+|-----------|------------------------|--------------------------|--------------------------|
+| Proposal creation | Add executionKey, epoch | - | - |
+| Event dispatch | Add ScheduleContext, enforce EVT-C* | - | - |
+| World creation | Add ErrorSignature normalization | - | - |
+| BaseWorld selection | Add validity check | - | - |
+| Host integration | Implement HostExecutor adapter | Move to App | - |
+| **Event types** | - | Remove telemetry events | - |
+| **Package deps** | - | Remove Host dependency | - |
+| **Hash terminology** | - | - | `'error'` → `'failed'` |
+| **Host data storage** | - | - | Use `data.$host` namespace |
+
+### C.5 New Requirements (v2.0.2)
+
+| Requirement | Section |
+|-------------|---------|
+| `$host` namespace convention | §7.9.1 |
+| HOST-DATA-* rules | §7.9.3 |
+| Terminology: `'failed'` not `'error'` | §5.5.1 |
 
 ---
 

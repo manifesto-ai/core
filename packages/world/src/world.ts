@@ -512,7 +512,12 @@ export class ManifestoWorld {
 
     // 4. Create proposal with executionKey (EPOCH-1, WORLD-EXK-1~2)
     const proposalId = generateProposalId();
-    const executionKey = this.executionKeyPolicy(proposalId, 1);
+    const executionKey = this.executionKeyPolicy({
+      proposalId,
+      actorId: binding.actor.actorId,
+      baseWorld,
+      attempt: 1,
+    });
     const proposal = this.proposalQueue.submit(
       proposalId,
       executionKey,
@@ -830,12 +835,15 @@ export class ManifestoWorld {
       // Derive outcome from terminal snapshot (OUTCOME-*)
       const derivedOutcome = this.deriveOutcome(result.terminalSnapshot);
 
-      // Create new world
-      const newWorld = await createWorldFromExecution(
+      // Create new world (attach trace ref if provided)
+      const createdWorld = await createWorldFromExecution(
         this._schemaHash,
         result.terminalSnapshot,
         proposalId
       );
+      const newWorld = result.traceRef
+        ? { ...createdWorld, executionTraceRef: result.traceRef }
+        : createdWorld;
 
       // Check if world already exists (content-addressable: same data = same worldId)
       const existingWorld = await this.store.getWorld(newWorld.worldId);
