@@ -1,9 +1,13 @@
 /**
- * ManifestoHost v2.0.1
+ * ManifestoHost v2.0.2
  *
  * Event-loop execution model with Mailbox + Runner + Job architecture.
  *
- * @see host-SPEC-v2.0.1.md
+ * Changes from v2.0.1:
+ * - Intent slots stored in ExecutionContext, not Snapshot (HOST-NS-1)
+ * - Host no longer writes to system.intentSlots or system.currentAction (INV-SNAP-4)
+ *
+ * @see host-SPEC-v2.0.2.md
  */
 
 import {
@@ -99,13 +103,14 @@ export interface HostOptions {
 const DEFAULT_MAX_ITERATIONS = 100;
 
 /**
- * ManifestoHost class v2.0.1
+ * ManifestoHost class v2.0.2
  *
  * Implements the event-loop execution model with:
  * - Mailbox per ExecutionKey (MAIL-1~4)
  * - Single-runner with lost-wakeup prevention (RUN-1~4, LIVE-1~4)
  * - Run-to-completion job model (JOB-1~5)
  * - Frozen context per job (CTX-1~5)
+ * - Intent slots in ExecutionContext (HOST-NS-1)
  */
 export class ManifestoHost {
   private core: ManifestoCore;
@@ -539,28 +544,13 @@ export class ManifestoHost {
       throw new Error(`No execution context for key: ${key}`);
     }
 
-    // Store intent in snapshot and set currentAction
-    const snapshot = ctx.getSnapshot();
-    const intentSlotPatches: Patch[] = [
-      {
-        op: "set",
-        path: `system.intentSlots.${intent.intentId}`,
-        value: { type: intent.type, input: intent.input },
-      },
-      {
-        op: "set",
-        path: "system.currentAction",
-        value: intent.intentId,
-      },
-    ];
-    const newSnapshot = this.core.apply(
-      this.schema,
-      snapshot,
-      intentSlotPatches,
-      this.contextProvider.createInitialContext()
-    );
-    ctx.setSnapshot(newSnapshot);
-    ctx.setCurrentIntentId(intent.intentId);
+    // Store intent in ExecutionContext (v2.0.2 HOST-NS-1)
+    // Intent slots are stored internally to avoid writing to Core-owned snapshot fields.
+    ctx.setIntentSlot(intent.intentId!, {
+      type: intent.type,
+      input: intent.input,
+    });
+    ctx.setCurrentIntentId(intent.intentId!);
 
     // Enqueue StartIntent job (LIVE-2)
     const mailbox = this.mailboxManager.get(key);
@@ -593,14 +583,11 @@ export class ManifestoHost {
   ): void {
     const mailbox = this.mailboxManager.get(key);
     if (mailbox) {
-      // Try to get intent from snapshot if not provided
+      // Try to get intent from ExecutionContext if not provided (v2.0.2 HOST-NS-1)
       const ctx = this.executionContexts.get(key);
       let effectIntent = intent;
       if (!effectIntent && ctx) {
-        const snapshot = ctx.getSnapshot();
-        const system = snapshot.system as Record<string, unknown>;
-        const intentSlots = system.intentSlots as Record<string, { type: string; input?: unknown }> | undefined;
-        const intentSlot = intentSlots?.[intentId];
+        const intentSlot = ctx.getIntentSlot(intentId);
         if (intentSlot) {
           effectIntent = {
             type: intentSlot.type,

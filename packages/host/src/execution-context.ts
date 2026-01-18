@@ -1,9 +1,12 @@
 /**
- * ExecutionContext Implementation for Host v2.0.1
+ * ExecutionContext Implementation for Host v2.0.2
  *
  * Provides the concrete implementation of ExecutionContext for job handlers.
  *
- * @see host-SPEC-v2.0.1.md §10.10 Canonical Head
+ * Changes from v2.0.1:
+ * - Added intent slot storage (HOST-NS-1)
+ *
+ * @see host-SPEC-v2.0.2.md §10.10 Canonical Head
  */
 
 import type {
@@ -23,6 +26,7 @@ import type {
 import type { TraceEvent } from "./types/trace.js";
 import type { ExecutionMailbox } from "./mailbox.js";
 import type { HostContextProvider } from "./context-provider.js";
+import type { IntentSlot } from "./types/host-state.js";
 
 /**
  * Extended options for ExecutionContextImpl
@@ -47,6 +51,9 @@ export class ExecutionContextImpl implements ExecutionContext {
   private snapshot: Snapshot;
   private frozenContext: HostContext | null = null;
   private currentIntentId: string | null = null;
+
+  // Host-owned intent slot storage (v2.0.2 HOST-NS-1)
+  private intentSlots: Map<string, IntentSlot> = new Map();
 
   private readonly contextProvider: HostContextProvider;
   private readonly onTrace?: (event: TraceEvent) => void;
@@ -101,6 +108,37 @@ export class ExecutionContextImpl implements ExecutionContext {
     this.currentIntentId = intentId;
     // Reset frozen context so next getFrozenContext creates a new one
     this.frozenContext = null;
+  }
+
+  /**
+   * Get the current intent ID
+   */
+  getCurrentIntentId(): string | null {
+    return this.currentIntentId;
+  }
+
+  /**
+   * Store an intent slot (v2.0.2 HOST-NS-1)
+   *
+   * Intent slots are stored internally in ExecutionContext to avoid
+   * writing to Core-owned snapshot fields.
+   */
+  setIntentSlot(intentId: string, slot: IntentSlot): void {
+    this.intentSlots.set(intentId, slot);
+  }
+
+  /**
+   * Get an intent slot by ID (v2.0.2 HOST-NS-1)
+   */
+  getIntentSlot(intentId: string): IntentSlot | undefined {
+    return this.intentSlots.get(intentId);
+  }
+
+  /**
+   * Get all intent slots
+   */
+  getAllIntentSlots(): ReadonlyMap<string, IntentSlot> {
+    return this.intentSlots;
   }
 
   /**

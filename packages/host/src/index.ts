@@ -1,18 +1,18 @@
 /**
- * @manifesto-ai/host v2.0.1
+ * @manifesto-ai/host v2.0.2
  *
  * Manifesto Host - Effect execution runtime for @manifesto-ai/core
  *
  * The Host orchestrates the execution of Manifesto intents using
  * the event-loop execution model with Mailbox + Runner + Job architecture.
  *
- * @see host-SPEC-v2.0.1.md
+ * @see host-SPEC-v2.0.2.md
  */
 
 // Host
 export { ManifestoHost, createHost, type HostOptions, type HostResult } from "./host.js";
 
-// v2.0.1 Execution Model
+// v2.0.2 Execution Model
 export type {
   ExecutionKey,
   Runtime,
@@ -38,6 +38,10 @@ export {
 } from "./types/job.js";
 
 export type { TraceEvent } from "./types/trace.js";
+
+// Host-owned state namespace (v2.0.2)
+export type { HostOwnedState, IntentSlot } from "./types/host-state.js";
+export { getHostState, getIntentSlot } from "./types/host-state.js";
 
 // Mailbox
 export {

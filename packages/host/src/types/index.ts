@@ -1,5 +1,5 @@
 /**
- * Type exports for Host v2.0.1
+ * Type exports for Host v2.0.2
  */
 
 export type {
@@ -27,3 +27,7 @@ export {
 } from "./job.js";
 
 export type { TraceEvent } from "./trace.js";
+
+// Host-owned state namespace (v2.0.2)
+export type { HostOwnedState, IntentSlot } from "./host-state.js";
+export { getHostState, getIntentSlot } from "./host-state.js";

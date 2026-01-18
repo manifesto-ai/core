@@ -88,9 +88,10 @@ export class V2HostAdapter implements HostTestAdapter {
   ): void {
     if (!this.host) throw new Error("Host not created");
 
-    // Get the intentId from the current snapshot
-    const snapshot = this.host.getContextSnapshot(key);
-    const intentId = snapshot?.system?.currentAction ?? "";
+    // Get the intentId from the submitted intent (v2.0.2 HOST-NS-1)
+    // Intent slots are now stored in ExecutionContext, not snapshot
+    const intent = this.submittedIntents.get(key);
+    const intentId = intent?.intentId ?? "";
 
     this.host.injectEffectResult(key, requirementId, intentId, patches);
   }
