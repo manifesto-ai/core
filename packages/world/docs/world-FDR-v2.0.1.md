@@ -1,6 +1,6 @@
 # Manifesto World Protocol FDR v2.0.1
 
-> **Status:** Accepted  
+> **Status:** Superseded (v2.0.2)  
 > **Scope:** All Manifesto World Implementations  
 > **Compatible with:** Host Contract v2.0.1, ARCHITECTURE v2.0  
 > **Authors:** Manifesto Team  

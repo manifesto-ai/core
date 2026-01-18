@@ -13,13 +13,15 @@ import type {
   MemoryProvider,
   RecallRequest,
   RecallResult,
+  SelectionResult,
+  SelectedMemory,
+  MemoryTrace,
   MemoryMaintenanceOp,
   MemoryMaintenanceContext,
   MemoryMaintenanceResult,
   MemoryMaintenanceOutput,
   MemoryHygieneTrace,
 } from "../types/index.js";
-import type { SelectionResult, SelectedMemory, MemoryTrace } from "@manifesto-ai/memory";
 import type { ActorRef, WorldId } from "@manifesto-ai/world";
 import { NoneVerifier, computeVerified } from "./verifier.js";
 

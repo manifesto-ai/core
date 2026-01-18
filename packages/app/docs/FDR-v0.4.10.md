@@ -1,9 +1,11 @@
 # Manifesto App Foundational Design Rationale (FDR)
 
 **Version:** 0.4.10  
-**Status:** Final  
+**Status:** Legacy (pre-v2)  
 **Date:** 2026-01-07  
 **Companion:** manifesto-ai-app__v0.4.10__SPEC.md
+
+> **Note:** This FDR predates the v2 architecture. App v2 FDR is TBD.
 
 ## Abstract
 

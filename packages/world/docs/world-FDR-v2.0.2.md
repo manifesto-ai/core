@@ -142,6 +142,7 @@ By separating:
 - **WORLD-EVT-OWN-2 (MUST NOT):** World MUST NOT define telemetry events.
 - **WORLD-EVT-OWN-3 (MUST):** `execution:completed` and `execution:failed` remain World events.
 - **APP-EVT-OWN-1:** App SHOULD define telemetry events from TraceEvent stream.
+- **APP-EVT-OWN-2:** App owns event/listener mechanics; World emits via an App-provided EventSink.
 
 ---
 

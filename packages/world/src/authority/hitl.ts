@@ -35,13 +35,16 @@ export type HITLNotificationCallback = (
  */
 export class HITLHandler implements AuthorityHandler {
   private pendingDecisions: Map<string, HITLPendingState> = new Map();
-  private notificationCallback?: HITLNotificationCallback;
+  private notificationCallbacks: Set<HITLNotificationCallback> = new Set();
 
   /**
    * Set callback for when HITL decision is needed
    */
-  onPendingDecision(callback: HITLNotificationCallback): void {
-    this.notificationCallback = callback;
+  onPendingDecision(callback: HITLNotificationCallback): () => void {
+    this.notificationCallbacks.add(callback);
+    return () => {
+      this.notificationCallbacks.delete(callback);
+    };
   }
 
   /**
@@ -97,8 +100,12 @@ export class HITLHandler implements AuthorityHandler {
       this.pendingDecisions.set(proposalId, state);
 
       // Notify that decision is needed
-      if (this.notificationCallback) {
-        this.notificationCallback(proposalId, proposal, binding);
+      for (const callback of this.notificationCallbacks) {
+        try {
+          callback(proposalId, proposal, binding);
+        } catch (error) {
+          console.error("[HITLHandler] notification callback error:", error);
+        }
       }
     });
   }

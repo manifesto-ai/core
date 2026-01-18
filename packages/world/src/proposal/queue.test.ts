@@ -8,29 +8,30 @@ import {
   createsWorld,
 } from "./state-machine.js";
 import { createHumanActor, createAgentActor } from "../schema/actor.js";
-import { createWorldId, createDecisionId } from "../schema/world.js";
+import { createWorldId, createDecisionId, createProposalId } from "../schema/world.js";
 import type { IntentInstance } from "../schema/intent.js";
+import { createExecutionKey } from "../types/index.js";
 
 describe("State Machine", () => {
   describe("isValidTransition", () => {
-    it("should allow submitted → pending", () => {
-      expect(isValidTransition("submitted", "pending")).toBe(true);
+    it("should allow submitted → evaluating", () => {
+      expect(isValidTransition("submitted", "evaluating")).toBe(true);
     });
 
-    it("should allow submitted → approved", () => {
-      expect(isValidTransition("submitted", "approved")).toBe(true);
+    it("should NOT allow submitted → approved", () => {
+      expect(isValidTransition("submitted", "approved")).toBe(false);
     });
 
     it("should allow submitted → rejected", () => {
       expect(isValidTransition("submitted", "rejected")).toBe(true);
     });
 
-    it("should allow pending → approved", () => {
-      expect(isValidTransition("pending", "approved")).toBe(true);
+    it("should allow evaluating → approved", () => {
+      expect(isValidTransition("evaluating", "approved")).toBe(true);
     });
 
-    it("should allow pending → rejected", () => {
-      expect(isValidTransition("pending", "rejected")).toBe(true);
+    it("should allow evaluating → rejected", () => {
+      expect(isValidTransition("evaluating", "rejected")).toBe(true);
     });
 
     it("should allow approved → executing", () => {
@@ -48,18 +49,18 @@ describe("State Machine", () => {
     it("should NOT allow skipping states", () => {
       expect(isValidTransition("submitted", "executing")).toBe(false);
       expect(isValidTransition("submitted", "completed")).toBe(false);
-      expect(isValidTransition("pending", "executing")).toBe(false);
+      expect(isValidTransition("evaluating", "executing")).toBe(false);
     });
 
     it("should NOT allow reverse transitions", () => {
-      expect(isValidTransition("approved", "pending")).toBe(false);
+      expect(isValidTransition("approved", "evaluating")).toBe(false);
       expect(isValidTransition("approved", "submitted")).toBe(false);
       expect(isValidTransition("executing", "approved")).toBe(false);
     });
 
     it("should NOT allow transitions from terminal states", () => {
       expect(isValidTransition("completed", "submitted")).toBe(false);
-      expect(isValidTransition("rejected", "pending")).toBe(false);
+      expect(isValidTransition("rejected", "evaluating")).toBe(false);
       expect(isValidTransition("failed", "executing")).toBe(false);
     });
   });
@@ -73,7 +74,7 @@ describe("State Machine", () => {
 
     it("should identify non-terminal statuses", () => {
       expect(isTerminalStatus("submitted")).toBe(false);
-      expect(isTerminalStatus("pending")).toBe(false);
+      expect(isTerminalStatus("evaluating")).toBe(false);
       expect(isTerminalStatus("approved")).toBe(false);
       expect(isTerminalStatus("executing")).toBe(false);
     });
@@ -81,8 +82,8 @@ describe("State Machine", () => {
 
   describe("getValidTransitions", () => {
     it("should return valid transitions for each status", () => {
-      expect(getValidTransitions("submitted")).toEqual(["pending", "approved", "rejected"]);
-      expect(getValidTransitions("pending")).toEqual(["approved", "rejected"]);
+      expect(getValidTransitions("submitted")).toEqual(["evaluating", "rejected"]);
+      expect(getValidTransitions("evaluating")).toEqual(["approved", "rejected"]);
       expect(getValidTransitions("approved")).toEqual(["executing"]);
       expect(getValidTransitions("executing")).toEqual(["completed", "failed"]);
       expect(getValidTransitions("completed")).toEqual([]);
@@ -99,7 +100,7 @@ describe("State Machine", () => {
 
     it("should NOT require decision for other statuses", () => {
       expect(requiresDecision("submitted")).toBe(false);
-      expect(requiresDecision("pending")).toBe(false);
+      expect(requiresDecision("evaluating")).toBe(false);
       expect(requiresDecision("executing")).toBe(false);
       expect(requiresDecision("completed")).toBe(false);
       expect(requiresDecision("failed")).toBe(false);
@@ -114,7 +115,7 @@ describe("State Machine", () => {
 
     it("should NOT create world for other statuses", () => {
       expect(createsWorld("submitted")).toBe(false);
-      expect(createsWorld("pending")).toBe(false);
+      expect(createsWorld("evaluating")).toBe(false);
       expect(createsWorld("approved")).toBe(false);
       expect(createsWorld("rejected")).toBe(false);
       expect(createsWorld("executing")).toBe(false);
@@ -164,13 +165,34 @@ describe("ProposalQueue", () => {
     },
   };
 
+  let proposalSeq = 0;
   beforeEach(() => {
     queue = createProposalQueue();
+    proposalSeq = 0;
   });
+  const submit = (
+    actor: typeof alice,
+    intent: IntentInstance,
+    baseWorld: ReturnType<typeof createWorldId>,
+    trace?: { summary: string },
+    epoch?: number
+  ) => {
+    const proposalId = createProposalId(`prop-${++proposalSeq}`);
+    const executionKey = createExecutionKey(proposalId, 1);
+    return queue.submit(
+      proposalId,
+      executionKey,
+      actor,
+      intent,
+      baseWorld,
+      trace,
+      epoch
+    );
+  };
 
   describe("submit", () => {
     it("should create a proposal with submitted status", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
 
       expect(proposal.status).toBe("submitted");
       expect(proposal.actor).toEqual(alice);
@@ -181,30 +203,31 @@ describe("ProposalQueue", () => {
     });
 
     it("should generate unique proposal IDs", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      const p2 = queue.submit(alice, intent1, world1);
+      const p1 = submit(alice, intent1, world1);
+      const p2 = submit(alice, intent1, world1);
 
       expect(p1.proposalId).not.toBe(p2.proposalId);
     });
 
     it("should include optional trace", () => {
       const trace = { summary: "Adding a new todo item" };
-      const proposal = queue.submit(alice, intent1, world1, trace);
+      const proposal = submit(alice, intent1, world1, trace);
 
       expect(proposal.trace).toEqual(trace);
     });
   });
 
   describe("transition", () => {
-    it("should transition submitted → pending", () => {
-      const proposal = queue.submit(alice, intent1, world1);
-      const updated = queue.transition(proposal.proposalId, "pending");
+    it("should transition submitted → evaluating", () => {
+      const proposal = submit(alice, intent1, world1);
+      const updated = queue.transition(proposal.proposalId, "evaluating");
 
-      expect(updated.status).toBe("pending");
+      expect(updated.status).toBe("evaluating");
     });
 
-    it("should transition submitted → approved with decisionId", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+    it("should transition evaluating → approved with decisionId", () => {
+      const proposal = submit(alice, intent1, world1);
+      queue.transition(proposal.proposalId, "evaluating");
       const decisionId = createDecisionId("dec-1");
       const updated = queue.transition(proposal.proposalId, "approved", {
         decisionId,
@@ -216,8 +239,9 @@ describe("ProposalQueue", () => {
     });
 
     it("should transition approved → executing", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
       const decisionId = createDecisionId("dec-1");
+      queue.transition(proposal.proposalId, "evaluating");
       queue.transition(proposal.proposalId, "approved", { decisionId });
       const updated = queue.transition(proposal.proposalId, "executing");
 
@@ -225,8 +249,9 @@ describe("ProposalQueue", () => {
     });
 
     it("should transition executing → completed with resultWorld", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
       const decisionId = createDecisionId("dec-1");
+      queue.transition(proposal.proposalId, "evaluating");
       queue.transition(proposal.proposalId, "approved", { decisionId });
       queue.transition(proposal.proposalId, "executing");
       const updated = queue.transition(proposal.proposalId, "completed", {
@@ -239,7 +264,7 @@ describe("ProposalQueue", () => {
     });
 
     it("should throw for invalid transition", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
 
       expect(() =>
         queue.transition(proposal.proposalId, "executing")
@@ -247,13 +272,14 @@ describe("ProposalQueue", () => {
     });
 
     it("should throw for unknown proposal", () => {
-      expect(() => queue.transition("unknown", "pending")).toThrow(
+      expect(() => queue.transition("unknown", "evaluating")).toThrow(
         /not found/
       );
     });
 
     it("should throw when approved without decisionId", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
+      queue.transition(proposal.proposalId, "evaluating");
 
       expect(() =>
         queue.transition(proposal.proposalId, "approved")
@@ -261,8 +287,9 @@ describe("ProposalQueue", () => {
     });
 
     it("should preserve readonly fields", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
       const decisionId = createDecisionId("dec-1");
+      queue.transition(proposal.proposalId, "evaluating");
       queue.transition(proposal.proposalId, "approved", { decisionId });
 
       const updated = queue.get(proposal.proposalId);
@@ -275,7 +302,7 @@ describe("ProposalQueue", () => {
 
   describe("get", () => {
     it("should return proposal by ID", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
       const result = queue.get(proposal.proposalId);
 
       expect(result).toEqual(proposal);
@@ -289,7 +316,7 @@ describe("ProposalQueue", () => {
 
   describe("getOrThrow", () => {
     it("should return proposal by ID", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
       const result = queue.getOrThrow(proposal.proposalId);
 
       expect(result).toEqual(proposal);
@@ -302,25 +329,25 @@ describe("ProposalQueue", () => {
 
   describe("getByStatus", () => {
     it("should return proposals by status", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      const p2 = queue.submit(bob, intent2, world1);
-      queue.transition(p2.proposalId, "pending");
+      const p1 = submit(alice, intent1, world1);
+      const p2 = submit(bob, intent2, world1);
+      queue.transition(p2.proposalId, "evaluating");
 
       const submitted = queue.getByStatus("submitted");
-      const pending = queue.getByStatus("pending");
+      const evaluating = queue.getByStatus("evaluating");
 
       expect(submitted).toHaveLength(1);
-      expect(pending).toHaveLength(1);
+      expect(evaluating).toHaveLength(1);
       expect(submitted[0].proposalId).toBe(p1.proposalId);
-      expect(pending[0].proposalId).toBe(p2.proposalId);
+      expect(evaluating[0].proposalId).toBe(p2.proposalId);
     });
   });
 
   describe("getByBaseWorld", () => {
     it("should return proposals by base world", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world1);
-      queue.submit(agent, intent1, world2);
+      submit(alice, intent1, world1);
+      submit(bob, intent2, world1);
+      submit(agent, intent1, world2);
 
       const fromWorld1 = queue.getByBaseWorld(world1);
       const fromWorld2 = queue.getByBaseWorld(world2);
@@ -332,9 +359,9 @@ describe("ProposalQueue", () => {
 
   describe("getByActor", () => {
     it("should return proposals by actor", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(alice, intent2, world1);
-      queue.submit(bob, intent1, world1);
+      submit(alice, intent1, world1);
+      submit(alice, intent2, world1);
+      submit(bob, intent1, world1);
 
       const aliceProposals = queue.getByActor("alice");
       const bobProposals = queue.getByActor("bob");
@@ -344,22 +371,22 @@ describe("ProposalQueue", () => {
     });
   });
 
-  describe("getPending", () => {
-    it("should return pending proposals", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world1);
-      queue.transition(p1.proposalId, "pending");
+  describe("getEvaluating", () => {
+    it("should return evaluating proposals", () => {
+      const p1 = submit(alice, intent1, world1);
+      submit(bob, intent2, world1);
+      queue.transition(p1.proposalId, "evaluating");
 
-      const pending = queue.getPending();
-      expect(pending).toHaveLength(1);
-      expect(pending[0].proposalId).toBe(p1.proposalId);
+      const evaluating = queue.getEvaluating();
+      expect(evaluating).toHaveLength(1);
+      expect(evaluating[0].proposalId).toBe(p1.proposalId);
     });
   });
 
   describe("getTerminal", () => {
     it("should return terminal proposals", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      const p2 = queue.submit(bob, intent2, world1);
+      const p1 = submit(alice, intent1, world1);
+      const p2 = submit(bob, intent2, world1);
       const decisionId = createDecisionId("dec-1");
 
       queue.transition(p1.proposalId, "rejected", { decisionId });
@@ -372,8 +399,8 @@ describe("ProposalQueue", () => {
 
   describe("getActive", () => {
     it("should return non-terminal proposals", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      const p2 = queue.submit(bob, intent2, world1);
+      const p1 = submit(alice, intent1, world1);
+      const p2 = submit(bob, intent2, world1);
       const decisionId = createDecisionId("dec-1");
 
       queue.transition(p1.proposalId, "rejected", { decisionId });
@@ -386,43 +413,43 @@ describe("ProposalQueue", () => {
 
   describe("query", () => {
     it("should filter by status", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world1);
-      queue.transition(p1.proposalId, "pending");
+      const p1 = submit(alice, intent1, world1);
+      submit(bob, intent2, world1);
+      queue.transition(p1.proposalId, "evaluating");
 
-      const result = queue.query({ status: "pending" });
+      const result = queue.query({ status: "evaluating" });
       expect(result).toHaveLength(1);
     });
 
     it("should filter by multiple statuses", () => {
-      const p1 = queue.submit(alice, intent1, world1);
-      const p2 = queue.submit(bob, intent2, world1);
-      queue.transition(p1.proposalId, "pending");
+      const p1 = submit(alice, intent1, world1);
+      const p2 = submit(bob, intent2, world1);
+      queue.transition(p1.proposalId, "evaluating");
 
-      const result = queue.query({ status: ["submitted", "pending"] });
+      const result = queue.query({ status: ["submitted", "evaluating"] });
       expect(result).toHaveLength(2);
     });
 
     it("should filter by actor", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world1);
+      submit(alice, intent1, world1);
+      submit(bob, intent2, world1);
 
       const result = queue.query({ actorId: "alice" });
       expect(result).toHaveLength(1);
     });
 
     it("should filter by baseWorld", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world2);
+      submit(alice, intent1, world1);
+      submit(bob, intent2, world2);
 
       const result = queue.query({ baseWorld: world1 });
       expect(result).toHaveLength(1);
     });
 
     it("should combine filters", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(alice, intent2, world2);
-      queue.submit(bob, intent1, world1);
+      submit(alice, intent1, world1);
+      submit(alice, intent2, world2);
+      submit(bob, intent1, world1);
 
       const result = queue.query({ actorId: "alice", baseWorld: world1 });
       expect(result).toHaveLength(1);
@@ -431,9 +458,9 @@ describe("ProposalQueue", () => {
 
   describe("list", () => {
     it("should return all proposals", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world1);
-      queue.submit(agent, intent1, world2);
+      submit(alice, intent1, world1);
+      submit(bob, intent2, world1);
+      submit(agent, intent1, world2);
 
       const all = queue.list();
       expect(all).toHaveLength(3);
@@ -444,18 +471,18 @@ describe("ProposalQueue", () => {
     it("should return the number of proposals", () => {
       expect(queue.size).toBe(0);
 
-      queue.submit(alice, intent1, world1);
+      submit(alice, intent1, world1);
       expect(queue.size).toBe(1);
 
-      queue.submit(bob, intent2, world1);
+      submit(bob, intent2, world1);
       expect(queue.size).toBe(2);
     });
   });
 
   describe("clear", () => {
     it("should remove all proposals", () => {
-      queue.submit(alice, intent1, world1);
-      queue.submit(bob, intent2, world1);
+      submit(alice, intent1, world1);
+      submit(bob, intent2, world1);
 
       queue.clear();
 
@@ -465,7 +492,7 @@ describe("ProposalQueue", () => {
 
   describe("remove", () => {
     it("should remove a specific proposal", () => {
-      const proposal = queue.submit(alice, intent1, world1);
+      const proposal = submit(alice, intent1, world1);
       const result = queue.remove(proposal.proposalId);
 
       expect(result).toBe(true);

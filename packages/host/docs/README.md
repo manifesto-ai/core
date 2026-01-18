@@ -11,8 +11,8 @@ Host is responsible for orchestrating Manifesto intent execution. It calls Core 
 In the Manifesto architecture:
 
 ```
-World ──→ HOST ──→ Core
-            │
+World -> HOST -> Core
+            |
    Executes effects, applies patches
    Runs the compute-effect-resume cycle
 ```
@@ -25,8 +25,7 @@ World ──→ HOST ──→ Core
 |----------------|-------------|
 | Execute effects | Run effect handlers (API calls, timers, etc.) |
 | Apply patches | Update snapshot with patches from Core |
-| Run compute loop | Iterate compute → effect → apply until done |
-| Manage persistence | Store and retrieve snapshots |
+| Run compute loop | Iterate compute -> effect -> apply until done |
 
 ---
 
@@ -35,9 +34,9 @@ World ──→ HOST ──→ Core
 | NOT Responsible For | Who Is |
 |--------------------|--------|
 | Compute state transitions | Core |
-| Define domain logic | Builder |
+| Define domain semantics/schema | App |
 | Govern authority/proposals | World |
-| Handle UI bindings | Bridge / React |
+| Handle UI/event bindings | App |
 
 ---
 
@@ -61,7 +60,6 @@ import type { DomainSchema } from "@manifesto-ai/core";
 // Create host
 const host = createHost(schema, {
   initialData: { user: null },
-  context: { now: () => Date.now() },
 });
 
 // Register effect handler
@@ -75,8 +73,8 @@ host.registerEffect("api.fetch", async (_type, params) => {
 const intent = createIntent("loadUser", { userId: "123" }, "intent-1");
 const result = await host.dispatch(intent);
 
-console.log(result.status); // → "complete"
-console.log(result.snapshot.data.user); // → { id: "123", name: "..." }
+console.log(result.status); // -> "complete"
+console.log(result.snapshot.data.user); // -> { id: "123", name: "..." }
 ```
 
 > See [GUIDE.md](GUIDE.md) for the full tutorial.
@@ -98,32 +96,12 @@ class ManifestoHost {
   getSnapshot(): Promise<Snapshot | null>;
 }
 
-// Host loop (low-level)
-function runHostLoop(
-  core: ManifestoCore,
-  schema: DomainSchema,
-  snapshot: Snapshot,
-  intent: Intent,
-  executor: EffectExecutor,
-  options?: HostLoopOptions
-): Promise<HostLoopResult>;
-
 // Effect types
 type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
   context: EffectContext
 ) => Promise<Patch[]>;
-
-// Persistence
-interface SnapshotStore {
-  get(): Promise<Snapshot | null>;
-  save(snapshot: Snapshot): Promise<void>;
-  getVersion(version: number): Promise<Snapshot | null>;
-  getLatestVersion(): Promise<number>;
-  clear(): Promise<void>;
-}
-class MemorySnapshotStore implements SnapshotStore;
 ```
 
 > See [SPEC.md](SPEC.md) for complete API reference.
@@ -165,19 +143,7 @@ Effect handlers should be idempotent when possible. If the same effect runs twic
 ## Relationship with Other Packages
 
 ```
-┌─────────────┐
-│    World    │ ← Uses Host to execute proposals
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    HOST     │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    Core     │ ← Host calls Core to compute
-└─────────────┘
+World -> HOST -> Core
 ```
 
 | Relationship | Package | How |

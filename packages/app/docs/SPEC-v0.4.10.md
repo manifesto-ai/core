@@ -1,9 +1,11 @@
 # Manifesto App Public API Specification
 
 **Version:** 0.4.10  
-**Status:** Final  
+**Status:** Legacy (pre-v2)  
 **Date:** 2026-01-07  
 **License:** MIT
+
+> **Note:** This spec predates the v2 architecture. App v2 specification is TBD.
 
 ## Abstract
 

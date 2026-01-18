@@ -13,14 +13,8 @@ import type {
   ActorRef,
   AuthorityPolicy,
   World,
+  WorldId,
 } from "@manifesto-ai/world";
-import type {
-  MemoryTrace,
-  SelectedMemory,
-  SelectionConstraints,
-  SelectionResult,
-  VerificationProof,
-} from "@manifesto-ai/memory";
 
 // =============================================================================
 // Base Types
@@ -572,6 +566,50 @@ export interface MigrationLink {
 // =============================================================================
 // Memory Types
 // =============================================================================
+
+/**
+ * Verification proof for memory selection.
+ */
+export type VerificationProof = Record<string, unknown>;
+
+/**
+ * Memory selection constraints.
+ */
+export interface SelectionConstraints {
+  readonly requireVerified?: boolean;
+  readonly limit?: number;
+  readonly minConfidence?: number;
+}
+
+/**
+ * Selected memory entry.
+ */
+export interface SelectedMemory {
+  readonly ref: { readonly worldId: string };
+  readonly reason: string;
+  readonly confidence: number;
+  readonly verified: boolean;
+  readonly proof?: VerificationProof;
+}
+
+/**
+ * Memory trace for recall.
+ */
+export interface MemoryTrace {
+  readonly query: string;
+  readonly atWorldId: WorldId;
+  readonly selector: ActorRef;
+  readonly selectedAt: number;
+  readonly selected: readonly SelectedMemory[];
+}
+
+/**
+ * Memory selection result.
+ */
+export interface SelectionResult {
+  readonly selected: readonly SelectedMemory[];
+  readonly trace?: MemoryTrace;
+}
 
 /**
  * Backfill configuration.

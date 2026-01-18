@@ -208,12 +208,17 @@ export interface WorldStore {
   saveProposal(proposal: Proposal): Promise<StoreResult<Proposal>>;
 
   /**
-   * Update a proposal (status changes only)
+   * Update a proposal (status and execution tracking)
    */
   updateProposal(
     proposalId: ProposalId,
     updates: Partial<Pick<Proposal, "status" | "decisionId" | "resultWorld" | "decidedAt" | "completedAt" | "approvedScope">>
   ): Promise<StoreResult<Proposal>>;
+
+  /**
+   * Delete a proposal (ingress-stage drop)
+   */
+  deleteProposal(proposalId: ProposalId): Promise<StoreResult<void>>;
 
   /**
    * Get a proposal by ID
@@ -231,9 +236,9 @@ export interface WorldStore {
   listProposals(query?: ProposalQuery): Promise<Proposal[]>;
 
   /**
-   * Get pending proposals (shortcut for listProposals({ status: "pending" }))
+   * Get evaluating proposals (shortcut for listProposals({ status: "evaluating" }))
    */
-  getPendingProposals(): Promise<Proposal[]>;
+  getEvaluatingProposals(): Promise<Proposal[]>;
 
   // ==========================================================================
   // Decision Operations
@@ -317,6 +322,7 @@ export type StoreEventType =
   | "edge:saved"
   | "proposal:saved"
   | "proposal:updated"
+  | "proposal:deleted"
   | "decision:saved"
   | "binding:saved"
   | "binding:removed"

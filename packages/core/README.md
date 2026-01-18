@@ -11,8 +11,8 @@ Core is responsible for evaluating domain semantics. Given a schema, snapshot, a
 In the Manifesto architecture:
 
 ```
-Host ──→ CORE ──→ ComputeResult
-           │
+Host -> CORE -> ComputeResult
+           |
     Computes patches & effects
     (pure, no IO, deterministic)
 ```
@@ -38,7 +38,7 @@ Host ──→ CORE ──→ ComputeResult
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
 | Govern authority/proposals | World |
-| Handle UI bindings | Bridge / React |
+| Handle UI/event bindings | App |
 
 ---
 
@@ -61,7 +61,7 @@ import type { DomainSchema } from "@manifesto-ai/core";
 // Create core instance
 const core = createCore();
 
-// Define a simple schema (usually from @manifesto-ai/builder)
+// Define a simple schema (provided by App or authored manually)
 const schema: DomainSchema = {
   id: "example:counter",
   version: "1.0.0",
@@ -108,8 +108,8 @@ const intent = createIntent("increment", "intent-1");
 // Compute result (pure, deterministic)
 const result = await core.compute(schema, snapshot, intent, context);
 
-console.log(result.status); // → "complete"
-console.log(result.snapshot.data.count); // → 1
+console.log(result.status); // -> "complete"
+console.log(result.snapshot.data.count); // -> 1
 ```
 
 > See [GUIDE.md](../../docs/packages/core/GUIDE.md) for the full tutorial.
@@ -166,25 +166,13 @@ When an action needs IO (API call, timer, etc.), Core doesn't execute it. Instea
 ## Relationship with Other Packages
 
 ```
-┌─────────────┐
-│    Host     │ ← Uses Core to compute
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    CORE     │
-└─────────────┘
-       ▲
-       │
-┌─────────────┐
-│   Builder   │ ← Produces DomainSchema for Core
-└─────────────┘
+App/World -> Host -> Core
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Used by | `@manifesto-ai/host` | Host calls compute() and apply() |
-| Schema from | `@manifesto-ai/builder` | Builder produces DomainSchema |
+| Schema from | App | App supplies DomainSchema |
 
 ---
 
@@ -197,7 +185,7 @@ Use Core directly when:
 - Testing domain logic in isolation
 - Building developer tools (debuggers, visualizers)
 
-For typical usage, see [`@manifesto-ai/react`](../react/) or [`@manifesto-ai/host`](../host/).
+For typical usage, see [`@manifesto-ai/world`](../world/) or [`@manifesto-ai/host`](../host/).
 
 ---
 
@@ -205,9 +193,9 @@ For typical usage, see [`@manifesto-ai/react`](../react/) or [`@manifesto-ai/hos
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](../../docs/packages/core/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](docs/SPEC.md) | Complete specification |
-| [FDR.md](docs/FDR.md) | Design rationale |
+| [GUIDE.md](docs/GUIDE.md) | Step-by-step usage guide |
+| [SPEC-v2.0.0.md](docs/SPEC-v2.0.0.md) | Complete specification |
+| [FDR-v2.0.0.md](docs/FDR-v2.0.0.md) | Design rationale |
 
 ---
 

@@ -132,18 +132,18 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto
 
 | Field | Owner | Host Reads | Host Writes | Description |
 |-------|-------|------------|-------------|-------------|
-| `data.*` | Core | ✅ | via Patch | Domain state |
-| `data.$host.*` | **Host** | ✅ | ✅ | Host-owned namespace (see below) |
-| `computed.*` | Core | ✅ | ❌ | Derived values |
-| `system.status` | Core | ✅ | ❌ | Core sets via compute() |
-| `system.lastError` | Core | ✅ | ❌ | Current error state |
-| `system.errors` | Core | ✅ | ❌ | Error history (accumulated) |
-| `system.pendingRequirements` | Core | ✅ | via Patch | Requirement lifecycle |
-| `system.currentAction` | Core | ✅ | ❌ | Core sets during compute |
-| `meta.schemaHash` | Core | ✅ | ❌ | Domain schema identity |
-| `meta.version` | Core | ✅ | ❌ | Core-owned versioning |
-| `meta.timestamp` | Host | ✅ | ✅ | Host provides per execution |
-| `meta.randomSeed` | Host | ✅ | ✅ | Host provides, frozen per job |
+| `data.*` | Core | Yes | via Patch | Domain state |
+| `data.$host.*` | **Host** | Yes | Yes | Host-owned namespace (see below) |
+| `computed.*` | Core | Yes | No | Derived values |
+| `system.status` | Core | Yes | No | Core sets via compute() |
+| `system.lastError` | Core | Yes | No | Current error state |
+| `system.errors` | Core | Yes | No | Error history (accumulated) |
+| `system.pendingRequirements` | Core | Yes | via Patch | Requirement lifecycle |
+| `system.currentAction` | Core | Yes | No | Core sets during compute |
+| `meta.schemaHash` | Core | Yes | No | Domain schema identity |
+| `meta.version` | Core | Yes | No | Core-owned versioning |
+| `meta.timestamp` | Host | Yes | Yes | Host provides per execution |
+| `meta.randomSeed` | Host | Yes | Yes | Host provides, frozen per job |
 
 ### 3.3.1 Host-Owned State Namespace
 
@@ -175,7 +175,7 @@ the Host-owned namespace.
 | HOST-NS-5 | Host error reporting MUST use `$host` or domain paths (never `system.*`) |
 
 **Rationale:**
-- Core's `SystemState` is owned by Core SPEC—Host must not extend it
+- Core's `SystemState` is owned by Core SPEC; Host must not extend it
 - `data` is the domain state container, with `$host` reserved for Host
 - This preserves Core Snapshot structure while allowing Host-specific state
 - Patches to `$host` are standard operations, no special handling needed
@@ -221,7 +221,7 @@ type ExecutionKey = string;
 
 A unit of work in the execution mailbox. The specific job type union is **informative** (reference implementation); see Appendix C for example shapes.
 
-What is **normative** is the behavioral contract each job type must satisfy (Â§10).
+What is **normative** is the behavioral contract each job type must satisfy (Section 10).
 
 ---
 
@@ -242,27 +242,23 @@ Host executes reality.
 |---------|-------------|
 | CORE-HOST-1 | Core MUST NOT perform IO, network calls, or any side effects |
 | CORE-HOST-2 | Host MUST NOT interpret Flow semantics or compute derived values |
-| CORE-HOST-3 | Core MUST remain pure: same input â†’ same output |
+| CORE-HOST-3 | Core MUST remain pure: same input -> same output |
 | CORE-HOST-4 | Host MUST handle all IO, network, and persistence |
 
 ### 4.3 Diagram
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                         Host                                 â”‚
-â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”â”‚
-â”‚  â”‚                        Core                              â”‚â”‚
-â”‚  â”‚  â€¢ Pure computation                                      â”‚â”‚
-â”‚  â”‚  â€¢ Flow evaluation                                       â”‚â”‚
-â”‚  â”‚  â€¢ Patch generation                                      â”‚â”‚
-â”‚  â”‚  â€¢ NO IO, NO network, NO side effects                   â”‚â”‚
-â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜â”‚
-â”‚                                                             â”‚
-â”‚  â€¢ Effect execution                                         â”‚
-â”‚  â€¢ Snapshot persistence                                     â”‚
-â”‚  â€¢ Network communication                                    â”‚
-â”‚  â€¢ All IO operations                                        â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+Host
+  - Effect execution
+  - Snapshot persistence
+  - Network communication
+  - All IO operations
+  - Calls Core for pure computation
+
+Core
+  - Flow evaluation
+  - Patch generation
+  - NO IO, NO network, NO side effects
 ```
 
 ---
@@ -287,11 +283,11 @@ There are no return values, no callbacks, no events, no mutable context passing 
 ### 5.3 Correct Pattern
 
 ```typescript
-// âŒ FORBIDDEN: Effect result as return value
+// FORBIDDEN: Effect result as return value
 const result = await executeEffect();
 core.resume(result);  // Hidden state!
 
-// âœ… REQUIRED: Effect result as Snapshot mutation
+// REQUIRED: Effect result as Snapshot mutation
 const patches = await executeEffect();
 // Context is frozen once per job (CTX-1~5)
 // frozenContext.now is captured once (CTX-3)
@@ -367,7 +363,7 @@ Effect handlers MUST return `Patch[]` and MUST NOT throw exceptions.
 ### 7.3 Correct Pattern
 
 ```typescript
-// âœ… CORRECT: Failures as patches
+// CORRECT: Failures as patches
 async function fetchUserHandler(type: string, params: any): Promise<Patch[]> {
   try {
     const response = await fetch(`/users/${params.id}`);
@@ -396,14 +392,14 @@ async function fetchUserHandler(type: string, params: any): Promise<Patch[]> {
 All domain decisions belong in Flow or Computed, not in handlers.
 
 ```typescript
-// âŒ WRONG: Domain logic in handler
+// WRONG: Domain logic in handler
 async function purchaseHandler(type, params) {
   if (params.amount > 1000) {  // Business rule in handler!
     return [{ op: 'set', path: 'approval.required', value: true }];
   }
 }
 
-// âœ… CORRECT: Handler does IO only
+// CORRECT: Handler does IO only
 async function paymentHandler(type, params) {
   const result = await paymentGateway.charge(params.amount);
   return [{ op: 'set', path: 'payment.status', value: result.status }];
@@ -466,7 +462,7 @@ type RequirementIdInputs = {
 
 | Rule ID | Description |
 |---------|-------------|
-| REQ-GEN-1 | `requirementId` MUST be computed using Â§8.2 algorithm |
+| REQ-GEN-1 | `requirementId` MUST be computed using Section 8.2 algorithm |
 | REQ-EXEC-1 | Effect runner MUST NOT throw (H005) |
 | REQ-APPLY-1 | Result MUST be applied via `Core.apply()` |
 | REQ-CLEAR-1 | **Host MUST clear fulfilled requirement from `pendingRequirements`** |
@@ -478,12 +474,12 @@ type RequirementIdInputs = {
 **Skipping the clear step causes infinite loop or duplicate effects.**
 
 ```
-Iteration 1: compute() â†’ requirement R1 in pending
-             execute R1 â†’ apply result
+Iteration 1: compute() -> requirement R1 in pending
+             execute R1 -> apply result
              [MISSING: clear R1]
              
-Iteration 2: compute() â†’ R1 still in pending!
-             execute R1 again â†’ duplicate effect!
+Iteration 2: compute() -> R1 still in pending!
+             execute R1 again -> duplicate effect!
              ...infinite loop
 ```
 
@@ -491,15 +487,15 @@ Iteration 2: compute() â†’ R1 still in pending!
 
 ## 9. Compiler Integration
 
-> **âš ï¸ DEPRECATED (v2.0.1)**
+> **DEPRECATED (v2.0.1)**
 >
 > This section is **deprecated** as of v2.0.1. Host is now **decoupled from Compiler and Translator**.
 >
 > **Rationale:** Host should only receive concrete `Patch[]` values. Translator output processing
-> (MEL IR â†’ Patch[]) is the responsibility of the Bridge/App layer, not Host.
+> (MEL IR -> Patch[]) is the responsibility of the App layer, not Host.
 >
 > **Migration:** If Translator integration is needed, implement a `TranslatorAdapter` at the
-> Bridge/App layer that converts `TranslatorFragment[]` to `Patch[]` before submitting to Host.
+> App layer that converts `TranslatorFragment[]` to `Patch[]` before submitting to Host.
 >
 > See FDR-H024 for the design rationale.
 
@@ -513,10 +509,10 @@ Iteration 2: compute() â†’ R1 still in pending!
 
 ~~Host MUST perform two distinct steps:~~
 
-1. ~~**Lowering**: MEL IR â†’ Core IR (`lowerPatchFragments()`)~~
-2. ~~**Evaluation**: Core IR â†’ concrete values (`evaluateConditionalPatchOps()`)~~
+1. ~~**Lowering**: MEL IR -> Core IR (`lowerPatchFragments()`)~~
+2. ~~**Evaluation**: Core IR -> concrete values (`evaluateConditionalPatchOps()`)~~
 
-**v2.0.1:** These steps are performed by Bridge/App layer, not Host.
+**v2.0.1:** These steps are performed by App layer, not Host.
 
 ### 9.3 Rules (DEPRECATED)
 
@@ -534,26 +530,17 @@ Iteration 2: compute() â†’ R1 still in pending!
 **v2.0.1 Architecture:**
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Bridge / App Layer                                         â”‚
-â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”‚
-â”‚  â”‚  TranslatorAdapter (optional, outside Host)           â”‚  â”‚
-â”‚  â”‚  â”œâ”€â”€ Depends on @manifesto-ai/compiler                â”‚  â”‚
-â”‚  â”‚  â”œâ”€â”€ Translator.translate() â†’ TranslatorFragment[]    â”‚  â”‚
-â”‚  â”‚  â”œâ”€â”€ lowerPatchFragments()                            â”‚  â”‚
-â”‚  â”‚  â”œâ”€â”€ evaluateConditionalPatchOps()                    â”‚  â”‚
-â”‚  â”‚  â””â”€â”€ Submits concrete Patch[] to Host                 â”‚  â”‚
-â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                              â”‚
-                              â”‚ Patch[] (concrete only)
-                              â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Host (compiler-free, translator-free)                      â”‚
-â”‚  â”œâ”€â”€ Receives only concrete Patch[]                         â”‚
-â”‚  â”œâ”€â”€ No @manifesto-ai/compiler dependency                   â”‚
-â”‚  â””â”€â”€ Single responsibility: execution orchestration         â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+App layer (optional TranslatorAdapter, outside Host)
+  - Depends on @manifesto-ai/compiler (if used)
+  - Translator.translate() -> TranslatorFragment[]
+  - lowerPatchFragments()
+  - evaluateConditionalPatchOps()
+  - Submits concrete Patch[] to Host
+
+Host (compiler-free, translator-free)
+  - Receives only concrete Patch[]
+  - No @manifesto-ai/compiler dependency
+  - Single responsibility: execution orchestration
 ```
 
 ---
@@ -595,12 +582,12 @@ interface ExecutionMailbox {
 | **App** | User intent, UI state | Orchestration policy |
 
 ```typescript
-// âœ… Correct: World/App maps proposalId â†’ ExecutionKey
+// Correct: World/App maps proposalId -> ExecutionKey
 function getExecutionKey(proposalId: string): ExecutionKey {
   return proposalId;
 }
 
-// âŒ Wrong: Host directly uses World concepts
+// Wrong: Host directly uses World concepts
 // Host should not import ProposalId type from World
 ```
 
@@ -621,13 +608,13 @@ Job handlers MUST NOT await external work. Effect execution is modeled as job sp
 #### 10.2.2 Job Handler Await Ban
 
 ```typescript
-// âŒ FORBIDDEN: await inside job handler
+// FORBIDDEN: await inside job handler
 async function handleStartIntent(job) {
   const result = await translateIntent(job.intent);  // VIOLATION
   applyResult(result);
 }
 
-// âœ… CORRECT: request effect, terminate job
+// CORRECT: request effect, terminate job
 function handleStartIntent(job) {
   const snapshot = context.getCanonicalHead();  // Fresh read
   const computed = Core.compute(schema, snapshot, job.intent);
@@ -644,11 +631,11 @@ function handleStartIntent(job) {
 #### 10.2.3 Job Lifecycle
 
 ```
-Job declares "effect needed" â†’ Job terminates (run-to-completion)
-                                      â†“
-Effect executes (outside mailbox) â†’ Result arrives
-                                      â†“
-FulfillEffect job enqueued â†’ Patches applied â†’ ContinueCompute enqueued
+Job declares "effect needed" -> Job terminates (run-to-completion)
+                                      v
+Effect executes (outside mailbox) -> Result arrives
+                                      v
+FulfillEffect job enqueued -> Patches applied -> ContinueCompute enqueued
 ```
 
 #### 10.2.4 Compute Result and Effect Request Ordering (Critical)
@@ -724,7 +711,7 @@ if (result.pendingRequirements.length > 0) {
 **Wrong Pattern (violates COMP-REQ-INTERLOCK-1):**
 
 ```typescript
-// âŒ WRONG: Effect request before patch apply
+// WRONG: Effect request before patch apply
 function handleStartIntent(job: StartIntent) {
   const result = Core.compute(schema, snapshot, job.intent);
   
@@ -757,10 +744,10 @@ For each ExecutionKey, only ONE runner processes the mailbox at any time.
 1. Runner processing last job, queue becomes empty
 2. Runner exits while loop, but BEFORE runnerActive.delete(key)
 3. Effect callback arrives, enqueues FulfillEffect
-4. enqueue() sees emptyâ†’non-empty, calls processMailbox(key)
+4. enqueue() sees empty->non-empty, calls processMailbox(key)
 5. processMailbox() sees runnerActive.has(key) = true, returns immediately
 6. Original runner does runnerActive.delete(key), exits
-7. New job sits in queue forever â€” LIVE-1 VIOLATION
+7. New job sits in queue forever -- LIVE-1 VIOLATION
 ```
 
 This is NOT a rare race condition. It occurs whenever effect results arrive during runner shutdown.
@@ -826,13 +813,13 @@ Effect results MUST be reinjected to the mailbox as jobs.
 #### 10.4.2 Correct Pattern
 
 ```typescript
-// âŒ WRONG: Direct application from callback
+// WRONG: Direct application from callback
 async function executeEffect(req: Requirement) {
   const patches = await effectRunner.execute(req);
   Core.apply(snapshot, patches);  // VIOLATION: outside mailbox
 }
 
-// âœ… CORRECT: Reinject as job
+// CORRECT: Reinject as job
 async function executeEffect(key: ExecutionKey, req: Requirement) {
   const patches = await effectRunner.execute(req);
   
@@ -870,7 +857,7 @@ When `processMailbox(key)` is called but `runnerActive.has(key)` is true:
 - Store in `runnerKickRequested` set
 - Runner checks this flag before exiting (RUN-4)
 
-Without LIVE-4, kicks during the "loop exit â†’ guard release" window are permanently lost.
+Without LIVE-4, kicks during the "loop exit -> guard release" window are permanently lost.
 
 #### 10.5.3 Implementation Pattern
 
@@ -881,7 +868,7 @@ function enqueue(key: ExecutionKey, job: Job) {
   
   queue.enqueue(job);
   
-  // LIVE-2: kick runner on emptyâ†’non-empty transition
+  // LIVE-2: kick runner on empty->non-empty transition
   if (wasEmpty) {
     scheduleRunner(key);
   }
@@ -929,8 +916,8 @@ Scenario: Two effects E1, E2 both modify `state.counter`
 E1: counter += 10
 E2: counter *= 2
 
-Serial (E1 then E2):  0 â†’ 10 â†’ 20
-Parallel (E2 finishes first, applied first): 0 â†’ 0 â†’ 10  // WRONG
+Serial (E1 then E2):  0 -> 10 -> 20
+Parallel (E2 finishes first, applied first): 0 -> 0 -> 10  // WRONG
 
 Without deterministic reinjection order:
 - Traces are non-reproducible
@@ -942,7 +929,7 @@ Without deterministic reinjection order:
 
 ```typescript
 // When using parallel execution
-const pendingResults = new Map<string, Patch[]>(); // requirementId â†’ patches
+const pendingResults = new Map<string, Patch[]>(); // requirementId -> patches
 const expectedOrder: string[] = [...pendingRequirements.map(r => r.id)];
 
 function onEffectComplete(reqId: string, patches: Patch[]) {
@@ -978,9 +965,9 @@ Without this rule, a timeout on requirement R1 could stall the ordering buffer f
 
 ```
 Expected order: [R1, R2, R3]
-R2 completes â†’ stored in pendingResults
-R3 completes â†’ stored in pendingResults
-R1 times out â†’ ??? (buffer stuck waiting for R1)
+R2 completes -> stored in pendingResults
+R3 completes -> stored in pendingResults
+R1 times out -> ??? (buffer stuck waiting for R1)
 ```
 
 **Correct Pattern:**
@@ -1024,20 +1011,20 @@ FulfillEffect job MUST perform the complete requirement lifecycle atomically, wi
 ```
 Timeline of timeout race condition:
 1. Effect request sent (requirementId = R1)
-2. Timeout fires â†’ Apply error patch â†’ Clear R1 â†’ ContinueCompute
+2. Timeout fires -> Apply error patch -> Clear R1 -> ContinueCompute
 3. Compute continues, maybe retries or moves on
 4. Original network request FINALLY completes
 5. FulfillEffect(R1, successPatches) arrives
 
 WITHOUT FULFILL-0:
-  â†’ successPatches applied AFTER timeout was processed
-  â†’ State corrupted, timeout decision overwritten
-  â†’ Non-reproducible trace
+  -> successPatches applied AFTER timeout was processed
+  -> State corrupted, timeout decision overwritten
+  -> Non-reproducible trace
 
 WITH FULFILL-0:
-  â†’ R1 not in pendingRequirements (already cleared by timeout)
-  â†’ FulfillEffect logs "stale" and returns without apply
-  â†’ State preserved, deterministic
+  -> R1 not in pendingRequirements (already cleared by timeout)
+  -> FulfillEffect logs "stale" and returns without apply
+  -> State preserved, deterministic
 ```
 
 **Scenarios requiring FULFILL-0:**
@@ -1088,18 +1075,18 @@ Silent drops make debugging impossible. Always log.
 
 ### 10.8 ~~Translator Output Processing~~ (DEPRECATED)
 
-> **âš ï¸ DEPRECATED (v2.0.1)**
+> **DEPRECATED (v2.0.1)**
 >
 > This section is **deprecated**. Host no longer handles Translator output directly.
-> Translator processing is the responsibility of the Bridge/App layer.
+> Translator processing is the responsibility of the App layer.
 >
-> See Â§9 (Compiler Integration - DEPRECATED) and FDR-H024 for details.
+> See Section 9 (Compiler Integration - DEPRECATED) and FDR-H024 for details.
 
 ~~Translator output processing is **distinct from Core Requirement lifecycle**.~~
 
 **v2.0.1 Approach:**
 - Host receives only concrete `Patch[]`
-- Bridge/App layer handles Translator processing externally
+- App layer handles Translator processing externally
 - No `ApplyTranslatorOutput` job type in Host
 
 #### 10.8.1 ~~Rules~~ (DEPRECATED)
@@ -1108,33 +1095,25 @@ Silent drops make debugging impossible. Always log.
 |---------|-------------|--------|
 | ~~TRANS-1~~ | ~~LLM translate call is treated as Host-level async operation~~ | **DEPRECATED** |
 | ~~TRANS-2~~ | ~~Translator fragments MUST be processed via `ApplyTranslatorOutput` job~~ | **DEPRECATED** |
-| ~~TRANS-3~~ | ~~Lower â†’ Evaluate â†’ Apply MUST run synchronously in ONE job~~ | **DEPRECATED** |
+| ~~TRANS-3~~ | ~~Lower -> Evaluate -> Apply MUST run synchronously in ONE job~~ | **DEPRECATED** |
 | ~~TRANS-4~~ | ~~Splitting Lower/Evaluate/Apply into separate jobs is FORBIDDEN~~ | **DEPRECATED** |
 
-**v2.0.1:** These rules are now the responsibility of the Bridge/App layer's `TranslatorAdapter`.
+**v2.0.1:** These rules are now the responsibility of the App layer's `TranslatorAdapter`.
 
 ### 10.9 Effect Runner Location
 
 Effect execution happens **outside the mailbox**.
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                    Execution Mailbox                         â”‚
-â”‚  (single-writer, run-to-completion)                         â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  Job1 â†’ Job2 â†’ Job3 â†’ ...                                   â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                             â”‚
-                             â”‚ effect request
-                             â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                    Effect Runner                             â”‚
-â”‚  (async, outside mailbox, may parallelize)                  â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  â€¢ Executes IO/network/external calls                       â”‚
-â”‚  â€¢ Returns Patch[] (never throws)                           â”‚
-â”‚  â€¢ Enqueues FulfillEffect to mailbox                        â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+Execution mailbox (single-writer, run-to-completion)
+  Job1 -> Job2 -> Job3 -> ...
+
+effect request
+v
+Effect runner (async, outside mailbox, may parallelize)
+  - Executes IO/network/external calls
+  - Returns Patch[] (never throws)
+  - Enqueues FulfillEffect to mailbox
 ```
 
 ### 10.10 Canonical Head
@@ -1143,10 +1122,10 @@ Effect execution happens **outside the mailbox**.
 
 ```typescript
 function handleJob(job: Job, context: ExecutionContext) {
-  // âœ… Correct: read this execution's head
+  // Correct: read this execution's head
   const snapshot = context.getCanonicalHead();
 
-  // âŒ Wrong: implies global state
+  // Wrong: implies global state
   // const snapshot = getCurrentSnapshot();
 }
 ```
@@ -1172,7 +1151,7 @@ type HostContext = {
 **Issue:** If `now` is called multiple times during a single job and returns different values, determinism is broken.
 
 ```typescript
-// âŒ WRONG: Different timestamps within same job
+// WRONG: Different timestamps within same job
 function handleStartIntent(job) {
   const ctx1 = getContext();  // now = 1000
   Core.compute(..., ctx1);
@@ -1195,7 +1174,7 @@ function handleStartIntent(job) {
 ### 11.3 Frozen Context Pattern
 
 ```typescript
-// âœ… CORRECT: Freeze context at job start
+// CORRECT: Freeze context at job start
 function handleStartIntent(job: StartIntent) {
   // Capture context ONCE at job start
   const frozenContext: HostContext = {
@@ -1215,7 +1194,7 @@ function handleStartIntent(job: StartIntent) {
   // ... rest of job uses same frozenContext
 }
 
-// âŒ WRONG: Call getContext() multiple times
+// WRONG: Call getContext() multiple times
 function handleStartIntent(job: StartIntent) {
   const result = Core.compute(..., getContext());  // now = 1000
   applyPatches(result.patches, getContext());      // now = 1005 - VIOLATION!
@@ -1381,7 +1360,7 @@ Patches to `system.*` are forbidden (INV-SNAP-4).
 | Error Type | Handling |
 |------------|----------|
 | Job handler throws (general) | Log error, continue to next job |
-| **FulfillEffect throws** | **CRITICAL: See Â§13.4** |
+| **FulfillEffect throws** | **CRITICAL: See Section 13.4** |
 | Mailbox corrupted | Reset mailbox, report error |
 | Runner guard violation | Return immediately (re-entry attempt) |
 
@@ -1408,13 +1387,13 @@ Patches to `system.*` are forbidden (INV-SNAP-4).
 
 #### 13.4.2 ERR-FE-4 Rationale
 
-The goal is NOT "apply succeeded â†’ clear" but "**requirement never runs twice**":
+The goal is NOT "apply succeeded -> clear" but "**requirement never runs twice**":
 
 | Scenario | Wrong Approach | Correct Approach |
 |----------|----------------|------------------|
-| Apply throws | Don't clear (req remains) â†’ infinite loop | Clear anyway â†’ error patch â†’ continue |
-| Partial apply | Don't clear â†’ re-runs and double-applies | Clear â†’ error patch with partial state |
-| Clear throws | Ignore â†’ req remains â†’ infinite loop | Fatal for ExecutionKey |
+| Apply throws | Don't clear (req remains) -> infinite loop | Clear anyway -> error patch -> continue |
+| Partial apply | Don't clear -> re-runs and double-applies | Clear -> error patch with partial state |
+| Clear throws | Ignore -> req remains -> infinite loop | Fatal for ExecutionKey |
 
 **Key insight:** Even if apply fails completely, the requirement MUST be cleared. The alternative (re-execution) is worse than recording "effect failed" in state.
 
@@ -1484,9 +1463,9 @@ If error patch recording fails:
 
 #### 13.4.5 Why "Clear Before Error Patch"?
 
-The order is: **Attempt Apply â†’ Clear â†’ Error Patch â†’ Continue**
+The order is: **Attempt Apply -> Clear -> Error Patch -> Continue**
 
-NOT: Apply â†’ Error Patch â†’ Clear
+NOT: Apply -> Error Patch -> Clear
 
 Reason: If error patch application fails, we still need the requirement cleared. Clear is the **non-negotiable** step.
 
@@ -1521,7 +1500,6 @@ function escalateToFatal(intentId: string, error: Error) {
 | Core SPEC | Host executes Core's computation results |
 | World Protocol SPEC | World provides ExecutionKey mapping |
 | ~~Compiler SPEC~~ | ~~Host uses Compiler for Translator integration~~ **DEPRECATED (v2.0.1)** |
-| Bridge SPEC | Bridge uses Host for intent execution |
 | App SPEC | App orchestrates Host and provides scheduling policy |
 
 ### 14.2 FDR References
@@ -1560,7 +1538,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Job | JOB-1~5: Await ban, fresh read; **COMP-REQ-INTERLOCK-1~2** |
 | Runner | RUN-1~4: Single runner, **lost wakeup prevention** |
 | Reinjection | REINJ-1~4: Via FulfillEffect |
-| Liveness | LIVE-1~4: Enqueue â†’ eventually processed, **blocked kick retry** |
+| Liveness | LIVE-1~4: Enqueue -> eventually processed, **blocked kick retry** |
 | Order | ORD-1~4: **Deterministic order**; **ORD-TIMEOUT-1~3** (buffer timeout handling) |
 | FulfillEffect | **FULFILL-0~4**: Stale check, atomic lifecycle |
 | ~~Translator~~ | ~~TRANS-1~4: Separate from FulfillEffect, single job~~ **DEPRECATED** |
@@ -1574,15 +1552,15 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Await in job handler | Continuation state (INV-EX-3 violation) |
 | Skip requirement clear | Infinite loop, duplicate effects |
 | Direct apply from callback | Single-writer bypass (INV-EX-6 violation) |
-| ~~Split Lower/Evaluate/Apply~~ | ~~Continuation state~~ **DEPRECATED** (moved to Bridge/App) |
+| ~~Split Lower/Evaluate/Apply~~ | ~~Continuation state~~ **DEPRECATED** (moved to App) |
 | Multiple runners same key | Race condition, lost updates |
 | ~~Use FulfillEffect for Translator~~ | ~~Requirement lifecycle corruption~~ **DEPRECATED** |
 | No runner kick on enqueue | Jobs never processed (liveness violation) |
-| **No re-check before guard release** | **Lost wakeup â†’ permanent stall (LIVE-1 violation)** |
-| **Forget blocked kick request** | **Lost wakeup â†’ permanent stall (LIVE-1 violation)** |
+| **No re-check before guard release** | **Lost wakeup -> permanent stall (LIVE-1 violation)** |
+| **Forget blocked kick request** | **Lost wakeup -> permanent stall (LIVE-1 violation)** |
 | **FulfillEffect throw without clear** | **Infinite loop on next compute()** |
-| **Skip FULFILL-0 stale check** | **Timeout/cancel race â†’ state corruption** |
-| **Clear only on apply success** | **Apply failure â†’ infinite loop** |
+| **Skip FULFILL-0 stale check** | **Timeout/cancel race -> state corruption** |
+| **Clear only on apply success** | **Apply failure -> infinite loop** |
 | **Effect dispatch before patch apply** | **FULFILL-0 false positive (stale)** |
 | **Timeout not producing fulfillment outcome** | **Ordering buffer stall (ORD-PARALLEL)** |
 | **Multiple getContext() calls per job** | **Non-deterministic timestamps (INV-CTX-3 violation)** |
@@ -1596,7 +1574,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 - [ ] Single-runner guard with Set<ExecutionKey>
 - [ ] **Blocked kick remembered in runnerKickRequested set (LIVE-4)**
 - [ ] **Runner re-checks queue + kick flag before releasing guard (RUN-4)**
-- [ ] Runner kick on emptyâ†’non-empty transition
+- [ ] Runner kick on empty->non-empty transition
 - [ ] Effect results via FulfillEffect job (for Core Requirements)
 - [x] ~~Translator output via ApplyTranslatorOutput job~~ **DEPRECATED** - Host receives only Patch[]
 - [ ] **FulfillEffect checks pendingRequirements before apply (FULFILL-0)**
@@ -1605,7 +1583,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 - [ ] **Error patch recording is best-effort, does not block continue (ERR-FE-5)**
 - [ ] **Compute patches applied BEFORE effect dispatch (COMP-REQ-INTERLOCK-1)**
 - [ ] **Effect dispatch list read from snapshot after apply (COMP-REQ-INTERLOCK-2, SHOULD)**
-- [x] ~~Translator path as single job~~ **DEPRECATED** - moved to Bridge/App layer
+- [x] ~~Translator path as single job~~ **DEPRECATED** - moved to App layer
 - [ ] Effect execution policy documented (ORD-SERIAL or ORD-PARALLEL)
 - [ ] **If ORD-PARALLEL: timeout/cancel produces fulfillment outcome (ORD-TIMEOUT-1)**
 - [ ] **HostContext frozen at job start, not per operation (CTX-1, CTX-5)**
@@ -1650,12 +1628,12 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 ### B.2 Backward Compatibility
 
 v2.0/v2.0.1 does not change:
-- Core-Host boundary (Â§4)
-- Snapshot communication (Â§5)
-- Effect handler contract (Â§7)
+- Core-Host boundary (Section 4)
+- Snapshot communication (Section 5)
+- Effect handler contract (Section 7)
 
 v2.0.1 **deprecates**:
-- Compiler integration (Â§9) - Host is now decoupled from Compiler/Translator
+- Compiler integration (Section 9) - Host is now decoupled from Compiler/Translator
 
 v2.0/v2.0.1 **strengthens enforcement** of existing principles (FDR-H003, H008, H010).
 
@@ -1664,7 +1642,7 @@ v2.0/v2.0.1 **strengthens enforcement** of existing principles (FDR-H003, H008, 
 | Component | Impact |
 |-----------|--------|
 | Effect handlers | No change |
-| ~~Translator integration~~ | **DEPRECATED** - Translator processing moved to Bridge/App layer |
+| ~~Translator integration~~ | **DEPRECATED** - Translator processing moved to App layer |
 | Intent processing | Restructure as job queue; **apply patches before effect dispatch**; **read requirements from snapshot** |
 | Requirement lifecycle | Ensure atomic Clear step; **stale check before apply** |
 | Error handling | **Clear even on apply failure**; **error patch is best-effort** |
@@ -1675,13 +1653,13 @@ v2.0/v2.0.1 **strengthens enforcement** of existing principles (FDR-H003, H008, 
 
 ## Appendix C: Job Type Reference (Informative)
 
-This appendix provides **example job shapes** for reference implementation. The specific union type is NOT normative; what is normative is the behavioral contract in Â§10.
+This appendix provides **example job shapes** for reference implementation. The specific union type is NOT normative; what is normative is the behavioral contract in Section 10.
 
 ### C.1 Reference Job Union
 
 ```typescript
 // INFORMATIVE: Reference job shapes
-// Implementations MAY use different structures as long as Â§10 rules are satisfied
+// Implementations MAY use different structures as long as Section 10 rules are satisfied
 
 type Job =
   | StartIntent
@@ -1689,7 +1667,7 @@ type Job =
   | FulfillEffect
   | ApplyPatches;
   // NOTE: ApplyTranslatorOutput is DEPRECATED (v2.0.1)
-  // Translator processing is now handled by Bridge/App layer
+  // Translator processing is now handled by App layer
 
 interface StartIntent {
   readonly type: 'StartIntent';
@@ -1739,7 +1717,7 @@ interface ApplyPatches {
 | Direct state mutation (rare) | ApplyPatches |
 | Resume after effect | ContinueCompute |
 | New intent arrives | StartIntent |
-| ~~Translator completed~~ | ~~ApplyTranslatorOutput~~ **DEPRECATED** - use Bridge/App layer |
+| ~~Translator completed~~ | ~~ApplyTranslatorOutput~~ **DEPRECATED** - use App layer |
 
 ---
 

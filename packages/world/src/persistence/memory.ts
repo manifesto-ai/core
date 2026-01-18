@@ -288,7 +288,7 @@ export class MemoryWorldStore implements ObservableWorldStore {
 
   async updateProposal(
     proposalId: ProposalId,
-    updates: Partial<Pick<Proposal, "status" | "decisionId" | "resultWorld" | "decidedAt" | "completedAt">>
+    updates: Partial<Pick<Proposal, "status" | "decisionId" | "resultWorld" | "decidedAt" | "completedAt" | "approvedScope">>
   ): Promise<StoreResult<Proposal>> {
     const id = proposalId as string;
     const existing = this.proposals.get(id);
@@ -309,6 +309,21 @@ export class MemoryWorldStore implements ObservableWorldStore {
     this.emit("proposal:updated", updated);
 
     return { success: true, data: updated };
+  }
+
+  async deleteProposal(proposalId: ProposalId): Promise<StoreResult<void>> {
+    const id = proposalId as string;
+    if (!this.proposals.has(id)) {
+      return {
+        success: false,
+        error: `Proposal '${id}' not found`,
+      };
+    }
+
+    this.proposals.delete(id);
+    this.emit("proposal:deleted", { proposalId });
+
+    return { success: true };
   }
 
   async getProposal(proposalId: ProposalId): Promise<Proposal | null> {
@@ -348,8 +363,8 @@ export class MemoryWorldStore implements ObservableWorldStore {
     return results;
   }
 
-  async getPendingProposals(): Promise<Proposal[]> {
-    return this.listProposals({ status: "pending" });
+  async getEvaluatingProposals(): Promise<Proposal[]> {
+    return this.listProposals({ status: "evaluating" });
   }
 
   // ==========================================================================

@@ -73,6 +73,9 @@ export type {
 // Lineage exports
 export { WorldLineage, createWorldLineage } from "./lineage/index.js";
 
+// Ingress exports (Epoch management)
+export { createIngressContext, type IngressContext } from "./ingress/index.js";
+
 // Persistence exports
 export { MemoryWorldStore, createMemoryWorldStore } from "./persistence/index.js";
 export type {
@@ -91,36 +94,48 @@ export type {
 // World Orchestrator exports
 export { ManifestoWorld, createManifestoWorld } from "./world.js";
 export type {
-  HostInterface,
-  HostResult,
   ProposalResult,
   ManifestoWorldConfig,
 } from "./world.js";
 
-// Event System exports (World Protocol Event System v1.1)
-export { WorldEventBus, createWorldEventBus } from "./events/index.js";
+// Types exports (hexagonal ports)
+export type {
+  ExecutionKey,
+  ArtifactRef,
+  HostExecutionOptions,
+  HostExecutionResult,
+  HostExecutor,
+  ExecutionKeyPolicy,
+  ErrorSignature,
+  TerminalStatusForHash,
+  SnapshotHashInput,
+  WorldIdInput,
+} from "./types/index.js";
+
+export {
+  createExecutionKey,
+  defaultExecutionKeyPolicy,
+} from "./types/index.js";
+
+// Event Types (World Protocol governance events)
 export type {
   WorldEventType,
   WorldEvent,
-  WorldEventHandler,
-  Unsubscribe,
   ErrorInfo,
   AuthorityDecision,
-  // Individual event types
+  WorldEventSink,
+  // Individual event types (governance events only)
   ProposalSubmittedEvent,
   ProposalEvaluatingEvent,
   ProposalDecidedEvent,
-  ExecutionStartedEvent,
-  ExecutionComputingEvent,
-  ExecutionPatchesEvent,
-  ExecutionEffectEvent,
-  ExecutionEffectResultEvent,
+  ProposalSupersededEvent,
   ExecutionCompletedEvent,
   ExecutionFailedEvent,
-  SnapshotChangedEvent,
   WorldCreatedEvent,
   WorldForkedEvent,
 } from "./events/index.js";
+
+export { createNoopWorldEventSink } from "./events/index.js";
 
 // Re-export core types for convenience
 export {

@@ -1,7 +1,7 @@
 # Manifesto App Public API Specification
 
 **Version:** 0.4.7  
-**Status:** Final  
+**Status:** Superseded (v0.4.10, pre-v2)  
 **Date:** 2026-01-06  
 **License:** MIT
 

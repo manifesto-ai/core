@@ -18,8 +18,9 @@ import type {
   MemoryIngestEntry,
   AppState,
   RecallResult,
+  SelectionResult,
+  SelectedMemory,
 } from "../types/index.js";
-import type { SelectionResult, SelectedMemory } from "@manifesto-ai/memory";
 import type { WorldId } from "@manifesto-ai/world";
 
 // ActorRef type definition (aligned with @manifesto-ai/world)

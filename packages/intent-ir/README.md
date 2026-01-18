@@ -1,5 +1,8 @@
 # @manifesto-ai/intent-ir
 
+> **Status:** Deprecated (v2 focuses on Core/Host/World/App). This package is legacy and may be removed.
+
+
 > **Intent IR** is a Chomskyan LF (Logical Form) based Intermediate Representation for natural language intent. It provides deterministic semantic structures that bridge human language to executable domain actions.
 
 ---

@@ -11,10 +11,10 @@ World operates above Core and Host, governing who can propose changes, who can a
 In the Manifesto architecture:
 
 ```
-Bridge ──→ WORLD ──→ Host ──→ Core
-             │
-    Governs legitimacy, authority, lineage
-    Tracks WHO proposed WHAT, WHEN, WHY
+App -> WORLD -> Host -> Core
+        |
+  Governs legitimacy, authority, lineage
+  Tracks WHO proposed WHAT, WHEN, WHY
 ```
 
 ---
@@ -37,17 +37,17 @@ Bridge ──→ WORLD ──→ Host ──→ Core
 |--------------------|--------|
 | Compute state transitions | Core |
 | Execute effects | Host |
-| Handle UI bindings | Bridge / React |
-| Define domain logic | Builder |
+| Handle UI/event bindings | App |
+| Define domain logic | App |
 
 ---
 
 ## Installation
 
 ```bash
-npm install @manifesto-ai/world @manifesto-ai/host @manifesto-ai/core
+npm install @manifesto-ai/world @manifesto-ai/core
 # or
-pnpm add @manifesto-ai/world @manifesto-ai/host @manifesto-ai/core
+pnpm add @manifesto-ai/world @manifesto-ai/core
 ```
 
 ---
@@ -55,39 +55,44 @@ pnpm add @manifesto-ai/world @manifesto-ai/host @manifesto-ai/core
 ## Quick Example
 
 ```typescript
-import { createManifestoWorld, createAutoApproveHandler } from "@manifesto-ai/world";
-import { createHost } from "@manifesto-ai/host";
-
-// Create world with auto-approve authority
-const host = createHost(schema, {
-  initialData: {},
-  context: { now: () => Date.now() },
-});
+import { createManifestoWorld, createIntentInstance } from "@manifesto-ai/world";
 
 const world = createManifestoWorld({
   schemaHash: "todo-v1",
-  host,
-  defaultAuthority: createAutoApproveHandler(),
+  executor: appHostExecutor, // App-provided HostExecutor (optional)
 });
 
 // Register an actor
-world.registerActor({
+const actor = {
   actorId: "user-1",
   kind: "human",
   name: "Alice",
-});
+};
+world.registerActor(actor, { mode: "auto_approve" });
 
-// Submit a proposal
-const result = await world.submitProposal({
-  actorId: "user-1",
-  intent: {
+// Create genesis world
+const initialSnapshot = /* Snapshot from Core */;
+const genesis = await world.createGenesis(initialSnapshot);
+
+// Build intent instance
+const intent = await createIntentInstance({
+  body: {
     type: "todo.add",
     input: { title: "Buy milk" },
   },
+  schemaHash: world.schemaHash,
+  projectionId: "app:ui",
+  source: { kind: "ui", eventId: "evt-1" },
+  actor,
 });
 
-console.log(result.status); // → "completed"
-console.log(result.world.worldId); // → "w_abc123..."
+// Submit a proposal
+const result = await world.submitProposal(actor.actorId, intent, genesis.worldId);
+
+console.log(result.proposal.status); // -> "completed" | "failed" | "rejected" | "evaluating"
+if (result.resultWorld) {
+  console.log(result.resultWorld.worldId); // -> "w_abc123..."
+}
 ```
 
 > See [GUIDE.md](../../docs/packages/world/GUIDE.md) for the full tutorial.
@@ -105,22 +110,20 @@ function createManifestoWorld(config: ManifestoWorldConfig): ManifestoWorld;
 // World class
 class ManifestoWorld {
   registerActor(actor: ActorRef): void;
-  bindAuthority(actorId, authorityId, policy): void;
-  submitProposal(proposal: ProposalInput): Promise<ProposalResult>;
-  getWorld(worldId: WorldId): World | undefined;
-  queryProposals(query: ProposalQuery): Proposal[];
+  registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
+  updateActorBinding(actorId: string, policy: AuthorityPolicy): void;
+  submitProposal(actorId: string, intent: IntentInstance, baseWorld: WorldId, trace?: ProposalTrace): Promise<ProposalResult>;
+  processHITLDecision(proposalId: string, decision: "approved" | "rejected", reason?: string, approvedScope?: IntentScope | null): Promise<ProposalResult>;
+  getWorld(worldId: WorldId): Promise<World | null>;
+  getSnapshot(worldId: WorldId): Promise<Snapshot | null>;
+  getProposal(proposalId: string): Promise<Proposal | null>;
+  getEvaluatingProposals(): Promise<Proposal[]>;
 }
-
-// Authority handlers
-function createAutoApproveHandler(): AuthorityHandler;
-function createPolicyRulesHandler(rules): AuthorityHandler;
-function createHITLHandler(options): AuthorityHandler;
-function createTribunalHandler(options): AuthorityHandler;
 
 // Key types
 type World = { worldId, schemaHash, snapshotHash, createdAt, createdBy };
-type Proposal = { proposalId, actorId, intent, baseWorld, status, decision? };
-type DecisionRecord = { decisionId, proposalId, authority, decision, timestamp };
+type Proposal = { proposalId, actor, intent, baseWorld, status, decisionId? };
+type DecisionRecord = { decisionId, proposalId, authority, decision, decidedAt };
 type ActorRef = { actorId, kind: "human" | "agent" | "system", name?, meta? };
 ```
 
@@ -143,20 +146,19 @@ World supports multiple authority types:
 
 ```typescript
 // Human-in-the-loop example
-const hitlAuthority = createHITLHandler({
-  notify: (proposal) => sendToApprovalQueue(proposal),
-  timeout: 30_000, // 30 second timeout
-});
-
-world.bindAuthority("agent-1", "hitl-authority", hitlAuthority);
+const reviewer = { actorId: "human-1", kind: "human" };
+world.registerActor(
+  { actorId: "agent-1", kind: "agent" },
+  { mode: "hitl", delegate: reviewer }
+);
 ```
 
 ### Proposal Lifecycle
 
 ```
-submitted → pending → approved → executing → completed
-                  ↓                    ↓
-               rejected              failed
+submitted -> evaluating -> approved -> executing -> completed
+                     v                    v
+                  rejected              failed
 ```
 
 ### Immutable Worlds
@@ -168,26 +170,13 @@ Each successful proposal creates a new World. Worlds are immutable and form a DA
 ## Relationship with Other Packages
 
 ```
-┌─────────────┐
-│   Bridge    │ ← Uses World for governance
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    WORLD    │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    Host     │ ← World uses Host to execute
-└─────────────┘
+App -> WORLD -> Host
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/host` | Uses Host to execute proposals |
 | Depends on | `@manifesto-ai/core` | Uses Core types |
-| Used by | `@manifesto-ai/bridge` | Bridge submits proposals through World |
 
 ---
 
@@ -207,9 +196,10 @@ For simple applications without governance, you can use Host directly.
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](../../docs/packages/world/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](docs/SPEC.md) | Complete specification |
-| [FDR.md](docs/FDR.md) | Design rationale |
+| [GUIDE.md](docs/GUIDE.md) | Step-by-step usage guide |
+| [world-SPEC-v2.0.2.md](docs/world-SPEC-v2.0.2.md) | Complete specification |
+| [world-FDR-v2.0.2.md](docs/world-FDR-v2.0.2.md) | Design rationale |
+| [VERSION-INDEX.md](docs/VERSION-INDEX.md) | Version history |
 
 ---
 

@@ -156,6 +156,21 @@ export {
 export { createApp } from "./create-app.js";
 
 // =============================================================================
+// World Events (App-owned)
+// =============================================================================
+
+export {
+  WorldEventHub,
+  createWorldEventHub,
+} from "./world-events/index.js";
+export type {
+  ScheduleContext,
+  WorldEventHandler,
+  ScheduledActionHandler,
+  WorldEventSource,
+} from "./world-events/index.js";
+
+// =============================================================================
 // Services
 // =============================================================================
 

@@ -79,7 +79,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 |----------|--------|
 | Patch-level authorization | World governs Intent approval only |
 | Host internal job types | Mailbox/runner structure is Host's concern |
-| Translator/Compiler pipeline | Deferred to Bridge/App layer |
+| Translator/Compiler pipeline | Deferred to App layer |
 | Merge semantics | Fork-only in v2.0; merge is future extension |
 | Effect execution details | Defined by Host Contract |
 | UI/session management | App layer concern |
@@ -1050,6 +1050,7 @@ Per **ADR-001** and **FDR-W027**:
 | WORLD-EVT-OWN-2 | World MUST NOT define or emit execution telemetry events |
 | WORLD-EVT-OWN-3 | `execution:completed` and `execution:failed` are governance results (World-owned) |
 | WORLD-EVT-OWN-4 | App MUST emit telemetry events by transforming Host's TraceEvent |
+| WORLD-EVT-OWN-5 | World MUST emit via App-provided EventSink; World MUST NOT provide subscription API |
 
 ### 8.2 World Event Types (v2.0.2)
 
@@ -1087,55 +1088,46 @@ type WorldEventType =
 // ============================================================
 ```
 
-### 8.3 Subscription API
+### 8.3 Event Emission API (World → App)
+
+World does **not** define a subscription API.  
+World only emits governance events via an **App-provided sink**.
 
 ```typescript
+type WorldEventSink = {
+  emit(event: WorldEvent): void;
+};
+
+// Provided by App at world creation
+type ManifestoWorldConfig = {
+  eventSink?: WorldEventSink; // default: no-op
+};
+```
+
+**App-owned event/listener API** (informative):
+- App defines `WorldEventHandler`, `WorldEventSource`, and `ScheduleContext`.
+- App owns subscription mechanics and scheduling.
+- World remains unaware of listeners.
+
+### 8.4 Event Handling Constraints (App-owned)
+
+**ScheduleContext is provided by App, not World.**
+
+World SPEC defines the **constraints** for governance event handling,
+while App SPEC defines the **concrete API** (action types, scheduling mechanism).
+
+```typescript
+// App-level interface (illustrative)
 type WorldEventHandler = (event: WorldEvent, ctx: ScheduleContext) => void;
 type Unsubscribe = () => void;
 
-interface WorldEventSubscriber {
+interface WorldEventSource {
   subscribe(handler: WorldEventHandler): Unsubscribe;
   subscribe(types: WorldEventType[], handler: WorldEventHandler): Unsubscribe;
 }
 ```
 
-### 8.4 ScheduleContext (v2.0)
-
-**ScheduleContext is provided by App, not World.**
-
-World SPEC defines the **behavioral contract** (handlers can schedule actions),
-while App SPEC defines the **concrete API** (action types, scheduling mechanism).
-
-```typescript
-/**
- * ScheduleContext: Provided by App to event handlers.
- * 
- * Ownership:
- * - DEFINED BY: App (implementation details)
- * - PROVIDED TO: World event handlers
- * - PROCESSED BY: App's unified scheduler
- * 
- * World declares what handlers may do; App fulfills the mechanism.
- */
-interface ScheduleContext {
-  /**
-   * Schedule an action to be processed after event dispatch completes.
-   * Actions are processed through App's unified scheduler.
-   */
-  schedule(action: ScheduledAction): void;
-}
-
-/**
- * ScheduledAction types are ILLUSTRATIVE.
- * Concrete action types are defined by App SPEC.
- */
-type ScheduledAction =
-  | { type: 'SubmitProposal'; payload: ProposalInput }
-  | { type: 'CancelProposal'; payload: { proposalId: ProposalId } }
-  | { type: 'Custom'; tag: string; payload: unknown };
-```
-
-### 8.4 Non-Interference Constraints (v2.0)
+**Non-Interference Constraints (v2.0)**
 
 | Rule ID | Description |
 |---------|-------------|
@@ -1150,8 +1142,8 @@ type ScheduledAction =
 
 | Rule ID | Description |
 |---------|-------------|
-| SCHED-1 | Handlers receive `ScheduleContext` as second parameter |
-| SCHED-2 | World MUST provide `schedule()` method in ScheduleContext |
+| SCHED-1 | App MUST provide `ScheduleContext` to handlers |
+| SCHED-2 | App MUST provide `schedule()` method in ScheduleContext |
 | SCHED-3 | Scheduled actions MUST be processed AFTER all handlers complete |
 | SCHED-4 | Scheduled actions MUST go through App's unified scheduler |
 | SCHED-5 | Scheduled actions MUST NOT be executed as microtask during event dispatch |
@@ -1236,11 +1228,18 @@ type ProposalSubmittedEvent = BaseEvent & {
   readonly epoch: number;
 };
 
+type ProposalEvaluatingEvent = BaseEvent & {
+  readonly type: 'proposal:evaluating';
+  readonly proposalId: ProposalId;
+  readonly authorityId: AuthorityId;
+};
+
 type ProposalDecidedEvent = BaseEvent & {
   readonly type: 'proposal:decided';
   readonly proposalId: ProposalId;
   readonly decisionId: DecisionId;
   readonly decision: 'approved' | 'rejected';
+  readonly authorityId: AuthorityId;
   readonly reason?: string;
 };
 
@@ -1314,8 +1313,8 @@ type ExecutionFailedEvent = BaseEvent & {
 type WorldCreatedEvent = BaseEvent & {
   readonly type: 'world:created';
   readonly world: World;
-  readonly from: WorldId;
-  readonly proposalId: ProposalId;
+  readonly from: WorldId | null;
+  readonly proposalId: ProposalId | null;
   readonly outcome: 'completed' | 'failed';
 };
 ```
@@ -1767,7 +1766,7 @@ World created: completed or failed only
 | Event ownership (Results vs Process) | §8.1, §8.2 WORLD-EVT-OWN-* |
 | HostExecutor ownership | §7.1 WORLD-HEXEC-* |
 | "Does NOT Know" matrix | §4.2 WORLD-BOUNDARY-* |
-| No independent Bridge/Runtime layer | §4.4 (App runtime/) |
+| No independent runtime layer | Section 4.4 (App runtime) |
 
 ### B.6 World FDR v2.0.2 Alignment (Hash + Snapshot Responsibility)
 
@@ -1787,7 +1786,7 @@ World created: completed or failed only
 | ExecutionKey in Proposal | §6.2 |
 | Epoch in Proposal | §6.2 |
 | HostExecutor interface | §7.1 |
-| ScheduleContext in handlers | §8.3 |
+| ScheduleContext in handlers | §8.4 |
 | ErrorSignature for hashing | §5.4.3 |
 | BaseWorld validity check | §7.5 |
 | Late-arrival handling | §6.4 |

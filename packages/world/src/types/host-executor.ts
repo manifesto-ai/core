@@ -11,6 +11,7 @@
  * @since v2.0.2
  */
 
+import { z } from "zod";
 import type { Snapshot, ErrorValue, Intent } from "@manifesto-ai/core";
 
 // =============================================================================
@@ -23,9 +24,10 @@ import type { Snapshot, ErrorValue, Intent } from "@manifesto-ai/core";
  * ExecutionKey uniquely identifies an execution attempt within a proposal.
  * Format: `${proposalId}:${attempt}` where attempt starts at 1
  *
- * Per WORLD-EXK-2: Proposal MUST carry executionKey when dispatched
+ * Per WORLD-EXK-2: Proposal MUST carry executionKey at submission
  */
-export type ExecutionKey = string & { readonly __brand: "ExecutionKey" };
+export const ExecutionKeySchema = z.string().brand<"ExecutionKey">();
+export type ExecutionKey = z.infer<typeof ExecutionKeySchema>;
 
 /**
  * Create an ExecutionKey from proposalId and attempt number
@@ -34,7 +36,7 @@ export function createExecutionKey(
   proposalId: string,
   attempt: number = 1
 ): ExecutionKey {
-  return `${proposalId}:${attempt}` as ExecutionKey;
+  return ExecutionKeySchema.parse(`${proposalId}:${attempt}`);
 }
 
 // =============================================================================

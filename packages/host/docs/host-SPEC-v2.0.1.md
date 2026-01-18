@@ -1,6 +1,6 @@
 # Host Contract Specification v2.0.1
 
-> **Status:** Normative
+> **Status:** Superseded (v2.0.2)
 > **Scope:** Manifesto Host Implementations
 > **Authors:** Manifesto Team
 > **License:** MIT

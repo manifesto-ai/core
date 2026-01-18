@@ -14,6 +14,7 @@ export type {
 } from "./host-executor.js";
 
 export {
+  ExecutionKeySchema,
   createExecutionKey,
   defaultExecutionKeyPolicy,
 } from "./host-executor.js";

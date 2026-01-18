@@ -305,7 +305,10 @@ type OrderingPolicy = 'ORD-SERIAL' | 'ORD-PARALLEL';
 
 ---
 
-## F. Translator integration (스플릿/혼합 금지)
+## F. Translator integration (DEPRECATED)
+
+> **DEPRECATED (v2.0.2):** Translator handling is App responsibility. These tests are legacy and not required for Host v2.0.2 compliance.
+
 
 ### HCTS-TRANS-001: ApplyTranslatorOutput는 FulfillEffect와 분리
 
@@ -681,7 +684,10 @@ type OrderingPolicy = 'ORD-SERIAL' | 'ORD-PARALLEL';
 
 ---
 
-## F. Translator integration (스플릿/혼합 금지)
+## F. Translator integration (DEPRECATED)
+
+> **DEPRECATED (v2.0.2):** Translator handling is App responsibility. These tests are legacy and not required for Host v2.0.2 compliance.
+
 
 ### HCTS-TRANS-001: ApplyTranslatorOutput는 FulfillEffect와 분리
 

@@ -1,5 +1,8 @@
 # @manifesto-ai/builder
 
+> **Status:** Deprecated (v2 focuses on Core/Host/World/App). This package is legacy and may be removed.
+
+
 > **Builder** is the developer experience (DX) layer of Manifesto. It provides type-safe domain definition with Zod integration and zero string paths.
 
 ---

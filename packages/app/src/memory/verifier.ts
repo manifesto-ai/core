@@ -6,8 +6,7 @@
  */
 
 import type { World } from "@manifesto-ai/world";
-import type { VerificationProof } from "@manifesto-ai/memory";
-import type { MemoryVerifier, ProveResult } from "../types/index.js";
+import type { MemoryVerifier, ProveResult, VerificationProof } from "../types/index.js";
 
 /**
  * NoneVerifier - Default verifier when provider.verifier is absent.

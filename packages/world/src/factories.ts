@@ -34,6 +34,7 @@ import type { DecisionRecord, FinalDecision } from "./schema/decision.js";
 import type { AuthorityRef } from "./schema/authority.js";
 import type { WorldEdge } from "./schema/lineage.js";
 import type { IntentInstance, IntentScope } from "./schema/intent.js";
+import type { ExecutionKey } from "./types/index.js";
 import type {
   ErrorSignature,
   TerminalStatusForHash,
@@ -330,21 +331,29 @@ export async function createWorldFromExecution(
  * Per spec: Proposal.intent is IntentInstance
  * Per EPOCH-1: Proposal carries epoch at submission
  */
+export interface CreateProposalOptions {
+  readonly executionKey: ExecutionKey;
+  readonly proposalId?: ProposalId;
+  readonly trace?: ProposalTrace;
+  readonly epoch?: number;
+}
+
 export function createProposal(
   actor: ActorRef,
   intent: IntentInstance,
   baseWorld: WorldId,
-  trace?: ProposalTrace,
-  epoch = 0
+  options: CreateProposalOptions
 ): Proposal {
+  const proposalId = options.proposalId ?? generateProposalId();
   return {
-    proposalId: generateProposalId(),
+    proposalId,
     actor,
     intent,
     baseWorld,
     status: "submitted",
-    epoch,
-    trace,
+    epoch: options.epoch ?? 0,
+    executionKey: options.executionKey,
+    trace: options.trace,
     submittedAt: Date.now(),
   };
 }

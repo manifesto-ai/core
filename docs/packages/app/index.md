@@ -73,6 +73,28 @@ Every state change is recorded with:
 - **When** — Timestamp
 - **Why** — Authority decision
 
+### World Event Hub
+
+App owns **World governance event** subscriptions. Provide a WorldEventHub as the World
+event sink, then subscribe to governance events from App (not from World).
+
+```typescript
+import { createWorldEventHub } from "@manifesto-ai/app";
+import { createManifestoWorld } from "@manifesto-ai/world";
+
+const worldEvents = createWorldEventHub();
+const world = createManifestoWorld({
+  schemaHash: "my-app-v1",
+  eventSink: worldEvents,
+});
+
+worldEvents.subscribe((event) => {
+  if (event.type === "proposal:decided") {
+    console.log("Decision:", event.decision);
+  }
+});
+```
+
 ### Effect Handlers as Services
 
 Side effects (API calls, database operations) are handled by **services** — simple async functions that return patches.

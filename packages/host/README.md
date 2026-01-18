@@ -1,6 +1,6 @@
 # @manifesto-ai/host
 
-> **v2.0.1** — Event-loop execution runtime for Manifesto with context determinism
+> **v2.0.2** — Event-loop execution runtime for Manifesto with snapshot ownership and deterministic context
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
 
@@ -13,23 +13,22 @@ Host is the **effect execution runtime** of Manifesto. It orchestrates the compu
 In the Manifesto architecture:
 
 ```
-World ──→ HOST ──→ Core
-            │
+World -> HOST -> Core
+            |
    Executes effects, applies patches
    Runs the mailbox-based execution model
 ```
 
 ---
 
-## What's New in v2.0.1
+## What's New in v2.0.2
 
-### v2.0.0 Breaking Changes
+### v2.0.2 New Features
 
-- **Mailbox + Runner + Job Execution Model**
-  - `ExecutionMailbox`: Single-writer queue per ExecutionKey
-  - Job types: `StartIntent`, `ContinueCompute`, `FulfillEffect`, `ApplyPatches`
-  - Run-to-completion semantics (job handlers MUST NOT await)
-  - Single-runner invariant with lost-wakeup prevention
+- **Snapshot Ownership Alignment (HOST-SNAP-1~4)**
+  - Host uses Core's canonical Snapshot type
+  - Host-owned state moves to `data.$host`
+  - Snapshot field ownership invariants (INV-SNAP-1~7)
 
 ### v2.0.1 New Features
 
@@ -40,7 +39,15 @@ World ──→ HOST ──→ Core
 - **Compiler/Translator Decoupling (FDR-H024)**
   - Host no longer depends on `@manifesto-ai/compiler`
   - Host receives only concrete `Patch[]` values
-  - Translator processing is now Bridge/App layer responsibility
+  - Translator processing is now App layer responsibility
+
+### v2.0.0 Breaking Changes
+
+- **Mailbox + Runner + Job Execution Model**
+  - `ExecutionMailbox`: Single-writer queue per ExecutionKey
+  - Job types: `StartIntent`, `ContinueCompute`, `FulfillEffect`, `ApplyPatches`
+  - Run-to-completion semantics (job handlers MUST NOT await)
+  - Single-runner invariant with lost-wakeup prevention
 
 ---
 
@@ -95,8 +102,8 @@ host.registerEffect("api.fetch", async (_type, params, context) => {
 const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
-console.log(result.status);        // → "complete"
-console.log(result.snapshot.data); // → { count: 1 }
+console.log(result.status);        // -> "complete"
+console.log(result.snapshot.data); // -> { count: 1 }
 ```
 
 ---
@@ -159,7 +166,7 @@ Core.apply(schema, snapshot, patches, frozenContext);
 ```
 
 **Benefits:**
-- Same input → same output (determinism preserved)
+- Same input -> same output (determinism preserved)
 - Trace replay produces identical results
 - `f(snapshot) = snapshot'` philosophy maintained
 
@@ -278,32 +285,13 @@ host.registerEffect("api.get", async (type, params) => {
 ## Relationship with Other Packages
 
 ```
-┌─────────────────┐
-│    App/Bridge   │ ← Orchestrates Host, provides ExecutionKey mapping
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│      HOST       │ ← This package
-│  (v2.0.1)       │
-│                 │
-│  • Mailbox      │
-│  • Runner       │
-│  • Jobs         │
-│  • Effects      │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│      Core       │ ← Uses compute() and apply()
-└─────────────────┘
+App -> HOST (v2.0.2) -> Core
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
 | Used by | `@manifesto-ai/world` | World uses Host to execute |
-| Used by | `@manifesto-ai/bridge` | Bridge orchestrates Host |
 
 ---
 
@@ -326,9 +314,9 @@ For typical usage with governance, see [`@manifesto-ai/world`](../world/).
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](./docs/GUIDE.md) | Step-by-step usage guide |
-| [MIGRATION.md](./docs/MIGRATION.md) | v1.x → v2.0.1 migration guide |
-| [host-SPEC-v2.0.1.md](./docs/host-SPEC-v2.0.1.md) | Complete specification |
-| [host-FDR-v2.0.1.md](./docs/host-FDR-v2.0.1.md) | Design rationale |
+| [MIGRATION.md](./docs/MIGRATION.md) | v1.x -> v2.0.x migration guide |
+| [host-SPEC-v2.0.2.md](./docs/host-SPEC-v2.0.2.md) | Complete specification |
+| [host-FDR-v2.0.2.md](./docs/host-FDR-v2.0.2.md) | Design rationale |
 | [VERSION-INDEX.md](./docs/VERSION-INDEX.md) | Version history |
 
 ---

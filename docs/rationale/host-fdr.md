@@ -1,8 +1,10 @@
 # Host Contract — Foundational Design Rationale (FDR)
 
 > **Version:** 1.1  
-> **Status:** Normative  
-> **Purpose:** Document the "Why" behind every constitutional decision in the Host Contract  
+> **Status:** Archived (v1.x only)  
+> **Purpose:** Historical rationale for Host v1.x (Translator/compiler pipeline). Not normative for v2.0+  
+> **Note:** Translator/compiler pipeline is deprecated in v2.0+.  
+> **Note:** v2.0+ Host FDRs live in `packages/host/docs/host-FDR-v2.0.2.md`.  
 > **Changelog:**
 > - v1.0: Initial release (FDR-H001 ~ H010)
 > - **v1.1: Compiler Integration, Expression Evaluation (FDR-H011 ~ H017)**

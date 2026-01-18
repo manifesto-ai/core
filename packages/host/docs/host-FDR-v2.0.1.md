@@ -1,7 +1,7 @@
 # Host Contract — Foundational Design Rationale (FDR)
 
 > **Version:** 2.0.1
-> **Status:** Normative
+> **Status:** Superseded (v2.0.2)
 > **Purpose:** Document the "Why" behind every constitutional decision in the Host Contract
 > **Changelog:**
 > - v1.0: Initial release (FDR-H001 ~ H010)
