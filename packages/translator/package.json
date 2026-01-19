@@ -74,7 +74,7 @@
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/memory": "workspace:*",
     "@manifesto-ai/world": "workspace:*",
-    "@types/node": "^25.0.8",
+    "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
     "openai": "^6.16.0",
     "typescript": "^5.9.3",
