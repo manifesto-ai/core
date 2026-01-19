@@ -45,7 +45,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "framer-motion": "^12.26.2",
+    "framer-motion": "^12.27.0",
     "hono": "4.11.4",
     "langchain": "^1.2.8",
     "lucide-react": "^0.562.0",
