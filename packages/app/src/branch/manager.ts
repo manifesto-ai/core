@@ -4,6 +4,7 @@
  * Manages multiple branches and their state.
  *
  * @see SPEC §9 Branch Management
+ * @see SPEC v2.0.0 §12 Schema Compatibility
  * @module
  */
 
@@ -25,6 +26,11 @@ import {
   generateWorldId,
 } from "./branch.js";
 
+import {
+  validateSchemaCompatibility,
+  SchemaIncompatibleError,
+} from "./schema-compatibility.js";
+
 /**
  * Branch Manager configuration.
  */
@@ -32,6 +38,16 @@ export interface BranchManagerConfig {
   schemaHash: string;
   initialState: AppState<unknown>;
   callbacks: Omit<BranchCallbacks, "createBranch" | "getSchemaHash">;
+
+  /**
+   * v2.0.0: Callback to get registered effect types for schema compatibility check.
+   *
+   * When provided, fork() will validate that the new schema's effect types
+   * are compatible with the registered handlers.
+   *
+   * @see SPEC v2.0.0 §12.4 FORK-2, FORK-3
+   */
+  getRegisteredEffectTypes?: () => readonly string[];
 }
 
 /**
@@ -45,10 +61,12 @@ export class BranchManager {
   private _currentBranchId: string | null = null;
   private _schemaHash: string;
   private _callbacks: Omit<BranchCallbacks, "createBranch" | "getSchemaHash">;
+  private _getRegisteredEffectTypes?: () => readonly string[];
 
   constructor(config: BranchManagerConfig) {
     this._schemaHash = config.schemaHash;
     this._callbacks = config.callbacks;
+    this._getRegisteredEffectTypes = config.getRegisteredEffectTypes;
 
     // Create main branch
     const mainBranchId = "main";
@@ -107,6 +125,7 @@ export class BranchManager {
    * Fork a branch to create a new one.
    *
    * @see SPEC §9.5 FORK-1~4
+   * @see SPEC v2.0.0 §12.4 FORK-2, FORK-3
    */
   async fork(parentBranchId: string, opts?: ForkOptions): Promise<BranchImpl> {
     const parentBranch = this._branches.get(parentBranchId);
@@ -126,10 +145,19 @@ export class BranchManager {
         throw new ForkMigrationError(this._schemaHash, newSchemaHash);
       }
 
-      // TODO: Handle migration in later phases
+      // FORK-2: Verify effect handler compatibility before creating branch (v2.0.0)
+      // FORK-3: Missing effect handler MUST cause fork to fail without World creation
+      if (typeof opts.domain !== "string" && this._getRegisteredEffectTypes) {
+        const registeredEffects = this._getRegisteredEffectTypes();
+        const result = validateSchemaCompatibility(opts.domain, registeredEffects);
+
+        if (!result.compatible) {
+          throw new SchemaIncompatibleError(result.missingEffects!);
+        }
+      }
     }
 
-    // FORK-2: Create new branch
+    // Create new branch
     const newBranchId = generateBranchId();
     const forkWorldId = generateWorldId();
 
