@@ -443,3 +443,30 @@ export class PluginInitError extends ManifestoAppError {
     super(`Plugin at index ${pluginIndex} failed to initialize: ${message}`, opts);
   }
 }
+
+// =============================================================================
+// Liveness Errors
+// =============================================================================
+
+/**
+ * Thrown when re-injection limit is exceeded during a proposal tick.
+ *
+ * This error indicates an infinite loop where hooks keep enqueuing
+ * actions, potentially causing the system to never terminate.
+ *
+ * @see FDR-APP-PUB-001 §3 (PUB-LIVENESS-2~3)
+ */
+export class LivenessError extends ManifestoAppError {
+  readonly code = "LIVENESS_VIOLATION" as const;
+
+  constructor(
+    public readonly proposalId: string,
+    public readonly reinjectionCount: number,
+    public readonly limit: number
+  ) {
+    super(
+      `Re-injection limit exceeded for proposal '${proposalId}': ${reinjectionCount} actions enqueued (limit: ${limit}). ` +
+      `This may indicate an infinite loop in hook callbacks.`
+    );
+  }
+}

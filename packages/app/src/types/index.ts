@@ -2119,7 +2119,7 @@ export interface App {
    *
    * @see SPEC v2.0.0 §6.2 APP-API-4
    */
-  submitProposal?(proposal: Proposal): Promise<ProposalResult>;
+  submitProposal(proposal: Proposal): Promise<ProposalResult>;
 
   // ═══════════════════════════════════════════════════════════════════
   // Session

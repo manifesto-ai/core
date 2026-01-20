@@ -59,6 +59,7 @@ import {
   PluginInitError,
   ActionNotFoundError,
   SystemActionDisabledError,
+  LivenessError,
 } from "./errors/index.js";
 
 import { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "./constants.js";
@@ -75,6 +76,7 @@ import type { SystemActionType } from "./constants.js";
 import { AppHostExecutor, createAppHostExecutor } from "./host-executor/index.js";
 import { createDefaultPolicyService, createSilentPolicyService } from "./policy/index.js";
 import { generateWorldId } from "./branch/index.js";
+import { generateDelta } from "./world-store/index.js";
 
 // =============================================================================
 // ManifestoApp Implementation
@@ -151,6 +153,37 @@ export class ManifestoApp implements App {
 
   /** v2 genesis WorldId (for lineage root) */
   private _v2GenesisWorldId: WorldId | null = null;
+
+  /**
+   * v2 Proposal tick tracking for publish boundary.
+   * Tracks which proposals have emitted state:publish to ensure exactly-once semantics.
+   *
+   * @see FDR-APP-PUB-001 §2 (PUB-TICK-2~3)
+   */
+  private _v2PublishEmitted: Set<string> = new Set();
+
+  /**
+   * v2 Re-injection counter per proposal for liveness guard.
+   *
+   * @see FDR-APP-PUB-001 §3 (PUB-LIVENESS-2~3)
+   */
+  private _v2ReinjectionCount: Map<string, number> = new Map();
+
+  /**
+   * Maximum re-injection limit for liveness guard.
+   * Prevents infinite loops from enqueueAction during hooks.
+   *
+   * @see FDR-APP-PUB-001 §3 (PUB-LIVENESS-3)
+   */
+  private _v2MaxReinjectionLimit: number = 100;
+
+  /**
+   * Current executing proposal ID for liveness guard tracking.
+   * When set, any new action enqueued via act() counts as re-injection.
+   *
+   * @see FDR-APP-PUB-001 §3 (PUB-LIVENESS-2)
+   */
+  private _v2CurrentExecutingProposalId: string | null = null;
 
   // ==========================================================================
   // Domain Action FIFO Queue (SCHED-1~4)
@@ -364,6 +397,20 @@ export class ManifestoApp implements App {
 
     // Register handle for getActionHandle()
     this._actionHandles.set(proposalId, handle);
+
+    // ==== Liveness Guard (PUB-LIVENESS-2~3) ====
+    // Check if we're currently executing a proposal (re-injection detection)
+    if (this._v2Enabled && this._v2CurrentExecutingProposalId && runtime === "domain") {
+      const currentProposalId = this._v2CurrentExecutingProposalId;
+      const currentCount = this._v2ReinjectionCount.get(currentProposalId) ?? 0;
+      const newCount = currentCount + 1;
+      this._v2ReinjectionCount.set(currentProposalId, newCount);
+
+      // PUB-LIVENESS-3: Abort if limit exceeded
+      if (newCount > this._v2MaxReinjectionLimit) {
+        throw new LivenessError(currentProposalId, newCount, this._v2MaxReinjectionLimit);
+      }
+    }
 
     // Check if FIFO serialization is enabled (default: true)
     const singleWriter = this._options.scheduler?.singleWriterPerBranch !== false;
@@ -772,6 +819,10 @@ export class ManifestoApp implements App {
     const actorId = opts?.actorId ?? this._defaultActorId;
     const branchId = opts?.branchId ?? this._branchManager?.currentBranchId ?? "main";
 
+    // ==== Liveness Guard: Track current executing proposal ====
+    // PUB-LIVENESS-2: Set current proposal for re-injection tracking
+    this._v2CurrentExecutingProposalId = handle.proposalId;
+
     try {
       // ==== Phase 1: preparing ====
       await this._hooks.emit("action:preparing", {
@@ -971,6 +1022,38 @@ export class ManifestoApp implements App {
         this._branchManager?.appendWorldToBranch(branchId, newWorldId);
       }
 
+      // ==== Phase 8.5: state:publish (exactly once per proposal tick) ====
+      // PUB-TICK-2: Emit state:publish at terminal snapshot boundary
+      // PUB-TICK-3: Proposal tick is the authoritative boundary for publish
+      if (!this._v2PublishEmitted.has(handle.proposalId)) {
+        this._v2PublishEmitted.add(handle.proposalId);
+
+        const publishSnapshot: Snapshot = {
+          data: execResult.terminalSnapshot.data,
+          computed: execResult.terminalSnapshot.computed ?? {},
+          system: execResult.terminalSnapshot.system ?? {
+            status: "idle",
+            pendingRequirements: [],
+            errors: [],
+          },
+          input: {},
+          meta: execResult.terminalSnapshot.meta ?? {
+            version: 0,
+            timestamp: new Date().toISOString(),
+            hash: "",
+          },
+        };
+
+        await this._hooks.emit(
+          "state:publish",
+          {
+            snapshot: publishSnapshot,
+            worldId: String(newWorldId),
+          },
+          this._createHookContext()
+        );
+      }
+
       // ==== Phase 9: completed/failed ====
       if (execResult.outcome === "completed") {
         handle._transitionTo("completed", {
@@ -1056,9 +1139,17 @@ export class ManifestoApp implements App {
         result: completedResult,
       }, this._createHookContext());
 
+      // Cleanup proposal tracking state to prevent unbounded growth
+      this._v2PublishEmitted.delete(handle.proposalId);
+      this._v2ReinjectionCount.delete(handle.proposalId);
+
     } catch (error) {
       // Unexpected error
       await this._handleExecutionError(handle, error, actionType);
+    } finally {
+      // ==== Liveness Guard: Clear current executing proposal ====
+      // PUB-LIVENESS-2: Always clear to allow next proposal to execute
+      this._v2CurrentExecutingProposalId = null;
     }
   }
 
@@ -1153,30 +1244,14 @@ export class ManifestoApp implements App {
   /**
    * Compute patches between two snapshots.
    *
+   * Uses canonical delta generation for deterministic patches.
+   *
+   * @see FDR-APP-INTEGRATION-001 §3.4 (DELTA-GEN-1~6)
    * @internal
    */
   private _computePatches(from: Snapshot, to: Snapshot): Patch[] {
-    const patches: Patch[] = [];
-
-    // Simple diff: compare data fields
-    const fromData = from.data as Record<string, unknown>;
-    const toData = to.data as Record<string, unknown>;
-
-    // Added/changed keys
-    for (const [key, value] of Object.entries(toData)) {
-      if (JSON.stringify(fromData[key]) !== JSON.stringify(value)) {
-        patches.push({ op: "set", path: `data.${key}`, value });
-      }
-    }
-
-    // Removed keys
-    for (const key of Object.keys(fromData)) {
-      if (!(key in toData)) {
-        patches.push({ op: "unset", path: `data.${key}` });
-      }
-    }
-
-    return patches;
+    // DELTA-GEN-1~6: Use canonical delta generation
+    return generateDelta(from, to);
   }
 
   /**

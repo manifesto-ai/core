@@ -20,3 +20,14 @@ export {
   WorldNotFoundError,
   createInMemoryWorldStore,
 } from "./in-memory.js";
+
+export {
+  generateDelta,
+  toCanonicalSnapshot,
+  eliminateNoOps,
+  normalizePatches,
+  sortPatches,
+  computeCanonicalHash,
+  type CanonicalPatch,
+  type DeltaGeneratorOptions,
+} from "./delta-generator.js";
