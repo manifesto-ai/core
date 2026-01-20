@@ -1,20 +1,23 @@
 /**
  * Manifesto App Type Definitions
  *
- * @see SPEC v0.4.9 Appendix A
+ * @see SPEC v2.0.0
  * @module
  */
 
 import type { DomainSchema, Patch, Requirement, Snapshot } from "@manifesto-ai/core";
 
-// Re-export Patch and Requirement from core
-export type { Patch, Requirement };
+// Re-export Patch, Requirement, and Snapshot from core
+export type { Patch, Requirement, Snapshot };
 import type {
   ActorRef,
   AuthorityPolicy,
   World,
   WorldId,
 } from "@manifesto-ai/world";
+
+// Re-export World and WorldId from world
+export type { World, WorldId };
 
 // =============================================================================
 // Base Types
@@ -23,9 +26,636 @@ import type {
 /**
  * App lifecycle status.
  *
- * @see SPEC §6.1
+ * Lifecycle transitions:
+ * created → initializing → ready → disposing → disposed
+ *
+ * @see SPEC v2.0.0 §7.1
+ * @see FDR-APP-RUNTIME-001 §2.3
  */
-export type AppStatus = "created" | "ready" | "disposing" | "disposed";
+export type AppStatus =
+  | "created" // Instance created, not yet initialized
+  | "initializing" // Internal binding in progress (v2.0.0)
+  | "ready" // External contract usable
+  | "disposing" // Cleanup in progress, new ingress rejected
+  | "disposed"; // Terminal state
+
+// =============================================================================
+// v2.0.0 Core Identifiers
+// =============================================================================
+
+/**
+ * Execution key for mailbox routing.
+ *
+ * @see SPEC v2.0.0 §5.1
+ */
+export type ExecutionKey = string;
+
+/**
+ * Schema hash for referential identity.
+ */
+export type SchemaHash = string;
+
+/**
+ * Branch identifier.
+ */
+export type BranchId = string;
+
+/**
+ * Memory identifier.
+ */
+export type MemoryId = string;
+
+/**
+ * Proposal identifier.
+ */
+export type ProposalId = string;
+
+/**
+ * Actor identifier.
+ */
+export type ActorId = string;
+
+/**
+ * Opaque reference to Host-owned artifact.
+ * World/App MAY store this reference but MUST NOT interpret its contents.
+ * Only Host knows how to resolve ArtifactRef → actual data.
+ *
+ * Structure follows World SPEC v2.0.2 for cross-boundary compatibility.
+ *
+ * @see SPEC v2.0.0 §5.1
+ */
+export type ArtifactRef = {
+  readonly uri: string;
+  readonly hash: string;
+};
+
+/**
+ * Proposal status.
+ *
+ * @see SPEC v2.0.0 §5.3
+ */
+export type ProposalStatus =
+  | "submitted"
+  | "evaluating"
+  | "approved"
+  | "rejected"
+  | "executing"
+  | "completed"
+  | "failed";
+
+/**
+ * World outcome.
+ *
+ * @see SPEC v2.0.0 §5.5
+ */
+export type WorldOutcome = "completed" | "failed";
+
+// =============================================================================
+// v2.0.0 Authority Types
+// =============================================================================
+
+/**
+ * Authority kind.
+ *
+ * @see SPEC v2.0.0 §5.6
+ */
+export type AuthorityKind = "auto" | "human" | "policy" | "consensus";
+
+/**
+ * Authority reference.
+ *
+ * @see SPEC v2.0.0 §5.6
+ */
+export type AuthorityRef = {
+  readonly kind: AuthorityKind;
+  readonly id: string;
+  readonly meta?: Record<string, unknown>;
+};
+
+/**
+ * Approved scope for execution constraints.
+ *
+ * @see SPEC v2.0.0 §5.7
+ */
+export type ApprovedScope = {
+  readonly allowedPaths: readonly string[];
+  readonly maxPatchCount?: number;
+  readonly constraints?: Record<string, unknown>;
+};
+
+/**
+ * Authority decision result.
+ *
+ * @see SPEC v2.0.0 §5.6
+ */
+export type AuthorityDecision = {
+  readonly approved: boolean;
+  readonly reason?: string;
+  readonly scope?: ApprovedScope;
+  readonly timestamp: number;
+};
+
+/**
+ * Validation result from policy service.
+ */
+export type ValidationResult = {
+  readonly valid: boolean;
+  readonly errors?: readonly string[];
+};
+
+// =============================================================================
+// v2.0.0 Execution Policy
+// =============================================================================
+
+/**
+ * Proposal for action execution.
+ *
+ * @see SPEC v2.0.0 §10
+ */
+export type Proposal = {
+  readonly proposalId: ProposalId;
+  readonly actorId: ActorId;
+  readonly intentType: string;
+  readonly intentBody: unknown;
+  readonly baseWorld: WorldId;
+  readonly branchId?: BranchId;
+  readonly createdAt: number;
+};
+
+/**
+ * Execution key derivation policy.
+ *
+ * @see SPEC v2.0.0 §5.8
+ */
+export type ExecutionKeyPolicy = (proposal: Proposal) => ExecutionKey;
+
+/**
+ * Execution policy configuration.
+ *
+ * @see SPEC v2.0.0 §5.8
+ */
+export type ExecutionPolicyConfig = {
+  readonly executionKeyPolicy: ExecutionKeyPolicy;
+  readonly intentTypeOverrides?: Record<string, ExecutionKeyPolicy>;
+  readonly actorKindOverrides?: Record<string, ExecutionKeyPolicy>;
+};
+
+// =============================================================================
+// v2.0.0 HostExecutor Interface
+// =============================================================================
+
+/**
+ * Host execution options. Defined by World SPEC.
+ * App MUST NOT extend this type.
+ *
+ * @see SPEC v2.0.0 §8.2
+ */
+export type HostExecutionOptions = {
+  readonly approvedScope?: unknown;
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+};
+
+/**
+ * Host execution result.
+ *
+ * @see SPEC v2.0.0 §8.3
+ */
+export type HostExecutionResult = {
+  readonly outcome: WorldOutcome;
+  readonly terminalSnapshot: Snapshot;
+  readonly error?: ErrorValue;
+  readonly traceRef?: ArtifactRef;
+};
+
+/**
+ * HostExecutor: App's adapter for Host execution.
+ *
+ * World interacts with execution ONLY through this interface.
+ * App implements this, wrapping the actual Host.
+ *
+ * @see SPEC v2.0.0 §8.1
+ */
+export interface HostExecutor {
+  /**
+   * Execute an intent against a snapshot.
+   *
+   * @param key - ExecutionKey for mailbox routing
+   * @param baseSnapshot - Starting snapshot
+   * @param intent - Intent to execute
+   * @param opts - Execution options (World SPEC defined, optional)
+   * @returns Terminal snapshot and outcome
+   */
+  execute(
+    key: ExecutionKey,
+    baseSnapshot: Snapshot,
+    intent: Intent,
+    opts?: HostExecutionOptions
+  ): Promise<HostExecutionResult>;
+
+  /**
+   * Abort execution for a key (best-effort).
+   */
+  abort?(key: ExecutionKey): void;
+}
+
+/**
+ * Intent for execution (from core).
+ */
+export type Intent = {
+  readonly type: string;
+  readonly body: unknown;
+  readonly intentId: string;
+};
+
+// =============================================================================
+// v2.0.0 WorldStore Interface
+// =============================================================================
+
+/**
+ * World delta for persistence.
+ *
+ * @see SPEC v2.0.0 §9.2
+ */
+export type WorldDelta = {
+  readonly fromWorld: WorldId;
+  readonly toWorld: WorldId;
+  readonly patches: readonly Patch[];
+  readonly createdAt: number;
+};
+
+/**
+ * Compact options for WorldStore maintenance.
+ */
+export type CompactOptions = {
+  readonly olderThan?: number;
+  readonly maxWorlds?: number;
+};
+
+/**
+ * Compact result from WorldStore maintenance.
+ */
+export type CompactResult = {
+  readonly compactedCount: number;
+  readonly freedBytes?: number;
+};
+
+/**
+ * WorldStore: Persistence abstraction for Worlds.
+ *
+ * @see SPEC v2.0.0 §9.1
+ */
+export interface WorldStore {
+  // Core Operations
+  /**
+   * Store a World and its delta.
+   */
+  store(world: World, delta: WorldDelta): Promise<void>;
+
+  /**
+   * Restore a Snapshot for a World.
+   * MAY involve delta reconstruction.
+   */
+  restore(worldId: WorldId): Promise<Snapshot>;
+
+  /**
+   * Get World metadata.
+   */
+  getWorld(worldId: WorldId): Promise<World | null>;
+
+  /**
+   * Check if World exists.
+   */
+  has(worldId: WorldId): Promise<boolean>;
+
+  // Query
+  /**
+   * Get children of a World.
+   */
+  getChildren(worldId: WorldId): Promise<readonly WorldId[]>;
+
+  /**
+   * Get lineage path to Genesis.
+   */
+  getLineage(worldId: WorldId): Promise<readonly WorldId[]>;
+
+  // Maintenance (Optional)
+  /**
+   * Compact old Worlds (delta-only storage).
+   */
+  compact?(options: CompactOptions): Promise<CompactResult>;
+
+  /**
+   * Archive cold Worlds.
+   */
+  archive?(worldIds: readonly WorldId[]): Promise<void>;
+}
+
+// =============================================================================
+// v2.0.0 PolicyService Interface
+// =============================================================================
+
+/**
+ * PolicyService: Policy decisions for execution.
+ *
+ * @see SPEC v2.0.0 §10.1
+ */
+export interface PolicyService {
+  /**
+   * Derive ExecutionKey for a Proposal.
+   */
+  deriveExecutionKey(proposal: Proposal): ExecutionKey;
+
+  /**
+   * Route Proposal to Authority and get decision.
+   */
+  requestApproval(proposal: Proposal): Promise<AuthorityDecision>;
+
+  /**
+   * Validate Proposal against ApprovedScope (pre-execution).
+   */
+  validateScope(proposal: Proposal, scope: ApprovedScope): ValidationResult;
+
+  /**
+   * Validate execution result against ApprovedScope (post-execution).
+   */
+  validateResultScope?(
+    baseSnapshot: Snapshot,
+    terminalSnapshot: Snapshot,
+    scope: ApprovedScope
+  ): ValidationResult;
+}
+
+// =============================================================================
+// v2.0.0 AppConfig
+// =============================================================================
+
+/**
+ * Host interface for v2 injection.
+ * This is a minimal interface that App requires from Host.
+ */
+export interface Host {
+  /**
+   * Execute an intent and return result.
+   */
+  dispatch(intent: Intent): Promise<HostResult>;
+
+  /**
+   * Register an effect handler.
+   */
+  registerEffect(type: string, handler: EffectHandler): void;
+
+  /**
+   * Get list of registered effect types.
+   */
+  getRegisteredEffectTypes?(): readonly string[];
+
+  /**
+   * Reset host state.
+   */
+  reset?(data: unknown): Promise<void>;
+}
+
+/**
+ * Effect handler signature.
+ */
+export type EffectHandler = (
+  type: string,
+  params: Record<string, unknown>,
+  ctx: EffectContext
+) => Promise<readonly Patch[]>;
+
+/**
+ * Effect context provided to handlers.
+ */
+export type EffectContext = {
+  readonly snapshot: Snapshot;
+  readonly signal?: AbortSignal;
+};
+
+/**
+ * Host result from dispatch.
+ */
+export type HostResult = {
+  readonly status: "completed" | "failed";
+  readonly snapshot: Snapshot;
+  readonly error?: ErrorValue;
+};
+
+/**
+ * MEL Compiler interface.
+ */
+export interface Compiler {
+  compile(source: string): Promise<{ schema: DomainSchema; errors: readonly CompileError[] }>;
+}
+
+/**
+ * Compile error.
+ */
+export type CompileError = {
+  readonly code: string;
+  readonly message: string;
+  readonly line?: number;
+  readonly column?: number;
+};
+
+/**
+ * v2.0.0 App Configuration.
+ *
+ * @see SPEC v2.0.0 §6.1
+ */
+export type AppConfig = {
+  // Required
+  /** Domain schema or MEL source text */
+  readonly schema: DomainSchema | string;
+
+  /** Host instance */
+  readonly host: Host;
+
+  /** World storage backend */
+  readonly worldStore: WorldStore;
+
+  // Optional: Policy
+  /** Policy service (default: auto-approve, unique key) */
+  readonly policyService?: PolicyService;
+
+  /** Execution key policy shorthand */
+  readonly executionKeyPolicy?: ExecutionKeyPolicy;
+
+  // Optional: Memory
+  /** External memory store */
+  readonly memoryStore?: MemoryStore;
+
+  /** Memory provider for execution integration */
+  readonly memoryProvider?: MemoryProvider;
+
+  // Optional: Compilation
+  /** Compiler for MEL text (required if schema is string) */
+  readonly compiler?: Compiler;
+
+  // Optional: Services
+  /** Effect handlers */
+  readonly services?: ServiceMap;
+
+  // Optional: Extensibility
+  /** Plugins to install */
+  readonly plugins?: readonly AppPlugin[];
+
+  /** Pre-configured hooks */
+  readonly hooks?: Partial<AppHooks>;
+
+  // Optional: Validation
+  readonly validation?: {
+    /** Validate services match schema effects */
+    readonly services?: "strict" | "warn" | "off";
+  };
+
+  // Optional: Initial data
+  readonly initialData?: unknown;
+
+  // Optional: Actor policy
+  readonly actorPolicy?: ActorPolicyConfig;
+
+  // Optional: Scheduler
+  readonly scheduler?: SchedulerConfig;
+
+  // Optional: System actions
+  readonly systemActions?: SystemActionsConfig;
+
+  // Optional: Devtools
+  readonly devtools?: DevtoolsConfig;
+};
+
+// =============================================================================
+// v2.0.0 AppRef (Read-only facade for hooks)
+// =============================================================================
+
+/**
+ * AppRef: Read-only facade for hooks.
+ * Prevents re-entrant mutations and infinite trigger loops.
+ *
+ * @see SPEC v2.0.0 §17.2
+ */
+export interface AppRef {
+  readonly status: AppStatus;
+  getState<T = unknown>(): AppState<T>;
+  getDomainSchema(): DomainSchema;
+  getCurrentHead(): WorldId;
+  currentBranch(): Branch;
+
+  /**
+   * Enqueue an action for execution after current hook completes.
+   * NOT synchronous execution — prevents re-entrancy.
+   */
+  enqueueAction(type: string, input?: unknown, opts?: ActOptions): ProposalId;
+}
+
+// =============================================================================
+// v2.0.0 ProposalResult
+// =============================================================================
+
+/**
+ * Result from submitProposal().
+ *
+ * @see SPEC v2.0.0 §6.5
+ */
+export type ProposalResult =
+  | { readonly status: "completed"; readonly world: World }
+  | { readonly status: "failed"; readonly world: World; readonly error?: ErrorValue }
+  | { readonly status: "rejected"; readonly reason: string };
+
+// =============================================================================
+// v2.0.0 MemoryStore Interface
+// =============================================================================
+
+/**
+ * Memory record input for create operations.
+ *
+ * @see SPEC v2.0.0 §11.2
+ */
+export type MemoryRecordInput<T = unknown> = {
+  readonly id?: MemoryId;
+  readonly data: T;
+  readonly createdAt?: number;
+  readonly updatedAt?: number;
+  readonly tags?: readonly string[];
+  readonly meta?: Record<string, unknown>;
+};
+
+/**
+ * Stored memory record.
+ *
+ * @see SPEC v2.0.0 §11.2
+ */
+export type StoredMemoryRecord<T = unknown> = {
+  readonly id: MemoryId;
+  readonly data: T;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly tags?: readonly string[];
+  readonly meta?: Record<string, unknown>;
+};
+
+/**
+ * Memory filter for queries.
+ */
+export type MemoryFilter = {
+  readonly tags?: readonly string[];
+  readonly createdAfter?: number;
+  readonly createdBefore?: number;
+  readonly limit?: number;
+};
+
+/**
+ * MemoryStore: External mutable storage.
+ * Separate from World (immutable history).
+ *
+ * @see SPEC v2.0.0 §11.1
+ */
+export interface MemoryStore<T = unknown> {
+  // CRUD (Required)
+  create(record: MemoryRecordInput<T>): Promise<MemoryId>;
+  get(id: MemoryId): Promise<StoredMemoryRecord<T> | null>;
+  update(id: MemoryId, patch: Partial<T>): Promise<void>;
+  delete(id: MemoryId): Promise<void>;
+  query(filter: MemoryFilter): Promise<StoredMemoryRecord<T>[]>;
+
+  // Batch (Optional)
+  createMany?(records: MemoryRecordInput<T>[]): Promise<MemoryId[]>;
+  deleteMany?(ids: MemoryId[]): Promise<void>;
+
+  // Maintenance (Optional)
+  consolidate?(): Promise<void>;
+  clear?(): Promise<void>;
+}
+
+// =============================================================================
+// v2.0.0 Schema Compatibility
+// =============================================================================
+
+/**
+ * Schema compatibility validation result.
+ *
+ * @see SPEC v2.0.0 §12.4
+ */
+export type SchemaCompatibilityResult =
+  | { readonly compatible: true }
+  | { readonly compatible: false; readonly missingEffects: readonly string[] };
+
+// =============================================================================
+// v2.0.0 ActionResult (extended)
+// =============================================================================
+
+/**
+ * v2.0.0 Action Result (extended).
+ *
+ * @see SPEC v2.0.0 §5.10
+ */
+export type ActionResultV2 =
+  | { readonly status: "completed"; readonly world: World; readonly snapshot: Snapshot }
+  | { readonly status: "failed"; readonly world: World; readonly error: ErrorValue }
+  | { readonly status: "rejected"; readonly reason: string; readonly decision: AuthorityDecision }
+  | { readonly status: "preparation_failed"; readonly reason: string; readonly error?: ErrorValue };
 
 /**
  * Runtime kind indicator.
@@ -337,9 +967,10 @@ export interface DevtoolsConfig {
 }
 
 /**
- * App creation options.
+ * App creation options (legacy v0.4.x API).
  *
  * @see SPEC §5.2
+ * @deprecated Use AppConfig for v2.0.0 API
  */
 export interface CreateAppOptions {
   /** Initial data for genesis snapshot */
@@ -353,6 +984,9 @@ export interface CreateAppOptions {
 
   /** Plugin array */
   plugins?: readonly AppPlugin[];
+
+  /** Pre-configured hooks */
+  hooks?: Partial<AppHooks>;
 
   /** Validation settings */
   validation?: ValidationConfig;
@@ -368,6 +1002,12 @@ export interface CreateAppOptions {
 
   /** Development tools */
   devtools?: DevtoolsConfig;
+
+  /**
+   * Internal v2 config (set by createApp when using AppConfig).
+   * @internal
+   */
+  _v2Config?: AppConfig;
 }
 
 /**
@@ -1371,16 +2011,38 @@ export interface SystemFacade {
 /**
  * App interface.
  *
- * @see SPEC §6.1
+ * @see SPEC v2.0.0 §6.2
  */
 export interface App {
+  // ═══════════════════════════════════════════════════════════════════
   // Lifecycle
+  // ═══════════════════════════════════════════════════════════════════
+
+  /** Current app status */
   readonly status: AppStatus;
+
+  /** Hook registry */
   readonly hooks: Hookable<AppHooks>;
+
+  /**
+   * Initialize the App.
+   *
+   * MUST be called before any mutation/read APIs.
+   * Compiles MEL if schema is string, initializes plugins.
+   */
   ready(): Promise<void>;
+
+  /**
+   * Dispose the App.
+   *
+   * Drains executing actions, cleans up resources.
+   */
   dispose(opts?: DisposeOptions): Promise<void>;
 
-  // Domain Schema Access (v0.4.10)
+  // ═══════════════════════════════════════════════════════════════════
+  // Schema Access
+  // ═══════════════════════════════════════════════════════════════════
+
   /**
    * Returns the DomainSchema for the current branch's schemaHash.
    *
@@ -1395,18 +2057,42 @@ export interface App {
    * @throws AppNotReadyError if called before schema is resolved (READY-6)
    * @throws AppDisposedError if called after dispose()
    * @returns DomainSchema for current branch's schemaHash
-   * @see SPEC §6.2 SCHEMA-1~6
-   * @since v0.4.10
+   * @see SPEC v2.0.0 §13 SCHEMA-1~6
    */
   getDomainSchema(): DomainSchema;
 
-  // Branch Management (Domain Runtime)
-  currentBranch(): Branch;
-  listBranches(): readonly Branch[];
-  switchBranch(branchId: string): Promise<Branch>;
-  fork(opts?: ForkOptions): Promise<Branch>;
+  // ═══════════════════════════════════════════════════════════════════
+  // State Access
+  // ═══════════════════════════════════════════════════════════════════
 
-  // Action Execution
+  /**
+   * Get current state.
+   */
+  getState<T = unknown>(): AppState<T>;
+
+  /**
+   * Subscribe to state changes.
+   */
+  subscribe<TSelected>(
+    selector: (state: AppState<unknown>) => TSelected,
+    listener: (selected: TSelected) => void,
+    opts?: SubscribeOptions<TSelected>
+  ): Unsubscribe;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Action Execution (High-Level API)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Execute an action.
+   *
+   * This is the primary API for action execution.
+   * Returns an ActionHandle for tracking.
+   *
+   * @param type - Action type (e.g., 'todo:add')
+   * @param input - Action input payload
+   * @param opts - Execution options
+   */
   act(type: string, input?: unknown, opts?: ActOptions): ActionHandle;
 
   /**
@@ -1415,22 +2101,100 @@ export interface App {
    * @throws ActionNotFoundError if proposalId is unknown
    */
   getActionHandle(proposalId: string): ActionHandle;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Proposal Execution (Low-Level API) - v2.0.0
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Submit a proposal for execution.
+   *
+   * Low-level API. Prefer act() for most use cases.
+   *
+   * @see SPEC v2.0.0 §6.2 APP-API-4
+   */
+  submitProposal?(proposal: Proposal): Promise<ProposalResult>;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Session
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Create a session for an actor.
+   *
+   * Session provides actor-scoped action execution.
+   */
   session(actorId: string, opts?: SessionOptions): Session;
 
-  // State Access (Domain Runtime)
-  getState<T = unknown>(): AppState<T>;
-  subscribe<TSelected>(
-    selector: (state: AppState<unknown>) => TSelected,
-    listener: (selected: TSelected) => void,
-    opts?: SubscribeOptions<TSelected>
-  ): Unsubscribe;
+  // ═══════════════════════════════════════════════════════════════════
+  // Branch Management
+  // ═══════════════════════════════════════════════════════════════════
 
-  // System Runtime Access
+  /**
+   * Get current branch.
+   */
+  currentBranch(): Branch;
+
+  /**
+   * List all branches.
+   */
+  listBranches(): readonly Branch[];
+
+  /**
+   * Switch to a different branch.
+   */
+  switchBranch(branchId: string): Promise<Branch>;
+
+  /**
+   * Create a new branch (fork).
+   */
+  fork(opts?: ForkOptions): Promise<Branch>;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // System Runtime
+  // ═══════════════════════════════════════════════════════════════════
+
+  /** System operations facade */
   readonly system: SystemFacade;
 
+  // ═══════════════════════════════════════════════════════════════════
   // Memory
+  // ═══════════════════════════════════════════════════════════════════
+
+  /** Memory operations facade */
   readonly memory: MemoryFacade;
 
+  // ═══════════════════════════════════════════════════════════════════
+  // World Query (v2.0.0)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Get current head WorldId.
+   *
+   * @see SPEC v2.0.0 §6.2
+   */
+  getCurrentHead?(): WorldId;
+
+  /**
+   * Get snapshot for a World.
+   *
+   * @see SPEC v2.0.0 §6.2
+   */
+  getSnapshot?(worldId: WorldId): Promise<Snapshot>;
+
+  /**
+   * Get World metadata.
+   *
+   * @see SPEC v2.0.0 §6.2
+   */
+  getWorld?(worldId: WorldId): Promise<World>;
+
+  // ═══════════════════════════════════════════════════════════════════
   // Audit
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Get migration links (schema migrations).
+   */
   getMigrationLinks(): readonly MigrationLink[];
 }

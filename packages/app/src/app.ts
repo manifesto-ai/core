@@ -12,22 +12,42 @@ import type {
   App,
   ActionHandle,
   ActOptions,
+  AppConfig,
   AppHooks,
   AppState,
   AppStatus,
+  ApprovedScope,
+  AuthorityDecision,
   Branch,
   CreateAppOptions,
   DisposeOptions,
+  ErrorValue,
+  ExecutionKey,
   ForkOptions,
   Hookable,
+  Host,
+  HostExecutor,
+  Intent,
   MemoryFacade,
   MigrationLink,
+  Patch,
+  PolicyService,
+  Proposal,
+  ProposalId,
+  ProposalResult,
+  RecallRequest,
   Session,
   SessionOptions,
+  Snapshot,
   SubscribeOptions,
   SystemFacade,
   Unsubscribe,
+  World,
+  WorldDelta,
+  WorldStore,
 } from "./types/index.js";
+import type { WorldId } from "@manifesto-ai/world";
+import { createWorldId, createProposalId } from "@manifesto-ai/world";
 
 import {
   AppNotReadyError,
@@ -49,9 +69,12 @@ import { SessionImpl } from "./session/index.js";
 import { HookableImpl, createHookContext } from "./hooks/index.js";
 import { SubscriptionStore } from "./subscription/index.js";
 import { ServiceRegistry } from "./services/index.js";
-import { createMemoryFacade } from "./memory/index.js";
+import { createMemoryFacade, freezeRecallResult } from "./memory/index.js";
 import { SystemRuntime, createSystemFacade } from "./system/index.js";
 import type { SystemActionType } from "./constants.js";
+import { AppHostExecutor, createAppHostExecutor } from "./host-executor/index.js";
+import { createDefaultPolicyService, createSilentPolicyService } from "./policy/index.js";
+import { generateWorldId } from "./branch/index.js";
 
 // =============================================================================
 // ManifestoApp Implementation
@@ -101,9 +124,35 @@ export class ManifestoApp implements App {
   private _memoryFacade: MemoryFacade | null = null;
   private _migrationLinks: MigrationLink[] = [];
 
-  // Domain Executor (Host integration)
+  // Domain Executor (Host integration) - Legacy v0.4.x
   private _domainExecutor: DomainExecutor | null = null;
 
+  // ==========================================================================
+  // v2.0.0 Components
+  // ==========================================================================
+
+  /** v2 Host instance (injected via AppConfig) */
+  private _v2Host: Host | null = null;
+
+  /** v2 WorldStore instance (injected via AppConfig) */
+  private _v2WorldStore: WorldStore | null = null;
+
+  /** v2 PolicyService instance (injected or default) */
+  private _v2PolicyService: PolicyService | null = null;
+
+  /** v2 HostExecutor (wraps Host for World Protocol) */
+  private _v2HostExecutor: AppHostExecutor | null = null;
+
+  /** v2 mode enabled flag */
+  private _v2Enabled: boolean = false;
+
+  /** v2 current head WorldId */
+  private _v2CurrentHead: WorldId | null = null;
+
+  /** v2 genesis WorldId (for lineage root) */
+  private _v2GenesisWorldId: WorldId | null = null;
+
+  // ==========================================================================
   // Domain Action FIFO Queue (SCHED-1~4)
   // All domain actions are serialized via single queue.
   // NOTE: Per-branch parallelism requires per-branch Host instances,
@@ -117,6 +166,27 @@ export class ManifestoApp implements App {
   constructor(domain: string | DomainSchema, opts?: CreateAppOptions) {
     this._domain = domain;
     this._options = opts ?? {};
+
+    // v2.0.0: Detect v2 mode from _v2Config
+    const v2Config = opts?._v2Config;
+    if (v2Config?.host && v2Config?.worldStore) {
+      this._v2Enabled = true;
+      this._v2Host = v2Config.host;
+      this._v2WorldStore = v2Config.worldStore;
+
+      // PolicyService: use provided or create default
+      if (v2Config.policyService) {
+        this._v2PolicyService = v2Config.policyService;
+      } else {
+        // Create default PolicyService with optional executionKeyPolicy
+        const isTest = typeof globalThis !== "undefined" &&
+          (globalThis as unknown as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === "test";
+
+        this._v2PolicyService = isTest
+          ? createSilentPolicyService(v2Config.executionKeyPolicy)
+          : createDefaultPolicyService({ executionKeyPolicy: v2Config.executionKeyPolicy });
+      }
+    }
   }
 
   // ===========================================================================
@@ -304,15 +374,20 @@ export class ManifestoApp implements App {
       this._enqueueSystem(async () => {
         await this._executeSystemAction(handle, type as SystemActionType, input, opts);
       });
+    } else if (this._v2Enabled) {
+      // v2.0.0 path: HostExecutor + WorldStore + PolicyService
+      // All domain actions serialized via FIFO queue (SCHED-1)
+      this._enqueueDomain(async () => {
+        await this._executeActionV2(handle, type, input, opts);
+      });
     } else if (singleWriter) {
-      // Domain actions: FIFO serialization (SCHED-1)
-      // All domain actions share single queue because current
-      // architecture has single Host per App
+      // Legacy v0.4.x path: Domain actions via DomainExecutor
+      // FIFO serialization (SCHED-1)
       this._enqueueDomain(async () => {
         await this._executeActionLifecycle(ctx, handle, type, input, opts);
       });
     } else {
-      // singleWriterPerBranch disabled: execute concurrently (risky)
+      // Legacy: singleWriterPerBranch disabled: execute concurrently (risky)
       queueMicrotask(() => {
         void this._executeActionLifecycle(ctx, handle, type, input, opts);
       });
@@ -649,6 +724,467 @@ export class ManifestoApp implements App {
     }
   }
 
+  /**
+   * Execute action lifecycle for v2.0.0.
+   *
+   * Flow:
+   * 1. preparing      → Emit hook, validate action exists
+   * 2. submitted      → Create Proposal
+   * 3. evaluating     → PolicyService.deriveExecutionKey() + requestApproval()
+   * 4. approved/rejected → If rejected: emit audit:rejected, return
+   * 5. executing      → WorldStore.restore() → freeze context → HostExecutor.execute()
+   * 6. post-validate  → PolicyService.validateResultScope() (optional)
+   * 7. store          → Create World, WorldDelta → WorldStore.store()
+   * 8. update         → Advance branch head (only if completed)
+   * 9. completed/failed → Emit hooks, set result
+   *
+   * @see SPEC v2.0.0 §5-10
+   * @internal
+   */
+  private async _executeActionV2(
+    handle: ActionHandleImpl,
+    actionType: string,
+    input: unknown,
+    opts?: ActOptions
+  ): Promise<void> {
+    // Start transaction for subscription batching
+    this._subscriptionStore.startTransaction();
+
+    const actorId = opts?.actorId ?? this._defaultActorId;
+    const branchId = opts?.branchId ?? this._branchManager?.currentBranchId ?? "main";
+
+    try {
+      // ==== Phase 1: preparing ====
+      await this._hooks.emit("action:preparing", {
+        proposalId: handle.proposalId,
+        actorId,
+        branchId,
+        type: actionType,
+        runtime: "domain" as const,
+      }, this._createHookContext());
+
+      handle._transitionTo("preparing");
+
+      // Validate action type exists
+      const actionDef = this._domainSchema?.actions[actionType];
+      if (!actionDef) {
+        await this._handlePreparationFailure(handle, {
+          code: "ACTION_NOT_FOUND",
+          message: `Action type '${actionType}' not found in schema`,
+        });
+        return;
+      }
+
+      // ==== Phase 2: submitted ====
+      handle._transitionTo("submitted");
+
+      // Create Proposal
+      const baseWorldIdStr = this._v2CurrentHead ?? this._branchManager?.currentBranch()?.head() ?? "genesis";
+      const baseWorldId = createWorldId(String(baseWorldIdStr));
+      const proposal: Proposal = {
+        proposalId: handle.proposalId,
+        actorId,
+        intentType: actionType,
+        intentBody: input,
+        baseWorld: baseWorldId,
+        branchId,
+        createdAt: Date.now(),
+      };
+
+      // Emit submitted hook
+      await this._hooks.emit("action:submitted", {
+        proposalId: handle.proposalId,
+        actorId,
+        branchId,
+        type: actionType,
+        input,
+        runtime: "domain" as const,
+      }, this._createHookContext());
+
+      // ==== Phase 3: evaluating ====
+      handle._transitionTo("evaluating");
+
+      // Derive ExecutionKey
+      const executionKey = this._v2PolicyService!.deriveExecutionKey(proposal);
+
+      // Request approval from PolicyService
+      const decision = await this._v2PolicyService!.requestApproval(proposal);
+
+      // ==== Phase 4: approved/rejected ====
+      if (!decision.approved) {
+        handle._transitionTo("rejected", {
+          kind: "rejected",
+          reason: decision.reason,
+        });
+
+        // Emit audit:rejected
+        await this._hooks.emit("audit:rejected", {
+          operation: actionType,
+          reason: decision.reason,
+          proposalId: handle.proposalId,
+        }, this._createHookContext());
+
+        const result = {
+          status: "rejected" as const,
+          proposalId: handle.proposalId,
+          decisionId: `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          reason: decision.reason,
+          runtime: "domain" as const,
+        };
+
+        handle._setResult(result);
+        this._subscriptionStore.endTransaction();
+
+        await this._hooks.emit("action:completed", {
+          proposalId: handle.proposalId,
+          result,
+        }, this._createHookContext());
+
+        return;
+      }
+
+      // Approved
+      handle._transitionTo("approved");
+
+      // ==== Phase 5: executing ====
+      handle._transitionTo("executing");
+
+      // Restore base snapshot from WorldStore
+      let baseSnapshot: Snapshot;
+      try {
+        baseSnapshot = await this._v2WorldStore!.restore(baseWorldId);
+      } catch (error) {
+        // Fallback to current state if WorldStore fails
+        baseSnapshot = this._appStateToSnapshot(this._currentState!);
+      }
+
+      // Handle memory recall if requested
+      if (opts?.recall) {
+        try {
+          const recallRequests = Array.isArray(opts.recall) ? opts.recall : [opts.recall];
+          const recallResult = await this._memoryFacade!.recall(
+            recallRequests as RecallRequest[],
+            { actorId, branchId }
+          );
+          // MEM-7: Freeze recall context into snapshot
+          baseSnapshot = freezeRecallResult(baseSnapshot, recallResult);
+        } catch (recallError) {
+          // Recall failure doesn't block execution, but we log it
+          console.warn("[Manifesto] Memory recall failed:", recallError);
+        }
+      }
+
+      // Create Intent for execution
+      const intent: Intent = {
+        type: actionType,
+        body: input,
+        intentId: `intent_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      };
+
+      // Execute via HostExecutor
+      const execResult = await this._v2HostExecutor!.execute(
+        executionKey,
+        baseSnapshot,
+        intent,
+        {
+          approvedScope: decision.scope,
+          timeoutMs: this._options.scheduler?.defaultTimeoutMs,
+        }
+      );
+
+      // ==== Phase 6: post-validate (optional) ====
+      if (decision.scope && this._v2PolicyService!.validateResultScope) {
+        const scopeValidation = this._v2PolicyService!.validateResultScope(
+          baseSnapshot,
+          execResult.terminalSnapshot,
+          decision.scope
+        );
+
+        if (!scopeValidation.valid) {
+          // Scope violation - treat as failure
+          console.warn("[Manifesto] Result scope validation failed:", scopeValidation.errors);
+          // Continue with failed outcome
+        }
+      }
+
+      // ==== Phase 7: store ====
+      const newWorldIdStr = generateWorldId();
+      const newWorldId = createWorldId(newWorldIdStr);
+      const decisionId = `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+      // Compute snapshot hash for the terminal snapshot
+      const snapshotHash = this._computeSnapshotHash(execResult.terminalSnapshot);
+
+      // Create World object (matching @manifesto-ai/world schema)
+      const newWorld: World = {
+        worldId: newWorldId,
+        schemaHash: this._domainSchema?.hash ?? "unknown",
+        snapshotHash,
+        createdAt: Date.now(),
+        createdBy: createProposalId(handle.proposalId),
+      };
+
+      // Create WorldDelta
+      const delta: WorldDelta = {
+        fromWorld: baseWorldId,
+        toWorld: newWorldId,
+        patches: this._computePatches(baseSnapshot, execResult.terminalSnapshot),
+        createdAt: Date.now(),
+      };
+
+      // Store in WorldStore
+      try {
+        await this._v2WorldStore!.store(newWorld, delta);
+      } catch (storeError) {
+        console.error("[Manifesto] Failed to store World:", storeError);
+        // Continue - execution was successful even if storage failed
+      }
+
+      // ==== Phase 8: update ====
+      // Update state with terminal snapshot
+      const newState = this._snapshotToAppState(execResult.terminalSnapshot);
+      this._currentState = newState;
+      this._subscriptionStore.notify(newState);
+
+      // BRANCH-7: Only advance head if completed (not failed)
+      if (execResult.outcome === "completed") {
+        this._v2CurrentHead = newWorldId;
+        this._branchManager?.appendWorldToBranch(branchId, newWorldId);
+      }
+
+      // ==== Phase 9: completed/failed ====
+      if (execResult.outcome === "completed") {
+        handle._transitionTo("completed", {
+          kind: "completed",
+          worldId: newWorldId,
+        });
+
+        const result = {
+          status: "completed" as const,
+          worldId: newWorldId,
+          proposalId: handle.proposalId,
+          decisionId,
+          stats: {
+            durationMs: Date.now() - proposal.createdAt,
+            effectCount: 0, // TODO: Track effect count
+            patchCount: delta.patches.length,
+          },
+          runtime: "domain" as const,
+        };
+
+        handle._setResult(result);
+      } else {
+        // Failed
+        handle._transitionTo("failed", {
+          kind: "failed",
+          error: execResult.error ?? {
+            code: "EXECUTION_FAILED",
+            message: "Execution failed",
+            source: { actionId: handle.proposalId, nodePath: "" },
+            timestamp: Date.now(),
+          },
+        });
+
+        // Update system.lastError
+        this._currentState = {
+          ...this._currentState!,
+          system: {
+            ...this._currentState!.system,
+            lastError: execResult.error ?? null,
+            errors: [
+              ...this._currentState!.system.errors,
+              ...(execResult.error ? [execResult.error] : []),
+            ],
+          },
+        };
+
+        const result = {
+          status: "failed" as const,
+          proposalId: handle.proposalId,
+          decisionId,
+          error: execResult.error ?? {
+            code: "EXECUTION_FAILED",
+            message: "Execution failed",
+            source: { actionId: handle.proposalId, nodePath: "" },
+            timestamp: Date.now(),
+          },
+          worldId: newWorldId,
+          runtime: "domain" as const,
+        };
+
+        handle._setResult(result);
+
+        // Emit audit:failed
+        await this._hooks.emit("audit:failed", {
+          operation: actionType,
+          error: execResult.error ?? {
+            code: "EXECUTION_FAILED",
+            message: "Execution failed",
+            source: { actionId: handle.proposalId, nodePath: "" },
+            timestamp: Date.now(),
+          },
+          proposalId: handle.proposalId,
+        }, this._createHookContext());
+      }
+
+      // End transaction
+      this._subscriptionStore.endTransaction();
+
+      // Emit action:completed
+      const completedResult = await handle.result();
+      await this._hooks.emit("action:completed", {
+        proposalId: handle.proposalId,
+        result: completedResult,
+      }, this._createHookContext());
+
+    } catch (error) {
+      // Unexpected error
+      await this._handleExecutionError(handle, error, actionType);
+    }
+  }
+
+  /**
+   * Handle preparation failure in v2 execution.
+   *
+   * @internal
+   */
+  private async _handlePreparationFailure(
+    handle: ActionHandleImpl,
+    errorInfo: { code: string; message: string }
+  ): Promise<void> {
+    const error: ErrorValue = {
+      code: errorInfo.code,
+      message: errorInfo.message,
+      source: { actionId: handle.proposalId, nodePath: "" },
+      timestamp: Date.now(),
+    };
+
+    handle._transitionTo("preparation_failed", {
+      kind: "preparation_failed",
+      error,
+    });
+
+    const result = {
+      status: "preparation_failed" as const,
+      proposalId: handle.proposalId,
+      error,
+      runtime: handle.runtime,
+    };
+
+    handle._setResult(result);
+    this._subscriptionStore.endTransaction();
+
+    await this._hooks.emit("action:completed", {
+      proposalId: handle.proposalId,
+      result,
+    }, this._createHookContext());
+  }
+
+  /**
+   * Handle unexpected execution error in v2.
+   *
+   * @internal
+   */
+  private async _handleExecutionError(
+    handle: ActionHandleImpl,
+    error: unknown,
+    actionType: string
+  ): Promise<void> {
+    const errorValue: ErrorValue = {
+      code: "EXECUTION_ERROR",
+      message: error instanceof Error ? error.message : String(error),
+      source: { actionId: handle.proposalId, nodePath: "" },
+      timestamp: Date.now(),
+    };
+
+    const worldIdStr = generateWorldId();
+    const decisionId = `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+    handle._transitionTo("failed", {
+      kind: "failed",
+      error: errorValue,
+    });
+
+    const result = {
+      status: "failed" as const,
+      proposalId: handle.proposalId,
+      decisionId,
+      error: errorValue,
+      worldId: worldIdStr,
+      runtime: handle.runtime,
+    };
+
+    handle._setResult(result);
+
+    // End transaction and notify subscribers (even on error)
+    this._subscriptionStore.endTransaction();
+
+    await this._hooks.emit("audit:failed", {
+      operation: actionType,
+      error: errorValue,
+      proposalId: handle.proposalId,
+    }, this._createHookContext());
+
+    await this._hooks.emit("action:completed", {
+      proposalId: handle.proposalId,
+      result,
+    }, this._createHookContext());
+  }
+
+  /**
+   * Compute patches between two snapshots.
+   *
+   * @internal
+   */
+  private _computePatches(from: Snapshot, to: Snapshot): Patch[] {
+    const patches: Patch[] = [];
+
+    // Simple diff: compare data fields
+    const fromData = from.data as Record<string, unknown>;
+    const toData = to.data as Record<string, unknown>;
+
+    // Added/changed keys
+    for (const [key, value] of Object.entries(toData)) {
+      if (JSON.stringify(fromData[key]) !== JSON.stringify(value)) {
+        patches.push({ op: "set", path: `data.${key}`, value });
+      }
+    }
+
+    // Removed keys
+    for (const key of Object.keys(fromData)) {
+      if (!(key in toData)) {
+        patches.push({ op: "unset", path: `data.${key}` });
+      }
+    }
+
+    return patches;
+  }
+
+  /**
+   * Convert Snapshot to AppState format.
+   *
+   * @internal
+   */
+  private _snapshotToAppState(snapshot: Snapshot): AppState<unknown> {
+    return {
+      data: snapshot.data,
+      computed: (snapshot.computed ?? {}) as Record<string, unknown>,
+      system: {
+        status: (snapshot.system?.status as "idle" | "computing" | "pending" | "error") ?? "idle",
+        lastError: snapshot.system?.lastError ?? null,
+        errors: (snapshot.system?.errors ?? []) as readonly ErrorValue[],
+        pendingRequirements: snapshot.system?.pendingRequirements ?? [],
+        currentAction: snapshot.system?.currentAction ?? null,
+      },
+      meta: {
+        version: snapshot.meta?.version ?? 0,
+        timestamp: snapshot.meta?.timestamp ?? Date.now(),
+        randomSeed: snapshot.meta?.randomSeed ?? "",
+        schemaHash: snapshot.meta?.schemaHash ?? "unknown",
+      },
+    };
+  }
+
   getActionHandle(proposalId: string): ActionHandle {
     this._ensureReady("getActionHandle");
     const handle = this._actionHandles.get(proposalId);
@@ -716,6 +1252,150 @@ export class ManifestoApp implements App {
   getMigrationLinks(): readonly MigrationLink[] {
     this._ensureReady("getMigrationLinks");
     return this._migrationLinks;
+  }
+
+  // ===========================================================================
+  // v2.0.0 World Query APIs
+  // ===========================================================================
+
+  /**
+   * Get current head WorldId.
+   *
+   * @returns Current head WorldId for the active branch
+   * @see SPEC v2.0.0 §6.2
+   */
+  getCurrentHead(): WorldId {
+    this._ensureReady("getCurrentHead");
+
+    if (this._v2Enabled && this._v2CurrentHead) {
+      return this._v2CurrentHead;
+    }
+
+    // Fallback to branch head
+    const headStr = this._branchManager?.currentBranch()?.head() ?? "genesis";
+    return createWorldId(String(headStr));
+  }
+
+  /**
+   * Get snapshot for a World.
+   *
+   * @param worldId - World identifier
+   * @returns Snapshot for the specified World
+   * @throws WorldNotFoundError if worldId does not exist
+   * @see SPEC v2.0.0 §6.2
+   */
+  async getSnapshot(worldId: WorldId): Promise<Snapshot> {
+    this._ensureReady("getSnapshot");
+
+    if (!this._v2Enabled || !this._v2WorldStore) {
+      // Legacy mode: return current state as snapshot
+      return this._appStateToSnapshot(this._currentState!);
+    }
+
+    return this._v2WorldStore.restore(worldId);
+  }
+
+  /**
+   * Get World metadata.
+   *
+   * @param worldId - World identifier
+   * @returns World object
+   * @throws Error if world is not found
+   * @see SPEC v2.0.0 §6.2
+   */
+  async getWorld(worldId: WorldId): Promise<World> {
+    this._ensureReady("getWorld");
+
+    if (!this._v2Enabled || !this._v2WorldStore) {
+      // Legacy mode: create a synthetic World
+      const snapshot = this._appStateToSnapshot(this._currentState!);
+      return {
+        worldId,
+        schemaHash: this._domainSchema?.hash ?? "unknown",
+        snapshotHash: this._computeSnapshotHash(snapshot),
+        createdAt: Date.now(),
+        createdBy: null,
+      };
+    }
+
+    const world = await this._v2WorldStore.getWorld(worldId);
+    if (!world) {
+      throw new Error(`World not found: ${worldId}`);
+    }
+    return world;
+  }
+
+  /**
+   * Submit a proposal for execution.
+   *
+   * Low-level API. Prefer act() for most use cases.
+   *
+   * @param proposal - Proposal to submit
+   * @returns ProposalResult indicating success, failure, or rejection
+   * @see SPEC v2.0.0 §6.2 APP-API-4
+   */
+  async submitProposal(proposal: Proposal): Promise<ProposalResult> {
+    this._ensureReady("submitProposal");
+
+    if (!this._v2Enabled) {
+      // Legacy mode: not supported
+      return {
+        status: "rejected",
+        reason: "submitProposal requires v2 mode with Host and WorldStore",
+      };
+    }
+
+    // Create handle for tracking
+    const runtime = proposal.intentType.startsWith("system.") ? "system" : "domain";
+    const handle = new ActionHandleImpl(proposal.proposalId, runtime as "domain" | "system");
+    this._actionHandles.set(proposal.proposalId, handle);
+
+    // Execute via v2 path
+    await new Promise<void>((resolve) => {
+      this._enqueueDomain(async () => {
+        await this._executeActionV2(
+          handle,
+          proposal.intentType,
+          proposal.intentBody,
+          {
+            actorId: proposal.actorId,
+            branchId: proposal.branchId,
+          }
+        );
+        resolve();
+      });
+    });
+
+    // Get result
+    const result = await handle.result();
+
+    if (result.status === "completed") {
+      const worldId = createWorldId(result.worldId);
+      const world = await this._v2WorldStore!.getWorld(worldId);
+      return {
+        status: "completed",
+        world: world!,
+      };
+    } else if (result.status === "failed") {
+      const worldId = createWorldId(result.worldId);
+      const world = await this._v2WorldStore!.getWorld(worldId);
+      return {
+        status: "failed",
+        world: world!,
+        error: result.error,
+      };
+    } else if (result.status === "rejected") {
+      return {
+        status: "rejected",
+        reason: result.reason ?? "Proposal rejected by authority",
+      };
+    } else {
+      // preparation_failed
+      return {
+        status: "rejected",
+        reason: result.error?.message ?? "Proposal preparation failed",
+      };
+    }
   }
 
   // ===========================================================================
@@ -969,6 +1649,11 @@ export class ManifestoApp implements App {
           return this._currentState!;
         },
       },
+      // v2.0.0: Provide effect types for schema compatibility check
+      // Uses callback pattern because HostExecutor is created after BranchManager
+      getRegisteredEffectTypes: this._v2Enabled
+        ? () => this._v2HostExecutor?.getRegisteredEffectTypes() ?? []
+        : undefined,
     });
 
     // Initialize memory facade
@@ -1030,12 +1715,183 @@ export class ManifestoApp implements App {
     // MEM-MAINT-1~10: System Runtime needs memory facade for system.memory.maintain
     this._systemRuntime.setMemoryFacade(this._memoryFacade);
 
-    // Initialize Domain Executor (Host integration)
-    this._domainExecutor = new DomainExecutor({
-      schema: this._domainSchema!,
-      services: this._options.services ?? {},
-      initialState: this._currentState,
+    // Initialize execution layer based on mode
+    if (this._v2Enabled) {
+      // v2.0.0 path: HostExecutor + WorldStore
+      this._initializeV2Components();
+    } else {
+      // Legacy v0.4.x path: DomainExecutor
+      this._domainExecutor = new DomainExecutor({
+        schema: this._domainSchema!,
+        services: this._options.services ?? {},
+        initialState: this._currentState,
+      });
+    }
+  }
+
+  /**
+   * Initialize v2.0.0 components.
+   *
+   * Sets up HostExecutor, registers effect handlers, and initializes genesis World.
+   *
+   * @see SPEC v2.0.0 §8-10
+   * @internal
+   */
+  private _initializeV2Components(): void {
+    if (!this._v2Host || !this._v2WorldStore || !this._v2PolicyService) {
+      throw new Error("v2 mode requires Host, WorldStore, and PolicyService");
+    }
+
+    // 1. Create AppHostExecutor wrapping injected Host
+    this._v2HostExecutor = createAppHostExecutor(this._v2Host, {
+      defaultTimeoutMs: this._options.scheduler?.defaultTimeoutMs,
+      traceEnabled: this._options.devtools?.enabled,
     });
+
+    // 2. Register effect handlers from services
+    const services = this._options.services ?? {};
+    for (const [effectType, handler] of Object.entries(services)) {
+      this._v2Host.registerEffect(effectType, async (type, params, ctx) => {
+        const result = await handler(params, {
+          snapshot: ctx.snapshot as AppState<unknown>,
+          actorId: this._defaultActorId,
+          worldId: this._v2CurrentHead ?? "genesis",
+          branchId: this._branchManager?.currentBranchId ?? "main",
+          patch: this._createPatchHelpers(),
+          signal: ctx.signal ?? new AbortController().signal,
+        });
+
+        // Normalize result to Patch array
+        if (!result) return [];
+        if (Array.isArray(result)) return result;
+        if ("patches" in result) return result.patches;
+        return [result];
+      });
+    }
+
+    // 3. Initialize genesis World in WorldStore
+    this._initializeGenesisWorld();
+  }
+
+  /**
+   * Initialize genesis World in WorldStore.
+   *
+   * @internal
+   */
+  private async _initializeGenesisWorld(): Promise<void> {
+    if (!this._v2WorldStore || !this._currentState) {
+      return;
+    }
+
+    const genesisIdStr = this._branchManager?.currentBranch()?.head() ?? generateWorldId();
+    const genesisWorldId = createWorldId(genesisIdStr);
+    this._v2GenesisWorldId = genesisWorldId;
+    this._v2CurrentHead = genesisWorldId;
+
+    // Convert AppState to Snapshot format
+    const genesisSnapshot = this._appStateToSnapshot(this._currentState);
+
+    // Compute snapshot hash (simplified for now)
+    const snapshotHash = this._computeSnapshotHash(genesisSnapshot);
+
+    // Create genesis World object (matching @manifesto-ai/world schema)
+    const genesisWorld: World = {
+      worldId: genesisWorldId,
+      schemaHash: this._domainSchema?.hash ?? "unknown",
+      snapshotHash,
+      createdAt: Date.now(),
+      createdBy: null, // Genesis has no proposalId
+    };
+
+    // Genesis delta points to itself with empty patches
+    const genesisDelta: WorldDelta = {
+      fromWorld: genesisWorldId,
+      toWorld: genesisWorldId,
+      patches: [],
+      createdAt: Date.now(),
+    };
+
+    // Store genesis in WorldStore
+    try {
+      await this._v2WorldStore.store(genesisWorld, genesisDelta);
+    } catch (error) {
+      // Genesis may already exist in WorldStore
+      console.warn("[Manifesto] Genesis World already exists or store failed:", error);
+    }
+  }
+
+  /**
+   * Compute a hash for a snapshot.
+   *
+   * @internal
+   */
+  private _computeSnapshotHash(snapshot: Snapshot): string {
+    // Simple hash computation using JSON serialization
+    // In production, use a proper content-addressable hash
+    try {
+      const content = JSON.stringify({
+        data: snapshot.data,
+        computed: snapshot.computed,
+      });
+      // Simple hash - sum of char codes (replace with crypto hash in prod)
+      let hash = 0;
+      for (let i = 0; i < content.length; i++) {
+        hash = (hash << 5) - hash + content.charCodeAt(i);
+        hash |= 0; // Convert to 32-bit integer
+      }
+      return `snap_${Math.abs(hash).toString(36)}`;
+    } catch {
+      return `snap_${Date.now().toString(36)}`;
+    }
+  }
+
+  /**
+   * Convert AppState to Snapshot format.
+   *
+   * @internal
+   */
+  private _appStateToSnapshot(state: AppState<unknown>): Snapshot {
+    return {
+      data: state.data as Record<string, unknown>,
+      computed: state.computed,
+      system: {
+        status: state.system.status,
+        lastError: state.system.lastError,
+        pendingRequirements: [...state.system.pendingRequirements],
+        currentAction: state.system.currentAction,
+        errors: [...state.system.errors],
+      },
+      input: {},
+      meta: {
+        version: state.meta.version,
+        timestamp: state.meta.timestamp,
+        randomSeed: state.meta.randomSeed,
+        schemaHash: state.meta.schemaHash,
+      },
+    };
+  }
+
+  /**
+   * Create patch helpers for service handlers.
+   *
+   * @internal
+   */
+  private _createPatchHelpers() {
+    return {
+      set: (path: string, value: unknown): Patch => ({ op: "set", path, value }),
+      merge: (path: string, value: Record<string, unknown>): Patch => ({ op: "merge", path, value }),
+      unset: (path: string): Patch => ({ op: "unset", path }),
+      many: (...patches: readonly (Patch | readonly Patch[])[]): Patch[] =>
+        patches.flat() as Patch[],
+      from: (record: Record<string, unknown>, opts?: { basePath?: string }): Patch[] => {
+        const basePath = opts?.basePath ?? "data";
+        return Object.entries(record).map(([key, value]) => ({
+          op: "set" as const,
+          path: `${basePath}.${key}`,
+          value,
+        }));
+      },
+    };
   }
 
   /**
