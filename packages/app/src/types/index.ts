@@ -1747,6 +1747,12 @@ export interface AppHooks {
     ctx: HookContext
   ) => void | Promise<void>;
 
+  // State
+  "state:publish": (
+    payload: { snapshot: Snapshot; worldId: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+
   // System
   "system:world": (
     payload: {

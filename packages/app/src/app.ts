@@ -645,6 +645,25 @@ export class ManifestoApp implements App {
       // Update state with result from Host
       ctx.setState(execResult.newState);
 
+      // Publish state once per proposal tick (terminal snapshot only)
+      if (execResult.result.status === "completed" || execResult.result.status === "failed") {
+        const publishSnapshot: Snapshot = {
+          data: execResult.newState.data,
+          computed: execResult.newState.computed,
+          system: execResult.newState.system,
+          input: {},
+          meta: execResult.newState.meta,
+        };
+        await this._hooks.emit(
+          "state:publish",
+          {
+            snapshot: publishSnapshot,
+            worldId: execResult.result.worldId,
+          },
+          this._createHookContext()
+        );
+      }
+
       // Determine outcome based on execution result
       if (execResult.result.status === "completed") {
         // Phase: completed
