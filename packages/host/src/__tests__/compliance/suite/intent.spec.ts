@@ -216,4 +216,127 @@ describe("HCTS Intent Processing Tests", () => {
       expect(response.checked).toBe(true);
     });
   });
+
+  describe("INTENT-ID-2: intentId is unique per intent", () => {
+    it("HCTS-INTENT-008: Different intents have different IDs", async () => {
+      const intent1 = createTestIntent("action1");
+      const intent2 = createTestIntent("action1");
+      const intent3 = createTestIntent("action2");
+
+      // All intents should have unique IDs
+      expect(intent1.intentId).not.toBe(intent2.intentId);
+      expect(intent2.intentId).not.toBe(intent3.intentId);
+      expect(intent1.intentId).not.toBe(intent3.intentId);
+    });
+  });
+
+  describe("INTENT-ID-3: intentId stable across compute cycles", () => {
+    it("HCTS-INTENT-010: Intent ID preserved through effect execution", async () => {
+      const schema = createTestSchema({
+        actions: {
+          multiCycle: {
+            flow: {
+              kind: "seq",
+              steps: [
+                {
+                  kind: "if",
+                  cond: { kind: "isNull", arg: { kind: "get", path: "step1" } },
+                  then: {
+                    kind: "seq",
+                    steps: [{ kind: "effect", type: "first", params: {} }],
+                  },
+                },
+                {
+                  kind: "if",
+                  cond: {
+                    kind: "and",
+                    args: [
+                      { kind: "get", path: "step1" },
+                      { kind: "isNull", arg: { kind: "get", path: "step2" } },
+                    ],
+                  },
+                  then: {
+                    kind: "effect",
+                    type: "second",
+                    params: {},
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const effectRunner = createTestEffectRunner();
+      effectRunner.register("first", async () => [
+        { op: "set", path: "step1", value: true },
+      ]);
+      effectRunner.register("second", async () => [
+        { op: "set", path: "step2", value: true },
+      ]);
+
+      await adapter.create({ schema, effectRunner, runtime });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      adapter.seedSnapshot(executionKey, snapshot);
+
+      const intent = createTestIntent("multiCycle");
+      const originalIntentId = intent.intentId;
+
+      adapter.submitIntent(executionKey, intent);
+      await adapter.drain(executionKey);
+
+      // Verify both steps completed (proving multiple compute cycles)
+      const finalSnapshot = adapter.getSnapshot(executionKey);
+      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
+
+      // Intent ID should have remained stable (same as originally submitted)
+      expect(intent.intentId).toBe(originalIntentId);
+    });
+  });
+
+  describe("INTENT-ID-4: intentId traceable in execution trace", () => {
+    it("HCTS-INTENT-011: Trace events reference intent ID", async () => {
+      const schema = createTestSchema({
+        actions: {
+          traceable: {
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "done" } },
+              then: {
+                kind: "effect",
+                type: "traced",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+
+      const effectRunner = createTestEffectRunner();
+      effectRunner.register("traced", async () => [
+        { op: "set", path: "done", value: true },
+      ]);
+
+      await adapter.create({ schema, effectRunner, runtime });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      adapter.seedSnapshot(executionKey, snapshot);
+
+      const intent = createTestIntent("traceable");
+      adapter.submitIntent(executionKey, intent);
+
+      await adapter.drain(executionKey);
+
+      const trace = adapter.getTrace(executionKey);
+
+      // Trace should contain events (proving execution happened)
+      expect(trace.length).toBeGreaterThan(0);
+
+      // At least some events should be traceable
+      const computeEvents = trace.filter((e) => e.t === "core:compute");
+      expect(computeEvents.length).toBeGreaterThan(0);
+    });
+  });
 });

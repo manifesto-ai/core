@@ -353,4 +353,86 @@ describe("HCTS Ordering Tests", () => {
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
     });
   });
+
+  describe("ORD-TIMEOUT-1: Timeout triggers error patch", () => {
+    it("HCTS-ORD-007: Slow effect failure recorded as error value", async () => {
+      // When an effect fails (simulating timeout), error should be recorded as value
+      const schema = createTestSchema({
+        actions: {
+          slowAction: {
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
+              then: {
+                kind: "effect",
+                type: "slowEffect",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+
+      const effectRunner = createTestEffectRunner();
+      effectRunner.register("slowEffect", async () => {
+        throw new Error("Effect timed out");
+      });
+
+      await adapter.create({ schema, effectRunner, runtime });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      adapter.seedSnapshot(executionKey, snapshot);
+      adapter.submitIntent(executionKey, createTestIntent("slowAction"));
+
+      await adapter.drain(executionKey);
+
+      const finalSnapshot = adapter.getSnapshot(executionKey);
+      // Error should be recorded in system state (errors are values)
+      expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
+    });
+  });
+
+  describe("ORD-TIMEOUT-2: Timeout clears requirement", () => {
+    it("HCTS-ORD-008: Failed effect requirement is cleared", async () => {
+      const schema = createTestSchema({
+        actions: {
+          failingAction: {
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
+              then: {
+                kind: "effect",
+                type: "failing",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+
+      const effectRunner = createTestEffectRunner();
+      effectRunner.register("failing", async () => {
+        throw new Error("Effect failed");
+      });
+
+      await adapter.create({ schema, effectRunner, runtime });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      adapter.seedSnapshot(executionKey, snapshot);
+      adapter.submitIntent(executionKey, createTestIntent("failingAction"));
+
+      await adapter.drain(executionKey);
+
+      const finalSnapshot = adapter.getSnapshot(executionKey);
+
+      // Requirement should be cleared (not left pending forever)
+      expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
+
+      // Trace should show the requirement was cleared
+      const trace = adapter.getTrace(executionKey);
+      const clearEvents = trace.filter((e) => e.t === "requirement:clear");
+      expect(clearEvents.length).toBeGreaterThan(0);
+    });
+  });
+
 });

@@ -298,4 +298,5 @@ describe("HCTS Mailbox Tests", () => {
       expect((result.data as Record<string, unknown>).counter).toBe(3);
     });
   });
+
 });
