@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { EnqueueOptions, EnqueuedJob } from "../types/index.js";
+import type { EnqueueOptions, EnqueuedJob } from "../core/types/index.js";
 
 /**
  * Internal job representation.

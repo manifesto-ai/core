@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   createInMemoryWorldStore,
   WorldNotFoundError,
-} from "../world-store/index.js";
-import type { Snapshot, WorldDelta } from "../types/index.js";
+} from "../storage/world-store/index.js";
+import type { Snapshot, WorldDelta } from "../core/types/index.js";
 import { createWorldId, createProposalId, type World } from "@manifesto-ai/world";
 
 function createSnapshot(

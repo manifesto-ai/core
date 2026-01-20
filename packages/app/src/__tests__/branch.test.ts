@@ -13,7 +13,7 @@ import {
   ForkMigrationError,
 } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Branch } from "../types/index.js";
+import type { Branch } from "../core/types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

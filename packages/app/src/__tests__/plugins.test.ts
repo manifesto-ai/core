@@ -7,7 +7,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createApp } from "../index.js";
 import { PluginInitError } from "../errors/index.js";
-import type { App, AppPlugin } from "../types/index.js";
+import type { App, AppPlugin } from "../core/types/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema

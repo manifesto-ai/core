@@ -15,7 +15,7 @@ import type {
   ActOptions,
   Branch,
   ProposalId,
-} from "../types/index.js";
+} from "../core/types/index.js";
 import type { WorldId } from "@manifesto-ai/world";
 import type { JobQueue } from "./queue.js";
 

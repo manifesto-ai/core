@@ -19,7 +19,7 @@ import type {
   ErrorValue,
   ExecutionStats,
   RuntimeKind,
-} from "../types/index.js";
+} from "../core/types/index.js";
 
 // =============================================================================
 // Types

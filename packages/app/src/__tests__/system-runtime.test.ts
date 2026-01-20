@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { createApp } from "../index.js";
-import { SystemRuntime, createSystemFacade } from "../system/index.js";
+import { SystemRuntime, createSystemFacade } from "../runtime/system/index.js";
 import { SYSTEM_ACTION_TYPES } from "../constants.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 

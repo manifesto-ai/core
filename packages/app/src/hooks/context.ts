@@ -5,7 +5,7 @@
  * @module
  */
 
-import type { EnqueueOptions, EnqueuedJob, HookContext } from "../types/index.js";
+import type { EnqueueOptions, EnqueuedJob, HookContext } from "../core/types/index.js";
 import type { JobQueue } from "./queue.js";
 
 /**

@@ -11,7 +11,7 @@ import type {
   AppConfig,
   CreateAppOptions,
   MelText,
-} from "./types/index.js";
+} from "./core/types/index.js";
 import { ManifestoApp } from "./app.js";
 
 /**

@@ -12,7 +12,7 @@ import {
   MemoryDisabledError,
 } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Session } from "../types/index.js";
+import type { Session } from "../core/types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

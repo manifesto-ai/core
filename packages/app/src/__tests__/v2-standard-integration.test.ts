@@ -15,7 +15,7 @@ import type {
   Proposal,
   Snapshot,
   WorldStore,
-} from "../types/index.js";
+} from "../core/types/index.js";
 import { createWorldId } from "@manifesto-ai/world";
 
 const schema: DomainSchema = {
@@ -140,6 +140,33 @@ describe("v2 Standard App Integration", () => {
 
     expect(result.status).toBe("rejected");
   });
+
+  it("SCOPE-2: scope validation failure prevents execution", async () => {
+    const hostDispatch = vi.fn(async (): Promise<HostResult> => {
+      return { status: "completed", snapshot: createSnapshot() };
+    });
+    const host = createHost(hostDispatch);
+    const worldStore = createWorldStore();
+    const policyService: PolicyService = {
+      deriveExecutionKey: () => "key-1",
+      requestApproval: vi.fn(async () => {
+        return {
+          approved: true,
+          scope: { allowedPaths: ["data.count"] },
+          timestamp: 0,
+        };
+      }),
+      validateScope: () => ({ valid: false, errors: ["scope denied"] }),
+    };
+
+    const app = createApp({ schema, host, worldStore, policyService });
+    await app.ready();
+
+    const result = await app.act("todo.add", {}).result();
+
+    expect(result.status).toBe("rejected");
+    expect(hostDispatch).not.toHaveBeenCalled();
+  });
 });
 
 describe("Hook Contract (FDR-APP-RUNTIME-001)", () => {
@@ -168,6 +195,24 @@ describe("Hook Contract (FDR-APP-RUNTIME-001)", () => {
     const ctx = captured as { app?: unknown; timestamp?: number };
     expect(ctx.app).toBeDefined();
     expect(typeof ctx.timestamp).toBe("number");
+  });
+});
+
+describe("Publish Boundary (v2)", () => {
+  it("HOOK-4: state:publish fires once per proposal tick", async () => {
+    const host = createHost();
+    const worldStore = createWorldStore();
+    const app = createApp({ schema, host, worldStore });
+    await app.ready();
+
+    const publishes: Array<unknown> = [];
+    app.hooks.on("state:publish", (payload) => {
+      publishes.push(payload);
+    });
+
+    await app.act("todo.add", {}).done();
+
+    expect(publishes.length).toBe(1);
   });
 });
 

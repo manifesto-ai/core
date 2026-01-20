@@ -28,7 +28,7 @@ import type {
   ActionResult,
   RuntimeKind,
   ErrorValue,
-} from "../types/index.js";
+} from "../core/types/index.js";
 import {
   adaptServiceToEffect,
   createPatchHelpers,

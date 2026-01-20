@@ -5,7 +5,7 @@
  * @module
  */
 
-import type { Hookable, Unsubscribe } from "../types/index.js";
+import type { Hookable, Unsubscribe } from "../core/types/index.js";
 import { HookMutationError } from "../errors/index.js";
 import { JobQueue } from "./queue.js";
 

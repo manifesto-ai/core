@@ -129,7 +129,7 @@ export type {
   WorldId,
   Snapshot,
   Patch,
-} from "./types/index.js";
+} from "./core/types/index.js";
 
 // =============================================================================
 // Errors
@@ -193,13 +193,13 @@ export { createApp } from "./create-app.js";
 export {
   WorldEventHub,
   createWorldEventHub,
-} from "./world-events/index.js";
+} from "./storage/world-events/index.js";
 export type {
   ScheduleContext,
   WorldEventHandler,
   ScheduledActionHandler,
   WorldEventSource,
-} from "./world-events/index.js";
+} from "./storage/world-events/index.js";
 
 // =============================================================================
 // Services
@@ -210,7 +210,7 @@ export {
   createServiceRegistry,
   createServiceContext,
   createPatchHelpers,
-} from "./services/index.js";
+} from "./runtime/services/index.js";
 
 // =============================================================================
 // Memory
@@ -223,7 +223,7 @@ export {
   EnabledMemoryFacade,
   DisabledMemoryFacade,
   createMemoryFacade,
-} from "./memory/index.js";
+} from "./runtime/memory/index.js";
 
 // =============================================================================
 // Constants
@@ -241,14 +241,14 @@ export {
   WorldNotFoundError as WorldStoreNotFoundError,
   createInMemoryWorldStore,
   RESTORE_CONTEXT,
-} from "./world-store/index.js";
+} from "./storage/world-store/index.js";
 export type {
   WorldEntry,
   WorldStoreOptions,
   CompactOptions,
   CompactResult,
   RestoreHostContext,
-} from "./world-store/index.js";
+} from "./storage/world-store/index.js";
 
 // HostExecutor
 export {
@@ -256,11 +256,11 @@ export {
   ExecutionTimeoutError,
   ExecutionAbortedError,
   createAppHostExecutor,
-} from "./host-executor/index.js";
+} from "./execution/host-executor/index.js";
 export type {
   AppHostExecutorOptions,
   ExecutionContext,
-} from "./host-executor/index.js";
+} from "./execution/host-executor/index.js";
 
 // PolicyService
 export {
@@ -280,13 +280,13 @@ export {
   validateResultScope,
   createPermissiveScope,
   createRestrictedScope,
-} from "./policy/index.js";
+} from "./runtime/policy/index.js";
 export type {
   AuthorityHandler,
   ScopeValidator,
   ResultScopeValidator,
   DefaultPolicyServiceOptions,
-} from "./policy/index.js";
+} from "./runtime/policy/index.js";
 
 // Memory Context Freezing
 export {
@@ -298,11 +298,11 @@ export {
   freezeRecallResult,
   getFrozenRecallResult,
   clearAppNamespace,
-} from "./memory/index.js";
+} from "./runtime/memory/index.js";
 export type {
   AppInputNamespace,
   AppExecutionContext,
-} from "./memory/index.js";
+} from "./runtime/memory/index.js";
 
 // AppRef (Hook Enhancement)
 export {
@@ -319,7 +319,7 @@ export {
   validateSchemaCompatibilityWithHost,
   extractEffectTypes,
   SchemaIncompatibleError,
-} from "./branch/index.js";
+} from "./storage/branch/index.js";
 
 // Test Helper
 export { createTestApp } from "./create-app.js";

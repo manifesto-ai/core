@@ -11,7 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createApp } from "../index.js";
-import { MemoryHub } from "../memory/index.js";
+import { MemoryHub } from "../runtime/memory/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   MemoryProvider,
@@ -20,7 +20,7 @@ import type {
   RecallResult,
   SelectionResult,
   SelectedMemory,
-} from "../types/index.js";
+} from "../core/types/index.js";
 import type { WorldId } from "@manifesto-ai/world";
 
 // ActorRef type definition (aligned with @manifesto-ai/world)

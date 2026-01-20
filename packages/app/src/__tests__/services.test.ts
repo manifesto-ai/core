@@ -10,9 +10,9 @@ import {
   createServiceRegistry,
   createServiceContext,
   createPatchHelpers,
-} from "../services/index.js";
+} from "../runtime/services/index.js";
 import { MissingServiceError, DynamicEffectTypeError, ReservedEffectTypeError } from "../errors/index.js";
-import type { AppState, ServiceHandler, Patch } from "../types/index.js";
+import type { AppState, ServiceHandler, Patch } from "../core/types/index.js";
 
 // Helper to create mock AppState
 function createMockState<T>(data: T): AppState<T> {

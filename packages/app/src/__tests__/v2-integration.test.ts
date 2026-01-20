@@ -9,11 +9,11 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { createApp } from "../index.js";
-import { createInMemoryWorldStore } from "../world-store/index.js";
-import { createSilentPolicyService, createStrictPolicyService } from "../policy/index.js";
+import { createInMemoryWorldStore } from "../storage/world-store/index.js";
+import { createSilentPolicyService } from "../runtime/policy/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Host, HostResult, Snapshot, AppConfig, PolicyService } from "../types/index.js";
-import { createWorldId, createProposalId, type World } from "@manifesto-ai/world";
+import type { Host, HostResult, Snapshot, AppConfig, Intent } from "../core/types/index.js";
+import { createWorldId, createProposalId } from "@manifesto-ai/world";
 
 // =============================================================================
 // Test Helpers
@@ -48,46 +48,51 @@ function createTestSchema(overrides?: Partial<DomainSchema>): DomainSchema {
 }
 
 function createTestHost(options?: {
-  dispatchImpl?: Host["dispatch"];
+  dispatchImpl?: (intent: Intent, snapshot: Snapshot) => Promise<HostResult>;
   registeredEffects?: string[];
+  initialSnapshot?: Snapshot;
 }): Host {
   const effects = options?.registeredEffects ?? ["api.save", "api.fetch"];
+  let currentSnapshot = options?.initialSnapshot ?? createGenesisSnapshot("test-schema-v2");
 
   return {
-    dispatch: options?.dispatchImpl ?? (async (_snapshot: Snapshot, _intent): Promise<HostResult> => {
-      // Default: return completed with incremented version
-      const currentCount = (_snapshot?.data as { count?: number } | undefined)?.count ?? 0;
-      const currentVersion = _snapshot?.meta?.version ?? 0;
-      const newSnapshot: Snapshot = {
-        ..._snapshot,
-        data: {
-          ...(_snapshot?.data ?? {}),
-          count: currentCount + 1,
-        },
-        meta: {
-          ...(_snapshot?.meta ?? {
-            version: 0,
-            timestamp: Date.now(),
-            randomSeed: "test-seed",
-            schemaHash: "test-schema-v2",
-          }),
-          version: currentVersion + 1,
-        },
-      };
-      return { status: "completed", snapshot: newSnapshot };
-    }),
+    dispatch: async (intent: Intent): Promise<HostResult> => {
+      const result = options?.dispatchImpl
+        ? await options.dispatchImpl(intent, currentSnapshot)
+        : (() => {
+            // Default: return completed with incremented version
+            const currentCount = (currentSnapshot?.data as { count?: number } | undefined)?.count ?? 0;
+            const currentVersion = currentSnapshot?.meta?.version ?? 0;
+            const newSnapshot: Snapshot = {
+              ...currentSnapshot,
+              data: {
+                ...(currentSnapshot?.data ?? {}),
+                count: currentCount + 1,
+              },
+              meta: {
+                ...(currentSnapshot?.meta ?? {
+                  version: 0,
+                  timestamp: Date.now(),
+                  randomSeed: "test-seed",
+                  schemaHash: "test-schema-v2",
+                }),
+                version: currentVersion + 1,
+              },
+            };
+            return { status: "completed", snapshot: newSnapshot };
+          })();
+
+      currentSnapshot = result.snapshot;
+      return result;
+    },
     registerEffect: vi.fn(),
     getRegisteredEffectTypes: () => effects,
-  };
-}
-
-function createGenesisWorld(schemaHash: string): World {
-  return {
-    worldId: createWorldId("world-genesis"),
-    schemaHash,
-    snapshotHash: "genesis-snapshot",
-    createdAt: Date.now(),
-    createdBy: null,
+    reset: async (data: unknown) => {
+      currentSnapshot = {
+        ...currentSnapshot,
+        data: (data ?? {}) as Record<string, unknown>,
+      };
+    },
   };
 }
 
@@ -121,13 +126,7 @@ describe("v2 Integration", () => {
     it("APP-API-1: createApp with AppConfig enables v2 mode", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash);
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const config: AppConfig = {
         schema,
@@ -138,8 +137,18 @@ describe("v2 Integration", () => {
       const app = createApp(config);
       await app.ready();
 
-      // v2 mode should be enabled - verify by checking getCurrentHead exists
-      expect(typeof (app as unknown as { getCurrentHead?: () => unknown }).getCurrentHead).toBe("function");
+      const baseWorld = app.getCurrentHead();
+      const result = await app.submitProposal({
+        proposalId: createProposalId("prop-1"),
+        actorId: "actor-1",
+        intentType: "counter.increment",
+        intentBody: {},
+        baseWorld,
+        createdAt: Date.now(),
+        branchId: "main",
+      });
+
+      expect(result.status).toBe("completed");
     });
 
     it("APP-API-2: legacy createApp does not enable v2 mode", async () => {
@@ -148,9 +157,17 @@ describe("v2 Integration", () => {
       const app = createApp(schema);
       await app.ready();
 
-      // v2 mode should NOT be enabled
-      const getCurrentHead = (app as unknown as { getCurrentHead?: () => unknown }).getCurrentHead;
-      expect(getCurrentHead?.()).toBeUndefined();
+      const result = await app.submitProposal({
+        proposalId: createProposalId("prop-legacy"),
+        actorId: "actor-1",
+        intentType: "counter.increment",
+        intentBody: {},
+        baseWorld: createWorldId("world-legacy"),
+        createdAt: Date.now(),
+        branchId: "main",
+      });
+
+      expect(result.status).toBe("rejected");
     });
   });
 
@@ -158,13 +175,7 @@ describe("v2 Integration", () => {
     it("executes action through all 9 phases", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 0 });
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const phases: string[] = [];
       const config: AppConfig = {
@@ -192,13 +203,7 @@ describe("v2 Integration", () => {
     it("advances World head on successful execution", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 0 });
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const app = createApp({
         schema,
@@ -207,13 +212,12 @@ describe("v2 Integration", () => {
       });
       await app.ready();
 
-      const getCurrentHead = () => (app as unknown as { getCurrentHead: () => unknown }).getCurrentHead.call(app);
-      const initialHead = getCurrentHead();
+      const initialHead = app.getCurrentHead();
 
       const handle = app.act("counter.increment", {});
       await handle.done();
 
-      const newHead = getCurrentHead();
+      const newHead = app.getCurrentHead();
       expect(newHead).not.toBe(initialHead);
     });
 
@@ -224,13 +228,7 @@ describe("v2 Integration", () => {
           throw new Error("Execution failed");
         },
       });
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 0 });
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const app = createApp({
         schema,
@@ -239,17 +237,14 @@ describe("v2 Integration", () => {
       });
       await app.ready();
 
-      const getCurrentHead = (app as unknown as { getCurrentHead: () => unknown }).getCurrentHead;
-      const initialHead = getCurrentHead();
+      const initialHead = app.getCurrentHead();
 
       const handle = app.act("counter.increment", {});
-      await handle.done();
-
       const result = await handle.result();
       expect(result.status).toBe("failed");
 
       // Head should NOT have advanced
-      const currentHead = getCurrentHead();
+      const currentHead = app.getCurrentHead();
       expect(currentHead).toBe(initialHead);
     });
   });
@@ -258,23 +253,15 @@ describe("v2 Integration", () => {
     it("EXK-POLICY-1: derives ExecutionKey for proposal", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash);
 
       let derivedKey: string | undefined;
-      const policyService: PolicyService = {
-        ...createSilentPolicyService(),
-        deriveExecutionKey: (proposal) => {
-          derivedKey = `key:${proposal.actorId}:${proposal.intentType}`;
-          return derivedKey;
-        },
+      const policyService = createSilentPolicyService();
+      policyService.deriveExecutionKey = (proposal) => {
+        derivedKey = `key:${proposal.actorId}:${proposal.intentType}`;
+        return derivedKey;
       };
 
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const app = createApp({
         schema,
@@ -293,22 +280,14 @@ describe("v2 Integration", () => {
     it("ROUTE-1/2: rejected proposal emits audit:rejected", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash);
 
-      const policyService: PolicyService = {
-        ...createSilentPolicyService(),
-        requestApproval: async () => ({
-          approved: false,
-          reason: "Policy denied",
-        }),
-      };
-
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
+      const policyService = createSilentPolicyService();
+      policyService.requestApproval = async () => ({
+        approved: false,
+        reason: "Policy denied",
       });
+
+      const worldStore = createInMemoryWorldStore();
 
       let rejectedEvent: unknown;
       const app = createApp({
@@ -325,8 +304,6 @@ describe("v2 Integration", () => {
       await app.ready();
 
       const handle = app.act("counter.increment", {});
-      await handle.done();
-
       const result = await handle.result();
       expect(result.status).toBe("rejected");
       expect(rejectedEvent).toBeDefined();
@@ -336,23 +313,15 @@ describe("v2 Integration", () => {
     it("SCOPE-PATH-1: validates result scope after execution", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 0 });
 
       let scopeValidated = false;
-      const policyService: PolicyService = {
-        ...createSilentPolicyService(),
-        validateResultScope: () => {
-          scopeValidated = true;
-          return { valid: true };
-        },
+      const policyService = createSilentPolicyService();
+      policyService.validateResultScope = () => {
+        scopeValidated = true;
+        return { valid: true };
       };
 
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const app = createApp({
         schema,
@@ -373,13 +342,7 @@ describe("v2 Integration", () => {
     it("STORE-1: stores World and delta after execution", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 0 });
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const storeSpy = vi.spyOn(worldStore, "store");
 
@@ -387,6 +350,7 @@ describe("v2 Integration", () => {
         schema,
         host,
         worldStore,
+        initialData: { count: 0 },
       });
       await app.ready();
 
@@ -394,26 +358,25 @@ describe("v2 Integration", () => {
       await handle.done();
 
       expect(storeSpy).toHaveBeenCalled();
-      const [storedWorld, storedDelta] = storeSpy.mock.calls[0];
+      const [storedWorld, storedDelta] =
+        storeSpy.mock.calls[storeSpy.mock.calls.length - 1];
       expect(storedWorld.schemaHash).toBe(schema.hash);
       expect(storedDelta.patches.length).toBeGreaterThan(0);
     });
 
     it("STORE-2: restores snapshot from WorldStore for execution", async () => {
       const schema = createTestSchema();
-      const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 42 });
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       let capturedSnapshot: Snapshot | undefined;
+      const restoreSpy = vi.spyOn(worldStore, "restore");
+      const policyService = createSilentPolicyService();
+      policyService.validateResultScope = (baseSnapshot) => {
+        capturedSnapshot = baseSnapshot;
+        return { valid: true };
+      };
       const customHost = createTestHost({
-        dispatchImpl: async (snapshot) => {
-          capturedSnapshot = snapshot;
+        dispatchImpl: async (_intent, snapshot) => {
           return {
             status: "completed",
             snapshot: {
@@ -423,18 +386,22 @@ describe("v2 Integration", () => {
             },
           };
         },
+        initialSnapshot: createGenesisSnapshot(schema.hash, { count: 0 }),
       });
 
       const app = createApp({
         schema,
         host: customHost,
         worldStore,
+        policyService,
+        initialData: { count: 42 },
       });
       await app.ready();
 
       const handle = app.act("counter.increment", {});
       await handle.done();
 
+      expect(restoreSpy).toHaveBeenCalled();
       expect(capturedSnapshot?.data).toHaveProperty("count", 42);
     });
   });
@@ -443,13 +410,7 @@ describe("v2 Integration", () => {
     it("APP-API-3: getCurrentHead returns current World head", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash);
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const app = createApp({
         schema,
@@ -459,30 +420,24 @@ describe("v2 Integration", () => {
       await app.ready();
 
       // Call method directly on app to preserve `this` binding
-      const head = (app as unknown as { getCurrentHead: () => unknown }).getCurrentHead.call(app);
-      expect(head).toBeDefined();
+      expect(app.getCurrentHead()).toBeDefined();
     });
 
     it("APP-API-4: getSnapshot returns snapshot for WorldId", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
-      const genesisWorld = createGenesisWorld(schema.hash);
-      const genesisSnapshot = createGenesisSnapshot(schema.hash, { count: 10 });
-      const worldStore = createInMemoryWorldStore({
-        genesisWorld,
-        genesisSnapshot,
-        activeHorizon: 0,
-      });
+      const worldStore = createInMemoryWorldStore();
 
       const app = createApp({
         schema,
         host,
         worldStore,
+        initialData: { count: 10 },
       });
       await app.ready();
 
       // Call method directly on app to preserve `this` binding
-      const snapshot = await (app as unknown as { getSnapshot: (id: unknown) => Promise<Snapshot> }).getSnapshot.call(app, genesisWorld.worldId);
+      const snapshot = await app.getSnapshot(app.getCurrentHead());
       expect(snapshot.data).toHaveProperty("count", 10);
     });
   });

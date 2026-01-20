@@ -11,7 +11,7 @@ import {
   createInitialAppState,
   snapshotToAppState,
   appStateToSnapshot,
-} from "../state/index.js";
+} from "../core/state/index.js";
 
 // Mock DomainSchema for testing
 const mockDomainSchema: DomainSchema = {

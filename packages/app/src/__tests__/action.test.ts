@@ -17,7 +17,7 @@ import {
   HandleDetachedError,
 } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { ActionPhase, ActionUpdate } from "../types/index.js";
+import type { ActionPhase, ActionUpdate } from "../core/types/index.js";
 
 // Mock DomainSchema with actions
 const mockDomainSchema: DomainSchema = {

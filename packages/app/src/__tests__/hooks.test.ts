@@ -11,7 +11,7 @@ import { JobQueue } from "../hooks/queue.js";
 import { HookableImpl } from "../hooks/hookable.js";
 import { createHookContext } from "../hooks/context.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { HookContext } from "../types/index.js";
+import type { HookContext } from "../core/types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

@@ -8,10 +8,10 @@
 import { describe, it, expect } from "vitest";
 import { createApp } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { HookContext, Snapshot } from "../types/index.js";
+import type { HookContext, Snapshot } from "../core/types/index.js";
 import type { WorldId } from "@manifesto-ai/world";
 
-declare module "../types/index.js" {
+declare module "../core/types/index.js" {
   interface AppHooks {
     "state:publish": (
       payload: { snapshot: Snapshot; worldId: WorldId },
