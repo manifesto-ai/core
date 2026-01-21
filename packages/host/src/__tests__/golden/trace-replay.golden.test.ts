@@ -95,6 +95,7 @@ describe("Golden: Trace-derived replay", () => {
       types: {},
       state: {
         fields: {
+          $host: { type: "object", required: false, default: {} },
           counter: { type: "number", required: true },
           response: { type: "string", required: false },
         },
