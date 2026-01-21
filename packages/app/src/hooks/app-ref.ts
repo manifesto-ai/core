@@ -42,12 +42,22 @@ export interface AppRefCallbacks {
 export class AppRefImpl implements AppRef {
   private _callbacks: AppRefCallbacks;
   private _queue: JobQueue;
-  private _enqueueAction: (type: string, input?: unknown, opts?: ActOptions) => ProposalId;
+  private _enqueueAction: (
+    proposalId: ProposalId,
+    type: string,
+    input?: unknown,
+    opts?: ActOptions
+  ) => void;
 
   constructor(
     callbacks: AppRefCallbacks,
     queue: JobQueue,
-    enqueueAction: (type: string, input?: unknown, opts?: ActOptions) => ProposalId
+    enqueueAction: (
+      proposalId: ProposalId,
+      type: string,
+      input?: unknown,
+      opts?: ActOptions
+    ) => void
   ) {
     this._callbacks = callbacks;
     this._queue = queue;
@@ -105,7 +115,7 @@ export class AppRefImpl implements AppRef {
     this._queue.enqueue(
       () => {
         // Execute action via callback (deferred)
-        this._enqueueAction(type, input, opts);
+        this._enqueueAction(proposalId, type, input, opts);
       },
       { label: `enqueueAction:${type}:${proposalId}` }
     );
@@ -121,7 +131,12 @@ export class AppRefImpl implements AppRef {
 export function createAppRef(
   callbacks: AppRefCallbacks,
   queue: JobQueue,
-  enqueueAction: (type: string, input?: unknown, opts?: ActOptions) => ProposalId
+  enqueueAction: (
+    proposalId: ProposalId,
+    type: string,
+    input?: unknown,
+    opts?: ActOptions
+  ) => void
 ): AppRef {
   return new AppRefImpl(callbacks, queue, enqueueAction);
 }

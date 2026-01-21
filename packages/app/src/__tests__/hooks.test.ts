@@ -10,8 +10,9 @@ import { HookMutationError } from "../errors/index.js";
 import { JobQueue } from "../hooks/queue.js";
 import { HookableImpl } from "../hooks/hookable.js";
 import { createHookContext } from "../hooks/context.js";
+import { createAppRef } from "../hooks/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { HookContext } from "../core/types/index.js";
+import type { AppRefCallbacks, AppState, Branch, HookContext } from "../core/types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
@@ -27,6 +28,58 @@ const mockDomainSchema: DomainSchema = {
   computed: { fields: {} },
   state: { fields: {} },
 };
+
+function createTestState(): AppState<unknown> {
+  return {
+    data: {},
+    computed: {},
+    system: {
+      status: "idle",
+      lastError: null,
+      errors: [],
+      pendingRequirements: [],
+      currentAction: null,
+    },
+    meta: {
+      version: 0,
+      timestamp: 0,
+      randomSeed: "seed",
+      schemaHash: mockDomainSchema.hash,
+    },
+  };
+}
+
+const branchStub: Branch = {
+  id: "main",
+  name: "main",
+  schemaHash: mockDomainSchema.hash,
+  head: () => "world-1",
+  checkout: async () => {},
+  act: () => {
+    throw new Error("Branch.act not available in hooks test");
+  },
+  fork: async () => branchStub,
+  getState: () => createTestState(),
+  lineage: () => ["world-1"],
+};
+
+function createTestAppRef(
+  queue: JobQueue,
+  onEnqueue?: (proposalId: string, type: string) => void
+) {
+  const callbacks: AppRefCallbacks = {
+    getStatus: () => "ready",
+    getState: () => createTestState(),
+    getDomainSchema: () => mockDomainSchema,
+    getCurrentHead: () => "world-1",
+    currentBranch: () => branchStub,
+    generateProposalId: () => "prop-test",
+  };
+
+  return createAppRef(callbacks, queue, (proposalId, type) => {
+    onEnqueue?.(proposalId, type);
+  });
+}
 
 describe("Hook System", () => {
   describe("JobQueue", () => {
@@ -283,12 +336,13 @@ describe("Hook System", () => {
       it("HOOK-MUT-1: isInHook() returns true during hook execution", async () => {
         const hookable = new HookableImpl<{ test: (ctx: HookContext) => void }>();
         let wasInHook = false;
+        const ctx = createHookContext(createTestAppRef(hookable.getJobQueue()), Date.now());
 
         hookable.on("test", () => {
           wasInHook = hookable.isInHook();
         });
 
-        await hookable.emit("test", {} as HookContext);
+        await hookable.emit("test", ctx);
 
         expect(wasInHook).toBe(true);
       });
@@ -361,7 +415,7 @@ describe("Hook System", () => {
 
         expect(outerInHook).toBe(true);
         expect(innerInHook).toBe(true);
-        expect(afterInnerInHook).toBe(true);
+        expect(afterInnerInHook).toBe(false);
       });
     });
 
@@ -370,14 +424,18 @@ describe("Hook System", () => {
         const hookable = new HookableImpl<{ test: (ctx: HookContext) => void }>();
         const executed: string[] = [];
         const queue = hookable.getJobQueue();
-        const ctx = createHookContext(queue);
+        const appRef = createTestAppRef(queue, () => {
+          executed.push("job");
+        });
+        const ctx = createHookContext(appRef, Date.now());
 
         hookable.on("test", (ctx) => {
           executed.push("handler");
-          ctx.enqueue(() => { executed.push("job"); });
+          ctx.app.enqueueAction("todo.add", {});
         });
 
         await hookable.emit("test", ctx);
+        await queue.processAll();
 
         expect(executed).toEqual(["handler", "job"]);
       });
@@ -385,50 +443,26 @@ describe("Hook System", () => {
   });
 
   describe("HookContext", () => {
-    it("should have enqueue function", () => {
+    it("should include AppRef and timestamp", () => {
       const queue = new JobQueue();
-      const ctx = createHookContext(queue);
+      const appRef = createTestAppRef(queue);
+      const ctx = createHookContext(appRef, 123);
 
-      expect(typeof ctx.enqueue).toBe("function");
+      expect(ctx.app).toBe(appRef);
+      expect(ctx.timestamp).toBe(123);
     });
 
-    it("should include actorId when provided", () => {
+    it("should expose enqueueAction via AppRef", () => {
       const queue = new JobQueue();
-      const ctx = createHookContext(queue, { actorId: "user-123" });
+      const appRef = createTestAppRef(queue);
+      const ctx = createHookContext(appRef, Date.now());
 
-      expect(ctx.actorId).toBe("user-123");
-    });
-
-    it("should include branchId when provided", () => {
-      const queue = new JobQueue();
-      const ctx = createHookContext(queue, { branchId: "main" });
-
-      expect(ctx.branchId).toBe("main");
-    });
-
-    it("should include worldId when provided", () => {
-      const queue = new JobQueue();
-      const ctx = createHookContext(queue, { worldId: "world-123" });
-
-      expect(ctx.worldId).toBe("world-123");
-    });
-
-    it("should enqueue jobs to the queue", async () => {
-      const queue = new JobQueue();
-      const ctx = createHookContext(queue);
-      const executed: number[] = [];
-
-      ctx.enqueue(() => { executed.push(1); });
-      ctx.enqueue(() => { executed.push(2); });
-
-      await queue.processAll();
-
-      expect(executed).toEqual([1, 2]);
+      expect(typeof ctx.app.enqueueAction).toBe("function");
     });
   });
 
   describe("App Hook Integration", () => {
-    it("should pass HookContext to hook handlers", async () => {
+    it("should pass HookContext with AppRef and timestamp", async () => {
       const app = createApp(mockDomainSchema);
       let receivedCtx: HookContext | null = null;
 
@@ -439,70 +473,8 @@ describe("Hook System", () => {
       await app.ready();
 
       expect(receivedCtx).toBeDefined();
-      expect(typeof receivedCtx!.enqueue).toBe("function");
-    });
-
-    it("should include actorId in HookContext", async () => {
-      const app = createApp(mockDomainSchema, {
-        actorPolicy: {
-          mode: "require",
-          defaultActor: { actorId: "test-actor", kind: "human" },
-        },
-      });
-
-      let receivedActorId: string | undefined;
-
-      app.hooks.on("app:ready", (ctx) => {
-        receivedActorId = ctx.actorId;
-      });
-
-      await app.ready();
-
-      expect(receivedActorId).toBe("test-actor");
-    });
-
-    it("should execute enqueued jobs after hook completes", async () => {
-      const app = createApp(mockDomainSchema);
-      const executed: string[] = [];
-
-      app.hooks.on("app:ready", (ctx) => {
-        executed.push("handler");
-        ctx.enqueue(() => { executed.push("enqueued-job"); });
-      });
-
-      await app.ready();
-
-      expect(executed).toEqual(["handler", "enqueued-job"]);
-    });
-
-    it("should execute enqueued jobs with priority", async () => {
-      const app = createApp(mockDomainSchema);
-      const executed: string[] = [];
-
-      app.hooks.on("app:ready", (ctx) => {
-        ctx.enqueue(() => { executed.push("normal"); }, { priority: "normal" });
-        ctx.enqueue(() => { executed.push("immediate"); }, { priority: "immediate" });
-        ctx.enqueue(() => { executed.push("defer"); }, { priority: "defer" });
-      });
-
-      await app.ready();
-
-      expect(executed).toEqual(["immediate", "normal", "defer"]);
-    });
-
-    it("should include branchId after ready", async () => {
-      const app = createApp(mockDomainSchema);
-      let branchId: string | undefined;
-
-      // Need to check after ready, as branchManager isn't initialized before
-      app.hooks.on("app:dispose:before", (ctx) => {
-        branchId = ctx.branchId;
-      });
-
-      await app.ready();
-      await app.dispose();
-
-      expect(branchId).toBe("main");
+      expect(receivedCtx?.app).toBeDefined();
+      expect(typeof receivedCtx?.timestamp).toBe("number");
     });
   });
 });

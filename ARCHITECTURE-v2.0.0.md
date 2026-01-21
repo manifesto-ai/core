@@ -132,7 +132,8 @@ function apply(snapshot: Snapshot, patches: Patch[]): Snapshot;
 
 ```typescript
 // Host's world view
-dispatch(key: ExecutionKey, snapshot: Snapshot, intent: Intent): void;
+// ExecutionKey is derived internally by Host and opaque to callers.
+dispatch(intent: Intent): Promise<HostResult>;
 onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
 ```
 
@@ -538,7 +539,8 @@ function apply(snapshot: Snapshot, patches: Patch[]): Snapshot;
 
 ```typescript
 // Host's world view
-dispatch(key: ExecutionKey, snapshot: Snapshot, intent: Intent): void;
+// ExecutionKey is derived internally by Host and opaque to callers.
+dispatch(intent: Intent): Promise<HostResult>;
 onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
 ```
 

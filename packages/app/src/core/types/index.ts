@@ -313,6 +313,13 @@ export interface WorldStore {
   store(world: World, delta: WorldDelta): Promise<void>;
 
   /**
+   * Initialize a genesis World with a full Snapshot.
+   *
+   * Optional hook for stores that need explicit seeding.
+   */
+  initializeGenesis?(world: World, snapshot: Snapshot): Promise<void>;
+
+  /**
    * Restore a Snapshot for a World.
    * MAY involve delta reconstruction.
    */
@@ -1636,14 +1643,14 @@ export type EnqueuedJob = () => void | Promise<void>;
  */
 export interface HookContext {
   /**
-   * Safe mutation scheduling.
-   * Direct mutations in hooks are FORBIDDEN.
+   * Read-only facade for safe access during hooks.
    */
-  enqueue(job: EnqueuedJob, opts?: EnqueueOptions): void;
+  readonly app: AppRef;
 
-  actorId?: string;
-  branchId?: string;
-  worldId?: string;
+  /**
+   * Emission timestamp (epoch ms).
+   */
+  readonly timestamp: number;
 }
 
 /**

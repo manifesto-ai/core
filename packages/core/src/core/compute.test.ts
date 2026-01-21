@@ -89,7 +89,7 @@ const computeWithContext = (
   schema: DomainSchema,
   snapshot: ReturnType<typeof createSnapshot>,
   intent: ReturnType<typeof createIntent>
-) => compute(schema, snapshot, intent);
+) => compute(schema, snapshot, intent, HOST_CONTEXT);
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {
@@ -722,8 +722,8 @@ describe("compute", () => {
       const snapshot = createTestSnapshot({ count: 1 }, schema.hash);
       const intent = createIntent("increment", "intent-fixed");
 
-      const result1 = await compute(schema, snapshot, intent);
-      const result2 = await compute(schema, snapshot, intent);
+      const result1 = await compute(schema, snapshot, intent, HOST_CONTEXT);
+      const result2 = await compute(schema, snapshot, intent, HOST_CONTEXT);
 
       expect(result1).toEqual(result2);
     });
@@ -751,8 +751,8 @@ describe("compute", () => {
       const snapshot = createTestSnapshot({ count: 1 }, schema.hash);
       const intent = createIntent("increment", "intent-sync-1");
 
-      const asyncResult = await compute(schema, snapshot, intent);
-      const syncResult = computeSync(schema, snapshot, intent);
+      const asyncResult = await compute(schema, snapshot, intent, HOST_CONTEXT);
+      const syncResult = computeSync(schema, snapshot, intent, HOST_CONTEXT);
 
       expect(syncResult).toEqual(asyncResult);
     });

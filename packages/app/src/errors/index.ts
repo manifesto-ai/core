@@ -186,7 +186,7 @@ export class HookMutationError extends ManifestoAppError {
 
   constructor(apiName: string, hookName: string) {
     super(
-      `Cannot call '${apiName}' directly in '${hookName}' hook. Use ctx.enqueue() instead.`
+      `Cannot call '${apiName}' directly in '${hookName}' hook. Use ctx.app.enqueueAction() instead.`
     );
   }
 }

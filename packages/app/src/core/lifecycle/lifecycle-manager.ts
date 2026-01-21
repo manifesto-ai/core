@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { AppStatus, Hookable, AppHooks, HookContext } from "../types/index.js";
+import type { AppRef, AppStatus, Hookable, AppHooks, HookContext } from "../types/index.js";
 import { HookableImpl, createHookContext } from "../../hooks/index.js";
 import { AppNotReadyError, AppDisposedError } from "../../errors/index.js";
 
@@ -83,6 +83,11 @@ export interface LifecycleManager {
   createHookContext(context?: ContextInfo): HookContext;
 
   /**
+   * Set AppRef for hook contexts.
+   */
+  setAppRef(appRef: AppRef): void;
+
+  /**
    * Get the internal HookableImpl for advanced operations.
    */
   getHookableImpl(): HookableImpl<AppHooks>;
@@ -98,6 +103,7 @@ export interface LifecycleManager {
 export class LifecycleManagerImpl implements LifecycleManager {
   private _status: AppStatus = "created";
   private _hooks: HookableImpl<AppHooks> = new HookableImpl();
+  private _appRef: AppRef | null = null;
 
   get status(): AppStatus {
     return this._status;
@@ -134,11 +140,14 @@ export class LifecycleManagerImpl implements LifecycleManager {
   }
 
   createHookContext(context?: ContextInfo): HookContext {
-    return createHookContext(this._hooks.getJobQueue(), {
-      actorId: context?.actorId,
-      branchId: context?.branchId,
-      worldId: context?.worldId,
-    });
+    if (!this._appRef) {
+      throw new Error("HookContext requires AppRef");
+    }
+    return createHookContext(this._appRef, Date.now());
+  }
+
+  setAppRef(appRef: AppRef): void {
+    this._appRef = appRef;
   }
 
   getHookableImpl(): HookableImpl<AppHooks> {

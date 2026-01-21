@@ -167,7 +167,7 @@ created ──→ initializing ──→ ready ──→ disposing ──→ dis
 
 이 제약들은 "권장사항"이 아니라 **구조적으로 강제**되어야 한다:
 - HOOK-NI-1: `HookContext`에 mutation API 자체가 없음
-- HOOK-NI-2: `AppRef`에 `act()` 메서드 자체가 없음 (enqueueIntent만 제공)
+- HOOK-NI-2: `AppRef`에 `act()` 메서드 자체가 없음 (`enqueueAction`만 제공)
 - HOOK-NI-3: `callHook()`이 handler의 반환값을 await하지 않음
 - HOOK-NI-4: try-catch로 handler 호출을 감싸고 에러를 격리
 
@@ -190,7 +190,7 @@ created ──→ initializing ──→ ready ──→ disposing ──→ dis
 | `state:publish` | `{ snapshot, diff? }` | **tick boundary** (per FDR-APP-PUB-001 PUB-BOUNDARY-1) |
 | `state:branch` | `{ from, to, reason }` | branch switch 시 |
 
-> **Critical:** `state:publish`는 FDR-APP-PUB-001에서 정의한 "tick = mailbox idle" 시점에 **최대 1회** 발화한다. computed 노드 단위나 apply 단위로 발화하지 않는다.
+> **Critical:** `state:publish`는 FDR-APP-PUB-001에서 정의한 **Proposal Tick** 경계에서 **최대 1회** 발화한다. computed 노드 단위나 apply 단위로 발화하지 않는다.
 
 #### C) Telemetry Hooks (Process Observation, App-owned)
 
@@ -251,23 +251,19 @@ function callHook(name: HookName, payload: unknown): void {
 ```typescript
 type HookContext = {
   // 읽기 전용 접근
-  readonly app: AppRef;              // App에 대한 제한된 참조
-  readonly currentSnapshot: Snapshot; // 현재 스냅샷 (읽기 전용)
-  
-  // 후행 스케줄링 (Non-interference 준수)
-  enqueue(task: () => void): void;           // 다음 tick에 실행
-  enqueueIntent(intent: Intent): void;       // 다음 tick에 intent 제출
-  
-  // 진단
-  reportError(error: Error): void;           // 에러 리포팅 (실행 중단 없음)
-  reportMetric(name: string, value: number): void;
+  readonly app: AppRef;     // App에 대한 제한된 참조
+  readonly timestamp: number;
 };
 
 // AppRef는 제한된 인터페이스 (act() 직접 호출 불가)
 type AppRef = {
   readonly status: AppStatus;
-  readonly worldId: WorldId | null;
-  // act()는 없음 - enqueueIntent 사용 강제
+  getState<T = unknown>(): AppState<T>;
+  getDomainSchema(): DomainSchema;
+  getCurrentHead(): WorldId;
+  currentBranch(): Branch;
+  // act()는 없음 - enqueueAction 사용 강제
+  enqueueAction(type: string, input?: unknown, opts?: ActOptions): ProposalId;
 };
 ```
 
@@ -283,7 +279,7 @@ hooks.on('execution:completed', (payload, ctx) => {
 
 // ✅ 허용: 후행 큐로 요청
 hooks.on('execution:completed', (payload, ctx) => {
-  ctx.enqueueIntent({ type: 'followUp', intentId: 'xxx', input: {} });
+  ctx.app.enqueueAction('followUp', { /* input */ });
 });
 ```
 
@@ -386,29 +382,23 @@ const uninstallOrder = installOrder.reverse();
 | hooks는 HOOK-NI-* 준수 | Plugin이라고 예외 없음 |
 | uninstall()에서 World mutation 금지 | disposing 단계 |
 
-### 4.5 Provide/Inject Pattern
+### 4.5 Dependency Wiring (Spec-aligned)
 
-**D-PLUGIN-5:** Plugin은 `provide`로 값을 주입하고, 다른 Plugin/App은 `inject`로 사용한다.
+**D-PLUGIN-5:** v2 App SPEC은 `provide/inject`를 정의하지 않는다. 의존성은 설치 시점에 **closure** 또는 App 설정으로 주입한다.
 
 ```typescript
-// Memory Plugin
-const memoryPlugin: Plugin = {
+// Memory Plugin (closure로 의존성 주입)
+const createMemoryPlugin = (memory: MemoryService): Plugin => ({
   name: '@manifesto/memory',
-  provide: {
-    memory: memoryService,  // MemoryService 인스턴스
-  },
   hooks: { /* ... */ },
-};
+});
 
-// 다른 Plugin에서 사용
-const analyticsPlugin: Plugin = {
+// 다른 Plugin에서 사용 (closure로 공유)
+const createAnalyticsPlugin = (memory: MemoryService): Plugin => ({
   name: '@manifesto/analytics',
   dependencies: ['@manifesto/memory'],
-  install(app) {
-    const memory = app.inject<MemoryService>('memory');
-    // memory 사용
-  },
-};
+  hooks: { /* memory 사용 */ },
+});
 ```
 
 ---
@@ -469,7 +459,6 @@ const telemetryPlugin: Plugin = {
     },
     'execution:failed': (payload, ctx) => {
       metrics.counter('executions_total', 1, { status: 'failed' });
-      ctx.reportError(payload.error);  // 진단 채널로 전달
     },
   },
 };
@@ -480,14 +469,10 @@ const telemetryPlugin: Plugin = {
 ```typescript
 const memoryPlugin: Plugin = {
   name: '@manifesto/memory',
-  provide: {
-    memory: new MemoryService(),
-  },
   hooks: {
     'execution:completed': (payload, ctx) => {
-      const memory = ctx.inject<MemoryService>('memory');
-      // ✅ enqueue로 후행 처리
-      ctx.enqueue(() => memory.consolidate(payload.world));
+      // ✅ enqueueAction으로 후행 처리
+      ctx.app.enqueueAction('memory.consolidate', { worldId: payload.world.worldId });
     },
   },
 };
@@ -496,23 +481,18 @@ const memoryPlugin: Plugin = {
 ### 6.3 Mind Protocol Plugin (Sketch)
 
 ```typescript
+const mind = new MindRuntime();
 const mindPlugin: Plugin = {
   name: '@manifesto/mind',
   dependencies: ['@manifesto/memory'],
-  provide: {
-    mind: new MindRuntime(),
-  },
   hooks: {
     'app:ready': (payload, ctx) => {
-      const mind = ctx.inject<MindRuntime>('mind');
       mind.start();  // tick loop 시작
     },
     'state:publish': (payload, ctx) => {
-      const mind = ctx.inject<MindRuntime>('mind');
       mind.observe(payload.snapshot);
     },
     'app:disposing': (payload, ctx) => {
-      const mind = ctx.inject<MindRuntime>('mind');
       mind.stop();
     },
   },
@@ -579,17 +559,16 @@ type HookHandlers = Record<HookName, HookHandler>;
 
 type HookContext = {
   readonly app: AppRef;
-  readonly currentSnapshot: Snapshot;
-  enqueue(task: () => void): void;
-  enqueueIntent(intent: Intent): void;
-  inject<T>(key: string): T;
-  reportError(error: Error): void;
-  reportMetric(name: string, value: number): void;
+  readonly timestamp: number;
 };
 
 type AppRef = {
   readonly status: AppStatus;
-  readonly worldId: WorldId | null;
+  getState<T = unknown>(): AppState<T>;
+  getDomainSchema(): DomainSchema;
+  getCurrentHead(): WorldId;
+  currentBranch(): Branch;
+  enqueueAction(type: string, input?: unknown, opts?: ActOptions): ProposalId;
 };
 
 // ─────────────────────────────────────────────────────────

@@ -126,9 +126,6 @@ export class V2InitializerImpl implements V2Initializer {
       });
     }
 
-    // 3. Initialize genesis World in WorldStore (async, non-blocking)
-    void this.initializeGenesisWorld();
-
     return {
       hostExecutor: this._hostExecutor,
     };
@@ -172,7 +169,11 @@ export class V2InitializerImpl implements V2Initializer {
 
     // Store genesis in WorldStore
     try {
-      await worldStore.store(genesisWorld, genesisDelta);
+      if (worldStore.initializeGenesis) {
+        await worldStore.initializeGenesis(genesisWorld, genesisSnapshot);
+      } else {
+        await worldStore.store(genesisWorld, genesisDelta);
+      }
     } catch (error) {
       // Genesis may already exist in WorldStore
       console.warn("[Manifesto] Genesis World already exists or store failed:", error);

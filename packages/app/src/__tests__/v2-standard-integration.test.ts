@@ -27,6 +27,23 @@ const schema: DomainSchema = {
     "todo.add": {
       flow: { kind: "seq", steps: [] },
     },
+    "todo.remove": {
+      flow: { kind: "seq", steps: [] },
+    },
+  },
+  computed: { fields: {} },
+  state: { fields: {} },
+};
+
+const altSchema: DomainSchema = {
+  id: "test:v2-alt",
+  version: "1.0.0",
+  hash: "schema-v2-alt",
+  types: {},
+  actions: {
+    "note.add": {
+      flow: { kind: "seq", steps: [] },
+    },
   },
   computed: { fields: {} },
   state: { fields: {} },
@@ -53,7 +70,10 @@ function createSnapshot(data: Record<string, unknown> = {}): Snapshot {
   };
 }
 
-function createHost(dispatchImpl?: Host["dispatch"]): Host {
+function createHost(
+  dispatchImpl?: Host["dispatch"],
+  registeredEffects: readonly string[] = []
+): Host {
   return {
     dispatch:
       dispatchImpl ??
@@ -61,6 +81,7 @@ function createHost(dispatchImpl?: Host["dispatch"]): Host {
         return { status: "completed", snapshot: createSnapshot() };
       }),
     registerEffect: vi.fn(),
+    getRegisteredEffectTypes: () => registeredEffects,
   };
 }
 
@@ -76,6 +97,35 @@ function createWorldStore(): WorldStore {
 }
 
 describe("v2 Standard App Integration", () => {
+  it("APP-API-5: App does not expose Host or WorldStore instances", async () => {
+    const host = createHost();
+    const worldStore = createWorldStore();
+
+    const app = createApp({ schema, host, worldStore });
+    await app.ready();
+
+    const appSurface = app as unknown as Record<string, unknown>;
+    expect("host" in appSurface).toBe(false);
+    expect("worldStore" in appSurface).toBe(false);
+  });
+
+  it("APP-API-6/SCHEMA-6: getDomainSchema tracks current branch schema", async () => {
+    const host = createHost();
+    const worldStore = createWorldStore();
+
+    const app = createApp({ schema, host, worldStore });
+    await app.ready();
+
+    expect(app.getDomainSchema().hash).toBe(schema.hash);
+
+    await app.fork({ domain: altSchema, migrate: "auto" });
+
+    expect(app.getDomainSchema().hash).toBe(altSchema.hash);
+
+    await app.switchBranch("main");
+    expect(app.getDomainSchema().hash).toBe(schema.hash);
+  });
+
   it("APP-BOUNDARY-4: injected Host is used for execution", async () => {
     const hostDispatch = vi.fn(async (): Promise<HostResult> => {
       return { status: "completed", snapshot: createSnapshot() };
@@ -167,11 +217,39 @@ describe("v2 Standard App Integration", () => {
     expect(result.status).toBe("rejected");
     expect(hostDispatch).not.toHaveBeenCalled();
   });
+
+  it("POLICY-5: rejected proposals must not create World", async () => {
+    const hostDispatch = vi.fn(async (): Promise<HostResult> => {
+      return { status: "completed", snapshot: createSnapshot() };
+    });
+    const host = createHost(hostDispatch);
+    const worldStore = createWorldStore();
+    const policyService: PolicyService = {
+      deriveExecutionKey: () => "key-1",
+      requestApproval: vi.fn(async () => {
+        return { approved: false, reason: "no", timestamp: 0 };
+      }),
+      validateScope: () => ({ valid: true }),
+    };
+
+    const app = createApp({ schema, host, worldStore, policyService });
+    await app.ready();
+    const storeCallsBefore = (worldStore.store as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+
+    const result = await app.act("todo.add", {}).result();
+
+    expect(result.status).toBe("rejected");
+    expect(hostDispatch).not.toHaveBeenCalled();
+    const storeCallsAfter = (worldStore.store as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    expect(storeCallsAfter).toBe(storeCallsBefore);
+  });
 });
 
 describe("Hook Contract (FDR-APP-RUNTIME-001)", () => {
   it("HOOK-3: hook errors do not affect execution outcome", async () => {
-    const app = createApp(schema);
+    const host = createHost();
+    const worldStore = createWorldStore();
+    const app = createApp({ schema, host, worldStore });
     await app.ready();
 
     app.hooks.on("action:preparing", () => {
@@ -184,7 +262,9 @@ describe("Hook Contract (FDR-APP-RUNTIME-001)", () => {
 
   it("HOOK-CTX: HookContext provides AppRef and timestamp", async () => {
     let captured: unknown;
-    const app = createApp(schema);
+    const host = createHost();
+    const worldStore = createWorldStore();
+    const app = createApp({ schema, host, worldStore });
 
     app.hooks.on("app:ready", (ctx) => {
       captured = ctx;
@@ -195,6 +275,61 @@ describe("Hook Contract (FDR-APP-RUNTIME-001)", () => {
     const ctx = captured as { app?: unknown; timestamp?: number };
     expect(ctx.app).toBeDefined();
     expect(typeof ctx.timestamp).toBe("number");
+  });
+
+  it("HOOK-6: HookContext must expose AppRef (no direct act)", async () => {
+    const host = createHost();
+    const worldStore = createWorldStore();
+    const app = createApp({ schema, host, worldStore });
+
+    let captured: unknown;
+    app.hooks.on("app:ready", (ctx) => {
+      captured = ctx;
+    });
+
+    await app.ready();
+
+    const ctx = captured as { app?: Record<string, unknown> };
+    expect(ctx.app).toBeDefined();
+    expect("enqueueAction" in (ctx.app ?? {})).toBe(true);
+    expect("act" in (ctx.app ?? {})).toBe(false);
+    expect("submitProposal" in (ctx.app ?? {})).toBe(false);
+  });
+
+  it("HOOK-7: enqueueAction defers until hook completes", async () => {
+    const host = createHost();
+    const worldStore = createWorldStore();
+    const app = createApp({ schema, host, worldStore });
+    await app.ready();
+
+    const events: string[] = [];
+    let enqueued = false;
+
+    app.hooks.on("action:preparing", (payload) => {
+      events.push(`preparing:${payload.type}`);
+    });
+
+    app.hooks.on("action:completed", (_payload, ctx) => {
+      const hookCtx = ctx as unknown as {
+        app?: { enqueueAction?: (type: string, input: unknown) => void };
+      };
+
+      events.push("hook-start");
+      if (!enqueued) {
+        enqueued = true;
+        hookCtx.app?.enqueueAction?.("todo.remove", {});
+      }
+      events.push("hook-end");
+    });
+
+    await app.act("todo.add", {}).done();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const hookEndIndex = events.indexOf("hook-end");
+    const removeIndex = events.indexOf("preparing:todo.remove");
+
+    expect(removeIndex).toBeGreaterThan(hookEndIndex);
   });
 });
 
@@ -213,6 +348,31 @@ describe("Publish Boundary (v2)", () => {
     await app.act("todo.add", {}).done();
 
     expect(publishes.length).toBe(1);
+  });
+
+  it("POLICY-6/EXK-TICK-2: publish per proposal even with shared ExecutionKey", async () => {
+    const host = createHost();
+    const worldStore = createWorldStore();
+    const policyService: PolicyService = {
+      deriveExecutionKey: () => "shared-key",
+      requestApproval: vi.fn(async () => {
+        return { approved: true, scope: { allowedPaths: ["*"] }, timestamp: 0 };
+      }),
+      validateScope: () => ({ valid: true }),
+    };
+
+    const app = createApp({ schema, host, worldStore, policyService });
+    await app.ready();
+
+    const publishes: Array<unknown> = [];
+    app.hooks.on("state:publish", (payload) => {
+      publishes.push(payload);
+    });
+
+    await app.act("todo.add", {}).done();
+    await app.act("todo.add", {}).done();
+
+    expect(publishes.length).toBe(2);
   });
 });
 

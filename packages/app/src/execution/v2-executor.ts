@@ -13,6 +13,7 @@ import { createWorldId, createProposalId } from "@manifesto-ai/world";
 import type {
   ActOptions,
   AppState,
+  ActionResult,
   ErrorValue,
   Intent,
   PolicyService,
@@ -239,7 +240,6 @@ export class V2ExecutorImpl implements V2Executor {
           runtime: "domain" as const,
         };
 
-        handle._setResult(result);
         subscriptionStore.endTransaction();
 
         await lifecycleManager.emitHook(
@@ -248,7 +248,52 @@ export class V2ExecutorImpl implements V2Executor {
           { actorId, branchId }
         );
 
+        handle._setResult(result);
+
         return;
+      }
+
+      // POLICY-3: Validate Proposal against ApprovedScope before execution
+      if (decision.scope) {
+        const scopeValidation = policyService.validateScope(proposal, decision.scope);
+        if (!scopeValidation.valid) {
+          const reason = scopeValidation.errors?.[0] ?? "Scope validation failed";
+
+          handle._transitionTo("rejected", {
+            kind: "rejected",
+            reason,
+          });
+
+          await lifecycleManager.emitHook(
+            "audit:rejected",
+            {
+              operation: actionType,
+              reason,
+              proposalId: handle.proposalId,
+            },
+            { actorId, branchId }
+          );
+
+          const result = {
+            status: "rejected" as const,
+            proposalId: handle.proposalId,
+            decisionId: `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+            reason,
+            runtime: "domain" as const,
+          };
+
+          subscriptionStore.endTransaction();
+
+          await lifecycleManager.emitHook(
+            "action:completed",
+            { proposalId: handle.proposalId, result },
+            { actorId, branchId }
+          );
+
+          handle._setResult(result);
+
+          return;
+        }
       }
 
       // Approved
@@ -390,6 +435,8 @@ export class V2ExecutorImpl implements V2Executor {
       }
 
       // ==== Phase 9: completed/failed ====
+      let finalResult: ActionResult;
+
       if (execResult.outcome === "completed") {
         handle._transitionTo("completed", {
           kind: "completed",
@@ -409,7 +456,7 @@ export class V2ExecutorImpl implements V2Executor {
           runtime: "domain" as const,
         };
 
-        handle._setResult(result);
+        finalResult = result;
       } else {
         // Failed
         handle._transitionTo("failed", {
@@ -450,7 +497,7 @@ export class V2ExecutorImpl implements V2Executor {
           runtime: "domain" as const,
         };
 
-        handle._setResult(result);
+        finalResult = result;
 
         // Emit audit:failed
         await lifecycleManager.emitHook(
@@ -473,12 +520,13 @@ export class V2ExecutorImpl implements V2Executor {
       subscriptionStore.endTransaction();
 
       // Emit action:completed
-      const completedResult = await handle.result();
       await lifecycleManager.emitHook(
         "action:completed",
-        { proposalId: handle.proposalId, result: completedResult },
+        { proposalId: handle.proposalId, result: finalResult },
         { actorId, branchId }
       );
+
+      handle._setResult(finalResult);
 
       // Cleanup proposal tracking state
       proposalManager.cleanup(handle.proposalId);
@@ -521,7 +569,6 @@ export class V2ExecutorImpl implements V2Executor {
       runtime: handle.runtime,
     };
 
-    handle._setResult(result);
     subscriptionStore.endTransaction();
 
     await lifecycleManager.emitHook(
@@ -529,6 +576,8 @@ export class V2ExecutorImpl implements V2Executor {
       { proposalId: handle.proposalId, result },
       {}
     );
+
+    handle._setResult(result);
   }
 
   /**
@@ -569,7 +618,6 @@ export class V2ExecutorImpl implements V2Executor {
       runtime: handle.runtime,
     };
 
-    handle._setResult(result);
     subscriptionStore.endTransaction();
 
     await lifecycleManager.emitHook(
@@ -587,6 +635,8 @@ export class V2ExecutorImpl implements V2Executor {
       { proposalId: handle.proposalId, result },
       { actorId, branchId }
     );
+
+    handle._setResult(result);
   }
 }
 

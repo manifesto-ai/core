@@ -55,52 +55,31 @@ ADR-001은 **누가** 구현하는지 결정했다:
 
 ```typescript
 /**
- * ExecutionKey 결정에 필요한 컨텍스트
- */
-type ExecutionKeyContext = {
-  /** Proposal 식별자 */
-  readonly proposalId: ProposalId;
-  
-  /** 제안자 */
-  readonly actorId: ActorId;
-  
-  /** 실행 기준 World */
-  readonly baseWorld: WorldId;
-  
-  /**
-   * 실행 시도 횟수 (첫 시도 = 1)
-   * 
-   * App 정책 레이어에서 관리하며, proposal.meta.executionAttempt에서 가져옴.
-   * World SPEC의 Proposal에는 명시 필드가 없으므로, App이 재시도 정책에서 관리.
-   * 
-   * v2에서 ProposalId는 유일하므로, 재시도 미지원 시 항상 1로 고정.
-   */
-  readonly attempt: number;
-  
-  /** Intent 타입 (선택적 라우팅용) */
-  readonly intentType?: string;
-  
-  /** 추가 메타데이터 */
-  readonly meta?: Record<string, unknown>;
-};
-
-/**
  * ExecutionKey를 결정하는 정책 함수
  */
-type ExecutionKeyPolicy = (ctx: ExecutionKeyContext) => ExecutionKey;
+type ExecutionKeyPolicy = (proposal: Proposal) => ExecutionKey;
 
 /**
- * ExecutionKeyContext 생성
+ * (Implementation Note) 내부 정책에서 Proposal 기반으로
+ * 추가 컨텍스트를 파생할 수 있다.
  */
+type ExecutionKeyContext = {
+  readonly proposalId: ProposalId;
+  readonly actorId: ActorId;
+  readonly baseWorld: WorldId;
+  readonly intentType: string;
+  readonly intentBody: unknown;
+  readonly branchId?: BranchId;
+};
+
 function createExecutionKeyContext(proposal: Proposal): ExecutionKeyContext {
   return {
     proposalId: proposal.proposalId,
     actorId: proposal.actorId,
     baseWorld: proposal.baseWorld,
-    // attempt는 App 정책 레이어에서 관리 (EXK-ATTEMPT-1)
-    attempt: (proposal.meta?.executionAttempt as number) ?? 1,
-    intentType: proposal.intent.type,
-    meta: proposal.meta,
+    intentType: proposal.intentType,
+    intentBody: proposal.intentBody,
+    branchId: proposal.branchId,
   };
 }
 ```
@@ -117,10 +96,10 @@ function createExecutionKeyContext(proposal: Proposal): ExecutionKeyContext {
  * 특징: 최대 병렬성, 순서 보장 없음
  * 적합: 독립적인 작업들
  * 
- * Note: attempt 포함 - 재시도는 별도 lane
+ * Note: 재시도 정책은 Proposal 외부에서 관리
  */
-const defaultPolicy: ExecutionKeyPolicy = ({ proposalId, attempt }) =>
-  `proposal:${proposalId}:${attempt}`;
+const defaultPolicy: ExecutionKeyPolicy = ({ proposalId }) =>
+  `proposal:${proposalId}`;
 
 /**
  * Actor 직렬화 정책: 같은 Actor의 Proposal은 직렬화
@@ -128,7 +107,7 @@ const defaultPolicy: ExecutionKeyPolicy = ({ proposalId, attempt }) =>
  * 특징: Actor 내 순서 보장 (재시도 포함)
  * 적합: 사용자별 작업 순서가 중요할 때
  * 
- * Note: attempt 미포함 - 같은 Actor의 모든 시도가 하나의 lane
+ * Note: 재시도도 같은 lane에서 직렬화
  */
 const actorSerialPolicy: ExecutionKeyPolicy = ({ actorId }) =>
   `actor:${actorId}`;
@@ -139,7 +118,7 @@ const actorSerialPolicy: ExecutionKeyPolicy = ({ actorId }) =>
  * 특징: 충돌 가능성 최소화 (재시도 포함)
  * 적합: 같은 상태를 기반으로 한 작업 충돌 방지
  * 
- * Note: attempt 미포함 - 같은 base의 모든 시도가 하나의 lane
+ * Note: 재시도도 같은 lane에서 직렬화
  */
 const baseSerialPolicy: ExecutionKeyPolicy = ({ baseWorld }) =>
   `base:${baseWorld}`;
@@ -150,7 +129,7 @@ const baseSerialPolicy: ExecutionKeyPolicy = ({ baseWorld }) =>
  * 특징: 완전 순차 실행 (재시도 포함)
  * 적합: 모든 작업이 순서대로 실행되어야 할 때
  * 
- * Note: attempt 미포함 - 전역 단일 lane 보장
+ * Note: 재시도도 같은 lane에서 직렬화
  */
 const globalSerialPolicy: ExecutionKeyPolicy = () =>
   `global`;
@@ -161,15 +140,14 @@ const globalSerialPolicy: ExecutionKeyPolicy = () =>
  * 특징: 타입별 순서 보장 (재시도 포함)
  * 적합: 특정 작업 타입 간 충돌 방지
  * 
- * Note: attempt 미포함 - 같은 타입의 모든 시도가 하나의 lane
+ * Note: 재시도도 같은 lane에서 직렬화
  */
 const intentTypeSerialPolicy: ExecutionKeyPolicy = ({ intentType }) =>
   `intent:${intentType ?? 'unknown'}`;
 ```
 
-> **Design Note:** `attempt`는 **defaultPolicy에서만** 포함된다.
-> 직렬화 정책(actor, base, global, intentType)은 "같은 lane"을 보장해야 하므로 attempt를 포함하지 않는다.
-> 이렇게 해야 재시도도 동일한 lane에서 직렬화된다.
+> **Design Note:** 재시도 정책이 필요하면 ExecutionKeyPolicy 외부에서
+> 시도 횟수를 관리하고, 필요 시 policy를 래핑하여 key에 반영한다.
 
 ### 2.3 Composite Policy
 
@@ -179,7 +157,7 @@ const intentTypeSerialPolicy: ExecutionKeyPolicy = ({ intentType }) =>
 /**
  * 조건부 정책: 조건에 따라 다른 정책 적용
  */
-type PolicyCondition = (ctx: ExecutionKeyContext) => boolean;
+type PolicyCondition = (proposal: Proposal) => boolean;
 
 type ConditionalPolicy = {
   readonly condition: PolicyCondition;
@@ -190,20 +168,21 @@ function createCompositePolicy(
   conditionals: ConditionalPolicy[],
   fallback: ExecutionKeyPolicy = defaultPolicy
 ): ExecutionKeyPolicy {
-  return (ctx) => {
+  return (proposal) => {
     for (const { condition, policy } of conditionals) {
-      if (condition(ctx)) {
-        return policy(ctx);
+      if (condition(proposal)) {
+        return policy(proposal);
       }
     }
-    return fallback(ctx);
+    return fallback(proposal);
   };
 }
 
 // 예시: Agent는 직렬화, Human은 병렬
+const actorKindById = new Map<ActorId, 'agent' | 'human'>();
 const hybridPolicy = createCompositePolicy([
   {
-    condition: (ctx) => ctx.meta?.actorKind === 'agent',
+    condition: (proposal) => actorKindById.get(proposal.actorId) === 'agent',
     policy: actorSerialPolicy,
   },
 ], defaultPolicy);
@@ -234,22 +213,23 @@ const defaultExecutionPolicyConfig: ExecutionPolicyConfig = {
 
 ```typescript
 function resolveExecutionKey(
-  ctx: ExecutionKeyContext,
-  config: ExecutionPolicyConfig
+  proposal: Proposal,
+  config: ExecutionPolicyConfig,
+  resolveActorKind?: (actorId: ActorId) => ActorKind | undefined
 ): ExecutionKey {
   // 1. Intent 타입 override 확인
-  if (ctx.intentType && config.intentTypeOverrides?.[ctx.intentType]) {
-    return config.intentTypeOverrides[ctx.intentType](ctx);
+  if (config.intentTypeOverrides?.[proposal.intentType]) {
+    return config.intentTypeOverrides[proposal.intentType](proposal);
   }
   
-  // 2. Actor 종류 override 확인
-  const actorKind = ctx.meta?.actorKind as ActorKind | undefined;
+  // 2. Actor 종류 override 확인 (외부 resolver)
+  const actorKind = resolveActorKind?.(proposal.actorId);
   if (actorKind && config.actorKindOverrides?.[actorKind]) {
-    return config.actorKindOverrides[actorKind](ctx);
+    return config.actorKindOverrides[actorKind](proposal);
   }
   
   // 3. 기본 정책 적용
-  return config.executionKeyPolicy(ctx);
+  return config.executionKeyPolicy(proposal);
 }
 ```
 
@@ -258,11 +238,10 @@ function resolveExecutionKey(
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | EXK-POLICY-1 | MUST | App MUST provide ExecutionKeyPolicy implementation |
-| EXK-POLICY-2 | MUST | ExecutionKey MUST be deterministic for same context |
+| EXK-POLICY-2 | MUST | ExecutionKey MUST be deterministic for same Proposal |
 | EXK-POLICY-3 | MUST | ExecutionKey MUST be fixed before execution starts (WORLD-EXK-2) |
 | EXK-POLICY-4 | SHOULD | App SHOULD support policy configuration |
 | EXK-POLICY-5 | MAY | App MAY support intent/actor-specific policy overrides |
-| EXK-ATTEMPT-1 | MUST | App MUST define a single authoritative source of attempt (proposal.meta.executionAttempt, default 1) |
 
 ### 2.7 Tick/Publish Boundary with Serialization Policies
 
@@ -310,30 +289,20 @@ type ProposalTick = {
 ```typescript
 /**
  * ApprovedScope: Authority가 승인한 실행 범위
- * 
+ *
  * 예시:
- * - 특정 Actor만 실행 가능
- * - 특정 Intent type만 허용
- * - 특정 data 필드만 수정 가능
- * - 실행 시간 제한
+ * - 특정 data 경로만 수정 가능
+ * - 패치 개수 제한
+ * - constraints로 App 고유 제약 정의
  */
 type ApprovedScope = {
-  /** Scope 식별자 */
-  readonly scopeId: string;
+  /** 수정 가능한 경로 패턴 */
+  readonly allowedPaths: readonly string[];
   
-  /** 허용된 Actor 목록 (비어있으면 제한 없음) */
-  readonly allowedActors?: readonly ActorId[];
+  /** 최대 패치 수 (선택) */
+  readonly maxPatchCount?: number;
   
-  /** 허용된 Intent type 목록 (비어있으면 제한 없음) */
-  readonly allowedIntentTypes?: readonly string[];
-  
-  /** 수정 가능한 경로 패턴 (비어있으면 제한 없음) */
-  readonly allowedPaths?: readonly string[];
-  
-  /** 실행 시간 제한 (ms) */
-  readonly timeoutMs?: number;
-  
-  /** 추가 제약 조건 */
+  /** 추가 제약 조건 (App 정의) */
   readonly constraints?: Record<string, unknown>;
 };
 ```
@@ -362,16 +331,18 @@ type ScopeGenerator = (
 ) => ApprovedScope;
 
 // 기본 scope generator: 제한 없음
-const defaultScopeGenerator: ScopeGenerator = (proposal) => ({
-  scopeId: `scope:${proposal.proposalId}`,
+const defaultScopeGenerator: ScopeGenerator = () => ({
+  allowedPaths: ["*"],
 });
 
-// 제한적 scope generator: Actor, Intent type 제한
+// 제한적 scope generator: constraints로 Actor/Intent 제한
 const restrictiveScopeGenerator: ScopeGenerator = (proposal, authority, policy) => ({
-  scopeId: `scope:${proposal.proposalId}`,
-  allowedActors: [proposal.actorId],
-  allowedIntentTypes: [proposal.intent.type],
-  timeoutMs: 30_000,
+  allowedPaths: ["data.*"],
+  constraints: {
+    allowedActors: [proposal.actorId],
+    allowedIntentTypes: [proposal.intentType],
+    timeoutMs: 30_000,
+  },
 });
 ```
 
@@ -405,13 +376,17 @@ function validateScope(
   scope: ApprovedScope
 ): ScopeValidationResult {
   const violations: ScopeViolation[] = [];
+  const constraints = (scope.constraints ?? {}) as {
+    allowedActors?: readonly ActorId[];
+    allowedIntentTypes?: readonly string[];
+  };
   
   // 1. Actor 검증
-  if (scope.allowedActors && scope.allowedActors.length > 0) {
-    if (!scope.allowedActors.includes(proposal.actorId)) {
+  if (constraints.allowedActors && constraints.allowedActors.length > 0) {
+    if (!constraints.allowedActors.includes(proposal.actorId)) {
       violations.push({
         type: 'actor',
-        expected: scope.allowedActors,
+        expected: constraints.allowedActors,
         actual: proposal.actorId,
         message: `Actor ${proposal.actorId} not in allowed list`,
       });
@@ -419,13 +394,13 @@ function validateScope(
   }
   
   // 2. Intent type 검증
-  if (scope.allowedIntentTypes && scope.allowedIntentTypes.length > 0) {
-    if (!scope.allowedIntentTypes.includes(proposal.intent.type)) {
+  if (constraints.allowedIntentTypes && constraints.allowedIntentTypes.length > 0) {
+    if (!constraints.allowedIntentTypes.includes(proposal.intentType)) {
       violations.push({
         type: 'intent_type',
-        expected: scope.allowedIntentTypes,
-        actual: proposal.intent.type,
-        message: `Intent type ${proposal.intent.type} not allowed`,
+        expected: constraints.allowedIntentTypes,
+        actual: proposal.intentType,
+        message: `Intent type ${proposal.intentType} not allowed`,
       });
     }
   }
@@ -451,9 +426,10 @@ async function executeWithScope(
   intent: Intent,
   scope: ApprovedScope
 ): Promise<HostExecutionResult> {
+  const timeoutMs = (scope.constraints as { timeoutMs?: number } | undefined)?.timeoutMs;
   return executor.execute(key, baseSnapshot, intent, {
     approvedScope: scope,
-    timeoutMs: scope.timeoutMs,
+    timeoutMs,
   });
 }
 ```
@@ -745,9 +721,7 @@ class DefaultPolicyService implements PolicyService {
   ) {}
   
   deriveExecutionKey(proposal: Proposal): ExecutionKey {
-    // EXK-ATTEMPT-1: 항상 createExecutionKeyContext()를 통해 attempt 결정
-    const ctx = createExecutionKeyContext(proposal);
-    return resolveExecutionKey(ctx, this.config);
+    return resolveExecutionKey(proposal, this.config);
   }
   
   getAuthority(actorId: ActorId): AuthorityRef | null {
@@ -806,16 +780,22 @@ class App {
     // 3. Scope 검증 (실행 전)
     const preValidation = this.policyService.validateScope(proposal, scope);
     if (!preValidation.valid) {
-      return { status: 'scope_violation', violations: preValidation.violations };
+      return { status: 'rejected', reason: 'scope_violation' };
     }
     
     // 4. 실행
     const baseSnapshot = await this.worldStore.restore(proposal.baseWorld);
+    const intent: Intent = {
+      type: proposal.intentType,
+      body: proposal.intentBody,
+      intentId: proposal.proposalId,
+    };
+    const timeoutMs = (scope.constraints as { timeoutMs?: number } | undefined)?.timeoutMs;
     const result = await this.hostExecutor.execute(
       executionKey,
       baseSnapshot,
-      proposal.intent,
-      { approvedScope: scope, timeoutMs: scope.timeoutMs }
+      intent,
+      { approvedScope: scope, timeoutMs }
     );
     
     // 5. Scope 검증 (실행 후, World-owned paths만)
@@ -835,9 +815,9 @@ class App {
       });
       
       return { 
-        status: 'scope_violation_post', 
-        violations: postValidation.violations,
-        world: failedWorld 
+        status: 'failed',
+        world: failedWorld,
+        error: { code: 'SCOPE_VIOLATION_POST', violations: postValidation.violations }
       };
     }
     
@@ -936,15 +916,15 @@ const defaultExecutionPolicyConfig: ExecutionPolicyConfig = {
  * Canonical serialization: 언어/런타임 간 일관성 보장
  */
 function deriveSecureExecutionKey(
-  ctx: ExecutionKeyContext,
+  proposal: Proposal,
   secret: string
 ): ExecutionKey {
   // Canonical format: 언어/런타임 간 동일 결과 보장
   const canonicalInput =
-    `proposalId=${ctx.proposalId}\n` +
-    `actorId=${ctx.actorId}\n` +
-    `baseWorld=${ctx.baseWorld}\n` +
-    `attempt=${ctx.attempt}`;
+    `proposalId=${proposal.proposalId}\n` +
+    `actorId=${proposal.actorId}\n` +
+    `baseWorld=${proposal.baseWorld}\n` +
+    `intentType=${proposal.intentType}`;
   
   // HMAC: 결정적이면서 secret 없이는 추측 불가
   return `hmac:${hmacSha256(secret, canonicalInput)}`;
@@ -990,11 +970,10 @@ function verifyScope(signed: SignedScope, publicKey: string): boolean {
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | EXK-POLICY-1 | MUST | App MUST provide ExecutionKeyPolicy implementation |
-| EXK-POLICY-2 | MUST | ExecutionKey MUST be deterministic for same context |
+| EXK-POLICY-2 | MUST | ExecutionKey MUST be deterministic for same Proposal |
 | EXK-POLICY-3 | MUST | ExecutionKey MUST be fixed before execution starts |
 | EXK-POLICY-4 | SHOULD | App SHOULD support policy configuration |
 | EXK-POLICY-5 | MAY | App MAY support intent/actor-specific overrides |
-| EXK-ATTEMPT-1 | MUST | App MUST define single authoritative source of attempt (default: proposal.meta.executionAttempt ?? 1) |
 | EXK-TICK-1 | MUST | A tick is one Proposal execution cycle (startExecution → terminalSnapshot) |
 | EXK-TICK-2 | MUST | state:publish MUST occur at most once per proposal-tick |
 | EXK-TICK-3 | MUST NOT | Multiple proposals on same ExecutionKey MUST NOT merge into single tick |
@@ -1061,12 +1040,12 @@ type ExecutionKeyContext = {
   readonly proposalId: ProposalId;
   readonly actorId: ActorId;
   readonly baseWorld: WorldId;
-  readonly attempt: number;
-  readonly intentType?: string;
-  readonly meta?: Record<string, unknown>;
+  readonly intentType: string;
+  readonly intentBody: unknown;
+  readonly branchId?: BranchId;
 };
 
-type ExecutionKeyPolicy = (ctx: ExecutionKeyContext) => ExecutionKey;
+type ExecutionKeyPolicy = (proposal: Proposal) => ExecutionKey;
 
 type ExecutionPolicyConfig = {
   executionKeyPolicy: ExecutionKeyPolicy;
@@ -1078,11 +1057,8 @@ type ExecutionPolicyConfig = {
 // ApprovedScope
 // ─────────────────────────────────────────────────────────
 type ApprovedScope = {
-  readonly scopeId: string;
-  readonly allowedActors?: readonly ActorId[];
-  readonly allowedIntentTypes?: readonly string[];
-  readonly allowedPaths?: readonly string[];
-  readonly timeoutMs?: number;
+  readonly allowedPaths: readonly string[];
+  readonly maxPatchCount?: number;
   readonly constraints?: Record<string, unknown>;
 };
 

@@ -113,7 +113,8 @@ World.executeProposal(proposal)
 │                                                        │
 │  1. baseSnapshot = worldStore.restore(proposal.base)   │
 │  2. key = policy.deriveExecutionKey(proposal)          │
-│  3. result = host.dispatch(key, baseSnapshot, intent)  │
+│  3. result = host.dispatch(intent)                     │
+│     (baseSnapshot은 Host reset/seed로 주입)            │
 │  4. return { terminalSnapshot, status, traceRef }      │
 │                                                        │
 └───────────────────────────────────────────────────────┘
@@ -122,7 +123,7 @@ World.executeProposal(proposal)
 World.sealWorld(proposal, result)
         │
         ▼
-worldStore.store(newWorld, terminalSnapshot)
+worldStore.store(newWorld, delta)
 ```
 
 ### 2.4 Error Handling

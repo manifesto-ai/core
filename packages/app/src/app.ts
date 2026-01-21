@@ -17,12 +17,14 @@
  */
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
+import { compileMelDomain } from "@manifesto-ai/compiler";
 import type {
   App,
   ActionHandle,
   ActOptions,
   AppConfig,
   AppHooks,
+  AppRef,
   AppState,
   AppStatus,
   Branch,
@@ -35,6 +37,7 @@ import type {
   MigrationLink,
   PolicyService,
   Proposal,
+  ProposalId,
   ProposalResult,
   RecallRequest,
   Session,
@@ -54,6 +57,7 @@ import {
   MissingDefaultActorError,
   LivenessError,
   PluginInitError,
+  DomainCompileError,
 } from "./errors/index.js";
 
 import { ActionHandleImpl } from "./execution/action/index.js";
@@ -64,6 +68,7 @@ import { ServiceRegistry } from "./runtime/services/index.js";
 import { createMemoryFacade, freezeRecallResult } from "./runtime/memory/index.js";
 import { SystemRuntime, createSystemFacade } from "./runtime/system/index.js";
 import type { SystemActionType } from "./constants.js";
+import { createAppRef, type AppRefCallbacks } from "./hooks/index.js";
 import type { AppHostExecutor } from "./execution/host-executor/index.js";
 import { createDefaultPolicyService, createSilentPolicyService } from "./runtime/policy/index.js";
 import {
@@ -84,6 +89,7 @@ import {
   createLifecycleManager,
   type LifecycleManager,
 } from "./core/lifecycle/index.js";
+import { createInitialAppState } from "./core/state/index.js";
 import {
   createSchemaManager,
   type SchemaManager,
@@ -110,6 +116,7 @@ export class ManifestoApp implements App {
   private _actionQueue: ActionQueue;
   private _livenessGuard: LivenessGuard;
   private _worldHeadTracker: WorldHeadTracker;
+  private _appRef: AppRef;
 
   // Options
   private _options: CreateAppOptions;
@@ -156,6 +163,9 @@ export class ManifestoApp implements App {
     this._actionQueue = createActionQueue();
     this._livenessGuard = createLivenessGuard();
     this._worldHeadTracker = createWorldHeadTracker();
+    this._appRef = this._createAppRef();
+    this._lifecycleManager.setAppRef(this._appRef);
+    this._registerConfiguredHooks();
 
     // v2.0.0: Detect v2 mode from _v2Config
     const v2Config = opts?._v2Config;
@@ -233,7 +243,7 @@ export class ManifestoApp implements App {
     await this._initializePlugins();
 
     // 8. Initialize state
-    this._initializeState();
+    await this._initializeState();
 
     // Mark as ready
     this._lifecycleManager.transitionTo("ready");
@@ -316,7 +326,15 @@ export class ManifestoApp implements App {
   async fork(opts?: ForkOptions): Promise<Branch> {
     this._lifecycleManager.ensureReady("fork");
     const currentBranch = this._branchManager!.currentBranch();
-    return this._branchManager!.fork(currentBranch.id, opts);
+    let resolvedOpts = opts;
+
+    if (opts?.domain) {
+      const resolvedSchema = await this._resolveForkSchema(opts.domain);
+      this._schemaManager.cacheSchema(resolvedSchema);
+      resolvedOpts = { ...opts, domain: resolvedSchema };
+    }
+
+    return this._branchManager!.fork(currentBranch.id, resolvedOpts);
   }
 
   // ===========================================================================
@@ -517,6 +535,83 @@ export class ManifestoApp implements App {
   // Internal Methods
   // ===========================================================================
 
+  private _createAppRef(): AppRef {
+    const queue = this._lifecycleManager.getHookableImpl().getJobQueue();
+    const callbacks: AppRefCallbacks = {
+      getStatus: () => this.status,
+      getState: <T>() => this.getState<T>(),
+      getDomainSchema: () => this.getDomainSchema(),
+      getCurrentHead: () => this.getCurrentHead(),
+      currentBranch: () => this.currentBranch(),
+      generateProposalId: () => this._proposalManager.generateProposalId(),
+    };
+
+    return createAppRef(
+      callbacks,
+      queue,
+      (proposalId, type, input, opts) => {
+        this._enqueueActionFromHook(proposalId, type, input, opts);
+      }
+    );
+  }
+
+  private _enqueueActionFromHook(
+    proposalId: ProposalId,
+    type: string,
+    input?: unknown,
+    opts?: ActOptions
+  ): void {
+    this._lifecycleManager.ensureReady("enqueueAction");
+
+    const runtime = type.startsWith("system.") ? "system" : "domain";
+    const handle = this._proposalManager.createHandle(proposalId, runtime);
+
+    if (this._v2Enabled && runtime === "domain") {
+      this._livenessGuard.checkReinjection(runtime);
+    }
+
+    const singleWriter = this._options.scheduler?.singleWriterPerBranch !== false;
+
+    if (runtime === "system") {
+      this._actionQueue.enqueueSystem(async () => {
+        await this._executeSystemAction(handle, type as SystemActionType, input, opts);
+      });
+    } else if (this._v2Enabled) {
+      this._actionQueue.enqueueDomain(async () => {
+        await this._v2Executor!.execute(handle, type, input, opts);
+      });
+    } else if (singleWriter) {
+      this._actionQueue.enqueueDomain(async () => {
+        await this._executeActionLifecycle(handle, type, input, opts);
+      });
+    } else {
+      queueMicrotask(() => {
+        void this._executeActionLifecycle(handle, type, input, opts);
+      });
+    }
+  }
+
+  private async _resolveForkSchema(domain: string | DomainSchema): Promise<DomainSchema> {
+    if (typeof domain !== "string") {
+      return domain;
+    }
+
+    const result = compileMelDomain(domain, { mode: "domain" });
+
+    if (result.errors.length > 0) {
+      const errorMessages = result.errors
+        .map((e) => `[${e.code}] ${e.message}`)
+        .join("; ");
+      throw new DomainCompileError(`MEL compilation failed: ${errorMessages}`);
+    }
+
+    if (!result.schema) {
+      throw new DomainCompileError("MEL compilation produced no schema");
+    }
+
+    return result.schema as DomainSchema;
+  }
+
   private _getCurrentSchemaHash(): string {
     if (this._branchManager) {
       return this._branchManager.currentBranch().schemaHash;
@@ -568,27 +663,22 @@ export class ManifestoApp implements App {
     }
   }
 
-  private _initializeState(): void {
+  private _registerConfiguredHooks(): void {
+    const hooks = this._options.hooks;
+    if (!hooks) return;
+
+    const hookable = this._lifecycleManager.hooks;
+    for (const [name, handler] of Object.entries(hooks)) {
+      if (typeof handler !== "function") continue;
+      hookable.on(name as keyof AppHooks, handler as AppHooks[keyof AppHooks]);
+    }
+  }
+
+  private async _initializeState(): Promise<void> {
     const schemaHash = this._schemaManager.getCurrentSchemaHash();
     const initialData = this._options.initialData;
 
-    this._currentState = {
-      data: initialData ?? {},
-      computed: {},
-      system: {
-        status: "idle",
-        lastError: null,
-        errors: [],
-        pendingRequirements: [],
-        currentAction: null,
-      },
-      meta: {
-        version: 0,
-        timestamp: Date.now(),
-        randomSeed: "",
-        schemaHash,
-      },
-    };
+    this._currentState = createInitialAppState(schemaHash, initialData);
 
     this._subscriptionStore.setState(this._currentState);
 
@@ -658,7 +748,7 @@ export class ManifestoApp implements App {
     this._systemRuntime.setMemoryFacade(this._memoryFacade);
 
     if (this._v2Enabled) {
-      this._initializeV2Components();
+      await this._initializeV2Components();
     } else {
       this._domainExecutor = new DomainExecutor({
         schema: this._schemaManager.getSchema(),
@@ -668,7 +758,7 @@ export class ManifestoApp implements App {
     }
   }
 
-  private _initializeV2Components(): void {
+  private async _initializeV2Components(): Promise<void> {
     if (!this._v2Host || !this._v2WorldStore || !this._v2PolicyService) {
       throw new Error("v2 mode requires Host, WorldStore, and PolicyService");
     }
@@ -690,6 +780,8 @@ export class ManifestoApp implements App {
 
     const { hostExecutor } = v2Initializer.initialize();
     this._v2HostExecutor = hostExecutor;
+
+    await v2Initializer.initializeGenesisWorld();
 
     // Create V2Executor
     this._v2Executor = createV2Executor({

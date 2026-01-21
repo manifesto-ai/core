@@ -133,6 +133,9 @@ export class BranchManager {
       throw new BranchNotFoundError(parentBranchId);
     }
 
+    const parentSchemaHash = parentBranch.schemaHash;
+    let branchSchemaHash = parentSchemaHash;
+
     // FORK-1: Schema migration check
     if (opts?.domain) {
       // If new domain is provided, need migration
@@ -141,9 +144,11 @@ export class BranchManager {
           ? "pending-compile" // MEL text needs compilation
           : opts.domain.hash;
 
-      if (newSchemaHash !== this._schemaHash && !opts.migrate) {
-        throw new ForkMigrationError(this._schemaHash, newSchemaHash);
+      if (newSchemaHash !== parentSchemaHash && !opts.migrate) {
+        throw new ForkMigrationError(parentSchemaHash, newSchemaHash);
       }
+
+      branchSchemaHash = newSchemaHash;
 
       // FORK-2: Verify effect handler compatibility before creating branch (v2.0.0)
       // FORK-3: Missing effect handler MUST cause fork to fail without World creation
@@ -163,7 +168,7 @@ export class BranchManager {
 
     const newBranch = new BranchImpl(
       newBranchId,
-      this._schemaHash,
+      branchSchemaHash,
       forkWorldId,
       this._createBranchCallbacks(),
       opts?.name
@@ -234,7 +239,7 @@ export class BranchManager {
       getStateForBranch: (branchId: string) => this.getStateForBranch(branchId),
       createBranch: (parentBranchId: string, opts?: ForkOptions) =>
         this.fork(parentBranchId, opts),
-      getSchemaHash: () => this._schemaHash,
+      getSchemaHash: () => this.currentBranch().schemaHash,
     };
   }
 }

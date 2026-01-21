@@ -64,6 +64,32 @@ export class InMemoryWorldStore implements WorldStore {
   }
 
   /**
+   * Initialize genesis World with a full Snapshot.
+   */
+  async initializeGenesis(world: World, snapshot: Snapshot): Promise<void> {
+    if (this._worlds.has(world.worldId)) {
+      return;
+    }
+
+    const genesisDelta: WorldDelta = {
+      fromWorld: world.worldId,
+      toWorld: world.worldId,
+      patches: [],
+      createdAt: world.createdAt,
+    };
+
+    this._worlds.set(world.worldId, {
+      world,
+      delta: genesisDelta,
+      snapshot: this._excludeHostData(snapshot),
+    });
+
+    if (!this._children.has(world.worldId)) {
+      this._children.set(world.worldId, new Set());
+    }
+  }
+
+  /**
    * Store a World and its delta.
    *
    * STORE-6: MUST NOT modify World or Delta.
