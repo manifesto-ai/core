@@ -18,7 +18,7 @@
     "test:no-llm": "vitest run --exclude src/L6-e2e/llm/"
   },
   "dependencies": {
-    "@manifesto-ai/bridge": "workspace:*",
+    "@manifesto-ai/app": "workspace:*",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",

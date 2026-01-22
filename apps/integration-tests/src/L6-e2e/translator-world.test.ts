@@ -2,20 +2,19 @@
  * L6: Translator → World Integration Tests
  *
  * Tests the complete flow:
- * NL → TranslatorBridge → PatchFragment → processTranslatorOutput → Intent → Bridge → World
+ * NL → PatchFragment → processTranslatorOutput → Intent → App (WorldStore)
  *
  * This is the CORE integration that ties the translation layer to the runtime.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { createApp, InMemoryWorldStore, type App } from "@manifesto-ai/app";
 import { createHost, type ManifestoHost } from "@manifesto-ai/host";
 import {
   processTranslatorOutput,
   createTranslatorIntentId,
   type TranslatorOutput,
 } from "@manifesto-ai/host";
-import { createManifestoWorld, type ManifestoWorld } from "@manifesto-ai/world";
-import { createBridge, type Bridge } from "@manifesto-ai/bridge";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { MelPatchFragment } from "@manifesto-ai/compiler";
 import { userActor } from "../fixtures/index.js";
@@ -194,35 +193,34 @@ describe("L6: Translator → Host Integration", () => {
 
 describe("L6: Translator → World Full Stack", () => {
   let host: ManifestoHost;
-  let world: ManifestoWorld;
-  let bridge: Bridge;
+  let app: App;
+  let worldStore: InMemoryWorldStore;
 
   beforeEach(async () => {
     host = createHost(testSchema, {
       initialData: { count: 0, lastIntent: null },
     });
 
-    world = createManifestoWorld({
-      schemaHash: testSchema.hash,
+    worldStore = new InMemoryWorldStore();
+    app = createApp({
+      schema: testSchema,
       host,
+      worldStore,
+      initialData: { count: 0, lastIntent: null },
+      actorPolicy: {
+        mode: "anonymous",
+        defaultActor: {
+          actorId: userActor.actorId,
+          kind: "human",
+        },
+      },
     });
 
-    world.registerActor(userActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot);
-
-    bridge = createBridge({
-      world,
-      schemaHash: testSchema.hash,
-      defaultActor: userActor,
-    });
-
-    await bridge.refresh();
+    await app.ready();
   });
 
-  afterEach(() => {
-    bridge.dispose();
+  afterEach(async () => {
+    await app.dispose();
   });
 
   describe("NL → World State Change (Simulated)", () => {
@@ -232,7 +230,7 @@ describe("L6: Translator → World Full Stack", () => {
      */
     it("should complete NL → Fragment → World flow", async () => {
       // Initial state
-      expect(bridge.get("count")).toBe(0);
+      expect(app.getState().data.count).toBe(0);
 
       // Simulate: "set count to 50"
       const intentId = createTranslatorIntentId();
@@ -249,12 +247,12 @@ describe("L6: Translator → World Full Stack", () => {
         intentId,
       });
 
-      // Dispatch through Bridge → World
-      await bridge.dispatch(intent);
+      // Dispatch through App
+      await app.act(intent.type, intent.input).done();
 
       // Verify state change
-      expect(bridge.get("count")).toBe(50);
-      expect(bridge.get("computed.doubled")).toBe(100);
+      expect(app.getState().data.count).toBe(50);
+      expect(app.getState().computed["computed.doubled"]).toBe(100);
     });
 
     it("should handle multiple fragments in sequence", async () => {
@@ -275,9 +273,9 @@ describe("L6: Translator → World Full Stack", () => {
         intentId,
       });
 
-      await bridge.dispatch(intent);
+      await app.act(intent.type, intent.input).done();
 
-      expect(bridge.get("count")).toBe(10);
+      expect(app.getState().data.count).toBe(10);
       // Note: lastIntent may be set by the action's once() guard, not by our fragment
     });
 
@@ -295,11 +293,11 @@ describe("L6: Translator → World Full Stack", () => {
         intentId,
       });
 
-      await bridge.dispatch(intent);
+      await app.act(intent.type, intent.input).done();
 
-      expect(bridge.get("count")).toBe(25);
-      expect(bridge.get("computed.doubled")).toBe(50);
-      expect(bridge.get("computed.isPositive")).toBe(true);
+      expect(app.getState().data.count).toBe(25);
+      expect(app.getState().computed["computed.doubled"]).toBe(50);
+      expect(app.getState().computed["computed.isPositive"]).toBe(true);
     });
   });
 
@@ -386,7 +384,7 @@ describe("L6: Translator → World Full Stack", () => {
 
   describe("World Lineage After Translator Changes", () => {
     it("should create new world for each translator-initiated change", async () => {
-      const initialWorldId = bridge.getWorldId();
+      const initialWorldId = app.getCurrentHead();
 
       // First translator change
       const intentId1 = createTranslatorIntentId();
@@ -399,8 +397,8 @@ describe("L6: Translator → World Full Stack", () => {
       const { intent: intent1 } = processTranslatorOutput(output1, snapshot1, {
         intentId: intentId1,
       });
-      await bridge.dispatch(intent1);
-      const worldId1 = bridge.getWorldId();
+      await app.act(intent1.type, intent1.input).done();
+      const worldId1 = app.getCurrentHead();
 
       // Second translator change
       const intentId2 = createTranslatorIntentId();
@@ -413,16 +411,16 @@ describe("L6: Translator → World Full Stack", () => {
       const { intent: intent2 } = processTranslatorOutput(output2, snapshot2, {
         intentId: intentId2,
       });
-      await bridge.dispatch(intent2);
-      const worldId2 = bridge.getWorldId();
+      await app.act(intent2.type, intent2.input).done();
+      const worldId2 = app.getCurrentHead();
 
       // Each change creates a new world
       expect(worldId1).not.toBe(initialWorldId);
       expect(worldId2).not.toBe(worldId1);
 
       // Lineage should have 3 worlds (genesis + 2 changes)
-      const lineage = world.getLineage();
-      expect(lineage.getAllWorlds().length).toBe(3);
+      const lineage = app.currentBranch().lineage();
+      expect(lineage.length).toBe(3);
     });
   });
 });

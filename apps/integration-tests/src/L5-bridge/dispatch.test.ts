@@ -1,12 +1,11 @@
 /**
  * L5: Bridge Dispatch Tests
  *
- * Tests SourceEvent → Projection → Intent → World flow.
+ * Tests App dispatch and subscription over Host + WorldStore.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createBridge, type Bridge } from "@manifesto-ai/bridge";
-import { createManifestoWorld, type ManifestoWorld } from "@manifesto-ai/world";
+import { createApp, InMemoryWorldStore, type App } from "@manifesto-ai/app";
 import { createHost, type ManifestoHost } from "@manifesto-ai/host";
 import type { DomainSchema } from "@manifesto-ai/core";
 import { userActor } from "../fixtures/index.js";
@@ -20,210 +19,183 @@ const bridgeTestSchema = CounterSchema as unknown as DomainSchema;
 // L5: Bridge Dispatch Tests
 // =============================================================================
 
-describe("L5: Bridge Dispatch", () => {
+describe("L5: App Dispatch", () => {
   let host: ManifestoHost;
-  let world: ManifestoWorld;
-  let bridge: Bridge;
+  let app: App;
+  let worldStore: InMemoryWorldStore;
 
   beforeEach(async () => {
     host = createHost(bridgeTestSchema, {
       initialData: { count: 0, lastIntent: null },
     });
 
-    world = createManifestoWorld({
-      schemaHash: bridgeTestSchema.hash,
+    worldStore = new InMemoryWorldStore();
+    app = createApp({
+      schema: bridgeTestSchema,
       host,
+      worldStore,
+      initialData: { count: 0, lastIntent: null },
+      actorPolicy: {
+        mode: "anonymous",
+        defaultActor: {
+          actorId: userActor.actorId,
+          kind: "human",
+        },
+      },
     });
 
-    world.registerActor(userActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot);
-
-    bridge = createBridge({
-      world,
-      schemaHash: bridgeTestSchema.hash,
-      defaultActor: userActor,
-    });
-
-    await bridge.refresh();
+    await app.ready();
   });
 
-  afterEach(() => {
-    bridge.dispose();
-    // Note: ManifestoWorld doesn't have dispose()
+  afterEach(async () => {
+    await app.dispose();
   });
 
   describe("dispatch", () => {
     it("should dispatch intent and update state", async () => {
-      await bridge.dispatch({ type: "increment", input: {} });
+      await app.act("increment").done();
 
-      const snapshot = bridge.getSnapshot();
-      expect(snapshot).not.toBeNull();
-      expect(snapshot!.data.count).toBe(1);
+      const state = app.getState();
+      expect(state.data.count).toBe(1);
       // lastIntent is set by once() guard
-      expect(snapshot!.data.lastIntent).toBeDefined();
+      expect(state.data.lastIntent).toBeDefined();
     });
 
     it("should dispatch intent with parameters", async () => {
-      await bridge.dispatch({ type: "reset", input: { value: 42 } });
+      await app.act("reset", { value: 42 }).done();
 
-      const snapshot = bridge.getSnapshot();
-      expect(snapshot).not.toBeNull();
-      expect(snapshot!.data.count).toBe(42);
+      const state = app.getState();
+      expect(state.data.count).toBe(42);
     });
 
     it("should update computed values after dispatch", async () => {
       // Use different intentIds to bypass once() guard
-      await bridge.dispatch({ type: "increment", input: {} });
+      await app.act("increment").done();
 
       // Use reset to set count to 2 (since increment uses once() guard)
-      await bridge.dispatch({ type: "reset", input: { value: 2 } });
+      await app.act("reset", { value: 2 }).done();
 
-      const snapshot = bridge.getSnapshot();
-      expect(snapshot).not.toBeNull();
-      expect(snapshot!.data.count).toBe(2);
-      // SnapshotView strips "computed." prefix from keys
-      expect(snapshot!.computed["doubled"]).toBe(4);
+      const state = app.getState();
+      expect(state.data.count).toBe(2);
+      expect(state.computed["computed.doubled"]).toBe(4);
     });
 
     it("should handle sequential dispatches", async () => {
       // Use add action which doesn't have once() guard, just when(gte(amount, 0))
-      await bridge.dispatch({ type: "add", input: { amount: 1 } });
-      await bridge.dispatch({ type: "add", input: { amount: 1 } });
-      await bridge.dispatch({ type: "add", input: { amount: -1 } }); // Negative amount should be ignored (when guard)
+      await app.act("add", { amount: 1 }).done();
+      await app.act("add", { amount: 1 }).done();
+      await app.act("add", { amount: -1 }).done(); // Negative amount should be ignored (when guard)
 
-      const snapshot = bridge.getSnapshot();
-      expect(snapshot).not.toBeNull();
-      expect(snapshot!.data.count).toBe(2);
+      const state = app.getState();
+      expect(state.data.count).toBe(2);
     });
   });
 
-  describe("Snapshot subscriptions", () => {
+  describe("State subscriptions", () => {
     it("should notify subscribers on state change", async () => {
       const listener = vi.fn();
-      bridge.subscribe(listener);
+      app.subscribe((state) => state.data.count, listener);
 
-      await bridge.dispatch({ type: "increment", input: {} });
+      await app.act("increment").done();
 
       expect(listener).toHaveBeenCalled();
     });
 
-    it("should provide frozen SnapshotView", async () => {
-      let receivedSnapshot: unknown;
-      bridge.subscribe((snapshot) => {
-        receivedSnapshot = snapshot;
+    it("should provide AppState to subscribers", async () => {
+      let receivedState: unknown;
+      app.subscribe((state) => state, (state) => {
+        receivedState = state;
       });
 
-      await bridge.dispatch({ type: "increment", input: {} });
+      await app.act("increment").done();
 
-      expect(receivedSnapshot).toBeDefined();
-      expect((receivedSnapshot as { data: unknown }).data).toBeDefined();
+      expect(receivedState).toBeDefined();
+      expect((receivedState as { data: unknown }).data).toBeDefined();
     });
 
     it("should allow unsubscribing", async () => {
       const listener = vi.fn();
-      const unsubscribe = bridge.subscribe(listener);
+      const unsubscribe = app.subscribe((state) => state.data.count, listener);
 
       unsubscribe();
 
-      await bridge.dispatch({ type: "increment", input: {} });
+      await app.act("increment").done();
 
-      // Listener should not be called after unsubscribe
-      // (May have been called once during initial subscription)
       const callsAfterUnsubscribe = listener.mock.calls.length;
-      await bridge.dispatch({ type: "reset", input: { value: 5 } });
+      await app.act("reset", { value: 5 }).done();
 
       expect(listener.mock.calls.length).toBe(callsAfterUnsubscribe);
     });
   });
 
-  describe("Bridge lifecycle", () => {
-    it("should reject dispatch after disposal", async () => {
-      bridge.dispose();
+  describe("App lifecycle", () => {
+    it("should reject act after disposal", async () => {
+      await app.dispose();
 
-      await expect(
-        bridge.dispatch({ type: "increment", input: {} })
-      ).rejects.toThrow();
+      expect(() => app.act("increment")).toThrow();
     });
 
-    it("should return null snapshot after disposal", () => {
-      bridge.dispose();
+    it("should reject getState after disposal", async () => {
+      await app.dispose();
 
-      expect(bridge.getSnapshot()).toBeNull();
+      expect(() => app.getState()).toThrow();
     });
   });
 });
 
 // =============================================================================
-// L5: Bridge State Access Tests
+// L5: App State Access Tests
 // =============================================================================
 
-describe("L5: Bridge State Access", () => {
+describe("L5: App State Access", () => {
   let host: ManifestoHost;
-  let world: ManifestoWorld;
-  let bridge: Bridge;
+  let app: App;
+  let worldStore: InMemoryWorldStore;
 
   beforeEach(async () => {
     host = createHost(bridgeTestSchema, {
       initialData: { count: 10, lastIntent: "init" },
     });
 
-    world = createManifestoWorld({
-      schemaHash: bridgeTestSchema.hash,
+    worldStore = new InMemoryWorldStore();
+    app = createApp({
+      schema: bridgeTestSchema,
       host,
+      worldStore,
+      initialData: { count: 10, lastIntent: "init" },
+      actorPolicy: {
+        mode: "anonymous",
+        defaultActor: {
+          actorId: userActor.actorId,
+          kind: "human",
+        },
+      },
     });
 
-    world.registerActor(userActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot);
-
-    bridge = createBridge({
-      world,
-      schemaHash: bridgeTestSchema.hash,
-      defaultActor: userActor,
-    });
-
-    await bridge.refresh();
+    await app.ready();
   });
 
-  afterEach(() => {
-    bridge.dispose();
+  afterEach(async () => {
+    await app.dispose();
   });
 
-  describe("getSnapshot", () => {
-    it("should return current snapshot", () => {
-      const snapshot = bridge.getSnapshot();
+  describe("getState", () => {
+    it("should return current state", () => {
+      const state = app.getState();
 
-      expect(snapshot).not.toBeNull();
-      expect(snapshot!.data.count).toBe(10);
-      expect(snapshot!.data.lastIntent).toBe("init");
+      expect(state.data.count).toBe(10);
+      expect(state.data.lastIntent).toBe("init");
     });
 
     it("should include computed values after dispatch", async () => {
       // Note: Computed values may only be fully evaluated after dispatch
       // because the initial genesis snapshot might not include computed values
-      await bridge.dispatch({ type: "add", input: { amount: 0 } });
+      await app.act("add", { amount: 0 }).done();
 
-      const snapshot = bridge.getSnapshot();
+      const state = app.getState();
 
-      expect(snapshot).not.toBeNull();
       // After dispatch, computed values should be available
-      // SnapshotView strips "computed." prefix from keys
-      expect(snapshot!.computed["doubled"]).toBe(20);
-    });
-  });
-
-  describe("get", () => {
-    it("should return value at path", () => {
-      const count = bridge.get("count");
-      expect(count).toBe(10);
-    });
-
-    it("should return computed value", () => {
-      const doubled = bridge.get("computed.doubled");
-      expect(doubled).toBe(20);
+      expect(state.computed["computed.doubled"]).toBe(20);
     });
   });
 });
