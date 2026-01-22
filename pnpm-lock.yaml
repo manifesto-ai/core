@@ -45,9 +45,9 @@ importers:
 
   apps/integration-tests:
     dependencies:
-      '@manifesto-ai/bridge':
+      '@manifesto-ai/app':
         specifier: workspace:*
-        version: link:../../packages/bridge
+        version: link:../../packages/app
       '@manifesto-ai/builder':
         specifier: workspace:*
         version: link:../../packages/builder
@@ -57,9 +57,6 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@manifesto-ai/effect-utils':
-        specifier: workspace:*
-        version: link:../../packages/effect-utils
       '@manifesto-ai/host':
         specifier: workspace:*
         version: link:../../packages/host
@@ -170,9 +167,9 @@ importers:
       '@langchain/openai':
         specifier: ^1.2.2
         version: 1.2.2(@langchain/core@1.1.13(openai@6.16.0(ws@8.18.3)(zod@4.3.5)))(ws@8.18.3)
-      '@manifesto-ai/bridge':
+      '@manifesto-ai/app':
         specifier: workspace:*
-        version: link:../../packages/bridge
+        version: link:../../packages/app
       '@manifesto-ai/compiler':
         specifier: workspace:*
         version: link:../../packages/compiler
@@ -182,9 +179,6 @@ importers:
       '@manifesto-ai/host':
         specifier: workspace:*
         version: link:../../packages/host
-      '@manifesto-ai/react':
-        specifier: workspace:*
-        version: link:../../packages/react
       '@manifesto-ai/world':
         specifier: workspace:*
         version: link:../../packages/world
@@ -436,9 +430,6 @@ importers:
       '@manifesto-ai/host':
         specifier: workspace:*
         version: link:../host
-      '@manifesto-ai/memory':
-        specifier: workspace:*
-        version: link:../memory
       '@manifesto-ai/world':
         specifier: workspace:*
         version: link:../world
@@ -446,27 +437,6 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-
-  packages/bridge:
-    devDependencies:
-      '@manifesto-ai/compiler':
-        specifier: workspace:*
-        version: link:../compiler
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../host
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/builder:
     dependencies:
@@ -542,28 +512,6 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/effect-utils:
-    dependencies:
-      zod:
-        specifier: ^4.3.5
-        version: 4.3.5
-    devDependencies:
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../host
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
   packages/host:
     devDependencies:
       '@manifesto-ai/core':
@@ -589,153 +537,6 @@ importers:
         specifier: ^4.3.5
         version: 4.3.5
 
-  packages/lab:
-    dependencies:
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-      zod:
-        specifier: ^4.3.5
-        version: 4.3.5
-    devDependencies:
-      '@types/node':
-        specifier: ^25.0.8
-        version: 25.0.8
-      '@types/react':
-        specifier: ^19.2.8
-        version: 19.2.8
-      ink:
-        specifier: ^6.6.0
-        version: 6.6.0(@types/react@19.2.8)(react@19.2.3)
-      ink-select-input:
-        specifier: ^6.2.0
-        version: 6.2.0(ink@6.6.0(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      ink-spinner:
-        specifier: ^5.0.0
-        version: 5.0.0(ink@6.6.0(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      react:
-        specifier: ^19.2.3
-        version: 19.2.3
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/memory:
-    dependencies:
-      zod:
-        specifier: ^4.3.5
-        version: 4.3.5
-    devDependencies:
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/react:
-    devDependencies:
-      '@manifesto-ai/bridge':
-        specifier: workspace:*
-        version: link:../bridge
-      '@manifesto-ai/builder':
-        specifier: workspace:*
-        version: link:../builder
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../host
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-      '@testing-library/react':
-        specifier: ^16.3.1
-        version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@types/react':
-        specifier: ^19.2.8
-        version: 19.2.8
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      react:
-        specifier: ^19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: ^19.2.3
-        version: 19.2.3(react@19.2.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator:
-    dependencies:
-      '@manifesto-ai/bridge':
-        specifier: ^1.0.0
-        version: 1.0.0(@manifesto-ai/core@packages+core)(@manifesto-ai/host@packages+host)(@manifesto-ai/world@packages+world)
-      ink:
-        specifier: ^6.6.0
-        version: 6.6.0(@types/react@19.2.8)(react@19.2.3)
-      ink-select-input:
-        specifier: ^6.2.0
-        version: 6.2.0(ink@6.6.0(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      ink-spinner:
-        specifier: ^5.0.0
-        version: 5.0.0(ink@6.6.0(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      ink-text-input:
-        specifier: ^6.0.0
-        version: 6.0.0(ink@6.6.0(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      meow:
-        specifier: ^14.0.0
-        version: 14.0.0
-      react:
-        specifier: ^19.2.3
-        version: 19.2.3
-      zod:
-        specifier: ^4.3.5
-        version: 4.3.5
-    devDependencies:
-      '@anthropic-ai/sdk':
-        specifier: ^0.71.2
-        version: 0.71.2(zod@4.3.5)
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../host
-      '@manifesto-ai/memory':
-        specifier: workspace:*
-        version: link:../memory
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-      '@types/node':
-        specifier: ^25.0.8
-        version: 25.0.8
-      '@types/react':
-        specifier: ^19.2.8
-        version: 19.2.8
-      openai:
-        specifier: ^6.16.0
-        version: 6.16.0(ws@8.18.3)(zod@4.3.5)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.17
-        version: 4.0.17(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
   packages/world:
     dependencies:
       uuid:
@@ -745,9 +546,6 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
-      '@manifesto-ai/host':
-        specifier: workspace:*
-        version: link:../host
       '@types/uuid':
         specifier: ^11.0.0
         version: 11.0.0
@@ -1517,13 +1315,6 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       '@langchain/core': ^1.0.0
-
-  '@manifesto-ai/bridge@1.0.0':
-    resolution: {integrity: sha512-W8OMJcOQiqxHoU1LDSTbG8xifGoq0U7RCJHbJXpTbiIOanhJpWRrDD3XNbzloVUwvxoifcEn7Z5Xo0zpdiI+WA==}
-    peerDependencies:
-      '@manifesto-ai/core': ^1.0.0
-      '@manifesto-ai/host': ^1.0.0
-      '@manifesto-ai/world': ^1.0.0
 
   '@manifesto-ai/host@1.0.0':
     resolution: {integrity: sha512-tou/fIDBW8nzh+kiI/fJiT34U1bkqpMD0f2tyxJaoiwnZRPEPyp3ZYUPz0ICJXNTMufogV4KNLeKejmgU6ubyA==}
@@ -4076,13 +3867,6 @@ packages:
     peerDependencies:
       ink: '>=4.0.0'
       react: '>=18.0.0'
-
-  ink-text-input@6.0.0:
-    resolution: {integrity: sha512-Fw64n7Yha5deb1rHY137zHTAbSTNelUKuB5Kkk2HACXEtwIHBCf9OH2tP/LQ9fRYTl1F0dZgbW0zPnZk6FA9Lw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      ink: '>=5'
-      react: '>=18'
 
   ink@6.6.0:
     resolution: {integrity: sha512-QDt6FgJxgmSxAelcOvOHUvFxbIUjVpCH5bx+Slvc5m7IEcpGt3dYwbz/L+oRnqEGeRvwy1tineKK4ect3nW1vQ==}
@@ -6730,12 +6514,6 @@ snapshots:
       zod: 4.3.5
     transitivePeerDependencies:
       - ws
-
-  '@manifesto-ai/bridge@1.0.0(@manifesto-ai/core@packages+core)(@manifesto-ai/host@packages+host)(@manifesto-ai/world@packages+world)':
-    dependencies:
-      '@manifesto-ai/core': link:packages/core
-      '@manifesto-ai/host': link:packages/host
-      '@manifesto-ai/world': link:packages/world
 
   '@manifesto-ai/host@1.0.0(@manifesto-ai/core@packages+core)':
     dependencies:
@@ -9515,13 +9293,6 @@ snapshots:
       cli-spinners: 2.9.2
       ink: 6.6.0(@types/react@19.2.8)(react@19.2.3)
       react: 19.2.3
-
-  ink-text-input@6.0.0(ink@6.6.0(@types/react@19.2.8)(react@19.2.3))(react@19.2.3):
-    dependencies:
-      chalk: 5.6.2
-      ink: 6.6.0(@types/react@19.2.8)(react@19.2.3)
-      react: 19.2.3
-      type-fest: 4.41.0
 
   ink@6.6.0(@types/react@19.2.8)(react@19.2.3):
     dependencies:
