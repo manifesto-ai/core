@@ -166,16 +166,22 @@ function createTieredMemoryProvider(
       query: string;
       atWorldId: string;
       selector: ActorRef;
-      constraints?: { maxResults?: number; requireVerified?: boolean };
+      constraints?: { limit?: number; requireVerified?: boolean };
     }): Promise<SelectionResult> => {
       const selected = store.select(req.query, req.atWorldId, {
         tier,
-        limit: req.constraints?.maxResults,
+        limit: req.constraints?.limit,
       });
 
       return {
         selected,
-        selectedAt: Date.now(),
+        trace: {
+          query: req.query,
+          atWorldId: req.atWorldId as WorldId,
+          selector: req.selector,
+          selectedAt: Date.now(),
+          selected,
+        },
       };
     },
     meta: {
@@ -604,7 +610,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         query: "machine learning",
         atWorldId: "world-current",
         selector: { actorId: "user-1", kind: "human" },
-        constraints: { maxResults: 5 },
+        constraints: { limit: 5 },
       });
 
       expect(result.selected).toHaveLength(5);

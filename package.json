@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.2",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/builder --filter=@manifesto-ai/intent-ir",
     "dev": "turbo run dev",

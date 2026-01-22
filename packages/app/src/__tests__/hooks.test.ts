@@ -10,9 +10,10 @@ import { HookMutationError } from "../errors/index.js";
 import { JobQueue } from "../hooks/queue.js";
 import { HookableImpl } from "../hooks/hookable.js";
 import { createHookContext } from "../hooks/context.js";
-import { createAppRef } from "../hooks/index.js";
+import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { AppRefCallbacks, AppState, Branch, HookContext } from "../core/types/index.js";
+import type { AppState, Branch, HookContext } from "../core/types/index.js";
+import { createWorldId } from "@manifesto-ai/world";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
@@ -59,7 +60,7 @@ const branchStub: Branch = {
     throw new Error("Branch.act not available in hooks test");
   },
   fork: async () => branchStub,
-  getState: () => createTestState(),
+  getState: <T>() => createTestState() as AppState<T>,
   lineage: () => ["world-1"],
 };
 
@@ -69,9 +70,9 @@ function createTestAppRef(
 ) {
   const callbacks: AppRefCallbacks = {
     getStatus: () => "ready",
-    getState: () => createTestState(),
+    getState: <T>() => createTestState() as AppState<T>,
     getDomainSchema: () => mockDomainSchema,
-    getCurrentHead: () => "world-1",
+    getCurrentHead: () => createWorldId("world-1"),
     currentBranch: () => branchStub,
     generateProposalId: () => "prop-test",
   };
@@ -464,17 +465,17 @@ describe("Hook System", () => {
   describe("App Hook Integration", () => {
     it("should pass HookContext with AppRef and timestamp", async () => {
       const app = createApp(mockDomainSchema);
-      let receivedCtx: HookContext | null = null;
+      let received = false;
 
       app.hooks.on("app:ready", (ctx) => {
-        receivedCtx = ctx;
+        received = true;
+        expect(ctx.app).toBeDefined();
+        expect(typeof ctx.timestamp).toBe("number");
       });
 
       await app.ready();
 
-      expect(receivedCtx).toBeDefined();
-      expect(receivedCtx?.app).toBeDefined();
-      expect(typeof receivedCtx?.timestamp).toBe("number");
+      expect(received).toBe(true);
     });
   });
 });

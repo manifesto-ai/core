@@ -61,25 +61,22 @@ function createTestHost(options?: {
         ? await options.dispatchImpl(intent, currentSnapshot)
         : (() => {
             // Default: return completed with incremented version
-            const currentCount = (currentSnapshot?.data as { count?: number } | undefined)?.count ?? 0;
-            const currentVersion = currentSnapshot?.meta?.version ?? 0;
+            const currentData = currentSnapshot.data as Record<string, unknown>;
+            const currentCount = (currentData?.count as number | undefined) ?? 0;
+            const currentVersion = currentSnapshot.meta.version;
             const newSnapshot: Snapshot = {
               ...currentSnapshot,
               data: {
-                ...(currentSnapshot?.data ?? {}),
+                ...(currentSnapshot.data as Record<string, unknown>),
                 count: currentCount + 1,
               },
               meta: {
-                ...(currentSnapshot?.meta ?? {
-                  version: 0,
-                  timestamp: Date.now(),
-                  randomSeed: "test-seed",
-                  schemaHash: "test-schema-v2",
-                }),
+                ...currentSnapshot.meta,
                 version: currentVersion + 1,
               },
             };
-            return { status: "completed", snapshot: newSnapshot };
+            const defaultResult: HostResult = { status: "completed", snapshot: newSnapshot };
+            return defaultResult;
           })();
 
       currentSnapshot = result.snapshot;
@@ -117,6 +114,23 @@ function createGenesisSnapshot(schemaHash: string, data: Record<string, unknown>
   };
 }
 
+function requireCurrentHead(app: { getCurrentHead?: () => ReturnType<typeof createWorldId> }) {
+  if (!app.getCurrentHead) {
+    throw new Error("getCurrentHead is unavailable");
+  }
+  return app.getCurrentHead();
+}
+
+async function requireSnapshot(
+  app: { getSnapshot?: (worldId: ReturnType<typeof createWorldId>) => Promise<Snapshot> },
+  worldId: ReturnType<typeof createWorldId>
+) {
+  if (!app.getSnapshot) {
+    throw new Error("getSnapshot is unavailable");
+  }
+  return app.getSnapshot(worldId);
+}
+
 // =============================================================================
 // Test Suites
 // =============================================================================
@@ -137,7 +151,7 @@ describe("v2 Integration", () => {
       const app = createApp(config);
       await app.ready();
 
-      const baseWorld = app.getCurrentHead();
+      const baseWorld = requireCurrentHead(app);
       const result = await app.submitProposal({
         proposalId: createProposalId("prop-1"),
         actorId: "actor-1",
@@ -183,9 +197,9 @@ describe("v2 Integration", () => {
         host,
         worldStore,
         hooks: {
-          "action:preparing": () => phases.push("preparing"),
-          "action:submitted": () => phases.push("submitted"),
-          "action:completed": () => phases.push("completed"),
+          "action:preparing": () => { phases.push("preparing"); },
+          "action:submitted": () => { phases.push("submitted"); },
+          "action:completed": () => { phases.push("completed"); },
         },
       };
 
@@ -212,12 +226,12 @@ describe("v2 Integration", () => {
       });
       await app.ready();
 
-      const initialHead = app.getCurrentHead();
+      const initialHead = requireCurrentHead(app);
 
       const handle = app.act("counter.increment", {});
       await handle.done();
 
-      const newHead = app.getCurrentHead();
+      const newHead = requireCurrentHead(app);
       expect(newHead).not.toBe(initialHead);
     });
 
@@ -237,14 +251,14 @@ describe("v2 Integration", () => {
       });
       await app.ready();
 
-      const initialHead = app.getCurrentHead();
+      const initialHead = requireCurrentHead(app);
 
       const handle = app.act("counter.increment", {});
       const result = await handle.result();
       expect(result.status).toBe("failed");
 
       // Head should NOT have advanced
-      const currentHead = app.getCurrentHead();
+      const currentHead = requireCurrentHead(app);
       expect(currentHead).toBe(initialHead);
     });
   });
@@ -285,6 +299,7 @@ describe("v2 Integration", () => {
       policyService.requestApproval = async () => ({
         approved: false,
         reason: "Policy denied",
+        timestamp: Date.now(),
       });
 
       const worldStore = createInMemoryWorldStore();
@@ -381,7 +396,7 @@ describe("v2 Integration", () => {
             status: "completed",
             snapshot: {
               ...snapshot,
-              data: { ...snapshot.data, count: 43 },
+              data: { ...(snapshot.data as Record<string, unknown>), count: 43 },
               meta: { ...snapshot.meta, version: snapshot.meta.version + 1 },
             },
           };
@@ -419,8 +434,8 @@ describe("v2 Integration", () => {
       });
       await app.ready();
 
-      // Call method directly on app to preserve `this` binding
-      expect(app.getCurrentHead()).toBeDefined();
+      const head = app.getCurrentHead?.();
+      expect(head).toBeDefined();
     });
 
     it("APP-API-4: getSnapshot returns snapshot for WorldId", async () => {
@@ -436,8 +451,8 @@ describe("v2 Integration", () => {
       });
       await app.ready();
 
-      // Call method directly on app to preserve `this` binding
-      const snapshot = await app.getSnapshot(app.getCurrentHead());
+      const head = requireCurrentHead(app);
+      const snapshot = await requireSnapshot(app, head);
       expect(snapshot.data).toHaveProperty("count", 10);
     });
   });

@@ -80,7 +80,7 @@ describe("Schema Compatibility", () => {
         "order.process": {
           flow: {
             kind: "if",
-            condition: { kind: "literal", value: true },
+            cond: { kind: "lit", value: true },
             then: { kind: "effect", type: "payment.charge", params: {} },
             else: { kind: "effect", type: "payment.refund", params: {} },
           },
@@ -98,13 +98,13 @@ describe("Schema Compatibility", () => {
         "complex.action": {
           flow: {
             kind: "call",
-            ref: "some.action",
-            body: {
-              kind: "seq",
-              steps: [
-                { kind: "effect", type: "nested.effect", params: {} },
-              ],
-            },
+            flow: "some.action",
+          },
+        },
+        "some.action": {
+          flow: {
+            kind: "seq",
+            steps: [{ kind: "effect", type: "nested.effect", params: {} }],
           },
         },
       });
@@ -168,13 +168,13 @@ describe("Schema Compatibility", () => {
             steps: [
               {
                 kind: "if",
-                condition: { kind: "literal", value: true },
+                cond: { kind: "lit", value: true },
                 then: {
                   kind: "seq",
                   steps: [
                     {
                       kind: "if",
-                      condition: { kind: "literal", value: false },
+                      cond: { kind: "lit", value: false },
                       then: { kind: "effect", type: "deep.effect1", params: {} },
                       else: { kind: "effect", type: "deep.effect2", params: {} },
                     },
@@ -209,7 +209,9 @@ describe("Schema Compatibility", () => {
       const result = validateSchemaCompatibility(schema, registeredEffects);
 
       expect(result.compatible).toBe(true);
-      expect(result.missingEffects).toBeUndefined();
+      if (!result.compatible) {
+        throw new Error("Expected schema to be compatible");
+      }
     });
 
     it("FORK-3: returns incompatible with missing effects", () => {
@@ -227,7 +229,9 @@ describe("Schema Compatibility", () => {
       const result = validateSchemaCompatibility(schema, registeredEffects);
 
       expect(result.compatible).toBe(false);
-      expect(result.missingEffects).toContain("notification.send");
+      if (!result.compatible) {
+        expect(result.missingEffects).toContain("notification.send");
+      }
     });
 
     it("returns multiple missing effects", () => {
@@ -249,9 +253,11 @@ describe("Schema Compatibility", () => {
       const result = validateSchemaCompatibility(schema, registeredEffects);
 
       expect(result.compatible).toBe(false);
-      expect(result.missingEffects).toContain("effect.b");
-      expect(result.missingEffects).toContain("effect.c");
-      expect(result.missingEffects).not.toContain("effect.a");
+      if (!result.compatible) {
+        expect(result.missingEffects).toContain("effect.b");
+        expect(result.missingEffects).toContain("effect.c");
+        expect(result.missingEffects).not.toContain("effect.a");
+      }
     });
 
     it("returns compatible for schema with no effects", () => {

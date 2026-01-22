@@ -58,9 +58,14 @@ export function extractEffectTypes(schema: DomainSchema): readonly string[] {
     return [];
   }
 
-  for (const [_actionType, action] of Object.entries(schema.actions)) {
+  for (const [actionType, action] of Object.entries(schema.actions)) {
     if (action && typeof action === "object" && "flow" in action) {
-      collectEffectTypes((action as { flow: unknown }).flow, effectTypes);
+      collectEffectTypes(
+        (action as { flow: unknown }).flow,
+        effectTypes,
+        schema.actions,
+        new Set([actionType])
+      );
     }
   }
 
@@ -70,7 +75,12 @@ export function extractEffectTypes(schema: DomainSchema): readonly string[] {
 /**
  * Recursively collect effect types from a flow.
  */
-function collectEffectTypes(flow: unknown, effectTypes: Set<string>): void {
+function collectEffectTypes(
+  flow: unknown,
+  effectTypes: Set<string>,
+  actions: DomainSchema["actions"],
+  visited: Set<string>
+): void {
   if (!flow || typeof flow !== "object") {
     return;
   }
@@ -85,21 +95,30 @@ function collectEffectTypes(flow: unknown, effectTypes: Set<string>): void {
   // Recursively check nested flows
   if (flowObj.kind === "seq" && Array.isArray(flowObj.steps)) {
     for (const step of flowObj.steps) {
-      collectEffectTypes(step, effectTypes);
+      collectEffectTypes(step, effectTypes, actions, visited);
     }
   }
 
   if (flowObj.kind === "if") {
     if (flowObj.then) {
-      collectEffectTypes(flowObj.then, effectTypes);
+      collectEffectTypes(flowObj.then, effectTypes, actions, visited);
     }
     if (flowObj.else) {
-      collectEffectTypes(flowObj.else, effectTypes);
+      collectEffectTypes(flowObj.else, effectTypes, actions, visited);
     }
   }
 
-  if (flowObj.kind === "call" && flowObj.body) {
-    collectEffectTypes(flowObj.body, effectTypes);
+  if (flowObj.kind === "call") {
+    if (flowObj.body) {
+      collectEffectTypes(flowObj.body, effectTypes, actions, visited);
+    }
+    if (typeof flowObj.flow === "string" && flowObj.flow in actions) {
+      const target = actions[flowObj.flow];
+      if (target && typeof target === "object" && "flow" in target && !visited.has(flowObj.flow)) {
+        visited.add(flowObj.flow);
+        collectEffectTypes((target as { flow: unknown }).flow, effectTypes, actions, visited);
+      }
+    }
   }
 }
 

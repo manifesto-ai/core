@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { createWorldId } from "@manifesto-ai/world";
 import {
   freezeMemoryContext,
   getMemoryContext,
@@ -106,7 +107,9 @@ describe("Memory Context Freezing", () => {
 
     it("does not mutate original snapshot", () => {
       const snapshot = createBaseSnapshot();
-      const originalInput = { ...snapshot.input };
+      const originalInput = typeof snapshot.input === "object" && snapshot.input !== null
+        ? { ...(snapshot.input as Record<string, unknown>) }
+        : snapshot.input;
 
       freezeMemoryContext(snapshot, { data: "test" });
 
@@ -202,8 +205,33 @@ describe("Memory Context Freezing", () => {
     it("freezes RecallResult structure", () => {
       const snapshot = createBaseSnapshot();
       const recallResult: RecallResult = {
-        attachments: [{ id: "att-1", type: "document", content: "content" }],
-        selected: [{ id: "sel-1", relevance: 0.9 }],
+        attachments: [
+          {
+            provider: "test-provider",
+            trace: {
+              query: "test",
+              atWorldId: createWorldId("world-1"),
+              selector: { actorId: "actor-1", kind: "system" },
+              selectedAt: 123,
+              selected: [
+                {
+                  ref: { worldId: createWorldId("world-1") },
+                  reason: "test",
+                  confidence: 0.9,
+                  verified: false,
+                },
+              ],
+            },
+          },
+        ],
+        selected: [
+          {
+            ref: { worldId: createWorldId("world-1") },
+            reason: "test",
+            confidence: 0.9,
+            verified: false,
+          },
+        ],
         views: [],
       };
 
