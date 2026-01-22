@@ -164,21 +164,23 @@ const hostState = snapshot.data.$host as HostOwnedState | undefined;
 ```
 
 **Note:** Patch paths are rooted at `data` by default. Use `$host.*` to target
-the Host-owned namespace.
+the Host-owned namespace. Core reserves `$host` as opaque Host-owned state and
+accepts `$host` patches even when StateSpec does not declare `$host` (Core SPEC §5.5).
 
 | Rule ID | Description |
 |---------|-------------|
 | HOST-NS-1 | Host-owned state MUST be stored in `data.$host` namespace |
 | HOST-NS-2 | Host MUST NOT extend Core's SystemState with custom fields |
 | HOST-NS-3 | Host MUST treat `data.$host` as opaque to Core |
-| HOST-NS-4 | Patches targeting `$host` follow standard Patch semantics |
+| HOST-NS-4 | Patches targeting `$host` follow standard Patch semantics (Core validates only that `$host` is an object) |
 | HOST-NS-5 | Host error reporting MUST use `$host` or domain paths (never `system.*`) |
+| HOST-NS-6 | Host MAY patch `$host` even when StateSpec does not declare `$host` (Core SPEC §5.5) |
 
 **Rationale:**
 - Core's `SystemState` is owned by Core SPEC; Host must not extend it
 - `data` is the domain state container, with `$host` reserved for Host
 - This preserves Core Snapshot structure while allowing Host-specific state
-- Patches to `$host` are standard operations, no special handling needed
+- Patches to `$host` are standard operations; Core treats `$host` as opaque
 
 ### 3.4 Intent
 

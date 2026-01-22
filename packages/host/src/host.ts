@@ -143,6 +143,10 @@ export class ManifestoHost {
   // Current snapshot (managed in memory, caller is responsible for persistence)
   private currentSnapshot: Snapshot | null = null;
 
+  private cloneSnapshot(snapshot: Snapshot): Snapshot {
+    return structuredClone(snapshot);
+  }
+
   constructor(schema: DomainSchema, options: HostOptions = {}) {
     this.core = createCore();
     this.schema = schema;
@@ -535,7 +539,10 @@ export class ManifestoHost {
    * Get the current snapshot
    */
   getSnapshot(): Snapshot | null {
-    return this.currentSnapshot;
+    if (!this.currentSnapshot) {
+      return null;
+    }
+    return this.cloneSnapshot(this.currentSnapshot);
   }
 
   /**
@@ -671,7 +678,11 @@ export class ManifestoHost {
    */
   getContextSnapshot(key: ExecutionKey): Snapshot | undefined {
     const ctx = this.executionContexts.get(key);
-    return ctx?.getSnapshot();
+    const snapshot = ctx?.getSnapshot();
+    if (!snapshot) {
+      return undefined;
+    }
+    return this.cloneSnapshot(snapshot);
   }
 }
 

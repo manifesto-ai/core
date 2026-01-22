@@ -319,6 +319,15 @@ type FieldType =
 - All `FieldSpec` with `required: false` MUST have a `default` value.
 - Circular references in object fields are NOT ALLOWED.
 
+### 5.5 Reserved Namespace ($host)
+
+`$host` is reserved for Host-owned state stored in `snapshot.data.$host`.
+
+- Domain StateSpec SHOULD NOT define a `$host` field.
+- Core MUST treat `data.$host` as opaque and MUST NOT require it to appear in StateSpec.
+- Host MAY add or patch `data.$host` via `core.apply()` even when StateSpec does not include `$host`.
+- Core MUST validate `$host` only as an object; field-level validation is not applied.
+
 ---
 
 ## 6. ComputedSpec
@@ -1142,7 +1151,7 @@ Snapshot is the **immutable, point-in-time representation** of world state. It i
 
 ```typescript
 type Snapshot<TData = unknown> = {
-  /** Domain data (matches StateSpec) */
+  /** Domain data (matches StateSpec; may include reserved $host) */
   readonly data: TData;
   
   /** Computed values (matches ComputedSpec) */
@@ -1196,6 +1205,7 @@ type SnapshotMeta = {
 - `version` MUST be incremented on every change.
 - `computed` MUST be consistent with `data` (no stale values).
 - All communication between Host and Core happens through Snapshot.
+- `data.$host` is reserved for Host-owned state and is opaque to Core.
 
 ---
 
@@ -1220,8 +1230,8 @@ type SnapshotMeta = {
 |---------|-------------|
 | R-001 | Intent input MUST match ActionSpec.input |
 | R-002 | ActionSpec.available MUST evaluate to true |
-| R-003 | Patch paths MUST exist in StateSpec |
-| R-004 | Patch values MUST match field types |
+| R-003 | Patch paths MUST exist in StateSpec (except `$host`, which is Host-owned and opaque to Core) |
+| R-004 | Patch values MUST match field types (except `$host`, which is validated only as object) |
 
 ---
 
