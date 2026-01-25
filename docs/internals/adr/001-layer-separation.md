@@ -1,8 +1,8 @@
 # ADR-001: Layer Separation after Host v2.0.1
 
-> **Status:** Accepted  
-> **Date:** 2025-01-17  
-> **Deciders:** Manifesto Architecture Team  
+> **Status:** Accepted
+> **Date:** 2025-01-17
+> **Deciders:** Manifesto Architecture Team
 > **Scope:** Core, Host, World, App layer boundaries
 
 ---
@@ -187,7 +187,7 @@ interface HostExecutor {
 // Implemented in App (runtime/ module)
 class AppHostExecutor implements HostExecutor {
   constructor(private host: Host) {}
-  
+
   async execute(...): Promise<HostExecutionResult> {
     // Transform, dispatch, interpret
   }
@@ -252,16 +252,6 @@ class AppHostExecutor implements HostExecutor {
 | Core | Pure computation, Snapshot shape |
 | Host | ExecutionKey mailbox, run-to-completion, onTrace |
 | World | Governance, WorldId, Lineage, DecisionRecord |
-
----
-
-## References
-
-- [Host Contract v2.0.1 FDR](/mnt/project/host-FDR-v2_0_1.md)
-- [Host Contract v2.0.1 SPEC](/mnt/project/host-SPEC-v2_0_1.md)
-- [World Protocol v2.0.0 FDR](./manifesto-ai-world__v2_0_0__FDR.md)
-- [World Protocol v2.0.0 SPEC](./manifesto-ai-world__v2_0_0__SPEC.md)
-- [Event-Loop Execution Model FDR](/mnt/project/event-loop-excution-model-fdr-v1_0.md)
 
 ---
 

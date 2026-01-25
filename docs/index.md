@@ -69,11 +69,8 @@ console.log(app.getState().data.count); // 1
 | `@manifesto-ai/core` | Pure computation engine |
 | `@manifesto-ai/host` | Effect execution runtime |
 | `@manifesto-ai/world` | World Protocol governance |
-| `@manifesto-ai/bridge` | Event sourcing bridge |
 | `@manifesto-ai/builder` | Type-safe DSL (advanced) |
-| `@manifesto-ai/translator` | Natural language translation |
-| `@manifesto-ai/memory` | Memory retrieval & verification |
-| `@manifesto-ai/react` | React bindings |
+| `@manifesto-ai/intent-ir` | Intent intermediate representation |
 
 See [API Reference](/api/) for full documentation.
 
