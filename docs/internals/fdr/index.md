@@ -131,18 +131,6 @@ If you're new, read [Core Concepts](/concepts/) first.
 
 ---
 
-#### [Bridge FDR](./bridge-fdr)
-
-**Why Bridge exists as a separate layer.**
-
-**Key decisions explained:**
-- Why separate event routing from Host?
-- Why projections are functions, not declarations
-- Why two-way binding is explicit
-- Why SourceEvents are distinct from Intents
-
----
-
 ### Builder & DSL
 
 #### [Builder FDR](./builder-fdr)
@@ -157,62 +145,14 @@ If you're new, read [Core Concepts](/concepts/) first.
 
 ---
 
-### UI Integration
+#### [Intent IR FDR](./intent-ir-fdr)
 
-#### [React FDR](./react-fdr)
-
-**Why React bindings are designed this way.**
+**Why Intent IR uses Chomskyan Logical Form.**
 
 **Key decisions explained:**
-- Why hooks over HOCs?
-- Why Bridge integration is required?
-- Why selective re-render matters?
-
----
-
-### AI & Memory
-
-#### [Translator FDR](./translator-fdr)
-
-**Why natural language translation uses a 6-stage pipeline.**
-
-**Key decisions explained:**
-- Why schema-guided interpretation?
-- Why verification is separate from translation?
-- Why multiple LLM calls instead of one?
-
----
-
-#### [Memory FDR](./memory-fdr)
-
-**Why memory retrieval is verified.**
-
-**Key decisions explained:**
-- Why verification before use?
-- Why retrieval is separate from storage?
-
----
-
-### Utilities
-
-#### [Effect Utils FDR](./effect-utils-fdr)
-
-**Why common patterns are extracted.**
-
-**Key decisions explained:**
-- Why composition over inheritance?
-- Why declarative error handling?
-
----
-
-#### [Lab FDR](./lab-fdr)
-
-**Why HITL tooling is built-in.**
-
-**Key decisions explained:**
-- Why trace-based replay?
-- Why LLM necessity governance?
-- Why human-in-the-loop is first-class?
+- Why LF-based semantic representation?
+- Why language-agnostic structures?
+- Why explicit force and event class?
 
 ---
 

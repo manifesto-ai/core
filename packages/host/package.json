@@ -35,7 +35,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^1.1.0"
+    "@manifesto-ai/core": "^2.0.0"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",

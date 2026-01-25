@@ -106,11 +106,7 @@ Defines MEL compilation to DomainSchema.
 
 #### [Host Spec](./host-spec)
 
-**Status:** Normative | **Version:** 1.1.0 (⚠️ **Package docs are authoritative: v2.0.1**)
-
-> **Note:** The global spec here is v1.1. For the current authoritative specification,
-> see `packages/host/docs/host-SPEC-v2.0.1.md` which includes Mailbox + Runner + Job
-> execution model and CTX-1~5 Context Determinism rules.
+**Status:** Normative | **Version:** 2.0.1
 
 Defines Host's responsibilities and guarantees.
 
@@ -138,20 +134,6 @@ Defines governance layer semantics.
 
 ---
 
-#### [Bridge Spec](./bridge-spec)
-
-**Status:** Normative | **Version:** 1.1.0
-
-Defines event bridging and intent projection.
-
-**What it covers:**
-- SourceEvent to IntentBody projection
-- Intent issuance and routing
-- Snapshot view delivery
-- Event subscription patterns
-
----
-
 ### Builder & DSL
 
 #### [Builder Spec](./builder-spec)
@@ -168,79 +150,16 @@ Defines the type-safe domain definition DSL.
 
 ---
 
-### UI Integration
+#### [Intent IR Spec](./intent-ir-spec)
 
-#### [React Spec](./react-spec)
+**Status:** Stable | **Version:** 0.1.0
 
-**Status:** Normative | **Version:** 1.0
-
-Defines React bindings for Manifesto.
+Defines the Intent Intermediate Representation.
 
 **What it covers:**
-- Provider pattern and context
-- `useValue`, `useActions`, `useComputed` hooks
-- Selective re-render optimization
-- Bridge integration
-
----
-
-### AI & Memory
-
-#### [Translator Spec](./translator-spec)
-
-**Status:** Normative | **Version:** 1.1.1
-
-Defines natural language to semantic change translation.
-
-**What it covers:**
-- 6-stage translation pipeline
-- Schema-guided interpretation
-- Verification and validation
-- LLM integration contract
-
----
-
-#### [Memory Spec](./memory-spec)
-
-**Status:** Normative | **Version:** 1.2
-
-Defines context retrieval and verification.
-
-**What it covers:**
-- Memory store interface
-- Retrieval algorithms
-- Verification contract
-- Translator integration
-
----
-
-### Utilities
-
-#### [Effect Utils Spec](./effect-utils-spec)
-
-**Status:** Normative | **Version:** 1.0
-
-Defines effect handler utilities.
-
-**What it covers:**
-- Common effect patterns
-- Handler composition
-- Error handling helpers
-- Testing utilities
-
----
-
-#### [Lab Spec](./lab-spec)
-
-**Status:** Normative | **Version:** 1.0
-
-Defines LLM governance and HITL tooling.
-
-**What it covers:**
-- LLM necessity governance
-- Trace recording and replay
-- Human-in-the-loop support
-- Report generation
+- Chomskyan LF-based semantic structures
+- Term and Proposition types
+- Force and EventClass enumerations
 
 ---
 

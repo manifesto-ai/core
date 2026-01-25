@@ -32,12 +32,7 @@ These packages form the foundation of Manifesto's architecture. Most users inter
 |---------|-------------|------|
 | @manifesto-ai/compiler | MEL to DomainSchema compilation | [Compiler Spec](/internals/spec/compiler-spec) |
 | @manifesto-ai/builder | Type-safe domain definition DSL | [Builder Spec](/internals/spec/builder-spec) |
-| @manifesto-ai/bridge | Event bridging and intent projection | [Bridge Spec](/internals/spec/bridge-spec) |
-| @manifesto-ai/react | React bindings and hooks | [React Spec](/internals/spec/react-spec) |
-| @manifesto-ai/translator | Natural language to semantic change | [Translator Spec](/internals/spec/translator-spec) |
-| @manifesto-ai/memory | Context retrieval and verification | [Memory Spec](/internals/spec/memory-spec) |
-| @manifesto-ai/lab | LLM governance and HITL tooling | [Lab Spec](/internals/spec/lab-spec) |
-| @manifesto-ai/effect-utils | Effect handler utilities | [Effect Utils Spec](/internals/spec/effect-utils-spec) |
+| @manifesto-ai/intent-ir | Intent intermediate representation | [Intent IR Spec](/internals/spec/intent-ir-spec) |
 
 ---
 

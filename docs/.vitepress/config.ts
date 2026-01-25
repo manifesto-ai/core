@@ -135,17 +135,11 @@ export default defineConfig({
             { text: 'Overview', link: '/internals/spec/' },
             { text: 'App Spec', link: '/internals/spec/app-spec' },
             { text: 'Core Spec', link: '/internals/spec/core-spec' },
-            { text: 'Compiler Spec', link: '/internals/spec/compiler-spec' },
             { text: 'Host Spec', link: '/internals/spec/host-spec' },
             { text: 'World Spec', link: '/internals/spec/world-spec' },
-            { text: 'Bridge Spec', link: '/internals/spec/bridge-spec' },
             { text: 'Builder Spec', link: '/internals/spec/builder-spec' },
-            { text: 'React Spec', link: '/internals/spec/react-spec' },
-            { text: 'Memory Spec', link: '/internals/spec/memory-spec' },
-            { text: 'Translator Spec', link: '/internals/spec/translator-spec' },
+            { text: 'Compiler Spec', link: '/internals/spec/compiler-spec' },
             { text: 'Intent IR Spec', link: '/internals/spec/intent-ir-spec' },
-            { text: 'Effect Utils Spec', link: '/internals/spec/effect-utils-spec' },
-            { text: 'Lab Spec', link: '/internals/spec/lab-spec' },
           ]
         },
         {
@@ -155,17 +149,19 @@ export default defineConfig({
             { text: 'Overview', link: '/internals/fdr/' },
             { text: 'App FDR', link: '/internals/fdr/app-fdr' },
             { text: 'Core FDR', link: '/internals/fdr/core-fdr' },
-            { text: 'Compiler FDR', link: '/internals/fdr/compiler-fdr' },
             { text: 'Host FDR', link: '/internals/fdr/host-fdr' },
             { text: 'World FDR', link: '/internals/fdr/world-fdr' },
-            { text: 'Bridge FDR', link: '/internals/fdr/bridge-fdr' },
             { text: 'Builder FDR', link: '/internals/fdr/builder-fdr' },
-            { text: 'React FDR', link: '/internals/fdr/react-fdr' },
-            { text: 'Memory FDR', link: '/internals/fdr/memory-fdr' },
-            { text: 'Translator FDR', link: '/internals/fdr/translator-fdr' },
+            { text: 'Compiler FDR', link: '/internals/fdr/compiler-fdr' },
             { text: 'Intent IR FDR', link: '/internals/fdr/intent-ir-fdr' },
-            { text: 'Effect Utils FDR', link: '/internals/fdr/effect-utils-fdr' },
-            { text: 'Lab FDR', link: '/internals/fdr/lab-fdr' },
+          ]
+        },
+        {
+          text: 'Architecture Decision Records',
+          collapsed: true,
+          items: [
+            { text: 'Overview', link: '/internals/adr/' },
+            { text: 'ADR-001: Layer Separation', link: '/internals/adr/001-layer-separation' },
           ]
         }
       ],
