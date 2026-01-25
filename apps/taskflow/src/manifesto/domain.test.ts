@@ -5,12 +5,27 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createHost } from "@manifesto-ai/host";
-import { createManifestoWorld, type ActorRef } from "@manifesto-ai/world";
-import { createBridge, type Bridge } from "@manifesto-ai/bridge";
+import type { ActorRef } from "@manifesto-ai/world";
 import type { DomainSchema } from "@manifesto-ai/core";
+import { compileMelDomain } from "@manifesto-ai/compiler";
+import { createTestBridge, type TestBridge } from "./test-bridge";
 
-import TasksDomain from "../domain/tasks-compiled.json";
+import { TasksDomain as tasksMel } from "../domain";
+
+const compiledDomain = compileMelDomain(tasksMel, { mode: "domain" });
+
+if (compiledDomain.errors.length > 0) {
+  const errorMessages = compiledDomain.errors
+    .map((error) => `[${error.code}] ${error.message}`)
+    .join("; ");
+  throw new Error(`TaskFlow MEL compilation failed: ${errorMessages}`);
+}
+
+if (!compiledDomain.schema) {
+  throw new Error("TaskFlow MEL compilation produced no schema");
+}
+
+const domainSchema = compiledDomain.schema as DomainSchema;
 
 const createInitialData = () => ({
   tasks: [],
@@ -49,20 +64,29 @@ const assistantActor: ActorRef = {
   name: "AI Assistant",
 };
 
+const createBridgeForTests = async (): Promise<TestBridge> => {
+  const schema = domainSchema;
+  return createTestBridge({
+    schema,
+    initialData: createInitialData(),
+    defaultActor: userActor,
+  });
+};
+
 describe("TaskFlow Domain", () => {
   describe("Schema Structure", () => {
     it("should have Task type definition", () => {
-      expect(TasksDomain.types).toHaveProperty("Task");
-      const taskType = TasksDomain.types.Task;
+      expect(domainSchema.types).toHaveProperty("Task");
+      const taskType = domainSchema.types.Task;
       expect(taskType.definition.kind).toBe("object");
     });
 
     it("should have Filter type definition", () => {
-      expect(TasksDomain.types).toHaveProperty("Filter");
+      expect(domainSchema.types).toHaveProperty("Filter");
     });
 
     it("should have all state fields", () => {
-      const fields = TasksDomain.state.fields;
+      const fields = domainSchema.state.fields;
       expect(fields).toHaveProperty("tasks");
       expect(fields).toHaveProperty("currentFilter");
       expect(fields).toHaveProperty("selectedTaskId");
@@ -72,7 +96,7 @@ describe("TaskFlow Domain", () => {
     });
 
     it("should have all computed fields", () => {
-      const computed = TasksDomain.computed.fields;
+      const computed = domainSchema.computed.fields;
       expect(computed).toHaveProperty("computed.totalCount");
       expect(computed).toHaveProperty("computed.hasSelection");
       expect(computed).toHaveProperty("computed.canCreate");
@@ -81,7 +105,7 @@ describe("TaskFlow Domain", () => {
     });
 
     it("should have all action definitions", () => {
-      const actions = TasksDomain.actions;
+      const actions = domainSchema.actions;
       expect(actions).toHaveProperty("createTask");
       expect(actions).toHaveProperty("updateTask");
       expect(actions).toHaveProperty("deleteTask");
@@ -97,7 +121,7 @@ describe("TaskFlow Domain", () => {
 
   describe("Action Input Schemas", () => {
     it("createTask should require title, description, priority, dueDate, tags", () => {
-      const input = TasksDomain.actions.createTask.input;
+      const input = domainSchema.actions.createTask.input;
       expect(input.fields).toHaveProperty("title");
       expect(input.fields).toHaveProperty("description");
       expect(input.fields).toHaveProperty("priority");
@@ -106,7 +130,7 @@ describe("TaskFlow Domain", () => {
     });
 
     it("updateTask should require id and optional fields", () => {
-      const input = TasksDomain.actions.updateTask.input;
+      const input = domainSchema.actions.updateTask.input;
       expect(input.fields).toHaveProperty("id");
       expect(input.fields).toHaveProperty("title");
       expect(input.fields).toHaveProperty("description");
@@ -115,12 +139,12 @@ describe("TaskFlow Domain", () => {
     });
 
     it("deleteTask should require id", () => {
-      const input = TasksDomain.actions.deleteTask.input;
+      const input = domainSchema.actions.deleteTask.input;
       expect(input.fields).toHaveProperty("id");
     });
 
     it("moveTask should require id and newStatus", () => {
-      const input = TasksDomain.actions.moveTask.input;
+      const input = domainSchema.actions.moveTask.input;
       expect(input.fields).toHaveProperty("id");
       expect(input.fields).toHaveProperty("newStatus");
     });
@@ -128,15 +152,15 @@ describe("TaskFlow Domain", () => {
 
   describe("Action Availability", () => {
     it("deleteTask should have availability condition", () => {
-      expect(TasksDomain.actions.deleteTask.available).toBeDefined();
-      expect(TasksDomain.actions.deleteTask.available.path).toBe(
+      expect(domainSchema.actions.deleteTask.available).toBeDefined();
+      expect(domainSchema.actions.deleteTask.available.path).toBe(
         "computed.canDelete"
       );
     });
 
     it("createTask should have availability condition", () => {
-      expect(TasksDomain.actions.createTask.available).toBeDefined();
-      expect(TasksDomain.actions.createTask.available.path).toBe(
+      expect(domainSchema.actions.createTask.available).toBeDefined();
+      expect(domainSchema.actions.createTask.available.path).toBe(
         "computed.canCreate"
       );
     });
@@ -144,29 +168,10 @@ describe("TaskFlow Domain", () => {
 });
 
 describe("TaskFlow Computed Values", () => {
-  let bridge: Bridge;
+  let bridge: TestBridge;
 
   beforeEach(async () => {
-    const schema = TasksDomain as unknown as DomainSchema;
-    const host = createHost(schema, { initialData: createInitialData() });
-    const world = createManifestoWorld({
-      schemaHash: schema.hash,
-      host: host as any,
-    });
-
-    world.registerActor(userActor, { mode: "auto_approve" });
-    world.registerActor(assistantActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot!);
-
-    bridge = createBridge({
-      world,
-      schemaHash: schema.hash,
-      defaultActor: userActor,
-      defaultProjectionId: "test:projection",
-    });
-
+    bridge = await createBridgeForTests();
     await bridge.refresh();
   });
 
@@ -292,29 +297,10 @@ describe("TaskFlow Computed Values", () => {
 });
 
 describe("TaskFlow Priority Values", () => {
-  let bridge: Bridge;
+  let bridge: TestBridge;
 
   beforeEach(async () => {
-    const schema = TasksDomain as unknown as DomainSchema;
-    const host = createHost(schema, { initialData: createInitialData() });
-    const world = createManifestoWorld({
-      schemaHash: schema.hash,
-      host: host as any,
-    });
-
-    world.registerActor(userActor, { mode: "auto_approve" });
-    world.registerActor(assistantActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot!);
-
-    bridge = createBridge({
-      world,
-      schemaHash: schema.hash,
-      defaultActor: userActor,
-      defaultProjectionId: "test:projection",
-    });
-
+    bridge = await createBridgeForTests();
     await bridge.refresh();
   });
 
@@ -386,30 +372,11 @@ describe("TaskFlow Priority Values", () => {
 });
 
 describe("TaskFlow Status Values", () => {
-  let bridge: Bridge;
+  let bridge: TestBridge;
   let taskId: string;
 
   beforeEach(async () => {
-    const schema = TasksDomain as unknown as DomainSchema;
-    const host = createHost(schema, { initialData: createInitialData() });
-    const world = createManifestoWorld({
-      schemaHash: schema.hash,
-      host: host as any,
-    });
-
-    world.registerActor(userActor, { mode: "auto_approve" });
-    world.registerActor(assistantActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot!);
-
-    bridge = createBridge({
-      world,
-      schemaHash: schema.hash,
-      defaultActor: userActor,
-      defaultProjectionId: "test:projection",
-    });
-
+    bridge = await createBridgeForTests();
     await bridge.refresh();
 
     await bridge.dispatch(
@@ -463,29 +430,10 @@ describe("TaskFlow Status Values", () => {
 });
 
 describe("TaskFlow Tags", () => {
-  let bridge: Bridge;
+  let bridge: TestBridge;
 
   beforeEach(async () => {
-    const schema = TasksDomain as unknown as DomainSchema;
-    const host = createHost(schema, { initialData: createInitialData() });
-    const world = createManifestoWorld({
-      schemaHash: schema.hash,
-      host: host as any,
-    });
-
-    world.registerActor(userActor, { mode: "auto_approve" });
-    world.registerActor(assistantActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot!);
-
-    bridge = createBridge({
-      world,
-      schemaHash: schema.hash,
-      defaultActor: userActor,
-      defaultProjectionId: "test:projection",
-    });
-
+    bridge = await createBridgeForTests();
     await bridge.refresh();
   });
 
@@ -541,29 +489,10 @@ describe("TaskFlow Tags", () => {
 });
 
 describe("TaskFlow DueDate", () => {
-  let bridge: Bridge;
+  let bridge: TestBridge;
 
   beforeEach(async () => {
-    const schema = TasksDomain as unknown as DomainSchema;
-    const host = createHost(schema, { initialData: createInitialData() });
-    const world = createManifestoWorld({
-      schemaHash: schema.hash,
-      host: host as any,
-    });
-
-    world.registerActor(userActor, { mode: "auto_approve" });
-    world.registerActor(assistantActor, { mode: "auto_approve" });
-
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot!);
-
-    bridge = createBridge({
-      world,
-      schemaHash: schema.hash,
-      defaultActor: userActor,
-      defaultProjectionId: "test:projection",
-    });
-
+    bridge = await createBridgeForTests();
     await bridge.refresh();
   });
 

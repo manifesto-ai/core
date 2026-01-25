@@ -2,11 +2,12 @@
  * Pre-E2E Integration Test for TaskFlow
  *
  * Tests the complete Manifesto stack flow:
- * Host -> World -> Bridge -> UI Layer
+ * Host -> App -> UI Layer
  *
  * Simulates what happens when the AI assistant creates/updates/deletes tasks
  */
 
+const fs = require('fs');
 const path = require('path');
 
 // Test utilities
@@ -41,16 +42,73 @@ function section(name) {
 async function main() {
   console.log(colors.yellow('═══════════════════════════════════════════════════════════════'));
   console.log(colors.yellow('  TaskFlow Pre-E2E Integration Test'));
-  console.log(colors.yellow('  Testing: Host → World → Bridge → UI Layer'));
+  console.log(colors.yellow('  Testing: Host → App → UI Layer'));
   console.log(colors.yellow('═══════════════════════════════════════════════════════════════\n'));
 
-  // Load compiled schema
-  const schema = require('./src/domain/tasks-compiled.json');
+  // Load MEL source and compile schema
+  const melPath = path.join(__dirname, 'src/domain/tasks.mel');
+  const melSource = fs.readFileSync(melPath, 'utf8');
 
   // Import packages
+  const { compileMelDomain } = await import('@manifesto-ai/compiler');
   const { createHost } = await import('@manifesto-ai/host');
-  const { createManifestoWorld } = await import('@manifesto-ai/world');
-  const { createBridge } = await import('@manifesto-ai/bridge');
+  const { createApp, createDefaultPolicyService, createInMemoryWorldStore } = await import('@manifesto-ai/app');
+
+  const compileResult = compileMelDomain(melSource, { mode: 'domain' });
+  if (compileResult.errors.length > 0) {
+    const errorMessages = compileResult.errors
+      .map((error) => `[${error.code}] ${error.message}`)
+      .join('; ');
+    throw new Error(`TaskFlow MEL compilation failed: ${errorMessages}`);
+  }
+  if (!compileResult.schema) {
+    throw new Error('TaskFlow MEL compilation produced no schema');
+  }
+  const schema = compileResult.schema;
+
+  const createAppHostAdapter = (host) => ({
+    dispatch: async (intent) => {
+      const hostResult = await host.dispatch({
+        type: intent.type,
+        input: intent.body,
+        intentId: intent.intentId,
+      });
+
+      if (hostResult.status === 'complete') {
+        return { status: 'completed', snapshot: hostResult.snapshot };
+      }
+
+      const error = hostResult.error ?? {
+        code: 'HOST_ERROR',
+        message: 'Host error',
+        source: { actionId: intent.intentId, nodePath: 'host.dispatch' },
+        timestamp: Date.now(),
+      };
+
+      return { status: 'failed', snapshot: hostResult.snapshot, error };
+    },
+    registerEffect: (type, handler) => host.registerEffect(type, handler),
+  });
+
+  const createBridgeAdapter = (app) => {
+    let disposed = false;
+    return {
+      dispatch: async (body, _source, actor) => {
+        if (disposed) {
+          throw new Error('Bridge is disposed');
+        }
+        await app.act(body.type, body.input, actor ? { actorId: actor.actorId } : undefined).done();
+      },
+      getSnapshot: () => (disposed ? null : app.getState()),
+      subscribe: (callback) => app.subscribe((state) => state, callback, { batchMode: 'immediate' }),
+      refresh: async () => {},
+      dispose: () => {
+        disposed = true;
+        void app.dispose();
+      },
+      isDisposed: () => disposed,
+    };
+  };
 
   // ═══════════════════════════════════════════════════════════════
   // TEST 1: Schema Validation
@@ -103,49 +161,44 @@ async function main() {
   assert(hostSnapshot?.data?.tasks?.length === 0, 'Initial tasks count is 0');
 
   // ═══════════════════════════════════════════════════════════════
-  // TEST 3: World Creation and Genesis
+  // TEST 3: App Creation
   // ═══════════════════════════════════════════════════════════════
-  section('3. World Creation');
+  section('3. App Creation');
 
-  const world = createManifestoWorld({
-    schemaHash: schema.hash,
-    host,
+  const userActor = { actorId: 'user:test-user', kind: 'human', name: 'Test User' };
+  const assistantActor = { actorId: 'agent:ai-assistant', kind: 'agent', name: 'AI Assistant' };
+
+  const app = createApp({
+    schema,
+    host: createAppHostAdapter(host),
+    worldStore: createInMemoryWorldStore(),
+    policyService: createDefaultPolicyService({ warnOnAutoApprove: false }),
+    initialData,
+    actorPolicy: {
+      mode: 'anonymous',
+      defaultActor: {
+        actorId: userActor.actorId,
+        kind: userActor.kind,
+        name: userActor.name,
+      },
+    },
   });
 
-  const userActor = { actorId: 'user:test-user', kind: 'user', displayName: 'Test User' };
-  const assistantActor = { actorId: 'agent:ai-assistant', kind: 'agent', displayName: 'AI Assistant' };
-
-  world.registerActor(userActor, { mode: 'auto_approve' });
-  world.registerActor(assistantActor, { mode: 'auto_approve' });
-
-  assert(true, 'User actor registered');
-  assert(true, 'AI Assistant actor registered');
-
-  // Create genesis
-  const snapshot = await host.getSnapshot();
-  await world.createGenesis(snapshot);
-  const genesis = await world.getGenesis();
-
-  assert(genesis !== null, 'Genesis world created');
-  assert(genesis?.worldId?.length > 0, 'Genesis has valid worldId');
+  await app.ready();
+  assert(true, 'App ready');
 
   // ═══════════════════════════════════════════════════════════════
-  // TEST 4: Bridge Creation
+  // TEST 4: App Bridge Adapter
   // ═══════════════════════════════════════════════════════════════
-  section('4. Bridge Creation');
+  section('4. App Bridge Adapter');
 
-  const bridge = createBridge({
-    world,
-    schemaHash: schema.hash,
-    defaultActor: userActor,
-    defaultProjectionId: 'test:projection',
-  });
+  const bridge = createBridgeAdapter(app);
 
   await bridge.refresh();
   const bridgeSnapshot = bridge.getSnapshot();
 
-  assert(bridgeSnapshot !== null, 'Bridge snapshot available');
-  assert(Array.isArray(bridgeSnapshot?.data?.tasks), 'Bridge has tasks array');
+  assert(bridgeSnapshot !== null, 'App snapshot available');
+  assert(Array.isArray(bridgeSnapshot?.data?.tasks), 'App has tasks array');
 
   // ═══════════════════════════════════════════════════════════════
   // TEST 5: Create Task (Simulating AI Assistant)
@@ -210,7 +263,7 @@ async function main() {
 
   snap = bridge.getSnapshot();
   assert(snap?.data?.tasks?.length === 3, 'Third task created');
-  assert(updateCount >= 3, `Bridge received ${updateCount} updates`);
+  assert(updateCount >= 3, `App received ${updateCount} updates`);
 
   // ═══════════════════════════════════════════════════════════════
   // TEST 6: Move Task (Change Status)

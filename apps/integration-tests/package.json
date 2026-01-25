@@ -22,7 +22,6 @@
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/effect-utils": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*"
   },

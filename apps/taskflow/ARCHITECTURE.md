@@ -4,6 +4,8 @@
 
 ## Overview
 
+> NOTE: 현재 TaskFlow는 `@manifesto-ai/app` v2 기반이며, 문서의 Bridge/World 표현은 App 내부 오케스트레이션을 의미합니다.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              TaskFlow App                                │
@@ -57,7 +59,6 @@ src/
 │
 ├── domain/                   # Domain Definition
 │   ├── tasks.mel             # MEL (Manifesto Expression Language)
-│   ├── tasks-compiled.json   # Compiled schema
 │   └── index.ts              # Type exports
 │
 ├── lib/
@@ -69,9 +70,7 @@ src/
 │
 ├── manifesto/                # Manifesto Integration
 │   ├── app.ts                # TaskFlowApp factory
-│   ├── world.ts              # World configuration
 │   ├── actors.ts             # Actor definitions
-│   ├── authority.ts          # Authority rules
 │   └── effects/              # Effect handlers
 │
 ├── store/                    # State Management
@@ -176,12 +175,10 @@ TaskFlow는 Manifesto 프레임워크를 통해 상태를 관리합니다:
 ```
 1. User clicks button in UI
 2. Component calls action (e.g., createTask)
-3. TaskFlowApp dispatches Intent to Bridge
-4. Bridge forwards to World
-5. World evaluates Authority
-6. Host executes compute loop
-7. Effects applied to Snapshot
-8. Bridge notifies subscribers
+3. TaskFlowApp dispatches action to App
+4. App executes action via Host/WorldStore
+5. Effects applied to Snapshot
+6. App notifies subscribers
 9. React re-renders
 ```
 
@@ -276,17 +273,19 @@ interface UIStore {
 ```typescript
 interface TaskFlowApp {
   // Core
-  taskFlowWorld: TaskFlowWorld;
-  bridge: Bridge;
+  app: App;
 
   // Lifecycle
   initialize(): Promise<void>;
   dispose(): void;
 
   // State
-  getSnapshot(): SnapshotView | null;
+  getSnapshot(): AppState<TaskFlowState> | null;
   getState(): TaskFlowState | null;
   getComputed(): TaskFlowComputed | null;
+
+  // Dispatch
+  dispatch(body: IntentBody, actor?: ActorRef): Promise<void>;
 
   // Actions
   createTask(params): Promise<void>;

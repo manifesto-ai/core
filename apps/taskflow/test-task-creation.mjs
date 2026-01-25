@@ -2,61 +2,36 @@
  * Test script to verify task creation works through Manifesto stack
  */
 
-import { createTaskFlowWorld } from './src/manifesto/world.js';
-import { createBridge } from '@manifesto-ai/bridge';
+import { createTaskFlowApp } from './src/manifesto/app.js';
 
 async function main() {
   console.log('=== Testing Task Creation ===\n');
 
   try {
-    // 1. Create TaskFlow World
-    console.log('1. Creating TaskFlow World...');
-    const taskFlowWorld = await createTaskFlowWorld();
-    console.log('   ✓ World created');
+    // 1. Create TaskFlow App
+    console.log('1. Creating TaskFlow App...');
+    const taskFlowApp = await createTaskFlowApp();
+    console.log('   ✓ App created');
 
-    // 2. Initialize (create genesis)
-    console.log('2. Initializing world (genesis)...');
-    await taskFlowWorld.initialize();
-    console.log('   ✓ Genesis created');
+    // 2. Initialize app
+    console.log('2. Initializing app...');
+    await taskFlowApp.initialize();
+    console.log('   ✓ App initialized');
 
-    // 3. Create Bridge
-    console.log('3. Creating Bridge...');
-    const bridge = createBridge({
-      world: taskFlowWorld.world,
-      schemaHash: taskFlowWorld.world.schemaHash,
-      defaultActor: taskFlowWorld.userActor,
-      defaultProjectionId: 'bridge:taskflow',
-    });
-
-    // Subscribe to snapshot changes
-    let snapshotCount = 0;
-    bridge.subscribe((snapshot) => {
-      snapshotCount++;
-      const tasks = snapshot.data?.tasks || [];
-      console.log(`   [Snapshot ${snapshotCount}] Tasks count: ${tasks.length}`);
-    });
-
-    // 4. Refresh bridge to get initial snapshot
-    console.log('4. Refreshing bridge...');
-    await bridge.refresh();
-
-    // 5. Dispatch createTask intent
-    console.log('5. Dispatching createTask intent...');
-    await bridge.dispatch({
-      type: 'createTask',
-      input: {
-        title: 'Test Task from Script',
-        description: 'This task was created by the test script',
-        priority: 'high',
-        dueDate: null,
-        tags: ['test'],
-      },
+    // 3. Dispatch createTask intent
+    console.log('3. Dispatching createTask intent...');
+    await taskFlowApp.createTask({
+      title: 'Test Task from Script',
+      description: 'This task was created by the test script',
+      priority: 'high',
+      dueDate: null,
+      tags: ['test'],
     });
     console.log('   ✓ createTask dispatched');
 
-    // 6. Check final snapshot
-    console.log('\n6. Checking final snapshot...');
-    const finalSnapshot = bridge.getSnapshot();
+    // 4. Check final snapshot
+    console.log('\n4. Checking final snapshot...');
+    const finalSnapshot = taskFlowApp.getSnapshot();
     const tasks = finalSnapshot?.data?.tasks || [];
     console.log(`   Tasks in snapshot: ${tasks.length}`);
 
@@ -72,7 +47,7 @@ async function main() {
     }
 
     // Cleanup
-    bridge.dispose();
+    taskFlowApp.dispose();
 
   } catch (error) {
     console.error('\n❌ ERROR:', error);

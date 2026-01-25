@@ -207,10 +207,12 @@ describe('isReadOnlyIntent', () => {
 });
 
 describe('INTENT_KINDS', () => {
-  it('should have all 12 intent kinds', () => {
-    expect(INTENT_KINDS).toHaveLength(12);
+  it('should have all 14 intent kinds', () => {
+    expect(INTENT_KINDS).toHaveLength(14);
     expect(INTENT_KINDS).toContain('ChangeView');
     expect(INTENT_KINDS).toContain('SetDateFilter');
+    expect(INTENT_KINDS).toContain('SetFilter');
+    expect(INTENT_KINDS).toContain('ClearFilter');
     expect(INTENT_KINDS).toContain('CreateTask');
     expect(INTENT_KINDS).toContain('UpdateTask');
     expect(INTENT_KINDS).toContain('ChangeStatus');

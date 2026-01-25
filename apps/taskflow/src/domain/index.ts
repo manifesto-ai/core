@@ -1,12 +1,12 @@
 /**
  * TaskFlow Domain
  *
- * Compiled domain schema from MEL source (tasks.mel).
- * This provides the full action definitions for Manifesto Core.
+ * Domain definition from MEL source (tasks.mel).
+ * This is compiled at runtime by the TaskFlow App.
  */
 
-// Import compiled domain schema
-import compiledSchema from "./tasks-compiled.json";
+// Import MEL source
+import tasksMel from "./tasks.mel";
 
 // Export types
 export type Task = {
@@ -32,9 +32,9 @@ export type Filter = {
 export type ViewMode = "todo" | "kanban" | "table" | "trash";
 
 /**
- * Tasks domain schema (compiled from MEL)
+ * Tasks domain MEL source
  */
-export const TasksDomain = compiledSchema;
+export const TasksDomain = tasksMel;
 
 // Initial state for the domain
 export const initialSnapshot = {

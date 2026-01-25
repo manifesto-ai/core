@@ -219,7 +219,9 @@ export async function runManifesto(
     // Success = got a valid intent or done response without error
     // For Manifesto: if we got an intent, the system worked correctly
     // Read-only intents (QueryTasks, SetFilter for viewing) may have toolCalls=0
-    const success = intentEvent !== null || (doneEvent?.message && !doneEvent.message.includes('죄송'));
+    const success =
+      intentEvent !== null ||
+      Boolean(doneEvent?.message && !doneEvent.message.includes('죄송'));
 
     return {
       runId,
