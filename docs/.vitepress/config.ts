@@ -42,67 +42,66 @@ export default defineConfig({
 
   themeConfig: {
     nav: [
-      { text: 'Guide', link: '/guides/' },
+      { text: 'Quickstart', link: '/quickstart' },
+      { text: 'Learn', link: '/learn/' },
+      { text: 'Concepts', link: '/concepts/' },
+      { text: 'API', link: '/api/' },
+      { text: 'Guides', link: '/guides/' },
       { text: 'MEL', link: '/mel/' },
-      { text: 'Packages', link: '/packages/app/' },
-      { text: 'Concepts', link: '/core-concepts/' },
-      { text: 'Architecture', link: '/architecture/' },
-      { text: 'Specifications', link: '/specifications/' },
-      { text: 'Rationale', link: '/rationale/' },
+      { text: 'Internals', link: '/internals/' },
     ],
 
     sidebar: {
-      '/packages/app/': [
+      '/quickstart': [],  // Single page, no sidebar
+
+      '/learn/': [
         {
-          text: '@manifesto-ai/app',
+          text: 'Learn Manifesto',
           items: [
-            { text: 'Overview', link: '/packages/app/' },
-            { text: 'Getting Started', link: '/packages/app/getting-started' },
-            { text: 'API Reference', link: '/packages/app/api-reference' },
-            { text: 'Service Handlers', link: '/packages/app/services' },
-            { text: 'Subscriptions', link: '/packages/app/subscriptions' },
-            { text: 'Actions', link: '/packages/app/actions' },
-            { text: 'Branch Management', link: '/packages/app/branches' },
-            { text: 'Advanced Topics', link: '/packages/app/advanced' },
-            { text: 'Examples', link: '/packages/app/examples' },
+            { text: 'Overview', link: '/learn/' },
+            { text: 'Your First App', link: '/learn/01-your-first-app' },
+            { text: 'Actions and State', link: '/learn/02-actions-and-state' },
+            { text: 'Working with Effects', link: '/learn/03-effects' },
           ]
         }
       ],
 
-      '/packages/intent-ir/': [
-        {
-          text: '@manifesto-ai/intent-ir',
-          items: [
-            { text: 'Overview', link: '/packages/intent-ir/README' },
-            { text: 'Specification', link: '/packages/intent-ir/SPEC' },
-            { text: 'Design Rationale', link: '/packages/intent-ir/FDR' },
-          ]
-        }
-      ],
-
-      '/what-is-manifesto/': [
-        {
-          text: 'What is Manifesto',
-          items: [
-            { text: 'Overview', link: '/what-is-manifesto/' },
-            { text: 'The Problem', link: '/what-is-manifesto/problem' },
-            { text: 'vs Others', link: '/what-is-manifesto/manifesto-vs-others' },
-            { text: 'In One Sentence', link: '/what-is-manifesto/one-sentence' },
-          ]
-        }
-      ],
-
-      '/core-concepts/': [
+      '/concepts/': [
         {
           text: 'Core Concepts',
           items: [
-            { text: 'Overview', link: '/core-concepts/' },
-            { text: 'Snapshot', link: '/core-concepts/snapshot' },
-            { text: 'Intent', link: '/core-concepts/intent' },
-            { text: 'Effect', link: '/core-concepts/effect' },
-            { text: 'Flow', link: '/core-concepts/flow' },
-            { text: 'Host', link: '/core-concepts/host' },
-            { text: 'World', link: '/core-concepts/world' },
+            { text: 'Overview', link: '/concepts/' },
+            { text: 'Snapshot', link: '/concepts/snapshot' },
+            { text: 'Intent', link: '/concepts/intent' },
+            { text: 'Flow', link: '/concepts/flow' },
+            { text: 'Effect', link: '/concepts/effect' },
+            { text: 'World', link: '/concepts/world' },
+          ]
+        }
+      ],
+
+      '/api/': [
+        {
+          text: 'API Reference',
+          items: [
+            { text: 'Overview', link: '/api/' },
+            { text: '@manifesto-ai/app', link: '/api/app' },
+            { text: '@manifesto-ai/core', link: '/api/core' },
+            { text: '@manifesto-ai/host', link: '/api/host' },
+            { text: '@manifesto-ai/world', link: '/api/world' },
+          ]
+        }
+      ],
+
+      '/guides/': [
+        {
+          text: 'How-to Guides',
+          items: [
+            { text: 'Overview', link: '/guides/' },
+            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
+            { text: 'React Integration', link: '/guides/react-integration' },
+            { text: 'Debugging', link: '/guides/debugging' },
           ]
         }
       ],
@@ -120,75 +119,53 @@ export default defineConfig({
         }
       ],
 
-      '/architecture/': [
+      '/internals/': [
         {
-          text: 'Architecture',
+          text: 'Internals',
           items: [
-            { text: 'Overview', link: '/architecture/' },
-            { text: 'Layers', link: '/architecture/layers' },
-            { text: 'Data Flow', link: '/architecture/data-flow' },
-            { text: 'Determinism', link: '/architecture/determinism' },
-            { text: 'Failure Model', link: '/architecture/failure-model' },
+            { text: 'Overview', link: '/internals/' },
+            { text: 'Architecture', link: '/internals/architecture' },
+            { text: 'Glossary', link: '/internals/glossary' },
           ]
-        }
-      ],
-
-      '/specifications/': [
+        },
         {
           text: 'Specifications',
+          collapsed: true,
           items: [
-            { text: 'Overview', link: '/specifications/' },
-            { text: 'App Spec', link: '/specifications/app-spec' },
-            { text: 'Core Spec', link: '/specifications/core-spec' },
-            { text: 'Compiler Spec', link: '/specifications/compiler-spec' },
-            { text: 'Host Spec', link: '/specifications/host-spec' },
-            { text: 'World Spec', link: '/specifications/world-spec' },
-            { text: 'Bridge Spec', link: '/specifications/bridge-spec' },
-            { text: 'Builder Spec', link: '/specifications/builder-spec' },
-            { text: 'React Spec', link: '/specifications/react-spec' },
-            { text: 'Memory Spec', link: '/specifications/memory-spec' },
-            { text: 'Translator Spec', link: '/specifications/translator-spec' },
-            { text: 'Intent IR Spec', link: '/specifications/intent-ir-spec' },
-            { text: 'Effect Utils Spec', link: '/specifications/effect-utils-spec' },
-            { text: 'Lab Spec', link: '/specifications/lab-spec' },
+            { text: 'Overview', link: '/internals/spec/' },
+            { text: 'App Spec', link: '/internals/spec/app-spec' },
+            { text: 'Core Spec', link: '/internals/spec/core-spec' },
+            { text: 'Compiler Spec', link: '/internals/spec/compiler-spec' },
+            { text: 'Host Spec', link: '/internals/spec/host-spec' },
+            { text: 'World Spec', link: '/internals/spec/world-spec' },
+            { text: 'Bridge Spec', link: '/internals/spec/bridge-spec' },
+            { text: 'Builder Spec', link: '/internals/spec/builder-spec' },
+            { text: 'React Spec', link: '/internals/spec/react-spec' },
+            { text: 'Memory Spec', link: '/internals/spec/memory-spec' },
+            { text: 'Translator Spec', link: '/internals/spec/translator-spec' },
+            { text: 'Intent IR Spec', link: '/internals/spec/intent-ir-spec' },
+            { text: 'Effect Utils Spec', link: '/internals/spec/effect-utils-spec' },
+            { text: 'Lab Spec', link: '/internals/spec/lab-spec' },
           ]
-        }
-      ],
-
-      '/guides/': [
-        {
-          text: 'Guides',
-          items: [
-            { text: 'Overview', link: '/guides/' },
-            { text: 'Getting Started', link: '/guides/getting-started' },
-            { text: 'Todo Example', link: '/guides/todo-example' },
-            { text: 'Re-entry Safe Flows', link: '/guides/reentry-safe-flows' },
-            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-            { text: 'Using Memory', link: '/guides/using-memory' },
-            { text: 'Debugging', link: '/guides/debugging' },
-            { text: 'Performance Report', link: '/guides/performance-report' },
-          ]
-        }
-      ],
-
-      '/rationale/': [
+        },
         {
           text: 'Design Rationale',
+          collapsed: true,
           items: [
-            { text: 'Overview', link: '/rationale/' },
-            { text: 'App FDR', link: '/rationale/app-fdr' },
-            { text: 'Core FDR', link: '/rationale/core-fdr' },
-            { text: 'Compiler FDR', link: '/rationale/compiler-fdr' },
-            { text: 'Host FDR', link: '/rationale/host-fdr' },
-            { text: 'World FDR', link: '/rationale/world-fdr' },
-            { text: 'Bridge FDR', link: '/rationale/bridge-fdr' },
-            { text: 'Builder FDR', link: '/rationale/builder-fdr' },
-            { text: 'React FDR', link: '/rationale/react-fdr' },
-            { text: 'Memory FDR', link: '/rationale/memory-fdr' },
-            { text: 'Translator FDR', link: '/rationale/translator-fdr' },
-            { text: 'Intent IR FDR', link: '/rationale/intent-ir-fdr' },
-            { text: 'Effect Utils FDR', link: '/rationale/effect-utils-fdr' },
-            { text: 'Lab FDR', link: '/rationale/lab-fdr' },
+            { text: 'Overview', link: '/internals/fdr/' },
+            { text: 'App FDR', link: '/internals/fdr/app-fdr' },
+            { text: 'Core FDR', link: '/internals/fdr/core-fdr' },
+            { text: 'Compiler FDR', link: '/internals/fdr/compiler-fdr' },
+            { text: 'Host FDR', link: '/internals/fdr/host-fdr' },
+            { text: 'World FDR', link: '/internals/fdr/world-fdr' },
+            { text: 'Bridge FDR', link: '/internals/fdr/bridge-fdr' },
+            { text: 'Builder FDR', link: '/internals/fdr/builder-fdr' },
+            { text: 'React FDR', link: '/internals/fdr/react-fdr' },
+            { text: 'Memory FDR', link: '/internals/fdr/memory-fdr' },
+            { text: 'Translator FDR', link: '/internals/fdr/translator-fdr' },
+            { text: 'Intent IR FDR', link: '/internals/fdr/intent-ir-fdr' },
+            { text: 'Effect Utils FDR', link: '/internals/fdr/effect-utils-fdr' },
+            { text: 'Lab FDR', link: '/internals/fdr/lab-fdr' },
           ]
         }
       ],

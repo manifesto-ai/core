@@ -542,5 +542,5 @@ host.registerEffect('api:sync', async (type, params, context) => {
 ## See Also
 
 - [Architecture Overview](/architecture/) - Layer responsibilities
-- [Getting Started](/guides/getting-started) - Domain definition patterns
-- [Core Concepts](/core-concepts/) - Understanding the mental model
+- [Getting Started](/quickstart) - Domain definition patterns
+- [Core Concepts](/concepts/) - Understanding the mental model

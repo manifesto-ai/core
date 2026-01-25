@@ -5,7 +5,7 @@
 > **Focus:** How to accomplish specific tasks
 
 ::: tip Recommended Starting Point
-For new users, we recommend starting with the **[@manifesto-ai/app Guide](/packages/app/getting-started)** which covers MEL + the high-level App API.
+For new users, we recommend starting with the **[@manifesto-ai/app Guide](/quickstart)** which covers MEL + the high-level App API.
 
 The guides below cover low-level APIs (Builder, Core, Host) for advanced use cases.
 :::
@@ -26,8 +26,8 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 
 **When NOT to use guides:**
 - Understanding architecture (use [Architecture](/architecture/) instead)
-- Implementing Manifesto internals (use [Specifications](/specifications/) instead)
-- Understanding design rationale (use [Rationale](/rationale/) instead)
+- Implementing Manifesto internals (use [Specifications](/internals/spec/) instead)
+- Understanding design rationale (use [Rationale](/internals/fdr/) instead)
 
 ---
 
@@ -174,7 +174,7 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 1. Complete Path 1
 2. **[Effect Handlers](./effect-handlers)** — External integration (30 min)
 3. **[Debugging](./debugging)** — Troubleshooting (20 min)
-4. **[Core Concepts](/core-concepts/)** — Deep understanding (1 hour)
+4. **[Core Concepts](/concepts/)** — Deep understanding (1 hour)
 5. **[Architecture](/architecture/)** — System design (1 hour)
 
 **Outcome:** You can build robust, production-ready Manifesto apps.
@@ -186,8 +186,8 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 **Goal:** Master Manifesto and contribute
 
 1. Complete Path 2
-2. **[Specifications](/specifications/)** — Normative contracts (2 hours)
-3. **[Rationale](/rationale/)** — Design decisions (1.5 hours)
+2. **[Specifications](/internals/spec/)** — Normative contracts (2 hours)
+3. **[Rationale](/internals/fdr/)** — Design decisions (1.5 hours)
 4. **Advanced patterns:** Custom authorities, multi-tenant systems
 5. **Contribute:** Build tools, write docs, submit PRs
 
@@ -438,7 +438,7 @@ Want to contribute a guide? See [Contributing](https://github.com/manifesto-ai/c
 ### If You're Stuck
 
 1. Check **[Debugging](./debugging)** guide
-2. Review **[Manifesto vs. Others](/what-is-manifesto/manifesto-vs-others)** for comparisons
+2. Review **[Manifesto vs. Others](/concepts/)** for comparisons
 3. Search **[GitHub Discussions](https://github.com/manifesto-ai/core/discussions)**
 4. Ask in **[Discord](https://discord.gg/manifesto)**
 
@@ -488,9 +488,9 @@ We welcome guide contributions! See our [Guide Writing Guidelines](https://githu
 - [Debugging](./debugging) — Troubleshooting
 
 **Finally master:**
-- [Core Concepts](/core-concepts/) — Deep understanding
+- [Core Concepts](/concepts/) — Deep understanding
 - [Architecture](/architecture/) — System design
-- [Specifications](/specifications/) — Normative contracts
+- [Specifications](/internals/spec/) — Normative contracts
 
 ---
 
