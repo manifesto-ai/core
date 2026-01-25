@@ -5,16 +5,16 @@
  *
  * State Machine:
  * ```
- * submitted → pending → approved → executing → completed
- *     │          │                      │
- *     │          │                      └──→ failed
- *     │          │
- *     └──────────┴──────────────────────────→ rejected
+ * submitted → evaluating → approved → executing → completed
+ *     │            │           │           │
+ *     │            │           │           └──→ failed
+ *     │            │           │
+ *     └────────────┴──────────────────────────→ rejected
  * ```
  *
  * Invariants:
- * - L-1: submitted → only pending, approved, or rejected
- * - L-2: pending → only approved or rejected
+ * - L-1: submitted → only evaluating or rejected
+ * - L-2: evaluating → only approved or rejected
  * - L-3: approved → only executing
  * - L-4: executing → only completed or failed
  * - L-5: completed, rejected, failed are terminal
@@ -26,10 +26,12 @@ import type { ProposalStatus } from "../schema/proposal.js";
 
 /**
  * Valid state transitions
+ *
+ * Per EPOCH-3~5: ingress-stage proposals may be dropped on epoch change
  */
 const VALID_TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = {
-  submitted: ["pending", "approved", "rejected"],
-  pending: ["approved", "rejected"],
+  submitted: ["evaluating", "rejected"],
+  evaluating: ["approved", "rejected"],
   approved: ["executing"],
   executing: ["completed", "failed"],
   rejected: [], // terminal
@@ -116,7 +118,7 @@ export function createsWorld(status: ProposalStatus): boolean {
  */
 export const STATUS_DESCRIPTIONS: Record<ProposalStatus, string> = {
   submitted: "Actor has submitted, routing to Authority",
-  pending: "Authority is deliberating (e.g., HITL waiting)",
+  evaluating: "Authority is deliberating (including HITL waiting)",
   approved: "Authority approved, waiting for Host execution",
   rejected: "Authority rejected (terminal, no World created)",
   executing: "Host is running the Intent",

@@ -16,10 +16,7 @@ export type HostErrorCode =
   | "STORE_ERROR"
   | "LOOP_MAX_ITERATIONS"
   | "INVALID_STATE"
-  | "HOST_NOT_INITIALIZED"
-  // v1.1: Translator integration
-  | "TRANSLATOR_LOWERING_ERROR"
-  | "TRANSLATOR_AMBIGUOUS";
+  | "HOST_NOT_INITIALIZED";
 
 /**
  * Host error class

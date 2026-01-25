@@ -12,14 +12,14 @@ import {
   EnabledMemoryFacade,
   DisabledMemoryFacade,
   createMemoryFacade,
-} from "../memory/index.js";
+} from "../runtime/memory/index.js";
 import { MemoryDisabledError, BranchNotFoundError } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   MemoryProvider,
   MemoryHubConfig,
   AppState,
-} from "../types/index.js";
+} from "../core/types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

@@ -78,6 +78,11 @@ export interface EffectResult {
   error?: string;
 
   /**
+   * Error code if failed
+   */
+  errorCode?: string;
+
+  /**
    * Time taken in milliseconds
    */
   duration: number;

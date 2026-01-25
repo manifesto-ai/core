@@ -11,15 +11,16 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createApp } from "../index.js";
-import { MemoryHub } from "../memory/index.js";
+import { MemoryHub } from "../runtime/memory/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   MemoryProvider,
   MemoryIngestEntry,
   AppState,
   RecallResult,
-} from "../types/index.js";
-import type { SelectionResult, SelectedMemory } from "@manifesto-ai/memory";
+  SelectionResult,
+  SelectedMemory,
+} from "../core/types/index.js";
 import type { WorldId } from "@manifesto-ai/world";
 
 // ActorRef type definition (aligned with @manifesto-ai/world)
@@ -165,16 +166,22 @@ function createTieredMemoryProvider(
       query: string;
       atWorldId: string;
       selector: ActorRef;
-      constraints?: { maxResults?: number; requireVerified?: boolean };
+      constraints?: { limit?: number; requireVerified?: boolean };
     }): Promise<SelectionResult> => {
       const selected = store.select(req.query, req.atWorldId, {
         tier,
-        limit: req.constraints?.maxResults,
+        limit: req.constraints?.limit,
       });
 
       return {
         selected,
-        selectedAt: Date.now(),
+        trace: {
+          query: req.query,
+          atWorldId: req.atWorldId as WorldId,
+          selector: req.selector,
+          selectedAt: Date.now(),
+          selected,
+        },
       };
     },
     meta: {
@@ -603,7 +610,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         query: "machine learning",
         atWorldId: "world-current",
         selector: { actorId: "user-1", kind: "human" },
-        constraints: { maxResults: 5 },
+        constraints: { limit: 5 },
       });
 
       expect(result.selected).toHaveLength(5);

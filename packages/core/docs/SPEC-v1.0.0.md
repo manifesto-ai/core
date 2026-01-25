@@ -1285,6 +1285,7 @@ The hashing implementation MUST be browser-compatible.
 |----------|-------|-------------|
 | `sha256(data)` | Yes | Uses Web Crypto API (`crypto.subtle.digest`) |
 | `sha256Sync(data)` | No | Pure JavaScript implementation for synchronous contexts |
+| `generateRequirementIdSync(...)` | No | Deterministic requirement ID generation for sync compute |
 
 **Rationale:**
 
@@ -1305,7 +1306,7 @@ interface ManifestoCore {
   /**
    * Compute the result of dispatching an intent.
    * 
-   * This is the ONLY entry point for computation.
+   * This is the primary async entry point for computation.
    * Each call is independent - there is no suspended context.
    */
   compute(
@@ -1314,6 +1315,18 @@ interface ManifestoCore {
     intent: Intent,
     context: HostContext
   ): Promise<ComputeResult>;
+
+  /**
+   * Compute the result of dispatching an intent (synchronous).
+   *
+   * Hosts with run-to-completion job handlers SHOULD use this path.
+   */
+  computeSync(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    intent: Intent,
+    context: HostContext
+  ): ComputeResult;
   
   /**
    * Apply patches to a snapshot.

@@ -22,7 +22,7 @@ import {
   ReservedEffectTypeError,
 } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { ActionPhase, App, Branch } from "../types/index.js";
+import type { ActionPhase, App, Branch } from "../core/types/index.js";
 
 // =============================================================================
 // Test Fixtures

@@ -1,84 +1,13 @@
 # Manifesto
 
-> **Manifesto** is a semantic state layer for building AI-governed applications with deterministic computation and full accountability.
+A semantic state layer for building AI-governed applications with deterministic computation and full accountability.
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/core.svg)](https://www.npmjs.com/package/@manifesto-ai/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Docs:** https://docs.manifesto-ai.dev
-
-**Early Live Demo**: https://taskflow.manifesto-ai.dev
-
----
-
 ## What is Manifesto?
 
-Manifesto solves the problem of building AI-native applications where every state change is traceable, reversible, and governed by explicit authority.
-
-Traditional state management scatters business logic across components, making it impossible for AI agents to reason about or safely modify application state. Manifesto takes a fundamentally different approach: **Core computes. Host executes. World governs.**
-
-```
-Intent → Core (compute) → Patches + Effects → Host (execute) → New Snapshot
-                                    ↓
-                              World (govern)
-                                    ↓
-                        Proposal → Authority → Decision
-```
-
----
-
-## The Foundational Insight
-
-Manifesto is built on a single powerful idea: **your domain state is a coordinate in a semantic space**.
-
-| Concept | In Manifesto |
-|---------|--------------|
-| **Domain Schema** | Defines the semantic space (dimensions, valid regions, navigation rules) |
-| **Snapshot** | A coordinate — one point in that space |
-| **Intent** | A navigation command — where to move in the space |
-| **Computation** | Coordinate calculation — finding the next valid position |
-
-```
-compute(schema, snapshot, intent) → snapshot'
-        ↓        ↓         ↓           ↓
-      space   current   navigation    next
-      defn    coord     command       coord
-```
-
-Traditional state management asks: *"How do I mutate this data?"*
-Manifesto asks: *"What is the next valid position in semantic space?"*
-
-This shift is why Manifesto guarantees:
-- **Determinism** — Same coordinate + same navigation = same destination
-- **Accountability** — Every coordinate transition is recorded (lineage)
-- **Explainability** — Every position can trace its derivation path
-
----
-
-## What This Is NOT
-
-| Manifesto is NOT... | Instead, it is... |
-|---------------------|-------------------|
-| An AI agent framework | A semantic state layer that AI agents can read and modify |
-| A workflow/orchestration engine | A deterministic computation system with declarative flows |
-| A database or ORM | A pure computation layer (persistence is handled by Host) |
-| A replacement for React/Redux | A complement that provides semantic state to any UI framework |
-
----
-
-## Core Concepts
-
-| Concept | One-Liner |
-|---------|-----------|
-| **Snapshot** | Complete state at a point in time. The single source of truth. |
-| **Intent** | A request to perform a domain action. |
-| **Patch** | An atomic mutation to Snapshot (the only way to change state). |
-| **Effect** | A declaration of external operation for Host to execute. |
-| **World** | An immutable committed Snapshot with governance metadata. |
-
-> See https://docs.manifesto-ai.dev/architecture/ for the complete mental model.
-
----
+Manifesto is a state management system where every change is traceable, reversible, and governed by explicit authority. Define your domain logic declaratively, and Manifesto guarantees deterministic computation—same input always produces same output. Perfect for AI-native applications where agents need to safely reason about and modify state.
 
 ## Quick Start
 
@@ -86,175 +15,40 @@ This shift is why Manifesto guarantees:
 npm install @manifesto-ai/app @manifesto-ai/compiler
 ```
 
-Define your domain in **MEL** (Manifesto Expression Language):
-
 ```mel
-// todo.mel
-domain TodoApp {
-  state {
-    todos: Array<{ id: string, title: string, completed: boolean }> = []
-  }
-
-  computed remaining = len(filter(todos, fn(t) => not(t.completed)))
-
-  action addTodo(title: string) {
-    once(addTodoIntent) {
-      patch addTodoIntent = $meta.intentId
-      patch todos = append(todos, {
-        id: $system.uuid,
-        title: title,
-        completed: false
-      })
-    }
-  }
-
-  action toggleTodo(id: string) {
-    once(toggleTodoIntent) {
-      patch toggleTodoIntent = $meta.intentId
-      patch todos = map(todos, fn(t) =>
-        cond(eq(t.id, id), merge(t, { completed: not(t.completed) }), t)
-      )
-    }
+// counter.mel
+domain Counter {
+  state { count: number = 0 }
+  action increment() {
+    once(i) { patch i = $meta.intentId; patch count = add(count, 1) }
   }
 }
 ```
 
-Create and use your app:
-
 ```typescript
 import { createApp } from "@manifesto-ai/app";
-import TodoMel from "./todo.mel";
+import CounterMel from "./counter.mel";
 
-// Create app
-const app = createApp(TodoMel);
+const app = createApp(CounterMel);
 await app.ready();
-
-// Execute actions
-await app.act("addTodo", { title: "Learn Manifesto" }).done();
-console.log(app.getState().data.todos);
-// → [{ id: "...", title: "Learn Manifesto", completed: false }]
-
-// Subscribe to state changes
-app.subscribe(
-  (state) => state.data.todos.length,
-  (count) => console.log("Todo count:", count)
-);
+await app.act("increment").done();
+console.log(app.getState().data.count); // 1
 ```
-
-> See https://docs.manifesto-ai.dev/packages/app/getting-started for the full tutorial.
-
----
-
-## Packages
-
-| Package | Description | Docs |
-|---------|-------------|------|
-| [`@manifesto-ai/app`](packages/app) | **High-level facade for building Manifesto apps.** | [Docs](https://docs.manifesto-ai.dev/packages/app/) |
-| [`@manifesto-ai/compiler`](packages/compiler) | MEL compiler. Compiles MEL to DomainSchema. | [SPEC](packages/compiler/docs/SPEC-0.4.0v.md) |
-| [`@manifesto-ai/core`](packages/core) | Pure semantic calculator. Computes state transitions deterministically. | [SPEC](packages/core/docs/SPEC.md) |
-| [`@manifesto-ai/host`](packages/host) | Effect execution runtime. Executes effects and applies patches. | [SPEC](packages/host/docs/SPEC-1.1.0v.md) |
-| [`@manifesto-ai/world`](packages/world) | Governance layer. Manages authority, proposals, and lineage. | [SPEC](packages/world/docs/SPEC.md) |
-| [`@manifesto-ai/bridge`](packages/bridge) | Two-way binding. Routes external events to intents and back. | [SPEC](packages/bridge/docs/SPEC-1.1.0v.md) |
-| [`@manifesto-ai/builder`](packages/builder) | Type-safe DSL. Define domains with Zod and zero string paths. | [SPEC](packages/builder/docs/SPEC.md) |
-| [`@manifesto-ai/react`](packages/react) | React integration. Hooks and context for React applications. | [SPEC](packages/react/docs/SPEC.md) |
-| [`@manifesto-ai/translator`](packages/translator) | Natural language to semantic change translation. | [SPEC](packages/translator/docs/SPEC-1.1.1v.md) |
-| [`@manifesto-ai/memory`](packages/memory) | Memory retrieval and verification. | [SPEC](packages/memory/docs/SPEC-1.2v.md) |
-| [`@manifesto-ai/effect-utils`](packages/effect-utils) | Effect handler utilities and helpers. | [SPEC](packages/effect-utils/docs/SPEC.md) |
-| [`@manifesto-ai/lab`](packages/lab) | LLM governance, tracing, and HITL tooling. | [SPEC](packages/lab/docs/SPEC.md) |
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                           React / UI                             │
-│  Uses hooks to read Snapshot and dispatch Intents               │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                           Bridge                                 │
-│  Routes SourceEvents through Projections to Intents             │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                           World                                  │
-│  Governs proposals, evaluates authority, tracks lineage         │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                           Host                                   │
-│  Executes effects, applies patches, runs compute-effect loop    │
-└───────────┬─────────────────┴───────────────────────────────────┘
-            │                 │
-            ▼                 ▼
-┌───────────────────┐  ┌─────────────────────────────────────────┐
-│    Translator     │  │                  Core                    │
-│  NL → Semantic    │  │  Pure computation. No IO.               │
-│  changes (6-stage)│  │  Same input → same output.              │
-└─────────┬─────────┘  └─────────────────────────────────────────┘
-          │
-          ▼
-┌───────────────────┐
-│      Memory       │
-│  Context retrieval│
-│  & verification   │
-└───────────────────┘
-```
-
-- **Builder** generates the DomainSchema consumed by Core (build-time only).
-- **Translator** transforms natural language to semantic changes via Host.
-- **Memory** provides context retrieval with verification for Translator.
-
-> See https://docs.manifesto-ai.dev/architecture/ for detailed explanation.
-
----
-
-## Examples
-
-| Example | What it demonstrates |
-|---------|---------------------|
-| [todo-app](./apps/todo-app) | Todo application with React, MEL, and @manifesto-ai/app |
-| [logistics-app](./apps/logistics-app) | Multi-step logistics workflow with MEL and @manifesto-ai/app |
-
----
 
 ## Documentation
 
-Official docs: https://docs.manifesto-ai.dev
+Full documentation: https://docs.manifesto-ai.dev
 
-| Type | For whom | Link |
-|------|----------|------|
-| **Guides** | Users who want to learn | https://docs.manifesto-ai.dev/guides/getting-started |
-| **Core Concepts** | Mental model builders | https://docs.manifesto-ai.dev/core-concepts/ |
-| **Architecture** | System designers | https://docs.manifesto-ai.dev/architecture/ |
-| **Specifications** | Implementers & reviewers | https://docs.manifesto-ai.dev/specifications/ |
-| **Rationale (FDRs)** | Contributors & researchers | https://docs.manifesto-ai.dev/rationale/ |
-| **MEL** | DSL authors | https://docs.manifesto-ai.dev/mel/ |
+Live demo: https://taskflow.manifesto-ai.dev
 
----
+## Key Features
 
-## Contributing
-
-We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md).
-
-For significant changes, please open an issue first to discuss what you would like to change.
-
-Security issues: see [SECURITY.md](./SECURITY.md).
-
----
+- **Deterministic** — Same input always produces same output
+- **Traceable** — Every state change has full lineage and audit trail
+- **Declarative** — Define domains in MEL (Manifesto Expression Language)
+- **AI-Ready** — Semantic state that AI agents can safely read and modify
+- **Framework-agnostic** — Works with React, Vue, or any UI framework
 
 ## License
 
-[MIT](./LICENSE) © 2025-2025 Manifesto AI
-
----
-
-## Acknowledgments
-
-- [Zod](https://github.com/colinhacks/zod) for runtime type validation
-- [Effect](https://effect.website/) for inspiration on principled effect systems
-- [Redux](https://redux.js.org/) for pioneering predictable state management
+[MIT](./LICENSE) © 2025 Manifesto AI

@@ -6,9 +6,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createApp } from "../index.js";
-import { SubscriptionStore } from "../subscription/index.js";
+import { SubscriptionStore } from "../runtime/subscription/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { AppState } from "../types/index.js";
+import type { AppState } from "../core/types/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

@@ -18,11 +18,10 @@
     "test:no-llm": "vitest run --exclude src/L6-e2e/llm/"
   },
   "dependencies": {
-    "@manifesto-ai/bridge": "workspace:*",
+    "@manifesto-ai/app": "workspace:*",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/effect-utils": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*"
   },

@@ -28,7 +28,7 @@ import type {
   ActionResult,
   RuntimeKind,
   ErrorValue,
-} from "../types/index.js";
+} from "../core/types/index.js";
 import {
   adaptServiceToEffect,
   createPatchHelpers,
@@ -258,6 +258,10 @@ function snapshotToAppState(snapshot: Snapshot): AppState<unknown> {
  * 1. Adapting ServiceHandlers to EffectHandlers
  * 2. Converting state between AppState and Snapshot
  * 3. Mapping Host results to Action results
+ *
+ * @deprecated Use v2 API with `createApp({ host, worldStore, ... })` instead.
+ * This class will be removed in v3.0.0.
+ * @see APP-SPEC-v2.0.0 for migration guide
  */
 export class DomainExecutor {
   private _host: ManifestoHost;

@@ -5,7 +5,11 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ManifestoWorld, createManifestoWorld } from "./world.js";
-import type { HostInterface } from "./world.js";
+import type {
+  HostExecutor,
+  HostExecutionResult,
+  ExecutionKey,
+} from "./types/index.js";
 import type {
   ActorRef,
   AuthorityPolicy,
@@ -15,7 +19,7 @@ import type {
 } from "./schema/index.js";
 import { createWorldId } from "./schema/world.js";
 import type { HITLNotificationCallback } from "./authority/index.js";
-import type { Snapshot } from "@manifesto-ai/core";
+import type { Snapshot, Intent } from "@manifesto-ai/core";
 import { createIntentInstance } from "./schema/intent.js";
 
 // ============================================================================
@@ -70,16 +74,23 @@ function createTestActor(id: string, kind: "human" | "agent" | "system" = "agent
   };
 }
 
-function createMockHost(resultSnapshot?: Snapshot): HostInterface {
+function createMockExecutor(resultSnapshot?: Snapshot): HostExecutor {
   let counter = 0;
   return {
-    dispatch: vi.fn().mockImplementation(() => {
-      counter++;
-      return Promise.resolve({
-        status: "complete" as const,
-        snapshot: resultSnapshot ?? createTestSnapshot({ modified: true, counter }),
-      });
-    }),
+    execute: vi.fn().mockImplementation(
+      (
+        key: ExecutionKey,
+        baseSnapshot: Snapshot,
+        intent: Intent
+      ): Promise<HostExecutionResult> => {
+        counter++;
+        const snapshot = resultSnapshot ?? createTestSnapshot({ modified: true, counter });
+        return Promise.resolve({
+          outcome: "completed" as const,
+          terminalSnapshot: snapshot,
+        });
+      }
+    ),
   };
 }
 
@@ -105,8 +116,8 @@ describe("ManifestoWorld", () => {
     });
 
     it("creates with custom host", () => {
-      const host = createMockHost();
-      const worldWithHost = createManifestoWorld({ schemaHash, host });
+      const executor = createMockExecutor();
+      const worldWithHost = createManifestoWorld({ schemaHash, executor });
       expect(worldWithHost).toBeInstanceOf(ManifestoWorld);
     });
   });
@@ -343,11 +354,11 @@ describe("ManifestoWorld", () => {
 
   describe("Proposal Submission - With Host Execution", () => {
     let genesis: World;
-    let host: HostInterface;
+    let executor: HostExecutor;
 
     beforeEach(async () => {
-      host = createMockHost();
-      world = createManifestoWorld({ schemaHash, host });
+      executor = createMockExecutor();
+      world = createManifestoWorld({ schemaHash, executor });
       genesis = await world.createGenesis(createTestSnapshot());
       world.registerActor(createTestActor("human-1", "human"), {
         mode: "auto_approve",
@@ -362,20 +373,16 @@ describe("ManifestoWorld", () => {
         genesis.worldId
       );
 
-      // Host receives simple Intent format (type, input, intentId), not IntentInstance
-      // Also receives optional loopOptions for event callbacks
-      expect(host.dispatch).toHaveBeenCalledWith(
+      // Executor receives ExecutionKey, baseSnapshot, and Intent
+      expect(executor.execute).toHaveBeenCalledWith(
+        expect.any(String), // ExecutionKey
+        expect.any(Object), // baseSnapshot
         {
           type: intent.body.type,
           input: intent.body.input,
           intentId: intent.intentId,
         },
-        expect.objectContaining({
-          onBeforeCompute: expect.any(Function),
-          onAfterCompute: expect.any(Function),
-          onBeforeEffect: expect.any(Function),
-          onAfterEffect: expect.any(Function),
-        })
+        expect.any(Object) // options
       );
       expect(result.proposal.status).toBe("completed");
       expect(result.resultWorld).toBeDefined();
@@ -395,8 +402,8 @@ describe("ManifestoWorld", () => {
 
     it("stores new world and snapshot", async () => {
       const resultSnapshot = createTestSnapshot({ executed: true });
-      host = createMockHost(resultSnapshot);
-      world = createManifestoWorld({ schemaHash, host });
+      executor = createMockExecutor(resultSnapshot);
+      world = createManifestoWorld({ schemaHash, executor });
       await world.createGenesis(createTestSnapshot());
       world.registerActor(createTestActor("human-1", "human"), {
         mode: "auto_approve",
@@ -433,14 +440,29 @@ describe("ManifestoWorld", () => {
     });
 
     it("handles host execution error", async () => {
-      const failingHost: HostInterface = {
-        dispatch: vi.fn().mockResolvedValue({
-          status: "error" as const,
-          snapshot: createTestSnapshot({ error: true }),
+      // Create snapshot with lastError so World derives 'failed' outcome
+      const errorSnapshot: Snapshot = {
+        ...createTestSnapshot({ error: true }),
+        system: {
+          ...createTestSnapshot().system,
+          lastError: {
+            code: "EXECUTION_FAILED",
+            message: "Test error",
+            source: { actionId: "test", nodePath: "root" },
+            timestamp: Date.now(),
+          },
+        },
+      };
+
+      const failingExecutor: HostExecutor = {
+        execute: vi.fn().mockResolvedValue({
+          outcome: "failed" as const,
+          terminalSnapshot: errorSnapshot,
+          error: { code: "EXECUTION_FAILED", message: "Test error" },
         }),
       };
 
-      world = createManifestoWorld({ schemaHash, host: failingHost });
+      world = createManifestoWorld({ schemaHash, executor: failingExecutor });
       await world.createGenesis(createTestSnapshot());
       world.registerActor(createTestActor("human-1", "human"), {
         mode: "auto_approve",
@@ -540,7 +562,7 @@ describe("ManifestoWorld", () => {
       });
     });
 
-    it("returns pending status for HITL proposals", async () => {
+    it("returns evaluating status for HITL proposals", async () => {
       const intent = await createTestIntent("test-action", {}, agentActor);
       const result = await world.submitProposal(
         "agent-1",
@@ -548,7 +570,7 @@ describe("ManifestoWorld", () => {
         genesis.worldId
       );
 
-      expect(result.proposal.status).toBe("pending");
+      expect(result.proposal.status).toBe("evaluating");
       expect(result.decision).toBeUndefined();
     });
 
@@ -559,12 +581,12 @@ describe("ManifestoWorld", () => {
       expect(onHITLRequired).toHaveBeenCalled();
     });
 
-    it("lists pending proposals", async () => {
+    it("lists evaluating proposals", async () => {
       const intent = await createTestIntent("test-action", {}, agentActor);
       await world.submitProposal("agent-1", intent, genesis.worldId);
 
-      const pending = await world.getPendingProposals();
-      expect(pending).toHaveLength(1);
+      const evaluating = await world.getEvaluatingProposals();
+      expect(evaluating).toHaveLength(1);
     });
   });
 
@@ -574,7 +596,7 @@ describe("ManifestoWorld", () => {
 
   describe("HITL Decision Processing", () => {
     let genesis: World;
-    let pendingProposal: Proposal;
+    let evaluatingProposal: Proposal;
     let agentActor: ActorRef;
 
     beforeEach(async () => {
@@ -593,12 +615,12 @@ describe("ManifestoWorld", () => {
         await createTestIntent("test-action", {}, agentActor),
         genesis.worldId
       );
-      pendingProposal = result.proposal;
+      evaluatingProposal = result.proposal;
     });
 
-    it("approves pending proposal", async () => {
+    it("approves evaluating proposal", async () => {
       const result = await world.processHITLDecision(
-        pendingProposal.proposalId as string,
+        evaluatingProposal.proposalId as string,
         "approved",
         "Looks good"
       );
@@ -608,9 +630,9 @@ describe("ManifestoWorld", () => {
       expect(result.decision?.reasoning).toBe("Looks good");
     });
 
-    it("rejects pending proposal", async () => {
+    it("rejects evaluating proposal", async () => {
       const result = await world.processHITLDecision(
-        pendingProposal.proposalId as string,
+        evaluatingProposal.proposalId as string,
         "rejected",
         "Too risky"
       );
@@ -619,11 +641,11 @@ describe("ManifestoWorld", () => {
       expect(result.decision?.decision.kind).toBe("rejected");
     });
 
-    it("executes after approval when host configured", async () => {
-      const host = createMockHost();
+    it("executes after approval when executor configured", async () => {
+      const executor = createMockExecutor();
       world = createManifestoWorld({
         schemaHash,
-        host,
+        executor,
         onHITLRequired: vi.fn(),
       });
       genesis = await world.createGenesis(createTestSnapshot());
@@ -656,17 +678,17 @@ describe("ManifestoWorld", () => {
       ).rejects.toThrow("not found");
     });
 
-    it("throws for non-pending proposal", async () => {
+    it("throws for non-evaluating proposal", async () => {
       // First approve it
       await world.processHITLDecision(
-        pendingProposal.proposalId as string,
+        evaluatingProposal.proposalId as string,
         "approved"
       );
 
       // Try to process again
       await expect(
-        world.processHITLDecision(pendingProposal.proposalId as string, "rejected")
-      ).rejects.toThrow("not pending");
+        world.processHITLDecision(evaluatingProposal.proposalId as string, "rejected")
+      ).rejects.toThrow("not evaluating");
     });
   });
 
@@ -676,11 +698,11 @@ describe("ManifestoWorld", () => {
 
   describe("Multiple Proposals and Branching", () => {
     let genesis: World;
-    let host: HostInterface;
+    let executor: HostExecutor;
 
     beforeEach(async () => {
-      host = createMockHost();
-      world = createManifestoWorld({ schemaHash, host });
+      executor = createMockExecutor();
+      world = createManifestoWorld({ schemaHash, executor });
       genesis = await world.createGenesis(createTestSnapshot());
       world.registerActor(createTestActor("human-1", "human"), {
         mode: "auto_approve",
@@ -827,8 +849,8 @@ describe("ManifestoWorld", () => {
 
   describe("Complex Scenarios", () => {
     it("multi-actor collaboration", async () => {
-      const host = createMockHost();
-      world = createManifestoWorld({ schemaHash, host });
+      const executor = createMockExecutor();
+      world = createManifestoWorld({ schemaHash, executor });
 
       // Register multiple actors with different policies
       world.registerActor(createTestActor("admin", "human"), {
@@ -902,13 +924,13 @@ describe("ManifestoWorld", () => {
       );
       expect(ownerResult.proposal.status).toBe("approved");
 
-      // Agent goes to pending
+      // Agent goes to evaluating
       const agentResult = await world.submitProposal(
         "agent",
         await createTestIntent("agent-action", {}, createTestActor("agent", "agent")),
         genesis.worldId
       );
-      expect(agentResult.proposal.status).toBe("pending");
+      expect(agentResult.proposal.status).toBe("evaluating");
 
       // System approved by policy
       const systemResult = await world.submitProposal(
@@ -928,8 +950,8 @@ describe("ManifestoWorld", () => {
     });
 
     it("full lifecycle with persistence check", async () => {
-      const host = createMockHost();
-      world = createManifestoWorld({ schemaHash, host });
+      const executor = createMockExecutor();
+      world = createManifestoWorld({ schemaHash, executor });
 
       world.registerActor(createTestActor("user", "human"), {
         mode: "auto_approve",

@@ -32,7 +32,11 @@ export function apply(
   let newSystem: SystemState = snapshot.system;
   let newInput = snapshot.input;
   const validationErrors: ErrorValue[] = [];
-  const rootSpec: FieldSpec = { type: "object", required: true, fields: schema.state.fields };
+  const rootFields = { ...schema.state.fields };
+  if (!("$host" in rootFields)) {
+    rootFields.$host = { type: "object", required: false };
+  }
+  const rootSpec: FieldSpec = { type: "object", required: true, fields: rootFields };
 
   for (const patch of patches) {
     const { root, subPath } = splitPatchPath(patch.path);

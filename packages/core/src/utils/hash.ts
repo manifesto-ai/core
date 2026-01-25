@@ -170,6 +170,20 @@ export async function generateRequirementId(
 }
 
 /**
+ * Generate deterministic requirement ID (sync)
+ */
+export function generateRequirementIdSync(
+  schemaHash: string,
+  intentId: string,
+  actionId: string,
+  flowNodePath: string
+): string {
+  const input = `${schemaHash}:${intentId}:${actionId}:${flowNodePath}`;
+  const hash = sha256Sync(input);
+  return `req-${hash.slice(0, 16)}`;
+}
+
+/**
  * Generate a trace node ID
  */
 export function generateTraceId(index: number = 0): string {

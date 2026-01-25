@@ -3,8 +3,8 @@
 /**
  * TaskFlow Store Provider
  *
- * Provides the Manifesto 1.0v runtime to React components.
- * Replaces Zustand with pure Manifesto World Protocol.
+ * Provides the Manifesto v2 app runtime to React components.
+ * Replaces Zustand with the Manifesto App facade.
  */
 
 import {
@@ -12,11 +12,10 @@ import {
   useContext,
   useEffect,
   useState,
-  useCallback,
   useMemo,
   type ReactNode,
 } from 'react';
-import type { SnapshotView, Unsubscribe } from '@manifesto-ai/bridge';
+import type { Unsubscribe } from '@manifesto-ai/app';
 import type { ActorRef, IntentBody } from '@manifesto-ai/world';
 import {
   createTaskFlowApp,
@@ -27,75 +26,6 @@ import {
   type ViewMode,
   type Filter,
 } from '@/manifesto';
-
-// Sample tasks for initial data
-const sampleTasks: Task[] = [
-  {
-    id: 'task-1',
-    title: 'Set up project structure',
-    description: 'Initialize Next.js app with shadcn/ui',
-    status: 'done',
-    priority: 'high',
-    tags: ['setup', 'infrastructure'],
-    assignee: null,
-    dueDate: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    deletedAt: null,
-  },
-  {
-    id: 'task-2',
-    title: 'Implement Kanban board',
-    description: 'Create drag and drop Kanban view',
-    status: 'in-progress',
-    priority: 'high',
-    tags: ['feature', 'ui'],
-    assignee: 'Developer',
-    dueDate: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    deletedAt: null,
-  },
-  {
-    id: 'task-3',
-    title: 'Add task filtering',
-    description: 'Filter tasks by status and priority',
-    status: 'todo',
-    priority: 'medium',
-    tags: ['feature'],
-    assignee: null,
-    dueDate: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    deletedAt: null,
-  },
-  {
-    id: 'task-4',
-    title: 'Write documentation',
-    description: 'Document the SPEC issues found',
-    status: 'review',
-    priority: 'medium',
-    tags: ['docs'],
-    assignee: null,
-    dueDate: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    deletedAt: null,
-  },
-  {
-    id: 'task-5',
-    title: 'Add AI agent integration',
-    description: 'Integrate @manifesto-ai/agent for task assistance',
-    status: 'todo',
-    priority: 'low',
-    tags: ['feature', 'ai'],
-    assignee: null,
-    dueDate: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    deletedAt: null,
-  },
-];
 
 // ============================================================================
 // Context Types
@@ -235,7 +165,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
             }
 
             // Update state from snapshot
-            const data = snapshot.data as Record<string, unknown>;
+            const data = snapshot.data;
             const computedVals = snapshot.computed as Record<string, unknown>;
 
             console.log('[TasksProvider] Updating React state with tasks:', (data.tasks as unknown[])?.length ?? 0);
@@ -254,18 +184,18 @@ export function TasksProvider({ children }: TasksProviderProps) {
               deletedTasks: (data.deletedTasks ?? null) as Task[] | null,
             });
 
-            // Computed values (no prefix in current Bridge implementation)
+            // Computed values (prefixed keys from Core)
             setComputed({
-              totalCount: (computedVals["totalCount"] ?? 0) as number,
-              todoCount: (computedVals["todoCount"] ?? 0) as number,
-              inProgressCount: (computedVals["inProgressCount"] ?? 0) as number,
-              reviewCount: (computedVals["reviewCount"] ?? 0) as number,
-              doneCount: (computedVals["doneCount"] ?? 0) as number,
-              deletedCount: (computedVals["deletedCount"] ?? 0) as number,
-              hasSelection: (computedVals["hasSelection"] ?? false) as boolean,
-              canCreate: (computedVals["canCreate"] ?? true) as boolean,
-              canEdit: (computedVals["canEdit"] ?? false) as boolean,
-              canDelete: (computedVals["canDelete"] ?? false) as boolean,
+              totalCount: (computedVals["computed.totalCount"] ?? 0) as number,
+              todoCount: (computedVals["computed.todoCount"] ?? 0) as number,
+              inProgressCount: (computedVals["computed.inProgressCount"] ?? 0) as number,
+              reviewCount: (computedVals["computed.reviewCount"] ?? 0) as number,
+              doneCount: (computedVals["computed.doneCount"] ?? 0) as number,
+              deletedCount: (computedVals["computed.deletedCount"] ?? 0) as number,
+              hasSelection: (computedVals["computed.hasSelection"] ?? false) as boolean,
+              canCreate: (computedVals["computed.canCreate"] ?? true) as boolean,
+              canEdit: (computedVals["computed.canEdit"] ?? false) as boolean,
+              canDelete: (computedVals["computed.canDelete"] ?? false) as boolean,
             });
           },
         });
@@ -275,7 +205,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
           return;
         }
 
-        // Initialize (create genesis, refresh bridge)
+        // Initialize app runtime
         await taskFlowApp.initialize();
 
         if (!mounted) {

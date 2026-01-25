@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0] (2026-01-18)
+
+### Features
+
+* **core:** add computeSync for run-to-completion job handlers
+* **core:** add sync requirementId generation and sync flow evaluation path
+
+### Documentation
+
+* **core:** document computeSync and sync requirementId path in SPEC
+
 ## [1.2.0](https://github.com/manifesto-ai/core/compare/core-v1.1.0...core-v1.2.0) (2026-01-03)
 
 

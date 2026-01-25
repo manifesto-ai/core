@@ -7,28 +7,23 @@ import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
 import { createContext } from "../evaluator/context.js";
 import { evaluateExpr } from "../evaluator/expr.js";
-import { evaluateFlow, createFlowState, type FlowStatus } from "../evaluator/flow.js";
+import { evaluateFlowSync, createFlowState, type FlowStatus } from "../evaluator/flow.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk, isErr } from "../schema/common.js";
+import type { HostContext } from "../schema/host-context.js";
 
 /**
- * Compute the result of dispatching an intent
+ * Compute the result of dispatching an intent (synchronous).
  *
- * This is the ONLY entry point for computation.
- * Each call is independent - there is no suspended context.
- *
- * @param schema - The domain schema
- * @param snapshot - Current snapshot state
- * @param intent - The intent to process
- * @returns ComputeResult with new snapshot, trace, and status
+ * This is the canonical computation path. Each call is independent -
+ * there is no suspended context.
  */
-export async function compute(
+export function computeSync(
   schema: DomainSchema,
   snapshot: Snapshot,
-  intent: Intent
-): Promise<ComputeResult> {
-  const startTime = Date.now();
-
+  intent: Intent,
+  context: HostContext
+): ComputeResult {
   // 0. Ensure computed values are up-to-date before availability check
   let currentSnapshot = snapshot;
   const initialComputedResult = evaluateComputed(schema, snapshot);
@@ -47,7 +42,7 @@ export async function compute(
       intent,
       "UNKNOWN_ACTION",
       `Unknown action: ${intent.type}`,
-      startTime
+      context
     );
   }
 
@@ -58,7 +53,7 @@ export async function compute(
       intent,
       "INVALID_INPUT",
       "Intent must have a non-empty intentId",
-      startTime
+      context
     );
   }
 
@@ -71,7 +66,7 @@ export async function compute(
         intent,
         "INVALID_INPUT",
         inputError,
-        startTime
+        context
       );
     }
   }
@@ -87,7 +82,7 @@ export async function compute(
         intent,
         "INTERNAL_ERROR",
         `Error evaluating availability: ${availResult.error.message}`,
-        startTime
+        context
       );
     }
 
@@ -98,7 +93,7 @@ export async function compute(
         intent,
         "TYPE_MISMATCH",
         `Availability condition must return boolean, got ${typeof availResult.value}`,
-        startTime
+        context
       );
     }
 
@@ -108,7 +103,7 @@ export async function compute(
         intent,
         "ACTION_UNAVAILABLE",
         `Action "${intent.type}" is not available`,
-        startTime
+        context
       );
     }
   }
@@ -129,7 +124,7 @@ export async function compute(
   const flowState = createFlowState(preparedSnapshot);
 
   // 5. Evaluate the flow
-  const flowResult = await evaluateFlow(
+  const flowResult = evaluateFlowSync(
     action.flow,
     ctx,
     flowState,
@@ -166,7 +161,7 @@ export async function compute(
     meta: {
       ...finalSnapshot.meta,
       version: finalSnapshot.meta.version + 1,
-      timestamp: Date.now(),
+      timestamp: context.now,
     },
   };
 
@@ -177,7 +172,7 @@ export async function compute(
     intent: { type: intent.type, input: intent.input },
     baseVersion: currentSnapshot.meta.version,
     resultVersion: finalSnapshot.meta.version,
-    duration: Date.now() - startTime,
+    duration: context.durationMs ?? 0,
     terminatedBy: mapFlowStatusToTermination(flowResult.state.status),
   };
 
@@ -187,6 +182,18 @@ export async function compute(
     trace,
     status: systemStatus,
   };
+}
+
+/**
+ * Compute the result of dispatching an intent (async wrapper).
+ */
+export async function compute(
+  schema: DomainSchema,
+  snapshot: Snapshot,
+  intent: Intent,
+  context: HostContext
+): Promise<ComputeResult> {
+  return computeSync(schema, snapshot, intent, context);
 }
 
 /**
@@ -248,14 +255,14 @@ function createErrorResult(
   intent: Intent,
   code: string,
   message: string,
-  startTime: number
+  context: HostContext
 ): ComputeResult {
   const error = createError(
     code as import("../errors.js").CoreErrorCode,
     message,
     intent.type,
     "",
-    Date.now()
+    context.now
   );
 
   const errorSnapshot: Snapshot = {
@@ -271,25 +278,25 @@ function createErrorResult(
     meta: {
       ...snapshot.meta,
       version: snapshot.meta.version + 1,
-      timestamp: Date.now(),
+      timestamp: context.now,
     },
   };
 
   const trace: TraceGraph = {
     root: {
-      id: `trace-error-${Date.now()}`,
+      id: `trace-error-${intent.intentId}`,
       kind: "error",
       sourcePath: "",
       inputs: {},
       output: error,
       children: [],
-      timestamp: Date.now(),
+      timestamp: context.now,
     },
     nodes: {},
     intent: { type: intent.type, input: intent.input },
     baseVersion: snapshot.meta.version,
     resultVersion: errorSnapshot.meta.version,
-    duration: Date.now() - startTime,
+    duration: context.durationMs ?? 0,
     terminatedBy: "error",
   };
 

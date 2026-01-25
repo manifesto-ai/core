@@ -681,7 +681,7 @@ describe("Effect handlers", () => {
 
 ## See Also
 
-- [Effect Concept](/core-concepts/effect) - Understanding effects
-- [Host Concept](/core-concepts/host) - How Host works
+- [Effect Concept](/concepts/effect) - Understanding effects
+- [Host Concept](/api/host) - How Host works
 - [Re-entry Safe Flows](./reentry-safe-flows) - Guard patterns
-- [Host Contract](/specifications/host-spec) - Normative contract
+- [Host Contract](/internals/spec/host-spec) - Normative contract

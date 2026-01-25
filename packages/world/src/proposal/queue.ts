@@ -19,6 +19,7 @@ import type { ActorRef } from "../schema/actor.js";
 import type { WorldId, DecisionId, ProposalId } from "../schema/world.js";
 import type { Proposal, ProposalStatus, ProposalTrace } from "../schema/proposal.js";
 import type { IntentInstance, IntentScope } from "../schema/intent.js";
+import type { ExecutionKey } from "../types/index.js";
 import {
   isValidTransition,
   isTerminalStatus,
@@ -29,7 +30,6 @@ import {
   invalidStateTransition,
   createWorldError,
 } from "../errors.js";
-import { generateProposalId } from "../factories.js";
 
 /**
  * Filter options for querying proposals
@@ -62,25 +62,34 @@ export class ProposalQueue {
    * Submit a new proposal (status: submitted)
    *
    * Per spec: Proposal.intent is IntentInstance
+   * Per EPOCH-1: Proposal carries epoch at submission
    *
+   * @param proposalId - Pre-generated proposal ID
+   * @param executionKey - ExecutionKey fixed at submission
    * @param actor - Who is proposing
    * @param intent - IntentInstance with body, intentId, intentKey, and meta
    * @param baseWorld - Which world to base this on
    * @param trace - Optional reasoning for audit
+   * @param epoch - Current epoch at submission (default: 0)
    * @returns The created proposal
    */
   submit(
+    proposalId: ProposalId,
+    executionKey: ExecutionKey,
     actor: ActorRef,
     intent: IntentInstance,
     baseWorld: WorldId,
-    trace?: ProposalTrace
+    trace?: ProposalTrace,
+    epoch = 0
   ): Proposal {
     const proposal: Proposal = {
-      proposalId: generateProposalId(),
+      proposalId,
       actor,
       intent,
       baseWorld,
       status: "submitted",
+      epoch,
+      executionKey,
       trace,
       submittedAt: Date.now(),
     };
@@ -216,10 +225,10 @@ export class ProposalQueue {
   }
 
   /**
-   * Get all pending proposals (waiting for HITL)
+   * Get all evaluating proposals (waiting for Authority decision)
    */
-  getPending(): Proposal[] {
-    return this.getByStatus("pending");
+  getEvaluating(): Proposal[] {
+    return this.getByStatus("evaluating");
   }
 
   /**
@@ -244,6 +253,17 @@ export class ProposalQueue {
   getActive(): Proposal[] {
     return Array.from(this.proposals.values()).filter(
       (p) => !isTerminalStatus(p.status)
+    );
+  }
+
+  /**
+   * Get all ingress-stage proposals (submitted or evaluating)
+   *
+   * Per EPOCH-3: These proposals can be dropped on branch switch
+   */
+  getIngressStage(): Proposal[] {
+    return Array.from(this.proposals.values()).filter(
+      (p) => p.status === "submitted" || p.status === "evaluating"
     );
   }
 

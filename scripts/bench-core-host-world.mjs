@@ -288,75 +288,86 @@ function buildInitialData(arraySize) {
   };
 }
 
-function createBenchmarkDomain({ z, defineDomain, effects }) {
-  return defineDomain(
-    z.object({
-      items: z.array(z.number()),
-      counter: z.number(),
-      lastAppliedNonce: z.number(),
-    }),
-    ({ state, computed, actions, expr, flow }) => {
-      const { sum, sumSquares } = computed.define({
-        sum: expr.sum(state.items),
-        sumSquares: expr.sum(
-          expr.map(state.items, (value) => expr.mul(value, value))
-        ),
-      });
+function createBenchmarkMel(effects) {
+  const lines = [
+    "domain Bench {",
+    "  state {",
+    "    items: Array<number> = []",
+    "    counter: number = 0",
+    "    lastAppliedNonce: number = -1",
+    "  }",
+    "",
+    "  computed itemCount = len(items)",
+    "  computed firstItem = first(items)",
+    "  computed lastItem = last(items)",
+    "",
+    "  action tick(delta: number, nonce: number) {",
+    "    when neq(lastAppliedNonce, nonce) {",
+    "      patch lastAppliedNonce = nonce",
+    "      patch counter = add(counter, 1)",
+    "      effect array.map({",
+    "        source: items,",
+    "        select: add($item, delta),",
+    "        into: items",
+    "      })",
+  ];
 
-      const baseSteps = [
-        flow.patch(state.items).set(
-          expr.map(state.items, (value) => expr.add(value, expr.input("delta")))
-        ),
-        flow.patch(state.counter).set(expr.add(state.counter, 1)),
-        flow.patch(state.lastAppliedNonce).set(expr.input("nonce")),
-      ];
+  if (effects) {
+    lines.push("      effect noop({ delta: delta })");
+  }
 
-      if (effects) {
-        baseSteps.push(flow.effect("noop", { delta: expr.input("delta") }));
-      }
-
-      const { tick } = actions.define({
-        tick: {
-          input: z.object({
-            delta: z.number(),
-            nonce: z.number(),
-          }),
-          flow: flow.guard(
-            expr.neq(state.lastAppliedNonce, expr.input("nonce")),
-            flow.seq(...baseSteps)
-          ),
-        },
-      });
-
-      return { computed: { sum, sumSquares }, actions: { tick } };
-    },
-    { id: "manifesto://bench/core-host-world", version: "1.0.0" }
+  lines.push(
+    "    }",
+    "  }",
+    "}"
   );
+
+  return lines.join("\n");
+}
+
+function formatDiagnostics(diagnostics) {
+  return diagnostics
+    .map((diag) => {
+      const loc = diag.location?.start
+        ? `${diag.location.start.line}:${diag.location.start.column}`
+        : "?:?";
+      return `- [${diag.severity}] ${diag.code} ${diag.message} (${loc})`;
+    })
+    .join("\n");
+}
+
+function createBenchmarkDomain({ compileMelDomain, effects }) {
+  const melText = createBenchmarkMel(effects);
+  const result = compileMelDomain(melText, { mode: "domain" });
+
+  if (!result.schema || result.errors.length > 0) {
+    console.error("MEL compilation failed:");
+    if (result.errors.length > 0) {
+      console.error(formatDiagnostics(result.errors));
+    }
+    throw new Error("MEL compilation failed");
+  }
+
+  if (result.warnings.length > 0) {
+    console.warn("MEL compilation warnings:");
+    console.warn(formatDiagnostics(result.warnings));
+  }
+
+  return { schema: result.schema, mel: melText };
 }
 
 async function runHostLoop({
   domain,
   createHost,
-  createSnapshot,
   createIntent,
   config,
   iterations,
   measure,
 }) {
   const initialData = buildInitialData(config.arraySize);
-  const initialSnapshot = createSnapshot(initialData, domain.schema.hash, {
-    now: 0,
-    randomSeed: "bench",
-    durationMs: 0,
-  });
-
   const host = createHost(domain.schema, {
-    snapshot: initialSnapshot,
-    loop: { maxIterations: 10 },
-    context: {
-      now: () => 0,
-      randomSeed: () => "bench",
-    },
+    initialData,
+    maxIterations: 10,
   });
 
   if (config.effects) {
@@ -366,7 +377,7 @@ async function runHostLoop({
   const durations = measure ? new Array(iterations) : [];
   const memorySamples = config.mem ? [] : null;
   const retainedSnapshots = config.retainSnapshots ? [] : null;
-  let lastSnapshot = initialSnapshot;
+  let lastSnapshot = host.getSnapshot() ?? null;
 
   const startTotal = performance.now();
   if (memorySamples) {
@@ -414,8 +425,21 @@ async function runHostLoop({
   return {
     totalMs,
     durations,
-    snapshot: lastSnapshot,
+    snapshot: lastSnapshot ?? undefined,
     memorySamples,
+  };
+}
+
+function createHostExecutor(host) {
+  return {
+    async execute(_key, _baseSnapshot, intent) {
+      const result = await host.dispatch(intent);
+      return {
+        outcome: result.status === "complete" ? "completed" : "failed",
+        terminalSnapshot: result.snapshot,
+        error: result.error,
+      };
+    },
   };
 }
 
@@ -437,7 +461,7 @@ async function runWorldLoop({
 
   const world = createManifestoWorld({
     schemaHash: domain.schema.hash,
-    host: config.host,
+    executor: config.executor,
   });
 
   const actor = { actorId: "bench-actor", kind: "system" };
@@ -508,7 +532,7 @@ async function main() {
   try {
     const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
     const distPaths = {
-      builder: path.join(rootDir, "packages", "builder", "dist", "index.js"),
+      compiler: path.join(rootDir, "packages", "compiler", "dist", "index.js"),
       core: path.join(rootDir, "packages", "core", "dist", "index.js"),
       host: path.join(rootDir, "packages", "host", "dist", "index.js"),
       world: path.join(rootDir, "packages", "world", "dist", "index.js"),
@@ -527,14 +551,13 @@ async function main() {
       process.exit(1);
     }
 
-    const [{ z }, builder, core, host, world] = await Promise.all([
-      import("zod"),
-      import(pathToFileURL(distPaths.builder).href),
+    const [compiler, core, host, world] = await Promise.all([
+      import(pathToFileURL(distPaths.compiler).href),
       import(pathToFileURL(distPaths.core).href),
       import(pathToFileURL(distPaths.host).href),
       import(pathToFileURL(distPaths.world).href),
     ]);
-    modules = { z, builder, core, host, world };
+    modules = { compiler, core, host, world };
   } catch (error) {
     console.error("Failed to load Manifesto packages.");
     console.error("Run `pnpm build` and try again.");
@@ -542,8 +565,7 @@ async function main() {
   }
 
   const domain = createBenchmarkDomain({
-    z: modules.z,
-    defineDomain: modules.builder.defineDomain,
+    compileMelDomain: modules.compiler.compileMelDomain,
     effects: config.effects,
   });
 
@@ -581,7 +603,6 @@ async function main() {
       await runHostLoop({
         domain,
         createHost: modules.host.createHost,
-        createSnapshot: modules.core.createSnapshot,
         createIntent: modules.core.createIntent,
         config,
         iterations: config.warmup,
@@ -592,7 +613,6 @@ async function main() {
     const hostResult = await runHostLoop({
       domain,
       createHost: modules.host.createHost,
-      createSnapshot: modules.core.createSnapshot,
       createIntent: modules.core.createIntent,
       config,
       iterations: config.iterations,
@@ -624,16 +644,8 @@ async function main() {
   if (config.mode === "world" || config.mode === "both") {
     const makeWorldHost = () => {
       const hostInstance = modules.host.createHost(domain.schema, {
-        snapshot: modules.core.createSnapshot(
-          buildInitialData(config.arraySize),
-          domain.schema.hash,
-          { now: 0, randomSeed: "bench", durationMs: 0 }
-        ),
-        loop: { maxIterations: 10 },
-        context: {
-          now: () => 0,
-          randomSeed: () => "bench",
-        },
+        initialData: buildInitialData(config.arraySize),
+        maxIterations: 10,
       });
 
       if (config.effects) {
@@ -650,7 +662,7 @@ async function main() {
         createManifestoWorld: modules.world.createManifestoWorld,
         createIntentInstance: modules.world.createIntentInstance,
         createSnapshot: modules.core.createSnapshot,
-        config: { ...config, host: warmupHost },
+        config: { ...config, executor: createHostExecutor(warmupHost) },
         iterations: config.warmup,
         measure: false,
       });
@@ -662,7 +674,7 @@ async function main() {
       createManifestoWorld: modules.world.createManifestoWorld,
       createIntentInstance: modules.world.createIntentInstance,
       createSnapshot: modules.core.createSnapshot,
-      config: { ...config, host: benchHost },
+      config: { ...config, executor: createHostExecutor(benchHost) },
       iterations: config.iterations,
       measure: true,
     });

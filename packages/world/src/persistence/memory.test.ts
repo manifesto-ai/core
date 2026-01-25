@@ -12,6 +12,7 @@ import {
   createDecisionId,
   createEdgeId,
 } from "../schema/world.js";
+import { createExecutionKey } from "../types/index.js";
 import type { Snapshot } from "@manifesto-ai/core";
 
 // ============================================================================
@@ -68,8 +69,10 @@ function createTestEdge(
 
 function createTestProposal(id: string, actorId: string, baseWorld: string, status: Proposal["status"] = "submitted"): Proposal {
   const actor = { actorId, kind: "agent" as const, name: `Agent ${actorId}` };
+  const proposalId = createProposalId(id);
   return {
-    proposalId: createProposalId(id),
+    proposalId,
+    executionKey: createExecutionKey(proposalId, 1),
     actor,
     intent: {
       body: { type: "test-action", input: {} },
@@ -85,6 +88,7 @@ function createTestProposal(id: string, actorId: string, baseWorld: string, stat
     },
     baseWorld: createWorldId(baseWorld),
     status,
+    epoch: 0,
     submittedAt: Date.now(),
   };
 }
@@ -418,14 +422,14 @@ describe("MemoryWorldStore", () => {
       await store.saveProposal(proposal);
 
       const result = await store.updateProposal(createProposalId("prop-1"), {
-        status: "pending",
+        status: "evaluating",
       });
 
       expect(result.success).toBe(true);
-      expect(result.data?.status).toBe("pending");
+      expect(result.data?.status).toBe("evaluating");
 
       const retrieved = await store.getProposal(createProposalId("prop-1"));
-      expect(retrieved?.status).toBe("pending");
+      expect(retrieved?.status).toBe("evaluating");
     });
 
     it("updates proposal with decision info", async () => {
@@ -445,7 +449,7 @@ describe("MemoryWorldStore", () => {
 
     it("rejects update for non-existent proposal", async () => {
       const result = await store.updateProposal(createProposalId("non-existent"), {
-        status: "pending",
+        status: "evaluating",
       });
       expect(result.success).toBe(false);
       expect(result.error).toContain("not found");
@@ -461,19 +465,19 @@ describe("MemoryWorldStore", () => {
 
     it("lists proposals with status filter", async () => {
       await store.saveProposal(createTestProposal("prop-1", "agent-1", "base-world", "submitted"));
-      await store.saveProposal(createTestProposal("prop-2", "agent-1", "base-world", "pending"));
-      await store.saveProposal(createTestProposal("prop-3", "agent-1", "base-world", "pending"));
+      await store.saveProposal(createTestProposal("prop-2", "agent-1", "base-world", "evaluating"));
+      await store.saveProposal(createTestProposal("prop-3", "agent-1", "base-world", "evaluating"));
 
-      const pending = await store.listProposals({ status: "pending" });
-      expect(pending).toHaveLength(2);
+      const evaluating = await store.listProposals({ status: "evaluating" });
+      expect(evaluating).toHaveLength(2);
     });
 
     it("lists proposals with multiple status filter", async () => {
       await store.saveProposal(createTestProposal("prop-1", "agent-1", "base-world", "submitted"));
-      await store.saveProposal(createTestProposal("prop-2", "agent-1", "base-world", "pending"));
+      await store.saveProposal(createTestProposal("prop-2", "agent-1", "base-world", "evaluating"));
       await store.saveProposal(createTestProposal("prop-3", "agent-1", "base-world", "approved"));
 
-      const filtered = await store.listProposals({ status: ["submitted", "pending"] });
+      const filtered = await store.listProposals({ status: ["submitted", "evaluating"] });
       expect(filtered).toHaveLength(2);
     });
 
@@ -498,13 +502,13 @@ describe("MemoryWorldStore", () => {
       expect(page2).toHaveLength(3);
     });
 
-    it("gets pending proposals shortcut", async () => {
+    it("gets evaluating proposals shortcut", async () => {
       await store.saveProposal(createTestProposal("prop-1", "agent-1", "base-world", "submitted"));
-      await store.saveProposal(createTestProposal("prop-2", "agent-1", "base-world", "pending"));
-      await store.saveProposal(createTestProposal("prop-3", "agent-1", "base-world", "pending"));
+      await store.saveProposal(createTestProposal("prop-2", "agent-1", "base-world", "evaluating"));
+      await store.saveProposal(createTestProposal("prop-3", "agent-1", "base-world", "evaluating"));
 
-      const pending = await store.getPendingProposals();
-      expect(pending).toHaveLength(2);
+      const evaluating = await store.getEvaluatingProposals();
+      expect(evaluating).toHaveLength(2);
     });
   });
 
@@ -692,10 +696,10 @@ describe("MemoryWorldStore", () => {
       const listener = vi.fn();
       store.subscribe("proposal:updated", listener);
 
-      await store.updateProposal(createProposalId("prop-1"), { status: "pending" });
+      await store.updateProposal(createProposalId("prop-1"), { status: "evaluating" });
 
       expect(listener).toHaveBeenCalledOnce();
-      expect(listener.mock.calls[0][0].data.status).toBe("pending");
+      expect(listener.mock.calls[0][0].data.status).toBe("evaluating");
     });
 
     it("emits genesis:set event", async () => {
@@ -836,8 +840,8 @@ describe("MemoryWorldStore", () => {
       const proposal = createTestProposal("prop-1", "agent-1", "genesis");
       await store.saveProposal(proposal);
 
-      // Transition to pending
-      await store.updateProposal(createProposalId("prop-1"), { status: "pending" });
+      // Transition to evaluating
+      await store.updateProposal(createProposalId("prop-1"), { status: "evaluating" });
 
       // Make decision
       const decision = createTestDecision("dec-1", "prop-1");
@@ -907,12 +911,12 @@ describe("MemoryWorldStore", () => {
       const all = await store.listProposals();
       expect(all).toHaveLength(5);
 
-      // Update some to pending
-      await store.updateProposal(createProposalId("prop-1"), { status: "pending" });
-      await store.updateProposal(createProposalId("prop-2"), { status: "pending" });
+      // Update some to evaluating
+      await store.updateProposal(createProposalId("prop-1"), { status: "evaluating" });
+      await store.updateProposal(createProposalId("prop-2"), { status: "evaluating" });
 
-      const pending = await store.getPendingProposals();
-      expect(pending).toHaveLength(2);
+      const evaluating = await store.getEvaluatingProposals();
+      expect(evaluating).toHaveLength(2);
     });
   });
 });

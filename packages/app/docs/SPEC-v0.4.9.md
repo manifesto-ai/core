@@ -1,7 +1,7 @@
 # Manifesto App Public API Specification
 
 **Version:** 0.4.9  
-**Status:** Final  
+**Status:** Superseded (v0.4.10, pre-v2)  
 **Date:** 2026-01-06  
 **License:** MIT
 
@@ -70,7 +70,7 @@ This specification covers:
 
 This specification depends on:
 
-- **Core SPEC v1.2**: Snapshot, patch, and computed semantics
+- **Core SPEC v2.0.0**: Snapshot, patch, and computed semantics
 - **Host SPEC v1.1**: Effect execution model
 - **World Protocol SPEC v1.0**: DAG, Proposal, Decision, Authority model
 - **Memory SPEC v1.2**: Selection, verification, and trace model
@@ -2034,7 +2034,7 @@ The reserved namespace mechanism prevents:
 ### 21.1 Normative References
 
 - [RFC 2119] Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", BCP 14, RFC 2119, March 1997.
-- Manifesto Core SPEC v1.2
+- Manifesto Core SPEC v2.0.0
 - Manifesto Host SPEC v1.1
 - Manifesto World Protocol SPEC v1.0
 - Manifesto Memory SPEC v1.2

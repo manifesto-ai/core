@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createApp } from "../index.js";
 import { hashSchemaSync, type DomainSchema, createIntent, createCore, createSnapshot } from "@manifesto-ai/core";
-import { createHost } from "@manifesto-ai/host";
-import { createInitialHostContext } from "@manifesto-ai/host";
+import { createHost, createTestHostContextProvider } from "@manifesto-ai/host";
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
   value: { type: "number", required: false, default: 0 },
@@ -56,7 +55,7 @@ describe("Debug Executor", () => {
       console.log("7. Error:", result.error.message);
     }
 
-    expect(result.status).toBe("halted");
+    expect(result.status).toBe("complete");
   });
 
   it("should debug the app executor", async () => {
@@ -105,9 +104,11 @@ describe("Debug Executor", () => {
     };
 
     const core = createCore();
-    const ctx = createInitialHostContext();
-    const snapshot = createSnapshot({ value: 0 }, schema.hash, ctx);
+    const contextProvider = createTestHostContextProvider(0);
+    const initialContext = contextProvider.createInitialContext("seed");
+    const snapshot = createSnapshot({ value: 0 }, schema.hash, initialContext);
     const intent = createIntent("test.setPatch", {}, `test_${Date.now()}`);
+    const ctx = contextProvider.createFrozenContext(intent.intentId);
 
     console.log("1. Schema:", JSON.stringify(schema.actions, null, 2));
     console.log("2. Snapshot:", JSON.stringify(snapshot, null, 2));

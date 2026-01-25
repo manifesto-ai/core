@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/host",
-  "version": "1.2.0",
+  "version": "2.0.1",
   "description": "Manifesto Host - Effect execution runtime for @manifesto-ai/core",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -37,13 +37,7 @@
   "peerDependencies": {
     "@manifesto-ai/core": "^1.1.0"
   },
-  "peerDependenciesMeta": {
-    "@manifesto-ai/compiler": {
-      "optional": true
-    }
-  },
   "devDependencies": {
-    "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"

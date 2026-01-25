@@ -243,7 +243,7 @@ src/
 
 - **Framework**: Next.js 15 (App Router)
 - **UI**: React 19, Tailwind CSS, shadcn/ui
-- **State**: Zustand + @manifesto-ai/bridge-zustand
+- **State**: Manifesto App v2 (React Provider)
 - **LLM**: OpenAI GPT-4o-mini
 - **Storage**: IndexedDB (primary), localStorage (fallback)
 - **Streaming**: Server-Sent Events (SSE)

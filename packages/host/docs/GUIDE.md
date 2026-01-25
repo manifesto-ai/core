@@ -1,19 +1,25 @@
 # Host Guide
 
+> **Version:** v2.0.1
 > **Purpose:** Practical guide for using @manifesto-ai/host
 > **Prerequisites:** Basic understanding of Core
-> **Time to complete:** ~15 minutes
+> **Time to complete:** ~20 minutes
 
 ---
 
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
-2. [Basic Usage](#basic-usage)
-3. [Common Patterns](#common-patterns)
-4. [Advanced Usage](#advanced-usage)
-5. [Common Mistakes](#common-mistakes)
-6. [Troubleshooting](#troubleshooting)
+2. [Understanding the Execution Model](#understanding-the-execution-model)
+3. [Basic Usage](#basic-usage)
+4. [Effect Handlers](#effect-handlers)
+5. [Job Types and Lifecycle](#job-types-and-lifecycle)
+6. [Context Determinism](#context-determinism)
+7. [Common Patterns](#common-patterns)
+8. [Advanced Usage](#advanced-usage)
+9. [Testing](#testing)
+10. [Common Mistakes](#common-mistakes)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -23,13 +29,14 @@
 
 ```bash
 npm install @manifesto-ai/host @manifesto-ai/core
+# or
+pnpm add @manifesto-ai/host @manifesto-ai/core
 ```
 
 ### Minimal Setup
 
 ```typescript
-import { createHost } from "@manifesto-ai/host";
-import type { DomainSchema } from "@manifesto-ai/core";
+import { ManifestoHost, createIntent, type DomainSchema } from "@manifesto-ai/host";
 
 // 1. Define schema
 const schema: DomainSchema = {
@@ -52,16 +59,68 @@ const schema: DomainSchema = {
 };
 
 // 2. Create host
-const host = createHost(schema, {
+const host = new ManifestoHost(schema, {
   initialData: { count: 0 },
-  context: { now: () => Date.now() },
 });
 
-// 3. Verify
-const snapshot = await host.getSnapshot();
-console.log(snapshot?.data.count);
-// → 0
+// 3. Dispatch intent
+const intent = createIntent("increment", "intent-1");
+const result = await host.dispatch(intent);
+
+// 4. Check result
+console.log(result.status);             // → "complete"
+console.log(result.snapshot.data.count); // → 1
 ```
+
+---
+
+## Understanding the Execution Model
+
+Host v2.0 introduces an **event-loop execution model** with three core concepts:
+
+### Mailbox
+
+A per-`ExecutionKey` queue that serializes all state mutations:
+
+```
+┌────────────────────────────────────────┐
+│           Execution Mailbox             │
+│  key: "intent-1"                        │
+├────────────────────────────────────────┤
+│  Job1 → Job2 → Job3 → ...              │
+│         (FIFO queue)                    │
+└────────────────────────────────────────┘
+```
+
+- One mailbox per `ExecutionKey` (typically `intentId`)
+- All state mutations go through the mailbox
+- Jobs are processed in FIFO order
+
+### Runner
+
+A single-runner processes the mailbox:
+
+```typescript
+// Only ONE runner per ExecutionKey at any time
+// This guarantees single-writer semantics
+await processMailbox(ctx, runnerState);
+```
+
+Key invariants:
+- **Single-runner**: At most one runner per ExecutionKey
+- **Run-to-completion**: Job handlers complete without interruption
+- **Lost-wakeup prevention**: Runner re-checks mailbox before releasing guard
+
+### Jobs
+
+Four job types handle different operations:
+
+| Job Type | Purpose | When Used |
+|----------|---------|-----------|
+| `StartIntent` | Begin processing a new intent | `dispatch(intent)` |
+| `ContinueCompute` | Resume after effect fulfillment | After effect completes |
+| `FulfillEffect` | Apply effect results | Effect returns Patch[] |
+| `ApplyPatches` | Apply direct patches | Direct patch submission |
 
 ---
 
@@ -72,12 +131,10 @@ console.log(snapshot?.data.count);
 **Goal:** Execute an intent and update state.
 
 ```typescript
-import { createHost } from "@manifesto-ai/host";
-import { createIntent } from "@manifesto-ai/core";
+import { ManifestoHost, createIntent } from "@manifesto-ai/host";
 
-const host = createHost(schema, {
+const host = new ManifestoHost(schema, {
   initialData: { count: 0 },
-  context: { now: () => Date.now() },
 });
 
 // Dispatch intent
@@ -85,83 +142,70 @@ const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status); // → "complete"
-const snapshot = await host.getSnapshot();
-console.log(snapshot?.data.count); // → 1
+console.log(host.getSnapshot()?.data.count); // → 1
 ```
 
-### Use Case 2: Registering Effect Handlers
+### Use Case 2: Dispatching with Input
 
-**Goal:** Handle effects declared by Core.
+**Goal:** Pass input parameters to an action.
 
 ```typescript
-// Schema with effect
 const schema: DomainSchema = {
-  id: "example:fetch-user",
-  version: "1.0.0",
-  hash: "example-fetch-hash",
-  state: {
-    user: { type: "object", default: null },
-    loading: { type: "boolean", default: false },
-  },
+  // ...
   actions: {
-    fetchUser: {
-      input: { type: "object", properties: { id: { type: "string" } } },
+    addAmount: {
+      input: { type: "object", properties: { amount: { type: "number" } } },
       flow: {
-        kind: "seq",
-        steps: [
-          { kind: "patch", op: "set", path: "loading", value: true },
-          {
-            kind: "effect",
-            type: "api.get",
-            params: {
-              url: { kind: "concat", args: ["/users/", { kind: "get", path: "input.id" }] },
-              target: "user",
-            },
-          },
-          { kind: "patch", op: "set", path: "loading", value: false },
-        ],
+        kind: "patch",
+        op: "set",
+        path: "count",
+        value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "get", path: "input.amount" } },
       },
     },
   },
 };
 
-const host = createHost(schema, {
-  initialData: { user: null, loading: false },
-  context: { now: () => Date.now() },
-});
+const host = new ManifestoHost(schema, { initialData: { count: 0 } });
 
-// Register effect handler
-host.registerEffect("api.get", async (_type, params) => {
-  const response = await fetch(params.url);
-  const data = await response.json();
-
-  return [{ op: "set", path: params.target, value: data }];
-});
-
-// Dispatch
-const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
+// Dispatch with input
+const intent = createIntent("addAmount", { amount: 5 }, "intent-1");
 const result = await host.dispatch(intent);
 
-const snapshot = await host.getSnapshot();
-console.log(snapshot?.data.user); // → { id: "123", name: "..." }
+console.log(host.getSnapshot()?.data.count); // → 5
 ```
 
-### Use Case 3: Error Handling in Effects
+### Use Case 3: Handling Multiple Intents
 
-**Goal:** Handle errors gracefully.
+**Goal:** Process intents sequentially.
 
 ```typescript
-host.registerEffect("api.get", async (_type, params) => {
+const host = new ManifestoHost(schema, { initialData: { count: 0 } });
+
+// Each intent has a unique intentId
+await host.dispatch(createIntent("increment", "intent-1"));
+await host.dispatch(createIntent("increment", "intent-2"));
+await host.dispatch(createIntent("increment", "intent-3"));
+
+console.log(host.getSnapshot()?.data.count); // → 3
+```
+
+---
+
+## Effect Handlers
+
+### Registering Effect Handlers
+
+```typescript
+const host = new ManifestoHost(schema, { initialData: {} });
+
+// Register effect handler
+host.registerEffect("api.get", async (type, params, context) => {
+  const { snapshot, requirement } = context;
+
   try {
     const response = await fetch(params.url);
-
-    if (!response.ok) {
-      return [
-        { op: "set", path: "error", value: `Failed: ${response.status}` },
-      ];
-    }
-
     const data = await response.json();
+
     return [
       { op: "set", path: params.target, value: data },
       { op: "set", path: "error", value: null },
@@ -174,308 +218,373 @@ host.registerEffect("api.get", async (_type, params) => {
 });
 ```
 
+### Effect Handler Contract
+
+Effect handlers MUST:
+
+1. **Return `Patch[]`** — Never throw exceptions
+2. **Express failures as patches** — Write errors to Snapshot
+3. **Be pure IO adapters** — No domain logic
+
+```typescript
+// ✅ CORRECT: Errors as patches
+host.registerEffect("api.get", async (type, params) => {
+  try {
+    const response = await fetch(params.url);
+    if (!response.ok) {
+      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+    }
+    return [{ op: "set", path: "data", value: await response.json() }];
+  } catch (e) {
+    return [{ op: "set", path: "error", value: e.message }];
+  }
+});
+
+// ❌ WRONG: Throwing exceptions
+host.registerEffect("api.get", async (type, params) => {
+  const response = await fetch(params.url);
+  if (!response.ok) throw new Error("Failed"); // WRONG!
+  return [];
+});
+```
+
+### Effect Handler Options
+
+```typescript
+host.registerEffect("api.slowRequest", async (type, params) => {
+  // Long-running operation...
+  return [];
+}, {
+  timeout: 30000,  // 30 second timeout
+});
+```
+
+### Checking Registered Effects
+
+```typescript
+// Check if effect is registered
+if (host.hasEffect("api.get")) {
+  console.log("api.get handler is registered");
+}
+
+// Get all registered effect types
+const effectTypes = host.getEffectTypes();
+console.log(effectTypes); // → ["api.get", "api.post", ...]
+
+// Unregister an effect
+host.unregisterEffect("api.get");
+```
+
+---
+
+## Job Types and Lifecycle
+
+### Job Flow
+
+```
+dispatch(intent)
+       │
+       ▼
+┌──────────────────┐
+│   StartIntent    │ ── Core.compute() ──┬── has effects ──→ request effect
+└──────────────────┘                      │                        │
+                                          │                        ▼
+                                          │               ┌──────────────────┐
+                                          │               │   Effect Runner   │
+                                          │               │   (outside mailbox)│
+                                          │               └────────┬──────────┘
+                                          │                        │
+                                          ▼                        ▼
+                                   no effects             ┌──────────────────┐
+                                          │               │  FulfillEffect   │
+                                          │               │  (apply + clear)  │
+                                          │               └────────┬──────────┘
+                                          │                        │
+                                          ▼                        ▼
+                                   ┌──────────────────┐   ┌──────────────────┐
+                                   │    complete      │   │ ContinueCompute  │
+                                   └──────────────────┘   └──────────────────┘
+                                                                   │
+                                                                   ▼
+                                                           (repeat until done)
+```
+
+### Job Handler Await Ban
+
+Job handlers MUST NOT await external work. This is the **run-to-completion** rule:
+
+```typescript
+// ❌ WRONG: await inside job handler
+async function handleStartIntent(job) {
+  const result = await translateIntent(job.intent);  // VIOLATION!
+  applyResult(result);
+}
+
+// ✅ CORRECT: request effect, terminate job
+function handleStartIntent(job) {
+  const snapshot = context.getCanonicalHead();
+  const computed = Core.compute(schema, snapshot, job.intent);
+
+  if (computed.pendingRequirements.length > 0) {
+    requestEffectExecution(job.intentId, computed.pendingRequirements);
+    // Job terminates here. No continuation state.
+  }
+}
+```
+
+---
+
+## Context Determinism
+
+### Why Context Determinism Matters
+
+v2.0.1 guarantees that `HostContext` is frozen at job start:
+
+```typescript
+// ❌ v1.x PROBLEM: Different timestamps within same job
+function handleStartIntent(job) {
+  const ctx1 = getContext();  // now = 1000
+  Core.compute(..., ctx1);
+
+  const ctx2 = getContext();  // now = 1005 (different!)
+  Core.apply(..., ctx2);      // Non-deterministic!
+}
+
+// ✅ v2.0.1: Context frozen at job start
+function handleStartIntent(job) {
+  const frozenContext = createFrozenContext(job.intentId);
+  // frozenContext.now is captured once
+  // frozenContext.randomSeed = job.intentId
+
+  Core.compute(..., frozenContext);
+  Core.apply(..., frozenContext);  // Same context!
+}
+```
+
+### Using Deterministic Runtime
+
+For testing with fixed time:
+
+```typescript
+import { ManifestoHost, type Runtime } from "@manifesto-ai/host";
+
+// Fixed runtime for deterministic tests
+const testRuntime: Runtime = {
+  now: () => 1704067200000,  // 2024-01-01T00:00:00Z
+  randomSeed: () => "test-seed",
+};
+
+const host = new ManifestoHost(schema, {
+  initialData: {},
+  runtime: testRuntime,
+});
+
+// All jobs will see the same timestamp
+const result = await host.dispatch(intent);
+// result.snapshot.meta.timestamp === 1704067200000
+```
+
+### randomSeed and Determinism
+
+The `randomSeed` is derived from `intentId`, ensuring deterministic randomness:
+
+```typescript
+// Same intentId → same randomSeed → same computed values
+const intent1 = createIntent("generateRandom", "intent-123");
+const intent2 = createIntent("generateRandom", "intent-123");
+
+// Both will produce the same result
+const result1 = await host.dispatch(intent1);
+const result2 = await host.dispatch(intent2);
+// result1.snapshot === result2.snapshot (for same initial snapshot)
+```
+
 ---
 
 ## Common Patterns
 
 ### Pattern 1: Timer/Delay Effect
 
-**When to use:** Delay execution or implement timeouts.
-
 ```typescript
-host.registerEffect("timer.delay", async (_type, params) => {
+host.registerEffect("timer.delay", async (type, params) => {
   await new Promise((resolve) => setTimeout(resolve, params.ms));
   return [];
 });
 
 // In schema flow:
-{ kind: "effect", type: "timer.delay", params: { ms: 1000 } }
+{
+  kind: "effect",
+  type: "timer.delay",
+  params: { ms: 1000 }
+}
 ```
 
 ### Pattern 2: API POST Effect
 
-**When to use:** Send data to an API.
-
 ```typescript
-host.registerEffect("api.post", async (_type, params) => {
-  const response = await fetch(params.url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params.body),
-  });
-
-  const data = await response.json();
-
-  const patches = params.target
-    ? [{ op: "set", path: params.target, value: data }]
-    : [];
-
-  if (!response.ok) {
-    patches.push({ op: "set", path: "error", value: data.message });
-  }
-
-  return patches;
-});
-```
-
-### Pattern 3: Effect with Cleanup
-
-**When to use:** Effects that need cleanup on failure.
-
-```typescript
-host.registerEffect("file.upload", async (_type, params, context) => {
-  const { snapshot } = context;
-  let uploadId: string | undefined;
-
+host.registerEffect("api.post", async (type, params) => {
   try {
-    // Start upload
-    const initResponse = await fetch("/api/upload/init", { method: "POST" });
-    uploadId = (await initResponse.json()).uploadId;
-
-    // Upload chunks
-    await fetch(`/api/upload/${uploadId}/data`, {
-      method: "PUT",
-      body: params.data,
+    const response = await fetch(params.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params.body),
     });
 
-    // Finalize
-    await fetch(`/api/upload/${uploadId}/finalize`, { method: "POST" });
+    const data = await response.json();
 
-    return [{ op: "set", path: "uploadResult", value: { uploadId } }];
-  } catch (e) {
-    // Cleanup on failure
-    if (uploadId) {
-      await fetch(`/api/upload/${uploadId}`, { method: "DELETE" }).catch(() => {});
+    if (!response.ok) {
+      return [
+        { op: "set", path: "error", value: data.message || `HTTP ${response.status}` },
+      ];
     }
 
+    return params.target
+      ? [{ op: "set", path: params.target, value: data }]
+      : [];
+  } catch (e) {
     return [{ op: "set", path: "error", value: e.message }];
   }
 });
+```
+
+### Pattern 3: Effect with Timeout
+
+```typescript
+host.registerEffect("api.fetch", async (type, params) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), params.timeout || 10000);
+
+  try {
+    const response = await fetch(params.url, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+    }
+
+    return [
+      { op: "set", path: params.target, value: await response.json() },
+    ];
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e.name === "AbortError") {
+      return [{ op: "set", path: "error", value: "Request timed out" }];
+    }
+    return [{ op: "set", path: "error", value: e.message }];
+  }
+});
+```
+
+### Pattern 4: Mailbox/Job Pattern (Low-level)
+
+For advanced use cases, you can interact with the mailbox directly:
+
+```typescript
+const host = new ManifestoHost(schema, {
+  initialData: {},
+  disableAutoEffect: true,  // Disable auto effect execution
+});
+
+const key = "execution-1";
+
+// Seed snapshot
+host.seedSnapshot(key, initialSnapshot);
+
+// Submit intent
+host.submitIntent(key, intent);
+
+// Drain mailbox (processes StartIntent job)
+await host.drain(key);
+
+// Check for pending effects
+const snapshot = host.getContextSnapshot(key);
+const pendingReqs = snapshot?.system.pendingRequirements || [];
+
+// Manually fulfill effect
+if (pendingReqs.length > 0) {
+  const req = pendingReqs[0];
+  const patches = await executeMyEffect(req);
+  host.injectEffectResult(key, req.id, intent.intentId, patches);
+}
+
+// Drain again to process FulfillEffect
+await host.drain(key);
 ```
 
 ---
 
 ## Advanced Usage
 
-### Custom Snapshot Store
+### Tracing
 
-**Prerequisites:** Understanding of persistence requirements.
+Enable tracing to debug execution:
 
 ```typescript
-import { createHost, type SnapshotStore } from "@manifesto-ai/host";
+const host = new ManifestoHost(schema, {
+  initialData: {},
+  onTrace: (event) => {
+    console.log(JSON.stringify(event, null, 2));
+  },
+});
 
-// Custom store (e.g., localStorage)
-const localStorageStore: SnapshotStore = {
-  get() {
-    const saved = localStorage.getItem("app-snapshot");
-    return saved ? JSON.parse(saved) : undefined;
-  },
-  set(snapshot) {
-    localStorage.setItem("app-snapshot", JSON.stringify(snapshot));
-  },
+// Trace events:
+// { t: "job:start", type: "StartIntent", intentId: "...", timestamp: ... }
+// { t: "job:complete", type: "StartIntent", intentId: "...", timestamp: ... }
+// { t: "effect:request", type: "api.get", requirementId: "...", timestamp: ... }
+// { t: "runner:kick", key: "...", timestamp: ... }
+```
+
+### Custom HostContextProvider
+
+For advanced determinism control:
+
+```typescript
+import {
+  ManifestoHost,
+  createHostContextProvider,
+  type Runtime,
+} from "@manifesto-ai/host";
+
+const runtime: Runtime = {
+  now: () => Date.now(),
+  randomSeed: () => "custom-seed",
 };
 
-const host = createHost(schema, {
-  store: localStorageStore,
+const contextProvider = createHostContextProvider(runtime, {
+  env: { NODE_ENV: "production" },
+});
+
+// Use contextProvider in custom execution flows
+const frozenContext = contextProvider.createFrozenContext("intent-1");
+```
+
+### Environment Variables
+
+Pass environment variables to effect handlers:
+
+```typescript
+const host = new ManifestoHost(schema, {
   initialData: {},
-  context: { now: () => Date.now() },
-});
-```
-
-### Using runHostLoop Directly
-
-```typescript
-import { runHostLoop, createEffectRegistry, createEffectExecutor } from "@manifesto-ai/host";
-import { createCore } from "@manifesto-ai/core";
-
-const core = createCore();
-const registry = createEffectRegistry();
-registry.register("api.get", async (_type, params) => {
-  // ... handler implementation
-  return [];
-});
-
-const executor = createEffectExecutor(registry);
-
-const result = await runHostLoop(
-  core,
-  schema,
-  snapshot,
-  intent,
-  executor,
-  {
-    maxIterations: 10,
-    context: { now: () => Date.now() },
-  }
-);
-```
-
----
-
-## Common Mistakes
-
-### Mistake 1: Forgetting to Register Effect Handlers
-
-**What people do:**
-
-```typescript
-// Wrong: No handler registered
-const host = createHost(schema, {
-  initialData: { user: null },
-  context: { now: () => Date.now() },
-});
-const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
-await host.dispatch(intent);
-// → Error: No handler for effect type "api.get"
-```
-
-**Why it's wrong:** Host doesn't know how to execute the effect.
-
-**Correct approach:**
-
-```typescript
-// Right: Register handler before dispatch
-const host = createHost(schema, {
-  initialData: { user: null },
-  context: { now: () => Date.now() },
-});
-const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
-
-host.registerEffect("api.get", async (_type, _params) => {
-  // ... implementation
-  return [];
-});
-
-await host.dispatch(intent);
-```
-
-### Mistake 2: Not Returning Patches from Effect Handler
-
-**What people do:**
-
-```typescript
-// Wrong: Modifying external state instead of returning patches
-host.registerEffect("api.get", async (_type, params) => {
-  const data = await fetch(params.url).then((r) => r.json());
-  externalState.user = data; // Wrong!
-  return [];
-});
-```
-
-**Why it's wrong:** State changes must go through patches to maintain determinism.
-
-**Correct approach:**
-
-```typescript
-// Right: Return patches
-host.registerEffect("api.get", async (_type, params) => {
-  const data = await fetch(params.url).then((r) => r.json());
-  return [{ op: "set", path: "user", value: data }];
-});
-```
-
-### Mistake 3: Throwing Exceptions in Effect Handlers
-
-**What people do:**
-
-```typescript
-// Wrong: Throwing
-host.registerEffect("api.get", async (_type, params) => {
-  const response = await fetch(params.url);
-  if (!response.ok) throw new Error("Failed"); // Wrong!
-  return [];
-});
-```
-
-**Why it's wrong:** Exceptions bypass the error handling system.
-
-**Correct approach:**
-
-```typescript
-// Right: Return error result
-host.registerEffect("api.get", async (_type, params) => {
-  const response = await fetch(params.url);
-  if (!response.ok) {
-    return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
-  }
-  return [];
-});
-```
-
----
-
-## Troubleshooting
-
-### Error: "No handler for effect type X"
-
-**Cause:** Effect handler not registered.
-
-**Solution:**
-
-```typescript
-// Register the handler
-host.registerEffect("X", async () => []);
-```
-
-### Error: "Effect timeout"
-
-**Cause:** Effect handler took too long.
-
-**Solution:**
-
-```typescript
-// Increase timeout
-const host = createHost(schema, {
-  initialData: {},
-  context: { now: () => Date.now() },
-});
-
-host.registerEffect("api.get", async (_type, params) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(params.url, { signal: controller.signal });
-    return response.ok ? [] : [{ op: "set", path: "error", value: response.status }];
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}, { timeout: 60000 });
-
-// Or handle timeout in handler
-host.registerEffect("api.get", async (_type, params) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(params.url, { signal: controller.signal });
-    return response.ok ? [] : [{ op: "set", path: "error", value: response.status }];
-  } finally {
-    clearTimeout(timeoutId);
-  }
-});
-```
-
-### Infinite loop detected
-
-**Cause:** Effect keeps producing more effects without progress.
-
-**Solution:**
-
-```typescript
-// Check your flow logic - ensure effects don't recursively trigger themselves
-// Use guards to prevent re-entry
-{
-  kind: "if",
-  condition: { kind: "not", arg: { kind: "get", path: "loaded" } },
-  then: {
-    kind: "seq",
-    steps: [
-      { kind: "patch", op: "set", path: "loaded", value: true },
-      { kind: "effect", type: "api.get", params: {} },
-    ],
+  env: {
+    API_BASE_URL: "https://api.example.com",
+    API_KEY: process.env.API_KEY,
   },
-}
+});
+
+// Access in effect handler via context
+host.registerEffect("api.get", async (type, params, context) => {
+  const baseUrl = context.env?.API_BASE_URL;
+  const apiKey = context.env?.API_KEY;
+
+  const response = await fetch(`${baseUrl}${params.path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+
+  return [{ op: "set", path: "data", value: await response.json() }];
+});
 ```
 
 ---
@@ -495,43 +604,255 @@ describe("API effect handler", () => {
       json: () => Promise.resolve({ id: "123", name: "Test" }),
     });
 
-    const handler = async (_type, params) => {
+    const handler = async (type, params) => {
       const response = await fetch(params.url);
       const data = await response.json();
       return [{ op: "set", path: "user", value: data }];
     };
 
-    const result = await handler("api.get", { url: "/users/123" }, {
-      snapshot: {
-        data: {},
-        computed: {},
-        system: {
-          status: "idle",
-          lastError: null,
-          errors: [],
-          pendingRequirements: [],
-          currentAction: null,
-        },
-        input: undefined,
-        meta: {
-          version: 0,
-          timestamp: 0,
-          randomSeed: "seed",
-          schemaHash: "test-hash",
-        },
-      },
-      requirement: {
-        id: "req-1",
-        type: "api.get",
-        params: {},
-        actionId: "fetchUser",
-        flowPosition: { nodePath: "root", snapshotVersion: 0 },
-        createdAt: 0,
-      },
+    const result = await handler("api.get", { url: "/users/123" });
+
+    expect(result).toEqual([
+      { op: "set", path: "user", value: { id: "123", name: "Test" } },
+    ]);
+  });
+
+  it("returns error patch on failure", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
     });
 
-    expect(result[0].value).toEqual({ id: "123", name: "Test" });
+    const handler = async (type, params) => {
+      const response = await fetch(params.url);
+      if (!response.ok) {
+        return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      }
+      return [];
+    };
+
+    const result = await handler("api.get", { url: "/users/999" });
+
+    expect(result).toEqual([
+      { op: "set", path: "error", value: "HTTP 404" },
+    ]);
   });
+});
+```
+
+### Integration Testing with Host
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { ManifestoHost, createIntent } from "@manifesto-ai/host";
+
+describe("Counter host", () => {
+  it("increments count", async () => {
+    const host = new ManifestoHost(counterSchema, {
+      initialData: { count: 0 },
+    });
+
+    const result = await host.dispatch(createIntent("increment", "intent-1"));
+
+    expect(result.status).toBe("complete");
+    expect(result.snapshot.data.count).toBe(1);
+  });
+
+  it("handles effects", async () => {
+    const host = new ManifestoHost(fetchSchema, {
+      initialData: { user: null },
+    });
+
+    // Mock effect
+    host.registerEffect("api.get", async () => {
+      return [{ op: "set", path: "user", value: { id: "1", name: "Test" } }];
+    });
+
+    const result = await host.dispatch(createIntent("fetchUser", { id: "1" }, "intent-1"));
+
+    expect(result.status).toBe("complete");
+    expect(result.snapshot.data.user).toEqual({ id: "1", name: "Test" });
+  });
+});
+```
+
+### Determinism Testing
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { ManifestoHost, createIntent, type Runtime } from "@manifesto-ai/host";
+
+describe("Determinism", () => {
+  it("produces identical results for same input", async () => {
+    const fixedRuntime: Runtime = {
+      now: () => 1704067200000,
+      randomSeed: () => "fixed-seed",
+    };
+
+    const host1 = new ManifestoHost(schema, {
+      initialData: { count: 0 },
+      runtime: fixedRuntime,
+    });
+
+    const host2 = new ManifestoHost(schema, {
+      initialData: { count: 0 },
+      runtime: fixedRuntime,
+    });
+
+    const intent = createIntent("increment", "intent-1");
+
+    const result1 = await host1.dispatch(intent);
+    const result2 = await host2.dispatch(intent);
+
+    // Same input → same output
+    expect(result1.snapshot.data).toEqual(result2.snapshot.data);
+    expect(result1.snapshot.meta.timestamp).toBe(result2.snapshot.meta.timestamp);
+  });
+});
+```
+
+---
+
+## Common Mistakes
+
+### Mistake 1: Throwing in Effect Handlers
+
+```typescript
+// ❌ WRONG: Throwing exceptions
+host.registerEffect("api.get", async (type, params) => {
+  const response = await fetch(params.url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);  // WRONG!
+  }
+  return [];
+});
+
+// ✅ CORRECT: Return error patches
+host.registerEffect("api.get", async (type, params) => {
+  const response = await fetch(params.url);
+  if (!response.ok) {
+    return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+  }
+  return [];
+});
+```
+
+### Mistake 2: Forgetting to Register Effect Handlers
+
+```typescript
+// ❌ WRONG: No handler registered
+const host = new ManifestoHost(schemaWithEffects, { initialData: {} });
+await host.dispatch(intent);  // Will fail or hang
+
+// ✅ CORRECT: Register handler before dispatch
+const host = new ManifestoHost(schemaWithEffects, { initialData: {} });
+host.registerEffect("api.get", async () => []);
+await host.dispatch(intent);
+```
+
+### Mistake 3: Domain Logic in Effect Handlers
+
+```typescript
+// ❌ WRONG: Domain logic in handler
+host.registerEffect("purchase", async (type, params) => {
+  if (params.amount > 1000) {  // Business rule in handler!
+    return [{ op: "set", path: "approval.required", value: true }];
+  }
+  // ...
+});
+
+// ✅ CORRECT: Domain logic in Flow, handler does IO only
+// Flow:
+{
+  kind: "if",
+  cond: { kind: "gt", left: { kind: "get", path: "input.amount" }, right: 1000 },
+  then: { kind: "patch", op: "set", path: "approval.required", value: true },
+  else: { kind: "effect", type: "payment.process", params: { ... } }
+}
+```
+
+### Mistake 4: Mutating External State in Handlers
+
+```typescript
+// ❌ WRONG: Mutating external state
+let cache = {};
+host.registerEffect("api.get", async (type, params) => {
+  const data = await fetch(params.url).then(r => r.json());
+  cache[params.url] = data;  // WRONG! External mutation
+  return [];
+});
+
+// ✅ CORRECT: Return patches, let Snapshot be the source of truth
+host.registerEffect("api.get", async (type, params) => {
+  const data = await fetch(params.url).then(r => r.json());
+  return [{ op: "set", path: `cache.${params.url}`, value: data }];
+});
+```
+
+---
+
+## Troubleshooting
+
+### Error: "No handler for effect type X"
+
+**Cause:** Effect handler not registered.
+
+**Solution:**
+```typescript
+host.registerEffect("X", async () => []);
+```
+
+### Error: "HOST_NOT_INITIALIZED"
+
+**Cause:** Dispatch called without initial data.
+
+**Solution:**
+```typescript
+const host = new ManifestoHost(schema, {
+  initialData: {},  // Must provide initial data
+});
+```
+
+### Error: "LOOP_MAX_ITERATIONS"
+
+**Cause:** Intent processing didn't complete within max iterations.
+
+**Solutions:**
+1. Increase max iterations:
+   ```typescript
+   const host = new ManifestoHost(schema, {
+     initialData: {},
+     maxIterations: 200,
+   });
+   ```
+
+2. Check for infinite loops in Flow (missing state guards):
+   ```typescript
+   // ❌ WRONG: Runs every iteration
+   { kind: "patch", op: "set", path: "count", value: { kind: "add", ... } }
+
+   // ✅ CORRECT: State-guarded
+   {
+     kind: "if",
+     cond: { kind: "isNull", arg: { kind: "get", path: "result" } },
+     then: { kind: "effect", type: "api.get", ... }
+   }
+   ```
+
+### Intent Processing Hangs
+
+**Cause:** Effect handler never returns or throws.
+
+**Solution:**
+```typescript
+host.registerEffect("api.get", async (type, params) => {
+  // Always return patches, even on failure
+  try {
+    const response = await fetch(params.url);
+    return [{ op: "set", path: "data", value: await response.json() }];
+  } catch (e) {
+    return [{ op: "set", path: "error", value: e.message }];
+  }
 });
 ```
 
@@ -541,19 +862,35 @@ describe("API effect handler", () => {
 
 ### Key APIs
 
-| API | Purpose | Example |
-|-----|---------|---------|
-| `createHost()` | Create host instance | `createHost(schema, { initialData, context })` |
-| `host.registerEffect()` | Register handler | `host.registerEffect("api.get", handler)` |
-| `host.dispatch()` | Execute intent | `await host.dispatch(intent)` |
-| `host.getSnapshot()` | Get current snapshot (async) | `await host.getSnapshot()` |
+| API | Purpose |
+|-----|---------|
+| `new ManifestoHost(schema, options)` | Create host instance |
+| `createHost(schema, options)` | Factory function (same as above) |
+| `host.registerEffect(type, handler)` | Register effect handler |
+| `host.dispatch(intent)` | Execute intent |
+| `host.getSnapshot()` | Get current snapshot (sync) |
+| `host.reset(initialData)` | Reset to new initial data |
 
 ### Effect Handler Return
 
-Effect handlers return `Patch[]` directly:
+Effect handlers return `Patch[]`:
 
-- Success: return patches that write results into Snapshot.
-- Failure: return patches that write error values into Snapshot.
+| Scenario | Return Value |
+|----------|--------------|
+| Success | Patches that write results |
+| Failure | Patches that write error state |
+| No-op | Empty array `[]` |
+
+### HostOptions
+
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `initialData` | `unknown` | - | Initial snapshot data |
+| `maxIterations` | `number` | 100 | Max compute iterations |
+| `runtime` | `Runtime` | `defaultRuntime` | Time/random provider |
+| `env` | `Record` | `{}` | Environment variables |
+| `onTrace` | `function` | - | Trace callback |
+| `disableAutoEffect` | `boolean` | `false` | For HCTS testing |
 
 ---
 

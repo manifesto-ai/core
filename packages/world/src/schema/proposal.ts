@@ -23,24 +23,28 @@ import { z } from "zod";
 import { ActorRef } from "./actor.js";
 import { WorldId, ProposalId, DecisionId } from "./world.js";
 import { IntentInstance, IntentScope } from "./intent.js";
+import { ExecutionKeySchema } from "../types/index.js";
 
 /**
  * Proposal status values
  *
  * State Machine:
- * submitted → pending → approved → executing → completed
- *     │          │                      │
- *     │          │                      └──→ failed
- *     │          │
- *     └──────────┴──────────────────────────→ rejected
+ * submitted → evaluating → approved → executing → completed
+ *     │            │           │           │
+ *     │            │           │           └──→ failed
+ *     │            │           │
+ *     │            └───────────┴──────────────→ rejected
  *
  * Terminal states: completed, rejected, failed
  * DecisionRecord created at: approved or rejected (terminal decisions only)
  * World created at: completed or failed
+ *
+ * Per EPOCH-3~5:
+ * - Ingress-stage proposals (submitted, evaluating) MAY be dropped on epoch change
  */
 export const ProposalStatus = z.enum([
   "submitted", // Actor has submitted, routing to Authority
-  "pending", // Authority is deliberating (e.g., HITL waiting)
+  "evaluating", // Authority is deliberating (including HITL waiting)
   "approved", // Authority approved, waiting for Host execution
   "rejected", // Authority rejected (terminal, no World created)
   "executing", // Host is running the Intent
@@ -52,13 +56,29 @@ export type ProposalStatus = z.infer<typeof ProposalStatus>;
 /**
  * Terminal statuses - no further transitions allowed
  */
-export const TERMINAL_STATUSES: ProposalStatus[] = ["completed", "rejected", "failed"];
+export const TERMINAL_STATUSES: ProposalStatus[] = [
+  "completed",
+  "rejected",
+  "failed",
+];
+
+/**
+ * Ingress-stage statuses - can be dropped by epoch change
+ */
+export const INGRESS_STATUSES: ProposalStatus[] = ["submitted", "evaluating"];
 
 /**
  * Check if a status is terminal
  */
 export function isTerminalStatus(status: ProposalStatus): boolean {
   return TERMINAL_STATUSES.includes(status);
+}
+
+/**
+ * Check if a status is in the ingress stage (can be dropped)
+ */
+export function isIngressStatus(status: ProposalStatus): boolean {
+  return INGRESS_STATUSES.includes(status);
 }
 
 /**
@@ -105,6 +125,23 @@ export const Proposal = z.object({
 
   /** Current status in the state machine */
   status: ProposalStatus,
+
+  /**
+   * Epoch at time of submission
+   *
+   * Per EPOCH-1: Proposals MUST carry the epoch at which they were submitted.
+   * Used for stale detection on branch switch.
+   */
+  epoch: z.number(),
+
+  /**
+   * Execution key for Host dispatch
+   *
+   * Per WORLD-EXK-1~2: Proposal MUST carry executionKey at submission.
+   * Format: `${proposalId}:${attempt}`
+   * Immutable once set.
+   */
+  executionKey: ExecutionKeySchema,
 
   /** Optional reasoning for audit */
   trace: ProposalTrace.optional(),

@@ -39,6 +39,7 @@ import type {
 import type { ActorRef } from "../schema/actor.js";
 import { createProposalId, createWorldId } from "../schema/world.js";
 import { approvedResponse } from "../schema/authority.js";
+import { createExecutionKey } from "../types/index.js";
 
 // ============================================================================
 // Test Helpers
@@ -72,12 +73,16 @@ function createTestIntent(overrides?: { type?: string; input?: unknown }): Inten
 }
 
 function createTestProposal(overrides?: Partial<Proposal>): Proposal {
+  const proposalId = overrides?.proposalId ?? createProposalId("proposal-1");
+  const executionKey = overrides?.executionKey ?? createExecutionKey(proposalId, 1);
   return {
-    proposalId: createProposalId("proposal-1"),
+    proposalId,
     actor: createTestActor(),
     intent: createTestIntent(),
     baseWorld: createWorldId("world-abc123"),
     status: "submitted",
+    epoch: 0,
+    executionKey,
     submittedAt: Date.now(),
     ...overrides,
   };

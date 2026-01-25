@@ -128,7 +128,7 @@ const newSnapshot = core.apply(schema, snapshot, [
 
 ## Pages in This Section
 
-### [Layers](./layers)
+### [Layers](/internals/architecture)
 
 The six-layer architecture and their responsibilities.
 
@@ -213,7 +213,7 @@ How World Protocol manages authority and accountability.
 
 **Reading time:** 25 minutes
 
-**Note:** See [World Concept](/core-concepts/world) and [World Protocol Specification](/specifications/world-spec) for governance details.
+**Note:** See [World Concept](/concepts/world) and [World Protocol Specification](/internals/spec/world-spec) for governance details.
 
 ---
 
@@ -223,10 +223,10 @@ How World Protocol manages authority and accountability.
 
 **Goal:** Understand architectural decisions and trade-offs
 
-1. **[Layers](./layers)** — See the structure
+1. **[Layers](/internals/architecture)** — See the structure
 2. **[Data Flow](./data-flow)** — See how it works
 3. **[Determinism](./determinism)** — Understand core guarantee
-4. **[World Protocol](/specifications/world-spec)** — Understand authority architecture
+4. **[World Protocol](/internals/spec/world-spec)** — Understand authority architecture
 
 **Total time:** ~1 hour
 
@@ -234,10 +234,10 @@ How World Protocol manages authority and accountability.
 
 **Goal:** Build compliant implementations
 
-1. **[Layers](./layers)** — Understand boundaries
+1. **[Layers](/internals/architecture)** — Understand boundaries
 2. **[Data Flow](./data-flow)** — Understand execution model
 3. **[Failure Model](./failure-model)** — Handle errors correctly
-4. **[Specifications](/specifications/)** — Read normative contracts
+4. **[Specifications](/internals/spec/)** — Read normative contracts
 
 **Total time:** ~1.5 hours + specs
 
@@ -245,9 +245,9 @@ How World Protocol manages authority and accountability.
 
 **Goal:** Decide if architecture fits your needs
 
-1. **[Layers](./layers)** — See high-level structure
+1. **[Layers](/internals/architecture)** — See high-level structure
 2. **[Determinism](./determinism)** — Understand key guarantee
-3. **[Design Rationale](/rationale/)** — Understand why
+3. **[Design Rationale](/internals/fdr/)** — Understand why
 
 **Total time:** ~45 minutes
 
@@ -333,7 +333,7 @@ See [Data Flow](./data-flow#the-snapshot-principle) for details.
 
 For unbounded iteration, Host controls the loop.
 
-See [Flow Concept](/core-concepts/flow) for details.
+See [Flow Concept](/concepts/flow) for details.
 
 ### Why is World required?
 
@@ -347,7 +347,7 @@ See [Flow Concept](/core-concepts/flow) for details.
 
 Even "always approve" authority provides value. World is not optional.
 
-See [World Concept](/core-concepts/world) and [World Protocol](/specifications/world-spec) for details.
+See [World Concept](/concepts/world) and [World Protocol](/internals/spec/world-spec) for details.
 
 ---
 
@@ -419,9 +419,9 @@ sequenceDiagram
 
 ### After Reading Architecture
 
-1. **Understand specifications:** Read [Specifications](/specifications/)
-2. **Understand rationale:** Read [Design Rationale](/rationale/)
-3. **Build something:** Try [Getting Started](/guides/getting-started)
+1. **Understand specifications:** Read [Specifications](/internals/spec/)
+2. **Understand rationale:** Read [Design Rationale](/internals/fdr/)
+3. **Build something:** Try [Getting Started](/quickstart)
 
 ### If You're Designing a System
 
@@ -434,17 +434,17 @@ sequenceDiagram
 
 1. **Check fit:** Does your problem need determinism, accountability, or governance?
 2. **Assess trade-offs:** More upfront structure, less imperative flexibility
-3. **Review alternatives:** See [Manifesto vs. Others](/what-is-manifesto/manifesto-vs-others)
+3. **Review alternatives:** See [Manifesto vs. Others](/concepts/)
 
 ---
 
 ## Related Sections
 
-- **[Core Concepts](/core-concepts/)** — Understand building blocks
-- **[Specifications](/specifications/)** — Normative contracts
-- **[Rationale](/rationale/)** — Why decisions were made
+- **[Core Concepts](/concepts/)** — Understand building blocks
+- **[Specifications](/internals/spec/)** — Normative contracts
+- **[Rationale](/internals/fdr/)** — Why decisions were made
 - **[Guides](/guides/)** — Practical tutorials
 
 ---
 
-**Start with [Layers](./layers) to understand Manifesto's structure.**
+**Start with [Layers](/internals/architecture) to understand Manifesto's structure.**

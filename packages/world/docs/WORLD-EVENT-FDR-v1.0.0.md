@@ -1,8 +1,9 @@
 # World Protocol Event System — Foundational Design Rationale (FDR)
 
 > **Version:** 1.0  
-> **Status:** Normative  
-> **Purpose:** Document the "Why" behind every constitutional decision in the World Event System Extension
+> **Status:** Archived (v1.x only)  
+> **Purpose:** Historical rationale for the World Event System Extension (v1.x).  
+> **Note:** In v2.0+, event/listener mechanics are App-owned and World emits via an EventSink.
 
 ---
 

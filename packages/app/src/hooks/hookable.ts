@@ -5,7 +5,7 @@
  * @module
  */
 
-import type { Hookable, Unsubscribe } from "../types/index.js";
+import type { Hookable, Unsubscribe } from "../core/types/index.js";
 import { HookMutationError } from "../errors/index.js";
 import { JobQueue } from "./queue.js";
 
@@ -90,7 +90,16 @@ export class HookableImpl<TEvents> implements Hookable<TEvents> {
 
     try {
       for (const handler of handlers) {
-        await handler(...args);
+        try {
+          const result = handler(...args);
+          if (result && typeof (result as Promise<unknown>).catch === "function") {
+            (result as Promise<unknown>).catch((error) => {
+              console.error(`[Hookable] Error in hook '${key}':`, error);
+            });
+          }
+        } catch (error) {
+          console.error(`[Hookable] Error in hook '${key}':`, error);
+        }
       }
     } finally {
       // Restore previous state
@@ -99,7 +108,7 @@ export class HookableImpl<TEvents> implements Hookable<TEvents> {
 
       // Process enqueued jobs after all hooks complete
       if (this._hookState.depth === 0) {
-        await this._jobQueue.processAll();
+        void this._jobQueue.processAll();
       }
     }
   }

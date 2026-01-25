@@ -11,7 +11,7 @@ For most users, we recommend using **MEL** with **@manifesto-ai/app** for a simp
 npm install @manifesto-ai/app @manifesto-ai/compiler
 ```
 
-See the [@manifesto-ai/app Getting Started Guide](/packages/app/getting-started) for the recommended approach.
+See the [@manifesto-ai/app Getting Started Guide](/quickstart) for the recommended approach.
 
 This guide covers the **low-level approach** using Builder, Core, and Host directly.
 :::
@@ -599,7 +599,7 @@ domain CounterDomain {
 | **Re-entry safety** | [Re-entry Safe Flows](./reentry-safe-flows.md) | Prevent duplicate effects |
 | **Effect handlers** | [Effect Handlers Guide](./effect-handlers.md) | Handle API calls, DB, etc. |
 | **Complete example** | [Todo App Example](./todo-example.md) | Full-stack integration |
-| **React integration** | [Getting Started](/guides/getting-started) | Build UIs (React guide coming soon) |
+| **React integration** | [Getting Started](/quickstart) | Build UIs (React guide coming soon) |
 
 ---
 

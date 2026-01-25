@@ -427,18 +427,24 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
 
       for (const t of typeExpr.types) {
         if (t.kind === "literalType") {
+          if (t.value === null) {
+            hasNull = true;
+          }
           literals.push(t.value);
-        } else if (t.kind === "simpleType" && t.name === "null") {
+          continue;
+        }
+
+        if (t.kind === "simpleType" && t.name === "null") {
           hasNull = true;
           literals.push(null);
-        } else {
-          isLiteralUnion = false;
-          break;
+          continue;
         }
+
+        isLiteralUnion = false;
       }
 
       if (isLiteralUnion && literals.length > 0) {
-        return { type: { enum: literals }, required: true };
+        return { type: { enum: literals }, required: !hasNull };
       }
 
       // Nullable type: T | null -> get spec of T
@@ -600,10 +606,21 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
       if (member.params.length > 0) {
         const inputFields: Record<string, FieldSpec> = {};
         for (const param of member.params) {
-          inputFields[param.name] = {
-            type: typeExprToFieldType(param.typeExpr, ctx),
-            required: true,
+          const fieldSpec = typeExprToFieldSpec(param.typeExpr, ctx);
+          const inputField: FieldSpec = {
+            type: fieldSpec.type,
+            required: fieldSpec.required ?? true,
           };
+
+          if (fieldSpec.type === "object" && fieldSpec.fields) {
+            inputField.fields = fieldSpec.fields;
+          }
+
+          if (fieldSpec.type === "array" && fieldSpec.items) {
+            inputField.items = fieldSpec.items;
+          }
+
+          inputFields[param.name] = inputField;
         }
         input = {
           type: "object",

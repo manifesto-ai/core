@@ -1,7 +1,18 @@
+/**
+ * ManifestoHost v2.0.2
+ *
+ * Event-loop execution model with Mailbox + Runner + Job architecture.
+ *
+ * Changes from v2.0.1:
+ * - Intent slots stored in data.$host (HOST-NS-1)
+ * - Host no longer writes to system.* (INV-SNAP-4)
+ *
+ * @see host-SPEC-v2.0.2.md
+ */
+
 import {
   createCore,
   createSnapshot,
-  createIntent,
   evaluateComputed,
   isOk,
   type ManifestoCore,
@@ -14,17 +25,19 @@ import {
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
 import type { EffectHandler, EffectHandlerOptions } from "./effects/types.js";
-import type { SnapshotStore } from "./persistence/interface.js";
-import { createMemoryStore } from "./persistence/memory.js";
-import { runHostLoop, type HostLoopOptions, type HostLoopResult } from "./loop.js";
 import { createHostError, HostError } from "./errors.js";
+import { MailboxManager, type ExecutionMailbox } from "./mailbox.js";
+import { processMailbox, createRunnerState, type RunnerState } from "./runner.js";
+import { createExecutionContext, ExecutionContextImpl } from "./execution-context.js";
 import {
-  processTranslatorOutput,
-  createTranslatorIntentId,
-  hasAmbiguity,
-  type TranslatorOutput,
-} from "./translator.js";
-import { createInitialHostContext } from "./context.js";
+  createHostContextProvider,
+  type HostContextProvider,
+} from "./context-provider.js";
+import type { ExecutionKey, Runtime } from "./types/execution.js";
+import type { TraceEvent } from "./types/trace.js";
+import { createStartIntentJob, createFulfillEffectJob } from "./types/job.js";
+import { defaultRuntime } from "./types/execution.js";
+import { getHostState } from "./types/host-state.js";
 
 /**
  * Host result returned from dispatch
@@ -33,7 +46,7 @@ export interface HostResult {
   /**
    * Final status
    */
-  status: "complete" | "halted" | "error";
+  status: "complete" | "pending" | "error";
 
   /**
    * Final snapshot
@@ -56,75 +69,126 @@ export interface HostResult {
  */
 export interface HostOptions {
   /**
-   * Snapshot store (default: MemorySnapshotStore)
+   * Maximum iterations for dispatch (default: 100)
    */
-  store?: SnapshotStore;
+  maxIterations?: number;
 
   /**
-   * Host loop options
-   */
-  loop?: HostLoopOptions;
-
-  /**
-   * Initial snapshot data (if no snapshot in store)
+   * Initial snapshot data
    */
   initialData?: unknown;
+
+  /**
+   * Runtime for timing and scheduling (default: defaultRuntime)
+   */
+  runtime?: Runtime;
+
+  /**
+   * Environment variables to include in context
+   */
+  env?: Record<string, unknown>;
+
+  /**
+   * Trace event handler for debugging
+   */
+  onTrace?: (event: TraceEvent) => void;
+
+  /**
+   * Disable automatic effect execution (for HCTS testing).
+   * When true, effects are requested but not auto-executed.
+   * Use injectEffectResult() to fulfill effects manually.
+   */
+  disableAutoEffect?: boolean;
 }
 
+const DEFAULT_MAX_ITERATIONS = 100;
+
+type PendingEffect = {
+  intentId: string;
+  requirementId: string;
+  intent: Intent;
+  promise: Promise<void>;
+};
+
 /**
- * ManifestoHost class
+ * ManifestoHost class v2.0.2
  *
- * Orchestrates the execution of Manifesto intents with effect handling.
- *
- * Usage:
- * ```typescript
- * const host = createHost(schema);
- * host.registerEffect("http", httpHandler);
- * const result = await host.dispatch(createIntent("myAction", { ... }));
- * ```
+ * Implements the event-loop execution model with:
+ * - Mailbox per ExecutionKey (MAIL-1~4)
+ * - Single-runner with lost-wakeup prevention (RUN-1~4, LIVE-1~4)
+ * - Run-to-completion job model (JOB-1~5)
+ * - Frozen context per job (CTX-1~5)
+ * - Intent slots in data.$host (HOST-NS-1)
  */
 export class ManifestoHost {
   private core: ManifestoCore;
   private schema: DomainSchema;
   private registry: EffectHandlerRegistry;
   private executor: EffectExecutor;
-  private store: SnapshotStore;
-  private loopOptions: HostLoopOptions;
-  private initialized: boolean = false;
+  private maxIterations: number;
+
+  // v2.0.1 architecture components
+  private runtime: Runtime;
+  private contextProvider: HostContextProvider;
+  private mailboxManager: MailboxManager;
+  private runnerState: RunnerState;
+  private executionContexts: Map<ExecutionKey, ExecutionContextImpl>;
+  private onTrace?: (event: TraceEvent) => void;
+
+  // Effect execution tracking
+  private pendingEffects: Map<ExecutionKey, PendingEffect>;
+  private fatalErrors: Map<ExecutionKey, HostError>;
+  private disableAutoEffect: boolean;
+
+  // Current snapshot (managed in memory, caller is responsible for persistence)
+  private currentSnapshot: Snapshot | null = null;
+
+  private cloneSnapshot(snapshot: Snapshot): Snapshot {
+    return structuredClone(snapshot);
+  }
 
   constructor(schema: DomainSchema, options: HostOptions = {}) {
     this.core = createCore();
     this.schema = schema;
     this.registry = createEffectRegistry();
     this.executor = createEffectExecutor(this.registry);
-    this.store = options.store ?? createMemoryStore();
-    this.loopOptions = options.loop ?? {};
+    this.maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    this.runtime = options.runtime ?? defaultRuntime;
+    this.onTrace = options.onTrace;
+    this.disableAutoEffect = options.disableAutoEffect ?? false;
 
-    // Initialize with initial data if store is empty
-    this.initializeIfNeeded(options.initialData);
+    // Initialize v2.0.1 components
+    this.contextProvider = createHostContextProvider(this.runtime, {
+      env: options.env,
+    });
+    this.mailboxManager = new MailboxManager();
+    this.runnerState = createRunnerState();
+    this.executionContexts = new Map();
+    this.pendingEffects = new Map();
+    this.fatalErrors = new Map();
+
+    // Initialize with initial data if provided
+    if (options.initialData !== undefined) {
+      this.initializeSnapshot(options.initialData);
+    }
   }
 
-  private async initializeIfNeeded(initialData?: unknown): Promise<void> {
-    const existing = await this.store.get();
-    if (!existing && initialData !== undefined) {
-      const snapshot = createSnapshot(initialData, this.schema.hash, createInitialHostContext());
-      // Evaluate computed values on initial snapshot
-      const computedResult = evaluateComputed(this.schema, snapshot);
-      const snapshotWithComputed: Snapshot = {
-        ...snapshot,
-        computed: isOk(computedResult) ? computedResult.value : {},
-      };
-      await this.store.save(snapshotWithComputed);
-    }
-    this.initialized = true;
+  /**
+   * Initialize snapshot with data
+   */
+  private initializeSnapshot(initialData: unknown): void {
+    const initialContext = this.contextProvider.createInitialContext();
+    const snapshot = createSnapshot(initialData, this.schema.hash, initialContext);
+    // Evaluate computed values on initial snapshot
+    const computedResult = evaluateComputed(this.schema, snapshot);
+    this.currentSnapshot = {
+      ...snapshot,
+      computed: isOk(computedResult) ? computedResult.value : {},
+    };
   }
 
   /**
    * Register an effect handler
-   *
-   * @param type - Effect type (e.g., "http", "storage")
-   * @param handler - Handler function
-   * @param options - Handler options
    */
   registerEffect(
     type: string,
@@ -136,8 +200,6 @@ export class ManifestoHost {
 
   /**
    * Unregister an effect handler
-   *
-   * @param type - Effect type to unregister
    */
   unregisterEffect(type: string): boolean {
     return this.registry.unregister(type);
@@ -158,161 +220,329 @@ export class ManifestoHost {
   }
 
   /**
-   * Dispatch an intent
+   * Dispatch an intent using v2.0.1 Mailbox + Runner + Job model
    *
-   * This is the main entry point for processing intents.
-   * It runs the host loop until completion, halt, or error.
-   *
-   * @param intent - Intent to dispatch (use createIntent helper)
-   * @param loopOptions - Optional loop options to merge with defaults
+   * @param intent - Intent to dispatch
    * @returns Host result with final snapshot and traces
    */
-  async dispatch(intent: Intent, loopOptions?: Partial<HostLoopOptions>): Promise<HostResult> {
-    // Wait for initialization
-    if (!this.initialized) {
-      await this.initializeIfNeeded();
-    }
-
-    // Get current snapshot
-    let snapshot = await this.store.get();
-    if (!snapshot) {
+  async dispatch(intent: Intent): Promise<HostResult> {
+    if (!this.currentSnapshot) {
+      const initialContext = this.contextProvider.createInitialContext();
       return {
         status: "error",
-        snapshot: createSnapshot({}, this.schema.hash, createInitialHostContext()),
+        snapshot: createSnapshot({}, this.schema.hash, initialContext),
         traces: [],
         error: createHostError(
           "HOST_NOT_INITIALIZED",
-          "No snapshot in store. Initialize the host with initial data."
+          "No snapshot available. Initialize the host with initial data."
         ),
       };
     }
 
-    // Merge loop options with defaults
-    const mergedOptions: HostLoopOptions = {
-      ...this.loopOptions,
-      ...loopOptions,
-    };
+    if (!intent.intentId) {
+      return {
+        status: "error",
+        snapshot: this.currentSnapshot,
+        traces: [],
+        error: createHostError(
+          "INVALID_STATE",
+          "Intent must have intentId",
+          { intent }
+        ),
+      };
+    }
 
-    // Run the host loop
-    const result = await runHostLoop(
-      this.core,
-      this.schema,
-      snapshot,
-      intent,
-      this.executor,
-      mergedOptions
-    );
+    // Use intentId as execution key
+    const key: ExecutionKey = intent.intentId;
 
-    // Save final snapshot
-    await this.store.save(result.snapshot);
+    // Create mailbox and execution context
+    const mailbox = this.mailboxManager.getOrCreate(key);
+    const ctx = this.createExecutionContext(key, mailbox, this.currentSnapshot, intent.intentId);
+    this.executionContexts.set(key, ctx);
+
+    // Enqueue StartIntent job
+    const job = createStartIntentJob(intent);
+    mailbox.enqueue(job);
+
+    // Process mailbox until completion
+    let iterations = 0;
+    const traces: TraceGraph[] = [];
+
+    let fatalError: HostError | undefined;
+
+    while (iterations < this.maxIterations) {
+      iterations++;
+
+      // Run one processing cycle
+      await processMailbox(ctx, this.runnerState);
+
+      if (this.fatalErrors.has(key)) {
+        fatalError = this.fatalErrors.get(key);
+        break;
+      }
+
+      // Check if there are pending effects to execute
+      if (this.hasPendingEffects(key)) {
+        await this.executePendingEffects(key);
+        continue;
+      }
+
+      // If mailbox is empty and no pending effects, we're done
+      if (mailbox.isEmpty()) {
+        break;
+      }
+    }
+
+    // Get final snapshot
+    const finalSnapshot = ctx.getSnapshot();
+    this.currentSnapshot = finalSnapshot;
+
+    // Determine status
+    if (fatalError) {
+      // Cleanup
+      this.executionContexts.delete(key);
+      this.mailboxManager.delete(key);
+      this.fatalErrors.delete(key);
+
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        error: fatalError,
+      };
+    }
+
+    if (iterations >= this.maxIterations) {
+      // Cleanup
+      this.executionContexts.delete(key);
+      this.mailboxManager.delete(key);
+      this.fatalErrors.delete(key);
+
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        error: createHostError(
+          "LOOP_MAX_ITERATIONS",
+          `Host loop exceeded maximum iterations (${this.maxIterations})`,
+          { maxIterations: this.maxIterations }
+        ),
+      };
+    }
+
+    if (finalSnapshot.system.status === "error") {
+      // Cleanup
+      this.executionContexts.delete(key);
+      this.mailboxManager.delete(key);
+      this.fatalErrors.delete(key);
+
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        error: createHostError(
+          "EFFECT_EXECUTION_FAILED",
+          finalSnapshot.system.lastError?.message ?? "Unknown error",
+          { lastError: finalSnapshot.system.lastError }
+        ),
+      };
+    }
+
+    // Cleanup
+    this.executionContexts.delete(key);
+    this.mailboxManager.delete(key);
+    this.fatalErrors.delete(key);
+
+    const status = finalSnapshot.system.status === "pending" ? "pending" : "complete";
 
     return {
-      status: result.status,
-      snapshot: result.snapshot,
-      traces: result.traces,
-      error: result.error,
+      status,
+      snapshot: finalSnapshot,
+      traces,
     };
   }
 
   /**
-   * Dispatch with Translator output.
-   *
-   * Processes Translator output through Compiler lowering and evaluation,
-   * applies the concrete patches, then runs the standard Host loop.
-   *
-   * @param output - Translator output with MEL IR fragments
-   * @param options - Optional configuration (intentId, actionName)
-   * @returns Host result with final snapshot and traces
-   *
-   * @see Host SPEC v1.1 §4.3, §13.2
+   * Create an execution context for a key
    */
-  async dispatchWithTranslator(
-    output: TranslatorOutput,
-    options?: { intentId?: string; actionName?: string }
-  ): Promise<HostResult> {
-    // Wait for initialization
-    if (!this.initialized) {
-      await this.initializeIfNeeded();
+  private createExecutionContext(
+    key: ExecutionKey,
+    mailbox: ExecutionMailbox,
+    snapshot: Snapshot,
+    intentId: string
+  ): ExecutionContextImpl {
+    return createExecutionContext({
+      key,
+      schema: this.schema,
+      core: this.core,
+      mailbox,
+      runtime: this.runtime,
+      initialSnapshot: snapshot,
+      contextProvider: this.contextProvider,
+      currentIntentId: intentId,
+      onTrace: (event) => {
+        this.onTrace?.(event);
+      },
+      onEffectRequest: (key, intentId, requirementId, effectType, params, intent) => {
+        this.requestEffect(key, intentId, requirementId, effectType, params, intent);
+      },
+      onFatalError: (key, intentId, error) => {
+        this.handleFatalError(key, intentId, error);
+      },
+    });
+  }
+
+  /**
+   * Request effect execution (stores for later execution)
+   */
+  private requestEffect(
+    key: ExecutionKey,
+    intentId: string,
+    requirementId: string,
+    effectType: string,
+    params: unknown,
+    intent: Intent
+  ): void {
+    // When disableAutoEffect is true, don't auto-execute
+    // Effects will be fulfilled via injectEffectResult()
+    if (this.disableAutoEffect) {
+      return;
     }
 
-    // Check for ambiguity - caller should handle before dispatch
-    if (hasAmbiguity(output)) {
-      return {
-        status: "error",
-        snapshot: (await this.store.get()) ?? createSnapshot({}, this.schema.hash, createInitialHostContext()),
-        traces: [],
-        error: createHostError(
-          "TRANSLATOR_AMBIGUOUS",
-          "Translator output has ambiguity. Resolve before dispatch.",
-          { ambiguity: output.ambiguity }
-        ),
-      };
+    if (this.pendingEffects.has(key)) {
+      return;
     }
 
-    // Get current snapshot
-    let snapshot = await this.store.get();
-    if (!snapshot) {
-      return {
-        status: "error",
-        snapshot: createSnapshot({}, this.schema.hash, createInitialHostContext()),
-        traces: [],
-        error: createHostError(
-          "HOST_NOT_INITIALIZED",
-          "No snapshot in store. Initialize the host with initial data."
-        ),
-      };
-    }
-
-    // FDR-H014: Single intentId throughout
-    const intentId = options?.intentId ?? createTranslatorIntentId();
-
-    try {
-      // Process translator output (lower + evaluate)
-      const result = processTranslatorOutput(output, snapshot, {
-        intentId,
-        actionName: options?.actionName,
+    // Store effect request and start execution
+    const promise = this.executeEffect(key, intentId, requirementId, effectType, params, intent)
+      .finally(() => {
+        this.pendingEffects.delete(key);
       });
+    this.pendingEffects.set(key, { intentId, requirementId, intent, promise });
+  }
 
-      // Apply concrete patches to snapshot
-      // Convert ConcretePatch[] to Patch[] format expected by core.apply()
-      if (result.patches.length > 0) {
-        const corePatches = result.patches.map((p): Patch => {
-          if (p.op === "unset") {
-            return { op: "unset", path: p.path };
-          } else if (p.op === "merge") {
-            return { op: "merge", path: p.path, value: p.value as Record<string, unknown> };
-          } else {
-            return { op: "set", path: p.path, value: p.value };
-          }
-        });
-        snapshot = this.core.apply(this.schema, snapshot, corePatches, createInitialHostContext());
-        await this.store.save(snapshot);
-      }
+  /**
+   * Execute a single effect and inject result
+   */
+  private async executeEffect(
+    key: ExecutionKey,
+    intentId: string,
+    requirementId: string,
+    _effectType: string,
+    _params: unknown,
+    intent: Intent
+  ): Promise<void> {
+    const ctx = this.executionContexts.get(key);
+    if (!ctx) return;
 
-      // Run standard host loop with same intentId
-      return this.dispatch(result.intent);
-    } catch (error) {
-      if (error instanceof HostError) {
-        return {
-          status: "error",
-          snapshot,
-          traces: [],
-          error,
+    const snapshot = ctx.getSnapshot();
+    const requirement = snapshot.system.pendingRequirements.find(
+      (r) => r.id === requirementId
+    );
+    if (!requirement) return;
+
+    // Execute effect
+    const result = await this.executor.execute(requirement, snapshot);
+    const effectError = result.success
+      ? undefined
+      : {
+          code: result.errorCode ?? "EFFECT_EXECUTION_FAILED",
+          message: result.error ?? "Unknown effect execution error",
         };
+
+    // Inject result as FulfillEffect job (REINJ-1~4)
+    const mailbox = this.mailboxManager.get(key);
+    if (mailbox) {
+      const fulfillJob = createFulfillEffectJob(
+        intentId,
+        requirementId,
+        result.patches,
+        intent,
+        effectError
+      );
+      mailbox.enqueue(fulfillJob);
+    }
+  }
+
+  /**
+   * Check if there are pending effects for a key
+   */
+  private hasPendingEffects(key: ExecutionKey): boolean {
+    return this.pendingEffects.has(key);
+  }
+
+  /**
+   * Execute all pending effects for a key
+   */
+  private async executePendingEffects(key: ExecutionKey): Promise<void> {
+    const entry = this.pendingEffects.get(key);
+    if (entry) {
+      await entry.promise;
+    }
+  }
+
+  /**
+   * Handle fatal error
+   */
+  private handleFatalError(
+    key: ExecutionKey,
+    intentId: string,
+    error: Error
+  ): void {
+    // Clear pending effect tracking
+    this.pendingEffects.delete(key);
+
+    const hostError = createHostError(
+      "INVALID_STATE",
+      error.message,
+      { intentId }
+    );
+    this.fatalErrors.set(key, hostError);
+
+    // Mark execution as failed (best-effort) in data.$host
+    const ctx = this.executionContexts.get(key);
+    if (ctx) {
+      try {
+        const snapshot = ctx.getSnapshot();
+        const hostState = getHostState(snapshot.data);
+        const existingErrors = hostState?.errors ?? [];
+        const frozenContext = ctx.getFrozenContext();
+        const errorValue = {
+          code: "FATAL_ERROR",
+          message: error.message,
+          source: { actionId: intentId, nodePath: "host.fatal" },
+          timestamp: frozenContext.now,
+        };
+        const patches: Patch[] = [
+          {
+            op: "merge",
+            path: "$host",
+            value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
+          },
+        ];
+        ctx.applyPatches(patches, "fatal-error");
+      } catch {
+        // Best-effort only
       }
-      throw error;
+    }
+
+    // Clear mailbox queue for this key
+    const mailbox = this.mailboxManager.get(key);
+    if (mailbox) {
+      while (!mailbox.isEmpty()) {
+        mailbox.dequeue();
+      }
     }
   }
 
   /**
    * Get the current snapshot
    */
-  async getSnapshot(): Promise<Snapshot | null> {
-    // Wait for initialization
-    if (!this.initialized) {
-      await this.initializeIfNeeded();
+  getSnapshot(): Snapshot | null {
+    if (!this.currentSnapshot) {
+      return null;
     }
-    return this.store.get();
+    return this.cloneSnapshot(this.currentSnapshot);
   }
 
   /**
@@ -330,13 +560,6 @@ export class ManifestoHost {
   }
 
   /**
-   * Get the snapshot store
-   */
-  getStore(): SnapshotStore {
-    return this.store;
-  }
-
-  /**
    * Validate the schema
    */
   validateSchema(): ReturnType<ManifestoCore["validate"]> {
@@ -345,27 +568,126 @@ export class ManifestoHost {
 
   /**
    * Reset the host to initial state
-   *
-   * @param initialData - New initial data
    */
-  async reset(initialData: unknown): Promise<void> {
-    await this.store.clear();
-    const snapshot = createSnapshot(initialData, this.schema.hash, createInitialHostContext());
-    // Evaluate computed values on reset snapshot
-    const computedResult = evaluateComputed(this.schema, snapshot);
-    const snapshotWithComputed: Snapshot = {
-      ...snapshot,
-      computed: isOk(computedResult) ? computedResult.value : {},
-    };
-    await this.store.save(snapshotWithComputed);
+  reset(initialData: unknown): void {
+    this.initializeSnapshot(initialData);
+  }
+
+  // === v2.0.1 API for HCTS testing ===
+
+  /**
+   * Get or create a mailbox for an execution key
+   */
+  getMailbox(key: ExecutionKey): ExecutionMailbox {
+    return this.mailboxManager.getOrCreate(key);
+  }
+
+  /**
+   * Seed a snapshot for an execution key
+   */
+  seedSnapshot(key: ExecutionKey, snapshot: Snapshot): void {
+    const mailbox = this.mailboxManager.getOrCreate(key);
+    const ctx = this.createExecutionContext(key, mailbox, snapshot, "");
+    this.executionContexts.set(key, ctx);
+  }
+
+  /**
+   * Submit an intent for an execution key
+   */
+  submitIntent(key: ExecutionKey, intent: Intent): void {
+    const ctx = this.executionContexts.get(key);
+    if (!ctx) {
+      throw new Error(`No execution context for key: ${key}`);
+    }
+
+    ctx.setCurrentIntentId(intent.intentId!);
+
+    // Enqueue StartIntent job (LIVE-2)
+    const mailbox = this.mailboxManager.get(key);
+    if (mailbox) {
+      const wasEmpty = mailbox.isEmpty();
+      const job = createStartIntentJob(intent);
+      mailbox.enqueue(job);
+
+      // LIVE-2: When queue transitions from empty to non-empty, emit kick trace
+      // The actual processing happens when drain() is called
+      if (wasEmpty) {
+        this.onTrace?.({
+          t: "runner:kick",
+          key,
+          timestamp: this.runtime.now(),
+        } as TraceEvent);
+      }
+    }
+  }
+
+  /**
+   * Inject effect result for an execution key
+   */
+  injectEffectResult(
+    key: ExecutionKey,
+    requirementId: string,
+    intentId: string,
+    patches: Patch[],
+    intent?: Intent
+  ): void {
+    const mailbox = this.mailboxManager.get(key);
+    if (mailbox) {
+      // Try to get intent from data.$host if not provided (v2.0.2 HOST-NS-1)
+      const ctx = this.executionContexts.get(key);
+      let effectIntent = intent;
+      if (!effectIntent && ctx) {
+        const intentSlot = ctx.getIntentSlot(intentId);
+        if (intentSlot) {
+          effectIntent = {
+            type: intentSlot.type,
+            intentId,
+            input: intentSlot.input,
+          };
+        }
+      }
+
+      const job = createFulfillEffectJob(intentId, requirementId, patches, effectIntent);
+      mailbox.enqueue(job);
+    }
+  }
+
+  /**
+   * Drain the mailbox for an execution key
+   */
+  async drain(key: ExecutionKey): Promise<void> {
+    const ctx = this.executionContexts.get(key);
+    if (!ctx) {
+      throw new Error(`No execution context for key: ${key}`);
+    }
+
+    await processMailbox(ctx, this.runnerState);
+  }
+
+  /**
+   * Get trace events for an execution key (for testing)
+   */
+  getTrace(_key: ExecutionKey): TraceEvent[] {
+    // Traces are emitted via onTrace callback
+    // This method is for compatibility
+    return [];
+  }
+
+  /**
+   * Get execution context snapshot
+   */
+  getContextSnapshot(key: ExecutionKey): Snapshot | undefined {
+    const ctx = this.executionContexts.get(key);
+    const snapshot = ctx?.getSnapshot();
+    if (!snapshot) {
+      return undefined;
+    }
+    return this.cloneSnapshot(snapshot);
   }
 }
 
 /**
  * Create a new ManifestoHost
- *
- * @param schema - Domain schema
- * @param options - Host options
  */
 export function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost {
   return new ManifestoHost(schema, options);

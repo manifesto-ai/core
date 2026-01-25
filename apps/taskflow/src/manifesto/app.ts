@@ -1,29 +1,57 @@
 /**
  * TaskFlow App Setup
  *
- * Creates and configures the complete Manifesto stack for TaskFlow.
- * This is the main entry point for initializing the TaskFlow application.
+ * Creates and configures the Manifesto v2 App for TaskFlow.
  */
 
 import {
-  createBridge,
-  type Bridge,
-  type SnapshotView,
+  createApp,
+  createDefaultPolicyService,
+  createInMemoryWorldStore,
+  createPermissiveScope,
+  type App,
+  type AppState,
+  type PolicyService,
   type Unsubscribe,
-} from "@manifesto-ai/bridge";
+} from "@manifesto-ai/app";
+import { compileMelDomain } from "@manifesto-ai/compiler";
+import { createHost, type ManifestoHost } from "@manifesto-ai/host";
+import type { DomainSchema } from "@manifesto-ai/core";
 import type { ActorRef, IntentBody } from "@manifesto-ai/world";
 
-import { createTaskFlowWorld, type TaskFlowWorld, type TaskFlowWorldConfig } from "./world";
-import type { Task, ViewMode, Filter } from "../domain/index";
+import { TasksDomain, initialSnapshot, type Task, type ViewMode, type Filter } from "../domain";
+import { createUserActor, createAssistantActor, defaultActors } from "./actors";
+import { registerAllEffects, defaultPersistence, type TaskFlowPersistence } from "./effects";
+import { createAppHostAdapter } from "./host-adapter";
 
 /**
  * TaskFlow App configuration
  */
-export interface TaskFlowAppConfig extends TaskFlowWorldConfig {
+export interface TaskFlowAppConfig {
+  /**
+   * Optional persistence implementation
+   */
+  persistence?: TaskFlowPersistence;
+
+  /**
+   * Initial user ID (creates user actor)
+   */
+  userId?: string;
+
   /**
    * Callback for snapshot changes
    */
-  onSnapshotChange?: (snapshot: SnapshotView) => void;
+  onSnapshotChange?: (snapshot: AppState<TaskFlowState>) => void;
+
+  /**
+   * Optional policy service override
+   */
+  policyService?: PolicyService;
+
+  /**
+   * Optional host override (for tests)
+   */
+  host?: ManifestoHost;
 }
 
 /**
@@ -65,29 +93,24 @@ export interface TaskFlowComputed {
  */
 export interface TaskFlowApp {
   /**
-   * The TaskFlow World
+   * Underlying Manifesto App
    */
-  taskFlowWorld: TaskFlowWorld;
+  app: App;
 
   /**
-   * The Bridge for React integration
-   */
-  bridge: Bridge;
-
-  /**
-   * Initialize the app (create genesis, refresh bridge)
+   * Initialize the app
    */
   initialize: () => Promise<void>;
 
   /**
    * Subscribe to snapshot changes
    */
-  subscribe: (callback: (snapshot: SnapshotView) => void) => Unsubscribe;
+  subscribe: (callback: (snapshot: AppState<TaskFlowState>) => void) => Unsubscribe;
 
   /**
    * Get the current snapshot
    */
-  getSnapshot: () => SnapshotView | null;
+  getSnapshot: () => AppState<TaskFlowState> | null;
 
   /**
    * Get current state from snapshot
@@ -195,64 +218,241 @@ export interface TaskFlowApp {
   clearFilter: () => Promise<void>;
 }
 
+const AGENT_ALLOWED_INTENTS = new Set([
+  "selectTask",
+  "changeView",
+  "createTask",
+  "updateTask",
+  "moveTask",
+  "setFilter",
+  "refreshFilters",
+]);
+
+const AGENT_DENIED_INTENTS = new Set(["deleteTask", "restoreTask"]);
+
+function createTaskFlowPolicyService(): PolicyService {
+  return createDefaultPolicyService({
+    warnOnAutoApprove: false,
+    authorityHandler: async (proposal) => {
+      const actorId = proposal.actorId ?? "";
+      const intentType = proposal.intentType;
+      const isAgent = actorId.startsWith("agent:");
+
+      if (isAgent) {
+        if (AGENT_DENIED_INTENTS.has(intentType)) {
+          return {
+            approved: false,
+            reason: "AI agents are not allowed to perform this action",
+            timestamp: Date.now(),
+          };
+        }
+
+        if (AGENT_ALLOWED_INTENTS.has(intentType)) {
+          return {
+            approved: true,
+            reason: "AI agent action approved",
+            scope: createPermissiveScope(),
+            timestamp: Date.now(),
+          };
+        }
+
+        return {
+          approved: false,
+          reason: "AI agent action rejected by default",
+          timestamp: Date.now(),
+        };
+      }
+
+      return {
+        approved: true,
+        reason: "Human/system action approved",
+        scope: createPermissiveScope(),
+        timestamp: Date.now(),
+      };
+    },
+  });
+}
+
+// Sample tasks for initial data when persistence is empty
+const SAMPLE_TASKS: Task[] = [
+  {
+    id: "task-1",
+    title: "Set up project structure",
+    description: "Initialize Next.js app with shadcn/ui",
+    status: "done",
+    priority: "high",
+    tags: ["setup", "infrastructure"],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: "task-2",
+    title: "Implement Kanban board",
+    description: "Create drag and drop Kanban view",
+    status: "in-progress",
+    priority: "high",
+    tags: ["feature", "ui"],
+    assignee: "Developer",
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: "task-3",
+    title: "Add task filtering",
+    description: "Filter tasks by status and priority",
+    status: "todo",
+    priority: "medium",
+    tags: ["feature"],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: "task-4",
+    title: "Write documentation",
+    description: "Document the SPEC issues found",
+    status: "review",
+    priority: "medium",
+    tags: ["docs"],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+  {
+    id: "task-5",
+    title: "Add AI agent integration",
+    description: "Integrate @manifesto-ai/agent for task assistance",
+    status: "todo",
+    priority: "low",
+    tags: ["feature", "ai"],
+    assignee: null,
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+  },
+];
+
+let compiledTasksSchema: DomainSchema | null = null;
+
+function getTasksDomainSchema(): DomainSchema {
+  if (compiledTasksSchema) {
+    return compiledTasksSchema;
+  }
+
+  const result = compileMelDomain(TasksDomain, { mode: "domain" });
+
+  if (result.errors.length > 0) {
+    const errorMessages = result.errors
+      .map((error) => `[${error.code}] ${error.message}`)
+      .join("; ");
+    throw new Error(`TaskFlow MEL compilation failed: ${errorMessages}`);
+  }
+
+  if (!result.schema) {
+    throw new Error("TaskFlow MEL compilation produced no schema");
+  }
+
+  compiledTasksSchema = result.schema as DomainSchema;
+  return compiledTasksSchema;
+}
+
+async function loadInitialData(
+  persistence: TaskFlowPersistence
+): Promise<Record<string, unknown>> {
+  const tasks = await persistence.loadTasks();
+  const initialTasks = tasks.length > 0 ? tasks : SAMPLE_TASKS;
+  const baseData = {
+    ...(initialSnapshot.data as Record<string, unknown>),
+    ...(initialSnapshot.state as Record<string, unknown>),
+  };
+
+  return {
+    ...baseData,
+    tasks: initialTasks,
+    currentFilter: baseData.currentFilter ?? { status: null, priority: null, assignee: null },
+  };
+}
+
 /**
  * Create the TaskFlow App
  */
 export async function createTaskFlowApp(
   config: TaskFlowAppConfig = {}
 ): Promise<TaskFlowApp> {
-  // Create TaskFlow World
-  const taskFlowWorld = await createTaskFlowWorld(config);
+  const persistence = config.persistence ?? defaultPersistence;
+  const initialData = await loadInitialData(persistence);
 
-  // Create Bridge
-  const bridge = createBridge({
-    world: taskFlowWorld.world,
-    schemaHash: taskFlowWorld.world.schemaHash,
-    defaultActor: taskFlowWorld.userActor,
-    defaultProjectionId: "bridge:taskflow",
+  const schema = getTasksDomainSchema();
+
+  // Create Host with initial data
+  const manifestHost = config.host ?? createHost(schema, {
+    initialData,
+  });
+
+  // Register effect handlers
+  registerAllEffects((type, handler) => {
+    manifestHost.registerEffect(type, handler);
+  });
+
+  const appHost = createAppHostAdapter(manifestHost);
+  const worldStore = createInMemoryWorldStore();
+
+  const userActor = config.userId
+    ? createUserActor(config.userId)
+    : defaultActors.anonymousUser;
+
+  const policyService = config.policyService ?? createTaskFlowPolicyService();
+
+  const app = createApp({
+    schema,
+    host: appHost,
+    worldStore,
+    policyService,
+    initialData,
+    actorPolicy: {
+      mode: "anonymous",
+      defaultActor: {
+        actorId: userActor.actorId,
+        kind: userActor.kind,
+        name: userActor.name,
+        meta: userActor.meta,
+      },
+    },
   });
 
   // Track current snapshot
-  let currentSnapshot: SnapshotView | null = null;
+  let currentSnapshot: AppState<TaskFlowState> | null = null;
   let disposed = false;
+  let initialized = false;
+  let unsubscribe: Unsubscribe | null = null;
 
-  // Subscribe to bridge for snapshot updates
-  const unsubscribeBridge = bridge.subscribe((snapshot) => {
-    console.log('[TaskFlowApp] Bridge snapshot received');
-    console.log('[TaskFlowApp] Snapshot tasks count:', (snapshot.data as Record<string, unknown>)?.tasks ? ((snapshot.data as Record<string, unknown>).tasks as unknown[]).length : 0);
+  const updateSnapshot = (snapshot: AppState<TaskFlowState>) => {
     currentSnapshot = snapshot;
-    if (config.onSnapshotChange) {
-      console.log('[TaskFlowApp] Calling onSnapshotChange callback');
-      config.onSnapshotChange(snapshot);
-    }
-  });
-
-  // Helper to dispatch intents
-  const dispatchIntent = async (body: IntentBody, actor?: ActorRef) => {
-    console.log('[TaskFlowApp] ========== DISPATCH START ==========');
-    console.log('[TaskFlowApp] dispatchIntent:', body.type);
-    console.log('[TaskFlowApp] dispatchIntent body:', JSON.stringify(body, null, 2));
-    if (disposed) {
-      console.error('[TaskFlowApp] App is disposed!');
-      throw new Error("TaskFlowApp has been disposed");
-    }
-    try {
-      console.log('[TaskFlowApp] Calling bridge.dispatch...');
-      // dispatch(body, source?, actor?) - pass undefined for source
-      await bridge.dispatch(body, undefined, actor);
-      console.log('[TaskFlowApp] ========== DISPATCH COMPLETE ==========');
-      console.log('[TaskFlowApp] Current snapshot after dispatch:', bridge.getSnapshot()?.data);
-    } catch (err) {
-      console.error('[TaskFlowApp] ========== DISPATCH ERROR ==========');
-      console.error('[TaskFlowApp] dispatch error for:', body.type, err);
-      throw err;
-    }
+    config.onSnapshotChange?.(snapshot);
   };
 
-  // Helper to get state from snapshot
+  const dispatchIntent = async (body: IntentBody, actor?: ActorRef) => {
+    if (disposed) {
+      throw new Error("TaskFlowApp has been disposed");
+    }
+
+    const handle = app.act(body.type, body.input, actor ? { actorId: actor.actorId } : undefined);
+    await handle.done();
+  };
+
   const getState = (): TaskFlowState | null => {
     if (!currentSnapshot) return null;
-    const data = currentSnapshot.data as Record<string, unknown>;
+    const data = currentSnapshot.data;
     return {
       tasks: (data.tasks ?? []) as Task[],
       currentFilter: (data.currentFilter ?? { status: null, priority: null, assignee: null }) as Filter,
@@ -269,39 +469,59 @@ export async function createTaskFlowApp(
     };
   };
 
-  // Helper to get computed values
   const getComputed = (): TaskFlowComputed | null => {
     if (!currentSnapshot) return null;
     const computed = currentSnapshot.computed as Record<string, unknown>;
     return {
-      totalCount: (computed.totalCount ?? 0) as number,
-      todoCount: (computed.todoCount ?? 0) as number,
-      inProgressCount: (computed.inProgressCount ?? 0) as number,
-      reviewCount: (computed.reviewCount ?? 0) as number,
-      doneCount: (computed.doneCount ?? 0) as number,
-      deletedCount: (computed.deletedCount ?? 0) as number,
-      hasSelection: (computed.hasSelection ?? false) as boolean,
-      canCreate: (computed.canCreate ?? true) as boolean,
-      canEdit: (computed.canEdit ?? false) as boolean,
-      canDelete: (computed.canDelete ?? false) as boolean,
+      totalCount: (computed["computed.totalCount"] ?? 0) as number,
+      todoCount: (computed["computed.todoCount"] ?? 0) as number,
+      inProgressCount: (computed["computed.inProgressCount"] ?? 0) as number,
+      reviewCount: (computed["computed.reviewCount"] ?? 0) as number,
+      doneCount: (computed["computed.doneCount"] ?? 0) as number,
+      deletedCount: (computed["computed.deletedCount"] ?? 0) as number,
+      hasSelection: (computed["computed.hasSelection"] ?? false) as boolean,
+      canCreate: (computed["computed.canCreate"] ?? true) as boolean,
+      canEdit: (computed["computed.canEdit"] ?? false) as boolean,
+      canDelete: (computed["computed.canDelete"] ?? false) as boolean,
     };
   };
 
   return {
-    taskFlowWorld,
-    bridge,
+    app,
 
     initialize: async () => {
-      // Initialize world (create genesis)
-      await taskFlowWorld.initialize();
-      // Refresh bridge to get initial snapshot
-      await bridge.refresh();
-      // Run initial filter refresh
+      if (initialized) {
+        return;
+      }
+
+      await app.ready();
+      initialized = true;
+
+      currentSnapshot = app.getState<TaskFlowState>();
+      updateSnapshot(currentSnapshot);
+
+      unsubscribe = app.subscribe(
+        (state) => state as AppState<TaskFlowState>,
+        (state) => updateSnapshot(state as AppState<TaskFlowState>),
+        { batchMode: "immediate" }
+      );
+
+      app.hooks.on("state:publish", async ({ snapshot }) => {
+        const data = snapshot.data as { tasks?: Task[] } | undefined;
+        if (Array.isArray(data?.tasks)) {
+          await persistence.saveTasks(data.tasks);
+        }
+      });
+
       await dispatchIntent({ type: "refreshFilters" });
     },
 
     subscribe: (callback) => {
-      return bridge.subscribe(callback);
+      return app.subscribe(
+        (state) => state as AppState<TaskFlowState>,
+        (state) => callback(state as AppState<TaskFlowState>),
+        { batchMode: "immediate" }
+      );
     },
 
     getSnapshot: () => currentSnapshot,
@@ -311,56 +531,39 @@ export async function createTaskFlowApp(
     dispatch: dispatchIntent,
 
     registerAssistant: (sessionId) => {
-      return taskFlowWorld.registerAssistant(sessionId);
+      return createAssistantActor(sessionId);
     },
 
-    getUserActor: () => taskFlowWorld.userActor,
+    getUserActor: () => userActor,
 
     dispose: () => {
       disposed = true;
-      unsubscribeBridge();
-      bridge.dispose();
+      unsubscribe?.();
+      void app.dispose();
     },
 
     // === Action Methods ===
 
     createTask: async (params) => {
-      console.log('[TaskFlowApp] createTask called with:', params);
-      try {
-        await dispatchIntent({
-          type: "createTask",
-          input: {
-            title: params.title,
-            description: params.description ?? null,
-            priority: params.priority ?? "medium",
-            dueDate: params.dueDate ?? null,
-            tags: params.tags ?? [],
-          },
-        });
-        console.log('[TaskFlowApp] createTask intent dispatched');
-        // Refresh filters after creation
-        await dispatchIntent({ type: "refreshFilters" });
-        console.log('[TaskFlowApp] filters refreshed');
-      } catch (err) {
-        console.error('[TaskFlowApp] createTask error:', err);
-        throw err;
-      }
+      await dispatchIntent({
+        type: "createTask",
+        input: {
+          title: params.title,
+          description: params.description ?? null,
+          priority: params.priority ?? "medium",
+          dueDate: params.dueDate ?? null,
+          tags: params.tags ?? [],
+        },
+      });
+      await dispatchIntent({ type: "refreshFilters" });
     },
 
     importTask: async (task) => {
-      console.log('[TaskFlowApp] importTask called with:', task);
-      try {
-        await dispatchIntent({
-          type: "importTask",
-          input: { task },
-        });
-        console.log('[TaskFlowApp] importTask intent dispatched');
-        await dispatchIntent({ type: "refreshFilters" });
-        console.log('[TaskFlowApp] filters refreshed after import');
-      } catch (err) {
-        console.error('[TaskFlowApp] importTask error:', err);
-        throw err;
-      }
+      await dispatchIntent({
+        type: "importTask",
+        input: { task },
+      });
+      await dispatchIntent({ type: "refreshFilters" });
     },
 
     updateTask: async (params) => {

@@ -5,8 +5,8 @@
  *
  * Host Status → App Status:
  * - "complete" → "completed"
+ * - "pending" → "failed"
  * - "error" → "failed"
- * - "halted" → "failed" (with special handling for pending requirements)
  *
  * @see Plan: lucky-splashing-curry.md
  */
@@ -19,7 +19,7 @@ import type {
   ErrorValue,
   ExecutionStats,
   RuntimeKind,
-} from "../types/index.js";
+} from "../core/types/index.js";
 
 // =============================================================================
 // Types
@@ -130,7 +130,7 @@ export function calculateStats(options: {
  *
  * Status mapping:
  * - Host "complete" → App "completed"
- * - Host "halted" → App "completed" (halt is intentional early exit, not error)
+ * - Host "pending" → App "failed" (requirements remain)
  * - Host "error" → App "failed"
  */
 export function mapHostResultToActionResult(
@@ -144,10 +144,7 @@ export function mapHostResultToActionResult(
   });
 
   switch (hostResult.status) {
-    case "complete":
-    case "halted": {
-      // Both "complete" and "halted" are valid terminations
-      // "halted" is an intentional early exit (like a return statement)
+    case "complete": {
       const completedResult: CompletedActionResult = {
         status: "completed",
         worldId: options.worldId,
@@ -159,18 +156,24 @@ export function mapHostResultToActionResult(
       return completedResult;
     }
 
+    case "pending":
     case "error": {
-      // Convert HostError to ErrorValue
-      const errorValue: ErrorValue = hostResult.error
+      const snapshotError = extractSnapshotError(hostResult.snapshot, {
+        actionId: options.proposalId,
+      });
+      const fallbackError: ErrorValue = hostResult.error
         ? hostErrorToErrorValue(hostResult.error, {
             actionId: options.proposalId,
           })
         : {
-            code: "HOST_ERROR",
-            message: "Unknown host error",
+            code: hostResult.status === "pending" ? "HOST_PENDING" : "HOST_ERROR",
+            message: hostResult.status === "pending"
+              ? "Host returned pending status"
+              : "Unknown host error",
             source: { actionId: options.proposalId, nodePath: "host" },
             timestamp: Date.now(),
           };
+      const errorValue: ErrorValue = snapshotError ?? fallbackError;
 
       const failedResult: FailedActionResult = {
         status: "failed",

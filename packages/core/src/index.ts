@@ -15,7 +15,7 @@ import type { SemanticPath } from "./schema/common.js";
 import type { ComputeResult, ValidationResult, ExplainResult } from "./schema/result.js";
 import type { HostContext } from "./schema/host-context.js";
 
-import { compute } from "./core/compute.js";
+import { compute, computeSync } from "./core/compute.js";
 import { apply } from "./core/apply.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
@@ -36,6 +36,16 @@ export interface ManifestoCore {
     intent: Intent,
     context: HostContext
   ): Promise<ComputeResult>;
+
+  /**
+   * Compute the result of dispatching an intent (synchronous).
+   */
+  computeSync(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    intent: Intent,
+    context: HostContext
+  ): ComputeResult;
 
   /**
    * Apply patches to a snapshot.
@@ -69,6 +79,7 @@ export interface ManifestoCore {
 export function createCore(): ManifestoCore {
   return {
     compute,
+    computeSync,
     apply,
     validate,
     explain,
@@ -93,4 +104,4 @@ export * from "./errors.js";
 export * from "./factories.js";
 
 // Core functions (for direct usage)
-export { compute, apply, validate, explain };
+export { compute, computeSync, apply, validate, explain };

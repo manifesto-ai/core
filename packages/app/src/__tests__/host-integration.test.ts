@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createApp } from "../index.js";
 import type { DomainSchema, Patch } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
-import type { ServiceMap, ServiceContext, AppState, ActionResult } from "../types/index.js";
+import type { ServiceMap, ServiceContext, AppState, ActionResult } from "../core/types/index.js";
 
 // =============================================================================
 // Test Fixtures

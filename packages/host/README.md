@@ -1,43 +1,53 @@
 # @manifesto-ai/host
 
-> **Host** is the effect execution runtime of Manifesto. It executes effects, applies patches, and manages the compute-effect loop.
+> **v2.0.2** — Event-loop execution runtime for Manifesto with snapshot ownership and deterministic context
+
+[![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
 
 ---
 
 ## What is Host?
 
-Host is responsible for orchestrating Manifesto intent execution. It calls Core to compute, executes any resulting effects, applies patches, and repeats until the intent is complete.
+Host is the **effect execution runtime** of Manifesto. It orchestrates the compute-effect-apply loop using an event-loop model with Mailbox + Runner + Job architecture.
 
 In the Manifesto architecture:
 
 ```
-World ──→ HOST ──→ Core
-            │
+World -> HOST -> Core
+            |
    Executes effects, applies patches
-   Runs the compute-effect-resume cycle
+   Runs the mailbox-based execution model
 ```
 
 ---
 
-## What Host Does
+## What's New in v2.0.2
 
-| Responsibility | Description |
-|----------------|-------------|
-| Execute effects | Run effect handlers (API calls, timers, etc.) |
-| Apply patches | Update snapshot with patches from Core |
-| Run compute loop | Iterate compute → effect → apply until done |
-| Manage persistence | Store and retrieve snapshots |
+### v2.0.2 New Features
 
----
+- **Snapshot Ownership Alignment (HOST-SNAP-1~4)**
+  - Host uses Core's canonical Snapshot type
+  - Host-owned state moves to `data.$host`
+  - Snapshot field ownership invariants (INV-SNAP-1~7)
 
-## What Host Does NOT Do
+### v2.0.1 New Features
 
-| NOT Responsible For | Who Is |
-|--------------------|--------|
-| Compute state transitions | Core |
-| Define domain logic | Builder |
-| Govern authority/proposals | World |
-| Handle UI bindings | Bridge / React |
+- **Context Determinism (CTX-1~5)**
+  - `HostContext` frozen at job start — same `now` value throughout job execution
+  - `randomSeed` derived from `intentId` for deterministic randomness
+
+- **Compiler/Translator Decoupling (FDR-H024)**
+  - Host no longer depends on `@manifesto-ai/compiler`
+  - Host receives only concrete `Patch[]` values
+  - Translator processing is now App layer responsibility
+
+### v2.0.0 Breaking Changes
+
+- **Mailbox + Runner + Job Execution Model**
+  - `ExecutionMailbox`: Single-writer queue per ExecutionKey
+  - Job types: `StartIntent`, `ContinueCompute`, `FulfillEffect`, `ApplyPatches`
+  - Run-to-completion semantics (job handlers MUST NOT await)
+  - Single-runner invariant with lost-wakeup prevention
 
 ---
 
@@ -54,130 +64,228 @@ pnpm add @manifesto-ai/host @manifesto-ai/core
 ## Quick Example
 
 ```typescript
-import { createHost } from "@manifesto-ai/host";
-import { createIntent } from "@manifesto-ai/core";
-import type { DomainSchema } from "@manifesto-ai/core";
+import { ManifestoHost, createIntent, type DomainSchema } from "@manifesto-ai/host";
 
-// Create host
-const host = createHost(schema, {
-  initialData: { user: null },
-  context: { now: () => Date.now() },
+// 1. Define schema
+const schema: DomainSchema = {
+  id: "example:counter",
+  version: "1.0.0",
+  hash: "example-hash",
+  state: {
+    count: { type: "number", default: 0 },
+  },
+  actions: {
+    increment: {
+      flow: {
+        kind: "patch",
+        op: "set",
+        path: "count",
+        value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
+      },
+    },
+  },
+};
+
+// 2. Create host
+const host = new ManifestoHost(schema, {
+  initialData: { count: 0 },
 });
 
-// Register effect handler
-host.registerEffect("api.fetch", async (_type, params) => {
+// 3. Register effect handlers
+host.registerEffect("api.fetch", async (_type, params, context) => {
   const response = await fetch(params.url);
   const data = await response.json();
   return [{ op: "set", path: params.targetPath, value: data }];
 });
 
-// Dispatch intent
-const intent = createIntent("loadUser", { userId: "123" }, "intent-1");
+// 4. Dispatch intent
+const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
-console.log(result.status); // → "complete"
-console.log(result.snapshot.data.user); // → { id: "123", name: "..." }
+console.log(result.status);        // -> "complete"
+console.log(result.snapshot.data); // -> { count: 1 }
 ```
-
-> See [GUIDE.md](../../docs/packages/host/GUIDE.md) for the full tutorial.
 
 ---
 
-## Host API
+## Execution Model (v2.0)
+
+Host uses an **event-loop execution model** with three key components:
+
+### 1. Mailbox
+
+Per-`ExecutionKey` queue that serializes all state mutations:
+
+```typescript
+interface ExecutionMailbox {
+  readonly key: ExecutionKey;
+  enqueue(job: Job): void;
+  dequeue(): Job | undefined;
+  isEmpty(): boolean;
+}
+```
+
+### 2. Runner
+
+Single-runner processes the mailbox with lost-wakeup prevention:
+
+```typescript
+// Only ONE runner per ExecutionKey at any time
+// Runner re-checks mailbox before releasing guard
+await processMailbox(ctx, runnerState);
+```
+
+### 3. Jobs
+
+Four job types for different operations:
+
+| Job Type | Purpose |
+|----------|---------|
+| `StartIntent` | Begin processing a new intent |
+| `ContinueCompute` | Resume after effect fulfillment |
+| `FulfillEffect` | Apply effect results and clear requirement |
+| `ApplyPatches` | Apply patches from direct submission |
+
+---
+
+## Context Determinism (v2.0.1)
+
+Host guarantees deterministic context per job:
+
+```typescript
+// Context is frozen at job start
+const frozenContext: HostContext = {
+  now: Date.now(),           // Captured ONCE
+  randomSeed: job.intentId,  // Deterministic from intentId
+  env: {},
+};
+
+// All Core operations use the same frozen context
+Core.compute(schema, snapshot, intent, frozenContext);
+Core.apply(schema, snapshot, patches, frozenContext);
+```
+
+**Benefits:**
+- Same input -> same output (determinism preserved)
+- Trace replay produces identical results
+- `f(snapshot) = snapshot'` philosophy maintained
+
+---
+
+## API Reference
 
 ### Main Exports
 
 ```typescript
-// Factory
-function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost;
-
 // Host class
 class ManifestoHost {
-  registerEffect(type: string, handler: EffectHandler): void;
+  constructor(schema: DomainSchema, options?: HostOptions);
+
+  // Effect handlers
+  registerEffect(type: string, handler: EffectHandler, options?: EffectHandlerOptions): void;
+  unregisterEffect(type: string): boolean;
+  hasEffect(type: string): boolean;
+  getEffectTypes(): string[];
+
+  // Dispatch
   dispatch(intent: Intent): Promise<HostResult>;
-  getSnapshot(): Promise<Snapshot | null>;
+
+  // Snapshot access
+  getSnapshot(): Snapshot | null;
+  getSchema(): DomainSchema;
+  reset(initialData: unknown): void;
 }
 
-// Host loop (low-level)
-function runHostLoop(
-  core: ManifestoCore,
-  schema: DomainSchema,
-  snapshot: Snapshot,
-  intent: Intent,
-  executor: EffectExecutor,
-  options?: HostLoopOptions
-): Promise<HostLoopResult>;
+// Factory function
+function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost;
+```
 
-// Effect types
+### Types
+
+```typescript
+interface HostOptions {
+  maxIterations?: number;     // Default: 100
+  initialData?: unknown;
+  runtime?: Runtime;          // For deterministic time/scheduling
+  env?: Record<string, unknown>;
+  onTrace?: (event: TraceEvent) => void;
+  disableAutoEffect?: boolean; // For HCTS testing
+}
+
+interface HostResult {
+  status: "complete" | "pending" | "error";
+  snapshot: Snapshot;
+  traces: TraceGraph[];
+  error?: HostError;
+}
+
+// Effect handler signature
 type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
   context: EffectContext
 ) => Promise<Patch[]>;
-
-// Persistence
-interface SnapshotStore {
-  get(): Promise<Snapshot | null>;
-  save(snapshot: Snapshot): Promise<void>;
-  getVersion(version: number): Promise<Snapshot | null>;
-  getLatestVersion(): Promise<number>;
-  clear(): Promise<void>;
-}
-class MemorySnapshotStore implements SnapshotStore;
 ```
 
-> See [SPEC.md](../../docs/packages/host/SPEC.md) for complete API reference.
+### Execution Model Types
+
+```typescript
+// Opaque execution identifier
+type ExecutionKey = string;
+
+// Runtime abstraction for determinism
+interface Runtime {
+  now(): number;
+  randomSeed(): string;
+}
+
+// Context provider
+interface HostContextProvider {
+  createFrozenContext(intentId: string): HostContext;
+}
+```
 
 ---
 
-## Core Concepts
+## Effect Handler Contract
 
-### Effect Handler Registry
-
-Effects are handled by registered handlers. Each handler is keyed by effect type:
+Effect handlers MUST:
+1. Return `Patch[]` (never throw)
+2. Express failures as patches to error state
+3. Be pure IO adapters (no domain logic)
 
 ```typescript
-host.registerEffect("timer.delay", async (_type, params) => {
-  await new Promise(resolve => setTimeout(resolve, params.ms));
+// ✅ CORRECT: Errors as patches
+host.registerEffect("api.get", async (type, params) => {
+  try {
+    const response = await fetch(params.url);
+    if (!response.ok) {
+      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+    }
+    const data = await response.json();
+    return [
+      { op: "set", path: params.target, value: data },
+      { op: "set", path: "error", value: null },
+    ];
+  } catch (e) {
+    return [{ op: "set", path: "error", value: e.message }];
+  }
+});
+
+// ❌ WRONG: Throwing exceptions
+host.registerEffect("api.get", async (type, params) => {
+  const response = await fetch(params.url);
+  if (!response.ok) throw new Error("Failed"); // WRONG!
   return [];
 });
-
-host.registerEffect("api.post", async (_type, params) => {
-  const res = await fetch(params.url, { method: "POST", body: params.body });
-  return [{ op: "set", path: "/response", value: await res.json() }];
-});
 ```
-
-### Compute-Effect Loop
-
-Host runs a loop:
-1. Call `await core.compute(schema, snapshot, intent, context)`
-2. If there are requirements (pending effects), execute them
-3. Apply resulting patches
-4. Repeat until no more requirements
-
-### Idempotent Handlers
-
-Effect handlers should be idempotent when possible. If the same effect runs twice, the result should be the same.
 
 ---
 
 ## Relationship with Other Packages
 
 ```
-┌─────────────┐
-│    World    │ ← Uses Host to execute proposals
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    HOST     │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    Core     │ ← Host calls Core to compute
-└─────────────┘
+App -> HOST (v2.0.2) -> Core
 ```
 
 | Relationship | Package | How |
@@ -195,6 +303,7 @@ Use Host directly when:
 - Building a custom runtime without World governance
 - Testing effect handlers in isolation
 - Building CLI tools or scripts
+- Implementing custom execution policies
 
 For typical usage with governance, see [`@manifesto-ai/world`](../world/).
 
@@ -204,9 +313,21 @@ For typical usage with governance, see [`@manifesto-ai/world`](../world/).
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](../../docs/packages/host/GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](docs/SPEC.md) | Complete specification |
-| [FDR.md](docs/FDR.md) | Design rationale |
+| [GUIDE.md](./docs/GUIDE.md) | Step-by-step usage guide |
+| [MIGRATION.md](./docs/MIGRATION.md) | v1.x -> v2.0.x migration guide |
+| [host-SPEC-v2.0.2.md](./docs/host-SPEC-v2.0.2.md) | Complete specification |
+| [host-FDR-v2.0.2.md](./docs/host-FDR-v2.0.2.md) | Design rationale |
+| [VERSION-INDEX.md](./docs/VERSION-INDEX.md) | Version history |
+
+---
+
+## Examples
+
+See the [`examples/`](./examples/) directory for runnable examples:
+
+- [`basic-counter.ts`](./examples/basic-counter.ts) — Basic ManifestoHost usage
+- [`effect-handling.ts`](./examples/effect-handling.ts) — Effect handler registration and execution
+- [`determinism.ts`](./examples/determinism.ts) — Context determinism verification
 
 ---
 

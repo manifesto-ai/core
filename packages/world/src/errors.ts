@@ -51,6 +51,10 @@ export type WorldErrorCode =
   | "HOST_EXECUTION_ERROR"
   | "HOST_NOT_CONFIGURED"
 
+  // Executor errors (v2.0.2)
+  | "EXECUTOR_NOT_CONFIGURED"
+  | "EXECUTOR_ERROR"
+
   // General errors
   | "INVALID_ARGUMENT"
   | "INTERNAL_ERROR";

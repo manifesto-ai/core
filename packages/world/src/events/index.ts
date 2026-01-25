@@ -1,38 +1,26 @@
 /**
- * World Protocol Event System
+ * World Protocol Event Types
  *
- * Provides observable event stream for World Protocol operations.
+ * World defines governance event payloads.
+ * Event/listener mechanics live in App.
  */
 
 // Types
 export type {
   WorldEventType,
   WorldEvent,
-  WorldEventHandler,
-  Unsubscribe,
   ErrorInfo,
   AuthorityDecision,
+  WorldEventSink,
   // Individual event types
   ProposalSubmittedEvent,
   ProposalEvaluatingEvent,
   ProposalDecidedEvent,
-  ExecutionStartedEvent,
-  ExecutionComputingEvent,
-  ExecutionPatchesEvent,
-  ExecutionEffectEvent,
-  ExecutionEffectResultEvent,
+  ProposalSupersededEvent,
   ExecutionCompletedEvent,
   ExecutionFailedEvent,
-  SnapshotChangedEvent,
   WorldCreatedEvent,
   WorldForkedEvent,
 } from "./types.js";
 
-// Bus
-export { WorldEventBus, createWorldEventBus } from "./bus.js";
-
-// Listener
-export {
-  createHostExecutionListener,
-  type ExecutionListenerState,
-} from "./listener.js";
+export { createNoopWorldEventSink } from "./types.js";

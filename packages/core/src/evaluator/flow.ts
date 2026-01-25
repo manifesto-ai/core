@@ -6,7 +6,7 @@ import type { FieldSpec } from "../schema/field.js";
 import { createTraceNode } from "../schema/trace.js";
 import { createError } from "../errors.js";
 import { setByPath, unsetByPath, mergeAtPath } from "../utils/path.js";
-import { generateRequirementId } from "../utils/hash.js";
+import { generateRequirementIdSync } from "../utils/hash.js";
 import { type EvalContext, withSnapshot, withNodePath, withCollectionContext } from "./context.js";
 import { evaluateExpr } from "./expr.js";
 import { getFieldSpecAtPath, validateValueAgainstFieldSpec } from "../core/validation-utils.js";
@@ -139,12 +139,12 @@ function setError(state: FlowState, error: ErrorValue): FlowState {
 /**
  * Evaluate a flow node
  */
-export async function evaluateFlow(
+export function evaluateFlowSync(
   flow: FlowNode,
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   // Stop if already terminated
   if (state.status !== "running") {
     return {
@@ -189,14 +189,23 @@ export async function evaluateFlow(
   }
 }
 
-// ============ Flow Node Handlers ============
-
-async function evaluateSeq(
-  steps: readonly FlowNode[],
+export async function evaluateFlow(
+  flow: FlowNode,
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
 ): Promise<FlowResult> {
+  return evaluateFlowSync(flow, ctx, state, nodePath);
+}
+
+// ============ Flow Node Handlers ============
+
+function evaluateSeq(
+  steps: readonly FlowNode[],
+  ctx: EvalContext,
+  state: FlowState,
+  nodePath: string
+): FlowResult {
   let currentState = state;
   const children: TraceNode[] = [];
 
@@ -204,7 +213,7 @@ async function evaluateSeq(
     const stepPath = `${nodePath}.steps[${i}]`;
     const stepCtx = withNodePath(withSnapshot(ctx, currentState.snapshot), stepPath);
 
-    const result = await evaluateFlow(steps[i], stepCtx, currentState, stepPath);
+    const result = evaluateFlowSync(steps[i], stepCtx, currentState, stepPath);
     children.push(result.trace);
     currentState = result.state;
 
@@ -220,12 +229,12 @@ async function evaluateSeq(
   };
 }
 
-async function evaluateIf(
+function evaluateIf(
   flow: { cond: import("../schema/expr.js").ExprNode; then: FlowNode; else?: FlowNode },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   const condResult = evaluateExpr(flow.cond, ctx);
 
   if (!condResult.ok) {
@@ -249,7 +258,7 @@ async function evaluateIf(
   }
 
   const branchCtx = withNodePath(ctx, branchPath);
-  const result = await evaluateFlow(branchFlow, branchCtx, state, branchPath);
+  const result = evaluateFlowSync(branchFlow, branchCtx, state, branchPath);
 
   return {
     state: result.state,
@@ -257,12 +266,12 @@ async function evaluateIf(
   };
 }
 
-async function evaluatePatch(
+function evaluatePatch(
   flow: { op: "set" | "unset" | "merge"; path: string; value?: import("../schema/expr.js").ExprNode },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   let patchValue: unknown = undefined;
 
   if (flow.op !== "unset" && flow.value) {
@@ -331,12 +340,12 @@ async function evaluatePatch(
   };
 }
 
-async function evaluateEffect(
+function evaluateEffect(
   flow: { type: string; params: Record<string, import("../schema/expr.js").ExprNode> },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   // Handle pure array operations inline (no IO needed)
   if (flow.type === "array.map" || flow.type === "array.filter") {
     return evaluateArrayOperation(flow, ctx, state, nodePath);
@@ -356,7 +365,7 @@ async function evaluateEffect(
   }
 
   // Generate deterministic requirement ID
-  const requirementId = await generateRequirementId(
+  const requirementId = generateRequirementIdSync(
     ctx.snapshot.meta.schemaHash,
     ctx.intentId ?? "",
     ctx.currentAction ?? "",
@@ -387,12 +396,12 @@ async function evaluateEffect(
  * Evaluate pure array operations (map/filter) inline
  * These are pure transformations that don't need Host effect handlers
  */
-async function evaluateArrayOperation(
+function evaluateArrayOperation(
   flow: { type: string; params: Record<string, import("../schema/expr.js").ExprNode> },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   const { params } = flow;
 
   // Use the current state's snapshot (which reflects patches applied so far)
@@ -514,12 +523,12 @@ async function evaluateArrayOperation(
   };
 }
 
-async function evaluateCall(
+function evaluateCall(
   flowName: string,
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   // Look up the flow in the schema
   const action = ctx.schema.actions[flowName];
   if (!action) {
@@ -538,7 +547,7 @@ async function evaluateCall(
   const callPath = `${nodePath}.call(${flowName})`;
   const callCtx = withNodePath(ctx, callPath);
 
-  const result = await evaluateFlow(action.flow, callCtx, state, callPath);
+  const result = evaluateFlowSync(action.flow, callCtx, state, callPath);
 
   return {
     state: result.state,
@@ -546,24 +555,24 @@ async function evaluateCall(
   };
 }
 
-async function evaluateHalt(
+function evaluateHalt(
   reason: string | undefined,
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   return {
     state: { ...state, status: "halted" },
     trace: createTraceNode(ctx.trace, "halt", nodePath, { reason }, null, []),
   };
 }
 
-async function evaluateFail(
+function evaluateFail(
   flow: { code: string; message?: import("../schema/expr.js").ExprNode },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
-): Promise<FlowResult> {
+): FlowResult {
   let message = flow.code;
 
   if (flow.message) {

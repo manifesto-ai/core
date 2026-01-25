@@ -10,11 +10,11 @@ import {
   ReservedNamespaceError,
   ReservedEffectTypeError,
 } from "../errors/index.js";
-import { ServiceRegistry } from "../services/index.js";
-import { executeSystemGet } from "../services/system-get.js";
+import { ServiceRegistry } from "../runtime/services/index.js";
+import { executeSystemGet } from "../runtime/services/system-get.js";
 import { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "../constants.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { AppState } from "../types/index.js";
+import type { AppState } from "../core/types/index.js";
 
 // Valid mock DomainSchema
 const validDomainSchema: DomainSchema = {

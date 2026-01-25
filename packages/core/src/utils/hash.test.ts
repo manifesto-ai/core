@@ -5,6 +5,7 @@ import {
   hashSchema,
   hashSchemaSync,
   generateRequirementId,
+  generateRequirementIdSync,
   generateTraceId,
 } from "./hash.js";
 
@@ -185,6 +186,19 @@ describe("Hash Utilities", () => {
     it("should produce 20 character ID (req- + 16 hex chars)", async () => {
       const id = await generateRequirementId("hash", "intent", "action", "path");
       expect(id).toHaveLength(20);
+    });
+  });
+
+  describe("generateRequirementIdSync", () => {
+    it("should match async generateRequirementId", async () => {
+      const syncId = generateRequirementIdSync("schema-hash", "intent-1", "action", "path");
+      const asyncId = await generateRequirementId("schema-hash", "intent-1", "action", "path");
+      expect(syncId).toBe(asyncId);
+    });
+
+    it("should produce ID with req- prefix", () => {
+      const id = generateRequirementIdSync("hash", "intent", "action", "path");
+      expect(id).toMatch(/^req-[a-f0-9]{16}$/);
     });
   });
 

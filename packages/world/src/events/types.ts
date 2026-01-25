@@ -1,37 +1,52 @@
 /**
- * World Protocol Event System - Type Definitions
+ * World Protocol Event Types (Governance Events Only)
  *
- * Based on WORLD_EVENT_SPEC.md v1.1 Extension
+ * Per World SPEC v2.0.2 (WORLD-EVT-OWN-*):
+ * - World defines governance event payloads
+ * - Telemetry events remain App-owned
+ *
+ * Per ADR-001 Layer Separation:
+ * - World emits results; App owns event/listener mechanics
  */
 
-import type { Patch, Snapshot } from "@manifesto-ai/core";
+import type { ErrorValue } from "@manifesto-ai/core";
 import type {
-  Proposal,
-  ActorRef,
-  DecisionRecord,
+  DecisionId,
+  ProposalId,
   World,
   WorldId,
 } from "../schema/index.js";
+import type { ExecutionKey } from "../types/index.js";
 
 // =============================================================================
 // Event Type Union
 // =============================================================================
 
+/**
+ * World event types - Governance events only
+ *
+ * Per WORLD-EVT-OWN-*:
+ * - Proposal lifecycle (governance)
+ * - Execution terminal events (outcome, not details)
+ * - World lifecycle (state transitions)
+ *
+ * Removed per ADR-001:
+ * - execution:started (telemetry - Host concern)
+ * - execution:computing (telemetry - Host concern)
+ * - execution:patches (telemetry - Host concern)
+ * - execution:effect (telemetry - Host concern)
+ * - execution:effect_result (telemetry - Host concern)
+ * - snapshot:changed (telemetry - Host concern)
+ */
 export type WorldEventType =
   // Proposal lifecycle
   | "proposal:submitted"
   | "proposal:evaluating"
   | "proposal:decided"
-  // Execution lifecycle
-  | "execution:started"
-  | "execution:computing"
-  | "execution:patches"
-  | "execution:effect"
-  | "execution:effect_result"
+  | "proposal:superseded" // NEW: Epoch cancellation
+  // Execution terminal events (outcomes only)
   | "execution:completed"
   | "execution:failed"
-  // State lifecycle
-  | "snapshot:changed"
   // World lifecycle
   | "world:created"
   | "world:forked";
@@ -50,16 +65,16 @@ interface BaseWorldEvent<T extends WorldEventType> {
 // =============================================================================
 
 export interface ErrorInfo {
-  readonly code: string;
-  readonly message: string;
-  readonly details?: unknown;
+  readonly summary: string;
+  readonly details?: ErrorValue[];
+  readonly pendingRequirements?: string[];
 }
 
 // =============================================================================
-// Authority Decision (simplified for events)
+// Authority Decision (event payload)
 // =============================================================================
 
-export type AuthorityDecision = "approved" | "rejected" | "pending";
+export type AuthorityDecision = "approved" | "rejected";
 
 // =============================================================================
 // Proposal Lifecycle Events
@@ -71,8 +86,16 @@ export type AuthorityDecision = "approved" | "rejected" | "pending";
  */
 export interface ProposalSubmittedEvent
   extends BaseWorldEvent<"proposal:submitted"> {
-  readonly proposal: Proposal;
-  readonly actor: ActorRef;
+  readonly proposalId: ProposalId;
+  readonly actorId: string;
+  readonly baseWorld: WorldId;
+  readonly intent: {
+    readonly type: string;
+    readonly intentId: string;
+    readonly input?: unknown;
+  };
+  readonly executionKey: ExecutionKey;
+  readonly epoch: number;
 }
 
 /**
@@ -81,7 +104,7 @@ export interface ProposalSubmittedEvent
  */
 export interface ProposalEvaluatingEvent
   extends BaseWorldEvent<"proposal:evaluating"> {
-  readonly proposalId: string;
+  readonly proposalId: ProposalId;
   readonly authorityId: string;
 }
 
@@ -91,111 +114,57 @@ export interface ProposalEvaluatingEvent
  */
 export interface ProposalDecidedEvent
   extends BaseWorldEvent<"proposal:decided"> {
-  readonly proposalId: string;
-  readonly authorityId: string;
+  readonly proposalId: ProposalId;
+  readonly decisionId: DecisionId;
   readonly decision: AuthorityDecision;
-  readonly decisionRecord?: DecisionRecord;
+  readonly authorityId: string;
+  readonly reason?: string;
+}
+
+/**
+ * Emitted when a proposal is superseded due to epoch change
+ *
+ * Per EPOCH-3~5:
+ * - Emitted when branch switch invalidates ingress-stage proposals
+ * - Only proposals in submitted/evaluating status can be superseded
+ */
+export interface ProposalSupersededEvent
+  extends BaseWorldEvent<"proposal:superseded"> {
+  readonly proposalId: ProposalId;
+  readonly currentEpoch: number;
+  readonly proposalEpoch: number;
+  readonly reason: "branch_switch" | "manual_cancel";
 }
 
 // =============================================================================
-// Execution Lifecycle Events
+// Execution Terminal Events
 // =============================================================================
-
-/**
- * Emitted when host begins executing an approved proposal.
- */
-export interface ExecutionStartedEvent
-  extends BaseWorldEvent<"execution:started"> {
-  readonly proposalId: string;
-  readonly intentId: string;
-  readonly baseSnapshot: Snapshot;
-}
-
-/**
- * Emitted when core.compute() is called.
- * May be emitted multiple times per execution (for effect continuations).
- */
-export interface ExecutionComputingEvent
-  extends BaseWorldEvent<"execution:computing"> {
-  readonly intentId: string;
-  readonly iteration: number;
-}
-
-/**
- * Emitted when patches are applied to snapshot.
- */
-export interface ExecutionPatchesEvent
-  extends BaseWorldEvent<"execution:patches"> {
-  readonly intentId: string;
-  readonly patches: Patch[];
-  readonly source: "compute" | "effect";
-}
-
-/**
- * Emitted when an effect is about to be executed.
- */
-export interface ExecutionEffectEvent
-  extends BaseWorldEvent<"execution:effect"> {
-  readonly intentId: string;
-  readonly effectType: string;
-  readonly effectParams: unknown;
-}
-
-/**
- * Emitted when an effect completes and returns patches.
- */
-export interface ExecutionEffectResultEvent
-  extends BaseWorldEvent<"execution:effect_result"> {
-  readonly intentId: string;
-  readonly effectType: string;
-  readonly resultPatches: Patch[];
-  readonly success: boolean;
-  readonly error?: ErrorInfo;
-}
 
 /**
  * Emitted when execution completes successfully.
+ *
+ * Note: This is an outcome event, not telemetry.
+ * For execution details, subscribe to Host's TraceEvent.
  */
 export interface ExecutionCompletedEvent
   extends BaseWorldEvent<"execution:completed"> {
-  readonly proposalId: string;
-  readonly intentId: string;
-  readonly finalSnapshot: Snapshot;
-  readonly totalPatches: number;
-  readonly totalEffects: number;
+  readonly proposalId: ProposalId;
+  readonly executionKey: ExecutionKey;
+  readonly resultWorld: WorldId;
 }
 
 /**
  * Emitted when execution fails.
+ *
+ * Note: This is an outcome event, not telemetry.
+ * For execution details, subscribe to Host's TraceEvent.
  */
 export interface ExecutionFailedEvent
   extends BaseWorldEvent<"execution:failed"> {
-  readonly proposalId: string;
-  readonly intentId: string;
+  readonly proposalId: ProposalId;
+  readonly executionKey: ExecutionKey;
   readonly error: ErrorInfo;
-  readonly partialSnapshot: Snapshot;
-}
-
-// =============================================================================
-// State Lifecycle Events
-// =============================================================================
-
-/**
- * Emitted when snapshot transitions to a new state.
- * This is the canonical state change event.
- */
-export interface SnapshotChangedEvent
-  extends BaseWorldEvent<"snapshot:changed"> {
-  readonly intentId: string;
-  readonly before: {
-    readonly snapshotHash: string;
-    readonly snapshot?: Snapshot;
-  };
-  readonly after: {
-    readonly snapshotHash: string;
-    readonly snapshot: Snapshot;
-  };
-  readonly cause: "patches" | "effect_result";
+  readonly resultWorld: WorldId;
 }
 
 // =============================================================================
@@ -207,8 +176,9 @@ export interface SnapshotChangedEvent
  */
 export interface WorldCreatedEvent extends BaseWorldEvent<"world:created"> {
   readonly world: World;
-  readonly proposalId: string | null;
-  readonly parentWorldId: WorldId | null;
+  readonly from: WorldId | null;
+  readonly proposalId: ProposalId | null;
+  readonly outcome: "completed" | "failed";
 }
 
 /**
@@ -217,7 +187,7 @@ export interface WorldCreatedEvent extends BaseWorldEvent<"world:created"> {
 export interface WorldForkedEvent extends BaseWorldEvent<"world:forked"> {
   readonly parentWorldId: WorldId;
   readonly childWorldId: WorldId;
-  readonly proposalId: string;
+  readonly proposalId: ProposalId;
 }
 
 // =============================================================================
@@ -228,20 +198,24 @@ export type WorldEvent =
   | ProposalSubmittedEvent
   | ProposalEvaluatingEvent
   | ProposalDecidedEvent
-  | ExecutionStartedEvent
-  | ExecutionComputingEvent
-  | ExecutionPatchesEvent
-  | ExecutionEffectEvent
-  | ExecutionEffectResultEvent
+  | ProposalSupersededEvent
   | ExecutionCompletedEvent
   | ExecutionFailedEvent
-  | SnapshotChangedEvent
   | WorldCreatedEvent
   | WorldForkedEvent;
 
 // =============================================================================
-// Handler Types
+// World Event Sink (App-owned event/listener layer)
 // =============================================================================
 
-export type WorldEventHandler = (event: WorldEvent) => void;
-export type Unsubscribe = () => void;
+export interface WorldEventSink {
+  emit(event: WorldEvent): void;
+}
+
+export function createNoopWorldEventSink(): WorldEventSink {
+  return {
+    emit(): void {
+      // no-op
+    },
+  };
+}

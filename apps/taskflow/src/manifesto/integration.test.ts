@@ -2,19 +2,32 @@
  * TaskFlow Integration Tests
  *
  * Comprehensive vitest tests for the complete Manifesto stack flow:
- * Host -> World -> Bridge -> UI Layer
+ * Host -> App -> UI Layer
  *
  * Tests the full lifecycle of tasks including creation, updates, moves, and deletion.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createHost } from "@manifesto-ai/host";
-import { createManifestoWorld, type ActorRef } from "@manifesto-ai/world";
-import { createBridge, type Bridge } from "@manifesto-ai/bridge";
+import type { ActorRef } from "@manifesto-ai/world";
 import type { DomainSchema } from "@manifesto-ai/core";
+import { compileMelDomain } from "@manifesto-ai/compiler";
+import { createTestBridge, type TestBridge } from "./test-bridge";
+import { TasksDomain as tasksMel } from "../domain";
 
-// Import the compiled schema
-import TasksDomain from "../domain/tasks-compiled.json";
+const compiledDomain = compileMelDomain(tasksMel, { mode: "domain" });
+
+if (compiledDomain.errors.length > 0) {
+  const errorMessages = compiledDomain.errors
+    .map((error) => `[${error.code}] ${error.message}`)
+    .join("; ");
+  throw new Error(`TaskFlow MEL compilation failed: ${errorMessages}`);
+}
+
+if (!compiledDomain.schema) {
+  throw new Error("TaskFlow MEL compilation produced no schema");
+}
+
+const domainSchema = compiledDomain.schema as DomainSchema;
 
 // Test fixtures
 const createInitialData = () => ({
@@ -55,33 +68,14 @@ const assistantActor: ActorRef = {
 };
 
 describe("TaskFlow Integration", () => {
-  let bridge: Bridge;
+  let bridge: TestBridge;
 
   beforeEach(async () => {
-    // Create Host with initial data
-    const schema = TasksDomain as unknown as DomainSchema;
-    const host = createHost(schema, { initialData: createInitialData() });
-
-    // Create World
-    const world = createManifestoWorld({
-      schemaHash: schema.hash,
-      host: host as any,
-    });
-
-    // Register actors
-    world.registerActor(userActor, { mode: "auto_approve" });
-    world.registerActor(assistantActor, { mode: "auto_approve" });
-
-    // Create genesis
-    const snapshot = await host.getSnapshot();
-    await world.createGenesis(snapshot!);
-
-    // Create Bridge
-    bridge = createBridge({
-      world,
-      schemaHash: schema.hash,
+    const schema = domainSchema;
+    bridge = await createTestBridge({
+      schema,
+      initialData: createInitialData(),
       defaultActor: userActor,
-      defaultProjectionId: "test:projection",
     });
 
     await bridge.refresh();
@@ -95,20 +89,20 @@ describe("TaskFlow Integration", () => {
 
   describe("Schema Validation", () => {
     it("should have correct schema ID", () => {
-      expect(TasksDomain.id).toBe("mel:tasks");
+      expect(domainSchema.id).toBe("mel:tasks");
     });
 
     it("should have all required actions", () => {
-      expect(TasksDomain.actions).toHaveProperty("createTask");
-      expect(TasksDomain.actions).toHaveProperty("updateTask");
-      expect(TasksDomain.actions).toHaveProperty("deleteTask");
-      expect(TasksDomain.actions).toHaveProperty("moveTask");
-      expect(TasksDomain.actions).toHaveProperty("selectTask");
-      expect(TasksDomain.actions).toHaveProperty("restoreTask");
+      expect(domainSchema.actions).toHaveProperty("createTask");
+      expect(domainSchema.actions).toHaveProperty("updateTask");
+      expect(domainSchema.actions).toHaveProperty("deleteTask");
+      expect(domainSchema.actions).toHaveProperty("moveTask");
+      expect(domainSchema.actions).toHaveProperty("selectTask");
+      expect(domainSchema.actions).toHaveProperty("restoreTask");
     });
 
     it("should have valid schema hash", () => {
-      expect(TasksDomain.hash).toHaveLength(64);
+      expect(domainSchema.hash).toHaveLength(64);
     });
   });
 

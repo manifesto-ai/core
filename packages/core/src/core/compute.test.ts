@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compute } from "./compute.js";
+import { compute, computeSync } from "./compute.js";
 import { createSnapshot, createIntent } from "../factories.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import type { DomainSchema } from "../schema/domain.js";
@@ -89,7 +89,7 @@ const computeWithContext = (
   schema: DomainSchema,
   snapshot: ReturnType<typeof createSnapshot>,
   intent: ReturnType<typeof createIntent>
-) => compute(schema, snapshot, intent);
+) => compute(schema, snapshot, intent, HOST_CONTEXT);
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {
@@ -722,10 +722,39 @@ describe("compute", () => {
       const snapshot = createTestSnapshot({ count: 1 }, schema.hash);
       const intent = createIntent("increment", "intent-fixed");
 
-      const result1 = await compute(schema, snapshot, intent);
-      const result2 = await compute(schema, snapshot, intent);
+      const result1 = await compute(schema, snapshot, intent, HOST_CONTEXT);
+      const result2 = await compute(schema, snapshot, intent, HOST_CONTEXT);
 
       expect(result1).toEqual(result2);
+    });
+  });
+
+  describe("computeSync", () => {
+    it("should match async compute for the same inputs", async () => {
+      const schema = createTestSchema({
+        actions: {
+          increment: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: {
+                kind: "add",
+                left: { kind: "get", path: "count" },
+                right: { kind: "lit", value: 1 },
+              },
+            },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({ count: 1 }, schema.hash);
+      const intent = createIntent("increment", "intent-sync-1");
+
+      const asyncResult = await compute(schema, snapshot, intent, HOST_CONTEXT);
+      const syncResult = computeSync(schema, snapshot, intent, HOST_CONTEXT);
+
+      expect(syncResult).toEqual(asyncResult);
     });
   });
 });

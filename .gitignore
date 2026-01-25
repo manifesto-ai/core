@@ -12,5 +12,4 @@ docs/.vitepress/dist
 apps/llm-babybench
 .bench
 coverage
-archives
 dist

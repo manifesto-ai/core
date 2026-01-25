@@ -17,7 +17,7 @@ import type {
   ServiceReturn,
   PatchHelpers,
   AppState,
-} from "../types/index.js";
+} from "../core/types/index.js";
 
 // =============================================================================
 // Types

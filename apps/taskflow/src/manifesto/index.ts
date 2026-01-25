@@ -15,17 +15,6 @@ export {
 } from "./actors";
 export type { ActorRef } from "@manifesto-ai/world";
 
-// Authority
-export {
-  AuthorityIds,
-  authorities,
-  createUserBinding,
-  createAgentBinding,
-  createSystemBinding,
-  createAgentPolicyHandler,
-  defaultBindings,
-} from "./authority";
-
 // Effects
 export {
   registerAllEffects,
@@ -38,17 +27,14 @@ export {
   type TaskFlowPersistence,
 } from "./effects";
 
-// World
+// Domain
 export {
-  createTaskFlowWorld,
-  TasksDomain,
-  initialSnapshot,
-  type TaskFlowWorld,
-  type TaskFlowWorldConfig,
   type Task,
   type Filter,
   type ViewMode,
-} from "./world";
+  TasksDomain,
+  initialSnapshot,
+} from "../domain";
 
 // App
 export {
