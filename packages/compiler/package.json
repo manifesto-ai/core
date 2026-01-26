@@ -64,13 +64,13 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@types/node": "^25.0.8",
-    "@types/react": "^19.2.8",
+    "@types/node": "^25.0.10",
+    "@types/react": "^19.2.9",
     "dotenv": "^17.2.3",
     "openai": "^6.16.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17",
+    "vitest": "^4.0.18",
     "zod": "^4.3.5"
   },
   "files": [

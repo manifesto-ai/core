@@ -40,7 +40,7 @@
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.18"
   },
   "files": [
     "dist"
