@@ -463,8 +463,8 @@ importers:
   packages/compiler:
     dependencies:
       '@manifesto-ai/host':
-        specifier: ^1.0.0
-        version: 1.0.0(@manifesto-ai/core@packages+core)
+        specifier: ^2.0.0
+        version: 2.0.1(@manifesto-ai/core@packages+core)
       ink:
         specifier: ^6.6.0
         version: 6.6.0(@types/react@19.2.8)(react@19.2.3)
@@ -1328,10 +1328,10 @@ packages:
     peerDependencies:
       '@langchain/core': ^1.0.0
 
-  '@manifesto-ai/host@1.0.0':
-    resolution: {integrity: sha512-tou/fIDBW8nzh+kiI/fJiT34U1bkqpMD0f2tyxJaoiwnZRPEPyp3ZYUPz0ICJXNTMufogV4KNLeKejmgU6ubyA==}
+  '@manifesto-ai/host@2.0.1':
+    resolution: {integrity: sha512-9icgBidREsXy4fDNSjpZ08DBBrThgSO2Lx5IKEWvi4TQG5Qw60Vw/10J5qcxxhDQXWH9Wlak18hZ3d9ti7mtzg==}
     peerDependencies:
-      '@manifesto-ai/core': ^1.0.0
+      '@manifesto-ai/core': ^2.0.0
 
   '@mermaid-js/parser@0.6.3':
     resolution: {integrity: sha512-lnjOhe7zyHjc+If7yT4zoedx2vo4sHaTmtkl1+or8BRTnCtDmcTpAjpzDSfCZrshM5bCoz0GyidzadJAH1xobA==}
@@ -6750,7 +6750,7 @@ snapshots:
     transitivePeerDependencies:
       - ws
 
-  '@manifesto-ai/host@1.0.0(@manifesto-ai/core@packages+core)':
+  '@manifesto-ai/host@2.0.1(@manifesto-ai/core@packages+core)':
     dependencies:
       '@manifesto-ai/core': link:packages/core
 
@@ -9093,7 +9093,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks: 7.0.1(eslint@9.39.2(jiti@2.6.1))
@@ -9126,7 +9126,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -9141,7 +9141,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.51.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
