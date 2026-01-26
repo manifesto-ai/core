@@ -43,7 +43,7 @@
     "@manifesto-ai/core": "^2.0.0",
     "@manifesto-ai/host": "^2.0.0",
     "openai": "^4.0.0",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
@@ -71,7 +71,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "files": [
     "dist"
