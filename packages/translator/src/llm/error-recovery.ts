@@ -134,6 +134,10 @@ export function recoverFromMalformedOutput(
   // Strategy 1: Direct parse
   const directResult = parseLLMOutput(rawOutput);
   if (directResult.nodes.length > 0 && !directResult.error) {
+    // Add normalization warnings
+    for (const w of directResult.warnings) {
+      warnings.push(`[${w.nodeId}] ${w.field}: ${w.reason}`);
+    }
     const validation = validateNodeDependencies(directResult.nodes);
     if (!validation.valid) {
       warnings.push(`Dependency validation failed: ${validation.error}`);
@@ -151,6 +155,10 @@ export function recoverFromMalformedOutput(
     const extractedResult = parseLLMOutput(extractedJSON);
     if (extractedResult.nodes.length > 0 && !extractedResult.error) {
       warnings.push("Extracted JSON from surrounding text");
+      // Add normalization warnings
+      for (const w of extractedResult.warnings) {
+        warnings.push(`[${w.nodeId}] ${w.field}: ${w.reason}`);
+      }
       const validation = validateNodeDependencies(extractedResult.nodes);
       if (!validation.valid) {
         warnings.push(`Dependency validation failed: ${validation.error}`);
@@ -169,6 +177,10 @@ export function recoverFromMalformedOutput(
     const fixedResult = parseLLMOutput(fixedJSON);
     if (fixedResult.nodes.length > 0 && !fixedResult.error) {
       warnings.push("Applied JSON fixes to parse output");
+      // Add normalization warnings
+      for (const w of fixedResult.warnings) {
+        warnings.push(`[${w.nodeId}] ${w.field}: ${w.reason}`);
+      }
       const validation = validateNodeDependencies(fixedResult.nodes);
       if (!validation.valid) {
         warnings.push(`Dependency validation failed: ${validation.error}`);

@@ -55,15 +55,54 @@ An IntentIR represents a single semantic intent with the following structure:
 - "entity": Reference to a domain entity
   \`{ kind: "entity", entityType: string, ref?: RefMarker }\`
 - "value": Literal value
-  \`{ kind: "value", valueType: string, shape: {}, raw: any }\`
+  \`{ kind: "value", valueType: ValueType, shape: {}, raw: any }\`
 - "path": Path reference
   \`{ kind: "path", path: string }\`
+
+### ValueType (STRICT - only these 6 values allowed)
+- "string": Text values (e.g., names, descriptions, arbitrary text)
+- "number": Numeric values (counts, amounts, percentages)
+- "boolean": true/false values
+- "date": Date/time values (e.g., "next Friday", "2024-01-01")
+- "enum": Categorical values from a fixed set (e.g., priority levels, status values, quarters like Q1/Q2/Q3/Q4)
+- "id": Identifier references
+
+IMPORTANT: Do NOT invent custom valueTypes. Map concepts to these 6 types:
+- Priority levels (high/medium/low) → valueType: "enum", shape: { domain: "priority", value: "high" }
+- Quarters (Q4, Q3) → valueType: "enum", shape: { domain: "quarter", value: "Q4" }
+- Status values → valueType: "enum", shape: { domain: "status", value: "active" }
+- Descriptions/reports → valueType: "string", raw: "the description"
+- Counts/amounts → valueType: "number", raw: 42
 
 ### RefMarker (for discourse references)
 - \`{ kind: "id", id: string }\`: Specific ID reference
 - \`{ kind: "that" }\`: "that one" / "it" (anaphoric)
 - \`{ kind: "this" }\`: "this one" (deictic)
 - \`{ kind: "last" }\`: "the last one"
+
+### Conditions (cond) - AND-only in v0.1
+The \`cond\` field is an array of predicates, where ALL predicates must be satisfied (AND logic).
+OR and NOT are NOT supported in v0.1.
+
+Each predicate has:
+- lhs: Scoped path with prefix (target., theme., source., dest., state., env., computed.)
+- op: Operator ("=", "!=", "<", ">", "<=", ">=", "contains", "startsWith", "matches")
+- rhs: A Term (usually ValueTerm)
+
+Example:
+\`\`\`json
+{
+  "cond": [
+    { "lhs": "target.status", "op": "=", "rhs": { "kind": "value", "valueType": "enum", "shape": { "value": "overdue" }, "raw": "overdue" } },
+    { "lhs": "target.priority", "op": "=", "rhs": { "kind": "value", "valueType": "enum", "shape": { "value": "high" }, "raw": "high" } }
+  ]
+}
+\`\`\`
+
+IMPORTANT:
+- Do NOT use { type: "FILTER", or: [...], not: {...} } - this is NOT valid in v0.1
+- For OR conditions: Create MULTIPLE nodes (one per OR branch) instead
+- For complex filters: Put filtering logic in args, not cond
 `;
 
 const OUTPUT_FORMAT = `

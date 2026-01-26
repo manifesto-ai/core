@@ -2,10 +2,40 @@
  * @fileoverview LLM Output Schema Validation
  *
  * Validates and parses LLM output into structured intent nodes.
+ * Includes normalization for v0.1 spec compliance.
  */
 
 import type { IntentIR, Role } from "@manifesto-ai/intent-ir";
 import type { LLMIntentNode, AmbiguityIndicators } from "./provider.js";
+
+// =============================================================================
+// Normalization Types & Constants
+// =============================================================================
+
+/**
+ * Valid ValueTypes per Intent IR v0.1 spec.
+ */
+const VALID_VALUE_TYPES = ["string", "number", "boolean", "date", "enum", "id"] as const;
+type ValidValueType = (typeof VALID_VALUE_TYPES)[number];
+
+/**
+ * Normalization warning for tracking fixes.
+ */
+export type NormalizationWarning = {
+  nodeId: string;
+  field: string;
+  original: unknown;
+  normalized: unknown;
+  reason: string;
+};
+
+// Collected warnings during parse
+let currentNodeId = "";
+let warnings: NormalizationWarning[] = [];
+
+function addWarning(field: string, original: unknown, normalized: unknown, reason: string): void {
+  warnings.push({ nodeId: currentNodeId, field, original, normalized, reason });
+}
 
 // =============================================================================
 // Types for Raw LLM Output
@@ -70,8 +100,153 @@ function isValidEventClass(value: unknown): value is typeof VALID_EVENT_CLASSES[
  */
 const VALID_FORCES = ["DO", "ASK", "VERIFY", "CONFIRM", "CLARIFY"] as const;
 
-function isValidForce(value: unknown): value is typeof VALID_FORCES[number] {
+function isValidForce(value: unknown): value is (typeof VALID_FORCES)[number] {
   return typeof value === "string" && VALID_FORCES.includes(value as any);
+}
+
+// =============================================================================
+// ValueType Normalization
+// =============================================================================
+
+/**
+ * Normalize arbitrary valueType to v0.1 spec-compliant value.
+ */
+function normalizeValueType(rawType: string): ValidValueType {
+  const lower = rawType.toLowerCase().trim();
+
+  // Direct matches
+  if (VALID_VALUE_TYPES.includes(lower as ValidValueType)) {
+    return lower as ValidValueType;
+  }
+
+  // Known mappings for enum-like types
+  const enumPatterns = [
+    "priority",
+    "status",
+    "level",
+    "quarter",
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+    "category",
+    "type",
+    "state",
+    "mode",
+    "kind",
+    "phase",
+    "stage",
+    "grade",
+    "rank",
+    "tier",
+    "improvement",
+    "report",
+  ];
+  if (enumPatterns.some((p) => lower.includes(p) || lower === p)) {
+    return "enum";
+  }
+
+  // Date/time patterns
+  const datePatterns = ["time", "date", "deadline", "timestamp", "duration", "period", "schedule"];
+  if (datePatterns.some((p) => lower.includes(p))) {
+    return "date";
+  }
+
+  // Number patterns
+  const numberPatterns = [
+    "count",
+    "amount",
+    "quantity",
+    "size",
+    "total",
+    "average",
+    "sum",
+    "percent",
+    "rate",
+    "score",
+  ];
+  if (numberPatterns.some((p) => lower.includes(p))) {
+    return "number";
+  }
+
+  // Boolean patterns
+  const booleanPatterns = ["flag", "enabled", "disabled", "active", "inactive", "completed"];
+  if (booleanPatterns.some((p) => lower === p)) {
+    return "boolean";
+  }
+
+  // Default to string for unknown types
+  return "string";
+}
+
+// =============================================================================
+// Cond Normalization
+// =============================================================================
+
+/**
+ * Valid predicate operators per v0.1 spec.
+ */
+const VALID_PRED_OPS = ["=", "!=", "<", ">", "<=", ">=", "contains", "startsWith", "matches"];
+
+/**
+ * Scoped path regex for LHS validation.
+ */
+const SCOPED_PATH_REGEX = /^(target|theme|source|dest|state|env|computed)\.[A-Za-z0-9_.]+$/;
+
+/**
+ * Check if value is a valid predicate per v0.1 spec.
+ */
+function isValidPred(pred: unknown): boolean {
+  if (!pred || typeof pred !== "object") return false;
+  const p = pred as Record<string, unknown>;
+
+  // Must have lhs (string), op (string), rhs (object)
+  if (typeof p.lhs !== "string") return false;
+  if (typeof p.op !== "string") return false;
+  if (!p.rhs || typeof p.rhs !== "object") return false;
+
+  // lhs must be scoped path
+  if (!SCOPED_PATH_REGEX.test(p.lhs)) return false;
+
+  // op must be valid
+  if (!VALID_PRED_OPS.includes(p.op)) return false;
+
+  return true;
+}
+
+/**
+ * Normalize cond to v0.1 spec-compliant Pred[] or undefined.
+ */
+function normalizeCond(rawCond: unknown): unknown[] | undefined {
+  // If already valid Pred[]
+  if (Array.isArray(rawCond)) {
+    const validPreds = rawCond.filter(isValidPred);
+    if (validPreds.length > 0) {
+      return validPreds;
+    }
+    // If no valid preds, add warning and return undefined
+    if (rawCond.length > 0) {
+      addWarning("cond", rawCond, undefined, "No valid predicates found in cond array");
+    }
+    return undefined;
+  }
+
+  // If invalid structure (object with type/or/not), skip it
+  if (rawCond && typeof rawCond === "object" && !Array.isArray(rawCond)) {
+    const obj = rawCond as Record<string, unknown>;
+    // Detect common invalid patterns
+    if (obj.type === "FILTER" || obj.or || obj.not || obj.and) {
+      addWarning(
+        "cond",
+        rawCond,
+        undefined,
+        "Complex filter structure (type/or/not/and) not supported in v0.1, use Pred[] only"
+      );
+    }
+    return undefined;
+  }
+
+  return undefined;
 }
 
 // =============================================================================
@@ -137,13 +312,25 @@ function parseTerm(raw: unknown): IntentIR["args"][Role] | undefined {
   }
 
   if (kind === "value") {
-    if (typeof obj.valueType !== "string") {
-      return undefined;
+    const rawValueType = typeof obj.valueType === "string" ? obj.valueType : "string";
+    const normalizedType = normalizeValueType(rawValueType);
+
+    // Build shape, preserving original
+    const shape: Record<string, unknown> =
+      typeof obj.shape === "object" && obj.shape !== null
+        ? { ...(obj.shape as Record<string, unknown>) }
+        : {};
+
+    // If type was normalized, track for debugging
+    if (rawValueType !== normalizedType) {
+      shape.originalType = rawValueType;
+      addWarning("valueType", rawValueType, normalizedType, `Normalized from "${rawValueType}" to "${normalizedType}"`);
     }
+
     return {
       kind: "value",
-      valueType: obj.valueType as any,
-      shape: typeof obj.shape === "object" && obj.shape !== null ? obj.shape : {},
+      valueType: normalizedType,
+      shape,
       raw: obj.raw,
     } as any;
   }
@@ -239,8 +426,12 @@ function parseIntentIR(raw: unknown): IntentIR | null {
   };
 
   // Optional fields
-  if (obj.cond && typeof obj.cond === "object") {
-    (ir as any).cond = obj.cond;
+  if (obj.cond !== undefined) {
+    const normalizedCond = normalizeCond(obj.cond);
+    if (normalizedCond) {
+      (ir as any).cond = normalizedCond;
+    }
+    // If cond was invalid, it's simply omitted (no error, warning already added)
   }
 
   if (obj.temp && typeof obj.temp === "object") {
@@ -264,6 +455,9 @@ function parseLLMNode(raw: unknown): LLMIntentNode | null {
   if (typeof obj.tempId !== "string" || !obj.tempId) {
     return null;
   }
+
+  // Set current node ID for warning tracking
+  currentNodeId = obj.tempId;
 
   // Validate IR
   const ir = parseIntentIR(obj.ir);
@@ -295,20 +489,26 @@ function parseLLMNode(raw: unknown): LLMIntentNode | null {
 
 /**
  * Parse LLM output JSON string.
+ * Includes normalization to ensure v0.1 spec compliance.
  */
 export function parseLLMOutput(jsonString: string): {
   nodes: LLMIntentNode[];
+  warnings: NormalizationWarning[];
   error?: string;
 } {
+  // Reset warnings for this parse
+  warnings = [];
+  currentNodeId = "";
+
   try {
     const raw = JSON.parse(jsonString) as RawLLMOutput;
 
     if (raw.error) {
-      return { nodes: [], error: raw.error };
+      return { nodes: [], warnings: [], error: raw.error };
     }
 
     if (!Array.isArray(raw.nodes)) {
-      return { nodes: [], error: "Invalid output: nodes must be an array" };
+      return { nodes: [], warnings: [], error: "Invalid output: nodes must be an array" };
     }
 
     const nodes: LLMIntentNode[] = [];
@@ -319,10 +519,12 @@ export function parseLLMOutput(jsonString: string): {
       }
     }
 
-    return { nodes };
+    // Return collected warnings
+    return { nodes, warnings: [...warnings] };
   } catch (error) {
     return {
       nodes: [],
+      warnings: [...warnings],
       error: `Failed to parse LLM output: ${error instanceof Error ? error.message : String(error)}`,
     };
   }

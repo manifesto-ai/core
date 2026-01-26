@@ -19,7 +19,11 @@ export type {
 export { createOpenAIProvider, createStubProvider } from "./openai-provider.js";
 
 // Output parsing
-export { parseLLMOutput, validateNodeDependencies } from "./output-schema.js";
+export {
+  parseLLMOutput,
+  validateNodeDependencies,
+  type NormalizationWarning,
+} from "./output-schema.js";
 
 // Error recovery
 export {
