@@ -26,11 +26,11 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.17",
     "mermaid": "^11.12.2",
-    "turbo": "^2.7.4",
+    "turbo": "^2.7.6",
     "typedoc": "^0.28.16",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
-    "vitest": "^4.0.17",
+    "vitest": "^4.0.18",
     "vue": "^3.5.26"
   },
   "dependencies": {
