@@ -2,7 +2,7 @@
  * Complex LLM Integration Evaluation
  */
 
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { translate, createOpenAIProvider } from "../dist/index.js";
 
@@ -133,7 +133,7 @@ async function runTest(testCase) {
     // Evaluation
     console.log(`\n📈 Evaluation:`);
 
-    const nodeCountMatch = !testCase.expectedNodes || result.graph.nodes.length >= testCase.expectedNodes - 1;
+    const nodeCountMatch = !testCase.expectedNodes || result.graph.nodes.length >= testCase.expectedNodes;
     console.log(`  - Node count: ${nodeCountMatch ? "✅" : "❌"} (${result.graph.nodes.length}/${testCase.expectedNodes || "N/A"})`);
 
     if (testCase.expectedChainedDeps) {
@@ -154,12 +154,30 @@ async function runTest(testCase) {
       console.log(`  - Warnings: ${result.warnings.map(w => w.code).join(", ")}`);
     }
 
-    return { success: true, elapsed, nodes: result.graph.nodes.length };
+    // Success requires meeting expected node count
+    const success = nodeCountMatch;
+    if (!success) {
+      console.log(`\n  ❌ FAILED: Expected ${testCase.expectedNodes} nodes, got ${result.graph.nodes.length}`);
+    }
+
+    return {
+      success,
+      elapsed,
+      nodes: result.graph.nodes.length,
+      expectedNodes: testCase.expectedNodes,
+      graph: result.graph,
+      warnings: result.warnings,
+    };
 
   } catch (error) {
     const elapsed = Date.now() - startTime;
     console.log(`❌ Error (${elapsed}ms): ${error.message}`);
-    return { success: false, elapsed, error: error.message };
+    return {
+      success: false,
+      elapsed,
+      error: error.message,
+      expectedNodes: testCase.expectedNodes,
+    };
   }
 }
 
@@ -168,12 +186,31 @@ async function main() {
   console.log(`Running ${testCases.length} test cases...\n`);
 
   const results = [];
+  const jsonResults = [];
   let totalTime = 0;
 
   for (const testCase of testCases) {
     const result = await runTest(testCase);
     results.push({ name: testCase.name, ...result });
     totalTime += result.elapsed;
+
+    // Collect detailed JSON result
+    jsonResults.push({
+      name: testCase.name,
+      input: testCase.input,
+      expectedNodes: testCase.expectedNodes,
+      expectedClasses: testCase.expectedClasses,
+      expectedAmbiguous: testCase.expectedAmbiguous,
+      expectedChainedDeps: testCase.expectedChainedDeps,
+      result: {
+        success: result.success,
+        elapsed: result.elapsed,
+        nodeCount: result.nodes,
+        graph: result.graph || null,
+        warnings: result.warnings || [],
+        error: result.error || null,
+      },
+    });
   }
 
   // Summary
@@ -186,14 +223,49 @@ async function main() {
   console.log(`Total time: ${(totalTime / 1000).toFixed(2)}s`);
   console.log(`Average time: ${(totalTime / results.length / 1000).toFixed(2)}s per request`);
 
-  console.log("\n| Test | Status | Time | Nodes |");
-  console.log("|------|--------|------|-------|");
+  console.log("\n| Test | Status | Time | Nodes | Expected |");
+  console.log("|------|--------|------|-------|----------|");
   for (const r of results) {
     const status = r.success ? "✅" : "❌";
     const time = `${(r.elapsed / 1000).toFixed(2)}s`;
-    const nodes = r.nodes || "-";
-    console.log(`| ${r.name} | ${status} | ${time} | ${nodes} |`);
+    const nodes = r.nodes ?? "-";
+    const expected = r.expectedNodes ?? "-";
+    console.log(`| ${r.name} | ${status} | ${time} | ${nodes} | ${expected} |`);
   }
+
+  // Detailed failures
+  const failures = results.filter(r => !r.success);
+  if (failures.length > 0) {
+    console.log(`\n${"─".repeat(60)}`);
+    console.log("❌ Failed Tests:");
+    for (const f of failures) {
+      const reason = f.error || `Expected ${f.expectedNodes} nodes, got ${f.nodes}`;
+      console.log(`  - ${f.name}: ${reason}`);
+    }
+  }
+
+  // Save JSON results
+  const timestamp = new Date().toISOString().split("T")[0];
+  const outputDir = resolve(process.cwd(), "eval-results");
+  try {
+    mkdirSync(outputDir, { recursive: true });
+  } catch (e) {}
+
+  const jsonPath = resolve(outputDir, `complex-eval-${timestamp}.json`);
+  const jsonOutput = {
+    timestamp: new Date().toISOString(),
+    summary: {
+      total: results.length,
+      passed,
+      failed: results.length - passed,
+      totalTime,
+      avgTimePerTest: totalTime / results.length,
+    },
+    tests: jsonResults,
+  };
+
+  writeFileSync(jsonPath, JSON.stringify(jsonOutput, null, 2));
+  console.log(`\n📁 JSON results saved to: ${jsonPath}`);
 }
 
 main().catch(console.error);
