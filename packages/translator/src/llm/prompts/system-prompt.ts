@@ -55,9 +55,9 @@ An IntentIR represents a single semantic intent with the following structure:
 - "entity": Reference to a domain entity
   \`{ kind: "entity", entityType: string, ref?: RefMarker }\`
 - "value": Literal value
-  \`{ kind: "value", valueType: string, raw: any }\`
+  \`{ kind: "value", valueType: string, shape: {}, raw: any }\`
 - "path": Path reference
-  \`{ kind: "path", segments: PathSegment[] }\`
+  \`{ kind: "path", path: string }\`
 
 ### RefMarker (for discourse references)
 - \`{ kind: "id", id: string }\`: Specific ID reference

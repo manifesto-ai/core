@@ -143,14 +143,18 @@ function parseTerm(raw: unknown): IntentIR["args"][Role] | undefined {
     return {
       kind: "value",
       valueType: obj.valueType as any,
+      shape: typeof obj.shape === "object" && obj.shape !== null ? obj.shape : {},
       raw: obj.raw,
     } as any;
   }
 
   if (kind === "path") {
+    if (typeof obj.path !== "string") {
+      return undefined;
+    }
     return {
       kind: "path",
-      segments: Array.isArray(obj.segments) ? obj.segments : [],
+      path: obj.path,
     } as any;
   }
 
