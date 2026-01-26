@@ -56,6 +56,20 @@ describe("Key Derivation", () => {
       expect(key).toBeDefined();
       expect(typeof key).toBe("string");
     });
+
+    it("should ignore scopeProposal.paths order", async () => {
+      const body1: IntentBody = {
+        type: "order.cancel",
+        scopeProposal: { paths: ["b.path", "a.path"] },
+      };
+      const body2: IntentBody = {
+        type: "order.cancel",
+        scopeProposal: { paths: ["a.path", "b.path"] },
+      };
+      const key1 = await deriveIntentKey(body1, schemaHash);
+      const key2 = await deriveIntentKey(body2, schemaHash);
+      expect(key1).toBe(key2);
+    });
   });
 
   describe("deriveSimKey", () => {

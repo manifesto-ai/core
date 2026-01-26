@@ -50,6 +50,15 @@ describe("Canonicalization", () => {
       expect(canonical.event.lemma).toBe("CANCEL");
     });
 
+    it("should trim lemma whitespace", () => {
+      const ir: IntentIR = {
+        ...baseIR,
+        event: { lemma: "  cancel  ", class: "CONTROL" },
+      };
+      const canonical = canonicalizeSemantic(ir);
+      expect(canonical.event.lemma).toBe("CANCEL");
+    });
+
     it("should remove ValueTerm.raw", () => {
       const ir: IntentIR = {
         ...baseIR,
@@ -67,6 +76,43 @@ describe("Canonicalization", () => {
       expect(themeTerm?.kind).toBe("value");
       if (themeTerm?.kind === "value") {
         expect(themeTerm.raw).toBeUndefined();
+      }
+    });
+
+    it("should trim path terms", () => {
+      const ir: IntentIR = {
+        ...baseIR,
+        args: {
+          THEME: { kind: "path", path: "  state.user.name  " },
+        },
+      };
+      const canonical = canonicalizeSemantic(ir);
+      const themeTerm = canonical.args.THEME;
+      expect(themeTerm?.kind).toBe("path");
+      if (themeTerm?.kind === "path") {
+        expect(themeTerm.path).toBe("state.user.name");
+      }
+    });
+
+    it("should sort expr object keys", () => {
+      const ir: IntentIR = {
+        ...baseIR,
+        args: {
+          THEME: {
+            kind: "expr",
+            exprType: "ast",
+            expr: { b: 1, a: { d: 2, c: 3 } },
+          },
+        },
+      };
+      const canonical = canonicalizeSemantic(ir);
+      const themeTerm = canonical.args.THEME;
+      expect(themeTerm?.kind).toBe("expr");
+      if (themeTerm?.kind === "expr" && typeof themeTerm.expr === "object") {
+        const expr = themeTerm.expr as Record<string, unknown>;
+        expect(Object.keys(expr)).toEqual(["a", "b"]);
+        const nested = expr.a as Record<string, unknown>;
+        expect(Object.keys(nested)).toEqual(["c", "d"]);
       }
     });
 
@@ -130,6 +176,20 @@ describe("Canonicalization", () => {
       }
     });
 
+    it("should trim path terms", () => {
+      const ir: IntentIR = {
+        ...baseIR,
+        args: {
+          THEME: { kind: "path", path: "  state.order.id " },
+        },
+      };
+      const canonical = canonicalizeStrict(ir);
+      const themeTerm = canonical.args.THEME;
+      if (themeTerm?.kind === "path") {
+        expect(themeTerm.path).toBe("state.order.id");
+      }
+    });
+
     it("should normalize number raw values", () => {
       const ir: IntentIR = {
         ...baseIR,
@@ -166,6 +226,20 @@ describe("Canonicalization", () => {
       const targetIdx = canonical.indexOf("TARGET");
       const themeIdx = canonical.indexOf("THEME");
       expect(targetIdx).toBeLessThan(themeIdx);
+    });
+
+    it("should order args keys lexicographically", () => {
+      const ir: IntentIR = {
+        v: "0.1",
+        force: "DO",
+        event: { lemma: "TEST", class: "CONTROL" },
+        args: {
+          THEME: { kind: "path", path: "state.theme" },
+          TARGET: { kind: "path", path: "state.target" },
+        },
+      };
+      const canonical = canonicalizeSemantic(ir);
+      expect(Object.keys(canonical.args)).toEqual(["TARGET", "THEME"]);
     });
   });
 });

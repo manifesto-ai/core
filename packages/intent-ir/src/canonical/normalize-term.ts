@@ -9,6 +9,8 @@ import type {
   ValueTerm,
   EntityRefTerm,
   ArtifactRefTerm,
+  PathRefTerm,
+  ExprTerm,
   ResolvedTerm,
 } from "../schema/index.js";
 
@@ -29,9 +31,9 @@ export function normalizeTermSemantic(term: Term): Term {
     case "value":
       return normalizeValueTermSemantic(term);
     case "path":
+      return normalizePathRefTerm(term);
     case "expr":
-      // PathRef and Expr: pass through (opaque content)
-      return term;
+      return normalizeExprTerm(term);
   }
 }
 
@@ -93,8 +95,9 @@ export function normalizeTermStrict(term: Term | ResolvedTerm): Term | ResolvedT
     case "value":
       return normalizeValueTermStrict(term);
     case "path":
+      return normalizePathRefTerm(term);
     case "expr":
-      return term;
+      return normalizeExprTerm(term);
   }
 }
 
@@ -131,6 +134,40 @@ function normalizeValueTermStrict(term: ValueTerm): ValueTerm {
 
   const normalizedRaw = normalizeRawValue(term.valueType, term.raw);
   return { ...term, raw: normalizedRaw };
+}
+
+function normalizePathRefTerm(term: PathRefTerm): PathRefTerm {
+  const trimmed = term.path.trim();
+  if (trimmed === term.path) {
+    return term;
+  }
+  return { ...term, path: trimmed };
+}
+
+function normalizeExprTerm(term: ExprTerm): ExprTerm {
+  if (typeof term.expr === "string") {
+    return term;
+  }
+
+  const normalizedExpr = sortObjectKeys(term.expr);
+  return { ...term, expr: normalizedExpr as ExprTerm["expr"] };
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortObjectKeys);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(record).sort()) {
+      sorted[key] = sortObjectKeys(record[key]);
+    }
+    return sorted;
+  }
+
+  return value;
 }
 
 function normalizeRawValue(valueType: ValueTerm["valueType"], raw: unknown): unknown {

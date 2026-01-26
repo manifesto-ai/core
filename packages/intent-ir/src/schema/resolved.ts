@@ -29,7 +29,7 @@ import { IntentIRSchema } from "./intent-ir.js";
 export const ResolvedEntityRefSchema = z.object({
   kind: z.literal("id"),
   id: z.string(),
-});
+}).strict();
 
 export type ResolvedEntityRef = z.infer<typeof ResolvedEntityRefSchema>;
 
@@ -51,7 +51,7 @@ export const ResolvedEntityRefTermSchema = z.object({
    * Absence means collection scope (preserved from original).
    */
   ref: ResolvedEntityRefSchema.optional(),
-});
+}).strict();
 
 export type ResolvedEntityRefTerm = z.infer<typeof ResolvedEntityRefTermSchema>;
 
@@ -89,7 +89,8 @@ export const ResolvedArgsSchema = z
     INSTRUMENT: ResolvedTermSchema,
     BENEFICIARY: ResolvedTermSchema,
   })
-  .partial();
+  .partial()
+  .strict();
 
 export type ResolvedArgs = z.infer<typeof ResolvedArgsSchema>;
 
@@ -105,6 +106,6 @@ export type ResolvedArgs = z.infer<typeof ResolvedArgsSchema>;
  */
 export const ResolvedIntentIRSchema = IntentIRSchema.extend({
   args: ResolvedArgsSchema,
-});
+}).strict();
 
 export type ResolvedIntentIR = z.infer<typeof ResolvedIntentIRSchema>;

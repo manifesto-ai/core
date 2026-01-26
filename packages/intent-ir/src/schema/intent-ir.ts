@@ -47,7 +47,8 @@ export const ArgsSchema = z
     INSTRUMENT: TermSchema,
     BENEFICIARY: TermSchema,
   })
-  .partial();
+  .partial()
+  .strict();
 
 export type Args = z.infer<typeof ArgsSchema>;
 
@@ -102,7 +103,7 @@ export const IntentIRSchema = z.object({
 
   /** Extension point. OPTIONAL. Keys SHOULD be namespaced. */
   ext: z.record(z.string(), z.unknown()).optional(),
-});
+}).strict();
 
 export type IntentIR = z.infer<typeof IntentIRSchema>;
 

@@ -34,6 +34,7 @@ export const EntityRefSchema = z
     /** Explicit identifier. REQUIRED when kind="id". */
     id: z.string().optional(),
   })
+  .strict()
   .refine((data) => data.kind !== "id" || data.id !== undefined, {
     message: "id is required when kind is 'id'",
   });
@@ -56,7 +57,7 @@ export const EntityRefTermSchema = z.object({
    * OPTIONAL: absence means collection/default scope (e.g., "all users").
    */
   ref: EntityRefSchema.optional(),
-});
+}).strict();
 
 export type EntityRefTerm = z.infer<typeof EntityRefTermSchema>;
 
@@ -79,7 +80,7 @@ export const PathRefTermSchema = z.object({
    * MAY contain wildcards (*) for dynamic segments.
    */
   path: z.string().min(1),
-});
+}).strict();
 
 export type PathRefTerm = z.infer<typeof PathRefTermSchema>;
 
@@ -107,7 +108,7 @@ export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
 export const ArtifactRefSchema = z.object({
   kind: z.enum(["inline", "id"]),
   id: z.string().optional(),
-});
+}).strict();
 
 export type ArtifactRef = z.infer<typeof ArtifactRefSchema>;
 
@@ -126,6 +127,7 @@ export const ArtifactRefTermSchema = z
     /** Inline content. REQUIRED when ref.kind="inline". */
     content: z.string().optional(),
   })
+  .strict()
   .refine((data) => data.ref.kind !== "inline" || data.content !== undefined, {
     message: "content is required when ref.kind is 'inline'",
   })
@@ -175,7 +177,7 @@ export const ValueTermSchema = z.object({
    * Present when exact value is needed for execution.
    */
   raw: z.unknown().optional(),
-});
+}).strict();
 
 export type ValueTerm = z.infer<typeof ValueTermSchema>;
 
@@ -211,6 +213,7 @@ export const ExprTermSchema = z
      */
     expr: z.union([z.string(), z.record(z.string(), z.unknown())]),
   })
+  .strict()
   .superRefine((data, ctx) => {
     if (data.exprType === "ast" && typeof data.expr !== "object") {
       ctx.addIssue({

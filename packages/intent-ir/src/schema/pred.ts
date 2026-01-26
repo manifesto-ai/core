@@ -84,6 +84,6 @@ export const PredSchema = z.object({
    * Right-hand side: value to compare against.
    */
   rhs: TermSchema,
-});
+}).strict();
 
 export type Pred = z.infer<typeof PredSchema>;

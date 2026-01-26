@@ -29,7 +29,7 @@ export function canonicalizeStrict<T extends IntentIR | ResolvedIntentIR>(
 ): T {
   // 1. Uppercase lemma
   const event = {
-    lemma: ir.event.lemma.toUpperCase(),
+    lemma: ir.event.lemma.trim().toUpperCase(),
     class: ir.event.class,
   };
 
@@ -94,7 +94,9 @@ export function toStrictCanonicalString(ir: IntentIR | ResolvedIntentIR): string
 function normalizeArgsStrict(args: Args | ResolvedArgs): Args | ResolvedArgs {
   const result: Record<string, Term | ResolvedTerm> = {};
 
-  for (const [role, term] of Object.entries(args)) {
+  const entries = Object.entries(args).sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [role, term] of entries) {
     if (term !== undefined) {
       result[role] = normalizeTermStrict(term);
     }

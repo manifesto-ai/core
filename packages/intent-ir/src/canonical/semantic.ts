@@ -29,7 +29,7 @@ import { sortPredicates } from "./normalize-pred.js";
 export function canonicalizeSemantic(ir: IntentIR): IntentIR {
   // 1. Uppercase lemma
   const event = {
-    lemma: ir.event.lemma.toUpperCase(),
+    lemma: ir.event.lemma.trim().toUpperCase(),
     class: ir.event.class,
   };
 
@@ -94,7 +94,9 @@ export function toSemanticCanonicalString(ir: IntentIR): string {
 function normalizeArgs(args: Args): Args {
   const result: Args = {};
 
-  for (const [role, term] of Object.entries(args)) {
+  const entries = Object.entries(args).sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [role, term] of entries) {
     if (term !== undefined) {
       (result as Record<string, Term>)[role] = normalizeTermSemantic(term);
     }

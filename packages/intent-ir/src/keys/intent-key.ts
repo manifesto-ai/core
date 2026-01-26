@@ -6,7 +6,7 @@
  */
 
 import { sha256, sha256Sync, toJcs } from "@manifesto-ai/core";
-import type { IntentBody } from "./types.js";
+import type { IntentBody, IntentScope } from "./types.js";
 
 /**
  * Derive intentKey from IntentBody (async).
@@ -51,10 +51,29 @@ function buildIntentKeyPreimage(
   body: IntentBody,
   schemaHash: string
 ): unknown[] {
+  const scopeProposal = normalizeScopeProposal(body.scopeProposal);
+
   return [
     schemaHash,
     body.type,
     body.input ?? null,
-    body.scopeProposal ?? null,
+    scopeProposal ?? null,
   ];
+}
+
+function normalizeScopeProposal(
+  scopeProposal?: IntentScope
+): IntentScope | undefined {
+  if (!scopeProposal) {
+    return undefined;
+  }
+
+  const sortedPaths = scopeProposal.paths
+    ? [...scopeProposal.paths].sort()
+    : undefined;
+
+  return {
+    ...scopeProposal,
+    ...(sortedPaths && { paths: sortedPaths }),
+  };
 }

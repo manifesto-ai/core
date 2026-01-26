@@ -33,7 +33,7 @@ export const TimeSpecSchema = z.object({
    * - WITHIN: duration (e.g., "1h", "30m", "7d")
    */
   value: z.unknown().optional(),
-});
+}).strict();
 
 export type TimeSpec = z.infer<typeof TimeSpecSchema>;
 
@@ -52,7 +52,7 @@ export const VerifySpecSchema = z.object({
   mode: VerifyModeSchema,
   /** Mode-specific parameters. Schema varies by mode. */
   spec: z.record(z.string(), z.unknown()).optional(),
-});
+}).strict();
 
 export type VerifySpec = z.infer<typeof VerifySpecSchema>;
 
@@ -73,6 +73,6 @@ export const OutputSpecSchema = z.object({
   format: OutputFormatSchema.optional(),
   /** Additional constraints (length, tone, style, etc.). */
   constraints: z.record(z.string(), z.unknown()).optional(),
-});
+}).strict();
 
 export type OutputSpec = z.infer<typeof OutputSpecSchema>;

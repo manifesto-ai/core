@@ -73,6 +73,27 @@ describe("IntentIR Schema", () => {
     const result = IntentIRSchema.safeParse(withOptionals);
     expect(result.success).toBe(true);
   });
+
+  it("should reject unknown root keys", () => {
+    const invalid = { ...validIR, extra: "nope" };
+    const result = IntentIRSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject unknown arg roles", () => {
+    const invalid = {
+      ...validIR,
+      args: {
+        TARGET: {
+          kind: "entity",
+          entityType: "Order",
+        },
+        EXTRA: { kind: "path", path: "state.extra" },
+      },
+    };
+    const result = IntentIRSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("parseIntentIR", () => {
