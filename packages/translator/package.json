@@ -38,7 +38,9 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
-    "test": "vitest run",
+    "test": "vitest run --exclude 'src/__tests__/integration/**'",
+    "test:integration": "vitest run src/__tests__/integration/",
+    "test:all": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
