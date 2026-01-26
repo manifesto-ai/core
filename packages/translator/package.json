@@ -1,0 +1,52 @@
+{
+  "name": "@manifesto-ai/translator",
+  "version": "0.1.0",
+  "description": "Manifesto Translator - Semantic bridge from natural language to Intent Graph",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/translator"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/translator#readme",
+  "keywords": [
+    "manifesto",
+    "translator",
+    "intent-ir",
+    "nlp",
+    "intent-graph",
+    "semantic"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "echo 'lint not configured'",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@manifesto-ai/intent-ir": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@manifesto-ai/intent-ir": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.3"
+  }
+}
