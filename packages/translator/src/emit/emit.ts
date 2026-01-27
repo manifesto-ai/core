@@ -69,18 +69,38 @@ export function emitForManifesto(
 
   const sortedNodes = sortResult.sorted;
 
-  // 2. Build dependency edges
+  // 2. Build set of non-Abstract node IDs (nodes that will be in steps[])
+  // Per SPEC C-ABS-1, non-Abstract nodes don't depend on Abstract nodes,
+  // so we only need to filter by resolution status.
+  const stepNodeIds = new Set<IntentNodeId>(
+    sortedNodes
+      .filter((n) => n.resolution.status !== "Abstract")
+      .map((n) => n.id)
+  );
+
+  // 3. Build dependency edges (C-EDGES-1 compliant)
+  // Per SPEC Section 11.2:
+  // - MUST contain only edges where BOTH from and to are nodeIds in steps[]
+  // - Convention: from=dependency (must complete first), to=dependent (executes after)
+  // - Edge direction: from → to means "from must complete before to"
   const dependencyEdges: DependencyEdge[] = [];
-  for (const node of graph.nodes) {
+  for (const node of sortedNodes) {
+    // Skip if this node won't be in steps
+    if (!stepNodeIds.has(node.id)) {
+      continue;
+    }
     for (const dep of node.dependsOn) {
-      dependencyEdges.push({
-        from: node.id,
-        to: dep,
-      });
+      // Only include edge if dependency is also in steps (C-EDGES-1)
+      if (stepNodeIds.has(dep)) {
+        dependencyEdges.push({
+          from: dep, // dependency (must complete first)
+          to: node.id, // dependent (executes after)
+        });
+      }
     }
   }
 
-  // 3. Process nodes and build steps
+  // 4. Process nodes and build steps
   const steps: InvocationStep[] = [];
   const melCandidates: MelCandidate[] = [];
 
@@ -123,13 +143,13 @@ export function emitForManifesto(
     }
   }
 
-  // 4. Build InvocationPlan
+  // 5. Build InvocationPlan
   const invocationPlan: InvocationPlan = {
     steps,
     dependencyEdges: dependencyEdges.length > 0 ? dependencyEdges : undefined,
   };
 
-  // 5. Build metadata
+  // 6. Build metadata
   const meta: BundleMeta = {
     sourceText: graph.meta?.sourceText ?? "",
     translatedAt: graph.meta?.translatedAt ?? new Date().toISOString(),

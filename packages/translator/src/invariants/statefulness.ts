@@ -30,7 +30,7 @@ export type StatefulnessCheckResult =
       readonly error:
         | "INVALID_STATUS"
         | "INVALID_SCORE"
-        | "RESOLVED_WITH_MISSING"
+        | "R1_VIOLATION"
         | "MISSING_WITHOUT_STATUS";
       readonly nodeId: IntentNodeId;
       readonly details?: string;
@@ -110,7 +110,7 @@ export function checkStatefulness(graph: IntentGraph): {
       return {
         result: {
           valid: false,
-          error: "RESOLVED_WITH_MISSING",
+          error: "R1_VIOLATION",
           nodeId: node.id,
           details: `Resolved node has missing roles: ${node.resolution.missing.join(", ")}`,
         },

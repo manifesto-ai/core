@@ -80,14 +80,22 @@ describe("@manifesto-ai/translator exports", () => {
 });
 
 describe("translate()", () => {
-  it("returns empty graph for stub implementation", async () => {
-    const result = await translate("Create a project");
+  it("returns empty graph in deterministic mode", async () => {
+    const result = await translate("Create a project", { mode: "deterministic" });
 
     expect(result.graph.nodes).toHaveLength(0);
     expect(result.graph.meta?.sourceText).toBe("Create a project");
-    expect(result.warnings.some((w: { code: string }) => w.code === "STUB_IMPLEMENTATION")).toBe(
-      true
-    );
+    expect(
+      result.warnings.some((w: { code: string }) => w.code === "DETERMINISTIC_MODE")
+    ).toBe(true);
+  });
+
+  it("throws CONFIGURATION_ERROR in llm mode without provider", async () => {
+    // Default mode is "llm"
+    await expect(translate("Create a project")).rejects.toThrow(TranslatorError);
+    await expect(translate("Create a project")).rejects.toMatchObject({
+      code: "CONFIGURATION_ERROR",
+    });
   });
 });
 

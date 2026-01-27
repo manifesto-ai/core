@@ -28,7 +28,7 @@ export type ReferentialIdentityCheckResult =
   | { readonly valid: true }
   | {
       readonly valid: false;
-      readonly error: "BROKEN_EDGE" | "INVALID_REFERENCE";
+      readonly error: "BROKEN_EDGE" | "SELF_DEPENDENCY";
       readonly nodeId: IntentNodeId;
       readonly details: string;
     };
@@ -66,7 +66,7 @@ export function checkReferentialIdentity(
       if (depId === node.id) {
         return {
           valid: false,
-          error: "INVALID_REFERENCE",
+          error: "SELF_DEPENDENCY",
           nodeId: node.id,
           details: `Node ${node.id} has self-reference in dependsOn`,
         };
@@ -94,4 +94,71 @@ export function checkReferentialIdentity(
  */
 export function isReferentialIdentityValid(graph: IntentGraph): boolean {
   return checkReferentialIdentity(graph).valid;
+}
+
+// =============================================================================
+// Entity Type Consistency (I2-S)
+// =============================================================================
+
+/**
+ * Entity type conflict information.
+ */
+export type EntityTypeConflict = {
+  readonly entityId: string;
+  readonly firstType: string;
+  readonly firstNode: IntentNodeId;
+  readonly secondType: string;
+  readonly secondNode: IntentNodeId;
+};
+
+/**
+ * Result of entity type consistency check.
+ */
+export type EntityTypeConsistencyResult = {
+  readonly valid: boolean;
+  readonly conflicts: readonly EntityTypeConflict[];
+};
+
+/**
+ * Check entity type consistency (I2-S invariant).
+ *
+ * Per SPEC Invariant I2-S:
+ * Same entity ID MUST have the same entityType across all nodes.
+ *
+ * @param graph - The Intent Graph to check
+ * @returns Result with validity and any conflicts found
+ */
+export function checkEntityTypeConsistency(
+  graph: IntentGraph
+): EntityTypeConsistencyResult {
+  const entityTypes = new Map<string, { type: string; nodeId: IntentNodeId }>();
+  const conflicts: EntityTypeConflict[] = [];
+
+  for (const node of graph.nodes) {
+    // Check args for EntityTerms
+    for (const [_role, term] of Object.entries(node.ir.args)) {
+      if (term.kind === "entity") {
+        const entityTerm = term as { kind: "entity"; entityId?: string; entityType: string };
+        if (entityTerm.entityId) {
+          const existing = entityTypes.get(entityTerm.entityId);
+          if (existing && existing.type !== entityTerm.entityType) {
+            conflicts.push({
+              entityId: entityTerm.entityId,
+              firstType: existing.type,
+              firstNode: existing.nodeId,
+              secondType: entityTerm.entityType,
+              secondNode: node.id,
+            });
+          } else if (!existing) {
+            entityTypes.set(entityTerm.entityId, {
+              type: entityTerm.entityType,
+              nodeId: node.id,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return { valid: conflicts.length === 0, conflicts };
 }

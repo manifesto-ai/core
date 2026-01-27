@@ -15,6 +15,7 @@ import {
   checkReferentialIdentity,
   checkCompleteness,
   checkStatefulness,
+  checkAbstractDependency,
   createNodeId,
   type IntentGraph,
   type IntentNode,
@@ -109,6 +110,18 @@ describe("I1: Causal Integrity (Acyclicity)", () => {
 // =============================================================================
 
 describe("I2: Referential Identity (Edge Integrity)", () => {
+  it("detects self-dependency (SELF_DEPENDENCY)", () => {
+    const graph: IntentGraph = {
+      nodes: [createSimpleNode("A", ["A"])],
+    };
+
+    const result = checkReferentialIdentity(graph);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.error).toBe("SELF_DEPENDENCY");
+    }
+  });
+
   it("detects broken edge (dependency to non-existent node)", () => {
     const graph: IntentGraph = {
       nodes: [createSimpleNode("A", ["nonexistent"])],
@@ -410,6 +423,414 @@ describe("validateStructural() integration", () => {
       nodes: [
         createSimpleNode("A", []),
         createSimpleNode("B", ["A"]),
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(true);
+  });
+
+  it("returns ABSTRACT_DEPENDENCY for non-Abstract node depending on Abstract", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("abstract-goal"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "IMPROVE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Abstract", ambiguityScore: 1 },
+        },
+        {
+          id: createNodeId("concrete-task"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [createNodeId("abstract-goal")], // C-ABS-1 violation!
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(false);
+    if (!result.result.valid) {
+      expect(result.result.error).toBe("ABSTRACT_DEPENDENCY");
+    }
+  });
+});
+
+// =============================================================================
+// C-ABS-1: Abstract Dependency Constraint
+// =============================================================================
+
+describe("C-ABS-1: Abstract Dependency Constraint", () => {
+  it("fails when Resolved node depends on Abstract node", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("abstract"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "IMPROVE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Abstract", ambiguityScore: 1 },
+        },
+        {
+          id: createNodeId("resolved"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [createNodeId("abstract")],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+      ],
+    };
+
+    const result = checkAbstractDependency(graph);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.error).toBe("ABSTRACT_DEPENDENCY");
+      expect(result.nodeId).toBe("resolved");
+    }
+  });
+
+  it("fails when Ambiguous node depends on Abstract node", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("abstract"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "IMPROVE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Abstract", ambiguityScore: 1 },
+        },
+        {
+          id: createNodeId("ambiguous"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "UPDATE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [createNodeId("abstract")],
+          resolution: { status: "Ambiguous", ambiguityScore: 0.5 },
+        },
+      ],
+    };
+
+    const result = checkAbstractDependency(graph);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.error).toBe("ABSTRACT_DEPENDENCY");
+      expect(result.nodeId).toBe("ambiguous");
+    }
+  });
+
+  it("passes when Abstract node depends on Abstract node", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("abstract1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "IMPROVE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Abstract", ambiguityScore: 1 },
+        },
+        {
+          id: createNodeId("abstract2"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "OPTIMIZE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [createNodeId("abstract1")],
+          resolution: { status: "Abstract", ambiguityScore: 1 },
+        },
+      ],
+    };
+
+    const result = checkAbstractDependency(graph);
+    expect(result.valid).toBe(true);
+  });
+
+  it("passes when Abstract node depends on Resolved node", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("resolved"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+        {
+          id: createNodeId("abstract"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "IMPROVE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [createNodeId("resolved")],
+          resolution: { status: "Abstract", ambiguityScore: 1 },
+        },
+      ],
+    };
+
+    const result = checkAbstractDependency(graph);
+    expect(result.valid).toBe(true);
+  });
+
+  it("passes when Resolved node depends on Resolved node", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        createSimpleNode("A", []),
+        createSimpleNode("B", ["A"]),
+      ],
+    };
+
+    const result = checkAbstractDependency(graph);
+    expect(result.valid).toBe(true);
+  });
+
+  it("passes for empty graph", () => {
+    const graph: IntentGraph = { nodes: [] };
+
+    const result = checkAbstractDependency(graph);
+    expect(result.valid).toBe(true);
+  });
+});
+
+// =============================================================================
+// DUPLICATE_NODE_ID Detection
+// =============================================================================
+
+describe("DUPLICATE_NODE_ID Detection", () => {
+  it("detects duplicate node IDs in graph", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("duplicate"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+        {
+          id: createNodeId("duplicate"), // Same ID - VIOLATION
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "UPDATE", class: "TRANSFORM" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(false);
+    if (!result.result.valid) {
+      expect(result.result.error).toBe("DUPLICATE_NODE_ID");
+    }
+  });
+
+  it("passes when all node IDs are unique", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        createSimpleNode("A", []),
+        createSimpleNode("B", []),
+        createSimpleNode("C", []),
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(true);
+  });
+});
+
+// =============================================================================
+// INVALID_ROLE Detection
+// =============================================================================
+
+describe("INVALID_ROLE Detection", () => {
+  it("detects invalid role in missing[]", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("node1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: {
+            status: "Ambiguous",
+            ambiguityScore: 0.5,
+            missing: ["INVALID_ROLE_NAME" as any], // Invalid role
+          },
+        },
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(false);
+    if (!result.result.valid) {
+      expect(result.result.error).toBe("INVALID_ROLE");
+    }
+  });
+
+  it("passes when all missing[] roles are valid", () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("node1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: {
+            status: "Ambiguous",
+            ambiguityScore: 0.5,
+            missing: ["TARGET", "THEME"], // Valid roles
+          },
+        },
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(true);
+  });
+});
+
+// =============================================================================
+// ENTITY_TYPE_CONFLICT Detection (I2-S)
+// =============================================================================
+
+describe("ENTITY_TYPE_CONFLICT Detection (I2-S)", () => {
+  it("detects conflicting entity types for same entityId", () => {
+    // Use type assertion for entityId which is checked at runtime
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("node1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {
+              THEME: {
+                kind: "entity",
+                entityType: "Project",
+                entityId: "entity-123",
+              } as any,
+            },
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+        {
+          id: createNodeId("node2"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "UPDATE", class: "TRANSFORM" },
+            args: {
+              TARGET: {
+                kind: "entity",
+                entityType: "Task", // Different type, same entityId - CONFLICT
+                entityId: "entity-123",
+              } as any,
+            },
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+      ],
+    };
+
+    const result = validateStructural(graph);
+    expect(result.result.valid).toBe(false);
+    if (!result.result.valid) {
+      expect(result.result.error).toBe("ENTITY_TYPE_CONFLICT");
+    }
+  });
+
+  it("passes when same entityId has same entityType", () => {
+    // Use type assertion for entityId which is checked at runtime
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("node1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {
+              THEME: {
+                kind: "entity",
+                entityType: "Project",
+                entityId: "entity-123",
+              } as any,
+            },
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+        {
+          id: createNodeId("node2"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "UPDATE", class: "TRANSFORM" },
+            args: {
+              TARGET: {
+                kind: "entity",
+                entityType: "Project", // Same type, same entityId - OK
+                entityId: "entity-123",
+              } as any,
+            },
+          },
+          dependsOn: [createNodeId("node1")],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
       ],
     };
 

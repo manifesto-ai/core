@@ -7,6 +7,22 @@
 import type { IntentIR, Role } from "@manifesto-ai/intent-ir";
 
 // =============================================================================
+// Valid Missing Roles
+// =============================================================================
+
+/**
+ * Valid roles for missing[].role per SPEC Section 4.2.3.
+ *
+ * Only semantic theta-roles are valid here:
+ * - TARGET: Object acted upon
+ * - THEME: Theme of the action
+ * - SOURCE: Origin
+ * - DEST: Destination
+ */
+export const VALID_MISSING_ROLES = ["TARGET", "THEME", "SOURCE", "DEST"] as const;
+export type MissingRole = (typeof VALID_MISSING_ROLES)[number];
+
+// =============================================================================
 // IntentNodeId
 // =============================================================================
 

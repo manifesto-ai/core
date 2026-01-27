@@ -65,7 +65,10 @@ export {
   // I2: Referential Identity
   checkReferentialIdentity,
   isReferentialIdentityValid,
+  checkEntityTypeConsistency,
   type ReferentialIdentityCheckResult,
+  type EntityTypeConflict,
+  type EntityTypeConsistencyResult,
   // I3: Conceptual Completeness
   checkCompleteness,
   isCompletenessValid,
@@ -75,6 +78,10 @@ export {
   isStatefulnessValid,
   type StatefulnessCheckResult,
   type StatefulnessWarning,
+  // C-ABS-1: Abstract Dependency Constraint
+  checkAbstractDependency,
+  isAbstractDependencyValid,
+  type AbstractDependencyCheckResult,
 } from "./invariants/index.js";
 
 // =============================================================================
@@ -98,3 +105,18 @@ export {
   type LLMMetrics,
   type AmbiguityIndicators,
 } from "./llm/index.js";
+
+// =============================================================================
+// Decompose Layer (ADR-003)
+// =============================================================================
+
+export {
+  type DecomposeStrategy,
+  type DecomposeResult,
+  type MergeOptions,
+  type MergeResult,
+  type ShallowLLMConfig,
+  DeterministicDecompose,
+  ShallowLLMDecompose,
+  conservativeMerge,
+} from "./decompose/index.js";

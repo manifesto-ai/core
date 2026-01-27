@@ -19,6 +19,9 @@ export type GraphMeta = {
 
   /** ISO 8601 timestamp when translation occurred */
   readonly translatedAt: string;
+
+  /** Chunk index when graph is part of decomposed set (ADR-003) */
+  readonly chunkIndex?: number;
 };
 
 // =============================================================================

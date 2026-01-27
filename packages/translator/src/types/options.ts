@@ -73,6 +73,63 @@ export type LLMOptions = {
   readonly timeout?: number;
 };
 
+// =============================================================================
+// DecomposeOptions (ADR-003)
+// =============================================================================
+
+/**
+ * Decompose strategy type.
+ *
+ * - "none": No decomposition (default for short inputs)
+ * - "auto": Automatically choose strategy based on input length
+ * - "shallow-llm": Use LLM for semantic boundary detection
+ * - "deterministic": Use rule-based sentence splitting
+ */
+export type DecomposeStrategy = "none" | "auto" | "shallow-llm" | "deterministic";
+
+/**
+ * Decomposition options for complex inputs.
+ *
+ * Per ADR-003: Optional preprocessing layer for splitting
+ * complex inputs into manageable chunks before translation.
+ */
+export type DecomposeOptions = {
+  /**
+   * Decomposition strategy.
+   *
+   * - "none": No decomposition (default)
+   * - "auto": Automatically choose based on input length/complexity
+   * - "shallow-llm": LLM-based semantic boundary detection
+   * - "deterministic": Rule-based sentence splitting
+   */
+  readonly strategy?: DecomposeStrategy;
+
+  /**
+   * Minimum input length to trigger auto decomposition.
+   * Default: 200 characters
+   */
+  readonly autoThreshold?: number;
+
+  /**
+   * API key for LLM decomposition (uses OPENAI_API_KEY if not provided).
+   */
+  readonly apiKey?: string;
+
+  /**
+   * Model for decomposition (default: gpt-4o-mini).
+   */
+  readonly model?: string;
+};
+
+/**
+ * Translation mode.
+ *
+ * Per SPEC Section 10.1:
+ * - "llm": Uses LLM for translation (requires provider config)
+ * - "deterministic": Heuristic-only, no LLM (may produce empty/minimal graph)
+ */
+export type TranslateMode = "llm" | "deterministic";
+
 /**
  * Options for translate() function.
  *
@@ -91,8 +148,26 @@ export type TranslateOptions = {
   /** Maximum nodes to generate */
   readonly maxNodes?: number;
 
+  /**
+   * Translation mode (default: "llm").
+   *
+   * - "llm": Uses LLM for translation (requires provider config).
+   *          Throws CONFIGURATION_ERROR if LLM not configured.
+   * - "deterministic": Heuristic-only, no LLM required.
+   *                    May produce empty/minimal graph for complex inputs.
+   */
+  readonly mode?: TranslateMode;
+
   /** LLM configuration (optional) */
   readonly llm?: LLMOptions;
+
+  /**
+   * Decomposition options (ADR-003).
+   *
+   * When enabled, complex inputs are split into chunks,
+   * translated separately, and merged back together.
+   */
+  readonly decompose?: DecomposeOptions;
 };
 
 // =============================================================================
@@ -154,8 +229,22 @@ export type EmitContext = {
 
 /**
  * Context for validate() function.
+ *
+ * Per SPEC Section 10.2
  */
 export type ValidationContext = {
   /** Lexicon for validation */
   readonly lexicon: Lexicon;
+
+  /**
+   * Strict missing check mode (default: true).
+   *
+   * When true (strict mode):
+   * - R1 violations (Resolved with missing) are errors
+   *
+   * When false (lenient mode):
+   * - R1 violations are warnings instead of errors
+   * - Useful for incremental resolution workflows
+   */
+  readonly strictMissingCheck?: boolean;
 };

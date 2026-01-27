@@ -10,6 +10,8 @@ export {
   type ResolutionStatus,
   type Resolution,
   type IntentNode,
+  type MissingRole,
+  VALID_MISSING_ROLES,
   createNodeId,
 } from "./node.js";
 
@@ -38,6 +40,9 @@ export {
   type SnapshotLike,
   type TranslatorResolver,
   type LLMOptions,
+  type DecomposeStrategy,
+  type DecomposeOptions,
+  type TranslateMode,
   type TranslateOptions,
   type TranslateWarning,
   type TranslateResult,
@@ -49,5 +54,6 @@ export {
 export {
   type TranslatorErrorCode,
   TranslatorError,
+  type ValidationWarning,
   type ValidationResult,
 } from "./errors.js";

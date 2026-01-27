@@ -19,6 +19,7 @@ import type {
   IntentGraph,
   ValidationResult,
   ValidationContext,
+  ValidationWarning,
   IntentNodeId,
 } from "../types/index.js";
 
@@ -70,14 +71,15 @@ function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
  * ActionType resolution is a lowering concern.
  *
  * @param graph - The Intent Graph to validate
- * @param ctx - Validation context with Lexicon
- * @returns Validation result
+ * @param ctx - Validation context with Lexicon and options
+ * @returns Validation result with optional warnings
  */
 export function validateWithLexicon(
   graph: IntentGraph,
   ctx: ValidationContext
 ): ValidationResult {
-  const { lexicon } = ctx;
+  const { lexicon, strictMissingCheck = true } = ctx;
+  const warnings: ValidationWarning[] = [];
 
   for (const node of graph.nodes) {
     // 1. Lemma exists
@@ -104,14 +106,25 @@ export function validateWithLexicon(
     // 3. Required roles present
     const missingRoles = findMissingRequiredRoles(node.ir, entry.thetaFrame);
     if (missingRoles.length > 0) {
-      // If node is marked as Resolved but has missing roles, that's a violation
+      // If node is marked as Resolved but has missing roles, that's an R1 violation
       if (node.resolution.status === "Resolved") {
-        return {
-          valid: false,
-          error: "COMPLETENESS_VIOLATION",
-          nodeId: node.id,
-          details: `Resolved node is missing required roles: ${missingRoles.join(", ")}`,
-        };
+        if (strictMissingCheck) {
+          // Strict mode: R1 violation is an error
+          return {
+            valid: false,
+            error: "COMPLETENESS_VIOLATION",
+            nodeId: node.id,
+            details: `Resolved node is missing required roles: ${missingRoles.join(", ")}`,
+            warnings: warnings.length > 0 ? warnings : undefined,
+          };
+        } else {
+          // Lenient mode: R1 violation is a warning
+          warnings.push({
+            code: "R1_VIOLATION",
+            message: `Resolved node is missing required roles (lenient): ${missingRoles.join(", ")}`,
+            nodeId: node.id,
+          });
+        }
       }
 
       // Check that missing roles match what's recorded in node.resolution.missing
@@ -122,6 +135,7 @@ export function validateWithLexicon(
           error: "MISSING_MISMATCH",
           nodeId: node.id,
           details: `Recorded missing roles [${recordedMissing.join(", ")}] do not match actual missing [${missingRoles.join(", ")}]`,
+          warnings: warnings.length > 0 ? warnings : undefined,
         };
       }
     }
@@ -179,5 +193,8 @@ export function validateWithLexicon(
     }
   }
 
-  return { valid: true };
+  return {
+    valid: true,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
 }

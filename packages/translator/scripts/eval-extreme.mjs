@@ -387,6 +387,11 @@ async function runExtremeTest(testCase, index) {
       llm: { provider },
       language: testCase.input.match(/[가-힣]/) ? "ko" : "en",
       maxNodes: 20, // Limit for extreme inputs
+      // ADR-003: Use decomposition for complex inputs
+      decompose: {
+        strategy: "auto",
+        autoThreshold: 200,
+      },
     });
 
     const elapsed = Date.now() - startTime;

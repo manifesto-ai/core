@@ -15,13 +15,15 @@ import type { InvocationStep, LoweringFailureReason } from "./lowering.js";
 /**
  * Represents a dependency relationship between nodes.
  *
- * Convention: from=dependent, to=dependency.
- * "from depends on to"
+ * Per SPEC Section 11.2:
+ * - Convention: from=dependency (must complete first), to=dependent (executes after)
+ * - Edge direction: from → to means "from must complete before to"
+ * - Example: If n2 depends on n1, edge is { from: "n1", to: "n2" }
  */
 export type DependencyEdge = {
-  /** The dependent node */
+  /** The dependency node (must complete first) */
   readonly from: IntentNodeId;
-  /** The dependency node */
+  /** The dependent node (executes after from) */
   readonly to: IntentNodeId;
 };
 
@@ -44,8 +46,12 @@ export type InvocationPlan = {
   readonly steps: readonly InvocationStep[];
 
   /**
-   * Original graph dependency information.
-   * Convention: from=dependent, to=dependency.
+   * Dependency edges among steps (C-EDGES-1 compliant).
+   *
+   * Per SPEC Section 11.2:
+   * - MUST contain only edges where BOTH from and to are nodeIds in steps[]
+   * - Convention: from=dependency (must complete first), to=dependent (executes after)
+   * - Edge direction: from → to means "from must complete before to"
    */
   readonly dependencyEdges?: readonly DependencyEdge[];
 };
