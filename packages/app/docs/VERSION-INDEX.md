@@ -7,7 +7,7 @@
 
 ## Latest Version
 
-- **SPEC:** [v2.0.1](APP-SPEC-v2.0.1-patch.md) (Patch - requires v2.0.0)
+- **SPEC:** [v2.1.0](APP-SPEC-v2.1.0-patch.md) (Patch - requires v2.0.0)
 - **Architecture:** [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
 
 **Note:** v2.0.1 is a patch document. Read [APP-SPEC-v2.0.0.md](APP-SPEC-v2.0.0.md) first.
@@ -18,7 +18,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v2.0.1 | [SPEC](APP-SPEC-v2.0.1-patch.md) | — | Patch (Base: v2.0.0) | Draft |
+| v2.1.0 | [SPEC](APP-SPEC-v2.1.0-patch.md) | — | Patch (Base: v2.0.0) | Draft |
 | v2.0.0 | [SPEC](APP-SPEC-v2.0.0.md) | [Multiple FDRs](#fdrs) | Full | Accepted |
 
 ---
@@ -37,10 +37,10 @@
 
 ## Reading Guide
 
-### For Latest (v2.0.1)
+### For Latest (v2.1.0)
 
 1. Read [APP-SPEC-v2.0.0.md](APP-SPEC-v2.0.0.md) (full base specification)
-2. Read [APP-SPEC-v2.0.1-patch.md](APP-SPEC-v2.0.1-patch.md) (ADR-002: platform namespace injection, `$mel` support)
+2. Read [APP-SPEC-v2.1.0-patch.md](APP-SPEC-v2.1.0-patch.md) (ADR-002: platform namespace injection, `$mel` support)
 3. For architecture overview: [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
 
 ### For v2.0.0

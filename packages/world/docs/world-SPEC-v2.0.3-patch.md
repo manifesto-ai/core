@@ -14,7 +14,7 @@
 |--------|------|--------|
 | WORLD-HASH-4b (`$mel` exclusion) | Rule Addition | Non-breaking |
 | `stripPlatformNamespaces()` | Function Update | Non-breaking |
-| NS-PLAT-1~4 (Platform namespace policy) | New Rules | Normative |
+| MEL-DATA-1~3 (Compiler `$mel` namespace rules) | New Rules | Normative |
 | HOST-DATA-6 Extension | Rule Update | Clarification |
 
 ---
@@ -50,7 +50,7 @@
  | Field | Included | Reason | Rule ID |
  |-------|----------|--------|---------|
 -| `snapshot.data` (excluding `$host`) | ✅ MUST | Domain state | WORLD-HASH-1 |
-+| `snapshot.data` (excluding platform namespaces) | ✅ MUST | Domain state | WORLD-HASH-1 |
++| `snapshot.data` (excluding `$host`, `$mel`) | ✅ MUST | Domain state | WORLD-HASH-1 |
  ...
  | **`data.$host.*`** | ❌ **MUST NOT** | **Host-owned transient state (WorldId divergence risk)** | **WORLD-HASH-4a** |
 +| **`data.$mel.*`** | ❌ **MUST NOT** | **Compiler-owned internal state (guard markers, etc.)** | **WORLD-HASH-4b** |
@@ -77,7 +77,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
 ```diff
 -function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T, '$host'> {
 +/**
-+ * Strip platform-owned namespaces from data before hashing.
++ * Strip platform-reserved namespaces from data before hashing.
 + * WORLD-HASH-4a: data.$host MUST NOT be included in hash.
 + * WORLD-HASH-4b: data.$mel MUST NOT be included in hash.
 + */
@@ -99,7 +99,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
 ```diff
    // Compute snapshotHash (deterministic, JCS-based)
 -  // WORLD-HASH-4a: MUST exclude data.$host from hash
-+  // WORLD-HASH-4a, WORLD-HASH-4b: MUST exclude platform namespaces from hash
++  // WORLD-HASH-4a, WORLD-HASH-4b: MUST exclude data.$host and data.$mel from hash
    const hashInput: SnapshotHashInput = {
 -    data: stripHostNamespace(snapshot.data),  // ← $host excluded
 +    data: stripPlatformNamespaces(snapshot.data),  // ← $host, $mel excluded
@@ -119,24 +119,21 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
 
 ```diff
 -#### 7.9.1 The `$host` Namespace Convention
-+#### 7.9.1 Platform Namespace Convention (v2.0.3)
++#### 7.9.1 Platform-Reserved Namespaces (v2.0.3)
 
 -Host stores its internal execution state in `snapshot.data.$host`. This is a **cross-layer convention** that both Host and World MUST respect.
-+Platform layers store their internal state in reserved `$`-prefixed namespaces within `snapshot.data`. This is a **cross-layer convention** that all Manifesto layers MUST respect.
++Platform components store internal state in reserved namespaces within `snapshot.data`. These namespaces are excluded from World hash computation to ensure semantic equivalence.
 
-+**Reserved Platform Namespaces:**
++**Reserved Namespaces:**
 +
 +| Namespace | Owner | Purpose | Hash Included |
 +|-----------|-------|---------|---------------|
-+| `$host` | Host | Effect bookkeeping, intent slots | ❌ MUST NOT (WORLD-HASH-4a) |
-+| `$mel` | Compiler | Guard state, compiler internals | ❌ MUST NOT (WORLD-HASH-4b) |
-+| `$` prefix (general) | Platform | Reserved for future platform use | ❌ MUST NOT |
++| `$host` | Host | Error bookkeeping, intent slots, execution context | ❌ Excluded |
++| `$mel` | Compiler | Guard state, compiler-generated internal slots | ❌ Excluded |
++
++**Convention:** All `$`-prefixed keys in `snapshot.data` are platform-reserved. Domain schemas MUST NOT use keys starting with `$`.
 
  ```typescript
-+/**
-+ * Platform-owned namespaces within snapshot.data
-+ */
-+
  /**
   * Host-owned namespace within snapshot.data
 - *
@@ -186,23 +183,18 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
  |---------|-------------|
  | HOST-DATA-1 | Host MUST store its internal state under `data.$host` namespace |
  | HOST-DATA-2 | Host MUST NOT store internal state in `system.*` namespace |
--| HOST-DATA-3 | World MUST exclude `data.$host` from snapshotHash computation (WORLD-HASH-4a) |
-+| HOST-DATA-3 | World MUST exclude platform namespaces from snapshotHash computation (WORLD-HASH-4a, 4b) |
+| HOST-DATA-3 | World MUST exclude `data.$host` from snapshotHash computation (WORLD-HASH-4a) |
  | HOST-DATA-4 | World MUST NOT interpret or depend on `data.$host` contents |
  | HOST-DATA-5 | App MAY read `data.$host` for debugging/telemetry purposes |
--| HOST-DATA-6 | The `$host` namespace is reserved; domain schemas MUST NOT use `$host` as a key |
-+| HOST-DATA-6 | All `$`-prefixed namespaces are reserved; domain schemas MUST NOT use `$`-prefixed keys |
-+
-+**New Rules (v2.0.3):**
-+
-+| Rule ID | Description |
-+|---------|-------------|
-+| NS-PLAT-1 | All `$`-prefixed fields in `snapshot.data` are platform-owned |
-+| NS-PLAT-2 | Platform-owned namespaces MUST NOT be included in snapshotHash |
-+| NS-PLAT-3 | Domain schemas MUST NOT define fields starting with `$` |
-+| NS-PLAT-4 | World MUST use `stripPlatformNamespaces()` before hash computation |
-+| MEL-DATA-1 | Compiler MUST store its internal state under `data.$mel` namespace |
-+| MEL-DATA-2 | Compiler MUST NOT store internal state in `data.$host` or `system.*` |
+| HOST-DATA-6 | All `$`-prefixed namespaces are reserved; domain schemas MUST NOT use `$`-prefixed keys |
+
+**New Rules (v2.0.3):**
+
+| Rule ID | Description |
+|---------|-------------|
+| MEL-DATA-1 | Compiler MUST store guard state under `data.$mel.guards.*` namespace |
+| MEL-DATA-2 | World MUST exclude `data.$mel` from snapshotHash computation (WORLD-HASH-4b) |
+| MEL-DATA-3 | World MUST NOT interpret or depend on `data.$mel` contents |
 ```
 
 ### 4.3 Section 7.9.4: Implementation (v2.0.3)
@@ -214,7 +206,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
  /**
 - * Strip Host-owned namespace from data before hashing.
 - * WORLD-HASH-4a + HOST-DATA-3: data.$host MUST NOT be included in hash.
-+ * Strip platform-owned namespaces from data before hashing.
++ * Strip platform-reserved namespaces from data before hashing.
 + * WORLD-HASH-4a: data.$host MUST NOT be included in hash.
 + * WORLD-HASH-4b: data.$mel MUST NOT be included in hash.
   */
@@ -263,8 +255,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
  | ID | Invariant |
  |----|-----------|
  ...
- | INV-W7 | snapshotHash excludes non-deterministic fields |
-+| INV-W16 | snapshotHash excludes all `$`-prefixed platform namespaces |
+| INV-W7 | snapshotHash excludes non-deterministic fields |
 ```
 
 ---
@@ -278,7 +269,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
  |----------|-----------|
  ...
 -| Host Data Contract | HOST-DATA-1~6 |
-+| Host Data Contract | HOST-DATA-1~6, NS-PLAT-1~4, MEL-DATA-1~2 |
++| Host Data Contract | HOST-DATA-1~6, MEL-DATA-1~3 |
 ```
 
 ---
@@ -291,8 +282,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
 | Addition | Purpose |
 |----------|---------|
 | WORLD-HASH-4b | `$mel` namespace excluded from hash |
-| NS-PLAT-1~4 | Unified platform namespace policy |
-| MEL-DATA-1~2 | Compiler namespace ownership rules |
+| MEL-DATA-1~3 | Compiler namespace ownership rules |
 | `stripPlatformNamespaces()` | Replaces `stripHostNamespace()` |
 
 **New Rules (v2.0.3):**
@@ -300,18 +290,14 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
 | Rule ID | Description |
 |---------|-------------|
 | WORLD-HASH-4b | `data.$mel` MUST NOT be included in snapshotHash |
-| NS-PLAT-1 | All `$`-prefixed fields in `snapshot.data` are platform-owned |
-| NS-PLAT-2 | Platform-owned namespaces MUST NOT be included in snapshotHash |
-| NS-PLAT-3 | Domain schemas MUST NOT define fields starting with `$` |
-| NS-PLAT-4 | World MUST use `stripPlatformNamespaces()` before hash computation |
-| MEL-DATA-1 | Compiler MUST store its internal state under `data.$mel` namespace |
-| MEL-DATA-2 | Compiler MUST NOT store internal state in `data.$host` or `system.*` |
+| MEL-DATA-1 | Compiler MUST store guard state under `data.$mel.guards.*` namespace |
+| MEL-DATA-2 | World MUST exclude `data.$mel` from snapshotHash computation (WORLD-HASH-4b) |
+| MEL-DATA-3 | World MUST NOT interpret or depend on `data.$mel` contents |
 
 **Rationale:**
 - `$mel` namespace is used by MEL compiler for internal guard state management
 - Guard markers (from `onceIntent` syntax) are implementation details
-- Platform namespaces should not affect domain state identity (WorldId)
-- Unified policy simplifies future platform namespace additions
+- `$mel` contents should not affect domain state identity (WorldId)
 ```
 
 ---
@@ -324,7 +310,6 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
  | Requirement | Section |
  |-------------|---------|
 +| `$mel` namespace exclusion | §5.5.2, §7.8 |
-+| NS-PLAT-* rules | §7.9.3 |
 +| MEL-DATA-* rules | §7.9.3 |
 +| `stripPlatformNamespaces()` function | §7.9.4 |
 
@@ -341,7 +326,7 @@ function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T,
 ## 9. Test Cases
 
 ```typescript
-describe('World SPEC v2.0.3: Platform namespace exclusion', () => {
+describe('World SPEC v2.0.3: $host/$mel exclusion', () => {
   describe('WORLD-HASH-4b', () => {
     it('excludes $mel from snapshotHash computation', () => {
       const snap1 = {
@@ -385,7 +370,7 @@ describe('World SPEC v2.0.3: Platform namespace exclusion', () => {
       expect('$mel' in stripped).toBe(false);
     });
 
-    it('handles data without platform namespaces', () => {
+    it('handles data without $host/$mel namespaces', () => {
       const data = { count: 1, user: { name: 'Alice' } };
 
       const stripped = stripPlatformNamespaces(data);
