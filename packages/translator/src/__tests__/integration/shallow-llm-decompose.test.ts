@@ -5,6 +5,11 @@
  * Requires OPENAI_API_KEY in .env.local or environment.
  *
  * Run with: pnpm test:integration
+ *
+ * Per ADR-003 v0.11:
+ * - C-DEC-1: Each chunk.text MUST be a contiguous substring of input
+ * - C-DEC-5: LLM strategies MUST include span and verify
+ * - C-LLM-DEC-1/2: Fallback on verification failure
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
@@ -65,10 +70,20 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       const result = await strategy.decompose(text);
 
       console.log("Input:", text);
-      console.log("Segments:", result.chunks.map((c) => c.meta?.sourceText));
+      console.log("Segments:", result.chunks.map((c) => c.text));
 
       expect(result.chunks.length).toBeGreaterThanOrEqual(2);
-      expect(result.meta.strategy).toBe("shallow-llm");
+      expect(strategy.name).toBe("shallow-llm");
+
+      // ADR-003 C-DEC-1: Verify substring constraint
+      for (const chunk of result.chunks) {
+        expect(text).toContain(chunk.text);
+        // ADR-003 C-DEC-5: Verify span
+        if (chunk.span) {
+          const extracted = text.slice(chunk.span[0], chunk.span[1]);
+          expect(extracted.trim()).toBe(chunk.text);
+        }
+      }
     },
     30000
   );
@@ -81,9 +96,14 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       const result = await strategy.decompose(text);
 
       console.log("Input:", text);
-      console.log("Segments:", result.chunks.map((c) => c.meta?.sourceText));
+      console.log("Segments:", result.chunks.map((c) => c.text));
 
       expect(result.chunks.length).toBeGreaterThanOrEqual(3);
+
+      // Verify substring constraint
+      for (const chunk of result.chunks) {
+        expect(text).toContain(chunk.text);
+      }
     },
     30000
   );
@@ -95,9 +115,10 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       const result = await strategy.decompose(text);
 
       console.log("Input:", text);
-      console.log("Segments:", result.chunks.map((c) => c.meta?.sourceText));
+      console.log("Segments:", result.chunks.map((c) => c.text));
 
       expect(result.chunks.length).toBe(1);
+      expect(result.chunks[0].text).toBe(text);
     },
     30000
   );
@@ -109,10 +130,15 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       const result = await strategy.decompose(text);
 
       console.log("Input:", text);
-      console.log("Segments:", result.chunks.map((c) => c.meta?.sourceText));
+      console.log("Segments:", result.chunks.map((c) => c.text));
 
       expect(result.chunks.length).toBeGreaterThanOrEqual(1);
-      expect(result.meta.strategy).toBe("shallow-llm");
+      expect(strategy.name).toBe("shallow-llm");
+
+      // Verify substring constraint
+      for (const chunk of result.chunks) {
+        expect(text).toContain(chunk.text);
+      }
     },
     30000
   );
@@ -125,7 +151,7 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       const result = await strategy.decompose(text);
 
       console.log("Input:", text);
-      console.log("Segments:", result.chunks.map((c) => c.meta?.sourceText));
+      console.log("Segments:", result.chunks.map((c) => c.text));
 
       expect(result.chunks.length).toBeGreaterThanOrEqual(3);
     },
@@ -150,11 +176,14 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       console.log("Input:", text);
       console.log("\nSegments found:", result.chunks.length);
       result.chunks.forEach((chunk, i) => {
-        console.log(`  ${i + 1}. ${chunk.meta?.sourceText}`);
+        console.log(`  ${i + 1}. [${chunk.id}] ${chunk.text}`);
+        if (chunk.span) {
+          console.log(`      span: [${chunk.span[0]}, ${chunk.span[1]}]`);
+        }
       });
 
       expect(result.chunks.length).toBeGreaterThanOrEqual(10);
-      expect(result.meta.strategy).toBe("shallow-llm");
+      expect(strategy.name).toBe("shallow-llm");
     },
     60000
   );
@@ -177,13 +206,41 @@ describe.skipIf(!API_KEY)("ShallowLLMDecompose Integration", () => {
       console.log("Input:", text);
       console.log("\nSegments found:", result.chunks.length);
       result.chunks.forEach((chunk, i) => {
-        console.log(`  ${i + 1}. ${chunk.meta?.sourceText}`);
+        console.log(`  ${i + 1}. [${chunk.id}] ${chunk.text}`);
+        if (chunk.span) {
+          console.log(`      span: [${chunk.span[0]}, ${chunk.span[1]}]`);
+        }
       });
 
       expect(result.chunks.length).toBeGreaterThanOrEqual(10);
-      expect(result.meta.strategy).toBe("shallow-llm");
+      expect(strategy.name).toBe("shallow-llm");
     },
     60000
+  );
+
+  // ADR-003 C-DEC-5: Span verification test
+  it(
+    "C-DEC-5: all chunks have valid spans matching substring",
+    async () => {
+      const text =
+        "Create a project, add users, configure settings, and deploy to production";
+      const result = await strategy.decompose(text);
+
+      for (const chunk of result.chunks) {
+        expect(chunk.id).toBeDefined();
+        expect(chunk.text).toBeDefined();
+        expect(chunk.span).toBeDefined();
+
+        // Verify span correctness
+        if (chunk.span) {
+          const extracted = text.slice(chunk.span[0], chunk.span[1]);
+          // The extracted text should contain the chunk text
+          // (may have leading/trailing whitespace)
+          expect(extracted.trim()).toBe(chunk.text);
+        }
+      }
+    },
+    30000
   );
 });
 

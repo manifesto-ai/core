@@ -3,9 +3,51 @@
  *
  * Types for the optional decompose preprocessing layer that splits
  * complex inputs into manageable chunks before translation.
+ *
+ * Per ADR-003 v0.11:
+ * - Each chunk MUST be a contiguous substring of the input (C-DEC-1)
+ * - Chunks MUST preserve original order (C-DEC-2)
+ * - LLM strategies MUST include span and verify substring (C-DEC-5)
  */
 
 import type { IntentGraph } from "../types/index.js";
+
+// =============================================================================
+// DecomposeChunk
+// =============================================================================
+
+/**
+ * A single chunk from decomposition.
+ *
+ * Per ADR-003 Normative Chunk Constraints:
+ * - text MUST be a contiguous substring of input (C-DEC-1)
+ * - span is REQUIRED for LLM strategies (C-DEC-5)
+ */
+export type DecomposeChunk = {
+  /** Unique chunk identifier */
+  readonly id: string;
+
+  /** MUST be contiguous substring of input (C-DEC-1) */
+  readonly text: string;
+
+  /** Offsets in original string [start, end]. REQUIRED for LLM strategies (C-DEC-5) */
+  readonly span?: readonly [number, number];
+
+  /** Non-normative hints for downstream processing */
+  readonly hint?: Readonly<Record<string, unknown>>;
+};
+
+// =============================================================================
+// DecomposeWarning
+// =============================================================================
+
+/**
+ * Warning generated during decomposition.
+ */
+export type DecomposeWarning = {
+  readonly code: string;
+  readonly message: string;
+};
 
 // =============================================================================
 // DecomposeResult
@@ -13,22 +55,37 @@ import type { IntentGraph } from "../types/index.js";
 
 /**
  * Result of decomposition.
+ *
+ * Per ADR-003 D2:
+ * - chunks array contains DecomposeChunk items
+ * - warnings for non-fatal issues
  */
 export type DecomposeResult = {
-  /** Chunks of Intent Graphs (one per segment) */
-  readonly chunks: readonly IntentGraph[];
+  /** Decomposed chunks */
+  readonly chunks: readonly DecomposeChunk[];
 
-  /** Metadata about the decomposition */
-  readonly meta: {
-    /** Strategy used for decomposition */
-    readonly strategy: string;
+  /** Non-fatal warnings */
+  readonly warnings?: readonly DecomposeWarning[];
+};
 
-    /** Number of chunks produced */
-    readonly chunkCount: number;
+// =============================================================================
+// DecomposeContext
+// =============================================================================
 
-    /** ISO timestamp of decomposition */
-    readonly decomposedAt: string;
-  };
+/**
+ * Context for decomposition.
+ *
+ * Per ADR-003 D2.
+ */
+export type DecomposeContext = {
+  /** Language hint (MUST NOT be required per C-LANG-1) */
+  readonly language?: string;
+
+  /** Soft budget for chunk size in characters */
+  readonly maxChunkChars?: number;
+
+  /** Soft budget for number of chunks */
+  readonly maxChunks?: number;
 };
 
 // =============================================================================
@@ -38,10 +95,11 @@ export type DecomposeResult = {
 /**
  * Strategy interface for decomposition.
  *
- * Per ADR-003: Decomposition strategies are pluggable.
+ * Per ADR-003 D2: Decomposition is defined by a strategy interface.
+ *
  * Implementations include:
- * - Deterministic: Rule-based sentence splitting
- * - ShallowLLM: LLM-based semantic boundary detection
+ * - DeterministicDecompose: Rule-based sentence splitting
+ * - ShallowLLMDecompose: LLM-based semantic boundary detection
  */
 export interface DecomposeStrategy {
   /** Strategy name (for logging/debugging) */
@@ -50,13 +108,15 @@ export interface DecomposeStrategy {
   /**
    * Decompose input text into chunks.
    *
-   * Each chunk is a partial Intent Graph that will be
-   * merged after individual translation.
+   * Per ADR-003 D2:
+   * - Returns chunks where each chunk.text is a contiguous substring of input
+   * - LLM strategies MUST include span and verify (C-DEC-5)
    *
-   * @param text - Natural language input to decompose
+   * @param input - Natural language input to decompose
+   * @param ctx - Optional decomposition context
    * @returns Decomposition result with chunks
    */
-  decompose(text: string): Promise<DecomposeResult>;
+  decompose(input: string, ctx?: DecomposeContext): Promise<DecomposeResult>;
 }
 
 // =============================================================================

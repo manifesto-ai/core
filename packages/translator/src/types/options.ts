@@ -111,6 +111,24 @@ export type DecomposeOptions = {
   readonly autoThreshold?: number;
 
   /**
+   * Soft budget for chunk size in characters.
+   * Per ADR-003 DecomposeContext.maxChunkChars
+   */
+  readonly maxChunkChars?: number;
+
+  /**
+   * Soft budget for number of chunks.
+   * Per ADR-003 DecomposeContext.maxChunks
+   */
+  readonly maxChunks?: number;
+
+  /**
+   * Language hint for decomposition.
+   * Per ADR-003 C-LANG-1: MUST NOT be required.
+   */
+  readonly language?: string;
+
+  /**
    * API key for LLM decomposition (uses OPENAI_API_KEY if not provided).
    */
   readonly apiKey?: string;

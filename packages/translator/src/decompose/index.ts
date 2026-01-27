@@ -12,8 +12,11 @@
 
 // Types
 export type {
-  DecomposeStrategy,
+  DecomposeChunk,
+  DecomposeContext,
   DecomposeResult,
+  DecomposeStrategy,
+  DecomposeWarning,
   MergeOptions,
   MergeResult,
 } from "./types.js";

@@ -2,6 +2,11 @@
  * @fileoverview Decompose Layer Tests (ADR-003)
  *
  * Tests for decomposition strategies and merge functionality.
+ *
+ * Per ADR-003 v0.11:
+ * - C-DEC-1: Each chunk.text MUST be a contiguous substring of input
+ * - C-DEC-2: Chunks MUST preserve original order
+ * - C-DEC-5: LLM strategies MUST include span and verify
  */
 
 import { describe, it, expect } from "vitest";
@@ -25,9 +30,9 @@ describe("DeterministicDecompose", () => {
     const result = await strategy.decompose(text);
 
     expect(result.chunks.length).toBe(3);
-    expect(result.chunks[0].meta?.sourceText).toBe("Create a project.");
-    expect(result.chunks[1].meta?.sourceText).toBe("Add tasks to it.");
-    expect(result.chunks[2].meta?.sourceText).toBe("Delete the old one.");
+    expect(result.chunks[0].text).toBe("Create a project.");
+    expect(result.chunks[1].text).toBe("Add tasks to it.");
+    expect(result.chunks[2].text).toBe("Delete the old one.");
   });
 
   it("handles single sentence", async () => {
@@ -35,7 +40,7 @@ describe("DeterministicDecompose", () => {
     const result = await strategy.decompose(text);
 
     expect(result.chunks.length).toBe(1);
-    expect(result.chunks[0].meta?.sourceText).toBe("Create a project.");
+    expect(result.chunks[0].text).toBe("Create a project.");
   });
 
   it("handles empty text", async () => {
@@ -50,8 +55,8 @@ describe("DeterministicDecompose", () => {
     const result = await strategy.decompose(text);
 
     expect(result.chunks.length).toBe(2);
-    expect(result.chunks[0].meta?.sourceText).toBe("Do it now!");
-    expect(result.chunks[1].meta?.sourceText).toBe("Make it happen!");
+    expect(result.chunks[0].text).toBe("Do it now!");
+    expect(result.chunks[1].text).toBe("Make it happen!");
   });
 
   it("handles text with question marks", async () => {
@@ -59,20 +64,78 @@ describe("DeterministicDecompose", () => {
     const result = await strategy.decompose(text);
 
     expect(result.chunks.length).toBe(2);
-    expect(result.chunks[0].meta?.sourceText).toBe("Can you help?");
-    expect(result.chunks[1].meta?.sourceText).toBe("What should I do?");
+    expect(result.chunks[0].text).toBe("Can you help?");
+    expect(result.chunks[1].text).toBe("What should I do?");
   });
 
-  it("sets correct metadata", async () => {
+  it("sets correct chunk IDs", async () => {
     const text = "First. Second.";
     const result = await strategy.decompose(text);
 
-    expect(result.meta.strategy).toBe("deterministic");
-    expect(result.meta.chunkCount).toBe(2);
-    expect(result.meta.decomposedAt).toBeDefined();
+    expect(result.chunks[0].id).toBe("chunk_0");
+    expect(result.chunks[1].id).toBe("chunk_1");
+  });
 
-    expect(result.chunks[0].meta?.chunkIndex).toBe(0);
-    expect(result.chunks[1].meta?.chunkIndex).toBe(1);
+  // ADR-003 C-DEC-1: Substring verification
+  it("C-DEC-1: chunk.text is contiguous substring of input", async () => {
+    const text = "Create a project. Add tasks to it.";
+    const result = await strategy.decompose(text);
+
+    for (const chunk of result.chunks) {
+      // Verify text exists in input
+      expect(text).toContain(chunk.text);
+
+      // Verify span matches
+      if (chunk.span) {
+        const extracted = text.slice(chunk.span[0], chunk.span[1]);
+        expect(extracted.trim()).toBe(chunk.text);
+      }
+    }
+  });
+
+  // ADR-003 C-DEC-2: Order preservation
+  it("C-DEC-2: chunks preserve original order by span", async () => {
+    const text = "First. Second. Third.";
+    const result = await strategy.decompose(text);
+
+    for (let i = 1; i < result.chunks.length; i++) {
+      const prevSpan = result.chunks[i - 1].span;
+      const currSpan = result.chunks[i].span;
+      if (prevSpan && currSpan) {
+        expect(currSpan[0]).toBeGreaterThanOrEqual(prevSpan[1]);
+      }
+    }
+  });
+
+  // ADR-003: span information
+  it("includes span information in chunks", async () => {
+    const text = "Create a project. Add tasks.";
+    const result = await strategy.decompose(text);
+
+    for (const chunk of result.chunks) {
+      expect(chunk.span).toBeDefined();
+      expect(Array.isArray(chunk.span)).toBe(true);
+      expect(chunk.span!.length).toBe(2);
+    }
+  });
+
+  it("respects maxChunkChars context", async () => {
+    // Create a long text with many sentences
+    const text =
+      "A. B. C. D. E. F. G. H. I. J. K. L. M. N. O. P. Q. R. S. T.";
+    const result = await strategy.decompose(text, { maxChunkChars: 100 });
+
+    // Each chunk should respect the budget (some merging should occur)
+    for (const chunk of result.chunks) {
+      expect(chunk.text.length).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("respects maxChunks context", async () => {
+    const text = "A. B. C. D. E. F. G. H.";
+    const result = await strategy.decompose(text, { maxChunks: 3 });
+
+    expect(result.chunks.length).toBeLessThanOrEqual(3);
   });
 });
 
@@ -98,8 +161,13 @@ describe("ShallowLLMDecompose", () => {
     const result = await strategy.decompose(text);
 
     expect(result.chunks.length).toBe(1);
-    expect(result.chunks[0].meta?.sourceText).toBe(text);
-    expect(result.meta.strategy).toBe("shallow-llm");
+    expect(result.chunks[0].text).toBe(text);
+
+    // Should have warning about not being configured
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings?.some((w) => w.code === "LLM_NOT_CONFIGURED")).toBe(
+      true
+    );
   });
 
   it("handles empty text", async () => {
@@ -107,7 +175,6 @@ describe("ShallowLLMDecompose", () => {
     const result = await strategy.decompose("");
 
     expect(result.chunks.length).toBe(0);
-    expect(result.meta.chunkCount).toBe(0);
   });
 
   it("handles very short text (< 10 chars)", async () => {
@@ -115,16 +182,7 @@ describe("ShallowLLMDecompose", () => {
     const result = await strategy.decompose("Hi");
 
     expect(result.chunks.length).toBe(1);
-    expect(result.chunks[0].meta?.sourceText).toBe("Hi");
-  });
-
-  it("sets correct metadata", async () => {
-    const strategy = new ShallowLLMDecompose();
-    const text = "Create a project";
-    const result = await strategy.decompose(text);
-
-    expect(result.meta.strategy).toBe("shallow-llm");
-    expect(result.meta.decomposedAt).toBeDefined();
+    expect(result.chunks[0].text).toBe("Hi");
   });
 
   it("uses custom config values", () => {
@@ -138,6 +196,33 @@ describe("ShallowLLMDecompose", () => {
 
     expect(strategy.isConfigured()).toBe(true);
     expect(strategy.name).toBe("shallow-llm");
+  });
+
+  // ADR-003 C-DEC-5: span verification for LLM
+  it("C-DEC-5: fallback includes span information", async () => {
+    const strategy = new ShallowLLMDecompose(); // Not configured, will fallback
+    const text = "Create a project and add tasks to it";
+    const result = await strategy.decompose(text);
+
+    for (const chunk of result.chunks) {
+      expect(chunk.span).toBeDefined();
+      expect(chunk.id).toBeDefined();
+    }
+  });
+
+  // ADR-003 C-LLM-DEC-1/2: fallback on failure
+  it("C-LLM-DEC-2: falls back to deterministic on error", async () => {
+    const strategy = new ShallowLLMDecompose(); // No API key = will fallback
+    const text = "First sentence. Second sentence.";
+    const result = await strategy.decompose(text);
+
+    // Should still get valid chunks even without LLM
+    expect(result.chunks.length).toBeGreaterThan(0);
+
+    // Each chunk should be a substring
+    for (const chunk of result.chunks) {
+      expect(text).toContain(chunk.text);
+    }
   });
 });
 

@@ -22,6 +22,7 @@ import {
   DeterministicDecompose,
   conservativeMerge,
   type DecomposeStrategy,
+  type DecomposeContext,
 } from "../decompose/index.js";
 
 // =============================================================================
@@ -177,12 +178,29 @@ async function translateWithDecompose(
     return translateWithLLM(text, provider, options);
   }
 
-  // Decompose input
-  const decomposeResult = await decomposer.decompose(text);
+  // Build DecomposeContext from options
+  const decomposeCtx: DecomposeContext = {
+    language: options?.decompose?.language ?? options?.language,
+    maxChunkChars: options?.decompose?.maxChunkChars,
+    maxChunks: options?.decompose?.maxChunks,
+  };
+
+  // Decompose input (pass context per ADR-003 D2)
+  const decomposeResult = await decomposer.decompose(text, decomposeCtx);
+
+  // Propagate decompose warnings (per GAP-M1)
+  if (decomposeResult.warnings) {
+    for (const w of decomposeResult.warnings) {
+      warnings.push({
+        code: `DECOMPOSE_${w.code}`,
+        message: w.message,
+      });
+    }
+  }
 
   warnings.push({
     code: "DECOMPOSED",
-    message: `Input decomposed into ${decomposeResult.chunks.length} chunks using ${decomposeResult.meta.strategy} strategy`,
+    message: `Input decomposed into ${decomposeResult.chunks.length} chunks using ${decomposer.name} strategy`,
   });
 
   // If only one chunk, translate directly
@@ -193,9 +211,9 @@ async function translateWithDecompose(
   // Translate each chunk
   const translatedChunks: IntentGraph[] = [];
 
-  for (let i = 0; i < decomposeResult.chunks.length; i++) {
-    const chunk = decomposeResult.chunks[i];
-    const chunkText = chunk.meta?.sourceText ?? "";
+  for (const chunk of decomposeResult.chunks) {
+    // Per ADR-003 D2: Use chunk.text (contiguous substring of input)
+    const chunkText = chunk.text;
 
     if (!chunkText.trim()) {
       continue;
@@ -210,17 +228,17 @@ async function translateWithDecompose(
 
       translatedChunks.push(chunkResult.graph);
 
-      // Collect chunk warnings
+      // Collect chunk warnings with chunk.id for tracking
       for (const w of chunkResult.warnings) {
         warnings.push({
           ...w,
-          message: `[Chunk ${i + 1}] ${w.message}`,
+          message: `[${chunk.id}] ${w.message}`,
         });
       }
     } catch (error) {
       warnings.push({
         code: "CHUNK_TRANSLATION_FAILED",
-        message: `Chunk ${i + 1} translation failed: ${error instanceof Error ? error.message : String(error)}`,
+        message: `[${chunk.id}] Translation failed: ${error instanceof Error ? error.message : String(error)}`,
       });
     }
   }
