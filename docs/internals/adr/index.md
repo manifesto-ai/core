@@ -27,6 +27,7 @@ ADRs are NOT:
 | ID | Title | Status | Date |
 |----|-------|--------|------|
 | [ADR-001](./001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted | 2025-01-17 |
+| [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX 개선 — `$mel` 네임스페이스 자동 주입 + `onceIntent` 문법 추가 | Proposed | 2026-01-27 |
 
 ---
 
