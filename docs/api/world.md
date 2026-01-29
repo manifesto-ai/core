@@ -192,8 +192,8 @@ Most applications should use `@manifesto-ai/app` instead. Use World directly whe
 
 For the complete normative specification, see:
 
-- [World Specification](/internals/spec/world-spec) - Full governance protocol
-- [packages/world/docs/world-SPEC-v2.0.2.md](https://github.com/manifesto-ai/manifesto/blob/main/packages/world/docs/world-SPEC-v2.0.2.md) - Latest package spec
+- [Specifications Hub](/internals/spec/) - Links to all package specs
+- [World SPEC v2.0.2](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/world/docs/world-SPEC-v2.0.2.md) - Latest package spec
 
 ---
 

@@ -156,8 +156,8 @@ Most applications should use `@manifesto-ai/app` instead. Use Core directly when
 
 For the complete normative specification, see:
 
-- [Core Specification](/internals/spec/core-spec) - Full DomainSchema and computation rules
-- [packages/core/docs/SPEC-v2.0.0.md](https://github.com/manifesto-ai/manifesto/blob/main/packages/core/docs/SPEC-v2.0.0.md) - Latest package spec
+- [Specifications Hub](/internals/spec/) - Links to all package specs
+- [Core SPEC v2.0.0](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/core/docs/SPEC-v2.0.0.md) - Latest package spec
 
 ---
 
@@ -166,5 +166,5 @@ For the complete normative specification, see:
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/host](./host) | Executes effects declared by Core |
-| [@manifesto-ai/compiler](../internals/spec/compiler-spec) | Compiles MEL to DomainSchema |
+| [@manifesto-ai/compiler](/mel/) | Compiles MEL to DomainSchema |
 | [@manifesto-ai/app](./app) | High-level facade using Core |

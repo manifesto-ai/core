@@ -1,259 +1,107 @@
-# Design Rationale (FDR)
+# Foundational Design Rationale (FDR)
 
-> **Purpose:** Understand why Manifesto is designed the way it is
-> **Audience:** Contributors, skeptics, researchers, architects
-> **Status:** Informative (non-normative)
+This page serves as a hub linking to the authoritative FDR documents maintained in each package's `docs/` directory.
 
----
+::: tip What is FDR?
+FDR documents explain **why** design decisions were made. They complement SPECs (which define **what**) by providing rationale, alternatives considered, and consequences.
+:::
 
-## What is FDR?
+## Package FDRs
 
-**FDR** stands for **Foundational Design Rationale** — documents that explain why Manifesto's architecture exists and why alternatives were rejected.
+### Core Packages
 
-FDRs are NOT:
-- Specifications (see [Specifications](/internals/spec/) instead)
-- Tutorials (see [Guides](/guides/) instead)
-- Architecture descriptions (see [Architecture](/architecture/) instead)
+| Package | Latest FDR | Scope | Package Docs |
+|---------|------------|-------|--------------|
+| **@manifesto-ai/core** | v2.0.0 | Compute equation, purity, patches | [FDR-v2.0.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/core/docs/FDR-v2.0.0.md) |
+| **@manifesto-ai/host** | v2.0.2 | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/host/docs/host-FDR-v2.0.2.md) |
+| **@manifesto-ai/world** | v2.0.2 | Governance, lineage, namespaces | [world-FDR-v2.0.2.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/world/docs/world-FDR-v2.0.2.md) |
+| **@manifesto-ai/builder** | v1.0.0 | DSL design, type safety | [FDR-v1.0.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/builder/docs/FDR-v1.0.0.md) |
 
-FDRs ARE:
-- Explanations of design decisions
-- Analysis of rejected alternatives
-- Trade-off discussions
-- Historical context
-- Philosophical foundations
+### Application Layer
 
-**Who should read FDRs:**
-- Contributors who want to understand the "why"
-- Skeptics evaluating whether Manifesto's approach is sound
-- Researchers comparing architectural approaches
-- Architects designing similar systems
+| Package | Latest FDR | Scope | Package Docs |
+|---------|------------|-------|--------------|
+| **@manifesto-ai/app** | Multiple | See below | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/compiler/docs/FDR-v0.5.0-patch.md) |
 
-**Who should NOT start here:**
-- Beginners learning Manifesto
-- Users just building applications
-- People looking for API documentation
+### Intent & Translation
 
-If you're new, read [Core Concepts](/concepts/) first.
+| Package | Latest FDR | Scope | Package Docs |
+|---------|------------|-------|--------------|
+| **@manifesto-ai/intent-ir** | v0.1.0 | Chomskyan LF, canonicalization | [FDR-v0.1.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/FDR-v0.1.0.md) |
+| **@manifesto-ai/translator** | v0.11 | Translation pipeline | [translator-FDR-v0.11.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/docs/translator-FDR-v0.11.md) |
 
 ---
 
-## FDR Documents
+## App Package FDRs
 
-### High-Level Package
+The App package has multiple focused FDR documents:
 
-#### [App FDR](./app-fdr)
-
-**Why the App facade exists and how it simplifies Manifesto usage.**
-
-**Key decisions explained:**
-- Why provide a high-level facade over Host/World?
-- Why `ready()` is async and returns a promise
-- Why actions return `ActionHandle` with `.done()`
-- Why subscriptions use selector functions
+| FDR | Version | Scope |
+|-----|---------|-------|
+| [FDR-APP-PUB-001](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/FDR-APP-PUB-001-v0.3.0.md) | v0.3.0 | Tick definition, publish boundary |
+| [FDR-APP-RUNTIME-001](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md) | v0.2.0 | Lifecycle, hooks, plugins |
+| [FDR-APP-INTEGRATION-001](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.0.md) | v0.4.0 | HostExecutor, WorldStore |
+| [FDR-APP-POLICY-001](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/FDR-APP-POLICY-001-v0.2.3.md) | v0.2.3 | ExecutionKey, authority |
+| [FDR-APP-EXT-001](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/FDR-APP-EXT-001-v0.4.0.md) | v0.4.0 | MemoryStore, context freezing |
 
 ---
 
-### Core Layer
+## Quick Links to Key FDRs
 
-#### [Core FDR](./core-fdr)
+### Core FDR Highlights
 
-**Why Core is pure. Why effects are declarations.**
+**Core v2.0.0** - Foundational compute model
+- FDR-C001: Pure compute equation
+- FDR-C002: Snapshot immutability
+- FDR-C003: Patch-only mutation
 
-**Key decisions explained:**
-- Why separate computation from execution?
-- Why not allow IO in Core?
-- Why are effects declarations, not executions?
-- Why is Snapshot the only medium?
-- Why are Flows not Turing-complete?
+**Host v2.0.2** - Execution model
+- FDR-H001~H022: Event-loop, concurrency
+- FDR-H023: Context determinism
+- FDR-H024~H027: Snapshot type alignment
 
-**Alternatives rejected:**
-- Mixed computation/execution (Redux thunks)
-- Effect execution in Core
-- Value passing outside Snapshot
-- Turing-complete flows
+**World v2.0.2** - Governance model
+- FDR-W001~W020: Proposal, Authority, Decision
+- FDR-W021+: Host-World data contract
 
----
+### Intent IR Research
 
-#### [Compiler FDR](./compiler-fdr)
-
-**Why MEL exists and how it stays deterministic.**
-
-**Key decisions explained:**
-- Why MEL uses explicit keywords and function-only syntax
-- Why patches and effects are statements (not expressions)
-- Why expressions are canonical and deterministic
-- Why system values are modeled as effects
-- Why `available`, `fail`, and `stop` exist for Core alignment
-
-**Alternatives rejected:**
-- Using JavaScript/TypeScript directly
-- Implicit operators and template literals
-- Special-case "magic" system values
+For academic-depth FDR content on Intent IR, see:
+- [Theoretical Foundations](/internals/research/intent-ir/theory)
+- [Formal Definitions](/internals/research/intent-ir/formal)
 
 ---
 
-### Runtime Layer
+## FDR Document Structure
 
-#### [Host FDR](./host-fdr)
+Each FDR typically contains:
 
-**Why Host executes but doesn't decide.**
+```markdown
+## FDR-XXX: Decision Title
 
-**Key decisions explained:**
-- Why does Host not interpret effects?
-- Why must effect handlers return patches?
-- Why does Host loop until requirements are empty?
-- Why is persistence optional?
-- Why FIFO serialization for dispatch?
+### Decision
+What was decided.
 
-**Alternatives rejected:**
-- Intelligent Host (interpreting requirements)
-- Effect handlers returning values
-- Single compute-execute cycle
-- Mandatory persistence
+### Context
+Why the decision was needed.
 
----
+### Rationale
+Why this option was chosen.
 
-#### [World FDR](./world-fdr)
+### Alternatives Rejected
+What other options were considered.
 
-**Why governance is built-in, not optional.**
-
-**Key decisions explained:**
-- Why is World Protocol mandatory?
-- Why store Intents instead of Events?
-- Why is authority evaluation separate from execution?
-- Why is lineage a DAG?
-
-**Alternatives rejected:**
-- Optional governance
-- Event Sourcing model
-- Inline authorization checks
-- Linear history
+### Consequences
+What follows from this decision.
+```
 
 ---
 
-### Builder & DSL
+## Reading Guide
 
-#### [Builder FDR](./builder-fdr)
+1. **Start with SPEC** - Understand what the system does
+2. **Read FDR for "why"** - Understand design rationale
+3. **Check ADRs** - For cross-cutting architectural decisions
 
-**Why the type-safe DSL exists.**
-
-**Key decisions explained:**
-- Why Zod-first schema definition?
-- Why zero-string-path APIs?
-- Why re-entry helpers are built-in
-- Why `defineDomain()` returns schema, not runtime
-
----
-
-#### [Intent IR FDR](./intent-ir-fdr)
-
-**Why Intent IR uses Chomskyan Logical Form.**
-
-**Key decisions explained:**
-- Why LF-based semantic representation?
-- Why language-agnostic structures?
-- Why explicit force and event class?
-
----
-
-## Key Design Principles (Summary)
-
-### Principle 1: Determinism Over Convenience
-
-**Decision:** Core must be pure, even if it's less convenient.
-
-**Why:** Determinism enables:
-- Reproducible debugging
-- Time-travel
-- Reliable testing
-- Verifiable computation
-
-**FDR:** [Core FDR](./core-fdr)
-
----
-
-### Principle 2: Separation of Concerns
-
-**Decision:** Core computes, Host executes, World governs. No mixing.
-
-**Why:** Separation enables:
-- Independent testing
-- Replaceable implementations
-- Clear reasoning boundaries
-
-**FDR:** [Core FDR](./core-fdr), [Host FDR](./host-fdr), [World FDR](./world-fdr)
-
----
-
-### Principle 3: Accountability Over Flexibility
-
-**Decision:** World Protocol is mandatory. All intents must be governed.
-
-**Why:** Accountability is non-negotiable for:
-- AI agent safety
-- Compliance requirements
-- Audit trails
-- Trust in multi-actor systems
-
-**FDR:** [World FDR](./world-fdr)
-
----
-
-### Principle 4: Snapshot as Sole Medium
-
-**Decision:** All communication through Snapshot. No hidden channels.
-
-**Why:** Single medium ensures:
-- Complete state visibility
-- Serialization
-- Reproducibility
-
-**FDR:** [Core FDR](./core-fdr)
-
----
-
-### Principle 5: Termination Guarantees
-
-**Decision:** Flows must terminate. No unbounded loops.
-
-**Why:** Termination enables:
-- Static analysis
-- Complete traces
-- Guaranteed halt
-
-**FDR:** [Core FDR](./core-fdr)
-
----
-
-## Reading Order
-
-### For Contributors
-
-**Goal:** Understand architectural constraints before contributing
-
-1. **[Core FDR](./core-fdr)** — Understand purity requirement
-2. **[Host FDR](./host-fdr)** — Understand execution model
-3. **[World FDR](./world-fdr)** — Understand governance model
-
-**Total time:** ~1 hour
-
-### For App Developers
-
-**Goal:** Understand high-level design decisions
-
-1. **[App FDR](./app-fdr)** — Why the facade exists
-2. **[Compiler FDR](./compiler-fdr)** — Why MEL is designed this way
-
-**Total time:** ~30 minutes
-
----
-
-## Related Sections
-
-- **[Architecture](/architecture/)** — How design is implemented
-- **[Specifications](/internals/spec/)** — Normative requirements
-- **[Core Concepts](/concepts/)** — What FDRs formalize
-
----
-
-**Start with [Core FDR](./core-fdr) to understand the foundation.**
+FDR versions typically align with SPEC versions. When reading a SPEC patch, check if there's a corresponding FDR patch.

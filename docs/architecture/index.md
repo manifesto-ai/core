@@ -213,7 +213,7 @@ How World Protocol manages authority and accountability.
 
 **Reading time:** 25 minutes
 
-**Note:** See [World Concept](/concepts/world) and [World Protocol Specification](/internals/spec/world-spec) for governance details.
+**Note:** See [World Concept](/concepts/world) and [Specifications](/internals/spec/) for governance details.
 
 ---
 
@@ -226,7 +226,7 @@ How World Protocol manages authority and accountability.
 1. **[Layers](/internals/architecture)** — See the structure
 2. **[Data Flow](./data-flow)** — See how it works
 3. **[Determinism](./determinism)** — Understand core guarantee
-4. **[World Protocol](/internals/spec/world-spec)** — Understand authority architecture
+4. **[Specifications](/internals/spec/)** — Understand authority architecture
 
 **Total time:** ~1 hour
 
@@ -347,7 +347,7 @@ See [Flow Concept](/concepts/flow) for details.
 
 Even "always approve" authority provides value. World is not optional.
 
-See [World Concept](/concepts/world) and [World Protocol](/internals/spec/world-spec) for details.
+See [World Concept](/concepts/world) and [Specifications](/internals/spec/) for details.
 
 ---
 

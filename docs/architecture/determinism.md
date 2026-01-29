@@ -487,8 +487,8 @@ Host provides randomness via HostContext (available under `input.__host`). Core 
 
 ## Related Documents
 
-- [Core FDR](/internals/fdr/core-fdr) — Detailed design rationale for Core decisions
-- [Schema Specification](/internals/spec/core-spec) — Normative specification for Core behavior
+- [Design Rationale](/internals/fdr/) — FDRs including Core design rationale
+- [Specifications](/internals/spec/) — Normative specifications for Core and other packages
 - [Failure Model](./failure-model) — How errors are handled deterministically
 - [Architecture Overview](/architecture/) — Full system architecture
 

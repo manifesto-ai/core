@@ -366,9 +366,7 @@ An implementation is compliant with this architecture if:
 ## Related Documents
 
 - [ADR-001: Layer Separation](./adr/001-layer-separation) - Design decision rationale
-- [Core Spec](./spec/core-spec) - Core layer specification
-- [Host Spec](./spec/host-spec) - Host layer specification
-- [World Spec](./spec/world-spec) - World layer specification
+- [Specifications](./spec/) - Package specifications (Core, Host, World, etc.)
 
 ---
 

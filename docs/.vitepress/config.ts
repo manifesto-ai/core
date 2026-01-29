@@ -130,38 +130,19 @@ export default defineConfig({
         },
         {
           text: 'Specifications',
-          collapsed: true,
-          items: [
-            { text: 'Overview', link: '/internals/spec/' },
-            { text: 'App Spec', link: '/internals/spec/app-spec' },
-            { text: 'Core Spec', link: '/internals/spec/core-spec' },
-            { text: 'Host Spec', link: '/internals/spec/host-spec' },
-            { text: 'World Spec', link: '/internals/spec/world-spec' },
-            { text: 'Builder Spec', link: '/internals/spec/builder-spec' },
-            { text: 'Compiler Spec', link: '/internals/spec/compiler-spec' },
-            { text: 'Intent IR Spec', link: '/internals/spec/intent-ir-spec' },
-          ]
+          link: '/internals/spec/',
         },
         {
-          text: 'Design Rationale',
-          collapsed: true,
-          items: [
-            { text: 'Overview', link: '/internals/fdr/' },
-            { text: 'App FDR', link: '/internals/fdr/app-fdr' },
-            { text: 'Core FDR', link: '/internals/fdr/core-fdr' },
-            { text: 'Host FDR', link: '/internals/fdr/host-fdr' },
-            { text: 'World FDR', link: '/internals/fdr/world-fdr' },
-            { text: 'Builder FDR', link: '/internals/fdr/builder-fdr' },
-            { text: 'Compiler FDR', link: '/internals/fdr/compiler-fdr' },
-            { text: 'Intent IR FDR', link: '/internals/fdr/intent-ir-fdr' },
-          ]
+          text: 'Design Rationale (FDR)',
+          link: '/internals/fdr/',
         },
         {
-          text: 'Architecture Decision Records',
+          text: 'Architecture Decisions (ADR)',
           collapsed: true,
           items: [
             { text: 'Overview', link: '/internals/adr/' },
             { text: 'ADR-001: Layer Separation', link: '/internals/adr/001-layer-separation' },
+            { text: 'ADR-002: DX Improvements', link: '/internals/adr/002-dx-improvement-mel-namespace-onceIntent' },
           ]
         },
         {

@@ -217,4 +217,4 @@ compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 - [Layer Model](/internals/architecture) - Understanding the layered architecture
 - [Snapshot](/concepts/snapshot) - The single medium of communication
 - [Effect](/concepts/effect) - How effects work
-- [Core FDR](/internals/fdr/core-fdr) - Design rationale for Core
+- [Design Rationale](/internals/fdr/) - FDRs including Core design rationale
