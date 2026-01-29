@@ -163,6 +163,17 @@ export default defineConfig({
             { text: 'Overview', link: '/internals/adr/' },
             { text: 'ADR-001: Layer Separation', link: '/internals/adr/001-layer-separation' },
           ]
+        },
+        {
+          text: 'Research',
+          collapsed: true,
+          items: [
+            { text: 'Overview', link: '/internals/research/' },
+            { text: 'Intent IR Research', link: '/internals/research/intent-ir/' },
+            { text: 'Theory', link: '/internals/research/intent-ir/theory' },
+            { text: 'Comparison', link: '/internals/research/intent-ir/comparison' },
+            { text: 'Formal Definitions', link: '/internals/research/intent-ir/formal' },
+          ]
         }
       ],
     },
