@@ -16,7 +16,7 @@ import type {
 import { createNodeId } from "../types/node.js";
 import { validateStructural } from "../validate/structural.js";
 import { validateWithLexicon } from "../validate/lexicon.js";
-import { TranslatorError } from "../types/errors.js";
+import { TranslatorError } from "../core/types/errors.js";
 import {
   calculateAmbiguityScore,
   determineResolutionStatus,

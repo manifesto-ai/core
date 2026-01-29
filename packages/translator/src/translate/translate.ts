@@ -14,7 +14,7 @@ import type {
 import type { LLMProvider } from "../llm/provider.js";
 import { validateStructural } from "../validate/structural.js";
 import { validateWithLexicon } from "../validate/lexicon.js";
-import { TranslatorError } from "../types/errors.js";
+import { TranslatorError } from "../core/types/errors.js";
 import { translateWithLLM } from "./translate-with-llm.js";
 import { createOpenAIProvider, createStubProvider } from "../llm/openai-provider.js";
 import {

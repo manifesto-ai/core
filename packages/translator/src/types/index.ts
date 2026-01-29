@@ -51,9 +51,9 @@ export {
 } from "./options.js";
 
 // Error types
+// Note: TranslatorError is exported from core/types/errors.js with backward-compatible API
 export {
   type TranslatorErrorCode,
-  TranslatorError,
   type ValidationWarning,
   type ValidationResult,
 } from "./errors.js";
