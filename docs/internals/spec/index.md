@@ -29,7 +29,7 @@ All specifications are maintained at the package level. This page provides navig
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/intent-ir** | v0.1.0 | Final | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/docs/) |
+| **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/) |
 
 ---
 
@@ -83,8 +83,8 @@ All specifications are maintained at the package level. This page provides navig
 ### Translator
 
 - **Translator SPEC v1.0.3** (Normative)
-  - [translator-SPEC-v1.0.3.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/docs/translator-SPEC-v1.0.3.md)
-  - Previous: [translator-SPEC-v0.11.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/docs/translator-SPEC-v0.11.md)
+  - [translator-SPEC-v1.0.3.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/translator-SPEC-v1.0.3.md)
+  - Previous: [translator-SPEC-v0.11.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/translator-SPEC-v0.11.md)
 
 ---
 

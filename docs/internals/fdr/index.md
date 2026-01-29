@@ -29,7 +29,7 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
 | **@manifesto-ai/intent-ir** | v0.1.0 | Chomskyan LF, canonicalization | [FDR-v0.1.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/FDR-v0.1.0.md) |
-| **@manifesto-ai/translator** | v0.11 | Translation pipeline | [translator-FDR-v0.11.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/docs/translator-FDR-v0.11.md) |
+| **@manifesto-ai/translator** | v0.11 | Translation pipeline | [translator-FDR-v0.11.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/translator-FDR-v0.11.md) |
 
 ---
 

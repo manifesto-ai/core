@@ -1,3 +1,6 @@
 packages:
   - "packages/*"
+  - "packages/translator/*"
+  - "packages/translator/adapters/*"
+  - "packages/translator/targets/*"
   - "apps/*"
