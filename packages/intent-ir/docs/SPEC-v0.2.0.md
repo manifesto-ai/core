@@ -525,6 +525,16 @@ type EntityRef = {
 - `quant` SHOULD NOT be emitted when `ref.kind="id"` (quantification over a single resolved entity is typically meaningless).
 - `orderDir` defaults to `"ASC"` when `orderBy` is present and `orderDir` is omitted.
 
+#### 8.2.x OrderBy Semantics (NORMATIVE)
+
+When present, `orderBy` expresses meaning-level ordering over the collection denoted by this EntityRefTerm. It MUST NOT be interpreted as an execution plan.
+
+`orderBy.path` MUST be a relative field path on the referenced `entityType`.
+- Examples: `"createdAt"`, `"dueDate"`, `"priority"`, `"status.value"`
+- It MUST NOT use global scope prefixes such as `"state."`, `"env."`, `"computed."`, or role prefixes such as `"target."`.
+
+Lexicon SHOULD validate that `orderBy.path` is a valid field path of `entityType` when schema information is available.
+
 ### 8.2.1 QuantitySpec (v0.2)
 
 QuantitySpec represents DP-internal quantity and comparison (Num/QP).
@@ -848,6 +858,22 @@ canonicalizeStrict(ir: IntentIR): StrictCanonicalIR     // raw normalized, ext p
   - MUST sort `items` by each item’s canonical bytes (RFC 8785 serialization)
   - MUST deduplicate items with identical canonical bytes
   - MUST be idempotent
+
+#### 11.4.2.x Default Elision (NORMATIVE)
+
+Canonicalization MUST eliminate representational variance introduced by defaulted OPTIONAL fields. The following fields have normative defaults and MUST be canonicalized to a single representation.
+
+- `ListTerm.ordered`:
+  - Default interpretation is `false`.
+  - Canonical form MUST omit `ordered` when its value is `false`.
+
+- `QuantitySpec.comparator`:
+  - Default interpretation is `"eq"`.
+  - Canonical form MUST omit `comparator` when its value is `"eq"`.
+
+- `EntityRefTerm.orderDir`:
+  - Default interpretation is `"ASC"` when `orderBy` is present.
+  - Canonical form MUST omit `orderDir` when its value is `"ASC"`.
 
 **ValueTerm.raw Normalization (Strict Mode, date refinement):**
 
@@ -1536,6 +1562,14 @@ export const PredSchema = z.object({
   lhs: LHSSchema,
   op: PredOpSchema,
   rhs: TermSchema,
+}).superRefine((data, ctx) => {
+  if (data.op === "in" && data.rhs.kind !== "list") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "rhs must be ListTerm when op is 'in'",
+      path: ["rhs"],
+    });
+  }
 });
 
 // -----------------------------------------------------------------------------
