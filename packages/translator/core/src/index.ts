@@ -175,6 +175,7 @@ export {
   orDetectorPlugin,
   coverageCheckerPlugin,
   dependencyRepairPlugin,
+  taskEnumerationPlugin,
 } from "./plugins/index.js";
 
 // =============================================================================
@@ -207,7 +208,11 @@ export {
 // =============================================================================
 
 export { validateChunks, assertValidChunks } from "./helpers/validate-chunks.js";
-export { validateGraph, assertValidGraph } from "./helpers/validate-graph.js";
+export {
+  validateGraph,
+  assertValidGraph,
+  type ValidateGraphOptions,
+} from "./helpers/validate-graph.js";
 export { buildExecutionPlan } from "./helpers/build-execution-plan.js";
 
 // =============================================================================

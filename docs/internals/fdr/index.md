@@ -12,24 +12,24 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
-| **@manifesto-ai/core** | v2.0.0 | Compute equation, purity, patches | [FDR-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/core/docs/FDR-v2.0.0.md) |
-| **@manifesto-ai/host** | v2.0.2 | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/host/docs/host-FDR-v2.0.2.md) |
-| **@manifesto-ai/world** | v2.0.2 | Governance, lineage, namespaces | [world-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/world/docs/world-FDR-v2.0.2.md) |
-| **@manifesto-ai/builder** | v1.0.0 | DSL design, type safety | [FDR-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/builder/docs/FDR-v1.0.0.md) |
+| **@manifesto-ai/core** | v2.0.0 | Compute equation, purity, patches | [FDR-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/FDR-v2.0.0.md) |
+| **@manifesto-ai/host** | v2.0.2 | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-FDR-v2.0.2.md) |
+| **@manifesto-ai/world** | v2.0.2 | Governance, lineage, namespaces | [world-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-FDR-v2.0.2.md) |
+| **@manifesto-ai/builder** | v1.0.0 | DSL design, type safety | [FDR-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/builder/docs/FDR-v1.0.0.md) |
 
 ### Application Layer
 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
-| **@manifesto-ai/app** | Multiple | See below | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/compiler/docs/FDR-v0.5.0-patch.md) |
+| **@manifesto-ai/app** | Multiple | See below | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0-patch.md) |
 
 ### Intent & Translation
 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
-| **@manifesto-ai/intent-ir** | v0.1.0 | Chomskyan LF, canonicalization | [FDR-v0.1.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/intent-ir/docs/FDR-v0.1.0.md) |
-| **@manifesto-ai/translator** | v0.11 | Translation pipeline | [translator-FDR-v0.11.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/translator-FDR-v0.11.md) |
+| **@manifesto-ai/intent-ir** | v0.1.0 | Chomskyan LF, canonicalization | [FDR-v0.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/FDR-v0.1.0.md) |
+| **@manifesto-ai/translator** | v0.11 | Translation pipeline | [translator-FDR-v0.11.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-FDR-v0.11.md) |
 
 ---
 
@@ -39,11 +39,11 @@ The App package has multiple focused FDR documents:
 
 | FDR | Version | Scope |
 |-----|---------|-------|
-| [FDR-APP-PUB-001](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/FDR-APP-PUB-001-v0.3.0.md) | v0.3.0 | Tick definition, publish boundary |
-| [FDR-APP-RUNTIME-001](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md) | v0.2.0 | Lifecycle, hooks, plugins |
-| [FDR-APP-INTEGRATION-001](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.0.md) | v0.4.0 | HostExecutor, WorldStore |
-| [FDR-APP-POLICY-001](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/FDR-APP-POLICY-001-v0.2.3.md) | v0.2.3 | ExecutionKey, authority |
-| [FDR-APP-EXT-001](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/FDR-APP-EXT-001-v0.4.0.md) | v0.4.0 | MemoryStore, context freezing |
+| [FDR-APP-PUB-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-PUB-001-v0.3.0.md) | v0.3.0 | Tick definition, publish boundary |
+| [FDR-APP-RUNTIME-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md) | v0.2.0 | Lifecycle, hooks, plugins |
+| [FDR-APP-INTEGRATION-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.0.md) | v0.4.0 | HostExecutor, WorldStore |
+| [FDR-APP-POLICY-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-POLICY-001-v0.2.3.md) | v0.2.3 | ExecutionKey, authority |
+| [FDR-APP-EXT-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-EXT-001-v0.4.0.md) | v0.4.0 | MemoryStore, context freezing |
 
 ---
 

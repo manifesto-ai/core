@@ -28,6 +28,7 @@ export type ValidationErrorCode =
   | "CYCLE_DETECTED" // G-INV-3: Dependency graph contains cycle
   | "ABSTRACT_DEPENDENCY" // G-INV-4, C-ABS-1: Non-abstract depends on abstract
   | "INVALID_RESOLUTION" // R-INV-1, R-INV-2: Resolution invariant violated
+  | "INVALID_IR" // IntentIR schema validation failed (strict mode)
   // Chunk validation codes (D-INV-*)
   | "SPAN_MISMATCH" // D-INV-0: chunk.text !== input.slice(...)
   | "EMPTY_CHUNKS" // D-INV-1: chunks.length === 0

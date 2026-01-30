@@ -157,7 +157,7 @@ Most applications should use `@manifesto-ai/app` instead. Use Core directly when
 For the complete normative specification, see:
 
 - [Specifications Hub](/internals/spec/) - Links to all package specs
-- [Core SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/core/docs/SPEC-v2.0.0.md) - Latest package spec
+- [Core SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/SPEC-v2.0.0.md) - Latest package spec
 
 ---
 

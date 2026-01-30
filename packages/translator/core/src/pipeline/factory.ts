@@ -16,6 +16,7 @@ import { DeterministicTranslator } from "../strategies/translate/deterministic.j
 import { ConservativeMerger } from "../strategies/merge/conservative.js";
 import { orDetectorPlugin } from "../plugins/or-detector.js";
 import { coverageCheckerPlugin } from "../plugins/coverage-checker.js";
+import { taskEnumerationPlugin } from "../plugins/task-enumeration.js";
 
 // =============================================================================
 // createDefaultPipeline
@@ -48,7 +49,7 @@ export function createDefaultPipeline(
       linkStrategy: "conservative",
       ...options,
     },
-    [orDetectorPlugin, coverageCheckerPlugin]
+    [taskEnumerationPlugin, orDetectorPlugin, coverageCheckerPlugin]
   );
 }
 
@@ -86,7 +87,7 @@ export function createContextOverlapPipeline(
       linkStrategy: "conservative",
       ...options,
     },
-    [orDetectorPlugin, coverageCheckerPlugin]
+    [taskEnumerationPlugin, orDetectorPlugin, coverageCheckerPlugin]
   );
 }
 
@@ -120,7 +121,7 @@ export function createFastPipeline(
       linkStrategy: "conservative",
       ...options,
     },
-    [coverageCheckerPlugin] // Skip orDetector for speed
+    [taskEnumerationPlugin, coverageCheckerPlugin] // Skip orDetector for speed
   );
 }
 
@@ -151,7 +152,7 @@ export function createTestPipeline(
       linkStrategy: "conservative",
       ...options,
     },
-    plugins ?? [coverageCheckerPlugin]
+    plugins ?? [taskEnumerationPlugin, coverageCheckerPlugin]
   );
 }
 

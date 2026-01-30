@@ -3,6 +3,7 @@
  */
 
 import type { IntentBody } from "@manifesto-ai/intent-ir";
+import { checkFeatures, validateIntentIR } from "@manifesto-ai/intent-ir";
 import {
   buildExecutionPlan,
   type ExportInput,
@@ -92,16 +93,34 @@ function lowerWithContext(
   }
 
   const invocationPlan: InvocationPlan = {
-    steps: invocationSteps,
+    steps: applyDependencyGating(invocationSteps, dependencyEdges),
     dependencyEdges,
     abstractNodes,
   };
+
+  const gatedSteps = invocationPlan.steps;
+  readyCount = 0;
+  deferredCount = 0;
+  failedCount = 0;
+  for (const step of gatedSteps) {
+    switch (step.lowering.status) {
+      case "ready":
+        readyCount++;
+        break;
+      case "deferred":
+        deferredCount++;
+        break;
+      case "failed":
+        failedCount++;
+        break;
+    }
+  }
 
   return {
     invocationPlan,
     extensionCandidates,
     meta: {
-      nodeCount: invocationSteps.length,
+      nodeCount: gatedSteps.length,
       readyCount,
       deferredCount,
       failedCount,
@@ -158,11 +177,73 @@ function lowerStep(
     };
   }
 
+  if (ctx.strictValidation) {
+    const irValidation = validateIntentIR(ir);
+    if (!irValidation.valid) {
+      const failure: LoweringFailure = {
+        kind: "SCHEMA_MISMATCH",
+        details: irValidation.errors[0]?.message ?? "Invalid IntentIR",
+      };
+
+      const candidate = generateMelCandidate(nodeId, ir, failure, graph);
+
+      return {
+        step: {
+          nodeId,
+          ir,
+          resolution,
+          lowering: { status: "failed", failure },
+        },
+        extensionCandidate: toExtensionCandidate(candidate),
+      };
+    }
+  }
+
   const actionType = ctx.lexicon.resolveActionType(ir.event.lemma);
   if (!actionType) {
     const failure: LoweringFailure = {
       kind: "UNSUPPORTED_EVENT",
       details: `No action type found for lemma "${ir.event.lemma}"`,
+    };
+
+    const candidate = generateMelCandidate(nodeId, ir, failure, graph);
+
+    return {
+      step: {
+        nodeId,
+        ir,
+        resolution,
+        lowering: { status: "failed", failure },
+      },
+      extensionCandidate: toExtensionCandidate(candidate),
+    };
+  }
+
+  const featureCheck = checkFeatures(ir, ctx.lexicon);
+  if (!featureCheck.valid) {
+    const detail =
+      featureCheck.error.code === "MISSING_ROLE"
+        ? `Missing role: ${featureCheck.error.role}`
+        : `${featureCheck.error.code}`;
+
+    if (featureCheck.suggest === "CLARIFY") {
+      return {
+        step: {
+          nodeId,
+          ir,
+          resolution,
+          lowering: {
+            status: "deferred",
+            reason: `LOSSY_LOWERING: ${detail}`,
+          },
+        },
+        extensionCandidate: null,
+      };
+    }
+
+    const failure: LoweringFailure = {
+      kind: "LOSSY_LOWERING",
+      details: detail,
     };
 
     const candidate = generateMelCandidate(nodeId, ir, failure, graph);
@@ -232,4 +313,57 @@ function toExtensionCandidate(candidate: MelCandidate): ExtensionCandidate {
     },
     wouldEnable: candidate.wouldEnable,
   };
+}
+
+function applyDependencyGating(
+  steps: readonly InvocationStep[],
+  dependencyEdges: readonly DependencyEdge[]
+): readonly InvocationStep[] {
+  if (dependencyEdges.length === 0) return steps;
+
+  const depsByNode = new Map<IntentNodeId, IntentNodeId[]>();
+  for (const edge of dependencyEdges) {
+    const deps = depsByNode.get(edge.to) ?? [];
+    deps.push(edge.from);
+    depsByNode.set(edge.to, deps);
+  }
+
+  const statusByNode = new Map<IntentNodeId, InvocationStep["lowering"]["status"]>();
+  const gatedSteps: InvocationStep[] = [];
+
+  for (const step of steps) {
+    statusByNode.set(step.nodeId, step.lowering.status);
+  }
+
+  for (const step of steps) {
+    if (step.lowering.status !== "ready") {
+      gatedSteps.push(step);
+      statusByNode.set(step.nodeId, step.lowering.status);
+      continue;
+    }
+
+    const deps = depsByNode.get(step.nodeId) ?? [];
+    const blocking = deps.filter(
+      (depId) => statusByNode.get(depId) && statusByNode.get(depId) !== "ready"
+    );
+
+    if (blocking.length === 0) {
+      gatedSteps.push(step);
+      continue;
+    }
+
+    const reason = `Dependency not ready: ${blocking
+      .map((depId) => `${depId}:${statusByNode.get(depId)}`)
+      .join(", ")}`;
+
+    const gatedStep: InvocationStep = {
+      ...step,
+      lowering: { status: "deferred", reason },
+    };
+
+    statusByNode.set(step.nodeId, "deferred");
+    gatedSteps.push(gatedStep);
+  }
+
+  return gatedSteps;
 }

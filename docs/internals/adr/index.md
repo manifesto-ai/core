@@ -41,9 +41,9 @@ The translator package maintains its own ADRs for translation-specific decisions
 
 | ID | Title | Version | Status |
 |----|-------|---------|--------|
-| [ADR-001](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/translator-ADR-001-v1.0.8.md) | Clean Architecture | v1.0.8 | Accepted |
-| [ADR-002](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/translator-ADR-002-v0.11.md) | Decompose Layer Design | v0.11 | Accepted |
-| [ADR-003](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/translator-ADR-003-v0.11.md) | Decompose Layer Compliance | v0.11 | Accepted |
+| [ADR-001](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-ADR-001-v1.0.8.md) | Clean Architecture | v1.0.8 | Accepted |
+| [ADR-002](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-ADR-002-v0.11.md) | Decompose Layer Design | v0.11 | Accepted |
+| [ADR-003](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-ADR-003-v0.11.md) | Decompose Layer Compliance | v0.11 | Accepted |
 
 ::: info Translator ADR Versions
 Translator ADRs are versioned with SPEC versions. ADR-001 has two versions:

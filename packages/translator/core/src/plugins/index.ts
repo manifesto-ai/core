@@ -30,3 +30,4 @@ export {
 export { orDetectorPlugin } from "./or-detector.js";
 export { coverageCheckerPlugin } from "./coverage-checker.js";
 export { dependencyRepairPlugin } from "./dependency-repair.js";
+export { taskEnumerationPlugin } from "./task-enumeration.js";

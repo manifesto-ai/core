@@ -4,17 +4,30 @@
 
 import { describe, it, expect } from "vitest";
 import { createNodeId, type IntentGraph } from "@manifesto-ai/translator";
-import { createResolver as createIntentResolver, type Lexicon, type Resolver } from "@manifesto-ai/intent-ir";
+import {
+  createResolver as createIntentResolver,
+  type Lexicon,
+  type Resolver,
+  type Role,
+} from "@manifesto-ai/intent-ir";
 import { manifestoExporter } from "../exporter.js";
 
-function createTestLexicon(supported: string[] = ["CREATE"]): Lexicon {
+function createTestLexicon(
+  supported: string[] = ["CREATE"],
+  requiredByLemma: Record<string, readonly Role[]> = {},
+  classByLemma: Record<string, "OBSERVE" | "TRANSFORM" | "SOLVE" | "CREATE" | "DECIDE" | "CONTROL"> = {}
+): Lexicon {
   const lexicon: Lexicon = {
     resolveEvent(lemma: string) {
       if (supported.includes(lemma)) {
         return {
           lemma,
-          eventClass: "CREATE",
-          thetaFrame: { required: [], optional: [], restrictions: {} },
+          eventClass: classByLemma[lemma] ?? "CREATE",
+          thetaFrame: {
+            required: requiredByLemma[lemma] ?? [],
+            optional: [],
+            restrictions: {},
+          },
         };
       }
       return undefined;
@@ -116,5 +129,91 @@ describe("manifestoExporter", () => {
 
     expect(result.invocationPlan.steps[0].lowering.status).toBe("deferred");
     expect(result.extensionCandidates).toHaveLength(0);
+  });
+
+  it("defers lowering when required roles are missing (lossy lowering)", async () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("n1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "ASSIGN", class: "CONTROL" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+      ],
+    };
+
+    const lexicon = createTestLexicon(
+      ["ASSIGN"],
+      { ASSIGN: ["TARGET", "BENEFICIARY"] },
+      { ASSIGN: "CONTROL" }
+    );
+    const result = await manifestoExporter.export(
+      { graph },
+      { lexicon, resolver: createResolver(), strictValidation: true }
+    );
+
+    expect(result.invocationPlan.steps[0].lowering.status).toBe("deferred");
+  });
+
+  it("blocks dependents when dependencies are not ready", async () => {
+    const graph: IntentGraph = {
+      nodes: [
+        {
+          id: createNodeId("n1"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "CREATE", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+        {
+          id: createNodeId("n2"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "ADD", class: "CREATE" },
+            args: {},
+          },
+          dependsOn: [createNodeId("n1")],
+          resolution: { status: "Ambiguous", ambiguityScore: 0.5, missing: ["THEME"] },
+        },
+        {
+          id: createNodeId("n3"),
+          ir: {
+            v: "0.1",
+            force: "DO",
+            event: { lemma: "ASSIGN", class: "CONTROL" },
+            args: {
+              TARGET: { kind: "entity", entityType: "task" },
+              BENEFICIARY: { kind: "entity", entityType: "user" },
+            },
+          },
+          dependsOn: [createNodeId("n2")],
+          resolution: { status: "Resolved", ambiguityScore: 0 },
+        },
+      ],
+    };
+
+    const lexicon = createTestLexicon(
+      ["CREATE", "ADD", "ASSIGN"],
+      { ASSIGN: ["TARGET", "BENEFICIARY"] },
+      { ASSIGN: "CONTROL", ADD: "CREATE", CREATE: "CREATE" }
+    );
+    const result = await manifestoExporter.export(
+      { graph },
+      { lexicon, resolver: createResolver(), strictValidation: true }
+    );
+
+    const step = result.invocationPlan.steps.find((s) => s.nodeId === "n3");
+    expect(step?.lowering.status).toBe("deferred");
   });
 });

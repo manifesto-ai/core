@@ -19,6 +19,7 @@ import type {
   Resolution,
   ResolutionStatus,
 } from "../../core/types/intent-graph.js";
+import type { Role } from "@manifesto-ai/intent-ir";
 import { createNodeId } from "../../core/types/intent-graph.js";
 import type {
   TranslateStrategy,
@@ -181,17 +182,20 @@ export class LLMTranslator implements TranslateStrategy {
     const nodes: IntentNode[] = response.nodes.map((node) => {
       // Map event string to proper IntentIR event structure
       const eventClass = this.mapEventToClass(node.event);
+      const eventLemma = node.event.toUpperCase();
+      const { args, extArgs } = this.normalizeArgs(node.args ?? {}, eventLemma);
+      const ext = this.mergeExt(node.ext, extArgs);
 
       // Build proper IntentIR
       const ir = {
         v: "0.1" as const,
         force: "DO" as const,
         event: {
-          lemma: node.event.toUpperCase(),
+          lemma: eventLemma,
           class: eventClass,
         },
-        args: this.normalizeArgs(node.args ?? {}),
-        ...(node.ext && { ext: node.ext }),
+        args,
+        ...(ext && { ext }),
       };
 
       // Build resolution
@@ -246,11 +250,30 @@ export class LLMTranslator implements TranslateStrategy {
     return "Ambiguous";
   }
 
-  private normalizeArgs(args: Record<string, unknown>): Record<string, unknown> {
+  private normalizeArgs(
+    args: Record<string, unknown>,
+    eventLemma: string
+  ): { args: Record<string, unknown>; extArgs: Record<string, unknown> } {
     const normalized: Record<string, unknown> = {};
+    const extArgs: Record<string, unknown> = {};
 
-    // Map lowercase keys to uppercase theta-roles
-    const keyMap: Record<string, string> = {
+    for (const [key, value] of Object.entries(args)) {
+      const roleKey = this.normalizeRoleKey(key, eventLemma);
+      if (!roleKey) {
+        extArgs[key] = value;
+        continue;
+      }
+      normalized[roleKey] = this.normalizeTerm(value);
+    }
+
+    return { args: normalized, extArgs };
+  }
+
+  private normalizeRoleKey(key: string, eventLemma: string): Role | null {
+    const lower = key.toLowerCase();
+    const compact = lower.replace(/[^a-z0-9]/g, "");
+
+    const directMap: Record<string, Role> = {
       target: "TARGET",
       theme: "THEME",
       source: "SOURCE",
@@ -259,29 +282,120 @@ export class LLMTranslator implements TranslateStrategy {
       beneficiary: "BENEFICIARY",
     };
 
-    for (const [key, value] of Object.entries(args)) {
-      const normalizedKey = keyMap[key.toLowerCase()] ?? key.toUpperCase();
-      if (value && typeof value === "object") {
-        const obj = value as Record<string, unknown>;
-        // Ensure proper Term structure
-        if (obj.type && !obj.kind) {
-          const term: Record<string, unknown> = {
-            kind: "entity",
-            entityType: String(obj.type),
-          };
-          if (obj.ref) {
-            term.ref = obj.ref;
-          }
-          normalized[normalizedKey] = term;
-        } else {
-          normalized[normalizedKey] = value;
-        }
-      } else {
-        normalized[normalizedKey] = value;
-      }
+    if (directMap[lower]) return directMap[lower];
+    if (directMap[compact]) return directMap[compact];
+
+    if (
+      compact === "assignee" ||
+      compact === "assignees" ||
+      compact === "user" ||
+      compact === "users" ||
+      compact === "owner" ||
+      compact === "owners"
+    ) {
+      return "BENEFICIARY";
     }
 
-    return normalized;
+    if (compact === "to") {
+      return eventLemma === "ASSIGN" ? "BENEFICIARY" : "DEST";
+    }
+
+    if (compact === "task" || compact === "tasks") {
+      return eventLemma === "ASSIGN" || eventLemma === "SET" ? "TARGET" : "THEME";
+    }
+
+    if (
+      compact === "duedate" ||
+      compact === "deadline" ||
+      compact === "due"
+    ) {
+      return "THEME";
+    }
+
+    if (compact === "project" || compact === "projects") {
+      return "TARGET";
+    }
+
+    return null;
+  }
+
+  private normalizeTerm(value: unknown): unknown {
+    if (value && typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      if (record.kind) {
+        return value;
+      }
+      if (record.type) {
+        const term: Record<string, unknown> = {
+          kind: "entity",
+          entityType: String(record.type),
+        };
+        if (record.ref) {
+          term.ref = record.ref;
+        }
+        return term;
+      }
+      if (Array.isArray(value)) {
+        return {
+          kind: "value",
+          valueType: "enum",
+          shape: { values: value },
+          raw: value,
+        };
+      }
+      return {
+        kind: "value",
+        valueType: "string",
+        shape: { value },
+        raw: value,
+      };
+    }
+
+    switch (typeof value) {
+      case "string":
+        return {
+          kind: "value",
+          valueType: "string",
+          shape: { value },
+          raw: value,
+        };
+      case "number":
+        return {
+          kind: "value",
+          valueType: "number",
+          shape: { value },
+          raw: value,
+        };
+      case "boolean":
+        return {
+          kind: "value",
+          valueType: "boolean",
+          shape: { value },
+          raw: value,
+        };
+      default:
+        return value;
+    }
+  }
+
+  private mergeExt(
+    ext: Record<string, unknown> | undefined,
+    extArgs: Record<string, unknown>
+  ): Record<string, unknown> | undefined {
+    if (Object.keys(extArgs).length === 0) {
+      return ext;
+    }
+
+    const next = { ...(ext ?? {}) } as Record<string, unknown>;
+    const existingNamespace = (next["manifesto.ai/translator"] ??
+      {}) as Record<string, unknown>;
+
+    next["manifesto.ai/translator"] = {
+      ...existingNamespace,
+      args: extArgs,
+    };
+
+    return next;
   }
 }
 

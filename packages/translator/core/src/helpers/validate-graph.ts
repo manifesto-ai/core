@@ -18,6 +18,12 @@ import type {
 } from "../core/types/validation.js";
 import { invalidResult, validResult } from "../core/types/validation.js";
 import { ValidationException } from "../core/types/errors.js";
+import { ROLE_VALUES, validateIntentIR } from "@manifesto-ai/intent-ir";
+
+export interface ValidateGraphOptions {
+  readonly strictIntentIR?: boolean;
+  readonly strictMissingRoles?: boolean;
+}
 
 // =============================================================================
 // validateGraph
@@ -35,9 +41,14 @@ import { ValidationException } from "../core/types/errors.js";
  * @param graph - The Intent Graph to validate
  * @returns ValidationResult
  */
-export function validateGraph(graph: IntentGraph): ValidationResult {
+export function validateGraph(
+  graph: IntentGraph,
+  options?: ValidateGraphOptions
+): ValidationResult {
   const nodeMap = new Map<string, IntentNode>();
   const warnings: ValidationWarning[] = [];
+  const strictIntentIR = options?.strictIntentIR ?? false;
+  const strictMissingRoles = options?.strictMissingRoles ?? strictIntentIR;
 
   // G-INV-1: Node IDs are unique within graph
   for (const node of graph.nodes) {
@@ -53,6 +64,29 @@ export function validateGraph(graph: IntentGraph): ValidationResult {
 
   // Validate each node
   for (const node of graph.nodes) {
+    if (strictIntentIR) {
+      const irValidation = validateIntentIR(node.ir);
+      if (!irValidation.valid) {
+        return invalidResult(
+          "INVALID_IR",
+          `Node "${node.id}" has invalid IntentIR: ${irValidation.errors[0]?.message ?? "Unknown error"}`,
+          { nodeId: node.id }
+        );
+      }
+    }
+
+    if (strictMissingRoles && node.resolution.missing) {
+      for (const role of node.resolution.missing) {
+        if (!ROLE_VALUES.includes(role as (typeof ROLE_VALUES)[number])) {
+          return invalidResult(
+            "INVALID_IR",
+            `Node "${node.id}" has non-standard missing role "${role}"`,
+            { nodeId: node.id }
+          );
+        }
+      }
+    }
+
     // R-INV-1: status === "Resolved" => missing is absent or length 0
     if (node.resolution.status === "Resolved") {
       if (node.resolution.missing && node.resolution.missing.length > 0) {
@@ -119,8 +153,11 @@ export function validateGraph(graph: IntentGraph): ValidationResult {
  * @param graph - The Intent Graph to validate
  * @throws ValidationException if validation fails
  */
-export function assertValidGraph(graph: IntentGraph): void {
-  const result = validateGraph(graph);
+export function assertValidGraph(
+  graph: IntentGraph,
+  options?: ValidateGraphOptions
+): void {
+  const result = validateGraph(graph, options);
   if (!result.valid) {
     throw new ValidationException(
       result.error.message,

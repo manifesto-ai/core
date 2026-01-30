@@ -21,6 +21,7 @@ export interface ManifestoExportContext {
   readonly lexicon: Lexicon;
   readonly resolver: Resolver;
   readonly domain?: string;
+  readonly strictValidation?: boolean;
 }
 
 // =============================================================================
@@ -36,6 +37,7 @@ export type LoweringFailure = {
     | "INVALID_ARGS"
     | "MISSING_REQUIRED"
     | "SCHEMA_MISMATCH"
+    | "LOSSY_LOWERING"
     | "INTERNAL_ERROR";
   readonly details: string;
 };
