@@ -12,24 +12,24 @@ All specifications are maintained at the package level. This page provides navig
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/core** | v2.0.1-patch | Draft | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/core/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/host** | v2.0.2 | Normative | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/host/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/world** | v2.0.3-patch | Draft | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/world/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/builder** | v1.0.0 | Final | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/builder/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/core** | v2.0.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/host** | v2.0.2 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/host/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/world** | v2.0.3-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/world/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/builder** | v1.0.0 | Final | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/builder/docs/VERSION-INDEX.md) |
 
 ### Application Layer
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/app** | v2.1.0-patch | Draft | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/compiler** | v0.5.0-patch | Draft | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/app** | v2.1.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.5.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### Intent & Translation
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/) |
+| **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/intent-ir/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/) |
 
 ---
 
@@ -38,53 +38,53 @@ All specifications are maintained at the package level. This page provides navig
 ### Core
 
 - **Core SPEC v2.0.1** (Patch)
-  - Base: [SPEC-v2.0.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/core/docs/SPEC-v2.0.0.md)
-  - Patch: [SPEC-v2.0.1-patch.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/core/docs/SPEC-v2.0.1-patch.md)
+  - Base: [SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/core/docs/SPEC-v2.0.0.md)
+  - Patch: [SPEC-v2.0.1-patch.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/core/docs/SPEC-v2.0.1-patch.md)
 
 ### Host
 
 - **Host SPEC v2.0.2** (Full)
-  - [host-SPEC-v2.0.2.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/host/docs/host-SPEC-v2.0.2.md)
+  - [host-SPEC-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/host/docs/host-SPEC-v2.0.2.md)
   - Adds: Snapshot Type Alignment, `data.$host` namespace
 
 ### World
 
 - **World SPEC v2.0.3** (Patch)
-  - Base: [world-SPEC-v2.0.2.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/world/docs/world-SPEC-v2.0.2.md)
-  - Patch: [world-SPEC-v2.0.3-patch.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/world/docs/world-SPEC-v2.0.3-patch.md)
+  - Base: [world-SPEC-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/world/docs/world-SPEC-v2.0.2.md)
+  - Patch: [world-SPEC-v2.0.3-patch.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/world/docs/world-SPEC-v2.0.3-patch.md)
   - Adds: ADR-002 DX improvements, `$mel` namespace
 
 ### App
 
 - **App SPEC v2.1.0** (Patch)
-  - Base: [APP-SPEC-v2.0.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/APP-SPEC-v2.0.0.md)
-  - Patch: [APP-SPEC-v2.1.0-patch.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/app/docs/APP-SPEC-v2.1.0-patch.md)
+  - Base: [APP-SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/APP-SPEC-v2.0.0.md)
+  - Patch: [APP-SPEC-v2.1.0-patch.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/app/docs/APP-SPEC-v2.1.0-patch.md)
   - Adds: Platform namespace injection, `$mel` support
 
 ### Compiler (MEL)
 
 - **Compiler SPEC v0.5.0** (Patch)
-  - Base: [SPEC-v0.3.3.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/compiler/docs/SPEC-v0.3.3.md)
-  - Patch v0.4.0: [SPEC-v0.4.0-patch.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/compiler/docs/SPEC-v0.4.0-patch.md)
-  - Patch v0.5.0: [SPEC-v0.5.0-patch.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/compiler/docs/SPEC-v0.5.0-patch.md)
+  - Base: [SPEC-v0.3.3.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/compiler/docs/SPEC-v0.3.3.md)
+  - Patch v0.4.0: [SPEC-v0.4.0-patch.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/compiler/docs/SPEC-v0.4.0-patch.md)
+  - Patch v0.5.0: [SPEC-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/compiler/docs/SPEC-v0.5.0-patch.md)
   - Adds: `$mel` namespace, `onceIntent` syntax
 
 ### Builder
 
 - **Builder SPEC v1.0.0** (Final)
-  - [SPEC-v1.0.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/builder/docs/SPEC-v1.0.0.md)
+  - [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/builder/docs/SPEC-v1.0.0.md)
 
 ### Intent IR
 
 - **Intent IR SPEC v0.2.0** (Draft)
-  - [SPEC-v0.2.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/SPEC-v0.2.0.md)
+  - [SPEC-v0.2.0.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/intent-ir/docs/SPEC-v0.2.0.md)
   - Research docs: [Research](/internals/research/intent-ir/)
 
 ### Translator
 
 - **Translator SPEC v1.0.3** (Normative)
-  - [translator-SPEC-v1.0.3.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/translator-SPEC-v1.0.3.md)
-  - Previous: [translator-SPEC-v0.11.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/translator-SPEC-v0.11.md)
+  - [translator-SPEC-v1.0.3.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/translator-SPEC-v1.0.3.md)
+  - Previous: [translator-SPEC-v0.11.md](https://github.com/manifesto-ai/core/blob/main/workspaces/core/packages/translator/core/docs/translator-SPEC-v0.11.md)
 
 ---
 
