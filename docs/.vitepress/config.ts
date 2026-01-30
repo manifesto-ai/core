@@ -102,6 +102,7 @@ export default defineConfig({
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'React Integration', link: '/guides/react-integration' },
             { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Vercel Web Analytics', link: '/guides/vercel-web-analytics' },
           ]
         }
       ],
