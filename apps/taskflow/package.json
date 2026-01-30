@@ -47,7 +47,7 @@
     "framer-motion": "^12.26.2",
     "hono": "4.11.4",
     "langchain": "^1.2.8",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^0.563.0",
     "marked": "^17.0.1",
     "motion": "^12.26.2",
     "next": "16.1.1",
