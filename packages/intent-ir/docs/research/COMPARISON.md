@@ -3,7 +3,7 @@
 > **Status:** Research Document
 > **Version:** 0.1.0
 > **Audience:** NLP researchers, computational linguists, semantic web practitioners
-> **Normative Authority:** This document is INFORMATIVE. For normative specifications, see [SPEC-v0.1.0](../SPEC-v0.1.0.md).
+> **Normative Authority:** This document is INFORMATIVE. For normative specifications, see [SPEC-v0.2.0](../SPEC-v0.2.0.md).
 > **References:** See [BIBLIOGRAPHY.bib](./BIBLIOGRAPHY.bib)
 
 ---

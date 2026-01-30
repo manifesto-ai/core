@@ -68,7 +68,7 @@ Mathematical specifications and proofs:
 
 These research documents are **INFORMATIVE** and supplement the normative specifications:
 
-- **[SPEC-v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.1.0.md)** - Normative specification
+- **[SPEC-v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md)** - Normative specification
 - **[FDR-v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/FDR-v0.1.0.md)** - Design rationale
 
 When conflicts exist, SPEC takes precedence over research documents.

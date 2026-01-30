@@ -167,5 +167,5 @@ K_sim(ir) = SimHash(tokenize(𝒞_semantic(ir)))
 ## Further Reading
 
 - **[Full Formal Document](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/research/FORMAL.md)** - Complete proofs and definitions
-- **[SPEC §11](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.1.0.md#11-canonicalization-rules)** - Normative canonicalization rules
-- **[SPEC §12](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.1.0.md#12-key-system)** - Normative key system
+- **[SPEC §11](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md#11-canonicalization-rules)** - Normative canonicalization rules
+- **[SPEC §12](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md#12-key-system)** - Normative key system

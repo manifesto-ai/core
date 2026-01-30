@@ -1,7 +1,7 @@
-# Manifesto Intent IR Specification v0.1
+# Manifesto Intent IR Specification v0.2
 
 > **Status:** Draft  
-> **Version:** 0.1.0  
+> **Version:** 0.2.0  
 > **Authors:** Manifesto Contributors  
 > **License:** MIT  
 > **Companion:** FDR-INT-* (Foundational Design Rationale)
@@ -163,14 +163,14 @@ Intent IR uses a fixed hierarchy of **functional heads** derived from linguistic
 ## 4. Axioms
 
 ```
-A1. Intent IR represents semantic intent, not execution plan. [v0.1]
-A2. Functional heads are enumerated and finite. [v0.1]
-A3. Same canonical form implies same semantic intent. [v0.1]
-A4. Feature checking against Lexicon is decidable. [v0.1]
-A5. Term types are discriminated and exhaustive for v0.1 scope. [v0.1]
-A6. Conditions in v0.1 are AND-only; OR/NOT are extension points. [v0.1]
-A7. Extension keys MUST be namespaced to prevent collision. [v0.1]
-A8. Determinism boundary: Only PF→IR MAY be non-deterministic. [v0.1]
+A1. Intent IR represents semantic intent, not execution plan. [v0.2]
+A2. Functional heads are enumerated and finite. [v0.2]
+A3. Same canonical form implies same semantic intent. [v0.2]
+A4. Feature checking against Lexicon is decidable. [v0.2]
+A5. Term types are discriminated and exhaustive for v0.2 scope. [v0.2]
+A6. Conditions in v0.2 are AND-only; OR/NOT are extension points. [v0.2]
+A7. Extension keys MUST be namespaced to prevent collision. [v0.2]
+A8. Determinism boundary: Only PF→IR MAY be non-deterministic. [v0.2]
 ```
 
 **A8 Clarification (Determinism Boundary):**
@@ -209,9 +209,9 @@ A8. Determinism boundary: Only PF→IR MAY be non-deterministic. [v0.1]
 - Prevents unbounded vocabulary drift
 - Extension happens via `ext` field, not new head values
 
-### AD-INT-003: AND-Only Conditions in v0.1
+### AD-INT-003: AND-Only Conditions in v0.2
 
-**Decision:** The `cond` field represents AND-conjunction only. OR, NOT, and nested boolean logic are deferred to v0.2+.
+**Decision:** The `cond` field represents AND-conjunction only. OR, NOT, and nested boolean logic are deferred to v0.3+.
 
 **Rationale:**
 - AND-only conditions are trivially normalizable (sort predicates)
@@ -300,9 +300,13 @@ Roles represent **thematic relations** between the event and its arguments.
 
 **Normative:**
 - Roles MUST be exactly one of the enumerated values.
-- In v0.1, each role maps to **exactly one Term** (not an array).
-- Multiple Terms per role is deferred to v0.2+ (requires ListTerm and canonicalization rules).
+- In v0.2, each role maps to **exactly one Term** (not an array).
+- **Plurality / coordination** (e.g., "design, build, test") MUST be expressed via `ListTerm` inside the role slot, rather than using JSON arrays at the `args` level.
 - Required roles are determined by Lexicon (event-specific).
+
+**Rationale:**
+- Keeping `args` as a `Partial<Record<Role, Term>>` preserves a stable LF projection shape.
+- List semantics are carried by `ListTerm`, enabling canonicalization and feature checking without changing the root schema shape.
 
 ### 6.4 Modality
 
@@ -381,8 +385,8 @@ OutputType specifies the **expected output format**.
 
 ```typescript
 type IntentIR = {
-  /** Version identifier. MUST be "0.1" for this specification. */
-  v: "0.1";
+  /** Version identifier. MUST be "0.2" for this specification. */
+  v: "0.2";
 
   /** Illocutionary force. REQUIRED. */
   force: Force;
@@ -393,7 +397,7 @@ type IntentIR = {
   /** θ-role arguments. REQUIRED (may be empty object). */
   args: Partial<Record<Role, Term>>;
 
-  /** Condition predicates. OPTIONAL. AND-conjunction in v0.1. */
+  /** Condition predicates. OPTIONAL. AND-conjunction in v0.2. */
   cond?: Pred[];
 
   /** Modality. OPTIONAL. Default: MAY. */
@@ -439,6 +443,24 @@ type Event = {
 
 Term represents **argument values** in the semantic structure. Terms form a discriminated union.
 
+### 8.0 Term Extension Field (v0.2)
+
+All Term objects MAY carry an optional `ext` field:
+
+```typescript
+ext?: Record<string, unknown>;
+```
+
+**Normative:**
+
+- `ext` keys SHOULD be namespaced (e.g., `"acme:span"`, `"vendorX:confidence"`).
+- `ext` MUST NOT be used to change core semantics. If core semantics are required, the specification MUST be extended via a new term kind / new normative fields.
+
+**Rationale:**
+
+- Terms often need non-semantic hints (source span, UI slot, parser confidence).
+- Keeping these hints near the term avoids overloading the root-level `ext`.
+
 ### 8.1 Term Union
 
 ```typescript
@@ -447,7 +469,8 @@ type Term =
   | PathRefTerm
   | ArtifactRefTerm
   | ValueTerm
-  | ExprTerm;
+  | ExprTerm
+  | ListTerm;
 ```
 
 ### 8.2 EntityRefTerm
@@ -457,79 +480,117 @@ Reference to a domain entity.
 ```typescript
 type EntityRefTerm = {
   kind: "entity";
-  
+
   /** Entity type name. MUST exist in Lexicon. */
   entityType: string;
-  
-  /** 
-   * Reference specification. 
+
+  /**
+   * Reference specification.
    * OPTIONAL: absence means collection/default scope (e.g., "all users").
    */
   ref?: EntityRef;
+
+  /**
+   * Quantification on the DP (e.g., "three tasks", "at least 5 users").
+   * OPTIONAL. Intended for collection scope.
+   */
+  quant?: QuantitySpec;
+
+  /**
+   * Optional ordering key used when quantity implies a choice ("top 3", "first 5"),
+   * or when an explicit "by ..." phrase is present.
+   *
+   * NORMATIVE: This represents meaning-level ordering intent, not an execution plan.
+   */
+  orderBy?: PathRefTerm;
+
+  /** Order direction. OPTIONAL. Default: "ASC". */
+  orderDir?: "ASC" | "DESC";
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
 };
 
 type EntityRef = {
   /** Reference kind. */
   kind: "this" | "that" | "last" | "id";
-  
+
   /** Explicit identifier. REQUIRED when kind="id". */
   id?: string;
 };
 ```
 
-| ref | Description | Example |
-|-----|-------------|---------|
-| (absent) | Collection/default scope | "list users", "모든 주문" |
-| `{ kind: "this" }` | Currently focused entity | "this order", "이 주문" |
-| `{ kind: "that" }` | Previously mentioned entity | "that one", "그거" |
-| `{ kind: "last" }` | Most recent of type | "last order", "지난 주문" |
-| `{ kind: "id", id: "..." }` | Explicit identifier | "order #123" |
+**Normative:**
 
-**Discourse Resolution (NORMATIVE):**
+- `quant` SHOULD NOT be emitted when `ref.kind="id"` (quantification over a single resolved entity is typically meaningless).
+- `orderDir` defaults to `"ASC"` when `orderBy` is present and `orderDir` is omitted.
 
-When `ref.kind ≠ "id"`, the reference is **symbolic** at IR level:
-- IntentIR represents the *intent to refer*, not the resolved identity
-- A **Resolver** (deterministic, non-LLM) MUST resolve to `id` before execution
-- Resolution uses: `Resolver(snapshot, focus, discourse) → id`
+### 8.2.1 QuantitySpec (v0.2)
 
-This separation ensures:
-1. IR remains deterministic and cacheable
-2. Resolution is reproducible given same context
-3. LLM is not involved in reference resolution
+QuantitySpec represents DP-internal quantity and comparison (Num/QP).
+
+```typescript
+type QuantityComparator = "eq" | "gte" | "lte";
+
+type QuantitySpec = {
+  kind: "quantity";
+
+  /** MUST be a non-negative integer. */
+  value: number;
+
+  /** OPTIONAL. Default: "eq". */
+  comparator?: QuantityComparator;
+
+  /**
+   * OPTIONAL unit label (advisory).
+   * Example: "task", "user", "item".
+   */
+  unit?: string;
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
+};
+```
+
+**Normative:**
+
+- `value` MUST be an integer and MUST be `>= 0`.
+- `comparator` defaults to `"eq"` when omitted.
+
+**Rationale:**
+
+- Quantity is part of argument structure (DP/QP), not a predicate comparison.
+- This preserves surface meanings like "at least 5 users" without turning Intent IR into a query language.
 
 ### 8.3 PathRefTerm
-
-Reference to a semantic path in the domain.
 
 ```typescript
 type PathRefTerm = {
   kind: "path";
-  
-  /** 
+
+  /**
    * Canonical path pattern.
    * MAY contain wildcards (*) for dynamic segments.
    * Example: "/orders/*/status", "state.user.email"
    */
   path: string;
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
 };
 ```
 
 ### 8.4 ArtifactRefTerm
 
-Reference to a document, formula, code, or data artifact.
-
 ```typescript
 type ArtifactRefTerm = {
   kind: "artifact";
-  
-  /** Artifact type classification. */
   artifactType: "text" | "math" | "code" | "data" | "plan" | "mixed";
-  
-  /** Reference specification. */
   ref: ArtifactRef;
-  
-  /** Inline content. REQUIRED when ref.kind="inline". */
   content?: string;
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
 };
 
 type ArtifactRef = {
@@ -540,66 +601,69 @@ type ArtifactRef = {
 
 ### 8.5 ValueTerm
 
-Literal value with semantic shape.
-
 ```typescript
 type ValueTerm = {
   kind: "value";
-  
-  /** Value type. */
   valueType: "string" | "number" | "boolean" | "date" | "enum" | "id";
-  
-  /** 
-   * Semantic shape for canonicalization.
-   * Contains features/buckets, NOT raw value.
-   * Example: { range: "1-10", sign: "positive" } for numbers
-   */
   shape: Record<string, unknown>;
-  
-  /** 
-   * Raw value. OPTIONAL.
-   * Present when exact value is needed for execution.
-   */
   raw?: unknown;
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
 };
 ```
 
-**Shape Guidelines:**
-
-| valueType | Shape Fields | Example |
-|-----------|--------------|---------|
-| `string` | `pattern`, `length`, `category` | `{ length: "short", category: "name" }` |
-| `number` | `range`, `sign`, `magnitude` | `{ range: "1-100", sign: "positive" }` |
-| `boolean` | `value` | `{ value: true }` |
-| `date` | `relative`, `precision` | `{ relative: "past", precision: "day" }` |
-| `enum` | `domain`, `value` | `{ domain: "status", value: "active" }` |
+**Note:** v0.2 refines date `raw` handling in strict canonicalization (§11.4.2).
 
 ### 8.6 ExprTerm
-
-Mathematical, logical, or code expression.
 
 ```typescript
 type ExprTerm = {
   kind: "expr";
-  
-  /** Expression format. */
   exprType: "latex" | "ast" | "code";
-  
-  /** 
-   * Expression content.
-   * String for latex/code, structured object for ast.
-   */
   expr: string | Record<string, unknown>;
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
 };
 ```
 
-**Cross-field constraints (MUST):**
+### 8.7 ListTerm (v0.2)
 
-| `exprType` | `expr` type |
-|------------|-------------|
-| `"latex"` | `string` |
-| `"code"` | `string` |
-| `"ast"` | `object` (Record) |
+ListTerm represents plurality / coordination inside a role slot.
+
+```typescript
+type ListTerm = {
+  kind: "list";
+
+  /**
+   * Items of the list.
+   * NORMATIVE (v0.2): Nested ListTerm is NOT allowed.
+   * Items MUST NOT have kind="list".
+   */
+  items: Exclude<Term, ListTerm>[];
+
+  /**
+   * Whether order is meaningful.
+   * Default: false (set semantics).
+   */
+  ordered?: boolean;
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext?: Record<string, unknown>;
+};
+```
+
+**Normative:**
+
+- When `ordered` is omitted, it MUST be interpreted as `false`.
+- When `ordered === false`, the list MUST be treated as set-semantics and canonicalized accordingly (§11.4.2).
+- Nested lists are an extension point (deferred to v0.3+).
+
+**Rationale:**
+
+- Keeps `args` schema stable while enabling coordination/plurals in LF.
+- Provides a canonicalizable container for “design, build, test” type structures.
 
 ---
 
@@ -609,23 +673,16 @@ type ExprTerm = {
 
 ```typescript
 type Pred = {
-  /** 
-   * Left-hand side: scoped path.
-   * MUST use prefix to indicate scope (see LHS Grammar below).
-   */
   lhs: string;
-  
-  /** Comparison operator. */
   op: PredOp;
-  
-  /** Right-hand side: value to compare against. */
   rhs: Term;
 };
 
-type PredOp = 
-  | "=" | "!=" 
-  | "<" | ">" | "<=" | ">=" 
-  | "contains" | "startsWith" | "matches";
+type PredOp =
+  | "=" | "!="
+  | "<" | ">" | "<=" | ">="
+  | "contains" | "startsWith" | "matches"
+  | "in";
 ```
 
 **LHS Grammar (NORMATIVE):**
@@ -644,14 +701,12 @@ LHS MUST be a scoped path with explicit prefix:
 
 > **Rationale**: Explicit scoping prevents ambiguity. `status` alone is ambiguous; `target.status` is not.
 
-> **Note:** The `"in"` (membership) operator is deferred to v0.2+, which will introduce `ListTerm` to properly type the RHS as an array.
-
-### 9.2 Condition Semantics (v0.1)
+### 9.2 Condition Semantics (v0.2)
 
 **Normative:**
 - `cond` is an array of predicates.
 - All predicates are AND-conjoined: `cond[0] AND cond[1] AND ... AND cond[n]`.
-- OR, NOT, and parenthesized grouping are NOT supported in v0.1.
+- OR, NOT, and parenthesized grouping are NOT supported in v0.2.
 - Empty `cond` (or omitted) means no conditions (always true).
 
 ### 9.3 Operator Semantics
@@ -667,12 +722,12 @@ LHS MUST be a scoped path with explicit prefix:
 | `contains` | Contains substring | string | string |
 | `startsWith` | Prefix match | string | string |
 | `matches` | Regex match | string | regex pattern |
+| `in` | Membership test | any | `ListTerm` |
 
-**Deferred to v0.2+:**
-
-| Operator | Meaning | Reason for Deferral |
-|----------|---------|---------------------|
-| `in` | Membership test | Requires `ListTerm` for proper RHS typing |
+**Normative (`in`):**
+- If `op === "in"`, then `rhs.kind` MUST be `"list"`.
+- `rhs.items` SHOULD be non-empty.
+- Implementations SHOULD type-check `(lhs type) ∈ (rhs item types)` when Lexicon information is available.
 
 ---
 
@@ -732,15 +787,26 @@ Canonicalization removes representational non-determinism so that semantically e
 
 ### 11.2 Two Canonicalization Modes
 
-| Mode | Purpose | `ValueTerm.raw` | Use Case |
-|------|---------|-----------------|----------|
-| **Semantic** | Similarity search, clustering | Removed | `simKey` generation |
-| **Strict** | Exact reproduction, caching | Normalized (preserved) | `strictKey` generation |
+| Mode | Purpose | `ValueTerm.raw` | `ext` fields | Use Case |
+|------|---------|-----------------|-------------|----------|
+| **Semantic** | Similarity search, clustering | Removed | Removed | `simKey` generation |
+| **Strict** | Exact reproduction, caching | Normalized (preserved) | Preserved | `strictKey` generation |
 
 ```typescript
-canonicalizeSemantic(ir: IntentIR): SemanticCanonicalIR  // raw removed
-canonicalizeStrict(ir: IntentIR): StrictCanonicalIR     // raw normalized
+canonicalizeSemantic(ir: IntentIR): SemanticCanonicalIR  // raw + ext removed
+canonicalizeStrict(ir: IntentIR): StrictCanonicalIR     // raw normalized, ext preserved
 ```
+
+**Normative:**
+
+- Semantic canonicalization MUST remove:
+  - `IntentIR.ext`
+  - all `Term.ext`
+  - all `ValueTerm.raw`
+- Strict canonicalization MUST preserve:
+  - `IntentIR.ext`
+  - all `Term.ext`
+  - `ValueTerm.raw` (with normalization rules below)
 
 ### 11.3 Scope
 
@@ -766,20 +832,31 @@ canonicalizeStrict(ir: IntentIR): StrictCanonicalIR     // raw normalized
 
 | Term | Semantic Mode | Strict Mode |
 |------|---------------|-------------|
-| EntityRefTerm | If `ref` absent, preserve; if `ref.kind ≠ "id"`, remove `ref.id` | Same |
+| EntityRefTerm | Preserve structure; remove any invalid ref.id when kind≠"id" | Same |
 | ArtifactRefTerm | If `inline`, remove `ref.id`; if `id`, remove `content` | Same |
-| ValueTerm | **Remove `raw`** | **Normalize `raw`** (see below) |
-| ExprTerm | Content is opaque; sort keys if object | Same |
+| ValueTerm | Remove `raw` | Normalize `raw` if present |
+| ExprTerm | Opaque; sort keys if object | Same |
 | PathRefTerm | Trim whitespace | Same |
+| **ListTerm** | Canonicalize items; sort/dedupe if unordered | Same |
 
-**ValueTerm.raw Normalization (Strict Mode, NORMATIVE):**
+**ListTerm Canonicalization (NORMATIVE):**
+- Each `items[i]` MUST be canonicalized recursively.
+- If `ordered === true`:
+  - MUST preserve item order
+  - MUST NOT deduplicate
+- If `ordered === false` or absent:
+  - MUST sort `items` by each item’s canonical bytes (RFC 8785 serialization)
+  - MUST deduplicate items with identical canonical bytes
+  - MUST be idempotent
+
+**ValueTerm.raw Normalization (Strict Mode, date refinement):**
 
 | `valueType` | Normalization Rule |
 |-------------|-------------------|
 | `"string"` | Trim leading/trailing whitespace |
 | `"number"` | JSON number (not string); no trailing zeros |
 | `"boolean"` | JSON boolean (`true`/`false`) |
-| `"date"` | ISO 8601 string (`YYYY-MM-DDTHH:mm:ss.sssZ`) |
+| `"date"` | If `raw` exists, it MUST be ISO 8601 string. If absent, it remains absent. |
 | `"enum"` | Exact string match (case-sensitive) |
 | `"id"` | String, trimmed |
 
@@ -801,9 +878,8 @@ canonicalize(canonicalize(ir)) === canonicalize(ir)  // Idempotent
 canonicalize({cond: [A, B]}) === canonicalize({cond: [B, A]})  // Order invariant
 ```
 
-### 11.6 Extension Points (v0.2+)
+### 11.6 Extension Points (v0.3+)
 
-- ListTerm + `in` operator
 - OR/NOT conditions
 - Lexicon-aware normalization (lemma aliases)
 - Expression canonicalizer plugins
@@ -960,7 +1036,11 @@ JCS preserves array order. Arrays with **set semantics** (where order is not mea
 | `IntentScope.paths` | Set | ✅ MUST sort |
 | `Footprint.reads/writes/depends/verify/policy` | Set | ✅ MUST sort |
 | `cond` (predicates) | AND-set | ✅ Already sorted by §11.4.1 |
+| `ListTerm.items` (when ordered=false) | Set | ✅ MUST sort + dedupe |
 | `ThetaFrame.required/optional` | Ordered list | ❌ Preserve order |
+
+**simKey derivation note (v0.2):**
+- Since semantic canonicalization removes `ext`, simKey MUST NOT change due to vendor hints, source spans, or parser confidence metadata.
 
 **Use case**: Same resolved IR + same relevant state + same context → same result (deterministic replay).
 
@@ -1114,6 +1194,11 @@ type SelectionalRestriction = {
 
 > **Note**: Record-based implementations (e.g., `events: Record<string, EventEntry>`) are valid as long as they satisfy the interface contract.
 
+**Normative (v0.2 - list handling):**
+
+- If a role can accept a coordinated/plural argument, Lexicon MUST include `"list"` in `termKinds`.
+- When `"list"` is included, Lexicon SHOULD also include one or more **non-list** term kinds (e.g., `"value"`, `"entity"`) to specify the allowed item types.
+
 ### 14.2 Checking Rules
 
 | Check | Condition | Result on Failure |
@@ -1124,6 +1209,15 @@ type SelectionalRestriction = {
 | **Term kind valid** | `term.kind` in `restrictions[role].termKinds` | ERROR or CLARIFY |
 | **Entity type valid** | `entityType` in `restrictions[role].entityTypes` | ERROR or CLARIFY |
 | **Policy check** | `policyHints` pass policy rules | CONFIRM or POLICY verify |
+
+**ListTerm checking (NORMATIVE):**
+- If `term.kind !== "list"`: check as v0.2 (kind/entityTypes/valueTypes).
+- If `term.kind === "list"`:
+  1) `"list"` MUST be included in `restriction.termKinds`, otherwise fail.
+  2) For each item in `term.items`:
+     - item.kind MUST NOT be `"list"` (v0.2 invariant)
+     - item MUST satisfy the same restriction, **except** `"list"` is ignored for item checking.
+       (i.e., item kinds must match the non-list kinds permitted by the restriction.)
 
 ### 14.3 Checking Algorithm
 
@@ -1188,10 +1282,10 @@ Zod schemas provide **runtime validation** and **type inference** for TypeScript
 ### 15.2 Core Schemas
 
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 // =============================================================================
-// Intent IR v0.1 - Zod Schemas
+// Intent IR v0.2 - Zod Schemas
 // =============================================================================
 // NOTE: Add .strict() to object schemas for stricter validation
 //       e.g., z.object({...}).strict()
@@ -1199,7 +1293,7 @@ import { z } from 'zod';
 // -----------------------------------------------------------------------------
 // Version
 // -----------------------------------------------------------------------------
-export const IntentIRVersionSchema = z.literal("0.1");
+export const IntentIRVersionSchema = z.literal("0.2");
 
 // -----------------------------------------------------------------------------
 // Functional Heads (Enumerations)
@@ -1274,6 +1368,11 @@ export const OutputFormatSchema = z.enum([
 ]);
 
 // -----------------------------------------------------------------------------
+// Shared ext schema
+// -----------------------------------------------------------------------------
+export const ExtSchema = z.record(z.string(), z.unknown());
+
+// -----------------------------------------------------------------------------
 // Event
 // -----------------------------------------------------------------------------
 export const EventSchema = z.object({
@@ -1295,15 +1394,32 @@ export const EntityRefSchema = z.object({
   { message: "id is required when kind is 'id'" }
 );
 
+export const QuantityComparatorSchema = z.enum(["eq", "gte", "lte"]);
+
+export const QuantitySpecSchema = z.object({
+  kind: z.literal("quantity"),
+  value: z.number().int().nonnegative(),
+  comparator: QuantityComparatorSchema.optional(),
+  unit: z.string().optional(),
+  ext: ExtSchema.optional(),
+});
+
 export const EntityRefTermSchema = z.object({
   kind: z.literal("entity"),
   entityType: z.string().min(1),
   ref: EntityRefSchema.optional(),
+  quant: QuantitySpecSchema.optional(),
+  orderBy: z
+    .object({ kind: z.literal("path"), path: z.string().min(1), ext: ExtSchema.optional() })
+    .optional(),
+  orderDir: z.enum(["ASC", "DESC"]).optional(),
+  ext: ExtSchema.optional(),
 });
 
 export const PathRefTermSchema = z.object({
   kind: z.literal("path"),
   path: z.string().min(1),
+  ext: ExtSchema.optional(),
 });
 
 export const ArtifactTypeSchema = z.enum([
@@ -1325,13 +1441,16 @@ export const ArtifactRefTermSchema = z.object({
   artifactType: ArtifactTypeSchema,
   ref: ArtifactRefSchema,
   content: z.string().optional(),
-}).refine(
-  (data) => data.ref.kind !== "inline" || data.content !== undefined,
-  { message: "content is required when ref.kind is 'inline'" }
-).refine(
-  (data) => data.ref.kind !== "id" || data.ref.id !== undefined,
-  { message: "id is required when ref.kind is 'id'" }
-);
+  ext: ExtSchema.optional(),
+})
+  .refine(
+    (data) => data.ref.kind !== "inline" || data.content !== undefined,
+    { message: "content is required when ref.kind is 'inline'" }
+  )
+  .refine(
+    (data) => data.ref.kind !== "id" || data.ref.id !== undefined,
+    { message: "id is required when ref.kind is 'id'" }
+  );
 
 export const ValueTypeSchema = z.enum([
   "string", 
@@ -1347,6 +1466,7 @@ export const ValueTermSchema = z.object({
   valueType: ValueTypeSchema,
   shape: z.record(z.string(), z.unknown()),
   raw: z.unknown().optional(),
+  ext: ExtSchema.optional(),
 });
 
 export const ExprTypeSchema = z.enum(["latex", "ast", "code"]);
@@ -1355,6 +1475,7 @@ export const ExprTermSchema = z.object({
   kind: z.literal("expr"),
   exprType: ExprTypeSchema,
   expr: z.union([z.string(), z.record(z.string(), z.unknown())]),
+  ext: ExtSchema.optional(),
 }).superRefine((data, ctx) => {
   if (data.exprType === "ast" && typeof data.expr !== "object") {
     ctx.addIssue({
@@ -1372,13 +1493,28 @@ export const ExprTermSchema = z.object({
   }
 });
 
-// Discriminated union for Term
+export const NonListTermSchema = z.discriminatedUnion("kind", [
+  EntityRefTermSchema,
+  PathRefTermSchema,
+  ArtifactRefTermSchema,
+  ValueTermSchema,
+  ExprTermSchema,
+]);
+
+export const ListTermSchema = z.object({
+  kind: z.literal("list"),
+  items: z.array(NonListTermSchema),
+  ordered: z.boolean().optional(),
+  ext: ExtSchema.optional(),
+});
+
 export const TermSchema = z.discriminatedUnion("kind", [
   EntityRefTermSchema,
   PathRefTermSchema,
   ArtifactRefTermSchema,
   ValueTermSchema,
   ExprTermSchema,
+  ListTermSchema,
 ]);
 
 // -----------------------------------------------------------------------------
@@ -1387,7 +1523,8 @@ export const TermSchema = z.discriminatedUnion("kind", [
 export const PredOpSchema = z.enum([
   "=", "!=", 
   "<", ">", "<=", ">=", 
-  "contains", "startsWith", "matches"
+  "contains", "startsWith", "matches",
+  "in"
 ]);
 
 export const LHSSchema = z.string().regex(
@@ -1423,7 +1560,7 @@ export const OutputSpecSchema = z.object({
 // -----------------------------------------------------------------------------
 // Args (θ-role map)
 // -----------------------------------------------------------------------------
-// Args: each role maps to at most one Term (v0.1)
+// Args: each role maps to at most one Term (v0.2)
 // Using explicit object + partial for proper type inference
 export const ArgsSchema = z.object({
   TARGET: TermSchema,
@@ -1447,11 +1584,10 @@ export const IntentIRSchema = z.object({
   time: TimeSpecSchema.optional(),
   verify: VerifySpecSchema.optional(),
   out: OutputSpecSchema.optional(),
-  ext: z.record(z.string(), z.unknown()).optional(),
+  ext: ExtSchema.optional(),
 });
 ```
 
-### 13.3 Type Inference
 
 ```typescript
 // Infer TypeScript types from Zod schemas
@@ -1465,11 +1601,14 @@ export type VerifyMode = z.infer<typeof VerifyModeSchema>;
 export type OutputType = z.infer<typeof OutputTypeSchema>;
 export type Event = z.infer<typeof EventSchema>;
 export type Term = z.infer<typeof TermSchema>;
+export type ListTerm = z.infer<typeof ListTermSchema>;
 export type EntityRefTerm = z.infer<typeof EntityRefTermSchema>;
 export type PathRefTerm = z.infer<typeof PathRefTermSchema>;
 export type ArtifactRefTerm = z.infer<typeof ArtifactRefTermSchema>;
 export type ValueTerm = z.infer<typeof ValueTermSchema>;
 export type ExprTerm = z.infer<typeof ExprTermSchema>;
+export type QuantitySpec = z.infer<typeof QuantitySpecSchema>;
+export type QuantityComparator = z.infer<typeof QuantityComparatorSchema>;
 export type Pred = z.infer<typeof PredSchema>;
 export type TimeSpec = z.infer<typeof TimeSpecSchema>;
 export type VerifySpec = z.infer<typeof VerifySpecSchema>;
@@ -1608,63 +1747,33 @@ export const ROLE_VALUES = RoleSchema.options;
 
 ## 16. TypeScript Definitions (Informative)
 
-Complete TypeScript type definitions for Intent IR v0.1.
+Complete TypeScript type definitions for Intent IR v0.2.
 
 > **Note:** These types are **informative**. The normative types are derived from Zod schemas via `z.infer<>`. These are provided for reference and documentation.
 
 ```typescript
 // =============================================================================
-// Intent IR v0.1 - TypeScript Definitions
+// Intent IR v0.2 - TypeScript Definitions
 // =============================================================================
 
 // -----------------------------------------------------------------------------
 // Version
 // -----------------------------------------------------------------------------
-export type IntentIRVersion = "0.1";
+export type IntentIRVersion = "0.2";
+
+export type Ext = Record<string, unknown>;
 
 // -----------------------------------------------------------------------------
 // Functional Heads (Enumerations)
 // -----------------------------------------------------------------------------
 export type Force = "ASK" | "DO" | "VERIFY" | "CONFIRM" | "CLARIFY";
-
-export type EventClass = 
-  | "OBSERVE" 
-  | "TRANSFORM" 
-  | "SOLVE" 
-  | "CREATE" 
-  | "DECIDE" 
-  | "CONTROL";
-
-export type Role = 
-  | "TARGET" 
-  | "THEME" 
-  | "SOURCE" 
-  | "DEST" 
-  | "INSTRUMENT" 
-  | "BENEFICIARY";
-
+export type EventClass = "OBSERVE" | "TRANSFORM" | "SOLVE" | "CREATE" | "DECIDE" | "CONTROL";
+export type Role = "TARGET" | "THEME" | "SOURCE" | "DEST" | "INSTRUMENT" | "BENEFICIARY";
 export type Modality = "MUST" | "SHOULD" | "MAY" | "FORBID";
-
 export type TimeKind = "NOW" | "AT" | "BEFORE" | "AFTER" | "WITHIN";
-
-export type VerifyMode = 
-  | "NONE" 
-  | "TEST" 
-  | "PROOF" 
-  | "CITATION" 
-  | "RUBRIC" 
-  | "POLICY";
-
-export type OutputType = 
-  | "number" 
-  | "expression" 
-  | "proof" 
-  | "explanation" 
-  | "summary" 
-  | "plan" 
-  | "code" 
-  | "text" 
-  | "artifactRef";
+export type VerifyMode = "NONE" | "TEST" | "PROOF" | "CITATION" | "RUBRIC" | "POLICY";
+export type OutputType = "number" | "expression" | "proof" | "explanation" | "summary" | "plan" | "code" | "text" | "artifactRef";
+export type OutputFormat = "markdown" | "json" | "latex" | "text";
 
 // -----------------------------------------------------------------------------
 // Event
@@ -1672,6 +1781,19 @@ export type OutputType =
 export type Event = {
   readonly lemma: string;
   readonly class: EventClass;
+};
+
+// -----------------------------------------------------------------------------
+// QuantitySpec
+// -----------------------------------------------------------------------------
+export type QuantityComparator = "eq" | "gte" | "lte";
+
+export type QuantitySpec = {
+  readonly kind: "quantity";
+  readonly value: number;
+  readonly comparator?: QuantityComparator;
+  readonly unit?: string;
+  readonly ext?: Ext;
 };
 
 // -----------------------------------------------------------------------------
@@ -1688,11 +1810,16 @@ export type EntityRefTerm = {
   readonly kind: "entity";
   readonly entityType: string;
   readonly ref?: EntityRef;
+  readonly quant?: QuantitySpec;
+  readonly orderBy?: PathRefTerm;
+  readonly orderDir?: "ASC" | "DESC";
+  readonly ext?: Ext;
 };
 
 export type PathRefTerm = {
   readonly kind: "path";
   readonly path: string;
+  readonly ext?: Ext;
 };
 
 export type ArtifactType = "text" | "math" | "code" | "data" | "plan" | "mixed";
@@ -1707,6 +1834,7 @@ export type ArtifactRefTerm = {
   readonly artifactType: ArtifactType;
   readonly ref: ArtifactRef;
   readonly content?: string;
+  readonly ext?: Ext;
 };
 
 export type ValueType = "string" | "number" | "boolean" | "date" | "enum" | "id";
@@ -1716,6 +1844,7 @@ export type ValueTerm = {
   readonly valueType: ValueType;
   readonly shape: Record<string, unknown>;
   readonly raw?: unknown;
+  readonly ext?: Ext;
 };
 
 export type ExprType = "latex" | "ast" | "code";
@@ -1724,14 +1853,19 @@ export type ExprTerm = {
   readonly kind: "expr";
   readonly exprType: ExprType;
   readonly expr: string | Record<string, unknown>;
+  readonly ext?: Ext;
 };
 
-export type Term = 
-  | EntityRefTerm 
-  | PathRefTerm 
-  | ArtifactRefTerm 
-  | ValueTerm 
-  | ExprTerm;
+export type NonListTerm = EntityRefTerm | PathRefTerm | ArtifactRefTerm | ValueTerm | ExprTerm;
+
+export type ListTerm = {
+  readonly kind: "list";
+  readonly items: NonListTerm[];
+  readonly ordered?: boolean;
+  readonly ext?: Ext;
+};
+
+export type Term = NonListTerm | ListTerm;
 
 // -----------------------------------------------------------------------------
 // Predicate (Condition)
@@ -1739,7 +1873,8 @@ export type Term =
 export type PredOp = 
   | "=" | "!=" 
   | "<" | ">" | "<=" | ">=" 
-  | "contains" | "startsWith" | "matches";
+  | "contains" | "startsWith" | "matches"
+  | "in";
 
 export type Pred = {
   readonly lhs: string;
@@ -1760,8 +1895,6 @@ export type VerifySpec = {
   readonly spec?: Record<string, unknown>;
 };
 
-export type OutputFormat = "markdown" | "json" | "latex" | "text";
-
 export type OutputSpec = {
   readonly type: OutputType;
   readonly format?: OutputFormat;
@@ -1781,7 +1914,7 @@ export type IntentIR = {
   readonly time?: TimeSpec;
   readonly verify?: VerifySpec;
   readonly out?: OutputSpec;
-  readonly ext?: Record<string, unknown>;
+  readonly ext?: Ext;
 };
 
 // -----------------------------------------------------------------------------
@@ -1845,21 +1978,21 @@ export const ROLE_ORDER: readonly Role[] = [
 
 ## 17. JSON Schema
 
-JSON Schema (Draft 2020-12) for Intent IR v0.1.
+JSON Schema (Draft 2020-12) for Intent IR v0.2.
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://manifesto.dev/schemas/intent-ir/0.1",
-  "title": "Manifesto Intent IR v0.1",
+  "$id": "https://manifesto.dev/schemas/intent-ir/0.2",
+  "title": "Manifesto Intent IR v0.2",
   "description": "Chomskyan LF-based Semantic IR for natural language intent",
   "type": "object",
   "additionalProperties": false,
   "required": ["v", "force", "event", "args"],
-  
+
   "properties": {
-    "v": { 
-      "const": "0.1",
+    "v": {
+      "const": "0.2",
       "description": "Specification version"
     },
 
@@ -1895,36 +2028,40 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
       "description": "Modality"
     },
 
-    "time": { 
+    "time": {
       "$ref": "#/$defs/timeSpec",
       "description": "Temporal specification"
     },
 
-    "verify": { 
+    "verify": {
       "$ref": "#/$defs/verifySpec",
       "description": "Verification contract"
     },
 
-    "out": { 
+    "out": {
       "$ref": "#/$defs/outputSpec",
       "description": "Output specification"
     },
 
     "ext": {
-      "type": "object",
-      "additionalProperties": true,
+      "$ref": "#/$defs/ext",
       "description": "Extension point (namespaced keys recommended)"
     }
   },
 
   "$defs": {
+    "ext": {
+      "type": "object",
+      "additionalProperties": true
+    },
+
     "event": {
       "type": "object",
       "additionalProperties": false,
       "required": ["lemma", "class"],
       "properties": {
-        "lemma": { 
-          "type": "string", 
+        "lemma": {
+          "type": "string",
           "minLength": 1,
           "pattern": "^[A-Z][A-Z0-9_]*$",
           "description": "Canonical event label (uppercase)"
@@ -1937,7 +2074,27 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
       }
     },
 
+    "quantitySpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "const": "quantity" },
+        "value": { "type": "integer", "minimum": 0 },
+        "comparator": { "enum": ["eq", "gte", "lte"] },
+        "unit": { "type": "string" },
+        "ext": { "$ref": "#/$defs/ext" }
+      }
+    },
+
     "term": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonListTerm" },
+        { "$ref": "#/$defs/listTerm" }
+      ]
+    },
+
+    "nonListTerm": {
       "oneOf": [
         { "$ref": "#/$defs/entityRefTerm" },
         { "$ref": "#/$defs/pathRefTerm" },
@@ -1945,6 +2102,21 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
         { "$ref": "#/$defs/valueTerm" },
         { "$ref": "#/$defs/exprTerm" }
       ]
+    },
+
+    "listTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "items"],
+      "properties": {
+        "kind": { "const": "list" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonListTerm" }
+        },
+        "ordered": { "type": "boolean" },
+        "ext": { "$ref": "#/$defs/ext" }
+      }
     },
 
     "entityRefTerm": {
@@ -1964,7 +2136,11 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
           },
           "if": { "properties": { "kind": { "const": "id" } } },
           "then": { "required": ["kind", "id"] }
-        }
+        },
+        "quant": { "$ref": "#/$defs/quantitySpec" },
+        "orderBy": { "$ref": "#/$defs/pathRefTerm" },
+        "orderDir": { "enum": ["ASC", "DESC"] },
+        "ext": { "$ref": "#/$defs/ext" }
       }
     },
 
@@ -1974,7 +2150,8 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
       "required": ["kind", "path"],
       "properties": {
         "kind": { "const": "path" },
-        "path": { "type": "string", "minLength": 1 }
+        "path": { "type": "string", "minLength": 1 },
+        "ext": { "$ref": "#/$defs/ext" }
       }
     },
 
@@ -1996,7 +2173,8 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
           "if": { "properties": { "kind": { "const": "id" } } },
           "then": { "required": ["kind", "id"] }
         },
-        "content": { "type": "string" }
+        "content": { "type": "string" },
+        "ext": { "$ref": "#/$defs/ext" }
       },
       "allOf": [
         {
@@ -2014,8 +2192,19 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
         "kind": { "const": "value" },
         "valueType": { "enum": ["string", "number", "boolean", "date", "enum", "id"] },
         "shape": { "type": "object", "additionalProperties": true },
-        "raw": {}
-      }
+        "raw": {},
+        "ext": { "$ref": "#/$defs/ext" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "valueType": { "const": "date" } } },
+          "then": {
+            "properties": {
+              "raw": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      ]
     },
 
     "exprTerm": {
@@ -2028,9 +2217,10 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
         "expr": {
           "oneOf": [
             { "type": "string" },
-            { "type": "object" }
+            { "type": "object", "additionalProperties": true }
           ]
-        }
+        },
+        "ext": { "$ref": "#/$defs/ext" }
       },
       "allOf": [
         {
@@ -2049,13 +2239,25 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
       "additionalProperties": false,
       "required": ["lhs", "op", "rhs"],
       "properties": {
-        "lhs": { 
-          "type": "string", 
+        "lhs": {
+          "type": "string",
           "pattern": "^(target|theme|source|dest|state|env|computed)\\.[A-Za-z0-9_.]+$"
         },
-        "op": { "enum": ["=", "!=", "<", ">", "<=", ">=", "contains", "startsWith", "matches"] },
+        "op": {
+          "enum": [
+            "=", "!=", "<", ">", "<=", ">=",
+            "contains", "startsWith", "matches",
+            "in"
+          ]
+        },
         "rhs": { "$ref": "#/$defs/term" }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "op": { "const": "in" } } },
+          "then": { "properties": { "rhs": { "$ref": "#/$defs/listTerm" } } }
+        }
+      ]
     },
 
     "timeSpec": {
@@ -2092,7 +2294,6 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 }
 ```
 
----
 
 ## 18. Examples
 
@@ -2100,7 +2301,7 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 
 ```json
 {
-  "v": "0.1",
+  "v": "0.2",
   "force": "DO",
   "event": { 
     "lemma": "CANCEL", 
@@ -2124,7 +2325,7 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 
 ```json
 {
-  "v": "0.1",
+  "v": "0.2",
   "force": "DO",
   "event": { 
     "lemma": "SOLVE", 
@@ -2149,7 +2350,7 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 
 ```json
 {
-  "v": "0.1",
+  "v": "0.2",
   "force": "DO",
   "event": { 
     "lemma": "WRITE", 
@@ -2174,7 +2375,7 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 
 ```json
 {
-  "v": "0.1",
+  "v": "0.2",
   "force": "ASK",
   "event": { 
     "lemma": "LIST", 
@@ -2207,7 +2408,7 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 
 ```json
 {
-  "v": "0.1",
+  "v": "0.2",
   "force": "DO",
   "event": { 
     "lemma": "CONVERT", 
@@ -2230,42 +2431,137 @@ JSON Schema (Draft 2020-12) for Intent IR v0.1.
 }
 ```
 
----
+### 18.6 Test Vector: Unordered ListTerm Canonicalization
 
-## 19. Extension Points
-
-### 19.1 Extension Field (`ext`)
-
-The `ext` field provides a namespace for domain-specific or experimental extensions.
-
-**Normative:**
-- Extension keys SHOULD be namespaced: `"domain:key"` or `"org.example:key"`
-- Extensions MUST NOT change semantics of core fields
-- Extensions are NOT guaranteed to be preserved across systems
-
-**Example:**
+Input A:
 ```json
 {
-  "v": "0.1",
+  "v": "0.2",
   "force": "DO",
-  "event": { "lemma": "DEPLOY", "class": "CONTROL" },
-  "args": { ... },
-  "ext": {
-    "k8s:namespace": "production",
-    "k8s:replicas": 3,
-    "internal:priority": "high"
+  "event": { "lemma": "ADD", "class": "CREATE" },
+  "args": {
+    "THEME": {
+      "kind": "list",
+      "items": [
+        { "kind": "value", "valueType": "string", "shape": { "value": "design" } },
+        { "kind": "value", "valueType": "string", "shape": { "value": "build" } }
+      ]
+    }
   }
 }
 ```
 
-### 19.2 Future Extension Candidates (v0.2+)
+Input B:
+```json
+{
+  "v": "0.2",
+  "force": "DO",
+  "event": { "lemma": "ADD", "class": "CREATE" },
+  "args": {
+    "THEME": {
+      "kind": "list",
+      "items": [
+        { "kind": "value", "valueType": "string", "shape": { "value": "build" } },
+        { "kind": "value", "valueType": "string", "shape": { "value": "design" } }
+      ]
+    }
+  }
+}
+```
 
-| Extension | Description | Status |
-|-----------|-------------|--------|
-| OR/NOT conditions | Disjunctive and negated predicates | Planned v0.2 |
-| Quantifiers | Universal/existential (∀, ∃) | Under consideration |
-| Multi-event | Sequenced/parallel event composition | Under consideration |
-| Context reference | Explicit discourse context binding | Under consideration |
+**Expected:** Semantic and strict canonicalization MUST yield identical canonical bytes for Input A and Input B (unordered list semantics).
+
+### 18.7 Test Vector: PredOp "in" Requires ListTerm
+
+Valid:
+```json
+{
+  "v": "0.2",
+  "force": "ASK",
+  "event": { "lemma": "LIST", "class": "OBSERVE" },
+  "args": {
+    "TARGET": { "kind": "entity", "entityType": "User" }
+  },
+  "cond": [
+    {
+      "lhs": "target.status",
+      "op": "in",
+      "rhs": {
+        "kind": "list",
+        "items": [
+          { "kind": "value", "valueType": "enum", "shape": { "value": "active" } },
+          { "kind": "value", "valueType": "enum", "shape": { "value": "paused" } }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Invalid (MUST FAIL validation):
+```json
+{
+  "v": "0.2",
+  "force": "ASK",
+  "event": { "lemma": "LIST", "class": "OBSERVE" },
+  "args": {
+    "TARGET": { "kind": "entity", "entityType": "User" }
+  },
+  "cond": [
+    {
+      "lhs": "target.status",
+      "op": "in",
+      "rhs": { "kind": "value", "valueType": "enum", "shape": { "value": "active" } }
+    }
+  ]
+}
+```
+
+### 18.8 Test Vector: Semantic Canonicalization Drops `ext`
+
+Input:
+```json
+{
+  "v": "0.2",
+  "force": "DO",
+  "event": { "lemma": "CREATE", "class": "CREATE" },
+  "args": {
+    "TARGET": {
+      "kind": "entity",
+      "entityType": "Project",
+      "ext": { "acme:confidence": 0.91 }
+    }
+  },
+  "ext": { "vendorX:span": [0, 12] }
+}
+```
+
+Semantic Canonicalized (illustrative):
+```json
+{
+  "v": "0.2",
+  "force": "DO",
+  "event": { "lemma": "CREATE", "class": "CREATE" },
+  "args": {
+    "TARGET": {
+      "kind": "entity",
+      "entityType": "Project"
+    }
+  }
+}
+```
+
+---
+
+## 19. Extension Points
+
+The following are recognized extension points beyond v0.2:
+
+- Nested boolean logic in `cond` (OR/NOT, grouping)
+- Nested `ListTerm` (list-of-lists) and higher-order coordination
+- Lexicon-aware canonicalization plugins (lemma aliasing, enum normalization)
+- Rich temporal structures for `TimeSpec.value` (standardized relative/range objects)
+- Collection selection term (SelectionTerm / set comprehension) — deferred until a clear boundary is defined so that IR does not become a query language
 
 ---
 
@@ -2279,7 +2575,7 @@ Intent IR follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: Backward-compatible additions (new optional fields, clarifications)
 - **PATCH**: Documentation fixes, non-normative changes
 
-> **Note**: Adding a new value to any core enum (Force, EventClass, Role, Modality, TimeKind, VerifyMode, OutputType) is a **BREAKING** change requiring a MAJOR version bump. See §18.2.
+> **Note**: Adding a new value to any core enum (Force, EventClass, Role, Modality, TimeKind, VerifyMode, OutputType) is a **BREAKING** change requiring a MAJOR version bump. See AD-INT-002.
 
 ### 20.2 Compatibility Rules
 
@@ -2299,8 +2595,8 @@ Consumers implementing exhaustive pattern matching (which this spec encourages p
 
 | Version Type | Format | Example | Purpose |
 |--------------|--------|---------|---------|
-| **Wire version** (`v` field) | `"MAJOR.MINOR"` | `"0.1"` | Compatibility check at runtime |
-| **Spec version** | `"MAJOR.MINOR.PATCH"` | `"0.1.0"` | Document revision tracking |
+| **Wire version** (`v` field) | `"MAJOR.MINOR"` | `"0.2"` | Compatibility check at runtime |
+| **Spec version** | `"MAJOR.MINOR.PATCH"` | `"0.2.0"` | Document revision tracking |
 
 - Wire version changes only on MAJOR or MINOR changes
 - Spec PATCH versions are documentation-only fixes (typos, clarifications)
@@ -2311,6 +2607,7 @@ Consumers implementing exhaustive pattern matching (which this spec encourages p
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1.0 | 2025-01 | Initial specification |
+| 0.2.0 | 2026-01 | ListTerm, term-level ext, QuantitySpec, `in` predicate, canonicalization updates |
 
 ---
 
@@ -2363,4 +2660,4 @@ Recommended validation order:
 
 ---
 
-*End of Manifesto Intent IR Specification v0.1*
+*End of Manifesto Intent IR Specification v0.2*

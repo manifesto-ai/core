@@ -117,4 +117,4 @@ Intent IR's design involves explicit trade-offs:
 ## Further Reading
 
 - **[Full Comparison Document](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/research/COMPARISON.md)** - Complete comparative analysis
-- **[SPEC §1.2](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.1.0.md#12-what-intent-ir-is-not)** - Scope definition
+- **[SPEC §1.2](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md#12-what-intent-ir-is-not)** - Scope definition

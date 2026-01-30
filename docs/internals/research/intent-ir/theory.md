@@ -128,5 +128,5 @@ Both → { force: DO, event: { lemma: CANCEL }, args: { TARGET: Order } }
 ## Further Reading
 
 - **[Full Theory Document](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/research/THEORY.md)** - Complete theoretical exposition
-- **[SPEC §1.4](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.1.0.md#14-theoretical-foundation)** - Normative theoretical foundation
+- **[SPEC §1.4](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md#14-theoretical-foundation)** - Normative theoretical foundation
 - **[FDR-INT-001](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/FDR-v0.1.0.md#fdr-int-001-chomskyan-lf-as-semantic-foundation)** - Design rationale

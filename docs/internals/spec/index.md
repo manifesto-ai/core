@@ -28,7 +28,7 @@ All specifications are maintained at the package level. This page provides navig
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/intent-ir** | v0.1.0 | Final | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/translator/core/docs/) |
 
 ---
@@ -76,8 +76,8 @@ All specifications are maintained at the package level. This page provides navig
 
 ### Intent IR
 
-- **Intent IR SPEC v0.1.0** (Final)
-  - [SPEC-v0.1.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/SPEC-v0.1.0.md)
+- **Intent IR SPEC v0.2.0** (Draft)
+  - [SPEC-v0.2.0.md](https://github.com/anthropics/manifesto-ai/blob/main/workspaces/core/packages/intent-ir/docs/SPEC-v0.2.0.md)
   - Research docs: [Research](/internals/research/intent-ir/)
 
 ### Translator
