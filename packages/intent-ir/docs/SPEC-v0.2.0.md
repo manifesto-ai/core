@@ -535,6 +535,8 @@ When present, `orderBy` expresses meaning-level ordering over the collection den
 
 Lexicon SHOULD validate that `orderBy.path` is a valid field path of `entityType` when schema information is available.
 
+`orderDir` MUST NOT appear unless `orderBy` is present. Canonicalization MUST remove `orderDir` when `orderBy` is absent.
+
 ### 8.2.1 QuantitySpec (v0.2)
 
 QuantitySpec represents DP-internal quantity and comparison (Num/QP).
@@ -882,9 +884,13 @@ Canonicalization MUST eliminate representational variance introduced by defaulte
 | `"string"` | Trim leading/trailing whitespace |
 | `"number"` | JSON number (not string); no trailing zeros |
 | `"boolean"` | JSON boolean (`true`/`false`) |
-| `"date"` | If `raw` exists, it MUST be ISO 8601 string. If absent, it remains absent. |
+| `"date"` | If `raw` exists, it MUST be RFC3339 `date-time` in UTC with `Z` and exactly 3 fractional digits (e.g., `"2026-01-30T15:04:05.123Z"`). If absent, it remains absent. |
 | `"enum"` | Exact string match (case-sensitive) |
 | `"id"` | String, trimmed |
+
+**Date Normalization (Strict Mode):**
+- Canonicalization MUST convert any valid date-time to the RFC3339 UTC form described above.
+- Implementations SHOULD use a stable formatter equivalent to `toISOString()` semantics.
 
 #### 11.4.3 Serialization
 
@@ -1290,9 +1296,9 @@ function checkFeatures(ir: IntentIR, lexicon: Lexicon): CheckResult {
 Zod schemas provide **runtime validation** and **type inference** for TypeScript/JavaScript implementations.
 
 > **Status:** INFORMATIVE. These schemas are a reference implementation.  
-> **Normative contract:** JSON Schema (§15) + RFC 2119 rules in this document.
+> **Normative contract:** JSON Schema (§17) + RFC 2119 rules in this document.
 
-### 13.1 Design Rationale
+### 15.1 Design Rationale
 
 | Aspect | JSON Schema | Zod |
 |--------|-------------|-----|
@@ -1440,6 +1446,14 @@ export const EntityRefTermSchema = z.object({
     .optional(),
   orderDir: z.enum(["ASC", "DESC"]).optional(),
   ext: ExtSchema.optional(),
+}).superRefine((data, ctx) => {
+  if (data.orderDir && !data.orderBy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "orderDir requires orderBy",
+      path: ["orderDir"],
+    });
+  }
 });
 
 export const PathRefTermSchema = z.object({
@@ -1649,7 +1663,7 @@ export type VerifySpec = z.infer<typeof VerifySpecSchema>;
 export type OutputSpec = z.infer<typeof OutputSpecSchema>;
 ```
 
-### 13.4 Validation API
+### 15.3 Validation API
 
 ```typescript
 /**
@@ -1704,7 +1718,7 @@ export type ValidationError = {
 };
 ```
 
-### 13.5 Refinements and Custom Validators
+### 15.4 Refinements and Custom Validators
 
 ```typescript
 /**
@@ -1746,7 +1760,7 @@ export const CanonicalIntentIRSchema = IntentIRSchema.refine(
 );
 ```
 
-### 13.6 Constants
+### 15.5 Constants
 
 ```typescript
 /**
@@ -2175,7 +2189,13 @@ JSON Schema (Draft 2020-12) for Intent IR v0.2.
         "orderBy": { "$ref": "#/$defs/pathRefTerm" },
         "orderDir": { "enum": ["ASC", "DESC"] },
         "ext": { "$ref": "#/$defs/ext" }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["orderDir"] },
+          "then": { "required": ["orderBy"] }
+        }
+      ]
     },
 
     "pathRefTerm": {
