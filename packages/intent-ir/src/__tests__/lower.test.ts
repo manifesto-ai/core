@@ -48,7 +48,7 @@ describe("Lowering", () => {
   describe("lower", () => {
     it("should lower valid IR to IntentBody", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -70,7 +70,7 @@ describe("Lowering", () => {
 
     it("should resolve references during lowering", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -101,7 +101,7 @@ describe("Lowering", () => {
 
     it("should return error for unknown lemma", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "UNKNOWN", class: "CONTROL" },
         args: {},
@@ -116,7 +116,7 @@ describe("Lowering", () => {
 
     it("should return error for resolution failure", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -137,7 +137,7 @@ describe("Lowering", () => {
 
     it("should map cond to input filter", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "ASK",
         event: { lemma: "LIST", class: "OBSERVE" },
         args: {
@@ -165,7 +165,7 @@ describe("Lowering", () => {
   describe("lowerOrThrow", () => {
     it("should return body and resolvedIR on success", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "ASK",
         event: { lemma: "LIST", class: "OBSERVE" },
         args: {},
@@ -178,7 +178,7 @@ describe("Lowering", () => {
 
     it("should throw on unknown lemma", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "UNKNOWN", class: "CONTROL" },
         args: {},

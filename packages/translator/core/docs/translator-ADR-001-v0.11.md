@@ -5,7 +5,7 @@
 > **Date:** 2026-01-26 (Updated: 2026-01-27)  
 > **Deciders:** Manifesto Architecture Team  
 > **Scope:** `@manifesto-ai/translator`  
-> **Depends On:** `@manifesto-ai/intent-ir` (v0.1+)  
+> **Depends On:** `@manifesto-ai/intent-ir` (v0.2+)  
 > **Does NOT Depend On:** `@manifesto-ai/core`, `@manifesto-ai/host`, `@manifesto-ai/world`, `@manifesto-ai/app`
 
 ---
@@ -17,6 +17,13 @@
 > given that this ADR concerns a framework for making Intent
 > machine-interpretable regardless of its linguistic surface.
 
+> **Alignment Note (2026-01-30)**
+>
+> This ADR was authored against Intent IR v0.1. The current canonical spec is v0.2.0.
+> The role enum and lowering contract are unchanged; v0.2 adds ListTerm, QuantitySpec,
+> `in` predicate support, term-level `ext`, and canonicalization refinements.
+> References were updated to v0.2.0 without changing the original decision.
+
 ## Context
 
 Manifesto v2는 레이어 분리를 강하게 전제한다. ARCHITECTURE-v2.0.0의 "Does NOT Know" 매트릭스에서 Translator는 다음을 모른다고 명시되어 있다:
@@ -27,7 +34,7 @@ Manifesto v2는 레이어 분리를 강하게 전제한다. ARCHITECTURE-v2.0.0�
 
 Host v2.0.1(FDR-H024)에서 Host는 Compiler/Translator와 직접 결합하지 않으며, Translator 출력 처리(lowering/evaluation)는 App 레이어 책임으로 이동했다.
 
-Intent IR v0.1 스펙은 다음을 명시한다:
+Intent IR v0.2 스펙은 다음을 명시한다 (v0.1과 동일한 규정):
 - "IR은 실행 계획이 아니다"
 - "IntentIR → IntentBody lowering은 프로토콜 단위로 1:1로 수행된다"
 - "Lexicon is the arbiter"
@@ -71,23 +78,23 @@ Translator는 복잡한 요구를 단일 action으로 억지로 축약하지 않
 > 이 결정은 Intent Graph와 Intent IR의 관계를 명시적으로 봉인한다.
 
 **규범:**
-- Intent Graph의 각 노드는 **하나의 IntentIR**(v0.1)를 포함한다
+- Intent Graph의 각 노드는 **하나의 IntentIR**(v0.2)를 포함한다
 - Intent Graph는 Intent IR 스펙을 **대체하지 않고 조합(compose)**한다
-- Intent IR v0.1의 lowering 계약(`IntentIR → IntentBody`)은 노드 단위로 그대로 적용된다
+- Intent IR v0.2의 lowering 계약(`IntentIR → IntentBody`)은 노드 단위로 그대로 적용된다
 
 **Type Definition (normative):**
 
 ```typescript
 type IntentNodeId = string;
 
-/** θ-role names from Intent IR v0.1 */
+/** θ-role names from Intent IR v0.2 (roles unchanged from v0.1) */
 type Role = "TARGET" | "THEME" | "SOURCE" | "DEST" | "INSTRUMENT" | "BENEFICIARY";
 
 type IntentNode = {
   /** 노드 고유 식별자 */
   id: IntentNodeId;
   
-  /** IntentIR v0.1 인스턴스 (MUST) */
+  /** IntentIR v0.2 인스턴스 (MUST) */
   ir: IntentIR;
   
   /** 이 노드가 의존하는 다른 노드들 */
@@ -254,7 +261,7 @@ Conceptual Completeness와 일부 Referential Identity는 Lexicon에 의해 규�
 ## References
 
 - [ARCHITECTURE-v2.0.0](./ARCHITECTURE-v2_0_0.md) — "Does NOT Know" 매트릭스
-- [Intent IR v0.1 SPEC](./manifesto-intent-ir__v0_1_0__SPEC.md) — IntentIR 구조, Lowering, Lexicon
+- [Intent IR v0.2 SPEC](../../../intent-ir/docs/SPEC-v0.2.0.md) — IntentIR 구조, Lowering, Lexicon
 - [ADR-001 Layer Separation](./ADR-001-layer-seperation.md) — 레이어 분리 원칙
 - [Host FDR-H024](./host-FDR-v2_0_2.md) — Host-Compiler decouple
 

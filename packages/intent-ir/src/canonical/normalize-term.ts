@@ -4,6 +4,7 @@
  * Term-specific normalization rules for canonicalization.
  */
 
+import { toJcs } from "@manifesto-ai/core";
 import type {
   Term,
   ValueTerm,
@@ -12,6 +13,9 @@ import type {
   PathRefTerm,
   ExprTerm,
   ResolvedTerm,
+  ListTerm,
+  NonListTerm,
+  QuantitySpec,
 } from "../schema/index.js";
 
 // =============================================================================
@@ -20,62 +24,23 @@ import type {
 
 /**
  * Normalize term for semantic canonicalization.
- * Removes ValueTerm.raw for semantic equivalence (FDR-INT-CAN-002).
+ * Removes ValueTerm.raw and all term-level ext.
  */
 export function normalizeTermSemantic(term: Term): Term {
   switch (term.kind) {
     case "entity":
-      return normalizeEntityRefTermSemantic(term);
+      return normalizeEntityRefTerm(term, "semantic");
     case "artifact":
-      return normalizeArtifactRefTermSemantic(term);
+      return normalizeArtifactRefTerm(term, "semantic");
     case "value":
       return normalizeValueTermSemantic(term);
     case "path":
-      return normalizePathRefTerm(term);
+      return normalizePathRefTerm(term, "semantic");
     case "expr":
-      return normalizeExprTerm(term);
+      return normalizeExprTerm(term, "semantic");
+    case "list":
+      return normalizeListTerm(term, "semantic") as Term;
   }
-}
-
-function normalizeEntityRefTermSemantic(term: EntityRefTerm): EntityRefTerm {
-  // If ref absent, preserve (collection scope)
-  // If ref.kind !== "id", remove ref.id (symbolic refs don't need id)
-  if (!term.ref) {
-    return term;
-  }
-
-  if (term.ref.kind !== "id") {
-    const { id: _id, ...refWithoutId } = term.ref;
-    return { ...term, ref: refWithoutId as EntityRefTerm["ref"] };
-  }
-
-  return term;
-}
-
-function normalizeArtifactRefTermSemantic(
-  term: ArtifactRefTerm
-): ArtifactRefTerm {
-  // If inline, remove ref.id
-  // If id, remove content
-  if (term.ref.kind === "inline") {
-    const { id: _id, ...refWithoutId } = term.ref;
-    return {
-      kind: term.kind,
-      artifactType: term.artifactType,
-      ref: refWithoutId as ArtifactRefTerm["ref"],
-      content: term.content,
-    };
-  }
-
-  // id mode: remove content
-  const { content: _content, ...termWithoutContent } = term;
-  return termWithoutContent as ArtifactRefTerm;
-}
-
-function normalizeValueTermSemantic(term: ValueTerm): ValueTerm {
-  // Remove raw for semantic mode (FDR-INT-CAN-002)
-  const { raw: _raw, ...termWithoutRaw } = term;
-  return termWithoutRaw as ValueTerm;
 }
 
 // =============================================================================
@@ -84,48 +49,116 @@ function normalizeValueTermSemantic(term: ValueTerm): ValueTerm {
 
 /**
  * Normalize term for strict canonicalization.
- * Preserves and normalizes ValueTerm.raw.
+ * Preserves and normalizes ValueTerm.raw and preserves ext.
  */
 export function normalizeTermStrict(term: Term | ResolvedTerm): Term | ResolvedTerm {
   switch (term.kind) {
     case "entity":
-      return normalizeEntityRefTermStrict(term);
+      return normalizeEntityRefTerm(term, "strict");
     case "artifact":
-      return normalizeArtifactRefTermStrict(term);
+      return normalizeArtifactRefTerm(term, "strict");
     case "value":
       return normalizeValueTermStrict(term);
     case "path":
-      return normalizePathRefTerm(term);
+      return normalizePathRefTerm(term, "strict");
     case "expr":
-      return normalizeExprTerm(term);
+      return normalizeExprTerm(term, "strict");
+    case "list":
+      return normalizeListTerm(term, "strict") as Term | ResolvedTerm;
   }
 }
 
-function normalizeEntityRefTermStrict(
-  term: EntityRefTerm
+// =============================================================================
+// EntityRefTerm
+// =============================================================================
+
+function normalizeEntityRefTerm(
+  term: EntityRefTerm,
+  mode: "semantic" | "strict"
 ): EntityRefTerm {
-  // Same as semantic for entity refs
-  return normalizeEntityRefTermSemantic(term);
+  const result: EntityRefTerm = {
+    kind: "entity",
+    entityType: term.entityType,
+  };
+
+  if (term.ref) {
+    if (term.ref.kind === "id") {
+      result.ref = { kind: "id", id: term.ref.id };
+    } else {
+      result.ref = { kind: term.ref.kind } as EntityRefTerm["ref"];
+    }
+  }
+
+  if (term.quant) {
+    const quant: QuantitySpec = {
+      kind: "quantity",
+      value: term.quant.value,
+      ...(term.quant.comparator && term.quant.comparator !== "eq"
+        ? { comparator: term.quant.comparator }
+        : null),
+      ...(term.quant.unit ? { unit: term.quant.unit } : null),
+      ...(mode === "strict" && term.quant.ext ? { ext: term.quant.ext } : null),
+    };
+    result.quant = quant;
+  }
+
+  if (term.orderBy) {
+    const trimmed = term.orderBy.path.trim();
+    result.orderBy = {
+      kind: "path",
+      path: trimmed,
+      ...(mode === "strict" && term.orderBy.ext ? { ext: term.orderBy.ext } : null),
+    };
+  }
+
+  if (term.orderDir && term.orderBy && term.orderDir !== "ASC") {
+    result.orderDir = term.orderDir;
+  }
+
+  if (mode === "strict" && term.ext) {
+    result.ext = term.ext;
+  }
+
+  return result;
 }
 
-function normalizeArtifactRefTermStrict(
-  term: ArtifactRefTerm
+// =============================================================================
+// ArtifactRefTerm
+// =============================================================================
+
+function normalizeArtifactRefTerm(
+  term: ArtifactRefTerm,
+  mode: "semantic" | "strict"
 ): ArtifactRefTerm {
-  // Same as semantic for artifact refs
-  return normalizeArtifactRefTermSemantic(term);
+  const base: ArtifactRefTerm = {
+    kind: "artifact",
+    artifactType: term.artifactType,
+    ref: { kind: term.ref.kind } as ArtifactRefTerm["ref"],
+    ...(mode === "strict" && term.ext ? { ext: term.ext } : null),
+  };
+
+  if (term.ref.kind === "id" && term.ref.id) {
+    base.ref = { kind: "id", id: term.ref.id };
+  }
+
+  if (term.ref.kind === "inline" && term.content !== undefined) {
+    base.content = term.content;
+  }
+
+  return base;
+}
+
+// =============================================================================
+// ValueTerm
+// =============================================================================
+
+function normalizeValueTermSemantic(term: ValueTerm): ValueTerm {
+  const { raw: _raw, ext: _ext, ...termWithoutRaw } = term;
+  return termWithoutRaw as ValueTerm;
 }
 
 /**
  * Normalize ValueTerm.raw according to SPEC Section 11.4.2.
- *
- * | valueType | Normalization Rule |
- * |-----------|-------------------|
- * | string    | Trim leading/trailing whitespace |
- * | number    | JSON number (not string); no trailing zeros |
- * | boolean   | JSON boolean (true/false) |
- * | date      | ISO 8601 string (YYYY-MM-DDTHH:mm:ss.sssZ) |
- * | enum      | Exact string match (case-sensitive) |
- * | id        | String, trimmed |
  */
 function normalizeValueTermStrict(term: ValueTerm): ValueTerm {
   if (term.raw === undefined) {
@@ -136,22 +169,101 @@ function normalizeValueTermStrict(term: ValueTerm): ValueTerm {
   return { ...term, raw: normalizedRaw };
 }
 
-function normalizePathRefTerm(term: PathRefTerm): PathRefTerm {
+// =============================================================================
+// PathRefTerm
+// =============================================================================
+
+function normalizePathRefTerm(
+  term: PathRefTerm,
+  mode: "semantic" | "strict"
+): PathRefTerm {
   const trimmed = term.path.trim();
-  if (trimmed === term.path) {
-    return term;
-  }
-  return { ...term, path: trimmed };
+  const base: PathRefTerm = {
+    kind: "path",
+    path: trimmed,
+    ...(mode === "strict" && term.ext ? { ext: term.ext } : null),
+  };
+  return base;
 }
 
-function normalizeExprTerm(term: ExprTerm): ExprTerm {
+// =============================================================================
+// ExprTerm
+// =============================================================================
+
+function normalizeExprTerm(
+  term: ExprTerm,
+  mode: "semantic" | "strict"
+): ExprTerm {
   if (typeof term.expr === "string") {
-    return term;
+    return mode === "strict" ? term : ({ ...term, ext: undefined } as ExprTerm);
   }
 
   const normalizedExpr = sortObjectKeys(term.expr);
-  return { ...term, expr: normalizedExpr as ExprTerm["expr"] };
+  return {
+    ...term,
+    expr: normalizedExpr as ExprTerm["expr"],
+    ...(mode === "semantic" ? { ext: undefined } : null),
+  };
 }
+
+// =============================================================================
+// ListTerm
+// =============================================================================
+
+function normalizeListTerm(
+  term: ListTerm | ResolvedTerm,
+  mode: "semantic" | "strict"
+): ListTerm | ResolvedTerm {
+  if (term.kind !== "list") {
+    return term;
+  }
+
+  const normalizeItem =
+    mode === "semantic" ? normalizeTermSemantic : normalizeTermStrict;
+  const items = term.items.map(
+    (item) => normalizeItem(item as Term) as NonListTerm
+  );
+
+  if (term.ordered === true) {
+    return {
+      kind: "list",
+      items,
+      ordered: true,
+      ...(mode === "strict" && term.ext ? { ext: term.ext } : null),
+    };
+  }
+
+  const withKeys = items.map((item) => ({
+    item,
+    key: toJcs(item),
+  }));
+
+  withKeys.sort((a, b) => a.key.localeCompare(b.key));
+
+  const deduped: NonListTerm[] = [];
+  let lastKey: string | null = null;
+  for (const entry of withKeys) {
+    if (entry.key !== lastKey) {
+      deduped.push(entry.item);
+      lastKey = entry.key;
+    }
+  }
+
+  const result: ListTerm = {
+    kind: "list",
+    items: deduped,
+  };
+
+  if (mode === "strict" && term.ext) {
+    result.ext = term.ext;
+  }
+
+  return result;
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
 
 function sortObjectKeys(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -198,7 +310,6 @@ function normalizeRawValue(valueType: ValueTerm["valueType"], raw: unknown): unk
         return raw.toISOString();
       }
       if (typeof raw === "string") {
-        // Try to parse and re-format to ISO
         const date = new Date(raw);
         if (!isNaN(date.getTime())) {
           return date.toISOString();
@@ -207,7 +318,6 @@ function normalizeRawValue(valueType: ValueTerm["valueType"], raw: unknown): unk
       return raw;
 
     case "enum":
-      // Exact string match, no normalization
       return raw;
 
     case "id":

@@ -18,7 +18,7 @@ import {
 
 describe("IntentIR Schema", () => {
   const validIR = {
-    v: "0.1",
+    v: "0.2",
     force: "DO",
     event: { lemma: "CANCEL", class: "CONTROL" },
     args: {
@@ -99,7 +99,7 @@ describe("IntentIR Schema", () => {
 describe("parseIntentIR", () => {
   it("should return parsed IR on success", () => {
     const ir = parseIntentIR({
-      v: "0.1",
+      v: "0.2",
       force: "ASK",
       event: { lemma: "LIST", class: "OBSERVE" },
       args: {},
@@ -115,7 +115,7 @@ describe("parseIntentIR", () => {
 describe("safeParseIntentIR", () => {
   it("should return success result", () => {
     const result = safeParseIntentIR({
-      v: "0.1",
+      v: "0.2",
       force: "DO",
       event: { lemma: "CREATE", class: "CREATE" },
       args: {},
@@ -132,7 +132,7 @@ describe("safeParseIntentIR", () => {
 describe("validateIntentIR", () => {
   it("should return valid result with data", () => {
     const result = validateIntentIR({
-      v: "0.1",
+      v: "0.2",
       force: "VERIFY",
       event: { lemma: "CHECK", class: "OBSERVE" },
       args: {},
@@ -172,6 +172,18 @@ describe("Term Schema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("should parse entity term with quant and orderBy", () => {
+    const term = {
+      kind: "entity",
+      entityType: "Task",
+      quant: { kind: "quantity", value: 3, comparator: "gte" },
+      orderBy: { kind: "path", path: "createdAt" },
+      orderDir: "DESC",
+    };
+    const result = TermSchema.safeParse(term);
+    expect(result.success).toBe(true);
+  });
+
   it("should require id when ref.kind is id", () => {
     const term = {
       kind: "entity",
@@ -201,6 +213,49 @@ describe("Term Schema", () => {
     };
     const result = TermSchema.safeParse(term);
     expect(result.success).toBe(true);
+  });
+
+  it("should parse list term (unordered)", () => {
+    const term = {
+      kind: "list",
+      items: [
+        { kind: "value", valueType: "string", shape: { value: "design" } },
+        { kind: "value", valueType: "string", shape: { value: "build" } },
+      ],
+    };
+    const result = TermSchema.safeParse(term);
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject nested list terms", () => {
+    const term = {
+      kind: "list",
+      items: [
+        { kind: "list", items: [] },
+      ],
+    };
+    const result = TermSchema.safeParse(term);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject orderDir without orderBy", () => {
+    const term = {
+      kind: "entity",
+      entityType: "Order",
+      orderDir: "DESC",
+    };
+    const result = TermSchema.safeParse(term);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject orderBy with scoped prefixes", () => {
+    const term = {
+      kind: "entity",
+      entityType: "Order",
+      orderBy: { kind: "path", path: "state.order.createdAt" },
+    };
+    const result = TermSchema.safeParse(term);
+    expect(result.success).toBe(false);
   });
 
   it("should reject expr term with wrong expr type", () => {
@@ -250,5 +305,26 @@ describe("Pred Schema", () => {
       const result = PredSchema.safeParse(pred);
       expect(result.success).toBe(true);
     }
+  });
+
+  it("should require list rhs for 'in' operator", () => {
+    const valid = {
+      lhs: "target.status",
+      op: "in",
+      rhs: {
+        kind: "list",
+        items: [
+          { kind: "value", valueType: "enum", shape: { value: "active" } },
+          { kind: "value", valueType: "enum", shape: { value: "paused" } },
+        ],
+      },
+    };
+    const invalid = {
+      lhs: "target.status",
+      op: "in",
+      rhs: { kind: "value", valueType: "enum", shape: { value: "active" } },
+    };
+    expect(PredSchema.safeParse(valid).success).toBe(true);
+    expect(PredSchema.safeParse(invalid).success).toBe(false);
   });
 });

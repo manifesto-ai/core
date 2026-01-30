@@ -84,7 +84,7 @@ All specifications are maintained at the package level. This page provides navig
 
 - **Translator SPEC v1.0.3** (Normative)
   - [translator-SPEC-v1.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v1.0.3.md)
-  - Previous: [translator-SPEC-v0.11.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v0.11.md)
+  - Previous (v0.1.1): [translator-SPEC-v0.11.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v0.11.md)
 
 ---
 
@@ -94,7 +94,7 @@ All specifications are maintained at the package level. This page provides navig
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 01-28 | Translator | v1.0.3 | Clean Architecture refactor |
+| 01-30 | Translator | v1.0.3 | Intent IR v0.2 alignment and spec refinements |
 | 01-27 | World | v2.0.3-patch | ADR-002 DX improvements |
 | 01-27 | App | v2.1.0-patch | Platform namespace injection |
 | 01-27 | Compiler | v0.5.0-patch | `$mel` namespace, `onceIntent` |

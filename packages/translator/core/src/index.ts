@@ -6,7 +6,7 @@
  * Architecture (SPEC v1.0.3):
  * - Natural Language -> Intent Graph -> Target Output
  * - Clean Architecture with Strategy Pattern + Ports & Adapters
- * - Composes with @manifesto-ai/intent-ir v0.1
+ * - Composes with @manifesto-ai/intent-ir v0.2
  * - No runtime dependency on Core/Host/World/App
  *
  * Key Principles:

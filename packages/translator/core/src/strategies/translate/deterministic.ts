@@ -57,7 +57,7 @@ const DEFAULT_PATTERNS: PatternExtractor[] = [
     pattern: /\bcreate\s+(?:a\s+)?(\w+)/gi,
     extract: (match) => ({
       ir: {
-        v: "0.1" as const,
+        v: "0.2" as const,
         force: "DO" as const,
         event: { lemma: "CREATE", class: "CREATE" as const },
         args: {
@@ -75,7 +75,7 @@ const DEFAULT_PATTERNS: PatternExtractor[] = [
     pattern: /\badd\s+(?:a\s+)?(\w+)\s+to\s+(?:the\s+)?(\w+)/gi,
     extract: (match) => ({
       ir: {
-        v: "0.1" as const,
+        v: "0.2" as const,
         force: "DO" as const,
         event: { lemma: "ADD", class: "CREATE" as const },
         args: {
@@ -95,7 +95,7 @@ const DEFAULT_PATTERNS: PatternExtractor[] = [
     pattern: /\bdelete\s+(?:the\s+)?(\w+)/gi,
     extract: (match) => ({
       ir: {
-        v: "0.1" as const,
+        v: "0.2" as const,
         force: "DO" as const,
         event: { lemma: "DELETE", class: "CONTROL" as const },
         args: {
@@ -115,7 +115,7 @@ const DEFAULT_PATTERNS: PatternExtractor[] = [
     pattern: /\bupdate\s+(?:the\s+)?(\w+)/gi,
     extract: (match) => ({
       ir: {
-        v: "0.1" as const,
+        v: "0.2" as const,
         force: "DO" as const,
         event: { lemma: "UPDATE", class: "TRANSFORM" as const },
         args: {
@@ -180,7 +180,7 @@ export class DeterministicTranslator implements TranslateStrategy {
           const node: IntentNode = {
             id,
             ir: partial.ir ?? {
-              v: "0.1" as const,
+              v: "0.2" as const,
               force: "CLARIFY" as const,
               event: { lemma: "UNKNOWN", class: "OBSERVE" as const },
               args: {},
@@ -211,7 +211,7 @@ export class DeterministicTranslator implements TranslateStrategy {
       nodes.push({
         id: createNodeId("n1"),
         ir: {
-          v: "0.1" as const,
+          v: "0.2" as const,
           force: "CLARIFY" as const,
           event: { lemma: "UNKNOWN", class: "OBSERVE" as const },
           args: {},

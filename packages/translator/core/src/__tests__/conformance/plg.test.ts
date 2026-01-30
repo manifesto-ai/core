@@ -118,7 +118,7 @@ describe("PLG Conformance", () => {
                     {
                       id: createNodeId("added"),
                       ir: {
-                        v: "0.1" as const,
+                        v: "0.2" as const,
                         force: "DO" as const,
                         event: { lemma: "CREATE", class: "CREATE" as const },
                         args: {},

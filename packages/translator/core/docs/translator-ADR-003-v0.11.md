@@ -6,7 +6,12 @@
 > **Deciders:** Manifesto Architecture Team  
 > **Scope:** Translator consumer pipeline (pre-translate stage)  
 > **Companion:** ADR-TRANSLATOR-001, ADR-TRANSLATOR-002  
-> **Does NOT Change:** Intent IR v0.1, Intent Graph model, emitForManifesto contract
+> **Does NOT Change:** Intent IR v0.2, Intent Graph model, emitForManifesto contract
+
+> **Alignment Note (2026-01-30)**
+>
+> This ADR was authored against Intent IR v0.1. The current canonical spec is v0.2.0.
+> The decision remains unchanged; references are updated to v0.2.0 for consistency.
 
 ---
 
@@ -100,8 +105,8 @@ Overlapping chunks create a **duplicate execution risk**:
 - Consumer marks "context-only" spans that should NOT generate nodes
 - Consumer implements semantic deduplication post-merge
 
-**v0.1 Recommendation:**
-For v0.1, prefer **non-overlapping decompose** (C-DEC-3). If overlap is needed:
+**v0.2 Recommendation:**
+For v0.2, prefer **non-overlapping decompose** (C-DEC-3). If overlap is needed:
 1. Keep overlap minimal (1-2 sentences for context)
 2. Implement deduplication based on span overlap detection
 3. Or use "context prefix" pattern: chunk.contextSpan vs chunk.primarySpan
@@ -268,5 +273,5 @@ Decompose strategies MUST NOT require language-specific keyword lists as a hard 
 
 - ADR-TRANSLATOR-001: Intent Graph model (unchanged)
 - ADR-TRANSLATOR-002: Output artifacts (unchanged)
-- Intent IR v0.1: Node structure (unchanged)
+- Intent IR v0.2: Node structure (unchanged)
 - Evaluation Report: "다단계 의존성" test case showed dependency chain issues with 4+ steps

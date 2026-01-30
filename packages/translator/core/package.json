@@ -44,7 +44,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@manifesto-ai/intent-ir": ">=0.1.0"
+    "@manifesto-ai/intent-ir": ">=0.2.0"
   },
   "devDependencies": {
     "@manifesto-ai/intent-ir": "workspace:*",

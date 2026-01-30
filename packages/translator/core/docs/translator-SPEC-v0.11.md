@@ -1,13 +1,21 @@
-# Manifesto Translator Specification v0.1
+# Manifesto Translator Specification v0.1.1
 
 > **Status:** Draft  
 > **Version:** 0.1.1  
 > **Authors:** Manifesto Contributors  
 > **License:** MIT  
 > **Companion:** ADR-TRANSLATOR-001, ADR-TRANSLATOR-002, ADR-TRANSLATOR-003  
-> **Depends On:** Intent IR v0.1+
+> **Depends On:** Intent IR v0.1 (historical; current canonical is v0.2.0)
 
 ---
+
+> **Alignment Note (2026-01-30)**
+>
+> This spec describes Translator v0.1 and was authored against Intent IR v0.1.
+> The current canonical Intent IR spec is v0.2.0, which adds ListTerm,
+> QuantitySpec, `in` predicate support, term-level `ext`, and canonicalization
+> refinements without changing the role enum or lowering contract.
+> For current Translator behavior, see `translator-SPEC-v1.0.3.md`.
 
 ## Table of Contents
 

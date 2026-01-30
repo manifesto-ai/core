@@ -51,6 +51,19 @@ describe("Lexicon", () => {
           },
         },
       },
+      ADD: {
+        eventClass: "TRANSFORM",
+        thetaFrame: {
+          required: ["THEME"],
+          optional: [],
+          restrictions: {
+            THEME: {
+              termKinds: ["list", "value"],
+              valueTypes: ["string"],
+            },
+          },
+        },
+      },
     },
     entities: {
       Order: { fields: { id: "string", status: "string" } },
@@ -61,7 +74,7 @@ describe("Lexicon", () => {
   describe("checkFeatures", () => {
     it("should pass valid IR", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -81,7 +94,7 @@ describe("Lexicon", () => {
 
     it("should fail for unknown lemma", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "UNKNOWN", class: "CONTROL" },
         args: {},
@@ -96,7 +109,7 @@ describe("Lexicon", () => {
 
     it("should fail for class mismatch", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "OBSERVE" }, // wrong class
         args: {
@@ -113,7 +126,7 @@ describe("Lexicon", () => {
 
     it("should fail for missing required role", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {}, // missing TARGET
@@ -127,7 +140,7 @@ describe("Lexicon", () => {
 
     it("should fail for invalid term kind", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "SOLVE", class: "SOLVE" },
         args: {
@@ -147,7 +160,7 @@ describe("Lexicon", () => {
 
     it("should fail for invalid entity type", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -166,7 +179,7 @@ describe("Lexicon", () => {
 
     it("should pass LIST without TARGET (optional)", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "ASK",
         event: { lemma: "LIST", class: "OBSERVE" },
         args: {},
@@ -177,7 +190,7 @@ describe("Lexicon", () => {
 
     it("should fail for unknown entity type", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "ASK",
         event: { lemma: "LIST", class: "OBSERVE" },
         args: {
@@ -191,6 +204,47 @@ describe("Lexicon", () => {
       expect(result.valid).toBe(false);
       if (!result.valid) {
         expect(result.error.code).toBe("UNKNOWN_ENTITY_TYPE");
+      }
+    });
+
+    it("should pass list term when allowed", () => {
+      const ir: IntentIR = {
+        v: "0.2",
+        force: "DO",
+        event: { lemma: "ADD", class: "TRANSFORM" },
+        args: {
+          THEME: {
+            kind: "list",
+            items: [
+              { kind: "value", valueType: "string", shape: { value: "design" } },
+              { kind: "value", valueType: "string", shape: { value: "build" } },
+            ],
+          },
+        },
+      };
+      const result = checkFeatures(ir, lexicon);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should fail list term when item kind is not allowed", () => {
+      const ir: IntentIR = {
+        v: "0.2",
+        force: "DO",
+        event: { lemma: "ADD", class: "TRANSFORM" },
+        args: {
+          THEME: {
+            kind: "list",
+            items: [
+              { kind: "value", valueType: "string", shape: { value: "design" } },
+              { kind: "entity", entityType: "Order" },
+            ],
+          },
+        },
+      };
+      const result = checkFeatures(ir, lexicon);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("INVALID_TERM_KIND");
       }
     });
   });

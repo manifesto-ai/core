@@ -188,7 +188,7 @@ export class LLMTranslator implements TranslateStrategy {
 
       // Build proper IntentIR
       const ir = {
-        v: "0.1" as const,
+        v: "0.2" as const,
         force: "DO" as const,
         event: {
           lemma: eventLemma,

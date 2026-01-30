@@ -5,7 +5,7 @@
 > **Date:** 2026-01-26 (Updated: 2026-01-27)  
 > **Deciders:** Manifesto Architecture Team  
 > **Scope:** `@manifesto-ai/translator` 산출물 정의  
-> **Depends On:** ADR-TRANSLATOR-001, `@manifesto-ai/intent-ir` (v0.1+)
+> **Depends On:** ADR-TRANSLATOR-001, `@manifesto-ai/intent-ir` (v0.2+)
 
 ---
 
@@ -16,11 +16,18 @@
 > given that this ADR concerns a framework for making Intent
 > machine-interpretable regardless of its linguistic surface.
 
+> **Alignment Note (2026-01-30)**
+>
+> This ADR was authored against Intent IR v0.1. The current canonical spec is v0.2.0.
+> The lowering contract remains the same; v0.2 adds ListTerm, QuantitySpec, `in`,
+> term-level `ext`, and canonicalization refinements. References were updated to v0.2.0
+> without changing the original decision.
+
 ## Context
 
 ADR-TRANSLATOR-001에서 Translator의 경계와 Intent Graph 모델이 정의되었다. 본 ADR은 Intent Graph를 Manifesto 소비자가 사용할 수 있는 형태로 변환하는 **산출물 계약**을 정의한다.
 
-Intent IR v0.1 스펙은 다음 lowering 경로를 명시한다:
+Intent IR v0.2 스펙은 다음 lowering 경로를 명시한다 (v0.1과 동일한 계약):
 
 ```
 IntentIR → [Resolver] → [Lowering] → IntentBody
@@ -40,7 +47,7 @@ Translator는 이 경로를 **대체하지 않고**, Intent Graph의 각 노드�
 
 ### D1. 두 가지 Lowering 경로를 Intent IR 스펙과 정합되게 정의한다
 
-**Path A: Intent IR v0.1 Normative (노드 단위)**
+**Path A: Intent IR v0.2 Normative (노드 단위)**
 
 ```
 IntentIR → Resolver → Lowering → IntentBody
@@ -83,7 +90,7 @@ type ManifestoBundle = {
 
 ### D3. InvocationPlan은 "Lowerable Plan"이며, IntentBody는 step-wise로 materialize된다
 
-> **크리티컬 설계 결정:** Intent IR v0.1의 lowering에서 discourse ref 해소(`this/that/last → id`)는 **실행 시점의 snapshot/focus/discourse**를 필요로 한다. 따라서 복합 의도에서 "방금 만든 프로젝트"를 참조하는 2번째 노드는, 1번째 Intent 실행 후의 snapshot이 생겨야 id로 해소 가능하다. **모든 step을 한 번에 IntentBody로 확정해서 반환하는 것은 구조적으로 불가능하다.**
+> **크리티컬 설계 결정:** Intent IR v0.2의 lowering에서 discourse ref 해소(`this/that/last → id`)는 **실행 시점의 snapshot/focus/discourse**를 필요로 한다. 따라서 복합 의도에서 "방금 만든 프로젝트"를 참조하는 2번째 노드는, 1번째 Intent 실행 후의 snapshot이 생겨야 id로 해소 가능하다. **모든 step을 한 번에 IntentBody로 확정해서 반환하는 것은 구조적으로 불가능하다.**
 
 **규범:**
 - `InvocationPlan.steps`는 **IntentIR 기반 실행 계획**이다 (IntentBody 완성품이 아님)
@@ -92,10 +99,10 @@ type ManifestoBundle = {
 - `lowering.status`가 `"deferred"`인 step은 실행 시점에 최신 snapshot으로 `lower()`를 호출해야 한다
 - `steps`는 dependency를 만족하는 **위상정렬 순서**로 제공되어야 한다 (MUST)
 
-**Type Definition (aligned with Spec v0.1):**
+**Type Definition (aligned with Spec v0.2):**
 
 ```typescript
-/** θ-role names from Intent IR v0.1 */
+/** θ-role names from Intent IR v0.2 (roles unchanged from v0.1) */
 type Role = "TARGET" | "THEME" | "SOURCE" | "DEST" | "INSTRUMENT" | "BENEFICIARY";
 
 /**
@@ -120,7 +127,7 @@ type InvocationStep = {
   /** 원본 IntentNode.id */
   nodeId: IntentNodeId;
   
-  /** 항상 포함: 실행 전 의미 구조 (IntentIR v0.1) */
+  /** 항상 포함: 실행 전 의미 구조 (IntentIR v0.2, v0.1 compatible) */
   ir: IntentIR;
   
   /** 
@@ -135,7 +142,7 @@ type InvocationStep = {
   resolution: {
     status: "Resolved" | "Ambiguous";
     ambiguityScore: number;
-    /** Missing θ-roles (Intent IR v0.1 Role enum values only) */
+    /** Missing θ-roles (Intent IR v0.2 Role enum values only) */
     missing?: Role[];
   };
 };
@@ -596,7 +603,7 @@ function emitForManifesto(
 ## References
 
 - [ADR-TRANSLATOR-001](./ADR-TRANSLATOR-001.md) — Translator 경계와 Intent Graph 모델
-- [Intent IR v0.1 SPEC](./manifesto-intent-ir__v0_1_0__SPEC.md) — IntentIR 구조, Lowering, Lexicon
+- [Intent IR v0.2 SPEC](../../../intent-ir/docs/SPEC-v0.2.0.md) — IntentIR 구조, Lowering, Lexicon
 - [MEL SPEC v0.4.0](./SPEC-v0_4_0-patch.md) — MEL 구조
 
 ---

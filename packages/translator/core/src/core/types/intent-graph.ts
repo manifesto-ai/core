@@ -34,7 +34,7 @@ export function createNodeId(id: string): IntentNodeId {
 
 /**
  * Semantic role in a relation.
- * Aligned with Intent IR v0.1.
+ * Aligned with Intent IR v0.2.
  *
  * Per SPEC Section 5.2:
  * - TARGET: Object acted upon

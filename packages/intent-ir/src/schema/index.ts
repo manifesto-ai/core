@@ -1,7 +1,7 @@
 /**
  * @fileoverview Schema Module Exports
  *
- * All Zod schemas and derived types for Intent IR v0.1.
+ * All Zod schemas and derived types for Intent IR v0.2.
  */
 
 // Functional Heads
@@ -29,10 +29,16 @@ export { EventSchema, type Event } from "./event.js";
 
 // Terms
 export {
+  ExtSchema,
+  type Ext,
   EntityRefKindSchema,
   type EntityRefKind,
   EntityRefSchema,
   type EntityRef,
+  QuantityComparatorSchema,
+  type QuantityComparator,
+  QuantitySpecSchema,
+  type QuantitySpec,
   EntityRefTermSchema,
   type EntityRefTerm,
   PathRefTermSchema,
@@ -51,6 +57,10 @@ export {
   type ExprType,
   ExprTermSchema,
   type ExprTerm,
+  NonListTermSchema,
+  type NonListTerm,
+  ListTermSchema,
+  type ListTerm,
   TermSchema,
   type Term,
 } from "./term.js";
@@ -96,6 +106,10 @@ export {
   type ResolvedEntityRef,
   ResolvedEntityRefTermSchema,
   type ResolvedEntityRefTerm,
+  ResolvedNonListTermSchema,
+  type ResolvedNonListTerm,
+  ResolvedListTermSchema,
+  type ResolvedListTerm,
   ResolvedTermSchema,
   type ResolvedTerm,
   ResolvedArgsSchema,

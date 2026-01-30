@@ -50,7 +50,7 @@ function createMockTranslator(nodes?: IntentGraph["nodes"]): TranslateStrategy {
           {
             id: createNodeId("n1"),
             ir: {
-              v: "0.1" as const,
+              v: "0.2" as const,
               force: "DO" as const,
               event: { lemma: "CREATE", class: "CREATE" as const },
               args: {},
@@ -178,7 +178,7 @@ describe("TranslatorPipeline", () => {
       const transformedNode = {
         id: createNodeId("transformed"),
         ir: {
-          v: "0.1" as const,
+          v: "0.2" as const,
           force: "DO" as const,
           event: { lemma: "TRANSFORMED", class: "CREATE" as const },
           args: {},
@@ -273,7 +273,7 @@ describe("TranslatorPipeline", () => {
               {
                 id: createNodeId("n1"),
                 ir: {
-                  v: "0.1" as const,
+                  v: "0.2" as const,
                   force: "DO" as const,
                   event: { lemma: "CREATE", class: "CREATE" as const },
                   args: {},

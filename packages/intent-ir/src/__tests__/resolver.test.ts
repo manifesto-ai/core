@@ -15,7 +15,7 @@ describe("Resolver", () => {
   describe("resolveReferences", () => {
     it("should preserve collection scope (absent ref)", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "ASK",
         event: { lemma: "LIST", class: "OBSERVE" },
         args: {
@@ -36,7 +36,7 @@ describe("Resolver", () => {
 
     it("should pass through id refs unchanged", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -57,7 +57,7 @@ describe("Resolver", () => {
 
     it("should resolve 'this' to focus", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -82,7 +82,7 @@ describe("Resolver", () => {
 
     it("should throw when 'this' has no focus", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -105,7 +105,7 @@ describe("Resolver", () => {
 
     it("should throw when 'this' type mismatch", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -129,7 +129,7 @@ describe("Resolver", () => {
 
     it("should resolve 'last' to most recent of type", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -157,7 +157,7 @@ describe("Resolver", () => {
 
     it("should throw when 'last' has no matching type", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "CANCEL", class: "CONTROL" },
         args: {
@@ -182,7 +182,7 @@ describe("Resolver", () => {
 
     it("should resolve 'that' to most recent non-focus", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "COPY", class: "TRANSFORM" },
         args: {
@@ -211,7 +211,7 @@ describe("Resolver", () => {
 
     it("should preserve non-entity terms", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "SOLVE", class: "SOLVE" },
         args: {
@@ -225,6 +225,41 @@ describe("Resolver", () => {
 
       const resolved = resolver.resolveReferences(ir);
       expect(resolved.args.THEME).toEqual(ir.args.THEME);
+    });
+
+    it("should resolve entity refs inside list terms", () => {
+      const ir: IntentIR = {
+        v: "0.2",
+        force: "DO",
+        event: { lemma: "ASSIGN", class: "TRANSFORM" },
+        args: {
+          TARGET: {
+            kind: "list",
+            items: [
+              { kind: "entity", entityType: "Order", ref: { kind: "this" } },
+              { kind: "entity", entityType: "Order", ref: { kind: "last" } },
+            ],
+          },
+        },
+      };
+
+      const context: ResolutionContext = {
+        focus: { entityType: "Order", id: "order-1" },
+        discourse: [
+          { entityType: "Order", id: "order-2", mentionedAt: 2 },
+          { entityType: "Order", id: "order-3", mentionedAt: 3 },
+        ],
+      };
+
+      const resolved = resolver.resolveReferences(ir, context);
+      const target = resolved.args.TARGET;
+      expect(target?.kind).toBe("list");
+      if (target?.kind === "list") {
+        const ids = target.items
+          .map((item) => (item.kind === "entity" ? item.ref?.id : undefined))
+          .filter(Boolean);
+        expect(ids).toEqual(["order-1", "order-3"]);
+      }
     });
   });
 });

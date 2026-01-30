@@ -132,6 +132,9 @@ function serializeTerm(term: NonNullable<IntentIR["args"][keyof IntentIR["args"]
       return {
         type: term.entityType,
         ref: term.ref,
+        ...(term.quant ? { quant: term.quant } : null),
+        ...(term.orderBy ? { orderBy: term.orderBy } : null),
+        ...(term.orderDir ? { orderDir: term.orderDir } : null),
       };
 
     case "path":
@@ -148,6 +151,13 @@ function serializeTerm(term: NonNullable<IntentIR["args"][keyof IntentIR["args"]
 
     case "expr":
       return term.expr;
+
+    case "list":
+      return {
+        kind: "list",
+        items: term.items.map((item) => serializeTerm(item)),
+        ordered: term.ordered ?? false,
+      };
   }
 }
 

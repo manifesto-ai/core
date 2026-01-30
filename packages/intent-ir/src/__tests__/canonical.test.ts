@@ -17,7 +17,7 @@ import type { IntentIR, Pred } from "../schema/index.js";
 
 describe("Canonicalization", () => {
   const baseIR: IntentIR = {
-    v: "0.1",
+    v: "0.2",
     force: "DO",
     event: { lemma: "CANCEL", class: "CONTROL" },
     args: {
@@ -77,6 +77,55 @@ describe("Canonicalization", () => {
       if (themeTerm?.kind === "value") {
         expect(themeTerm.raw).toBeUndefined();
       }
+    });
+
+    it("should remove ext at root and term level", () => {
+      const ir: IntentIR = {
+        ...baseIR,
+        ext: { "vendor:hint": true },
+        args: {
+          TARGET: {
+            kind: "entity",
+            entityType: "Order",
+            ref: { kind: "last" },
+            ext: { "vendor:confidence": 0.9 },
+          },
+        },
+      };
+      const canonical = canonicalizeSemantic(ir);
+      expect(canonical.ext).toBeUndefined();
+      const target = canonical.args.TARGET;
+      if (target?.kind === "entity") {
+        expect(target.ext).toBeUndefined();
+      }
+    });
+
+    it("should canonicalize unordered list terms", () => {
+      const irA: IntentIR = {
+        ...baseIR,
+        args: {
+          THEME: {
+            kind: "list",
+            items: [
+              { kind: "value", valueType: "string", shape: { value: "design" } },
+              { kind: "value", valueType: "string", shape: { value: "build" } },
+            ],
+          },
+        },
+      };
+      const irB: IntentIR = {
+        ...baseIR,
+        args: {
+          THEME: {
+            kind: "list",
+            items: [
+              { kind: "value", valueType: "string", shape: { value: "build" } },
+              { kind: "value", valueType: "string", shape: { value: "design" } },
+            ],
+          },
+        },
+      };
+      expect(toSemanticCanonicalString(irA)).toBe(toSemanticCanonicalString(irB));
     });
 
     it("should trim path terms", () => {
@@ -208,12 +257,71 @@ describe("Canonicalization", () => {
         expect(themeTerm.raw).toBe(42); // parsed to number
       }
     });
+
+    it("should normalize date raw values to RFC3339 UTC", () => {
+      const ir: IntentIR = {
+        ...baseIR,
+        args: {
+          THEME: {
+            kind: "value",
+            valueType: "date",
+            shape: {},
+            raw: "2026-01-30T15:04:05Z",
+          },
+        },
+      };
+      const canonical = canonicalizeStrict(ir);
+      const themeTerm = canonical.args.THEME;
+      if (themeTerm?.kind === "value") {
+        expect(themeTerm.raw).toBe("2026-01-30T15:04:05.000Z");
+      }
+    });
+
+    it("should elide default values in canonical form", () => {
+      const irDefault: IntentIR = {
+        ...baseIR,
+        args: {
+          TARGET: {
+            kind: "entity",
+            entityType: "Order",
+            orderBy: { kind: "path", path: "createdAt" },
+            orderDir: "ASC",
+          },
+          THEME: {
+            kind: "list",
+            items: [
+              { kind: "value", valueType: "string", shape: { value: "a" } },
+            ],
+            ordered: false,
+          },
+        },
+      };
+      const irElided: IntentIR = {
+        ...baseIR,
+        args: {
+          TARGET: {
+            kind: "entity",
+            entityType: "Order",
+            orderBy: { kind: "path", path: "createdAt" },
+          },
+          THEME: {
+            kind: "list",
+            items: [
+              { kind: "value", valueType: "string", shape: { value: "a" } },
+            ],
+          },
+        },
+      };
+      expect(toJcs(canonicalizeStrict(irDefault))).toBe(
+        toJcs(canonicalizeStrict(irElided))
+      );
+    });
   });
 
   describe("RFC 8785 Compliance", () => {
     it("should use lexicographic key ordering", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "TEST", class: "CONTROL" },
         args: {
@@ -230,7 +338,7 @@ describe("Canonicalization", () => {
 
     it("should order args keys lexicographically", () => {
       const ir: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "DO",
         event: { lemma: "TEST", class: "CONTROL" },
         args: {

@@ -1,8 +1,8 @@
 # Translator v1.0 Architecture Decision Records
 
 > **Status:** Proposed  
-> **Version:** 1.0.0  
-> **Date:** 2026-01-28  
+> **Version:** 1.0.8  
+> **Date:** 2026-01-28 (Updated: 2026-01-30)  
 > **Deciders:** Manifesto Architecture Team  
 > **Scope:** `@manifesto-ai/translator` 전체 아키텍처  
 > **Aligns With:** ARCHITECTURE-v2.0.0, ADR-001 (Layer Separation)
@@ -22,6 +22,13 @@
 9. [Summary](#summary)
 
 ---
+
+> **Alignment Note (2026-01-30)**
+>
+> Intent IR v0.2.0 is now the canonical spec. Role enum and lowering contract
+> are unchanged; v0.2 adds ListTerm, QuantitySpec, `in` predicate support,
+> term-level `ext`, and canonicalization refinements. This ADR remains valid;
+> references are updated to v0.2 where relevant.
 
 ## 1. Overview
 
@@ -267,9 +274,9 @@ interface Resolution {
 }
 
 /** 
- * Intent IR θ-role enum (from @manifesto-ai/intent-ir v0.1).
+ * Intent IR θ-role enum (from @manifesto-ai/intent-ir v0.2).
  * 
- * MUST match Intent IR v0.1 exactly. Role extension is BREAKING.
+ * MUST match Intent IR v0.2 exactly. Role extension is BREAKING.
  * Note: TIME is modeled separately as IntentIR.time?: TimeSpec
  */
 type Role = 
@@ -877,7 +884,7 @@ function validateGraph(graph: IntentGraph): ValidationResult { ... }
 ADR-TRN-101~105에서 Clean Architecture와 Strategy 패턴으로 God Object를 해체했다. 그러나 실제 사용에서는 다양한 **관찰/평가/보수 레이어**가 필요하다:
 
 - 커버리지 체크 (quoted string 누락 경고)
-- OR 감지 (v0.1에서 OR 불가 경고)
+- OR 감지 (v0.2에서도 OR 불가, v0.3+ defer)
 - 모호성 점수화
 - 의존성 보수 (dependsOn 누락 수정)
 - 로깅/메트릭 수집
@@ -1144,7 +1151,7 @@ const orDetectorPlugin: PipelinePlugin = {
         if (ctx.chunkGraph && detectOrPattern(ctx.chunkGraph)) {
           ctx.diagnostics.warn(
             "OR_DETECTED",
-            `OR 패턴 감지됨 (chunk ${ctx.chunkIndex}). v0.1에서는 OR 분기 미지원.`,
+            `OR 패턴 감지됨 (chunk ${ctx.chunkIndex}). v0.2에서도 OR 분기 미지원 (v0.3+ defer).`,
             ctx.chunkGraph.nodes[0]?.id
           );
         }
@@ -1974,7 +1981,7 @@ for (const step of bundle.invocationPlan.steps) {
 - [Strategy Pattern (GoF)](https://refactoring.guru/design-patterns/strategy)
 - Manifesto ARCHITECTURE-v2.0.0
 - Manifesto ADR-001 (Layer Separation)
-- Intent IR v0.1 SPEC
+- [Intent IR v0.2 SPEC](../../../intent-ir/docs/SPEC-v0.2.0.md)
 
 ---
 
@@ -1983,7 +1990,7 @@ for (const step of bundle.invocationPlan.steps) {
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2026-01-28 | Initial unified ADR. ADR ID를 TRN-101~105로 변경. |
-| 1.0.1 | 2026-01-28 | **Critical fixes:** (1) Role enum을 Intent IR v0.1과 일치 (6개: TARGET\|THEME\|SOURCE\|DEST\|INSTRUMENT\|BENEFICIARY). (2) DependencyEdge 방향 수정 (from=dependency→to=dependent). (3) D-INV-3을 `0 <= start <= end`로 변경하여 빈 텍스트 허용. (4) overlap 검출을 옵션 기반→span 기반으로 변경. (5) LoweringFailureReason을 string union→struct로 변경. |
+| 1.0.1 | 2026-01-28 | **Critical fixes:** (1) Role enum을 Intent IR v0.2(=v0.1 동일)와 일치 (6개: TARGET\|THEME\|SOURCE\|DEST\|INSTRUMENT\|BENEFICIARY). (2) DependencyEdge 방향 수정 (from=dependency→to=dependent). (3) D-INV-3을 `0 <= start <= end`로 변경하여 빈 텍스트 허용. (4) overlap 검출을 옵션 기반→span 기반으로 변경. (5) LoweringFailureReason을 string union→struct로 변경. |
 | 1.0.2 | 2026-01-28 | **ADR-TRN-106 추가:** Pipeline Plugins (Composable Layers). Hook 기반 확장 시스템. Inspector/Transformer 분리. run-scope 병렬 안전. PLG-1~7 규범 추가. |
 | 1.0.3 | 2026-01-28 | **ADR-TRN-106 정합성 수정:** (1) PipelineHooks 타입에 TransformerHook 반환값 지원. (2) MutablePipelineContext/ReadonlyPipelineContext 분리. (3) per-chunk hook에 ChunkHookContext 도입 (병렬 레이스 방지). (4) afterMerge에서 Inspector+Transformer 모두 실행. (5) Pipeline에 Chunk 불변식 검증 추가. (6) metric() last-write-wins 규칙 명시. PLG-7~10 추가. |
 | 1.0.4 | 2026-01-28 | **Final Critical fixes:** (1) PKG-1을 "SDK 무의존 core 로직 포함"으로 명확화. (2) translateAllWithHooks에서 Promise.all→ParallelExecutor로 변경 (concurrency 준수). (3) D-INV-2b (span.start 정렬) 불변식 추가 및 validateChunks에 체크 추가. (4) process()에 OVL enforcement 로직 명시. (5) PLG-11 (주입 순서 실행), PLG-12 (ParallelExecutor 사용) 추가. |

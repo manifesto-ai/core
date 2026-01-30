@@ -137,8 +137,8 @@ export function checkEntityTypeConsistency(
   for (const node of graph.nodes) {
     // Check args for EntityTerms
     for (const [_role, term] of Object.entries(node.ir.args)) {
-      if (term.kind === "entity") {
-        const entityTerm = term as { kind: "entity"; entityId?: string; entityType: string };
+      const entities = collectEntityTerms(term);
+      for (const entityTerm of entities) {
         if (entityTerm.entityId) {
           const existing = entityTypes.get(entityTerm.entityId);
           if (existing && existing.type !== entityTerm.entityType) {
@@ -161,4 +161,24 @@ export function checkEntityTypeConsistency(
   }
 
   return { valid: conflicts.length === 0, conflicts };
+}
+
+function collectEntityTerms(
+  term: unknown
+): Array<{ kind: "entity"; entityId?: string; entityType: string }> {
+  if (!term || typeof term !== "object") {
+    return [];
+  }
+
+  const record = term as { kind?: string; items?: unknown[]; entityId?: string; entityType?: string };
+
+  if (record.kind === "entity" && typeof record.entityType === "string") {
+    return [record as { kind: "entity"; entityId?: string; entityType: string }];
+  }
+
+  if (record.kind === "list" && Array.isArray(record.items)) {
+    return record.items.flatMap((item) => collectEntityTerms(item));
+  }
+
+  return [];
 }

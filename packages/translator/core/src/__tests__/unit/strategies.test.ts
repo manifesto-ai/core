@@ -164,7 +164,7 @@ function createTestNode(id: string, dependsOn: string[] = []): IntentNode {
   return {
     id: createNodeId(id),
     ir: {
-      v: "0.1" as const,
+      v: "0.2" as const,
       force: "DO" as const,
       event: { lemma: "CREATE", class: "CREATE" as const },
       args: {},

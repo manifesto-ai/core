@@ -22,7 +22,7 @@ import {
 // Helper to create a valid IntentIR
 function createIR(event: string = "CREATE") {
   return {
-    v: "0.1" as const,
+    v: "0.2" as const,
     force: "DO" as const,
     event: { lemma: event.toUpperCase(), class: "CREATE" as const },
     args: {},

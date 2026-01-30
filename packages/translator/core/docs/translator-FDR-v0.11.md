@@ -1,4 +1,4 @@
-# Manifesto Translator Foundational Design Rationale v0.1
+# Manifesto Translator Foundational Design Rationale v0.1.1
 
 > **Version:** 0.1.1  
 > **Type:** Foundational  
@@ -7,6 +7,13 @@
 > **Purpose:** Document the "Why" behind design decisions in Translator v0.1
 
 ---
+
+> **Alignment Note (2026-01-30)**
+>
+> This FDR was authored against Intent IR v0.1. The current canonical spec is v0.2.0.
+> The role enum and lowering contract are unchanged; v0.2 adds ListTerm, QuantitySpec,
+> `in` predicate support, term-level `ext`, and canonicalization refinements.
+> The rationale below remains valid; references are updated for consistency.
 
 ## Table of Contents
 
@@ -148,7 +155,7 @@ A single IntentIR cannot represent these compound structures.
 
 ### Context
 
-Intent IR v0.1 already defines a robust semantic structure for single intents. We needed to decide how Intent Graph nodes relate to IntentIR.
+Intent IR v0.2 already defines a robust semantic structure for single intents. We needed to decide how Intent Graph nodes relate to IntentIR.
 
 Options:
 1. Intent Graph nodes contain IntentIR instances
@@ -178,7 +185,7 @@ type IntentNode = {
 
 ### Rationale
 
-1. **Composition over modification:** Intent IR v0.1 is stable; extending it creates coupling
+1. **Composition over modification:** Intent IR v0.2 is stable; extending it creates coupling
 2. **Lowering compatibility:** Intent IR's lowering contract (`IntentIR → IntentBody`) applies unchanged
 3. **Clear responsibilities:** IntentIR = semantic content, IntentNode = graph position + resolution
 4. **Independent evolution:** Intent IR and Translator can evolve separately

@@ -52,7 +52,7 @@ describe("level-3 regression", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "CREATE", class: "CREATE" },
             args: {
@@ -65,7 +65,7 @@ describe("level-3 regression", () => {
         {
           id: createNodeId("n2"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "ADD", class: "CREATE" },
             args: {

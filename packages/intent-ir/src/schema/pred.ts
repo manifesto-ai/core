@@ -1,8 +1,8 @@
 /**
  * @fileoverview Predicate (Condition) Schema (SPEC Section 9)
  *
- * Conditions in v0.1 are AND-only per AD-INT-003.
- * OR/NOT are deferred to v0.2+.
+ * Conditions in v0.2 are AND-only per AD-INT-003.
+ * OR/NOT are deferred to v0.3+.
  */
 
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { TermSchema } from "./term.js";
 /**
  * Comparison operators for predicates.
  *
- * Note: "in" (membership) operator is deferred to v0.2+ (FDR-INT-007).
+ * "in" (membership) operator is supported in v0.2.
  */
 export const PredOpSchema = z.enum([
   "=",
@@ -27,6 +27,7 @@ export const PredOpSchema = z.enum([
   "contains",
   "startsWith",
   "matches",
+  "in",
 ]);
 
 export type PredOp = z.infer<typeof PredOpSchema>;
@@ -84,6 +85,16 @@ export const PredSchema = z.object({
    * Right-hand side: value to compare against.
    */
   rhs: TermSchema,
-}).strict();
+})
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.op === "in" && data.rhs.kind !== "list") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "rhs must be ListTerm when op is 'in'",
+        path: ["rhs"],
+      });
+    }
+  });
 
 export type Pred = z.infer<typeof PredSchema>;

@@ -1,12 +1,12 @@
-# Manifesto Translator Specification v1.0.0
+# Manifesto Translator Specification v1.0.3
 
 > **Status:** Draft  
-> **Version:** 1.0.0  
-> **Date:** 2026-01-28  
+> **Version:** 1.0.3  
+> **Date:** 2026-01-28 (Updated: 2026-01-30)  
 > **Authors:** Manifesto Contributors  
 > **License:** MIT  
 > **Companion:** ADR-TRANSLATOR v1.0.8 (TRN-101~107)  
-> **Depends On:** Intent IR v0.1+
+> **Depends On:** Intent IR v0.2+
 
 ---
 
@@ -71,14 +71,14 @@ Translator is **NOT**:
 |------|-------------|
 | **Independence** | No runtime dependency on Core/Host/World/App |
 | **Clean Architecture** | Separated concerns via Strategy Pattern + Ports & Adapters |
-| **Composition** | Builds on Intent IR v0.1, does not replace it |
+| **Composition** | Builds on Intent IR v0.2, does not replace it |
 | **Measurement over Decision** | Produces ambiguity scores, not triage decisions |
 | **Target Agnosticism** | Core produces Intent Graph; exporters produce target-specific output |
 | **Extensibility** | Plugin system for observation and transformation |
 
 ### 1.4 Relationship to Intent IR
 
-Translator **composes with** Intent IR v0.1:
+Translator **composes with** Intent IR v0.2:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -87,7 +87,7 @@ Translator **composes with** Intent IR v0.1:
 │  │                         Intent Graph                                  │  │
 │  │   ┌──────────┐    ┌──────────┐    ┌──────────┐                       │  │
 │  │   │ IntentIR │───►│ IntentIR │───►│ IntentIR │   (DAG of nodes)      │  │
-│  │   │  (v0.1)  │    │  (v0.1)  │    │  (v0.1)  │                       │  │
+│  │   │  (v0.2)  │    │  (v0.2)  │    │  (v0.2)  │                       │  │
 │  │   └──────────┘    └──────────┘    └──────────┘                       │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -97,12 +97,19 @@ Translator **composes with** Intent IR v0.1:
 - Intent IR's semantic contract applies **per node**
 - Translator does not modify Intent IR semantics
 
+**v0.2 Alignment Notes:**
+- Translator MUST emit `IntentIR.v = "0.2"` for new nodes.
+- Plurality/coordination is expressed as `ListTerm` inside a role slot (args still map Role → Term).
+- `PredOp "in"` is supported and requires `rhs.kind === "list"`.
+- Term-level `ext` is allowed for non-semantic hints; semantics MUST remain in core fields.
+
 ### 1.5 Version History
 
 | Version | Date | Description |
 |---------|------|-------------|
 | v0.1.x | 2026-01 | Initial prototype (God Object anti-pattern) |
 | v1.0.0 | 2026-01 | Clean Architecture rewrite (TRN-101~107) |
+| v1.0.3 | 2026-01-30 | Intent IR v0.2 alignment and spec refinements |
 
 ---
 
@@ -397,7 +404,7 @@ interface Resolution {
 
 /**
  * Semantic role in a relation.
- * Aligned with Intent IR v0.1.
+ * Aligned with Intent IR v0.2.
  * 
  * Note: TIME is modeled separately as IntentIR.time?: TimeSpec
  */
@@ -1789,7 +1796,7 @@ This specification follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 | Spec Version | Package Version | Intent IR |
 |--------------|-----------------|-----------|
-| 1.0.x | @manifesto-ai/translator@1.x | v0.1+ |
+| 1.0.x | @manifesto-ai/translator@1.x | v0.2+ |
 
 ### 17.3 Migration from v0.1
 
@@ -1849,8 +1856,8 @@ This specification follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 ## References
 
-- [ADR-TRANSLATOR v1.0.8](./ADR-TRANSLATOR-v1.0.8-FINAL.md)
-- [Intent IR v0.1 Specification](../manifesto-intent-ir__v0_1_0__SPEC.md)
+- [ADR-TRANSLATOR v1.0.8](./translator-ADR-001-v1.0.8.md)
+- [Intent IR v0.2 Specification](../../../intent-ir/docs/SPEC-v0.2.0.md)
 - [Hexagonal Architecture (Alistair Cockburn)](https://alistair.cockburn.us/hexagonal-architecture/)
 - [Clean Architecture (Robert C. Martin)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 - [Strategy Pattern (GoF)](https://refactoring.guru/design-patterns/strategy)
@@ -1866,4 +1873,4 @@ This specification follows [Semantic Versioning 2.0.0](https://semver.org/):
 | 1.0.0 | 2026-01-28 | Initial v1.0 specification based on ADR-TRANSLATOR v1.0.8 |
 | 1.0.1 | 2026-01-28 | **Critical ADR sync fixes:** (1) Resolution: discriminated union → interface model with ambiguityScore/missing/questions, PascalCase status. (2) DecomposeStrategy: sync → async (Promise<Chunk[]>), added language option. (3) D-INV rules: aligned IDs/meanings with ADR, added D-INV-4/5. (4) TranslateOptions: removed LLMConfig, added maxNodes/domain/language/allowedEvents. (5) LLMPort: separated system field, role union fixed, added LLMCallOptions/LLMUsage/LLMErrorCode. (6) Validation: renamed ValidationError interface → ValidationErrorInfo, class → ValidationException, extended error codes. (7) Plugin: category → kind, added PLG-14 (inspector graph return protection). |
 | 1.0.2 | 2026-01-28 | **Contract clarity fixes:** (1) validate* 계약 봉인: V-1~3 규범 추가, validateGraph/validateChunks는 MUST NOT throw, assertValidGraph/assertValidChunks MAY throw. (2) R-INV-1/R-INV-2: Resolution 일관성 규칙 추가 (Resolved ⟹ missing 없음). (3) INVALID_RESOLUTION → R-INV 위반으로 명확화. (4) §16.4 예제 import type 문제 수정. |
-| 1.0.3 | 2026-01-28 | **Documentation polish:** (1) Appendix rule ID 통일: VAL-* → V-*. (2) §15.2 Conformance Tests: D-INV-3a(SHOULD)를 MUST 목록에서 분리, R-INV/V 테스트 추가, Full conformance SHOULD 섹션 신설. |
+| 1.0.3 | 2026-01-30 | **Intent IR v0.2 alignment:** (1) v0.2 참조/도해/계약 업데이트. (2) ADR 링크 정리. (3) Version metadata 정합성 보강. |

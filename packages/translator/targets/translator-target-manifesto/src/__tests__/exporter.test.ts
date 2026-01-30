@@ -57,7 +57,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "CREATE", class: "CREATE" },
             args: {},
@@ -84,7 +84,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "ARCHIVE", class: "CONTROL" },
             args: {},
@@ -111,7 +111,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "CREATE", class: "CREATE" },
             args: {},
@@ -137,7 +137,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "ASSIGN", class: "CONTROL" },
             args: {},
@@ -167,7 +167,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "CREATE", class: "CREATE" },
             args: {},
@@ -178,7 +178,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n2"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "ADD", class: "CREATE" },
             args: {},
@@ -189,7 +189,7 @@ describe("manifestoExporter", () => {
         {
           id: createNodeId("n3"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "ASSIGN", class: "CONTROL" },
             args: {

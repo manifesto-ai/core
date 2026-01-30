@@ -98,7 +98,7 @@ const lexicon = createLexicon({
 
 // 2. Parse an Intent IR (from translator output)
 const ir = parseIntentIR({
-  v: "0.1",
+  v: "0.2",
   force: "DO",
   event: { lemma: "CANCEL", class: "CONTROL" },
   args: {
@@ -150,7 +150,7 @@ function validateIntentIR(data: unknown): ValidationResult;
 
 // Types
 type IntentIR = {
-  v: "0.1";
+  v: "0.2";
   force: Force;              // "ASK" | "DO" | "VERIFY" | "CONFIRM" | "CLARIFY"
   event: Event;              // { lemma: string, class: EventClass }
   args: Args;                // Partial<Record<Role, Term>>
@@ -167,7 +167,8 @@ type Term =
   | PathRefTerm      // { kind: "path", path }
   | ArtifactRefTerm  // { kind: "artifact", artifactType, ref, content? }
   | ValueTerm        // { kind: "value", valueType, shape, raw? }
-  | ExprTerm;        // { kind: "expr", exprType, expr }
+  | ExprTerm         // { kind: "expr", exprType, expr }
+  | ListTerm;        // { kind: "list", items, ordered? }
 ```
 
 ### Canonicalization
@@ -330,8 +331,8 @@ Symbolic references are resolved deterministically (no LLM):
 
 | Document | Purpose |
 |----------|---------|
-| [SPEC-0.1.0v.md](docs/SPEC-0.1.0v.md) | Complete specification |
-| [FDR-0.1.0v.md](docs/FDR-0.1.0v.md) | Foundational Design Rationale |
+| [SPEC-v0.2.0.md](docs/SPEC-v0.2.0.md) | Complete specification |
+| [FDR-v0.1.0.md](docs/FDR-v0.1.0.md) | Foundational Design Rationale |
 
 ---
 

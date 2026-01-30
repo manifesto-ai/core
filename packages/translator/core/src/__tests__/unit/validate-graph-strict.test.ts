@@ -13,7 +13,7 @@ describe("validateGraph (strict)", () => {
         {
           id: createNodeId("n1"),
           ir: {
-            v: "0.1",
+            v: "0.2",
             force: "DO",
             event: { lemma: "ASSIGN", class: "CONTROL" },
             args: ({ USERS: { kind: "entity", entityType: "user" } } as unknown) as IntentGraph["nodes"][number]["ir"]["args"],

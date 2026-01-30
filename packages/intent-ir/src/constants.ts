@@ -44,4 +44,4 @@ export const ROLE_VALUES = RoleSchema.options;
 /**
  * Intent IR wire version.
  */
-export const INTENT_IR_VERSION = "0.1" as const;
+export const INTENT_IR_VERSION = "0.2" as const;
