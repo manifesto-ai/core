@@ -94,24 +94,71 @@ const host = new ManifestoHost(schema, { initialData: {} });
 }
 ```
 
-### Step 3: Add `$host` Namespace to Schema (v2.0.2)
+### Step 3: `$host` Schema Requirement
 
-Host-owned state is stored in `data.$host` (intent slots, host error bookkeeping).
-Your domain schema MUST allow this namespace, or Host patching will trigger
-`PATH_NOT_FOUND` validation errors.
+Domain schemas MUST allow the `$host` namespace for Host to store its internal state.
+
+**Option A: Using App Layer (Recommended)**
+
+If using `@manifesto/app`, this is **automatic**. The `createApp()` function injects `$host` (and `$mel`) into the schema via `withPlatformNamespaces()`.
 
 ```typescript
-// DomainSchema.state.fields (Core schema)
-state: {
-  fields: {
-    $host: { type: "object", required: false, default: {} },
-    // ...existing fields...
+import { createApp } from '@manifesto/app';
+
+const app = createApp({
+  schema: {
+    state: {
+      fields: {
+        count: { type: 'number', default: 0 },
+        // $host and $mel are automatically injected
+      },
+    },
   },
-}
+  // ...
+});
 ```
 
-**Note:** Optional fields MUST define a default value in Core.
-Patch paths are rooted at `data` by default, so use `$host.*` when patching.
+**Option B: Using Host Directly (Manual)**
+
+If using Host without the App layer, you MUST manually add `$host`:
+
+```typescript
+const schema = {
+  state: {
+    fields: {
+      // ... domain fields
+      $host: { type: 'object', required: false, default: {} },
+    },
+  },
+};
+```
+
+**Note:** The `$host` namespace requirement is unchanged. What changes is that App now handles this automatically, reducing boilerplate for most users.
+
+### Platform Namespace Auto-Injection (v2.0.3+)
+
+When using the App layer, platform-reserved namespaces are automatically managed:
+
+| Namespace | Injected By | Default Value |
+|-----------|-------------|---------------|
+| `$host` | App | `{}` |
+| `$mel` | App | `{ guards: { intent: {} } }` |
+
+**Behavior:**
+1. `createApp()` calls `withPlatformNamespaces(schema)` internally
+2. Missing `$host`/`$mel` fields are added with appropriate defaults
+3. On restore/rehydrate, `normalizeSnapshot()` ensures structure integrity
+
+**Direct Host Users:**
+If you use Host without App, you are responsible for:
+- Adding `$host` to schema manually (MUST)
+- Ensuring `$host` exists in restored snapshots (MUST)
+- Adding `$mel` with proper structure **if using MEL compiled output with `onceIntent`** (Conditional MUST)
+
+**Note:** If your MEL code uses `onceIntent`, the compiler generates patches to `$mel.guards.intent.*`. Without `$mel` in your schema, these patches will fail with `PATH_NOT_FOUND`. In this case, add:
+```typescript
+$mel: { type: 'object', required: false, default: { guards: { intent: {} } } }
+```
 
 ### Step 4: Update Effect Handler Signatures
 

@@ -634,6 +634,6 @@ const services: ServiceMap = {
 
 ## Related Documentation
 
-- [App Specification](/internals/spec/app-spec) - Normative specification
+- [Specifications Hub](/internals/spec/) - Links to all package specs
 - [Getting Started](/quickstart) - Step-by-step tutorial
 - [Effect Handlers](/guides/effect-handlers) - Detailed effect handler guide

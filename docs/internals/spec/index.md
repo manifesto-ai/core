@@ -1,211 +1,134 @@
 # Specifications
 
-> **Purpose:** Normative contracts for Manifesto implementations
-> **Audience:** Implementers, reviewers, auditors
-> **Status:** Normative (binding)
+This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory.
 
----
-
-## What Are Specifications?
-
-Specifications are **normative documents** that define how Manifesto components MUST behave.
-
-These are NOT:
-- Tutorials
-- Guides
-- Examples
-- Explanations
-
-These ARE:
-- Authoritative contracts
-- Requirements (MUST/SHOULD/MAY)
-- Invariants (guarantees)
-- Test criteria (conformance)
-
-**Who should read specs:**
-- Implementers building Manifesto libraries
-- Reviewers validating implementations
-- Tool builders (linters, analyzers, compilers)
-- Advanced users needing precise semantics
-
-**Who should NOT start here:**
-- Beginners learning Manifesto
-- Users building applications
-- People evaluating whether to use Manifesto
-
-If you're new, read [Core Concepts](/concepts/) first.
-
----
-
-## How to Read Specifications
-
-### RFC 2119 Keywords
-
-Specifications use RFC 2119 keywords:
-
-| Keyword | Meaning |
-|---------|---------|
-| **MUST** | Absolute requirement. Violation = non-conformance. |
-| **MUST NOT** | Absolute prohibition. Violation = non-conformance. |
-| **SHOULD** | Strong recommendation. May deviate for valid reasons. |
-| **SHOULD NOT** | Strong discouragement. May deviate for valid reasons. |
-| **MAY** | Optional. Implementers decide. |
-
----
+::: tip Single Source of Truth
+All specifications are maintained at the package level. This page provides navigation and version summaries.
+:::
 
 ## Package Specifications
 
-### High-Level Packages
+### Core Packages
 
-#### [App Spec](./app-spec)
+| Package | Latest SPEC | Status | Package Docs |
+|---------|-------------|--------|--------------|
+| **@manifesto-ai/core** | v2.0.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/host** | v2.0.2 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/world** | v2.0.3-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/builder** | v1.0.0 | Final | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/builder/docs/VERSION-INDEX.md) |
 
-**Status:** Normative | **Version:** 0.4.7
+### Application Layer
 
-High-level facade for building Manifesto applications.
+| Package | Latest SPEC | Status | Package Docs |
+|---------|-------------|--------|--------------|
+| **@manifesto-ai/app** | v2.1.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.5.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
-**What it covers:**
-- `createApp()` API and lifecycle
-- Action dispatching and service handlers
-- Subscription system and state access
-- Branch management for parallel states
+### Intent & Translation
 
----
-
-### Core Layer
-
-#### [Core Spec](./core-spec)
-
-**Status:** Draft | **Version:** 1.0
-
-Defines the pure computation engine and DomainSchema.
-
-**What it covers:**
-- DomainSchema structure (StateSpec, ComputedSpec, ActionSpec)
-- Expression language (Expr) and evaluation
-- Flow language (FlowNode) and execution
-- Snapshot structure and validation
-- Trace and Requirements output
+| Package | Latest SPEC | Status | Package Docs |
+|---------|-------------|--------|--------------|
+| **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/) |
 
 ---
 
-#### [Compiler Spec](./compiler-spec)
+## Quick Links to Latest Specs
 
-**Status:** Normative | **Version:** 0.4.0
+### Core
 
-Defines MEL compilation to DomainSchema.
+- **Core SPEC v2.0.1** (Patch)
+  - Base: [SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/SPEC-v2.0.0.md)
+  - Patch: [SPEC-v2.0.1-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/SPEC-v2.0.1-patch.md)
 
-**What it covers:**
-- MEL parsing and semantic analysis
-- DomainSchema generation
-- Error diagnostics and recovery
-- Canonical form guarantees
+### Host
 
----
+- **Host SPEC v2.0.2** (Full)
+  - [host-SPEC-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v2.0.2.md)
+  - Adds: Snapshot Type Alignment, `data.$host` namespace
 
-### Runtime Layer
+### World
 
-#### [Host Spec](./host-spec)
+- **World SPEC v2.0.3** (Patch)
+  - Base: [world-SPEC-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.2.md)
+  - Patch: [world-SPEC-v2.0.3-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.3-patch.md)
+  - Adds: ADR-002 DX improvements, `$mel` namespace
 
-**Status:** Normative | **Version:** 2.0.1
+### App
 
-Defines Host's responsibilities and guarantees.
+- **App SPEC v2.1.0** (Patch)
+  - Base: [APP-SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.0.0.md)
+  - Patch: [APP-SPEC-v2.1.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.1.0-patch.md)
+  - Adds: Platform namespace injection, `$mel` support
 
-**What it covers:**
-- Effect handler contract
-- Compute-effect loop requirements
-- Patch application semantics
-- FIFO serialization guarantees
-- Failure handling requirements
+### Compiler (MEL)
 
----
+- **Compiler SPEC v0.5.0** (Patch)
+  - Base: [SPEC-v0.3.3.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.3.3.md)
+  - Patch v0.4.0: [SPEC-v0.4.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.4.0-patch.md)
+  - Patch v0.5.0: [SPEC-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.5.0-patch.md)
+  - Adds: `$mel` namespace, `onceIntent` syntax
 
-#### [World Spec](./world-spec)
+### Builder
 
-**Status:** Normative | **Version:** 1.0
+- **Builder SPEC v1.0.0** (Final)
+  - [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/builder/docs/SPEC-v1.0.0.md)
 
-Defines governance layer semantics.
+### Intent IR
 
-**What it covers:**
-- Proposal submission requirements
-- Authority evaluation contract
-- Decision recording semantics
-- Lineage DAG requirements
-- Actor registry contract
+- **Intent IR SPEC v0.2.0** (Draft)
+  - [SPEC-v0.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md)
+  - Research docs: [Research](/internals/research/intent-ir/)
 
----
+### Translator
 
-### Builder & DSL
-
-#### [Builder Spec](./builder-spec)
-
-**Status:** Normative | **Version:** 1.0
-
-Defines the type-safe domain definition DSL.
-
-**What it covers:**
-- `defineDomain()` API contract
-- Zod-first state schema
-- Zero-string-path guarantees
-- Re-entry safety helpers
+- **Translator SPEC v1.0.3** (Normative)
+  - [translator-SPEC-v1.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v1.0.3.md)
+  - Previous (v0.1.1): [translator-SPEC-v0.11.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v0.11.md)
 
 ---
 
-#### [Intent IR Spec](./intent-ir-spec)
+## Version History Summary
 
-**Status:** Stable | **Version:** 0.1.0
+### Recent Changes (2026-01)
 
-Defines the Intent Intermediate Representation.
-
-**What it covers:**
-- Chomskyan LF-based semantic structures
-- Term and Proposition types
-- Force and EventClass enumerations
-
----
-
-## Reading Order
-
-### For Implementers
-
-**Goal:** Build conformant implementations
-
-1. **[Core Spec](./core-spec)** — Understand core data model
-2. **[Host Spec](./host-spec)** — Understand execution requirements
-3. **[World Spec](./world-spec)** — Understand governance requirements
-
-**Total time:** ~1.5 hours
-
-### For App Developers
-
-**Goal:** Understand high-level APIs
-
-1. **[App Spec](./app-spec)** — High-level facade
-2. **[Compiler Spec](./compiler-spec)** — MEL compilation
-
-**Total time:** ~45 minutes
+| Date | Package | Version | Change |
+|------|---------|---------|--------|
+| 01-30 | Translator | v1.0.3 | Intent IR v0.2 alignment and spec refinements |
+| 01-27 | World | v2.0.3-patch | ADR-002 DX improvements |
+| 01-27 | App | v2.1.0-patch | Platform namespace injection |
+| 01-27 | Compiler | v0.5.0-patch | `$mel` namespace, `onceIntent` |
+| 01-18 | Host | v2.0.2 | Snapshot Type Alignment, `$host` namespace |
+| 01-18 | Core | v2.0.1-patch | ADR-002 alignment |
 
 ---
 
-## Specification Hierarchy
+## Reading Patch Documents
 
-When specs conflict (rare), prefer this order:
+Patch documents (e.g., `v2.0.1-patch`) contain only changes from a base version. To read:
 
+1. Start with the **base version** (full document)
+2. Apply **patch changes** in order
+
+Example for World v2.0.3:
 ```
-1. Constitution (CLAUDE.md)         ← Highest authority
-2. Specifications (this section)    ← Normative contracts
-3. FDR (Design Rationale)           ← Explanations
-4. Code                             ← Implementation
-5. Guides/README                    ← Documentation
+world-SPEC-v2.0.2.md (base)
+  + world-SPEC-v2.0.3-patch.md (changes)
+  = Complete v2.0.3 specification
 ```
 
 ---
 
-## Related Sections
+## Normative Hierarchy
 
-- **[Architecture](/architecture/)** — Understand how specs fit together
-- **[Rationale](/internals/fdr/)** — Understand why specs are written this way
-- **[Core Concepts](/concepts/)** — Understand what specs formalize
+When documents conflict:
 
----
-
-**Start with [Core Spec](./core-spec) to understand the foundation.**
+```
+SPEC (highest authority)
+  ↓
+FDR (design rationale)
+  ↓
+ADR (architectural decisions)
+  ↓
+README / Guides (lowest authority)
+```

@@ -11,6 +11,7 @@ import type {
   Role,
   EventClass,
   ValueType,
+  EntityRefTerm,
 } from "../schema/index.js";
 import type { Lexicon, SelectionalRestriction } from "./interface.js";
 
@@ -137,12 +138,14 @@ export function checkFeatures(ir: IntentIR, lexicon: Lexicon): CheckResult {
 
   // 5. Check entity types exist in lexicon
   for (const term of Object.values(ir.args)) {
-    if (term?.kind === "entity") {
-      const entitySpec = lexicon.resolveEntity(term.entityType);
+    if (!term) continue;
+    const entities = collectEntityTerms(term);
+    for (const entity of entities) {
+      const entitySpec = lexicon.resolveEntity(entity.entityType);
       if (!entitySpec) {
         return {
           valid: false,
-          error: { code: "UNKNOWN_ENTITY_TYPE", entityType: term.entityType },
+          error: { code: "UNKNOWN_ENTITY_TYPE", entityType: entity.entityType },
           suggest: "CLARIFY",
         };
       }
@@ -170,14 +173,52 @@ function checkRestriction(
   role: Role,
   lexicon: Lexicon
 ): CheckResult | null {
+  if (term.kind === "list") {
+    if (!restriction.termKinds.includes("list")) {
+      return {
+        valid: false,
+        error: {
+          code: "INVALID_TERM_KIND",
+          role,
+          expected: restriction.termKinds,
+          actual: term.kind,
+        },
+        suggest: "CLARIFY",
+      };
+    }
+
+    const itemKinds = restriction.termKinds.filter((kind) => kind !== "list");
+    const itemRestriction: SelectionalRestriction = {
+      termKinds: itemKinds,
+      entityTypes: restriction.entityTypes,
+      valueTypes: restriction.valueTypes,
+    };
+
+    for (const item of term.items) {
+      const itemResult = checkRestriction(
+        item as Term,
+        itemRestriction,
+        role,
+        lexicon
+      );
+      if (itemResult) {
+        return itemResult;
+      }
+    }
+
+    return null;
+  }
+
+  const allowedKinds = restriction.termKinds.filter((kind) => kind !== "list");
+
   // Check term kind
-  if (!restriction.termKinds.includes(term.kind)) {
+  if (!allowedKinds.includes(term.kind)) {
     return {
       valid: false,
       error: {
         code: "INVALID_TERM_KIND",
         role,
-        expected: restriction.termKinds,
+        expected: allowedKinds,
         actual: term.kind,
       },
       suggest: "CLARIFY",
@@ -221,4 +262,19 @@ function checkRestriction(
   }
 
   return null; // No error
+}
+
+function collectEntityTerms(term: Term): EntityRefTerm[] {
+  if (term.kind === "entity") {
+    return [term];
+  }
+
+  if (term.kind === "list") {
+    const items = term.items.flatMap((item) =>
+      collectEntityTerms(item as Term)
+    );
+    return items;
+  }
+
+  return [];
 }

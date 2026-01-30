@@ -722,7 +722,7 @@ describe("Re-entry safety", () => {
 
 ## See Also
 
-- [Host FDR](/internals/fdr/host-fdr) - Design rationale including why re-entry happens
+- [Design Rationale](/internals/fdr/) - FDRs including Host design rationale
 - [Effect Handlers Guide](./effect-handlers) - Writing safe effect handlers
 - [Getting Started](/quickstart) - Using guard helpers
 - [Flow Concept](/concepts/flow) - Understanding Flows

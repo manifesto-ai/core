@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Moved package documentation from docs/packages/* to packages/*/docs/*
 - Updated README.md with correct documentation links
+- Intent IR SPEC v0.2.0: ListTerm for plurality, QuantitySpec, PredOp `in`, term-level `ext`, orderBy semantics, and stricter canonicalization (default elision + RFC3339 UTC date normalization)
 
 ## [1.0.0] - 2025-01-01
 

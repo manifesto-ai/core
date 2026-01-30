@@ -14,6 +14,7 @@ import type {
   ResolvedEntityRefTerm,
   Args,
   ResolvedArgs,
+  ResolvedNonListTerm,
 } from "../schema/index.js";
 
 // =============================================================================
@@ -135,6 +136,17 @@ function resolveArgs(args: Args, context?: ResolutionContext): ResolvedArgs {
  * Resolve a single term.
  */
 function resolveTerm(term: Term, context?: ResolutionContext): ResolvedTerm {
+  if (term.kind === "list") {
+    return {
+      kind: "list",
+      items: term.items.map(
+        (item) => resolveTerm(item as Term, context) as ResolvedNonListTerm
+      ),
+      ...(term.ordered !== undefined ? { ordered: term.ordered } : null),
+      ...(term.ext !== undefined ? { ext: term.ext } : null),
+    };
+  }
+
   if (term.kind !== "entity") {
     // Non-entity terms pass through unchanged
     return term;
@@ -155,6 +167,10 @@ function resolveEntityRefTerm(
     return {
       kind: "entity",
       entityType: term.entityType,
+      ...(term.quant ? { quant: term.quant } : null),
+      ...(term.orderBy ? { orderBy: term.orderBy } : null),
+      ...(term.orderDir ? { orderDir: term.orderDir } : null),
+      ...(term.ext ? { ext: term.ext } : null),
     };
   }
 
@@ -164,6 +180,10 @@ function resolveEntityRefTerm(
       kind: "entity",
       entityType: term.entityType,
       ref: { kind: "id", id: term.ref.id! },
+      ...(term.quant ? { quant: term.quant } : null),
+      ...(term.orderBy ? { orderBy: term.orderBy } : null),
+      ...(term.orderDir ? { orderDir: term.orderDir } : null),
+      ...(term.ext ? { ext: term.ext } : null),
     };
   }
 
@@ -174,6 +194,10 @@ function resolveEntityRefTerm(
     kind: "entity",
     entityType: term.entityType,
     ref: { kind: "id", id: resolvedId },
+    ...(term.quant ? { quant: term.quant } : null),
+    ...(term.orderBy ? { orderBy: term.orderBy } : null),
+    ...(term.orderDir ? { orderDir: term.orderDir } : null),
+    ...(term.ext ? { ext: term.ext } : null),
   };
 }
 

@@ -28,11 +28,13 @@ These packages form the foundation of Manifesto's architecture. Most users inter
 
 ## Additional Packages
 
-| Package | Description | Spec |
-|---------|-------------|------|
-| @manifesto-ai/compiler | MEL to DomainSchema compilation | [Compiler Spec](/internals/spec/compiler-spec) |
-| @manifesto-ai/builder | Type-safe domain definition DSL | [Builder Spec](/internals/spec/builder-spec) |
-| @manifesto-ai/intent-ir | Intent intermediate representation | [Intent IR Spec](/internals/spec/intent-ir-spec) |
+| Package | Description |
+|---------|-------------|
+| @manifesto-ai/compiler | MEL to DomainSchema compilation |
+| @manifesto-ai/builder | Type-safe domain definition DSL |
+| @manifesto-ai/intent-ir | Intent intermediate representation |
+
+See [Specifications](/internals/spec/) for detailed package specifications.
 
 ---
 

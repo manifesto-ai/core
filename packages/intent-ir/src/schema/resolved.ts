@@ -11,6 +11,8 @@ import {
   ExprTermSchema,
   PathRefTermSchema,
   ValueTermSchema,
+  QuantitySpecSchema,
+  ExtSchema,
   type ArtifactRefTerm,
   type ExprTerm,
   type PathRefTerm,
@@ -29,7 +31,7 @@ import { IntentIRSchema } from "./intent-ir.js";
 export const ResolvedEntityRefSchema = z.object({
   kind: z.literal("id"),
   id: z.string(),
-});
+}).strict();
 
 export type ResolvedEntityRef = z.infer<typeof ResolvedEntityRefSchema>;
 
@@ -51,9 +53,61 @@ export const ResolvedEntityRefTermSchema = z.object({
    * Absence means collection scope (preserved from original).
    */
   ref: ResolvedEntityRefSchema.optional(),
-});
+  /** Quantification on the DP (e.g., "three tasks"). */
+  quant: QuantitySpecSchema.optional(),
+  /** Ordering key for collection ordering. */
+  orderBy: PathRefTermSchema.optional(),
+  /** Order direction. */
+  orderDir: z.enum(["ASC", "DESC"]).optional(),
+  /** Term-level extension carrier. OPTIONAL. */
+  ext: ExtSchema.optional(),
+})
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.orderDir && !data.orderBy) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "orderDir requires orderBy",
+        path: ["orderDir"],
+      });
+    }
+
+    if (data.orderBy) {
+      const invalidPrefix =
+        /^(state|env|computed|target|theme|source|dest|instrument|beneficiary)\./;
+      if (invalidPrefix.test(data.orderBy.path)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "orderBy.path must be a relative entity field path",
+          path: ["orderBy", "path"],
+        });
+      }
+    }
+  });
 
 export type ResolvedEntityRefTerm = z.infer<typeof ResolvedEntityRefTermSchema>;
+
+// =============================================================================
+// ResolvedListTerm
+// =============================================================================
+
+export const ResolvedNonListTermSchema = z.discriminatedUnion("kind", [
+  ResolvedEntityRefTermSchema,
+  PathRefTermSchema,
+  ArtifactRefTermSchema,
+  ValueTermSchema,
+  ExprTermSchema,
+]);
+
+export const ResolvedListTermSchema = z.object({
+  kind: z.literal("list"),
+  items: z.array(ResolvedNonListTermSchema),
+  ordered: z.boolean().optional(),
+  ext: ExtSchema.optional(),
+}).strict();
+
+export type ResolvedNonListTerm = z.infer<typeof ResolvedNonListTermSchema>;
+export type ResolvedListTerm = z.infer<typeof ResolvedListTermSchema>;
 
 // =============================================================================
 // ResolvedTerm
@@ -69,6 +123,7 @@ export const ResolvedTermSchema = z.discriminatedUnion("kind", [
   ArtifactRefTermSchema,
   ValueTermSchema,
   ExprTermSchema,
+  ResolvedListTermSchema,
 ]);
 
 export type ResolvedTerm = z.infer<typeof ResolvedTermSchema>;
@@ -89,7 +144,8 @@ export const ResolvedArgsSchema = z
     INSTRUMENT: ResolvedTermSchema,
     BENEFICIARY: ResolvedTermSchema,
   })
-  .partial();
+  .partial()
+  .strict();
 
 export type ResolvedArgs = z.infer<typeof ResolvedArgsSchema>;
 
@@ -105,6 +161,6 @@ export type ResolvedArgs = z.infer<typeof ResolvedArgsSchema>;
  */
 export const ResolvedIntentIRSchema = IntentIRSchema.extend({
   args: ResolvedArgsSchema,
-});
+}).strict();
 
 export type ResolvedIntentIR = z.infer<typeof ResolvedIntentIRSchema>;

@@ -8,6 +8,13 @@
 import { z } from "zod";
 
 // =============================================================================
+// Shared ext
+// =============================================================================
+
+export const ExtSchema = z.record(z.string(), z.unknown());
+export type Ext = z.infer<typeof ExtSchema>;
+
+// =============================================================================
 // EntityRef
 // =============================================================================
 
@@ -34,11 +41,35 @@ export const EntityRefSchema = z
     /** Explicit identifier. REQUIRED when kind="id". */
     id: z.string().optional(),
   })
+  .strict()
   .refine((data) => data.kind !== "id" || data.id !== undefined, {
     message: "id is required when kind is 'id'",
   });
 
 export type EntityRef = z.infer<typeof EntityRefSchema>;
+
+// =============================================================================
+// QuantitySpec
+// =============================================================================
+
+export const QuantityComparatorSchema = z.enum(["eq", "gte", "lte"]);
+export type QuantityComparator = z.infer<typeof QuantityComparatorSchema>;
+
+export const QuantitySpecSchema = z
+  .object({
+    kind: z.literal("quantity"),
+    /** MUST be a non-negative integer. */
+    value: z.number().int().nonnegative(),
+    /** OPTIONAL. Default: "eq". */
+    comparator: QuantityComparatorSchema.optional(),
+    /** OPTIONAL unit label (advisory). */
+    unit: z.string().optional(),
+    /** Term-level extension carrier. OPTIONAL. */
+    ext: ExtSchema.optional(),
+  })
+  .strict();
+
+export type QuantitySpec = z.infer<typeof QuantitySpecSchema>;
 
 /**
  * Reference to a domain entity.
@@ -56,7 +87,55 @@ export const EntityRefTermSchema = z.object({
    * OPTIONAL: absence means collection/default scope (e.g., "all users").
    */
   ref: EntityRefSchema.optional(),
-});
+
+  /**
+   * Quantification on the DP (e.g., "three tasks", "at least 5 users").
+   * OPTIONAL. Intended for collection scope.
+   */
+  quant: QuantitySpecSchema.optional(),
+
+  /**
+   * Optional ordering key used when quantity implies a choice ("top 3", "first 5"),
+   * or when an explicit "by ..." phrase is present.
+   *
+   * NORMATIVE: This represents meaning-level ordering intent, not an execution plan.
+   */
+  orderBy: z
+    .object({
+      kind: z.literal("path"),
+      path: z.string().min(1),
+      ext: ExtSchema.optional(),
+    })
+    .optional(),
+
+  /** Order direction. OPTIONAL. Default: "ASC". */
+  orderDir: z.enum(["ASC", "DESC"]).optional(),
+
+  /** Term-level extension carrier. OPTIONAL. */
+  ext: ExtSchema.optional(),
+})
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.orderDir && !data.orderBy) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "orderDir requires orderBy",
+        path: ["orderDir"],
+      });
+    }
+
+    if (data.orderBy) {
+      const invalidPrefix =
+        /^(state|env|computed|target|theme|source|dest|instrument|beneficiary)\./;
+      if (invalidPrefix.test(data.orderBy.path)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "orderBy.path must be a relative entity field path",
+          path: ["orderBy", "path"],
+        });
+      }
+    }
+  });
 
 export type EntityRefTerm = z.infer<typeof EntityRefTermSchema>;
 
@@ -79,7 +158,9 @@ export const PathRefTermSchema = z.object({
    * MAY contain wildcards (*) for dynamic segments.
    */
   path: z.string().min(1),
-});
+  /** Term-level extension carrier. OPTIONAL. */
+  ext: ExtSchema.optional(),
+}).strict();
 
 export type PathRefTerm = z.infer<typeof PathRefTermSchema>;
 
@@ -107,7 +188,7 @@ export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
 export const ArtifactRefSchema = z.object({
   kind: z.enum(["inline", "id"]),
   id: z.string().optional(),
-});
+}).strict();
 
 export type ArtifactRef = z.infer<typeof ArtifactRefSchema>;
 
@@ -125,7 +206,10 @@ export const ArtifactRefTermSchema = z
     ref: ArtifactRefSchema,
     /** Inline content. REQUIRED when ref.kind="inline". */
     content: z.string().optional(),
+    /** Term-level extension carrier. OPTIONAL. */
+    ext: ExtSchema.optional(),
   })
+  .strict()
   .refine((data) => data.ref.kind !== "inline" || data.content !== undefined, {
     message: "content is required when ref.kind is 'inline'",
   })
@@ -175,7 +259,9 @@ export const ValueTermSchema = z.object({
    * Present when exact value is needed for execution.
    */
   raw: z.unknown().optional(),
-});
+  /** Term-level extension carrier. OPTIONAL. */
+  ext: ExtSchema.optional(),
+}).strict();
 
 export type ValueTerm = z.infer<typeof ValueTermSchema>;
 
@@ -210,7 +296,10 @@ export const ExprTermSchema = z
      * String for latex/code, structured object for ast.
      */
     expr: z.union([z.string(), z.record(z.string(), z.unknown())]),
+    /** Term-level extension carrier. OPTIONAL. */
+    ext: ExtSchema.optional(),
   })
+  .strict()
   .superRefine((data, ctx) => {
     if (data.exprType === "ast" && typeof data.expr !== "object") {
       ctx.addIssue({
@@ -242,7 +331,8 @@ export type ExprTerm = z.infer<typeof ExprTermSchema>;
  *
  * Per AD-INT-004, Term is a closed discriminated union with `kind` as discriminator.
  */
-export const TermSchema = z.discriminatedUnion("kind", [
+// v0.2: list term disallows nested lists
+export const NonListTermSchema = z.discriminatedUnion("kind", [
   EntityRefTermSchema,
   PathRefTermSchema,
   ArtifactRefTermSchema,
@@ -250,4 +340,23 @@ export const TermSchema = z.discriminatedUnion("kind", [
   ExprTermSchema,
 ]);
 
+export const ListTermSchema = z.object({
+  kind: z.literal("list"),
+  items: z.array(NonListTermSchema),
+  ordered: z.boolean().optional(),
+  /** Term-level extension carrier. OPTIONAL. */
+  ext: ExtSchema.optional(),
+}).strict();
+
+export const TermSchema = z.discriminatedUnion("kind", [
+  EntityRefTermSchema,
+  PathRefTermSchema,
+  ArtifactRefTermSchema,
+  ValueTermSchema,
+  ExprTermSchema,
+  ListTermSchema,
+]);
+
+export type NonListTerm = z.infer<typeof NonListTermSchema>;
+export type ListTerm = z.infer<typeof ListTermSchema>;
 export type Term = z.infer<typeof TermSchema>;

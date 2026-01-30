@@ -155,8 +155,8 @@ Most applications should use `@manifesto-ai/app` instead. Use Host directly when
 
 For the complete normative specification, see:
 
-- [Host Specification](/internals/spec/host-spec) - Contract overview
-- [packages/host/docs/host-SPEC-v2.0.2.md](https://github.com/manifesto-ai/manifesto/blob/main/packages/host/docs/host-SPEC-v2.0.2.md) - Latest package spec with Mailbox + Runner + Job model
+- [Specifications Hub](/internals/spec/) - Links to all package specs
+- [Host SPEC v2.0.2](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v2.0.2.md) - Latest package spec with Mailbox + Runner + Job model
 
 ---
 

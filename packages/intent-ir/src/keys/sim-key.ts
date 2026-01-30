@@ -120,6 +120,18 @@ function extractTermTokens(term: Term, prefix: string): string[] {
     case "expr":
       tokens.push(`${prefix}.exprType:${term.exprType}`);
       break;
+
+    case "list": {
+      if (term.ordered === true) {
+        tokens.push(`${prefix}.ordered:true`);
+      }
+      term.items.forEach((item, index) => {
+        const itemPrefix =
+          term.ordered === true ? `${prefix}.item${index}` : `${prefix}.item`;
+        tokens.push(...extractTermTokens(item, itemPrefix));
+      });
+      break;
+    }
   }
 
   return tokens;

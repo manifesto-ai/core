@@ -24,7 +24,7 @@ import { TimeSpecSchema, VerifySpecSchema, OutputSpecSchema } from "./specs.js";
  * Intent IR version identifier.
  * Wire version uses "MAJOR.MINOR" format.
  */
-export const IntentIRVersionSchema = z.literal("0.1");
+export const IntentIRVersionSchema = z.literal("0.2");
 
 export type IntentIRVersion = z.infer<typeof IntentIRVersionSchema>;
 
@@ -33,10 +33,10 @@ export type IntentIRVersion = z.infer<typeof IntentIRVersionSchema>;
 // =============================================================================
 
 /**
- * Args schema: each role maps to at most one Term (v0.1).
+ * Args schema: each role maps to at most one Term (v0.2).
  *
- * Per FDR-INT-006, single Term per Role in v0.1.
- * Multiple terms per role deferred to v0.2+ (requires ListTerm).
+ * Per FDR-INT-006, single Term per Role remains in v0.2.
+ * Multiple terms per role MUST use ListTerm.
  */
 export const ArgsSchema = z
   .object({
@@ -47,7 +47,8 @@ export const ArgsSchema = z
     INSTRUMENT: TermSchema,
     BENEFICIARY: TermSchema,
   })
-  .partial();
+  .partial()
+  .strict();
 
 export type Args = z.infer<typeof ArgsSchema>;
 
@@ -62,7 +63,7 @@ export type Args = z.infer<typeof ArgsSchema>;
  *
  * @example
  * {
- *   v: "0.1",
+ *   v: "0.2",
  *   force: "DO",
  *   event: { lemma: "CANCEL", class: "CONTROL" },
  *   args: {
@@ -73,7 +74,7 @@ export type Args = z.infer<typeof ArgsSchema>;
  * }
  */
 export const IntentIRSchema = z.object({
-  /** Version identifier. MUST be "0.1" for this specification. */
+  /** Version identifier. MUST be "0.2" for this specification. */
   v: IntentIRVersionSchema,
 
   /** Illocutionary force. REQUIRED. */
@@ -85,7 +86,7 @@ export const IntentIRSchema = z.object({
   /** Theta-role arguments. REQUIRED (may be empty object). */
   args: ArgsSchema,
 
-  /** Condition predicates. OPTIONAL. AND-conjunction in v0.1. */
+  /** Condition predicates. OPTIONAL. AND-conjunction in v0.2. */
   cond: z.array(PredSchema).optional(),
 
   /** Modality. OPTIONAL. Default: MAY. */
@@ -102,7 +103,7 @@ export const IntentIRSchema = z.object({
 
   /** Extension point. OPTIONAL. Keys SHOULD be namespaced. */
   ext: z.record(z.string(), z.unknown()).optional(),
-});
+}).strict();
 
 export type IntentIR = z.infer<typeof IntentIRSchema>;
 

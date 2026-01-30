@@ -77,7 +77,7 @@ console.log(app.getState().data.count); // 1
 | [@manifesto-ai/world](./packages/world) | 2.0.1 | Governance layer |
 | [@manifesto-ai/compiler](./packages/compiler) | 1.3.0 | MEL to DomainSchema compiler |
 | [@manifesto-ai/builder](./packages/builder) | 1.3.0 | Type-safe domain definition DSL |
-| [@manifesto-ai/intent-ir](./packages/intent-ir) | 0.1.0 | Intent intermediate representation |
+| [@manifesto-ai/intent-ir](./packages/intent-ir) | 0.2.0 | Intent intermediate representation |
 
 ## Key Features
 

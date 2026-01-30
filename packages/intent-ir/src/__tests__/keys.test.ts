@@ -56,11 +56,25 @@ describe("Key Derivation", () => {
       expect(key).toBeDefined();
       expect(typeof key).toBe("string");
     });
+
+    it("should ignore scopeProposal.paths order", async () => {
+      const body1: IntentBody = {
+        type: "order.cancel",
+        scopeProposal: { paths: ["b.path", "a.path"] },
+      };
+      const body2: IntentBody = {
+        type: "order.cancel",
+        scopeProposal: { paths: ["a.path", "b.path"] },
+      };
+      const key1 = await deriveIntentKey(body1, schemaHash);
+      const key2 = await deriveIntentKey(body2, schemaHash);
+      expect(key1).toBe(key2);
+    });
   });
 
   describe("deriveSimKey", () => {
     const baseIR: IntentIR = {
-      v: "0.1",
+      v: "0.2",
       force: "DO",
       event: { lemma: "CANCEL", class: "CONTROL" },
       args: {
@@ -94,7 +108,7 @@ describe("Key Derivation", () => {
 
     it("should produce different keys for different intents", () => {
       const ir2: IntentIR = {
-        v: "0.1",
+        v: "0.2",
         force: "ASK",
         event: { lemma: "LIST", class: "OBSERVE" },
         args: {

@@ -29,6 +29,6 @@ export const EventSchema = z.object({
    * Coarse event classification.
    */
   class: EventClassSchema,
-});
+}).strict();
 
 export type Event = z.infer<typeof EventSchema>;

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Semantic Canonicalization (SPEC Section 11)
  *
- * Canonicalize for similarity search - removes ValueTerm.raw.
+ * Canonicalize for similarity search - removes ValueTerm.raw and ext.
  * Same meaning -> same bytes (regardless of surface form).
  */
 
@@ -17,7 +17,7 @@ import { sortPredicates } from "./normalize-pred.js";
  *
  * Rules applied:
  * 1. Uppercase lemma
- * 2. Normalize terms (remove raw)
+ * 2. Normalize terms (remove raw + ext)
  * 3. Sort args keys lexicographically (RFC 8785)
  * 4. Sort cond predicates
  * 5. Remove empty optional fields
@@ -29,7 +29,7 @@ import { sortPredicates } from "./normalize-pred.js";
 export function canonicalizeSemantic(ir: IntentIR): IntentIR {
   // 1. Uppercase lemma
   const event = {
-    lemma: ir.event.lemma.toUpperCase(),
+    lemma: ir.event.lemma.trim().toUpperCase(),
     class: ir.event.class,
   };
 
@@ -72,10 +72,6 @@ export function canonicalizeSemantic(ir: IntentIR): IntentIR {
     result.out = ir.out;
   }
 
-  if (ir.ext !== undefined && Object.keys(ir.ext).length > 0) {
-    result.ext = ir.ext;
-  }
-
   return result;
 }
 
@@ -94,7 +90,9 @@ export function toSemanticCanonicalString(ir: IntentIR): string {
 function normalizeArgs(args: Args): Args {
   const result: Args = {};
 
-  for (const [role, term] of Object.entries(args)) {
+  const entries = Object.entries(args).sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [role, term] of entries) {
     if (term !== undefined) {
       (result as Record<string, Term>)[role] = normalizeTermSemantic(term);
     }
