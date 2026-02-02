@@ -15,8 +15,8 @@
 | Change | Type | Impact |
 |--------|------|--------|
 | `onceIntent` syntax | New Grammar | Non-breaking |
-| `onceIntent` reserved keyword | Parsing Rule | Breaking if used as identifier |
-| COMPILER-MEL-1~3 | New Rules | Normative |
+| `onceIntent` contextual keyword | Parsing Rule | Non-breaking |
+| COMPILER-MEL-1~3 (+2a) | New Rules | Normative |
 | Reserved namespaces | Spec Update | Normative |
 | FDR-MEL-074/075/076/077 | New FDRs | Rationale |
 
@@ -97,15 +97,16 @@ Where `<guardId>` is computed as `hash(actionName + ":" + blockIndex + ":intent"
 
 **Critical Rules:**
 - COMPILER-MEL-1: Guard patches MUST use `merge` at `$mel.guards.intent` level (not root `$mel`)
-- COMPILER-MEL-2: Desugared `once(X)` argument and first patch path MUST be identical
+- COMPILER-MEL-2: Desugared `once(X)` MUST perform its first guard write to the same **semantic guard path** `X`
+- COMPILER-MEL-2a: Lowering MAY implement the guard write as `merge` at `$mel.guards.intent` (map-level) and treat it as semantically equivalent to writing `X`
 
 See FDR-MEL-074 for rationale.
 
 ---
 
-## 4. §4.8.1 `onceIntent` as Reserved Keyword
+## 4. §4.8.1 `onceIntent` as Contextual Keyword
 
-`onceIntent` is a **reserved keyword** and MUST NOT be used as an identifier.
+`onceIntent` is a **contextual keyword**. It is parsed as a statement keyword **only** at statement start and only when followed by `{` or `when`. In all other contexts, it is treated as a normal identifier.
 
 **Parsing Rules:**
 
@@ -113,13 +114,17 @@ See FDR-MEL-074 for rationale.
 |---------|----------------|----------------|
 | Statement start | `onceIntent` `{` | OnceIntentStmt |
 | Statement start | `onceIntent` `when` | OnceIntentStmt |
-| Elsewhere | `onceIntent` | **Parse error (reserved keyword)** |
+| Elsewhere | `onceIntent` | Identifier |
 
 **Examples:**
 ```mel
 // ✅ Parsed as OnceIntentStmt (keyword)
 onceIntent { patch x = 1 }
 onceIntent when ready { patch x = 1 }
+
+// ✅ Parsed as identifier (contextual keyword)
+once(onceIntent) { patch onceIntent = $meta.intentId }
+patch onceIntent = "value"
 ```
 
 See FDR-MEL-077 for rationale.
@@ -151,8 +156,9 @@ The following paths are reserved for platform use:
 | Rule ID | Description |
 |---------|-------------|
 | COMPILER-MEL-1 | Guard patches for `onceIntent` MUST use `merge` operation at `$mel.guards.intent` path. Root `$mel` merge is FORBIDDEN (shallow merge would overwrite sibling guards). |
-| COMPILER-MEL-2 | Desugared `once(X)` argument path and the first `patch` statement path MUST be identical. |
-| COMPILER-MEL-3 | `onceIntent` MUST be parsed as a reserved keyword. Using it as an identifier is invalid. |
+| COMPILER-MEL-2 | Desugared `once(X)` MUST perform its first guard write to the same **semantic guard path** `X`. |
+| COMPILER-MEL-2a | Lowering MAY implement the guard write as `merge` at `$mel.guards.intent` (map-level) and treat it as semantically equivalent to writing `X`. |
+| COMPILER-MEL-3 | `onceIntent` MUST be parsed as a **contextual keyword** (statement start + `{`/`when` only). |
 
 **COMPILER-MEL-1 Rationale:**
 
@@ -182,13 +188,13 @@ Correct approach:
 ### Added
 - `onceIntent` statement for per-intent idempotency without schema pollution
 - `onceIntent when <condition>` variant
-- Reserved keyword parsing for `onceIntent`
+- Contextual keyword parsing for `onceIntent`
 - COMPILER-MEL-1~3 rules for `$mel` namespace handling
 - Reserved namespace documentation (`$mel.*`)
 
 ### Unchanged
 - `once(guard)` behavior unchanged (low-level primitive)
-- Code using `onceIntent` as an identifier MUST be renamed
+- Code using `onceIntent` as an identifier remains valid outside the statement-start context
 ```
 
 ---

@@ -17,6 +17,7 @@ import type {
   InnerStmtNode,
   WhenStmtNode,
   OnceStmtNode,
+  OnceIntentStmtNode,
   PatchStmtNode,
   EffectStmtNode,
   FailStmtNode,   // v0.3.2
@@ -206,6 +207,7 @@ interface GeneratorContext {
   stateFields: Set<string>;
   computedFields: Set<string>;
   actionParams: Map<string, Set<string>>; // action -> params
+  onceIntentCounters: Map<string, number>; // action -> onceIntent block index
   currentAction: string | null;
   diagnostics: Diagnostic[];
   /** v0.3.3: Type declarations for expanding user-defined types */
@@ -218,6 +220,7 @@ function createContext(domainName: string): GeneratorContext {
     stateFields: new Set(),
     computedFields: new Set(),
     actionParams: new Map(),
+    onceIntentCounters: new Map(),
     currentAction: null,
     diagnostics: [],
     typeDefs: new Map(),
@@ -591,6 +594,7 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
   for (const member of domain.members) {
     if (member.kind === "action") {
       ctx.currentAction = member.name;
+      ctx.onceIntentCounters.set(member.name, 0);
 
       // Collect params
       const params = new Set<string>();
@@ -671,6 +675,9 @@ function generateStmt(stmt: GuardedStmtNode | InnerStmtNode, ctx: GeneratorConte
     case "once":
       return generateOnce(stmt, ctx);
 
+    case "onceIntent":
+      return generateOnceIntent(stmt, ctx);
+
     case "patch":
       return generatePatch(stmt, ctx);
 
@@ -726,6 +733,52 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CoreFlowNode {
     op: "set",
     path: markerPath,
     value: intentIdExpr,
+  };
+
+  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+
+  return {
+    kind: "if",
+    cond,
+    then: {
+      kind: "seq",
+      steps: [markerPatch, ...bodySteps],
+    },
+  };
+}
+
+function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): CoreFlowNode {
+  const actionName = ctx.currentAction ?? "unknown";
+  const nextIndex = ctx.onceIntentCounters.get(actionName) ?? 0;
+  ctx.onceIntentCounters.set(actionName, nextIndex + 1);
+
+  const guardId = sha256Sync(`${actionName}:${nextIndex}:intent`);
+  const guardPath = `$mel.guards.intent.${guardId}`;
+  const intentIdExpr: CoreExprNode = { kind: "get", path: "meta.intentId" };
+
+  let cond: CoreExprNode = {
+    kind: "neq",
+    left: { kind: "get", path: guardPath },
+    right: intentIdExpr,
+  };
+
+  if (stmt.condition) {
+    const extraCond = generateExpr(stmt.condition, ctx);
+    cond = {
+      kind: "and",
+      args: [cond, extraCond],
+    };
+  }
+
+  // Guard write: semantic target is guardPath, lowered as map-level merge.
+  const markerPatch: CoreFlowNode = {
+    kind: "patch",
+    op: "merge",
+    path: "$mel.guards.intent",
+    value: {
+      kind: "object",
+      fields: { [guardId]: intentIdExpr },
+    },
   };
 
   const bodySteps = stmt.body.map(s => generateStmt(s, ctx));

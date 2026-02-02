@@ -21,6 +21,7 @@ import {
   type InnerStmtNode,
   type WhenStmtNode,
   type OnceStmtNode,
+  type OnceIntentStmtNode,
   type PatchStmtNode,
   type EffectStmtNode,
   type EffectArgNode,
@@ -297,8 +298,9 @@ export class Parser {
   private parseGuardedStmt(): GuardedStmtNode | null {
     if (this.check("WHEN")) return this.parseWhenStmt();
     if (this.check("ONCE")) return this.parseOnceStmt();
+    if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'when' or 'once'.`);
+    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'when', 'once', or 'onceIntent'.`);
     this.advance();
     return null;
   }
@@ -354,15 +356,42 @@ export class Parser {
     };
   }
 
+  private parseOnceIntentStmt(): OnceIntentStmtNode {
+    const startToken = this.consume("IDENTIFIER", "Expected 'onceIntent'");
+
+    let condition: ExprNode | undefined;
+    if (this.match("WHEN")) {
+      condition = this.parseExpression();
+    }
+
+    this.consume("LBRACE", "Expected '{' to start onceIntent block");
+
+    const body: InnerStmtNode[] = [];
+    while (!this.check("RBRACE") && !this.isAtEnd()) {
+      const stmt = this.parseInnerStmt();
+      if (stmt) body.push(stmt);
+    }
+
+    const end = this.consume("RBRACE", "Expected '}' to close onceIntent block").location;
+
+    return {
+      kind: "onceIntent",
+      condition,
+      body,
+      location: mergeLocations(startToken.location, end),
+    };
+  }
+
   private parseInnerStmt(): InnerStmtNode | null {
     if (this.check("PATCH")) return this.parsePatchStmt();
     if (this.check("EFFECT")) return this.parseEffectStmt();
     if (this.check("WHEN")) return this.parseWhenStmt();
     if (this.check("ONCE")) return this.parseOnceStmt();
+    if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
     if (this.check("FAIL")) return this.parseFailStmt();     // v0.3.2
     if (this.check("STOP")) return this.parseStopStmt();     // v0.3.2
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'patch', 'effect', 'when', 'once', 'fail', or 'stop'.`);
+    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'patch', 'effect', 'when', 'once', 'onceIntent', 'fail', or 'stop'.`);
     this.advance();
     return null;
   }
@@ -951,6 +980,13 @@ export class Parser {
     return this.tokens[this.current];
   }
 
+  private peekNext(): Token {
+    if (this.current + 1 >= this.tokens.length) {
+      return this.tokens[this.tokens.length - 1];
+    }
+    return this.tokens[this.current + 1];
+  }
+
   private previous(): Token {
     return this.tokens[this.current - 1];
   }
@@ -967,6 +1003,14 @@ export class Parser {
   private check(kind: TokenKind): boolean {
     if (this.isAtEnd()) return false;
     return this.peek().kind === kind;
+  }
+
+  private isOnceIntentContext(): boolean {
+    if (!this.check("IDENTIFIER")) return false;
+    const token = this.peek();
+    if (token.lexeme !== "onceIntent") return false;
+    const next = this.peekNext();
+    return next.kind === "LBRACE" || next.kind === "WHEN";
   }
 
   private match(...kinds: TokenKind[]): boolean {

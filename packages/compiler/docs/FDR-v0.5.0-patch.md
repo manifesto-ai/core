@@ -124,28 +124,28 @@ Lost guards cause:
 
 ---
 
-## FDR-MEL-077: `onceIntent` Reserved Keyword
+## FDR-MEL-077: `onceIntent` Contextual Keyword
 
 ### Decision
 
-**`onceIntent` is a reserved keyword and MUST NOT be used as an identifier.**
+**`onceIntent` is a contextual keyword: it is recognized as a statement keyword only at statement start when followed by `{` or `when`. In all other contexts, it remains a valid identifier.**
 
 ### Context
 
-`onceIntent` introduces a new statement form. Treating it as a reserved keyword ensures a single, unambiguous meaning at parse time and avoids a dual-meaning token in the language.
+`onceIntent` introduces a new statement form, but existing code may already use `onceIntent` as an identifier. A contextual keyword keeps the grammar unambiguous at statement start while preserving backward compatibility.
 
 ### Rationale
 
-**Reserved keyword parsing:**
-- Keeps the grammar simple (no context-dependent token interpretation)
-- Avoids surprising reuse of the same token as both statement and identifier
-- Ensures `onceIntent` is always recognized as the new statement form
+**Contextual keyword parsing:**
+- Avoids breaking existing code that uses `onceIntent` as an identifier
+- Keeps parsing unambiguous at statement start (`onceIntent {` / `onceIntent when`)
+- Preserves the new statement form without forcing global reservation
 
 ### Consequences
 
-- Code using `onceIntent` as an identifier MUST be renamed
-- This is a breaking change for those edge cases
-- Parser complexity is reduced
+- Code using `onceIntent` as an identifier continues to work outside the statement-start context
+- This is a non-breaking change for existing code
+- Parser adds a small, localized lookahead rule
 - COMPILER-MEL-3 documents this rule
 
 ---

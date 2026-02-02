@@ -15,6 +15,7 @@ import type {
   InnerStmtNode,
   WhenStmtNode,
   OnceStmtNode,
+  OnceIntentStmtNode,
   PatchStmtNode,
   EffectStmtNode,
   TypeExprNode,
@@ -256,6 +257,9 @@ export class SemanticValidator {
       case "once":
         this.validateOnce(stmt);
         break;
+      case "onceIntent":
+        this.validateOnceIntent(stmt);
+        break;
       case "patch":
         this.validatePatch(stmt);
         break;
@@ -304,11 +308,29 @@ export class SemanticValidator {
     }
   }
 
+  private validateOnceIntent(stmt: OnceIntentStmtNode): void {
+    this.ctx.inGuard = true;
+    this.ctx.guardDepth++;
+
+    if (stmt.condition) {
+      this.validateCondition(stmt.condition, "onceIntent");
+    }
+
+    for (const inner of stmt.body) {
+      this.validateGuardedStmt(inner);
+    }
+
+    this.ctx.guardDepth--;
+    if (this.ctx.guardDepth === 0) {
+      this.ctx.inGuard = false;
+    }
+  }
+
   private validatePatch(stmt: PatchStmtNode): void {
     // Patch must be inside a guard
     if (!this.ctx.inGuard) {
       this.error(
-        "Patch must be inside a guard (when or once)",
+        "Patch must be inside a guard (when, once, or onceIntent)",
         stmt.location,
         "E_UNGUARDED_PATCH"
       );
@@ -324,7 +346,7 @@ export class SemanticValidator {
     // Effect must be inside a guard
     if (!this.ctx.inGuard) {
       this.error(
-        "Effect must be inside a guard (when or once)",
+        "Effect must be inside a guard (when, once, or onceIntent)",
         stmt.location,
         "E_UNGUARDED_EFFECT"
       );
@@ -341,7 +363,7 @@ export class SemanticValidator {
     }
   }
 
-  private validateCondition(expr: ExprNode, guardType: "when" | "once"): void {
+  private validateCondition(expr: ExprNode, guardType: "when" | "once" | "onceIntent"): void {
     // FDR-MEL-025: Condition must return boolean
     // We can do basic static analysis for obvious non-boolean expressions
     this.validateExpr(expr, "action");

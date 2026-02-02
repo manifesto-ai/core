@@ -119,12 +119,19 @@ export interface ParamNode extends ASTNode {
 /**
  * Guarded statement types (top-level in action body)
  */
-export type GuardedStmtNode = WhenStmtNode | OnceStmtNode;
+export type GuardedStmtNode = WhenStmtNode | OnceStmtNode | OnceIntentStmtNode;
 
 /**
  * Inner statement types (inside guards)
  */
-export type InnerStmtNode = PatchStmtNode | EffectStmtNode | WhenStmtNode | OnceStmtNode | FailStmtNode | StopStmtNode;
+export type InnerStmtNode =
+  | PatchStmtNode
+  | EffectStmtNode
+  | WhenStmtNode
+  | OnceStmtNode
+  | OnceIntentStmtNode
+  | FailStmtNode
+  | StopStmtNode;
 
 /**
  * When guard statement
@@ -141,6 +148,15 @@ export interface WhenStmtNode extends ASTNode {
 export interface OnceStmtNode extends ASTNode {
   kind: "once";
   marker: PathNode;
+  condition?: ExprNode;
+  body: InnerStmtNode[];
+}
+
+/**
+ * Once-intent guard statement (per-intent idempotency sugar)
+ */
+export interface OnceIntentStmtNode extends ASTNode {
+  kind: "onceIntent";
   condition?: ExprNode;
   body: InnerStmtNode[];
 }
@@ -431,6 +447,6 @@ export function isExprNode(node: ASTNode): node is ExprNode {
  * Check if a node is a statement
  */
 export function isStmtNode(node: ASTNode): node is InnerStmtNode {
-  const stmtKinds = ["when", "once", "patch", "effect", "fail", "stop"];
+  const stmtKinds = ["when", "once", "onceIntent", "patch", "effect", "fail", "stop"];
   return stmtKinds.includes((node as InnerStmtNode).kind);
 }

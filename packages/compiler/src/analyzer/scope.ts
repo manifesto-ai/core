@@ -187,6 +187,15 @@ export class ScopeAnalyzer {
         }
         break;
 
+      case "onceIntent":
+        if (stmt.condition) {
+          this.analyzeExpr(stmt.condition, "action");
+        }
+        for (const inner of stmt.body) {
+          this.analyzeStmt(inner);
+        }
+        break;
+
       case "once":
         // Marker is a path, need to validate
         this.validatePath(stmt.marker);
