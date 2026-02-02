@@ -4,6 +4,8 @@ import {
   sha256Sync,
   hashSchema,
   hashSchemaSync,
+  hashSchemaEffective,
+  hashSchemaEffectiveSync,
   generateRequirementId,
   generateRequirementIdSync,
   generateTraceId,
@@ -146,6 +148,66 @@ describe("Hash Utilities", () => {
       const hash2 = await hashSchema(schema2 as Parameters<typeof hashSchema>[0]);
       expect(hash1).not.toBe(hash2);
     });
+
+    it("should ignore platform namespaces in semantic mode", async () => {
+      const schemaBase: Parameters<typeof hashSchema>[0] = {
+        id: "manifesto:test",
+        version: "1.0.0",
+        types: {},
+        state: {
+          fields: {
+            count: { type: "number", required: true },
+          },
+        },
+        computed: { fields: {} },
+        actions: {},
+      };
+
+      const schemaWithPlatform: Parameters<typeof hashSchema>[0] = {
+        ...schemaBase,
+        state: {
+          fields: {
+            ...schemaBase.state.fields,
+            $host: { type: "object", required: false },
+            $mel: { type: "object", required: false },
+          },
+        },
+      };
+
+      const hash1 = await hashSchema(schemaBase);
+      const hash2 = await hashSchema(schemaWithPlatform as Parameters<typeof hashSchema>[0]);
+      expect(hash1).toBe(hash2);
+    });
+
+    it("should include platform namespaces in effective mode", async () => {
+      const schemaBase: Parameters<typeof hashSchema>[0] = {
+        id: "manifesto:test",
+        version: "1.0.0",
+        types: {},
+        state: {
+          fields: {
+            count: { type: "number", required: true },
+          },
+        },
+        computed: { fields: {} },
+        actions: {},
+      };
+
+      const schemaWithPlatform: Parameters<typeof hashSchema>[0] = {
+        ...schemaBase,
+        state: {
+          fields: {
+            ...schemaBase.state.fields,
+            $host: { type: "object", required: false },
+            $mel: { type: "object", required: false },
+          },
+        },
+      };
+
+      const hash1 = await hashSchemaEffective(schemaBase);
+      const hash2 = await hashSchemaEffective(schemaWithPlatform as Parameters<typeof hashSchema>[0]);
+      expect(hash1).not.toBe(hash2);
+    });
   });
 
   describe("hashSchemaSync", () => {
@@ -162,6 +224,26 @@ describe("Hash Utilities", () => {
       const syncHash = hashSchemaSync(schema);
       const asyncHash = await hashSchema(schema);
       expect(syncHash).toBe(asyncHash);
+    });
+
+    it("should support effective hashing mode", () => {
+      const schema = {
+        id: "manifesto:test",
+        version: "1.0.0",
+        types: {},
+        state: {
+          fields: {
+            count: { type: "number", required: true },
+            $mel: { type: "object", required: false },
+          },
+        },
+        computed: { fields: {} },
+        actions: {},
+      };
+
+      const semanticHash = hashSchemaSync(schema as Parameters<typeof hashSchemaSync>[0]);
+      const effectiveHash = hashSchemaEffectiveSync(schema as Parameters<typeof hashSchemaSync>[0]);
+      expect(semanticHash).not.toBe(effectiveHash);
     });
   });
 

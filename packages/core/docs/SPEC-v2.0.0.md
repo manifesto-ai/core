@@ -210,6 +210,9 @@ type DomainSchema = {
 - `version` MUST follow [Semantic Versioning 2.0](https://semver.org/).
 - `hash` MUST be computed using the [Canonical Form](#15-canonical-form) algorithm
   over the full schema (excluding the `hash` field), including `types`.
+- The schema hash is a **semantic identity**. Platform namespaces in `state.fields`
+  whose keys start with `$` (e.g., `$host`, `$mel`) MUST be excluded from the hash.
+  Any effective/runtime hash is an internal artifact and MUST NOT be exposed as part of DomainSchema.
 - `state`, `computed`, and `actions` MUST NOT be empty.
 
 ### 4.3 Types (Compiler v0.3.3)

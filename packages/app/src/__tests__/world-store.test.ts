@@ -48,11 +48,11 @@ function createWorld(
 }
 
 describe("WorldStore (FDR-APP-INTEGRATION-001)", () => {
-  it("STORE-2/3/8: restore returns reconstructed snapshot without data.$host", async () => {
+  it("STORE-2/3/8: restore returns reconstructed snapshot without data.$host/$mel", async () => {
     const schemaHash = "schema-1";
     const genesisWorld = createWorld("world-genesis", schemaHash, "snap-0", 0, null);
     const genesisSnapshot = createSnapshot(
-      { count: 0, $host: { internal: true } },
+      { count: 0, $host: { internal: true }, $mel: { guards: { intent: { g1: "i1" } } } },
       schemaHash,
       0
     );
@@ -76,6 +76,7 @@ describe("WorldStore (FDR-APP-INTEGRATION-001)", () => {
     const restored = await store.restore(childWorld.worldId);
     expect(restored.data).toEqual({ count: 1 });
     expect(restored.data).not.toHaveProperty("$host");
+    expect(restored.data).not.toHaveProperty("$mel");
     expect(restored.meta.schemaHash).toBe(schemaHash);
 
     const restoredGenesis = await store.restore(genesisWorld.worldId);

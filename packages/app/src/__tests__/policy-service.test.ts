@@ -82,18 +82,18 @@ describe("PolicyService", () => {
     expect(result.errors?.length).toBeGreaterThan(0);
   });
 
-  it("SCOPE-PATH-1: validateResultScope ignores computed/input and data.$host", () => {
+  it("SCOPE-PATH-1: validateResultScope ignores computed/input and data.$host/$mel", () => {
     const policy = createStrictPolicyService();
     const scope = createRestrictedScope(["data.count"]);
 
     const base = createSnapshot({
-      data: { count: 0, $host: { cache: 1 } },
+      data: { count: 0, $host: { cache: 1 }, $mel: { guards: { intent: { g1: "i1" } } } },
       computed: { total: 1 },
       input: { query: "a" },
     });
 
     const terminal = createSnapshot({
-      data: { count: 1, $host: { cache: 2 } },
+      data: { count: 1, $host: { cache: 2 }, $mel: { guards: { intent: { g1: "i1" } } } },
       computed: { total: 2 },
       input: { query: "b" },
     });

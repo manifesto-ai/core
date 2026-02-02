@@ -56,7 +56,7 @@ export class InMemoryWorldStore implements WorldStore {
       this._worlds.set(genesis.worldId, {
         world: genesis,
         delta: genesisDelta,
-        snapshot: this._excludeHostData(snapshot),
+        snapshot: this._excludePlatformData(snapshot),
       });
 
       this._children.set(genesis.worldId, new Set());
@@ -81,7 +81,7 @@ export class InMemoryWorldStore implements WorldStore {
     this._worlds.set(world.worldId, {
       world,
       delta: genesisDelta,
-      snapshot: this._excludeHostData(snapshot),
+      snapshot: this._excludePlatformData(snapshot),
     });
 
     if (!this._children.has(world.worldId)) {
@@ -112,7 +112,7 @@ export class InMemoryWorldStore implements WorldStore {
     }
 
     // STORE-7: Exclude $host from stored snapshot
-    const cleanSnapshot = snapshot ? this._excludeHostData(snapshot) : undefined;
+    const cleanSnapshot = snapshot ? this._excludePlatformData(snapshot) : undefined;
 
     const entry: WorldEntry = {
       world,
@@ -154,12 +154,12 @@ export class InMemoryWorldStore implements WorldStore {
 
     // If full snapshot is stored, return it
     if (entry.snapshot) {
-      return this._excludeHostData(entry.snapshot);
+      return this._excludePlatformData(entry.snapshot);
     }
 
     // Otherwise, reconstruct from lineage
     const snapshot = await this._reconstructSnapshot(worldId);
-    return this._excludeHostData(snapshot);
+    return this._excludePlatformData(snapshot);
   }
 
   /**
@@ -369,23 +369,23 @@ export class InMemoryWorldStore implements WorldStore {
   }
 
   /**
-   * Exclude $host data from snapshot.
+   * Exclude platform-owned data from snapshot.
    *
-   * STORE-7: data.$host MUST be excluded from canonical hash.
-   * STORE-8: restore() MUST return without data.$host.
+   * STORE-7: data.$host and data.$mel MUST be excluded from canonical hash.
+   * STORE-8: restore() MUST return without data.$host and data.$mel.
    */
-  private _excludeHostData(snapshot: Snapshot): Snapshot {
+  private _excludePlatformData(snapshot: Snapshot): Snapshot {
     if (!snapshot.data || typeof snapshot.data !== "object") {
       return snapshot;
     }
 
     const data = snapshot.data as Record<string, unknown>;
-    if (!("$host" in data)) {
+    if (!("$host" in data) && !("$mel" in data)) {
       return snapshot;
     }
 
-    // Clone and remove $host
-    const { $host, ...cleanData } = data;
+    // Clone and remove platform namespaces
+    const { $host, $mel, ...cleanData } = data;
     return {
       ...snapshot,
       data: cleanData,

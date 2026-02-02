@@ -81,24 +81,25 @@ export function generateEdgeId(): EdgeId {
 // ============================================================================
 
 /**
- * Strip $host namespace from data
+ * Strip platform namespaces from data
  *
  * Per WORLD-HASH-1:
  * - data.$host contains Host-managed state (intent slots, etc.)
- * - This is execution context, not semantic state
+ * - data.$mel contains compiler-managed guard state
+ * - These are execution/compile contexts, not semantic state
  * - MUST be excluded from snapshot hash
  */
-function stripHostNamespace(
+function stripPlatformNamespaces(
   data: Record<string, unknown>
 ): Record<string, unknown> {
   if (data === undefined || data === null) {
     return {};
   }
-  if (!("$host" in data)) {
+  if (!("$host" in data) && !("$mel" in data)) {
     return data as Record<string, unknown>;
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { $host, ...rest } = data;
+  const { $host, $mel, ...rest } = data;
   return rest;
 }
 
@@ -199,7 +200,7 @@ async function buildSnapshotHashInput(
   snapshot: Snapshot
 ): Promise<SnapshotHashInput> {
   // WORLD-HASH-1: Strip $host namespace
-  const data = stripHostNamespace(snapshot.data as Record<string, unknown>);
+  const data = stripPlatformNamespaces(snapshot.data as Record<string, unknown>);
 
   // WORLD-HASH-2: Derive terminal status
   const terminalStatus = deriveTerminalStatusForHash(snapshot);
@@ -228,7 +229,7 @@ async function buildSnapshotHashInput(
  * Compute snapshotHash per WORLD-HASH-* rules
  *
  * Per World SPEC v2.0.2:
- * - WORLD-HASH-1: Exclude $host namespace from data
+ * - WORLD-HASH-1: Exclude $host and $mel namespaces from data
  * - WORLD-HASH-2: Normalize terminalStatus to 'completed' | 'failed'
  * - WORLD-HASH-3: Error signatures exclude message and timestamp
  * - WORLD-HASH-4: Sort error signatures by their hash

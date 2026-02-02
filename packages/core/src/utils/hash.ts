@@ -1,6 +1,47 @@
 import { toCanonical } from "./canonical.js";
 import type { DomainSchema } from "../schema/domain.js";
 
+export type SchemaHashMode = "semantic" | "effective";
+
+export type SchemaHashInput = {
+  id: string;
+  version: string;
+  types: Record<string, unknown>;
+  state: { fields: Record<string, unknown> };
+  computed: {
+    fields: Record<string, { deps: string[]; expr: unknown; description?: string }>;
+  };
+  actions: Record<string, unknown>;
+  meta?: {
+    name?: string;
+    description?: string;
+    authors?: string[];
+  };
+};
+
+function normalizeSchemaForHash(
+  schema: SchemaHashInput,
+  mode: SchemaHashMode
+): SchemaHashInput {
+  if (mode === "effective") {
+    return schema;
+  }
+
+  const fields = schema.state?.fields ?? {};
+  const filteredEntries = Object.entries(fields).filter(([key]) => !key.startsWith("$"));
+  if (filteredEntries.length === Object.keys(fields).length) {
+    return schema;
+  }
+
+  return {
+    ...schema,
+    state: {
+      ...schema.state,
+      fields: Object.fromEntries(filteredEntries),
+    },
+  };
+}
+
 /**
  * SHA-256 hash using Web Crypto API
  * Works in both browser and Node.js
@@ -139,18 +180,36 @@ export function sha256Sync(message: string): string {
 /**
  * Hash a schema in canonical form
  */
-export async function hashSchema(schema: Omit<DomainSchema, "hash">): Promise<string> {
+export async function hashSchema(
+  schema: SchemaHashInput,
+  mode: SchemaHashMode = "semantic"
+): Promise<string> {
   // Create canonical form without the hash field
-  const canonical = toCanonical(schema);
+  const canonical = toCanonical(normalizeSchemaForHash(schema, mode));
   return sha256(canonical);
 }
 
 /**
  * Hash a schema in canonical form (sync)
  */
-export function hashSchemaSync(schema: Omit<DomainSchema, "hash">): string {
-  const canonical = toCanonical(schema);
+export function hashSchemaSync(
+  schema: SchemaHashInput,
+  mode: SchemaHashMode = "semantic"
+): string {
+  const canonical = toCanonical(normalizeSchemaForHash(schema, mode));
   return sha256Sync(canonical);
+}
+
+export async function hashSchemaEffective(
+  schema: SchemaHashInput
+): Promise<string> {
+  return hashSchema(schema, "effective");
+}
+
+export function hashSchemaEffectiveSync(
+  schema: SchemaHashInput
+): string {
+  return hashSchemaSync(schema, "effective");
 }
 
 /**

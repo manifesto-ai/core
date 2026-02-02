@@ -810,8 +810,8 @@ type WorldDelta = {
 | STORE-4 | SHOULD | Active Horizon Worlds SHOULD have full Snapshots |
 | STORE-5 | MAY | `compact()` and `archive()` are optional |
 | STORE-6 | MUST NOT | `store()` MUST NOT modify World or Delta |
-| STORE-7 | MUST | `store()` MUST exclude `data.$host` from canonical hash computation |
-| STORE-8 | MUST | `restore()` MUST return Snapshot without `data.$host` (Host re-seeds on execution) |
+| STORE-7 | MUST | `store()` MUST exclude `data.$host` and `data.$mel` from canonical hash computation |
+| STORE-8 | MUST | `restore()` MUST return Snapshot without `data.$host` and `data.$mel` (Host/Compiler re-seed on execution) |
 
 ---
 
@@ -1209,6 +1209,7 @@ interface SchemaRegistry {
 | SCHEMA-4 | MUST | Repeated calls MUST return same cached instance per schemaHash |
 | SCHEMA-5 | MUST | If domain is MEL text, `getDomainSchema()` returns compiled result |
 | SCHEMA-6 | MUST | After `switchBranch()` with different schemaHash, return new schema |
+| SCHEMA-7 | MUST | `schema.hash` MUST be the Core semantic hash (exclude `$`-prefixed platform fields in `state.fields`). Any effective/runtime hash is internal and MUST NOT be exposed via DomainSchema. |
 
 ---
 

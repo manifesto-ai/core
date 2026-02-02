@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { DomainSchema } from "@manifesto-ai/core";
+import { hashSchemaEffectiveSync, type DomainSchema } from "@manifesto-ai/core";
 import { compileMelDomain } from "@manifesto-ai/compiler";
 import {
   DomainCompileError,
@@ -111,6 +111,7 @@ export class SchemaManagerImpl implements SchemaManager {
    * @see SCHEMA-4
    */
   private _schemaCache: Map<string, DomainSchema> = new Map();
+  private _effectiveHashBySemantic: Map<string, string> = new Map();
 
   /**
    * Tracks if schema is resolved.
@@ -156,7 +157,7 @@ export class SchemaManagerImpl implements SchemaManager {
           throw new DomainCompileError("MEL compilation produced no schema");
         }
 
-        this._domainSchema = result.schema as DomainSchema;
+        this._domainSchema = ensurePlatformNamespaces(result.schema as DomainSchema);
       } catch (error) {
         if (error instanceof DomainCompileError) {
           throw error;
@@ -167,7 +168,7 @@ export class SchemaManagerImpl implements SchemaManager {
         );
       }
     } else {
-      this._domainSchema = this._domain;
+      this._domainSchema = ensurePlatformNamespaces(this._domain);
     }
   }
 
@@ -175,6 +176,12 @@ export class SchemaManagerImpl implements SchemaManager {
     if (!this._schemaCache.has(schema.hash)) {
       this._schemaCache.set(schema.hash, schema);
     }
+
+    const { hash: _hash, ...schemaWithoutHash } = schema;
+    const effectiveHash = hashSchemaEffectiveSync(
+      schemaWithoutHash as Omit<DomainSchema, "hash">
+    );
+    this._effectiveHashBySemantic.set(schema.hash, effectiveHash);
   }
 
   getCachedSchema(hash: string): DomainSchema | undefined {
@@ -200,6 +207,59 @@ export class SchemaManagerImpl implements SchemaManager {
   getCurrentSchemaHash(): string {
     return this._domainSchema?.hash ?? "unknown";
   }
+}
+
+// =============================================================================
+// Platform Namespace Injection
+// =============================================================================
+
+function ensurePlatformNamespaces(schema: DomainSchema): DomainSchema {
+  const fields = { ...schema.state.fields };
+  let changed = false;
+
+  const ensureNamespace = (
+    name: "$host" | "$mel",
+    defaultValue: Record<string, unknown>
+  ): void => {
+    const existing = fields[name];
+    if (!existing) {
+      fields[name] = {
+        type: "object",
+        required: false,
+        default: defaultValue,
+      };
+      changed = true;
+      return;
+    }
+
+    if (existing.type !== "object") {
+      throw new DomainCompileError(
+        `Reserved namespace '${name}' must be an object field`
+      );
+    }
+
+    if (existing.default === undefined) {
+      fields[name] = { ...existing, default: defaultValue };
+      changed = true;
+    }
+  };
+
+  ensureNamespace("$host", {});
+  ensureNamespace("$mel", { guards: { intent: {} } });
+
+  if (!changed) {
+    return schema;
+  }
+
+  const nextSchema: DomainSchema = {
+    ...schema,
+    state: {
+      ...schema.state,
+      fields,
+    },
+  };
+
+  return nextSchema;
 }
 
 // =============================================================================

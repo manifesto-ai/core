@@ -10,7 +10,7 @@
 > - v1.0: Initial release
 > - v2.0: Host v2.0.1 Integration, Event-Loop Execution Model alignment
 > - v2.0.1: ADR-001 Layer Separation - Event ownership, "Does NOT Know" boundary
-> - **v2.0.2: Host-World Data Contract - `$host` namespace, deterministic hashing, baseSnapshot via WorldStore**
+> - **v2.0.2: Host-World Data Contract - platform namespaces (`$host`, `$mel`), deterministic hashing, baseSnapshot via WorldStore**
 
 ---
 
@@ -49,7 +49,7 @@ This protocol operates **above** Manifesto Core and Host:
 | **World Protocol** | Governs legitimacy, authority, lineage | Host internals, TraceEvent |
 | **App** | Assembles layers, owns telemetry | Core internals, World constitution |
 
-**v2.0.2 Focus**: Host-World data contract (`$host` namespace), deterministic WorldId hashing, and baseSnapshot restoration via WorldStore.
+**v2.0.2 Focus**: Host-World data contract (platform namespaces: `$host`, `$mel`), deterministic WorldId hashing, and baseSnapshot restoration via WorldStore.
 
 This document is **normative**.
 
@@ -268,7 +268,7 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto
 //   readonly context?: Record<string, unknown>;
 // };
 //
-// NOTE: Host-owned state (e.g., intentSlots) is in data.$host, NOT in system.*
+// NOTE: Platform-owned state (e.g., intentSlots, guard state) is in data.$host or data.$mel, NOT in system.*
 // ============================================================
 ```
 
@@ -279,7 +279,7 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto
 | SNAP-TYPE-3 | World MUST NOT assume specific `system.status` values (Core-owned vocabulary) |
 | SNAP-TYPE-4 | World determines terminal state via `lastError` and `pendingRequirements` |
 | SNAP-TYPE-5 | `system.errors` is HISTORY (accumulated); `system.lastError` is CURRENT state |
-| SNAP-TYPE-6 | Host-owned state (e.g., intentSlots) is in `data.$host`, NOT in `system.*` |
+| SNAP-TYPE-6 | Platform-owned state (e.g., intentSlots, guard state) is in `data.$host` or `data.$mel`, NOT in `system.*` |
 
 **Rationale**:
 - `system.status` vocabulary is Core-owned; values may evolve without World SPEC changes.
@@ -378,13 +378,14 @@ function computePendingDigest(pending: readonly Requirement[]): string {
 
 | Field | Included | Reason | Rule ID |
 |-------|----------|--------|---------|
-| `snapshot.data` (excluding `$host`) | ✅ MUST | Domain state | WORLD-HASH-1 |
+| `snapshot.data` (excluding `$host`, `$mel`) | ✅ MUST | Domain state | WORLD-HASH-1 |
 | `system.terminalStatus` | ✅ MUST | Normalized terminal status | WORLD-HASH-2 |
 | `system.errors` (full history) | ✅ MUST | Error lineage (see rationale below) | WORLD-HASH-3 |
 | `system.pendingDigest` | ✅ MUST | Collision prevention for violations | WORLD-HASH-11 |
 | Raw `system.status` | ❌ MUST NOT | Use terminalStatus instead | WORLD-HASH-2a |
 | `system.currentAction` | ❌ MUST NOT | Transient execution state | WORLD-HASH-4 |
 | **`data.$host.*`** | ❌ **MUST NOT** | **Host-owned transient state (WorldId divergence risk)** | **WORLD-HASH-4a** |
+| **`data.$mel.*`** | ❌ **MUST NOT** | **Compiler-owned internal state (guard markers, etc.)** | **WORLD-HASH-4b** |
 | `meta.version` | ❌ MUST NOT | Core-owned versioning | WORLD-HASH-5 |
 | `meta.timestamp` | ❌ MUST NOT | Non-deterministic | WORLD-HASH-6 |
 | `meta.randomSeed` | ❌ MUST NOT | Derived from intentId | WORLD-HASH-7 |
@@ -404,9 +405,10 @@ If an implementation prefers "current state only" identity (ignoring recovered e
 
 | Rule ID | Description |
 |---------|-------------|
-| WORLD-HASH-1 | `snapshot.data` MUST be included, **excluding `$host` namespace** |
+| WORLD-HASH-1 | `snapshot.data` MUST be included, **excluding `$host` and `$mel` namespaces** |
 | WORLD-HASH-2a | snapshotHash MUST use `terminalStatus` (normalized), NOT raw `system.status` |
 | **WORLD-HASH-4a** | **`data.$host` MUST NOT be included in hash (prevents WorldId divergence)** |
+| **WORLD-HASH-4b** | **`data.$mel` MUST NOT be included in hash (prevents WorldId divergence)** |
 | WORLD-TERM-5 | `terminalStatus` for hash MUST be exactly `'completed'` or `'failed'` |
 
 #### 5.5.3 Error Normalization (MUST)
@@ -995,13 +997,16 @@ function deriveOutcome(terminalSnapshot: Snapshot): 'completed' | 'failed' {
 
 ```typescript
 /**
- * Strip Host-owned namespace from data before hashing.
+ * Strip platform-reserved namespaces from data before hashing.
  * WORLD-HASH-4a: data.$host MUST NOT be included in hash.
+ * WORLD-HASH-4b: data.$mel MUST NOT be included in hash.
  */
-function stripHostNamespace<T extends Record<string, unknown>>(data: T): Omit<T, '$host'> {
+function stripPlatformNamespaces<T extends Record<string, unknown>>(
+  data: T
+): Omit<T, '$host' | '$mel'> {
   if (data && typeof data === 'object' && !Array.isArray(data)) {
-    const { $host, ...rest } = data;
-    return rest as Omit<T, '$host'>;
+    const { $host, $mel, ...rest } = data;
+    return rest as Omit<T, '$host' | '$mel'>;
   }
   return data;
 }
@@ -1030,9 +1035,9 @@ async function createWorldFromExecution(
   );
   
   // Compute snapshotHash (deterministic, JCS-based)
-  // WORLD-HASH-4a: MUST exclude data.$host from hash
+  // WORLD-HASH-4a, WORLD-HASH-4b: MUST exclude data.$host and data.$mel from hash
   const hashInput: SnapshotHashInput = {
-    data: stripHostNamespace(snapshot.data),  // ← $host excluded
+    data: stripPlatformNamespaces(snapshot.data),  // ← $host, $mel excluded
     system: {
       terminalStatus,  // Normalized, NOT raw status
       errors: normalizedErrors,
@@ -1059,9 +1064,16 @@ async function createWorldFromExecution(
 
 This section defines the **explicit data contract** between Host and World layers for snapshot data structure.
 
-#### 7.9.1 The `$host` Namespace Convention
+#### 7.9.1 Platform-Reserved Namespaces
 
-Host stores its internal execution state in `snapshot.data.$host`. This is a **cross-layer convention** that both Host and World MUST respect.
+Platform components store internal state in reserved namespaces within `snapshot.data`. These namespaces are excluded from World hash computation to ensure semantic equivalence.
+
+| Namespace | Owner | Purpose | Hash Inclusion |
+|-----------|-------|---------|----------------|
+| `$host` | Host | Error bookkeeping, intent slots, execution context | ❌ Excluded |
+| `$mel` | Compiler | Guard state, compiler-generated internal slots | ❌ Excluded |
+
+**Convention:** All `$`-prefixed keys in `snapshot.data` are platform-reserved. Domain schemas MUST NOT use keys starting with `$`.
 
 ```typescript
 /**
@@ -1082,9 +1094,22 @@ type HostNamespace = {
   // Future: other Host-managed state
 };
 
-// Convention: Host stores its state at data.$host
+/**
+ * Compiler-owned namespace within snapshot.data
+ *
+ * Compiler-generated flows use this namespace to store:
+ * - Guard state for once/onceIntent semantics
+ */
+type MelNamespace = {
+  readonly guards?: {
+    readonly intent?: Record<string, string>;
+  };
+};
+
+// Convention: platform namespaces live under data.$host and data.$mel
 type SnapshotData = {
   readonly $host?: HostNamespace;  // Host-owned, World-excluded
+  readonly $mel?: MelNamespace;    // Compiler-owned, World-excluded
   // ... domain state (World-owned for hashing)
 };
 ```
@@ -1094,14 +1119,16 @@ type SnapshotData = {
 | Concern | Solution |
 |---------|----------|
 | Host needs persistent execution context | Store in `data.$host` |
-| World hash must be deterministic | Exclude `data.$host` from hash |
-| Semantic state must be separated | `data.$host` is non-semantic |
+| Compiler needs guard continuity | Store in `data.$mel` |
+| World hash must be deterministic | Exclude `data.$host` and `data.$mel` from hash |
+| Semantic state must be separated | Platform namespaces are non-semantic |
 | Cross-replay consistency | Same semantic state = same WorldId |
 
 **Why not `system.$host`?**
 - `system.*` is Core-owned vocabulary (status, errors, pendingRequirements)
 - Host should not pollute Core's namespace
 - `data.$host` clearly signals "Host's data within snapshot"
+- `data.$mel` isolates compiler-internal state from domain semantics
 
 #### 7.9.3 Contract Rules (v2.0.2)
 
@@ -1112,21 +1139,25 @@ type SnapshotData = {
 | HOST-DATA-3 | World MUST exclude `data.$host` from snapshotHash computation (WORLD-HASH-4a) |
 | HOST-DATA-4 | World MUST NOT interpret or depend on `data.$host` contents |
 | HOST-DATA-5 | App MAY read `data.$host` for debugging/telemetry purposes |
-| HOST-DATA-6 | The `$host` namespace is reserved; domain schemas MUST NOT use `$host` as a key |
+| HOST-DATA-6 | All `$`-prefixed keys are reserved; domain schemas MUST NOT use them |
+| MEL-DATA-1 | Compiler MUST store guard state under `data.$mel.guards.*` namespace |
+| MEL-DATA-2 | World MUST exclude `data.$mel` from snapshotHash computation (WORLD-HASH-4b) |
+| MEL-DATA-3 | World MUST NOT interpret or depend on `data.$mel` contents |
 
 #### 7.9.4 Implementation
 
 ```typescript
 /**
- * Strip Host-owned namespace from data before hashing.
+ * Strip platform-reserved namespaces from data before hashing.
  * WORLD-HASH-4a + HOST-DATA-3: data.$host MUST NOT be included in hash.
+ * WORLD-HASH-4b + MEL-DATA-2: data.$mel MUST NOT be included in hash.
  */
-function stripHostNamespace<T extends Record<string, unknown>>(
+function stripPlatformNamespaces<T extends Record<string, unknown>>(
   data: T
-): Omit<T, '$host'> {
+): Omit<T, '$host' | '$mel'> {
   if (data && typeof data === 'object' && !Array.isArray(data)) {
-    const { $host, ...rest } = data;
-    return rest as Omit<T, '$host'>;
+    const { $host, $mel, ...rest } = data;
+    return rest as Omit<T, '$host' | '$mel'>;
   }
   return data;
 }
@@ -1134,11 +1165,11 @@ function stripHostNamespace<T extends Record<string, unknown>>(
 
 #### 7.9.5 Cross-Reference
 
-| Layer | Responsibility | `$host` Access |
-|-------|---------------|----------------|
-| **Host** | Write intent slots, execution context | Read/Write |
-| **World** | Hash computation, World creation | Exclude from hash |
-| **App** | Debugging, telemetry | Read-only |
+| Layer | Responsibility | Platform Namespace Access |
+|-------|---------------|---------------------------|
+| **Host** | Write intent slots, execution context | Read/Write `$host`; applies `$mel` patches |
+| **World** | Hash computation, World creation | Exclude `$host`, `$mel` from hash |
+| **App** | Debugging, telemetry | Read-only `$host`/`$mel` |
 | **Core** | Pure computation | Unaware |
 
 ---
@@ -1820,7 +1851,7 @@ World created: completed or failed only
 
 | Addition | Purpose |
 |----------|---------|
-| HOST-DATA-* | `$host` namespace convention formalized |
+| HOST-DATA-* / MEL-DATA-* | Platform namespace conventions formalized (`$host`, `$mel`) |
 | §7.9 Host-World Data Contract | Explicit cross-layer data contract |
 | Terminology unification | `'failed'` instead of `'error'` for TerminalStatusForHash |
 
@@ -1833,7 +1864,10 @@ World created: completed or failed only
 | HOST-DATA-3 | World MUST exclude `data.$host` from hash |
 | HOST-DATA-4 | World MUST NOT interpret `data.$host` contents |
 | HOST-DATA-5 | App MAY read `data.$host` for debugging |
-| HOST-DATA-6 | `$host` is reserved; domain schemas MUST NOT use it |
+| HOST-DATA-6 | `$`-prefixed keys are reserved; domain schemas MUST NOT use them |
+| MEL-DATA-1 | Compiler MUST store guard state under `data.$mel.guards.*` |
+| MEL-DATA-2 | World MUST exclude `data.$mel` from hash |
+| MEL-DATA-3 | World MUST NOT interpret `data.$mel` contents |
 
 **Terminology Changes (v2.0.2):**
 
@@ -1942,7 +1976,7 @@ v2.0.1 changes:
 - **Layer boundary enforced** (WORLD-BOUNDARY-*)
 
 v2.0.2 changes:
-- **`$host` namespace formalized** (HOST-DATA-* rules)
+- **Platform namespaces formalized** (`$host`, `$mel`, HOST-DATA-*, MEL-DATA-*)
 - **Terminology unified** (`'failed'` replaces `'error'` in TerminalStatusForHash)
 - **Cross-layer data contract** (§7.9 added)
 
@@ -1959,13 +1993,14 @@ v2.0.2 changes:
 | **Package deps** | - | Remove Host dependency | - |
 | **Hash terminology** | - | - | `'error'` → `'failed'` |
 | **Host data storage** | - | - | Use `data.$host` namespace |
+| **Compiler guard storage** | - | - | Use `data.$mel` namespace |
 
 ### C.5 New Requirements (v2.0.2)
 
 | Requirement | Section |
 |-------------|---------|
-| `$host` namespace convention | §7.9.1 |
-| HOST-DATA-* rules | §7.9.3 |
+| `$host`/`$mel` namespace convention | §7.9.1 |
+| HOST-DATA-* / MEL-DATA-* rules | §7.9.3 |
 | Terminology: `'failed'` not `'error'` | §5.5.1 |
 
 ---

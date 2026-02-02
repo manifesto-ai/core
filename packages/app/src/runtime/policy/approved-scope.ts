@@ -125,7 +125,7 @@ function diffSnapshots(
 ): Array<{ path: string; op: "set" | "unset" | "change" }> {
   const changes: Array<{ path: string; op: "set" | "unset" | "change" }> = [];
 
-  // Only World-owned data paths are in scope (exclude $host).
+  // Only World-owned data paths are in scope (exclude $host/$mel).
   diffObjects(base.data, terminal.data, "data", changes);
 
   return changes;
@@ -140,7 +140,12 @@ function diffObjects(
   prefix: string,
   changes: Array<{ path: string; op: "set" | "unset" | "change" }>
 ): void {
-  if (prefix === "data.$host" || prefix.startsWith("data.$host.")) {
+  if (
+    prefix === "data.$host" ||
+    prefix.startsWith("data.$host.") ||
+    prefix === "data.$mel" ||
+    prefix.startsWith("data.$mel.")
+  ) {
     return;
   }
 
