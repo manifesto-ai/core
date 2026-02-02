@@ -62,15 +62,13 @@ domain Counter {
   }
 
   action increment() {
-    once(incrementIntent) {
-      patch incrementIntent = $meta.intentId
+    onceIntent {
       patch count = add(count, 1)
     }
   }
 
   action decrement() {
-    once(decrementIntent) {
-      patch decrementIntent = $meta.intentId
+    onceIntent {
       patch count = sub(count, 1)
     }
   }
@@ -84,11 +82,11 @@ Let's break this down:
 | `domain Counter` | Names your application domain |
 | `state { count: number = 0 }` | Declares a `count` field starting at 0 |
 | `action increment()` | Defines an action named "increment" |
-| `once(incrementIntent) { ... }` | Ensures the body runs only once per action call |
-| `patch incrementIntent = $meta.intentId` | Records that this action ran (required by `once`) |
+| `onceIntent { ... }` | Ensures the body runs only once per action call |
+| `$mel` guard state | Stored automatically (no extra schema fields) |
 | `patch count = add(count, 1)` | Updates `count` by adding 1 |
 
-**Key insight:** The `once()` guard prevents the action from running multiple times if the system re-evaluates. This is called **re-entry safety**.
+**Key insight:** The `onceIntent` guard prevents the action from running multiple times if the system re-evaluates. This is called **re-entry safety**. Use `once()` only when you need an explicit guard field in domain state.
 
 ---
 
@@ -258,15 +256,13 @@ domain Counter {
   }
 
   action increment() {
-    once(incrementIntent) {
-      patch incrementIntent = $meta.intentId
+    onceIntent {
       patch count = add(count, 1)
     }
   }
 
   action decrement() {
-    once(decrementIntent) {
-      patch decrementIntent = $meta.intentId
+    onceIntent {
       patch count = sub(count, 1)
     }
   }
@@ -316,7 +312,7 @@ main().catch(console.error);
 | **MEL Domain** | Defines state and actions in a declarative language |
 | **State** | The data your application manages |
 | **Action** | A named operation that modifies state |
-| **once() guard** | Ensures an action body runs exactly once |
+| **onceIntent guard** | Ensures an action body runs exactly once |
 | **patch** | Declarative instruction to modify state |
 | **app.act()** | Triggers an action, returns a handle |
 | **app.getState()** | Reads current state |
@@ -334,8 +330,7 @@ Add an action that sets count back to 0:
 
 ```mel
 action reset() {
-  once(resetIntent) {
-    patch resetIntent = $meta.intentId
+  onceIntent {
     patch count = 0
   }
 }
@@ -347,8 +342,7 @@ Add an action that sets count to a specific value:
 
 ```mel
 action setCount(value: number) {
-  once(setCountIntent) {
-    patch setCountIntent = $meta.intentId
+  onceIntent {
     patch count = value
   }
 }
@@ -432,9 +426,6 @@ action bad() {
 
 // RIGHT: Has guard
 action good() {
-  once(marker) {
-    patch marker = $meta.intentId
-    patch count = 1
-  }
+  onceIntent { patch count = 1 }
 }
 ```

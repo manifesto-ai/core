@@ -37,7 +37,7 @@ features:
 domain Counter {
   state { count: number = 0 }
   action increment() {
-    once(i) { patch i = $meta.intentId; patch count = add(count, 1) }
+    onceIntent { patch count = add(count, 1) }
   }
 }
 ```

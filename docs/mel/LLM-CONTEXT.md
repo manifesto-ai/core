@@ -37,11 +37,12 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 
 ### Guard Rules
 
-1. All `patch` must be inside `when` or `once`
-2. All `effect` must be inside `when` or `once`
-3. All `fail` must be inside `when` or `once`
-4. All `stop` must be inside `when` or `once`
+1. All `patch` must be inside `when`, `once`, or `onceIntent`
+2. All `effect` must be inside `when`, `once`, or `onceIntent`
+3. All `fail` must be inside `when`, `once`, or `onceIntent`
+4. All `stop` must be inside `when`, `once`, or `onceIntent`
 5. `once(marker)` must have `patch marker = $meta.intentId` as FIRST statement
+6. Prefer `onceIntent` for per-intent idempotency when no explicit guard field is needed
 
 ### Type Rules
 

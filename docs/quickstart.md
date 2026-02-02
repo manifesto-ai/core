@@ -86,12 +86,10 @@ Create `counter.mel`:
 domain Counter {
   state {
     count: number = 0
-    incrementIntent: string | null = null
   }
 
   action increment() {
-    once(incrementIntent) {
-      patch incrementIntent = $meta.intentId
+    onceIntent {
       patch count = add(count, 1)
     }
   }
@@ -127,7 +125,8 @@ npx tsx main.ts
 ## What Just Happened?
 
 - **MEL domain** defined your state schema and actions declaratively
-- **`once()` guard** ensured the action runs exactly once per intent (re-entry safe)
+- **`onceIntent` guard** ensured the action runs exactly once per intent (re-entry safe)
+- **No guard fields** needed — `onceIntent` stores guard state in the platform `$mel` namespace
 - **`createApp()`** compiled MEL and set up the runtime
 - **`app.act()`** executed the action through the World Protocol
 - **`app.getState()`** returned the current snapshot
@@ -142,22 +141,18 @@ Update `counter.mel`:
 domain Counter {
   state {
     count: number = 0
-    incrementIntent: string | null = null
-    decrementIntent: string | null = null
   }
 
   computed doubled = mul(count, 2)
 
   action increment() {
-    once(incrementIntent) {
-      patch incrementIntent = $meta.intentId
+    onceIntent {
       patch count = add(count, 1)
     }
   }
 
   action decrement() available when gt(count, 0) {
-    once(decrementIntent) {
-      patch decrementIntent = $meta.intentId
+    onceIntent {
       patch count = sub(count, 1)
     }
   }

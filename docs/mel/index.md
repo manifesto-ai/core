@@ -42,19 +42,19 @@ MEL is a source format. It does not execute. It produces data that Core can comp
 domain Counter {
   state {
     count: number = 0
-    lastIntent: string | null = null
   }
 
   computed doubled = mul(count, 2)
 
   action increment() {
-    once(lastIntent) {
-      patch lastIntent = $meta.intentId
+    onceIntent {
       patch count = add(count, 1)
     }
   }
 }
 ```
+
+**Tip:** Use `onceIntent` for per-intent idempotency without schema guard fields. Use `once()` only when you need an explicit guard field in domain state.
 
 ---
 

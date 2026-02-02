@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Intent IR SPEC v0.2.0: ListTerm for plurality, QuantitySpec, PredOp `in`, term-level `ext`, orderBy semantics, and stricter canonicalization (default elision + RFC3339 UTC date normalization)
 - Schema hashing clarified as semantic identity (excludes `$`-prefixed platform fields); runtime effective hash treated as internal
 - World/App snapshot handling excludes `$mel` alongside `$host` for deterministic hashing
+- Learn/Quickstart/App Migration docs updated for `onceIntent` and `$mel` platform namespaces
 
 ## [1.0.0] - 2025-01-01
 

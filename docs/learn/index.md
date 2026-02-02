@@ -54,12 +54,23 @@ What happens:
 
 The patch always applies because nothing stops it from running again.
 
-### The Solution: State Guards
+### The Solution: Guards
 
-The `once()` guard solves this by setting a guard field:
+For **per-intent** idempotency, use `onceIntent`. It stores guard state in the platform `$mel` namespace, so you don't need extra schema fields:
 
 ```mel
 action increment() {
+  onceIntent {
+    patch count = add(count, 1)
+  }
+}
+```
+
+If you need an explicit guard field (e.g., custom conditions tied to domain state), use `once()`:
+
+```mel
+action increment() {
+  // requires: state { incrementIntent: string | null = null }
   once(incrementIntent) {
     patch incrementIntent = $meta.intentId
     patch count = add(count, 1)
@@ -68,13 +79,13 @@ action increment() {
 ```
 
 Now:
-- Cycle 1: `incrementIntent` is null → guard passes → set guard + increment
-- Cycle 2: `incrementIntent` is set → guard fails → **no patches**
+- Cycle 1: guard passes → patch runs
+- Cycle 2: guard fails → **no patches**
 - Loop terminates cleanly
 
 ### Key Insight
 
-State guards break the loop by making their condition evaluate to false after first execution. The guard field (`incrementIntent`) remembers that the action already ran for this intent.
+Guards break the loop by making their condition evaluate to false after first execution. With `onceIntent`, the guard is stored in `$mel`. With `once()`, the guard field (e.g., `incrementIntent`) is stored in domain state.
 
 This is why **every action that modifies state needs a guard**. Without it, you get infinite loops.
 

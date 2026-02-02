@@ -90,8 +90,7 @@ console.log(state.computed.hasCompleted);    // boolean
 ```mel
 action addTodo(title: string) {
   // Only add if title is not empty
-  once(addTodoIntent) when neq(trim(title), "") {
-    patch addTodoIntent = $meta.intentId
+  onceIntent when neq(trim(title), "") {
     patch todos = append(todos, {
       id: $system.uuid,
       title: trim(title),
@@ -106,11 +105,13 @@ action addTodo(title: string) {
 | Element | Description |
 |---------|-------------|
 | `(title: string)` | Action parameter with type |
-| `once(...) when condition` | Guard with additional condition |
+| `onceIntent when condition` | Guard with additional condition |
 | `trim(title)` | Built-in function to remove whitespace |
 | `neq(a, b)` | Not equal comparison |
 | `$system.uuid` | System-provided unique ID |
 | `append(array, item)` | Creates new array with item added |
+
+> **Note:** `onceIntent` stores guard state in the platform `$mel` namespace. Use `once()` only when you need an explicit guard field in domain state.
 
 **Using action parameters:**
 
@@ -124,8 +125,7 @@ await app.act("addTodo", { title: "Buy groceries" }).done();
 
 ```mel
 action toggleTodo(id: string) {
-  once(toggleIntent) {
-    patch toggleIntent = $meta.intentId
+  onceIntent {
     patch todos = map(todos, fn(t) =>
       cond(eq(t.id, id),
         merge(t, { completed: not(t.completed) }),
@@ -136,8 +136,7 @@ action toggleTodo(id: string) {
 }
 
 action removeTodo(id: string) {
-  once(removeIntent) {
-    patch removeIntent = $meta.intentId
+  onceIntent {
     patch todos = filter(todos, fn(t) => neq(t.id, id))
   }
 }
@@ -159,8 +158,7 @@ action removeTodo(id: string) {
 
 ```mel
 action setFilter(newFilter: "all" | "active" | "completed") {
-  once(filterIntent) {
-    patch filterIntent = $meta.intentId
+  onceIntent {
     patch filter = newFilter
   }
 }
@@ -193,8 +191,7 @@ domain TodoApp {
   computed hasCompleted = gt(completedCount, 0)
 
   action addTodo(title: string) {
-    once(addTodoIntent) when neq(trim(title), "") {
-      patch addTodoIntent = $meta.intentId
+    onceIntent when neq(trim(title), "") {
       patch todos = append(todos, {
         id: $system.uuid,
         title: trim(title),
@@ -204,8 +201,7 @@ domain TodoApp {
   }
 
   action toggleTodo(id: string) {
-    once(toggleIntent) {
-      patch toggleIntent = $meta.intentId
+    onceIntent {
       patch todos = map(todos, fn(t) =>
         cond(eq(t.id, id),
           merge(t, { completed: not(t.completed) }),
@@ -216,22 +212,19 @@ domain TodoApp {
   }
 
   action removeTodo(id: string) {
-    once(removeIntent) {
-      patch removeIntent = $meta.intentId
+    onceIntent {
       patch todos = filter(todos, fn(t) => neq(t.id, id))
     }
   }
 
   action setFilter(newFilter: "all" | "active" | "completed") {
-    once(filterIntent) {
-      patch filterIntent = $meta.intentId
+    onceIntent {
       patch filter = newFilter
     }
   }
 
   action clearCompleted() {
-    once(clearIntent) when hasCompleted {
-      patch clearIntent = $meta.intentId
+    onceIntent when hasCompleted {
       patch todos = filter(todos, fn(t) => not(t.completed))
     }
   }
@@ -390,8 +383,7 @@ Shallow merges the object. Only modifies specified keys.
 
 ```mel
 action updateUser(updates: { name: string | null, email: string | null }) {
-  once(updateIntent) {
-    patch updateIntent = $meta.intentId
+  onceIntent {
 
     // Set: Replace entire name if provided
     when isNotNull(updates.name) {
@@ -430,8 +422,7 @@ Ensures body runs once per intent:
 
 ```mel
 action submit() {
-  once(submitIntent) {
-    patch submitIntent = $meta.intentId
+  onceIntent {
     // This runs exactly once
   }
 }
@@ -442,8 +433,7 @@ action submit() {
 ```mel
 action submitIfValid() {
   // Runs once AND only if valid
-  once(submitIntent) when isValid {
-    patch submitIntent = $meta.intentId
+  onceIntent when isValid {
     patch status = "submitted"
   }
 }
@@ -459,8 +449,7 @@ action createTodo(title: string) {
     fail "EMPTY_TITLE" with "Title cannot be empty"
   }
 
-  once(createIntent) {
-    patch createIntent = $meta.intentId
+  onceIntent {
     patch todos = append(todos, { ... })
   }
 }
@@ -478,8 +467,7 @@ action complete(id: string) {
   }
 
   // Normal completion
-  once(completeIntent) {
-    patch completeIntent = $meta.intentId
+  onceIntent {
     patch todos[id].completed = true
   }
 }
@@ -493,8 +481,7 @@ Use `available when` to disable actions based on state:
 
 ```mel
 action clearCompleted() available when hasCompleted {
-  once(clearIntent) {
-    patch clearIntent = $meta.intentId
+  onceIntent {
     patch todos = filter(todos, fn(t) => not(t.completed))
   }
 }
@@ -512,8 +499,7 @@ Add an action to edit a todo's title:
 
 ```mel
 action editTodo(id: string, newTitle: string) {
-  once(editIntent) when neq(trim(newTitle), "") {
-    patch editIntent = $meta.intentId
+  onceIntent when neq(trim(newTitle), "") {
     patch todos = map(todos, fn(t) =>
       cond(eq(t.id, id),
         merge(t, { title: trim(newTitle) }),
@@ -553,15 +539,13 @@ Add actions for bulk operations:
 
 ```mel
 action completeAll() {
-  once(completeAllIntent) when gt(activeCount, 0) {
-    patch completeAllIntent = $meta.intentId
+  onceIntent when gt(activeCount, 0) {
     patch todos = map(todos, fn(t) => merge(t, { completed: true }))
   }
 }
 
 action uncompleteAll() {
-  once(uncompleteAllIntent) when gt(completedCount, 0) {
-    patch uncompleteAllIntent = $meta.intentId
+  onceIntent when gt(completedCount, 0) {
     patch todos = map(todos, fn(t) => merge(t, { completed: false }))
   }
 }

@@ -66,7 +66,6 @@ domain UserProfile {
     status: "idle" | "loading" | "success" | "error" = "idle"
     user: User | null = null
     error: string | null = null
-    fetchIntent: string | null = null
   }
 }
 ```
@@ -75,7 +74,7 @@ domain UserProfile {
 - `status` tracks the request lifecycle
 - `user` holds the fetched data (null until loaded)
 - `error` stores error messages
-- `fetchIntent` is our re-entry guard
+- Re-entry is guarded with `onceIntent` (stored in the platform `$mel` namespace)
 
 ---
 
@@ -93,12 +92,10 @@ domain UserProfile {
     status: "idle" | "loading" | "success" | "error" = "idle"
     user: User | null = null
     error: string | null = null
-    fetchIntent: string | null = null
   }
 
   action fetchUser(id: string) {
-    once(fetchIntent) {
-      patch fetchIntent = $meta.intentId
+    onceIntent {
       patch status = "loading"
       patch error = null
       effect api.fetchUser({ id: id })
@@ -115,7 +112,7 @@ domain UserProfile {
 | `patch status = "loading"` | Set loading state before effect |
 | `patch error = null` | Clear previous errors |
 
-**Important:** The `once()` guard prevents the effect from being declared multiple times.
+**Important:** The `onceIntent` guard prevents the effect from being declared multiple times and stores its guard state in `$mel` (no extra schema fields required).
 
 ---
 
@@ -237,7 +234,6 @@ domain UserProfile {
     status: "idle" | "loading" | "success" | "error" = "idle"
     user: User | null = null
     error: string | null = null
-    fetchIntent: string | null = null
   }
 
   computed hasError = eq(status, "error")
@@ -245,8 +241,7 @@ domain UserProfile {
   computed hasUser = isNotNull(user)
 
   action fetchUser(id: string) {
-    once(fetchIntent) {
-      patch fetchIntent = $meta.intentId
+    onceIntent {
       patch status = "loading"
       patch error = null
       effect api.fetchUser({ id: id })
@@ -254,12 +249,10 @@ domain UserProfile {
   }
 
   action reset() {
-    once(resetIntent) {
-      patch resetIntent = $meta.intentId
+    onceIntent {
       patch status = "idle"
       patch user = null
       patch error = null
-      patch fetchIntent = null
     }
   }
 }
@@ -297,7 +290,6 @@ domain UserProfile {
     status: "idle" | "loading" | "success" | "error" = "idle"
     user: User | null = null
     error: string | null = null
-    fetchIntent: string | null = null
     lastUserId: string | null = null
     retryCount: number = 0
   }
@@ -308,8 +300,7 @@ domain UserProfile {
   computed canRetry = and(hasError, lt(retryCount, 3))
 
   action fetchUser(id: string) {
-    once(fetchIntent) {
-      patch fetchIntent = $meta.intentId
+    onceIntent {
       patch status = "loading"
       patch error = null
       patch lastUserId = id
@@ -319,9 +310,7 @@ domain UserProfile {
   }
 
   action retry() available when canRetry {
-    once(retryIntent) {
-      patch retryIntent = $meta.intentId
-      patch fetchIntent = null
+    onceIntent {
       patch status = "loading"
       patch error = null
       patch retryCount = add(retryCount, 1)
@@ -330,13 +319,10 @@ domain UserProfile {
   }
 
   action reset() {
-    once(resetIntent) {
-      patch resetIntent = $meta.intentId
+    onceIntent {
       patch status = "idle"
       patch user = null
       patch error = null
-      patch fetchIntent = null
-      patch retryIntent = null
       patch lastUserId = null
       patch retryCount = 0
     }
@@ -370,9 +356,6 @@ domain UserProfile {
     status: "idle" | "loading" | "success" | "error" = "idle"
     user: User | null = null
     error: string | null = null
-    fetchIntent: string | null = null
-    retryIntent: string | null = null
-    resetIntent: string | null = null
     lastUserId: string | null = null
     retryCount: number = 0
   }
@@ -383,8 +366,7 @@ domain UserProfile {
   computed canRetry = and(hasError, lt(retryCount, 3))
 
   action fetchUser(id: string) {
-    once(fetchIntent) {
-      patch fetchIntent = $meta.intentId
+    onceIntent {
       patch status = "loading"
       patch error = null
       patch lastUserId = id
@@ -394,9 +376,7 @@ domain UserProfile {
   }
 
   action retry() available when canRetry {
-    once(retryIntent) {
-      patch retryIntent = $meta.intentId
-      patch fetchIntent = null
+    onceIntent {
       patch status = "loading"
       patch error = null
       patch retryCount = add(retryCount, 1)
@@ -405,13 +385,10 @@ domain UserProfile {
   }
 
   action reset() {
-    once(resetIntent) {
-      patch resetIntent = $meta.intentId
+    onceIntent {
       patch status = "idle"
       patch user = null
       patch error = null
-      patch fetchIntent = null
-      patch retryIntent = null
       patch lastUserId = null
       patch retryCount = 0
     }
@@ -506,7 +483,7 @@ npx tsx main.ts
 | **Loading states** | Use status enum: `"idle" \| "loading" \| "success" \| "error"` |
 | **Error handling** | Errors are patches to state, not exceptions |
 | **Retry pattern** | Store context for retry, track attempt count |
-| **Guard state** | Always use `once()` to prevent re-execution |
+| **Re-entry guard** | Use `onceIntent` for per-intent idempotency (guard stored in `$mel`) |
 
 ---
 
@@ -515,8 +492,8 @@ npx tsx main.ts
 ### Exercise 1: Add Cancel Functionality
 
 Add a `cancel` action that:
-- Clears `fetchIntent` to allow new fetches
 - Sets status back to "idle"
+- Clears any error
 - Only available when loading
 
 ### Exercise 2: Fetch Multiple Users

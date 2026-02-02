@@ -441,6 +441,32 @@ action processData() {
 }
 ```
 
+### onceIntent (Per-Intent Idempotency, No Guard Fields)
+
+`onceIntent` is a **contextual keyword** that provides per-intent idempotency without requiring a guard field in domain state. The guard state is stored in the platform `$mel` namespace.
+
+```mel
+action increment() {
+  onceIntent {
+    patch count = add(count, 1)
+  }
+}
+```
+
+**With additional condition:**
+
+```mel
+action addTask(title: string) {
+  onceIntent when neq(trim(title), "") {
+    patch tasks[$system.uuid] = { id: $system.uuid, title: title, done: false }
+  }
+}
+```
+
+**Contextual keyword rule:**
+- `onceIntent` is parsed as a statement **only** at statement start and only when followed by `{` or `when`.
+- In all other positions, `onceIntent` is treated as a normal identifier.
+
 ### fail (Error Termination)
 
 `fail` terminates the action with an error. Errors are values, not exceptions.
