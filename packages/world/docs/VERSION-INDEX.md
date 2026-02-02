@@ -1,14 +1,14 @@
 # World Protocol Documentation Index
 
 > **Package:** `@manifesto-ai/world`
-> **Last Updated:** 2026-01-27
+> **Last Updated:** 2026-02-02
 
 ---
 
 ## Latest Version
 
 ### World Protocol
-- **SPEC:** [v2.0.3](world-SPEC-v2.0.3-patch.md) (Patch - requires v2.0.2)
+- **SPEC:** [v2.0.3](world-SPEC-v2.0.3.md) (Full)
 - **FDR:** [v2.0.2](world-FDR-v2.0.2.md) (Full)
 
 ### World Event System (Extension)
@@ -24,7 +24,8 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v2.0.3 | [SPEC](world-SPEC-v2.0.3-patch.md) | — | Patch (Base: v2.0.2) | Draft |
+| v2.0.3 | [SPEC](world-SPEC-v2.0.3.md) | — | Full | Accepted |
+| v2.0.3 | [SPEC](world-SPEC-v2.0.3-patch.md) | — | Patch (Base: v2.0.2) | Merged |
 | v2.0.2 | [SPEC](world-SPEC-v2.0.2.md) | [FDR](world-FDR-v2.0.2.md) | Full | Accepted |
 | v2.0.1 | [SPEC](world-SPEC-v2.0.1.md) | [FDR](world-FDR-v2.0.1.md) | Full | Superseded |
 | v2.0.0 | [SPEC](world-SPEC-v2.0.0v.md) | [FDR](world-FDR-v2.0.0v.md) | Full | Superseded |
@@ -41,7 +42,7 @@
 
 ## Reading Guide
 
-- **v2.0.3**: ADR-002 DX Improvements - `$mel` namespace hash exclusion (WORLD-HASH-4b), `stripPlatformNamespaces()` API, platform namespace policy rules (NS-PLAT-*).
+- **v2.0.3**: Platform namespace extension - `$mel` namespace hash exclusion (WORLD-HASH-4b), `stripPlatformNamespaces()` API, platform namespace policy rules (NS-PLAT-*).
 - **v2.0.2**: Host-World Data Contract (`$host` namespace convention formalized as HOST-DATA-* rules), terminology unification (`'failed'` replaces `'error'` in TerminalStatusForHash).
 - **v2.0.1**: ADR-001 Layer Separation - Event ownership clarification, "Does NOT Know" boundary definition, Host v2.0.2 compatibility.
 - **v2.0.0**: Host v2.0.1 Integration - ExecutionKey mapping, HostExecutor abstraction, ScheduleContext for event handlers, strengthened EVT-C constraints, terminal snapshot validation.

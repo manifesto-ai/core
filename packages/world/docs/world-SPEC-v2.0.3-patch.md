@@ -1,10 +1,11 @@
 # World SPEC v2.0.3 Patch Document
 
 > **Patch Target:** World SPEC v2.0.2 → v2.0.3
-> **Status:** Draft
+> **Status:** Merged
 > **Date:** 2026-01-27
 > **Related ADR:** ADR-002 (DX 개선 — `$mel` 네임스페이스)
 > **Scope:** Platform namespace extension, snapshotHash computation
+> **Merged Into:** `world-SPEC-v2.0.3.md`
 
 ---
 

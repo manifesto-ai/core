@@ -49,9 +49,8 @@ All specifications are maintained at the package level. This page provides navig
 
 ### World
 
-- **World SPEC v2.0.3** (Patch)
-  - Base: [world-SPEC-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.2.md)
-  - Patch: [world-SPEC-v2.0.3-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.3-patch.md)
+- **World SPEC v2.0.3** (Full)
+  - [world-SPEC-v2.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.3.md)
   - Adds: ADR-002 DX improvements, `$mel` namespace
 
 ### App
@@ -110,11 +109,11 @@ Patch documents (e.g., `v2.0.1-patch`) contain only changes from a base version.
 1. Start with the **base version** (full document)
 2. Apply **patch changes** in order
 
-Example for World v2.0.3:
+Example for Core v2.0.1:
 ```
-world-SPEC-v2.0.2.md (base)
-  + world-SPEC-v2.0.3-patch.md (changes)
-  = Complete v2.0.3 specification
+SPEC-v2.0.0.md (base)
+  + SPEC-v2.0.1-patch.md (changes)
+  = Complete v2.0.1 specification
 ```
 
 ---
