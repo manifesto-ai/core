@@ -2,10 +2,11 @@
 
 > **Version:** 0.4.0
 > **Type:** Patch
-> **Status:** Draft
+> **Status:** Merged
 > **Date:** 2026-01-04
 > **Base:** v0.3.3 (REQUIRED - read SPEC-v0.3.3.md first)
 > **Scope:** Translator Lowering, Expression Evaluation, Host Integration
+> **Merged Into:** `SPEC-v0.5.0.md`
 > **Revision:** Rev.5 - All GO-Blocking issues resolved
 
 ---

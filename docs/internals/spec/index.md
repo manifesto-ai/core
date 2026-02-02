@@ -22,7 +22,7 @@ All specifications are maintained at the package level. This page provides navig
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/app** | v2.1.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/compiler** | v0.5.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.5.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### Intent & Translation
 
@@ -62,10 +62,8 @@ All specifications are maintained at the package level. This page provides navig
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v0.5.0** (Patch)
-  - Base: [SPEC-v0.3.3.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.3.3.md)
-  - Patch v0.4.0: [SPEC-v0.4.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.4.0-patch.md)
-  - Patch v0.5.0: [SPEC-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.5.0-patch.md)
+- **Compiler SPEC v0.5.0** (Full)
+  - [SPEC-v0.5.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.5.0.md)
   - Adds: `$mel` namespace, `onceIntent` syntax
 
 ### Builder
@@ -96,7 +94,7 @@ All specifications are maintained at the package level. This page provides navig
 | 01-30 | Translator | v1.0.3 | Intent IR v0.2 alignment and spec refinements |
 | 01-27 | World | v2.0.3-patch | ADR-002 DX improvements |
 | 01-27 | App | v2.1.0-patch | Platform namespace injection |
-| 01-27 | Compiler | v0.5.0-patch | `$mel` namespace, `onceIntent` |
+| 01-27 | Compiler | v0.5.0 | `$mel` namespace, `onceIntent` |
 | 01-18 | Host | v2.0.2 | Snapshot Type Alignment, `$host` namespace |
 | 01-18 | Core | v2.0.1-patch | ADR-002 alignment |
 

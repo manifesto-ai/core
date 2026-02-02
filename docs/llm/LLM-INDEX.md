@@ -35,10 +35,8 @@ Application layer:
 - App v2.1.0 (base + patch)
   - `packages/app/docs/APP-SPEC-v2.0.0.md`
   - `packages/app/docs/APP-SPEC-v2.1.0-patch.md`
-- Compiler (MEL) v0.5.0 (base + patches)
-  - `packages/compiler/docs/SPEC-v0.3.3.md`
-  - `packages/compiler/docs/SPEC-v0.4.0-patch.md`
-  - `packages/compiler/docs/SPEC-v0.5.0-patch.md`
+- Compiler (MEL) v0.5.0 (full)
+  - `packages/compiler/docs/SPEC-v0.5.0.md`
 
 Intent + translation:
 - Intent IR v0.2.0 (full)
