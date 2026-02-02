@@ -13,11 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Agent usage guide (AGENTS.md)
 - Security policy (SECURITY.md)
 - Contributing guidelines with constitutional requirements
+- MEL `onceIntent` contextual keyword with `$mel` guard namespace support
 
 ### Changed
 - Moved package documentation from docs/packages/* to packages/*/docs/*
 - Updated README.md with correct documentation links
 - Intent IR SPEC v0.2.0: ListTerm for plurality, QuantitySpec, PredOp `in`, term-level `ext`, orderBy semantics, and stricter canonicalization (default elision + RFC3339 UTC date normalization)
+- Schema hashing clarified as semantic identity (excludes `$`-prefixed platform fields); runtime effective hash treated as internal
+- World/App snapshot handling excludes `$mel` alongside `$host` for deterministic hashing
 
 ## [1.0.0] - 2025-01-01
 
