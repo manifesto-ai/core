@@ -1,16 +1,16 @@
 # MEL Compiler Documentation Index
 
 > **Package:** `@manifesto-ai/compiler`
-> **Last Updated:** 2026-01-27
+> **Last Updated:** 2026-02-02
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v0.5.0](SPEC-v0.5.0-patch.md) (Patch - requires v0.4.0)
-- **FDR:** [v0.5.0](FDR-v0.5.0-patch.md) (Patch - requires v0.3.3)
+- **SPEC:** [v0.5.0](SPEC-v0.5.0.md) (Full)
+- **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** v0.5.0 is a patch document. Read [SPEC-v0.3.3.md](SPEC-v0.3.3.md) and [SPEC-v0.4.0-patch.md](SPEC-v0.4.0-patch.md) first.
+**Note:** v0.5.0 SPEC and FDR are now consolidated. Patch documents remain for historical context.
 
 ---
 
@@ -18,8 +18,9 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Draft |
-| v0.4.0 | [SPEC](SPEC-v0.4.0-patch.md) | [FDR](FDR-v0.4.0-patch.md) | Patch (Base: v0.3.3) | Draft |
+| v0.5.0 | [SPEC](SPEC-v0.5.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
+| v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Merged |
+| v0.4.0 | [SPEC](SPEC-v0.4.0-patch.md) | [FDR](FDR-v0.4.0-patch.md) | Patch (Base: v0.3.3) | Merged |
 | v0.3.3 | [SPEC](SPEC-v0.3.3.md) | [FDR](FDR-v0.3.3.md) | Full | Final |
 | v0.3.2 | [SPEC](SPEC-v0.3.2.md) | [FDR](FDR-v0.3.2.md) | Full | Superseded |
 | v0.3.1 | [SPEC](SPEC-v0.3.1.md) | [FDR](FDR-v0.3.1.md) | Full | Superseded |
@@ -32,16 +33,14 @@
 
 ### For Latest (v0.5.0)
 
-1. Read [SPEC-v0.3.3.md](SPEC-v0.3.3.md) (full base specification)
-2. Read [SPEC-v0.4.0-patch.md](SPEC-v0.4.0-patch.md) (changes only)
-3. Read [SPEC-v0.5.0-patch.md](SPEC-v0.5.0-patch.md) (ADR-002: `$mel` namespace, `onceIntent` syntax)
-4. For rationale: [FDR-v0.3.3.md](FDR-v0.3.3.md) + [FDR-v0.5.0-patch.md](FDR-v0.5.0-patch.md)
+1. Read [SPEC-v0.5.0.md](SPEC-v0.5.0.md) (full specification)
+2. For rationale: [FDR-v0.5.0.md](FDR-v0.5.0.md)
 
-### For v0.4.0
+### For v0.4.0 (Historical Patch)
 
-1. Read [SPEC-v0.3.3.md](SPEC-v0.3.3.md) (full base specification)
-2. Read [SPEC-v0.4.0-patch.md](SPEC-v0.4.0-patch.md) (changes only)
-3. For rationale: [FDR-v0.3.3.md](FDR-v0.3.3.md) + [FDR-v0.4.0-patch.md](FDR-v0.4.0-patch.md)
+1. Read [SPEC-v0.5.0.md](SPEC-v0.5.0.md) for the consolidated spec.
+2. For historical diff: [SPEC-v0.4.0-patch.md](SPEC-v0.4.0-patch.md)
+3. For rationale: [FDR-v0.5.0.md](FDR-v0.5.0.md) + [FDR-v0.4.0-patch.md](FDR-v0.4.0-patch.md)
 
 ### For Stable (v0.3.3)
 

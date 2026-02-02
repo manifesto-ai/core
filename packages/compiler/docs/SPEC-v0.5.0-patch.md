@@ -2,10 +2,11 @@
 
 > **Version:** 0.5.0
 > **Type:** Patch
-> **Status:** Draft
+> **Status:** Merged
 > **Date:** 2026-01-27
 > **Base:** v0.4.0 (REQUIRED - read SPEC-v0.4.0-patch.md first)
 > **Scope:** `$mel` Namespace, `onceIntent` Syntax, Guard Compilation
+> **Merged Into:** `SPEC-v0.5.0.md`
 > **ADR:** ADR-002 (DX Improvement - MEL Namespace & onceIntent)
 
 ---
