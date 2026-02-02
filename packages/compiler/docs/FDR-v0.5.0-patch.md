@@ -2,9 +2,10 @@
 
 > **Version:** 0.5.0
 > **Type:** Patch
-> **Status:** Draft
+> **Status:** Merged
 > **Base:** v0.3.3 (REQUIRED - read FDR-v0.3.3.md first)
 > **Purpose:** Document the "Why" behind ADR-002 design decisions
+> **Merged Into:** `FDR-v0.5.0.md`
 
 ---
 

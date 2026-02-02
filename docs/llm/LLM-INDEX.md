@@ -86,12 +86,8 @@ App (all current app FDRs are additive):
 - `packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md`
 
 Compiler (MEL):
-- FDR v0.3.3 (base)
-  - `packages/compiler/docs/FDR-v0.3.3.md`
-- FDR v0.4.0 patch
-  - `packages/compiler/docs/FDR-v0.4.0-patch.md`
-- FDR v0.5.0 patch
-  - `packages/compiler/docs/FDR-v0.5.0-patch.md`
+- FDR v0.5.0 (full)
+  - `packages/compiler/docs/FDR-v0.5.0.md`
 
 Intent IR:
 - FDR v0.1.0
