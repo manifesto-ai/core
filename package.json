@@ -27,7 +27,7 @@
     "@vercel/analytics": "^1.6.1",
     "@vitest/coverage-v8": "^4.0.18",
     "mermaid": "^11.12.2",
-    "turbo": "^2.8.0",
+    "turbo": "^2.8.1",
     "typedoc": "^0.28.16",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
