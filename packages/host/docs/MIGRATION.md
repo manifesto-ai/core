@@ -154,6 +154,7 @@ If you use Host without App, you are responsible for:
 - Adding `$host` to schema manually (MUST)
 - Ensuring `$host` exists in restored snapshots (MUST)
 - Adding `$mel` with proper structure **if using MEL compiled output with `onceIntent`** (Conditional MUST)
+- Avoiding any `$`-prefixed keys in domain state (reserved for platform use)
 
 **Note:** If your MEL code uses `onceIntent`, the compiler generates patches to `$mel.guards.intent.*`. Without `$mel` in your schema, these patches will fail with `PATH_NOT_FOUND`. In this case, add:
 ```typescript

@@ -111,6 +111,39 @@ import { createInMemoryWorldStore } from "@manifesto-ai/app";
 const worldStore = createInMemoryWorldStore();
 ```
 
+---
+
+## Additional Updates (v2.1.0, Non-breaking)
+
+### Platform Namespaces (`$host`, `$mel`)
+
+From v2.1.0, the App layer treats all `$`-prefixed keys in `snapshot.data` as **platform-reserved**:
+
+- `$host` — Host execution state
+- `$mel` — Compiler guard state (used by `onceIntent`)
+
+If you implement a **custom WorldStore**, update your persistence logic to **exclude** these namespaces from:
+
+1. **Canonical hash computation**
+2. **Restored snapshots** (App/Host re-seed them at runtime)
+
+**Recommended pattern (pseudo-code):**
+
+```typescript
+function stripPlatformNamespaces(data: Record<string, unknown>) {
+  const { $host, $mel, ...rest } = data;
+  return rest;
+}
+
+// Store
+const cleanSnapshot = { ...snapshot, data: stripPlatformNamespaces(snapshot.data) };
+
+// Restore
+return { ...snapshotFromStore, data: stripPlatformNamespaces(snapshotFromStore.data) };
+```
+
+**Note:** If your MEL uses `onceIntent`, you do **not** need to add any guard fields in your schema. The compiler writes guards into `$mel` automatically.
+
 For production, implement your own `WorldStore`:
 
 ```typescript
