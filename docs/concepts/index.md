@@ -46,10 +46,27 @@ Manifesto models applications as semantic spaces where state transitions are com
 
 Manifesto excels when you need:
 
+- **AI as First-Class Actor**: AI agents participate as equals with humans in a governed system
 - **Determinism**: Identical inputs must produce identical outputs (testing, replay)
-- **AI Governance**: LLM decisions need audit trails and authority controls
+- **Verifiable AI Behavior**: LLM decisions need audit trails and authority controls
 - **Compliance**: Every state change must be traceable and explainable
-- **Multi-actor systems**: Different users/agents with different permissions
+- **Multi-actor systems**: Different users/AI agents with different permissions
+
+### Not Redux/Zustand
+
+| You Need | Use This |
+|----------|----------|
+| Simple UI state sync | Redux, Zustand |
+| Global state with DevTools | Redux |
+| AI-human collaboration with governance | **Manifesto** |
+
+### Not LangChain/AutoGen
+
+| You Need | Use This |
+|----------|----------|
+| LLM orchestration | LangChain |
+| Multi-agent conversations | AutoGen |
+| Deterministic state with AI actors | **Manifesto** |
 
 ### Good Fit
 
@@ -57,7 +74,7 @@ Consider Manifesto for:
 
 - **Complex domain logic**: Business rules spanning many entities
 - **State machines**: Workflows with strict transition rules
-- **Collaborative apps**: Multiple users modifying shared state
+- **Collaborative apps**: Multiple users/AI modifying shared state
 
 ### Not Ideal For
 
@@ -74,6 +91,7 @@ Simpler alternatives exist for:
 
 | Concept | Definition | Key Principle |
 |---------|------------|---------------|
+| [AI Native OS Layer](./ai-native-os-layer.md) | Manifesto's core identity | Not state management, not AI framework |
 | [Snapshot](./snapshot.md) | Complete state at a point in time | If it's not in Snapshot, it doesn't exist |
 | [Intent](./intent.md) | Request to perform a domain action | Intents are proposals, not commands |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they don't execute |

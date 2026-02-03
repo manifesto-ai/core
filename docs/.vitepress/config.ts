@@ -71,6 +71,7 @@ export default defineConfig({
           text: 'Core Concepts',
           items: [
             { text: 'Overview', link: '/concepts/' },
+            { text: 'AI Native OS Layer', link: '/concepts/ai-native-os-layer' },
             { text: 'Snapshot', link: '/concepts/snapshot' },
             { text: 'Intent', link: '/concepts/intent' },
             { text: 'Flow', link: '/concepts/flow' },
@@ -103,6 +104,13 @@ export default defineConfig({
             { text: 'React Integration', link: '/guides/react-integration' },
             { text: 'Debugging', link: '/guides/debugging' },
             { text: 'Vercel Web Analytics', link: '/guides/vercel-web-analytics' },
+          ]
+        },
+        {
+          text: 'AI Integration',
+          items: [
+            { text: 'AI Agent Integration', link: '/guides/ai-agent-integration' },
+            { text: 'Schema Evolution', link: '/guides/schema-evolution' },
           ]
         }
       ],
