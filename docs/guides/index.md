@@ -172,6 +172,47 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 
 ---
 
+### [AI Agent Integration](./ai-agent-integration)
+
+**Goal:** Integrate AI agents with Manifesto using the Translator pipeline
+
+**What you'll build:** AI-powered task management with natural language input
+
+**What you'll learn:**
+- Setting up the Translator pipeline
+- Converting natural language to Intent Graphs
+- Human-in-the-loop approval patterns
+- Configuring Authority for AI actors
+- MEL code generation patterns
+- Handling extension candidates
+
+**Prerequisites:** Getting Started guide completed, basic understanding of LLMs
+
+**Reading time:** 30 minutes
+**Coding time:** 45 minutes
+
+**Start here if:** You want AI agents to interact with your Manifesto application.
+
+---
+
+### [Schema Evolution](./schema-evolution)
+
+**Goal:** Understand the vision for AI-driven schema changes
+
+**What you'll learn:**
+- Why Schema is a first-class object in Manifesto
+- Planned patterns for field addition, type refinement, and relations
+- Migration strategies and safety guarantees
+- Current status and roadmap
+
+**Prerequisites:** Core concepts understood
+
+**Reading time:** 20 minutes
+
+**Start here if:** You want to understand how Manifesto will support AI-driven domain evolution.
+
+---
+
 ## Recommended Learning Path
 
 ### Path 1: Beginner (2-3 hours)
@@ -211,6 +252,19 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 5. **Contribute:** Build tools, write docs, submit PRs
 
 **Outcome:** You can design complex systems, extend Manifesto, and contribute to the project.
+
+---
+
+### Path 4: AI Integration (2-3 hours)
+
+**Goal:** Build AI-powered Manifesto applications
+
+1. **[AI Native OS Layer](/concepts/ai-native-os-layer)** — Core identity (15 min)
+2. **[AI Agent Integration](./ai-agent-integration)** — Practical guide (1h 15min)
+3. **[Schema Evolution](./schema-evolution)** — Vision and roadmap (20 min)
+4. **[World Concept](/concepts/world)** — Authority for AI (30 min)
+
+**Outcome:** You can integrate AI agents with Manifesto, configure appropriate authorities, and understand the AI-native vision.
 
 ---
 
@@ -434,6 +488,8 @@ action updateTodo(idToUpdate: string) {
 | Prevent infinite loops | [Re-entry Safe Flows](./reentry-safe-flows) |
 | Call APIs or databases | [Effect Handlers](./effect-handlers) |
 | Debug problems | [Debugging](./debugging) |
+| Integrate AI agents | [AI Agent Integration](./ai-agent-integration) |
+| Understand schema evolution | [Schema Evolution](./schema-evolution) |
 
 ---
 
@@ -444,7 +500,6 @@ These guides are planned:
 - **React Integration** — Building UIs with @manifesto-ai/react
 - **Testing Strategies** — Unit, integration, and E2E testing
 - **Multi-Tenant Applications** — Building SaaS with World Protocol
-- **LLM Integration** — Connecting AI agents with Manifesto
 - **Performance Optimization** — Making Manifesto apps fast
 - **Production Deployment** — Running Manifesto in production
 
