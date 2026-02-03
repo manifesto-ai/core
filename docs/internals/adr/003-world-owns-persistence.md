@@ -127,6 +127,35 @@ async getSnapshot(worldId: WorldId): Promise<Snapshot> {
 }
 ```
 
+### 5. Read-Only Query API Boundary
+
+> **World MUST expose read-only query APIs only; no raw store access leaks upward.**
+
+This principle ensures:
+
+| Rule | Rationale |
+|------|-----------|
+| World exposes **query methods** (`getSnapshot`, `getWorld`, `getLineage`) | App can read state |
+| World does **NOT** expose `getStore()` | No raw store access bypass |
+| All mutations go through **governance** (`submitProposal`) | Audit trail preserved |
+
+```typescript
+// ALLOWED: Read-only queries
+world.getSnapshot(worldId);
+world.getWorld(worldId);
+world.getLineage();
+world.getProposal(proposalId);
+
+// FORBIDDEN: Raw store access
+world.getStore();              // ❌ Must not exist
+world.store.saveWorld(...);    // ❌ Bypasses governance
+```
+
+**Why this matters:**
+- Prevents App from bypassing World's governance logic
+- All state changes remain auditable through Proposal/Decision
+- World maintains invariant control over its persistence
+
 ---
 
 ## Consequences
@@ -196,6 +225,7 @@ Log warning when `_v2Config` is used without `world`.
 | App | Remove `DomainExecutor` and v1 execution path |
 | App | Query World for state, not WorldStore directly |
 | World | Ensure all App-needed queries are exposed |
+| World | Remove `getStore()` method if exists (no raw store access) |
 
 ### What Stays Same
 
@@ -216,7 +246,8 @@ This decision:
 1. Clarifies WorldStore ownership (World, not App)
 2. Removes v1 legacy complexity
 3. Aligns with ADR-001's layer boundaries
+4. Enforces read-only query boundary (no raw store leakage)
 
 One sentence:
 
-> **App references World; World owns WorldStore.**
+> **App references World; World owns WorldStore; no raw store access leaks upward.**
