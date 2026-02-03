@@ -33,6 +33,35 @@ Comparing Manifesto to LangChain or AutoGen is also incorrect framing.
 | AI role | Executor | Actor (equal to other Actors) |
 | Verification | None | Complete Trace-based verification |
 
+## Package Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  @manifesto-ai/app                  │  ← User Entry Point
+│              (High-level Facade)                    │
+├─────────────────────────────────────────────────────┤
+│  @manifesto-ai/compiler  │  @manifesto-ai/builder   │  ← Domain Definition
+├──────────────────────────┴──────────────────────────┤
+│     @manifesto-ai/world    @manifesto-ai/host       │  ← Runtime
+│                  @manifesto-ai/core                 │
+└─────────────────────────────────────────────────────┘
+```
+
+| Package | Role |
+|---------|------|
+| **@manifesto-ai/app** | Main facade. Most users only need this. |
+| **@manifesto-ai/compiler** | MEL → DomainSchema compilation |
+| **@manifesto-ai/builder** | Type-safe domain definition (alternative to MEL) |
+| **@manifesto-ai/core** | Pure computation engine |
+| **@manifesto-ai/host** | Effect execution runtime |
+| **@manifesto-ai/world** | Governance and authority |
+
+**For most use cases, install only:**
+
+```bash
+npm install @manifesto-ai/app @manifesto-ai/compiler
+```
+
 ## The 9 Primitives
 
 | Primitive | Purpose | OS Analogy |
@@ -64,19 +93,18 @@ In Manifesto, Schema is more than a data structure definition.
 AI agents are not special entities—they participate as equals alongside other Actors.
 
 ```typescript
-// Human Actor
-const humanActor = { id: "user-123", type: "human" };
+import { createApp } from "@manifesto-ai/app";
 
-// AI Actor
-const aiActor = { id: "gpt-agent", type: "ai" };
+const app = createApp(domainMel);
+await app.ready();
 
-// System Actor
-const systemActor = { id: "scheduler", type: "system" };
+// Human and AI use the same interface
+await app.act("addTask", { title: "Review PR" }).done();
 
-// All submit Intents through the same protocol
-await world.submitProposal(humanActor, intent);
-await world.submitProposal(aiActor, intent);
-await world.submitProposal(systemActor, intent);
+// With explicit actor (for multi-actor scenarios)
+await app.act("addTask", { title: "AI suggestion" }, {
+  actor: { id: "gpt-agent", type: "ai" }
+}).done();
 ```
 
 ### AI-Friendly DSL
@@ -109,16 +137,21 @@ All actions performed by AI:
 - **Verifiable** (Authority evaluation)
 
 ```typescript
-// Every AI action is fully traceable
-const result = await app.dispatch(aiIntent);
+import { createApp } from "@manifesto-ai/app";
 
-// Trace contains:
-// - Who: aiActor
-// - What: intent details
-// - When: timestamp
-// - How: complete computation steps
-// - Why: authority decision
-console.log(result.trace);
+const app = createApp(domainMel);
+await app.ready();
+
+// Every action returns a result with full trace
+const handle = app.act("addTask", { title: "AI generated task" });
+const result = await handle.done();
+
+// Result contains:
+// - status: 'completed' | 'rejected' | 'failed'
+// - snapshot: new state
+// - trace: complete audit trail (who, what, when, why)
+console.log(result.status);
+console.log(app.getState()); // Current snapshot
 ```
 
 ## The Fundamental Equation
@@ -147,8 +180,45 @@ Manifesto excels when you need:
 | Compliance requirements | Complete traceability and reproducibility |
 | AI behavior verification | Deterministic computation enables replay and testing |
 
+## Quick Start
+
+```typescript
+import { createApp } from "@manifesto-ai/app";
+
+// Define domain in MEL
+const domainMel = `
+domain TaskBoard {
+  state { tasks: Task[] = [] }
+
+  action addTask(title: string) {
+    once(id) {
+      patch id = $meta.intentId
+      patch tasks = append(tasks, { id, title, done: false })
+    }
+  }
+}
+`;
+
+// Create and start app
+const app = createApp(domainMel);
+await app.ready();
+
+// Execute actions
+await app.act("addTask", { title: "First task" }).done();
+
+// Read state
+const { tasks } = app.getState();
+console.log(tasks); // [{ id: "...", title: "First task", done: false }]
+
+// Subscribe to changes
+app.subscribe((state) => {
+  console.log("State changed:", state);
+});
+```
+
 ## See Also
 
+- [Quickstart Guide](/quickstart) — Full setup instructions
 - [AI Agent Integration](/guides/ai-agent-integration) — Practical AI integration guide
 - [Schema Evolution](/guides/schema-evolution) — Schema evolution patterns
 - [Intent Concept](/concepts/intent) — Intent details
