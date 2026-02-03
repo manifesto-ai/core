@@ -82,6 +82,11 @@ flowchart TB
     Human[Human Actor]
     AI[AI Actor]
 
+    subgraph AppLayer["@manifesto-ai/app"]
+        direction TB
+        AppFacade["App Facade<br/><i>createApp(), app.act()</i>"]
+    end
+
     subgraph Manifesto["Manifesto OS Layer"]
         direction TB
         World["World<br/><i>governance</i>"]
@@ -89,13 +94,14 @@ flowchart TB
         Host["Host<br/><i>execute</i>"]
     end
 
-    App[Your Application]
+    YourApp[Your Application]
 
-    Human --> World
-    AI --> World
+    Human --> AppFacade
+    AI --> AppFacade
+    AppFacade --> World
     World --> Core
     Core --> Host
-    Host --> App
+    Host --> YourApp
 
     Core -.->|"patches"| Host
     Host -.->|"snapshot"| Core
@@ -104,6 +110,7 @@ flowchart TB
 
 | Layer | Responsibility |
 |-------|----------------|
+| **@manifesto-ai/app** | User-facing facade. Provides `createApp()`, `app.act()`, subscriptions. |
 | **World** | Governance. Manages actors, authorities, and audit lineage. |
 | **Core** | Pure computation. Evaluates expressions, interprets flows, generates patches. |
 | **Host** | Effect execution. Handles IO, applies patches to external state. |
