@@ -139,10 +139,10 @@ importers:
         version: 3.2.2(react@19.2.4)
       '@langchain/core':
         specifier: ^1.1.18
-        version: 1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
+        version: 1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
       '@langchain/openai':
         specifier: ^1.2.4
-        version: 1.2.4(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(ws@8.18.3)
+        version: 1.2.4(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(ws@8.18.3)
       '@manifesto-ai/app':
         specifier: workspace:*
         version: link:../../packages/app
@@ -229,7 +229,7 @@ importers:
         version: 4.11.7
       langchain:
         specifier: ^1.2.16
-        version: 1.2.16(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(openai@6.16.0(ws@8.18.3)(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))
+        version: 1.2.16(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(openai@6.17.0(ws@8.18.3)(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))
       lucide-react:
         specifier: ^0.563.0
         version: 0.563.0(react@19.2.4)
@@ -246,8 +246,8 @@ importers:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       openai:
-        specifier: ^6.16.0
-        version: 6.16.0(ws@8.18.3)(zod@4.3.6)
+        specifier: ^6.17.0
+        version: 6.17.0(ws@8.18.3)(zod@4.3.6)
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -492,8 +492,8 @@ importers:
         specifier: ^17.2.3
         version: 17.2.3
       openai:
-        specifier: ^6.16.0
-        version: 6.16.0(ws@8.18.3)(zod@4.3.6)
+        specifier: ^6.17.0
+        version: 6.17.0(ws@8.18.3)(zod@4.3.6)
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
@@ -582,8 +582,8 @@ importers:
         specifier: workspace:*
         version: link:../../core
       openai:
-        specifier: ^4.0.0
-        version: 4.104.0(ws@8.18.3)(zod@4.3.6)
+        specifier: ^6.17.0
+        version: 6.17.0(ws@8.18.3)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.2.0
@@ -3661,6 +3661,10 @@ packages:
     resolution: {integrity: sha512-LgQMM4WXU3QI+SYgEc2liRgznaD5ojbmY3sb8LxyguVkIg5FxdpTkvk72te2R38/TGKxH634oLxXRGY6d7AP+Q==}
     engines: {node: '>=10.13.0'}
 
+  enhanced-resolve@5.19.0:
+    resolution: {integrity: sha512-phv3E1Xl4tQOShqSte26C7Fl84EwUdZsyOuSSk9qtAGyyQs2s3jJzComh+Abf4g187lUUAvH+H26omrqia2aGg==}
+    engines: {node: '>=10.13.0'}
+
   entities@4.5.0:
     resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
     engines: {node: '>=0.12'}
@@ -5057,20 +5061,8 @@ packages:
   oniguruma-to-es@4.3.4:
     resolution: {integrity: sha512-3VhUGN3w2eYxnTzHn+ikMI+fp/96KoRSVK9/kMTcFqj1NRDh2IhQCKvYxDnWePKRXY/AqH+Fuiyb7VHSzBjHfA==}
 
-  openai@4.104.0:
-    resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
-    hasBin: true
-    peerDependencies:
-      ws: ^8.18.0
-      zod: ^3.23.8
-    peerDependenciesMeta:
-      ws:
-        optional: true
-      zod:
-        optional: true
-
-  openai@6.16.0:
-    resolution: {integrity: sha512-fZ1uBqjFUjXzbGc35fFtYKEOxd20kd9fDpFeqWtsOZWiubY8CZ1NAlXHW3iathaFvqmNtCWMIsosCuyeI7Joxg==}
+  openai@6.17.0:
+    resolution: {integrity: sha512-NHRpPEUPzAvFOAFs9+9pC6+HCw/iWsYsKCMPXH5Kw7BpMxqd8g/A07/1o7Gx2TWtCnzevVRyKMRFqyiHyAlqcA==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -7106,14 +7098,14 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))':
+  '@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.4.11(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
+      langsmith: 0.4.11(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
       mustache: 4.2.0
       p-queue: 6.6.2
       uuid: 10.0.0
@@ -7124,26 +7116,26 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))':
+  '@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))':
     dependencies:
-      '@langchain/core': 1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
+      '@langchain/core': 1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
       uuid: 10.0.0
 
-  '@langchain/langgraph-sdk@1.5.5(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@langchain/langgraph-sdk@1.5.5(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       p-queue: 9.1.0
       p-retry: 7.1.1
       uuid: 13.0.0
     optionalDependencies:
-      '@langchain/core': 1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
+      '@langchain/core': 1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@langchain/langgraph@1.1.2(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)':
+  '@langchain/langgraph@1.1.2(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)':
     dependencies:
-      '@langchain/core': 1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
-      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))
-      '@langchain/langgraph-sdk': 1.5.5(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@langchain/core': 1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))
+      '@langchain/langgraph-sdk': 1.5.5(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@standard-schema/spec': 1.1.0
       uuid: 10.0.0
       zod: 4.3.6
@@ -7153,11 +7145,11 @@ snapshots:
       - react
       - react-dom
 
-  '@langchain/openai@1.2.4(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(ws@8.18.3)':
+  '@langchain/openai@1.2.4(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(ws@8.18.3)':
     dependencies:
-      '@langchain/core': 1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
+      '@langchain/core': 1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
       js-tiktoken: 1.0.21
-      openai: 6.16.0(ws@8.18.3)(zod@4.3.6)
+      openai: 6.17.0(ws@8.18.3)(zod@4.3.6)
       zod: 4.3.6
     transitivePeerDependencies:
       - ws
@@ -7958,7 +7950,7 @@ snapshots:
 
   '@testing-library/dom@10.4.1':
     dependencies:
-      '@babel/code-frame': 7.28.6
+      '@babel/code-frame': 7.29.0
       '@babel/runtime': 7.28.6
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
@@ -9432,6 +9424,11 @@ snapshots:
       graceful-fs: 4.2.11
       tapable: 2.3.0
 
+  enhanced-resolve@5.19.0:
+    dependencies:
+      graceful-fs: 4.2.11
+      tapable: 2.3.0
+
   entities@4.5.0: {}
 
   entities@6.0.1: {}
@@ -9592,7 +9589,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks: 7.0.1(eslint@9.39.2(jiti@2.6.1))
@@ -9625,7 +9622,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -9640,7 +9637,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -10486,12 +10483,12 @@ snapshots:
 
   khroma@2.1.0: {}
 
-  langchain@1.2.16(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(openai@6.16.0(ws@8.18.3)(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6)):
+  langchain@1.2.16(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(openai@6.17.0(ws@8.18.3)(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6)):
     dependencies:
-      '@langchain/core': 1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
-      '@langchain/langgraph': 1.1.2(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
-      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.18(openai@6.16.0(ws@8.18.3)(zod@4.3.6)))
-      langsmith: 0.4.11(openai@6.16.0(ws@8.18.3)(zod@4.3.6))
+      '@langchain/core': 1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
+      '@langchain/langgraph': 1.1.2(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.18(openai@6.17.0(ws@8.18.3)(zod@4.3.6)))
+      langsmith: 0.4.11(openai@6.17.0(ws@8.18.3)(zod@4.3.6))
       uuid: 10.0.0
       zod: 4.3.6
     transitivePeerDependencies:
@@ -10511,7 +10508,7 @@ snapshots:
       vscode-languageserver-textdocument: 1.0.12
       vscode-uri: 3.0.8
 
-  langsmith@0.4.11(openai@6.16.0(ws@8.18.3)(zod@4.3.6)):
+  langsmith@0.4.11(openai@6.17.0(ws@8.18.3)(zod@4.3.6)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
@@ -10520,7 +10517,7 @@ snapshots:
       semver: 7.7.3
       uuid: 10.0.0
     optionalDependencies:
-      openai: 6.16.0(ws@8.18.3)(zod@4.3.6)
+      openai: 6.17.0(ws@8.18.3)(zod@4.3.6)
 
   language-subtag-registry@0.3.23: {}
 
@@ -11253,22 +11250,7 @@ snapshots:
       regex: 6.1.0
       regex-recursion: 6.0.2
 
-  openai@4.104.0(ws@8.18.3)(zod@4.3.6):
-    dependencies:
-      '@types/node': 18.19.130
-      '@types/node-fetch': 2.6.13
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0
-    optionalDependencies:
-      ws: 8.18.3
-      zod: 4.3.6
-    transitivePeerDependencies:
-      - encoding
-
-  openai@6.16.0(ws@8.18.3)(zod@4.3.6):
+  openai@6.17.0(ws@8.18.3)(zod@4.3.6):
     optionalDependencies:
       ws: 8.18.3
       zod: 4.3.6
@@ -12611,7 +12593,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.15.0)
       browserslist: 4.28.1
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.18.4
+      enhanced-resolve: 5.19.0
       es-module-lexer: 2.0.0
       eslint-scope: 5.1.1
       events: 3.3.0
