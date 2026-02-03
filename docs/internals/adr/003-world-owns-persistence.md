@@ -195,12 +195,23 @@ world.store.saveWorld(...);    // ❌ Bypasses governance
 ### Phase 1: Add New API (Non-Breaking)
 
 ```typescript
-// Support both patterns temporarily
+// ✅ New: preferred
+const app = createApp(domain, { world });
+
+// ✅ Old: still supported (deprecated)
+const app = createApp(domain, { _v2Config: { host, worldStore } });
+
+// ❌ FORBIDDEN: both world and _v2Config.worldStore
 const app = createApp(domain, {
-  world,                    // New: preferred
-  _v2Config: { ... },       // Old: deprecated
+  world,
+  _v2Config: { worldStore },  // Error: ambiguous ownership
 });
 ```
+
+**Conflict Resolution:**
+- If both `world` and `_v2Config.worldStore` are provided → **runtime error**
+- Error message: `"Cannot provide both 'world' and '_v2Config.worldStore'. Use 'world' only."`
+- This prevents "which store do we use?" ambiguity
 
 ### Phase 2: Deprecation Warning
 
