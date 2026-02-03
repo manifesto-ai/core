@@ -16,8 +16,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@langchain/core": "^1.1.17",
-    "@langchain/openai": "^1.2.3",
+    "@langchain/core": "^1.1.18",
+    "@langchain/openai": "^1.2.4",
     "@manifesto-ai/app": "workspace:*",
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
@@ -39,17 +39,17 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/typography": "^0.5.19",
     "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.36.1",
+    "@upstash/redis": "^1.36.2",
     "@vercel/analytics": "^1.6.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "framer-motion": "^12.29.2",
+    "framer-motion": "^12.29.3",
     "hono": "4.11.7",
-    "langchain": "^1.2.15",
+    "langchain": "^1.2.16",
     "lucide-react": "^0.563.0",
     "marked": "^17.0.1",
-    "motion": "^12.29.2",
+    "motion": "^12.29.3",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
     "openai": "^6.16.0",
@@ -64,13 +64,13 @@
     "tailwind-merge": "^3.4.0",
     "use-stick-to-bottom": "^1.1.2",
     "zod-to-json-schema": "^3.25.1",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^25.1.0",
+    "@types/node": "^25.2.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.2",
@@ -81,6 +81,6 @@
     "tsx": "^4.21.0",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.18"
   }
 }
