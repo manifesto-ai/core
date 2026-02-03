@@ -3,7 +3,12 @@
  *
  * Canonical patch generation for World deltas.
  *
- * @see FDR-APP-INTEGRATION-001 §3.4 (DELTA-GEN-1~6)
+ * Per FDR-APP-INTEGRATION-001 v0.4.1:
+ * - Delta scope matches snapshotHash input scope (D-STORE-3, STORE-4)
+ * - Platform namespaces ($host, $mel) excluded from delta (WORLD-HASH-4a, WORLD-HASH-4b)
+ *
+ * @see FDR-APP-INTEGRATION-001 §3.6 (DELTA-GEN-1~6)
+ * @see World SPEC v2.0.3 §5.5.2 (WORLD-HASH-*)
  * @module
  */
 
@@ -37,6 +42,7 @@ export interface DeltaGeneratorOptions {
  * Generate canonical patches from base snapshot to terminal snapshot.
  *
  * DELTA-GEN-2: Deterministic generation.
+ * DELTA-GEN-3: Platform namespaces stripped ($host, $mel).
  * DELTA-GEN-4: No-op elimination.
  * DELTA-GEN-5: v2 operators only.
  * DELTA-GEN-6: Lexicographic path sort.
@@ -44,7 +50,7 @@ export interface DeltaGeneratorOptions {
  * @param base - Base snapshot
  * @param terminal - Terminal snapshot
  * @param options - Generation options
- * @returns Canonical patches
+ * @returns Canonical patches (excluding platform namespace changes)
  */
 export function generateDelta(
   base: Snapshot,
@@ -56,7 +62,7 @@ export function generateDelta(
     includeComputed: options?.includeComputed ?? false,
   };
 
-  // DELTA-GEN-3: Convert to canonical form (sorted keys)
+  // DELTA-GEN-3: Convert to canonical form (platform namespaces stripped, sorted keys)
   const canonicalBase = toCanonicalSnapshot(base);
   const canonicalTerminal = toCanonicalSnapshot(terminal);
 
@@ -91,16 +97,47 @@ export function generateDelta(
 }
 
 /**
- * Convert snapshot to canonical form with sorted keys.
+ * Strip platform namespaces from data.
  *
- * DELTA-GEN-3: Canonical snapshot has sorted keys for deterministic hashing.
+ * Per WORLD-HASH-4a, WORLD-HASH-4b:
+ * - $host: Host-owned state (excluded from hash)
+ * - $mel: Compiler-owned guard state (excluded from hash)
+ *
+ * @param data - Data object
+ * @returns Data without platform namespaces
+ */
+function stripPlatformNamespaces(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  if (data === undefined || data === null) {
+    return {};
+  }
+  if (!("$host" in data) && !("$mel" in data)) {
+    return data;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { $host, $mel, ...rest } = data;
+  return rest;
+}
+
+/**
+ * Convert snapshot to canonical form with sorted keys and platform namespaces removed.
+ *
+ * DELTA-GEN-3: Canonical snapshot has:
+ * - Platform namespaces removed ($host, $mel) per WORLD-HASH-4a, WORLD-HASH-4b
+ * - Sorted keys for deterministic hashing
+ *
+ * This ensures delta scope matches snapshotHash input scope (D-STORE-3, STORE-4).
  *
  * @param snapshot - Input snapshot
- * @returns Canonical snapshot with sorted keys
+ * @returns Canonical snapshot with platform namespaces removed and sorted keys
  */
 export function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
+  // Strip platform namespaces from data (WORLD-HASH-4a, WORLD-HASH-4b)
+  const strippedData = stripPlatformNamespaces(snapshot.data ?? {});
+
   return {
-    data: sortObjectKeys(snapshot.data ?? {}),
+    data: sortObjectKeys(strippedData),
     computed: sortObjectKeys(snapshot.computed ?? {}),
     system: sortObjectKeys(snapshot.system ?? {
       status: "idle",
