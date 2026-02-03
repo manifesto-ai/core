@@ -41,7 +41,8 @@
     "overrides": {
       "@hono/node-server": "1.19.9",
       "esbuild": "0.27.2",
-      "hono": "4.11.4",
+      "hono": "4.11.7",
+      "lodash-es": "4.17.23",
       "preact": "10.28.2"
     }
   }
