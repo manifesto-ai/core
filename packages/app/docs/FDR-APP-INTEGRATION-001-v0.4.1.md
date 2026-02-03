@@ -347,31 +347,43 @@ const RESTORE_CONTEXT: HostContext = Object.freeze({
 
 #### 3.5.2 Canonical Snapshot (Platform Namespaces 처리)
 
-**D-STORE-CANONICAL:** WorldStore가 저장하는 snapshot은 **platform namespaces (`data.$host`, `data.$mel`)를 제거**한 "canonical snapshot"이어야 한다.
+**D-STORE-CANONICAL:** WorldStore가 저장하는 snapshot은 **platform namespaces (모든 `$`-prefixed 키)를 제거**한 "canonical snapshot"이어야 한다.
 
 ```typescript
 /**
+ * Platform namespace prefix.
+ * Per Core SPEC SCHEMA-RESERVED-1: $-prefixed keys are platform-reserved.
+ */
+const PLATFORM_NAMESPACE_PREFIX = "$";
+
+function isPlatformNamespace(key: string): boolean {
+  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
+}
+
+/**
  * 저장 전 canonical 변환
- * - data.$host 제거 (Host-owned, World identity에 영향 없음)
- * - data.$mel 제거 (Compiler-owned guard state, World identity에 영향 없음)
- * - 복구 시 baseSnapshot으로 사용될 때 이전 실행 상태 유입 방지
+ * - 모든 $-prefixed 키 제거 (platform namespaces)
+ * - 현재 알려진: $host (Host-owned), $mel (Compiler-owned)
+ * - 미래 확장 자동 처리: $app, $trace, etc.
  *
- * Per WORLD-HASH-4a, WORLD-HASH-4b: platform namespaces are excluded from snapshotHash
+ * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3 WORLD-HASH-*
  */
 function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
-  const { $host, $mel, ...rest } = snapshot.data;
-  return {
-    ...snapshot,
-    data: rest
-  };
+  const cleanData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot.data)) {
+    if (!isPlatformNamespace(key)) {
+      cleanData[key] = value;
+    }
+  }
+  return { ...snapshot, data: cleanData };
 }
 ```
 
 **Rationale:**
+- Core SPEC SCHEMA-RESERVED-1: `$`로 시작하는 모든 키는 플랫폼 예약
 - `data.$host`: Host 소유 상태 (Host SPEC HOST-DATA-1~6)
 - `data.$mel`: Compiler 소유 guard state (World SPEC v2.0.3 MEL-DATA-1~3)
-- 둘 다 World hash에서 제외됨 (WORLD-HASH-4a, WORLD-HASH-4b)
-- 저장 시 제거해야 다음 실행의 baseSnapshot에 이전 실행 상태가 유입되지 않음
+- **Future-proof**: 새 플랫폼 네임스페이스 (`$app`, `$trace` 등) SPEC 개정 없이 자동 처리
 - Delta 범위는 snapshotHash input 범위와 일치해야 함 (D-STORE-3, STORE-4)
 
 #### 3.5.3 Restoration Implementation
@@ -1666,15 +1678,31 @@ const RESTORE_CONTEXT: HostContext = Object.freeze({
 // Canonical Snapshot (Platform Namespaces 제거)
 // ───────────────────────────────────────────────────────────
 /**
- * Platform namespaces 제거
+ * Platform namespace prefix.
+ * Per Core SPEC SCHEMA-RESERVED-1: $-prefixed keys are platform-reserved.
+ */
+const PLATFORM_NAMESPACE_PREFIX = "$";
+
+function isPlatformNamespace(key: string): boolean {
+  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
+}
+
+/**
+ * Platform namespaces 제거 (future-proof)
  *
- * Per WORLD-HASH-4a, WORLD-HASH-4b:
- * - $host: Host-owned state (excluded from hash)
- * - $mel: Compiler-owned guard state (excluded from hash)
+ * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3:
+ * - All $-prefixed keys are platform namespaces
+ * - Known: $host (Host-owned), $mel (Compiler-owned)
+ * - Future: $app, $trace, etc. (automatically handled)
  */
 function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
-  const { $host, $mel, ...rest } = snapshot.data;
-  return { ...snapshot, data: rest };
+  const cleanData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot.data)) {
+    if (!isPlatformNamespace(key)) {
+      cleanData[key] = value;
+    }
+  }
+  return { ...snapshot, data: cleanData };
 }
 
 // ───────────────────────────────────────────────────────────

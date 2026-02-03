@@ -85,17 +85,35 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       expect(canonical.data).not.toHaveProperty("$mel");
     });
 
-    it("preserves non-platform data", () => {
+    it("SCHEMA-RESERVED-1: removes ALL $-prefixed keys (future-proof)", () => {
       const snapshot = createSnapshot({
         count: 42,
-        $custom: { value: 1 }, // Not a platform namespace
+        $host: { internal: true },
+        $mel: { guards: {} },
+        $app: { futureNamespace: true }, // Future platform namespace
+        $trace: { debug: true }, // Another future namespace
       });
 
       const canonical = toCanonicalSnapshot(snapshot);
 
-      // $custom is not a platform namespace, should be preserved
-      // Only $host and $mel are platform namespaces per World SPEC v2.0.3
-      expect(canonical.data).toHaveProperty("$custom");
+      expect(canonical.data).toEqual({ count: 42 });
+      expect(canonical.data).not.toHaveProperty("$host");
+      expect(canonical.data).not.toHaveProperty("$mel");
+      expect(canonical.data).not.toHaveProperty("$app");
+      expect(canonical.data).not.toHaveProperty("$trace");
+    });
+
+    it("preserves non-$-prefixed keys", () => {
+      const snapshot = createSnapshot({
+        count: 42,
+        _private: { value: 1 }, // Underscore prefix is NOT platform
+        normal: "data",
+      });
+
+      const canonical = toCanonicalSnapshot(snapshot);
+
+      expect(canonical.data).toHaveProperty("_private");
+      expect(canonical.data).toHaveProperty("normal");
     });
 
     it("sorts keys deterministically", () => {
@@ -238,6 +256,38 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       // Only user.name change
       expect(patches).toHaveLength(1);
       expect(patches[0].path).toBe("data.user.name");
+    });
+
+    it("SCHEMA-RESERVED-1: excludes ANY $-prefixed namespace from delta (future-proof)", () => {
+      const base = createSnapshot({
+        count: 0,
+        $host: { v: 1 },
+        $mel: { guards: {} },
+        $app: { telemetry: false }, // Future namespace
+        $trace: { logs: [] }, // Future namespace
+      });
+
+      const terminal = createSnapshot({
+        count: 1,
+        $host: { v: 2 },
+        $mel: { guards: { g1: "i1" } },
+        $app: { telemetry: true }, // Changed
+        $trace: { logs: ["entry"] }, // Changed
+      });
+
+      const patches = generateDelta(base, terminal);
+
+      // Only domain data change
+      expect(patches).toHaveLength(1);
+      expect(patches[0]).toEqual({
+        op: "set",
+        path: "data.count",
+        value: 1,
+      });
+
+      // No patches for ANY $-prefixed namespace
+      const platformPatches = patches.filter((p) => p.path.includes("$"));
+      expect(platformPatches).toHaveLength(0);
     });
   });
 

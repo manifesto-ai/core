@@ -97,11 +97,36 @@ export function generateDelta(
 }
 
 /**
+ * Platform namespace prefix.
+ *
+ * Per Core SPEC v2.0.0 SCHEMA-RESERVED-1:
+ * - Keys starting with `$` in snapshot.data are platform-reserved
+ * - Domain schemas MUST NOT define $-prefixed keys
+ *
+ * Known platform namespaces:
+ * - $host: Host-owned state (WORLD-HASH-4a)
+ * - $mel: Compiler-owned guard state (WORLD-HASH-4b)
+ * - Future: $app, $trace, etc. (automatically handled)
+ */
+const PLATFORM_NAMESPACE_PREFIX = "$";
+
+/**
+ * Check if a key is a platform namespace.
+ *
+ * @param key - Key to check
+ * @returns True if key is a platform namespace ($-prefixed)
+ */
+function isPlatformNamespace(key: string): boolean {
+  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
+}
+
+/**
  * Strip platform namespaces from data.
  *
- * Per WORLD-HASH-4a, WORLD-HASH-4b:
- * - $host: Host-owned state (excluded from hash)
- * - $mel: Compiler-owned guard state (excluded from hash)
+ * Per Core SPEC v2.0.0 SCHEMA-RESERVED-1 and World SPEC v2.0.3:
+ * - All $-prefixed top-level keys are platform namespaces
+ * - Platform namespaces MUST be excluded from snapshotHash
+ * - This is future-proof for new platform namespaces ($app, $trace, etc.)
  *
  * @param data - Data object
  * @returns Data without platform namespaces
@@ -112,12 +137,21 @@ function stripPlatformNamespaces(
   if (data === undefined || data === null) {
     return {};
   }
-  if (!("$host" in data) && !("$mel" in data)) {
+
+  const keys = Object.keys(data);
+  const hasPlatformNamespace = keys.some(isPlatformNamespace);
+
+  if (!hasPlatformNamespace) {
     return data;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { $host, $mel, ...rest } = data;
-  return rest;
+
+  const result: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (!isPlatformNamespace(key)) {
+      result[key] = data[key];
+    }
+  }
+  return result;
 }
 
 /**
