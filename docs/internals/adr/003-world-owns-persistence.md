@@ -127,6 +127,35 @@ async getSnapshot(worldId: WorldId): Promise<Snapshot> {
 }
 ```
 
+### 5. Read-Only Query API Boundary
+
+> **World MUST expose read-only query APIs only; no raw store access leaks upward.**
+
+This principle ensures:
+
+| Rule | Rationale |
+|------|-----------|
+| World exposes **query methods** (`getSnapshot`, `getWorld`, `getLineage`) | App can read state |
+| World does **NOT** expose `getStore()` | No raw store access bypass |
+| All mutations go through **governance** (`submitProposal`) | Audit trail preserved |
+
+```typescript
+// ALLOWED: Read-only queries
+world.getSnapshot(worldId);
+world.getWorld(worldId);
+world.getLineage();
+world.getProposal(proposalId);
+
+// FORBIDDEN: Raw store access
+world.getStore();              // ❌ Must not exist
+world.store.saveWorld(...);    // ❌ Bypasses governance
+```
+
+**Why this matters:**
+- Prevents App from bypassing World's governance logic
+- All state changes remain auditable through Proposal/Decision
+- World maintains invariant control over its persistence
+
 ---
 
 ## Consequences
@@ -166,12 +195,23 @@ async getSnapshot(worldId: WorldId): Promise<Snapshot> {
 ### Phase 1: Add New API (Non-Breaking)
 
 ```typescript
-// Support both patterns temporarily
+// ✅ New: preferred
+const app = createApp(domain, { world });
+
+// ✅ Old: still supported (deprecated)
+const app = createApp(domain, { _v2Config: { host, worldStore } });
+
+// ❌ FORBIDDEN: both world and _v2Config.worldStore
 const app = createApp(domain, {
-  world,                    // New: preferred
-  _v2Config: { ... },       // Old: deprecated
+  world,
+  _v2Config: { worldStore },  // Error: ambiguous ownership
 });
 ```
+
+**Conflict Resolution:**
+- If both `world` and `_v2Config.worldStore` are provided → **runtime error**
+- Error message: `"Cannot provide both 'world' and '_v2Config.worldStore'. Use 'world' only."`
+- This prevents "which store do we use?" ambiguity
 
 ### Phase 2: Deprecation Warning
 
@@ -196,6 +236,7 @@ Log warning when `_v2Config` is used without `world`.
 | App | Remove `DomainExecutor` and v1 execution path |
 | App | Query World for state, not WorldStore directly |
 | World | Ensure all App-needed queries are exposed |
+| World | Remove `getStore()` method if exists (no raw store access) |
 
 ### What Stays Same
 
@@ -216,7 +257,8 @@ This decision:
 1. Clarifies WorldStore ownership (World, not App)
 2. Removes v1 legacy complexity
 3. Aligns with ADR-001's layer boundaries
+4. Enforces read-only query boundary (no raw store leakage)
 
 One sentence:
 
-> **App references World; World owns WorldStore.**
+> **App references World; World owns WorldStore; no raw store access leaks upward.**
