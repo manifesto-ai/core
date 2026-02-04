@@ -15,7 +15,7 @@ All specifications are maintained at the package level. This page provides navig
 | **@manifesto-ai/core** | v2.0.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/host** | v2.0.2 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/world** | v2.0.3-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/builder** | v1.0.0 | Final | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/builder/docs/VERSION-INDEX.md) |
+| ~~@manifesto-ai/builder~~ | v1.0.0 | Deprecated | Superseded by Compiler/MEL |
 
 ### Application Layer
 

@@ -48,23 +48,6 @@
 
 ## B
 
-### Bridge
-
-**Definition:** The two-way binding layer that routes external events (UI, API, Agent) through Projections to Intents, and delivers Snapshot changes back to subscribers.
-
-**Not to be confused with:**
-- React bindings — Bridge is framework-agnostic; React bindings are in @manifesto-ai/react
-
-**See also:** [Projection](#projection), [SourceEvent](#sourceevent)
-
----
-
-### Builder
-
-**Definition:** The developer experience (DX) layer providing type-safe domain definition with Zod integration and zero string paths.
-
-**See also:** [DomainModule](#domainmodule), [FieldRef](#fieldref)
-
 ---
 
 ## C
@@ -132,15 +115,13 @@
 
 ### DomainModule
 
-**Definition:** The output of `defineDomain()` in @manifesto-ai/builder. Contains the compiled schema, typed accessors, and action references.
+**Definition:** The output of MEL compilation via @manifesto-ai/compiler. Contains the compiled schema that Core can evaluate.
 
 **Structure:**
 - `schema` — Compiled DomainSchema IR (for Core)
-- `state` — Type-safe state accessor
-- `computed` — Type-safe computed references
-- `actions` — Type-safe action references
+- State, computed, and action definitions
 
-**See also:** [Builder](#builder), [DomainSchema](#domainschema)
+**See also:** [DomainSchema](#domainschema), [Compiler](#compiler)
 
 ---
 
