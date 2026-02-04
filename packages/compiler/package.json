@@ -61,7 +61,7 @@
     "react": "^19.2.4"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
+    "@anthropic-ai/sdk": "^0.72.1",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@types/node": "^25.2.0",
