@@ -40,8 +40,8 @@ Comparing Manifesto to LangChain or AutoGen is also incorrect framing.
 │                  @manifesto-ai/app                  │  ← User Entry Point
 │              (High-level Facade)                    │
 ├─────────────────────────────────────────────────────┤
-│  @manifesto-ai/compiler  │  @manifesto-ai/builder   │  ← Domain Definition
-├──────────────────────────┴──────────────────────────┤
+│              @manifesto-ai/compiler                 │  ← Domain Definition (MEL)
+├─────────────────────────────────────────────────────┤
 │     @manifesto-ai/world    @manifesto-ai/host       │  ← Runtime
 │                  @manifesto-ai/core                 │
 └─────────────────────────────────────────────────────┘
@@ -51,7 +51,6 @@ Comparing Manifesto to LangChain or AutoGen is also incorrect framing.
 |---------|------|
 | **@manifesto-ai/app** | Main facade. Most users only need this. |
 | **@manifesto-ai/compiler** | MEL → DomainSchema compilation |
-| **@manifesto-ai/builder** | Type-safe domain definition (alternative to MEL) |
 | **@manifesto-ai/core** | Pure computation engine |
 | **@manifesto-ai/host** | Effect execution runtime |
 | **@manifesto-ai/world** | Governance and authority |
@@ -182,38 +181,48 @@ Manifesto excels when you need:
 
 ## Quick Start
 
-```typescript
-import { createApp } from "@manifesto-ai/app";
-
-// Define domain in MEL
-const domainMel = `
+```mel
+// task-board.mel
 domain TaskBoard {
-  state { tasks: Task[] = [] }
+  type Task = {
+    id: string,
+    title: string,
+    done: boolean
+  }
 
-  action addTask(title: string) {
-    once(id) {
-      patch id = $meta.intentId
-      patch tasks = append(tasks, { id, title, done: false })
+  state {
+    tasks: Array<Task> = []
+  }
+
+  action addTask(title: string, id: string) {
+    onceIntent {
+      patch tasks = append(tasks, { id: id, title: title, done: false })
     }
   }
 }
-`;
+```
+
+```typescript
+// main.ts
+import { createApp } from "@manifesto-ai/app";
+import TaskBoardMel from "./task-board.mel";
 
 // Create and start app
-const app = createApp(domainMel);
+const app = createApp(TaskBoardMel);
 await app.ready();
 
 // Execute actions
-await app.act("addTask", { title: "First task" }).done();
+await app.act("addTask", { title: "First task", id: crypto.randomUUID() }).done();
 
 // Read state
-const { tasks } = app.getState();
+const { tasks } = app.getState().data;
 console.log(tasks); // [{ id: "...", title: "First task", done: false }]
 
 // Subscribe to changes
-app.subscribe((state) => {
-  console.log("State changed:", state);
-});
+app.subscribe(
+  (state) => state.data.tasks,
+  (tasks) => console.log("Tasks changed:", tasks)
+);
 ```
 
 ## See Also

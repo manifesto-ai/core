@@ -32,60 +32,41 @@ type FlowNode =
 
 ## Example
 
-### Builder DSL
-
-```typescript
-import { defineDomain } from "@manifesto-ai/builder";
-
-const TodoDomain = defineDomain(schema, ({ state, flow, expr }) => ({
-  actions: {
-    addTodo: {
-      input: z.object({ title: z.string() }),
-      flow: flow.seq(
-        // Validation
-        flow.when(
-          expr.eq(expr.len(expr.input('title')), 0),
-          flow.fail('EMPTY_TITLE')
-        ),
-        // Optimistic update
-        flow.patch(state.todos).set(
-          expr.append(state.todos, {
-            id: expr.input('localId'),
-            title: expr.input('title'),
-            syncStatus: 'pending'
-          })
-        ),
-        // API call
-        flow.effect('api:createTodo', {
-          title: expr.input('title')
-        })
-      )
-    }
-  }
-}));
-```
-
-### MEL Equivalent
+### MEL (Recommended)
 
 ```mel
-action addTodo(title: string, localId: string) {
-  when eq(len(title), 0) {
-    fail "EMPTY_TITLE"
+domain TodoDomain {
+  state {
+    todos: Array<Todo> = []
   }
 
-  patch todos = append(todos, {
-    id: localId,
-    title: title,
-    syncStatus: "pending"
-  })
+  action addTodo(title: string, localId: string) {
+    // Validation
+    when eq(len(title), 0) {
+      fail "EMPTY_TITLE"
+    }
 
-  effect api:createTodo({
-    title: title
-  })
+    // Guarded execution
+    onceIntent {
+      // Optimistic update
+      patch todos = append(todos, {
+        id: localId,
+        title: title,
+        syncStatus: "pending"
+      })
+
+      // API call
+      effect api.createTodo {
+        title: title
+      }
+    }
+  }
 }
 ```
 
-### Raw JSON
+### Compiled JSON (Internal Representation)
+
+MEL compiles to JSON Flow structures that Core interprets:
 
 ```json
 {
@@ -97,15 +78,30 @@ action addTodo(title: string, localId: string) {
       "then": { "kind": "fail", "code": "EMPTY_TITLE" }
     },
     {
-      "kind": "patch",
-      "op": "set",
-      "path": "todos",
-      "value": { "kind": "append", "arr": { "kind": "get", "path": "todos" }, "item": "..." }
-    },
-    {
-      "kind": "effect",
-      "type": "api:createTodo",
-      "params": { "title": { "kind": "input", "path": "title" } }
+      "kind": "if",
+      "cond": { "kind": "isNull", "arg": { "kind": "get", "path": "$mel.guards.intent.addTodo_0" } },
+      "then": {
+        "kind": "seq",
+        "steps": [
+          {
+            "kind": "patch",
+            "op": "merge",
+            "path": "$mel.guards.intent",
+            "value": { "addTodo_0": { "kind": "meta", "field": "intentId" } }
+          },
+          {
+            "kind": "patch",
+            "op": "set",
+            "path": "data.todos",
+            "value": { "kind": "append", "arr": { "kind": "get", "path": "data.todos" }, "item": "..." }
+          },
+          {
+            "kind": "effect",
+            "type": "api.createTodo",
+            "params": { "title": { "kind": "input", "path": "title" } }
+          }
+        ]
+      }
     }
   ]
 }
@@ -113,62 +109,123 @@ action addTodo(title: string, localId: string) {
 
 ## Common Patterns
 
-### Re-entry Safe Flow
+### Re-entry Safe Flow with `onceIntent`
 
-```typescript
-// WRONG: Runs every compute cycle
-flow.seq(
-  flow.patch(state.count).set(expr.add(state.count, 1)),
-  flow.effect('api.submit', {})
-)
+```mel
+// RIGHT: Uses onceIntent for automatic re-entry safety
+action submit() {
+  onceIntent {
+    patch count = add(count, 1)
+    effect api.submit({})
+  }
+}
+```
 
+### Re-entry Safe Flow with Manual Guard
+
+```mel
 // RIGHT: State-guarded
-flow.onceNull(state.submittedAt, ({ patch, effect }) => {
-  patch(state.submittedAt).set(expr.now());
-  effect('api.submit', {});
-});
+action submit(timestamp: number) {
+  when isNull(submittedAt) {
+    patch submittedAt = timestamp
+    effect api.submit({})
+  }
+}
+```
+
+### Unsafe Flow (WRONG)
+
+```mel
+// WRONG: Runs every compute cycle - infinite loop!
+action submit() {
+  patch count = add(count, 1)
+  effect api.submit({})
+}
 ```
 
 ### Conditional Branching
 
-```typescript
-flow.when(
-  expr.get(state.user.isAdmin),
-  flow.patch(state.access).set('full'),
-  flow.patch(state.access).set('limited')
-)
+```mel
+action checkAccess() {
+  when user.isAdmin {
+    patch access = "full"
+  }
+  when not(user.isAdmin) {
+    patch access = "limited"
+  }
+}
 ```
 
-### Flow Composition
+### Validation with Fail
 
-```typescript
-// Define reusable flow
-const validateInput = flow.when(
-  expr.eq(expr.len(expr.input('title')), 0),
-  flow.fail('EMPTY_TITLE')
-);
+```mel
+action createUser(email: string) {
+  when not(contains(email, "@")) {
+    fail "INVALID_EMAIL"
+  }
 
-// Use in action
-flow.seq(
-  flow.call('validateInput'),
-  flow.patch(state.todos).set(...)
-)
+  onceIntent {
+    effect api.createUser { email: email }
+  }
+}
+```
+
+### Status-Based Guards
+
+```mel
+action load() {
+  when eq(status, "idle") {
+    patch status = "loading"
+    effect api.load({})
+  }
+}
 ```
 
 ## Flow Node Types
 
-| Node | Purpose |
-|------|---------|
-| `seq` | Execute steps in order |
-| `if` | Conditional branching |
-| `patch` | State mutation (set, unset, merge) |
-| `effect` | Declare external operation |
-| `call` | Invoke another flow |
-| `halt` | Normal termination |
-| `fail` | Error termination |
+| Node | Purpose | MEL Syntax |
+|------|---------|------------|
+| `seq` | Execute steps in order | Statements in order |
+| `if` | Conditional branching | `when condition { ... }` |
+| `patch` | State mutation (set, unset, merge) | `patch field = value` |
+| `effect` | Declare external operation | `effect type { params }` |
+| `call` | Invoke another flow | (Internal) |
+| `halt` | Normal termination | `stop` |
+| `fail` | Error termination | `fail "CODE"` |
+
+## How Core Interprets Flow
+
+```
+Intent arrives
+      ↓
+Core.compute(schema, snapshot, intent)
+      ↓
+Flow evaluation begins
+      ↓
+┌─────────────────────────────────────┐
+│ For each FlowNode:                  │
+│   - seq: process steps in order     │
+│   - if: evaluate condition, branch  │
+│   - patch: collect patch operation  │
+│   - effect: add to requirements     │
+│   - fail: set error, halt           │
+└─────────────────────────────────────┘
+      ↓
+Returns: { snapshot', patches, requirements, trace }
+      ↓
+If requirements exist:
+  Host executes effects
+  Host applies patches
+  Host calls compute() again
+      ↓
+If no requirements:
+  Flow complete
+```
 
 ## See Also
 
 - [Effect](./effect.md) - External operations declared in Flow
 - [Snapshot](./snapshot.md) - State that Flow reads and modifies
 - [Intent](./intent.md) - What triggers Flow execution
+- [Re-entry Safe Flows](/guides/reentry-safe-flows) - Guard patterns
+- [MEL Syntax](/mel/SYNTAX) - Complete language reference

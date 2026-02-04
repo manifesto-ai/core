@@ -84,15 +84,40 @@ domain TodoDomain {
 
 ## Common Patterns
 
-### Dispatching Intents (React)
+### Dispatching Intents (App)
 
 ```typescript
-import { createManifestoApp } from "@manifesto-ai/react";
+import { createApp } from "@manifesto-ai/app";
+import TodoMel from "./todo.mel";
 
-const Todo = createManifestoApp(TodoDomain, { initialState });
+const app = createApp(TodoMel);
+await app.ready();
+
+// Dispatch intent
+await app.act("addTodo", { title: "New task" }).done();
+
+// Read result from snapshot
+console.log(app.getState().data.todos);
+```
+
+### Dispatching Intents (React with App)
+
+```typescript
+import { useCallback, useSyncExternalStore } from 'react';
+import { createApp } from "@manifesto-ai/app";
+import TodoMel from "./todo.mel";
+
+const app = createApp(TodoMel);
+
+function useAction(actionName: string) {
+  return useCallback(
+    (input?: Record<string, unknown>) => app.act(actionName, input),
+    [actionName]
+  );
+}
 
 function AddTodoButton() {
-  const { addTodo } = Todo.useActions();
+  const addTodo = useAction('addTodo');
 
   return (
     <button onClick={() => addTodo({ title: "New task" })}>
@@ -117,18 +142,23 @@ const result = await host.dispatch(
 console.log(result.status); // "complete" | "pending" | "error"
 ```
 
-### Conditional Availability
+### Conditional Availability (MEL)
 
-```typescript
-// Action only available when condition is met
-actions.define({
-  clearCompleted: {
-    available: expr.gt(computed.completedCount, 0),
-    flow: flow.patch(state.todos).set(
-      expr.filter(state.todos, (t) => expr.not(t.completed))
-    )
+```mel
+domain TodoDomain {
+  state {
+    todos: Array<{ id: string, completed: boolean }> = []
   }
-});
+
+  computed completedCount = len(filter(todos, $item.completed))
+
+  // Action only runs when condition is met
+  action clearCompleted() {
+    when gt(completedCount, 0) {
+      patch todos = filter(todos, not($item.completed))
+    }
+  }
+}
 ```
 
 ## Intent vs Event

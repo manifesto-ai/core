@@ -18,12 +18,12 @@ This is by design (see FDR-H003: No Pause/Resume), but it creates a challenge: *
 
 ### Unsafe Flow (WRONG)
 
-```typescript
-// This flow has NO state guards
-flow.seq(
-  flow.effect('api.init', {}),
-  flow.patch(state.initialized).set(expr.lit(true))
-)
+```mel
+action init() {
+  // NO GUARD - This is wrong!
+  effect api.init({})
+  patch initialized = true
+}
 ```
 
 **Timeline of execution:**
@@ -33,22 +33,22 @@ flow.seq(
 │ Compute Cycle 1 (intent submitted)                             │
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
-│   1. flow.effect("api.init", {})  → Requirement declared        │
-│   2. flow.patch(state.initialized).set(true)  → Skipped (pending)       │
+│   1. effect api.init({})  → Requirement declared                │
+│   2. patch initialized = true  → Skipped (pending)              │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Host executes effect "api.init"                                 │
-│ Returns patches: [{ op: "set", path: "initData", ... }]  │
+│ Returns patches: [{ op: "set", path: "initData", ... }]         │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Compute Cycle 2 (auto-triggered by Host)                       │
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
-│   1. flow.effect("api.init", {})  → Requirement declared AGAIN! │
-│   2. flow.patch(state.initialized).set(true)  → Skipped (pending)       │
+│   1. effect api.init({})  → Requirement declared AGAIN!         │
+│   2. patch initialized = true  → Skipped (pending)              │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -69,19 +69,49 @@ flow.seq(
 
 ## The Solution: State Guards
 
-### Safe Flow (RIGHT)
+### Safe Flow with `onceIntent` (RECOMMENDED)
 
-```typescript
-flow.seq(
-  // Guard: only execute if NOT already initialized
-  flow.when(
-    expr.not(state.initialized),
-    flow.seq(
-      flow.effect('api.init', {}),
-      flow.patch(state.initialized).set(expr.lit(true))
-    )
-  )
-)
+The simplest solution is to use `onceIntent`, which automatically guards the block to run only once per intent:
+
+```mel
+domain Example {
+  state {
+    initialized: boolean = false
+    initData: object | null = null
+  }
+
+  action init() {
+    onceIntent {
+      effect api.init({})
+      patch initialized = true
+    }
+  }
+}
+```
+
+**How `onceIntent` works:**
+- Compiler generates a unique guard ID based on the action
+- Guard state is stored in `$mel.guards.intent`
+- Block executes only once per unique intentId
+
+### Safe Flow with Manual Guard (ALTERNATIVE)
+
+For more control, use explicit `when` guards:
+
+```mel
+domain Example {
+  state {
+    initialized: boolean = false
+    initData: object | null = null
+  }
+
+  action init() {
+    when not(initialized) {
+      effect api.init({})
+      patch initialized = true
+    }
+  }
+}
 ```
 
 **Timeline of execution:**
@@ -95,17 +125,17 @@ flow.seq(
 │ Compute Cycle 1 (intent submitted)                             │
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
-│   1. if (NOT state.initialized)  → true, enter branch           │
-│   2. flow.effect("api.init", {})  → Requirement declared        │
-│   3. flow.patch(state.initialized).set(true)  → Skipped (pending)       │
+│   1. when not(initialized)  → true, enter branch                │
+│   2. effect api.init({})  → Requirement declared                │
+│   3. patch initialized = true  → Skipped (pending)              │
 │ Result: status="pending", requirements=[effect:api.init]        │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Host executes effect "api.init"                                 │
 │ Returns patches:                                                │
-│   [{ op: "set", path: "initialized", value: true },      │
-│    { op: "set", path: "initData", value: {...} }]        │
+│   [{ op: "set", path: "initialized", value: true },             │
+│    { op: "set", path: "initData", value: {...} }]               │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -116,7 +146,7 @@ flow.seq(
 │ Compute Cycle 2 (auto-triggered by Host)                       │
 ├─────────────────────────────────────────────────────────────────┤
 │ Flow evaluation:                                                │
-│   1. if (NOT state.initialized)  → false, SKIP branch           │
+│   1. when not(initialized)  → false, SKIP branch                │
 │ Result: status="complete", requirements=[]                      │
 └─────────────────────────────────────────────────────────────────┘
                              ↓
@@ -126,241 +156,69 @@ flow.seq(
 
 ---
 
-## The Pattern: Feedback Loop
+## Guard Patterns in MEL
 
-**Every effect MUST be guarded by state that the effect changes.**
+### Pattern 1: `onceIntent` (Simplest)
 
-```
-┌─────────────────────────────────────────────────┐
-│  Check state → Effect not run?                  │
-│       │              │                           │
-│       │ YES          │ NO                        │
-│       ▼              ▼                           │
-│  Run effect    Skip effect                      │
-│       │                                          │
-│       ▼                                          │
-│  Effect sets state flag                         │
-│       │                                          │
-│       └──────────────┘                           │
-│    Next cycle checks flag → skips               │
-└─────────────────────────────────────────────────┘
-```
-
-This creates a **feedback loop** that prevents re-execution.
-
----
-
-## Builder Helpers
-
-The `@manifesto-ai/builder` package provides helpers for common patterns:
-
-### 1. onceNull: Initialize If Null
-
-```typescript
-import { onceNull } from "@manifesto-ai/builder";
-
-// Only execute if state.user is null
-onceNull(state.user, ({ patch, effect }) => {
-  patch(state.loading).set(expr.lit(true));
-  effect('api.fetchUser', { id: expr.input('userId') });
-  // Effect handler will set state.user
-  patch(state.loading).set(expr.lit(false));
-})
-```
-
-MEL equivalent:
+Use when you want the action body to run exactly once per intent:
 
 ```mel
-domain Example {
-  state {
-    user: string | null = null
-    loading: boolean = false
-  }
-
-  action loadUser(userId: string) {
-    when isNull(user) {
-      patch loading = true
-      effect api.fetchUser({ id: userId })
-      patch loading = false
-    }
+action submit() {
+  onceIntent {
+    patch submitted = true
+    effect api.submit({ data: formData })
   }
 }
 ```
 
-**When to use:**
-- Fetching data only if not already loaded
-- Initializing state that starts as null/undefined
+### Pattern 2: `when` with Null Check
 
-**How it works:**
-```typescript
-// onceNull expands to:
-flow.when(
-  expr.isNull(state.user),
-  flow.seq(...steps)
-)
-```
-
-### 2. guard: Conditional Execution
-
-```typescript
-import { guard } from "@manifesto-ai/builder";
-
-// Only execute if condition is true
-guard(expr.not(state.submitted), ({ patch, effect }) => {
-  patch(state.submitted).set(expr.lit(true));
-  effect('api.submit', { data: state.formData });
-})
-```
-
-MEL equivalent:
+Use when the action should run only if data hasn't been loaded:
 
 ```mel
-domain Example {
-  state {
-    submitted: boolean = false
-    formData: string = ""
-  }
-
-  action submit() {
-    when not(submitted) {
-      patch submitted = true
-      effect api.submit({ data: formData })
-    }
+action loadUser(userId: string) {
+  when isNull(user) {
+    patch loading = true
+    effect api.fetchUser({ id: userId })
   }
 }
 ```
 
-**When to use:**
-- Guarding any operation that shouldn't repeat
-- Enforcing preconditions
+### Pattern 3: `when` with Boolean Flag
 
-**How it works:**
-```typescript
-// guard expands to:
-flow.when(condition, flow.seq(...steps))
-```
-
----
-
-## Common Re-entry Patterns
-
-### Pattern 1: One-Time Initialization
-
-```typescript
-// State includes initialized flag
-const StateSchema = z.object({
-  initialized: z.boolean().default(false),
-  userData: z.object({...}).nullable().default(null)
-});
-
-// Action with initialization
-actions.define({
-  init: {
-    flow: onceNull(state.userData, ({ effect }) => {
-      effect('api.fetchUserData', {});
-      // Effect handler sets userData
-    })
-  }
-})
-```
-
-MEL equivalent:
+Use when you need explicit control over when action runs:
 
 ```mel
-domain Example {
-  state {
-    initialized: boolean = false
-    userData: string | null = null
-  }
-
-  action init() {
-    when isNull(userData) {
-      effect api.fetchUserData({})
-    }
+action submit() {
+  when not(submitted) {
+    patch submitted = true
+    effect api.submit({ data: formData })
   }
 }
 ```
 
-### Pattern 2: Submitted/Pending Flag
+### Pattern 4: `onceIntent when` (Conditional + Once)
 
-```typescript
-// State includes submission tracking
-const StateSchema = z.object({
-  formData: z.object({...}),
-  submitted: z.boolean().default(false),
-  submittedAt: z.number().nullable().default(null)
-});
-
-// Action with submission guard
-actions.define({
-  submit: {
-    input: z.object({ timestamp: z.number() }),
-    flow: guard(expr.not(state.submitted), ({ patch, effect }) => {
-      patch(state.submitted).set(expr.lit(true));
-      patch(state.submittedAt).set(expr.input('timestamp'));
-      effect('api.submit', { data: state.formData });
-    })
-  }
-})
-```
-
-MEL equivalent:
+Use when you need both automatic deduplication AND a condition:
 
 ```mel
-domain Example {
-  state {
-    formData: string = ""
-    submitted: boolean = false
-    submittedAt: number | null = null
-  }
-
-  action submit(timestamp: number) {
-    when not(submitted) {
-      patch submitted = true
-      patch submittedAt = timestamp
-      effect api.submit({ data: formData })
-    }
+action submit() {
+  onceIntent when not(alreadySubmitted) {
+    patch submitted = true
+    effect api.submit({ data: formData })
   }
 }
 ```
 
-### Pattern 3: Status-Based Guards
+### Pattern 5: Status-Based Guards
 
-```typescript
-// State includes explicit status
-const StateSchema = z.object({
-  status: z.enum(['idle', 'loading', 'loaded', 'error']).default('idle'),
-  data: z.any().nullable().default(null)
-});
-
-// Action with status guard
-actions.define({
-  load: {
-    flow: flow.seq(
-      // Only load if idle or error
-      flow.when(
-        expr.or(
-          expr.eq(state.status, 'idle'),
-          expr.eq(state.status, 'error')
-        ),
-        flow.seq(
-          flow.patch(state.status).set(expr.lit('loading')),
-          flow.effect('api.load', {}),
-          // Effect handler sets status to 'loaded' or 'error'
-        )
-      )
-    )
-  }
-})
-```
-
-MEL equivalent:
+Use when you have multiple states to track:
 
 ```mel
 domain Example {
   state {
     status: "idle" | "loading" | "loaded" | "error" = "idle"
-    data: string | null = null
+    data: object | null = null
   }
 
   action load() {
@@ -372,40 +230,9 @@ domain Example {
 }
 ```
 
-### Pattern 4: Timestamp-Based Guards
+### Pattern 6: Timestamp-Based Guards
 
-```typescript
-// State includes timestamp
-const StateSchema = z.object({
-  lastFetchedAt: z.number().nullable().default(null),
-  cacheMs: z.number().default(60000) // 1 minute cache
-});
-
-// Action with cache check
-actions.define({
-  fetchWithCache: {
-    input: z.object({ now: z.number() }),
-    flow: flow.seq(
-      // Only fetch if cache expired
-      flow.when(
-        expr.or(
-          expr.isNull(state.lastFetchedAt),
-          expr.gt(
-            expr.sub(expr.input('now'), state.lastFetchedAt),
-            state.cacheMs
-          )
-        ),
-        flow.seq(
-          flow.effect('api.fetch', {}),
-          flow.patch(state.lastFetchedAt).set(expr.input('now'))
-        )
-      )
-    )
-  }
-})
-```
-
-MEL equivalent:
+Use for cache invalidation:
 
 ```mel
 domain Example {
@@ -428,152 +255,63 @@ domain Example {
 
 ---
 
+## The Pattern: Feedback Loop
+
+**Every effect MUST be guarded by state that the effect changes.**
+
+```
+┌─────────────────────────────────────────────────┐
+│  Check state → Effect not run?                  │
+│       │              │                          │
+│       │ YES          │ NO                       │
+│       ▼              ▼                          │
+│  Run effect    Skip effect                      │
+│       │                                         │
+│       ▼                                         │
+│  Effect sets state flag                         │
+│       │                                         │
+│       └──────────────┘                          │
+│    Next cycle checks flag → skips               │
+└─────────────────────────────────────────────────┘
+```
+
+This creates a **feedback loop** that prevents re-execution.
+
+---
+
 ## Anti-Patterns (What NOT to Do)
 
 ### Anti-Pattern 1: No Guard
 
-```typescript
-// WRONG: No state guard
-flow.seq(
-  flow.patch(state.count).set(expr.add(state.count, 1)),
-  flow.effect('api.submit', {})
-)
-```
-
-MEL equivalent (wrong):
-
 ```mel
-domain Example {
-  state {
-    count: number = 0
-  }
-
-  action submit() {
-    patch count = add(count, 1)
-    effect api.submit({})
-  }
+// WRONG: No state guard
+action submit() {
+  patch count = add(count, 1)
+  effect api.submit({})
 }
 ```
 
 **Problem:** Runs every compute cycle. Count increments forever, API called repeatedly.
 
-**Fix:** Add guard based on state that effect changes.
-
-```typescript
-// RIGHT: Guarded by timestamp
-flow.onceNull(state.submittedAt, ({ patch, effect }) => {
-  patch(state.count).set(expr.add(state.count, 1));
-  patch(state.submittedAt).set(expr.input('timestamp'));
-  effect('api.submit', {});
-})
-```
-
-MEL equivalent (fix):
+**Fix:** Add `onceIntent` or explicit guard:
 
 ```mel
-domain Example {
-  state {
-    count: number = 0
-    submittedAt: number | null = null
-  }
-
-  action submit(timestamp: number) {
-    when isNull(submittedAt) {
-      patch count = add(count, 1)
-      patch submittedAt = timestamp
-      effect api.submit({})
-    }
-  }
-}
-```
-
-### Anti-Pattern 2: Incrementing Without Guard
-
-```typescript
-// WRONG: Unconditional increment
-actions.define({
-  increment: {
-    flow: flow.patch(state.count).set(expr.add(state.count, 1))
-  }
-})
-```
-
-MEL equivalent (wrong):
-
-```mel
-domain Example {
-  state {
-    count: number = 0
-  }
-
-  action increment() {
+// RIGHT: Guarded
+action submit(timestamp: number) {
+  onceIntent {
     patch count = add(count, 1)
+    patch submittedAt = timestamp
+    effect api.submit({})
   }
 }
 ```
 
-**Problem:** If this action has effects later (or is called as part of a larger flow with effects), the increment will run every compute cycle.
-
-**Fix:** For simple increments with no effects, this is actually safe. But if combined with effects:
-
-```typescript
-// If combined with effects, guard it
-actions.define({
-  incrementAndLog: {
-    input: z.object({ requestId: z.string() }),
-    flow: guard(
-      expr.neq(state.lastRequestId, expr.input('requestId')),
-      [
-        flow.patch(state.count).set(expr.add(state.count, 1)),
-        flow.patch(state.lastRequestId).set(expr.input('requestId')),
-        flow.effect('log.increment', { count: state.count })
-      ]
-    )
-  }
-})
-```
-
-MEL equivalent (fix):
+### Anti-Pattern 2: Boolean Toggle Without Guard
 
 ```mel
-domain Example {
-  state {
-    count: number = 0
-    lastRequestId: string | null = null
-  }
-
-  action incrementAndLog(requestId: string) {
-    when neq(lastRequestId, requestId) {
-      patch count = add(count, 1)
-      patch lastRequestId = requestId
-      effect log.increment({ count: count })
-    }
-  }
-}
-```
-
-### Anti-Pattern 3: Boolean Toggle Without Guard
-
-```typescript
 // WRONG: Toggle without tracking which request
-actions.define({
-  toggle: {
-    flow: flow.patch(state.flag).set(expr.not(state.flag))
-  }
-})
-```
-
-MEL equivalent (wrong):
-
-```mel
-domain Example {
-  state {
-    flag: boolean = false
-  }
-
-  action toggle() {
-    patch flag = not(flag)
-  }
+action toggle() {
+  patch flag = not(flag)
 }
 ```
 
@@ -581,26 +319,35 @@ domain Example {
 
 **Fix:** Use a target value, not a toggle:
 
-```typescript
+```mel
 // RIGHT: Set to specific value
-actions.define({
-  setFlag: {
-    input: z.object({ value: z.boolean() }),
-    flow: flow.patch(state.flag).set(expr.input('value'))
+action setFlag(value: boolean) {
+  onceIntent {
+    patch flag = value
   }
-})
+}
 ```
 
-MEL equivalent (fix):
+### Anti-Pattern 3: Increment Without Guard (with Effects)
 
 ```mel
-domain Example {
-  state {
-    flag: boolean = false
-  }
+// WRONG when combined with effects
+action incrementAndLog() {
+  patch count = add(count, 1)
+  effect log.increment({ count: count })
+}
+```
 
-  action setFlag(value: boolean) {
-    patch flag = value
+**Problem:** Both patch and effect run every cycle.
+
+**Fix:** Guard with request ID:
+
+```mel
+action incrementAndLog(requestId: string) {
+  when neq(lastRequestId, requestId) {
+    patch count = add(count, 1)
+    patch lastRequestId = requestId
+    effect log.increment({ count: count })
   }
 }
 ```
@@ -613,26 +360,25 @@ Effect handlers also play a role in re-entry safety by **setting the guard state
 
 ```typescript
 // Effect handler MUST set the guard state
-host.registerEffect('api.submit', async (type, params, context) => {
-  const { requirement } = context;
+app.registerEffect('api.submit', async (type, params) => {
   try {
     const result = await api.submit(params.data);
 
     return [
       // Set result
-      { op: 'set', path: 'result', value: result },
+      { op: 'set', path: 'data.result', value: result },
 
       // CRITICAL: Set the guard state
-      { op: 'set', path: 'submitted', value: true },
-      { op: 'set', path: 'submittedAt', value: requirement.createdAt }
+      { op: 'set', path: 'data.submitted', value: true },
+      { op: 'set', path: 'data.submittedAt', value: Date.now() }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'error', value: error.message },
+      { op: 'set', path: 'data.error', value: error.message },
 
       // Even on error, mark as attempted
-      { op: 'set', path: 'submitted', value: true },
-      { op: 'set', path: 'submittedAt', value: requirement.createdAt }
+      { op: 'set', path: 'data.submitted', value: true },
+      { op: 'set', path: 'data.submittedAt', value: Date.now() }
     ];
   }
 });
@@ -646,53 +392,50 @@ host.registerEffect('api.submit', async (type, params, context) => {
 
 ```typescript
 import { describe, it, expect } from "vitest";
-import { createCore, createIntent } from "@manifesto-ai/core";
-import { createHost } from "@manifesto-ai/host";
+import { createApp } from "@manifesto-ai/app";
+import MyDomainMel from "./my-domain.mel";
 
 describe("Re-entry safety", () => {
   it("effect executes only once per intent", async () => {
     let effectCallCount = 0;
 
-    const host = createHost(MyDomain.schema, {
-      snapshot: initialSnapshot,
-      context: { now: () => Date.now() },
-    });
+    const app = createApp(MyDomainMel);
 
-    host.registerEffect('api.submit', async (_type, _params) => {
+    app.registerEffect('api.submit', async () => {
       effectCallCount++;
       return [
-        { op: 'set', path: 'submitted', value: true }
+        { op: 'set', path: 'data.submitted', value: true }
       ];
     });
 
+    await app.ready();
+
     // Dispatch intent
-    await host.dispatch(createIntent('submit', {}, 'intent-1'));
+    await app.act('submit').done();
 
     // Effect should have been called exactly once
     expect(effectCallCount).toBe(1);
   });
 
-  it("same intent dispatched twice executes effect once", async () => {
+  it("second dispatch doesn't re-execute guarded effect", async () => {
     let effectCallCount = 0;
 
-    const host = createHost(MyDomain.schema, {
-      snapshot: initialSnapshot,
-      context: { now: () => Date.now() },
-    });
+    const app = createApp(MyDomainMel);
 
-    host.registerEffect('api.submit', async (_type, _params) => {
+    app.registerEffect('api.submit', async () => {
       effectCallCount++;
       return [
-        { op: 'set', path: 'submitted', value: true }
+        { op: 'set', path: 'data.submitted', value: true }
       ];
     });
 
-    // Dispatch same intent twice
-    const intent = createIntent('submit', {}, 'intent-1');
-    await host.dispatch(intent);
-    await host.dispatch(intent);
+    await app.ready();
 
-    // Effect should still only have been called once (guarded by submitted flag)
+    // Dispatch twice
+    await app.act('submit').done();
+    await app.act('submit').done();
+
+    // Effect should still only have been called once (guarded)
     expect(effectCallCount).toBe(1);
   });
 });
@@ -702,12 +445,25 @@ describe("Re-entry safety", () => {
 
 ## Checklist: Is My Flow Re-entry Safe?
 
-- [ ] Every effect is guarded by state that the effect changes
+- [ ] Every action body is wrapped in `onceIntent` OR has explicit `when` guard
 - [ ] Guard state is set by the effect handler
 - [ ] Guard state is checked before executing the effect
 - [ ] No unconditional patches that modify state repeatedly
 - [ ] No boolean toggles without request tracking
 - [ ] Effect handlers set guard state even on error
+
+---
+
+## Quick Reference: Choosing the Right Guard
+
+| Scenario | Pattern |
+|----------|---------|
+| Simple one-time action | `onceIntent { ... }` |
+| Load data if not present | `when isNull(data) { ... }` |
+| Submit if not submitted | `when not(submitted) { ... }` |
+| Status machine | `when eq(status, "idle") { ... }` |
+| Cache with TTL | `when gt(sub(now, lastFetched), ttl) { ... }` |
+| Conditional one-time | `onceIntent when condition { ... }` |
 
 ---
 
@@ -724,5 +480,6 @@ describe("Re-entry safety", () => {
 
 - [Design Rationale](/internals/fdr/) - FDRs including Host design rationale
 - [Effect Handlers Guide](./effect-handlers) - Writing safe effect handlers
-- [Getting Started](/quickstart) - Using guard helpers
+- [Getting Started](/guides/getting-started) - Using guard helpers
 - [Flow Concept](/concepts/flow) - Understanding Flows
+- [MEL Syntax](/mel/SYNTAX) - Complete MEL reference

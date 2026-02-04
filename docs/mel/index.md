@@ -58,15 +58,16 @@ domain Counter {
 
 ---
 
-## MEL vs Builder
+## Why MEL?
 
-| If you want... | Use |
+| Benefit | Description |
 | --- | --- |
-| TypeScript-first authoring | `@manifesto-ai/builder` |
-| A source language for humans and LLMs | MEL + compiler |
-| Build-time validation and review | MEL + compiler |
+| **Human-readable** | Clean syntax that's easy to read and review |
+| **LLM-friendly** | Structured enough for AI to generate and validate |
+| **Build-time validation** | Catch errors before runtime with compiler checks |
+| **Deterministic output** | Same source always produces same DomainSchema |
 
-Both paths produce the same DomainSchema for Core.
+MEL compiles to DomainSchema, which Core evaluates deterministically.
 
 ---
 

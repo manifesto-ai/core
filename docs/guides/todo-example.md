@@ -1,21 +1,19 @@
 # Full-Stack Todo App Example
 
-> **Extracted from:** docs-original/INTEGRATION_PATTERNS.md (Pattern 1)
-> **Purpose:** Complete working example demonstrating all Manifesto layers
+> **Purpose:** Complete working example demonstrating Manifesto layers
 > **Prerequisites:** Understanding of Manifesto architecture basics
 
 ---
 
 ## What This Demonstrates
 
-Complete integration of all Manifesto layers for a deterministic, UI-driven application:
+Complete integration of Manifesto layers for a deterministic, UI-driven application:
 
-- **Builder** - Type-safe domain definition with Zod
+- **App** - Application orchestration and lifecycle management
+- **Compiler** - MEL to DomainSchema compilation
 - **Core** - Pure computation and flow execution
 - **Host** - Effect execution and compute loop orchestration
 - **World** - Governance (minimal, with auto-approve for this example)
-- **Bridge** - Two-way binding between intents and UI events
-- **React** - Presentation and user interaction
 
 ---
 
@@ -32,23 +30,16 @@ Use this full-stack pattern when building interactive applications where users d
 │                         React UI                                │
 │  (TodoApp.tsx - presentation, event capture)                    │
 └────────────────────────┬────────────────────────────────────────┘
-                         │ useValue, useActions, useComputed
+                         │ app.subscribe(), app.act()
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    createManifestoApp                           │
-│  (Zero-config factory - handles wiring)                         │
-│     ├─ Provider (React Context)                                 │
-│     ├─ useValue (state selectors)                               │
-│     ├─ useComputed (derived values)                             │
-│     └─ useActions (intent dispatchers)                          │
+│                         App                                      │
+│  (createApp - handles wiring of all layers)                     │
+│     ├─ getState() (state access)                                │
+│     ├─ subscribe() (reactive subscriptions)                     │
+│     └─ act() (action dispatchers)                               │
 └────────────────────────┬────────────────────────────────────────┘
-                         │ dispatch(IntentBody)
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         Bridge                                   │
-│  (Two-way binding: events ↔ intents, snapshot ↔ subscribers)   │
-└────────────────────────┬────────────────────────────────────────┘
-                         │ submitProposal(actor, intent)
+                         │ dispatch(Intent)
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         World                                    │
@@ -68,139 +59,20 @@ Use this full-stack pattern when building interactive applications where users d
 └────────────────────────┬────────────────────────────────────────┘
                          │ New Snapshot
                          ▼
-                    Back to Bridge → React
+                    Back to App → React
 
 Data flows in a loop:
-  User action → Bridge → World → Host → Core → New Snapshot → Bridge → UI update
+  User action → App → World → Host → Core → New Snapshot → App → UI update
 ```
 
 ---
 
 ## Complete Implementation
 
-### Layer 1: Domain Definition (Builder)
-
-```typescript
-// src/domain/todo-domain.ts
-import { z } from "zod";
-import { defineDomain } from "@manifesto-ai/builder";
-
-// ============ State Schema ============
-
-const TodoItemSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  completed: z.boolean(),
-  createdAt: z.number(),
-});
-
-const TodoStateSchema = z.object({
-  todos: z.array(TodoItemSchema),
-  filter: z.enum(["all", "active", "completed"]),
-  editingId: z.string().nullable(),
-});
-
-export type TodoState = z.infer<typeof TodoStateSchema>;
-export type TodoItem = z.infer<typeof TodoItemSchema>;
-
-// ============ Domain Definition ============
-
-export const TodoDomain = defineDomain(
-  TodoStateSchema,
-  ({ state, computed, actions, expr, flow }) => {
-    // ============ Computed Values ============
-
-    const { activeCount } = computed.define({
-      activeCount: expr.len(
-        expr.filter(state.todos, (item) =>
-          expr.not(item.completed)
-        )
-      ),
-    });
-
-    const { filteredTodos } = computed.define({
-      filteredTodos: expr.cond(
-        expr.eq(state.filter, "active"),
-        expr.filter(state.todos, (item) =>
-          expr.not(item.completed)
-        ),
-        expr.cond(
-          expr.eq(state.filter, "completed"),
-          expr.filter(state.todos, (item) =>
-            item.completed
-          ),
-          state.todos
-        )
-      ),
-    });
-
-    // ============ Actions ============
-
-    const { add } = actions.define({
-      add: {
-        input: z.object({
-          id: z.string(),
-          title: z.string(),
-          createdAt: z.number(),
-        }),
-        flow: flow.patch(state.todos).set(
-          expr.append(state.todos, expr.object({
-            id: expr.input("id"),
-            title: expr.input("title"),
-            completed: expr.lit(false),
-            createdAt: expr.input("createdAt"),
-          }))
-        ),
-      },
-    });
-
-    const { toggle } = actions.define({
-      toggle: {
-        input: z.object({ id: z.string() }),
-        flow: flow.patch(state.todos).set(
-          expr.map(state.todos, (item) =>
-            expr.cond(
-              expr.eq(item.id, expr.input("id")),
-              expr.merge(
-                item,
-                expr.object({ completed: expr.not(item.completed) })
-              ),
-              item
-            )
-          )
-        ),
-      },
-    });
-
-    const { remove } = actions.define({
-      remove: {
-        input: z.object({ id: z.string() }),
-        flow: flow.patch(state.todos).set(
-          expr.filter(state.todos, (item) =>
-            expr.neq(item.id, expr.input("id"))
-          )
-        ),
-      },
-    });
-
-    return {
-      computed: { activeCount, filteredTodos },
-      actions: { add, toggle, remove },
-    };
-  },
-  { id: "todo-domain", version: "1.0.0" }
-);
-
-export const initialState: TodoState = {
-  todos: [],
-  filter: "all",
-  editingId: null,
-};
-```
-
-MEL equivalent:
+### Domain Definition (MEL)
 
 ```mel
+// src/todo.mel
 domain TodoDomain {
   type TodoItem = {
     id: string,
@@ -228,7 +100,7 @@ domain TodoDomain {
   )
 
   action add(id: string, title: string, createdAt: number) {
-    when true {
+    onceIntent {
       patch todos = append(todos, {
         id: id,
         title: title,
@@ -239,7 +111,7 @@ domain TodoDomain {
   }
 
   action toggle(id: string) {
-    when true {
+    onceIntent {
       patch todos = map(todos, cond(
         eq($item.id, id),
         merge($item, { completed: not($item.completed) }),
@@ -249,8 +121,14 @@ domain TodoDomain {
   }
 
   action remove(id: string) {
-    when true {
+    onceIntent {
       patch todos = filter(todos, neq($item.id, id))
+    }
+  }
+
+  action setFilter(newFilter: "all" | "active" | "completed") {
+    onceIntent {
+      patch filter = newFilter
     }
   }
 }
@@ -258,50 +136,124 @@ domain TodoDomain {
 
 ---
 
-### Layer 2-6: Application Wiring (createManifestoApp)
-
-`createManifestoApp` internally creates and wires:
-- **Host** (effect execution, compute loop)
-- **World** (actor registry, authority, proposals)
-- **Bridge** (event routing, snapshot subscriptions)
-- **React Context** (Provider, hooks)
+### Application Setup
 
 ```typescript
+// src/manifesto-app.ts
+import { createApp } from "@manifesto-ai/app";
+import TodoMel from "./todo.mel";
+
+export const app = createApp(TodoMel);
+```
+
+---
+
+### React Hooks
+
+```typescript
+// src/hooks/useManifesto.ts
+import { useCallback, useSyncExternalStore } from 'react';
+import { app } from '../manifesto-app';
+
+export function useSnapshot<T>(selector: (state: any) => T): T {
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => app.subscribe(() => true, onStoreChange),
+    []
+  );
+
+  const getSnapshot = useCallback(() => selector(app.getState()), [selector]);
+
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+export function useAction(actionName: string) {
+  return useCallback(
+    (input?: Record<string, unknown>) => app.act(actionName, input),
+    [actionName]
+  );
+}
+```
+
+---
+
+### UI Component
+
+```tsx
 // src/App.tsx
-import { createManifestoApp } from "@manifesto-ai/react";
-import { TodoDomain, initialState } from "./domain/todo-domain";
+import { useEffect, useState } from 'react';
+import { useSnapshot, useAction } from './hooks/useManifesto';
+import { app } from './manifesto-app';
 
-// Single line creates entire infrastructure
-const Todo = createManifestoApp(TodoDomain, { initialState });
+type TodoItem = {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: number;
+};
 
-// Export Provider for root
-export const TodoProvider = Todo.Provider;
-
-// UI Component
 function TodoList() {
-  // Type-safe state access
-  const todos = Todo.useValue((s) => s.todos);
-  const filter = Todo.useValue((s) => s.filter);
+  // State access
+  const filter = useSnapshot((s) => s.data.filter);
 
   // Computed values
-  const activeCount = Todo.useComputed((c) => c.activeCount) as number;
-  const filteredTodos = Todo.useComputed((c) => c.filteredTodos) as TodoItem[];
+  const activeCount = useSnapshot((s) => s.computed.activeCount) as number;
+  const filteredTodos = useSnapshot((s) => s.computed.filteredTodos) as TodoItem[];
 
   // Actions
-  const { add, toggle, remove } = Todo.useActions();
+  const add = useAction('add');
+  const toggle = useAction('toggle');
+  const remove = useAction('remove');
+  const setFilter = useAction('setFilter');
 
-  const handleAdd = () => {
-    add({
+  const [newTitle, setNewTitle] = useState('');
+
+  const handleAdd = async () => {
+    if (!newTitle.trim()) return;
+    await add({
       id: crypto.randomUUID(),
-      title: "New todo",
+      title: newTitle.trim(),
       createdAt: Date.now(),
-    });
+    }).done();
+    setNewTitle('');
   };
 
   return (
     <div>
       <h1>Todos ({activeCount} active)</h1>
-      <button onClick={handleAdd}>Add Todo</button>
+
+      {/* Add Form */}
+      <form onSubmit={(e) => { e.preventDefault(); handleAdd(); }}>
+        <input
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="What needs to be done?"
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      {/* Filter Tabs */}
+      <div>
+        <button
+          onClick={() => setFilter({ newFilter: 'all' })}
+          disabled={filter === 'all'}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setFilter({ newFilter: 'active' })}
+          disabled={filter === 'active'}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => setFilter({ newFilter: 'completed' })}
+          disabled={filter === 'completed'}
+        >
+          Completed
+        </button>
+      </div>
+
+      {/* Todo List */}
       <ul>
         {filteredTodos.map((todo) => (
           <li key={todo.id}>
@@ -310,7 +262,9 @@ function TodoList() {
               checked={todo.completed}
               onChange={() => toggle({ id: todo.id })}
             />
-            <span>{todo.title}</span>
+            <span style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+              {todo.title}
+            </span>
             <button onClick={() => remove({ id: todo.id })}>×</button>
           </li>
         ))}
@@ -319,13 +273,18 @@ function TodoList() {
   );
 }
 
-// Root component
+// Root component with app initialization
 export function App() {
-  return (
-    <Todo.Provider>
-      <TodoList />
-    </Todo.Provider>
-  );
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    app.ready().then(() => setReady(true));
+    return () => { app.dispose(); };
+  }, []);
+
+  if (!ready) return <div>Loading...</div>;
+
+  return <TodoList />;
 }
 ```
 
@@ -339,7 +298,7 @@ export function App() {
 1. React Event Handler
    add({ id: "123", title: "Buy milk", createdAt: 1234567890 })
 
-2. Bridge receives IntentBody
+2. App receives IntentBody
    { type: "add", input: { id: "123", title: "Buy milk", createdAt: 1234567890 } }
 
 3. World creates Proposal
@@ -352,21 +311,21 @@ export function App() {
    compute(schema, snapshot, intent, context)
 
 6. Core evaluates Flow
-   flow.patch(state.todos).set(expr.append(...))
-   → Generates patches: [{ op: "set", path: "todos", value: [...] }]
+   onceIntent { patch todos = append(...) }
+   → Generates patches: [{ op: "set", path: "data.todos", value: [...] }]
 
 7. Host applies patches
    apply(schema, snapshot, patches, context)
    → New Snapshot with updated todos array
 
-8. World creates new World
+8. World creates new World state
    WorldId: hash(schemaHash:snapshotHash)
 
-9. Bridge receives Snapshot update
+9. App receives Snapshot update
    Notifies all subscribers
 
 10. React re-renders
-    useValue((s) => s.todos) returns new array → UI updates
+    useSnapshot((s) => s.computed.filteredTodos) returns new array → UI updates
 ```
 
 ---
@@ -384,7 +343,7 @@ npm init -y
 ### 2. Install Dependencies
 
 ```bash
-npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host @manifesto-ai/world @manifesto-ai/bridge @manifesto-ai/react zod react react-dom
+npm install @manifesto-ai/app @manifesto-ai/compiler react react-dom
 npm install -D typescript @types/react @types/react-dom vite @vitejs/plugin-react
 ```
 
@@ -414,9 +373,10 @@ npm install -D typescript @types/react @types/react-dom vite @vitejs/plugin-reac
 // vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { melPlugin } from '@manifesto-ai/compiler/vite';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), melPlugin()],
 });
 ```
 
@@ -463,53 +423,33 @@ npx vite
 
 | Pitfall | Why It Fails | Solution |
 |---------|--------------|----------|
-| **Re-entry unsafe flows** | `flow.patch(state.count).set(expr.add(state.count, 1))` runs every compute cycle, incrementing forever | Use `flow.onceNull` to guard: `flow.onceNull(state.submittedAt, ({ patch }) => patch(...))` |
+| **Re-entry unsafe flows** | `patch count = add(count, 1)` without guard runs every compute cycle | Use `onceIntent { ... }` to guard patches |
 | **Direct state mutation** | `snapshot.data.todos.push(newTodo)` bypasses Core, breaks determinism | Always use actions: `add({ ... })` |
-| **Effect handler throws** | `async function handler() { throw new Error() }` crashes app | Return patches for errors: `return [{ op: "set", path: "error", value: error.message }]` |
+| **Effect handler throws** | `async function handler() { throw new Error() }` crashes app | Return patches for errors: `return [{ op: "set", path: "data.error", value: error.message }]` |
 | **Snapshot isolation** | Passing `snapshot.data` to external code that mutates it | Clone before passing out: `JSON.parse(JSON.stringify(snapshot.data))` |
 
 ---
 
 ## Extending the Example
 
-### Add Persistence
-
-```typescript
-// src/App.tsx
-const Todo = createManifestoApp(TodoDomain, {
-  initialState,
-  persistence: {
-    key: 'manifesto-todos',
-    storage: localStorage,
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-  }
-});
-```
-
 ### Add Server Sync
 
-```typescript
-// In domain definition
-const { sync } = actions.define({
-  sync: {
-    flow: flow.seq(
-      // Mark as syncing
-      flow.patch(state.syncStatus).set(expr.lit('syncing')),
-
-      // Call API
-      flow.effect('api:sync', {
-        todos: state.todos
-      }),
-
-      // Mark as synced (set by effect handler)
-      // Effect handler will set syncStatus based on result
-    )
+```mel
+// Add to todo.mel
+action sync() {
+  onceIntent when eq(syncStatus, "idle") {
+    patch syncStatus = "syncing"
+    effect "api:sync" { todos: todos }
   }
-});
+}
+```
 
-// Register effect handler
-host.registerEffect('api:sync', async (type, params, context) => {
+```typescript
+// Register effect handler in your app setup
+import { app } from './manifesto-app';
+
+// After app.ready()
+app.registerEffect('api:sync', async (type, params) => {
   try {
     await fetch('/api/todos', {
       method: 'POST',
@@ -517,13 +457,13 @@ host.registerEffect('api:sync', async (type, params, context) => {
     });
 
     return [
-      { op: 'set', path: 'syncStatus', value: 'synced' },
-      { op: 'set', path: 'lastSyncedAt', value: context.requirement.createdAt }
+      { op: 'set', path: 'data.syncStatus', value: 'synced' },
+      { op: 'set', path: 'data.lastSyncedAt', value: Date.now() }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'syncStatus', value: 'error' },
-      { op: 'set', path: 'syncError', value: error.message }
+      { op: 'set', path: 'data.syncStatus', value: 'error' },
+      { op: 'set', path: 'data.syncError', value: error.message }
     ];
   }
 });
@@ -533,14 +473,14 @@ host.registerEffect('api:sync', async (type, params, context) => {
 
 ## Related Guides
 
-- [Getting Started](./getting-started.md) - Beginner walkthrough
-- [Re-entry Safe Flows](./reentry-safe-flows.md) - Avoiding re-entry pitfalls
-- [Effect Handlers](./effect-handlers.md) - Writing effect handlers
+- [Getting Started](/quickstart) - Beginner walkthrough
+- [Re-entry Safe Flows](./reentry-safe-flows) - Avoiding re-entry pitfalls
+- [Effect Handlers](./effect-handlers) - Writing effect handlers
+- [React Integration](./react-integration) - React hooks and patterns
 
 ---
 
 ## See Also
 
 - [Architecture Overview](/architecture/) - Layer responsibilities
-- [Getting Started](/quickstart) - Domain definition patterns
 - [Core Concepts](/concepts/) - Understanding the mental model
