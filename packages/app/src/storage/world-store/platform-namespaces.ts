@@ -43,10 +43,12 @@ export function isPlatformNamespace(key: string): boolean {
  * @param data - Data object
  * @returns Data without platform namespaces
  */
-export function stripPlatformNamespaces(
-  data: Record<string, unknown>
-): Record<string, unknown> {
-  if (data === undefined || data === null) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+export function stripPlatformNamespaces(data: unknown): Record<string, unknown> {
+  if (!isRecord(data)) {
     return {};
   }
 

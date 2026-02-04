@@ -16,8 +16,10 @@ export const jsonExporter: TargetExporter<JsonOutput, void> = {
         id: step.nodeId,
         event: step.ir.event,
         resolution: step.resolution.status,
-        dependencies:
-          input.graph.nodes.find((node) => node.id === step.nodeId)?.dependsOn ?? [],
+        dependencies: (() => {
+          const node = input.graph.nodes.find((entry) => entry.id === step.nodeId);
+          return node?.dependsOn ? [...node.dependsOn] : [];
+        })(),
       })),
       edges: plan.dependencyEdges.map((edge) => ({
         from: edge.from,

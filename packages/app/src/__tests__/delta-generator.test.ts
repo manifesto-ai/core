@@ -16,6 +16,10 @@ import {
 } from "../storage/world-store/delta-generator.js";
 import type { Snapshot } from "../core/types/index.js";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function createSnapshot(
   data: Record<string, unknown>,
   overrides?: Partial<Snapshot>
@@ -125,7 +129,8 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
 
       const canonical = toCanonicalSnapshot(snapshot);
 
-      const keys = Object.keys(canonical.data);
+      const data = isRecord(canonical.data) ? canonical.data : {};
+      const keys = Object.keys(data);
       expect(keys).toEqual(["alpha", "beta", "zebra"]);
     });
   });

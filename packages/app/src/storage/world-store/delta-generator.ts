@@ -111,21 +111,24 @@ export function generateDelta(
  */
 export function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
   // Strip platform namespaces from data (WORLD-HASH-4a, WORLD-HASH-4b)
-  const strippedData = stripPlatformNamespaces(snapshot.data ?? {});
+  const strippedData = stripPlatformNamespaces(snapshot.data);
 
   return {
     data: sortObjectKeys(strippedData),
     computed: sortObjectKeys(snapshot.computed ?? {}),
     system: sortObjectKeys(snapshot.system ?? {
       status: "idle",
-      pendingRequirements: [],
+      lastError: null,
       errors: [],
+      pendingRequirements: [],
+      currentAction: null,
     }),
     input: sortObjectKeys(snapshot.input ?? {}),
     meta: sortObjectKeys(snapshot.meta ?? {
       version: 0,
-      timestamp: "",
-      hash: "",
+      timestamp: 0,
+      randomSeed: "",
+      schemaHash: "",
     }),
   };
 }
