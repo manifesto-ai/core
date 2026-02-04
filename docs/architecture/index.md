@@ -11,7 +11,7 @@
 The Architecture section explains **how Manifesto is structured** and **why it's structured that way**.
 
 After reading this section, you'll understand:
-- The five-layer architecture (App, World, Host, Core, Builder/Compiler)
+- The four-layer architecture (App, World, Host, Core) + Compiler (MEL)
 - How data flows through the system
 - Why determinism is guaranteed
 - How failures are handled
@@ -130,14 +130,14 @@ const newSnapshot = core.apply(schema, snapshot, [
 
 ### [Layers](/internals/architecture)
 
-The five-layer architecture and their responsibilities.
+The four-layer architecture and their responsibilities.
 
 **What you'll learn:**
 - App layer (orchestration and UI integration)
 - World layer (governance)
 - Host layer (effect execution)
 - Core layer (pure computation)
-- Builder/Compiler layer (domain definition)
+- Compiler (MEL) for domain definition
 - Boundaries and contracts between layers
 
 **When to read:** Start here to understand the big picture.
@@ -254,7 +254,7 @@ How World Protocol manages authority and accountability.
 
 ## Architecture Quick Reference
 
-### The Five Layers
+### The Four Layers + Compiler
 
 | Layer | Package | Responsibility | Can Do | Cannot Do |
 |-------|---------|----------------|--------|-----------|
@@ -262,7 +262,7 @@ How World Protocol manages authority and accountability.
 | **World** | `@manifesto-ai/world` | Govern proposals, evaluate authority | Approve/reject, record lineage | Execute, compute |
 | **Host** | `@manifesto-ai/host` | Execute effects, apply patches | Run handlers, orchestrate | Decide, interpret meaning |
 | **Core** | `@manifesto-ai/core` | Pure computation | Compute patches/effects | IO, execution, time-awareness |
-| **Builder/Compiler** | `@manifesto-ai/builder`, `@manifesto-ai/compiler` | Define domains (DSL/MEL) | Generate schemas | Execute anything |
+| **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation | Parse, validate, generate schemas | Execute anything |
 
 ### Data Flow Summary
 
@@ -357,14 +357,14 @@ See [World Concept](/concepts/world) and [Specifications](/internals/spec/) for 
 
 ```mermaid
 graph BT
-    Builder["Builder/Compiler<br/>(DSL/MEL)"]
+    Compiler["Compiler<br/>(MEL)"]
     Core["Core<br/>(Computation)"]
     Host["Host<br/>(Execution)"]
     World["World<br/>(Governance)"]
     App["App<br/>(Orchestration)"]
     UI["React/UI<br/>(Presentation)"]
 
-    Core --> Builder
+    Core --> Compiler
     Host --> Core
     Host --> World
     App --> World
@@ -376,7 +376,7 @@ graph BT
     style World fill:#ffe1f5
     style App fill:#f0f0f0
     style UI fill:#e8f5e9
-    style Builder fill:#fff9c4
+    style Compiler fill:#fff9c4
 ```
 
 ### Execution Flow

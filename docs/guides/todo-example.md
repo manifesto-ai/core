@@ -10,7 +10,7 @@
 Complete integration of Manifesto layers for a deterministic, UI-driven application:
 
 - **App** - Application orchestration and lifecycle management
-- **Builder** - Type-safe domain definition with Zod
+- **Compiler** - MEL to DomainSchema compilation
 - **Core** - Pure computation and flow execution
 - **Host** - Effect execution and compute loop orchestration
 - **World** - Governance (minimal, with auto-approve for this example)
