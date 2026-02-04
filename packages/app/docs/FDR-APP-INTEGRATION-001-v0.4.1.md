@@ -1,15 +1,21 @@
 # FDR-APP-INTEGRATION-001: Host-World Integration & Memory Lifecycle
 
-> **Version:** 0.4.0 (Draft)  
-> **Status:** Draft  
-> **Date:** 2026-01-19  
-> **Scope:** App v2 Host-World integration, WorldStore strategy, Maintenance cycle for memory lifecycle  
-> **Depends on:** ARCHITECTURE v2, ADR-001, Host v2.0.2, World v2.0.2, Core SPEC v2.0.0, FDR-APP-PUB-001, FDR-APP-RUNTIME-001
+> **Version:** 0.4.1 (Draft)
+> **Status:** Draft
+> **Date:** 2026-02-03
+> **Scope:** App v2 Host-World integration, WorldStore strategy, Maintenance cycle for memory lifecycle
+> **Depends on:** ARCHITECTURE v2, ADR-001, Host v2.0.2, World v2.0.4, Core SPEC v2.0.0, FDR-APP-PUB-001, FDR-APP-RUNTIME-001
 >
 > **Changelog:**
+> - v0.4.1: **World SPEC v2.0.4 정합 — Platform Namespace 통합**
+>   - Delta scope에서 `$mel` 명시적 제외 (WORLD-HASH-4b 정합)
+>   - `toCanonicalSnapshot()`: `$host` + `$mel` 모두 제거 (platform namespaces)
+>   - STORE-HOST-1 → STORE-PLATFORM-1: platform namespaces 제거로 일반화
+>   - References를 World SPEC v2.0.4로 업데이트
+>   - Cross-Reference에 MEL-DATA-*, WORLD-HASH-4b 추가
 > - v0.4.0: **Core v2 Patch 모델 정합성 수정**
-    >   - `generateDelta()`: `worldId` 참조 제거 → 외부 파라미터로 전달
-    >   - `canonicalizePatches()`: JSON Patch ops (add/remove/replace) → Core v2 ops (set/unset/merge)
+>   - `generateDelta()`: `worldId` 참조 제거 → 외부 파라미터로 전달
+>   - `canonicalizePatches()`: JSON Patch ops (add/remove/replace) → Core v2 ops (set/unset/merge)
 >   - `jsonPatchToCorePatches()`: 변환 함수 추가
 >   - DELTA-GEN-5 규칙 추가: Core Patch 연산자만 사용
 > - v0.3.2: World SPEC 정합 — `status` → `outcome` 필드 통일
@@ -143,7 +149,7 @@ type HostExecutionResult = {
 
 > **Authority:** `outcome`은 힌트(advisory)이며, **`terminalSnapshot`이 권위**다.
 > World는 `terminalSnapshot`에서 `deriveOutcome()`으로 최종 결과를 판정한다.
-> 이것은 World SPEC v2.0.2의 outcome 판정 규칙과 정합한다.
+> 이것은 World SPEC v2.0.4의 outcome 판정 규칙과 정합한다.
 
 ### 2.5 Rules
 
@@ -339,26 +345,46 @@ const RESTORE_CONTEXT: HostContext = Object.freeze({
 
 **Rationale:** `Core.apply`는 context에 따라 meta 값이 달라질 수 있음. 복구 시 고정 context를 사용해야 "Deterministic Restoration" 원칙이 성립.
 
-#### 3.5.2 Canonical Snapshot ($host 처리)
+#### 3.5.2 Canonical Snapshot (Platform Namespaces 처리)
 
-**D-STORE-CANONICAL:** WorldStore가 저장하는 snapshot은 **`data.$host`를 제거**한 "canonical snapshot"이어야 한다.
+**D-STORE-CANONICAL:** WorldStore가 저장하는 snapshot은 **platform namespaces (모든 `$`-prefixed 키)를 제거**한 "canonical snapshot"이어야 한다.
 
 ```typescript
 /**
+ * Platform namespace prefix.
+ * Per Core SPEC SCHEMA-RESERVED-1: $-prefixed keys are platform-reserved.
+ */
+const PLATFORM_NAMESPACE_PREFIX = "$";
+
+function isPlatformNamespace(key: string): boolean {
+  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
+}
+
+/**
  * 저장 전 canonical 변환
- * - data.$host 제거 (Host-owned, World identity에 영향 없음)
- * - 복구 시 baseSnapshot으로 사용될 때 Host 상태 유입 방지
+ * - 모든 $-prefixed 키 제거 (platform namespaces)
+ * - 현재 알려진: $host (Host-owned), $mel (Compiler-owned)
+ * - 미래 확장 자동 처리: $app, $trace, etc.
+ *
+ * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.4 WORLD-HASH-*
  */
 function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
-  const { $host, ...rest } = snapshot.data;
-  return {
-    ...snapshot,
-    data: rest
-  };
+  const cleanData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot.data)) {
+    if (!isPlatformNamespace(key)) {
+      cleanData[key] = value;
+    }
+  }
+  return { ...snapshot, data: cleanData };
 }
 ```
 
-**Rationale:** `data.$host`는 Host 소유이며 World hash에서도 제외됨 (Host SPEC HOST-DATA-1~6). 저장 시 제거해야 다음 실행의 baseSnapshot에 이전 Host 상태가 유입되지 않음.
+**Rationale:**
+- Core SPEC SCHEMA-RESERVED-1: `$`로 시작하는 모든 키는 플랫폼 예약
+- `data.$host`: Host 소유 상태 (Host SPEC HOST-DATA-1~6)
+- `data.$mel`: Compiler 소유 guard state (World SPEC v2.0.4 MEL-DATA-1~3)
+- **Future-proof**: 새 플랫폼 네임스페이스 (`$app`, `$trace` 등) SPEC 개정 없이 자동 처리
+- Delta 범위는 snapshotHash input 범위와 일치해야 함 (D-STORE-3, STORE-4)
 
 #### 3.5.3 Restoration Implementation
 
@@ -488,8 +514,12 @@ type StoredDelta = {
 
 | 포함 | 제외 |
 |------|------|
-| `data.*` (excluding `$host`) | `data.$host` (Host-owned, hash 제외) |
-| `system.*` (normalized) | - |
+| `data.*` (excluding platform namespaces) | `data.$host` (Host-owned, WORLD-HASH-4a) |
+| `system.*` (normalized) | `data.$mel` (Compiler-owned, WORLD-HASH-4b) |
+
+> **Note:** Delta는 snapshotHash input 범위만 포함해야 함 (D-STORE-3, STORE-4).
+> World SPEC v2.0.4에서 `$host`와 `$mel` 모두 snapshotHash에서 제외되므로,
+> Delta에서도 제외되어야 계약 일관성이 유지됨.
 
 ### 3.6.1 Delta Generation Rules (v0.4.0 개정)
 
@@ -509,7 +539,7 @@ function generateDelta(
   childSnapshot: Snapshot,
   schemaHash: string
 ): StoredDelta {
-  // 1. Canonical snapshot으로 변환 ($host 제거)
+  // 1. Canonical snapshot으로 변환 (platform namespaces 제거: $host, $mel)
   const canonicalParent = toCanonicalSnapshot(parentSnapshot);
   const canonicalChild = toCanonicalSnapshot(childSnapshot);
   
@@ -589,7 +619,7 @@ function canonicalizePatches(patches: CorePatch[]): CorePatch[] {
 |---------|-------|-------------|
 | DELTA-GEN-1 | MUST | Patch[]는 **경로 기준 사전식 정렬**으로 canonicalize |
 | DELTA-GEN-2 | MUST | Patch path는 apply-time에 **정적으로 해석 가능**해야 함 |
-| DELTA-GEN-3 | MUST | Delta 생성 전 **canonical snapshot 변환** 적용 ($host 제거) |
+| DELTA-GEN-3 | MUST | Delta 생성 전 **canonical snapshot 변환** 적용 (platform namespaces 제거: `$host`, `$mel`) |
 | DELTA-GEN-4 | MUST | 같은 parent→child에 대해 **항상 동일한 Patch[]** 생성 |
 | DELTA-GEN-5 | MUST | Patch op는 **Core v2 연산자만 사용** (set, unset, merge) |
 | DELTA-GEN-6 | MUST | `worldId`는 Snapshot에서 추출하지 않고 **외부 파라미터로 전달** |
@@ -606,11 +636,11 @@ function canonicalizePatches(patches: CorePatch[]): CorePatch[] {
 | STORE-4 | MUST | Delta MUST only contain changes within snapshotHash input scope |
 | STORE-5 | MUST | Delta MUST record schemaHash for multi-schema restoration |
 | STORE-6 | SHOULD | WorldStore SHOULD implement LRU cache for frequently accessed Worlds |
-| STORE-HOST-1 | MUST | Stored snapshot MUST be canonical (`data.$host` removed) |
+| STORE-PLATFORM-1 | MUST | Stored snapshot MUST be canonical (platform namespaces removed: `$host`, `$mel`) |
 | RESTORE-CTX-1 | MUST | Restore MUST use fixed deterministic HostContext (`RESTORE_CONTEXT`) |
 | DELTA-GEN-1 | MUST | Patch[] MUST be canonicalized (path-based lexicographic sort) |
 | DELTA-GEN-2 | MUST | Patch path MUST be statically resolvable at apply-time |
-| DELTA-GEN-3 | MUST | Delta generation MUST apply canonical snapshot transform |
+| DELTA-GEN-3 | MUST | Delta generation MUST apply canonical snapshot transform (platform namespaces removed) |
 | DELTA-GEN-4 | MUST | Same parent→child MUST produce identical Patch[] |
 | DELTA-GEN-5 | MUST | Patch op MUST use Core v2 operators only (set, unset, merge) |
 | DELTA-GEN-6 | MUST | worldId MUST be passed as external parameter, not extracted from Snapshot |
@@ -1544,11 +1574,11 @@ function getDigest(worldId: WorldId): HistoryDigest | null {
 | STORE-BASE-1 | MUST | Active horizon (heads + ancestors) MUST always be fully restorable |
 | STORE-BASE-2 | MUST | Active horizon MUST NOT have degraded restore latency |
 | STORE-BASE-3 | SHOULD | Active horizon depth SHOULD be configurable (default: 100) |
-| STORE-HOST-1 | MUST | Stored snapshot MUST be canonical (data.$host removed) |
+| STORE-PLATFORM-1 | MUST | Stored snapshot MUST be canonical (platform namespaces removed: `$host`, `$mel`) |
 | RESTORE-CTX-1 | MUST | Restore MUST use fixed deterministic HostContext |
 | DELTA-GEN-1 | MUST | Patch[] MUST be canonicalized by path (lexicographic sort) |
 | DELTA-GEN-2 | MUST | Patch path MUST be statically resolvable at apply-time |
-| DELTA-GEN-3 | MUST | Delta generation MUST apply canonical snapshot transform |
+| DELTA-GEN-3 | MUST | Delta generation MUST apply canonical snapshot transform (platform namespaces removed) |
 | DELTA-GEN-4 | MUST | Same parent→child MUST produce identical Patch[] |
 | COMPACT-INDEX-1 | MUST | WorldStore MUST maintain worldId → compactedId index |
 
@@ -1585,9 +1615,10 @@ function getDigest(worldId: WorldId): HistoryDigest | null {
 
 - **FDR-APP-PUB-001**: Tick definition, publish boundary
 - **FDR-APP-RUNTIME-001**: Lifecycle, Hooks, Plugin (maintenance hooks integration)
-- **World SPEC v2.0.2**: WorldStore contract, baseSnapshot restoration
+- **World SPEC v2.0.4**: WorldStore contract, baseSnapshot restoration, platform namespace hash exclusion (WORLD-HASH-4a/4b), future-proof $-prefix pattern
 - **Host SPEC v2.0.2**: HostExecutor interface, execution result
 - **ADR-001**: Layer separation (App implements HostExecutor)
+- **Core SPEC v2.0.0**: Patch operators (set/unset/merge), StateSpec reserved namespaces
 
 ---
 
@@ -1644,11 +1675,34 @@ const RESTORE_CONTEXT: HostContext = Object.freeze({
 });
 
 // ───────────────────────────────────────────────────────────
-// Canonical Snapshot
+// Canonical Snapshot (Platform Namespaces 제거)
 // ───────────────────────────────────────────────────────────
+/**
+ * Platform namespace prefix.
+ * Per Core SPEC SCHEMA-RESERVED-1: $-prefixed keys are platform-reserved.
+ */
+const PLATFORM_NAMESPACE_PREFIX = "$";
+
+function isPlatformNamespace(key: string): boolean {
+  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
+}
+
+/**
+ * Platform namespaces 제거 (future-proof)
+ *
+ * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.4:
+ * - All $-prefixed keys are platform namespaces
+ * - Known: $host (Host-owned), $mel (Compiler-owned)
+ * - Future: $app, $trace, etc. (automatically handled)
+ */
 function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
-  const { $host, ...rest } = snapshot.data;
-  return { ...snapshot, data: rest };
+  const cleanData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot.data)) {
+    if (!isPlatformNamespace(key)) {
+      cleanData[key] = value;
+    }
+  }
+  return { ...snapshot, data: cleanData };
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1738,15 +1792,19 @@ type WorldIndex = {
 
 ---
 
-## 12. Cross-Reference Summary (v0.4.0)
+## 12. Cross-Reference Summary (v0.4.1)
 
 | This FDR | Related Document | Relationship |
 |----------|------------------|--------------|
 | §3.6 StoredDelta.patches | Core SPEC v2.0.0 §FDR-012 | Core Patch 타입 정합 |
 | §3.6.1 DELTA-GEN-5 | Core SPEC v2.0.0 | Core v2 연산자 사용 |
 | §3.6.1 DELTA-GEN-6 | Core SPEC v2.0.0 Snapshot | worldId 필드 부재 대응 |
-| §3.5.2 STORE-HOST-1 | Host SPEC v2.0.2 HOST-DATA-1~6 | $host 제외 정합 |
-| HostExecutionResult | World SPEC v2.0.2 | outcome 필드 정합 |
+| §3.5.2 STORE-PLATFORM-1 | Host SPEC v2.0.2 HOST-DATA-1~6 | $host 제외 정합 |
+| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.4 WORLD-HASH-4a | $host hash 제외 정합 |
+| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.4 WORLD-HASH-4b | $mel hash 제외 정합 |
+| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.4 MEL-DATA-1~3 | $mel Compiler-owned 정합 |
+| §3.6 Delta scope | World SPEC v2.0.4 snapshotHash input | Delta = hash input 범위 |
+| HostExecutionResult | World SPEC v2.0.4 | outcome 필드 정합 |
 
 ---
 

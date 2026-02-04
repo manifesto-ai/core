@@ -61,16 +61,16 @@
     "react": "^19.2.4"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
+    "@anthropic-ai/sdk": "^0.72.1",
     "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@types/node": "^25.1.0",
+    "@types/node": "^25.2.0",
     "@types/react": "^19.2.10",
     "dotenv": "^17.2.3",
-    "openai": "^6.16.0",
+    "openai": "^6.17.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17",
+    "vitest": "^4.0.18",
     "zod": "^4.3.6"
   },
   "files": [

@@ -217,7 +217,7 @@ type WorldOutcome = 'completed' | 'failed';
 ### 5.6 Authority Types
 
 ```typescript
-type AuthorityKind = 'auto' | 'human' | 'policy' | 'consensus';
+type AuthorityKind = 'auto' | 'human' | 'policy' | 'tribunal';
 
 type AuthorityRef = {
   readonly kind: AuthorityKind;
