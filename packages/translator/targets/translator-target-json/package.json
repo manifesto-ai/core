@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/translator-target-json",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "JSON target exporter for @manifesto-ai/translator",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

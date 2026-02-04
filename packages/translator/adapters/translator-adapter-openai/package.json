@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/translator-adapter-openai",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenAI adapter for @manifesto-ai/translator LLMPort",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/compiler",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Manifesto Compiler - MEL (Manifesto Expression Language) to DomainSchema compiler",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

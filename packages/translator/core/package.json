@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/translator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Manifesto Translator - Semantic bridge from natural language to Intent Graph",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
