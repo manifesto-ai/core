@@ -11,7 +11,7 @@
 The Architecture section explains **how Manifesto is structured** and **why it's structured that way**.
 
 After reading this section, you'll understand:
-- The six-layer architecture
+- The five-layer architecture (App, World, Host, Core, Builder/Compiler)
 - How data flows through the system
 - Why determinism is guaranteed
 - How failures are handled
@@ -130,15 +130,14 @@ const newSnapshot = core.apply(schema, snapshot, [
 
 ### [Layers](/internals/architecture)
 
-The six-layer architecture and their responsibilities.
+The five-layer architecture and their responsibilities.
 
 **What you'll learn:**
-- React/UI layer
-- Bridge layer
-- World layer
-- Host layer
-- Core layer
-- Builder layer
+- App layer (orchestration and UI integration)
+- World layer (governance)
+- Host layer (effect execution)
+- Core layer (pure computation)
+- Builder/Compiler layer (domain definition)
 - Boundaries and contracts between layers
 
 **When to read:** Start here to understand the big picture.
@@ -255,25 +254,24 @@ How World Protocol manages authority and accountability.
 
 ## Architecture Quick Reference
 
-### The Six Layers
+### The Five Layers
 
-| Layer | Responsibility | Can Do | Cannot Do |
-|-------|----------------|--------|-----------|
-| **React/UI** | Present state, capture events | Render, dispatch intents | Execute effects, define logic |
-| **Bridge** | Route events ↔ intents | Subscribe, project, issue | Mutate, execute, govern |
-| **World** | Govern proposals, evaluate authority | Approve/reject, record | Execute, compute |
-| **Host** | Execute effects, apply patches | Run handlers, orchestrate | Decide, interpret meaning |
-| **Core** | Pure computation | Compute patches/effects | IO, execution, time-awareness |
-| **Builder** | Define domains (DSL) | Generate schemas | Execute anything |
+| Layer | Package | Responsibility | Can Do | Cannot Do |
+|-------|---------|----------------|--------|-----------|
+| **App** | `@manifesto-ai/app` | Orchestrate lifecycle, integrate UI | Subscribe, dispatch, wire layers | Define logic, execute directly |
+| **World** | `@manifesto-ai/world` | Govern proposals, evaluate authority | Approve/reject, record lineage | Execute, compute |
+| **Host** | `@manifesto-ai/host` | Execute effects, apply patches | Run handlers, orchestrate | Decide, interpret meaning |
+| **Core** | `@manifesto-ai/core` | Pure computation | Compute patches/effects | IO, execution, time-awareness |
+| **Builder/Compiler** | `@manifesto-ai/builder`, `@manifesto-ai/compiler` | Define domains (DSL/MEL) | Generate schemas | Execute anything |
 
 ### Data Flow Summary
 
 ```
 User Action
     ↓
-React Dispatch
+React/UI Dispatch
     ↓
-Bridge Routing
+App Routing (app.act())
     ↓
 World Authority
     ↓
@@ -282,6 +280,8 @@ Host Orchestration
 Core Computation
     ↓
 New Snapshot
+    ↓
+App Notification (app.subscribe())
 ```
 
 ### Key Guarantees
@@ -357,25 +357,25 @@ See [World Concept](/concepts/world) and [Specifications](/internals/spec/) for 
 
 ```mermaid
 graph BT
-    Builder["Builder<br/>(DSL)"]
+    Builder["Builder/Compiler<br/>(DSL/MEL)"]
     Core["Core<br/>(Computation)"]
     Host["Host<br/>(Execution)"]
     World["World<br/>(Governance)"]
-    Bridge["Bridge<br/>(Routing)"]
-    React["React<br/>(UI)"]
+    App["App<br/>(Orchestration)"]
+    UI["React/UI<br/>(Presentation)"]
 
     Core --> Builder
     Host --> Core
     Host --> World
-    Bridge --> World
-    Bridge --> Host
-    React --> Bridge
+    App --> World
+    App --> Host
+    UI --> App
 
     style Core fill:#e1f5ff
     style Host fill:#fff4e1
     style World fill:#ffe1f5
-    style Bridge fill:#f0f0f0
-    style React fill:#e8f5e9
+    style App fill:#f0f0f0
+    style UI fill:#e8f5e9
     style Builder fill:#fff9c4
 ```
 
@@ -384,15 +384,15 @@ graph BT
 ```mermaid
 sequenceDiagram
     participant User
-    participant React
-    participant Bridge
+    participant UI as React/UI
+    participant App
     participant World
     participant Host
     participant Core
 
-    User->>React: Click button
-    React->>Bridge: Dispatch action
-    Bridge->>World: Submit proposal
+    User->>UI: Click button
+    UI->>App: app.act('action')
+    App->>World: Submit proposal
     World->>World: Evaluate authority
     alt Approved
         World->>Host: Execute intent
@@ -403,13 +403,13 @@ sequenceDiagram
         Host->>Core: compute() again
         Core-->>Host: (new snapshot, [])
         Host->>World: Commit decision
-        World->>Bridge: Notify
-        Bridge->>React: Update
-        React->>User: Render
+        World->>App: Notify
+        App->>UI: Trigger subscribers
+        UI->>User: Render
     else Rejected
-        World->>Bridge: Notify rejection
-        Bridge->>React: Update
-        React->>User: Show error
+        World->>App: Notify rejection
+        App->>UI: Trigger subscribers
+        UI->>User: Show error
     end
 ```
 

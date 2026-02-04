@@ -8,50 +8,71 @@
 
 ## Overview
 
-Manifesto integrates with React through the `@manifesto-ai/react` package, providing:
-- `ManifestoProvider` - Context provider for app instance
-- `useManifesto` - Access the full app instance
-- `useSnapshot` - Subscribe to state changes with selectors
-- `useAction` - Get action dispatch functions
+Manifesto integrates with React through the `@manifesto-ai/app` package's subscription API:
 
-**Key principle:** React components subscribe to Snapshot slices. When those slices change, components re-render. Components dispatch actions via Bridge - they never mutate state directly.
+- `app.subscribe()` - Subscribe to state changes with selectors
+- `app.act()` - Dispatch actions
+- `app.getState()` - Access current state
+
+**Key principle:** React components subscribe to Snapshot slices. When those slices change, components re-render. Components dispatch actions via `app.act()` - they never mutate state directly.
 
 ---
 
 ## Installation
 
 ```bash
-npm install @manifesto-ai/react
+npm install @manifesto-ai/app @manifesto-ai/compiler react react-dom
 ```
 
 ---
 
 ## Basic Setup
 
-### 1. Create the Provider
+### 1. Create the App Instance
 
-```tsx
-// app/providers.tsx
-import { ManifestoProvider } from '@manifesto-ai/react';
+```typescript
+// src/manifesto-app.ts
 import { createApp } from '@manifesto-ai/app';
 import CounterMel from './counter.mel';
 
-const app = createApp(CounterMel);
+export const app = createApp(CounterMel);
+```
 
-export function Providers({ children }) {
-  return (
-    <ManifestoProvider app={app}>
-      {children}
-    </ManifestoProvider>
+### 2. Create Custom React Hooks
+
+Since there's no dedicated React package yet, create your own hooks:
+
+```tsx
+// src/hooks/useManifesto.ts
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { app } from '../manifesto-app';
+
+// Hook to subscribe to state changes
+export function useSnapshot<T>(selector: (state: any) => T): T {
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => app.subscribe(() => true, onStoreChange),
+    []
+  );
+
+  const getSnapshot = useCallback(() => selector(app.getState()), [selector]);
+
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+// Hook to get action dispatcher
+export function useAction(actionName: string) {
+  return useCallback(
+    (input?: Record<string, unknown>) => app.act(actionName, input),
+    [actionName]
   );
 }
 ```
 
-### 2. Use in Components
+### 3. Use in Components
 
 ```tsx
-// components/Counter.tsx
-import { useSnapshot, useAction } from '@manifesto-ai/react';
+// src/components/Counter.tsx
+import { useSnapshot, useAction } from '../hooks/useManifesto';
 
 export function Counter() {
   const count = useSnapshot(s => s.data.count);
@@ -64,6 +85,52 @@ export function Counter() {
       <p>Count: {count} (doubled: {doubled})</p>
       <button onClick={() => increment()}>+</button>
       <button onClick={() => decrement()}>-</button>
+    </div>
+  );
+}
+```
+
+---
+
+## Alternative: Direct Subscription
+
+For simpler cases, you can subscribe directly without custom hooks:
+
+```tsx
+import { useState, useEffect } from 'react';
+import { app } from '../manifesto-app';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    // Initialize app
+    app.ready().then(() => {
+      setCount(app.getState().data.count);
+    });
+
+    // Subscribe to changes
+    const unsubscribe = app.subscribe(
+      (state) => state.data.count,
+      (newCount) => setCount(newCount)
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleIncrement = async () => {
+    await app.act('increment').done();
+  };
+
+  const handleDecrement = async () => {
+    await app.act('decrement').done();
+  };
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={handleIncrement}>+</button>
+      <button onClick={handleDecrement}>-</button>
     </div>
   );
 }
@@ -93,7 +160,6 @@ const status = useSnapshot(s => s.system.status);
 
 **Behavior:**
 - Component re-renders only when selected value changes
-- Uses shallow equality by default
 - Selector runs on every Snapshot update
 
 ### useAction(actionName)
@@ -111,21 +177,7 @@ addTodo({ title: 'New Todo' });
 await addTodo({ title: 'New Todo' }).done();
 ```
 
-**Returns:** A function that accepts action input and returns `{ done(): Promise<void> }`.
-
-### useManifesto()
-
-Returns the full app instance. Use sparingly - prefer specific hooks.
-
-```tsx
-const app = useManifesto();
-
-// Access snapshot directly
-const snapshot = app.getSnapshot();
-
-// Access schema
-const schema = app.schema;
-```
+**Returns:** A function that accepts action input and returns an ActionHandle with `done(): Promise<void>`.
 
 ---
 
@@ -183,9 +235,7 @@ domain TodoDomain {
     todos: Array<Todo> = []
   }
 
-  computed {
-    activeTodos: filter(todos, (t) => not(t.completed))
-  }
+  computed activeTodos = filter(todos, not($item.completed))
 }
 ```
 
@@ -299,8 +349,8 @@ function TodoItem({ id }) {
 
 ```tsx
 // WRONG: Never mutate snapshot
-const app = useManifesto();
-app.getSnapshot().data.count = 5; // This does nothing and breaks React!
+const state = app.getState();
+state.data.count = 5; // This does nothing and breaks React!
 ```
 
 **Fix:** Always use actions.
@@ -339,24 +389,114 @@ action addTodo(title: string) {
 
 ---
 
-## Troubleshooting
+## Complete Example: Counter with React
 
-### "Cannot find ManifestoProvider"
+### counter.mel
 
-Your component is not wrapped in `ManifestoProvider`. Check your component tree.
+```mel
+domain Counter {
+  state {
+    count: number = 0
+  }
+
+  computed doubled = mul(count, 2)
+
+  action increment() {
+    onceIntent {
+      patch count = add(count, 1)
+    }
+  }
+
+  action decrement() {
+    onceIntent {
+      patch count = sub(count, 1)
+    }
+  }
+}
+```
+
+### manifesto-app.ts
+
+```typescript
+import { createApp } from '@manifesto-ai/app';
+import CounterMel from './counter.mel';
+
+export const app = createApp(CounterMel);
+```
+
+### hooks/useManifesto.ts
+
+```typescript
+import { useCallback, useSyncExternalStore } from 'react';
+import { app } from '../manifesto-app';
+
+export function useSnapshot<T>(selector: (state: any) => T): T {
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => app.subscribe(() => true, onStoreChange),
+    []
+  );
+
+  const getSnapshot = useCallback(() => selector(app.getState()), [selector]);
+
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+export function useAction(actionName: string) {
+  return useCallback(
+    (input?: Record<string, unknown>) => app.act(actionName, input),
+    [actionName]
+  );
+}
+```
+
+### App.tsx
 
 ```tsx
-// Make sure Provider wraps your app
-<ManifestoProvider app={app}>
-  <App />
-</ManifestoProvider>
+import { useSnapshot, useAction } from './hooks/useManifesto';
+
+function Counter() {
+  const count = useSnapshot(s => s.data.count);
+  const doubled = useSnapshot(s => s.computed.doubled);
+  const increment = useAction('increment');
+  const decrement = useAction('decrement');
+
+  return (
+    <div>
+      <h1>Manifesto Counter</h1>
+      <p>Count: {count}</p>
+      <p>Doubled: {doubled}</p>
+      <button onClick={() => increment()}>+</button>
+      <button onClick={() => decrement()}>-</button>
+    </div>
+  );
+}
+
+export default function App() {
+  return <Counter />;
+}
+```
+
+---
+
+## Troubleshooting
+
+### "App is not ready"
+
+Always ensure the app is ready before using:
+
+```tsx
+useEffect(() => {
+  app.ready().then(() => {
+    // Now safe to use
+  });
+}, []);
 ```
 
 ### Component Not Updating
 
 1. **Check your selector** - It should return a primitive or stable reference
 2. **Verify action completes** - Use `.done()` to await completion
-3. **Check for selector creating new objects** - See Performance Optimization section
+3. **Check subscription** - Ensure `app.subscribe()` is called correctly
 
 ### Action Not Triggering
 

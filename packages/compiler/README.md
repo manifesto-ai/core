@@ -1,8 +1,5 @@
 # @manifesto-ai/compiler
 
-> **Status:** Deprecated (v2 focuses on Core/Host/World/App). This package is legacy and may be removed.
-
-
 > **Compiler** translates MEL (Manifesto Expression Language) into DomainSchema for Manifesto Core.
 
 ---
