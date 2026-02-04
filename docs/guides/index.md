@@ -7,7 +7,7 @@
 ::: tip Recommended Starting Point
 For new users, we recommend starting with the **[@manifesto-ai/app Guide](/quickstart)** which covers MEL + the high-level App API.
 
-The guides below cover low-level APIs (Builder, Core, Host) for advanced use cases.
+The guides below cover low-level APIs (Core, Host, World) for advanced use cases.
 :::
 
 ---
@@ -40,11 +40,11 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 **What you'll build:** A counter application with increment, decrement, and reset actions
 
 **What you'll learn:**
-- Defining domains with Builder
-- Creating Core and Host
+- Defining domains with MEL
+- Creating and using the App
 - Dispatching intents
 - Adding computed values
-- Handling input validation
+- Handling effects
 
 **Prerequisites:** Basic TypeScript, Node.js installed
 
@@ -497,7 +497,7 @@ action updateTodo(idToUpdate: string) {
 
 These guides are planned:
 
-- **React Integration** — Building UIs with @manifesto-ai/react
+- **Advanced React Patterns** — Complex UI patterns with App subscribe API
 - **Testing Strategies** — Unit, integration, and E2E testing
 - **Multi-Tenant Applications** — Building SaaS with World Protocol
 - **Performance Optimization** — Making Manifesto apps fast

@@ -760,13 +760,17 @@ __MANIFESTO__.getTrace();
 
 ### React DevTools
 
-When using `@manifesto-ai/react`:
+When building React applications with Manifesto, use the standard App API:
 
 ```typescript
-// Add display names for debugging
-const TodoApp = createManifestoApp(TodoDomain, {
-  displayName: 'TodoApp',  // Shows in React DevTools
-});
+import { createApp } from "@manifesto-ai/app";
+import TodoMel from "./todo.mel";
+
+// Create app instance with a recognizable name
+const todoApp = createApp(TodoMel);
+
+// Add to window for debugging
+window.__MANIFESTO_TODO__ = todoApp;
 ```
 
 ### Redux DevTools
