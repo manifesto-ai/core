@@ -17,6 +17,7 @@ import type {
 } from "../../core/types/index.js";
 import type { World, WorldId } from "@manifesto-ai/world";
 import type { WorldStoreOptions, WorldEntry } from "./interface.js";
+import { stripPlatformNamespaces } from "./platform-namespaces.js";
 
 /**
  * InMemoryWorldStore: Reference implementation for testing.
@@ -371,21 +372,25 @@ export class InMemoryWorldStore implements WorldStore {
   /**
    * Exclude platform-owned data from snapshot.
    *
-   * STORE-7: data.$host and data.$mel MUST be excluded from canonical hash.
-   * STORE-8: restore() MUST return without data.$host and data.$mel.
+   * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3:
+   * - All $-prefixed keys are platform namespaces (future-proof)
+   * - STORE-7: Platform namespaces MUST be excluded from canonical hash
+   * - STORE-8: restore() MUST return without platform namespaces
    */
   private _excludePlatformData(snapshot: Snapshot): Snapshot {
     if (!snapshot.data || typeof snapshot.data !== "object") {
       return snapshot;
     }
 
-    const data = snapshot.data as Record<string, unknown>;
-    if (!("$host" in data) && !("$mel" in data)) {
+    const cleanData = stripPlatformNamespaces(
+      snapshot.data as Record<string, unknown>
+    );
+
+    // Return same snapshot if no changes (optimization)
+    if (cleanData === snapshot.data) {
       return snapshot;
     }
 
-    // Clone and remove platform namespaces
-    const { $host, $mel, ...cleanData } = data;
     return {
       ...snapshot,
       data: cleanData,

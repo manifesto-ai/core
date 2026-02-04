@@ -6,7 +6,7 @@
  * - DELTA-GEN-4: Deterministic delta generation
  *
  * @see FDR-APP-INTEGRATION-001 v0.4.1
- * @see World SPEC v2.0.3 (WORLD-HASH-4a, WORLD-HASH-4b)
+ * @see World SPEC v2.0.4 (WORLD-HASH-4a, WORLD-HASH-4b)
  */
 
 import { describe, it, expect } from "vitest";
@@ -293,7 +293,7 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
 
   describe("STORE-4 compliance: Delta scope matches snapshotHash input scope", () => {
     it("delta scope is consistent with World SPEC snapshotHash rules", () => {
-      // Per World SPEC v2.0.3:
+      // Per World SPEC v2.0.4:
       // - snapshotHash excludes $host (WORLD-HASH-4a)
       // - snapshotHash excludes $mel (WORLD-HASH-4b)
       // Per FDR-APP-INTEGRATION-001 v0.4.1:

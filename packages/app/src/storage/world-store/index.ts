@@ -31,3 +31,9 @@ export {
   type CanonicalPatch,
   type DeltaGeneratorOptions,
 } from "./delta-generator.js";
+
+export {
+  isPlatformNamespace,
+  stripPlatformNamespaces,
+  PLATFORM_NAMESPACE_PREFIX,
+} from "./platform-namespaces.js";

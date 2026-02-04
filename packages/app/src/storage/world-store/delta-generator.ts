@@ -13,6 +13,7 @@
  */
 
 import type { Patch, Snapshot } from "../../core/types/index.js";
+import { stripPlatformNamespaces } from "./platform-namespaces.js";
 
 /**
  * Canonical patch type (v2 operators only).
@@ -94,64 +95,6 @@ export function generateDelta(
 
   // DELTA-GEN-6: Sort by path lexicographically
   return sortPatches(normalizedPatches);
-}
-
-/**
- * Platform namespace prefix.
- *
- * Per Core SPEC v2.0.0 SCHEMA-RESERVED-1:
- * - Keys starting with `$` in snapshot.data are platform-reserved
- * - Domain schemas MUST NOT define $-prefixed keys
- *
- * Known platform namespaces:
- * - $host: Host-owned state (WORLD-HASH-4a)
- * - $mel: Compiler-owned guard state (WORLD-HASH-4b)
- * - Future: $app, $trace, etc. (automatically handled)
- */
-const PLATFORM_NAMESPACE_PREFIX = "$";
-
-/**
- * Check if a key is a platform namespace.
- *
- * @param key - Key to check
- * @returns True if key is a platform namespace ($-prefixed)
- */
-function isPlatformNamespace(key: string): boolean {
-  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
-}
-
-/**
- * Strip platform namespaces from data.
- *
- * Per Core SPEC v2.0.0 SCHEMA-RESERVED-1 and World SPEC v2.0.3:
- * - All $-prefixed top-level keys are platform namespaces
- * - Platform namespaces MUST be excluded from snapshotHash
- * - This is future-proof for new platform namespaces ($app, $trace, etc.)
- *
- * @param data - Data object
- * @returns Data without platform namespaces
- */
-function stripPlatformNamespaces(
-  data: Record<string, unknown>
-): Record<string, unknown> {
-  if (data === undefined || data === null) {
-    return {};
-  }
-
-  const keys = Object.keys(data);
-  const hasPlatformNamespace = keys.some(isPlatformNamespace);
-
-  if (!hasPlatformNamespace) {
-    return data;
-  }
-
-  const result: Record<string, unknown> = {};
-  for (const key of keys) {
-    if (!isPlatformNamespace(key)) {
-      result[key] = data[key];
-    }
-  }
-  return result;
 }
 
 /**

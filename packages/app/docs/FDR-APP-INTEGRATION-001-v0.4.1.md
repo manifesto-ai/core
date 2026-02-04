@@ -4,14 +4,14 @@
 > **Status:** Draft
 > **Date:** 2026-02-03
 > **Scope:** App v2 Host-World integration, WorldStore strategy, Maintenance cycle for memory lifecycle
-> **Depends on:** ARCHITECTURE v2, ADR-001, Host v2.0.2, World v2.0.3, Core SPEC v2.0.0, FDR-APP-PUB-001, FDR-APP-RUNTIME-001
+> **Depends on:** ARCHITECTURE v2, ADR-001, Host v2.0.2, World v2.0.4, Core SPEC v2.0.0, FDR-APP-PUB-001, FDR-APP-RUNTIME-001
 >
 > **Changelog:**
-> - v0.4.1: **World SPEC v2.0.3 정합 — Platform Namespace 통합**
+> - v0.4.1: **World SPEC v2.0.4 정합 — Platform Namespace 통합**
 >   - Delta scope에서 `$mel` 명시적 제외 (WORLD-HASH-4b 정합)
 >   - `toCanonicalSnapshot()`: `$host` + `$mel` 모두 제거 (platform namespaces)
 >   - STORE-HOST-1 → STORE-PLATFORM-1: platform namespaces 제거로 일반화
->   - References를 World SPEC v2.0.3로 업데이트
+>   - References를 World SPEC v2.0.4로 업데이트
 >   - Cross-Reference에 MEL-DATA-*, WORLD-HASH-4b 추가
 > - v0.4.0: **Core v2 Patch 모델 정합성 수정**
 >   - `generateDelta()`: `worldId` 참조 제거 → 외부 파라미터로 전달
@@ -149,7 +149,7 @@ type HostExecutionResult = {
 
 > **Authority:** `outcome`은 힌트(advisory)이며, **`terminalSnapshot`이 권위**다.
 > World는 `terminalSnapshot`에서 `deriveOutcome()`으로 최종 결과를 판정한다.
-> 이것은 World SPEC v2.0.3의 outcome 판정 규칙과 정합한다.
+> 이것은 World SPEC v2.0.4의 outcome 판정 규칙과 정합한다.
 
 ### 2.5 Rules
 
@@ -366,7 +366,7 @@ function isPlatformNamespace(key: string): boolean {
  * - 현재 알려진: $host (Host-owned), $mel (Compiler-owned)
  * - 미래 확장 자동 처리: $app, $trace, etc.
  *
- * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3 WORLD-HASH-*
+ * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.4 WORLD-HASH-*
  */
 function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
   const cleanData: Record<string, unknown> = {};
@@ -382,7 +382,7 @@ function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
 **Rationale:**
 - Core SPEC SCHEMA-RESERVED-1: `$`로 시작하는 모든 키는 플랫폼 예약
 - `data.$host`: Host 소유 상태 (Host SPEC HOST-DATA-1~6)
-- `data.$mel`: Compiler 소유 guard state (World SPEC v2.0.3 MEL-DATA-1~3)
+- `data.$mel`: Compiler 소유 guard state (World SPEC v2.0.4 MEL-DATA-1~3)
 - **Future-proof**: 새 플랫폼 네임스페이스 (`$app`, `$trace` 등) SPEC 개정 없이 자동 처리
 - Delta 범위는 snapshotHash input 범위와 일치해야 함 (D-STORE-3, STORE-4)
 
@@ -518,7 +518,7 @@ type StoredDelta = {
 | `system.*` (normalized) | `data.$mel` (Compiler-owned, WORLD-HASH-4b) |
 
 > **Note:** Delta는 snapshotHash input 범위만 포함해야 함 (D-STORE-3, STORE-4).
-> World SPEC v2.0.3에서 `$host`와 `$mel` 모두 snapshotHash에서 제외되므로,
+> World SPEC v2.0.4에서 `$host`와 `$mel` 모두 snapshotHash에서 제외되므로,
 > Delta에서도 제외되어야 계약 일관성이 유지됨.
 
 ### 3.6.1 Delta Generation Rules (v0.4.0 개정)
@@ -1615,7 +1615,7 @@ function getDigest(worldId: WorldId): HistoryDigest | null {
 
 - **FDR-APP-PUB-001**: Tick definition, publish boundary
 - **FDR-APP-RUNTIME-001**: Lifecycle, Hooks, Plugin (maintenance hooks integration)
-- **World SPEC v2.0.3**: WorldStore contract, baseSnapshot restoration, platform namespace hash exclusion (WORLD-HASH-4a/4b)
+- **World SPEC v2.0.4**: WorldStore contract, baseSnapshot restoration, platform namespace hash exclusion (WORLD-HASH-4a/4b), future-proof $-prefix pattern
 - **Host SPEC v2.0.2**: HostExecutor interface, execution result
 - **ADR-001**: Layer separation (App implements HostExecutor)
 - **Core SPEC v2.0.0**: Patch operators (set/unset/merge), StateSpec reserved namespaces
@@ -1690,7 +1690,7 @@ function isPlatformNamespace(key: string): boolean {
 /**
  * Platform namespaces 제거 (future-proof)
  *
- * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3:
+ * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.4:
  * - All $-prefixed keys are platform namespaces
  * - Known: $host (Host-owned), $mel (Compiler-owned)
  * - Future: $app, $trace, etc. (automatically handled)
@@ -1800,11 +1800,11 @@ type WorldIndex = {
 | §3.6.1 DELTA-GEN-5 | Core SPEC v2.0.0 | Core v2 연산자 사용 |
 | §3.6.1 DELTA-GEN-6 | Core SPEC v2.0.0 Snapshot | worldId 필드 부재 대응 |
 | §3.5.2 STORE-PLATFORM-1 | Host SPEC v2.0.2 HOST-DATA-1~6 | $host 제외 정합 |
-| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.3 WORLD-HASH-4a | $host hash 제외 정합 |
-| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.3 WORLD-HASH-4b | $mel hash 제외 정합 |
-| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.3 MEL-DATA-1~3 | $mel Compiler-owned 정합 |
-| §3.6 Delta scope | World SPEC v2.0.3 snapshotHash input | Delta = hash input 범위 |
-| HostExecutionResult | World SPEC v2.0.3 | outcome 필드 정합 |
+| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.4 WORLD-HASH-4a | $host hash 제외 정합 |
+| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.4 WORLD-HASH-4b | $mel hash 제외 정합 |
+| §3.5.2 STORE-PLATFORM-1 | World SPEC v2.0.4 MEL-DATA-1~3 | $mel Compiler-owned 정합 |
+| §3.6 Delta scope | World SPEC v2.0.4 snapshotHash input | Delta = hash input 범위 |
+| HostExecutionResult | World SPEC v2.0.4 | outcome 필드 정합 |
 
 ---
 
