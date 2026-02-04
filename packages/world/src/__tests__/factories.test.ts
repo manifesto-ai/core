@@ -20,16 +20,19 @@ function createTestSnapshot(
     data,
     computed: {},
     system: {
-      status: "completed",
+      status: "idle",
+      lastError: null,
       pendingRequirements: [],
       errors: [],
+      currentAction: null,
       ...system,
     },
     input: {},
     meta: {
       version: 1,
-      timestamp: new Date().toISOString(),
-      hash: "test-hash",
+      timestamp: 0,
+      randomSeed: "test-seed",
+      schemaHash: "test-schema",
     },
   };
 }
