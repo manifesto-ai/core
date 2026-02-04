@@ -1,20 +1,8 @@
 # Getting Started with Manifesto
 
-> **Covers:** Domain definition, Core computation, Host execution, basic patterns
+> **Covers:** Domain definition with MEL, App usage, Core computation, Host execution
 > **Purpose:** Quick start guide for developers new to Manifesto
 > **Time to complete:** 15-20 minutes
-
-::: tip Recommended Approach
-For most users, we recommend using **MEL** with **@manifesto-ai/app** for a simpler, more streamlined experience:
-
-```bash
-npm install @manifesto-ai/app @manifesto-ai/compiler
-```
-
-See the [@manifesto-ai/app Getting Started Guide](/quickstart) for the recommended approach.
-
-This guide covers the **low-level approach** using Builder, Core, and Host directly.
-:::
 
 ---
 
@@ -22,98 +10,50 @@ This guide covers the **low-level approach** using Builder, Core, and Host direc
 
 - Node.js 18+ or Bun
 - Basic TypeScript knowledge
-- Familiarity with Zod (for schema definition)
 
 ---
 
-## Installation (Low-Level Approach)
+## Installation
 
 ```bash
-npm install @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+npm install @manifesto-ai/app @manifesto-ai/compiler
 # or
-pnpm add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+pnpm add @manifesto-ai/app @manifesto-ai/compiler
 # or
-bun add @manifesto-ai/builder @manifesto-ai/core @manifesto-ai/host zod
+bun add @manifesto-ai/app @manifesto-ai/compiler
 ```
 
 ---
 
 ## Your First Manifesto App: Counter
 
-### Step 1: Define the Domain
+### Step 1: Define the Domain (MEL)
 
-```typescript
-// counter-domain.ts
-import { z } from "zod";
-import { defineDomain } from "@manifesto-ai/builder";
-
-// Define state schema using Zod
-const CounterStateSchema = z.object({
-  count: z.number().default(0),
-  lastAction: z.string().optional(),
-});
-
-// Define domain with actions and computed values
-export const CounterDomain = defineDomain(
-  CounterStateSchema,
-  ({ state, actions, expr, flow }) => {
-    // Define actions
-    const { increment, decrement, reset } = actions.define({
-      increment: {
-        flow: flow.seq(
-          flow.patch(state.count).set(expr.add(state.count, 1)),
-          flow.patch(state.lastAction).set(expr.lit("increment"))
-        ),
-      },
-
-      decrement: {
-        flow: flow.seq(
-          flow.patch(state.count).set(expr.sub(state.count, 1)),
-          flow.patch(state.lastAction).set(expr.lit("decrement"))
-        ),
-      },
-
-      reset: {
-        flow: flow.seq(
-          flow.patch(state.count).set(expr.lit(0)),
-          flow.patch(state.lastAction).set(expr.lit("reset"))
-        ),
-      },
-    });
-
-    return {
-      actions: { increment, decrement, reset },
-    };
-  },
-  { id: "counter-domain", version: "1.0.0" }
-);
-```
-
-MEL equivalent:
+Create a file called `counter.mel`:
 
 ```mel
-domain CounterDomain {
+domain Counter {
   state {
     count: number = 0
     lastAction: string | null = null
   }
 
   action increment() {
-    when true {
+    onceIntent {
       patch count = add(count, 1)
       patch lastAction = "increment"
     }
   }
 
   action decrement() {
-    when true {
+    onceIntent {
       patch count = sub(count, 1)
       patch lastAction = "decrement"
     }
   }
 
   action reset() {
-    when true {
+    onceIntent {
       patch count = 0
       patch lastAction = "reset"
     }
@@ -122,113 +62,86 @@ domain CounterDomain {
 ```
 
 **What you just did:**
-- Defined state shape with Zod (`count` is a number, `lastAction` is an optional string)
+- Defined state shape (`count` is a number, `lastAction` is an optional string)
 - Created three actions: `increment`, `decrement`, and `reset`
-- Each action uses `flow.patch()` to describe state changes
+- Each action uses `patch` to describe state changes
 - Actions are **declarative** — they describe what should happen, not how to execute it
+- `onceIntent` ensures the action body runs only once per intent (re-entry safety)
 
 ---
 
-### Step 2: Create Host
+### Step 2: Create and Use the App
+
+Create a file called `main.ts`:
 
 ```typescript
-// main.ts
-import { createHost } from "@manifesto-ai/host";
-import { createIntent } from "@manifesto-ai/core";
-import { CounterDomain } from "./counter-domain";
+import { createApp } from "@manifesto-ai/app";
+import CounterMel from "./counter.mel";
 
-// Create Host (execution engine)
-const host = createHost(CounterDomain.schema, {
-  initialData: { count: 0 },
-  context: { now: () => Date.now() },
-});
+// Create app instance
+const app = createApp(CounterMel);
 
-const logSnapshot = async () => {
-  const snapshot = await host.getSnapshot();
-  if (!snapshot) return;
-  console.log("Count:", snapshot.data.count);
-  console.log("Last action:", snapshot.data.lastAction);
-};
+async function main() {
+  // Initialize the app
+  await app.ready();
 
-// Dispatch actions
-await host.dispatch(createIntent("increment", "intent-1"));
-await logSnapshot();
-// → Count: 1, Last action: increment
+  // Read initial state
+  console.log("Initial count:", app.getState().data.count);
+  // → Initial count: 0
 
-await host.dispatch(createIntent("increment", "intent-2"));
-await logSnapshot();
-// → Count: 2, Last action: increment
+  // Dispatch actions
+  await app.act("increment").done();
+  console.log("After increment:", app.getState().data.count);
+  // → After increment: 1
 
-await host.dispatch(createIntent("decrement", "intent-3"));
-await logSnapshot();
-// → Count: 1, Last action: decrement
+  await app.act("increment").done();
+  console.log("After second increment:", app.getState().data.count);
+  // → After second increment: 2
 
-await host.dispatch(createIntent("reset", "intent-4"));
-await logSnapshot();
-// → Count: 0, Last action: reset
+  await app.act("decrement").done();
+  console.log("After decrement:", app.getState().data.count);
+  // → After decrement: 1
+
+  await app.act("reset").done();
+  console.log("After reset:", app.getState().data.count);
+  // → After reset: 0
+
+  // Clean up
+  await app.dispose();
+}
+
+main().catch(console.error);
+```
+
+Run it:
+
+```bash
+npx tsx main.ts
 ```
 
 **What you just did:**
-- Created Core (handles pure computation)
-- Created Host (handles execution and side effects)
-- Subscribed to state changes
-- Dispatched intents to change state
+- Created an app from your MEL domain
+- Initialized the app with `app.ready()`
+- Dispatched intents to change state with `app.act()`
+- Read state with `app.getState()`
 
 ---
 
 ### Step 3: Add Computed Values
 
-```typescript
-// counter-domain.ts (updated)
-export const CounterDomain = defineDomain(
-  CounterStateSchema,
-  ({ state, computed, actions, expr, flow }) => {
-    // Add computed values
-    const { isPositive, isZero, description } = computed.define({
-      isPositive: expr.gt(state.count, 0),
-      isZero: expr.eq(state.count, 0),
-      description: expr.cond(
-        expr.gt(state.count, 0),
-        expr.lit("positive"),
-        expr.cond(
-          expr.lt(state.count, 0),
-          expr.lit("negative"),
-          expr.lit("zero")
-        )
-      ),
-    });
-
-    // ... actions ...
-
-    return {
-      computed: { isPositive, isZero, description },
-      actions: { increment, decrement, reset },
-    };
-  }
-);
-
-// Use computed values
-const logComputed = async () => {
-  const snapshot = await host.getSnapshot();
-  if (!snapshot) return;
-  console.log("Count:", snapshot.data.count);
-  console.log("Is positive?", snapshot.computed["computed.isPositive"]);
-  console.log("Is zero?", snapshot.computed["computed.isZero"]);
-  console.log("Description:", snapshot.computed["computed.description"]);
-};
-```
-
-MEL equivalent (computed section):
+Update `counter.mel`:
 
 ```mel
-domain CounterDomain {
+domain Counter {
   state {
     count: number = 0
     lastAction: string | null = null
   }
 
+  // Computed values - derived from state, always recalculated
   computed isPositive = gt(count, 0)
   computed isZero = eq(count, 0)
+  computed doubled = mul(count, 2)
   computed description = cond(
     gt(count, 0),
     "positive",
@@ -238,7 +151,41 @@ domain CounterDomain {
       "zero"
     )
   )
+
+  action increment() {
+    onceIntent {
+      patch count = add(count, 1)
+      patch lastAction = "increment"
+    }
+  }
+
+  action decrement() {
+    onceIntent {
+      patch count = sub(count, 1)
+      patch lastAction = "decrement"
+    }
+  }
+
+  action reset() {
+    onceIntent {
+      patch count = 0
+      patch lastAction = "reset"
+    }
+  }
 }
+```
+
+Use computed values in TypeScript:
+
+```typescript
+await app.act("increment").done();
+await app.act("increment").done();
+
+const state = app.getState();
+console.log("Count:", state.data.count);           // → 2
+console.log("Is positive?", state.computed.isPositive);  // → true
+console.log("Doubled:", state.computed.doubled);        // → 4
+console.log("Description:", state.computed.description); // → "positive"
 ```
 
 **What computed values are:**
@@ -249,72 +196,52 @@ domain CounterDomain {
 
 ---
 
-### Step 4: Add Actions with Input
+### Step 4: Add Actions with Parameters
 
-```typescript
-// counter-domain.ts (updated)
-export const CounterDomain = defineDomain(
-  CounterStateSchema,
-  ({ state, actions, expr, flow }) => {
-    const { setCount, addAmount } = actions.define({
-      // Action with required input
-      setCount: {
-        input: z.object({ value: z.number() }),
-        flow: flow.patch(state.count).set(expr.input("value")),
-      },
-
-      // Action with optional input
-      addAmount: {
-        input: z.object({
-          amount: z.number().default(1),
-        }),
-        flow: flow.patch(state.count).set(
-          expr.add(state.count, expr.input("amount"))
-        ),
-      },
-    });
-
-    return { actions: { setCount, addAmount } };
-  }
-);
-
-// Use actions with input
-await host.dispatch(createIntent("setCount", { value: 10 }, "intent-5"));
-// → Count: 10
-
-await host.dispatch(createIntent("addAmount", { amount: 5 }, "intent-6"));
-// → Count: 15
-
-await host.dispatch(createIntent("addAmount", {}, "intent-7")); // Uses default amount: 1
-// → Count: 16
-```
-
-MEL equivalent:
+Update `counter.mel`:
 
 ```mel
-domain CounterDomain {
+domain Counter {
   state {
     count: number = 0
   }
 
   action setCount(value: number) {
-    when true {
+    onceIntent {
       patch count = value
     }
   }
 
-  action addAmount(amount: number | null) {
-    when true {
-      patch count = add(count, coalesce(amount, 1))
+  action addAmount(amount: number) {
+    onceIntent {
+      patch count = add(count, amount)
+    }
+  }
+
+  action increment() {
+    onceIntent {
+      patch count = add(count, 1)
     }
   }
 }
 ```
 
+Use actions with parameters:
+
+```typescript
+await app.act("setCount", { value: 10 }).done();
+console.log(app.getState().data.count);  // → 10
+
+await app.act("addAmount", { amount: 5 }).done();
+console.log(app.getState().data.count);  // → 15
+
+await app.act("increment").done();
+console.log(app.getState().data.count);  // → 16
+```
+
 **What you just did:**
-- Added input validation with Zod
-- Used `expr.input()` to access input values in flows
-- Specified default values for optional input
+- Added action parameters in MEL
+- Passed input values when dispatching actions
 
 ---
 
@@ -334,15 +261,15 @@ type Snapshot = {
     description: string;
   };
   system: {
-    status: 'idle' | 'computing' | 'pending' | 'error';
+    status: 'idle' | 'running' | 'completed' | 'failed';
+    pendingRequirements: Requirement[];
     // ...
   };
   input: unknown;
   meta: {
     version: number;
-    timestamp: number;
-    randomSeed: string;
-    schemaHash: string;
+    timestamp: string;
+    hash: string;
   };
 };
 ```
@@ -351,15 +278,25 @@ type Snapshot = {
 
 ### Flow: Declarative Computation
 
-Flows are data structures that describe computations:
+Flows are data structures that describe computations. When you write:
+
+```mel
+action increment() {
+  onceIntent {
+    patch count = add(count, 1)
+  }
+}
+```
+
+This compiles to a data structure like:
 
 ```typescript
-// This is DATA, not CODE
 {
   kind: "seq",
   steps: [
-    { kind: "patch", op: "set", path: "count", value: { kind: "lit", value: 0 } },
-    { kind: "patch", op: "set", path: "lastAction", value: { kind: "lit", value: "reset" } }
+    { kind: "guard", condition: "...", body: [
+      { kind: "patch", op: "set", path: "data.count", value: { kind: "add", ... } }
+    ]}
   ]
 }
 ```
@@ -373,15 +310,15 @@ Flows:
 ### Intent: What You Want to Happen
 
 ```typescript
-type IntentBody = {
-  type: string;      // Action name
-  input?: unknown;   // Optional input data
-};
+// When you call:
+app.act("increment");
 
-// Example
-const intent: IntentBody = {
-  type: "increment"
-};
+// It creates an intent like:
+{
+  type: "increment",
+  input: undefined,
+  intentId: "uuid-..."
+}
 ```
 
 Intents are requests to perform an action. They trigger Flow execution.
@@ -392,202 +329,162 @@ Intents are requests to perform an action. They trigger Flow execution.
 
 ### Add Effects (API Calls, etc.)
 
-```typescript
-// Define action with effect
-const { fetchUser } = actions.define({
-  fetchUser: {
-    input: z.object({ id: z.string() }),
-    flow: flow.seq(
-      // Mark as loading
-      flow.patch(state.loading).set(expr.lit(true)),
-
-      // Declare effect (NOT executed yet)
-      flow.effect("api:fetchUser", {
-        userId: expr.input("id")
-      }),
-
-      // Mark as loaded (executed after effect completes)
-      flow.patch(state.loading).set(expr.lit(false))
-    ),
-  },
-});
-
-// Register effect handler in Host
-host.registerEffect("api:fetchUser", async (type, params) => {
-  const response = await fetch(`/api/users/${params.userId}`);
-  const user = await response.json();
-
-  return [
-    { op: "set", path: "user", value: user }
-  ];
-});
-```
-
-MEL equivalent:
-
 ```mel
-domain UsersDomain {
+domain Users {
   state {
+    user: object | null = null
     loading: boolean = false
+    error: string | null = null
   }
 
   action fetchUser(id: string) {
-    when true {
+    onceIntent when eq(loading, false) {
       patch loading = true
-      effect api.fetchUser({
-        userId: id
-      })
-      patch loading = false
+      patch error = null
+      effect api.fetchUser { userId: id }
     }
   }
 }
 ```
 
-**Important:** Effects return **patches**, not values. The next compute cycle reads the result from Snapshot.
-
-### Add Re-entry Safety
+Register the effect handler in TypeScript:
 
 ```typescript
-// WRONG: Runs every time
-flow.patch(state.count).set(expr.add(state.count, 1))
+import { createApp } from "@manifesto-ai/app";
+import UsersMel from "./users.mel";
 
-// RIGHT: Only runs once
-flow.onceNull(state.initialized, ({ patch }) => {
-  patch(state.count).set(expr.add(state.count, 1));
-  patch(state.initialized).set(expr.lit(true));
-})
+const app = createApp(UsersMel);
+
+// Register effect handler
+app.registerEffect("api.fetchUser", async (type, params) => {
+  try {
+    const response = await fetch(`/api/users/${params.userId}`);
+    const user = await response.json();
+
+    return [
+      { op: "set", path: "data.user", value: user },
+      { op: "set", path: "data.loading", value: false }
+    ];
+  } catch (error) {
+    return [
+      { op: "set", path: "data.error", value: error.message },
+      { op: "set", path: "data.loading", value: false }
+    ];
+  }
+});
+
+await app.ready();
+await app.act("fetchUser", { id: "123" }).done();
+console.log(app.getState().data.user);
 ```
 
-MEL equivalent:
+**Important:** Effects return **patches**, not values. The result is written to Snapshot.
 
-```mel
-domain CounterDomain {
-  state {
-    count: number = 0
-    initialized: boolean | null = null
-  }
+### Subscribe to State Changes
 
-  action init() {
-    when isNull(initialized) {
-      patch count = add(count, 1)
-      patch initialized = true
-    }
-  }
-}
+```typescript
+const app = createApp(CounterMel);
+await app.ready();
+
+// Subscribe to count changes
+const unsubscribe = app.subscribe(
+  (state) => state.data.count,
+  (count) => console.log("Count changed to:", count)
+);
+
+await app.act("increment").done();  // → "Count changed to: 1"
+await app.act("increment").done();  // → "Count changed to: 2"
+
+unsubscribe();  // Stop listening
 ```
-
-See [Re-entry Safe Flows Guide](./reentry-safe-flows.md) for details.
 
 ---
 
 ## Common Beginner Mistakes
 
-### Mistake 1: Expecting Effects to Execute Immediately
+### Mistake 1: Missing onceIntent Guard
 
-```typescript
-// WRONG expectation
-const context = { now: 0, randomSeed: "seed" };
-const result = await core.compute(schema, snapshot, intent, context);
-console.log(result.snapshot.data.user); // → undefined (effect not executed!)
-```
+```mel
+// WRONG: Runs every compute cycle!
+action increment() {
+  patch count = add(count, 1)
+}
 
-**Why:** Core only **declares** effects. It never executes them. Host executes effects.
-
-**Fix:** Use Host, which handles the compute-effect loop automatically:
-
-```typescript
-// RIGHT
-await host.dispatch(intent);
-const snapshot = await host.getSnapshot();
-console.log(snapshot?.data.user); // → { id: "123", ... }
+// RIGHT: Runs only once per intent
+action increment() {
+  onceIntent {
+    patch count = add(count, 1)
+  }
+}
 ```
 
 ### Mistake 2: Mutating Snapshots
 
 ```typescript
-// WRONG
-snapshot.data.count = 5; // Direct mutation!
+// WRONG: Direct mutation does nothing!
+const state = app.getState();
+state.data.count = 5;
+
+// RIGHT: Use actions
+await app.act("setCount", { value: 5 }).done();
 ```
 
-**Fix:** Use patches:
+### Mistake 3: Expecting Effects to Return Values
 
 ```typescript
-// RIGHT
-const context = { now: 0, randomSeed: "seed" };
-const newSnapshot = core.apply(schema, snapshot, [
-  { op: "set", path: "count", value: 5 }
-], context);
-```
+// WRONG: Effects don't return values to actions
+const user = await someEffect();  // Not how it works!
 
-### Mistake 3: Using Async in Expressions
-
-```typescript
-// WRONG
-const expr = async () => await fetchData(); // Expressions must be pure!
-```
-
-**Fix:** Use effects for async:
-
-```typescript
-// RIGHT
-flow.effect("api:fetchData", {})
-// Effect handler does the async work and returns patches
+// RIGHT: Effects write to Snapshot, read it after
+await app.act("fetchUser", { id: "123" }).done();
+const user = app.getState().data.user;  // Read from Snapshot
 ```
 
 ---
 
-## Minimal Example: Complete File
+## Minimal Complete Example
 
-```typescript
-// counter-app.ts
-import { z } from "zod";
-import { defineDomain } from "@manifesto-ai/builder";
-import { createIntent } from "@manifesto-ai/core";
-import { createHost } from "@manifesto-ai/host";
-
-// 1. Define domain
-const CounterDomain = defineDomain(
-  z.object({
-    count: z.number().default(0),
-  }),
-  ({ state, actions, expr, flow }) => {
-    const { increment } = actions.define({
-      increment: {
-        flow: flow.patch(state.count).set(expr.add(state.count, 1)),
-      },
-    });
-
-    return { actions: { increment } };
-  }
-);
-
-// 2. Create host
-const host = createHost(CounterDomain.schema, {
-  initialData: { count: 0 },
-  context: { now: () => Date.now() },
-});
-
-// 3. Dispatch and read snapshot
-await host.dispatch(createIntent("increment", "intent-1"));
-const snapshot = await host.getSnapshot();
-console.log("Count:", snapshot?.data.count);
-// → Count: 1
-```
-
-MEL equivalent (domain definition):
+**counter.mel:**
 
 ```mel
-domain CounterDomain {
+domain Counter {
   state {
     count: number = 0
   }
 
+  computed doubled = mul(count, 2)
+
   action increment() {
-    when true {
+    onceIntent {
       patch count = add(count, 1)
     }
   }
 }
+```
+
+**main.ts:**
+
+```typescript
+import { createApp } from "@manifesto-ai/app";
+import CounterMel from "./counter.mel";
+
+const app = createApp(CounterMel);
+
+async function main() {
+  await app.ready();
+
+  console.log("Count:", app.getState().data.count);      // → 0
+  console.log("Doubled:", app.getState().computed.doubled); // → 0
+
+  await app.act("increment").done();
+
+  console.log("Count:", app.getState().data.count);      // → 1
+  console.log("Doubled:", app.getState().computed.doubled); // → 2
+
+  await app.dispose();
+}
+
+main();
 ```
 
 ---
@@ -599,65 +496,55 @@ domain CounterDomain {
 | **Re-entry safety** | [Re-entry Safe Flows](./reentry-safe-flows.md) | Prevent duplicate effects |
 | **Effect handlers** | [Effect Handlers Guide](./effect-handlers.md) | Handle API calls, DB, etc. |
 | **Complete example** | [Todo App Example](./todo-example.md) | Full-stack integration |
-| **React integration** | [Getting Started](/quickstart) | Build UIs (React guide coming soon) |
+| **React integration** | [React Integration](./react-integration.md) | Build reactive UIs |
+| **MEL syntax** | [MEL Syntax Reference](/mel/SYNTAX) | Complete language reference |
 
 ---
 
 ## Troubleshooting
 
-### Error: "Schema validation failed"
+### Error: "Cannot find module './counter.mel'"
 
-**Cause:** State doesn't match Zod schema.
+MEL files need bundler support. Configure your bundler:
 
-**Fix:** Check your initial state:
-
+**Vite:**
 ```typescript
-import { createSnapshot } from "@manifesto-ai/core";
+// vite.config.ts
+import { melPlugin } from '@manifesto-ai/compiler/vite';
 
-const context = { now: 0, randomSeed: "seed" };
-const initialSnapshot = createSnapshot({ count: "0" }, schema.hash, context); // WRONG: should be number
-
-// Fix:
-const initialSnapshot = createSnapshot({ count: 0 }, schema.hash, context); // RIGHT
-```
-
-### Error: "No handler for effect type X"
-
-**Cause:** Effect handler not registered.
-
-**Fix:** Register handler before dispatching:
-
-```typescript
-host.registerEffect("api:fetchUser", async (type, params) => {
-  // ... handler implementation
-  return [];
+export default defineConfig({
+  plugins: [melPlugin()],
 });
 ```
 
-### Computed value is undefined
-
-**Cause:** Dependencies not specified correctly.
-
-**Fix:** Ensure `deps` includes all state fields used:
-
-```typescript
-const { total } = computed.define({
-  total: {
-    deps: [state.items], // Must include dependencies
-    expr: expr.len(state.items),
-  },
-});
+**Node.js with tsx:**
+```bash
+npx tsx --loader @manifesto-ai/compiler/loader main.ts
 ```
 
-MEL equivalent:
+### Error: "App is not ready"
+
+Always call `app.ready()` before using the app:
+
+```typescript
+const app = createApp(mel);
+await app.ready();  // Required!
+// Now safe to use app.act(), app.getState(), etc.
+```
+
+### Action never completes
+
+Check that your MEL action has proper guards:
 
 ```mel
-domain Example {
-  state {
-    items: Array<number> = []
-  }
+// WRONG: No guard - runs every compute cycle!
+action bad() {
+  patch count = 1
+}
 
-  computed total = len(items)
+// RIGHT: Has guard
+action good() {
+  onceIntent { patch count = 1 }
 }
 ```
 
@@ -666,11 +553,12 @@ domain Example {
 ## Summary
 
 You've learned:
-- How to define a domain with Builder
-- How to create Core and Host
-- How to dispatch intents
+- How to define a domain with MEL
+- How to create and use a Manifesto app
+- How to dispatch actions and read state
 - How to add computed values
-- How to handle input validation
+- How to handle action parameters
+- How to add effects for async operations
 - How to avoid common pitfalls
 
 Next: Try building the [Todo App Example](./todo-example.md) to see all layers working together.
