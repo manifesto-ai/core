@@ -119,7 +119,7 @@ export type WorldOutcome = "completed" | "failed";
  *
  * @see SPEC v2.0.0 §5.6
  */
-export type AuthorityKind = "auto" | "human" | "policy" | "consensus";
+export type AuthorityKind = "auto" | "human" | "policy" | "tribunal";
 
 /**
  * Authority reference.
