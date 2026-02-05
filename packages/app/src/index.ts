@@ -101,6 +101,7 @@ export type {
 
   // v2.0.0 Types
   AppConfig,
+  LegacyAppConfig,
   AppRef,
   Proposal,
   ProposalResult,
@@ -118,8 +119,8 @@ export type {
   Intent,
   Host,
   HostResult,
-  EffectHandler,
-  EffectContext,
+  HostEffectHandler,
+  HostEffectContext,
   SchemaCompatibilityResult,
   MemoryStore,
   StoredMemoryRecord,
@@ -129,6 +130,11 @@ export type {
   WorldId,
   Snapshot,
   Patch,
+
+  // v2.2.0 Effects-first API
+  Effects,
+  AppEffectContext,
+  EffectHandler as AppEffectHandler,
 } from "./core/types/index.js";
 
 // =============================================================================

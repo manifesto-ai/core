@@ -1,9 +1,11 @@
 /**
  * V2 Initializer Module
  *
- * Initializes v2.0.0 components: HostExecutor, effect handlers, and genesis World.
+ * Initializes v2.0.0/v2.2.0 components: HostExecutor, effect handlers, and genesis World.
  *
- * @see SPEC v2.0.0 §8-10
+ * v2.2.0: Effects may be pre-registered via createInternalHost (skipEffectRegistration=true).
+ *
+ * @see SPEC v2.2.0 §8-10
  * @module
  */
 
@@ -48,6 +50,10 @@ export interface V2InitializerDependencies {
   currentState: AppState<unknown>;
   getCurrentWorldId: () => string;
   getCurrentBranchId: () => string;
+  /**
+   * v2.2.0: Skip effect registration if effects are pre-registered via createInternalHost.
+   */
+  skipEffectRegistration?: boolean;
 }
 
 /**
@@ -97,6 +103,7 @@ export class V2InitializerImpl implements V2Initializer {
       defaultActorId,
       getCurrentWorldId,
       getCurrentBranchId,
+      skipEffectRegistration,
     } = this._deps;
 
     // 1. Create AppHostExecutor wrapping injected Host
@@ -105,25 +112,28 @@ export class V2InitializerImpl implements V2Initializer {
       traceEnabled: options.devtools?.enabled,
     });
 
-    // 2. Register effect handlers from services
-    const services = options.services ?? {};
-    for (const [effectType, handler] of Object.entries(services)) {
-      host.registerEffect(effectType, async (type, params, ctx) => {
-        const result = await handler(params, {
-          snapshot: ctx.snapshot as AppState<unknown>,
-          actorId: defaultActorId,
-          worldId: getCurrentWorldId(),
-          branchId: getCurrentBranchId(),
-          patch: this._createPatchHelpers(),
-          signal: ctx.signal ?? new AbortController().signal,
-        });
+    // 2. Register effect handlers from services (legacy path)
+    // v2.2.0: Skip if effects are pre-registered via createInternalHost
+    if (!skipEffectRegistration) {
+      const services = options.services ?? {};
+      for (const [effectType, handler] of Object.entries(services)) {
+        host.registerEffect(effectType, async (type, params, ctx) => {
+          const result = await handler(params, {
+            snapshot: ctx.snapshot as AppState<unknown>,
+            actorId: defaultActorId,
+            worldId: getCurrentWorldId(),
+            branchId: getCurrentBranchId(),
+            patch: this._createPatchHelpers(),
+            signal: ctx.signal ?? new AbortController().signal,
+          });
 
-        // Normalize result to Patch array
-        if (!result) return [];
-        if (Array.isArray(result)) return result;
-        if ("patches" in result) return result.patches;
-        return [result];
-      });
+          // Normalize result to Patch array
+          if (!result) return [];
+          if (Array.isArray(result)) return result;
+          if ("patches" in result) return result.patches;
+          return [result];
+        });
+      }
     }
 
     return {

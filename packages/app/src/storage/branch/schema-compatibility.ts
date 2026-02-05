@@ -3,7 +3,7 @@
  *
  * Validates schema compatibility for fork operations.
  *
- * @see SPEC v2.0.0 §12.4
+ * @see SPEC v2.2.0 §12.4
  * @module
  */
 
@@ -11,6 +11,7 @@ import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   SchemaCompatibilityResult,
   Host,
+  Effects,
 } from "../../core/types/index.js";
 
 /**
@@ -123,7 +124,24 @@ function collectEffectTypes(
 }
 
 /**
+ * Validate schema compatibility against an Effects map.
+ *
+ * v2.2.0: Preferred method for effects-first API.
+ *
+ * @see SPEC v2.2.0 §12.4
+ */
+export function validateSchemaCompatibilityWithEffects(
+  newSchema: DomainSchema,
+  effects: Effects
+): SchemaCompatibilityResult {
+  const registeredEffectTypes = Object.keys(effects);
+  return validateSchemaCompatibility(newSchema, registeredEffectTypes);
+}
+
+/**
  * Validate schema compatibility against a Host.
+ *
+ * @deprecated Use validateSchemaCompatibilityWithEffects for v2.2.0 effects-first API.
  */
 export async function validateSchemaCompatibilityWithHost(
   newSchema: DomainSchema,

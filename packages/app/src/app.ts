@@ -30,9 +30,12 @@ import type {
   Branch,
   CreateAppOptions,
   DisposeOptions,
+  Effects,
+  ErrorValue,
   ForkOptions,
   Hookable,
   Host,
+  HostResult,
   MemoryFacade,
   MigrationLink,
   PolicyService,
@@ -48,6 +51,7 @@ import type {
   World,
   WorldStore,
 } from "./core/types/index.js";
+import { createInternalHost } from "./execution/internal-host.js";
 import type { WorldId } from "@manifesto-ai/world";
 import { createWorldId } from "@manifesto-ai/world";
 
@@ -145,13 +149,15 @@ export class ManifestoApp implements App {
   // Domain Executor (Host integration) - Legacy v0.4.x
   private _domainExecutor: DomainExecutor | null = null;
 
-  // v2.0.0 Components
+  // v2.0.0/v2.2.0 Components
   private _v2Host: Host | null = null;
   private _v2WorldStore: WorldStore | null = null;
   private _v2PolicyService: PolicyService | null = null;
   private _v2HostExecutor: AppHostExecutor | null = null;
   private _v2Enabled: boolean = false;
   private _v2Executor: V2Executor | null = null;
+  // v2.2.0: Effects for internal Host creation
+  private _v2Effects: Effects | null = null;
 
   constructor(domain: string | DomainSchema, opts?: CreateAppOptions) {
     this._options = opts ?? {};
@@ -167,11 +173,32 @@ export class ManifestoApp implements App {
     this._lifecycleManager.setAppRef(this._appRef);
     this._registerConfiguredHooks();
 
-    // v2.0.0: Detect v2 mode from _v2Config
+    // v2.0.0/v2.2.0: Detect v2 mode from _v2Config
     const v2Config = opts?._v2Config;
-    if (v2Config?.host && v2Config?.worldStore) {
+
+    // v2.2.0 path: effects-first (Host created internally)
+    if (v2Config && "effects" in v2Config && v2Config.effects && v2Config.worldStore) {
       this._v2Enabled = true;
-      this._v2Host = v2Config.host;
+      this._v2Effects = v2Config.effects as Effects;
+      this._v2WorldStore = v2Config.worldStore;
+      // Host will be created in _initializeV2Components after schema compilation
+
+      // PolicyService: use provided or create default
+      if (v2Config.policyService) {
+        this._v2PolicyService = v2Config.policyService;
+      } else {
+        const isTest = typeof globalThis !== "undefined" &&
+          (globalThis as unknown as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === "test";
+
+        this._v2PolicyService = isTest
+          ? createSilentPolicyService(v2Config.executionKeyPolicy)
+          : createDefaultPolicyService({ executionKeyPolicy: v2Config.executionKeyPolicy });
+      }
+    }
+    // Legacy v2.0.0 path: host-first (Host injected)
+    else if (v2Config && "host" in v2Config && v2Config.host && v2Config.worldStore) {
+      this._v2Enabled = true;
+      this._v2Host = v2Config.host as Host;
       this._v2WorldStore = v2Config.worldStore;
 
       // PolicyService: use provided or create default
@@ -759,11 +786,49 @@ export class ManifestoApp implements App {
   }
 
   private async _initializeV2Components(): Promise<void> {
-    if (!this._v2Host || !this._v2WorldStore || !this._v2PolicyService) {
-      throw new Error("v2 mode requires Host, WorldStore, and PolicyService");
+    if (!this._v2WorldStore || !this._v2PolicyService) {
+      throw new Error("v2 mode requires WorldStore and PolicyService");
     }
 
-    // Use V2Initializer for effect registration and genesis world
+    // v2.2.0: Create Host internally if effects are provided
+    if (this._v2Effects && !this._v2Host) {
+      const schema = this._schemaManager.getSchema();
+      const internalHost = createInternalHost({
+        schema,
+        effects: this._v2Effects,
+        initialData: this._options.initialData,
+      });
+
+      // Adapt ManifestoHost to App's Host interface
+      this._v2Host = {
+        dispatch: async (intent): Promise<HostResult> => {
+          const result = await internalHost.dispatch(intent);
+          return {
+            status: result.status === "complete" ? "completed" : "failed",
+            snapshot: result.snapshot as Snapshot,
+            error: result.error as ErrorValue | undefined,
+          };
+        },
+        registerEffect: (_type, _handler) => {
+          // v2.2.0: Effects are pre-registered via createInternalHost.
+          // This method is a no-op for backward compatibility.
+          console.warn(
+            "[Manifesto] registerEffect() is deprecated in v2.2.0. " +
+            "Provide effects via createApp({ effects }) instead."
+          );
+        },
+        getRegisteredEffectTypes: () => internalHost.getEffectTypes(),
+        reset: async (data) => {
+          internalHost.reset(data);
+        },
+      };
+    }
+
+    if (!this._v2Host) {
+      throw new Error("v2 mode requires Host (via effects or direct injection)");
+    }
+
+    // Use V2Initializer for genesis world (effects already registered if using v2.2.0)
     const v2Initializer = createV2Initializer({
       host: this._v2Host,
       worldStore: this._v2WorldStore,
@@ -776,6 +841,8 @@ export class ManifestoApp implements App {
       currentState: this._currentState!,
       getCurrentWorldId: () => this._worldHeadTracker.getCurrentHead()?.toString() ?? "genesis",
       getCurrentBranchId: () => this._branchManager?.currentBranchId ?? "main",
+      // Skip effect registration for v2.2.0 (already done in createInternalHost)
+      skipEffectRegistration: !!this._v2Effects,
     });
 
     const { hostExecutor } = v2Initializer.initialize();
