@@ -1,6 +1,150 @@
-# Migration Guide: @manifesto-ai/app v1.x → v2.0.0
+# Migration Guide: @manifesto-ai/app
 
-This guide helps you migrate from the legacy `createApp()` API to the new v2 API with injectable Host and WorldStore.
+This guide helps you migrate between major versions of `createApp()` API.
+
+**Version History:**
+- [v2.2.0 → v2.3.0](#v220--v230-world-owns-persistence) — World owns persistence (ADR-003)
+- [v2.0.0 → v2.2.0](#v200--v220-effects-first-api) — Effects-first API (ADR-APP-002)
+- [v1.x → v2.0.0](#v1x--v200-injectable-host) — Injectable Host
+
+---
+
+# v2.2.0 → v2.3.0: World Owns Persistence
+
+> **Breaking Change:** `worldStore` removed from `AppConfig`
+> **New Option:** `world?: ManifestoWorld` (optional)
+
+## Overview
+
+v2.3.0 implements **ADR-003** (World Owns Persistence):
+
+| v2.2.0 | v2.3.0 |
+|--------|--------|
+| `worldStore?: WorldStore` | Removed |
+| N/A | `world?: ManifestoWorld` |
+| App creates WorldStore | World owns WorldStore internally |
+
+## Quick Migration
+
+```typescript
+// Before (v2.2.0)
+import { createApp, createInMemoryWorldStore } from "@manifesto-ai/app";
+
+const app = createApp({
+  schema,
+  effects: { 'api.save': handler },
+  worldStore: createInMemoryWorldStore(),  // ❌ Removed
+});
+
+// After (v2.3.0) - Simplest form
+import { createApp } from "@manifesto-ai/app";
+
+const app = createApp({
+  schema,
+  effects: { 'api.save': handler },
+  // World created internally with InMemoryWorldStore
+});
+
+// After (v2.3.0) - Custom World
+import { createApp } from "@manifesto-ai/app";
+import { createManifestoWorld } from "@manifesto-ai/world";
+
+const customWorld = createManifestoWorld({
+  store: createPostgresWorldStore(pgClient),
+});
+
+const app = createApp({
+  schema,
+  effects: { 'api.save': handler },
+  world: customWorld,  // ✅ Provide World instance
+});
+```
+
+## Why This Change?
+
+Per ADR-003, **World owns persistence**:
+- WorldStore is World's internal concern
+- App should not directly manage WorldStore
+- Cleaner separation of concerns
+
+---
+
+# v2.0.0 → v2.2.0: Effects-First API
+
+> **Breaking Change:** `host` removed from `AppConfig`
+> **New Requirement:** `effects` is required
+
+## Overview
+
+v2.2.0 implements **ADR-APP-002** (createApp API Simplification):
+
+| v2.0.0 | v2.2.0 |
+|--------|--------|
+| `host: Host` (required) | Removed (internal) |
+| `services?: ServiceMap` | `effects: Effects` (required) |
+| `compiler?: Compiler` | Removed (internal) |
+
+## Quick Migration
+
+```typescript
+// Before (v2.0.0)
+import { createApp, createHost, createInMemoryWorldStore } from "@manifesto-ai/app";
+
+const host = createHost(schema);
+host.registerEffect('api.save', async (type, params, ctx) => {
+  // ... return patches
+});
+
+const app = createApp({
+  schema,
+  host,          // ❌ Removed
+  worldStore,
+});
+
+// After (v2.2.0)
+import { createApp } from "@manifesto-ai/app";
+
+const app = createApp({
+  schema,
+  effects: {
+    'api.save': async (params, ctx) => {
+      // Note: only (params, ctx), not (type, params, ctx)
+      return [{ op: 'set', path: 'data.saved', value: true }];
+    },
+  },
+  // host is created internally
+});
+```
+
+## Effect Handler Signature Change
+
+```typescript
+// v2.0.0 (Host EffectHandler)
+type HostEffectHandler = (
+  type: string,    // ← Removed in v2.2.0
+  params: unknown,
+  ctx: EffectContext
+) => Promise<Patch[]>;
+
+// v2.2.0 (App EffectHandler)
+type AppEffectHandler = (
+  params: unknown,
+  ctx: AppEffectContext  // Simplified context
+) => Promise<readonly Patch[]>;
+```
+
+## Why This Change?
+
+Per ADR-APP-002:
+- Users shouldn't need to understand Host/Compiler internals
+- "Vue-level simplicity": just provide schema + effects
+- Host is an implementation detail, not a public API
+
+---
+
+# v1.x → v2.0.0: Injectable Host
+
+This section covers the original migration from v1.x legacy API to v2.0.0.
 
 ---
 
@@ -313,10 +457,13 @@ The warning is suppressed in test environments (`NODE_ENV=test`).
 
 ## Timeline
 
-| Version | Status |
-|---------|--------|
-| v2.0.0 | Current - Legacy API deprecated |
-| v3.0.0 | Legacy API removed |
+| Version | Status | Changes |
+|---------|--------|---------|
+| v2.3.0 | **Current** | World owns persistence (ADR-003) |
+| v2.2.0 | Stable | Effects-first API (ADR-APP-002) |
+| v2.0.0 | Deprecated | Injectable Host/WorldStore |
+| v1.x | Removed | Legacy DomainExecutor |
+| v3.0.0 | Planned | All legacy APIs removed |
 
 ---
 
@@ -361,6 +508,7 @@ ctx.app.enqueueAction("action", {});
 
 ## Resources
 
-- [APP-SPEC-v2.0.0.md](./APP-SPEC-v2.0.0.md) - Full specification
-- [FDR-APP-INTEGRATION-001](./FDR-APP-INTEGRATION-001-v0.4.0.md) - Integration FDR
+- [APP-SPEC-v2.3.0.md](./APP-SPEC-v2.3.0.md) - Current specification
+- [ADR-APP-002-v0.2.0.md](./ADR-APP-002-v0.2.0.md) - createApp API Simplification
+- [FDR-APP-INTEGRATION-001](./FDR-APP-INTEGRATION-001-v0.4.1.md) - Integration FDR
 - [FDR-APP-POLICY-001](./FDR-APP-POLICY-001-v0.2.3.md) - Policy FDR

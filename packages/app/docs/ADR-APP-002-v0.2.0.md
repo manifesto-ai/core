@@ -1,11 +1,12 @@
 # ADR-APP-002: createApp Public API = (MEL | Schema) + Effects Only
 
-> **Status:** Proposed
-> **Version:** 0.1.0
+> **Status:** Implemented
+> **Version:** 0.2.0
 > **Date:** 2026-02-05
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** `@manifesto-ai/app` public API (`createApp`)
-> **Depends On:** ARCHITECTURE v2.x (Layer Separation), World SPEC v2.x (HostExecutor injection), Host SPEC v2.x (Effect Handler Contract)
+> **Depends On:** ARCHITECTURE v2.x (Layer Separation), World SPEC v2.x (HostExecutor injection), Host SPEC v2.x (Effect Handler Contract), ADR-003 (World Owns Persistence)
+> **Implemented In:** APP-SPEC v2.3.0
 
 ---
 
@@ -91,7 +92,7 @@ type CreateAppConfig =
       effects: Effects;
 
       initialData?: unknown;
-      worldStore?: WorldStore;
+      world?: ManifestoWorld;  // ADR-003: World owns persistence
       policyService?: PolicyService;
       actorPolicy?: ActorPolicy;
       validation?: {
@@ -104,7 +105,7 @@ type CreateAppConfig =
       effects: Effects;
 
       initialData?: unknown;
-      worldStore?: WorldStore;
+      world?: ManifestoWorld;  // ADR-003: World owns persistence
       policyService?: PolicyService;
       actorPolicy?: ActorPolicy;
       validation?: {
@@ -127,7 +128,7 @@ type CreateAppConfig =
 
 **APP-API-6 (SHOULD):** By default, `createApp` SHOULD validate that effects cover all effect ids referenced by schema (configurable via `validation.effects`).
 
-**APP-API-7 (MAY):** `worldStore`, `policyService`, `actorPolicy` MAY be overridden; otherwise App may choose sane defaults (e.g., in-memory world store).
+**APP-API-7 (MAY):** `world`, `policyService`, `actorPolicy` MAY be overridden; otherwise App may choose sane defaults (e.g., internal World with in-memory WorldStore per ADR-003).
 
 ---
 
@@ -144,7 +145,8 @@ type CreateAppConfig =
 Replace the current injection rule:
 
 - **OLD:** App MUST receive Host and WorldStore via injection
-- **NEW:** App MUST receive Effects via injection; App MUST compose its internal execution runtime. WorldStore MAY be injected; public API MUST NOT require Host injection.
+- **NEW (v2.2.0):** App MUST receive Effects via injection; App MUST compose its internal execution runtime. WorldStore MAY be injected; public API MUST NOT require Host injection.
+- **NEW (v2.3.0, ADR-003):** App MUST receive Effects via injection; World MAY be injected (default: internal World with InMemoryWorldStore). WorldStore is owned by World, not App.
 
 ---
 
