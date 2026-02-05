@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import {
   createInitialAppState,
@@ -115,7 +115,7 @@ describe("State Model", () => {
 
   describe("App.getState()", () => {
     it("should return initial state after ready()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const state = app.getState();
@@ -130,7 +130,7 @@ describe("State Model", () => {
 
     it("should include initialData in state", async () => {
       const initialData = { todos: [], settings: { theme: "dark" } };
-      const app = createApp(mockDomainSchema, { initialData });
+      const app = createTestApp(mockDomainSchema, { initialData });
       await app.ready();
 
       const state = app.getState<typeof initialData>();
@@ -149,7 +149,7 @@ describe("State Model", () => {
         todos: [{ id: 1, text: "Test", done: false }],
       };
 
-      const app = createApp(mockDomainSchema, { initialData });
+      const app = createTestApp(mockDomainSchema, { initialData });
       await app.ready();
 
       const state = app.getState<TodoState>();
@@ -159,7 +159,7 @@ describe("State Model", () => {
     });
 
     it("should have immutable system state properties", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const state = app.getState();
@@ -173,7 +173,7 @@ describe("State Model", () => {
 
     it("should have meta with valid timestamp", async () => {
       const beforeTime = Date.now();
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       const afterTime = Date.now();
 
@@ -184,7 +184,7 @@ describe("State Model", () => {
     });
 
     it("should have meta with randomSeed", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const state = app.getState();

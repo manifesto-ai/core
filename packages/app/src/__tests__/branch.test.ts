@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createTestApp } from "../index.js";
 import {
   AppNotReadyError,
   BranchNotFoundError,
@@ -33,7 +33,7 @@ const mockDomainSchema: DomainSchema = {
 describe("Branch Management", () => {
   describe("currentBranch()", () => {
     it("should return main branch after ready()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -45,13 +45,13 @@ describe("Branch Management", () => {
     });
 
     it("should throw AppNotReadyError before ready()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => app.currentBranch()).toThrow(AppNotReadyError);
     });
 
     it("should have a valid head() worldId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -65,7 +65,7 @@ describe("Branch Management", () => {
 
   describe("listBranches()", () => {
     it("should return array with main branch initially", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branches = app.listBranches();
@@ -76,7 +76,7 @@ describe("Branch Management", () => {
     });
 
     it("should throw AppNotReadyError before ready()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => app.listBranches()).toThrow(AppNotReadyError);
     });
@@ -84,7 +84,7 @@ describe("Branch Management", () => {
 
   describe("fork()", () => {
     it("should create a new branch", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const newBranch = await app.fork();
@@ -95,7 +95,7 @@ describe("Branch Management", () => {
     });
 
     it("should add new branch to listBranches()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app.fork();
@@ -105,7 +105,7 @@ describe("Branch Management", () => {
     });
 
     it("should switch to new branch by default", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const newBranch = await app.fork();
@@ -115,7 +115,7 @@ describe("Branch Management", () => {
     });
 
     it("should not switch when switchTo is false", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const mainBranch = app.currentBranch();
@@ -126,7 +126,7 @@ describe("Branch Management", () => {
     });
 
     it("should accept custom name", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const newBranch = await app.fork({ name: "feature-branch" });
@@ -135,7 +135,7 @@ describe("Branch Management", () => {
     });
 
     it("should throw AppNotReadyError before ready()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       await expect(app.fork()).rejects.toThrow(AppNotReadyError);
     });
@@ -143,7 +143,7 @@ describe("Branch Management", () => {
 
   describe("switchBranch()", () => {
     it("should switch to an existing branch", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       // Create a new branch but don't switch
@@ -160,7 +160,7 @@ describe("Branch Management", () => {
     });
 
     it("should throw BranchNotFoundError for unknown branch", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await expect(app.switchBranch("unknown-branch")).rejects.toThrow(
@@ -169,7 +169,7 @@ describe("Branch Management", () => {
     });
 
     it("should throw AppNotReadyError before ready()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       await expect(app.switchBranch("main")).rejects.toThrow(AppNotReadyError);
     });
@@ -177,7 +177,7 @@ describe("Branch Management", () => {
 
   describe("Branch.head()", () => {
     it("should return current head worldId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -190,7 +190,7 @@ describe("Branch Management", () => {
 
   describe("Branch.checkout()", () => {
     it("should checkout to a world in lineage", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -203,7 +203,7 @@ describe("Branch Management", () => {
     });
 
     it("should throw WorldNotInLineageError for unknown worldId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -216,7 +216,7 @@ describe("Branch Management", () => {
 
   describe("Branch.lineage()", () => {
     it("should return array of worldIds", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -228,7 +228,7 @@ describe("Branch Management", () => {
     });
 
     it("should include head in lineage", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -239,7 +239,7 @@ describe("Branch Management", () => {
     });
 
     it("should respect limit option", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -251,7 +251,7 @@ describe("Branch Management", () => {
 
   describe("Branch.act()", () => {
     it("should execute action on the branch", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -267,7 +267,7 @@ describe("Branch Management", () => {
 
   describe("Branch.getState()", () => {
     it("should return state for the branch", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         initialData: { todos: [] },
       });
       await app.ready();
@@ -282,7 +282,7 @@ describe("Branch Management", () => {
 
   describe("Branch.fork()", () => {
     it("should fork from current branch", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const mainBranch = app.currentBranch();
@@ -295,7 +295,7 @@ describe("Branch Management", () => {
 
   describe("Multiple branches workflow", () => {
     it("should handle multiple forks", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch1 = await app.fork({ name: "feature-1", switchTo: false });
@@ -312,7 +312,7 @@ describe("Branch Management", () => {
     });
 
     it("should maintain separate branch contexts", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const mainBranch = app.currentBranch();

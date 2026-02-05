@@ -39,6 +39,7 @@ import {
 
   // Factory
   createApp,
+  createTestApp,
 } from "../index.js";
 
 describe("Package Scaffold", () => {
@@ -220,7 +221,7 @@ describe("Package Scaffold", () => {
     });
 
     it("should return an App instance in created state", () => {
-      const app = createApp({ id: "test:app", version: "1.0.0", hash: "test", types: {}, actions: {}, computed: { fields: {} }, state: { fields: {} } });
+      const app = createTestApp({ id: "test:app", version: "1.0.0", hash: "test", types: {}, actions: {}, computed: { fields: {} }, state: { fields: {} } });
       expect(app).toBeDefined();
       expect(app.status).toBe("created");
     });

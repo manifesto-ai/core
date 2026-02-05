@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import { hashSchemaSync, type DomainSchema, createIntent, createCore, createSnapshot } from "@manifesto-ai/core";
 import { createHost, createTestHostContextProvider } from "@manifesto-ai/host";
 
@@ -62,7 +62,7 @@ describe("Debug Executor", () => {
     const schema = createTestSchema();
     console.log("Schema hash:", schema.hash);
 
-    const app = createApp(schema);
+    const app = createTestApp(schema);
     console.log("App status before ready:", app.status);
 
     await app.ready();
@@ -175,7 +175,7 @@ describe("Debug Executor", () => {
       ];
     };
 
-    const app = createApp(schema, {
+    const app = createTestApp(schema, {
       services: {
         "test.effect": mockHandler,
       },
@@ -222,7 +222,7 @@ describe("Debug Executor", () => {
       hash: hashSchemaSync(schemaWithPatch),
     };
 
-    const app = createApp(schema);
+    const app = createTestApp(schema);
     await app.ready();
 
     const handle = app.act("test.setPatch", {});

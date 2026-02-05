@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import { PluginInitError } from "../errors/index.js";
 import type { App, AppPlugin } from "../core/types/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
@@ -42,7 +42,7 @@ describe("Plugin System", () => {
         callOrder.push(3);
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [plugin1, plugin2, plugin3],
       });
 
@@ -58,7 +58,7 @@ describe("Plugin System", () => {
         receivedApp = app;
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [plugin],
       });
 
@@ -81,7 +81,7 @@ describe("Plugin System", () => {
         callOrder.push(2);
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [syncPlugin, asyncPlugin],
       });
 
@@ -98,7 +98,7 @@ describe("Plugin System", () => {
         pluginCompleted = true;
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [asyncPlugin],
       });
 
@@ -114,7 +114,7 @@ describe("Plugin System", () => {
         throw new Error("Plugin initialization failed");
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [failingPlugin],
       });
 
@@ -127,7 +127,7 @@ describe("Plugin System", () => {
         throw new Error("Async plugin initialization failed");
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [asyncFailingPlugin],
       });
 
@@ -140,7 +140,7 @@ describe("Plugin System", () => {
         throw new Error("Second plugin failed");
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [successPlugin, failingPlugin],
       });
 
@@ -159,7 +159,7 @@ describe("Plugin System", () => {
         throw new Error("Custom error message");
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [failingPlugin],
       });
 
@@ -180,7 +180,7 @@ describe("Plugin System", () => {
         throw originalError;
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [failingPlugin],
       });
 
@@ -211,7 +211,7 @@ describe("Plugin System", () => {
         callOrder.push(3);
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [plugin1, failingPlugin, plugin3],
       });
 
@@ -224,14 +224,14 @@ describe("Plugin System", () => {
 
   describe("PLUG-5: No plugins scenario", () => {
     it("should work without plugins", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       expect(app.status).toBe("ready");
     });
 
     it("should work with empty plugins array", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [],
       });
       await app.ready();
@@ -250,7 +250,7 @@ describe("Plugin System", () => {
         });
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [hookPlugin],
       });
 
@@ -268,7 +268,7 @@ describe("Plugin System", () => {
         });
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [plugin],
       });
 
@@ -294,7 +294,7 @@ describe("Plugin System", () => {
         }
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [stateAccessPlugin],
       });
 
@@ -315,7 +315,7 @@ describe("Plugin System", () => {
         });
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [plugin],
       });
 
@@ -343,7 +343,7 @@ describe("Plugin System", () => {
         });
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [loggingPlugin],
       });
 
@@ -373,7 +373,7 @@ describe("Plugin System", () => {
         });
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [metricsPlugin],
       });
 
@@ -402,7 +402,7 @@ describe("Plugin System", () => {
         };
       }
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [createConfigPlugin({ prefix: "test-" })],
       });
 

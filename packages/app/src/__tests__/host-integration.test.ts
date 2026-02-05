@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import type { DomainSchema, Patch } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
 import type { ServiceMap, ServiceContext, AppState, ActionResult } from "../core/types/index.js";
@@ -183,7 +183,7 @@ describe("Host Integration - Happy Path", () => {
   describe("HAPPY-1: Simple action with no effects", () => {
     it("should complete simple action with noop flow", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -197,7 +197,7 @@ describe("Host Integration - Happy Path", () => {
 
     it("should complete action with direct patch flow", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -219,7 +219,7 @@ describe("Host Integration - Happy Path", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value must be set by handler
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: {
           "test.effect": mockHandler,
         },
@@ -259,7 +259,7 @@ describe("Host Integration - Happy Path", () => {
         ];
       });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
@@ -282,7 +282,7 @@ describe("Host Integration - Happy Path", () => {
     // TODO: Host doesn't return computed values - needs investigation
     it.skip("should recalculate computed values after action", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -310,7 +310,7 @@ describe("Host Integration - Effect Execution", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": mockHandler },
       });
 
@@ -333,7 +333,7 @@ describe("Host Integration - Effect Execution", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value only
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": mockHandler },
       });
 
@@ -353,7 +353,7 @@ describe("Host Integration - Effect Execution", () => {
       const schema = createTestSchema();
       const throwingHandler = createThrowingService(new Error("Handler failed"));
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": throwingHandler },
       });
 
@@ -375,7 +375,7 @@ describe("Host Integration - Effect Execution", () => {
       const schema = createTestSchema();
       const timeoutHandler = createTimeoutService(10000);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": timeoutHandler },
         scheduler: { defaultTimeoutMs: 100 },
       });
@@ -395,7 +395,7 @@ describe("Host Integration - Effect Execution", () => {
       const schema = createTestSchema();
       // No services registered
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         validation: { services: "lazy" },
       });
 
@@ -425,7 +425,7 @@ describe("Host Integration - Effect Execution", () => {
         return [{ op: "set", path: "value", value: 999 }];
       });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": retryHandler },
       });
 
@@ -469,7 +469,7 @@ describe("Host Integration - State Management", () => {
           ];
         });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
@@ -492,7 +492,7 @@ describe("Host Integration - State Management", () => {
   describe("STATE-2: Subscriber notification", () => {
     it("should notify subscribers after action completes", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -513,7 +513,7 @@ describe("Host Integration - State Management", () => {
   describe("STATE-3: Version increment", () => {
     it("should increment state version after action", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -536,7 +536,7 @@ describe("Host Integration - State Management", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": mockHandler },
       });
 
@@ -560,7 +560,7 @@ describe("Host Integration - Error Handling", () => {
   describe("ERR-1: Unknown action type", () => {
     it("should fail with ACTION_NOT_FOUND for unknown action", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -587,7 +587,7 @@ describe("Host Integration - Error Handling", () => {
         },
       };
 
-      const app = createApp(schemaWithValidation);
+      const app = createTestApp(schemaWithValidation);
       await app.ready();
 
       // Missing required 'name' field
@@ -612,7 +612,7 @@ describe("Host Integration - Error Handling", () => {
       ]);
       const secondHandler = createThrowingService(new Error("Mid-execution failure"));
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
@@ -638,7 +638,7 @@ describe("Host Integration - Error Handling", () => {
       const firstHandler = createThrowingService(new Error("First effect failed"));
       const secondHandler = vi.fn().mockResolvedValue([]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
@@ -662,7 +662,7 @@ describe("Host Integration - Error Handling", () => {
       const schema = createTestSchema();
       const throwingHandler = createThrowingService(new Error("Recorded error"));
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": throwingHandler },
       });
 
@@ -681,7 +681,7 @@ describe("Host Integration - Error Handling", () => {
       const schema = createTestSchema();
       const throwingHandler = createThrowingService(new Error("Array error"));
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": throwingHandler },
       });
 
@@ -706,7 +706,7 @@ describe("Host Integration - Concurrency", () => {
     // Now works with FIFO serialization
     it("should handle multiple concurrent actions via FIFO queue", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -744,7 +744,7 @@ describe("Host Integration - Concurrency", () => {
         return [{ op: "set", path: "effectDone", value: true }];  // Guard value
       });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": slowHandler },
       });
 
@@ -766,7 +766,7 @@ describe("Host Integration - Concurrency", () => {
   describe("CONC-3: Safe subscriber notification", () => {
     it("should safely handle subscriber notification during execution", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -795,7 +795,7 @@ describe("Host Integration - Lifecycle", () => {
   describe("LIFE-1: Act after dispose", () => {
     it("should throw AppDisposedError when act() after dispose()", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
       await app.dispose();
@@ -823,7 +823,7 @@ describe("Host Integration - Lifecycle", () => {
           });
         });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": longRunningHandler },
       });
 
@@ -852,7 +852,7 @@ describe("Host Integration - Lifecycle", () => {
         return [];
       });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": slowHandler },
       });
 
@@ -891,7 +891,7 @@ describe("Host Integration - Type Conversion", () => {
           }
         );
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": serviceHandler },
       });
 
@@ -919,7 +919,7 @@ describe("Host Integration - Type Conversion", () => {
           return [{ op: "set", path: "effectDone", value: true }];  // Guard value
         });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": serviceHandler },
       });
 
@@ -943,7 +943,7 @@ describe("Host Integration - Type Conversion", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": mockHandler },
       });
 
@@ -967,7 +967,7 @@ describe("Host Integration - Type Conversion", () => {
   describe("CONV-4: Host status 'complete' maps to 'completed'", () => {
     it("should map Host status 'complete' to 'completed'", async () => {
       const schema = createTestSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       await app.ready();
 
@@ -984,7 +984,7 @@ describe("Host Integration - Type Conversion", () => {
       const schema = createTestSchema();
       const throwingHandler = createThrowingService(new Error("test error"));
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": throwingHandler },
       });
 
@@ -1020,7 +1020,7 @@ describe("Host Integration - ServiceReturn Normalization", () => {
         return [{ op: "set", path: "effectDone", value: true }];
       });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": voidHandler },
       });
 
@@ -1041,7 +1041,7 @@ describe("Host Integration - ServiceReturn Normalization", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": singlePatchHandler },
       });
 
@@ -1063,7 +1063,7 @@ describe("Host Integration - ServiceReturn Normalization", () => {
         { op: "set", path: "effectDone", value: true },  // Guard value
       ]);
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": arrayHandler },
       });
 
@@ -1087,7 +1087,7 @@ describe("Host Integration - ServiceReturn Normalization", () => {
         ],
       });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": objectHandler },
       });
 
@@ -1121,7 +1121,7 @@ describe("Host Integration - Context", () => {
           ]);
         });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": contextHandler },
       });
 
@@ -1157,7 +1157,7 @@ describe("Host Integration - Context", () => {
           return [{ op: "set", path: "effectDone", value: true }];  // Guard value
         });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": contextHandler },
       });
 
@@ -1183,7 +1183,7 @@ describe("Host Integration - Context", () => {
           return [{ op: "set", path: "effectDone", value: true }];  // Guard value
         });
 
-      const app = createApp(schema, {
+      const app = createTestApp(schema, {
         services: { "test.effect": signalHandler },
       });
 
