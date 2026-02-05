@@ -172,7 +172,7 @@
 
 ### FieldRef
 
-**Definition:** A type-safe reference to a field in the state schema. Created by Builder to eliminate string paths.
+**Definition:** A type-safe reference to a field in the state schema. Eliminates string paths in favor of type-checked references.
 
 **See also:** [ComputedRef](#computedref), [ActionRef](#actionref)
 
@@ -386,7 +386,6 @@
 | Actor | Entity that proposes changes |
 | Authority | Entity that judges proposals |
 | Bridge | Two-way binding between UI and domain |
-| Builder | Type-safe domain authoring DSL |
 | Computed | Derived values from state |
 | **Coordinate** | A point in semantic space (Snapshot) |
 | **Coordinate Calculation** | Finding the next valid position in semantic space |

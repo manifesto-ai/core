@@ -50,7 +50,6 @@ jobs:
           git tag -a "@manifesto-ai/host-v1.0.0" -m "Release @manifesto-ai/host v1.0.0"
           git tag -a "@manifesto-ai/world-v1.0.0" -m "Release @manifesto-ai/world v1.0.0"
           git tag -a "@manifesto-ai/bridge-v1.0.0" -m "Release @manifesto-ai/bridge v1.0.0"
-          git tag -a "@manifesto-ai/builder-v1.0.0" -m "Release @manifesto-ai/builder v1.0.0"
           git tag -a "@manifesto-ai/react-v1.0.0" -m "Release @manifesto-ai/react v1.0.0"
           git tag -a "@manifesto-ai/compiler-v1.0.0" -m "Release @manifesto-ai/compiler v1.0.0"
 
@@ -109,18 +108,6 @@ jobs:
           \`\`\`
           "
 
-          gh release create "@manifesto-ai/builder-v1.0.0" \
-            --title "@manifesto-ai/builder v1.0.0" \
-            --notes "## Initial Release
-
-          The developer experience (DX) layer of Manifesto. Provides type-safe domain definition with Zod integration.
-
-          ### Installation
-          \`\`\`bash
-          npm install @manifesto-ai/builder
-          \`\`\`
-          "
-
           gh release create "@manifesto-ai/react-v1.0.0" \
             --title "@manifesto-ai/react v1.0.0" \
             --notes "## Initial Release
@@ -162,6 +149,5 @@ jobs:
           echo "| @manifesto-ai/host | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
           echo "| @manifesto-ai/world | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
           echo "| @manifesto-ai/bridge | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
-          echo "| @manifesto-ai/builder | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
           echo "| @manifesto-ai/react | 1.0.0 |" >> $GITHUB_STEP_SUMMARY
           echo "| @manifesto-ai/compiler | 1.0.0 |" >> $GITHUB_STEP_SUMMARY

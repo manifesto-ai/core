@@ -28,8 +28,6 @@ Core packages:
   - `packages/host/docs/host-SPEC-v2.0.2.md`
 - World v2.0.3 (full)
   - `packages/world/docs/world-SPEC-v2.0.3.md`
-- Builder v1.0.0 (full)
-  - `packages/builder/docs/SPEC-v1.0.0.md`
 
 Application layer:
 - App v2.1.0 (base + patch)
@@ -74,10 +72,6 @@ World:
 - World Event FDR v1.0.0
   - `packages/world/docs/WORLD-EVENT-FDR-v1.0.0.md`
 
-Builder:
-- Builder FDR v1.0.0
-  - `packages/builder/docs/FDR-v1.0.0.md`
-
 App (all current app FDRs are additive):
 - `packages/app/docs/FDR-APP-EXT-001-v0.4.0.md`
 - `packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.0.md`
@@ -103,7 +97,6 @@ Translator:
   - `packages/core/docs/VERSION-INDEX.md`
   - `packages/host/docs/VERSION-INDEX.md`
   - `packages/world/docs/VERSION-INDEX.md`
-  - `packages/builder/docs/VERSION-INDEX.md`
   - `packages/app/docs/VERSION-INDEX.md`
   - `packages/compiler/docs/VERSION-INDEX.md`
   - `packages/intent-ir/docs/VERSION-INDEX.md`

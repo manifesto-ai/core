@@ -8,11 +8,11 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/builder --filter=@manifesto-ai/intent-ir",
+    "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir",
     "dev": "turbo run dev",
-    "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/builder --filter=@manifesto-ai/intent-ir",
-    "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/builder --filter=@manifesto-ai/intent-ir",
-    "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/builder --filter=@manifesto-ai/intent-ir",
+    "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir",
+    "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir",
+    "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir",
     "bench:core-host-world": "node scripts/bench-core-host-world.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "docs:dev": "vitepress dev docs",

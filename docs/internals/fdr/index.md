@@ -15,7 +15,6 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 | **@manifesto-ai/core** | v2.0.0 | Compute equation, purity, patches | [FDR-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/FDR-v2.0.0.md) |
 | **@manifesto-ai/host** | v2.0.2 | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-FDR-v2.0.2.md) |
 | **@manifesto-ai/world** | v2.0.2 | Governance, lineage, namespaces | [world-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-FDR-v2.0.2.md) |
-| ~~@manifesto-ai/builder~~ | v1.0.0 | *(Deprecated)* DSL design | Superseded by Compiler/MEL |
 
 ### Application Layer
 

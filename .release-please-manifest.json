@@ -3,7 +3,6 @@
   "packages/host": "2.0.1",
   "packages/world": "2.1.0",
   "packages/bridge": "1.2.0",
-  "packages/builder": "1.3.0",
   "packages/react": "1.2.0",
   "packages/compiler": "1.4.0",
   "packages/effect-utils": "1.2.0",
