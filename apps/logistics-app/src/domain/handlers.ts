@@ -3,7 +3,7 @@
  */
 
 import type { Patch } from "@manifesto-ai/core";
-import type { ServiceMap } from "@manifesto-ai/app";
+import type { ManifestoHost } from "@manifesto-ai/host";
 
 // =============================================================================
 // Mock Data
@@ -256,28 +256,33 @@ const arrayFilter = async (params: Record<string, unknown>): Promise<Patch[]> =>
 // Export
 // =============================================================================
 
-export function createLogisticsServices(): ServiceMap {
-  return {
-    // Tracking
-    "api.shipment.listActive": listActive,
-    "api.tracking.aggregateSignals": aggregateSignals,
-    // Quoting
-    "api.erp.getCustomerCredit": getCustomerCredit,
-    "api.quote.requestAllCarriers": requestAllCarriers,
-    // Documents
-    "api.bl.fetchMetadata": fetchMetadata,
-    "api.bl.fetchPdf": fetchPdf,
-    "ocr.extractText": extractText,
-    "ocr.extractBlFields": extractBlFields,
-    "api.unipass.checkCustomsRisk": checkCustomsRisk,
-    // Disruptions
-    "api.orders.searchActiveByPort": searchActiveByPort,
-    "api.notify.broadcastDisruption": broadcastDisruption,
-    "api.route.findAlternativeRoutes": findAlternativeRoutes,
-    // Utility
-    "record.keys": recordKeys,
-    "record.filter": recordFilter,
-    "record.mapValues": recordMapValues,
-    "array.filter": arrayFilter,
+/**
+ * Register effect handlers on the Host (v2 API)
+ */
+export function registerLogisticsEffects(host: ManifestoHost): void {
+  const register = (type: string, handler: (params: Record<string, unknown>) => Promise<Patch[]>) => {
+    host.registerEffect(type, async (_type, params) => handler(params as Record<string, unknown>));
   };
+
+  // Tracking
+  register("api.shipment.listActive", listActive);
+  register("api.tracking.aggregateSignals", aggregateSignals);
+  // Quoting
+  register("api.erp.getCustomerCredit", getCustomerCredit);
+  register("api.quote.requestAllCarriers", requestAllCarriers);
+  // Documents
+  register("api.bl.fetchMetadata", fetchMetadata);
+  register("api.bl.fetchPdf", fetchPdf);
+  register("ocr.extractText", extractText);
+  register("ocr.extractBlFields", extractBlFields);
+  register("api.unipass.checkCustomsRisk", checkCustomsRisk);
+  // Disruptions
+  register("api.orders.searchActiveByPort", searchActiveByPort);
+  register("api.notify.broadcastDisruption", broadcastDisruption);
+  register("api.route.findAlternativeRoutes", findAlternativeRoutes);
+  // Utility
+  register("record.keys", recordKeys);
+  register("record.filter", recordFilter);
+  register("record.mapValues", recordMapValues);
+  register("array.filter", arrayFilter);
 }

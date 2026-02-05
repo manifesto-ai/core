@@ -3,7 +3,7 @@
  */
 
 import type { Patch } from "@manifesto-ai/core";
-import type { ServiceMap } from "@manifesto-ai/app";
+import type { ManifestoHost } from "@manifesto-ai/host";
 
 // =============================================================================
 // Types
@@ -99,14 +99,19 @@ const saveTodos = async (params: Record<string, unknown>): Promise<Patch[]> => {
 // Exports
 // =============================================================================
 
-export function createTodoServices(): ServiceMap {
-  return {
-    "todo.load": loadTodos,
-    "todo.add": addTodo,
-    "todo.toggle": toggleTodo,
-    "todo.remove": removeTodo,
-    "todo.save": saveTodos,
+/**
+ * Register effect handlers on the Host (v2 API)
+ */
+export function registerTodoEffects(host: ManifestoHost): void {
+  const register = (type: string, handler: (params: Record<string, unknown>) => Promise<Patch[]>) => {
+    host.registerEffect(type, async (_type, params) => handler(params as Record<string, unknown>));
   };
+
+  register("todo.load", loadTodos);
+  register("todo.add", addTodo);
+  register("todo.toggle", toggleTodo);
+  register("todo.remove", removeTodo);
+  register("todo.save", saveTodos);
 }
 
 export function resetStorage(): void {
