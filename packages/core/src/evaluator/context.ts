@@ -51,25 +51,28 @@ export type EvalContext = {
 
 /**
  * Create a new evaluation context
+ *
+ * @param timestampOrTrace - Required timestamp or TraceContext for deterministic tracing.
+ *                           MUST be provided by Host via HostContext.now to ensure determinism.
  */
 export function createContext(
   snapshot: Snapshot,
   schema: DomainSchema,
-  currentAction?: string | null,
-  nodePath?: string,
-  intentId?: string,
-  timestampOrTrace?: number | TraceContext
+  currentAction: string | null,
+  nodePath: string,
+  intentId: string | undefined,
+  timestampOrTrace: number | TraceContext
 ): EvalContext {
   return {
     snapshot,
     schema,
-    currentAction: currentAction ?? null,
-    nodePath: nodePath ?? "",
+    currentAction,
+    nodePath,
     intentId,
     uuidCounter: 0,
     trace: typeof timestampOrTrace === "object"
       ? timestampOrTrace
-      : createTraceContext(timestampOrTrace ?? Date.now()),
+      : createTraceContext(timestampOrTrace),
   };
 }
 
