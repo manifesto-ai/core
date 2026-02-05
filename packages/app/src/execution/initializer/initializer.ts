@@ -1,5 +1,5 @@
 /**
- * V2 Initializer Module
+ * Host Initializer Module
  *
  * Initializes v2.0.0/v2.2.0 components: HostExecutor, effect handlers, and genesis World.
  *
@@ -36,9 +36,9 @@ import {
 // =============================================================================
 
 /**
- * V2 Initializer dependencies.
+ * Host Initializer dependencies.
  */
-export interface V2InitializerDependencies {
+export interface HostInitializerDependencies {
   host: Host;
   worldStore: WorldStore;
   policyService: PolicyService;
@@ -57,22 +57,22 @@ export interface V2InitializerDependencies {
 }
 
 /**
- * V2 Initialized components.
+ * Host Initialized components.
  */
-export interface V2InitializedComponents {
+export interface HostInitializedComponents {
   hostExecutor: AppHostExecutor;
 }
 
 /**
- * V2 Initializer interface.
+ * Host Initializer interface.
  */
-export interface V2Initializer {
+export interface HostInitializer {
   /**
    * Initialize v2 components.
    *
    * Sets up HostExecutor, registers effect handlers, and initializes genesis World.
    */
-  initialize(): V2InitializedComponents;
+  initialize(): HostInitializedComponents;
 
   /**
    * Initialize genesis World in WorldStore.
@@ -85,17 +85,17 @@ export interface V2Initializer {
 // =============================================================================
 
 /**
- * V2 Initializer implementation.
+ * Host Initializer implementation.
  */
-export class V2InitializerImpl implements V2Initializer {
-  private _deps: V2InitializerDependencies;
+export class HostInitializerImpl implements HostInitializer {
+  private _deps: HostInitializerDependencies;
   private _hostExecutor: AppHostExecutor | null = null;
 
-  constructor(deps: V2InitializerDependencies) {
+  constructor(deps: HostInitializerDependencies) {
     this._deps = deps;
   }
 
-  initialize(): V2InitializedComponents {
+  initialize(): HostInitializedComponents {
     const {
       host,
       options,
@@ -217,10 +217,10 @@ export class V2InitializerImpl implements V2Initializer {
 // =============================================================================
 
 /**
- * Create a new V2Initializer instance.
+ * Create a new HostInitializer instance.
  *
  * @param deps - The initializer dependencies
  */
-export function createV2Initializer(deps: V2InitializerDependencies): V2Initializer {
-  return new V2InitializerImpl(deps);
+export function createHostInitializer(deps: HostInitializerDependencies): HostInitializer {
+  return new HostInitializerImpl(deps);
 }

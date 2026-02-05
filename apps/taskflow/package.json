@@ -21,7 +21,6 @@
     "@manifesto-ai/app": "workspace:*",
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/host": "workspace:*",
     "@manifesto-ai/world": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@radix-ui/react-alert-dialog": "^1.1.15",

@@ -533,6 +533,9 @@ export type AppConfig = {
   /** Memory provider for execution integration */
   readonly memoryProvider?: MemoryProvider;
 
+  /** Memory hub configuration (from CreateAppOptions) */
+  readonly memory?: false | MemoryHubConfig;
+
   // ─────────────────────────────────────────
   // Optional: Extensibility
   // ─────────────────────────────────────────
@@ -1092,19 +1095,19 @@ export interface CreateAppOptions {
   devtools?: DevtoolsConfig;
 
   /**
-   * Internal v2 config (set by createApp when using AppConfig).
+   * Internal config (set by createApp when using AppConfig).
    * @internal
    */
-  _v2Config?: InternalV2Config;
+  _internalConfig?: InternalConfig;
 }
 
 /**
- * Internal v2 configuration with implementation details.
+ * Internal configuration with implementation details.
  * Includes worldStore extracted from World for internal use.
  *
  * @internal
  */
-export type InternalV2Config = AppConfig & {
+export type InternalConfig = AppConfig & {
   /** @internal WorldStore extracted from World.store */
   readonly worldStore: WorldStore;
 };

@@ -17,9 +17,7 @@ import { ManifestoApp } from "./app.js";
 import { createInMemoryWorldStore } from "./storage/world-store/index.js";
 import { createManifestoWorld } from "@manifesto-ai/world";
 import { ReservedEffectTypeError } from "./errors/index.js";
-
-// Reserved effect type prefix
-const RESERVED_EFFECT_PREFIX = "system.";
+import { RESERVED_EFFECT_TYPE } from "./constants.js";
 
 // =============================================================================
 // Config Detection
@@ -113,7 +111,7 @@ export function createApp(
 ): App {
   // v2.2.0 path: AppConfig with effects
   if (isAppConfig(domainOrConfig)) {
-    return createAppV2(domainOrConfig);
+    return createAppFromConfig(domainOrConfig);
   }
 
   // Legacy v2.0.0 path: AppConfig with host (deprecated)
@@ -152,15 +150,13 @@ export function createApp(
  *
  * @internal
  */
-function createAppV2(config: AppConfig): App {
+function createAppFromConfig(config: AppConfig): App {
   // Extract domain from config
   const domain = config.schema;
 
-  // v2.3.0: Validate reserved effect types (SYSGET-2/3)
-  for (const effectType of Object.keys(config.effects)) {
-    if (effectType.startsWith(RESERVED_EFFECT_PREFIX)) {
-      throw new ReservedEffectTypeError(effectType);
-    }
+  // Validate reserved effect types - users cannot override system.get
+  if (RESERVED_EFFECT_TYPE in config.effects) {
+    throw new ReservedEffectTypeError(RESERVED_EFFECT_TYPE);
   }
 
   // ADR-003: World owns persistence
@@ -180,7 +176,7 @@ function createAppV2(config: AppConfig): App {
   }
 
   // Build internal config with effects and worldStore
-  // Note: Host will be created internally in ManifestoApp._initializeV2Components
+  // Note: Host will be created internally in ManifestoApp._initializeComponents
   const internalConfig = {
     ...config,
     worldStore,
@@ -190,7 +186,7 @@ function createAppV2(config: AppConfig): App {
   // Build legacy options from config for internal use
   const legacyOpts: CreateAppOptions = {
     initialData: config.initialData,
-    // services is deprecated, effects are in _v2Config
+    // services is deprecated, effects are in _internalConfig
     plugins: config.plugins as CreateAppOptions["plugins"],
     hooks: config.hooks,
     actorPolicy: config.actorPolicy,
@@ -198,8 +194,9 @@ function createAppV2(config: AppConfig): App {
     systemActions: config.systemActions,
     devtools: config.devtools,
     validation: config.validation as CreateAppOptions["validation"],
+    memory: config.memory,
     // v2.3.0 config - will be used by ManifestoApp
-    _v2Config: internalConfig as unknown as CreateAppOptions["_v2Config"],
+    _internalConfig: internalConfig as unknown as CreateAppOptions["_internalConfig"],
   };
 
   return new ManifestoApp(domain, legacyOpts);
@@ -208,7 +205,7 @@ function createAppV2(config: AppConfig): App {
 /**
  * Create App with legacy v2.0.0 AppConfig (host-first).
  *
- * @deprecated Use createAppV2 with effects instead.
+ * @deprecated Use createAppFromConfig with effects instead.
  * @internal
  */
 function createAppLegacy(config: LegacyAppConfig): App {
@@ -227,7 +224,7 @@ function createAppLegacy(config: LegacyAppConfig): App {
     devtools: config.devtools,
     validation: config.validation as CreateAppOptions["validation"],
     // Legacy v2.0.0 config with host
-    _v2Config: config as unknown as CreateAppOptions["_v2Config"],
+    _internalConfig: config as unknown as CreateAppOptions["_internalConfig"],
   };
 
   return new ManifestoApp(domain, legacyOpts);
@@ -275,5 +272,6 @@ export function createTestApp(
     devtools: opts?.devtools,
     plugins: opts?.plugins,
     validation: opts?.validation as { effects?: "strict" | "warn" | "off" },
+    memory: opts?.memory,
   });
 }

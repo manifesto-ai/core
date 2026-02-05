@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { createApp, createInMemoryWorldStore } from "@manifesto-ai/app";
-import type { AppState, Host } from "@manifesto-ai/app";
-import { createHost } from "@manifesto-ai/host";
+import { createApp } from "@manifesto-ai/app";
+import type { AppState } from "@manifesto-ai/app";
 import { compileMelDomain } from "@manifesto-ai/compiler";
 import type { DomainSchema } from "@manifesto-ai/core";
 import TodoMel from "../domain/todo.mel";
-import { registerTodoEffects, type Todo } from "../domain/handlers";
+import { todoEffects, type Todo } from "../domain/effects";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { TodoItem } from "./TodoItem";
 import { AddTodoForm } from "./AddTodoForm";
@@ -27,7 +26,7 @@ export interface TodoData {
 }
 
 // =============================================================================
-// Schema & Host Setup
+// Schema Compilation
 // =============================================================================
 
 function compileTodoSchema(): DomainSchema {
@@ -43,20 +42,13 @@ function compileTodoSchema(): DomainSchema {
 
 const todoSchema = compileTodoSchema();
 
-function createTodoHost(): Host {
-  const host = createHost(todoSchema);
-  registerTodoEffects(host);
-  return host as unknown as Host;
-}
-
 // =============================================================================
-// App Instance (v2 API)
+// App Instance (v2.3.0 Effects-first API)
 // =============================================================================
 
 const todoApp = createApp({
   schema: todoSchema,
-  host: createTodoHost(),
-  worldStore: createInMemoryWorldStore(),
+  effects: todoEffects,
 });
 
 export { todoApp };

@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { createApp, createInMemoryWorldStore } from "@manifesto-ai/app";
-import type { AppState, Host } from "@manifesto-ai/app";
-import { createHost } from "@manifesto-ai/host";
+import { createApp } from "@manifesto-ai/app";
+import type { AppState } from "@manifesto-ai/app";
 import { compileMelDomain } from "@manifesto-ai/compiler";
 import type { DomainSchema } from "@manifesto-ai/core";
 import ShipmentMel from "./domain/shipment.mel";
-import { registerLogisticsEffects } from "./domain/handlers";
+import { logisticsEffects } from "./domain/effects";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Badge } from "./components/ui/badge";
@@ -64,20 +63,13 @@ function compileLogisticsSchema(): DomainSchema {
 
 const logisticsSchema = compileLogisticsSchema();
 
-function createLogisticsHost(): Host {
-  const host = createHost(logisticsSchema);
-  registerLogisticsEffects(host);
-  return host as unknown as Host;
-}
-
 // =============================================================================
-// App Instance (v2 API)
+// App Instance (v2.3.0 Effects-first API)
 // =============================================================================
 
 const logisticsApp = createApp({
   schema: logisticsSchema,
-  host: createLogisticsHost(),
-  worldStore: createInMemoryWorldStore(),
+  effects: logisticsEffects,
 });
 
 export { logisticsApp };

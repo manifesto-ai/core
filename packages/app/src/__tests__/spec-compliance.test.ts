@@ -135,14 +135,15 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
       await expect(app.ready()).rejects.toThrow(ReservedNamespaceError);
     });
 
-    it("READY-5: ready() rejects reserved effect type in services", async () => {
-      const app = createTestApp(createMockSchema(), {
-        services: {
-          "system.get": () => [],
-        },
-      });
-
-      await expect(app.ready()).rejects.toThrow(ReservedEffectTypeError);
+    it("READY-5: createApp() rejects reserved effect type in services", () => {
+      // v2.3.0: Validation now happens at createApp() time
+      expect(() =>
+        createTestApp(createMockSchema(), {
+          services: {
+            "system.get": () => [],
+          },
+        })
+      ).toThrow(ReservedEffectTypeError);
     });
   });
 

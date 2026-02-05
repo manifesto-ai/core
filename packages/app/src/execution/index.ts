@@ -40,13 +40,13 @@ export {
   createLivenessGuard,
 } from "./liveness-guard.js";
 
-// V2 Executor
+// App Executor
 export {
-  type V2ExecutorDependencies,
-  type V2Executor,
-  V2ExecutorImpl,
-  createV2Executor,
-} from "./v2-executor.js";
+  type AppExecutorDependencies,
+  type AppExecutor,
+  AppExecutorImpl,
+  createAppExecutor,
+} from "./executor.js";
 
 // Action
 export * from "./action/index.js";

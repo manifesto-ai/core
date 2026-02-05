@@ -875,7 +875,9 @@ describe("Host Integration - Lifecycle", () => {
 // =============================================================================
 
 describe("Host Integration - Type Conversion", () => {
-  describe("CONV-1: ServiceHandler to EffectHandler adaptation", () => {
+  // v2.3.0: ServiceContext (with patch helpers) is deprecated.
+  // AppEffectContext only provides snapshot.
+  describe.skip("CONV-1: ServiceHandler to EffectHandler adaptation", () => {
     it("should adapt ServiceHandler signature to EffectHandler", async () => {
       const schema = createTestSchema();
       let receivedParams: Record<string, unknown> | null = null;
@@ -1077,7 +1079,8 @@ describe("Host Integration - ServiceReturn Normalization", () => {
     });
   });
 
-  describe("NORM-4: Object with patches property", () => {
+  // v2.3.0: Legacy service return normalization is deprecated.
+  describe.skip("NORM-4: Object with patches property", () => {
     it("should extract patches from { patches: [] }", async () => {
       const schema = createTestSchema();
       const objectHandler = vi.fn().mockResolvedValue({
@@ -1105,7 +1108,9 @@ describe("Host Integration - ServiceReturn Normalization", () => {
 // Context Verification Tests
 // =============================================================================
 
-describe("Host Integration - Context", () => {
+// v2.3.0: ServiceContext (with patch, actorId, worldId, branchId, signal) is deprecated.
+// AppEffectContext only provides snapshot.
+describe.skip("Host Integration - Context", () => {
   describe("CTX-1: PatchHelpers in ServiceContext", () => {
     it("should provide PatchHelpers in ServiceContext", async () => {
       const schema = createTestSchema();

@@ -8,9 +8,9 @@
  * - ActionQueue: FIFO queue management
  * - LivenessGuard: Re-entry prevention
  * - WorldHeadTracker: v2 World head tracking
- * - V2Executor: v2 action execution
+ * - AppExecutor: v2 action execution
  * - AppInitializer: App initialization
- * - V2Initializer: v2 component initialization
+ * - HostInitializer: Host component initialization
  *
  * @see SPEC §5-6
  * @module
@@ -78,14 +78,14 @@ import { createDefaultPolicyService, createSilentPolicyService } from "./runtime
 import {
   createActionQueue,
   createLivenessGuard,
-  createV2Executor,
+  createAppExecutor,
   appStateToSnapshot,
   computeSnapshotHash,
   createProposalManager,
-  createV2Initializer,
+  createHostInitializer,
   type ActionQueue,
   type LivenessGuard,
-  type V2Executor,
+  type AppExecutor,
   type ProposalManager,
 } from "./execution/index.js";
 import {
@@ -146,14 +146,14 @@ export class ManifestoApp implements App {
   private _migrationLinks: MigrationLink[] = [];
 
   // v2.0.0/v2.2.0 Components
-  private _v2Host: Host | null = null;
-  private _v2WorldStore: WorldStore | null = null;
-  private _v2PolicyService: PolicyService | null = null;
-  private _v2HostExecutor: AppHostExecutor | null = null;
-  private _v2Enabled: boolean = false;
-  private _v2Executor: V2Executor | null = null;
+  private _host: Host | null = null;
+  private _worldStore: WorldStore | null = null;
+  private _policyService: PolicyService | null = null;
+  private _hostExecutor: AppHostExecutor | null = null;
+  private _initialized: boolean = false;
+  private _executor: AppExecutor | null = null;
   // v2.2.0: Effects for internal Host creation
-  private _v2Effects: Effects | null = null;
+  private _effects: Effects | null = null;
 
   constructor(domain: string | DomainSchema, opts?: CreateAppOptions) {
     this._options = opts ?? {};
@@ -169,44 +169,44 @@ export class ManifestoApp implements App {
     this._lifecycleManager.setAppRef(this._appRef);
     this._registerConfiguredHooks();
 
-    // v2.0.0/v2.2.0: Detect v2 mode from _v2Config
-    const v2Config = opts?._v2Config;
+    // v2.0.0/v2.2.0: Detect v2 mode from _internalConfig
+    const internalConfig = opts?._internalConfig;
 
     // v2.2.0 path: effects-first (Host created internally)
-    if (v2Config && "effects" in v2Config && v2Config.effects && v2Config.worldStore) {
-      this._v2Enabled = true;
-      this._v2Effects = v2Config.effects as Effects;
-      this._v2WorldStore = v2Config.worldStore;
-      // Host will be created in _initializeV2Components after schema compilation
+    if (internalConfig && "effects" in internalConfig && internalConfig.effects && internalConfig.worldStore) {
+      this._initialized = true;
+      this._effects = internalConfig.effects as Effects;
+      this._worldStore = internalConfig.worldStore;
+      // Host will be created in _initializeComponents after schema compilation
 
       // PolicyService: use provided or create default
-      if (v2Config.policyService) {
-        this._v2PolicyService = v2Config.policyService;
+      if (internalConfig.policyService) {
+        this._policyService = internalConfig.policyService;
       } else {
         const isTest = typeof globalThis !== "undefined" &&
           (globalThis as unknown as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === "test";
 
-        this._v2PolicyService = isTest
-          ? createSilentPolicyService(v2Config.executionKeyPolicy)
-          : createDefaultPolicyService({ executionKeyPolicy: v2Config.executionKeyPolicy });
+        this._policyService = isTest
+          ? createSilentPolicyService(internalConfig.executionKeyPolicy)
+          : createDefaultPolicyService({ executionKeyPolicy: internalConfig.executionKeyPolicy });
       }
     }
     // Legacy v2.0.0 path: host-first (Host injected)
-    else if (v2Config && "host" in v2Config && v2Config.host && v2Config.worldStore) {
-      this._v2Enabled = true;
-      this._v2Host = v2Config.host as Host;
-      this._v2WorldStore = v2Config.worldStore;
+    else if (internalConfig && "host" in internalConfig && internalConfig.host && internalConfig.worldStore) {
+      this._initialized = true;
+      this._host = internalConfig.host as Host;
+      this._worldStore = internalConfig.worldStore;
 
       // PolicyService: use provided or create default
-      if (v2Config.policyService) {
-        this._v2PolicyService = v2Config.policyService;
+      if (internalConfig.policyService) {
+        this._policyService = internalConfig.policyService;
       } else {
         const isTest = typeof globalThis !== "undefined" &&
           (globalThis as unknown as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === "test";
 
-        this._v2PolicyService = isTest
-          ? createSilentPolicyService(v2Config.executionKeyPolicy)
-          : createDefaultPolicyService({ executionKeyPolicy: v2Config.executionKeyPolicy });
+        this._policyService = isTest
+          ? createSilentPolicyService(internalConfig.executionKeyPolicy)
+          : createDefaultPolicyService({ executionKeyPolicy: internalConfig.executionKeyPolicy });
       }
     }
   }
@@ -373,7 +373,7 @@ export class ManifestoApp implements App {
     const handle = this._proposalManager.createHandle(proposalId, runtime);
 
     // ==== Liveness Guard (PUB-LIVENESS-2~3) ====
-    if (this._v2Enabled && runtime === "domain") {
+    if (this._initialized && runtime === "domain") {
       this._livenessGuard.checkReinjection(runtime);
     }
 
@@ -383,9 +383,9 @@ export class ManifestoApp implements App {
       this._actionQueue.enqueueSystem(async () => {
         await this._executeSystemAction(handle, type as SystemActionType, input, opts);
       });
-    } else if (this._v2Enabled) {
+    } else if (this._initialized) {
       this._actionQueue.enqueueDomain(async () => {
-        await this._v2Executor!.execute(handle, type, input, opts);
+        await this._executor!.execute(handle, type, input, opts);
       });
     } else {
       // v2.3.0: Legacy path removed
@@ -468,7 +468,7 @@ export class ManifestoApp implements App {
   getCurrentHead(): WorldId {
     this._lifecycleManager.ensureReady("getCurrentHead");
 
-    if (this._v2Enabled && this._worldHeadTracker.getCurrentHead()) {
+    if (this._initialized && this._worldHeadTracker.getCurrentHead()) {
       return this._worldHeadTracker.getCurrentHead()!;
     }
 
@@ -479,17 +479,17 @@ export class ManifestoApp implements App {
   async getSnapshot(worldId: WorldId): Promise<Snapshot> {
     this._lifecycleManager.ensureReady("getSnapshot");
 
-    if (!this._v2Enabled || !this._v2WorldStore) {
+    if (!this._initialized || !this._worldStore) {
       return appStateToSnapshot(this._currentState!);
     }
 
-    return this._v2WorldStore.restore(worldId);
+    return this._worldStore.restore(worldId);
   }
 
   async getWorld(worldId: WorldId): Promise<World> {
     this._lifecycleManager.ensureReady("getWorld");
 
-    if (!this._v2Enabled || !this._v2WorldStore) {
+    if (!this._initialized || !this._worldStore) {
       const snapshot = appStateToSnapshot(this._currentState!);
       return {
         worldId,
@@ -500,7 +500,7 @@ export class ManifestoApp implements App {
       };
     }
 
-    const world = await this._v2WorldStore.getWorld(worldId);
+    const world = await this._worldStore.getWorld(worldId);
     if (!world) {
       throw new Error(`World not found: ${worldId}`);
     }
@@ -510,7 +510,7 @@ export class ManifestoApp implements App {
   async submitProposal(proposal: Proposal): Promise<ProposalResult> {
     this._lifecycleManager.ensureReady("submitProposal");
 
-    if (!this._v2Enabled) {
+    if (!this._initialized) {
       return {
         status: "rejected",
         reason: "submitProposal requires v2 mode with Host and WorldStore",
@@ -522,7 +522,7 @@ export class ManifestoApp implements App {
 
     await new Promise<void>((resolve) => {
       this._actionQueue.enqueueDomain(async () => {
-        await this._v2Executor!.execute(
+        await this._executor!.execute(
           handle,
           proposal.intentType,
           proposal.intentBody,
@@ -539,11 +539,11 @@ export class ManifestoApp implements App {
 
     if (result.status === "completed") {
       const worldId = createWorldId(result.worldId);
-      const world = await this._v2WorldStore!.getWorld(worldId);
+      const world = await this._worldStore!.getWorld(worldId);
       return { status: "completed", world: world! };
     } else if (result.status === "failed") {
       const worldId = createWorldId(result.worldId);
-      const world = await this._v2WorldStore!.getWorld(worldId);
+      const world = await this._worldStore!.getWorld(worldId);
       return { status: "failed", world: world!, error: result.error };
     } else if (result.status === "rejected") {
       return { status: "rejected", reason: result.reason ?? "Proposal rejected by authority" };
@@ -587,7 +587,7 @@ export class ManifestoApp implements App {
     const runtime = type.startsWith("system.") ? "system" : "domain";
     const handle = this._proposalManager.createHandle(proposalId, runtime);
 
-    if (this._v2Enabled && runtime === "domain") {
+    if (this._initialized && runtime === "domain") {
       this._livenessGuard.checkReinjection(runtime);
     }
 
@@ -597,9 +597,9 @@ export class ManifestoApp implements App {
       this._actionQueue.enqueueSystem(async () => {
         await this._executeSystemAction(handle, type as SystemActionType, input, opts);
       });
-    } else if (this._v2Enabled) {
+    } else if (this._initialized) {
       this._actionQueue.enqueueDomain(async () => {
-        await this._v2Executor!.execute(handle, type, input, opts);
+        await this._executor!.execute(handle, type, input, opts);
       });
     } else {
       // v2.3.0: Legacy path removed
@@ -710,8 +710,8 @@ export class ManifestoApp implements App {
         },
         getStateForBranch: () => this._currentState!,
       },
-      getRegisteredEffectTypes: this._v2Enabled
-        ? () => this._v2HostExecutor?.getRegisteredEffectTypes() ?? []
+      getRegisteredEffectTypes: this._initialized
+        ? () => this._hostExecutor?.getRegisteredEffectTypes() ?? []
         : undefined,
     });
 
@@ -766,8 +766,8 @@ export class ManifestoApp implements App {
     this._systemFacade = createSystemFacade(this._systemRuntime);
     this._systemRuntime.setMemoryFacade(this._memoryFacade);
 
-    if (this._v2Enabled) {
-      await this._initializeV2Components();
+    if (this._initialized) {
+      await this._initializeComponents();
     } else {
       // v2.3.0: Legacy DomainExecutor path removed
       throw new Error(
@@ -777,22 +777,22 @@ export class ManifestoApp implements App {
     }
   }
 
-  private async _initializeV2Components(): Promise<void> {
-    if (!this._v2WorldStore || !this._v2PolicyService) {
+  private async _initializeComponents(): Promise<void> {
+    if (!this._worldStore || !this._policyService) {
       throw new Error("v2 mode requires WorldStore and PolicyService");
     }
 
     // v2.2.0: Create Host internally if effects are provided
-    if (this._v2Effects && !this._v2Host) {
+    if (this._effects && !this._host) {
       const schema = this._schemaManager.getSchema();
       const internalHost = createInternalHost({
         schema,
-        effects: this._v2Effects,
+        effects: this._effects,
         initialData: this._options.initialData,
       });
 
       // Adapt ManifestoHost to App's Host interface
-      this._v2Host = {
+      this._host = {
         dispatch: async (intent): Promise<HostResult> => {
           const result = await internalHost.dispatch(intent);
           return {
@@ -817,15 +817,15 @@ export class ManifestoApp implements App {
       };
     }
 
-    if (!this._v2Host) {
+    if (!this._host) {
       throw new Error("v2 mode requires Host (via effects or direct injection)");
     }
 
-    // Use V2Initializer for genesis world (effects already registered if using v2.2.0)
-    const v2Initializer = createV2Initializer({
-      host: this._v2Host,
-      worldStore: this._v2WorldStore,
-      policyService: this._v2PolicyService,
+    // Use HostInitializer for genesis world (effects already registered if using v2.2.0)
+    const hostInitializer = createHostInitializer({
+      host: this._host,
+      worldStore: this._worldStore,
+      policyService: this._policyService,
       domainSchema: this._schemaManager.getSchema(),
       options: this._options,
       worldHeadTracker: this._worldHeadTracker,
@@ -835,21 +835,21 @@ export class ManifestoApp implements App {
       getCurrentWorldId: () => this._worldHeadTracker.getCurrentHead()?.toString() ?? "genesis",
       getCurrentBranchId: () => this._branchManager?.currentBranchId ?? "main",
       // Skip effect registration for v2.2.0 (already done in createInternalHost)
-      skipEffectRegistration: !!this._v2Effects,
+      skipEffectRegistration: !!this._effects,
     });
 
-    const { hostExecutor } = v2Initializer.initialize();
-    this._v2HostExecutor = hostExecutor;
+    const { hostExecutor } = hostInitializer.initialize();
+    this._hostExecutor = hostExecutor;
 
-    await v2Initializer.initializeGenesisWorld();
+    await hostInitializer.initializeGenesisWorld();
 
-    // Create V2Executor
-    this._v2Executor = createV2Executor({
+    // Create AppExecutor
+    this._executor = createAppExecutor({
       domainSchema: this._schemaManager.getSchema(),
       defaultActorId: this._defaultActorId,
-      policyService: this._v2PolicyService,
-      hostExecutor: this._v2HostExecutor,
-      worldStore: this._v2WorldStore,
+      policyService: this._policyService,
+      hostExecutor: this._hostExecutor,
+      worldStore: this._worldStore,
       lifecycleManager: this._lifecycleManager,
       proposalManager: this._proposalManager,
       livenessGuard: this._livenessGuard,
@@ -987,5 +987,5 @@ export class ManifestoApp implements App {
   }
 
   // Note: Legacy _executeActionLifecycle method removed in v2.3.0
-  // All domain actions now go through _v2Executor.execute()
+  // All domain actions now go through _executor.execute()
 }

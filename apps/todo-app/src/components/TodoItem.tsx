@@ -2,7 +2,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Todo } from "../domain/handlers";
+import type { Todo } from "../domain/effects";
 
 interface TodoItemProps {
   todo: Todo;
