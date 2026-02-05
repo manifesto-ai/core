@@ -79,7 +79,7 @@ function createTestHost(timeline: Timeline, schemaHash: string): Host {
       };
 
       currentSnapshot = nextSnapshot;
-      return { status: "completed", snapshot: nextSnapshot };
+      return { status: "complete", snapshot: nextSnapshot };
     },
     registerEffect: vi.fn(),
     getRegisteredEffectTypes: () => [],

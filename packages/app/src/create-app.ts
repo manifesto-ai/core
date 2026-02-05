@@ -6,61 +6,34 @@
  */
 
 import type { DomainSchema } from "@manifesto-ai/core";
-import type {
-  App,
-  AppConfig,
-  CreateAppOptions,
-  MelText,
-} from "./core/types/index.js";
+import { createHost } from "@manifesto-ai/host";
+import { compileMelDomain } from "@manifesto-ai/compiler";
+import type { App, AppConfig, CreateAppOptions, MelText } from "./core/types/index.js";
 import { ManifestoApp } from "./app.js";
-
-/**
- * Check if argument is v2 AppConfig.
- */
-function isAppConfig(arg: unknown): arg is AppConfig {
-  if (!arg || typeof arg !== "object") {
-    return false;
-  }
-  const obj = arg as Record<string, unknown>;
-  return "host" in obj && "worldStore" in obj;
-}
+import { createInMemoryWorldStore } from "./storage/world-store/index.js";
+import { createSilentPolicyService } from "./runtime/policy/index.js";
 
 // =============================================================================
-// v2.0.0 API
+// v2.0.0 API (Only supported API)
 // =============================================================================
 
 /**
- * Create a new Manifesto App instance (v2.0.0).
+ * Create a new Manifesto App instance.
  *
  * The `createApp()` function:
  * 1. Returns synchronously with an App instance
  * 2. Does NOT perform runtime initialization during this call
- * 3. Accepts AppConfig (v2) or legacy (domain, opts) signature
- *
- * ## v2.0.0 API (Recommended)
- *
- * Uses AppConfig with injectable Host and WorldStore.
+ * 3. Requires AppConfig with Host and WorldStore
  *
  * ```typescript
+ * import { createHost } from "@manifesto-ai/host";
+ * import { createApp, createInMemoryWorldStore } from "@manifesto-ai/app";
+ *
+ * const host = createHost(schema);
  * const app = createApp({
  *   schema: domainSchema,
- *   host: myHost,
- *   worldStore: new InMemoryWorldStore(),
- *   services: { 'api.fetch': fetchHandler },
- * });
- *
- * await app.ready();
- * ```
- *
- * ## Legacy API (Deprecated)
- *
- * Uses internal DomainExecutor.
- *
- * ```typescript
- * // @deprecated - Use v2 API with AppConfig
- * const app = createApp(domainMel, {
- *   initialData: { todos: [] },
- *   services: { 'http.fetch': httpFetchHandler }
+ *   host,
+ *   worldStore: createInMemoryWorldStore(),
  * });
  *
  * await app.ready();
@@ -68,46 +41,18 @@ function isAppConfig(arg: unknown): arg is AppConfig {
  *
  * @see SPEC v2.0.0 §6.1
  */
-export function createApp(config: AppConfig): App;
-/**
- * @deprecated Use v2 API with AppConfig. This signature will be removed in v3.0.0.
- */
-export function createApp(domain: MelText | DomainSchema, opts?: CreateAppOptions): App;
-export function createApp(
-  domainOrConfig: MelText | DomainSchema | AppConfig,
-  opts?: CreateAppOptions
-): App {
-  // v2 path: AppConfig
-  if (isAppConfig(domainOrConfig)) {
-    return createAppV2(domainOrConfig);
-  }
-
-  // Legacy path (deprecated)
-  const isTest = typeof globalThis !== "undefined" &&
-    (globalThis as unknown as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === "test";
-
-  if (!isTest) {
-    console.warn(
-      "[Manifesto] Using legacy createApp() signature. " +
-      "Migrate to v2 API with AppConfig for Host/WorldStore injection. " +
-      "This signature will be removed in v3.0.0."
+export function createApp(config: AppConfig): App {
+  if (!config.host || !config.worldStore) {
+    throw new Error(
+      "createApp() requires AppConfig with host and worldStore. " +
+      "Use createHost() from @manifesto-ai/host and createInMemoryWorldStore() from @manifesto-ai/app."
     );
   }
 
-  return new ManifestoApp(domainOrConfig, opts);
-}
-
-/**
- * Create App with v2 AppConfig.
- *
- * @internal
- */
-function createAppV2(config: AppConfig): App {
-  // Extract domain from config
   const domain = config.schema;
 
-  // Build legacy options from config for backward compatibility
-  const legacyOpts: CreateAppOptions = {
+  // Build internal options from config
+  const opts: CreateAppOptions = {
     initialData: config.initialData,
     services: config.services,
     plugins: config.plugins as CreateAppOptions["plugins"],
@@ -117,29 +62,57 @@ function createAppV2(config: AppConfig): App {
     systemActions: config.systemActions,
     devtools: config.devtools,
     validation: config.validation as CreateAppOptions["validation"],
-    // v2 specific - will be used by ManifestoApp when available
+    memory: config.memory,
     _v2Config: config,
   };
 
-  return new ManifestoApp(domain, legacyOpts);
+  return new ManifestoApp(domain, opts);
 }
 
 // =============================================================================
-// Helper Factories
+// Test Helper
 // =============================================================================
 
 /**
- * Create a minimal App for testing.
+ * Create an App for testing with auto-generated Host and WorldStore.
  *
- * Uses in-memory implementations for Host and WorldStore.
- *
- * @param domain - Domain schema or MEL text
- * @param opts - Additional options
+ * @internal - For testing only
+ * @param schema - Domain schema
+ * @param opts - Additional options (includes CreateAppOptions fields for backward compat)
  */
 export function createTestApp(
-  domain: MelText | DomainSchema,
+  schema: MelText | DomainSchema,
   opts?: Partial<CreateAppOptions>
 ): App {
-  // For testing, use legacy path until Host/WorldStore are fully integrated
-  return new ManifestoApp(domain, opts);
+  // If schema is a string (MEL text), compile it first for the Host
+  // Note: The App will also compile during ready(), but the Host needs a valid schema now
+  let compiledSchema: DomainSchema;
+  if (typeof schema === "string") {
+    const result = compileMelDomain(schema, { mode: "domain" });
+    if (!result.schema) {
+      const errorMsgs = result.errors?.map(e => e.message).join(", ") ?? "Unknown compilation error";
+      throw new Error(`Failed to compile MEL text: ${errorMsgs}`);
+    }
+    // Cast to core's DomainSchema (structurally compatible)
+    compiledSchema = result.schema as unknown as DomainSchema;
+  } else {
+    compiledSchema = schema;
+  }
+
+  // Pass initialData to Host so it can initialize the snapshot
+  const host = createHost(compiledSchema, {
+    initialData: opts?.initialData ?? {},
+  });
+  const worldStore = createInMemoryWorldStore();
+  const policyService = createSilentPolicyService();
+
+  const config = {
+    schema,  // Pass original schema (MEL or DomainSchema) to App
+    host: host as unknown as AppConfig["host"],
+    worldStore,
+    policyService,
+    ...opts,
+  } as unknown as AppConfig;
+
+  return createApp(config);
 }

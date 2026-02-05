@@ -78,7 +78,7 @@ function createHost(
     dispatch:
       dispatchImpl ??
       vi.fn(async (): Promise<HostResult> => {
-        return { status: "completed", snapshot: createSnapshot() };
+        return { status: "complete", snapshot: createSnapshot() };
       }),
     registerEffect: vi.fn(),
     getRegisteredEffectTypes: () => registeredEffects,
@@ -128,7 +128,7 @@ describe("v2 Standard App Integration", () => {
 
   it("APP-BOUNDARY-4: injected Host is used for execution", async () => {
     const hostDispatch = vi.fn(async (): Promise<HostResult> => {
-      return { status: "completed", snapshot: createSnapshot() };
+      return { status: "complete", snapshot: createSnapshot() };
     });
     const host = createHost(hostDispatch);
     const worldStore = createWorldStore();
@@ -193,7 +193,7 @@ describe("v2 Standard App Integration", () => {
 
   it("SCOPE-2: scope validation failure prevents execution", async () => {
     const hostDispatch = vi.fn(async (): Promise<HostResult> => {
-      return { status: "completed", snapshot: createSnapshot() };
+      return { status: "complete", snapshot: createSnapshot() };
     });
     const host = createHost(hostDispatch);
     const worldStore = createWorldStore();
@@ -220,7 +220,7 @@ describe("v2 Standard App Integration", () => {
 
   it("POLICY-5: rejected proposals must not create World", async () => {
     const hostDispatch = vi.fn(async (): Promise<HostResult> => {
-      return { status: "completed", snapshot: createSnapshot() };
+      return { status: "complete", snapshot: createSnapshot() };
     });
     const host = createHost(hostDispatch);
     const worldStore = createWorldStore();

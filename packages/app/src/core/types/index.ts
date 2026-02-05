@@ -444,7 +444,8 @@ export type EffectContext = {
  * Host result from dispatch.
  */
 export type HostResult = {
-  readonly status: "completed" | "failed";
+  /** Note: Real Host returns "complete"/"pending"/"error", not "completed"/"failed" */
+  readonly status: "complete" | "pending" | "error";
   readonly snapshot: Snapshot;
   readonly error?: ErrorValue;
 };
@@ -531,6 +532,9 @@ export type AppConfig = {
 
   // Optional: Devtools
   readonly devtools?: DevtoolsConfig;
+
+  // Optional: Memory (from CreateAppOptions)
+  readonly memory?: false | MemoryHubConfig;
 };
 
 // =============================================================================

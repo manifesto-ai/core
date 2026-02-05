@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -34,18 +34,18 @@ const mockDomainSchema: DomainSchema = {
 describe("App Lifecycle", () => {
   describe("createApp()", () => {
     it("should return an App instance synchronously", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(app).toBeDefined();
       expect(app.status).toBe("created");
     });
 
     it("should accept DomainSchema", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(app.status).toBe("created");
     });
 
     it("should accept options", () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         initialData: { todos: [] },
         services: {},
       });
@@ -55,7 +55,7 @@ describe("App Lifecycle", () => {
 
   describe("ready()", () => {
     it("should transition status to ready", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(app.status).toBe("created");
 
       await app.ready();
@@ -63,14 +63,14 @@ describe("App Lifecycle", () => {
     });
 
     it("should be idempotent", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.ready(); // Should not throw
       expect(app.status).toBe("ready");
     });
 
     it("should emit app:ready:before and app:ready hooks", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const beforeHook = vi.fn();
       const readyHook = vi.fn();
 
@@ -84,7 +84,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should call hooks in order", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const order: string[] = [];
 
       app.hooks.on("app:ready:before", () => {
@@ -102,7 +102,7 @@ describe("App Lifecycle", () => {
 
   describe("dispose()", () => {
     it("should transition status to disposed", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app.dispose();
@@ -110,7 +110,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should be idempotent", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app.dispose();
@@ -119,7 +119,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should emit app:dispose:before and app:dispose hooks", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const beforeHook = vi.fn();
@@ -137,59 +137,59 @@ describe("App Lifecycle", () => {
 
   describe("READY-1: API calls before ready()", () => {
     it("should throw AppNotReadyError for getState()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.getState()).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for currentBranch()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.currentBranch()).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for listBranches()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.listBranches()).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for act()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.act("todo.add", {})).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for subscribe()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.subscribe(() => null, () => {})).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for session()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.session("user-1")).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for fork()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await expect(app.fork()).rejects.toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for switchBranch()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await expect(app.switchBranch("main")).rejects.toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for getMigrationLinks()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.getMigrationLinks()).toThrow(AppNotReadyError);
     });
 
     it("should throw AppNotReadyError for getActionHandle()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       expect(() => app.getActionHandle("proposal-123")).toThrow(AppNotReadyError);
     });
   });
 
   describe("DISPOSE-1: API calls after dispose()", () => {
     it("should throw AppDisposedError for getState()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.dispose();
 
@@ -197,7 +197,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should throw AppDisposedError for act()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.dispose();
 
@@ -205,7 +205,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should throw AppDisposedError for ready() after dispose()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.dispose();
 
@@ -215,7 +215,7 @@ describe("App Lifecycle", () => {
 
   describe("ACTOR-1: Actor policy validation", () => {
     it("should throw MissingDefaultActorError when mode=require and no defaultActor", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         actorPolicy: {
           mode: "require",
         },
@@ -225,7 +225,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should succeed when mode=require and defaultActor is provided", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         actorPolicy: {
           mode: "require",
           defaultActor: {
@@ -240,7 +240,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should use anonymous actor when mode=anonymous and no defaultActor", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         actorPolicy: {
           mode: "anonymous",
         },
@@ -262,14 +262,14 @@ describe("App Lifecycle", () => {
         },
       };
 
-      const app = createApp(schemaWithSystemAction);
+      const app = createTestApp(schemaWithSystemAction);
       await expect(app.ready()).rejects.toThrow(ReservedNamespaceError);
     });
   });
 
   describe("READY-5: Reserved effect type validation", () => {
     it("should throw ReservedEffectTypeError for system.get in services", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         services: {
           "system.get": () => undefined,
         },
@@ -279,7 +279,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should allow other effect types", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         services: {
           "http.fetch": () => undefined,
         },
@@ -300,7 +300,7 @@ describe("App Lifecycle", () => {
         order.push(2);
       });
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [plugin1, plugin2],
       });
 
@@ -316,7 +316,7 @@ describe("App Lifecycle", () => {
         throw new Error("Plugin failed");
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [failingPlugin],
       });
 
@@ -328,7 +328,7 @@ describe("App Lifecycle", () => {
         throw new Error("Plugin failed");
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [() => {}, failingPlugin, () => {}],
       });
 
@@ -346,7 +346,7 @@ describe("App Lifecycle", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       });
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [asyncPlugin],
       });
 
@@ -357,7 +357,7 @@ describe("App Lifecycle", () => {
 
   describe("Hooks", () => {
     it("should support once() for single-fire hooks", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const handler = vi.fn();
 
       app.hooks.once("app:ready", handler);
@@ -369,7 +369,7 @@ describe("App Lifecycle", () => {
     });
 
     it("should return unsubscribe function from on()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const handler = vi.fn();
 
       const unsub = app.hooks.on("app:dispose", handler);

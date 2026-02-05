@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { Snapshot } from "../core/types/index.js";
 
@@ -26,7 +26,7 @@ const schema: DomainSchema = {
 
 describe("Publish Boundary", () => {
   it("PUB-BOUNDARY-1/2: state:publish fires once per proposal tick", async () => {
-    const app = createApp(schema);
+    const app = createTestApp(schema);
     await app.ready();
 
     const publishes: Array<{ snapshot: Snapshot; worldId: string }> = [];

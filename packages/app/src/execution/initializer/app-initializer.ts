@@ -7,12 +7,10 @@
  * @module
  */
 
-import type { DomainSchema, Patch } from "@manifesto-ai/core";
 import type {
   App,
   AppState,
   CreateAppOptions,
-  MemoryHubConfig,
 } from "../../core/types/index.js";
 import type { LifecycleManager } from "../../core/lifecycle/index.js";
 import type { SchemaManager } from "../../core/schema/index.js";
@@ -23,7 +21,6 @@ import { ServiceRegistry } from "../../runtime/services/index.js";
 import { createMemoryFacade } from "../../runtime/memory/index.js";
 import { SystemRuntime, createSystemFacade } from "../../runtime/system/index.js";
 import { PluginInitError } from "../../errors/index.js";
-import { DomainExecutor } from "../index.js";
 
 // =============================================================================
 // Types
@@ -40,7 +37,6 @@ export interface InitializedComponents {
   systemRuntime: SystemRuntime;
   systemFacade: ReturnType<typeof createSystemFacade>;
   memoryFacade: ReturnType<typeof createMemoryFacade>;
-  domainExecutor: DomainExecutor | null;
 }
 
 /**
@@ -51,7 +47,6 @@ export interface AppInitializerDependencies {
   options: CreateAppOptions;
   lifecycleManager: LifecycleManager;
   schemaManager: SchemaManager;
-  v2Enabled: boolean;
   getRegisteredEffectTypes?: () => readonly string[];
 }
 
@@ -133,7 +128,7 @@ export class AppInitializerImpl implements AppInitializer {
   }
 
   initializeState(): InitializedComponents {
-    const { options, schemaManager, v2Enabled, getRegisteredEffectTypes } = this._deps;
+    const { options, schemaManager, getRegisteredEffectTypes } = this._deps;
 
     const schemaHash = schemaManager.getCurrentSchemaHash();
     const initialData = options.initialData;
@@ -153,7 +148,7 @@ export class AppInitializerImpl implements AppInitializer {
         },
         getStateForBranch: () => currentState,
       },
-      getRegisteredEffectTypes: v2Enabled ? getRegisteredEffectTypes : undefined,
+      getRegisteredEffectTypes,
     });
 
     // Initialize memory facade
@@ -215,16 +210,6 @@ export class AppInitializerImpl implements AppInitializer {
     // Initialize service registry
     const serviceRegistry = this.validateServices();
 
-    // Initialize domain executor for legacy mode
-    let domainExecutor: DomainExecutor | null = null;
-    if (!v2Enabled) {
-      domainExecutor = new DomainExecutor({
-        schema: schemaManager.getSchema(),
-        services: options.services ?? {},
-        initialState: currentState,
-      });
-    }
-
     return {
       currentState,
       branchManager,
@@ -233,7 +218,6 @@ export class AppInitializerImpl implements AppInitializer {
       systemRuntime,
       systemFacade,
       memoryFacade,
-      domainExecutor,
     };
   }
 }

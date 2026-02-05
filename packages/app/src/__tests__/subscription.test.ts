@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp } from "../index.js";
+import { createTestApp } from "../index.js";
 import { SubscriptionStore } from "../runtime/subscription/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { AppState } from "../core/types/index.js";
@@ -373,7 +373,7 @@ describe("Subscription System", () => {
 
   describe("App Integration", () => {
     it("should throw AppNotReadyError before ready()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => {
         app.subscribe((state) => state.data, () => {});
@@ -381,7 +381,7 @@ describe("Subscription System", () => {
     });
 
     it("should subscribe after ready()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const listener = vi.fn();
@@ -391,7 +391,7 @@ describe("Subscription System", () => {
     });
 
     it("should call listener with fireImmediately", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         initialData: { count: 5 },
       });
       await app.ready();
@@ -407,7 +407,7 @@ describe("Subscription System", () => {
     });
 
     it("should unsubscribe correctly", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const listener = vi.fn();

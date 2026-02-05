@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createApp } from "../index.js";
+import { createTestApp } from "../index.js";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -40,7 +40,7 @@ const mockDomainSchema: DomainSchema = {
 describe("Action Execution", () => {
   describe("act()", () => {
     it("should return an ActionHandle synchronously", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", { text: "Test" });
@@ -52,7 +52,7 @@ describe("Action Execution", () => {
     });
 
     it("should set runtime to domain for regular actions", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -61,13 +61,13 @@ describe("Action Execution", () => {
     });
 
     it("should throw AppNotReadyError before ready()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => app.act("todo.add", {})).toThrow(AppNotReadyError);
     });
 
     it("should throw AppDisposedError after dispose()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.dispose();
 
@@ -77,7 +77,7 @@ describe("Action Execution", () => {
 
   describe("ActionHandle.done()", () => {
     it("should resolve with CompletedActionResult on success", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", { text: "Test" });
@@ -93,7 +93,7 @@ describe("Action Execution", () => {
     });
 
     it("should throw ActionPreparationError for unknown action type", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("unknown.action", {});
@@ -102,7 +102,7 @@ describe("Action Execution", () => {
     });
 
     it("should throw ActionTimeoutError when timeout exceeded", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       // Create a handle but don't execute it immediately
@@ -118,7 +118,7 @@ describe("Action Execution", () => {
 
   describe("ActionHandle.result()", () => {
     it("should resolve with ActionResult on success", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -129,7 +129,7 @@ describe("Action Execution", () => {
     });
 
     it("should resolve with PreparationFailedActionResult for unknown action", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("unknown.action", {});
@@ -143,7 +143,7 @@ describe("Action Execution", () => {
     });
 
     it("should not throw for failed actions (unlike done())", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("unknown.action", {});
@@ -156,7 +156,7 @@ describe("Action Execution", () => {
 
   describe("ActionHandle.subscribe()", () => {
     it("should notify listeners of phase changes", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const phases: ActionPhase[] = [];
@@ -174,7 +174,7 @@ describe("Action Execution", () => {
     });
 
     it("should return unsubscribe function", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const updates: ActionUpdate[] = [];
@@ -195,7 +195,7 @@ describe("Action Execution", () => {
     });
 
     it("should include previousPhase in updates", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const updates: ActionUpdate[] = [];
@@ -217,7 +217,7 @@ describe("Action Execution", () => {
 
   describe("ActionHandle.detach()", () => {
     it("should allow detaching from handle", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -228,7 +228,7 @@ describe("Action Execution", () => {
     });
 
     it("should be idempotent", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -239,7 +239,7 @@ describe("Action Execution", () => {
     });
 
     it("should reject pending done() calls with HandleDetachedError", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -261,7 +261,7 @@ describe("Action Execution", () => {
 
   describe("ActionHandle.phase", () => {
     it("should start in preparing phase", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -270,7 +270,7 @@ describe("Action Execution", () => {
     });
 
     it("should end in completed phase on success", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -280,7 +280,7 @@ describe("Action Execution", () => {
     });
 
     it("should end in preparation_failed phase for unknown action", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("unknown.action", {});
@@ -292,7 +292,7 @@ describe("Action Execution", () => {
 
   describe("getActionHandle()", () => {
     it("should return the same handle by proposalId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -303,7 +303,7 @@ describe("Action Execution", () => {
     });
 
     it("should throw ActionNotFoundError for unknown proposalId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       expect(() => app.getActionHandle("unknown-proposal")).toThrow(
@@ -312,7 +312,7 @@ describe("Action Execution", () => {
     });
 
     it("should throw AppNotReadyError before ready()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => app.getActionHandle("any-id")).toThrow(AppNotReadyError);
     });
@@ -320,7 +320,7 @@ describe("Action Execution", () => {
 
   describe("Action Hooks", () => {
     it("should emit action:preparing hook", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const preparingHandler = vi.fn();
 
       app.hooks.on("action:preparing", preparingHandler);
@@ -340,7 +340,7 @@ describe("Action Execution", () => {
     });
 
     it("should emit action:completed hook", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const completedHandler = vi.fn();
 
       app.hooks.on("action:completed", completedHandler);
@@ -361,7 +361,7 @@ describe("Action Execution", () => {
     });
 
     it("should emit action:completed for failed actions", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       const completedHandler = vi.fn();
 
       app.hooks.on("action:completed", completedHandler);
@@ -384,7 +384,7 @@ describe("Action Execution", () => {
 
   describe("Multiple concurrent actions", () => {
     it("should handle multiple actions concurrently", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle1 = app.act("todo.add", { text: "First" });
@@ -408,7 +408,7 @@ describe("Action Execution", () => {
     });
 
     it("should track all handles via getActionHandle()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle1 = app.act("todo.add", {});

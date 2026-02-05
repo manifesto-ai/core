@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp } from "../index.js";
+import { createTestApp } from "../index.js";
 import { HookMutationError } from "../errors/index.js";
 import { JobQueue } from "../hooks/queue.js";
 import { HookableImpl } from "../hooks/hookable.js";
@@ -464,7 +464,7 @@ describe("Hook System", () => {
 
   describe("App Hook Integration", () => {
     it("should pass HookContext with AppRef and timestamp", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       let received = false;
 
       app.hooks.on("app:ready", (ctx) => {

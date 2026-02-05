@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -56,7 +56,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
       const schema = createMockSchema();
       const startTime = Date.now();
 
-      const app = createApp(schema);
+      const app = createTestApp(schema);
 
       const elapsed = Date.now() - startTime;
       expect(elapsed).toBeLessThan(10); // Should be nearly instant
@@ -74,14 +74,14 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
         ),
       });
 
-      const app = createApp(schema);
+      const app = createTestApp(schema);
       expect(app.status).toBe("created");
     });
   });
 
   describe("§5.6 ready() Lifecycle", () => {
     it("READY-1: API calls before ready() throw AppNotReadyError", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
 
       // All these should throw AppNotReadyError
       const apis = [
@@ -101,7 +101,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("READY-2: ready() is idempotent", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
 
       await app.ready();
       await app.ready();
@@ -111,7 +111,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("READY-3: ready() emits hooks in order", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       const order: string[] = [];
 
       app.hooks.on("app:ready:before", () => { order.push("before"); });
@@ -131,12 +131,12 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
         },
       });
 
-      const app = createApp(schema);
+      const app = createTestApp(schema);
       await expect(app.ready()).rejects.toThrow(ReservedNamespaceError);
     });
 
     it("READY-5: ready() rejects reserved effect type in services", async () => {
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         services: {
           "system.get": () => [],
         },
@@ -148,7 +148,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
 
   describe("§5.7 dispose() Lifecycle", () => {
     it("DISPOSE-1: API calls after dispose() throw AppDisposedError", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
       await app.dispose();
 
@@ -158,7 +158,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("DISPOSE-2: dispose() is idempotent", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       await app.dispose();
@@ -169,7 +169,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("DISPOSE-3: ready() after dispose() throws AppDisposedError", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
       await app.dispose();
 
@@ -177,7 +177,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("DISPOSE-4: dispose() emits hooks in order", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const order: string[] = [];
@@ -192,7 +192,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
 
   describe("§5.3 Actor Policy", () => {
     it("ACTOR-1: mode=require without defaultActor throws", async () => {
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         actorPolicy: { mode: "require" },
       });
 
@@ -200,7 +200,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("ACTOR-2: mode=require with defaultActor succeeds", async () => {
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         actorPolicy: {
           mode: "require",
           defaultActor: { actorId: "user-1", kind: "human" },
@@ -212,7 +212,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
     });
 
     it("ACTOR-3: mode=anonymous uses anonymous actor", async () => {
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         actorPolicy: { mode: "anonymous" },
       });
 
@@ -229,7 +229,7 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
 describe("SPEC §7: State Model", () => {
   describe("§7.1 AppState Structure", () => {
     it("STATE-1: AppState has required fields", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const state = app.getState();
@@ -241,7 +241,7 @@ describe("SPEC §7: State Model", () => {
     });
 
     it("STATE-2: SystemState has required fields", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const { system } = app.getState();
@@ -254,7 +254,7 @@ describe("SPEC §7: State Model", () => {
     });
 
     it("STATE-3: SnapshotMeta has required fields", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const { meta } = app.getState();
@@ -266,14 +266,14 @@ describe("SPEC §7: State Model", () => {
     });
 
     it("STATE-4: Initial version is 0", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       expect(app.getState().meta.version).toBe(0);
     });
 
     it("STATE-5: Initial system.status is idle", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       expect(app.getState().system.status).toBe("idle");
@@ -283,14 +283,14 @@ describe("SPEC §7: State Model", () => {
   describe("§7.2 initialData", () => {
     it("INIT-1: initialData is reflected in state.data", async () => {
       const initialData = { todos: [{ id: 1, text: "Test" }], count: 1 };
-      const app = createApp(createMockSchema(), { initialData });
+      const app = createTestApp(createMockSchema(), { initialData });
       await app.ready();
 
       expect(app.getState().data).toEqual(initialData);
     });
 
     it("INIT-2: Empty initialData defaults to empty object", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       expect(app.getState().data).toEqual({});
@@ -298,7 +298,7 @@ describe("SPEC §7: State Model", () => {
 
     it("INIT-3: initialData is deeply cloned", async () => {
       const initialData = { nested: { value: 1 } };
-      const app = createApp(createMockSchema(), { initialData });
+      const app = createTestApp(createMockSchema(), { initialData });
       await app.ready();
 
       // Mutating original should not affect state
@@ -314,7 +314,7 @@ describe("SPEC §7: State Model", () => {
         todos: Array<{ id: number; text: string; done: boolean }>;
       }
 
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         initialData: { todos: [{ id: 1, text: "Test", done: false }] },
       });
       await app.ready();
@@ -336,7 +336,7 @@ describe("SPEC §7: State Model", () => {
 describe("SPEC §8: Action Execution", () => {
   describe("§8.1 act() Contract", () => {
     it("ACT-1: act() returns ActionHandle synchronously", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const startTime = Date.now();
@@ -349,7 +349,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("ACT-2: ActionHandle has stable proposalId", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -362,7 +362,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("ACT-3: Different actions have unique proposalIds", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const ids = new Set<string>();
@@ -377,7 +377,7 @@ describe("SPEC §8: Action Execution", () => {
 
   describe("§8.2 ActionPhase Transitions", () => {
     it("PHASE-1: Initial phase is preparing", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -385,7 +385,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("PHASE-2: Successful action ends in completed", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -395,7 +395,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("PHASE-3: Unknown action ends in preparation_failed", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("unknown.action", {});
@@ -405,7 +405,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("PHASE-4: Phase transitions are monotonic (no going back)", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const phases: ActionPhase[] = [];
@@ -438,7 +438,7 @@ describe("SPEC §8: Action Execution", () => {
 
   describe("§8.5 done() Contract", () => {
     it("DONE-1: done() resolves with CompletedActionResult on success", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -452,7 +452,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("DONE-2: done() throws ActionPreparationError for unknown action", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("unknown.action", {});
@@ -461,7 +461,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("DONE-3: done() resolves immediately if already completed", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -476,7 +476,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("DONE-4: done() with timeout throws ActionTimeoutError", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       // Create a handle but immediately detach to prevent completion
@@ -491,7 +491,7 @@ describe("SPEC §8: Action Execution", () => {
 
   describe("§8.6 result() Contract", () => {
     it("RESULT-1: result() never throws for terminal states", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       // Success case
@@ -506,7 +506,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("RESULT-2: result() returns same result as done() for success", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -522,7 +522,7 @@ describe("SPEC §8: Action Execution", () => {
 
   describe("§8.7 detach() Contract", () => {
     it("DETACH-1: detach() prevents further subscribe()", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -532,7 +532,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("DETACH-2: detach() is idempotent", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -545,7 +545,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("DETACH-3: detach() rejects pending done() with HandleDetachedError", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle = app.act("todo.add", {});
@@ -563,7 +563,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("DETACH-4: detach() clears all listeners", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const listener = vi.fn();
@@ -581,7 +581,7 @@ describe("SPEC §8: Action Execution", () => {
 
   describe("§8.8 getActionHandle()", () => {
     it("HANDLE-1: getActionHandle() returns same handle", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const handle1 = app.act("todo.add", {});
@@ -591,7 +591,7 @@ describe("SPEC §8: Action Execution", () => {
     });
 
     it("HANDLE-2: getActionHandle() throws for unknown proposalId", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       expect(() => app.getActionHandle("nonexistent")).toThrow();
@@ -606,7 +606,7 @@ describe("SPEC §8: Action Execution", () => {
 describe("SPEC §9: Branch Management", () => {
   describe("§9.1 Default Branch", () => {
     it("BRANCH-1: Main branch exists after ready()", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -615,14 +615,14 @@ describe("SPEC §9: Branch Management", () => {
 
     it("BRANCH-2: Main branch has correct schemaHash", async () => {
       const schema = createMockSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
       await app.ready();
 
       expect(app.currentBranch().schemaHash).toBe(schema.hash);
     });
 
     it("BRANCH-3: Main branch has genesis world", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const head = app.currentBranch().head();
@@ -632,7 +632,7 @@ describe("SPEC §9: Branch Management", () => {
 
   describe("§9.3 checkout()", () => {
     it("CHECKOUT-1: checkout() to head succeeds", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -644,7 +644,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("CHECKOUT-2: checkout() to unknown world throws", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -655,7 +655,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("CHECKOUT-3: checkout() updates head", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -670,7 +670,7 @@ describe("SPEC §9: Branch Management", () => {
 
   describe("§9.5 fork()", () => {
     it("FORK-1: fork() creates new branch", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const originalCount = app.listBranches().length;
@@ -680,7 +680,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("FORK-2: fork() new branch has unique id", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch1 = await app.fork({ switchTo: false });
@@ -692,7 +692,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("FORK-3: fork() switches by default", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const oldBranch = app.currentBranch();
@@ -703,7 +703,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("FORK-4: fork({ switchTo: false }) stays on current", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const oldBranch = app.currentBranch();
@@ -714,7 +714,7 @@ describe("SPEC §9: Branch Management", () => {
 
     it("FORK-5: fork() inherits schemaHash", async () => {
       const schema = createMockSchema();
-      const app = createApp(schema);
+      const app = createTestApp(schema);
       await app.ready();
 
       const newBranch = await app.fork();
@@ -725,7 +725,7 @@ describe("SPEC §9: Branch Management", () => {
 
   describe("§9.6 switchBranch()", () => {
     it("SWITCH-1: switchBranch() changes current branch", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const newBranch = await app.fork({ switchTo: false });
@@ -736,7 +736,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("SWITCH-2: switchBranch() to unknown throws", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       await expect(app.switchBranch("nonexistent")).rejects.toThrow(
@@ -745,7 +745,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("SWITCH-3: switchBranch() returns the branch", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const newBranch = await app.fork({ switchTo: false });
@@ -757,7 +757,7 @@ describe("SPEC §9: Branch Management", () => {
 
   describe("§9.7 lineage()", () => {
     it("LINEAGE-1: lineage() includes head", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -767,7 +767,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("LINEAGE-2: lineage() respects limit", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -777,7 +777,7 @@ describe("SPEC §9: Branch Management", () => {
     });
 
     it("LINEAGE-3: lineage() is ordered oldest to newest", async () => {
-      const app = createApp(createMockSchema());
+      const app = createTestApp(createMockSchema());
       await app.ready();
 
       const branch = app.currentBranch();
@@ -798,7 +798,7 @@ describe("SPEC §15: Plugin System", () => {
     it("PLUGIN-1: Plugins execute in order", async () => {
       const order: number[] = [];
 
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         plugins: [
           () => { order.push(1); },
           () => { order.push(2); },
@@ -814,7 +814,7 @@ describe("SPEC §15: Plugin System", () => {
     it("PLUGIN-2: Plugins receive app instance", async () => {
       let receivedApp: App | null = null;
 
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         plugins: [(a) => { receivedApp = a; }],
       });
 
@@ -826,7 +826,7 @@ describe("SPEC §15: Plugin System", () => {
     it("PLUGIN-3: Async plugins are awaited", async () => {
       let completed = false;
 
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         plugins: [
           async () => {
             await new Promise((r) => setTimeout(r, 10));
@@ -843,7 +843,7 @@ describe("SPEC §15: Plugin System", () => {
     it("PLUGIN-4: Plugin error stops initialization", async () => {
       const laterPlugin = vi.fn();
 
-      const app = createApp(createMockSchema(), {
+      const app = createTestApp(createMockSchema(), {
         plugins: [
           () => { throw new Error("Plugin failed"); },
           laterPlugin,
@@ -862,7 +862,7 @@ describe("SPEC §15: Plugin System", () => {
 
 describe("Concurrency and Race Conditions", () => {
   it("CONC-1: Multiple concurrent actions complete independently", async () => {
-    const app = createApp(createMockSchema());
+    const app = createTestApp(createMockSchema());
     await app.ready();
 
     const handles = Array.from({ length: 10 }, () =>
@@ -876,7 +876,7 @@ describe("Concurrency and Race Conditions", () => {
   });
 
   it("CONC-2: Actions on different branches are isolated", async () => {
-    const app = createApp(createMockSchema());
+    const app = createTestApp(createMockSchema());
     await app.ready();
 
     const branch1 = app.currentBranch();
@@ -894,7 +894,7 @@ describe("Concurrency and Race Conditions", () => {
   });
 
   it("CONC-3: Rapid fork/switch maintains consistency", async () => {
-    const app = createApp(createMockSchema());
+    const app = createTestApp(createMockSchema());
     await app.ready();
 
     // Rapid operations
@@ -920,7 +920,7 @@ describe("Concurrency and Race Conditions", () => {
 
 describe("Error Recovery", () => {
   it("ERR-1: App remains usable after action preparation failure", async () => {
-    const app = createApp(createMockSchema());
+    const app = createTestApp(createMockSchema());
     await app.ready();
 
     // Failed action
@@ -935,7 +935,7 @@ describe("Error Recovery", () => {
   });
 
   it("ERR-2: App remains usable after detach", async () => {
-    const app = createApp(createMockSchema());
+    const app = createTestApp(createMockSchema());
     await app.ready();
 
     const handle1 = app.act("todo.add", {});

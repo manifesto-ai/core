@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import {
   ReservedNamespaceError,
   ReservedEffectTypeError,
@@ -47,7 +47,7 @@ describe("Reserved Namespaces", () => {
         },
       };
 
-      const app = createApp(invalidSchema);
+      const app = createTestApp(invalidSchema);
 
       await expect(app.ready()).rejects.toThrow(ReservedNamespaceError);
     });
@@ -62,7 +62,7 @@ describe("Reserved Namespaces", () => {
         },
       };
 
-      const app = createApp(invalidSchema);
+      const app = createTestApp(invalidSchema);
 
       try {
         await app.ready();
@@ -89,7 +89,7 @@ describe("Reserved Namespaces", () => {
         },
       };
 
-      const app = createApp(validSchema);
+      const app = createTestApp(validSchema);
       await app.ready();
 
       expect(app.status).toBe("ready");
@@ -104,7 +104,7 @@ describe("Reserved Namespaces", () => {
     it("NS-EFF-2: Domain effects MUST NOT use system.get (only system.get is reserved)", async () => {
       // Note: Currently only system.get is reserved, not all system.* prefixes
       // Testing that system.get specifically is rejected
-      const app = createApp(validDomainSchema, {
+      const app = createTestApp(validDomainSchema, {
         services: {
           "system.get": async () => [],
         },
@@ -115,14 +115,14 @@ describe("Reserved Namespaces", () => {
 
     it("NS-EFF-3: system.get IS allowed (handled internally)", async () => {
       // system.get is handled internally, so valid schema should work
-      const app = createApp(validDomainSchema);
+      const app = createTestApp(validDomainSchema);
       await app.ready();
 
       expect(app.status).toBe("ready");
     });
 
     it("NS-EFF-4: ReservedEffectTypeError should include effect type", async () => {
-      const app = createApp(validDomainSchema, {
+      const app = createTestApp(validDomainSchema, {
         services: {
           "system.get": async () => [],
         },
@@ -355,7 +355,7 @@ describe("Reserved Namespaces", () => {
         },
       };
 
-      const app = createApp(invalidSchema);
+      const app = createTestApp(invalidSchema);
 
       // App is created but not ready
       expect(app.status).toBe("created");
@@ -365,7 +365,7 @@ describe("Reserved Namespaces", () => {
     });
 
     it("should validate services at ready() time", async () => {
-      const app = createApp(validDomainSchema, {
+      const app = createTestApp(validDomainSchema, {
         services: {
           "system.get": async () => [],
         },
@@ -375,7 +375,7 @@ describe("Reserved Namespaces", () => {
     });
 
     it("should allow valid configuration", async () => {
-      const app = createApp(validDomainSchema, {
+      const app = createTestApp(validDomainSchema, {
         services: {
           "http.fetch": async () => [],
           "db.query": async () => [],

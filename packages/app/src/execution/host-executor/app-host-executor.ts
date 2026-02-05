@@ -159,7 +159,8 @@ export class AppHostExecutor implements HostExecutor {
     result: HostDispatchResult,
     startedAt: number
   ): HostExecutionResult {
-    const outcome = result.status === "completed" ? "completed" : "failed";
+    // Note: Host returns "complete" (not "completed") for success
+    const outcome = result.status === "complete" ? "completed" : "failed";
 
     // Generate trace reference if tracing is enabled
     const traceRef: ArtifactRef | undefined = this._options.traceEnabled
@@ -228,9 +229,10 @@ export class AppHostExecutor implements HostExecutor {
 
 /**
  * Internal Host dispatch result type.
+ * Note: Host returns "complete"/"pending"/"error", not "completed"/"failed"
  */
 type HostDispatchResult = {
-  status: "completed" | "failed";
+  status: "complete" | "pending" | "error";
   snapshot: Snapshot;
   error?: ErrorValue;
 };
