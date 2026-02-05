@@ -23,6 +23,14 @@
 
 ---
 
+## ADRs
+
+| ADR | Version | Status | Scope |
+|-----|---------|--------|-------|
+| [ADR-APP-002](ADR-APP-002-v0.1.0.md) | v0.1.0 | Proposed | createApp Public API simplification |
+
+---
+
 ## FDRs
 
 | FDR | Version | Scope |
