@@ -1,7 +1,7 @@
 /**
  * App Factory
  *
- * @see SPEC v2.2.0 §6
+ * @see SPEC v2.3.0 §6
  * @module
  */
 
@@ -15,13 +15,14 @@ import type {
 } from "./core/types/index.js";
 import { ManifestoApp } from "./app.js";
 import { createInMemoryWorldStore } from "./storage/world-store/index.js";
+import { createManifestoWorld } from "@manifesto-ai/world";
 
 // =============================================================================
 // Config Detection
 // =============================================================================
 
 /**
- * Check if argument is v2.2.0 AppConfig (effects-first).
+ * Check if argument is v2.3.0 AppConfig (effects-first, World owns persistence).
  */
 function isAppConfig(arg: unknown): arg is AppConfig {
   if (!arg || typeof arg !== "object") {
@@ -50,16 +51,17 @@ function isLegacyAppConfig(arg: unknown): arg is LegacyAppConfig {
 // =============================================================================
 
 /**
- * Create a new Manifesto App instance (v2.2.0).
+ * Create a new Manifesto App instance (v2.3.0).
  *
  * The `createApp()` function:
  * 1. Returns synchronously with an App instance
  * 2. Does NOT perform runtime initialization during this call
  * 3. Creates Host internally (users provide effects, not Host)
+ * 4. Creates World internally if not provided (per ADR-003)
  *
- * ## v2.2.0 API (Recommended)
+ * ## v2.3.0 API (Recommended)
  *
- * Uses AppConfig with effects-first design. Host is created internally.
+ * Uses AppConfig with effects-first design. Host and World are created internally.
  *
  * ```typescript
  * const app = createApp({
@@ -68,7 +70,7 @@ function isLegacyAppConfig(arg: unknown): arg is LegacyAppConfig {
  *     'api.fetch': async (params, ctx) => [...],
  *     'api.save': async (params, ctx) => [...],
  *   },
- *   // worldStore is optional (defaults to in-memory)
+ *   // world is optional (defaults to internal World with InMemoryWorldStore)
  * });
  *
  * await app.ready();
@@ -79,7 +81,7 @@ function isLegacyAppConfig(arg: unknown): arg is LegacyAppConfig {
  * Uses internal DomainExecutor.
  *
  * ```typescript
- * // @deprecated - Use v2.2.0 API with AppConfig
+ * // @deprecated - Use v2.3.0 API with AppConfig
  * const app = createApp(domainMel, {
  *   initialData: { todos: [] },
  *   services: { 'http.fetch': httpFetchHandler }
@@ -88,12 +90,17 @@ function isLegacyAppConfig(arg: unknown): arg is LegacyAppConfig {
  * await app.ready();
  * ```
  *
- * @see SPEC v2.2.0 §6.1
+ * @see SPEC v2.3.0 §6.1
  * @see ADR-APP-002
+ * @see ADR-003
  */
+/**
+ * @deprecated Use v2.3.0 API with AppConfig. This signature will be removed in v3.0.0.
+ */
+export function createApp(config: LegacyAppConfig): App;
 export function createApp(config: AppConfig): App;
 /**
- * @deprecated Use v2.2.0 API with AppConfig. This signature will be removed in v3.0.0.
+ * @deprecated Use v2.3.0 API with AppConfig. This signature will be removed in v3.0.0.
  */
 export function createApp(domain: MelText | DomainSchema, opts?: CreateAppOptions): App;
 export function createApp(
@@ -137,7 +144,7 @@ export function createApp(
 }
 
 /**
- * Create App with v2.2.0 AppConfig (effects-first).
+ * Create App with v2.3.0 AppConfig (effects-first, World owns persistence).
  *
  * @internal
  */
@@ -145,14 +152,28 @@ function createAppV2(config: AppConfig): App {
   // Extract domain from config
   const domain = config.schema;
 
-  // Default worldStore to in-memory if not provided
-  const worldStore = config.worldStore ?? createInMemoryWorldStore();
+  // ADR-003: World owns persistence
+  // If world is not provided, create a default World with InMemoryWorldStore
+  let world = config.world;
+  let worldStore;
 
-  // Build internal config with effects
+  if (world) {
+    // World provided by user - extract store for internal use
+    // Note: world.store is @internal, used only by App implementation
+    worldStore = world.store;
+  } else {
+    // Create default in-memory WorldStore and World
+    worldStore = createInMemoryWorldStore();
+    // Note: World will be fully initialized during app.ready() with schemaHash
+    // For now, we just need the worldStore reference
+  }
+
+  // Build internal config with effects and worldStore
   // Note: Host will be created internally in ManifestoApp._initializeV2Components
   const internalConfig = {
     ...config,
     worldStore,
+    world,
   };
 
   // Build legacy options from config for internal use
@@ -166,7 +187,7 @@ function createAppV2(config: AppConfig): App {
     systemActions: config.systemActions,
     devtools: config.devtools,
     validation: config.validation as CreateAppOptions["validation"],
-    // v2.2.0 config - will be used by ManifestoApp
+    // v2.3.0 config - will be used by ManifestoApp
     _v2Config: internalConfig as unknown as CreateAppOptions["_v2Config"],
   };
 

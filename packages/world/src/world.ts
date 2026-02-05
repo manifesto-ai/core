@@ -141,7 +141,11 @@ export interface ManifestoWorldConfig {
  */
 export class ManifestoWorld {
   private readonly _schemaHash: string;
-  private readonly store: WorldStore;
+  /**
+   * @internal Package use only. External access is forbidden per ADR-003.
+   * App package may access this for implementation purposes only.
+   */
+  readonly store: WorldStore;
   private readonly registry: ActorRegistry;
   private readonly proposalQueue: ProposalQueue;
   private readonly authorityEvaluator: AuthorityEvaluator;
@@ -1097,13 +1101,6 @@ export class ManifestoWorld {
    */
   getLineage(): WorldLineage {
     return this.lineage;
-  }
-
-  /**
-   * Get store for advanced queries
-   */
-  getStore(): WorldStore {
-    return this.store;
   }
 }
 

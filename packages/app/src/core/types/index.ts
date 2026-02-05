@@ -16,6 +16,7 @@ import type { Effects } from "./effects.js";
 import type {
   ActorRef,
   AuthorityPolicy,
+  ManifestoWorld,
   World,
   WorldId,
 } from "@manifesto-ai/world";
@@ -476,16 +477,18 @@ export type CompileError = {
 };
 
 /**
- * v2.2.0 App Configuration.
+ * v2.3.0 App Configuration.
  *
- * Simplified public API per ADR-APP-002:
+ * Simplified public API per ADR-APP-002 and ADR-003:
  * - `effects` is REQUIRED (replaces `services`)
  * - `host` is removed (App creates Host internally)
- * - `worldStore` is OPTIONAL (defaults to in-memory)
+ * - `world` is OPTIONAL (App creates internal World with InMemoryWorldStore)
+ * - `worldStore` is REMOVED — World owns persistence per ADR-003
  * - `compiler` is removed (internal)
  *
- * @see SPEC v2.2.0 §6.1
+ * @see SPEC v2.3.0 §6.1
  * @see ADR-APP-002
+ * @see ADR-003
  */
 export type AppConfig = {
   // ─────────────────────────────────────────
@@ -499,11 +502,15 @@ export type AppConfig = {
   readonly effects: Effects;
 
   // ─────────────────────────────────────────
-  // Optional: World Storage
+  // Optional: World (ADR-003)
   // ─────────────────────────────────────────
 
-  /** World storage backend (default: InMemoryWorldStore) */
-  readonly worldStore?: WorldStore;
+  /**
+   * ManifestoWorld instance (optional).
+   * If not provided, App creates an internal World with InMemoryWorldStore.
+   * World owns persistence — App does NOT receive WorldStore directly.
+   */
+  readonly world?: ManifestoWorld;
 
   // ─────────────────────────────────────────
   // Optional: Policy
@@ -1084,8 +1091,19 @@ export interface CreateAppOptions {
    * Internal v2 config (set by createApp when using AppConfig).
    * @internal
    */
-  _v2Config?: AppConfig;
+  _v2Config?: InternalV2Config;
 }
+
+/**
+ * Internal v2 configuration with implementation details.
+ * Includes worldStore extracted from World for internal use.
+ *
+ * @internal
+ */
+export type InternalV2Config = AppConfig & {
+  /** @internal WorldStore extracted from World.store */
+  readonly worldStore: WorldStore;
+};
 
 /**
  * Dispose options.

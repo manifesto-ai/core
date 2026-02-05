@@ -1,12 +1,13 @@
-# Manifesto App Specification v2.2.0
+# Manifesto App Specification v2.3.0
 
 > **Status:** Ratified
 > **Scope:** Manifesto App Layer Implementations
 > **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, World Protocol v2.0.2, ARCHITECTURE v2.0
-> **Implements:** ADR-001 (Layer Separation), ADR-APP-002 (createApp API Simplification)
+> **Implements:** ADR-001 (Layer Separation), ADR-APP-002 (createApp API Simplification), ADR-003 (World Owns Persistence)
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
+> - **v2.3.0 (2026-02-05):** World owns persistence (ADR-003) — `worldStore` removed from AppConfig; `world?: ManifestoWorld` added (optional, default: internal World with InMemoryWorldStore).
 > - **v2.2.0 (2026-02-05):** `createApp()` DX simplified — `effects` REQUIRED; `host`/`compiler` removed from public AppConfig; schema compatibility validates against `effects`.
 > - **v2.0.0 (2025-01-20):** Final polish — HookContext→AppRef (re-entrancy prevention), Tick terminology clarified (Proposal vs Mailbox), proposalId pre-allocation rule (HANDLE-9/10)
 > - **v2.0.0 (2025-01-20):** Added `preparation_failed` to ActionResult (phase↔result type alignment), HANDLE-7/8 rules
@@ -46,7 +47,7 @@
 
 ## 1. Purpose
 
-This document defines the **Manifesto App Specification v2.0.0**.
+This document defines the **Manifesto App Specification v2.3.0**.
 
 The App layer is the **Composition Root** that:
 
@@ -54,13 +55,13 @@ The App layer is the **Composition Root** that:
 - Owns the execution process (while World owns results)
 - Implements policy decisions (ExecutionKey, Authority routing, Scope enforcement)
 - Provides extensibility (Hooks, Plugins)
-- Manages persistence (WorldStore) and external memory (MemoryStore)
+- Coordinates with World for persistence (World owns WorldStore per ADR-003) and manages external memory (MemoryStore)
 - Provides high-level APIs for developer ergonomics (Branch, Session, ActionHandle)
 
 This specification defines:
 
 - The App's public interface and lifecycle
-- Host↔World integration contract (HostExecutor, WorldStore)
+- Host↔World integration contract (HostExecutor)
 - Policy system (ExecutionKey derivation, Authority routing, ApprovedScope)
 - External Memory with Context Freezing for determinism
 - Branch management with named pointers over World lineage
@@ -145,7 +146,7 @@ App assembles and absorbs. (integration, policy, extensibility)
 | APP-BOUNDARY-1 | MUST NOT | App MUST NOT depend on Core internal implementation |
 | APP-BOUNDARY-2 | MUST NOT | App MUST NOT modify World governance rules |
 | APP-BOUNDARY-3 | MUST NOT | App MUST NOT bypass HostExecutor interface |
-| APP-BOUNDARY-4 | MUST | App MUST receive `effects` and WorldStore via injection |
+| APP-BOUNDARY-4 | MUST | App MUST receive `effects` via injection; `world` is optional |
 | APP-BOUNDARY-5 | MUST NOT | `createApp()` MUST NOT require end-users to provide Host or Compiler |
 
 ---
@@ -335,8 +336,16 @@ type AppConfig = {
   /** Effect handlers (required) */
   readonly effects: Effects;
 
-  /** World storage backend */
-  readonly worldStore: WorldStore;
+  // ─────────────────────────────────────────
+  // Optional: World (ADR-003)
+  // ─────────────────────────────────────────
+
+  /**
+   * ManifestoWorld instance (optional).
+   * If not provided, App creates an internal World with InMemoryWorldStore.
+   * World owns persistence — App does NOT receive WorldStore directly.
+   */
+  readonly world?: ManifestoWorld;
 
   // ─────────────────────────────────────────
   // Optional: Policy
@@ -1695,4 +1704,4 @@ const myPlugin: AppPlugin = async (app) => {
 
 ---
 
-*End of Manifesto App Specification v2.2.0*
+*End of Manifesto App Specification v2.3.0*
