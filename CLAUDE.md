@@ -142,23 +142,6 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 **Forbidden imports:** Core compute internals, Host effect handlers, World governance internals
 
-### @manifesto-ai/builder
-
-**IS responsible for:**
-- Type-safe domain definition DSL
-- Zod-first state schema
-- Zero-string-path APIs
-- Re-entry safety helpers
-- Schema validation and hashing
-
-**MUST NOT:**
-- Execute anything
-- Call `compute()` or `apply()`
-- Issue IntentInstance (only IntentBody)
-- Implement Host or World logic
-
-**Forbidden imports:** Host, World, compute/apply functions
-
 ### @manifesto-ai/lab
 
 **IS responsible for:**
@@ -320,7 +303,7 @@ async function handler(type, params): Promise<Patch[]> {
 
 ## 6. Type Discipline
 
-### 6.1 Zero String Paths (Builder)
+### 6.1 Zero String Paths
 
 User-facing APIs MUST NOT require string paths.
 
@@ -583,16 +566,6 @@ computed.define({
 });
 ```
 
-### 10.10 String Paths in Builder API (FORBIDDEN)
-
-```typescript
-// FORBIDDEN
-flow.patch('/data/todos/0/completed').set(true);
-
-// REQUIRED
-flow.patch(state.todos[0].completed).set(true);
-```
-
 ---
 
 ## 11. LLM Self-Check
@@ -688,7 +661,6 @@ Reference these when making decisions:
 | host | world governance, react |
 | world | host internals, core compute |
 | bridge | core internals, host handlers, world internals |
-| builder | host, world, compute/apply |
 | react | core internals, host, world |
 
 ### Priority Decision Tree

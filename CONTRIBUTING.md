@@ -58,7 +58,6 @@ Use the package name as scope:
 - `host` - @manifesto-ai/host
 - `world` - @manifesto-ai/world
 - `bridge` - @manifesto-ai/bridge
-- `builder` - @manifesto-ai/builder
 - `react` - @manifesto-ai/react
 - `compiler` - @manifesto-ai/compiler
 - `effect-utils` - @manifesto-ai/effect-utils
@@ -77,7 +76,7 @@ feat(core): add explain() method for debugging
 fix(host): handle effect handler timeout properly
 
 # Breaking change (add ! after type)
-feat(builder)!: change defineDomain API signature
+feat(compiler)!: change compile API signature
 
 BREAKING CHANGE: The second parameter is now required.
 
@@ -129,7 +128,6 @@ Respect the layered architecture:
 - **Host** (execution) → MUST NOT import World governance or React
 - **World** (governance) → MUST NOT import Host or Core internals
 - **Bridge** (binding) → MUST NOT import Core/Host/World internals
-- **Builder** (DSL) → MUST NOT import Host, World, or compute/apply
 - **React** (UI) → MUST NOT import Core/Host/World internals
 
 See [CLAUDE.md Section 3](./CLAUDE.md#3-package-boundary-rules) for complete details.

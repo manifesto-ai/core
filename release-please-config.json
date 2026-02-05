@@ -26,10 +26,6 @@
       "package-name": "@manifesto-ai/bridge",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/builder": {
-      "package-name": "@manifesto-ai/builder",
-      "changelog-path": "CHANGELOG.md"
-    },
     "packages/core": {
       "package-name": "@manifesto-ai/core",
       "changelog-path": "CHANGELOG.md"

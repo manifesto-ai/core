@@ -39,7 +39,6 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.26.0",
-    "@manifesto-ai/builder": "^1.0.0",
     "@manifesto-ai/core": "^2.0.0",
     "@manifesto-ai/host": "^2.0.0",
     "openai": "^4.0.0",
@@ -62,7 +61,6 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
-    "@manifesto-ai/builder": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@types/node": "^25.2.0",
     "@types/react": "^19.2.10",

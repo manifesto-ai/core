@@ -170,7 +170,6 @@ Manifesto draws from formal linguistics, programming language theory, and AI saf
 | [@manifesto-ai/host](./packages/host) | Effect execution runtime |
 | [@manifesto-ai/world](./packages/world) | Governance layer |
 | [@manifesto-ai/compiler](./packages/compiler) | MEL to DomainSchema compiler |
-| [@manifesto-ai/builder](./packages/builder) | Type-safe domain definition DSL |
 | [@manifesto-ai/intent-ir](./packages/intent-ir) | Intent intermediate representation |
 
 ## Documentation
