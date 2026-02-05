@@ -57,9 +57,32 @@ The injection point remains inside App as composition root—**not the end-user*
 ### 3.1 Types
 
 ```ts
-type EffectHandler = (input: unknown, ctx: unknown) => Promise<Patch[]>;
+/**
+ * Context provided to effect handlers at App layer.
+ * Simplified from Host's EffectContext (excludes internal Requirement details).
+ */
+type AppEffectContext = {
+  readonly snapshot: Readonly<Snapshot>;
+};
 
-type Effects = Record<string, EffectHandler>; // key = effect id / effect name
+/**
+ * Effect handler function signature for App layer.
+ *
+ * Note: Host's EffectHandler takes (type, params, context) but at App layer
+ * the type is already determined by the Effects record key, so only params
+ * and context are passed.
+ *
+ * Effect handlers:
+ * - MUST return Patch[] (can be empty)
+ * - MUST NOT throw exceptions (return error patches instead)
+ * - MUST NOT contain domain logic
+ */
+type EffectHandler = (
+  params: unknown,
+  ctx: AppEffectContext
+) => Promise<readonly Patch[]>;
+
+type Effects = Record<string, EffectHandler>; // key = effect type
 
 type CreateAppConfig =
   | {
