@@ -13,9 +13,9 @@ export {
 } from "./app-initializer.js";
 
 export {
-  type V2InitializerDependencies,
-  type V2InitializedComponents,
-  type V2Initializer,
-  V2InitializerImpl,
-  createV2Initializer,
-} from "./v2-initializer.js";
+  type HostInitializerDependencies,
+  type HostInitializedComponents,
+  type HostInitializer,
+  HostInitializerImpl,
+  createHostInitializer,
+} from "./initializer.js";

@@ -216,27 +216,18 @@ world.updateActorBinding("agent-1", mixedPolicy);
 **Prerequisites:** Multiple proposals submitted.
 
 ```typescript
-const store = world.getStore();
-
-// Query all proposals from an actor
-const aliceProposals = await store.listProposals({
-  actorId: "user-alice",
-});
-
-// Query evaluating proposals
+// Query evaluating proposals (public API)
 const evaluatingProposals = await world.getEvaluatingProposals();
 
-// Query proposals for a base world
-const baseWorldProposals = await store.listProposals({
-  baseWorld: "w_abc123",
-});
+// Get a specific proposal by ID
+const proposal = await world.getProposal("prop_abc123");
 
-// Paginated query
-const recentProposals = await store.listProposals({
-  limit: 10,
-  offset: 0,
-});
+// Get decision for a proposal
+const decision = await world.getDecisionByProposal("prop_abc123");
 ```
+
+> **Note:** Direct store access via `getStore()` has been removed per ADR-003.
+> Use the public query APIs above for governance data access.
 
 ### Traversing World Lineage
 

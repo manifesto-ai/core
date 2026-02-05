@@ -12,7 +12,7 @@ import { createApp, createTestApp } from "../index.js";
 import { createInMemoryWorldStore } from "../storage/world-store/index.js";
 import { createSilentPolicyService } from "../runtime/policy/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Host, HostResult, Snapshot, AppConfig, Intent } from "../core/types/index.js";
+import type { Host, HostResult, Snapshot, AppConfig, LegacyAppConfig, Intent } from "../core/types/index.js";
 import { createWorldId, createProposalId } from "@manifesto-ai/world";
 
 // =============================================================================
@@ -137,12 +137,12 @@ async function requireSnapshot(
 
 describe("v2 Integration", () => {
   describe("v2 Mode Detection", () => {
-    it("APP-API-1: createApp with AppConfig enables v2 mode", async () => {
+    it("APP-API-1: createApp with LegacyAppConfig enables v2 mode", async () => {
       const schema = createTestSchema();
       const host = createTestHost();
       const worldStore = createInMemoryWorldStore();
 
-      const config: AppConfig = {
+      const config: LegacyAppConfig = {
         schema,
         host,
         worldStore,
@@ -176,7 +176,7 @@ describe("v2 Integration", () => {
       const worldStore = createInMemoryWorldStore();
 
       const phases: string[] = [];
-      const config: AppConfig = {
+      const config: LegacyAppConfig = {
         schema,
         host,
         worldStore,

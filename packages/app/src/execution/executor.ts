@@ -1,7 +1,7 @@
 /**
- * V2 Executor Module
+ * App Executor Module
  *
- * Orchestrates v2 action execution lifecycle.
+ * Orchestrates action execution lifecycle.
  *
  * @see SPEC v2.0.0 §5-10
  * @module
@@ -46,9 +46,9 @@ import {
 // =============================================================================
 
 /**
- * V2 Executor dependencies.
+ * App Executor dependencies.
  */
-export interface V2ExecutorDependencies {
+export interface AppExecutorDependencies {
   domainSchema: DomainSchema;
   defaultActorId: string;
   policyService: PolicyService;
@@ -67,11 +67,11 @@ export interface V2ExecutorDependencies {
 }
 
 /**
- * V2 Executor interface.
+ * App Executor interface.
  */
-export interface V2Executor {
+export interface AppExecutor {
   /**
-   * Execute a v2 action.
+   * Execute a action.
    *
    * @param handle - The action handle
    * @param actionType - The action type
@@ -91,14 +91,14 @@ export interface V2Executor {
 // =============================================================================
 
 /**
- * V2 Executor implementation.
+ * App Executor implementation.
  *
- * Orchestrates the complete v2 action execution lifecycle.
+ * Orchestrates the complete action execution lifecycle.
  */
-export class V2ExecutorImpl implements V2Executor {
-  private _deps: V2ExecutorDependencies;
+export class AppExecutorImpl implements AppExecutor {
+  private _deps: AppExecutorDependencies;
 
-  constructor(deps: V2ExecutorDependencies) {
+  constructor(deps: AppExecutorDependencies) {
     this._deps = deps;
   }
 
@@ -645,10 +645,10 @@ export class V2ExecutorImpl implements V2Executor {
 // =============================================================================
 
 /**
- * Create a new V2Executor instance.
+ * Create a new AppExecutor instance.
  *
  * @param deps - The executor dependencies
  */
-export function createV2Executor(deps: V2ExecutorDependencies): V2Executor {
-  return new V2ExecutorImpl(deps);
+export function createAppExecutor(deps: AppExecutorDependencies): AppExecutor {
+  return new AppExecutorImpl(deps);
 }

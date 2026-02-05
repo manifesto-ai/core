@@ -1,9 +1,11 @@
 /**
- * V2 Initializer Module
+ * Host Initializer Module
  *
- * Initializes v2.0.0 components: HostExecutor, effect handlers, and genesis World.
+ * Initializes v2.0.0/v2.2.0 components: HostExecutor, effect handlers, and genesis World.
  *
- * @see SPEC v2.0.0 §8-10
+ * v2.2.0: Effects may be pre-registered via createInternalHost (skipEffectRegistration=true).
+ *
+ * @see SPEC v2.2.0 §8-10
  * @module
  */
 
@@ -34,9 +36,9 @@ import {
 // =============================================================================
 
 /**
- * V2 Initializer dependencies.
+ * Host Initializer dependencies.
  */
-export interface V2InitializerDependencies {
+export interface HostInitializerDependencies {
   host: Host;
   worldStore: WorldStore;
   policyService: PolicyService;
@@ -48,25 +50,29 @@ export interface V2InitializerDependencies {
   currentState: AppState<unknown>;
   getCurrentWorldId: () => string;
   getCurrentBranchId: () => string;
+  /**
+   * v2.2.0: Skip effect registration if effects are pre-registered via createInternalHost.
+   */
+  skipEffectRegistration?: boolean;
 }
 
 /**
- * V2 Initialized components.
+ * Host Initialized components.
  */
-export interface V2InitializedComponents {
+export interface HostInitializedComponents {
   hostExecutor: AppHostExecutor;
 }
 
 /**
- * V2 Initializer interface.
+ * Host Initializer interface.
  */
-export interface V2Initializer {
+export interface HostInitializer {
   /**
    * Initialize v2 components.
    *
    * Sets up HostExecutor, registers effect handlers, and initializes genesis World.
    */
-  initialize(): V2InitializedComponents;
+  initialize(): HostInitializedComponents;
 
   /**
    * Initialize genesis World in WorldStore.
@@ -79,17 +85,17 @@ export interface V2Initializer {
 // =============================================================================
 
 /**
- * V2 Initializer implementation.
+ * Host Initializer implementation.
  */
-export class V2InitializerImpl implements V2Initializer {
-  private _deps: V2InitializerDependencies;
+export class HostInitializerImpl implements HostInitializer {
+  private _deps: HostInitializerDependencies;
   private _hostExecutor: AppHostExecutor | null = null;
 
-  constructor(deps: V2InitializerDependencies) {
+  constructor(deps: HostInitializerDependencies) {
     this._deps = deps;
   }
 
-  initialize(): V2InitializedComponents {
+  initialize(): HostInitializedComponents {
     const {
       host,
       options,
@@ -97,6 +103,7 @@ export class V2InitializerImpl implements V2Initializer {
       defaultActorId,
       getCurrentWorldId,
       getCurrentBranchId,
+      skipEffectRegistration,
     } = this._deps;
 
     // 1. Create AppHostExecutor wrapping injected Host
@@ -105,25 +112,28 @@ export class V2InitializerImpl implements V2Initializer {
       traceEnabled: options.devtools?.enabled,
     });
 
-    // 2. Register effect handlers from services
-    const services = options.services ?? {};
-    for (const [effectType, handler] of Object.entries(services)) {
-      host.registerEffect(effectType, async (type, params, ctx) => {
-        const result = await handler(params, {
-          snapshot: ctx.snapshot as AppState<unknown>,
-          actorId: defaultActorId,
-          worldId: getCurrentWorldId(),
-          branchId: getCurrentBranchId(),
-          patch: this._createPatchHelpers(),
-          signal: ctx.signal ?? new AbortController().signal,
-        });
+    // 2. Register effect handlers from services (legacy path)
+    // v2.2.0: Skip if effects are pre-registered via createInternalHost
+    if (!skipEffectRegistration) {
+      const services = options.services ?? {};
+      for (const [effectType, handler] of Object.entries(services)) {
+        host.registerEffect(effectType, async (type, params, ctx) => {
+          const result = await handler(params, {
+            snapshot: ctx.snapshot as AppState<unknown>,
+            actorId: defaultActorId,
+            worldId: getCurrentWorldId(),
+            branchId: getCurrentBranchId(),
+            patch: this._createPatchHelpers(),
+            signal: ctx.signal ?? new AbortController().signal,
+          });
 
-        // Normalize result to Patch array
-        if (!result) return [];
-        if (Array.isArray(result)) return result;
-        if ("patches" in result) return result.patches;
-        return [result];
-      });
+          // Normalize result to Patch array
+          if (!result) return [];
+          if (Array.isArray(result)) return result;
+          if ("patches" in result) return result.patches;
+          return [result];
+        });
+      }
     }
 
     return {
@@ -207,10 +217,10 @@ export class V2InitializerImpl implements V2Initializer {
 // =============================================================================
 
 /**
- * Create a new V2Initializer instance.
+ * Create a new HostInitializer instance.
  *
  * @param deps - The initializer dependencies
  */
-export function createV2Initializer(deps: V2InitializerDependencies): V2Initializer {
-  return new V2InitializerImpl(deps);
+export function createHostInitializer(deps: HostInitializerDependencies): HostInitializer {
+  return new HostInitializerImpl(deps);
 }

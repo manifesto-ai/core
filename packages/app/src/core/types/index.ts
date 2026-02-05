@@ -1,7 +1,7 @@
 /**
  * Manifesto App Type Definitions
  *
- * @see SPEC v2.0.0
+ * @see SPEC v2.2.0
  * @module
  */
 
@@ -9,9 +9,14 @@ import type { DomainSchema, Patch, Requirement, Snapshot } from "@manifesto-ai/c
 
 // Re-export Patch, Requirement, and Snapshot from core
 export type { Patch, Requirement, Snapshot };
+
+// Re-export Effects types (v2.2.0)
+export type { Effects, EffectHandler, AppEffectContext } from "./effects.js";
+import type { Effects } from "./effects.js";
 import type {
   ActorRef,
   AuthorityPolicy,
+  ManifestoWorld,
   World,
   WorldId,
 } from "@manifesto-ai/world";
@@ -410,7 +415,7 @@ export interface Host {
   /**
    * Register an effect handler.
    */
-  registerEffect(type: string, handler: EffectHandler): void;
+  registerEffect(type: string, handler: HostEffectHandler): void;
 
   /**
    * Get list of registered effect types.
@@ -424,18 +429,23 @@ export interface Host {
 }
 
 /**
- * Effect handler signature.
+ * Host effect handler signature (internal).
+ *
+ * @deprecated For user-facing API, use EffectHandler from effects.ts (v2.2.0).
+ * This type remains for Host interface compatibility.
  */
-export type EffectHandler = (
+export type HostEffectHandler = (
   type: string,
   params: Record<string, unknown>,
-  ctx: EffectContext
+  ctx: HostEffectContext
 ) => Promise<readonly Patch[]>;
 
 /**
- * Effect context provided to handlers.
+ * Host effect context (internal).
+ *
+ * @deprecated For user-facing API, use AppEffectContext from effects.ts (v2.2.0).
  */
-export type EffectContext = {
+export type HostEffectContext = {
   readonly snapshot: Snapshot;
   readonly signal?: AbortSignal;
 };
@@ -468,69 +478,139 @@ export type CompileError = {
 };
 
 /**
- * v2.0.0 App Configuration.
+ * v2.3.0 App Configuration.
  *
- * @see SPEC v2.0.0 §6.1
+ * Simplified public API per ADR-APP-002 and ADR-003:
+ * - `effects` is REQUIRED (replaces `services`)
+ * - `host` is removed (App creates Host internally)
+ * - `world` is OPTIONAL (App creates internal World with InMemoryWorldStore)
+ * - `worldStore` is REMOVED — World owns persistence per ADR-003
+ * - `compiler` is removed (internal)
+ *
+ * @see SPEC v2.3.0 §6.1
+ * @see ADR-APP-002
+ * @see ADR-003
  */
 export type AppConfig = {
+  // ─────────────────────────────────────────
   // Required
+  // ─────────────────────────────────────────
+
   /** Domain schema or MEL source text */
   readonly schema: DomainSchema | string;
 
-  /** Host instance */
-  readonly host: Host;
+  /** Effect handlers (REQUIRED) */
+  readonly effects: Effects;
 
-  /** World storage backend */
-  readonly worldStore: WorldStore;
+  // ─────────────────────────────────────────
+  // Optional: World (ADR-003)
+  // ─────────────────────────────────────────
 
+  /**
+   * ManifestoWorld instance (optional).
+   * If not provided, App creates an internal World with InMemoryWorldStore.
+   * World owns persistence — App does NOT receive WorldStore directly.
+   */
+  readonly world?: ManifestoWorld;
+
+  // ─────────────────────────────────────────
   // Optional: Policy
+  // ─────────────────────────────────────────
+
   /** Policy service (default: auto-approve, unique key) */
   readonly policyService?: PolicyService;
 
   /** Execution key policy shorthand */
   readonly executionKeyPolicy?: ExecutionKeyPolicy;
 
+  // ─────────────────────────────────────────
   // Optional: Memory
+  // ─────────────────────────────────────────
+
   /** External memory store */
   readonly memoryStore?: MemoryStore;
 
   /** Memory provider for execution integration */
   readonly memoryProvider?: MemoryProvider;
 
-  // Optional: Compilation
-  /** Compiler for MEL text (required if schema is string) */
-  readonly compiler?: Compiler;
+  /** Memory hub configuration (from CreateAppOptions) */
+  readonly memory?: false | MemoryHubConfig;
 
-  // Optional: Services
-  /** Effect handlers */
-  readonly services?: ServiceMap;
-
+  // ─────────────────────────────────────────
   // Optional: Extensibility
+  // ─────────────────────────────────────────
+
   /** Plugins to install */
   readonly plugins?: readonly AppPlugin[];
 
   /** Pre-configured hooks */
   readonly hooks?: Partial<AppHooks>;
 
+  // ─────────────────────────────────────────
   // Optional: Validation
+  // ─────────────────────────────────────────
+
   readonly validation?: {
-    /** Validate services match schema effects */
-    readonly services?: "strict" | "warn" | "off";
+    /** Validate effects match schema requirements */
+    readonly effects?: "strict" | "warn" | "off";
   };
 
+  // ─────────────────────────────────────────
   // Optional: Initial data
+  // ─────────────────────────────────────────
+
   readonly initialData?: unknown;
 
+  // ─────────────────────────────────────────
   // Optional: Actor policy
+  // ─────────────────────────────────────────
+
   readonly actorPolicy?: ActorPolicyConfig;
 
+  // ─────────────────────────────────────────
   // Optional: Scheduler
+  // ─────────────────────────────────────────
+
   readonly scheduler?: SchedulerConfig;
 
+  // ─────────────────────────────────────────
   // Optional: System actions
+  // ─────────────────────────────────────────
+
   readonly systemActions?: SystemActionsConfig;
 
+  // ─────────────────────────────────────────
   // Optional: Devtools
+  // ─────────────────────────────────────────
+
+  readonly devtools?: DevtoolsConfig;
+};
+
+/**
+ * Legacy v2.0.0 App Configuration (deprecated).
+ *
+ * @deprecated Use AppConfig (v2.2.0) with `effects` instead of `host`/`services`.
+ * This type will be removed in v3.0.0.
+ */
+export type LegacyAppConfig = {
+  readonly schema: DomainSchema | string;
+  readonly host: Host;
+  readonly worldStore: WorldStore;
+  readonly policyService?: PolicyService;
+  readonly executionKeyPolicy?: ExecutionKeyPolicy;
+  readonly memoryStore?: MemoryStore;
+  readonly memoryProvider?: MemoryProvider;
+  readonly compiler?: Compiler;
+  readonly services?: ServiceMap;
+  readonly plugins?: readonly AppPlugin[];
+  readonly hooks?: Partial<AppHooks>;
+  readonly validation?: {
+    readonly services?: "strict" | "warn" | "off";
+  };
+  readonly initialData?: unknown;
+  readonly actorPolicy?: ActorPolicyConfig;
+  readonly scheduler?: SchedulerConfig;
+  readonly systemActions?: SystemActionsConfig;
   readonly devtools?: DevtoolsConfig;
 
   // Optional: Memory (from CreateAppOptions)
@@ -1015,11 +1095,22 @@ export interface CreateAppOptions {
   devtools?: DevtoolsConfig;
 
   /**
-   * Internal v2 config (set by createApp when using AppConfig).
+   * Internal config (set by createApp when using AppConfig).
    * @internal
    */
-  _v2Config?: AppConfig;
+  _internalConfig?: InternalConfig;
 }
+
+/**
+ * Internal configuration with implementation details.
+ * Includes worldStore extracted from World for internal use.
+ *
+ * @internal
+ */
+export type InternalConfig = AppConfig & {
+  /** @internal WorldStore extracted from World.store */
+  readonly worldStore: WorldStore;
+};
 
 /**
  * Dispose options.

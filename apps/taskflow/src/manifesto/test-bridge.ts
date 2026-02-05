@@ -1,23 +1,20 @@
 /**
  * Test Bridge Adapter
  *
- * Provides a Bridge-like interface backed by @manifesto-ai/app v2.
+ * Provides a Bridge-like interface backed by @manifesto-ai/app v2.3.0.
  */
 
 import {
   createApp,
   createDefaultPolicyService,
-  createInMemoryWorldStore,
   type AppState,
   type PolicyService,
   type Unsubscribe,
 } from "@manifesto-ai/app";
-import { createHost } from "@manifesto-ai/host";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { ActorRef, IntentBody } from "@manifesto-ai/world";
 
-import { registerAllEffects } from "./effects";
-import { createAppHostAdapter } from "./host-adapter";
+import { taskflowEffects } from "./effects";
 
 export interface TestBridge {
   dispatch: (body: IntentBody, source?: unknown, actor?: ActorRef) => Promise<void>;
@@ -36,13 +33,10 @@ export interface TestBridgeOptions {
 }
 
 export async function createTestBridge(options: TestBridgeOptions): Promise<TestBridge> {
-  const host = createHost(options.schema, { initialData: options.initialData });
-  registerAllEffects((type, handler) => host.registerEffect(type, handler));
-
+  // v2.3.0 Effects-first API
   const app = createApp({
     schema: options.schema,
-    host: createAppHostAdapter(host),
-    worldStore: createInMemoryWorldStore(),
+    effects: taskflowEffects,
     policyService: options.policyService ?? createDefaultPolicyService({ warnOnAutoApprove: false }),
     initialData: options.initialData,
     actorPolicy: {

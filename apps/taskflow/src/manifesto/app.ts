@@ -1,13 +1,12 @@
 /**
  * TaskFlow App Setup
  *
- * Creates and configures the Manifesto v2 App for TaskFlow.
+ * Creates and configures the Manifesto v2.3.0 App for TaskFlow.
  */
 
 import {
   createApp,
   createDefaultPolicyService,
-  createInMemoryWorldStore,
   createPermissiveScope,
   type App,
   type AppState,
@@ -15,14 +14,12 @@ import {
   type Unsubscribe,
 } from "@manifesto-ai/app";
 import { compileMelDomain } from "@manifesto-ai/compiler";
-import { createHost, type ManifestoHost } from "@manifesto-ai/host";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { ActorRef, IntentBody } from "@manifesto-ai/world";
 
 import { TasksDomain, initialSnapshot, type Task, type ViewMode, type Filter } from "../domain";
 import { createUserActor, createAssistantActor, defaultActors } from "./actors";
-import { registerAllEffects, defaultPersistence, type TaskFlowPersistence } from "./effects";
-import { createAppHostAdapter } from "./host-adapter";
+import { defaultPersistence, taskflowEffects, type TaskFlowPersistence } from "./effects";
 
 /**
  * TaskFlow App configuration
@@ -47,11 +44,6 @@ export interface TaskFlowAppConfig {
    * Optional policy service override
    */
   policyService?: PolicyService;
-
-  /**
-   * Optional host override (for tests)
-   */
-  host?: ManifestoHost;
 }
 
 /**
@@ -394,29 +386,16 @@ export async function createTaskFlowApp(
 
   const schema = getTasksDomainSchema();
 
-  // Create Host with initial data
-  const manifestHost = config.host ?? createHost(schema, {
-    initialData,
-  });
-
-  // Register effect handlers
-  registerAllEffects((type, handler) => {
-    manifestHost.registerEffect(type, handler);
-  });
-
-  const appHost = createAppHostAdapter(manifestHost);
-  const worldStore = createInMemoryWorldStore();
-
   const userActor = config.userId
     ? createUserActor(config.userId)
     : defaultActors.anonymousUser;
 
   const policyService = config.policyService ?? createTaskFlowPolicyService();
 
+  // v2.3.0 Effects-first API
   const app = createApp({
     schema,
-    host: appHost,
-    worldStore,
+    effects: taskflowEffects,
     policyService,
     initialData,
     actorPolicy: {

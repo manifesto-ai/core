@@ -268,20 +268,23 @@ describe("App Lifecycle", () => {
   });
 
   describe("READY-5: Reserved effect type validation", () => {
-    it("should throw ReservedEffectTypeError for system.get in services", async () => {
-      const app = createTestApp(mockDomainSchema, {
-        services: {
-          "system.get": () => undefined,
-        },
-      });
-
-      await expect(app.ready()).rejects.toThrow(ReservedEffectTypeError);
+    it("should throw ReservedEffectTypeError for system.get in effects", async () => {
+      // v2.3.0: Validation happens at createApp() time
+      expect(() =>
+        createApp({
+          schema: mockDomainSchema,
+          effects: {
+            "system.get": async () => [],
+          },
+        })
+      ).toThrow(ReservedEffectTypeError);
     });
 
     it("should allow other effect types", async () => {
-      const app = createTestApp(mockDomainSchema, {
-        services: {
-          "http.fetch": () => undefined,
+      const app = createApp({
+        schema: mockDomainSchema,
+        effects: {
+          "http.fetch": async () => [],
         },
       });
 

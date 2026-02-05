@@ -837,10 +837,6 @@ describe("ManifestoWorld", () => {
       expect(decision?.proposalId).toBe(result.proposal.proposalId);
     });
 
-    it("provides access to store", () => {
-      const store = world.getStore();
-      expect(store).toBeDefined();
-    });
   });
 
   // ==========================================================================
@@ -970,19 +966,15 @@ describe("ManifestoWorld", () => {
         currentWorld = result.resultWorld!.worldId;
       }
 
-      // Verify store contents
-      const store = world.getStore();
-      const stats = await store.getStats();
-
-      expect(stats.worlds).toBe(4); // genesis + 3 results
-      expect(stats.edges).toBe(3);
-      expect(stats.proposals).toBe(3);
-      expect(stats.decisions).toBe(3);
-
-      // Verify lineage integrity
+      // Verify lineage integrity (replaces direct store access per ADR-003)
       const lineage = world.getLineage();
       expect(lineage.getDepth(currentWorld)).toBe(3);
       expect(lineage.isDescendant(currentWorld, genesis.worldId)).toBe(true);
+
+      // Verify world retrieval via public API
+      const retrievedWorld = await world.getWorld(currentWorld);
+      expect(retrievedWorld).toBeDefined();
+      expect(retrievedWorld?.worldId).toBe(currentWorld);
     });
   });
 });

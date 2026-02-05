@@ -2,7 +2,9 @@
  * system.get Built-in Effect Handler
  *
  * The system.get effect type is reserved and handled directly by Host.
- * It provides read access to state and computed values during flow execution.
+ * It provides two functionalities:
+ * 1. Read access to state and computed values (path param)
+ * 2. System value generation for $system.* references (key param)
  *
  * @see SPEC §18.5 SYSGET-1~6
  * @module
@@ -12,15 +14,32 @@ import type { Patch } from "@manifesto-ai/core";
 import type { AppState, ServiceContext } from "../../core/types/index.js";
 
 /**
- * Parameters for system.get effect.
+ * Parameters for system.get effect (read mode).
  */
-export interface SystemGetParams {
+export interface SystemGetReadParams {
   /** Path to retrieve (e.g., "data.todos", "computed.totalCount") */
   path: string;
 
   /** Target path to store the result (optional) */
   target?: string;
 }
+
+/**
+ * Parameters for system.get effect (generate mode).
+ * Used by compiler lowering for $system.* references.
+ */
+export interface SystemGetGenerateParams {
+  /** System value key to generate (e.g., "uuid", "timestamp", "isoTimestamp") */
+  key: string;
+
+  /** Target path to store the generated value */
+  into: string;
+}
+
+/**
+ * Combined parameters for system.get effect.
+ */
+export type SystemGetParams = SystemGetReadParams | SystemGetGenerateParams;
 
 /**
  * Result of system.get operation.
@@ -31,7 +50,51 @@ export interface SystemGetResult {
 }
 
 /**
+ * Check if params are for generate mode (compiler lowering).
+ */
+function isGenerateParams(params: SystemGetParams): params is SystemGetGenerateParams {
+  return "key" in params && "into" in params;
+}
+
+/**
+ * Generate a system value.
+ */
+function generateSystemValue(key: string): unknown {
+  switch (key) {
+    case "uuid":
+      return generateUUID();
+    case "timestamp":
+    case "time.now":
+      return Date.now();
+    case "isoTimestamp":
+      return new Date().toISOString();
+    default:
+      console.warn(`system.get: unknown key "${key}"`);
+      return null;
+  }
+}
+
+/**
+ * Generate a UUID.
+ */
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
  * Execute system.get effect.
+ *
+ * Handles two modes:
+ * 1. Generate mode (key + into): Generate system values like uuid, timestamp
+ * 2. Read mode (path + target): Read values from snapshot
  *
  * SYSGET-5: Returns value at path from state or computed.
  * SYSGET-6: Handled by Host directly (this function is called by Host).
@@ -44,6 +107,18 @@ export function executeSystemGet(
   params: SystemGetParams,
   snapshot: Readonly<AppState<unknown>>
 ): { patches: Patch[]; result: SystemGetResult } {
+  // Generate mode: $system.uuid, $system.timestamp, etc.
+  if (isGenerateParams(params)) {
+    const value = generateSystemValue(params.key);
+    const patches: Patch[] = [{
+      op: "set",
+      path: params.into,
+      value,
+    }];
+    return { patches, result: { value, found: true } };
+  }
+
+  // Read mode: Read from snapshot
   const { path, target } = params;
 
   // Resolve value from path

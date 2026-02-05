@@ -17,9 +17,7 @@ export type { ActorRef } from "@manifesto-ai/world";
 
 // Effects
 export {
-  registerAllEffects,
-  registerArrayEffects,
-  registerSystemEffects,
+  taskflowEffects,
   LocalStoragePersistence,
   MemoryPersistence,
   createPersistenceObserver,
