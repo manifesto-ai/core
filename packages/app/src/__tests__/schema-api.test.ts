@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import { AppNotReadyError, AppDisposedError } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { AppPlugin } from "../core/types/index.js";
@@ -45,7 +45,7 @@ const mockDomainSchema2: DomainSchema = {
 describe("getDomainSchema() API", () => {
   describe("SCHEMA-1: Current branch schema", () => {
     it("should return DomainSchema after ready()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const schema = app.getDomainSchema();
@@ -56,7 +56,7 @@ describe("getDomainSchema() API", () => {
     });
 
     it("should return schema matching current branch schemaHash", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const schema = app.getDomainSchema();
@@ -68,7 +68,7 @@ describe("getDomainSchema() API", () => {
 
   describe("SCHEMA-2: Timing", () => {
     it("should throw AppNotReadyError before ready() is called", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => app.getDomainSchema()).toThrow(AppNotReadyError);
     });
@@ -81,7 +81,7 @@ describe("getDomainSchema() API", () => {
         capturedSchema = app.getDomainSchema();
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [testPlugin],
       });
 
@@ -95,7 +95,7 @@ describe("getDomainSchema() API", () => {
 
   describe("SCHEMA-3: No undefined", () => {
     it("should never return undefined once resolved", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const schema = app.getDomainSchema();
@@ -105,7 +105,7 @@ describe("getDomainSchema() API", () => {
     });
 
     it("should always have required schema properties", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const schema = app.getDomainSchema();
@@ -119,7 +119,7 @@ describe("getDomainSchema() API", () => {
 
   describe("SCHEMA-4: Referential identity", () => {
     it("should return same instance for multiple calls", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const schema1 = app.getDomainSchema();
@@ -138,7 +138,7 @@ describe("getDomainSchema() API", () => {
         schemaFromPlugin = app.getDomainSchema();
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         plugins: [testPlugin],
       });
 
@@ -166,7 +166,7 @@ describe("getDomainSchema() API", () => {
         }
       `;
 
-      const app = createApp(melText);
+      const app = createTestApp(melText);
       await app.ready();
 
       const schema = app.getDomainSchema();
@@ -179,7 +179,7 @@ describe("getDomainSchema() API", () => {
 
   describe("Disposed state", () => {
     it("should throw AppDisposedError after dispose()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.dispose();
 
@@ -202,7 +202,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
       }
     };
 
-    const app = createApp(mockDomainSchema, {
+    const app = createTestApp(mockDomainSchema, {
       plugins: [testPlugin],
     });
 
@@ -223,7 +223,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
       schemaHashDuringPlugin = schema.hash;
     };
 
-    const app = createApp(mockDomainSchema, {
+    const app = createTestApp(mockDomainSchema, {
       plugins: [testPlugin],
     });
 
@@ -244,7 +244,7 @@ describe("READY-1a/READY-6: Plugin schema access", () => {
       schemas.push(app.getDomainSchema());
     };
 
-    const app = createApp(mockDomainSchema, {
+    const app = createTestApp(mockDomainSchema, {
       plugins: [plugin1, plugin2],
     });
 
@@ -262,7 +262,7 @@ describe("domain:resolved hook", () => {
       schema: null as unknown as DomainSchema,
     };
 
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
 
     app.hooks.on("domain:resolved", (payload) => {
       hookPayload.schemaHash = payload.schemaHash;
@@ -293,7 +293,7 @@ describe("domain:resolved hook", () => {
       state: { fields: {} },
     };
 
-    const app = createApp(invalidSchema);
+    const app = createTestApp(invalidSchema);
     app.hooks.on("domain:resolved", hookCalled);
 
     await expect(app.ready()).rejects.toThrow();
@@ -307,7 +307,7 @@ describe("domain:resolved hook", () => {
       order.push("plugin");
     };
 
-    const app = createApp(mockDomainSchema, {
+    const app = createTestApp(mockDomainSchema, {
       plugins: [testPlugin],
     });
 
@@ -328,7 +328,7 @@ describe("domain:schema:added hook", () => {
   it("should NOT emit during initial ready()", async () => {
     const hookCalled = vi.fn();
 
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     app.hooks.on("domain:schema:added", hookCalled);
 
     await app.ready();

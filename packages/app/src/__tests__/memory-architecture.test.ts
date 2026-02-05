@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import { MemoryHub } from "../runtime/memory/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
@@ -430,7 +430,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
-      const app = createApp(testDomainSchema, {
+      const app = createTestApp(testDomainSchema, {
         memory: {
           providers: {
             conversation: createTieredMemoryProvider(store, "all"),
@@ -460,7 +460,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         createdBy: { actorId: "test-user", kind: "human" as const },
       });
 
-      const app = createApp(testDomainSchema, {
+      const app = createTestApp(testDomainSchema, {
         memory: {
           providers: {
             knowledge: createTieredMemoryProvider(store, "all"),
@@ -497,7 +497,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         createdBy: testActor,
       });
 
-      const app = createApp(testDomainSchema, {
+      const app = createTestApp(testDomainSchema, {
         memory: {
           providers: {
             pets: createTieredMemoryProvider(store, "all"),
@@ -563,7 +563,7 @@ describe("Memory Architecture - Tiered Memory System", () => {
         });
       }
 
-      const app = createApp(testDomainSchema, {
+      const app = createTestApp(testDomainSchema, {
         memory: {
           providers: {
             conversation: createTieredMemoryProvider(store, "all"),

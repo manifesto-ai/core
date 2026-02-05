@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import { SystemRuntime, createSystemFacade } from "../runtime/system/index.js";
 import { SYSTEM_ACTION_TYPES } from "../constants.js";
 import type { DomainSchema } from "@manifesto-ai/core";
@@ -366,7 +366,7 @@ describe("System Facade", () => {
 
 describe("App Integration with System Runtime", () => {
   it("app.system should return SystemFacade", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     expect(app.system).toBeDefined();
@@ -377,7 +377,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("app.system.getState() should return initial state", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const state = app.system.getState();
@@ -387,7 +387,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("app.system.head() should return current world ID", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const head = app.system.head();
@@ -396,7 +396,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("app.system.lineage() should return world history", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const lineage = app.system.lineage();
@@ -404,7 +404,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("app.act() should route system.* actions to System Runtime", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const handle = app.act("system.actor.register", {
@@ -424,7 +424,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("app.act() should route domain actions to Domain Runtime", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const handle = app.act("todo.add", { title: "Test" });
@@ -436,7 +436,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("System Runtime should be initialized with default actor", async () => {
-    const app = createApp(mockDomainSchema, {
+    const app = createTestApp(mockDomainSchema, {
       actorPolicy: {
         defaultActor: {
           actorId: "admin",
@@ -453,7 +453,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("should update System lineage after system action", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const initialLineage = app.system.lineage();
@@ -469,7 +469,7 @@ describe("App Integration with System Runtime", () => {
   });
 
   it("system.subscribe should notify on system action completion", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const listener = vi.fn();

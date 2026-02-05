@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import { createInMemoryWorldStore } from "../storage/world-store/index.js";
 import { createSilentPolicyService } from "../runtime/policy/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
@@ -75,7 +75,7 @@ function createTestHost(options?: {
                 version: currentVersion + 1,
               },
             };
-            const defaultResult: HostResult = { status: "completed", snapshot: newSnapshot };
+            const defaultResult: HostResult = { status: "complete", snapshot: newSnapshot };
             return defaultResult;
           })();
 
@@ -165,24 +165,8 @@ describe("v2 Integration", () => {
       expect(result.status).toBe("completed");
     });
 
-    it("APP-API-2: legacy createApp does not enable v2 mode", async () => {
-      const schema = createTestSchema();
-
-      const app = createApp(schema);
-      await app.ready();
-
-      const result = await app.submitProposal({
-        proposalId: createProposalId("prop-legacy"),
-        actorId: "actor-1",
-        intentType: "counter.increment",
-        intentBody: {},
-        baseWorld: createWorldId("world-legacy"),
-        createdAt: Date.now(),
-        branchId: "main",
-      });
-
-      expect(result.status).toBe("rejected");
-    });
+    // APP-API-2 removed: legacy createApp mode no longer exists
+    // All createApp calls now require Host and WorldStore
   });
 
   describe("v2 Action Execution Lifecycle", () => {
@@ -393,7 +377,7 @@ describe("v2 Integration", () => {
       const customHost = createTestHost({
         dispatchImpl: async (_intent, snapshot) => {
           return {
-            status: "completed",
+            status: "complete",
             snapshot: {
               ...snapshot,
               data: { ...(snapshot.data as Record<string, unknown>), count: 43 },

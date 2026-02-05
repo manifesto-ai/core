@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import {
   SystemActionRoutingError,
   SystemActionDisabledError,
@@ -31,7 +31,7 @@ const mockDomainSchema: DomainSchema = {
 describe("System Action Invocation Rules", () => {
   describe("SYS-INV-1: System Actions via app.act()", () => {
     it("should allow system.* actions via app.act()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("system.actor.register", {
@@ -46,7 +46,7 @@ describe("System Action Invocation Rules", () => {
     });
 
     it("should route system.* to System Runtime", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       for (const actionType of SYSTEM_ACTION_TYPES.slice(0, 3)) {
@@ -58,7 +58,7 @@ describe("System Action Invocation Rules", () => {
 
   describe("SYS-INV-2: branch.act() must reject system.* actions", () => {
     it("should throw SystemActionRoutingError for system.* via branch.act()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -69,7 +69,7 @@ describe("System Action Invocation Rules", () => {
     });
 
     it("should include 'branch' as source in error", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -87,7 +87,7 @@ describe("System Action Invocation Rules", () => {
     });
 
     it("should allow domain actions via branch.act()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const branch = app.currentBranch();
@@ -99,7 +99,7 @@ describe("System Action Invocation Rules", () => {
 
   describe("SYS-INV-3: session.act() must reject system.* actions", () => {
     it("should throw SystemActionRoutingError for system.* via session.act()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user-123");
@@ -110,7 +110,7 @@ describe("System Action Invocation Rules", () => {
     });
 
     it("should include 'session' as source in error", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user-123");
@@ -125,7 +125,7 @@ describe("System Action Invocation Rules", () => {
     });
 
     it("should allow domain actions via session.act()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user-123");
@@ -139,7 +139,7 @@ describe("System Action Invocation Rules", () => {
 describe("System Action Disabled Rules", () => {
   describe("SYS-5: Global disable", () => {
     it("should reject all system.* when systemActions.enabled = false", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         systemActions: {
           enabled: false,
         },
@@ -161,7 +161,7 @@ describe("System Action Disabled Rules", () => {
 
   describe("SYS-5a: Specific action disable", () => {
     it("should reject specific disabled actions", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         systemActions: {
           disabled: ["system.actor.register", "system.service.unregister"],
         },
@@ -185,7 +185,7 @@ describe("System Action Disabled Rules", () => {
     });
 
     it("should include action type in error message", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         systemActions: {
           disabled: ["system.actor.disable"],
         },
@@ -206,7 +206,7 @@ describe("System Action Disabled Rules", () => {
 describe("System Action Audit Logging", () => {
   describe("API-AUD-1: Audit log entries", () => {
     it("should record audit entry for each system action", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -219,7 +219,7 @@ describe("System Action Audit Logging", () => {
     });
 
     it("should include actor, timestamp, and summary in audit entry", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         actorPolicy: {
           defaultActor: { actorId: "admin", kind: "human" },
         },
@@ -244,7 +244,7 @@ describe("System Action Audit Logging", () => {
 
   describe("API-AUD-2: Audit trail persistence", () => {
     it("should accumulate audit entries across multiple actions", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -266,7 +266,7 @@ describe("System Action Audit Logging", () => {
 describe("System Action Catalog", () => {
   describe("Actor Management", () => {
     it("system.actor.register should register new actor", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -286,7 +286,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.actor.disable should disable actor", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -299,7 +299,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.actor.updateMeta should update metadata", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -317,7 +317,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.actor.bindAuthority should bind authorities", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -340,7 +340,7 @@ describe("System Action Catalog", () => {
 
   describe("Branch Management", () => {
     it("system.branch.create should create branch pointer", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -360,7 +360,7 @@ describe("System Action Catalog", () => {
 
   describe("Service Management", () => {
     it("system.service.register should register service", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -376,7 +376,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.service.unregister should remove service", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -394,7 +394,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.service.replace should replace existing service", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -417,7 +417,7 @@ describe("System Action Catalog", () => {
 
   describe("Memory Management", () => {
     it("system.memory.configure should update memory config", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -435,7 +435,7 @@ describe("System Action Catalog", () => {
 
   describe("Workflow Management", () => {
     it("system.workflow.enable should enable workflow", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -448,7 +448,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.workflow.disable should disable workflow", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -463,7 +463,7 @@ describe("System Action Catalog", () => {
     });
 
     it("system.workflow.setPolicy should set workflow policy", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       await app
@@ -484,7 +484,7 @@ describe("System Action Catalog", () => {
 
 describe("System Action Error Handling", () => {
   it("should handle non-existent actor gracefully", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const handle = app.act("system.actor.disable", { actorId: "non-existent" });
@@ -494,7 +494,7 @@ describe("System Action Error Handling", () => {
   });
 
   it("should handle non-existent workflow gracefully", async () => {
-    const app = createApp(mockDomainSchema);
+    const app = createTestApp(mockDomainSchema);
     await app.ready();
 
     const handle = app.act("system.workflow.disable", {
@@ -522,7 +522,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
   describe("MEM-MAINT-10: Actor context from Proposal", () => {
     it("should fail when memory is disabled", async () => {
       // Create app with memory disabled (default)
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const handle = app.act("system.memory.maintain", {
@@ -552,7 +552,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
         },
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         memory: {
           providers: { default: mockProvider },
           defaultProvider: "default",
@@ -600,7 +600,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
         },
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         actorPolicy: {
           defaultActor: { actorId: "authenticated-user", kind: "human" },
         },
@@ -642,7 +642,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
         },
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         memory: {
           providers: { default: mockProvider },
           defaultProvider: "default",
@@ -682,7 +682,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
         },
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         memory: {
           providers: { default: mockProvider },
           defaultProvider: "default",
@@ -722,7 +722,7 @@ describe("Memory Maintenance (v0.4.8+)", () => {
         },
       };
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         memory: {
           providers: { default: mockProvider },
           defaultProvider: "default",

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "../index.js";
+import { createTestApp } from "../index.js";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -35,7 +35,7 @@ const mockDomainSchema: DomainSchema = {
 describe("Session Management", () => {
   describe("app.session()", () => {
     it("should create a session with actorId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user-123");
@@ -45,7 +45,7 @@ describe("Session Management", () => {
     });
 
     it("should use current branch by default", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user-123");
@@ -54,7 +54,7 @@ describe("Session Management", () => {
     });
 
     it("should accept custom branchId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const newBranch = await app.fork({ name: "feature", switchTo: false });
@@ -64,13 +64,13 @@ describe("Session Management", () => {
     });
 
     it("should throw AppNotReadyError before ready()", () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
 
       expect(() => app.session("user-123")).toThrow(AppNotReadyError);
     });
 
     it("should throw AppDisposedError after dispose()", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
       await app.dispose();
 
@@ -80,7 +80,7 @@ describe("Session Management", () => {
 
   describe("Session.act()", () => {
     it("should execute action with session context", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user-123");
@@ -94,7 +94,7 @@ describe("Session Management", () => {
     });
 
     it("should use session actorId for actions", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("specific-user");
@@ -106,7 +106,7 @@ describe("Session Management", () => {
     });
 
     it("should use session branchId for actions", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const newBranch = await app.fork({ switchTo: false });
@@ -120,7 +120,7 @@ describe("Session Management", () => {
 
     describe("SESS-ACT-1~4: Context Immutability", () => {
       it("SESS-ACT-1: actorId is immutably bound", async () => {
-        const app = createApp(mockDomainSchema);
+        const app = createTestApp(mockDomainSchema);
         await app.ready();
 
         const session = app.session("immutable-actor");
@@ -133,7 +133,7 @@ describe("Session Management", () => {
       });
 
       it("SESS-ACT-2: branchId is immutably bound", async () => {
-        const app = createApp(mockDomainSchema);
+        const app = createTestApp(mockDomainSchema);
         await app.ready();
 
         const session = app.session("user", { branchId: "main" });
@@ -146,7 +146,7 @@ describe("Session Management", () => {
       });
 
       it("SESS-ACT-3: opts.actorId cannot override session actorId", async () => {
-        const app = createApp(mockDomainSchema);
+        const app = createTestApp(mockDomainSchema);
         await app.ready();
 
         const session = app.session("session-actor");
@@ -160,7 +160,7 @@ describe("Session Management", () => {
       });
 
       it("SESS-ACT-4: opts.branchId cannot override session branchId", async () => {
-        const app = createApp(mockDomainSchema);
+        const app = createTestApp(mockDomainSchema);
         await app.ready();
 
         const newBranch = await app.fork({ switchTo: false });
@@ -178,7 +178,7 @@ describe("Session Management", () => {
 
   describe("Session.getState()", () => {
     it("should return state for session branch", async () => {
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         initialData: { todos: [], count: 0 },
       });
       await app.ready();
@@ -196,7 +196,7 @@ describe("Session Management", () => {
         items: string[];
       }
 
-      const app = createApp(mockDomainSchema, {
+      const app = createTestApp(mockDomainSchema, {
         initialData: { items: ["a", "b", "c"] },
       });
       await app.ready();
@@ -210,7 +210,7 @@ describe("Session Management", () => {
 
   describe("Session.recall()", () => {
     it("should throw MemoryDisabledError when memory is disabled", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user");
@@ -221,7 +221,7 @@ describe("Session Management", () => {
     });
 
     it("should throw MemoryDisabledError for array of requests", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user");
@@ -234,7 +234,7 @@ describe("Session Management", () => {
 
   describe("Multiple Sessions", () => {
     it("should support multiple concurrent sessions", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session1 = app.session("user-1");
@@ -256,7 +256,7 @@ describe("Session Management", () => {
     });
 
     it("should isolate sessions by actorId", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const adminSession = app.session("admin");
@@ -266,7 +266,7 @@ describe("Session Management", () => {
     });
 
     it("should allow same actor with different branches", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const featureBranch = await app.fork({ name: "feature", switchTo: false });
@@ -281,7 +281,7 @@ describe("Session Management", () => {
 
   describe("Session Options", () => {
     it("should accept kind option", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const humanSession = app.session("user-1", { kind: "human" });
@@ -294,7 +294,7 @@ describe("Session Management", () => {
     });
 
     it("should accept name option", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user", { name: "Admin Session" });
@@ -303,7 +303,7 @@ describe("Session Management", () => {
     });
 
     it("should accept meta option", async () => {
-      const app = createApp(mockDomainSchema);
+      const app = createTestApp(mockDomainSchema);
       await app.ready();
 
       const session = app.session("user", {

@@ -16,6 +16,10 @@ import type {
 import { ManifestoApp } from "./app.js";
 import { createInMemoryWorldStore } from "./storage/world-store/index.js";
 import { createManifestoWorld } from "@manifesto-ai/world";
+import { ReservedEffectTypeError } from "./errors/index.js";
+
+// Reserved effect type prefix
+const RESERVED_EFFECT_PREFIX = "system.";
 
 // =============================================================================
 // Config Detection
@@ -152,6 +156,13 @@ function createAppV2(config: AppConfig): App {
   // Extract domain from config
   const domain = config.schema;
 
+  // v2.3.0: Validate reserved effect types (SYSGET-2/3)
+  for (const effectType of Object.keys(config.effects)) {
+    if (effectType.startsWith(RESERVED_EFFECT_PREFIX)) {
+      throw new ReservedEffectTypeError(effectType);
+    }
+  }
+
   // ADR-003: World owns persistence
   // If world is not provided, create a default World with InMemoryWorldStore
   let world = config.world;
@@ -229,8 +240,8 @@ function createAppLegacy(config: LegacyAppConfig): App {
 /**
  * Create a minimal App for testing.
  *
- * Uses in-memory implementations for WorldStore.
- * For v2.2.0, prefer createApp({ schema, effects: {} }) directly.
+ * Uses in-memory implementations for WorldStore and empty effects.
+ * For v2.3.0, this creates an effects-first app.
  *
  * @param domain - Domain schema or MEL text
  * @param opts - Additional options
@@ -239,6 +250,30 @@ export function createTestApp(
   domain: MelText | DomainSchema,
   opts?: Partial<CreateAppOptions>
 ): App {
-  // For testing, use legacy path
-  return new ManifestoApp(domain, opts);
+  // v2.3.0: Use effects-first API
+  // Convert legacy services to effects for backward compatibility in tests
+  const effects: AppConfig["effects"] = {};
+
+  if (opts?.services) {
+    for (const [key, handler] of Object.entries(opts.services)) {
+      // Wrap legacy service handler to match EffectHandler signature
+      effects[key] = async (params, ctx) => {
+        const result = await handler(params as Record<string, unknown>, ctx as never);
+        return (result ?? []) as readonly import("@manifesto-ai/core").Patch[];
+      };
+    }
+  }
+
+  return createApp({
+    schema: domain,
+    effects,
+    initialData: opts?.initialData ?? {},
+    hooks: opts?.hooks,
+    actorPolicy: opts?.actorPolicy,
+    scheduler: opts?.scheduler,
+    systemActions: opts?.systemActions,
+    devtools: opts?.devtools,
+    plugins: opts?.plugins,
+    validation: opts?.validation as { effects?: "strict" | "warn" | "off" },
+  });
 }

@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { createApp } from "@manifesto-ai/app";
-import type { AppState } from "@manifesto-ai/app";
+import { createApp, createInMemoryWorldStore } from "@manifesto-ai/app";
+import type { AppState, Host } from "@manifesto-ai/app";
+import { createHost } from "@manifesto-ai/host";
+import { compileMelDomain } from "@manifesto-ai/compiler";
+import type { DomainSchema } from "@manifesto-ai/core";
 import ShipmentMel from "./domain/shipment.mel";
-import { createLogisticsServices } from "./domain/handlers";
+import { registerLogisticsEffects } from "./domain/handlers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Badge } from "./components/ui/badge";
@@ -45,12 +48,36 @@ export interface LogisticsData {
 }
 
 // =============================================================================
-// App Instance
+// Schema & Host Setup
 // =============================================================================
 
-const logisticsApp = createApp(ShipmentMel, {
-  services: createLogisticsServices(),
-  validation: { services: "lazy" },
+function compileLogisticsSchema(): DomainSchema {
+  const result = compileMelDomain(ShipmentMel, { mode: "domain" });
+  if (result.errors.length > 0) {
+    throw new Error(`MEL compilation failed: ${result.errors.map(e => e.message).join(", ")}`);
+  }
+  if (!result.schema) {
+    throw new Error("MEL compilation produced no schema");
+  }
+  return result.schema as DomainSchema;
+}
+
+const logisticsSchema = compileLogisticsSchema();
+
+function createLogisticsHost(): Host {
+  const host = createHost(logisticsSchema);
+  registerLogisticsEffects(host);
+  return host as unknown as Host;
+}
+
+// =============================================================================
+// App Instance (v2 API)
+// =============================================================================
+
+const logisticsApp = createApp({
+  schema: logisticsSchema,
+  host: createLogisticsHost(),
+  worldStore: createInMemoryWorldStore(),
 });
 
 export { logisticsApp };

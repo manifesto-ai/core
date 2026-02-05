@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { createApp } from "@manifesto-ai/app";
-import type { AppState } from "@manifesto-ai/app";
+import { createApp, createInMemoryWorldStore } from "@manifesto-ai/app";
+import type { AppState, Host } from "@manifesto-ai/app";
+import { createHost } from "@manifesto-ai/host";
+import { compileMelDomain } from "@manifesto-ai/compiler";
+import type { DomainSchema } from "@manifesto-ai/core";
 import TodoMel from "../domain/todo.mel";
-import { createTodoServices, type Todo } from "../domain/handlers";
+import { registerTodoEffects, type Todo } from "../domain/handlers";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { TodoItem } from "./TodoItem";
 import { AddTodoForm } from "./AddTodoForm";
@@ -24,12 +27,36 @@ export interface TodoData {
 }
 
 // =============================================================================
-// App Instance
+// Schema & Host Setup
 // =============================================================================
 
-const todoApp = createApp(TodoMel, {
-  services: createTodoServices(),
-  validation: { services: "lazy" },
+function compileTodoSchema(): DomainSchema {
+  const result = compileMelDomain(TodoMel, { mode: "domain" });
+  if (result.errors.length > 0) {
+    throw new Error(`MEL compilation failed: ${result.errors.map(e => e.message).join(", ")}`);
+  }
+  if (!result.schema) {
+    throw new Error("MEL compilation produced no schema");
+  }
+  return result.schema as DomainSchema;
+}
+
+const todoSchema = compileTodoSchema();
+
+function createTodoHost(): Host {
+  const host = createHost(todoSchema);
+  registerTodoEffects(host);
+  return host as unknown as Host;
+}
+
+// =============================================================================
+// App Instance (v2 API)
+// =============================================================================
+
+const todoApp = createApp({
+  schema: todoSchema,
+  host: createTodoHost(),
+  worldStore: createInMemoryWorldStore(),
 });
 
 export { todoApp };

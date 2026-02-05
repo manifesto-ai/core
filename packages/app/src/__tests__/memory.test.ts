@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp } from "../index.js";
+import { createApp, createTestApp } from "../index.js";
 import {
   NoneVerifier,
   MemoryHub,
@@ -318,21 +318,21 @@ describe("Memory Integration", () => {
   describe("App Integration", () => {
     describe("Memory disabled (default)", () => {
       it("app.memory.enabled() should return false when no memory config", async () => {
-        const app = createApp(mockDomainSchema);
+        const app = createTestApp(mockDomainSchema);
         await app.ready();
 
         expect(app.memory.enabled()).toBe(false);
       });
 
       it("app.memory.enabled() should return false when memory: false", async () => {
-        const app = createApp(mockDomainSchema, { memory: false });
+        const app = createTestApp(mockDomainSchema, { memory: false });
         await app.ready();
 
         expect(app.memory.enabled()).toBe(false);
       });
 
       it("app.memory.recall() should throw when memory disabled", async () => {
-        const app = createApp(mockDomainSchema, { memory: false });
+        const app = createTestApp(mockDomainSchema, { memory: false });
         await app.ready();
 
         await expect(app.memory.recall("query")).rejects.toThrow(
@@ -341,7 +341,7 @@ describe("Memory Integration", () => {
       });
 
       it("app.memory.providers() should return empty when disabled", async () => {
-        const app = createApp(mockDomainSchema, { memory: false });
+        const app = createTestApp(mockDomainSchema, { memory: false });
         await app.ready();
 
         expect(app.memory.providers()).toEqual([]);
@@ -350,7 +350,7 @@ describe("Memory Integration", () => {
 
     describe("Memory enabled", () => {
       it("app.memory.enabled() should return true when configured", async () => {
-        const app = createApp(mockDomainSchema, {
+        const app = createTestApp(mockDomainSchema, {
           memory: {
             providers: { test: createMockProvider("test") },
             defaultProvider: "test",
@@ -362,7 +362,7 @@ describe("Memory Integration", () => {
       });
 
       it("app.memory.providers() should return provider names", async () => {
-        const app = createApp(mockDomainSchema, {
+        const app = createTestApp(mockDomainSchema, {
           memory: {
             providers: {
               provider1: createMockProvider("p1"),
@@ -381,7 +381,7 @@ describe("Memory Integration", () => {
 
     describe("Session recall", () => {
       it("session.recall() should throw when memory disabled", async () => {
-        const app = createApp(mockDomainSchema, { memory: false });
+        const app = createTestApp(mockDomainSchema, { memory: false });
         await app.ready();
 
         const session = app.session("user-123");
@@ -392,7 +392,7 @@ describe("Memory Integration", () => {
       });
 
       it("session.recall() should work when memory enabled", async () => {
-        const app = createApp(mockDomainSchema, {
+        const app = createTestApp(mockDomainSchema, {
           memory: {
             providers: { test: createMockProvider("test") },
             defaultProvider: "test",

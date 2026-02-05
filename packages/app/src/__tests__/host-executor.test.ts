@@ -61,7 +61,7 @@ describe("HostExecutor (FDR-APP-INTEGRATION-001)", () => {
     const intent: Intent = { type: "test.noop", body: {}, intentId: "intent-2" };
 
     const host = createHost(async (): Promise<HostResult> => {
-      return { status: "completed", snapshot: terminalSnapshot };
+      return { status: "complete", snapshot: terminalSnapshot };
     });
     const executor = new AppHostExecutor(host);
 
@@ -78,7 +78,7 @@ describe("HostExecutor (FDR-APP-INTEGRATION-001)", () => {
     const intent: Intent = { type: "test.noop", body: {}, intentId: "intent-3" };
 
     const host = createHost(async (): Promise<HostResult> => {
-      return { status: "completed", snapshot: baseSnapshot };
+      return { status: "complete", snapshot: baseSnapshot };
     });
     const executor = new AppHostExecutor(host, { traceEnabled: true });
 

@@ -76,7 +76,6 @@ import { createAppRef, type AppRefCallbacks } from "./hooks/index.js";
 import type { AppHostExecutor } from "./execution/host-executor/index.js";
 import { createDefaultPolicyService, createSilentPolicyService } from "./runtime/policy/index.js";
 import {
-  DomainExecutor,
   createActionQueue,
   createLivenessGuard,
   createV2Executor,
@@ -145,9 +144,6 @@ export class ManifestoApp implements App {
   private _systemFacade: SystemFacade | null = null;
   private _memoryFacade: MemoryFacade | null = null;
   private _migrationLinks: MigrationLink[] = [];
-
-  // Domain Executor (Host integration) - Legacy v0.4.x
-  private _domainExecutor: DomainExecutor | null = null;
 
   // v2.0.0/v2.2.0 Components
   private _v2Host: Host | null = null;
@@ -391,14 +387,12 @@ export class ManifestoApp implements App {
       this._actionQueue.enqueueDomain(async () => {
         await this._v2Executor!.execute(handle, type, input, opts);
       });
-    } else if (singleWriter) {
-      this._actionQueue.enqueueDomain(async () => {
-        await this._executeActionLifecycle(handle, type, input, opts);
-      });
     } else {
-      queueMicrotask(() => {
-        void this._executeActionLifecycle(handle, type, input, opts);
-      });
+      // v2.3.0: Legacy path removed
+      throw new Error(
+        "Legacy createApp() signature is no longer supported. " +
+        "Use createApp({ schema, effects }) instead."
+      );
     }
 
     return handle;
@@ -607,14 +601,12 @@ export class ManifestoApp implements App {
       this._actionQueue.enqueueDomain(async () => {
         await this._v2Executor!.execute(handle, type, input, opts);
       });
-    } else if (singleWriter) {
-      this._actionQueue.enqueueDomain(async () => {
-        await this._executeActionLifecycle(handle, type, input, opts);
-      });
     } else {
-      queueMicrotask(() => {
-        void this._executeActionLifecycle(handle, type, input, opts);
-      });
+      // v2.3.0: Legacy path removed
+      throw new Error(
+        "Legacy createApp() signature is no longer supported. " +
+        "Use createApp({ schema, effects }) instead."
+      );
     }
   }
 
@@ -777,11 +769,11 @@ export class ManifestoApp implements App {
     if (this._v2Enabled) {
       await this._initializeV2Components();
     } else {
-      this._domainExecutor = new DomainExecutor({
-        schema: this._schemaManager.getSchema(),
-        services: this._options.services ?? {},
-        initialState: this._currentState,
-      });
+      // v2.3.0: Legacy DomainExecutor path removed
+      throw new Error(
+        "Legacy createApp() signature is no longer supported. " +
+        "Use createApp({ schema, effects }) instead."
+      );
     }
   }
 
@@ -804,7 +796,8 @@ export class ManifestoApp implements App {
         dispatch: async (intent): Promise<HostResult> => {
           const result = await internalHost.dispatch(intent);
           return {
-            status: result.status === "complete" ? "completed" : "failed",
+            // Map ManifestoHost status to App's HostResult status
+            status: result.status === "complete" ? "complete" : "error",
             snapshot: result.snapshot as Snapshot,
             error: result.error as ErrorValue | undefined,
           };
@@ -993,151 +986,6 @@ export class ManifestoApp implements App {
     }
   }
 
-  private async _executeActionLifecycle(
-    handle: ActionHandleImpl,
-    actionType: string,
-    input: unknown,
-    opts?: ActOptions
-  ): Promise<void> {
-    this._subscriptionStore.startTransaction();
-
-    const actorId = opts?.actorId ?? this._defaultActorId;
-
-    try {
-      await this._lifecycleManager.emitHook("action:preparing", {
-        proposalId: handle.proposalId,
-        actorId,
-        type: actionType,
-        runtime: handle.runtime,
-      }, {});
-
-      const schema = this._schemaManager.getSchema();
-      const actionDef = schema.actions[actionType];
-      if (!actionDef) {
-        const error = {
-          code: "ACTION_NOT_FOUND",
-          message: `Action type '${actionType}' not found in schema`,
-          source: { actionId: handle.proposalId, nodePath: "" },
-          timestamp: Date.now(),
-        };
-        handle._transitionTo("preparation_failed", { kind: "preparation_failed", error });
-        handle._setResult({
-          status: "preparation_failed",
-          proposalId: handle.proposalId,
-          error,
-          runtime: handle.runtime,
-        });
-
-        this._subscriptionStore.endTransaction();
-
-        await this._lifecycleManager.emitHook("action:completed", {
-          proposalId: handle.proposalId,
-          result: {
-            status: "preparation_failed",
-            proposalId: handle.proposalId,
-            error,
-            runtime: handle.runtime,
-          },
-        }, {});
-        return;
-      }
-
-      handle._transitionTo("submitted");
-      handle._transitionTo("evaluating");
-      handle._transitionTo("approved");
-      handle._transitionTo("executing");
-
-      const worldId = `world_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      const branchId = opts?.branchId ?? this._branchManager?.currentBranchId ?? "main";
-
-      const execResult = await this._domainExecutor!.execute({
-        actionType,
-        input: (input as Record<string, unknown>) ?? {},
-        proposalId: handle.proposalId,
-        actorId,
-        worldId,
-        branchId,
-        signal: new AbortController().signal,
-      });
-
-      this._currentState = execResult.newState;
-      this._subscriptionStore.notify(this._currentState);
-
-      if (execResult.result.status === "completed" || execResult.result.status === "failed") {
-        const publishSnapshot: Snapshot = {
-          data: execResult.newState.data as Record<string, unknown>,
-          computed: execResult.newState.computed,
-          system: {
-            status: execResult.newState.system.status,
-            lastError: execResult.newState.system.lastError,
-            pendingRequirements: [...execResult.newState.system.pendingRequirements],
-            currentAction: execResult.newState.system.currentAction,
-            errors: [...execResult.newState.system.errors],
-          },
-          input: {},
-          meta: execResult.newState.meta,
-        };
-        await this._lifecycleManager.emitHook("state:publish", {
-          snapshot: publishSnapshot,
-          worldId: execResult.result.worldId,
-        }, {});
-      }
-
-      if (execResult.result.status === "completed") {
-        handle._transitionTo("completed", { kind: "completed", worldId: execResult.result.worldId });
-        handle._setResult(execResult.result);
-      } else if (execResult.result.status === "failed") {
-        handle._transitionTo("failed", { kind: "failed", error: execResult.result.error });
-
-        this._currentState = {
-          ...this._currentState!,
-          system: {
-            ...this._currentState!.system,
-            lastError: execResult.result.error,
-            errors: [...this._currentState!.system.errors, execResult.result.error],
-          },
-        };
-
-        handle._setResult(execResult.result);
-      } else {
-        handle._setResult(execResult.result);
-      }
-
-      this._subscriptionStore.endTransaction();
-
-      await this._lifecycleManager.emitHook("action:completed", {
-        proposalId: handle.proposalId,
-        result: execResult.result,
-      }, {});
-    } catch (error) {
-      const errorValue = {
-        code: "EXECUTION_ERROR",
-        message: error instanceof Error ? error.message : String(error),
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-
-      const worldId = `world_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      const decisionId = `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-
-      handle._transitionTo("failed", { kind: "failed", error: errorValue });
-
-      const result = {
-        status: "failed" as const,
-        proposalId: handle.proposalId,
-        decisionId,
-        error: errorValue,
-        worldId,
-        runtime: handle.runtime,
-      };
-
-      handle._setResult(result);
-      this._subscriptionStore.endTransaction();
-
-      await this._lifecycleManager.emitHook("action:completed", {
-        proposalId: handle.proposalId,
-        result,
-      }, {});
-    }
-  }
+  // Note: Legacy _executeActionLifecycle method removed in v2.3.0
+  // All domain actions now go through _v2Executor.execute()
 }
