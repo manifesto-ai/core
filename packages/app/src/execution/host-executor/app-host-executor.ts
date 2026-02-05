@@ -82,12 +82,13 @@ export class AppHostExecutor implements HostExecutor {
       });
 
       // Create abort promise (if signal provided)
+      // Note: Using { once: true } to prevent memory leak - listener auto-removes after firing
       const abortPromise = opts?.signal
         ? new Promise<never>((_, reject) => {
             opts.signal!.addEventListener("abort", () => {
               ctx.aborted = true;
               reject(new ExecutionAbortedError(key));
-            });
+            }, { once: true });
           })
         : null;
 
