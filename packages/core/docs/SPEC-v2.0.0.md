@@ -322,14 +322,14 @@ type FieldType =
 - All `FieldSpec` with `required: false` MUST have a `default` value.
 - Circular references in object fields are NOT ALLOWED.
 
-### 5.5 Reserved Namespace ($host)
+### 5.5 Reserved Platform Namespaces (`$*`)
 
-`$host` is reserved for Host-owned state stored in `snapshot.data.$host`.
+Keys in `snapshot.data` whose names start with `$` are **platform-reserved namespaces**.
 
-- Domain StateSpec SHOULD NOT define a `$host` field.
-- Core MUST treat `data.$host` as opaque and MUST NOT require it to appear in StateSpec.
-- Host MAY add or patch `data.$host` via `core.apply()` even when StateSpec does not include `$host`.
-- Core MUST validate `$host` only as an object; field-level validation is not applied.
+- Domain StateSpec MUST NOT define domain-owned `$`-prefixed fields.
+- Core MUST treat `data.$*` namespaces as opaque and MUST NOT require them to appear in StateSpec.
+- Platform layers MAY add or patch `data.$*` via `core.apply()` even when StateSpec does not include those namespaces.
+- Core validates only platform namespace roots as objects; nested field-level validation is not applied under `$*`.
 
 ---
 
@@ -624,6 +624,12 @@ Declares a state change. Three operations:
 { "kind": "patch", "op": "unset", "path": "user.tempData" }
 { "kind": "patch", "op": "merge", "path": "user", "value": { "kind": "get", "path": "input.updates" } }
 ```
+
+**`merge` Semantics (Deterministic):**
+
+- `merge` is shallow (nested objects are replaced, not deep-merged).
+- If merge target path is absent, Core MUST treat it as `{}` and then apply shallow merge.
+- If merge target path resolves to a non-object runtime value, Core MUST reject the patch as a runtime validation failure (`TYPE_MISMATCH`).
 
 **CRITICAL: Patch Path Resolution**
 
@@ -1154,7 +1160,7 @@ Snapshot is the **immutable, point-in-time representation** of world state. It i
 
 ```typescript
 type Snapshot<TData = unknown> = {
-  /** Domain data (matches StateSpec; may include reserved $host) */
+  /** Domain data (matches StateSpec; may include platform-reserved `$*` namespaces) */
   readonly data: TData;
   
   /** Computed values (matches ComputedSpec) */
@@ -1208,7 +1214,7 @@ type SnapshotMeta = {
 - `version` MUST be incremented on every change.
 - `computed` MUST be consistent with `data` (no stale values).
 - All communication between Host and Core happens through Snapshot.
-- `data.$host` is reserved for Host-owned state and is opaque to Core.
+- `data.$*` namespaces are platform-owned and opaque to Core.
 
 ---
 
@@ -1233,8 +1239,8 @@ type SnapshotMeta = {
 |---------|-------------|
 | R-001 | Intent input MUST match ActionSpec.input |
 | R-002 | ActionSpec.available MUST evaluate to true |
-| R-003 | Patch paths MUST exist in StateSpec (except `$host`, which is Host-owned and opaque to Core) |
-| R-004 | Patch values MUST match field types (except `$host`, which is validated only as object) |
+| R-003 | Patch paths MUST exist in StateSpec (except `$`-prefixed platform namespaces in `snapshot.data`, which are platform-owned and opaque to Core) |
+| R-004 | Patch values MUST match field types (except under `$`-prefixed platform namespaces in `snapshot.data`; Core validates only namespace roots as objects) |
 
 ---
 

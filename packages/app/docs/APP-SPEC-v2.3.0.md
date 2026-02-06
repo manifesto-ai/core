@@ -2,7 +2,7 @@
 
 > **Status:** Ratified
 > **Scope:** Manifesto App Layer Implementations
-> **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, World Protocol v2.0.2, ARCHITECTURE v2.0
+> **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, World Protocol v2.0.3, ARCHITECTURE v2.0
 > **Implements:** ADR-001 (Layer Separation), ADR-APP-002 (createApp API Simplification), ADR-003 (World Owns Persistence)
 > **Authors:** Manifesto Team
 > **License:** MIT
@@ -169,7 +169,7 @@ type SchemaHash = string;
  * World/App MAY store this reference but MUST NOT interpret its contents.
  * Only Host knows how to resolve ArtifactRef → actual data.
  *
- * Structure follows World SPEC v2.0.2 for cross-boundary compatibility.
+ * Structure follows World SPEC v2.0.3 for cross-boundary compatibility.
  */
 type ArtifactRef = {
   readonly uri: string;
@@ -675,7 +675,7 @@ The `ready()` method MUST:
  * HostExecutor: App's adapter for Host execution.
  *
  * World interacts with execution ONLY through this interface.
- * App implements this, dispatching to the configured effects.
+ * Contract is defined by World SPEC; App MUST implement it without redefining semantics.
  */
 interface HostExecutor {
   /**
@@ -695,7 +695,7 @@ interface HostExecutor {
   ): Promise<HostExecutionResult>;
 
   /**
-   * Abort execution for a key (best-effort).
+   * Abort execution for a key (best-effort, World-defined optional capability).
    */
   abort?(key: ExecutionKey): void;
 }
@@ -745,7 +745,7 @@ type HostExecutionResult = {
 | HEXEC-2 | MUST NOT | HostExecutor MUST NOT leak Host internals |
 | HEXEC-3 | MUST | `execute()` MUST return HostExecutionResult |
 | HEXEC-4 | MUST | `execute()` MUST route to correct ExecutionKey mailbox |
-| HEXEC-5 | SHOULD | `abort()` SHOULD be implemented for cancellation support |
+| HEXEC-5 | SHOULD | `abort()` SHOULD be implemented as World-defined optional cancellation capability |
 | HEXEC-6 | MUST NOT | HostExecutionResult MUST NOT contain Host internal types (e.g., TraceEvent); use opaque ArtifactRef instead |
 
 ---
@@ -1324,7 +1324,10 @@ type MemoryMaintenanceOptions = {
 | Action Type | Description |
 |-------------|-------------|
 | `system.memory.maintain` | Memory maintenance (forget operations) |
-| `system.get` | System value retrieval (compiler-internal) |
+
+**Clarification:** `system.get` is **NOT** a System Runtime action.
+It is a **reserved effect type** used by compiler lowering (`$system.*` → `effect system.get(...)`)
+and is handled in the Host/effect execution path.
 
 ### 15.4 System Runtime Rules
 
@@ -1336,6 +1339,8 @@ type MemoryMaintenanceOptions = {
 | SYSRT-1 | MUST | System Runtime MUST be separate from Domain Runtime |
 | SYSRT-2 | MUST | System actions MUST NOT modify domain state |
 | SYSRT-3 | MUST | System Runtime schema is fixed (not user-defined) |
+| SYSGET-1 | MUST NOT | `act('system.get', ...)` MUST NOT route through System Runtime (invalid system action) |
+| SYSGET-2 | MUST | `system.get` MUST be treated as reserved effect type for compiler lowering only |
 
 ---
 
@@ -1689,7 +1694,7 @@ const myPlugin: AppPlugin = async (app) => {
 | ADR-APP-002 | v0.1.0 | createApp API simplification |
 | Core SPEC | v2.0.0 | Snapshot, compute, apply |
 | Host Contract | v2.0.2 | Execution model, mailbox |
-| World Protocol | v2.0.2 | Governance, lineage |
+| World Protocol | v2.0.3 | Governance, lineage |
 | MEL SPEC | v0.3.3 | Expression language |
 
 ### 21.2 Foundational Design Rationales
