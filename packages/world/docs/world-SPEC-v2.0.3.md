@@ -392,7 +392,7 @@ function computePendingDigest(pending: readonly Requirement[]): string {
 | `meta.randomSeed` | ❌ MUST NOT | Derived from intentId | WORLD-HASH-7 |
 | `meta.schemaHash` | ❌ MUST NOT | Already in WorldId | WORLD-HASH-8 |
 | `computed` | ❌ SHOULD NOT | Re-derivable | WORLD-HASH-9 |
-| `input` | ❌ SHOULD NOT | Transient | WORLD-HASH-10 |
+| `input` | ❌ MUST NOT | Replay context (non-semantic) | WORLD-HASH-10 |
 
 **Rationale for `system.errors` (full history) inclusion:**
 
@@ -408,6 +408,7 @@ If an implementation prefers "current state only" identity (ignoring recovered e
 |---------|-------------|
 | WORLD-HASH-1 | `snapshot.data` MUST be included, **excluding `$host` and `$mel` namespaces** |
 | WORLD-HASH-2a | snapshotHash MUST use `terminalStatus` (normalized), NOT raw `system.status` |
+| WORLD-HASH-10 | `snapshot.input` MUST NOT be included in snapshotHash (replay context, not semantic identity) |
 | **WORLD-HASH-4a** | **`data.$host` MUST NOT be included in hash (prevents WorldId divergence)** |
 | **WORLD-HASH-4b** | **`data.$mel` MUST NOT be included in hash (prevents WorldId divergence)** |
 | WORLD-TERM-5 | `terminalStatus` for hash MUST be exactly `'completed'` or `'failed'` |
@@ -828,6 +829,14 @@ interface HostExecutor {
     intent: Intent,
     opts?: HostExecutionOptions
   ): Promise<HostExecutionResult>;
+
+  /**
+   * Abort execution for a key (best-effort, optional).
+   *
+   * If implemented, cancellation MUST still converge to a terminal proposal status.
+   * For execution-stage proposals this means terminal `failed` (never dropped).
+   */
+  abort?(key: ExecutionKey): void;
 }
 
 type HostExecutionOptions = {
@@ -856,6 +865,7 @@ type HostExecutionResult = {
 | WORLD-HEXEC-4 | World MUST receive HostExecutor via injection |
 | WORLD-HEXEC-5 | World MUST NOT import Host internal types |
 | **WORLD-HEXEC-6** | **World's `deriveOutcome(terminalSnapshot)` is authoritative; `result.outcome` is advisory** |
+| **WORLD-HEXEC-7** | **If `abort()` is used for execution-stage work, proposal MUST still reach terminal (`failed`), consistent with WORLD-STAGE-4** |
 
 **App Implementation Pattern (informative):**
 
@@ -886,6 +896,12 @@ class AppHostExecutor implements HostExecutor {
       terminalSnapshot,
       traceRef: this.flushTraceIfEnabled(),
     };
+  }
+
+  abort(key: ExecutionKey): void {
+    // Optional capability: best-effort cancellation.
+    // World still requires terminal convergence for execution-stage proposals.
+    this.host.abort?.(key);
   }
 }
 ```
@@ -1776,7 +1792,7 @@ Compliance can be verified by:
 | Hash Encoding | HASH-ENC-1~2, HASH-JSON-1 |
 | Schema | WORLD-SCHEMA-1 |
 | Event Ownership | WORLD-EVT-OWN-1~4 |
-| HostExecutor | WORLD-HEXEC-1~5 |
+| HostExecutor | WORLD-HEXEC-1~7 |
 | Layer Boundary | WORLD-BOUNDARY-1~5 |
 | Execution Events | WORLD-EXEC-EVT-1~4 |
 | Event Constraints | EVT-C1~C6 |

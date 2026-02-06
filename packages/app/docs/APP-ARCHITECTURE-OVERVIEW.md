@@ -43,11 +43,13 @@
 
 | FDR | Version | Scope | Core Concepts |
 |-----|---------|-------|---------------|
-| **PUB-001** | v0.2.0 | Execution Model | Tick, Publish Boundary, Scheduler |
-| **RUNTIME-001** | v0.2.1 | Extensibility | Lifecycle, Hooks, Plugins |
-| **INTEGRATION-001** | v0.3.2 | Host↔World | HostExecutor, WorldStore, Maintenance |
-| **POLICY-001** | v0.2.2 | Governance | ExecutionKey, Authority, ApprovedScope |
-| **EXT-001** | v0.3.0 | Memory | MemoryStore, Context Freezing |
+| **PUB-001** | v0.3.0 | Execution Model | Tick, Publish Boundary, Scheduler |
+| **RUNTIME-001** | v0.2.0 | Extensibility | Lifecycle, Hooks, Plugins |
+| **INTEGRATION-001** | v0.4.1 | Host↔World | HostExecutor, WorldStore, Maintenance |
+| **POLICY-001** | v0.2.3 | Governance | ExecutionKey, Authority, ApprovedScope |
+| **EXT-001** | v0.4.0 | Memory | MemoryStore, Context Freezing |
+
+`HostExecutor.abort?()` is an optional capability defined by the World contract; App may implement it as best-effort cancellation.
 
 ---
 
@@ -85,7 +87,7 @@
 │  │  │ HostExecutor │  │  WorldStore  │  │MemoryProvider│        │  │
 │  │  │              │  │              │  │   (Opt)      │        │  │
 │  │  │ • execute()  │  │ • store()    │  │ • recall()   │        │  │
-│  │  │ • abort()    │  │ • restore()  │  │ • remember() │        │  │
+│  │  │ • abort()?   │  │ • restore()  │  │ • remember() │        │  │
 │  │  │              │  │ • compact()  │  │              │        │  │
 │  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘        │  │
 │  │         │                 │                 │                 │  │
