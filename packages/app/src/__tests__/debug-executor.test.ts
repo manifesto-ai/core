@@ -165,7 +165,7 @@ describe("Debug Executor", () => {
     };
 
     let handlerCalled = false;
-    const mockHandler = async (params: Record<string, unknown>, ctx: any) => {
+    const mockHandler = async (params: unknown) => {
       handlerCalled = true;
       console.log("Effect handler called!", { params });
       // Must set both the result AND the guard value to prevent re-execution
@@ -176,7 +176,7 @@ describe("Debug Executor", () => {
     };
 
     const app = createTestApp(schema, {
-      services: {
+      effects: {
         "test.effect": mockHandler,
       },
     });

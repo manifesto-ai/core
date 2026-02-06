@@ -11,6 +11,7 @@ import {
   createInitialAppState,
   snapshotToAppState,
   appStateToSnapshot,
+  normalizeSnapshot,
 } from "../core/state/index.js";
 
 // Mock DomainSchema for testing
@@ -110,6 +111,38 @@ describe("State Model", () => {
       const snapshot = appStateToSnapshot(appState, input);
 
       expect(snapshot.input).toEqual(input);
+    });
+  });
+
+  describe("normalizeSnapshot()", () => {
+    it("should ensure $host and $mel guard structure", () => {
+      const snapshot = {
+        data: { count: 1 },
+        computed: {},
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: {},
+        meta: {
+          version: 0,
+          timestamp: Date.now(),
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const normalized = normalizeSnapshot(snapshot);
+
+      expect(normalized.data).toHaveProperty("$host");
+      expect((normalized.data as Record<string, unknown>).$host).toEqual({});
+      expect(normalized.data).toHaveProperty("$mel");
+      expect((normalized.data as Record<string, unknown>).$mel).toEqual({
+        guards: { intent: {} },
+      });
     });
   });
 

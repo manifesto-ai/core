@@ -177,6 +177,21 @@ describe("getDomainSchema() API", () => {
     });
   });
 
+  describe("APP-NS-1: Platform Namespace Injection", () => {
+    it("should inject $mel guards.intent field structure", async () => {
+      const app = createTestApp(mockDomainSchema);
+      await app.ready();
+
+      const schema = app.getDomainSchema();
+      const melField = schema.state.fields.$mel;
+
+      expect(melField).toBeDefined();
+      expect(melField?.type).toBe("object");
+      expect(melField?.fields?.guards?.type).toBe("object");
+      expect(melField?.fields?.guards?.fields?.intent?.type).toBe("object");
+    });
+  });
+
   describe("Disposed state", () => {
     it("should throw AppDisposedError after dispose()", async () => {
       const app = createTestApp(mockDomainSchema);

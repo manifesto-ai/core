@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp, createTestApp } from "../index.js";
+import { createTestApp } from "../index.js";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -135,12 +135,12 @@ describe("SPEC §5: App Creation and Lifecycle", () => {
       await expect(app.ready()).rejects.toThrow(ReservedNamespaceError);
     });
 
-    it("READY-5: createApp() rejects reserved effect type in services", () => {
+    it("READY-5: createApp() rejects reserved effect type in effects", () => {
       // v2.3.0: Validation now happens at createApp() time
       expect(() =>
         createTestApp(createMockSchema(), {
-          services: {
-            "system.get": () => [],
+          effects: {
+            "system.get": async () => [],
           },
         })
       ).toThrow(ReservedEffectTypeError);

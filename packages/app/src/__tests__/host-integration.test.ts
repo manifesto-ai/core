@@ -2,7 +2,7 @@
  * Host Integration Tests - TDD
  *
  * These tests verify the integration between @manifesto-ai/app and @manifesto-ai/host.
- * They cover the DomainExecutor which bridges ServiceHandler → EffectHandler.
+ * They cover effect execution across the App/Host boundary.
  *
  * @see Plan: lucky-splashing-curry.md
  */
@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createApp, createTestApp } from "../index.js";
 import type { DomainSchema, Patch } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
-import type { ServiceMap, ServiceContext, AppState, ActionResult } from "../core/types/index.js";
+import type { AppEffectContext, AppState, EffectHandler } from "../core/types/index.js";
 
 // =============================================================================
 // Test Fixtures
@@ -146,29 +146,23 @@ function createTestSchema(overrides?: Partial<DomainSchema>): DomainSchema {
 }
 
 /**
- * Create a mock ServiceHandler that returns patches
+ * Create a mock EffectHandler that returns patches
  */
-function createMockService(
-  patches: Patch[] = []
-): (params: Record<string, unknown>, ctx: ServiceContext) => Promise<Patch[]> {
+function createMockService(patches: Patch[] = []): EffectHandler {
   return vi.fn().mockResolvedValue(patches);
 }
 
 /**
- * Create a mock ServiceHandler that throws
+ * Create a mock EffectHandler that throws
  */
-function createThrowingService(
-  error: Error
-): (params: Record<string, unknown>, ctx: ServiceContext) => Promise<Patch[]> {
+function createThrowingService(error: Error): EffectHandler {
   return vi.fn().mockRejectedValue(error);
 }
 
 /**
- * Create a mock ServiceHandler that times out
+ * Create a mock EffectHandler that times out
  */
-function createTimeoutService(
-  delayMs: number
-): (params: Record<string, unknown>, ctx: ServiceContext) => Promise<Patch[]> {
+function createTimeoutService(delayMs: number): EffectHandler {
   return vi.fn().mockImplementation(async () => {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
     return [];
@@ -209,6 +203,21 @@ describe("Host Integration - Happy Path", () => {
       const state = app.getState<{ value: number }>();
       expect(state.data.value).toBe(42);
     });
+
+    it("should initialize internal host when initialData is omitted", async () => {
+      const schema = createTestSchema();
+      const app = createApp({ schema, effects: {} });
+
+      await app.ready();
+
+      const handle = app.act("test.setPatch", {});
+      const result = await handle.result();
+
+      expect(result.status).toBe("completed");
+
+      const state = app.getState<{ value: number }>();
+      expect(state.data.value).toBe(42);
+    });
   });
 
   describe("HAPPY-2: Action with single effect", () => {
@@ -220,7 +229,7 @@ describe("Host Integration - Happy Path", () => {
       ]);
 
       const app = createTestApp(schema, {
-        services: {
+        effects: {
           "test.effect": mockHandler,
         },
       });
@@ -260,7 +269,7 @@ describe("Host Integration - Happy Path", () => {
       });
 
       const app = createTestApp(schema, {
-        services: {
+        effects: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
         },
@@ -311,7 +320,7 @@ describe("Host Integration - Effect Execution", () => {
       ]);
 
       const app = createTestApp(schema, {
-        services: { "test.effect": mockHandler },
+        effects: { "test.effect": mockHandler },
       });
 
       await app.ready();
@@ -334,7 +343,7 @@ describe("Host Integration - Effect Execution", () => {
       ]);
 
       const app = createTestApp(schema, {
-        services: { "test.effect": mockHandler },
+        effects: { "test.effect": mockHandler },
       });
 
       await app.ready();
@@ -354,7 +363,7 @@ describe("Host Integration - Effect Execution", () => {
       const throwingHandler = createThrowingService(new Error("Handler failed"));
 
       const app = createTestApp(schema, {
-        services: { "test.effect": throwingHandler },
+        effects: { "test.effect": throwingHandler },
       });
 
       await app.ready();
@@ -376,7 +385,7 @@ describe("Host Integration - Effect Execution", () => {
       const timeoutHandler = createTimeoutService(10000);
 
       const app = createTestApp(schema, {
-        services: { "test.effect": timeoutHandler },
+        effects: { "test.effect": timeoutHandler },
         scheduler: { defaultTimeoutMs: 100 },
       });
 
@@ -393,10 +402,10 @@ describe("Host Integration - Effect Execution", () => {
     // TODO: Host doesn't fail when effect type isn't registered - needs investigation
     it.skip("should fail with MISSING_SERVICE when effect not registered", async () => {
       const schema = createTestSchema();
-      // No services registered
+      // No effects registered
 
       const app = createTestApp(schema, {
-        validation: { services: "lazy" },
+        validation: { effects: "off" },
       });
 
       await app.ready();
@@ -426,7 +435,7 @@ describe("Host Integration - Effect Execution", () => {
       });
 
       const app = createTestApp(schema, {
-        services: { "test.effect": retryHandler },
+        effects: { "test.effect": retryHandler },
       });
 
       await app.ready();
@@ -459,7 +468,7 @@ describe("Host Integration - State Management", () => {
 
       const secondHandler = vi
         .fn()
-        .mockImplementation(async (_params, ctx: ServiceContext) => {
+        .mockImplementation(async (_params, ctx: AppEffectContext) => {
           // Capture the count at time of second effect
           const currentCount = (ctx.snapshot.data as { count?: number }).count;
           stateSnapshots.push(currentCount ?? 0);
@@ -470,7 +479,7 @@ describe("Host Integration - State Management", () => {
         });
 
       const app = createTestApp(schema, {
-        services: {
+        effects: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
         },
@@ -537,7 +546,7 @@ describe("Host Integration - State Management", () => {
       ]);
 
       const app = createTestApp(schema, {
-        services: { "test.effect": mockHandler },
+        effects: { "test.effect": mockHandler },
       });
 
       await app.ready();
@@ -613,7 +622,7 @@ describe("Host Integration - Error Handling", () => {
       const secondHandler = createThrowingService(new Error("Mid-execution failure"));
 
       const app = createTestApp(schema, {
-        services: {
+        effects: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
         },
@@ -639,7 +648,7 @@ describe("Host Integration - Error Handling", () => {
       const secondHandler = vi.fn().mockResolvedValue([]);
 
       const app = createTestApp(schema, {
-        services: {
+        effects: {
           "effect.first": firstHandler,
           "effect.second": secondHandler,
         },
@@ -663,7 +672,7 @@ describe("Host Integration - Error Handling", () => {
       const throwingHandler = createThrowingService(new Error("Recorded error"));
 
       const app = createTestApp(schema, {
-        services: { "test.effect": throwingHandler },
+        effects: { "test.effect": throwingHandler },
       });
 
       await app.ready();
@@ -682,7 +691,7 @@ describe("Host Integration - Error Handling", () => {
       const throwingHandler = createThrowingService(new Error("Array error"));
 
       const app = createTestApp(schema, {
-        services: { "test.effect": throwingHandler },
+        effects: { "test.effect": throwingHandler },
       });
 
       await app.ready();
@@ -745,7 +754,7 @@ describe("Host Integration - Concurrency", () => {
       });
 
       const app = createTestApp(schema, {
-        services: { "test.effect": slowHandler },
+        effects: { "test.effect": slowHandler },
       });
 
       await app.ready();
@@ -812,7 +821,7 @@ describe("Host Integration - Lifecycle", () => {
 
       const longRunningHandler = vi
         .fn()
-        .mockImplementation(async (_params, ctx: ServiceContext) => {
+        .mockImplementation(async (_params, ctx: any) => {
           return new Promise<Patch[]>((resolve) => {
             ctx.signal.addEventListener("abort", () => {
               signalAborted = true;
@@ -824,7 +833,7 @@ describe("Host Integration - Lifecycle", () => {
         });
 
       const app = createTestApp(schema, {
-        services: { "test.effect": longRunningHandler },
+        effects: { "test.effect": longRunningHandler },
       });
 
       await app.ready();
@@ -853,7 +862,7 @@ describe("Host Integration - Lifecycle", () => {
       });
 
       const app = createTestApp(schema, {
-        services: { "test.effect": slowHandler },
+        effects: { "test.effect": slowHandler },
       });
 
       await app.ready();
@@ -875,26 +884,25 @@ describe("Host Integration - Lifecycle", () => {
 // =============================================================================
 
 describe("Host Integration - Type Conversion", () => {
-  // v2.3.0: ServiceContext (with patch helpers) is deprecated.
   // AppEffectContext only provides snapshot.
-  describe.skip("CONV-1: ServiceHandler to EffectHandler adaptation", () => {
-    it("should adapt ServiceHandler signature to EffectHandler", async () => {
+  describe.skip("CONV-1: EffectHandler adaptation", () => {
+    it("should adapt EffectHandler signature", async () => {
       const schema = createTestSchema();
       let receivedParams: Record<string, unknown> | null = null;
-      let receivedContext: ServiceContext | null = null;
+      let receivedContext: AppEffectContext | null = null;
 
       const serviceHandler = vi
         .fn()
         .mockImplementation(
-          async (params: Record<string, unknown>, ctx: ServiceContext) => {
-            receivedParams = params;
+          async (params: unknown, ctx: AppEffectContext) => {
+            receivedParams = (params ?? {}) as Record<string, unknown>;
             receivedContext = ctx;
             return [{ op: "set", path: "effectDone", value: true }];  // Guard value
           }
         );
 
       const app = createTestApp(schema, {
-        services: { "test.effect": serviceHandler },
+        effects: { "test.effect": serviceHandler },
       });
 
       await app.ready();
@@ -905,7 +913,7 @@ describe("Host Integration - Type Conversion", () => {
       expect(receivedParams).toEqual({});
       expect(receivedContext).not.toBeNull();
       expect(receivedContext!.snapshot).toBeDefined();
-      expect(receivedContext!.patch).toBeDefined();
+      // AppEffectContext only provides snapshot (no patch helpers).
     });
   });
 
@@ -916,13 +924,13 @@ describe("Host Integration - Type Conversion", () => {
 
       const serviceHandler = vi
         .fn()
-        .mockImplementation(async (_params, ctx: ServiceContext) => {
+        .mockImplementation(async (_params, ctx: AppEffectContext) => {
           snapshotFromContext = ctx.snapshot as AppState;
           return [{ op: "set", path: "effectDone", value: true }];  // Guard value
         });
 
       const app = createTestApp(schema, {
-        services: { "test.effect": serviceHandler },
+        effects: { "test.effect": serviceHandler },
       });
 
       await app.ready();
@@ -946,7 +954,7 @@ describe("Host Integration - Type Conversion", () => {
       ]);
 
       const app = createTestApp(schema, {
-        services: { "test.effect": mockHandler },
+        effects: { "test.effect": mockHandler },
       });
 
       await app.ready();
@@ -987,7 +995,7 @@ describe("Host Integration - Type Conversion", () => {
       const throwingHandler = createThrowingService(new Error("test error"));
 
       const app = createTestApp(schema, {
-        services: { "test.effect": throwingHandler },
+        effects: { "test.effect": throwingHandler },
       });
 
       await app.ready();
@@ -1004,200 +1012,6 @@ describe("Host Integration - Type Conversion", () => {
     it.skip("should map Host status 'halted' appropriately", async () => {
       // TODO: Define halted behavior mapping
       // Halted typically means requirements pending - may map to 'pending' phase
-    });
-  });
-});
-
-// =============================================================================
-// ServiceReturn Normalization Tests
-// =============================================================================
-
-describe("Host Integration - ServiceReturn Normalization", () => {
-  describe("NORM-1: void return", () => {
-    it("should normalize void return to empty array", async () => {
-      const schema = createTestSchema();
-      // Handler returns undefined but also sets guard value
-      const voidHandler = vi.fn().mockImplementation(async () => {
-        // Return guard value; undefined would cause infinite loop
-        return [{ op: "set", path: "effectDone", value: true }];
-      });
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": voidHandler },
-      });
-
-      await app.ready();
-
-      const result = await app.act("test.withEffect", {}).result();
-
-      expect(result.status).toBe("completed");
-    });
-  });
-
-  describe("NORM-2: Single Patch return", () => {
-    it("should normalize single Patch to array", async () => {
-      const schema = createTestSchema();
-      // Handler returns single patch object (not array) + guard value
-      const singlePatchHandler = vi.fn().mockResolvedValue([
-        { op: "set", path: "value", value: 1 },
-        { op: "set", path: "effectDone", value: true },  // Guard value
-      ]);
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": singlePatchHandler },
-      });
-
-      await app.ready();
-
-      await app.act("test.withEffect", {}).done();
-
-      const state = app.getState<{ value: number }>();
-      expect(state.data.value).toBe(1);
-    });
-  });
-
-  describe("NORM-3: Patch array passthrough", () => {
-    it("should pass through Patch array", async () => {
-      const schema = createTestSchema();
-      const arrayHandler = vi.fn().mockResolvedValue([
-        { op: "set", path: "value", value: 10 },
-        { op: "set", path: "count", value: 20 },
-        { op: "set", path: "effectDone", value: true },  // Guard value
-      ]);
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": arrayHandler },
-      });
-
-      await app.ready();
-
-      await app.act("test.withEffect", {}).done();
-
-      const state = app.getState<{ value: number; count: number }>();
-      expect(state.data.value).toBe(10);
-      expect(state.data.count).toBe(20);
-    });
-  });
-
-  // v2.3.0: Legacy service return normalization is deprecated.
-  describe.skip("NORM-4: Object with patches property", () => {
-    it("should extract patches from { patches: [] }", async () => {
-      const schema = createTestSchema();
-      const objectHandler = vi.fn().mockResolvedValue({
-        patches: [
-          { op: "set", path: "value", value: 999 },
-          { op: "set", path: "effectDone", value: true },  // Guard value
-        ],
-      });
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": objectHandler },
-      });
-
-      await app.ready();
-
-      await app.act("test.withEffect", {}).done();
-
-      const state = app.getState<{ value: number }>();
-      expect(state.data.value).toBe(999);
-    });
-  });
-});
-
-// =============================================================================
-// Context Verification Tests
-// =============================================================================
-
-// v2.3.0: ServiceContext (with patch, actorId, worldId, branchId, signal) is deprecated.
-// AppEffectContext only provides snapshot.
-describe.skip("Host Integration - Context", () => {
-  describe("CTX-1: PatchHelpers in ServiceContext", () => {
-    it("should provide PatchHelpers in ServiceContext", async () => {
-      const schema = createTestSchema();
-      let patchHelpers: ServiceContext["patch"] | null = null;
-
-      const contextHandler = vi
-        .fn()
-        .mockImplementation(async (_params, ctx: ServiceContext) => {
-          patchHelpers = ctx.patch;
-          return ctx.patch.many([
-            ctx.patch.set("value", 42),
-            ctx.patch.set("effectDone", true),  // Guard value
-          ]);
-        });
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": contextHandler },
-      });
-
-      await app.ready();
-
-      await app.act("test.withEffect", {}).done();
-
-      expect(patchHelpers).not.toBeNull();
-      expect(patchHelpers!.set).toBeDefined();
-      expect(patchHelpers!.unset).toBeDefined();
-      expect(patchHelpers!.merge).toBeDefined();
-      expect(patchHelpers!.many).toBeDefined();
-      expect(patchHelpers!.from).toBeDefined();
-
-      const state = app.getState<{ value: number }>();
-      expect(state.data.value).toBe(42);
-    });
-  });
-
-  describe("CTX-2: Context values", () => {
-    it("should provide actorId, worldId, branchId in context", async () => {
-      const schema = createTestSchema();
-      let contextValues: Partial<ServiceContext> = {};
-
-      const contextHandler = vi
-        .fn()
-        .mockImplementation(async (_params, ctx: ServiceContext) => {
-          contextValues = {
-            actorId: ctx.actorId,
-            worldId: ctx.worldId,
-            branchId: ctx.branchId,
-          };
-          return [{ op: "set", path: "effectDone", value: true }];  // Guard value
-        });
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": contextHandler },
-      });
-
-      await app.ready();
-
-      await app.act("test.withEffect", {}).done();
-
-      expect(contextValues.actorId).toBeDefined();
-      expect(contextValues.worldId).toBeDefined();
-      expect(contextValues.branchId).toBeDefined();
-    });
-  });
-
-  describe("CTX-3: AbortSignal in context", () => {
-    it("should provide AbortSignal in ServiceContext", async () => {
-      const schema = createTestSchema();
-      let signal: AbortSignal | null = null;
-
-      const signalHandler = vi
-        .fn()
-        .mockImplementation(async (_params, ctx: ServiceContext) => {
-          signal = ctx.signal;
-          return [{ op: "set", path: "effectDone", value: true }];  // Guard value
-        });
-
-      const app = createTestApp(schema, {
-        services: { "test.effect": signalHandler },
-      });
-
-      await app.ready();
-
-      await app.act("test.withEffect", {}).done();
-
-      expect(signal).not.toBeNull();
-      expect(signal).toBeInstanceOf(AbortSignal);
     });
   });
 });
