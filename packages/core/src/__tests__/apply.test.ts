@@ -182,4 +182,175 @@ describe("apply", () => {
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
   });
+
+  it("should allow merge on platform namespace paths not declared in StateSpec", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          count: { type: "number", required: true },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "merge", path: "$mel.guards.intent", value: { addTodo: "intent-1" } }],
+      HOST_CONTEXT
+    );
+
+    expect(result.data).toEqual({
+      count: 1,
+      $mel: {
+        guards: {
+          intent: {
+            addTodo: "intent-1",
+          },
+        },
+      },
+    });
+    expect(result.system.status).toBe("idle");
+    expect(result.system.lastError).toBeNull();
+  });
+
+  it("should record TYPE_MISMATCH for non-object values at platform namespace root", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          count: { type: "number", required: true },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "set", path: "$mel", value: "invalid" }],
+      HOST_CONTEXT
+    );
+
+    expect(result.data).toEqual({ count: 1 });
+    expect(result.system.status).toBe("error");
+    expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
+  });
+
+  it("should create missing object paths for merge targets", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          profile: {
+            type: "object",
+            required: false,
+            fields: {
+              meta: {
+                type: "object",
+                required: false,
+                fields: {
+                  source: { type: "string", required: false },
+                },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot({}, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "merge", path: "profile.meta", value: { source: "import" } }],
+      HOST_CONTEXT
+    );
+
+    expect(result.data).toEqual({
+      profile: {
+        meta: {
+          source: "import",
+        },
+      },
+    });
+    expect(result.system.status).toBe("idle");
+    expect(result.system.lastError).toBeNull();
+  });
+
+  it("should record TYPE_MISMATCH when merge target path resolves to non-object runtime value", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          profile: {
+            type: "object",
+            required: false,
+            fields: {
+              meta: {
+                type: "object",
+                required: false,
+                fields: {
+                  source: { type: "string", required: false },
+                },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot(
+      {
+        profile: {
+          meta: "not-object",
+        },
+      } as unknown,
+      schema.hash,
+      HOST_CONTEXT
+    );
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "merge", path: "profile.meta", value: { source: "import" } }],
+      HOST_CONTEXT
+    );
+
+    expect(result.data).toEqual({
+      profile: {
+        meta: "not-object",
+      },
+    });
+    expect(result.system.status).toBe("error");
+    expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
+  });
 });

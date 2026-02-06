@@ -167,6 +167,21 @@ export interface HostExecutor {
     intent: Intent,
     opts?: HostExecutionOptions
   ): Promise<HostExecutionResult>;
+
+  /**
+   * Abort execution for an ExecutionKey (best-effort).
+   *
+   * Ownership:
+   * - Defined by World contract
+   * - Implemented by App adapter (optional capability)
+   *
+   * Semantics:
+   * - If supported, executor SHOULD attempt cancellation promptly.
+   * - Cancellation outcome MUST still converge to a terminal proposal status
+   *   via normal execution result handling (`failed` when aborted).
+   * - This method MUST NOT throw.
+   */
+  abort?(key: ExecutionKey): void;
 }
 
 // =============================================================================

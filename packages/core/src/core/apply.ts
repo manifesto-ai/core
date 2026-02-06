@@ -3,12 +3,15 @@ import type { Snapshot } from "../schema/snapshot.js";
 import type { Patch } from "../schema/patch.js";
 import type { HostContext } from "../schema/host-context.js";
 import type { FieldSpec } from "../schema/field.js";
-import { setByPath, unsetByPath, mergeAtPath } from "../utils/path.js";
+import { getByPath, mergeAtPath, setByPath, unsetByPath } from "../utils/path.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk, isErr } from "../schema/common.js";
 import type { SystemState, ErrorValue } from "../schema/snapshot.js";
 import { createError } from "../errors.js";
 import { getFieldSpecAtPath, validateValueAgainstFieldSpec } from "./validation-utils.js";
+
+const PLATFORM_NAMESPACE_PREFIX = "$";
+const PLATFORM_NAMESPACE_SPEC: FieldSpec = { type: "object", required: false };
 
 /**
  * Apply patches to a snapshot
@@ -32,22 +35,73 @@ export function apply(
   let newSystem: SystemState = snapshot.system;
   let newInput = snapshot.input;
   const validationErrors: ErrorValue[] = [];
-  const rootFields = { ...schema.state.fields };
-  if (!("$host" in rootFields)) {
-    rootFields.$host = { type: "object", required: false };
-  }
-  const rootSpec: FieldSpec = { type: "object", required: true, fields: rootFields };
+  const rootSpec: FieldSpec = { type: "object", required: true, fields: schema.state.fields };
 
   for (const patch of patches) {
     const { root, subPath } = splitPatchPath(patch.path);
     switch (root) {
       case "data":
         {
+          const platformNamespace = getPlatformNamespace(subPath);
+          if (platformNamespace) {
+            if (patch.op !== "unset") {
+              // Platform namespaces ($*) are opaque to Core. Only root object shape is validated.
+              if (subPath === platformNamespace) {
+                const platformRootResult = validateValueAgainstFieldSpec(
+                  patch.value,
+                  PLATFORM_NAMESPACE_SPEC,
+                  {
+                    allowPartial: patch.op === "merge",
+                    allowUndefined: false,
+                  }
+                );
+                if (!platformRootResult.ok) {
+                  validationErrors.push(createError(
+                    "TYPE_MISMATCH",
+                    `Invalid patch value at ${patch.path}: ${platformRootResult.message ?? "type mismatch"}`,
+                    snapshot.system.currentAction ?? "",
+                    patch.path,
+                    context.now,
+                    { patch }
+                  ));
+                  break;
+                }
+              }
+
+              if (patch.op === "merge" && !isMergeTargetCompatible(newData, subPath)) {
+                validationErrors.push(createError(
+                  "TYPE_MISMATCH",
+                  `Invalid merge target at ${patch.path}: target path must be an object or absent`,
+                  snapshot.system.currentAction ?? "",
+                  patch.path,
+                  context.now,
+                  { patch }
+                ));
+                break;
+              }
+            }
+
+            newData = applyPatch(newData, patch, subPath);
+            break;
+          }
+
           const fieldSpec = getFieldSpecAtPath(rootSpec, subPath);
           if (!fieldSpec) {
             validationErrors.push(createError(
               "PATH_NOT_FOUND",
               `Unknown patch path: ${patch.path}`,
+              snapshot.system.currentAction ?? "",
+              patch.path,
+              context.now,
+              { patch }
+            ));
+            break;
+          }
+
+          if (patch.op === "merge" && !isMergeTargetCompatible(newData, subPath)) {
+            validationErrors.push(createError(
+              "TYPE_MISMATCH",
+              `Invalid merge target at ${patch.path}: target path must be an object or absent`,
               snapshot.system.currentAction ?? "",
               patch.path,
               context.now,
@@ -155,6 +209,52 @@ function splitPatchPath(path: string): { root: PatchRoot; subPath: string } {
     return { root: "meta", subPath: path === "meta" ? "" : path.slice(5) };
   }
   return { root: "data", subPath: path };
+}
+
+function getPlatformNamespace(path: string): string | null {
+  if (!path) {
+    return null;
+  }
+  const [segment] = path.split(".");
+  if (segment && segment.startsWith(PLATFORM_NAMESPACE_PREFIX)) {
+    return segment;
+  }
+  return null;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && !Array.isArray(value) && typeof value === "object";
+}
+
+/**
+ * Merge target is valid when:
+ * - path is absent (Core will create `{}` chain as needed), or
+ * - existing target is an object.
+ *
+ * Any non-object value on the traversal path is a runtime contract violation.
+ */
+function isMergeTargetCompatible(root: unknown, path: string): boolean {
+  if (!path) {
+    return isObjectRecord(root);
+  }
+
+  const segments = path.split(".");
+  let current: unknown = root;
+
+  for (const segment of segments) {
+    if (current === undefined) {
+      return true;
+    }
+    if (!isObjectRecord(current)) {
+      return false;
+    }
+    current = current[segment];
+  }
+
+  if (current === undefined) {
+    return true;
+  }
+  return isObjectRecord(current);
 }
 
 function applyPatch(value: unknown, patch: Patch, subPath: string): unknown {

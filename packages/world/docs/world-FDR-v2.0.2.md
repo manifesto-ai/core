@@ -10,6 +10,7 @@
 > - v2.0: Host v2.0.1 Integration, Event-Loop Execution Model alignment
 > - v2.0.1: ADR-001 Layer Separation - Event ownership clarification
 > - **v2.0.2: Host-World Data Contract - `$host` namespace convention, terminology unification**
+> - **v2.0.3 addendum: Snapshot hash identity (`input` exclusion), HostExecutor `abort` ownership clarification**
 
 ---
 
@@ -434,12 +435,76 @@ Using `'failed'` consistently:
 
 ---
 
-## Summary Table (v2.0.2)
+## Part V: v2.0.3 Addendum Decisions
+
+### FDR-W034: SnapshotHash Excludes `snapshot.input`
+
+#### Decision
+
+**`snapshot.input` is replay context, not semantic state. It MUST NOT participate in `snapshotHash`.**
+
+#### Context
+
+App may freeze execution-time context (for example, `input.$app.memoryContext`) for deterministic replay behavior.  
+That context is operationally useful but does not define domain semantic identity.
+
+#### Rationale
+
+World identity follows the principle:
+
+> **Same meaning, same hash.**
+
+Including `input` would make equivalent semantic outcomes diverge by operational context snapshots.
+The semantic identity surface remains:
+- `data` (excluding platform namespaces)
+- normalized `system` hash inputs
+
+while replay context remains available through full snapshots and audit artifacts.
+
+#### Consequences
+
+- **WORLD-HASH-10 (MUST):** `snapshot.input` MUST NOT be included in `snapshotHash`.
+- **PERSIST-SNAP-3 (SHOULD):** Store normalized `SnapshotHashInput` for audit/replay.
+- **REPLAY-CTX-1:** Replay systems MAY use frozen `input` from stored snapshots, but this MUST NOT affect World identity hashing.
+
+---
+
+### FDR-W035: `HostExecutor.abort` Ownership and Terminal Convergence
+
+#### Decision
+
+**`abort?(executionKey)` is part of the World-defined HostExecutor contract (optional capability).**
+
+#### Context
+
+Cancellation capability existed at App implementation level, but ownership of the contract was ambiguous.
+World governs Proposal lifecycle and therefore must define execution cancellation contract boundaries.
+
+#### Rationale
+
+Execution-stage Proposals are commitment-bound:
+- they MUST NOT be dropped,
+- they MUST converge to terminal outcome.
+
+If cancellation is invoked, the lifecycle still belongs to World governance and must end in terminal `failed`.
+
+#### Consequences
+
+- **WORLD-HEXEC-7 (MUST):** If `abort()` is used for execution-stage work, proposal MUST still reach terminal (`failed`).
+- **WORLD-STAGE-4 (MUST):** Execution-stage proposals are never drop-cancelled.
+- **HEXEC-ABORT-1:** `abort` is best-effort and optional; absence of support is valid.
+- **HEXEC-ABORT-2:** `abort` MUST NOT create hidden control channels outside normal execution result handling.
+
+---
+
+## Summary Table (v2.0.2 + v2.0.3 addendum)
 
 | FDR | Decision | Key Principle | Reference |
 |-----|----------|---------------|-----------|
 | W032 | `$host` namespace convention | Namespace separation | WORLD-HASH-4a |
 | W033 | Terminology unification (`'failed'`) | Single vocabulary | WORLD-TERM-5 |
+| W034 | `snapshot.input` excluded from hash | Semantic identity boundary | WORLD-HASH-10 |
+| W035 | `HostExecutor.abort` is World-owned contract | Governance owns lifecycle | WORLD-HEXEC-7 |
 
 ---
 
@@ -474,7 +539,7 @@ Using `'failed'` consistently:
 | ADR-001 | Source of W027–W031 decisions |
 | ARCHITECTURE v2.0 | Layer definitions |
 | Host SPEC v2.0.2 | HostExecutor implementation target |
-| World SPEC v2.0.2 | Normative specification |
+| World SPEC v2.0.3 | Normative specification |
 
 ---
 
@@ -486,6 +551,8 @@ Using `'failed'` consistently:
 |-----|--------|--------|
 | W032 | `$host` namespace formalized | Host MUST use `data.$host` |
 | W033 | `'error'` → `'failed'` | Hash terminology change |
+| W034 | `snapshot.input` excluded from hash | Semantic worlds remain stable across replay context |
+| W035 | `HostExecutor.abort` owned by World contract | Cancellation semantics aligned with terminal lifecycle |
 
 ### Breaking Changes
 
