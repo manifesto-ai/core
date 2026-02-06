@@ -22,13 +22,6 @@ domain Todo {
     // Status tracking
     status: "idle" | "loading" | "error" = "idle"
     lastError: string | null = null
-
-    // Re-entry markers
-    addingTodo: string | null = null
-    togglingTodo: string | null = null
-    deletingTodo: string | null = null
-    loadingTodos: string | null = null
-    savingTodos: string | null = null
   }
 
   // ===========================================
@@ -49,14 +42,9 @@ domain Todo {
    * Load todos from API
    */
   action loadTodos() {
-    once(loadingTodos) {
-      patch loadingTodos = $meta.intentId
+    onceIntent {
       patch status = "loading"
       effect todo.load({ into: todos })
-    }
-
-    when isNotNull(loadingTodos) {
-      patch status = "idle"
     }
   }
 
@@ -70,8 +58,7 @@ domain Todo {
     }
 
     // Add todo once
-    once(addingTodo) when neq(trim(title), "") {
-      patch addingTodo = $meta.intentId
+    onceIntent when neq(trim(title), "") {
       patch status = "loading"
 
       effect todo.add({
@@ -79,20 +66,13 @@ domain Todo {
         into: todos
       })
     }
-
-    // Clear status when done
-    when isNotNull(addingTodo) {
-      patch status = "idle"
-    }
   }
 
   /**
    * Toggle todo completion status
    */
   action toggleTodo(id: string) {
-    once(togglingTodo) {
-      patch togglingTodo = $meta.intentId
-
+    onceIntent {
       effect todo.toggle({
         id: id,
         todos: todos,
@@ -105,9 +85,7 @@ domain Todo {
    * Remove a todo
    */
   action removeTodo(id: string) {
-    once(deletingTodo) {
-      patch deletingTodo = $meta.intentId
-
+    onceIntent {
       effect todo.remove({
         id: id,
         todos: todos,
@@ -129,15 +107,10 @@ domain Todo {
    * Save todos to API
    */
   action saveTodos() {
-    once(savingTodos) {
-      patch savingTodos = $meta.intentId
+    onceIntent {
       patch status = "loading"
 
       effect todo.save({ todos: todos })
-    }
-
-    when isNotNull(savingTodos) {
-      patch status = "idle"
     }
   }
 }

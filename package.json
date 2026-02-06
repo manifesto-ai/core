@@ -20,7 +20,6 @@
     "docs:preview": "vitepress preview docs",
     "docs:archive": "node scripts/archive-docs.mjs",
     "docs:mel-grammar": "node scripts/update-mel-grammar.mjs",
-    "docs:api": "typedoc --options typedoc.json",
     "docs:api:clean": "rm -rf docs/api"
   },
   "devDependencies": {

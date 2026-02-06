@@ -96,10 +96,7 @@ function isLegacyAppConfig(arg: unknown): arg is LegacyAppConfig {
  * @see ADR-APP-002
  * @see ADR-003
  */
-/**
- * @deprecated Use v2.3.0 API with AppConfig. This signature will be removed in v3.0.0.
- */
-export function createApp(config: LegacyAppConfig): App;
+
 export function createApp(config: AppConfig): App;
 /**
  * @deprecated Use v2.3.0 API with AppConfig. This signature will be removed in v3.0.0.

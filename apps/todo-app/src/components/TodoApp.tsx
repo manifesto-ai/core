@@ -1,8 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createApp } from "@manifesto-ai/app";
 import type { AppState } from "@manifesto-ai/app";
-import { compileMelDomain } from "@manifesto-ai/compiler";
-import type { DomainSchema } from "@manifesto-ai/core";
 import TodoMel from "../domain/todo.mel";
 import { todoEffects, type Todo } from "../domain/effects";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -25,30 +23,20 @@ export interface TodoData {
   lastError: string | null;
 }
 
-// =============================================================================
-// Schema Compilation
-// =============================================================================
-
-function compileTodoSchema(): DomainSchema {
-  const result = compileMelDomain(TodoMel, { mode: "domain" });
-  if (result.errors.length > 0) {
-    throw new Error(`MEL compilation failed: ${result.errors.map(e => e.message).join(", ")}`);
-  }
-  if (!result.schema) {
-    throw new Error("MEL compilation produced no schema");
-  }
-  return result.schema as DomainSchema;
-}
-
-const todoSchema = compileTodoSchema();
 
 // =============================================================================
 // App Instance (v2.3.0 Effects-first API)
 // =============================================================================
 
 const todoApp = createApp({
-  schema: todoSchema,
+  schema: TodoMel,
   effects: todoEffects,
+  initialData: {
+    todos: [],
+    filter: "all",
+    status: "idle",
+    lastError: null,
+  }
 });
 
 export { todoApp };
