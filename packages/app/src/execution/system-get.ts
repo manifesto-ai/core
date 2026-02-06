@@ -6,12 +6,10 @@
  * 1. Read access to state and computed values (path param)
  * 2. System value generation for $system.* references (key param)
  *
- * @see SPEC §18.5 SYSGET-1~6
  * @module
  */
 
-import type { Patch } from "@manifesto-ai/core";
-import type { AppState, ServiceContext } from "../../core/types/index.js";
+import type { Patch, Snapshot } from "@manifesto-ai/core";
 
 /**
  * Parameters for system.get effect (read mode).
@@ -95,24 +93,17 @@ function generateUUID(): string {
  * Handles two modes:
  * 1. Generate mode (key + into): Generate system values like uuid, timestamp
  * 2. Read mode (path + target): Read values from snapshot
- *
- * SYSGET-5: Returns value at path from state or computed.
- * SYSGET-6: Handled by Host directly (this function is called by Host).
- *
- * @param params - Effect parameters
- * @param snapshot - Current snapshot
- * @returns Patches to apply (if target specified) or empty array
  */
 export function executeSystemGet(
   params: SystemGetParams,
-  snapshot: Readonly<AppState<unknown>>
+  snapshot: Snapshot
 ): { patches: Patch[]; result: SystemGetResult } {
   // Generate mode: $system.uuid, $system.timestamp, etc.
   if (isGenerateParams(params)) {
     const value = generateSystemValue(params.key);
     const patches: Patch[] = [{
       op: "set",
-      path: params.into,
+      path: normalizePath(params.into),
       value,
     }];
     return { patches, result: { value, found: true } };
@@ -129,12 +120,22 @@ export function executeSystemGet(
   if (target) {
     patches.push({
       op: "set",
-      path: target.startsWith("/") ? target : `/${target.replace(/\./g, "/")}`,
+      path: normalizePath(target),
       value: result.value,
     });
   }
 
   return { patches, result };
+}
+
+/**
+ * Normalize incoming paths to semantic (dot) paths.
+ */
+function normalizePath(path: string): string {
+  if (path.startsWith("/")) {
+    return path.slice(1).replace(/\//g, ".");
+  }
+  return path;
 }
 
 /**
@@ -148,9 +149,10 @@ export function executeSystemGet(
  */
 function resolvePathValue(
   path: string,
-  snapshot: Readonly<AppState<unknown>>
+  snapshot: Snapshot
 ): SystemGetResult {
-  const parts = path.split(".");
+  const normalized = normalizePath(path);
+  const parts = normalized.split(".");
 
   if (parts.length === 0) {
     return { value: undefined, found: false };
@@ -195,24 +197,4 @@ function resolvePathValue(
   }
 
   return { value: current, found: current !== undefined };
-}
-
-/**
- * Create system.get service handler for Host integration.
- *
- * Note: This is NOT registered as a user service.
- * The ServiceRegistry validates that users cannot override system.get.
- * This handler is used internally by Host.
- */
-export function createSystemGetHandler() {
-  return async (
-    params: Record<string, unknown>,
-    ctx: ServiceContext
-  ): Promise<Patch[]> => {
-    const { patches } = executeSystemGet(
-      params as unknown as SystemGetParams,
-      ctx.snapshot
-    );
-    return patches;
-  };
 }

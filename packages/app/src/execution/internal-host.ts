@@ -18,6 +18,8 @@ import {
 } from "@manifesto-ai/host";
 import type { DomainSchema, Patch } from "@manifesto-ai/core";
 import type { Effects, AppEffectContext } from "../core/types/effects.js";
+import { RESERVED_EFFECT_TYPE } from "../constants.js";
+import { executeSystemGet, type SystemGetParams } from "./system-get.js";
 
 // =============================================================================
 // Types
@@ -59,8 +61,17 @@ export function createInternalHost(options: InternalHostOptions): ManifestoHost 
 
   // Create Host from @manifesto-ai/host
   const host = createHost(schema, {
-    initialData,
+    initialData: initialData === undefined ? {} : initialData,
     maxIterations,
+  });
+
+  // Register built-in system.get handler (compiler-internal)
+  host.registerEffect(RESERVED_EFFECT_TYPE, async (_type, params, ctx) => {
+    const { patches } = executeSystemGet(
+      params as unknown as SystemGetParams,
+      ctx.snapshot
+    );
+    return patches as Patch[];
   });
 
   // Register all effects, adapting signature from App to Host

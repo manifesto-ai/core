@@ -23,6 +23,66 @@ export function snapshotToAppState<T = unknown>(snapshot: Snapshot): AppState<T>
   };
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Normalize a Snapshot to ensure platform namespaces exist with proper structure.
+ *
+ * Ensures:
+ * - data.$host is an object
+ * - data.$mel.guards.intent is an object
+ */
+export function normalizeSnapshot(snapshot: Snapshot): Snapshot {
+  if (!isPlainObject(snapshot.data)) {
+    return snapshot;
+  }
+
+  const data = snapshot.data as Record<string, unknown>;
+  let nextData = data;
+  let changed = false;
+
+  if (!isPlainObject(data.$host)) {
+    nextData = { ...nextData, $host: {} };
+    changed = true;
+  }
+
+  const melValue = data.$mel;
+  let melChanged = false;
+  let nextMel: Record<string, unknown>;
+
+  if (!isPlainObject(melValue)) {
+    nextMel = { guards: { intent: {} } };
+    melChanged = true;
+  } else {
+    nextMel = melValue;
+    const guardsValue = melValue.guards;
+
+    if (!isPlainObject(guardsValue)) {
+      nextMel = { ...nextMel, guards: { intent: {} } };
+      melChanged = true;
+    } else if (!isPlainObject(guardsValue.intent)) {
+      nextMel = { ...nextMel, guards: { ...guardsValue, intent: {} } };
+      melChanged = true;
+    }
+  }
+
+  if (melChanged) {
+    nextData = { ...nextData, $mel: nextMel };
+    changed = true;
+  }
+
+  if (!changed) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    data: nextData,
+  };
+}
+
 /**
  * Deep clone a value using structuredClone.
  * Falls back to JSON parse/stringify if structuredClone is not available.

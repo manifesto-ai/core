@@ -15,7 +15,7 @@ export type { BranchManagerConfig } from "./manager.js";
 // v2.0.0 Schema Compatibility
 export {
   validateSchemaCompatibility,
-  validateSchemaCompatibilityWithHost,
+  validateSchemaCompatibilityWithEffects,
   extractEffectTypes,
   SchemaIncompatibleError,
 } from "./schema-compatibility.js";

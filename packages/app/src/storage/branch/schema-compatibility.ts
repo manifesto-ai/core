@@ -10,9 +10,9 @@
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   SchemaCompatibilityResult,
-  Host,
   Effects,
 } from "../../core/types/index.js";
+import { RESERVED_EFFECT_TYPE } from "../../constants.js";
 
 /**
  * Validate schema compatibility for fork.
@@ -134,21 +134,11 @@ export function validateSchemaCompatibilityWithEffects(
   newSchema: DomainSchema,
   effects: Effects
 ): SchemaCompatibilityResult {
-  const registeredEffectTypes = Object.keys(effects);
-  return validateSchemaCompatibility(newSchema, registeredEffectTypes);
-}
-
-/**
- * Validate schema compatibility against a Host.
- *
- * @deprecated Use validateSchemaCompatibilityWithEffects for v2.2.0 effects-first API.
- */
-export async function validateSchemaCompatibilityWithHost(
-  newSchema: DomainSchema,
-  host: Host
-): Promise<SchemaCompatibilityResult> {
-  const registeredEffects = host.getRegisteredEffectTypes?.() ?? [];
-  return validateSchemaCompatibility(newSchema, registeredEffects);
+  const registeredEffectTypes = new Set([
+    ...Object.keys(effects),
+    RESERVED_EFFECT_TYPE,
+  ]);
+  return validateSchemaCompatibility(newSchema, Array.from(registeredEffectTypes));
 }
 
 /**

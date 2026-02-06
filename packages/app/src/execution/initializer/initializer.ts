@@ -9,15 +9,13 @@
  * @module
  */
 
-import type { DomainSchema, Snapshot, Patch } from "@manifesto-ai/core";
-import type { WorldId } from "@manifesto-ai/world";
+import type { DomainSchema } from "@manifesto-ai/core";
 import { createWorldId } from "@manifesto-ai/world";
 import type {
   AppState,
-  CreateAppOptions,
+  AppConfig,
   Host,
   PolicyService,
-  ServiceMap,
   World,
   WorldDelta,
   WorldStore,
@@ -43,17 +41,10 @@ export interface HostInitializerDependencies {
   worldStore: WorldStore;
   policyService: PolicyService;
   domainSchema: DomainSchema | null;
-  options: CreateAppOptions;
+  options: AppConfig;
   worldHeadTracker: WorldHeadTracker;
   branchManager: BranchManager | null;
-  defaultActorId: string;
   currentState: AppState<unknown>;
-  getCurrentWorldId: () => string;
-  getCurrentBranchId: () => string;
-  /**
-   * v2.2.0: Skip effect registration if effects are pre-registered via createInternalHost.
-   */
-  skipEffectRegistration?: boolean;
 }
 
 /**
@@ -99,11 +90,6 @@ export class HostInitializerImpl implements HostInitializer {
     const {
       host,
       options,
-      worldHeadTracker,
-      defaultActorId,
-      getCurrentWorldId,
-      getCurrentBranchId,
-      skipEffectRegistration,
     } = this._deps;
 
     // 1. Create AppHostExecutor wrapping injected Host
@@ -111,30 +97,6 @@ export class HostInitializerImpl implements HostInitializer {
       defaultTimeoutMs: options.scheduler?.defaultTimeoutMs,
       traceEnabled: options.devtools?.enabled,
     });
-
-    // 2. Register effect handlers from services (legacy path)
-    // v2.2.0: Skip if effects are pre-registered via createInternalHost
-    if (!skipEffectRegistration) {
-      const services = options.services ?? {};
-      for (const [effectType, handler] of Object.entries(services)) {
-        host.registerEffect(effectType, async (type, params, ctx) => {
-          const result = await handler(params, {
-            snapshot: ctx.snapshot as AppState<unknown>,
-            actorId: defaultActorId,
-            worldId: getCurrentWorldId(),
-            branchId: getCurrentBranchId(),
-            patch: this._createPatchHelpers(),
-            signal: ctx.signal ?? new AbortController().signal,
-          });
-
-          // Normalize result to Patch array
-          if (!result) return [];
-          if (Array.isArray(result)) return result;
-          if ("patches" in result) return result.patches;
-          return [result];
-        });
-      }
-    }
 
     return {
       hostExecutor: this._hostExecutor,
@@ -190,26 +152,6 @@ export class HostInitializerImpl implements HostInitializer {
     }
   }
 
-  /**
-   * Create patch helpers for service handlers.
-   */
-  private _createPatchHelpers() {
-    return {
-      set: (path: string, value: unknown): Patch => ({ op: "set", path, value }),
-      merge: (path: string, value: Record<string, unknown>): Patch => ({ op: "merge", path, value }),
-      unset: (path: string): Patch => ({ op: "unset", path }),
-      many: (...patches: readonly (Patch | readonly Patch[])[]): Patch[] =>
-        patches.flat() as Patch[],
-      from: (record: Record<string, unknown>, opts?: { basePath?: string }): Patch[] => {
-        const basePath = opts?.basePath ?? "data";
-        return Object.entries(record).map(([key, value]) => ({
-          op: "set" as const,
-          path: `${basePath}.${key}`,
-          value,
-        }));
-      },
-    };
-  }
 }
 
 // =============================================================================

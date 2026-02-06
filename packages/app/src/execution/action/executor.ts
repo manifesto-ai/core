@@ -21,7 +21,6 @@ import type {
 } from "../../core/types/index.js";
 
 import { ActionHandleImpl, generateProposalId } from "./handle.js";
-import { MissingServiceError } from "../../errors/index.js";
 
 /**
  * Action execution context.
@@ -33,8 +32,8 @@ export interface ActionContext {
   getState: () => AppState<unknown>;
   /** State setter for updates */
   setState: (state: AppState<unknown>) => void;
-  /** Service map for effect handlers */
-  services: Record<string, unknown>;
+  /** Effect map for effect handlers */
+  effects: Record<string, unknown>;
   /** Default actor ID */
   defaultActorId: string;
 }
@@ -99,7 +98,7 @@ async function runActionLifecycle(
       return;
     }
 
-    // ACT-PREP-2: Validate required services (check effect types in flow)
+    // ACT-PREP-2: Validate required effects (check effect types in flow)
     // For now, skip detailed validation - will be enhanced with Host integration
 
     // ACT-PREP-3~5: Memory recall and trace composition

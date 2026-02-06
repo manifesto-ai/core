@@ -9,7 +9,7 @@
  */
 
 // =============================================================================
-// Types (Legacy + v2.0.0)
+// Types
 // =============================================================================
 
 export type {
@@ -34,9 +34,7 @@ export type {
   ActionUpdateDetail,
 
   // Options
-  CreateAppOptions,
   ActorPolicyConfig,
-  ValidationConfig,
   SystemActionsConfig,
   DisposeOptions,
   DoneOptions,
@@ -56,6 +54,7 @@ export type {
   BackfillConfig,
   RecallRequest,
   RecallResult,
+  MemoryMaintenanceOptions,
 
   // Migration
   MigrationLink,
@@ -69,25 +68,16 @@ export type {
   Session,
   MemoryFacade,
   SystemFacade,
+  SystemMemoryFacade,
   Hookable,
   HookContext,
   EnqueueOptions,
-
-  // Services
-  ServiceMap,
-  ServiceHandler,
-  ServiceContext,
-  ServiceReturn,
-  PatchHelpers,
 
   // Plugins
   AppPlugin,
 
   // Hook Events
   AppHooks,
-
-  // System Runtime
-  SystemRuntimeState,
 
   // Memory Provider
   MemoryProvider,
@@ -101,7 +91,6 @@ export type {
 
   // v2.0.0 Types
   AppConfig,
-  LegacyAppConfig,
   AppRef,
   Proposal,
   ProposalResult,
@@ -160,9 +149,7 @@ export {
   // Hook
   HookMutationError,
 
-  // Service
-  MissingServiceError,
-  DynamicEffectTypeError,
+  // Effects
   ReservedEffectTypeError,
 
   // System
@@ -181,7 +168,6 @@ export {
   // Other
   ReservedNamespaceError,
   MissingDefaultActorError,
-  ForkMigrationError,
   DomainCompileError,
   PluginInitError,
 } from "./errors/index.js";
@@ -193,30 +179,16 @@ export {
 export { createApp } from "./create-app.js";
 
 // =============================================================================
-// World Events (App-owned)
+// Schema Utilities
 // =============================================================================
 
-export {
-  WorldEventHub,
-  createWorldEventHub,
-} from "./storage/world-events/index.js";
-export type {
-  ScheduleContext,
-  WorldEventHandler,
-  ScheduledActionHandler,
-  WorldEventSource,
-} from "./storage/world-events/index.js";
+export { withPlatformNamespaces } from "./core/schema/index.js";
 
 // =============================================================================
-// Services
+// State Utilities
 // =============================================================================
 
-export {
-  ServiceRegistry,
-  createServiceRegistry,
-  createServiceContext,
-  createPatchHelpers,
-} from "./runtime/services/index.js";
+export { normalizeSnapshot } from "./core/state/index.js";
 
 // =============================================================================
 // Memory
@@ -322,7 +294,7 @@ export type {
 // Schema Compatibility
 export {
   validateSchemaCompatibility,
-  validateSchemaCompatibilityWithHost,
+  validateSchemaCompatibilityWithEffects,
   extractEffectTypes,
   SchemaIncompatibleError,
 } from "./storage/branch/index.js";

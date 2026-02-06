@@ -1,7 +1,7 @@
 /**
  * Runtime Module
  *
- * Runtime services: system, memory, services, session, policy, subscription.
+ * Runtime services: system, memory, session, policy, subscription.
  *
  * @module
  */
@@ -11,9 +11,6 @@ export * from "./system/index.js";
 
 // Memory
 export * from "./memory/index.js";
-
-// Services
-export * from "./services/index.js";
 
 // Session
 export * from "./session/index.js";

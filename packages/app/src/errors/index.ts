@@ -191,38 +191,6 @@ export class HookMutationError extends ManifestoAppError {
   }
 }
 
-// =============================================================================
-// Service Errors
-// =============================================================================
-
-/**
- * Thrown when an effect handler is not found.
- *
- * @see SPEC §13.3 SVC-1, SVC-3
- */
-export class MissingServiceError extends ManifestoAppError {
-  readonly code = "MISSING_SERVICE" as const;
-
-  constructor(public readonly effectType: string) {
-    super(`No service handler registered for effect type '${effectType}'`);
-  }
-}
-
-/**
- * Thrown in strict mode when a dynamic effect type is encountered.
- *
- * @see SPEC §13.3 SVC-5
- */
-export class DynamicEffectTypeError extends ManifestoAppError {
-  readonly code = "DYNAMIC_EFFECT" as const;
-
-  constructor(public readonly effectType: string) {
-    super(
-      `Dynamic effect type '${effectType}' is not allowed in strict validation mode`
-    );
-  }
-}
-
 /**
  * Thrown when attempting to register a handler for a reserved effect type.
  *
@@ -233,7 +201,7 @@ export class ReservedEffectTypeError extends ManifestoAppError {
 
   constructor(public readonly effectType: string) {
     super(
-      `Effect type '${effectType}' is reserved and cannot be overridden in services`
+      `Effect type '${effectType}' is reserved and cannot be overridden`
     );
   }
 }
@@ -390,26 +358,6 @@ export class MissingDefaultActorError extends ManifestoAppError {
   constructor() {
     super(
       "ActorPolicy mode is 'require' but no defaultActor was provided in options"
-    );
-  }
-}
-
-/**
- * Thrown when fork migration fails.
- *
- * @see SPEC §9.5 FORK-3
- */
-export class ForkMigrationError extends ManifestoAppError {
-  readonly code = "FORK_MIGRATION" as const;
-
-  constructor(
-    public readonly fromSchemaHash: string,
-    public readonly toSchemaHash: string,
-    opts?: { cause?: unknown }
-  ) {
-    super(
-      `Migration from schema '${fromSchemaHash}' to '${toSchemaHash}' failed`,
-      opts
     );
   }
 }

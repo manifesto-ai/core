@@ -157,7 +157,7 @@ export class SchemaManagerImpl implements SchemaManager {
           throw new DomainCompileError("MEL compilation produced no schema");
         }
 
-        this._domainSchema = ensurePlatformNamespaces(result.schema as DomainSchema);
+        this._domainSchema = withPlatformNamespaces(result.schema as DomainSchema);
       } catch (error) {
         if (error instanceof DomainCompileError) {
           throw error;
@@ -168,7 +168,7 @@ export class SchemaManagerImpl implements SchemaManager {
         );
       }
     } else {
-      this._domainSchema = ensurePlatformNamespaces(this._domain);
+      this._domainSchema = withPlatformNamespaces(this._domain);
     }
   }
 
@@ -213,11 +213,11 @@ export class SchemaManagerImpl implements SchemaManager {
 // Platform Namespace Injection
 // =============================================================================
 
-function ensurePlatformNamespaces(schema: DomainSchema): DomainSchema {
+export function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
   const fields = { ...schema.state.fields };
   let changed = false;
 
-  const ensureNamespace = (
+  const ensureObjectField = (
     name: "$host" | "$mel",
     defaultValue: Record<string, unknown>
   ): void => {
@@ -244,8 +244,132 @@ function ensurePlatformNamespaces(schema: DomainSchema): DomainSchema {
     }
   };
 
-  ensureNamespace("$host", {});
-  ensureNamespace("$mel", { guards: { intent: {} } });
+  const ensureMelGuardsField = (): void => {
+    const existing = fields.$mel;
+    const melDefault = { guards: { intent: {} } };
+
+    if (!existing) {
+      fields.$mel = {
+        type: "object",
+        required: false,
+        default: melDefault,
+        fields: {
+          guards: {
+            type: "object",
+            required: false,
+            default: { intent: {} },
+            fields: {
+              intent: {
+                type: "object",
+                required: false,
+                default: {},
+              },
+            },
+          },
+        },
+      };
+      changed = true;
+      return;
+    }
+
+    if (existing.type !== "object") {
+      throw new DomainCompileError(
+        "Reserved namespace '$mel' must be an object field"
+      );
+    }
+
+    let nextMel = existing;
+    if (existing.default === undefined) {
+      nextMel = { ...nextMel, default: melDefault };
+      changed = true;
+    }
+
+    const melFields = nextMel.fields ?? {};
+    const guardsField = melFields.guards;
+
+    if (!guardsField) {
+      nextMel = {
+        ...nextMel,
+        fields: {
+          ...melFields,
+          guards: {
+            type: "object",
+            required: false,
+            default: { intent: {} },
+            fields: {
+              intent: {
+                type: "object",
+                required: false,
+                default: {},
+              },
+            },
+          },
+        },
+      };
+      changed = true;
+    } else {
+      if (guardsField.type !== "object") {
+        throw new DomainCompileError(
+          "Reserved namespace '$mel.guards' must be an object field"
+        );
+      }
+
+      let nextGuards = guardsField;
+      if (guardsField.default === undefined) {
+        nextGuards = { ...nextGuards, default: { intent: {} } };
+        changed = true;
+      }
+
+      const guardFields = nextGuards.fields ?? {};
+      const intentField = guardFields.intent;
+
+      if (!intentField) {
+        nextGuards = {
+          ...nextGuards,
+          fields: {
+            ...guardFields,
+            intent: {
+              type: "object",
+              required: false,
+              default: {},
+            },
+          },
+        };
+        changed = true;
+      } else if (intentField.type !== "object") {
+        throw new DomainCompileError(
+          "Reserved namespace '$mel.guards.intent' must be an object field"
+        );
+      } else if (intentField.default === undefined) {
+        nextGuards = {
+          ...nextGuards,
+          fields: {
+            ...guardFields,
+            intent: { ...intentField, default: {} },
+          },
+        };
+        changed = true;
+      }
+
+      if (nextGuards !== guardsField) {
+        nextMel = {
+          ...nextMel,
+          fields: {
+            ...melFields,
+            guards: nextGuards,
+          },
+        };
+      }
+    }
+
+    if (nextMel !== existing) {
+      fields.$mel = nextMel;
+      changed = true;
+    }
+  };
+
+  ensureObjectField("$host", {});
+  ensureMelGuardsField();
 
   if (!changed) {
     return schema;
