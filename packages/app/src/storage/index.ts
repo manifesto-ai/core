@@ -14,6 +14,3 @@ export * from "./world/index.js";
 
 // World Store
 export * from "./world-store/index.js";
-
-// World Events
-export * from "./world-events/index.js";

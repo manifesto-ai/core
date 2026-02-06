@@ -11,31 +11,7 @@
  * @see SPEC Appendix A.4
  */
 export const SYSTEM_ACTION_TYPES = [
-  // Actor Management
-  "system.actor.register",
-  "system.actor.disable",
-  "system.actor.updateMeta",
-  "system.actor.bindAuthority",
-
-  // Branch Management
-  "system.branch.create",
-  "system.branch.checkout",
-  "system.schema.migrate",
-
-  // Services Management
-  "system.service.register",
-  "system.service.unregister",
-  "system.service.replace",
-
-  // Memory Operations
-  "system.memory.configure",
-  "system.memory.backfill",
   "system.memory.maintain",
-
-  // Workflow
-  "system.workflow.enable",
-  "system.workflow.disable",
-  "system.workflow.setPolicy",
 ] as const;
 
 /**

@@ -18,8 +18,6 @@ import {
   ActionNotFoundError,
   HandleDetachedError,
   HookMutationError,
-  MissingServiceError,
-  DynamicEffectTypeError,
   ReservedEffectTypeError,
   SystemActionDisabledError,
   SystemActionRoutingError,
@@ -30,7 +28,6 @@ import {
   WorldNotInLineageError,
   ReservedNamespaceError,
   MissingDefaultActorError,
-  ForkMigrationError,
   DomainCompileError,
   PluginInitError,
 
@@ -110,19 +107,6 @@ describe("Package Scaffold", () => {
       expect(error.message).toContain("enqueue");
     });
 
-    it("should create MissingServiceError with correct code", () => {
-      const error = new MissingServiceError("http.fetch");
-      expect(error).toBeInstanceOf(ManifestoAppError);
-      expect(error.code).toBe("MISSING_SERVICE");
-      expect(error.effectType).toBe("http.fetch");
-    });
-
-    it("should create DynamicEffectTypeError with correct code", () => {
-      const error = new DynamicEffectTypeError("dynamic.effect");
-      expect(error).toBeInstanceOf(ManifestoAppError);
-      expect(error.code).toBe("DYNAMIC_EFFECT");
-    });
-
     it("should create ReservedEffectTypeError with correct code", () => {
       const error = new ReservedEffectTypeError("system.get");
       expect(error).toBeInstanceOf(ManifestoAppError);
@@ -130,13 +114,13 @@ describe("Package Scaffold", () => {
     });
 
     it("should create SystemActionDisabledError with correct code", () => {
-      const error = new SystemActionDisabledError("system.actor.register");
+      const error = new SystemActionDisabledError("system.memory.maintain");
       expect(error).toBeInstanceOf(ManifestoAppError);
       expect(error.code).toBe("SYSTEM_ACTION_DISABLED");
     });
 
     it("should create SystemActionRoutingError with correct code", () => {
-      const error = new SystemActionRoutingError("system.actor.register", "session");
+      const error = new SystemActionRoutingError("system.memory.maintain", "session");
       expect(error).toBeInstanceOf(ManifestoAppError);
       expect(error.code).toBe("SYSTEM_ACTION_ROUTING");
       expect(error.source).toBe("session");
@@ -184,12 +168,6 @@ describe("Package Scaffold", () => {
       expect(error.code).toBe("MISSING_ACTOR");
     });
 
-    it("should create ForkMigrationError with correct code", () => {
-      const error = new ForkMigrationError("hash-a", "hash-b");
-      expect(error).toBeInstanceOf(ManifestoAppError);
-      expect(error.code).toBe("FORK_MIGRATION");
-    });
-
     it("should create DomainCompileError with correct code", () => {
       const error = new DomainCompileError("Syntax error at line 1");
       expect(error).toBeInstanceOf(ManifestoAppError);
@@ -208,9 +186,7 @@ describe("Package Scaffold", () => {
     it("should export SYSTEM_ACTION_TYPES", () => {
       expect(SYSTEM_ACTION_TYPES).toBeDefined();
       expect(Array.isArray(SYSTEM_ACTION_TYPES)).toBe(true);
-      expect(SYSTEM_ACTION_TYPES).toContain("system.actor.register");
-      expect(SYSTEM_ACTION_TYPES).toContain("system.branch.checkout");
-      expect(SYSTEM_ACTION_TYPES).toContain("system.memory.backfill");
+      expect(SYSTEM_ACTION_TYPES).toContain("system.memory.maintain");
     });
   });
 

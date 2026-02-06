@@ -10,7 +10,6 @@ import {
   AppNotReadyError,
   BranchNotFoundError,
   WorldNotInLineageError,
-  ForkMigrationError,
 } from "../errors/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { Branch } from "../core/types/index.js";

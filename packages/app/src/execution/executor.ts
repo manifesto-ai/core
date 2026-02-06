@@ -39,6 +39,7 @@ import {
   appStateToSnapshot,
   computePatches,
   computeSnapshotHash,
+  normalizeSnapshot,
 } from "./state-converter.js";
 
 // =============================================================================
@@ -310,6 +311,7 @@ export class AppExecutorImpl implements AppExecutor {
         // Fallback to current state if WorldStore fails
         baseSnapshot = appStateToSnapshot(getCurrentState());
       }
+      baseSnapshot = normalizeSnapshot(baseSnapshot);
 
       // Handle memory recall if requested
       if (opts?.recall) {

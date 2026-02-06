@@ -7,14 +7,15 @@
  * @module
  */
 
-import type { DomainSchema } from "@manifesto-ai/core";
+import type { DomainSchema, FieldSpec } from "@manifesto-ai/core";
+import type { SystemRuntimeState } from "../../core/types/index.js";
 import { SYSTEM_ACTION_TYPES } from "../../constants.js";
 
 /**
  * Create the System Runtime schema.
  *
  * The System Runtime has its own DomainSchema that defines
- * system.* actions for actor, branch, service, memory, and workflow management.
+ * system.* actions for App-level maintenance operations.
  *
  * @see SPEC §16.2 SYSRT-2
  */
@@ -43,20 +44,8 @@ export function createSystemSchema(): DomainSchema {
 /**
  * Create the state field definitions for System Runtime.
  */
-function createSystemStateFields(): Record<string, import("@manifesto-ai/core").FieldSpec> {
+function createSystemStateFields(): Record<string, FieldSpec> {
   return {
-    actors: { type: "object", required: false, default: {} },
-    services: { type: "object", required: false, default: {} },
-    memoryConfig: {
-      type: "object",
-      required: false,
-      default: {
-        providers: [],
-        defaultProvider: "",
-      },
-    },
-    workflows: { type: "object", required: false, default: {} },
-    branchPointers: { type: "object", required: false, default: {} },
     auditLog: { type: "array", required: false, default: [] },
   };
 }
@@ -66,16 +55,8 @@ function createSystemStateFields(): Record<string, import("@manifesto-ai/core").
  *
  * @see SPEC §16.3
  */
-export function createInitialSystemState(): import("../../core/types/index.js").SystemRuntimeState {
+export function createInitialSystemState(): SystemRuntimeState {
   return {
-    actors: {},
-    services: {},
-    memoryConfig: {
-      providers: [],
-      defaultProvider: "",
-    },
-    workflows: {},
-    branchPointers: {},
     auditLog: [],
   };
 }

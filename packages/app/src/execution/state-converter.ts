@@ -10,6 +10,7 @@
 import type { Snapshot, Patch } from "@manifesto-ai/core";
 import type { AppState, ErrorValue } from "../core/types/index.js";
 import { generateDelta } from "../storage/world-store/index.js";
+export { normalizeSnapshot } from "../core/state/index.js";
 
 // =============================================================================
 // Snapshot → AppState Conversion

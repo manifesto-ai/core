@@ -27,20 +27,6 @@ import { SYSTEM_ACTION_TYPES, type SystemActionType } from "../../constants.js";
  * System Runtime configuration.
  */
 export interface SystemRuntimeConfig {
-  /** Initial actors to register */
-  initialActors?: Array<{
-    actorId: string;
-    kind: "human" | "agent" | "system";
-    name?: string;
-    meta?: Record<string, unknown>;
-  }>;
-
-  /** Memory provider names (for initial config) */
-  memoryProviders?: string[];
-
-  /** Default memory provider */
-  defaultMemoryProvider?: string;
-
   /**
    * Memory facade for maintain operations.
    * @since v0.4.8
@@ -69,7 +55,6 @@ export class SystemRuntime {
   private _state: SystemRuntimeState;
   private _worldLineage: string[] = [];
   private _currentWorldId: string;
-  private _subscribers: Set<(state: SystemRuntimeState) => void> = new Set();
   private _memoryFacade?: MemoryFacade;
 
   constructor(config?: SystemRuntimeConfig) {
@@ -83,10 +68,8 @@ export class SystemRuntime {
     this._currentWorldId = this._generateWorldId();
     this._worldLineage.push(this._currentWorldId);
 
-    // Apply initial configuration
-    if (config) {
-      this._applyInitialConfig(config);
-      // Store memory facade for maintain operations (v0.4.8+)
+    // Store memory facade for maintain operations (v0.4.8+)
+    if (config?.memoryFacade) {
       this._memoryFacade = config.memoryFacade;
     }
   }
@@ -190,9 +173,6 @@ export class SystemRuntime {
       this._worldLineage.push(newWorldId);
       this._currentWorldId = newWorldId;
 
-      // Notify subscribers
-      this._notifySubscribers();
-
       // Return completed result
       return {
         status: "completed",
@@ -214,45 +194,9 @@ export class SystemRuntime {
     }
   }
 
-  /**
-   * Subscribe to state changes.
-   */
-  subscribe(listener: (state: SystemRuntimeState) => void): () => void {
-    this._subscribers.add(listener);
-    return () => {
-      this._subscribers.delete(listener);
-    };
-  }
-
   // ===========================================================================
   // Private Methods
   // ===========================================================================
-
-  /**
-   * Apply initial configuration.
-   */
-  private _applyInitialConfig(config: SystemRuntimeConfig): void {
-    // Register initial actors
-    if (config.initialActors) {
-      for (const actor of config.initialActors) {
-        this._state.actors[actor.actorId] = {
-          actorId: actor.actorId,
-          kind: actor.kind,
-          name: actor.name,
-          meta: actor.meta,
-          enabled: true,
-        };
-      }
-    }
-
-    // Set initial memory config
-    if (config.memoryProviders || config.defaultMemoryProvider) {
-      this._state.memoryConfig = {
-        providers: config.memoryProviders ?? [],
-        defaultProvider: config.defaultMemoryProvider ?? "",
-      };
-    }
-  }
 
   /**
    * Execute a system action and return state updates.
@@ -263,289 +207,16 @@ export class SystemRuntime {
     ctx: SystemExecutionContext
   ): Promise<Partial<SystemRuntimeState>> {
     switch (actionType) {
-      // Actor Management
-      case "system.actor.register":
-        return this._actorRegister(input, ctx);
-      case "system.actor.disable":
-        return this._actorDisable(input);
-      case "system.actor.updateMeta":
-        return this._actorUpdateMeta(input);
-      case "system.actor.bindAuthority":
-        return this._actorBindAuthority(input);
-
-      // Branch Management
-      case "system.branch.create":
-        return this._branchCreate(input, ctx);
-      case "system.branch.checkout":
-        return this._branchCheckout(input, ctx);
-      case "system.schema.migrate":
-        return this._schemaMigrate(input, ctx);
-
-      // Services Management
-      case "system.service.register":
-        return this._serviceRegister(input, ctx);
-      case "system.service.unregister":
-        return this._serviceUnregister(input);
-      case "system.service.replace":
-        return this._serviceReplace(input, ctx);
-
-      // Memory Operations
-      case "system.memory.configure":
-        return this._memoryConfigure(input);
-      case "system.memory.backfill":
-        return this._memoryBackfill(input);
       case "system.memory.maintain":
         return await this._memoryMaintain(input, ctx);
-
-      // Workflow
-      case "system.workflow.enable":
-        return this._workflowEnable(input);
-      case "system.workflow.disable":
-        return this._workflowDisable(input);
-      case "system.workflow.setPolicy":
-        return this._workflowSetPolicy(input);
-
       default:
         throw new Error(`Unknown system action: ${actionType}`);
     }
   }
 
   // ===========================================================================
-  // Actor Management Actions
+  // Memory Operations
   // ===========================================================================
-
-  private _actorRegister(
-    input: Record<string, unknown>,
-    ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
-    const actorId = input.actorId as string;
-    const kind = input.kind as "human" | "agent" | "system";
-    const name = input.name as string | undefined;
-    const meta = input.meta as Record<string, unknown> | undefined;
-
-    return {
-      actors: {
-        ...this._state.actors,
-        [actorId]: {
-          actorId,
-          kind,
-          name,
-          meta,
-          enabled: true,
-        },
-      },
-    };
-  }
-
-  private _actorDisable(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const actorId = input.actorId as string;
-    const actor = this._state.actors[actorId];
-
-    if (!actor) {
-      throw new Error(`Actor '${actorId}' not found`);
-    }
-
-    return {
-      actors: {
-        ...this._state.actors,
-        [actorId]: {
-          ...actor,
-          enabled: false,
-        },
-      },
-    };
-  }
-
-  private _actorUpdateMeta(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const actorId = input.actorId as string;
-    const meta = input.meta as Record<string, unknown>;
-    const actor = this._state.actors[actorId];
-
-    if (!actor) {
-      throw new Error(`Actor '${actorId}' not found`);
-    }
-
-    return {
-      actors: {
-        ...this._state.actors,
-        [actorId]: {
-          ...actor,
-          meta: { ...actor.meta, ...meta },
-        },
-      },
-    };
-  }
-
-  private _actorBindAuthority(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const actorId = input.actorId as string;
-    const authorityIds = input.authorityIds as string[];
-    const actor = this._state.actors[actorId];
-
-    if (!actor) {
-      throw new Error(`Actor '${actorId}' not found`);
-    }
-
-    return {
-      actors: {
-        ...this._state.actors,
-        [actorId]: {
-          ...actor,
-          authorityBindings: authorityIds,
-        },
-      },
-    };
-  }
-
-  // ===========================================================================
-  // Branch Management Actions
-  // ===========================================================================
-
-  private _branchCreate(
-    input: Record<string, unknown>,
-    ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
-    const branchId = input.branchId as string;
-    const fromWorldId = (input.fromWorldId as string) ?? this._currentWorldId;
-
-    return {
-      branchPointers: {
-        ...this._state.branchPointers,
-        [branchId]: {
-          branchId,
-          headWorldId: fromWorldId,
-          updatedAt: ctx.timestamp,
-          updatedBy: ctx.actorId,
-        },
-      },
-    };
-  }
-
-  private _branchCheckout(
-    input: Record<string, unknown>,
-    ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
-    const branchId = input.branchId as string;
-    const worldId = input.worldId as string;
-
-    const branch = this._state.branchPointers[branchId];
-    if (!branch) {
-      throw new Error(`Branch '${branchId}' not found`);
-    }
-
-    return {
-      branchPointers: {
-        ...this._state.branchPointers,
-        [branchId]: {
-          ...branch,
-          headWorldId: worldId,
-          updatedAt: ctx.timestamp,
-          updatedBy: ctx.actorId,
-        },
-      },
-    };
-  }
-
-  private _schemaMigrate(
-    input: Record<string, unknown>,
-    _ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
-    // Schema migration is recorded in audit log
-    // Actual migration happens in Domain Runtime
-    return {};
-  }
-
-  // ===========================================================================
-  // Services Management Actions
-  // ===========================================================================
-
-  private _serviceRegister(
-    input: Record<string, unknown>,
-    ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
-    const effectType = input.effectType as string;
-    const handlerRef = input.handlerRef as string;
-
-    return {
-      services: {
-        ...this._state.services,
-        [effectType]: {
-          effectType,
-          handlerRef,
-          registeredAt: ctx.timestamp,
-          registeredBy: ctx.actorId,
-        },
-      },
-    };
-  }
-
-  private _serviceUnregister(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const effectType = input.effectType as string;
-    const { [effectType]: _, ...rest } = this._state.services;
-
-    return {
-      services: rest,
-    };
-  }
-
-  private _serviceReplace(
-    input: Record<string, unknown>,
-    ctx: SystemExecutionContext
-  ): Partial<SystemRuntimeState> {
-    const effectType = input.effectType as string;
-    const handlerRef = input.handlerRef as string;
-
-    return {
-      services: {
-        ...this._state.services,
-        [effectType]: {
-          effectType,
-          handlerRef,
-          registeredAt: ctx.timestamp,
-          registeredBy: ctx.actorId,
-        },
-      },
-    };
-  }
-
-  // ===========================================================================
-  // Memory Operations Actions
-  // ===========================================================================
-
-  private _memoryConfigure(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const providers = input.providers as string[] | undefined;
-    const defaultProvider = input.defaultProvider as string | undefined;
-    const routing = input.routing;
-    const backfill = input.backfill;
-
-    return {
-      memoryConfig: {
-        providers: providers ?? this._state.memoryConfig.providers,
-        defaultProvider:
-          defaultProvider ?? this._state.memoryConfig.defaultProvider,
-        routing: routing ?? this._state.memoryConfig.routing,
-        backfill: backfill ?? this._state.memoryConfig.backfill,
-      },
-    };
-  }
-
-  private _memoryBackfill(
-    _input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    // Backfill is a side-effectful operation
-    // The actual backfill happens through Memory Hub
-    // This just records the intent in audit log
-    return {};
-  }
 
   /**
    * Execute memory maintenance (forget) operations.
@@ -627,70 +298,6 @@ export class SystemRuntime {
   }
 
   // ===========================================================================
-  // Workflow Actions
-  // ===========================================================================
-
-  private _workflowEnable(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const workflowId = input.workflowId as string;
-
-    const existing = this._state.workflows[workflowId];
-
-    return {
-      workflows: {
-        ...this._state.workflows,
-        [workflowId]: {
-          workflowId,
-          enabled: true,
-          policy: existing?.policy,
-        },
-      },
-    };
-  }
-
-  private _workflowDisable(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const workflowId = input.workflowId as string;
-
-    const existing = this._state.workflows[workflowId];
-    if (!existing) {
-      throw new Error(`Workflow '${workflowId}' not found`);
-    }
-
-    return {
-      workflows: {
-        ...this._state.workflows,
-        [workflowId]: {
-          ...existing,
-          enabled: false,
-        },
-      },
-    };
-  }
-
-  private _workflowSetPolicy(
-    input: Record<string, unknown>
-  ): Partial<SystemRuntimeState> {
-    const workflowId = input.workflowId as string;
-    const policy = input.policy;
-
-    const existing = this._state.workflows[workflowId];
-
-    return {
-      workflows: {
-        ...this._state.workflows,
-        [workflowId]: {
-          workflowId,
-          enabled: existing?.enabled ?? true,
-          policy,
-        },
-      },
-    };
-  }
-
-  // ===========================================================================
   // Helper Methods
   // ===========================================================================
 
@@ -725,38 +332,8 @@ export class SystemRuntime {
     input: Record<string, unknown>
   ): string {
     switch (actionType) {
-      case "system.actor.register":
-        return `Registered actor '${input.actorId}' (${input.kind})`;
-      case "system.actor.disable":
-        return `Disabled actor '${input.actorId}'`;
-      case "system.actor.updateMeta":
-        return `Updated meta for actor '${input.actorId}'`;
-      case "system.actor.bindAuthority":
-        return `Bound authorities to actor '${input.actorId}'`;
-      case "system.branch.create":
-        return `Created branch '${input.branchId}'`;
-      case "system.branch.checkout":
-        return `Checked out branch '${input.branchId}' to world '${input.worldId}'`;
-      case "system.schema.migrate":
-        return `Migrated schema from '${input.fromSchemaHash}' to '${input.toSchemaHash}'`;
-      case "system.service.register":
-        return `Registered service for '${input.effectType}'`;
-      case "system.service.unregister":
-        return `Unregistered service for '${input.effectType}'`;
-      case "system.service.replace":
-        return `Replaced service for '${input.effectType}'`;
-      case "system.memory.configure":
-        return `Configured memory settings`;
-      case "system.memory.backfill":
-        return `Backfilled memory for world '${input.worldId}'`;
       case "system.memory.maintain":
         return `Maintained memory (${(input.ops as unknown[])?.length ?? 0} ops)`;
-      case "system.workflow.enable":
-        return `Enabled workflow '${input.workflowId}'`;
-      case "system.workflow.disable":
-        return `Disabled workflow '${input.workflowId}'`;
-      case "system.workflow.setPolicy":
-        return `Set policy for workflow '${input.workflowId}'`;
       default:
         return `Executed ${actionType}`;
     }
@@ -793,16 +370,4 @@ export class SystemRuntime {
     };
   }
 
-  /**
-   * Notify all subscribers of state change.
-   */
-  private _notifySubscribers(): void {
-    for (const listener of this._subscribers) {
-      try {
-        listener(this._state);
-      } catch {
-        // Ignore subscriber errors
-      }
-    }
-  }
 }

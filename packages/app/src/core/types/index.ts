@@ -16,7 +16,6 @@ import type { Effects } from "./effects.js";
 import type {
   ActorRef,
   AuthorityPolicy,
-  ManifestoWorld,
   World,
   WorldId,
 } from "@manifesto-ai/world";
@@ -399,6 +398,19 @@ export interface PolicyService {
 }
 
 // =============================================================================
+// v2.3.0 World Wrapper
+// =============================================================================
+
+/**
+ * ManifestoWorld wrapper for App integration.
+ *
+ * World owns persistence per ADR-003; App consumes its WorldStore.
+ */
+export type ManifestoWorld = {
+  readonly store: WorldStore;
+};
+
+// =============================================================================
 // v2.0.0 AppConfig
 // =============================================================================
 
@@ -533,7 +545,7 @@ export type AppConfig = {
   /** Memory provider for execution integration */
   readonly memoryProvider?: MemoryProvider;
 
-  /** Memory hub configuration (from CreateAppOptions) */
+  /** Memory hub configuration */
   readonly memory?: false | MemoryHubConfig;
 
   // ─────────────────────────────────────────
@@ -586,36 +598,6 @@ export type AppConfig = {
   readonly devtools?: DevtoolsConfig;
 };
 
-/**
- * Legacy v2.0.0 App Configuration (deprecated).
- *
- * @deprecated Use AppConfig (v2.2.0) with `effects` instead of `host`/`services`.
- * This type will be removed in v3.0.0.
- */
-export type LegacyAppConfig = {
-  readonly schema: DomainSchema | string;
-  readonly host: Host;
-  readonly worldStore: WorldStore;
-  readonly policyService?: PolicyService;
-  readonly executionKeyPolicy?: ExecutionKeyPolicy;
-  readonly memoryStore?: MemoryStore;
-  readonly memoryProvider?: MemoryProvider;
-  readonly compiler?: Compiler;
-  readonly services?: ServiceMap;
-  readonly plugins?: readonly AppPlugin[];
-  readonly hooks?: Partial<AppHooks>;
-  readonly validation?: {
-    readonly services?: "strict" | "warn" | "off";
-  };
-  readonly initialData?: unknown;
-  readonly actorPolicy?: ActorPolicyConfig;
-  readonly scheduler?: SchedulerConfig;
-  readonly systemActions?: SystemActionsConfig;
-  readonly devtools?: DevtoolsConfig;
-
-  // Optional: Memory (from CreateAppOptions)
-  readonly memory?: false | MemoryHubConfig;
-};
 
 // =============================================================================
 // v2.0.0 AppRef (Read-only facade for hooks)
@@ -974,28 +956,6 @@ export interface ActorPolicyConfig {
 }
 
 /**
- * Validation configuration.
- *
- * @see SPEC §5.4
- */
-export interface ValidationConfig {
-  /**
-   * Services validation mode.
-   * - 'lazy': Validate at execution time
-   * - 'strict': Validate at ready/fork time
-   *
-   * @default 'lazy'
-   */
-  services?: "lazy" | "strict";
-
-  /**
-   * Policy for dynamic effect types in strict mode.
-   * @default 'warn'
-   */
-  dynamicEffectPolicy?: "warn" | "error";
-}
-
-/**
  * System Actions configuration.
  *
  * @see SPEC §5.5
@@ -1057,60 +1017,6 @@ export interface DevtoolsConfig {
   name?: string;
 }
 
-/**
- * App creation options (legacy v0.4.x API).
- *
- * @see SPEC §5.2
- * @deprecated Use AppConfig for v2.0.0 API
- */
-export interface CreateAppOptions {
-  /** Initial data for genesis snapshot */
-  initialData?: unknown;
-
-  /** Effect handler mappings */
-  services?: ServiceMap;
-
-  /** Memory configuration */
-  memory?: false | MemoryHubConfig;
-
-  /** Plugin array */
-  plugins?: readonly AppPlugin[];
-
-  /** Pre-configured hooks */
-  hooks?: Partial<AppHooks>;
-
-  /** Validation settings */
-  validation?: ValidationConfig;
-
-  /** Actor policy */
-  actorPolicy?: ActorPolicyConfig;
-
-  /** System Action settings */
-  systemActions?: SystemActionsConfig;
-
-  /** Scheduler configuration */
-  scheduler?: SchedulerConfig;
-
-  /** Development tools */
-  devtools?: DevtoolsConfig;
-
-  /**
-   * Internal config (set by createApp when using AppConfig).
-   * @internal
-   */
-  _internalConfig?: InternalConfig;
-}
-
-/**
- * Internal configuration with implementation details.
- * Includes worldStore extracted from World for internal use.
- *
- * @internal
- */
-export type InternalConfig = AppConfig & {
-  /** @internal WorldStore extracted from World.store */
-  readonly worldStore: WorldStore;
-};
 
 /**
  * Dispose options.
@@ -1178,24 +1084,17 @@ export interface ActOptions {
  * @see SPEC §9.3
  */
 export interface ForkOptions {
+  /** Fork point (default: current head) */
+  from?: WorldId;
+
+  /** Branch name */
   name?: string;
 
   /** New domain triggers new Runtime creation */
   domain?: MelText | DomainSchema;
 
-  /** Services for new Runtime */
-  services?: ServiceMap;
-
-  /** Migration strategy for schema changes */
-  migrate?: "auto" | MigrationFn;
-
   /** Switch to new branch after fork. @default true */
   switchTo?: boolean;
-
-  /** Migration metadata */
-  migrationMeta?: {
-    reason?: string;
-  };
 }
 
 /**
@@ -1605,6 +1504,16 @@ export interface MemoryMaintenanceInput {
 }
 
 /**
+ * Options for system.memory.maintain facade.
+ *
+ * @see SPEC §15.2
+ */
+export interface MemoryMaintenanceOptions {
+  readonly operations: readonly MemoryMaintenanceOp[];
+  readonly actorId?: ActorId;
+}
+
+/**
  * Output for system.memory.maintain action.
  *
  * @see SPEC §17.5
@@ -1629,67 +1538,6 @@ export interface MemoryHygieneTrace {
   readonly results: readonly MemoryMaintenanceResult[];
   readonly durationMs: number;
 }
-
-// =============================================================================
-// Service Types
-// =============================================================================
-
-/**
- * Patch helpers for service handlers.
- *
- * @see SPEC §13.2
- */
-export interface PatchHelpers {
-  set(path: string, value: unknown): Patch;
-  merge(path: string, value: Record<string, unknown>): Patch;
-  unset(path: string): Patch;
-  many(...patches: readonly (Patch | readonly Patch[])[]): Patch[];
-  from(record: Record<string, unknown>, opts?: { basePath?: string }): Patch[];
-}
-
-/**
- * Service handler context.
- *
- * @see SPEC §13.1
- */
-export interface ServiceContext {
-  snapshot: Readonly<AppState<unknown>>;
-  actorId: string;
-  worldId: string;
-  branchId: string;
-  patch: PatchHelpers;
-
-  /** AbortSignal (best-effort; handler MAY ignore) */
-  signal: AbortSignal;
-}
-
-/**
- * Service handler return type.
- *
- * @see SPEC §13.1
- */
-export type ServiceReturn =
-  | void
-  | Patch
-  | readonly Patch[]
-  | { patches: readonly Patch[] };
-
-/**
- * Service handler function.
- *
- * @see SPEC §13.1
- */
-export type ServiceHandler = (
-  params: Record<string, unknown>,
-  ctx: ServiceContext
-) => ServiceReturn | Promise<ServiceReturn>;
-
-/**
- * Service map.
- *
- * @see SPEC §13.1
- */
-export type ServiceMap = Record<string, ServiceHandler>;
 
 // =============================================================================
 // Plugin Type
@@ -1915,59 +1763,6 @@ export interface AppHooks {
  * @see SPEC §16.3
  */
 export interface SystemRuntimeState {
-  /** Registered actors */
-  actors: Record<
-    string,
-    {
-      actorId: string;
-      kind: "human" | "agent" | "system";
-      name?: string;
-      meta?: Record<string, unknown>;
-      enabled: boolean;
-      authorityBindings?: string[];
-    }
-  >;
-
-  /** Registered services */
-  services: Record<
-    string,
-    {
-      effectType: string;
-      handlerRef: string;
-      registeredAt: number;
-      registeredBy: string;
-    }
-  >;
-
-  /** Memory configuration */
-  memoryConfig: {
-    providers: string[];
-    defaultProvider: string;
-    routing?: unknown;
-    backfill?: unknown;
-  };
-
-  /** Workflow states */
-  workflows: Record<
-    string,
-    {
-      workflowId: string;
-      enabled: boolean;
-      policy?: unknown;
-    }
-  >;
-
-  /** Branch pointers (for audit, not actual state) */
-  branchPointers: Record<
-    string,
-    {
-      branchId: string;
-      headWorldId: string;
-      updatedAt: number;
-      updatedBy: string;
-    }
-  >;
-
   /** Audit log entries */
   auditLog: Array<{
     timestamp: number;
@@ -2094,26 +1889,23 @@ export interface MemoryFacade {
  *
  * @see SPEC §16.5
  */
+export interface SystemMemoryFacade {
+  /**
+   * Run memory maintenance (forget-only).
+   */
+  maintain(opts: MemoryMaintenanceOptions): ActionHandle;
+}
+
 export interface SystemFacade {
   /**
-   * Get current System Runtime state.
+   * Execute a system action.
    */
-  getState(): SystemRuntimeState;
+  act(type: `system.${string}`, input?: unknown): ActionHandle;
 
   /**
-   * Get System Runtime's current head worldId.
+   * Memory maintenance operations.
    */
-  head(): string;
-
-  /**
-   * Get System Runtime's worldline (audit trail).
-   */
-  lineage(opts?: LineageOptions): readonly string[];
-
-  /**
-   * Subscribe to System Runtime state changes.
-   */
-  subscribe(listener: (state: SystemRuntimeState) => void): Unsubscribe;
+  readonly memory: SystemMemoryFacade;
 }
 
 /**

@@ -47,7 +47,7 @@ describe("App Lifecycle", () => {
     it("should accept options", () => {
       const app = createTestApp(mockDomainSchema, {
         initialData: { todos: [] },
-        services: {},
+        effects: {},
       });
       expect(app.status).toBe("created");
     });

@@ -14,10 +14,7 @@ import type {
   ForkOptions,
 } from "../../core/types/index.js";
 
-import {
-  BranchNotFoundError,
-  ForkMigrationError,
-} from "../../errors/index.js";
+import { BranchNotFoundError } from "../../errors/index.js";
 
 import {
   BranchImpl,
@@ -136,17 +133,13 @@ export class BranchManager {
     const parentSchemaHash = parentBranch.schemaHash;
     let branchSchemaHash = parentSchemaHash;
 
-    // FORK-1: Schema migration check
+    // FORK-1: Schema-changing fork
     if (opts?.domain) {
       // If new domain is provided, need migration
       const newSchemaHash =
         typeof opts.domain === "string"
           ? "pending-compile" // MEL text needs compilation
           : opts.domain.hash;
-
-      if (newSchemaHash !== parentSchemaHash && !opts.migrate) {
-        throw new ForkMigrationError(parentSchemaHash, newSchemaHash);
-      }
 
       branchSchemaHash = newSchemaHash;
 
@@ -164,7 +157,7 @@ export class BranchManager {
 
     // Create new branch
     const newBranchId = generateBranchId();
-    const forkWorldId = generateWorldId();
+    const forkWorldId = opts?.from ?? parentBranch.head();
 
     const newBranch = new BranchImpl(
       newBranchId,

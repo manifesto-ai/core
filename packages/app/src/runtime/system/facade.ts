@@ -1,74 +1,57 @@
 /**
  * System Facade Implementation
  *
- * Provides read-only access to System Runtime state.
+ * Provides access to system actions and memory maintenance.
  *
- * @see SPEC §16.5
+ * @see SPEC §15.2
  * @module
  */
 
 import type {
+  ActOptions,
+  ActionHandle,
+  MemoryMaintenanceOptions,
   SystemFacade,
-  SystemRuntimeState,
-  LineageOptions,
-  Unsubscribe,
+  SystemMemoryFacade,
 } from "../../core/types/index.js";
-import type { SystemRuntime } from "./runtime.js";
 
-/**
- * System Facade implementation.
- *
- * Wraps SystemRuntime to provide read-only access to system state.
- *
- * @see SPEC §16.5 SYSRT-8
- */
+export interface SystemFacadeDeps {
+  act: (type: string, input?: unknown, opts?: ActOptions) => ActionHandle;
+}
+
+class SystemMemoryFacadeImpl implements SystemMemoryFacade {
+  private readonly _act: SystemFacadeDeps["act"];
+
+  constructor(act: SystemFacadeDeps["act"]) {
+    this._act = act;
+  }
+
+  maintain(opts: MemoryMaintenanceOptions): ActionHandle {
+    return this._act(
+      "system.memory.maintain",
+      { ops: opts.operations },
+      { actorId: opts.actorId }
+    );
+  }
+}
+
 export class SystemFacadeImpl implements SystemFacade {
-  private readonly _runtime: SystemRuntime;
+  readonly memory: SystemMemoryFacade;
+  private readonly _act: SystemFacadeDeps["act"];
 
-  constructor(runtime: SystemRuntime) {
-    this._runtime = runtime;
+  constructor(deps: SystemFacadeDeps) {
+    this._act = deps.act;
+    this.memory = new SystemMemoryFacadeImpl(this._act);
   }
 
-  /**
-   * Get current System Runtime state.
-   *
-   * @see SPEC §16.5
-   */
-  getState(): SystemRuntimeState {
-    return this._runtime.getState();
-  }
-
-  /**
-   * Get System Runtime's current head worldId.
-   *
-   * @see SPEC §16.5
-   */
-  head(): string {
-    return this._runtime.head();
-  }
-
-  /**
-   * Get System Runtime's worldline (audit trail).
-   *
-   * @see SPEC §16.5
-   */
-  lineage(opts?: LineageOptions): readonly string[] {
-    return this._runtime.lineage(opts);
-  }
-
-  /**
-   * Subscribe to System Runtime state changes.
-   *
-   * @see SPEC §16.5
-   */
-  subscribe(listener: (state: SystemRuntimeState) => void): Unsubscribe {
-    return this._runtime.subscribe(listener);
+  act(type: `system.${string}`, input?: unknown): ActionHandle {
+    return this._act(type, input);
   }
 }
 
 /**
  * Create a System Facade.
  */
-export function createSystemFacade(runtime: SystemRuntime): SystemFacade {
-  return new SystemFacadeImpl(runtime);
+export function createSystemFacade(deps: SystemFacadeDeps): SystemFacade {
+  return new SystemFacadeImpl(deps);
 }
