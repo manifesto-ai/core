@@ -68,6 +68,16 @@ const app = createApp({
 async function main() {
   await app.ready();
 
+  // Genesis defaults applied — verify initial state
+  const initial = app.getState();
+  console.log("Initial state:");
+  console.log("  status:", initial.data.status);
+  console.log("  user:", initial.data.user);
+  console.log("  error:", initial.data.error);
+  // → status: "idle"
+  // → user: null
+  // → error: null
+
   // Success case
   console.log("--- Fetching user 123 (exists) ---");
   await app.act("fetchUser", { userId: "123" }).done();

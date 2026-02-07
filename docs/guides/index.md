@@ -153,25 +153,6 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 
 ---
 
-### [Vercel Web Analytics](./vercel-web-analytics)
-
-**Goal:** Set up Vercel Web Analytics to track visitors and page views in your application
-
-**What you'll learn:**
-- How to enable Web Analytics in your Vercel project
-- Installing and configuring the `@vercel/analytics` package
-- Framework-specific integration instructions
-- Deploying and verifying your analytics setup
-- Viewing analytics data in the Vercel dashboard
-
-**Prerequisites:** A Vercel account and project, Vercel CLI installed
-
-**Reading time:** 15 minutes
-
-**Start here if:** You want to add analytics tracking to your Vercel-deployed application.
-
----
-
 ### [AI Agent Integration](./ai-agent-integration)
 
 **Goal:** Integrate AI agents with Manifesto using the Translator pipeline

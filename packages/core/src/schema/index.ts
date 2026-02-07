@@ -23,6 +23,9 @@ export * from "./type-spec.js";
 // Snapshot types
 export * from "./snapshot.js";
 
+// Schema defaults extraction
+export * from "./defaults.js";
+
 // Patch and Intent types
 export * from "./patch.js";
 

@@ -287,14 +287,16 @@ describe("SPEC §7: State Model", () => {
       const app = createTestApp(createMockSchema(), { initialData });
       await app.ready();
 
-      expect(app.getState().data).toEqual(initialData);
+      // state.data includes initialData plus platform namespace defaults ($host, $mel)
+      expect(app.getState().data).toMatchObject(initialData);
     });
 
     it("INIT-2: Empty initialData defaults to empty object", async () => {
       const app = createTestApp(createMockSchema());
       await app.ready();
 
-      expect(app.getState().data).toEqual({});
+      // Platform namespace defaults ($host, $mel) are always present from schema
+      expect(app.getState().data).toMatchObject({});
     });
 
     it("INIT-3: initialData is deeply cloned", async () => {

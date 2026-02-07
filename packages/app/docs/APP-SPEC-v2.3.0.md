@@ -7,6 +7,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
+> - **v2.3.0 (2026-02-07):** READY-7 — Genesis snapshot applies schema field defaults (`schema defaults < config.initialData`)
 > - **v2.3.0 (2026-02-05):** World owns persistence (ADR-003) — `worldStore` removed from AppConfig; `world?: ManifestoWorld` added (optional, default: internal World with InMemoryWorldStore).
 > - **v2.2.0 (2026-02-05):** `createApp()` DX simplified — `effects` REQUIRED; `host`/`compiler` removed from public AppConfig; schema compatibility validates against `effects`.
 > - **v2.0.0 (2025-01-20):** Final polish — HookContext→AppRef (re-entrancy prevention), Tick terminology clarified (Proposal vs Mailbox), proposalId pre-allocation rule (HANDLE-9/10)
@@ -644,11 +645,12 @@ The `ready()` method MUST:
 2. Validate that DomainSchema contains no `system.*` action types
 3. Cache the resolved DomainSchema
 4. Emit `domain:resolved` hook
-5. Initialize Domain Runtime with user schema
-6. Initialize System Runtime with fixed system schema
-7. Validate effects if `validation.effects='strict'`
-8. Initialize plugins in order
-9. Emit `app:ready` hook
+5. Create genesis snapshot with schema field defaults applied (see READY-7)
+6. Initialize Domain Runtime with user schema
+7. Initialize System Runtime with fixed system schema
+8. Validate effects if `validation.effects='strict'`
+9. Initialize plugins in order
+10. Emit `app:ready` hook
 
 ### 7.3 Lifecycle Rules
 
@@ -663,6 +665,7 @@ The `ready()` method MUST:
 | READY-1a | EXCEPTION | `getDomainSchema()` is callable after schema resolved (before `ready()` resolves) |
 | READY-4 | MUST | If DomainSchema contains `system.*` action types, `ready()` MUST throw `ReservedNamespaceError` |
 | READY-6 | MUST | DomainSchema MUST be resolved and cached BEFORE plugins execute |
+| READY-7 | MUST | Genesis snapshot MUST include `DomainSchema.state.fields[*].default` values; `config.initialData` MUST take precedence over schema defaults |
 
 ---
 

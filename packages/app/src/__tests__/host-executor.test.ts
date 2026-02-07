@@ -33,7 +33,7 @@ function createHost(dispatchImpl: Host["dispatch"]): Host {
 describe("HostExecutor (FDR-APP-INTEGRATION-001)", () => {
   it("HEXEC-3: execute returns failed result when dispatch throws", async () => {
     const baseSnapshot = createBaseSnapshot();
-    const intent: Intent = { type: "test.noop", body: {}, intentId: "intent-1" };
+    const intent: Intent = { type: "test.noop", input: {}, intentId: "intent-1" };
 
     const host = createHost(async () => {
       throw new Error("boom");
@@ -58,7 +58,7 @@ describe("HostExecutor (FDR-APP-INTEGRATION-001)", () => {
         version: 1,
       },
     };
-    const intent: Intent = { type: "test.noop", body: {}, intentId: "intent-2" };
+    const intent: Intent = { type: "test.noop", input: {}, intentId: "intent-2" };
 
     const host = createHost(async (): Promise<HostResult> => {
       return { status: "complete", snapshot: terminalSnapshot };
@@ -75,7 +75,7 @@ describe("HostExecutor (FDR-APP-INTEGRATION-001)", () => {
 
   it("HEXEC-6: traceRef uses ArtifactRef when enabled", async () => {
     const baseSnapshot = createBaseSnapshot();
-    const intent: Intent = { type: "test.noop", body: {}, intentId: "intent-3" };
+    const intent: Intent = { type: "test.noop", input: {}, intentId: "intent-3" };
 
     const host = createHost(async (): Promise<HostResult> => {
       return { status: "complete", snapshot: baseSnapshot };

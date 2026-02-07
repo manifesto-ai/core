@@ -42,6 +42,9 @@ const app = createApp({
 async function main() {
   await app.ready();
 
+  console.log("Initial count:", app.getState().data.count);
+  // → Initial count: 0
+
   await app.act("increment").done();
   await app.act("increment").done();
   await app.act("increment").done();
