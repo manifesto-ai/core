@@ -101,14 +101,22 @@ function deepClone<T>(value: T): T {
 
 /**
  * Create initial AppState for genesis snapshot.
+ *
+ * When schemaDefaults is provided, its values serve as the base layer.
+ * initialData (if any) is spread on top, overriding matching keys.
  */
 export function createInitialAppState<T = unknown>(
   schemaHash: string,
-  initialData?: T
+  initialData?: T,
+  schemaDefaults?: Record<string, unknown>
 ): AppState<T> {
   const now = Date.now();
+  const base =
+    schemaDefaults && Object.keys(schemaDefaults).length > 0
+      ? { ...schemaDefaults, ...(initialData ?? {}) }
+      : (initialData ?? {});
   return {
-    data: deepClone(initialData ?? {}) as T,
+    data: deepClone(base) as T,
     computed: {},
     system: {
       status: "idle",

@@ -39,6 +39,10 @@ const app = createApp({
 async function main() {
   await app.ready();
 
+  // Genesis defaults applied — verify initial state
+  console.log("Initial count:", app.getState().data.count);
+  // → Initial count: 0
+
   // Subscribe to count changes
   const unsubCount = app.subscribe(
     (state) => state.data.count,

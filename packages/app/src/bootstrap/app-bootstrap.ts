@@ -10,6 +10,7 @@
  */
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
+import { extractDefaults } from "@manifesto-ai/core";
 import type {
   ActionHandle,
   ActOptions,
@@ -174,9 +175,10 @@ export class AppBootstrap {
       {}
     );
 
-    // 7. Create initial state
+    // 7. Create initial state (schema defaults < config.initialData)
     const schemaHash = schemaManager.getCurrentSchemaHash();
-    const initialState = createInitialAppState(schemaHash, config.initialData);
+    const schemaDefaults = extractDefaults(schema.state);
+    const initialState = createInitialAppState(schemaHash, config.initialData, schemaDefaults);
     subscriptionStore.setState(initialState);
 
     // 8. Create runtime (AppRuntime needs to exist for callbacks)

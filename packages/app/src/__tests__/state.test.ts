@@ -50,6 +50,35 @@ describe("State Model", () => {
       expect(state.data).toEqual(initialData);
     });
 
+    it("should apply schema defaults when no initialData", () => {
+      const defaults = { count: 0, name: "untitled" };
+      const state = createInitialAppState("hash-123", undefined, defaults);
+
+      expect(state.data).toEqual({ count: 0, name: "untitled" });
+    });
+
+    it("should let initialData override schema defaults", () => {
+      const defaults = { count: 0, name: "untitled" };
+      const state = createInitialAppState("hash-123", { count: 5 }, defaults);
+
+      expect((state.data as Record<string, unknown>).count).toBe(5);
+      expect((state.data as Record<string, unknown>).name).toBe("untitled");
+    });
+
+    it("should merge non-overlapping defaults and initialData", () => {
+      const defaults = { count: 0 };
+      const state = createInitialAppState("hash-123", { name: "test" }, defaults);
+
+      expect((state.data as Record<string, unknown>).count).toBe(0);
+      expect((state.data as Record<string, unknown>).name).toBe("test");
+    });
+
+    it("should handle empty schema defaults like before", () => {
+      const state = createInitialAppState("hash-123", undefined, {});
+
+      expect(state.data).toEqual({});
+    });
+
     it("should generate unique randomSeed", () => {
       const state1 = createInitialAppState("hash-123");
       const state2 = createInitialAppState("hash-123");
@@ -154,7 +183,8 @@ describe("State Model", () => {
       const state = app.getState();
 
       expect(state).toBeDefined();
-      expect(state.data).toEqual({});
+      // Platform namespaces ($host, $mel) are initialized from schema defaults
+      expect(state.data).toMatchObject({});
       expect(state.computed).toEqual({});
       expect(state.system.status).toBe("idle");
       expect(state.meta.schemaHash).toBe("test-schema-hash-abc123");
@@ -168,7 +198,7 @@ describe("State Model", () => {
 
       const state = app.getState<typeof initialData>();
 
-      expect(state.data).toEqual(initialData);
+      expect(state.data).toMatchObject(initialData);
       expect(state.data.todos).toEqual([]);
       expect(state.data.settings.theme).toBe("dark");
     });
