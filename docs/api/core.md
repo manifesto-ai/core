@@ -1,33 +1,45 @@
 # @manifesto-ai/core
 
-> Pure computation engine for domain state
+> Pure, deterministic computation engine for Manifesto
 
 ---
 
 ## Overview
 
-`@manifesto-ai/core` is the **deterministic semantic calculator** at the heart of Manifesto. It computes state transitions without performing any side effects.
+`@manifesto-ai/core` is the semantic compute layer.
 
-**Core computes. Host executes. These concerns never mix.**
+- Same input -> same output
+- No IO or side effects
+- Host-provided context only (`now`, `randomSeed`)
 
 ---
 
-## Design Principles
+## Architecture Role
 
-| Principle | Description |
-|-----------|-------------|
-| **Determinism** | Same input always produces same output |
-| **Purity** | No side effects, no IO, no time dependency |
-| **Explainability** | Every value can answer "why?" |
-| **Schema-first** | All semantics expressed as data |
+Core is responsible only for semantic computation.
+
+- Input: `schema + snapshot + intent + hostContext`
+- Output: `snapshot + requirements + trace + status`
+- It never executes effects and never performs IO
+
+```mermaid
+flowchart LR
+  S["DomainSchema"] --> C["compute / computeSync"]
+  SN["Snapshot"] --> C
+  I["Intent"] --> C
+  HC["HostContext (now, randomSeed)"] --> C
+
+  C --> RS["snapshot'"]
+  C --> RR["requirements[]"]
+  C --> RT["trace"]
+  C --> ST["status"]
+```
 
 ---
 
 ## Main Exports
 
 ### createCore()
-
-Creates a ManifestoCore instance.
 
 ```typescript
 import { createCore } from "@manifesto-ai/core";
@@ -39,7 +51,6 @@ const core = createCore();
 
 ```typescript
 interface ManifestoCore {
-  /** Compute state transition (async) */
   compute(
     schema: DomainSchema,
     snapshot: Snapshot,
@@ -47,7 +58,6 @@ interface ManifestoCore {
     context: HostContext
   ): Promise<ComputeResult>;
 
-  /** Compute state transition (sync) */
   computeSync(
     schema: DomainSchema,
     snapshot: Snapshot,
@@ -55,7 +65,6 @@ interface ManifestoCore {
     context: HostContext
   ): ComputeResult;
 
-  /** Apply patches to snapshot */
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
@@ -63,16 +72,26 @@ interface ManifestoCore {
     context: HostContext
   ): Snapshot;
 
-  /** Validate a schema */
   validate(schema: unknown): ValidationResult;
 
-  /** Explain why a value is what it is */
   explain(
     schema: DomainSchema,
     snapshot: Snapshot,
     path: SemanticPath
   ): ExplainResult;
 }
+```
+
+### Direct Function Exports
+
+```typescript
+import {
+  compute,
+  computeSync,
+  apply,
+  validate,
+  explain,
+} from "@manifesto-ai/core";
 ```
 
 ---
@@ -84,32 +103,21 @@ interface ManifestoCore {
 ```typescript
 interface ComputeResult {
   snapshot: Snapshot;
-  patches: readonly Patch[];
   requirements: readonly Requirement[];
   trace: TraceGraph;
-  status: "complete" | "pending";
+  status: "complete" | "pending" | "halted" | "error";
 }
 ```
 
-### Snapshot
+### HostContext
 
 ```typescript
-interface Snapshot {
-  data: Record<string, unknown>;
-  computed: Record<string, unknown>;
-  system: SystemState;
-  input: Record<string, unknown>;
-  meta: SnapshotMeta;
+interface HostContext {
+  now: number;
+  randomSeed: string;
+  env?: Record<string, unknown>;
+  durationMs?: number;
 }
-```
-
-### Patch
-
-```typescript
-type Patch =
-  | { op: "set"; path: string; value: unknown }
-  | { op: "unset"; path: string }
-  | { op: "merge"; path: string; value: Record<string, unknown> };
 ```
 
 ---
@@ -117,47 +125,43 @@ type Patch =
 ## Basic Usage
 
 ```typescript
-import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
+import {
+  createCore,
+  createSnapshot,
+  createIntent,
+} from "@manifesto-ai/core";
 
 const core = createCore();
 
-// Create initial snapshot
-const snapshot = createSnapshot({
-  data: { count: 0 },
-  schemaHash: "counter-v1",
-});
+const context = {
+  now: Date.now(),
+  randomSeed: "seed-001",
+};
 
-// Compute transition
-const result = core.computeSync(
-  schema,
-  snapshot,
-  createIntent("increment", {}),
-  { intentId: "int_001", timestamp: Date.now() }
+const snapshot = createSnapshot(
+  { count: 0 },
+  "counter-v1",
+  context
 );
 
-console.log(result.snapshot.data.count); // 1
-console.log(result.patches);             // [{ op: "set", path: "count", value: 1 }]
+const intent = createIntent("increment", { by: 1 }, "intent_001");
+
+const result = core.computeSync(schema, snapshot, intent, context);
+console.log(result.status);
+console.log(result.snapshot.data);
 ```
 
 ---
 
-## When to Use Directly
+## Additional Public Modules
 
-Most applications should use `@manifesto-ai/app` instead. Use Core directly when:
+`@manifesto-ai/core` also re-exports:
 
-- Building custom Host implementations
-- Creating testing infrastructure
-- Implementing specialized computation pipelines
-- Building Manifesto tooling
-
----
-
-## Specification
-
-For the complete normative specification, see:
-
-- [Specifications Hub](/internals/spec/) - Links to all package specs
-- [Core SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/SPEC-v2.0.0.md) - Latest package spec
+- `./schema/*` (schema and core domain types)
+- `./utils/*` (hash, canonicalization, helpers)
+- `./evaluator/*` (advanced evaluator APIs)
+- `./errors` (error helpers/types)
+- `./factories` (`createSnapshot`, `createIntent`, etc.)
 
 ---
 
@@ -165,6 +169,6 @@ For the complete normative specification, see:
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/host](./host) | Executes effects declared by Core |
-| [@manifesto-ai/compiler](/mel/) | Compiles MEL to DomainSchema |
-| [@manifesto-ai/app](./app) | High-level facade using Core |
+| [@manifesto-ai/host](./host) | Executes requirements/effects produced by Core |
+| [@manifesto-ai/world](./world) | Governs proposal and world lineage |
+| [@manifesto-ai/app](./app) | High-level facade using Core/Host/World |
