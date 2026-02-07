@@ -670,6 +670,8 @@ The `ready()` method MUST:
 | READY-7 | MUST | Genesis snapshot MUST include `DomainSchema.state.fields[*].default` values; `config.initialData` MUST take precedence over schema defaults |
 | READY-8 | MUST | Genesis snapshot MUST include evaluated computed values derived from initial state |
 
+> **Note:** READY-2, READY-3, READY-5 were intentionally omitted during spec evolution. Rule IDs are stable and not renumbered.
+
 ---
 
 ## 8. Host Integration
@@ -1289,6 +1291,8 @@ type SessionActOptions = Omit<ActOptions, 'actorId' | 'branchId'>;
 | SESS-ACT-2 | MUST | `opts.branchId` in `session.act()` is FORBIDDEN if session has branchId |
 | SESS-ACT-4 | MUST | Session MUST maintain actor binding for entire lifetime |
 
+> **Note:** SESS-ACT-3 was intentionally omitted. Rule IDs are stable and not renumbered.
+
 ---
 
 ## 15. System Runtime
@@ -1697,7 +1701,8 @@ const myPlugin: AppPlugin = async (app) => {
 |----------|---------|-----------|
 | ARCHITECTURE | v2.0.0 | Layer model, boundaries |
 | ADR-001 | - | Layer separation decision |
-| ADR-APP-002 | v0.1.0 | createApp API simplification |
+| ADR-APP-002 | v0.2.0 | createApp API simplification |
+| ADR-003 | - | World owns persistence |
 | Core SPEC | v2.0.0 | Snapshot, compute, apply |
 | Host Contract | v2.0.2 | Execution model, mailbox |
 | World Protocol | v2.0.3 | Governance, lineage |

@@ -179,13 +179,13 @@ export class AppBootstrap {
     // 7. Create initial state (schema defaults < config.initialData)
     const schemaHash = schemaManager.getCurrentSchemaHash();
     const schemaDefaults = extractDefaults(schema.state);
-    const initialState = createInitialAppState(schemaHash, config.initialData, schemaDefaults);
+    let initialState = createInitialAppState(schemaHash, config.initialData, schemaDefaults);
 
     // 8. Evaluate genesis computed values (READY-8)
     const genesisSnapshot = appStateToSnapshot(initialState);
     const computedResult = evaluateComputed(schema, genesisSnapshot);
     if (isOk(computedResult)) {
-      initialState.computed = computedResult.value;
+      initialState = { ...initialState, computed: computedResult.value };
     }
 
     subscriptionStore.setState(initialState);
