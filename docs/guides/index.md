@@ -135,6 +135,60 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 
 ---
 
+### [Migration Playbook (Early v2 -> Current)](./migration-from-v2-early)
+
+**Goal:** Migrate legacy early-v2 projects to the current Manifesto developer experience
+
+**What you'll learn:**
+- Package/version upgrade path
+- `createApp` effects-first migration
+- Platform namespace and `onceIntent` updates
+- Validation and rollout strategy
+
+**Prerequisites:** Existing Manifesto v2 project
+
+**Reading time:** 20 minutes
+
+**Start here if:** You already have an older Manifesto v2 codebase in production or active development.
+
+---
+
+### [Migration API Cookbook](./migration-api-cookbook)
+
+**Goal:** Apply migration changes quickly with copy-paste `Before/After` patterns
+
+**What you'll learn:**
+- Legacy pattern detection commands
+- App config migration patterns
+- Effect signature updates
+- Host direct usage boundaries
+
+**Prerequisites:** Existing Manifesto v2 project
+
+**Reading time:** 15 minutes
+
+**Start here if:** You want a practical reference while editing code.
+
+---
+
+### [Migration Checklist](./migration-checklist)
+
+**Goal:** Safely execute migration from audit to rollout
+
+**What you'll learn:**
+- Pre-migration readiness checks
+- Build/test/smoke validation gates
+- Rollout and rollback checklist
+- PR template for migration tracking
+
+**Prerequisites:** Migration plan drafted
+
+**Reading time:** 10 minutes
+
+**Start here if:** You are preparing the migration PR or rollout plan.
+
+---
+
 ### [Performance Report](./performance-report)
 
 **Goal:** Review benchmark results for Core, Host, and World on real workloads
@@ -246,6 +300,19 @@ Unlike specifications (which define requirements) or concepts (which explain ide
 4. **[World Concept](/concepts/world)** — Authority for AI (30 min)
 
 **Outcome:** You can integrate AI agents with Manifesto, configure appropriate authorities, and understand the AI-native vision.
+
+---
+
+### Path 5: Legacy v2 Migration (1-2 hours)
+
+**Goal:** Upgrade an existing early-v2 project safely
+
+1. **[Migration Playbook](./migration-from-v2-early)** — Overall strategy and sequence (20 min)
+2. **[Migration API Cookbook](./migration-api-cookbook)** — Exact API replacements (15 min)
+3. **[Migration Checklist](./migration-checklist)** — Validation and rollout gates (10 min)
+4. **[Debugging](./debugging)** — Regression triage (20 min)
+
+**Outcome:** You can upgrade legacy v2 projects without losing determinism and traceability guarantees.
 
 ---
 
@@ -469,6 +536,9 @@ action updateTodo(idToUpdate: string) {
 | Prevent infinite loops | [Re-entry Safe Flows](./reentry-safe-flows) |
 | Call APIs or databases | [Effect Handlers](./effect-handlers) |
 | Debug problems | [Debugging](./debugging) |
+| Upgrade early v2 projects | [Migration Playbook](./migration-from-v2-early) |
+| Apply exact API replacements | [Migration API Cookbook](./migration-api-cookbook) |
+| Run migration rollout safely | [Migration Checklist](./migration-checklist) |
 | Integrate AI agents | [AI Agent Integration](./ai-agent-integration) |
 | Understand schema evolution | [Schema Evolution](./schema-evolution) |
 
