@@ -46,6 +46,46 @@ pnpm add -D @manifesto-ai/compiler
 
 ---
 
+## Bundler Integrations (Subpath Exports)
+
+Use subpath exports to load `.mel` files directly.
+
+### Vite
+
+```typescript
+import { defineConfig } from "vite";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+
+export default defineConfig({
+  plugins: [melPlugin()],
+});
+```
+
+### Node / tsx Loader
+
+```bash
+npx tsx --loader @manifesto-ai/compiler/loader main.ts
+```
+
+### Webpack
+
+```javascript
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.mel$/,
+        use: "@manifesto-ai/compiler/loader",
+      },
+    ],
+  },
+};
+```
+
+`vite` and `webpack` are managed as optional peer dependencies for adapter compatibility.
+
+---
+
 ## CLI Usage
 
 ```bash
