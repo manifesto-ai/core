@@ -16,6 +16,9 @@ Records of significant architectural decisions:
 | ID | Title | Status |
 |----|-------|--------|
 | [ADR-001](./adr/001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted |
+| [ADR-002](./adr/002-dx-improvement-mel-namespace-onceIntent) | DX 개선 — `$mel` 자동 주입 + `onceIntent` | Proposed |
+| [ADR-003](./adr/003-world-owns-persistence) | World Owns Persistence | Proposed |
+| [ADR-004](./adr/004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed |
 
 ## Specifications
 
