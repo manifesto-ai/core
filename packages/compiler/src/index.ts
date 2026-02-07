@@ -84,3 +84,6 @@ export * from "./evaluation/index.js";
 // ════════════════════════════════════════════════════════════════════════════
 
 export * from "./api/index.js";
+
+// Compatibility type used in docs for `.mel` module declarations
+export type { DomainSchema as DomainModule } from "./generator/ir.js";
