@@ -26,8 +26,8 @@ MEL files (`.mel`) need a loader to be imported in your code. Choose the option 
 ### Using tsx (Simplest)
 
 ```bash
-# Just run with tsx - no configuration needed
-npx tsx main.ts
+# Run tsx with MEL loader
+npx tsx --loader @manifesto-ai/compiler/loader main.ts
 ```
 
 ### Using Vite
