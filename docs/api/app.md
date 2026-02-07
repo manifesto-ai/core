@@ -19,6 +19,27 @@ The App package provides:
 
 ---
 
+## Architecture
+
+`@manifesto-ai/app` is the facade layer that wires World, Host, Core, and Memory.
+
+- App API accepts high-level actions (`act`, `session`, `system.act`)
+- World governs proposal legitimacy
+- Host executes approved intents
+- Core computes deterministic state transitions
+- Memory facades attach recall/maintenance flows
+
+```mermaid
+flowchart LR
+  U["Application Code"] --> APP["App Facade (@manifesto-ai/app)"]
+  APP --> W["World (@manifesto-ai/world)"]
+  W --> H["Host (@manifesto-ai/host)"]
+  H --> C["Core (@manifesto-ai/core)"]
+  APP --> M["Memory Facade / Providers"]
+```
+
+---
+
 ## createApp()
 
 Creates a new Manifesto App instance.
@@ -94,6 +115,34 @@ const app = createApp({
   },
   initialData: { todos: [] },
   validation: { effects: "strict" },
+});
+
+await app.ready();
+```
+
+---
+
+## createTestApp()
+
+Creates a minimal app for testing with in-memory defaults.
+
+```typescript
+createTestApp(
+  domain: string | DomainSchema,
+  opts?: Partial<Omit<AppConfig, "schema" | "effects">> & {
+    effects?: Effects;
+  }
+): App
+```
+
+### Example
+
+```typescript
+import { createTestApp } from "@manifesto-ai/app";
+
+const app = createTestApp(melSource, {
+  effects: {},
+  initialData: { count: 0 },
 });
 
 await app.ready();
@@ -228,6 +277,14 @@ app.getActionHandle(proposalId: string): ActionHandle
 
 **Throws:**
 - `ActionNotFoundError` if proposalId is unknown
+
+### submitProposal()
+
+Low-level proposal API. Most users should prefer `act()`.
+
+```typescript
+app.submitProposal(proposal: Proposal): Promise<ProposalResult>
+```
 
 ### Example
 
@@ -1033,6 +1090,29 @@ interface DevtoolsConfig {
   name?: string;
 }
 ```
+
+---
+
+## Additional Public Exports
+
+These are exported from `@manifesto-ai/app` but not covered in detail above:
+
+### Utility Exports
+
+```typescript
+withPlatformNamespaces(schema: DomainSchema): DomainSchema
+normalizeSnapshot(snapshot: Snapshot): Snapshot
+SYSTEM_ACTION_TYPES: readonly string[]
+```
+
+### Advanced Runtime Exports
+
+- `createInMemoryWorldStore`
+- `createAppHostExecutor`
+- `createDefaultPolicyService` / `createStrictPolicyService` / `createSilentPolicyService`
+- `createMemoryHub` / `createMemoryFacade`
+
+These are useful when you need lower-level composition outside the default `createApp()` path.
 
 ---
 

@@ -1,39 +1,39 @@
 # @manifesto-ai/host
 
-> Effect execution runtime for Manifesto
+> Effect execution runtime and compute loop orchestrator
 
 ---
 
 ## Overview
 
-`@manifesto-ai/host` is the **execution layer** that realizes state transitions computed by Core. It handles effect execution, patch application, and the compute-effect loop.
+`@manifesto-ai/host` executes intents against Core and fulfills effect requirements.
 
-**Core determines "where should we be?" Host handles "how do we get there?"**
+- Owns runtime orchestration (Mailbox + Runner + Job)
+- Applies effect patches
+- Produces terminal snapshot/status per dispatch
 
 ---
 
 ## Architecture
 
-Host uses a **Mailbox + Runner + Job** execution model:
+Host runs the compute-fulfill loop around Core.
 
-```
-Intent arrives
-      |
-      v
-  ┌─────────┐
-  │ Mailbox │  <-- Job queue (FIFO)
-  └─────────┘
-      |
-      v
-  ┌─────────┐
-  │ Runner  │  <-- Processes jobs sequentially
-  └─────────┘
-      |
-      +---> compute() ---> patches/requirements
-      |
-      +---> fulfill()  ---> effect execution
-      |
-      +---> apply()    ---> state update
+- `dispatch(intent)` starts a job pipeline
+- Core declares requirements
+- Host executes handlers and feeds patches back into the loop
+- Loop terminates with `HostResult`
+
+```mermaid
+flowchart TD
+  IN["Intent"] --> MB["Mailbox"]
+  MB --> RN["Runner"]
+  RN --> CC["core.compute"]
+  CC --> RS["snapshot/status"]
+  CC --> REQ["requirements[]"]
+  REQ --> FX["EffectExecutor"]
+  FX --> EP["effect patches"]
+  EP --> RN
+  RS --> OUT["HostResult"]
 ```
 
 ---
@@ -42,28 +42,26 @@ Intent arrives
 
 ### createHost()
 
-Creates a ManifestoHost instance.
-
 ```typescript
 import { createHost } from "@manifesto-ai/host";
 
-const host = createHost({
-  schema,
-  effectRegistry,
-  contextProvider,
+const host = createHost(schema, {
+  maxIterations: 100,
 });
 ```
 
-### ManifestoHost Interface
+### ManifestoHost (primary methods)
 
 ```typescript
-interface ManifestoHost {
-  /** Execute an intent to completion */
-  execute(
-    snapshot: Snapshot,
-    intent: Intent,
-    opts?: HostOptions
-  ): Promise<HostResult>;
+class ManifestoHost {
+  registerEffect(type: string, handler: EffectHandler, options?: EffectHandlerOptions): void;
+  unregisterEffect(type: string): boolean;
+  hasEffect(type: string): boolean;
+  getEffectTypes(): string[];
+
+  dispatch(intent: Intent): Promise<HostResult>;
+  getSnapshot(): Snapshot | null;
+  reset(initialData: unknown): void;
 }
 ```
 
@@ -71,9 +69,10 @@ interface ManifestoHost {
 
 ```typescript
 interface HostResult {
+  status: "complete" | "pending" | "error";
   snapshot: Snapshot;
-  trace: TraceEvent[];
-  stats: ExecutionStats;
+  traces: TraceGraph[];
+  error?: HostError;
 }
 ```
 
@@ -81,17 +80,15 @@ interface HostResult {
 
 ## Effect Handlers
 
-Effects are handled by registered handlers:
-
 ```typescript
 import { createEffectRegistry, createEffectExecutor } from "@manifesto-ai/host";
 
 const registry = createEffectRegistry();
 
-registry.register("api.fetch", async (params, ctx) => {
-  const response = await fetch(params.url);
+registry.register("api.fetch", async (_type, params, ctx) => {
+  const response = await fetch(String(params.url));
   const data = await response.json();
-  return [{ op: "set", path: params.target, value: data }];
+  return [{ op: "set", path: "data.result", value: data }];
 });
 
 const executor = createEffectExecutor(registry);
@@ -101,62 +98,27 @@ const executor = createEffectExecutor(registry);
 
 ```typescript
 type EffectHandler = (
+  type: string,
   params: Record<string, unknown>,
-  ctx: EffectContext
+  context: {
+    snapshot: Readonly<Snapshot>;
+    requirement: Requirement;
+  }
 ) => Promise<Patch[]>;
-
-interface EffectContext {
-  snapshot: Readonly<Snapshot>;
-  intentId: string;
-  effectId: string;
-  signal: AbortSignal;
-}
 ```
 
 ---
 
-## Key Types
+## Execution Model Exports
 
-### Job Types
+`@manifesto-ai/host` also exports lower-level runtime pieces:
 
-```typescript
-type JobType =
-  | "start_intent"     // Begin processing an intent
-  | "continue_compute" // Continue after effect fulfillment
-  | "fulfill_effect"   // Execute an effect
-  | "apply_patches";   // Apply patches to snapshot
-```
+- Mailbox: `createMailbox`, `MailboxManager`, `DefaultExecutionMailbox`
+- Runner: `processMailbox`, `enqueueAndKick`, `kickRunner`, `createRunnerState`
+- Jobs: `createStartIntentJob`, `createContinueComputeJob`, `createFulfillEffectJob`, `createApplyPatchesJob`
+- Context: `createExecutionContext`, `createHostContextProvider`, `createTestHostContextProvider`
 
-### ExecutionContext
-
-```typescript
-interface ExecutionContext {
-  readonly key: ExecutionKey;
-  readonly schema: DomainSchema;
-  snapshot: Snapshot;
-  readonly runtime: Runtime;
-}
-```
-
----
-
-## When to Use Directly
-
-Most applications should use `@manifesto-ai/app` instead. Use Host directly when:
-
-- Building custom execution infrastructure
-- Implementing specialized effect handlers
-- Creating custom compute loops
-- Building Manifesto tooling
-
----
-
-## Specification
-
-For the complete normative specification, see:
-
-- [Specifications Hub](/internals/spec/) - Links to all package specs
-- [Host SPEC v2.0.2](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v2.0.2.md) - Latest package spec with Mailbox + Runner + Job model
+Use these directly when building custom orchestration/testing infrastructure.
 
 ---
 
@@ -164,6 +126,6 @@ For the complete normative specification, see:
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/core](./core) | Provides pure computation |
-| [@manifesto-ai/world](./world) | Governs intent authorization |
-| [@manifesto-ai/app](./app) | High-level facade using Host |
+| [@manifesto-ai/core](./core) | Pure semantic computation |
+| [@manifesto-ai/world](./world) | Proposal governance and lineage |
+| [@manifesto-ai/app](./app) | High-level facade over Host |

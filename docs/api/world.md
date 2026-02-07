@@ -1,40 +1,40 @@
 # @manifesto-ai/world
 
-> Governance layer for Manifesto
+> Governance, authority, and lineage layer for Manifesto
 
 ---
 
 ## Overview
 
-`@manifesto-ai/world` is the **governance layer** that manages proposals, authority evaluation, and lineage tracking. It ensures every state change is authorized and recorded.
+`@manifesto-ai/world` governs proposal legitimacy and records immutable world lineage.
 
-**World governs who may change what, and records that they did.**
+- Actor registration + policy binding
+- Proposal submission/evaluation
+- Decision + world creation audit trail
+- Branch epoch and lineage management
 
 ---
 
 ## Architecture
 
-World operates above Core and Host:
+World sits above Host and Core as the governance layer.
 
-```
-Actor submits Intent
-        |
-        v
-  ┌───────────┐
-  │  World    │  <-- Governance layer
-  │  Protocol │
-  └───────────┘
-        |
-        +---> Proposal created
-        |
-        +---> Authority evaluates
-        |
-        +---> Decision recorded
-        |
-        v
-  ┌───────────┐
-  │   Host    │  <-- Execution (if approved)
-  └───────────┘
+- Accepts `IntentInstance` proposals
+- Applies authority rules/HITL decisions
+- Calls `HostExecutor` for approved proposals
+- Derives outcome from terminal snapshot
+- Records immutable world lineage and governance events
+
+```mermaid
+flowchart TD
+  A["Actor"] --> P["submitProposal(actorId, intent, baseWorld, trace)"]
+  P --> AU["Authority evaluation"]
+  AU -->|rejected| DR["DecisionRecord (rejected)"]
+  AU -->|approved| EX["HostExecutor.execute"]
+  EX --> TS["terminal snapshot"]
+  TS --> OD["derive outcome from snapshot"]
+  OD --> WC["World creation + lineage edge"]
+  WC --> EV["World events"]
 ```
 
 ---
@@ -43,94 +43,88 @@ Actor submits Intent
 
 ### createManifestoWorld()
 
-Creates a ManifestoWorld instance.
-
 ```typescript
 import { createManifestoWorld } from "@manifesto-ai/world";
 
 const world = createManifestoWorld({
-  schemaHash: "my-app-v1",
-  authority: authorityEvaluator,
-  store: worldStore,
+  schemaHash: "schema-hash-v1",
+  executor, // optional HostExecutor adapter
+  store,    // optional custom store
 });
 ```
 
-### ManifestoWorld Interface
+### ManifestoWorldConfig
 
 ```typescript
-interface ManifestoWorld {
-  /** Submit a proposal for evaluation */
-  submit(proposal: Proposal): Promise<ProposalResult>;
+interface ManifestoWorldConfig {
+  schemaHash: string;
+  executor?: HostExecutor;
+  store?: WorldStore;
+  onHITLRequired?: HITLNotificationCallback;
+  customEvaluators?: Record<string, CustomConditionEvaluator>;
+  eventSink?: WorldEventSink;
+  executionKeyPolicy?: ExecutionKeyPolicy;
+}
+```
 
-  /** Get current world */
-  current(): World;
+### ManifestoWorld (primary methods)
 
-  /** Get lineage */
-  lineage(opts?: LineageOptions): readonly string[];
+```typescript
+class ManifestoWorld {
+  registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
+  updateActorBinding(actorId: string, policy: AuthorityPolicy): void;
+
+  createGenesis(initialSnapshot: Snapshot): Promise<World>;
+  switchBranch(newBaseWorld: WorldId): Promise<void>;
+
+  submitProposal(
+    actorId: string,
+    intent: IntentInstance,
+    baseWorld: WorldId,
+    trace: ProposalTrace
+  ): Promise<ProposalResult>;
+
+  processHITLDecision(
+    proposalId: string,
+    decision: "approved" | "rejected",
+    reasoning: string,
+    approvedScope: IntentScope | null
+  ): Promise<ProposalResult>;
 }
 ```
 
 ---
 
-## Key Concepts
+## Key Types
 
 ### Proposal
 
-A proposal is an intent submitted for authorization:
-
 ```typescript
 interface Proposal {
-  id: string;
-  actorId: string;
-  intent: IntentInstance;
-  parentWorldId: string;
-  timestamp: number;
-}
-```
-
-### Authority
-
-Authority evaluates whether proposals should be approved:
-
-```typescript
-interface AuthorityHandler {
-  evaluate(proposal: Proposal, ctx: AuthorityContext): Promise<AuthorityDecision>;
-}
-```
-
-### Decision
-
-Decisions record the outcome of authority evaluation:
-
-```typescript
-interface DecisionRecord {
-  id: string;
   proposalId: string;
-  verdict: "approved" | "rejected" | "pending";
-  reason?: string;
-  timestamp: number;
+  actor: ActorRef;
+  intent: IntentInstance;
+  baseWorld: WorldId;
+  status: ProposalStatus;
+  executionKey: string;
 }
 ```
 
 ### World
 
-A World is an immutable record of state at a point in time:
-
 ```typescript
 interface World {
-  id: string;
+  worldId: WorldId;
+  schemaHash: string;
   snapshotHash: string;
-  parentId: string | null;
-  decisionId: string;
-  timestamp: number;
+  createdAt: number;
+  createdBy: string | null;
 }
 ```
 
 ---
 
 ## Authority Handlers
-
-Built-in authority handlers:
 
 ```typescript
 import {
@@ -140,60 +134,36 @@ import {
   createTribunalHandler,
 } from "@manifesto-ai/world";
 
-// Auto-approve all proposals
 const autoApprove = createAutoApproveHandler();
-
-// Policy-based approval
-const policy = createPolicyRulesHandler({
-  rules: [
-    { action: "delete*", require: "admin" },
-    { action: "*", allow: "user" },
-  ],
-});
-
-// Human-in-the-loop approval
-const hitl = createHITLHandler({
-  onPending: (proposal) => notifyHuman(proposal),
-});
+const policy = createPolicyRulesHandler();
+const hitl = createHITLHandler();
+const tribunal = createTribunalHandler();
 ```
+
+These handlers are typically wired through actor policy bindings in `ManifestoWorld`.
 
 ---
 
 ## Lineage
 
-World maintains a DAG (Directed Acyclic Graph) of state history:
-
 ```typescript
 import { createWorldLineage } from "@manifesto-ai/world";
 
-const lineage = createWorldLineage(store);
-
-// Get ancestors
-const ancestors = lineage.ancestors(worldId, { depth: 10 });
-
-// Find common ancestor
-const common = lineage.commonAncestor(worldA, worldB);
+const lineage = createWorldLineage();
 ```
 
----
-
-## When to Use Directly
-
-Most applications should use `@manifesto-ai/app` instead. Use World directly when:
-
-- Implementing custom governance policies
-- Building audit and compliance tools
-- Creating custom authority handlers
-- Building Manifesto tooling
+`WorldLineage` provides DAG traversal and ancestry helpers over immutable world history.
 
 ---
 
-## Specification
+## Additional Public Exports
 
-For the complete normative specification, see:
+`@manifesto-ai/world` additionally exports:
 
-- [Specifications Hub](/internals/spec/) - Links to all package specs
-- [World SPEC v2.0.2](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.2.md) - Latest package spec
+- factory helpers: `createProposal`, `createDecisionRecord`, `computeWorldId`, `computeSnapshotHash`
+- key/port types: `ExecutionKey`, `HostExecutor`, `ExecutionKeyPolicy`
+- persistence: `createMemoryWorldStore`, `WorldStore`, `StoreEvent*`
+- governance events: `WorldEvent*`, `createNoopWorldEventSink`
 
 ---
 
@@ -201,6 +171,6 @@ For the complete normative specification, see:
 
 | Package | Relationship |
 |---------|--------------|
+| [@manifesto-ai/core](./core) | Pure computation |
 | [@manifesto-ai/host](./host) | Executes approved intents |
-| [@manifesto-ai/core](./core) | Provides pure computation |
 | [@manifesto-ai/app](./app) | High-level facade using World |
