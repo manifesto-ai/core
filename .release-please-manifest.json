@@ -1,12 +1,9 @@
 {
-  "packages/core": "2.1.0",
-  "packages/host": "2.0.1",
-  "packages/world": "2.1.0",
-  "packages/bridge": "1.2.0",
-  "packages/react": "1.2.0",
-  "packages/compiler": "1.4.0",
-  "packages/effect-utils": "1.2.0",
-  "packages/lab": "1.2.0",
-  "packages/memory": "1.2.0",
-  "packages/app": "2.1.0"
+  "packages/app": "2.2.0",
+  "packages/compiler": "1.5.0",
+  "packages/core": "2.2.0",
+  "packages/host": "2.2.0",
+  "packages/intent-ir": "0.3.0",
+  "packages/translator/core": "0.2.0",
+  "packages/world": "2.2.0"
 }

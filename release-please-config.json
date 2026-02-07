@@ -22,8 +22,12 @@
     { "type": "ci", "section": "Continuous Integration", "hidden": true }
   ],
   "packages": {
-    "packages/bridge": {
-      "package-name": "@manifesto-ai/bridge",
+    "packages/app": {
+      "package-name": "@manifesto-ai/app",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/compiler": {
+      "package-name": "@manifesto-ai/compiler",
       "changelog-path": "CHANGELOG.md"
     },
     "packages/core": {
@@ -34,36 +38,16 @@
       "package-name": "@manifesto-ai/host",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/world": {
-      "package-name": "@manifesto-ai/world",
+    "packages/intent-ir": {
+      "package-name": "@manifesto-ai/intent-ir",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/react": {
-      "package-name": "@manifesto-ai/react",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/compiler": {
-      "package-name": "@manifesto-ai/compiler",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/memory": {
-      "package-name": "@manifesto-ai/memory",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/effect-utils": {
-      "package-name": "@manifesto-ai/effect-utils",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/lab": {
-      "package-name": "@manifesto-ai/lab",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/translator": {
+    "packages/translator/core": {
       "package-name": "@manifesto-ai/translator",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/app": {
-      "package-name": "@manifesto-ai/app",
+    "packages/world": {
+      "package-name": "@manifesto-ai/world",
       "changelog-path": "CHANGELOG.md"
     }
   }
