@@ -110,7 +110,6 @@ export default defineConfig({
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'Debugging', link: '/guides/debugging' },
-            { text: 'Using Memory', link: '/guides/using-memory' },
             { text: 'Performance Report', link: '/guides/performance-report' },
           ]
         }

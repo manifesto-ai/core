@@ -121,7 +121,7 @@ compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
 | Request state change | Intent | `createIntent(type, input)` |
 | Describe computation | Flow | `flow.seq()`, `flow.when()` |
 | Perform IO | Effect | `flow.effect(type, params)` |
-| Authorize actions | World | `world.registerAuthority()` |
+| Authorize actions | World | `world.registerActor(actor, policy)` |
 
 ---
 
