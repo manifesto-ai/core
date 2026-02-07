@@ -157,8 +157,8 @@ import { app } from '../manifesto-app';
 
 export function useSnapshot<T>(selector: (state: any) => T): T {
   const subscribe = useCallback(
-    (onStoreChange: () => void) => app.subscribe(() => true, onStoreChange),
-    []
+    (onStoreChange: () => void) => app.subscribe(selector, onStoreChange),
+    [selector]
   );
 
   const getSnapshot = useCallback(() => selector(app.getState()), [selector]);

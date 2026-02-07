@@ -401,8 +401,10 @@ See [Re-entry Safe Flows Guide](/guides/reentry-safe-flows) for comprehensive pa
 const result = await world.submitProposal(
   actorId, intent, baseWorldId
 );
-console.log('Status:', result.status);       // 'approved' | 'rejected' | ...
-console.log('Decision:', result.decision);
+console.log('Proposal:', result.proposal);     // Proposal object
+console.log('Decision:', result.decision);     // DecisionRecord (if resolved)
+console.log('Result World:', result.resultWorld); // World (if approved & executed)
+console.log('Error:', result.error);           // WorldError (if failed)
 ```
 
 #### Step 2: Check Actor Binding
