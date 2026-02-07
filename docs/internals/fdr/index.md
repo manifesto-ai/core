@@ -40,7 +40,7 @@ The App package has multiple focused FDR documents:
 |-----|---------|-------|
 | [FDR-APP-PUB-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-PUB-001-v0.3.0.md) | v0.3.0 | Tick definition, publish boundary |
 | [FDR-APP-RUNTIME-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md) | v0.2.0 | Lifecycle, hooks, plugins |
-| [FDR-APP-INTEGRATION-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.0.md) | v0.4.0 | HostExecutor, WorldStore |
+| [FDR-APP-INTEGRATION-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.1.md) | v0.4.1 | HostExecutor, WorldStore |
 | [FDR-APP-POLICY-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-POLICY-001-v0.2.3.md) | v0.2.3 | ExecutionKey, authority |
 | [FDR-APP-EXT-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-EXT-001-v0.4.0.md) | v0.4.0 | MemoryStore, context freezing |
 
