@@ -81,10 +81,12 @@ import {
   computeSnapshotHash,
   createProposalManager,
   createHostInitializer,
+  createSystemActionExecutor,
   type ActionQueue,
   type LivenessGuard,
   type AppExecutor,
   type ProposalManager,
+  type SystemActionExecutor,
 } from "./execution/index.js";
 import {
   createLifecycleManager,
@@ -150,6 +152,7 @@ export class ManifestoApp implements App {
   private _policyService: PolicyService;
   private _hostExecutor: AppHostExecutor | null = null;
   private _executor: AppExecutor | null = null;
+  private _systemActionExecutor: SystemActionExecutor | null = null;
   // Effects for internal Host creation
   private _effects: Effects;
 
@@ -350,7 +353,7 @@ export class ManifestoApp implements App {
 
     if (runtime === "system") {
       this._actionQueue.enqueueSystem(async () => {
-        await this._executeSystemAction(handle, type as SystemActionType, input, opts);
+        await this._systemActionExecutor!.execute(handle, type as SystemActionType, input, opts);
       });
     } else {
       this._actionQueue.enqueueDomain(async () => {
@@ -533,7 +536,7 @@ export class ManifestoApp implements App {
 
     if (runtime === "system") {
       this._actionQueue.enqueueSystem(async () => {
-        await this._executeSystemAction(handle, type as SystemActionType, input, opts);
+        await this._systemActionExecutor!.execute(handle, type as SystemActionType, input, opts);
       });
     } else {
       this._actionQueue.enqueueDomain(async () => {
@@ -689,6 +692,13 @@ export class ManifestoApp implements App {
       memoryFacade: this._memoryFacade,
     });
 
+    this._systemActionExecutor = createSystemActionExecutor({
+      config: this._config,
+      lifecycleManager: this._lifecycleManager,
+      systemRuntime: this._systemRuntime,
+      defaultActorId: this._defaultActorId,
+    });
+
     this._systemFacade = createSystemFacade({
       act: (type, input, actOpts) => this.act(type, input, actOpts),
     });
@@ -769,129 +779,7 @@ export class ManifestoApp implements App {
     });
   }
 
-  private async _executeSystemAction(
-    handle: ActionHandleImpl,
-    actionType: SystemActionType,
-    input: unknown,
-    opts?: ActOptions
-  ): Promise<void> {
-    const actorId = opts?.actorId ?? this._defaultActorId;
-
-    if (this._config.systemActions?.enabled === false) {
-      const error = {
-        code: "SYSTEM_ACTION_DISABLED",
-        message: `System Actions are disabled`,
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-      handle._transitionTo("preparation_failed", { kind: "preparation_failed", error });
-      handle._setResult({
-        status: "preparation_failed",
-        proposalId: handle.proposalId,
-        error,
-        runtime: "system",
-      });
-      return;
-    }
-
-    const disabledActions = this._config.systemActions?.disabled ?? [];
-    if (disabledActions.includes(actionType)) {
-      const error = {
-        code: "SYSTEM_ACTION_DISABLED",
-        message: `System Action '${actionType}' is disabled`,
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-      handle._transitionTo("preparation_failed", { kind: "preparation_failed", error });
-      handle._setResult({
-        status: "preparation_failed",
-        proposalId: handle.proposalId,
-        error,
-        runtime: "system",
-      });
-      return;
-    }
-
-    try {
-      await this._lifecycleManager.emitHook("action:preparing", {
-        proposalId: handle.proposalId,
-        actorId: this._defaultActorId,
-        type: actionType,
-        runtime: "system",
-      }, {});
-
-      handle._transitionTo("preparing");
-      handle._transitionTo("submitted");
-      handle._transitionTo("evaluating");
-      handle._transitionTo("approved");
-      handle._transitionTo("executing");
-
-      const result = await this._systemRuntime!.execute(
-        actionType,
-        (input as Record<string, unknown>) ?? {},
-        {
-          actorId,
-          proposalId: handle.proposalId,
-          timestamp: Date.now(),
-        }
-      );
-
-      if (result.status === "completed") {
-        handle._transitionTo("completed", { kind: "completed", worldId: result.worldId });
-        handle._setResult(result);
-
-        await this._lifecycleManager.emitHook("system:world", {
-          type: actionType,
-          proposalId: handle.proposalId,
-          actorId,
-          systemWorldId: result.worldId,
-          status: "completed",
-        }, {});
-      } else if (result.status === "failed") {
-        handle._transitionTo("failed", { kind: "failed", error: result.error });
-        handle._setResult(result);
-
-        await this._lifecycleManager.emitHook("system:world", {
-          type: actionType,
-          proposalId: handle.proposalId,
-          actorId,
-          systemWorldId: result.worldId,
-          status: "failed",
-        }, {});
-      }
-
-      await this._lifecycleManager.emitHook("action:completed", {
-        proposalId: handle.proposalId,
-        result,
-      }, {});
-    } catch (error) {
-      const errorValue = {
-        code: "SYSTEM_ACTION_ERROR",
-        message: error instanceof Error ? error.message : String(error),
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-
-      handle._transitionTo("failed", { kind: "failed", error: errorValue });
-
-      const result = {
-        status: "failed" as const,
-        proposalId: handle.proposalId,
-        decisionId: `dec_sys_${Date.now().toString(36)}`,
-        error: errorValue,
-        worldId: this._systemRuntime!.head(),
-        runtime: "system" as const,
-      };
-
-      handle._setResult(result);
-
-      await this._lifecycleManager.emitHook("action:completed", {
-        proposalId: handle.proposalId,
-        result,
-      }, {});
-    }
-  }
-
   // Note: Legacy _executeActionLifecycle method removed in v2.3.0
   // All domain actions now go through _executor.execute()
+  // System actions now go through _systemActionExecutor.execute() (ADR-004 Phase 2)
 }

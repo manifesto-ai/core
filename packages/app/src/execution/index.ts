@@ -57,5 +57,13 @@ export * from "./host-executor/index.js";
 // Initializer
 export * from "./initializer/index.js";
 
+// System Action Executor
+export {
+  type SystemActionExecutorDeps,
+  type SystemActionExecutor,
+  SystemActionExecutorImpl,
+  createSystemActionExecutor,
+} from "./system-action-executor.js";
+
 // Proposal
 export * from "./proposal/index.js";
