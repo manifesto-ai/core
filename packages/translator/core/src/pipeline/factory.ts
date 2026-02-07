@@ -14,6 +14,7 @@ import { SentenceBasedDecomposer } from "../strategies/decompose/sentence-based.
 import { LLMTranslator } from "../strategies/translate/llm-translator.js";
 import { DeterministicTranslator } from "../strategies/translate/deterministic.js";
 import { ConservativeMerger } from "../strategies/merge/conservative.js";
+import { AggressiveMerger } from "../strategies/merge/aggressive.js";
 import { orDetectorPlugin } from "../plugins/or-detector.js";
 import { coverageCheckerPlugin } from "../plugins/coverage-checker.js";
 import { taskEnumerationPlugin } from "../plugins/task-enumeration.js";
@@ -178,27 +179,20 @@ export interface CustomPipelineConfig {
 export function createCustomPipeline(
   config: CustomPipelineConfig
 ): TranslatorPipeline {
-  const { SlidingWindowDecomposer: SW } = require("../strategies/decompose/sliding-window.js");
-  const { SentenceBasedDecomposer: SB } = require("../strategies/decompose/sentence-based.js");
-  const { LLMTranslator: LT } = require("../strategies/translate/llm-translator.js");
-  const { DeterministicTranslator: DT } = require("../strategies/translate/deterministic.js");
-  const { ConservativeMerger: CM } = require("../strategies/merge/conservative.js");
-  const { AggressiveMerger: AM } = require("../strategies/merge/aggressive.js");
-
   const decomposer =
     config.decomposer === "sliding-window"
-      ? new SW(config.options?.maxChunkSize ?? 4000)
-      : new SB(config.options?.maxChunkSize ?? 4000);
+      ? new SlidingWindowDecomposer(config.options?.maxChunkSize ?? 4000)
+      : new SentenceBasedDecomposer(config.options?.maxChunkSize ?? 4000);
 
   const translator =
     config.translator === "deterministic"
-      ? new DT()
+      ? new DeterministicTranslator()
       : config.llm
-        ? new LT(config.llm)
-        : new DT();
+        ? new LLMTranslator(config.llm)
+        : new DeterministicTranslator();
 
   const merger =
-    config.merger === "aggressive" ? new AM() : new CM();
+    config.merger === "aggressive" ? new AggressiveMerger() : new ConservativeMerger();
 
   return new TranslatorPipeline(
     decomposer,

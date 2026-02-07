@@ -30,8 +30,8 @@ These packages form the foundation of Manifesto's architecture. Most users inter
 
 | Package | Description |
 |---------|-------------|
-| @manifesto-ai/compiler | MEL to DomainSchema compilation |
-| @manifesto-ai/intent-ir | Intent intermediate representation |
+| [@manifesto-ai/compiler](./compiler) | MEL to DomainSchema compilation and `.mel` toolchain adapters |
+| [@manifesto-ai/intent-ir](./intent-ir) | Intent intermediate representation and key derivation |
 
 See [Specifications](/internals/spec/) for detailed package specifications.
 
