@@ -46,7 +46,7 @@ domain Counter {
 import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
-const app = createApp(CounterMel);
+const app = createApp({ schema: CounterMel, effects: {} });
 await app.ready();
 await app.act("increment").done();
 console.log(app.getState().data.count); // 1

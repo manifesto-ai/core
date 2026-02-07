@@ -66,7 +66,7 @@ export async function executeHost(
   // Create Intent for execution
   const intent: Intent = {
     type: actionType,
-    body: input,
+    input,
     intentId: `intent_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
   };
 

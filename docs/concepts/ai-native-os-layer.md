@@ -208,7 +208,7 @@ import { createApp } from "@manifesto-ai/app";
 import TaskBoardMel from "./task-board.mel";
 
 // Create and start app
-const app = createApp(TaskBoardMel);
+const app = createApp({ schema: TaskBoardMel, effects: {} });
 await app.ready();
 
 // Execute actions

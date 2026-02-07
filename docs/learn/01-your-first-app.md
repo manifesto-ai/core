@@ -99,7 +99,7 @@ import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
 // Create the app instance
-export const app = createApp(CounterMel);
+export const app = createApp({ schema: CounterMel, effects: {} });
 ```
 
 That's it. One line creates your entire application. The `createApp` function:
@@ -274,7 +274,7 @@ domain Counter {
 import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
-export const app = createApp(CounterMel);
+export const app = createApp({ schema: CounterMel, effects: {} });
 ```
 
 **main.ts:**

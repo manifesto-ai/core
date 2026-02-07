@@ -75,7 +75,7 @@ export interface HostExecutor {
  */
 export type Intent = {
   readonly type: string;
-  readonly body: unknown;
+  readonly input?: unknown;
   readonly intentId: string;
 };
 
