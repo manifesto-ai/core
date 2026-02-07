@@ -1039,7 +1039,7 @@ interface DevtoolsConfig {
 ## Related Documentation
 
 - [Core Package](/api/core) - Domain schema and computation
-- [Host Contract](/internals/spec/host-contract) - Effect execution specification
-- [World Protocol](/internals/spec/world-protocol) - Governance and lineage
+- [Host Package](/api/host) - Effect execution specification
+- [World Package](/api/world) - Governance and lineage
 - [Getting Started](/quickstart) - Step-by-step tutorial
 - [Effect Handlers](/guides/effect-handlers) - Detailed effect handler guide
