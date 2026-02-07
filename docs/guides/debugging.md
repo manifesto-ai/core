@@ -398,53 +398,50 @@ See [Re-entry Safe Flows Guide](/guides/reentry-safe-flows) for comprehensive pa
 #### Step 1: Check Proposal Result
 
 ```typescript
-const proposal = await world.submitProposal(actor, intent);
-console.log('Approved?', proposal.decision.approved);
-console.log('Reason:', proposal.decision.reason);
+const result = await world.submitProposal(
+  actorId, intent, baseWorldId
+);
+console.log('Status:', result.status);       // 'approved' | 'rejected' | ...
+console.log('Decision:', result.decision);
 ```
 
-#### Step 2: Identify Authority
+#### Step 2: Check Actor Binding
 
 ```typescript
-// Which authority rejected?
-console.log('Authority:', proposal.decision.authorityId);
+// Get the actor's authority binding
+const binding = world.getActorBinding(actorId);
+console.log('Actor:', binding?.actor);
+console.log('Policy:', binding?.authority);
 
-// Get authority details
-const authority = world.getAuthority(proposal.decision.authorityId);
-console.log('Authority config:', authority);
+// List all registered actors
+const actors = world.getRegisteredActors();
+console.log('Registered actors:', actors);
 ```
 
-#### Step 3: Debug Authority Logic
+#### Step 3: Verify Authority Policy
 
 ```typescript
-// Add logging to authority
-world.registerAuthority('todos:delete', async (proposal, context) => {
-  console.log('Evaluating proposal:', proposal);
-  console.log('Actor:', context.actor);
-  console.log('Snapshot:', context.snapshot);
+// Authority policies are bound to actors at registration time
+world.registerActor(
+  { actorId: 'user-1', kind: 'human' },
+  { mode: 'auto_approve' }  // or 'policy_rules', 'hitl', 'tribunal'
+);
 
-  if (context.actor.role !== 'admin') {
-    console.log('Rejected: Not admin');
-    return { approved: false, reason: 'Only admins can delete' };
-  }
-
-  console.log('Approved');
-  return { approved: true };
-});
+// To debug, check what policy is assigned
+const binding = world.getActorBinding('user-1');
+console.log('Authority mode:', binding?.authority.mode);
 ```
 
-#### Step 4: Verify Actor Permissions
+#### Step 4: Check Proposal Details
 
 ```typescript
-// Check actor details
-const actor = world.getActor(actorId);
-console.log('Actor role:', actor.role);
-console.log('Actor permissions:', actor.permissions);
+// Retrieve proposal by ID for detailed inspection
+const proposal = await world.getProposal(proposalId);
+console.log('Proposal:', proposal);
 
-// Check if actor has required role
-if (actor.role !== 'admin') {
-  console.warn('Actor lacks admin role');
-}
+// Get the decision record
+const decision = await world.getDecisionByProposal(proposalId);
+console.log('Decision:', decision);
 ```
 
 ---

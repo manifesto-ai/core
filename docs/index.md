@@ -10,8 +10,8 @@ hero:
       text: Quickstart
       link: /quickstart
     - theme: alt
-      text: Learn
-      link: /learn/
+      text: Tutorial
+      link: /tutorial/
     - theme: alt
       text: GitHub
       link: https://github.com/manifesto-ai/core
@@ -55,7 +55,7 @@ console.log(app.getState().data.count); // 1
 ## Learn
 
 - [Quickstart](/quickstart) - 5 minutes to running code
-- [Tutorials](/learn/) - Step-by-step learning path
+- [Tutorial](/tutorial/) - Step-by-step learning path
 - [Concepts](/concepts/) - Core concepts explained
 - [Architecture](/architecture/) - System design overview
 - [MEL Language](/mel/SYNTAX) - Domain definition syntax

@@ -487,6 +487,6 @@ describe("Re-entry safety", () => {
 
 - [Design Rationale](/internals/fdr/) - FDRs including Host design rationale
 - [Effect Handlers Guide](./effect-handlers) - Writing safe effect handlers
-- [Getting Started](/guides/getting-started) - Using guard helpers
+- [Tutorial](/tutorial/) - Step-by-step learning path
 - [Flow Concept](/concepts/flow) - Understanding Flows
 - [MEL Syntax](/mel/SYNTAX) - Complete MEL reference
