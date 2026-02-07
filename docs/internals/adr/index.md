@@ -31,6 +31,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-001](./001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted | 2025-01-17 | Core, Host, World |
 | [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX 개선 — `$mel` 네임스페이스 자동 주입 + `onceIntent` 문법 추가 | Proposed | 2026-01-27 | App, Compiler, World, Core, Host |
 | [ADR-003](./003-world-owns-persistence) | World Owns Persistence | Proposed | 2026-02-03 | App, World |
+| [ADR-004](./004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed | 2026-02-07 | App |
 
 ---
 
