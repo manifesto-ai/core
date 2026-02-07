@@ -1,46 +1,31 @@
 /**
  * Manifesto App Implementation (Thin Facade)
  *
- * This is a facade that coordinates the extracted modules:
- * - LifecycleManager: App lifecycle state
- * - SchemaManager: Domain schema compilation/caching
- * - ProposalManager: ActionHandle management
- * - ActionQueue: FIFO queue management
- * - LivenessGuard: Re-entry prevention
- * - WorldHeadTracker: v2 World head tracking
- * - AppExecutor: v2 action execution
- * - HostInitializer: Host component initialization
+ * Delegates all operations to AppBootstrap (assembly) and AppRuntime (operations).
  *
+ * @see ADR-004 Phase 4 — FACADE-1~5
  * @see SPEC §5-6
  * @module
  */
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
-import { compileMelDomain } from "@manifesto-ai/compiler";
 import type {
   App,
   ActionHandle,
   ActOptions,
   AppConfig,
   AppHooks,
-  AppRef,
   AppState,
   AppStatus,
   Branch,
   DisposeOptions,
-  Effects,
-  ErrorValue,
   ForkOptions,
   Hookable,
-  Host,
-  HostResult,
   MemoryFacade,
   MigrationLink,
   PolicyService,
   Proposal,
-  ProposalId,
   ProposalResult,
-  RecallRequest,
   Session,
   SessionOptions,
   SubscribeOptions,
@@ -49,141 +34,76 @@ import type {
   World,
   WorldStore,
 } from "./core/types/index.js";
-import { createInternalHost } from "./execution/internal-host.js";
 import type { WorldId } from "@manifesto-ai/world";
-import { createWorldId } from "@manifesto-ai/world";
 
-import {
-  AppNotReadyError,
-  AppDisposedError,
-  MissingDefaultActorError,
-  LivenessError,
-  PluginInitError,
-  DomainCompileError,
-} from "./errors/index.js";
+import { AppDisposedError } from "./errors/index.js";
 
-import { ActionHandleImpl } from "./execution/action/index.js";
-import { BranchManager } from "./storage/branch/index.js";
-import { SessionImpl } from "./runtime/session/index.js";
-import { SubscriptionStore } from "./runtime/subscription/index.js";
-import { createMemoryFacade, freezeRecallResult } from "./runtime/memory/index.js";
-import { SystemRuntime, createSystemFacade } from "./runtime/system/index.js";
-import type { SystemActionType } from "./constants.js";
-import { RESERVED_EFFECT_TYPE } from "./constants.js";
-import { createAppRef, type AppRefCallbacks } from "./hooks/index.js";
-import type { AppHostExecutor } from "./execution/host-executor/index.js";
-import { createDefaultPolicyService, createSilentPolicyService } from "./runtime/policy/index.js";
 import {
   createActionQueue,
   createLivenessGuard,
-  createAppExecutor,
-  appStateToSnapshot,
-  computeSnapshotHash,
   createProposalManager,
-  createHostInitializer,
-  type ActionQueue,
-  type LivenessGuard,
-  type AppExecutor,
-  type ProposalManager,
 } from "./execution/index.js";
 import {
   createLifecycleManager,
   type LifecycleManager,
 } from "./core/lifecycle/index.js";
-import { createInitialAppState } from "./core/state/index.js";
-import {
-  createSchemaManager,
-  type SchemaManager,
-} from "./core/schema/index.js";
-import {
-  createWorldHeadTracker,
-  type WorldHeadTracker,
-} from "./storage/world/index.js";
-import {
-  validateSchemaCompatibilityWithEffects,
-  SchemaIncompatibleError,
-} from "./storage/branch/schema-compatibility.js";
+import { createSchemaManager } from "./core/schema/index.js";
+import { createWorldHeadTracker } from "./storage/world/index.js";
+import { SubscriptionStore } from "./runtime/subscription/index.js";
+import { createDefaultPolicyService, createSilentPolicyService } from "./runtime/policy/index.js";
+
+import { AppBootstrap } from "./bootstrap/index.js";
+import type { AppRuntime } from "./runtime/app-runtime.js";
 
 // =============================================================================
 // ManifestoApp Implementation (Thin Facade)
 // =============================================================================
 
 /**
- * Manifesto App - Thin Facade
+ * Manifesto App — Thin Facade (FACADE-1~5)
  *
- * Coordinates modules to provide the App interface.
+ * Only contains lifecycle management and delegation to AppRuntime.
+ *
+ * @see ADR-004 Phase 4
  */
 export class ManifestoApp implements App {
-  // Core modules
   private _lifecycleManager: LifecycleManager;
-  private _schemaManager: SchemaManager;
-  private _proposalManager: ProposalManager;
-  private _actionQueue: ActionQueue;
-  private _livenessGuard: LivenessGuard;
-  private _worldHeadTracker: WorldHeadTracker;
-  private _appRef: AppRef;
-
-  // Config
-  private _config: AppConfig;
-
-  // Actor
-  private _defaultActorId: string = "anonymous";
-
-  // State
-  private _currentState: AppState<unknown> | null = null;
-
-  // Branch management
-  private _branchManager: BranchManager | null = null;
-
-  // Subscription store
-  private _subscriptionStore: SubscriptionStore = new SubscriptionStore();
-
-  // System Runtime
-  private _systemRuntime: SystemRuntime | null = null;
-  private _systemFacade: SystemFacade | null = null;
-  private _memoryFacade: MemoryFacade | null = null;
-  private _migrationLinks: MigrationLink[] = [];
-
-  // v2.3.0 Components
-  private _host: Host | null = null;
-  private _worldStore: WorldStore;
-  private _policyService: PolicyService;
-  private _hostExecutor: AppHostExecutor | null = null;
-  private _executor: AppExecutor | null = null;
-  // Effects for internal Host creation
-  private _effects: Effects;
+  private _bootstrap: AppBootstrap;
+  private _runtime: AppRuntime | null = null;
 
   constructor(config: AppConfig, worldStore: WorldStore) {
-    this._config = config;
-    this._effects = config.effects;
-    this._worldStore = worldStore;
-
-    // Initialize modules
     this._lifecycleManager = createLifecycleManager();
-    this._schemaManager = createSchemaManager(config.schema);
-    this._proposalManager = createProposalManager();
-    this._actionQueue = createActionQueue();
-    this._livenessGuard = createLivenessGuard();
-    this._worldHeadTracker = createWorldHeadTracker();
-    this._appRef = this._createAppRef();
-    this._lifecycleManager.setAppRef(this._appRef);
-    this._registerConfiguredHooks();
 
     // PolicyService: use provided or create default
+    let policyService: PolicyService;
     if (config.policyService) {
-      this._policyService = config.policyService;
+      policyService = config.policyService;
     } else {
       const isTest = typeof globalThis !== "undefined" &&
         (globalThis as unknown as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === "test";
 
-      this._policyService = isTest
+      policyService = isTest
         ? createSilentPolicyService(config.executionKeyPolicy)
         : createDefaultPolicyService({ executionKeyPolicy: config.executionKeyPolicy });
     }
+
+    this._bootstrap = new AppBootstrap({
+      config,
+      worldStore,
+      policyService,
+      lifecycleManager: this._lifecycleManager,
+      schemaManager: createSchemaManager(config.schema),
+      proposalManager: createProposalManager(),
+      actionQueue: createActionQueue(),
+      livenessGuard: createLivenessGuard(),
+      worldHeadTracker: createWorldHeadTracker(),
+      subscriptionStore: new SubscriptionStore(),
+      effects: config.effects,
+    });
   }
 
   // ===========================================================================
-  // Lifecycle (delegated to LifecycleManager)
+  // Lifecycle
   // ===========================================================================
 
   get status(): AppStatus {
@@ -203,41 +123,11 @@ export class ManifestoApp implements App {
       throw new AppDisposedError("ready");
     }
 
-    // Emit app:ready:before
-    await this._lifecycleManager.emitHook(
-      "app:ready:before",
-      this._lifecycleManager.createHookContext()
-    );
+    // Bootstrap assembles all components (steps 1-10)
+    this._runtime = await this._bootstrap.assemble(this);
 
-    // 1. Validate actor policy
-    this._validateActorPolicy();
-
-    // 2. Compile domain if MEL text
-    await this._schemaManager.compile();
-
-    // 3. Validate reserved namespaces (NS-ACT-2) - BEFORE cache
-    this._schemaManager.validateReservedNamespaces();
-
-    // 4. Cache schema (READY-6: before plugins)
-    const schema = this._schemaManager.getSchema();
-    this._schemaManager.cacheSchema(schema);
-    this._schemaManager.markResolved();
-
-    // 5. Emit domain:resolved hook
-    await this._lifecycleManager.emitHook(
-      "domain:resolved",
-      { schemaHash: schema.hash, schema },
-      {}
-    );
-
-    // 6. Initialize state
-    await this._initializeState();
-
-    // 7. Validate effects (strict mode)
-    this._validateEffects();
-
-    // 8. Initialize plugins
-    await this._initializePlugins();
+    // Initialize plugins (after _runtime is set so plugins can access app APIs)
+    await this._bootstrap.initializePlugins(this);
 
     // Mark as ready
     this._lifecycleManager.transitionTo("ready");
@@ -260,7 +150,6 @@ export class ManifestoApp implements App {
 
     this._lifecycleManager.transitionTo("disposing");
 
-    // Emit app:dispose:before
     await this._lifecycleManager.emitHook(
       "app:dispose:before",
       this._lifecycleManager.createHookContext()
@@ -268,7 +157,6 @@ export class ManifestoApp implements App {
 
     this._lifecycleManager.transitionTo("disposed");
 
-    // Emit app:dispose
     await this._lifecycleManager.emitHook(
       "app:dispose",
       this._lifecycleManager.createHookContext()
@@ -276,124 +164,52 @@ export class ManifestoApp implements App {
   }
 
   // ===========================================================================
-  // Domain Schema Access (delegated to SchemaManager)
+  // Public API — all delegation to _getRuntime()
   // ===========================================================================
 
   getDomainSchema(): DomainSchema {
-    if (!this._schemaManager.isResolved) {
-      throw new AppNotReadyError("getDomainSchema");
-    }
-
     if (this._lifecycleManager.isDisposed()) {
       throw new AppDisposedError("getDomainSchema");
     }
-
-    const currentSchemaHash = this._getCurrentSchemaHash();
-    const schema = this._schemaManager.getCachedSchema(currentSchemaHash);
-
-    if (!schema) {
-      throw new Error(`Schema not found for hash: ${currentSchemaHash}`);
+    // Special case: getDomainSchema is accessible during plugin initialization
+    // (status is "created" but _runtime is already assembled).
+    // Original code checked schemaManager.isResolved instead of ensureReady().
+    if (this._runtime) {
+      return this._runtime.getDomainSchema();
     }
-
-    return schema;
+    return this._getRuntime("getDomainSchema").getDomainSchema();
   }
 
-  // ===========================================================================
-  // Branch Management (delegated to BranchManager)
-  // ===========================================================================
-
   currentBranch(): Branch {
-    this._lifecycleManager.ensureReady("currentBranch");
-    return this._branchManager!.currentBranch();
+    return this._getRuntime("currentBranch").currentBranch();
   }
 
   listBranches(): readonly Branch[] {
-    this._lifecycleManager.ensureReady("listBranches");
-    return this._branchManager!.listBranches();
+    return this._getRuntime("listBranches").listBranches();
   }
 
   async switchBranch(branchId: string): Promise<Branch> {
-    this._lifecycleManager.ensureReady("switchBranch");
-    return this._branchManager!.switchBranch(branchId);
+    return this._getRuntime("switchBranch").switchBranch(branchId);
   }
 
   async fork(opts?: ForkOptions): Promise<Branch> {
-    this._lifecycleManager.ensureReady("fork");
-    const currentBranch = this._branchManager!.currentBranch();
-    let resolvedOpts = opts;
-
-    if (opts?.domain) {
-      const resolvedSchema = await this._resolveForkSchema(opts.domain);
-      this._schemaManager.cacheSchema(resolvedSchema);
-      resolvedOpts = { ...opts, domain: resolvedSchema };
-    }
-
-    return this._branchManager!.fork(currentBranch.id, resolvedOpts);
+    return this._getRuntime("fork").fork(opts);
   }
 
-  // ===========================================================================
-  // Action Execution
-  // ===========================================================================
-
   act(type: string, input?: unknown, opts?: ActOptions): ActionHandle {
-    this._lifecycleManager.ensureReady("act");
-
-    // Create handle immediately
-    const proposalId = this._proposalManager.generateProposalId();
-    const runtime = type.startsWith("system.") ? "system" : "domain";
-    const handle = this._proposalManager.createHandle(proposalId, runtime);
-
-    // ==== Liveness Guard (PUB-LIVENESS-2~3) ====
-    if (runtime === "domain") {
-      this._livenessGuard.checkReinjection(runtime);
-    }
-
-    if (runtime === "system") {
-      this._actionQueue.enqueueSystem(async () => {
-        await this._executeSystemAction(handle, type as SystemActionType, input, opts);
-      });
-    } else {
-      this._actionQueue.enqueueDomain(async () => {
-        await this._executor!.execute(handle, type, input, opts);
-      });
-    }
-
-    return handle;
+    return this._getRuntime("act").act(type, input, opts);
   }
 
   getActionHandle(proposalId: string): ActionHandle {
-    this._lifecycleManager.ensureReady("getActionHandle");
-    return this._proposalManager.getHandle(proposalId);
+    return this._getRuntime("getActionHandle").getActionHandle(proposalId);
   }
 
   session(actorId: string, opts?: SessionOptions): Session {
-    this._lifecycleManager.ensureReady("session");
-
-    const branchId = opts?.branchId ?? this._branchManager!.currentBranchId ?? "main";
-
-    return new SessionImpl(actorId, branchId, {
-      executeAction: (actorId, branchId, type, input, actOpts) => {
-        return this.act(type, input, { ...actOpts, actorId, branchId });
-      },
-      getStateForBranch: (branchId) => {
-        return this._branchManager!.getStateForBranch(branchId);
-      },
-      recall: async (req, ctx) => {
-        return this._memoryFacade!.recall(req, ctx);
-      },
-      isMemoryEnabled: () => {
-        return this._memoryFacade!.enabled();
-      },
-    }, opts);
+    return this._getRuntime("session").session(actorId, opts);
   }
 
-  // ===========================================================================
-  // State Access
-  // ===========================================================================
-
   getState<T = unknown>(): AppState<T> {
-    this._lifecycleManager.ensureReady("getState");
-    return this._currentState as AppState<T>;
+    return this._getRuntime("getState").getState<T>();
   }
 
   subscribe<TSelected>(
@@ -401,497 +217,43 @@ export class ManifestoApp implements App {
     listener: (selected: TSelected) => void,
     opts?: SubscribeOptions<TSelected>
   ): Unsubscribe {
-    this._lifecycleManager.ensureReady("subscribe");
-    return this._subscriptionStore.subscribe(selector, listener, opts);
+    return this._getRuntime("subscribe").subscribe(selector, listener, opts);
   }
 
-  // ===========================================================================
-  // System & Memory Facades
-  // ===========================================================================
-
   get system(): SystemFacade {
-    this._lifecycleManager.ensureReady("system");
-    return this._systemFacade!;
+    return this._getRuntime("system").system;
   }
 
   get memory(): MemoryFacade {
-    this._lifecycleManager.ensureReady("memory");
-    return this._memoryFacade!;
+    return this._getRuntime("memory").memory;
   }
 
   getMigrationLinks(): readonly MigrationLink[] {
-    this._lifecycleManager.ensureReady("getMigrationLinks");
-    return this._migrationLinks;
+    return this._getRuntime("getMigrationLinks").getMigrationLinks();
   }
 
-  // ===========================================================================
-  // v2.0.0 World Query APIs
-  // ===========================================================================
-
   getCurrentHead(): WorldId {
-    this._lifecycleManager.ensureReady("getCurrentHead");
-
-    const head = this._worldHeadTracker.getCurrentHead();
-    if (head) {
-      return head;
-    }
-
-    const headStr = this._branchManager?.currentBranch()?.head() ?? "genesis";
-    return createWorldId(String(headStr));
+    return this._getRuntime("getCurrentHead").getCurrentHead();
   }
 
   async getSnapshot(worldId: WorldId): Promise<Snapshot> {
-    this._lifecycleManager.ensureReady("getSnapshot");
-    return this._worldStore.restore(worldId);
+    return this._getRuntime("getSnapshot").getSnapshot(worldId);
   }
 
   async getWorld(worldId: WorldId): Promise<World> {
-    this._lifecycleManager.ensureReady("getWorld");
-    const world = await this._worldStore.getWorld(worldId);
-    if (!world) {
-      throw new Error(`World not found: ${worldId}`);
-    }
-    return world;
+    return this._getRuntime("getWorld").getWorld(worldId);
   }
 
   async submitProposal(proposal: Proposal): Promise<ProposalResult> {
-    this._lifecycleManager.ensureReady("submitProposal");
-
-    const runtime = proposal.intentType.startsWith("system.") ? "system" : "domain";
-    const handle = this._proposalManager.createHandle(proposal.proposalId, runtime);
-
-    await new Promise<void>((resolve) => {
-      this._actionQueue.enqueueDomain(async () => {
-        await this._executor!.execute(
-          handle,
-          proposal.intentType,
-          proposal.intentBody,
-          {
-            actorId: proposal.actorId,
-            branchId: proposal.branchId,
-          }
-        );
-        resolve();
-      });
-    });
-
-    const result = await handle.result();
-
-    if (result.status === "completed") {
-      const worldId = createWorldId(result.worldId);
-      const world = await this._worldStore!.getWorld(worldId);
-      return { status: "completed", world: world! };
-    } else if (result.status === "failed") {
-      const worldId = createWorldId(result.worldId);
-      const world = await this._worldStore!.getWorld(worldId);
-      return { status: "failed", world: world!, error: result.error };
-    } else if (result.status === "rejected") {
-      return { status: "rejected", reason: result.reason ?? "Proposal rejected by authority" };
-    } else {
-      return { status: "rejected", reason: result.error?.message ?? "Proposal preparation failed" };
-    }
+    return this._getRuntime("submitProposal").submitProposal(proposal);
   }
 
   // ===========================================================================
-  // Internal Methods
+  // Private: Runtime Guard (FACADE-5)
   // ===========================================================================
 
-  private _createAppRef(): AppRef {
-    const queue = this._lifecycleManager.getHookableImpl().getJobQueue();
-    const callbacks: AppRefCallbacks = {
-      getStatus: () => this.status,
-      getState: <T>() => this.getState<T>(),
-      getDomainSchema: () => this.getDomainSchema(),
-      getCurrentHead: () => this.getCurrentHead(),
-      currentBranch: () => this.currentBranch(),
-      generateProposalId: () => this._proposalManager.generateProposalId(),
-    };
-
-    return createAppRef(
-      callbacks,
-      queue,
-      (proposalId, type, input, opts) => {
-        this._enqueueActionFromHook(proposalId, type, input, opts);
-      }
-    );
+  private _getRuntime(apiName: string): AppRuntime {
+    this._lifecycleManager.ensureReady(apiName);
+    return this._runtime!;
   }
-
-  private _enqueueActionFromHook(
-    proposalId: ProposalId,
-    type: string,
-    input?: unknown,
-    opts?: ActOptions
-  ): void {
-    this._lifecycleManager.ensureReady("enqueueAction");
-
-    const runtime = type.startsWith("system.") ? "system" : "domain";
-    const handle = this._proposalManager.createHandle(proposalId, runtime);
-
-    if (runtime === "domain") {
-      this._livenessGuard.checkReinjection(runtime);
-    }
-
-    if (runtime === "system") {
-      this._actionQueue.enqueueSystem(async () => {
-        await this._executeSystemAction(handle, type as SystemActionType, input, opts);
-      });
-    } else {
-      this._actionQueue.enqueueDomain(async () => {
-        await this._executor!.execute(handle, type, input, opts);
-      });
-    }
-  }
-
-  private async _resolveForkSchema(domain: string | DomainSchema): Promise<DomainSchema> {
-    if (typeof domain !== "string") {
-      return domain;
-    }
-
-    const result = compileMelDomain(domain, { mode: "domain" });
-
-    if (result.errors.length > 0) {
-      const errorMessages = result.errors
-        .map((e) => `[${e.code}] ${e.message}`)
-        .join("; ");
-      throw new DomainCompileError(`MEL compilation failed: ${errorMessages}`);
-    }
-
-    if (!result.schema) {
-      throw new DomainCompileError("MEL compilation produced no schema");
-    }
-
-    return result.schema as DomainSchema;
-  }
-
-  private _getCurrentSchemaHash(): string {
-    if (this._branchManager) {
-      return this._branchManager.currentBranch().schemaHash;
-    }
-    return this._schemaManager.getCurrentSchemaHash();
-  }
-
-  private _validateActorPolicy(): void {
-    const policy = this._config.actorPolicy;
-
-    if (policy?.mode === "require" && !policy.defaultActor) {
-      throw new MissingDefaultActorError();
-    }
-
-    if (policy?.defaultActor) {
-      this._defaultActorId = policy.defaultActor.actorId;
-    } else {
-      this._defaultActorId = "anonymous";
-    }
-  }
-
-  private _validateEffects(): void {
-    const mode = this._config.validation?.effects ?? "off";
-    if (mode === "off") {
-      return;
-    }
-
-    const schema = this._schemaManager.getSchema();
-    const result = validateSchemaCompatibilityWithEffects(schema, this._effects);
-
-    if (result.compatible) {
-      return;
-    }
-
-    if (mode === "warn") {
-      console.warn(
-        `[Manifesto] Missing effect handlers: ${result.missingEffects?.join(", ") ?? ""}`
-      );
-      return;
-    }
-
-    throw new SchemaIncompatibleError(result.missingEffects ?? []);
-  }
-
-  private async _initializePlugins(): Promise<void> {
-    const plugins = this._config.plugins;
-    if (!plugins) return;
-
-    for (let i = 0; i < plugins.length; i++) {
-      const plugin = plugins[i];
-      try {
-        await plugin(this);
-      } catch (error) {
-        throw new PluginInitError(
-          i,
-          error instanceof Error ? error.message : String(error),
-          { cause: error }
-        );
-      }
-    }
-  }
-
-  private _registerConfiguredHooks(): void {
-    const hooks = this._config.hooks;
-    if (!hooks) return;
-
-    const hookable = this._lifecycleManager.hooks;
-    for (const [name, handler] of Object.entries(hooks)) {
-      if (typeof handler !== "function") continue;
-      hookable.on(name as keyof AppHooks, handler as AppHooks[keyof AppHooks]);
-    }
-  }
-
-  private async _initializeState(): Promise<void> {
-    const schemaHash = this._schemaManager.getCurrentSchemaHash();
-    const initialData = this._config.initialData;
-
-    this._currentState = createInitialAppState(schemaHash, initialData);
-
-    this._subscriptionStore.setState(this._currentState);
-
-    this._branchManager = new BranchManager({
-      schemaHash,
-      initialState: this._currentState,
-      callbacks: {
-        executeAction: (branchId, type, input, opts) => {
-          return this.act(type, input, { ...opts, branchId });
-        },
-        getStateForBranch: () => this._currentState!,
-      },
-      getRegisteredEffectTypes: () => [
-        ...Object.keys(this._effects),
-        RESERVED_EFFECT_TYPE,
-      ],
-    });
-
-    this._memoryFacade = createMemoryFacade(
-      this._config.memory,
-      schemaHash,
-      {
-        getDefaultActorId: () => this._defaultActorId,
-        getCurrentBranchId: () => this._branchManager?.currentBranchId ?? "main",
-        getBranchHead: (branchId) => {
-          try {
-            const branches = this._branchManager?.listBranches() ?? [];
-            const branch = branches.find((b) => b.id === branchId);
-            return branch?.head();
-          } catch {
-            return undefined;
-          }
-        },
-        branchExists: (branchId) => {
-          try {
-            const branches = this._branchManager?.listBranches() ?? [];
-            return branches.some((b) => b.id === branchId);
-          } catch {
-            return false;
-          }
-        },
-      }
-    );
-
-    this._systemRuntime = new SystemRuntime({
-      memoryFacade: this._memoryFacade,
-    });
-
-    this._systemFacade = createSystemFacade({
-      act: (type, input, actOpts) => this.act(type, input, actOpts),
-    });
-
-    await this._initializeComponents();
-  }
-
-  private async _initializeComponents(): Promise<void> {
-    if (!this._worldStore || !this._policyService) {
-      throw new Error("v2 mode requires WorldStore and PolicyService");
-    }
-
-    const schema = this._schemaManager.getSchema();
-    const internalHost = createInternalHost({
-      schema,
-      effects: this._effects,
-      initialData: this._config.initialData,
-    });
-
-    // Adapt ManifestoHost to App's Host interface
-    this._host = {
-      dispatch: async (intent): Promise<HostResult> => {
-        const result = await internalHost.dispatch(intent);
-        return {
-          // Map ManifestoHost status to App's HostResult status
-          status: result.status === "complete" ? "complete" : "error",
-          snapshot: result.snapshot as Snapshot,
-          error: result.error as ErrorValue | undefined,
-        };
-      },
-      registerEffect: (_type, _handler) => {
-        // Effects are pre-registered via createInternalHost.
-        console.warn(
-          "[Manifesto] registerEffect() is deprecated. " +
-          "Provide effects via createApp({ effects }) instead."
-        );
-      },
-      getRegisteredEffectTypes: () => internalHost.getEffectTypes(),
-      reset: async (data) => {
-        internalHost.reset(data);
-      },
-    };
-
-    // Use HostInitializer for genesis world
-    const hostInitializer = createHostInitializer({
-      host: this._host,
-      worldStore: this._worldStore,
-      policyService: this._policyService,
-      domainSchema: schema,
-      options: this._config,
-      worldHeadTracker: this._worldHeadTracker,
-      branchManager: this._branchManager,
-      currentState: this._currentState!,
-    });
-
-    const { hostExecutor } = hostInitializer.initialize();
-    this._hostExecutor = hostExecutor;
-
-    await hostInitializer.initializeGenesisWorld();
-
-    // Create AppExecutor
-    this._executor = createAppExecutor({
-      domainSchema: this._schemaManager.getSchema(),
-      defaultActorId: this._defaultActorId,
-      policyService: this._policyService,
-      hostExecutor: this._hostExecutor,
-      worldStore: this._worldStore,
-      lifecycleManager: this._lifecycleManager,
-      proposalManager: this._proposalManager,
-      livenessGuard: this._livenessGuard,
-      worldHeadTracker: this._worldHeadTracker,
-      memoryFacade: this._memoryFacade!,
-      branchManager: this._branchManager!,
-      subscriptionStore: this._subscriptionStore,
-      schedulerOptions: this._config.scheduler,
-      getCurrentState: () => this._currentState!,
-      setCurrentState: (state) => { this._currentState = state; },
-    });
-  }
-
-  private async _executeSystemAction(
-    handle: ActionHandleImpl,
-    actionType: SystemActionType,
-    input: unknown,
-    opts?: ActOptions
-  ): Promise<void> {
-    const actorId = opts?.actorId ?? this._defaultActorId;
-
-    if (this._config.systemActions?.enabled === false) {
-      const error = {
-        code: "SYSTEM_ACTION_DISABLED",
-        message: `System Actions are disabled`,
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-      handle._transitionTo("preparation_failed", { kind: "preparation_failed", error });
-      handle._setResult({
-        status: "preparation_failed",
-        proposalId: handle.proposalId,
-        error,
-        runtime: "system",
-      });
-      return;
-    }
-
-    const disabledActions = this._config.systemActions?.disabled ?? [];
-    if (disabledActions.includes(actionType)) {
-      const error = {
-        code: "SYSTEM_ACTION_DISABLED",
-        message: `System Action '${actionType}' is disabled`,
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-      handle._transitionTo("preparation_failed", { kind: "preparation_failed", error });
-      handle._setResult({
-        status: "preparation_failed",
-        proposalId: handle.proposalId,
-        error,
-        runtime: "system",
-      });
-      return;
-    }
-
-    try {
-      await this._lifecycleManager.emitHook("action:preparing", {
-        proposalId: handle.proposalId,
-        actorId: this._defaultActorId,
-        type: actionType,
-        runtime: "system",
-      }, {});
-
-      handle._transitionTo("preparing");
-      handle._transitionTo("submitted");
-      handle._transitionTo("evaluating");
-      handle._transitionTo("approved");
-      handle._transitionTo("executing");
-
-      const result = await this._systemRuntime!.execute(
-        actionType,
-        (input as Record<string, unknown>) ?? {},
-        {
-          actorId,
-          proposalId: handle.proposalId,
-          timestamp: Date.now(),
-        }
-      );
-
-      if (result.status === "completed") {
-        handle._transitionTo("completed", { kind: "completed", worldId: result.worldId });
-        handle._setResult(result);
-
-        await this._lifecycleManager.emitHook("system:world", {
-          type: actionType,
-          proposalId: handle.proposalId,
-          actorId,
-          systemWorldId: result.worldId,
-          status: "completed",
-        }, {});
-      } else if (result.status === "failed") {
-        handle._transitionTo("failed", { kind: "failed", error: result.error });
-        handle._setResult(result);
-
-        await this._lifecycleManager.emitHook("system:world", {
-          type: actionType,
-          proposalId: handle.proposalId,
-          actorId,
-          systemWorldId: result.worldId,
-          status: "failed",
-        }, {});
-      }
-
-      await this._lifecycleManager.emitHook("action:completed", {
-        proposalId: handle.proposalId,
-        result,
-      }, {});
-    } catch (error) {
-      const errorValue = {
-        code: "SYSTEM_ACTION_ERROR",
-        message: error instanceof Error ? error.message : String(error),
-        source: { actionId: handle.proposalId, nodePath: "" },
-        timestamp: Date.now(),
-      };
-
-      handle._transitionTo("failed", { kind: "failed", error: errorValue });
-
-      const result = {
-        status: "failed" as const,
-        proposalId: handle.proposalId,
-        decisionId: `dec_sys_${Date.now().toString(36)}`,
-        error: errorValue,
-        worldId: this._systemRuntime!.head(),
-        runtime: "system" as const,
-      };
-
-      handle._setResult(result);
-
-      await this._lifecycleManager.emitHook("action:completed", {
-        proposalId: handle.proposalId,
-        result,
-      }, {});
-    }
-  }
-
-  // Note: Legacy _executeActionLifecycle method removed in v2.3.0
-  // All domain actions now go through _executor.execute()
 }
