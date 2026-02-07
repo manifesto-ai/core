@@ -83,7 +83,7 @@ In Manifesto, Schema is more than a data structure definition.
 - AI can **evolve** domain structures
 - All Schema changes are **traced** and **auditable**
 
-(See [Schema Evolution Guide](/guides/schema-evolution) for details)
+(See [Schema Evolution Guide](/integration/schema-evolution) for details)
 
 ## AI-Native by Design
 
@@ -228,7 +228,7 @@ app.subscribe(
 ## See Also
 
 - [Quickstart Guide](/quickstart) — Full setup instructions
-- [AI Agent Integration](/guides/ai-agent-integration) — Practical AI integration guide
-- [Schema Evolution](/guides/schema-evolution) — Schema evolution patterns
+- [AI Agent Integration](/integration/ai-agents) — Practical AI integration guide
+- [Schema Evolution](/integration/schema-evolution) — Schema evolution patterns
 - [Intent Concept](/concepts/intent) — Intent details
 - [World Concept](/concepts/world) — Governance details

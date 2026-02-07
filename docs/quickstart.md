@@ -193,10 +193,10 @@ console.log(app.getState().computed.doubled); // 2
 
 | Topic | Description |
 |-------|-------------|
-| [Getting Started Guide](/quickstart) | Full tutorial with effects and React |
+| [Tutorial](/tutorial/) | Step-by-step learning path |
 | [MEL Syntax](/mel/SYNTAX) | Complete language reference |
 | [Core Concepts](/concepts/) | Snapshot, Intent, Effect, Flow |
-| [Architecture](/architecture/) | How Manifesto works |
+| [Integration](/integration/) | React, AI agents, schema evolution |
 
 ---
 

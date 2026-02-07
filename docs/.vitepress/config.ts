@@ -43,10 +43,10 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Quickstart', link: '/quickstart' },
-      { text: 'Learn', link: '/learn/' },
-      { text: 'Concepts', link: '/concepts/' },
-      { text: 'API', link: '/api/' },
+      { text: 'Tutorial', link: '/tutorial/' },
       { text: 'Guides', link: '/guides/' },
+      { text: 'Integration', link: '/integration/' },
+      { text: 'API', link: '/api/' },
       { text: 'MEL', link: '/mel/' },
       { text: 'Internals', link: '/internals/' },
     ],
@@ -54,14 +54,35 @@ export default defineConfig({
     sidebar: {
       '/quickstart': [],  // Single page, no sidebar
 
-      '/learn/': [
+      '/tutorial/': [
         {
-          text: 'Learn Manifesto',
+          text: 'Tutorial',
           items: [
-            { text: 'Overview', link: '/learn/' },
-            { text: 'Your First App', link: '/learn/01-your-first-app' },
-            { text: 'Actions and State', link: '/learn/02-actions-and-state' },
-            { text: 'Working with Effects', link: '/learn/03-effects' },
+            { text: 'Overview', link: '/tutorial/' },
+            { text: '1. Your First App', link: '/tutorial/01-your-first-app' },
+            { text: '2. Actions and State', link: '/tutorial/02-actions-and-state' },
+            { text: '3. Working with Effects', link: '/tutorial/03-effects' },
+            { text: '4. Building a Todo App', link: '/tutorial/04-todo-app' },
+          ]
+        },
+        {
+          text: 'Concepts',
+          collapsed: false,
+          items: [
+            { text: 'Overview', link: '/concepts/' },
+            { text: 'AI Native OS Layer', link: '/concepts/ai-native-os-layer' },
+            { text: 'Snapshot', link: '/concepts/snapshot' },
+            { text: 'Intent', link: '/concepts/intent' },
+            { text: 'Flow', link: '/concepts/flow' },
+            { text: 'Effect', link: '/concepts/effect' },
+            { text: 'World', link: '/concepts/world' },
+          ]
+        },
+        {
+          text: 'Architecture',
+          collapsed: true,
+          items: [
+            { text: 'Overview', link: '/internals/architecture' },
           ]
         }
       ],
@@ -81,6 +102,39 @@ export default defineConfig({
         }
       ],
 
+      '/guides/': [
+        {
+          text: 'How-to Guides',
+          items: [
+            { text: 'Overview', link: '/guides/' },
+            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
+            { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Performance Report', link: '/guides/performance-report' },
+          ]
+        },
+        {
+          text: 'Migration',
+          items: [
+            { text: 'Migration Playbook', link: '/guides/migration-from-v2-early' },
+            { text: 'Migration API Cookbook', link: '/guides/migration-api-cookbook' },
+            { text: 'Migration Checklist', link: '/guides/migration-checklist' },
+          ]
+        }
+      ],
+
+      '/integration/': [
+        {
+          text: 'Integration',
+          items: [
+            { text: 'Overview', link: '/integration/' },
+            { text: 'React', link: '/integration/react' },
+            { text: 'AI Agents', link: '/integration/ai-agents' },
+            { text: 'Schema Evolution', link: '/integration/schema-evolution' },
+          ]
+        }
+      ],
+
       '/api/': [
         {
           text: 'API Reference',
@@ -90,6 +144,8 @@ export default defineConfig({
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/world', link: '/api/world' },
+            { text: '@manifesto-ai/compiler', link: '/api/compiler' },
+            { text: '@manifesto-ai/intent-ir', link: '/api/intent-ir' },
           ]
         }
       ],
@@ -159,6 +215,8 @@ export default defineConfig({
             { text: 'Overview', link: '/internals/adr/' },
             { text: 'ADR-001: Layer Separation', link: '/internals/adr/001-layer-separation' },
             { text: 'ADR-002: DX Improvements', link: '/internals/adr/002-dx-improvement-mel-namespace-onceIntent' },
+            { text: 'ADR-003: World Owns Persistence', link: '/internals/adr/003-world-owns-persistence' },
+            { text: 'ADR-004: App Internal Decomposition', link: '/internals/adr/004-app-package-internal-decomposition' },
           ]
         },
         {

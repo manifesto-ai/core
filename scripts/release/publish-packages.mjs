@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const raw = process.argv[2];
 
@@ -22,14 +24,28 @@ if (!Array.isArray(paths) || paths.length === 0) {
   process.exit(0);
 }
 
-const filters = paths
+const rawFilters = paths
   .map((entry) => String(entry).replace(/\/+$/, ""))
   .filter((entry) => entry && entry !== ".");
 
-if (filters.length === 0) {
+if (rawFilters.length === 0) {
   console.log("No publishable packages found. Skipping publish.");
   process.exit(0);
 }
+
+const filters = Array.from(
+  new Set(
+    rawFilters.map((entry) => {
+      const packageJsonPath = resolve(process.cwd(), entry, "package.json");
+      if (!existsSync(packageJsonPath)) {
+        return entry;
+      }
+
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+      return packageJson.name ?? entry;
+    })
+  )
+);
 
 const args = [
   "-r",
