@@ -187,6 +187,8 @@ export default defineConfig({
             { text: 'Overview', link: '/internals/adr/' },
             { text: 'ADR-001: Layer Separation', link: '/internals/adr/001-layer-separation' },
             { text: 'ADR-002: DX Improvements', link: '/internals/adr/002-dx-improvement-mel-namespace-onceIntent' },
+            { text: 'ADR-003: World Owns Persistence', link: '/internals/adr/003-world-owns-persistence' },
+            { text: 'ADR-004: App Internal Decomposition', link: '/internals/adr/004-app-package-internal-decomposition' },
           ]
         },
         {
