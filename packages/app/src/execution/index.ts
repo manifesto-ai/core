@@ -65,5 +65,8 @@ export {
   createSystemActionExecutor,
 } from "./system-action-executor.js";
 
+// Pipeline (ADR-004 Phase 3)
+export * from "./pipeline/index.js";
+
 // Proposal
 export * from "./proposal/index.js";

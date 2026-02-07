@@ -1,26 +1,19 @@
 /**
  * App Executor Module
  *
- * Orchestrates action execution lifecycle.
+ * Orchestrates action execution lifecycle via pipeline stages.
  *
  * @see SPEC v2.0.0 §5-10
+ * @see ADR-004 Phase 3
  * @module
  */
 
-import type { DomainSchema, Snapshot, Patch } from "@manifesto-ai/core";
-import type { WorldId } from "@manifesto-ai/world";
-import { createWorldId, createProposalId } from "@manifesto-ai/world";
+import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   ActOptions,
   AppState,
-  ActionResult,
   ErrorValue,
-  Intent,
   PolicyService,
-  Proposal,
-  RecallRequest,
-  World,
-  WorldDelta,
   WorldStore,
 } from "../core/types/index.js";
 import type { AppHostExecutor } from "./host-executor/index.js";
@@ -33,14 +26,19 @@ import type { BranchManager } from "../storage/branch/index.js";
 import type { SubscriptionStore } from "../runtime/subscription/index.js";
 import { ActionHandleImpl } from "./action/index.js";
 import { generateWorldId } from "../storage/branch/index.js";
-import { freezeRecallResult } from "../runtime/memory/index.js";
-import {
-  snapshotToAppState,
-  appStateToSnapshot,
-  computePatches,
-  computeSnapshotHash,
-  normalizeSnapshot,
-} from "./state-converter.js";
+import type {
+  PipelineContext,
+  PrepareDeps,
+  AuthorizeDeps,
+  ExecuteDeps,
+  PersistDeps,
+  FinalizeDeps,
+} from "./pipeline/types.js";
+import { prepare } from "./pipeline/prepare.js";
+import { authorize } from "./pipeline/authorize.js";
+import { executeHost } from "./pipeline/execute.js";
+import { persist } from "./pipeline/persist.js";
+import { finalize } from "./pipeline/finalize.js";
 
 // =============================================================================
 // Types
@@ -94,28 +92,70 @@ export interface AppExecutor {
 /**
  * App Executor implementation.
  *
- * Orchestrates the complete action execution lifecycle.
+ * Orchestrates the complete action execution lifecycle
+ * via a 5-stage pipeline (ADR-004 Phase 3).
  */
 export class AppExecutorImpl implements AppExecutor {
   private _deps: AppExecutorDependencies;
+  private _prepareDeps: PrepareDeps;
+  private _authorizeDeps: AuthorizeDeps;
+  private _executeDeps: ExecuteDeps;
+  private _persistDeps: PersistDeps;
+  private _finalizeDeps: FinalizeDeps;
 
   constructor(deps: AppExecutorDependencies) {
     this._deps = deps;
+
+    // Construct stage dependency subsets once
+    this._prepareDeps = {
+      domainSchema: deps.domainSchema,
+      lifecycleManager: deps.lifecycleManager,
+      worldHeadTracker: deps.worldHeadTracker,
+      branchManager: deps.branchManager,
+      subscriptionStore: deps.subscriptionStore,
+    };
+
+    this._authorizeDeps = {
+      policyService: deps.policyService,
+      lifecycleManager: deps.lifecycleManager,
+      subscriptionStore: deps.subscriptionStore,
+    };
+
+    this._executeDeps = {
+      worldStore: deps.worldStore,
+      memoryFacade: deps.memoryFacade,
+      hostExecutor: deps.hostExecutor,
+      policyService: deps.policyService,
+      schedulerOptions: deps.schedulerOptions,
+      getCurrentState: deps.getCurrentState,
+    };
+
+    this._persistDeps = {
+      domainSchema: deps.domainSchema,
+      worldStore: deps.worldStore,
+      subscriptionStore: deps.subscriptionStore,
+      worldHeadTracker: deps.worldHeadTracker,
+      branchManager: deps.branchManager,
+      proposalManager: deps.proposalManager,
+      lifecycleManager: deps.lifecycleManager,
+      getCurrentState: deps.getCurrentState,
+      setCurrentState: deps.setCurrentState,
+    };
+
+    this._finalizeDeps = {
+      lifecycleManager: deps.lifecycleManager,
+      subscriptionStore: deps.subscriptionStore,
+      proposalManager: deps.proposalManager,
+      livenessGuard: deps.livenessGuard,
+      getCurrentState: deps.getCurrentState,
+      setCurrentState: deps.setCurrentState,
+    };
   }
 
   /**
-   * Execute action lifecycle for v2.0.0.
+   * Execute action lifecycle via pipeline stages.
    *
-   * Flow:
-   * 1. preparing      → Emit hook, validate action exists
-   * 2. submitted      → Create Proposal
-   * 3. evaluating     → PolicyService.deriveExecutionKey() + requestApproval()
-   * 4. approved/rejected → If rejected: emit audit:rejected, return
-   * 5. executing      → WorldStore.restore() → freeze context → HostExecutor.execute()
-   * 6. post-validate  → PolicyService.validateResultScope() (optional)
-   * 7. store          → Create World, WorldDelta → WorldStore.store()
-   * 8. update         → Advance branch head (only if completed)
-   * 9. completed/failed → Emit hooks, set result
+   * @see ADR-004 Phase 3
    */
   async execute(
     handle: ActionHandleImpl,
@@ -123,23 +163,7 @@ export class AppExecutorImpl implements AppExecutor {
     input: unknown,
     opts?: ActOptions
   ): Promise<void> {
-    const {
-      lifecycleManager,
-      proposalManager,
-      livenessGuard,
-      worldHeadTracker,
-      subscriptionStore,
-      domainSchema,
-      defaultActorId,
-      policyService,
-      hostExecutor,
-      worldStore,
-      memoryFacade,
-      branchManager,
-      schedulerOptions,
-      getCurrentState,
-      setCurrentState,
-    } = this._deps;
+    const { subscriptionStore, livenessGuard, defaultActorId, branchManager } = this._deps;
 
     // Start transaction for subscription batching
     subscriptionStore.startTransaction();
@@ -147,443 +171,39 @@ export class AppExecutorImpl implements AppExecutor {
     const actorId = opts?.actorId ?? defaultActorId;
     const branchId = opts?.branchId ?? branchManager?.currentBranchId ?? "main";
 
-    // ==== Liveness Guard: Track current executing proposal ====
+    // Liveness Guard: Track current executing proposal
     livenessGuard.enterExecution(handle.proposalId);
 
+    const ctx: PipelineContext = { handle, actionType, input, opts, actorId, branchId };
+
     try {
-      // ==== Phase 1: preparing ====
-      await lifecycleManager.emitHook(
-        "action:preparing",
-        {
-          proposalId: handle.proposalId,
-          actorId,
-          branchId,
-          type: actionType,
-          runtime: "domain" as const,
-        },
-        { actorId, branchId }
-      );
+      // Stage 1: Prepare
+      const prepResult = await prepare(ctx, this._prepareDeps);
+      if (prepResult.halted) return;
 
-      handle._transitionTo("preparing");
+      // Stage 2: Authorize
+      const authResult = await authorize(ctx, this._authorizeDeps);
+      if (authResult.halted) return;
 
-      // Validate action type exists
-      const actionDef = domainSchema?.actions[actionType];
-      if (!actionDef) {
-        await this._handlePreparationFailure(handle, {
-          code: "ACTION_NOT_FOUND",
-          message: `Action type '${actionType}' not found in schema`,
-        });
-        return;
-      }
+      // Stage 3: Execute
+      await executeHost(ctx, this._executeDeps);
 
-      // ==== Phase 2: submitted ====
-      handle._transitionTo("submitted");
+      // Stage 4: Persist
+      await persist(ctx, this._persistDeps);
 
-      // Create Proposal
-      const baseWorldIdStr = worldHeadTracker.getCurrentHead() ?? branchManager?.currentBranch()?.head() ?? "genesis";
-      const baseWorldId = createWorldId(String(baseWorldIdStr));
-      const proposal: Proposal = {
-        proposalId: handle.proposalId,
-        actorId,
-        intentType: actionType,
-        intentBody: input,
-        baseWorld: baseWorldId,
-        branchId,
-        createdAt: Date.now(),
-      };
-
-      // Emit submitted hook
-      await lifecycleManager.emitHook(
-        "action:submitted",
-        {
-          proposalId: handle.proposalId,
-          actorId,
-          branchId,
-          type: actionType,
-          input,
-          runtime: "domain" as const,
-        },
-        { actorId, branchId }
-      );
-
-      // ==== Phase 3: evaluating ====
-      handle._transitionTo("evaluating");
-
-      // Derive ExecutionKey
-      const executionKey = policyService.deriveExecutionKey(proposal);
-
-      // Request approval from PolicyService
-      const decision = await policyService.requestApproval(proposal);
-
-      // ==== Phase 4: approved/rejected ====
-      if (!decision.approved) {
-        handle._transitionTo("rejected", {
-          kind: "rejected",
-          reason: decision.reason,
-        });
-
-        // Emit audit:rejected
-        await lifecycleManager.emitHook(
-          "audit:rejected",
-          {
-            operation: actionType,
-            reason: decision.reason,
-            proposalId: handle.proposalId,
-          },
-          { actorId, branchId }
-        );
-
-        const result = {
-          status: "rejected" as const,
-          proposalId: handle.proposalId,
-          decisionId: `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-          reason: decision.reason,
-          runtime: "domain" as const,
-        };
-
-        subscriptionStore.endTransaction();
-
-        await lifecycleManager.emitHook(
-          "action:completed",
-          { proposalId: handle.proposalId, result },
-          { actorId, branchId }
-        );
-
-        handle._setResult(result);
-
-        return;
-      }
-
-      // POLICY-3: Validate Proposal against ApprovedScope before execution
-      if (decision.scope) {
-        const scopeValidation = policyService.validateScope(proposal, decision.scope);
-        if (!scopeValidation.valid) {
-          const reason = scopeValidation.errors?.[0] ?? "Scope validation failed";
-
-          handle._transitionTo("rejected", {
-            kind: "rejected",
-            reason,
-          });
-
-          await lifecycleManager.emitHook(
-            "audit:rejected",
-            {
-              operation: actionType,
-              reason,
-              proposalId: handle.proposalId,
-            },
-            { actorId, branchId }
-          );
-
-          const result = {
-            status: "rejected" as const,
-            proposalId: handle.proposalId,
-            decisionId: `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-            reason,
-            runtime: "domain" as const,
-          };
-
-          subscriptionStore.endTransaction();
-
-          await lifecycleManager.emitHook(
-            "action:completed",
-            { proposalId: handle.proposalId, result },
-            { actorId, branchId }
-          );
-
-          handle._setResult(result);
-
-          return;
-        }
-      }
-
-      // Approved
-      handle._transitionTo("approved");
-
-      // ==== Phase 5: executing ====
-      handle._transitionTo("executing");
-
-      // Restore base snapshot from WorldStore
-      let baseSnapshot: Snapshot;
-      try {
-        baseSnapshot = await worldStore.restore(baseWorldId);
-      } catch (error) {
-        // Fallback to current state if WorldStore fails
-        baseSnapshot = appStateToSnapshot(getCurrentState());
-      }
-      baseSnapshot = normalizeSnapshot(baseSnapshot);
-
-      // Handle memory recall if requested
-      if (opts?.recall) {
-        try {
-          const recallRequests = Array.isArray(opts.recall) ? opts.recall : [opts.recall];
-          const recallResult = await memoryFacade.recall(
-            recallRequests as RecallRequest[],
-            { actorId, branchId }
-          );
-          // MEM-7: Freeze recall context into snapshot
-          baseSnapshot = freezeRecallResult(baseSnapshot, recallResult);
-        } catch (recallError) {
-          // Recall failure doesn't block execution, but we log it
-          console.warn("[Manifesto] Memory recall failed:", recallError);
-        }
-      }
-
-      // Create Intent for execution
-      const intent: Intent = {
-        type: actionType,
-        body: input,
-        intentId: `intent_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      };
-
-      // Execute via HostExecutor
-      const execResult = await hostExecutor.execute(
-        executionKey,
-        baseSnapshot,
-        intent,
-        {
-          approvedScope: decision.scope,
-          timeoutMs: schedulerOptions?.defaultTimeoutMs,
-        }
-      );
-
-      // ==== Phase 6: post-validate (optional) ====
-      if (decision.scope && policyService.validateResultScope) {
-        const scopeValidation = policyService.validateResultScope(
-          baseSnapshot,
-          execResult.terminalSnapshot,
-          decision.scope
-        );
-
-        if (!scopeValidation.valid) {
-          // Scope violation - treat as failure
-          console.warn("[Manifesto] Result scope validation failed:", scopeValidation.errors);
-        }
-      }
-
-      // ==== Phase 7: store ====
-      const newWorldIdStr = generateWorldId();
-      const newWorldId = createWorldId(newWorldIdStr);
-      const decisionId = `dec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-
-      // Compute snapshot hash for the terminal snapshot
-      const snapshotHash = computeSnapshotHash(execResult.terminalSnapshot);
-
-      // Create World object
-      const newWorld: World = {
-        worldId: newWorldId,
-        schemaHash: domainSchema?.hash ?? "unknown",
-        snapshotHash,
-        createdAt: Date.now(),
-        createdBy: createProposalId(handle.proposalId),
-      };
-
-      // Create WorldDelta
-      const delta: WorldDelta = {
-        fromWorld: baseWorldId,
-        toWorld: newWorldId,
-        patches: computePatches(baseSnapshot, execResult.terminalSnapshot),
-        createdAt: Date.now(),
-      };
-
-      // Store in WorldStore
-      try {
-        await worldStore.store(newWorld, delta);
-      } catch (storeError) {
-        console.error("[Manifesto] Failed to store World:", storeError);
-        // Continue - execution was successful even if storage failed
-      }
-
-      // ==== Phase 8: update ====
-      // Update state with terminal snapshot
-      const newState = snapshotToAppState(execResult.terminalSnapshot);
-      setCurrentState(newState);
-      subscriptionStore.notify(newState);
-
-      // BRANCH-7: Only advance head if completed (not failed)
-      if (execResult.outcome === "completed") {
-        worldHeadTracker.advanceHead(newWorldId);
-        branchManager?.appendWorldToBranch(branchId, newWorldId);
-      }
-
-      // ==== Phase 8.5: state:publish (exactly once per proposal tick) ====
-      if (!proposalManager.wasPublished(handle.proposalId)) {
-        proposalManager.markPublished(handle.proposalId);
-
-        const publishSnapshot: Snapshot = {
-          data: execResult.terminalSnapshot.data,
-          computed: execResult.terminalSnapshot.computed ?? {},
-          system: execResult.terminalSnapshot.system ?? {
-            status: "idle",
-            pendingRequirements: [],
-            errors: [],
-          },
-          input: {},
-          meta: execResult.terminalSnapshot.meta ?? {
-            version: 0,
-            timestamp: new Date().toISOString(),
-            hash: "",
-          },
-        };
-
-        await lifecycleManager.emitHook(
-          "state:publish",
-          {
-            snapshot: publishSnapshot,
-            worldId: String(newWorldId),
-          },
-          { actorId, branchId, worldId: String(newWorldId) }
-        );
-      }
-
-      // ==== Phase 9: completed/failed ====
-      let finalResult: ActionResult;
-
-      if (execResult.outcome === "completed") {
-        handle._transitionTo("completed", {
-          kind: "completed",
-          worldId: newWorldId,
-        });
-
-        const result = {
-          status: "completed" as const,
-          worldId: newWorldId,
-          proposalId: handle.proposalId,
-          decisionId,
-          stats: {
-            durationMs: Date.now() - proposal.createdAt,
-            effectCount: 0, // TODO: Track effect count
-            patchCount: delta.patches.length,
-          },
-          runtime: "domain" as const,
-        };
-
-        finalResult = result;
-      } else {
-        // Failed
-        handle._transitionTo("failed", {
-          kind: "failed",
-          error: execResult.error ?? {
-            code: "EXECUTION_FAILED",
-            message: "Execution failed",
-            source: { actionId: handle.proposalId, nodePath: "" },
-            timestamp: Date.now(),
-          },
-        });
-
-        // Update system.lastError
-        const currentState = getCurrentState();
-        setCurrentState({
-          ...currentState,
-          system: {
-            ...currentState.system,
-            lastError: execResult.error ?? null,
-            errors: [
-              ...currentState.system.errors,
-              ...(execResult.error ? [execResult.error] : []),
-            ],
-          },
-        });
-
-        const result = {
-          status: "failed" as const,
-          proposalId: handle.proposalId,
-          decisionId,
-          error: execResult.error ?? {
-            code: "EXECUTION_FAILED",
-            message: "Execution failed",
-            source: { actionId: handle.proposalId, nodePath: "" },
-            timestamp: Date.now(),
-          },
-          worldId: newWorldId,
-          runtime: "domain" as const,
-        };
-
-        finalResult = result;
-
-        // Emit audit:failed
-        await lifecycleManager.emitHook(
-          "audit:failed",
-          {
-            operation: actionType,
-            error: execResult.error ?? {
-              code: "EXECUTION_FAILED",
-              message: "Execution failed",
-              source: { actionId: handle.proposalId, nodePath: "" },
-              timestamp: Date.now(),
-            },
-            proposalId: handle.proposalId,
-          },
-          { actorId, branchId }
-        );
-      }
-
-      // End transaction
-      subscriptionStore.endTransaction();
-
-      // Emit action:completed
-      await lifecycleManager.emitHook(
-        "action:completed",
-        { proposalId: handle.proposalId, result: finalResult },
-        { actorId, branchId }
-      );
-
-      handle._setResult(finalResult);
-
-      // Cleanup proposal tracking state
-      proposalManager.cleanup(handle.proposalId);
-      livenessGuard.cleanup(handle.proposalId);
-
+      // Stage 5: Finalize
+      await finalize(ctx, this._finalizeDeps);
     } catch (error) {
-      // Unexpected error
+      // Unexpected error — catch-all handler
       await this._handleExecutionError(handle, error, actionType, opts);
     } finally {
-      // ==== Liveness Guard: Clear current executing proposal ====
+      // Liveness Guard: Clear current executing proposal
       livenessGuard.exitExecution();
     }
   }
 
   /**
-   * Handle preparation failure.
-   */
-  private async _handlePreparationFailure(
-    handle: ActionHandleImpl,
-    errorInfo: { code: string; message: string }
-  ): Promise<void> {
-    const { lifecycleManager, subscriptionStore } = this._deps;
-
-    const error: ErrorValue = {
-      code: errorInfo.code,
-      message: errorInfo.message,
-      source: { actionId: handle.proposalId, nodePath: "" },
-      timestamp: Date.now(),
-    };
-
-    handle._transitionTo("preparation_failed", {
-      kind: "preparation_failed",
-      error,
-    });
-
-    const result = {
-      status: "preparation_failed" as const,
-      proposalId: handle.proposalId,
-      error,
-      runtime: handle.runtime,
-    };
-
-    subscriptionStore.endTransaction();
-
-    await lifecycleManager.emitHook(
-      "action:completed",
-      { proposalId: handle.proposalId, result },
-      {}
-    );
-
-    handle._setResult(result);
-  }
-
-  /**
-   * Handle unexpected execution error.
+   * Handle unexpected execution error (catch-all).
    */
   private async _handleExecutionError(
     handle: ActionHandleImpl,
