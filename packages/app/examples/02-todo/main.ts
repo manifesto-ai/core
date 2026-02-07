@@ -75,13 +75,15 @@ const app = createApp({
 async function main() {
   await app.ready();
 
-  // Genesis defaults applied — verify initial state
+  // Genesis defaults + computed applied — verify initial state
   const initial = app.getState();
   console.log("Initial state:");
   console.log("  todos:", initial.data.todos);
   console.log("  filterMode:", initial.data.filterMode);
+  console.log("  todoCount:", initial.computed["computed.todoCount"]);
   // → todos: []
   // → filterMode: "all"
+  // → todoCount: 0
 
   // Add todos
   await app.act("addTodo", { title: "Learn Manifesto" }).done();

@@ -39,9 +39,15 @@ const app = createApp({
 async function main() {
   await app.ready();
 
-  // Genesis defaults applied — verify initial state
-  console.log("Initial count:", app.getState().data.count);
-  // → Initial count: 0
+  // Genesis defaults + computed applied — verify initial state
+  const initial = app.getState();
+  console.log("Initial state:");
+  console.log("  count:", initial.data.count);
+  console.log("  doubled:", initial.computed["computed.doubled"]);
+  console.log("  isPositive:", initial.computed["computed.isPositive"]);
+  // → count: 0
+  // → doubled: 0
+  // → isPositive: false
 
   // Subscribe to count changes
   const unsubCount = app.subscribe(
