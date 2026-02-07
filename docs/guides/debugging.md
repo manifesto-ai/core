@@ -245,8 +245,8 @@ domain Example {
 // Flow declares:
 flow.effect('api:fetchUser', { id: '123' })
 
-// Handler registered as:
-host.registerEffect('api:getUser', ...)  // ← Wrong name!
+// Handler registered in createApp as:
+'api:getUser': async (params, ctx) => { ... }  // ← Wrong name!
 ```
 
 MEL equivalent:
@@ -543,14 +543,19 @@ EffectHandlerError: No handler registered for effect type: api:fetchUser
 **Fix:**
 
 ```typescript
-// Register handler BEFORE dispatching
-host.registerEffect('api:fetchUser', async (type, params) => {
-  const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
-  return [{ op: 'set', path: 'user', value: user }];
+// Provide handler in createApp config
+const app = createApp({
+  schema: domainSchema,
+  effects: {
+    'api:fetchUser': async (params, ctx) => {
+      const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
+      return [{ op: 'set', path: 'user', value: user }];
+    },
+  },
 });
 
-// Now dispatch
-await host.dispatch(createIntent('fetchUser', { id: '123' }, 'intent-1'));
+await app.ready();
+await app.act('fetchUser', { id: '123' }).done();
 ```
 
 ### Error: "Circular computed dependency"
@@ -767,7 +772,7 @@ import { createApp } from "@manifesto-ai/app";
 import TodoMel from "./todo.mel";
 
 // Create app instance with a recognizable name
-const todoApp = createApp(TodoMel);
+const todoApp = createApp({ schema: TodoMel, effects: {} });
 
 // Add to window for debugging
 window.__MANIFESTO_TODO__ = todoApp;

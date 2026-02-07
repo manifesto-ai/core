@@ -342,11 +342,11 @@ flow.seq(
   // Next compute reads from snapshot.data.user
 )
 
-// Host handler
-host.registerEffect('api:fetchUser', async (type, params) => {
-  const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
-  return [{ op: 'set', path: 'user', value: user }];
-});
+// App handler (registered in createApp config)
+// 'api:fetchUser': async (params, ctx) => {
+//   const user = await fetch(`/api/users/${params.id}`).then(r => r.json());
+//   return [{ op: 'set', path: 'user', value: user }];
+// }
 ```
 
 MEL equivalent:

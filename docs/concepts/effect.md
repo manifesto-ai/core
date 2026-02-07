@@ -64,24 +64,29 @@ action fetchUser(userId: string) {
 }
 ```
 
-### Handling an Effect (Host)
+### Handling an Effect (App)
 
 ```typescript
-host.registerEffect('api:fetchUser', async (type, params, context) => {
-  try {
-    const response = await fetch(`/api/users/${params.userId}`);
-    const user = await response.json();
+const app = createApp({
+  schema: domainSchema,
+  effects: {
+    'api:fetchUser': async (params, ctx) => {
+      try {
+        const response = await fetch(`/api/users/${params.userId}`);
+        const user = await response.json();
 
-    return [
-      { op: 'set', path: 'data.user', value: user },
-      { op: 'set', path: 'data.loading', value: false }
-    ];
-  } catch (error) {
-    return [
-      { op: 'set', path: 'data.error', value: error.message },
-      { op: 'set', path: 'data.loading', value: false }
-    ];
-  }
+        return [
+          { op: 'set', path: 'data.user', value: user },
+          { op: 'set', path: 'data.loading', value: false }
+        ];
+      } catch (error) {
+        return [
+          { op: 'set', path: 'data.error', value: error.message },
+          { op: 'set', path: 'data.loading', value: false }
+        ];
+      }
+    },
+  },
 });
 ```
 
@@ -91,13 +96,12 @@ host.registerEffect('api:fetchUser', async (type, params, context) => {
 
 ```typescript
 type EffectHandler = (
-  type: string,
-  params: Record<string, unknown>,
-  context: EffectContext
-) => Promise<Patch[]>;
+  params: unknown,
+  ctx: AppEffectContext  // { snapshot: Readonly<Snapshot> }
+) => Promise<readonly Patch[]>;
 
 // ALWAYS return patches, NEVER throw
-async function handler(type, params, context): Promise<Patch[]> {
+async function handler(params, ctx): Promise<Patch[]> {
   try {
     const result = await doSomething(params);
     return [{ op: 'set', path: 'result', value: result }];
@@ -110,7 +114,7 @@ async function handler(type, params, context): Promise<Patch[]> {
 ### Idempotent Handlers
 
 ```typescript
-async function createUserHandler(type, params) {
+async function createUserHandler(params, ctx) {
   // Check if already exists
   const existing = await db.users.findOne({ id: params.id });
   if (existing) {

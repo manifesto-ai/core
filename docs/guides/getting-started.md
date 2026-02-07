@@ -79,7 +79,7 @@ import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
 // Create app instance
-const app = createApp(CounterMel);
+const app = createApp({ schema: CounterMel, effects: {} });
 
 async function main() {
   // Initialize the app
@@ -353,24 +353,26 @@ Register the effect handler in TypeScript:
 import { createApp } from "@manifesto-ai/app";
 import UsersMel from "./users.mel";
 
-const app = createApp(UsersMel);
+const app = createApp({
+  schema: UsersMel,
+  effects: {
+    "api.fetchUser": async (params, ctx) => {
+      try {
+        const response = await fetch(`/api/users/${params.userId}`);
+        const user = await response.json();
 
-// Register effect handler
-app.registerEffect("api.fetchUser", async (type, params) => {
-  try {
-    const response = await fetch(`/api/users/${params.userId}`);
-    const user = await response.json();
-
-    return [
-      { op: "set", path: "data.user", value: user },
-      { op: "set", path: "data.loading", value: false }
-    ];
-  } catch (error) {
-    return [
-      { op: "set", path: "data.error", value: error.message },
-      { op: "set", path: "data.loading", value: false }
-    ];
-  }
+        return [
+          { op: "set", path: "data.user", value: user },
+          { op: "set", path: "data.loading", value: false }
+        ];
+      } catch (error) {
+        return [
+          { op: "set", path: "data.error", value: error.message },
+          { op: "set", path: "data.loading", value: false }
+        ];
+      }
+    },
+  },
 });
 
 await app.ready();
@@ -383,7 +385,7 @@ console.log(app.getState().data.user);
 ### Subscribe to State Changes
 
 ```typescript
-const app = createApp(CounterMel);
+const app = createApp({ schema: CounterMel, effects: {} });
 await app.ready();
 
 // Subscribe to count changes
@@ -468,7 +470,7 @@ domain Counter {
 import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
-const app = createApp(CounterMel);
+const app = createApp({ schema: CounterMel, effects: {} });
 
 async function main() {
   await app.ready();
@@ -527,7 +529,7 @@ npx tsx --loader @manifesto-ai/compiler/loader main.ts
 Always call `app.ready()` before using the app:
 
 ```typescript
-const app = createApp(mel);
+const app = createApp({ schema: mel, effects: {} });
 await app.ready();  // Required!
 // Now safe to use app.act(), app.getState(), etc.
 ```

@@ -241,7 +241,7 @@ Create `main.ts`:
 import { createApp } from "@manifesto-ai/app";
 import TodoMel from "./todo.mel";
 
-const app = createApp(TodoMel);
+const app = createApp({ schema: TodoMel, effects: {} });
 
 async function main() {
   await app.ready();

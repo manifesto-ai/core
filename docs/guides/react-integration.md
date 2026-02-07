@@ -35,7 +35,7 @@ npm install @manifesto-ai/app @manifesto-ai/compiler react react-dom
 import { createApp } from '@manifesto-ai/app';
 import CounterMel from './counter.mel';
 
-export const app = createApp(CounterMel);
+export const app = createApp({ schema: CounterMel, effects: {} });
 ```
 
 ### 2. Create Custom React Hooks
@@ -421,7 +421,7 @@ domain Counter {
 import { createApp } from '@manifesto-ai/app';
 import CounterMel from './counter.mel';
 
-export const app = createApp(CounterMel);
+export const app = createApp({ schema: CounterMel, effects: {} });
 ```
 
 ### hooks/useManifesto.ts

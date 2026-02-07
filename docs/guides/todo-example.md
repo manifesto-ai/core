@@ -143,7 +143,7 @@ domain TodoDomain {
 import { createApp } from "@manifesto-ai/app";
 import TodoMel from "./todo.mel";
 
-export const app = createApp(TodoMel);
+export const app = createApp({ schema: TodoMel, effects: {} });
 ```
 
 ---
@@ -445,27 +445,33 @@ action sync() {
 ```
 
 ```typescript
-// Register effect handler in your app setup
-import { app } from './manifesto-app';
+// Effect handler registered via createApp config
+// In your manifesto-app.ts:
+import { createApp } from "@manifesto-ai/app";
+import TodoMel from "./todo.mel";
 
-// After app.ready()
-app.registerEffect('api:sync', async (type, params) => {
-  try {
-    await fetch('/api/todos', {
-      method: 'POST',
-      body: JSON.stringify(params.todos)
-    });
+export const app = createApp({
+  schema: TodoMel,
+  effects: {
+    'api:sync': async (params, ctx) => {
+      try {
+        await fetch('/api/todos', {
+          method: 'POST',
+          body: JSON.stringify(params.todos)
+        });
 
-    return [
-      { op: 'set', path: 'data.syncStatus', value: 'synced' },
-      { op: 'set', path: 'data.lastSyncedAt', value: Date.now() }
-    ];
-  } catch (error) {
-    return [
-      { op: 'set', path: 'data.syncStatus', value: 'error' },
-      { op: 'set', path: 'data.syncError', value: error.message }
-    ];
-  }
+        return [
+          { op: 'set', path: 'data.syncStatus', value: 'synced' },
+          { op: 'set', path: 'data.lastSyncedAt', value: Date.now() }
+        ];
+      } catch (error) {
+        return [
+          { op: 'set', path: 'data.syncStatus', value: 'error' },
+          { op: 'set', path: 'data.syncError', value: error.message }
+        ];
+      }
+    },
+  },
 });
 ```
 

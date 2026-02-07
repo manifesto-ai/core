@@ -90,7 +90,7 @@ domain TodoDomain {
 import { createApp } from "@manifesto-ai/app";
 import TodoMel from "./todo.mel";
 
-const app = createApp(TodoMel);
+const app = createApp({ schema: TodoMel, effects: {} });
 await app.ready();
 
 // Dispatch intent
@@ -107,7 +107,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { createApp } from "@manifesto-ai/app";
 import TodoMel from "./todo.mel";
 
-const app = createApp(TodoMel);
+const app = createApp({ schema: TodoMel, effects: {} });
 
 function useAction(actionName: string) {
   return useCallback(
