@@ -8,6 +8,15 @@
 
 `@manifesto-ai/app` combines Core, Host, World, and Memory into a simple, cohesive API. It is the recommended starting point for building Manifesto applications.
 
+The App package provides:
+- Unified lifecycle management (ready/dispose)
+- Actor-scoped sessions
+- Branch management and forking
+- Effect handler registration
+- Memory integration
+- System actions runtime
+- Type-safe state subscriptions
+
 ---
 
 ## createApp()
@@ -15,49 +24,58 @@
 Creates a new Manifesto App instance.
 
 ```typescript
-function createApp(
-  domain: string | DomainSchema,
-  opts?: CreateAppOptions
-): App
+function createApp(config: AppConfig): App
 ```
 
 ### Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `domain` | `string \| DomainSchema` | MEL text or compiled schema |
-| `opts` | `CreateAppOptions` | Optional configuration |
+| `config` | `AppConfig` | Application configuration |
 
-### CreateAppOptions
+### AppConfig
 
 ```typescript
-interface CreateAppOptions {
-  /** Initial data for genesis snapshot */
-  initialData?: unknown;
+interface AppConfig {
+  // Required
+  readonly schema: DomainSchema | string;
+  readonly effects: Effects;
 
-  /** Effect handler mappings */
-  services?: ServiceMap;
+  // Optional: World
+  readonly world?: ManifestoWorld;
 
-  /** Memory configuration (false to disable) */
-  memory?: false | MemoryHubConfig;
+  // Optional: Policy
+  readonly policyService?: PolicyService;
+  readonly executionKeyPolicy?: ExecutionKeyPolicy;
 
-  /** Plugin array */
-  plugins?: readonly AppPlugin[];
+  // Optional: Memory
+  readonly memoryStore?: MemoryStore;
+  readonly memoryProvider?: MemoryProvider;
+  readonly memory?: false | MemoryHubConfig;
 
-  /** Validation settings */
-  validation?: ValidationConfig;
+  // Optional: Extensibility
+  readonly plugins?: readonly AppPlugin[];
+  readonly hooks?: Partial<AppHooks>;
 
-  /** Actor policy */
-  actorPolicy?: ActorPolicyConfig;
+  // Optional: Validation
+  readonly validation?: {
+    readonly effects?: "strict" | "warn" | "off";
+  };
 
-  /** System Action settings */
-  systemActions?: SystemActionsConfig;
+  // Optional: Initial data
+  readonly initialData?: unknown;
 
-  /** Scheduler configuration */
-  scheduler?: SchedulerConfig;
+  // Optional: Actor policy
+  readonly actorPolicy?: ActorPolicyConfig;
 
-  /** Development tools */
-  devtools?: DevtoolsConfig;
+  // Optional: Scheduler
+  readonly scheduler?: SchedulerConfig;
+
+  // Optional: System actions
+  readonly systemActions?: SystemActionsConfig;
+
+  // Optional: Devtools
+  readonly devtools?: DevtoolsConfig;
 }
 ```
 
@@ -66,16 +84,19 @@ interface CreateAppOptions {
 ```typescript
 import { createApp } from "@manifesto-ai/app";
 
-const app = createApp(melSource, {
-  initialData: { todos: [] },
-  services: {
+const app = createApp({
+  schema: melSource,
+  effects: {
     "api.fetch": async (params, ctx) => {
       const data = await fetch(params.url).then((r) => r.json());
-      return [ctx.patch.set("data", data)];
+      return [{ op: "set", path: "data.result", value: data }];
     },
   },
-  validation: { services: "strict" },
+  initialData: { todos: [] },
+  validation: { effects: "strict" },
 });
+
+await app.ready();
 ```
 
 ---
@@ -119,10 +140,19 @@ Gracefully shuts down the app.
 await app.dispose(opts?: DisposeOptions): Promise<void>
 ```
 
+#### DisposeOptions
+
+```typescript
+interface DisposeOptions {
+  force?: boolean;
+  timeoutMs?: number;
+}
+```
+
 ### Example
 
 ```typescript
-const app = createApp(mel);
+const app = createApp({ schema: mel, effects: {} });
 
 await app.ready();
 console.log(app.status); // "ready"
@@ -132,6 +162,24 @@ console.log(app.status); // "ready"
 await app.dispose();
 console.log(app.status); // "disposed"
 ```
+
+---
+
+## Schema Access
+
+### getDomainSchema()
+
+Returns the DomainSchema for the current branch's schemaHash.
+
+```typescript
+app.getDomainSchema(): DomainSchema
+```
+
+This provides synchronous pull-based access to the domain schema. In multi-schema scenarios (schema-changing fork), this returns the schema for the current branch's schemaHash.
+
+**Throws:**
+- `AppNotReadyError` if called before schema is resolved
+- `AppDisposedError` if called after dispose()
 
 ---
 
@@ -177,6 +225,9 @@ Retrieves an existing ActionHandle by proposal ID.
 ```typescript
 app.getActionHandle(proposalId: string): ActionHandle
 ```
+
+**Throws:**
+- `ActionNotFoundError` if proposalId is unknown
 
 ### Example
 
@@ -236,7 +287,7 @@ Waits for successful completion. Throws on rejection or failure.
 handle.done(opts?: DoneOptions): Promise<CompletedActionResult>
 ```
 
-Throws:
+**Throws:**
 - `ActionRejectedError` - Authority rejected
 - `ActionFailedError` - Execution failed
 - `ActionPreparationError` - Preparation failed
@@ -250,6 +301,9 @@ Waits for any result without throwing (except timeout).
 handle.result(opts?: DoneOptions): Promise<ActionResult>
 ```
 
+**Throws:**
+- `ActionTimeoutError` - Timeout exceeded
+
 #### subscribe()
 
 Subscribes to phase changes.
@@ -258,6 +312,66 @@ Subscribes to phase changes.
 handle.subscribe(
   listener: (update: ActionUpdate) => void
 ): Unsubscribe
+```
+
+#### detach()
+
+Detaches from this handle. The proposal continues in World Protocol.
+
+```typescript
+handle.detach(): void
+```
+
+### DoneOptions
+
+```typescript
+interface DoneOptions {
+  /** Maximum wait time in ms. @default Infinity */
+  timeoutMs?: number;
+}
+```
+
+### ActionResult
+
+```typescript
+type ActionResult =
+  | CompletedActionResult
+  | RejectedActionResult
+  | FailedActionResult
+  | PreparationFailedActionResult;
+
+interface CompletedActionResult {
+  readonly status: "completed";
+  readonly worldId: string;
+  readonly proposalId: string;
+  readonly decisionId: string;
+  readonly stats: ExecutionStats;
+  readonly runtime: RuntimeKind;
+}
+
+interface RejectedActionResult {
+  readonly status: "rejected";
+  readonly proposalId: string;
+  readonly decisionId: string;
+  readonly reason?: string;
+  readonly runtime: RuntimeKind;
+}
+
+interface FailedActionResult {
+  readonly status: "failed";
+  readonly proposalId: string;
+  readonly decisionId: string;
+  readonly error: ErrorValue;
+  readonly worldId: string;
+  readonly runtime: RuntimeKind;
+}
+
+interface PreparationFailedActionResult {
+  readonly status: "preparation_failed";
+  readonly proposalId: string;
+  readonly error: ErrorValue;
+  readonly runtime: RuntimeKind;
+}
 ```
 
 ### Example
@@ -302,6 +416,21 @@ interface AppState<TData = unknown> {
   readonly computed: Record<string, unknown>;
   readonly system: SystemState;
   readonly meta: SnapshotMeta;
+}
+
+interface SystemState {
+  readonly status: "idle" | "computing" | "pending" | "error";
+  readonly lastError: ErrorValue | null;
+  readonly errors: readonly ErrorValue[];
+  readonly pendingRequirements: readonly Requirement[];
+  readonly currentAction: string | null;
+}
+
+interface SnapshotMeta {
+  readonly version: number;
+  readonly timestamp: number;
+  readonly randomSeed: string;
+  readonly schemaHash: string;
 }
 ```
 
@@ -401,11 +530,34 @@ app.fork(opts?: ForkOptions): Promise<Branch>
 
 ```typescript
 interface ForkOptions {
+  /** Fork point (default: current head) */
+  from?: WorldId;
+
+  /** Branch name */
   name?: string;
-  domain?: string | DomainSchema;  // New domain triggers new Runtime
-  services?: ServiceMap;           // Services for new Runtime
-  migrate?: "auto" | MigrationFn;  // Migration strategy
-  switchTo?: boolean;              // Switch after fork (default: true)
+
+  /** New domain triggers new Runtime creation */
+  domain?: string | DomainSchema;
+
+  /** Switch to new branch after fork. @default true */
+  switchTo?: boolean;
+}
+```
+
+### Branch Interface
+
+```typescript
+interface Branch {
+  readonly id: string;
+  readonly name?: string;
+  readonly schemaHash: string;
+
+  head(): string;
+  checkout(worldId: string): Promise<void>;
+  act(type: string, input?: unknown, opts?: ActOptions): ActionHandle;
+  fork(opts?: ForkOptions): Promise<Branch>;
+  getState<T = unknown>(): AppState<T>;
+  lineage(opts?: LineageOptions): readonly string[];
 }
 ```
 
@@ -438,6 +590,17 @@ Creates a session bound to a specific actor.
 
 ```typescript
 app.session(actorId: string, opts?: SessionOptions): Session
+```
+
+#### SessionOptions
+
+```typescript
+interface SessionOptions {
+  branchId?: string;
+  kind?: "human" | "agent" | "system";
+  name?: string;
+  meta?: Record<string, unknown>;
+}
 ```
 
 ### Session Interface
@@ -490,6 +653,33 @@ app.memory.recall(
 ): Promise<RecallResult>
 ```
 
+### memory.providers()
+
+Returns list of registered memory provider names.
+
+```typescript
+app.memory.providers(): readonly string[]
+```
+
+### memory.backfill()
+
+Backfills memory from a specific world.
+
+```typescript
+app.memory.backfill(opts: { worldId: string; depth?: number }): Promise<void>
+```
+
+### memory.maintain()
+
+Performs memory maintenance operations.
+
+```typescript
+app.memory.maintain(
+  ops: readonly MemoryMaintenanceOp[],
+  ctx: MemoryMaintenanceContext
+): Promise<MemoryMaintenanceOutput>
+```
+
 ### Example
 
 ```typescript
@@ -502,6 +692,36 @@ if (app.memory.enabled()) {
     recall: ["user preferences", "recent actions"],
   }).done();
 }
+```
+
+---
+
+## System Methods
+
+### system.act()
+
+Executes a system action.
+
+```typescript
+app.system.act(type: `system.${string}`, input?: unknown): ActionHandle
+```
+
+### system.memory.maintain()
+
+Runs memory maintenance via System Runtime.
+
+```typescript
+app.system.memory.maintain(opts: MemoryMaintenanceOptions): ActionHandle
+```
+
+### Example
+
+```typescript
+// Execute system action
+const handle = app.system.act("system.auditLog.query", {
+  filter: { actorId: "user-123" }
+});
+const result = await handle.done();
 ```
 
 ---
@@ -519,34 +739,117 @@ app.hooks.on<K extends keyof AppHooks>(
 ): Unsubscribe
 ```
 
+### hooks.once()
+
+Subscribes to a hook event (one-time).
+
+```typescript
+app.hooks.once<K extends keyof AppHooks>(
+  name: K,
+  fn: AppHooks[K]
+): Unsubscribe
+```
+
 ### Available Hooks
 
 ```typescript
 interface AppHooks {
   // Lifecycle
-  "app:created": (ctx: HookContext) => void;
-  "app:ready:before": (ctx: HookContext) => void;
-  "app:ready": (ctx: HookContext) => void;
-  "app:dispose:before": (ctx: HookContext) => void;
-  "app:dispose": (ctx: HookContext) => void;
+  "app:created": (ctx: HookContext) => void | Promise<void>;
+  "app:ready:before": (ctx: HookContext) => void | Promise<void>;
+  "app:ready": (ctx: HookContext) => void | Promise<void>;
+  "app:dispose:before": (ctx: HookContext) => void | Promise<void>;
+  "app:dispose": (ctx: HookContext) => void | Promise<void>;
 
-  // Action
-  "action:preparing": (payload, ctx) => void;
-  "action:submitted": (payload, ctx) => void;
-  "action:phase": (payload, ctx) => void;
-  "action:completed": (payload, ctx) => void;
+  // Domain/Runtime
+  "domain:resolved": (
+    payload: { schemaHash: string; schema: DomainSchema },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "domain:schema:added": (
+    payload: { schemaHash: string; schema: DomainSchema },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "runtime:created": (
+    payload: { schemaHash: string; kind: RuntimeKind },
+    ctx: HookContext
+  ) => void | Promise<void>;
 
   // Branch
-  "branch:created": (payload, ctx) => void;
-  "branch:switched": (payload, ctx) => void;
+  "branch:created": (
+    payload: { branchId: string; schemaHash: string; head: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "branch:checkout": (
+    payload: { branchId: string; from: string; to: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "branch:switched": (
+    payload: { from: string; to: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+
+  // Action
+  "action:preparing": (
+    payload: { proposalId: string; actorId: string; type: string; runtime: RuntimeKind },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "action:submitted": (
+    payload: { proposalId: string; actorId: string; type: string; input: unknown; runtime: RuntimeKind },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "action:phase": (
+    payload: { proposalId: string; phase: ActionPhase; detail?: ActionUpdateDetail },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "action:completed": (
+    payload: { proposalId: string; result: ActionResult },
+    ctx: HookContext
+  ) => void | Promise<void>;
+
+  // State
+  "state:publish": (
+    payload: { snapshot: Snapshot; worldId: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+
+  // System
+  "system:world": (
+    payload: { type: string; proposalId: string; actorId: string; systemWorldId: string; status: "completed" | "failed" },
+    ctx: HookContext
+  ) => void | Promise<void>;
 
   // Memory
-  "memory:ingested": (payload, ctx) => void;
-  "memory:recalled": (payload, ctx) => void;
+  "memory:ingested": (
+    payload: { provider: string; worldId: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "memory:recalled": (
+    payload: { provider: string; query: string; atWorldId: string; trace: MemoryTrace },
+    ctx: HookContext
+  ) => void | Promise<void>;
+
+  // Migration
+  "migration:created": (
+    payload: { link: MigrationLink },
+    ctx: HookContext
+  ) => void | Promise<void>;
+
+  // Job Queue
+  "job:error": (
+    payload: { error: unknown; label?: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
 
   // Audit
-  "audit:rejected": (payload, ctx) => void;
-  "audit:failed": (payload, ctx) => void;
+  "audit:rejected": (
+    payload: { operation: string; reason?: string; proposalId: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
+  "audit:failed": (
+    payload: { operation: string; error: ErrorValue; proposalId: string },
+    ctx: HookContext
+  ) => void | Promise<void>;
 }
 ```
 
@@ -566,74 +869,177 @@ app.hooks.once("app:ready", () => {
 
 ---
 
-## ServiceMap
+## Effect Handlers
 
-Effect handlers are defined as services - async functions that return patches.
+Effect handlers are defined in the `effects` configuration field. They are async functions that execute side effects and return patches.
+
+### Effects
 
 ```typescript
-type ServiceMap = Record<string, ServiceHandler>;
+type Effects = Record<string, EffectHandler>;
 
-type ServiceHandler = (
-  params: Record<string, unknown>,
-  ctx: ServiceContext
-) => ServiceReturn | Promise<ServiceReturn>;
-
-type ServiceReturn =
-  | void
-  | Patch
-  | readonly Patch[]
-  | { patches: readonly Patch[] };
+type EffectHandler = (
+  params: unknown,
+  ctx: AppEffectContext
+) => Promise<readonly Patch[]>;
 ```
 
-### ServiceContext
+### AppEffectContext
 
 ```typescript
-interface ServiceContext {
-  snapshot: Readonly<AppState<unknown>>;
-  actorId: string;
-  worldId: string;
-  branchId: string;
-  patch: PatchHelpers;
-  signal: AbortSignal;
+interface AppEffectContext {
+  /** Current snapshot (read-only) */
+  readonly snapshot: Readonly<Snapshot>;
 }
 ```
 
-### PatchHelpers
+### Handler Contract
+
+Effect handlers:
+- MUST return `Patch[]` (can be empty)
+- MUST NOT throw exceptions (return error patches instead)
+- MUST NOT contain domain logic
+- Receive only `params` and `ctx` (effect type is determined by key)
+
+### Example
 
 ```typescript
-interface PatchHelpers {
-  set(path: string, value: unknown): Patch;
-  merge(path: string, value: Record<string, unknown>): Patch;
-  unset(path: string): Patch;
-  many(...patches: readonly (Patch | readonly Patch[])[]): Patch[];
-  from(record: Record<string, unknown>, opts?: { basePath?: string }): Patch[];
-}
+const effects: Effects = {
+  "api.loadTodos": async (params, ctx) => {
+    try {
+      const response = await fetch("/api/todos");
+      const todos = await response.json();
+      return [{ op: "set", path: "data.todos", value: todos }];
+    } catch (error) {
+      return [
+        { op: "set", path: "data.loadStatus", value: "error" },
+        { op: "set", path: "data.errorMessage", value: error.message },
+      ];
+    }
+  },
+
+  "api.saveTodo": async (params, ctx) => {
+    try {
+      await fetch("/api/todos", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+      return [{ op: "set", path: "data.saved", value: true }];
+    } catch (error) {
+      return [{ op: "set", path: "data.error", value: error.message }];
+    }
+  },
+};
+
+const app = createApp({
+  schema: todoSchema,
+  effects,
+});
+```
+
+### MEL-Only Apps
+
+For applications that use only MEL (no effects), provide an empty effects object:
+
+```typescript
+const app = createApp({
+  schema: CounterMel,
+  effects: {},
+});
+```
+
+---
+
+## Plugins
+
+Plugins extend App functionality. They are async functions that receive the App instance.
+
+### AppPlugin
+
+```typescript
+type AppPlugin = (app: App) => void | Promise<void>;
 ```
 
 ### Example
 
 ```typescript
-const services: ServiceMap = {
-  "api.loadTodos": async (params, ctx) => {
-    const response = await fetch("/api/todos");
-    const todos = await response.json();
-    return ctx.patch.set("todos", todos);
-  },
-
-  "api.saveTodo": async (params, ctx) => {
-    await fetch("/api/todos", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
-    // No patches returned - state already updated by action
-  },
+const loggingPlugin: AppPlugin = async (app) => {
+  app.hooks.on("action:completed", ({ proposalId, result }) => {
+    console.log(`[Plugin] Action ${proposalId}:`, result.status);
+  });
 };
+
+const app = createApp({
+  schema: mel,
+  effects: {},
+  plugins: [loggingPlugin],
+});
+```
+
+---
+
+## Configuration Options
+
+### ActorPolicyConfig
+
+```typescript
+interface ActorPolicyConfig {
+  /** @default 'anonymous' */
+  mode?: "anonymous" | "require";
+
+  defaultActor?: {
+    actorId: string;
+    kind?: "human" | "agent" | "system";
+    name?: string;
+    meta?: Record<string, unknown>;
+  };
+}
+```
+
+### SchedulerConfig
+
+```typescript
+interface SchedulerConfig {
+  /** Maximum concurrent actions */
+  maxConcurrent?: number;
+
+  /** Action execution timeout in ms */
+  defaultTimeoutMs?: number;
+
+  /** Serialize same-branch domain actions via FIFO queue. @default true */
+  singleWriterPerBranch?: boolean;
+}
+```
+
+### SystemActionsConfig
+
+```typescript
+interface SystemActionsConfig {
+  /** @default true */
+  enabled?: boolean;
+
+  /** @default 'admin-only' */
+  authorityPolicy?: "permissive" | "admin-only" | AuthorityPolicy;
+
+  disabled?: readonly string[];
+}
+```
+
+### DevtoolsConfig
+
+```typescript
+interface DevtoolsConfig {
+  enabled?: boolean;
+  name?: string;
+}
 ```
 
 ---
 
 ## Related Documentation
 
-- [Specifications Hub](/internals/spec/) - Links to all package specs
+- [Core Package](/api/core) - Domain schema and computation
+- [Host Contract](/internals/spec/host-contract) - Effect execution specification
+- [World Protocol](/internals/spec/world-protocol) - Governance and lineage
 - [Getting Started](/quickstart) - Step-by-step tutorial
 - [Effect Handlers](/guides/effect-handlers) - Detailed effect handler guide

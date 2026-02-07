@@ -360,7 +360,8 @@ Effect handlers also play a role in re-entry safety by **setting the guard state
 
 ```typescript
 // Effect handler MUST set the guard state
-app.registerEffect('api.submit', async (type, params) => {
+// Registered via createApp({ effects: { ... } })
+async function apiSubmitHandler(params, ctx) {
   try {
     const result = await api.submit(params.data);
 
@@ -381,7 +382,7 @@ app.registerEffect('api.submit', async (type, params) => {
       { op: 'set', path: 'data.submittedAt', value: Date.now() }
     ];
   }
-});
+}
 ```
 
 **If effect handler forgets to set guard state, infinite loop occurs.**
@@ -399,13 +400,16 @@ describe("Re-entry safety", () => {
   it("effect executes only once per intent", async () => {
     let effectCallCount = 0;
 
-    const app = createApp(MyDomainMel);
-
-    app.registerEffect('api.submit', async () => {
-      effectCallCount++;
-      return [
-        { op: 'set', path: 'data.submitted', value: true }
-      ];
+    const app = createApp({
+      schema: MyDomainMel,
+      effects: {
+        'api.submit': async (params, ctx) => {
+          effectCallCount++;
+          return [
+            { op: 'set', path: 'data.submitted', value: true }
+          ];
+        },
+      },
     });
 
     await app.ready();
@@ -420,13 +424,16 @@ describe("Re-entry safety", () => {
   it("second dispatch doesn't re-execute guarded effect", async () => {
     let effectCallCount = 0;
 
-    const app = createApp(MyDomainMel);
-
-    app.registerEffect('api.submit', async () => {
-      effectCallCount++;
-      return [
-        { op: 'set', path: 'data.submitted', value: true }
-      ];
+    const app = createApp({
+      schema: MyDomainMel,
+      effects: {
+        'api.submit': async (params, ctx) => {
+          effectCallCount++;
+          return [
+            { op: 'set', path: 'data.submitted', value: true }
+          ];
+        },
+      },
     });
 
     await app.ready();

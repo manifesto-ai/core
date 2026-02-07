@@ -104,7 +104,7 @@ Create `main.ts`:
 import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
-const app = createApp(CounterMel);
+const app = createApp({ schema: CounterMel, effects: {} });
 await app.ready();
 
 await app.act("increment").done();
@@ -165,7 +165,7 @@ Update `main.ts`:
 import { createApp } from "@manifesto-ai/app";
 import CounterMel from "./counter.mel";
 
-const app = createApp(CounterMel);
+const app = createApp({ schema: CounterMel, effects: {} });
 await app.ready();
 
 // Subscribe to changes
@@ -193,7 +193,7 @@ console.log(app.getState().computed.doubled); // 2
 
 | Topic | Description |
 |-------|-------------|
-| [Getting Started Guide](/quickstart) | Full tutorial with services and React |
+| [Getting Started Guide](/quickstart) | Full tutorial with effects and React |
 | [MEL Syntax](/mel/SYNTAX) | Complete language reference |
 | [Core Concepts](/concepts/) | Snapshot, Intent, Effect, Flow |
 | [Architecture](/architecture/) | How Manifesto works |

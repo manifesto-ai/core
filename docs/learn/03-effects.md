@@ -124,9 +124,10 @@ Create `main.ts`:
 import { createApp } from "@manifesto-ai/app";
 import UserProfileMel from "./user-profile.mel";
 
-const app = createApp(UserProfileMel, {
+const app = createApp({
+  schema: UserProfileMel,
   effects: {
-    'api.fetchUser': async (type, params, context) => {
+    'api.fetchUser': async (params, ctx) => {
       try {
         const response = await fetch(`/api/users/${params.id}`);
 
@@ -185,10 +186,9 @@ Effect handlers MUST follow this contract:
 
 ```typescript
 type EffectHandler = (
-  type: string,                      // Effect type (e.g., 'api.fetchUser')
-  params: Record<string, unknown>,   // Parameters from effect declaration
-  context: EffectContext             // Contains snapshot and requirement info
-) => Promise<Patch[]>;               // MUST return patches, NEVER throw
+  params: unknown,                    // Parameters from effect declaration
+  ctx: AppEffectContext               // Contains snapshot
+) => Promise<readonly Patch[]>;       // MUST return patches, NEVER throw
 ```
 
 **Critical rules:**
@@ -408,9 +408,10 @@ const mockUsers = {
   "456": { id: "456", name: "Bob", email: "bob@example.com" },
 };
 
-const app = createApp(UserProfileMel, {
+const app = createApp({
+  schema: UserProfileMel,
   effects: {
-    'api.fetchUser': async (type, params) => {
+    'api.fetchUser': async (params, ctx) => {
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -529,13 +530,9 @@ In the next tutorial, you'll learn about **Governance** - how to:
 
 ```typescript
 type EffectHandler = (
-  type: string,
-  params: Record<string, unknown>,
-  context: {
-    snapshot: Readonly<Snapshot>;
-    requirement: Requirement;
-  }
-) => Promise<Patch[]>;
+  params: unknown,
+  ctx: AppEffectContext  // { snapshot: Readonly<Snapshot> }
+) => Promise<readonly Patch[]>;
 ```
 
 ### Patch Operations
