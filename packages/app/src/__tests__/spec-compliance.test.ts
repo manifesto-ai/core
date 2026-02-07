@@ -311,6 +311,56 @@ describe("SPEC §7: State Model", () => {
     });
   });
 
+  describe("§7.2 READY-8: Genesis computed", () => {
+    it("READY-8: computed values are available immediately after ready()", async () => {
+      const schema = createMockSchema({
+        state: {
+          fields: {
+            count: { type: "number", required: true, default: 0 },
+          },
+        },
+        computed: {
+          fields: {
+            "computed.doubled": {
+              deps: ["count"],
+              expr: { kind: "mul", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 2 } },
+            },
+          },
+        },
+      });
+
+      const app = createTestApp(schema);
+      await app.ready();
+
+      const state = app.getState();
+      expect(state.computed["computed.doubled"]).toBe(0);
+    });
+
+    it("READY-8: computed values reflect initialData", async () => {
+      const schema = createMockSchema({
+        state: {
+          fields: {
+            count: { type: "number", required: true, default: 0 },
+          },
+        },
+        computed: {
+          fields: {
+            "computed.doubled": {
+              deps: ["count"],
+              expr: { kind: "mul", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 2 } },
+            },
+          },
+        },
+      });
+
+      const app = createTestApp(schema, { initialData: { count: 5 } });
+      await app.ready();
+
+      const state = app.getState();
+      expect(state.computed["computed.doubled"]).toBe(10);
+    });
+  });
+
   describe("§7.3 Type Safety", () => {
     it("TYPE-1: getState<T>() returns typed data", async () => {
       interface TodoState {

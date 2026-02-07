@@ -10,7 +10,7 @@
  */
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
-import { extractDefaults } from "@manifesto-ai/core";
+import { extractDefaults, evaluateComputed, isOk } from "@manifesto-ai/core";
 import type {
   ActionHandle,
   ActOptions,
@@ -48,6 +48,7 @@ import {
   createHostInitializer,
   createSystemActionExecutor,
 } from "../execution/index.js";
+import { appStateToSnapshot } from "../execution/state-converter.js";
 import { createInitialAppState } from "../core/state/index.js";
 import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
 import {
@@ -179,6 +180,14 @@ export class AppBootstrap {
     const schemaHash = schemaManager.getCurrentSchemaHash();
     const schemaDefaults = extractDefaults(schema.state);
     const initialState = createInitialAppState(schemaHash, config.initialData, schemaDefaults);
+
+    // 8. Evaluate genesis computed values (READY-8)
+    const genesisSnapshot = appStateToSnapshot(initialState);
+    const computedResult = evaluateComputed(schema, genesisSnapshot);
+    if (isOk(computedResult)) {
+      initialState.computed = computedResult.value;
+    }
+
     subscriptionStore.setState(initialState);
 
     // 8. Create runtime (AppRuntime needs to exist for callbacks)
