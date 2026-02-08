@@ -120,6 +120,7 @@ export default defineConfig({
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'Debugging', link: '/guides/debugging' },
             { text: 'Performance Report', link: '/guides/performance-report' },
+            { text: 'Code Generation', link: '/guides/code-generation' },
           ]
         },
         {
@@ -154,6 +155,7 @@ export default defineConfig({
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
+            { text: '@manifesto-ai/codegen', link: '/api/codegen' },
             { text: '@manifesto-ai/intent-ir', link: '/api/intent-ir' },
           ]
         }
@@ -168,6 +170,7 @@ export default defineConfig({
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'React Integration', link: '/guides/react-integration' },
             { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Code Generation', link: '/guides/code-generation' },
           ]
         },
         {
