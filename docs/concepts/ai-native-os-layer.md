@@ -1,30 +1,51 @@
-# AI Native OS Layer
+# Why AI Needs a Deterministic Protocol
 
-> Manifesto's core identity
+> Manifesto was born from a simple idea: **humans and AI should look at the same world model.**
 
-## What Manifesto Is
+## The Problem
 
-Manifesto is an **AI Native OS Layer**.
+When AI agents modify application state, three things break:
 
-Just as an operating system provides primitives for processes, memory, and file systems, Manifesto provides primitives for systems where AI and humans collaborate.
+### 1. Non-determinism
+
+Traditional state management doesn't guarantee that the same AI request produces the same result. Network timing, race conditions, and implicit ordering make AI behavior unpredictable.
+
+### 2. Untraceability
+
+When something goes wrong, you can't answer basic questions: What did the AI change? Why? What was the state before? Without a complete audit trail, debugging AI behavior is guesswork.
+
+### 3. No Governance
+
+Most systems have no concept of "who is allowed to do what." AI agents operate with the same permissions as the code that calls them—there's no way to restrict, approve, or audit their actions independently.
+
+## The Solution: Shared World Model
+
+Manifesto solves this by making humans and AI look at the **same Snapshot**—an immutable, content-addressable representation of all state at a point in time.
+
+Every state change, whether initiated by a human clicking a button or an AI agent processing a request, goes through the same pipeline:
+
+```
+Actor submits Intent → Authority evaluates → Core computes → New Snapshot
+```
+
+This means:
+- **Same input, same output** — AI behavior is reproducible
+- **Complete trace** — Every change answers who, what, when, why
+- **Authority governance** — AI actions can be restricted, approved, or audited
 
 ## What Manifesto Is NOT
 
 ### Not a State Management Library
 
-Comparing Manifesto to Redux or Zustand is incorrect framing.
-
 | Aspect | Redux/Zustand | Manifesto |
 |--------|---------------|-----------|
-| Purpose | UI state synchronization | AI-human collaborative systems |
+| Purpose | UI state synchronization | Multi-actor collaborative systems |
 | Change initiator | Developer code | Actor (human, AI, system) |
 | Traceability | Optional | Mandatory (all changes traced) |
 | Schema | Static | Dynamic (first-class object, evolvable) |
 | Authorization | None | Authority-based governance |
 
 ### Not an AI Framework
-
-Comparing Manifesto to LangChain or AutoGen is also incorrect framing.
 
 | Aspect | LangChain/AutoGen | Manifesto |
 |--------|-------------------|-----------|
@@ -33,47 +54,19 @@ Comparing Manifesto to LangChain or AutoGen is also incorrect framing.
 | AI role | Executor | Actor (equal to other Actors) |
 | Verification | None | Complete Trace-based verification |
 
-## Package Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  @manifesto-ai/app                  │  ← User Entry Point
-│              (High-level Facade)                    │
-├─────────────────────────────────────────────────────┤
-│              @manifesto-ai/compiler                 │  ← Domain Definition (MEL)
-├─────────────────────────────────────────────────────┤
-│     @manifesto-ai/world    @manifesto-ai/host       │  ← Runtime
-│                  @manifesto-ai/core                 │
-└─────────────────────────────────────────────────────┘
-```
-
-| Package | Role |
-|---------|------|
-| **@manifesto-ai/app** | Main facade. Most users only need this. |
-| **@manifesto-ai/compiler** | MEL → DomainSchema compilation |
-| **@manifesto-ai/core** | Pure computation engine |
-| **@manifesto-ai/host** | Effect execution runtime |
-| **@manifesto-ai/world** | Governance and authority |
-
-**For most use cases, install only:**
-
-```bash
-npm install @manifesto-ai/app @manifesto-ai/compiler
-```
-
 ## The 9 Primitives
 
-| Primitive | Purpose | OS Analogy |
-|-----------|---------|------------|
-| **Actor** | Who acts | User/Process |
-| **Authority** | What permissions | Permission |
-| **Intent** | What intention | System Call |
-| **Schema** | Domain structure | File System Schema |
-| **Snapshot** | State at a point in time | Memory Snapshot |
-| **Patch** | Atomic change | Transaction |
-| **Trace** | Audit trail | Audit Log |
-| **Compute** | Pure computation | CPU (deterministic) |
-| **Effect** | External operation | I/O Operation |
+| Primitive | Purpose |
+|-----------|---------|
+| **Actor** | Who acts (human, AI, or system) |
+| **Authority** | What permissions govern the action |
+| **Intent** | What the actor wants to achieve |
+| **Schema** | Domain structure (evolvable via Intent) |
+| **Snapshot** | Immutable state at a point in time |
+| **Patch** | Atomic state change |
+| **Trace** | Complete audit trail |
+| **Compute** | Pure, deterministic evaluation |
+| **Effect** | Controlled external operation |
 
 ## Schema as First-Class Object
 
@@ -85,16 +78,14 @@ In Manifesto, Schema is more than a data structure definition.
 
 (See [Schema Evolution Guide](/integration/schema-evolution) for details)
 
-## AI-Native by Design
+## AI as Actor
 
-### AI as Actor
-
-AI agents are not special entities—they participate as equals alongside other Actors.
+AI agents are not special entities—they participate as equals alongside other Actors. The same `app.act()` interface works for everyone:
 
 ```typescript
 import { createApp } from "@manifesto-ai/app";
 
-const app = createApp(domainMel);
+const app = createApp({ schema: domainMel, effects: {} });
 await app.ready();
 
 // Human and AI use the same interface
@@ -108,37 +99,37 @@ await app.act("addTask", { title: "AI suggestion" }, {
 
 ### AI-Friendly DSL
 
-MEL (Manifesto Expression Language) is designed for AI generation:
+MEL (Manifesto Expression Language) is designed so that AI can generate it safely:
 
-- Clear grammar
-- Limited expressiveness (Turing-incomplete)
+- Clear grammar with limited expressiveness
+- Turing-incomplete (always terminates)
 - Verifiable output
 
 ```mel
 // AI can generate this structured code
 action addTask(title: string) {
-  when isNull(data.submittedAt) {
-    patch data.tasks = append(data.tasks, {
-      id: input.id,
-      title: input.title,
-      completed: false
+  onceIntent {
+    patch tasks = append(tasks, {
+      id: $meta.intentId,
+      title: title,
+      done: false
     })
   }
 }
 ```
 
-### Verifiable AI Behavior
+## Verifiable AI Behavior
 
-All actions performed by AI:
+All actions performed by AI are:
 
 - **Recorded** in complete Trace
-- **Reproducible** (deterministic)
+- **Reproducible** (deterministic computation)
 - **Verifiable** (Authority evaluation)
 
 ```typescript
 import { createApp } from "@manifesto-ai/app";
 
-const app = createApp(domainMel);
+const app = createApp({ schema: domainMel, effects: {} });
 await app.ready();
 
 // Every action returns a result with full trace
@@ -147,8 +138,8 @@ const result = await handle.done();
 
 // Result contains:
 // - status: 'completed' | 'rejected' | 'failed'
-// - snapshot: new state
-// - trace: complete audit trail (who, what, when, why)
+// - worldId: content-addressable state reference
+// - proposalId: governance record
 console.log(result.status);
 console.log(app.getState()); // Current snapshot
 ```
