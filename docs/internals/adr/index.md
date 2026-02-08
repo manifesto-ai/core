@@ -59,7 +59,7 @@ The codegen package maintains its own ADRs for code generation decisions:
 
 | ID | Title | Version | Status |
 |----|-------|---------|--------|
-| [ADR-CODEGEN-001](/packages/codegen/docs/ADR-CODEGEN-001.md) | Plugin-Based Codegen Targets for Manifesto Domains | v0.3.1 | Accepted |
+| [ADR-CODEGEN-001](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/ADR-CODEGEN-001.md) | Plugin-Based Codegen Targets for Manifesto Domains | v0.3.1 | Accepted |
 
 ---
 
@@ -94,6 +94,13 @@ ADRs often result in SPEC patches. Here's the traceability:
 | World | v2.0.3 | `$mel` namespace hash exclusion |
 | Core | v2.0.1 | Namespace alignment |
 | Host | v2.0.2 | `$host` namespace |
+
+### ADR-003: World Owns Persistence (+ Issue #109)
+
+| Package | SPEC Patch | Changes |
+|---------|------------|---------|
+| World | v2.0.5 | Head Query API, resume contract, branch state persistence |
+| App | v2.3.1 | Head Query delegation (`getHeads()`, `getLatestHead()`) |
 
 ---
 

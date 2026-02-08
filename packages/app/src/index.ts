@@ -103,6 +103,8 @@ export type {
   HostExecutionResult,
   WorldStore,
   WorldDelta,
+  PersistedBranchEntry,
+  PersistedBranchState,
   PolicyService,
   ArtifactRef,
   Intent,
@@ -119,6 +121,7 @@ export type {
   WorldId,
   Snapshot,
   Patch,
+  WorldHead,
 
   // v2.2.0 Effects-first API
   Effects,
@@ -170,6 +173,10 @@ export {
   MissingDefaultActorError,
   DomainCompileError,
   PluginInitError,
+
+  // Resume & Recovery (SPEC v2.0.5)
+  SchemaMismatchOnResumeError,
+  BranchHeadNotFoundError,
 } from "./errors/index.js";
 
 // =============================================================================

@@ -13,3 +13,4 @@ export * from "./binding.js";
 export * from "./proposal.js";
 export * from "./decision.js";
 export * from "./lineage.js";
+export * from "./head.js";

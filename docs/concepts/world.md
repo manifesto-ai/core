@@ -182,6 +182,19 @@ Genesis World
 - Rejected proposals don't create Worlds
 - Failed executions create Worlds (with error state)
 
+## Branch Heads
+
+Each Branch has a **Head** — the most recent completed World on that branch. Heads are represented by the [`WorldHead`](/api/world#worldhead) type.
+
+```
+Branch "main":       Genesis → W2 → W4 (head)
+Branch "experiment": Genesis → W3 → W5 (head)
+```
+
+Use [`app.getHeads()`](/api/app#head-query-methods) to list all branch heads, or `app.getLatestHead()` to get the most recently updated one.
+
+Branch heads and their state can be persisted across restarts. See [Branch Persistence](/api/app#branch-persistence) for details.
+
 ## Authority Types
 
 | Type | Description | Use Case |

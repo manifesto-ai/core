@@ -90,7 +90,7 @@ const snapshot: Snapshot = {
 const todos = snapshot.data.todos;
 
 // Computed values (recalculated, not stored)
-const activeCount = snapshot.computed.activeCount;
+const activeCount = snapshot.computed["computed.activeCount"];
 
 // Check for errors
 if (snapshot.system.lastError) {

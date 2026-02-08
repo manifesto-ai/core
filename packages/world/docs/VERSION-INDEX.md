@@ -1,15 +1,15 @@
 # World Protocol Documentation Index
 
 > **Package:** `@manifesto-ai/world`
-> **Last Updated:** 2026-02-02
+> **Last Updated:** 2026-02-08
 
 ---
 
 ## Latest Version
 
 ### World Protocol
-- **SPEC:** [v2.0.3](world-SPEC-v2.0.3.md) (Full)
-- **FDR:** [v2.0.2](world-FDR-v2.0.2.md) (Full)
+- **SPEC:** [v2.0.5](world-SPEC-v2.0.5-patch.md) (Patch, Base: v2.0.3)
+- **FDR:** [v2.0.5](world-FDR-v2.0.5-addendum.md) (Addendum)
 
 ### World Event System (Extension)
 - **Status:** Deprecated (governance events in World SPEC v2.0.1+)
@@ -24,6 +24,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
+| v2.0.5 | [SPEC](world-SPEC-v2.0.5-patch.md) | [FDR](world-FDR-v2.0.5-addendum.md) | Patch (Base: v2.0.3) | Draft |
 | v2.0.3 | [SPEC](world-SPEC-v2.0.3.md) | — | Full | Accepted |
 | v2.0.3 | [SPEC](world-SPEC-v2.0.3-patch.md) | — | Patch (Base: v2.0.2) | Merged |
 | v2.0.2 | [SPEC](world-SPEC-v2.0.2.md) | [FDR](world-FDR-v2.0.2.md) | Full | Accepted |
@@ -42,6 +43,7 @@
 
 ## Reading Guide
 
+- **v2.0.5**: Head Query API — Formal head definition (branch pointer), resume contract, branch state persistence. `getHeads()`, `getLatestHead()` added to World public interface. HEAD-1~8, RESUME-1~6, BRANCH-PERSIST-1~5, INV-W16~W19.
 - **v2.0.3**: Platform namespace extension - `$mel` namespace hash exclusion (WORLD-HASH-4b), `stripPlatformNamespaces()` API, platform namespace policy rules (NS-PLAT-*).
 - **v2.0.2**: Host-World Data Contract (`$host` namespace convention formalized as HOST-DATA-* rules), terminology unification (`'failed'` replaces `'error'` in TerminalStatusForHash).
 - **v2.0.1**: ADR-001 Layer Separation - Event ownership clarification, "Does NOT Know" boundary definition, Host v2.0.2 compatibility.

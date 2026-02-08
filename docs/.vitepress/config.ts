@@ -55,6 +55,7 @@ export default defineConfig({
       { text: 'Tutorial', link: '/tutorial/' },
       { text: 'Guides', link: '/guides/' },
       { text: 'Integration', link: '/integration/' },
+      { text: 'Architecture', link: '/architecture/' },
       { text: 'API', link: '/api/' },
       { text: 'MEL', link: '/mel/' },
       { text: 'Internals', link: '/internals/' },
@@ -87,11 +88,17 @@ export default defineConfig({
             { text: 'World', link: '/concepts/world' },
           ]
         },
+      ],
+
+      '/architecture/': [
         {
           text: 'Architecture',
-          collapsed: true,
           items: [
-            { text: 'Overview', link: '/internals/architecture' },
+            { text: 'Overview', link: '/architecture/' },
+            { text: 'Layers', link: '/internals/architecture' },
+            { text: 'Data Flow', link: '/architecture/data-flow' },
+            { text: 'Determinism', link: '/architecture/determinism' },
+            { text: 'Failure Model', link: '/architecture/failure-model' },
           ]
         }
       ],
@@ -107,28 +114,6 @@ export default defineConfig({
             { text: 'Flow', link: '/concepts/flow' },
             { text: 'Effect', link: '/concepts/effect' },
             { text: 'World', link: '/concepts/world' },
-          ]
-        }
-      ],
-
-      '/guides/': [
-        {
-          text: 'How-to Guides',
-          items: [
-            { text: 'Overview', link: '/guides/' },
-            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
-            { text: 'Debugging', link: '/guides/debugging' },
-            { text: 'Performance Report', link: '/guides/performance-report' },
-            { text: 'Code Generation', link: '/guides/code-generation' },
-          ]
-        },
-        {
-          text: 'Migration',
-          items: [
-            { text: 'Migration Playbook', link: '/guides/migration-from-v2-early' },
-            { text: 'Migration API Cookbook', link: '/guides/migration-api-cookbook' },
-            { text: 'Migration Checklist', link: '/guides/migration-checklist' },
           ]
         }
       ],
@@ -168,8 +153,8 @@ export default defineConfig({
             { text: 'Overview', link: '/guides/' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
-            { text: 'React Integration', link: '/guides/react-integration' },
             { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Performance Report', link: '/guides/performance-report' },
             { text: 'Code Generation', link: '/guides/code-generation' },
           ]
         },
@@ -179,13 +164,6 @@ export default defineConfig({
             { text: 'Migration Playbook', link: '/guides/migration-from-v2-early' },
             { text: 'Migration API Cookbook', link: '/guides/migration-api-cookbook' },
             { text: 'Migration Checklist', link: '/guides/migration-checklist' },
-          ]
-        },
-        {
-          text: 'AI Integration',
-          items: [
-            { text: 'AI Agent Integration', link: '/guides/ai-agent-integration' },
-            { text: 'Schema Evolution', link: '/guides/schema-evolution' },
           ]
         }
       ],

@@ -11,6 +11,7 @@
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
 import { extractDefaults, evaluateComputed, isOk } from "@manifesto-ai/core";
+import { createWorldId } from "@manifesto-ai/world";
 import type {
   ActionHandle,
   ActOptions,
@@ -54,6 +55,8 @@ import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
 import {
   MissingDefaultActorError,
   PluginInitError,
+  SchemaMismatchOnResumeError,
+  BranchHeadNotFoundError,
 } from "../errors/index.js";
 import { RESERVED_EFFECT_TYPE } from "../constants.js";
 import {
@@ -197,8 +200,8 @@ export class AppBootstrap {
     // State holder — AppRuntime will own this after construction
     let currentState = initialState;
 
-    // 8a. BranchManager
-    const branchManager: BranchManager = new BranchManager({
+    // 8a. BranchManager — attempt resume from persisted state
+    const branchManagerConfig = {
       schemaHash,
       initialState,
       callbacks: {
@@ -212,7 +215,68 @@ export class AppBootstrap {
         ...Object.keys(effects),
         RESERVED_EFFECT_TYPE,
       ],
-    });
+    };
+
+    let branchManager: BranchManager;
+    const persistedState = worldStore.loadBranchState
+      ? await worldStore.loadBranchState()
+      : null;
+
+    if (persistedState && persistedState.branches.length > 0) {
+      // RESUME-SCHEMA-1: Detect schemaHash mismatch
+      const mismatchedBranches = persistedState.branches.filter(
+        (b) => b.schemaHash !== schemaHash
+      );
+      if (mismatchedBranches.length > 0) {
+        // RESUME-SCHEMA-2: Log warning and fall back to fresh start
+        console.warn(
+          `[Manifesto] Schema mismatch on resume: branches [${mismatchedBranches.map((b) => b.id).join(", ")}] ` +
+          `have different schemaHash. Falling back to fresh start.`
+        );
+        branchManager = new BranchManager(branchManagerConfig);
+      } else {
+        // BRANCH-RECOVER-1: Validate head WorldIds exist in WorldStore
+        const validBranches = [];
+        for (const entry of persistedState.branches) {
+          const exists = await worldStore.has(
+            createWorldId(entry.head)
+          );
+          if (exists) {
+            validBranches.push(entry);
+          } else {
+            // BRANCH-RECOVER-2: Log warning for invalid branch head
+            console.warn(
+              `[Manifesto] Branch '${entry.id}' head '${entry.head}' not found in WorldStore. ` +
+              `Branch will be excluded from resume.`
+            );
+          }
+        }
+
+        if (validBranches.length > 0) {
+          // BRANCH-RECOVER-3: Resume with valid branches only
+          const validPersistedState = {
+            branches: validBranches,
+            activeBranchId: validBranches.some((b) => b.id === persistedState.activeBranchId)
+              ? persistedState.activeBranchId
+              : validBranches[0].id,
+          };
+
+          branchManager = BranchManager.fromPersistedState(
+            validPersistedState,
+            branchManagerConfig
+          );
+        } else {
+          // All branches invalid — fresh start
+          console.warn(
+            `[Manifesto] All persisted branch heads are invalid. Starting fresh.`
+          );
+          branchManager = new BranchManager(branchManagerConfig);
+        }
+      }
+    } else {
+      // No persisted state — fresh start (first run)
+      branchManager = new BranchManager(branchManagerConfig);
+    }
 
     // 8b. MemoryFacade
     const memoryFacade = createMemoryFacade(

@@ -734,9 +734,9 @@ describe("Effect handlers", () => {
     await app.ready();
 
     // Trigger action that declares api.get effect
-    const result = await app.act('fetchUser', { url: '/api/users/123' });
+    await app.act('fetchUser', { url: '/api/users/123' }).done();
 
-    expect(result.snapshot.data.user).toEqual({ id: "123", name: "Test" });
+    expect(app.getState().data.user).toEqual({ id: "123", name: "Test" });
   });
 
   it("handles API error", async () => {
@@ -760,9 +760,9 @@ describe("Effect handlers", () => {
 
     await app.ready();
 
-    const result = await app.act('fetchUser', { url: '/api/users/123' });
+    await app.act('fetchUser', { url: '/api/users/123' }).result();
 
-    expect(result.snapshot.data.error).toBe('Network error');
+    expect(app.getState().data.error).toBe('Network error');
   });
 
   it("never throws", async () => {
@@ -784,10 +784,10 @@ describe("Effect handlers", () => {
 
     await app.ready();
 
-    // Should not throw
-    await expect(
-      app.act('fetchUser', { url: '/api/fail' })
-    ).resolves.toBeDefined();
+    // Effect handler catches error and returns patches — no throw
+    await app.act('fetchUser', { url: '/api/fail' }).result();
+
+    expect(app.getState().data.error).toBe('Fatal error');
   });
 });
 ```

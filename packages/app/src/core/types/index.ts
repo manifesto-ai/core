@@ -18,6 +18,7 @@ export type {
   Snapshot,
   World,
   WorldId,
+  WorldHead,
   AppStatus,
   ExecutionKey,
   SchemaHash,
@@ -76,6 +77,8 @@ export type {
   WorldDelta,
   CompactOptions,
   CompactResult,
+  PersistedBranchEntry,
+  PersistedBranchState,
   WorldStore,
 } from "./world-store.js";
 

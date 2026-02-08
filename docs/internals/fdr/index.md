@@ -14,7 +14,7 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 |---------|------------|-------|--------------|
 | **@manifesto-ai/core** | v2.0.0 | Compute equation, purity, patches | [FDR-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/FDR-v2.0.0.md) |
 | **@manifesto-ai/host** | v2.0.2 | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-FDR-v2.0.2.md) |
-| **@manifesto-ai/world** | v2.0.2 | Governance, lineage, namespaces | [world-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-FDR-v2.0.2.md) |
+| **@manifesto-ai/world** | v2.0.5 | Governance, lineage, namespaces, head query, resume | [world-FDR-v2.0.5-addendum.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-FDR-v2.0.5-addendum.md) |
 
 ### Application Layer
 
@@ -60,9 +60,10 @@ The App package has multiple focused FDR documents:
 - FDR-H023: Context determinism
 - FDR-H024~H027: Snapshot type alignment
 
-**World v2.0.2** - Governance model
+**World v2.0.5** - Governance model
 - FDR-W001~W020: Proposal, Authority, Decision
 - FDR-W021+: Host-World data contract
+- FDR-W036~W038: Head query, resume contract (v2.0.5 addendum)
 
 ### Intent IR Research
 

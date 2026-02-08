@@ -10,6 +10,35 @@ import type { Patch, Snapshot } from "@manifesto-ai/core";
 import type { World, WorldId } from "@manifesto-ai/world";
 
 // =============================================================================
+// Branch Persistence Types (SPEC v2.0.5)
+// =============================================================================
+
+/**
+ * Serialized branch entry for persistence.
+ *
+ * @see World SPEC v2.0.5 §4.3 BRANCH-PERSIST
+ */
+export type PersistedBranchEntry = {
+  readonly id: string;
+  readonly name: string;
+  readonly head: string; // WorldId as string
+  readonly schemaHash: string;
+  readonly createdAt: number;
+  readonly parentBranch?: string;
+  readonly lineage: readonly string[];
+};
+
+/**
+ * Full branch state snapshot for persistence.
+ *
+ * @see World SPEC v2.0.5 §4.3 BRANCH-PERSIST-1~5
+ */
+export type PersistedBranchState = {
+  readonly branches: readonly PersistedBranchEntry[];
+  readonly activeBranchId: string;
+};
+
+// =============================================================================
 // v2.0.0 WorldStore Interface
 // =============================================================================
 
@@ -97,4 +126,19 @@ export interface WorldStore {
    * Archive cold Worlds.
    */
   archive?(worldIds: readonly WorldId[]): Promise<void>;
+
+  // Branch Persistence (SPEC v2.0.5)
+  /**
+   * Save branch state atomically.
+   *
+   * @see World SPEC v2.0.5 BRANCH-PERSIST-4
+   */
+  saveBranchState?(state: PersistedBranchState): Promise<void>;
+
+  /**
+   * Load persisted branch state.
+   *
+   * Returns null if no branch state has been saved.
+   */
+  loadBranchState?(): Promise<PersistedBranchState | null>;
 }

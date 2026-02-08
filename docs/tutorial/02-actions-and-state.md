@@ -79,8 +79,8 @@ Access computed values in your code:
 
 ```typescript
 const state = app.getState();
-console.log(state.computed.activeCount);     // number
-console.log(state.computed.hasCompleted);    // boolean
+console.log(state.computed["computed.activeCount"]);     // number
+console.log(state.computed["computed.hasCompleted"]);    // boolean
 ```
 
 ---
@@ -249,9 +249,9 @@ async function main() {
   // Subscribe to state changes
   app.subscribe(
     (state) => ({
-      count: state.computed.todoCount,
-      active: state.computed.activeCount,
-      completed: state.computed.completedCount
+      count: state.computed["computed.todoCount"],
+      active: state.computed["computed.activeCount"],
+      completed: state.computed["computed.completedCount"]
     }),
     (counts) => console.log("Counts:", counts)
   );
@@ -334,8 +334,8 @@ state.data.todos
 state.data.filter
 
 // Computed values
-state.computed.activeCount
-state.computed.hasCompleted
+state.computed["computed.activeCount"]
+state.computed["computed.hasCompleted"]
 
 // System state
 state.system.status

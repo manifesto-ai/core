@@ -1,16 +1,16 @@
 # Manifesto App Documentation Index
 
 > **Package:** `@manifesto-ai/app`
-> **Last Updated:** 2026-02-06
+> **Last Updated:** 2026-02-08
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v2.3.0](APP-SPEC-v2.3.0.md) (Full - World owns persistence, createApp DX simplification)
+- **SPEC:** [v2.3.1](APP-SPEC-v2.3.1-patch.md) (Patch, Base: v2.3.0 — Head Query API delegation)
 - **Architecture:** [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
 
-**Note:** v2.3.0 is the current full specification. For API rationale, see [ADR-APP-002](ADR-APP-002-v0.2.0.md).
+**Note:** v2.3.1 is a patch on v2.3.0. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) first, then apply [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md). For API rationale, see [ADR-APP-002](ADR-APP-002-v0.2.0.md).
 
 ---
 
@@ -18,6 +18,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
+| v2.3.1 | [SPEC](APP-SPEC-v2.3.1-patch.md) | — | Patch (Base: v2.3.0) | Draft |
 | v2.3.0 | [SPEC](APP-SPEC-v2.3.0.md) | [ADR-APP-002](#adrs) | Full | Ratified |
 | v2.1.0 | [SPEC](APP-SPEC-v2.1.0-patch.md) | — | Patch (Base: v2.0.0) | Draft |
 | v2.0.0 | [SPEC](APP-SPEC-v2.0.0.md) | [Multiple FDRs](#fdrs) | Full | Accepted |
@@ -46,7 +47,14 @@
 
 ## Reading Guide
 
-### For Latest (v2.3.0)
+### For Latest (v2.3.1)
+
+1. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) (base specification)
+2. Read [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md) (Head Query API — `getHeads()`, `getLatestHead()` delegation)
+3. For ADR rationale: [ADR-APP-002](ADR-APP-002-v0.2.0.md)
+4. For architecture overview: [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
+
+### For v2.3.0
 
 1. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) (complete specification with ADR-003 + createApp DX simplification)
 2. For ADR rationale: [ADR-APP-002](ADR-APP-002-v0.2.0.md)

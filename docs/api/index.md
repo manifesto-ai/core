@@ -64,24 +64,18 @@ See [Specifications](/internals/spec/) for detailed package specifications.
 ```typescript
 import { createApp } from "@manifesto-ai/app";
 
-// Define domain in MEL
-const mel = `
-domain Counter {
-  state {
-    count: number = 0
-  }
-
-  action increment() {
-    once(incrementIntent) {
-      patch incrementIntent = $meta.intentId
-      patch count = add(count, 1)
+const app = createApp({
+  schema: `
+    domain Counter {
+      state { count: number = 0 }
+      action increment() {
+        onceIntent { patch count = add(count, 1) }
+      }
     }
-  }
-}
-`;
+  `,
+  effects: {},
+});
 
-// Create and use app
-const app = createApp(mel);
 await app.ready();
 
 await app.act("increment").done();

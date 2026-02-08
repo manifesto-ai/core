@@ -524,7 +524,7 @@ interface SubscribeOptions<TSelected> {
 // Read current state
 const state = app.getState<MyData>();
 console.log(state.data.count);
-console.log(state.computed.total);
+console.log(state.computed["computed.total"]);
 console.log(state.meta.version);
 
 // Subscribe to specific value
@@ -538,7 +538,7 @@ const unsubscribe = app.subscribe(
 app.subscribe(
   (state) => ({
     count: state.data.count,
-    total: state.computed.total,
+    total: state.computed["computed.total"],
   }),
   ({ count, total }) => console.log(`Count: ${count}, Total: ${total}`),
   {
@@ -635,6 +635,72 @@ console.log("Experiment result:", newBranch.getState().data);
 
 // Switch back
 await app.switchBranch(branch.id);
+```
+
+---
+
+## Head Query Methods
+
+Query the current Head (latest completed World) of each branch.
+
+### getHeads()
+
+Returns all branch heads, sorted by `createdAt` descending.
+
+```typescript
+app.getHeads(): Promise<WorldHead[]>
+```
+
+| Return | Type | Description |
+|--------|------|-------------|
+| heads | `WorldHead[]` | One entry per branch, newest first |
+
+**Throws:**
+- `AppNotReadyError` if called before `ready()`
+
+### getLatestHead()
+
+Returns the most recent Head across all branches, or `null` if no branches exist.
+
+```typescript
+app.getLatestHead(): Promise<WorldHead | null>
+```
+
+**Throws:**
+- `AppNotReadyError` if called before `ready()`
+
+### WorldHead
+
+```typescript
+import type { WorldHead } from "@manifesto-ai/world";
+
+type WorldHead = {
+  worldId: WorldId;
+  branchId: string;
+  branchName: string;
+  createdAt: number;
+  schemaHash: string;
+};
+```
+
+See also: [WorldHead in @manifesto-ai/world](/api/world#worldhead)
+
+### Example
+
+```typescript
+await app.ready();
+
+// List all branch heads
+const heads = await app.getHeads();
+for (const head of heads) {
+  console.log(`${head.branchName}: ${head.worldId} (${head.schemaHash})`);
+}
+
+// Get most recent head across branches
+const latest = await app.getLatestHead();
+if (latest) {
+  console.log("Most recent:", latest.branchName, latest.worldId);
+}
 ```
 
 ---
@@ -1090,6 +1156,55 @@ interface DevtoolsConfig {
   name?: string;
 }
 ```
+
+---
+
+## Branch Persistence
+
+Branch state can be persisted and restored across app restarts via optional `WorldStore` methods.
+
+### WorldStore Persistence Methods
+
+```typescript
+interface WorldStore {
+  // ... core methods ...
+
+  saveBranchState?(state: PersistedBranchState): Promise<void>;
+  loadBranchState?(): Promise<PersistedBranchState | null>;
+}
+```
+
+Both methods are optional (`?`). The built-in `InMemoryWorldStore` implements them. Custom stores can omit them — branches will start fresh on each restart.
+
+### PersistedBranchState
+
+```typescript
+type PersistedBranchEntry = {
+  readonly id: string;
+  readonly name: string;
+  readonly head: string;
+  readonly schemaHash: string;
+  readonly createdAt: number;
+  readonly parentBranch?: string;
+  readonly lineage: readonly string[];
+};
+
+type PersistedBranchState = {
+  readonly branches: readonly PersistedBranchEntry[];
+  readonly activeBranchId: string;
+};
+```
+
+### Resume Behavior
+
+On `app.ready()`, if `loadBranchState()` is available:
+
+1. **Load** — Restores branch topology from persisted state
+2. **Schema validation** — If `schemaHash` differs from current schema, logs a warning and falls back to fresh start
+3. **Head validation** — Each branch's head `WorldId` is verified against `WorldStore`. Invalid branches are excluded
+4. **Fallback** — If all branches are invalid, creates a fresh `main` branch
+
+Branch state is automatically saved after each completed action via the persist pipeline.
 
 ---
 

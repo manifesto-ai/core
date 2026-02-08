@@ -16,10 +16,11 @@ export type { Patch, Requirement, Snapshot };
 import type {
   World,
   WorldId,
+  WorldHead,
 } from "@manifesto-ai/world";
 
-// Re-export World and WorldId from world
-export type { World, WorldId };
+// Re-export World, WorldId, and WorldHead from world
+export type { World, WorldId, WorldHead };
 
 // =============================================================================
 // Base Types

@@ -87,6 +87,11 @@ export async function persist(
   if (execResult.outcome === "completed") {
     worldHeadTracker.advanceHead(newWorldId);
     branchManager?.appendWorldToBranch(branchId, newWorldId);
+
+    // BRANCH-PERSIST-4: Save branch state atomically with World creation
+    if (worldStore.saveBranchState && branchManager) {
+      await worldStore.saveBranchState(branchManager.toBranchSnapshot());
+    }
   }
 
   // ==== Phase 8.5: state:publish (exactly once per proposal tick — INV-9) ====
