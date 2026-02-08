@@ -29,6 +29,7 @@ Guides assume you already understand the basics.
 | [Re-entry Safety](./reentry-safe-flows) | Prevent infinite loops and duplicate effects | Intermediate |
 | [Debugging](./debugging) | Inspect traces, state, and performance | Beginner |
 | [Performance Report](./performance-report) | Benchmark results and reproduction commands | Advanced |
+| [Code Generation](./code-generation) | Generate TypeScript types and Zod schemas from DomainSchema | Beginner |
 | [Migration Playbook](./migration-from-v2-early) | Upgrade early-v2 projects to the current DX flow | Intermediate |
 | [Migration API Cookbook](./migration-api-cookbook) | Copy-paste `Before/After` migration patterns | Intermediate |
 | [Migration Checklist](./migration-checklist) | Operational migration audit and rollout checklist | Beginner |
@@ -48,6 +49,7 @@ Guides assume you already understand the basics.
 | Upgrading early v2 projects | [Migration Playbook](./migration-from-v2-early) |
 | Applying exact API replacements | [Migration API Cookbook](./migration-api-cookbook) |
 | Running migration rollout safely | [Migration Checklist](./migration-checklist) |
+| Generating types from schema | [Code Generation](./code-generation) |
 
 ---
 

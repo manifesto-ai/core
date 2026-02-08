@@ -53,6 +53,14 @@ Translator ADRs are versioned with SPEC versions. ADR-001 has two versions:
 - v1.0.8: Updated after SPEC v1.0.3 implementation
 :::
 
+### Codegen ADRs
+
+The codegen package maintains its own ADRs for code generation decisions:
+
+| ID | Title | Version | Status |
+|----|-------|---------|--------|
+| [ADR-CODEGEN-001](/packages/codegen/docs/ADR-CODEGEN-001.md) | Plugin-Based Codegen Targets for Manifesto Domains | v0.3.1 | Accepted |
+
 ---
 
 ## ADR Status Definitions
