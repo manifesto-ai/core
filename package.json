@@ -2,6 +2,23 @@
   "name": "@manifesto-ai/monorepo",
   "version": "1.0.0",
   "private": true,
+  "description": "Deterministic state management with built-in history, approval, and traceability",
+  "homepage": "https://docs.manifesto-ai.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git"
+  },
+  "keywords": [
+    "manifesto",
+    "state-management",
+    "deterministic",
+    "traceable",
+    "semantic",
+    "governance",
+    "audit-trail",
+    "actor-model",
+    "ai"
+  ],
   "type": "module",
   "packageManager": "pnpm@9.15.2",
   "engines": {

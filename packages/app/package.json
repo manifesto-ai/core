@@ -18,8 +18,10 @@
     "state-management",
     "deterministic",
     "semantic",
-    "app",
-    "facade"
+    "traceable",
+    "governance",
+    "audit-trail",
+    "ai"
   ],
   "type": "module",
   "main": "./dist/index.js",

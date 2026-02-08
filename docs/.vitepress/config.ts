@@ -32,7 +32,16 @@ function addMermaidRenderer(md: MarkdownRenderer) {
 
 export default defineConfig({
   title: 'Manifesto',
-  description: 'Accountable state management for AI-powered applications',
+  description: 'Deterministic state protocol for humans and AI — with built-in history, approval, and traceability',
+  head: [
+    ['meta', { property: 'og:title', content: 'Manifesto' }],
+    ['meta', { property: 'og:description', content: 'Deterministic state protocol for humans and AI — with built-in history, approval, and traceability' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:url', content: 'https://docs.manifesto-ai.dev' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
+    ['meta', { name: 'twitter:title', content: 'Manifesto' }],
+    ['meta', { name: 'twitter:description', content: 'Deterministic state protocol for humans and AI — with built-in history, approval, and traceability' }],
+  ],
   markdown: {
     languages: markdownLanguages,
     config: (md) => {

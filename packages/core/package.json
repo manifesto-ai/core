@@ -17,7 +17,10 @@
     "manifesto",
     "state-management",
     "deterministic",
-    "semantic"
+    "semantic",
+    "traceable",
+    "immutable",
+    "pure-computation"
   ],
   "type": "module",
   "main": "./dist/index.js",

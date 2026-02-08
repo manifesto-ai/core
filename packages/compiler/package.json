@@ -16,10 +16,12 @@
   "keywords": [
     "manifesto",
     "compiler",
-    "natural-language",
-    "llm",
-    "ai",
-    "schema-generation"
+    "dsl",
+    "semantic",
+    "domain-schema",
+    "deterministic",
+    "schema-generation",
+    "ai"
   ],
   "type": "module",
   "main": "./dist/index.js",

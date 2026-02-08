@@ -18,7 +18,9 @@
     "governance",
     "authority",
     "lineage",
-    "ai-agents"
+    "audit-trail",
+    "traceability",
+    "ai"
   ],
   "type": "module",
   "main": "./dist/index.js",
