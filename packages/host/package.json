@@ -17,7 +17,9 @@
     "manifesto",
     "effects",
     "runtime",
-    "state-management"
+    "state-management",
+    "deterministic",
+    "effect-handler"
   ],
   "type": "module",
   "main": "./dist/index.js",

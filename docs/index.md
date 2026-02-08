@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Manifesto
-  text: Semantic State for AI-Governed Apps
-  tagline: Deterministic computation. Full accountability. Every state change traceable.
+  text: Deterministic State Protocol
+  tagline: One world model for humans and AI. Every state change traceable. Every transition reproducible.
   actions:
     - theme: brand
       text: Quickstart
@@ -23,9 +23,9 @@ features:
   - icon: 🔍
     title: Accountable
     details: Every change traceable to Actor + Authority + Intent.
-  - icon: 🤖
-    title: AI-Native
-    details: Schema-first. LLMs can read, reason, and modify safely.
+  - icon: 👥
+    title: Actor-Agnostic
+    details: Humans, AI agents, and automated processes share the same interface.
   - icon: ⚡
     title: Effect Isolation
     details: Pure computation separated from IO.
