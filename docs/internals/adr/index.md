@@ -95,6 +95,13 @@ ADRs often result in SPEC patches. Here's the traceability:
 | Core | v2.0.1 | Namespace alignment |
 | Host | v2.0.2 | `$host` namespace |
 
+### ADR-003: World Owns Persistence (+ Issue #109)
+
+| Package | SPEC Patch | Changes |
+|---------|------------|---------|
+| World | v2.0.5 | Head Query API, resume contract, branch state persistence |
+| App | v2.3.1 | Head Query delegation (`getHeads()`, `getLatestHead()`) |
+
 ---
 
 ## ADR Process

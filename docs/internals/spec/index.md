@@ -14,13 +14,13 @@ All specifications are maintained at the package level. This page provides navig
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/core** | v2.0.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/host** | v2.0.2 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/world** | v2.0.3-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/world** | v2.0.5-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
 ### Application Layer
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/app** | v2.1.0-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/app** | v2.3.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/compiler** | v0.5.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### Intent & Translation
@@ -48,16 +48,17 @@ All specifications are maintained at the package level. This page provides navig
 
 ### World
 
-- **World SPEC v2.0.3** (Full)
-  - [world-SPEC-v2.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.3.md)
-  - Adds: ADR-002 DX improvements, `$mel` namespace
+- **World SPEC v2.0.5** (Patch)
+  - Base: [world-SPEC-v2.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.3.md)
+  - Patch: [world-SPEC-v2.0.5-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.5-patch.md)
+  - Adds: Head Query API, resume contract, branch state persistence
 
 ### App
 
-- **App SPEC v2.1.0** (Patch)
-  - Base: [APP-SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.0.0.md)
-  - Patch: [APP-SPEC-v2.1.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.1.0-patch.md)
-  - Adds: Platform namespace injection, `$mel` support
+- **App SPEC v2.3.1** (Patch)
+  - Base: [APP-SPEC-v2.3.0.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.3.0.md)
+  - Patch: [APP-SPEC-v2.3.1-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.3.1-patch.md)
+  - Adds: Head Query API delegation (`getHeads()`, `getLatestHead()`)
 
 ### Compiler (MEL)
 
@@ -80,6 +81,13 @@ All specifications are maintained at the package level. This page provides navig
 ---
 
 ## Version History Summary
+
+### Recent Changes (2026-02)
+
+| Date | Package | Version | Change |
+|------|---------|---------|--------|
+| 02-08 | World | v2.0.5-patch | Head Query API, resume contract, branch persistence |
+| 02-08 | App | v2.3.1-patch | Head Query delegation (`getHeads()`, `getLatestHead()`) |
 
 ### Recent Changes (2026-01)
 
