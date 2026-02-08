@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Manifesto
   text: Deterministic State Protocol
-  tagline: One world model for humans and AI. Every state change traceable. Every transition reproducible.
+  tagline: Define meaning once — derive UI, backend, AI, and full history as projections.
   actions:
     - theme: brand
       text: Quickstart
@@ -69,6 +69,7 @@ console.log(app.getState().data.count); // 1
 | `@manifesto-ai/core` | Pure computation engine |
 | `@manifesto-ai/host` | Effect execution runtime |
 | `@manifesto-ai/world` | World Protocol governance |
+| `@manifesto-ai/codegen` | TypeScript / Zod code generation from DomainSchema |
 | `@manifesto-ai/intent-ir` | Intent intermediate representation |
 
 See [API Reference](/api/) for full documentation.

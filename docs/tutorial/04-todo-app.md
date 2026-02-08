@@ -196,8 +196,8 @@ function TodoList() {
   const filter = useSnapshot((s) => s.data.filter);
 
   // Computed values
-  const activeCount = useSnapshot((s) => s.computed.activeCount) as number;
-  const filteredTodos = useSnapshot((s) => s.computed.filteredTodos) as TodoItem[];
+  const activeCount = useSnapshot((s) => s.computed["computed.activeCount"]) as number;
+  const filteredTodos = useSnapshot((s) => s.computed["computed.filteredTodos"]) as TodoItem[];
 
   // Actions
   const add = useAction('add');
@@ -325,7 +325,7 @@ export function App() {
    Notifies all subscribers
 
 10. React re-renders
-    useSnapshot((s) => s.computed.filteredTodos) returns new array → UI updates
+    useSnapshot((s) => s.computed["computed.filteredTodos"]) returns new array → UI updates
 ```
 
 ---

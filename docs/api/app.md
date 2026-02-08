@@ -524,7 +524,7 @@ interface SubscribeOptions<TSelected> {
 // Read current state
 const state = app.getState<MyData>();
 console.log(state.data.count);
-console.log(state.computed.total);
+console.log(state.computed["computed.total"]);
 console.log(state.meta.version);
 
 // Subscribe to specific value
@@ -538,7 +538,7 @@ const unsubscribe = app.subscribe(
 app.subscribe(
   (state) => ({
     count: state.data.count,
-    total: state.computed.total,
+    total: state.computed["computed.total"],
   }),
   ({ count, total }) => console.log(`Count: ${count}, Total: ${total}`),
   {

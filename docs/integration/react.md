@@ -76,7 +76,7 @@ import { useSnapshot, useAction } from '../hooks/useManifesto';
 
 export function Counter() {
   const count = useSnapshot(s => s.data.count);
-  const doubled = useSnapshot(s => s.computed.doubled);
+  const doubled = useSnapshot(s => s.computed["computed.doubled"]);
   const increment = useAction('increment');
   const decrement = useAction('decrement');
 
@@ -149,7 +149,7 @@ Subscribes to state changes and returns the selected value.
 const count = useSnapshot(s => s.data.count);
 
 // Select computed value
-const total = useSnapshot(s => s.computed.totalItems);
+const total = useSnapshot(s => s.computed["computed.totalItems"]);
 
 // Select nested object
 const user = useSnapshot(s => s.data.user);
@@ -198,7 +198,7 @@ const data = useSnapshot(s => ({ count: s.data.count, status: s.system.status })
 const count = useSnapshot(s => s.data.count);
 
 // GOOD: Re-renders only when specific computed changes
-const activeCount = useSnapshot(s => s.computed.activeCount);
+const activeCount = useSnapshot(s => s.computed["computed.activeCount"]);
 ```
 
 ### Memoized Selectors
@@ -242,7 +242,7 @@ domain TodoDomain {
 Then select the computed directly:
 
 ```tsx
-const activeTodos = useSnapshot(s => s.computed.activeTodos);
+const activeTodos = useSnapshot(s => s.computed["computed.activeTodos"]);
 ```
 
 ---
@@ -456,7 +456,7 @@ import { useSnapshot, useAction } from './hooks/useManifesto';
 
 function Counter() {
   const count = useSnapshot(s => s.data.count);
-  const doubled = useSnapshot(s => s.computed.doubled);
+  const doubled = useSnapshot(s => s.computed["computed.doubled"]);
   const increment = useAction('increment');
   const decrement = useAction('decrement');
 

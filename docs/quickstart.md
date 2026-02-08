@@ -184,7 +184,7 @@ await app.act("decrement").done();
 // → Count changed: 1
 
 // Access computed values
-console.log(app.getState().computed.doubled); // 2
+console.log(app.getState().computed["computed.doubled"]); // 2
 ```
 
 ---

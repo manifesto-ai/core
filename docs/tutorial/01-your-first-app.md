@@ -373,7 +373,7 @@ domain Counter {
 Subscribe:
 ```typescript
 app.subscribe(
-  (state) => state.computed.doubled,
+  (state) => state.computed["computed.doubled"],
   (doubled) => console.log("Doubled:", doubled)
 );
 ```
