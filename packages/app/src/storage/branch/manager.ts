@@ -12,6 +12,8 @@ import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   AppState,
   ForkOptions,
+  PersistedBranchEntry,
+  PersistedBranchState,
 } from "../../core/types/index.js";
 
 import { BranchNotFoundError } from "../../errors/index.js";
@@ -220,6 +222,80 @@ export class BranchManager {
    */
   get currentBranchId(): string | null {
     return this._currentBranchId;
+  }
+
+  // ===========================================================================
+  // Deserialization (SPEC v2.0.5)
+  // ===========================================================================
+
+  /**
+   * Restore BranchManager from persisted state.
+   *
+   * Creates branches with their persisted head, schemaHash, lineage.
+   * Caller is responsible for validating head WorldIds exist (BRANCH-RECOVER).
+   *
+   * @see World SPEC v2.0.5 BRANCH-PERSIST, RESUME
+   */
+  static fromPersistedState(
+    persisted: PersistedBranchState,
+    config: Omit<BranchManagerConfig, "initialState"> & { initialState: AppState<unknown> }
+  ): BranchManager {
+    // Create a minimal instance — we'll bypass the default constructor's main branch creation
+    const instance = Object.create(BranchManager.prototype) as BranchManager;
+    instance._branches = new Map();
+    instance._branchStates = new Map();
+    instance._schemaHash = config.schemaHash;
+    instance._callbacks = config.callbacks;
+    instance._getRegisteredEffectTypes = config.getRegisteredEffectTypes;
+    instance._currentBranchId = persisted.activeBranchId;
+
+    for (const entry of persisted.branches) {
+      const branch = BranchImpl.fromPersistedEntry(
+        entry,
+        instance._createBranchCallbacks()
+      );
+      instance._branches.set(entry.id, branch);
+      // All branches share initialState until actions diverge them
+      instance._branchStates.set(entry.id, config.initialState);
+    }
+
+    // Ensure activeBranchId points to a valid branch
+    if (!instance._branches.has(persisted.activeBranchId)) {
+      // Fallback to first branch
+      const firstId = instance._branches.keys().next().value;
+      instance._currentBranchId = firstId ?? null;
+    }
+
+    return instance;
+  }
+
+  // ===========================================================================
+  // Serialization (SPEC v2.0.5)
+  // ===========================================================================
+
+  /**
+   * Serialize current branch state for persistence.
+   *
+   * @see World SPEC v2.0.5 BRANCH-PERSIST-1~5
+   */
+  toBranchSnapshot(): PersistedBranchState {
+    const branches: PersistedBranchEntry[] = [];
+
+    for (const [id, branch] of this._branches) {
+      branches.push({
+        id,
+        name: branch.name ?? id,
+        head: branch.head(),
+        schemaHash: branch.schemaHash,
+        createdAt: Date.now(),
+        lineage: branch._getFullLineage(),
+      });
+    }
+
+    return {
+      branches,
+      activeBranchId: this._currentBranchId ?? "main",
+    };
   }
 
   // ===========================================================================

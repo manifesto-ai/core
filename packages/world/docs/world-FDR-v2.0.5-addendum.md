@@ -195,11 +195,14 @@ Default resume uses persisted active branch because:
 #### Consequences
 
 - World SPEC adds `getHeads()` and `getLatestHead()` (query primitives)
-- **App SPEC adds `getHeads()` and `getLatestHead()` (delegation — thin facade)**
+- **App SPEC adds `getHeads()` and `getLatestHead()` (optional methods on App interface, delegation via AppRuntime)**
+- **Implementation:** AppRuntime composes Head query from BranchManager.listBranches() + WorldStore.getWorld() (ManifestoWorld is NOT modified)
 - **Default resume uses persisted active branch head, NOT `getLatestHead()`**
 - `getLatestHead()` is positioned as query primitive, not resume policy
 - App SPEC does NOT add `resume` option
-- Apps implement resume via persisted branch state (read-only, no branch switching)
+- **AppBootstrap consumes `worldStore.loadBranchState()` during `assemble()`** — restores BranchManager from persisted state with validation:
+  - RESUME-SCHEMA: schemaHash mismatch → warn + fresh start
+  - BRANCH-RECOVER: invalid head WorldId → exclude branch + warn; all invalid → fresh start
 - AppRef is NOT changed (async incompatible with Hook's sync observation model)
 
 ---

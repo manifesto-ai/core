@@ -50,9 +50,10 @@ World SPEC v2.0.5에 `getHeads()`/`getLatestHead()`를 추가해도, App Public 
 + /**
 +  * Get all Heads (one per Branch), ordered by createdAt descending.
 +  *
-+  * Delegates to World.getHeads().
++  * Implementation: AppRuntime composes from BranchManager + WorldStore.
++  * Optional method — guarded by AppNotReadyError before ready().
 +  */
-+ getHeads(): Promise<WorldHead[]>;
++ getHeads?(): Promise<WorldHead[]>;
 +
 + /**
 +  * Get the most recent Head across all Branches.
@@ -60,9 +61,10 @@ World SPEC v2.0.5에 `getHeads()`/`getLatestHead()`를 추가해도, App Public 
 +  * Returns null if no branches exist.
 +  * Useful for UI ("show most recently updated branch") or alternative resume strategies.
 +  * NOTE: Default resume uses persisted active branch, not this method.
-+  * Delegates to World.getLatestHead().
++  * Implementation: Delegates to getHeads()[0].
++  * Optional method — guarded by AppNotReadyError before ready().
 +  */
-+ getLatestHead(): Promise<WorldHead | null>;
++ getLatestHead?(): Promise<WorldHead | null>;
 
   /**
    * Get snapshot for a World.
@@ -104,12 +106,26 @@ interface AppRef {
 class ManifestoApp implements App {
   // ... 기존 ...
 
+  // _getRuntime(apiName) throws AppNotReadyError if not ready
   async getHeads(): Promise<WorldHead[]> {
-    return this._getRuntime().world.getHeads();
+    return this._getRuntime("getHeads").getHeads();
   }
 
   async getLatestHead(): Promise<WorldHead | null> {
-    return this._getRuntime().world.getLatestHead();
+    return this._getRuntime("getLatestHead").getLatestHead();
+  }
+}
+
+// AppRuntime 구현 (actual logic)
+class AppRuntime {
+  async getHeads(): Promise<WorldHead[]> {
+    // Composes from BranchManager.listBranches() + WorldStore.getWorld()
+    // Sorts by HEAD-5: createdAt desc → worldId asc → branchId asc
+  }
+
+  async getLatestHead(): Promise<WorldHead | null> {
+    const heads = await this.getHeads();
+    return heads[0] ?? null;
   }
 }
 ```
@@ -122,9 +138,9 @@ Add to §6.6 (App Rules):
 
 ```diff
  | APP-API-6 | MUST | `getDomainSchema()` MUST return current branch's schema |
-+| QUERY-HEAD-1 | MUST | `app.getHeads()` MUST delegate to `world.getHeads()` |
-+| QUERY-HEAD-2 | MUST | `app.getLatestHead()` MUST delegate to `world.getLatestHead()` |
-+| QUERY-HEAD-3 | MUST NOT | App MUST NOT add filtering or transformation beyond World's return value |
++| QUERY-HEAD-1 | MUST | `app.getHeads()` MUST delegate to `AppRuntime.getHeads()` (which composes from BranchManager + WorldStore) |
++| QUERY-HEAD-2 | MUST | `app.getLatestHead()` MUST delegate to `AppRuntime.getLatestHead()` |
++| QUERY-HEAD-3 | MUST NOT | ManifestoApp facade MUST NOT add filtering or transformation beyond AppRuntime's return value |
 ```
 
 ---

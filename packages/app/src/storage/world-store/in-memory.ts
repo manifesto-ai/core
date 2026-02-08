@@ -12,6 +12,7 @@ import type {
   WorldDelta,
   CompactOptions,
   CompactResult,
+  PersistedBranchState,
   Snapshot,
   Patch,
 } from "../../core/types/index.js";
@@ -37,6 +38,7 @@ export class InMemoryWorldStore implements WorldStore {
   private _worlds: Map<WorldId, WorldEntry> = new Map();
   private _children: Map<WorldId, Set<WorldId>> = new Map();
   private _activeHorizon: number;
+  private _branchState: PersistedBranchState | null = null;
 
   constructor(options?: WorldStoreOptions) {
     this._activeHorizon = options?.activeHorizon ?? 100;
@@ -248,6 +250,26 @@ export class InMemoryWorldStore implements WorldStore {
         children.delete(worldId);
       }
     }
+  }
+
+  // ===========================================================================
+  // Branch Persistence (SPEC v2.0.5)
+  // ===========================================================================
+
+  /**
+   * Save branch state.
+   *
+   * @see World SPEC v2.0.5 BRANCH-PERSIST-4
+   */
+  async saveBranchState(state: PersistedBranchState): Promise<void> {
+    this._branchState = state;
+  }
+
+  /**
+   * Load persisted branch state.
+   */
+  async loadBranchState(): Promise<PersistedBranchState | null> {
+    return this._branchState;
   }
 
   // ===========================================================================

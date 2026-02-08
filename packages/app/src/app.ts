@@ -34,7 +34,7 @@ import type {
   World,
   WorldStore,
 } from "./core/types/index.js";
-import type { WorldId } from "@manifesto-ai/world";
+import type { WorldId, WorldHead } from "@manifesto-ai/world";
 
 import { AppDisposedError } from "./errors/index.js";
 
@@ -242,6 +242,14 @@ export class ManifestoApp implements App {
 
   async getWorld(worldId: WorldId): Promise<World> {
     return this._getRuntime("getWorld").getWorld(worldId);
+  }
+
+  async getHeads(): Promise<WorldHead[]> {
+    return this._getRuntime("getHeads").getHeads();
+  }
+
+  async getLatestHead(): Promise<WorldHead | null> {
+    return this._getRuntime("getLatestHead").getLatestHead();
   }
 
   async submitProposal(proposal: Proposal): Promise<ProposalResult> {

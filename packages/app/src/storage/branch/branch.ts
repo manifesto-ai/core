@@ -161,6 +161,35 @@ export class BranchImpl implements Branch {
   }
 
   // ===========================================================================
+  // Deserialization (SPEC v2.0.5)
+  // ===========================================================================
+
+  /**
+   * Create a BranchImpl from a persisted entry.
+   *
+   * @see World SPEC v2.0.5 BRANCH-PERSIST
+   */
+  static fromPersistedEntry(
+    entry: import("../../core/types/index.js").PersistedBranchEntry,
+    callbacks: BranchCallbacks
+  ): BranchImpl {
+    const branch = new BranchImpl(
+      entry.id,
+      entry.schemaHash,
+      entry.head,
+      callbacks,
+      entry.name
+    );
+    // Restore full lineage from persisted data
+    branch._lineage = [...entry.lineage];
+    // Ensure head is the last lineage entry
+    if (branch._lineage.length === 0 || branch._lineage[branch._lineage.length - 1] !== entry.head) {
+      branch._lineage.push(entry.head);
+    }
+    return branch;
+  }
+
+  // ===========================================================================
   // Internal Methods
   // ===========================================================================
 

@@ -7,7 +7,7 @@
  */
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
-import type { World, WorldId } from "@manifesto-ai/world";
+import type { World, WorldId, WorldHead } from "@manifesto-ai/world";
 import type { AppStatus, Unsubscribe } from "./identifiers.js";
 import type { AppState, ErrorValue } from "./state.js";
 import type { Proposal } from "./authority.js";
@@ -228,6 +228,25 @@ export interface App {
    * @see SPEC v2.0.0 §6.2
    */
   getWorld?(worldId: WorldId): Promise<World>;
+
+  /**
+   * Get all Heads (one per Branch), ordered by createdAt descending.
+   *
+   * Delegates to World query. QUERY-HEAD-1: MUST delegate without transformation.
+   *
+   * @see App SPEC v2.3.1 §3
+   */
+  getHeads?(): Promise<WorldHead[]>;
+
+  /**
+   * Get the most recent Head across all Branches.
+   *
+   * Returns null if no branches exist.
+   * Delegates to World query. QUERY-HEAD-2: MUST delegate without transformation.
+   *
+   * @see App SPEC v2.3.1 §3
+   */
+  getLatestHead?(): Promise<WorldHead | null>;
 
   // ═══════════════════════════════════════════════════════════════════
   // Audit

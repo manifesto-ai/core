@@ -326,6 +326,49 @@ export class WorldNotInLineageError extends ManifestoAppError {
 }
 
 // =============================================================================
+// Resume & Recovery Errors (SPEC v2.0.5)
+// =============================================================================
+
+/**
+ * Thrown when persisted branch state has a schemaHash mismatch with current schema.
+ *
+ * @see World SPEC v2.0.5 RESUME-SCHEMA-1~3
+ */
+export class SchemaMismatchOnResumeError extends ManifestoAppError {
+  readonly code = "SCHEMA_MISMATCH_ON_RESUME" as const;
+
+  constructor(
+    public readonly branchId: string,
+    public readonly persistedHash: string,
+    public readonly currentHash: string
+  ) {
+    super(
+      `Branch '${branchId}' has schemaHash '${persistedHash}' but current schema hash is '${currentHash}'. ` +
+      `Resume requires schema migration or fresh start.`
+    );
+  }
+}
+
+/**
+ * Thrown when a persisted branch head references a WorldId not found in WorldStore.
+ *
+ * @see World SPEC v2.0.5 BRANCH-RECOVER-1~3
+ */
+export class BranchHeadNotFoundError extends ManifestoAppError {
+  readonly code = "BRANCH_HEAD_NOT_FOUND" as const;
+
+  constructor(
+    public readonly branchId: string,
+    public readonly worldId: string
+  ) {
+    super(
+      `Branch '${branchId}' head references World '${worldId}' which does not exist in WorldStore. ` +
+      `Branch will be recovered to genesis.`
+    );
+  }
+}
+
+// =============================================================================
 // Other Errors
 // =============================================================================
 

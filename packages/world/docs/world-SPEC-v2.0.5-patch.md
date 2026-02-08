@@ -165,21 +165,22 @@ Both conflicts break the Active Horizon invariant (STORE-BASE-1) which depends o
 
 ## 4. Head Query API
 
-### 4.1 World Read-Only Query API Extension
+### 4.1 Head Query API
 
-Add to World's public query interface (ref: ADR-003 §5):
+Head query is part of World's conceptual read-only query contract (ref: ADR-003 §5). In the current architecture, the implementation resides in AppRuntime, which uses BranchManager data + WorldStore to compose the results. App delegates these queries as a thin facade (ADR-004).
 
 ```typescript
-// Existing (ADR-003)
-world.getSnapshot(worldId: WorldId): Promise<Snapshot>;
-world.getWorld(worldId: WorldId): Promise<World>;
-world.getLineage(): Promise<WorldLineage>;
-world.getProposal(proposalId: ProposalId): Promise<Proposal>;
+// Existing query APIs
+app.getSnapshot(worldId: WorldId): Promise<Snapshot>;
+app.getWorld(worldId: WorldId): Promise<World>;
+app.getCurrentHead(): WorldId;
 
-// Added (v2.0.5)
-world.getHeads(): Promise<WorldHead[]>;
-world.getLatestHead(): Promise<WorldHead | null>;
+// Added (v2.0.5) — implemented in AppRuntime using BranchManager + WorldStore
+app.getHeads(): Promise<WorldHead[]>;
+app.getLatestHead(): Promise<WorldHead | null>;
 ```
+
+**Note:** ManifestoWorld class does NOT implement these methods directly. Branch management is an App-level concern (BranchManager), so the Head query is composed at the App layer from branch data + World metadata.
 
 ### 4.2 API Semantics
 
@@ -285,23 +286,28 @@ Restart Flow:
 
 ### 5.2 Schema Migration on Resume
 
+When the persisted branch state contains branches whose `schemaHash` differs from the current App's schema, the App falls back to a fresh start (new genesis on 'main' branch) and logs a warning.
+
 ```typescript
-const activeBranch = persistedState.activeBranch;
+// Implementation behavior (AppBootstrap):
+const persistedState = await worldStore.loadBranchState();
 
-if (activeBranch.schemaHash !== currentSchema.hash) {
-  // Option A: Schema-changing fork
-  await app.fork({ domain: currentSchema });
-
-  // Option B: Reject and start fresh
-  // (App-specific decision)
+if (persistedState) {
+  const mismatched = persistedState.branches.filter(
+    b => b.schemaHash !== currentSchema.hash
+  );
+  if (mismatched.length > 0) {
+    console.warn(`Schema mismatch on resume: branches [...]. Falling back to fresh start.`);
+    // → Creates fresh BranchManager (no resume)
+  }
 }
 ```
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| RESUME-SCHEMA-1 | MUST | App MUST detect schemaHash mismatch on resume |
-| RESUME-SCHEMA-2 | MUST NOT | App MUST NOT silently ignore schema mismatch |
-| RESUME-SCHEMA-3 | MAY | App MAY use schema-changing fork to migrate |
+| RESUME-SCHEMA-1 | MUST | App MUST detect schemaHash mismatch between persisted branches and current schema during bootstrap |
+| RESUME-SCHEMA-2 | MUST | App MUST log a warning when schema mismatch is detected (MUST NOT silently ignore) |
+| RESUME-SCHEMA-3 | MUST | On schema mismatch, App MUST fall back to fresh start (new genesis on 'main' branch) |
 
 ---
 
@@ -310,15 +316,18 @@ if (activeBranch.schemaHash !== currentSchema.hash) {
 Branch state (name, head pointer, schemaHash) must survive restart for BranchManager reconstruction.
 
 ```typescript
+type PersistedBranchEntry = {
+  readonly id: BranchId;
+  readonly name: string;
+  readonly head: WorldId;          // as string
+  readonly schemaHash: SchemaHash;
+  readonly createdAt: number;
+  readonly parentBranch?: BranchId;
+  readonly lineage: readonly string[];  // Full lineage for branch reconstruction
+};
+
 type PersistedBranchState = {
-  readonly branches: ReadonlyArray<{
-    readonly id: BranchId;
-    readonly name: string;
-    readonly head: WorldId;
-    readonly schemaHash: SchemaHash;
-    readonly createdAt: number;
-    readonly parentBranch?: BranchId;
-  }>;
+  readonly branches: readonly PersistedBranchEntry[];
   readonly activeBranchId: BranchId;
 };
 ```
@@ -335,31 +344,34 @@ type PersistedBranchState = {
 
 ### 6.2 Crash Recovery
 
-If branch state is lost or corrupted (e.g., crash between World creation and branch update):
+During bootstrap, AppBootstrap validates persisted branch state by checking that each branch's `head` WorldId exists in the WorldStore. Invalid branches are excluded; if all branches are invalid, the App falls back to a fresh start.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| BRANCH-RECOVER-1 | SHOULD | WorldStore SHOULD detect branch state inconsistency on load |
-| BRANCH-RECOVER-2 | MAY | WorldStore MAY reconstruct branch state from lineage DAG as fallback (walk from genesis, identify leaf completed Worlds as candidate heads) |
-| BRANCH-RECOVER-3 | MUST | If reconstruction is impossible, WorldStore MUST report error rather than silently use stale state |
+| BRANCH-RECOVER-1 | MUST | App MUST validate that each persisted branch head WorldId exists in WorldStore via `worldStore.has()` |
+| BRANCH-RECOVER-2 | MUST | Branches with invalid head WorldIds MUST be excluded from resume and a warning MUST be logged |
+| BRANCH-RECOVER-3 | MUST | If all persisted branches have invalid heads, App MUST fall back to fresh start (new genesis on 'main') |
 
-**Inconsistency detection (BRANCH-RECOVER-1 guidance):**
-
-A branch state is inconsistent if any of the following hold:
-- A branch's `head` references a WorldId that does not exist in the WorldStore
-- A completed World exists in the lineage as a child of a branch's current head, but the branch was not updated to point to it (crash window between World persist and branch head advance)
-- The `activeBranchId` references a BranchId not present in the branches list
+**Inconsistency detection (AppBootstrap implementation):**
 
 ```typescript
-// Crash recovery fallback: reconstruct from lineage
-function reconstructBranchState(lineage: WorldLineage): PersistedBranchState {
-  // 1. Find all completed leaf Worlds (no completed children)
-  // 2. Create a 'main' branch pointing to the most recent one
-  // 3. Log warning: "Branch state reconstructed from lineage"
-  // NOTE: Branch names and multi-branch structure are lost
-  //       This is a best-effort recovery, not lossless
+// For each persisted branch entry:
+for (const entry of persistedState.branches) {
+  const exists = await worldStore.has(createWorldId(entry.head));
+  if (exists) {
+    validBranches.push(entry);
+  } else {
+    console.warn(`Branch '${entry.id}' head '${entry.head}' not found in WorldStore.`);
+  }
+}
+
+// If activeBranchId points to an excluded branch, fall back to first valid branch
+if (!validBranches.some(b => b.id === persistedState.activeBranchId)) {
+  activeBranchId = validBranches[0].id;
 }
 ```
+
+**Note:** Full lineage DAG reconstruction (identifying leaf completed Worlds) is NOT implemented. The current recovery strategy is simpler: validate heads, exclude invalid branches, fall back to fresh start if needed.
 
 ---
 

@@ -9,7 +9,7 @@
  */
 
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
-import type { WorldId } from "@manifesto-ai/world";
+import type { WorldId, WorldHead } from "@manifesto-ai/world";
 import { createWorldId } from "@manifesto-ai/world";
 import { compileMelDomain } from "@manifesto-ai/compiler";
 
@@ -306,6 +306,57 @@ export class AppRuntime {
       throw new Error(`World not found: ${worldId}`);
     }
     return world;
+  }
+
+  /**
+   * Get all Heads (one per Branch), ordered by createdAt descending.
+   *
+   * HEAD-1: Head = World referenced by Branch.head
+   * HEAD-5: Sort by createdAt desc, worldId asc, branchId asc
+   *
+   * @see World SPEC v2.0.5 §4
+   * @see App SPEC v2.3.1 QUERY-HEAD-1
+   */
+  async getHeads(): Promise<WorldHead[]> {
+    const branches = this._branchManager.listBranches();
+    const heads: WorldHead[] = [];
+
+    for (const branch of branches) {
+      const worldId = createWorldId(branch.head());
+      const world = await this._worldStore.getWorld(worldId);
+
+      heads.push({
+        worldId,
+        branchId: branch.id,
+        branchName: branch.name ?? branch.id,
+        createdAt: world?.createdAt ?? 0,
+        schemaHash: branch.schemaHash,
+      });
+    }
+
+    // HEAD-5: Sort by createdAt desc, worldId asc, branchId asc
+    heads.sort((a, b) => {
+      if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
+      const aWorldId = String(a.worldId);
+      const bWorldId = String(b.worldId);
+      if (aWorldId !== bWorldId) return aWorldId < bWorldId ? -1 : 1;
+      return String(a.branchId) < String(b.branchId) ? -1 : 1;
+    });
+
+    return heads;
+  }
+
+  /**
+   * Get the most recent Head across all Branches.
+   *
+   * HEAD-4: Returns max by createdAt (BRANCH-7 guarantees all completed)
+   *
+   * @see World SPEC v2.0.5 §4
+   * @see App SPEC v2.3.1 QUERY-HEAD-2
+   */
+  async getLatestHead(): Promise<WorldHead | null> {
+    const heads = await this.getHeads();
+    return heads[0] ?? null;
   }
 
   async submitProposal(proposal: Proposal): Promise<ProposalResult> {
