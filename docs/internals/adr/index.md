@@ -59,7 +59,7 @@ The codegen package maintains its own ADRs for code generation decisions:
 
 | ID | Title | Version | Status |
 |----|-------|---------|--------|
-| [ADR-CODEGEN-001](/packages/codegen/docs/ADR-CODEGEN-001.md) | Plugin-Based Codegen Targets for Manifesto Domains | v0.3.1 | Accepted |
+| [ADR-CODEGEN-001](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/ADR-CODEGEN-001.md) | Plugin-Based Codegen Targets for Manifesto Domains | v0.3.1 | Accepted |
 
 ---
 

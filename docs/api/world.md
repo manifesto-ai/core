@@ -124,6 +124,28 @@ interface World {
 
 ---
 
+## WorldHead
+
+Represents the current Head of a Branch — the most recent completed World on that branch.
+
+```typescript
+type WorldHead = {
+  worldId: WorldId;
+  branchId: string;
+  branchName: string;
+  createdAt: number;
+  schemaHash: string;
+};
+```
+
+The `WorldHead` type is defined in `@manifesto-ai/world` and used by the App-level Head Query API.
+
+::: info
+`ManifestoWorld` does not expose Head Query methods directly. The `getHeads()` and `getLatestHead()` APIs are implemented at the [App](/api/app#head-query-methods) level, composing data from `BranchManager` and `WorldStore`.
+:::
+
+---
+
 ## Authority Handlers
 
 ```typescript
