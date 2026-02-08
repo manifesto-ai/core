@@ -409,7 +409,7 @@ Or configure your bundler to handle `.mel` files.
 Always call `await app.ready()` before using other methods:
 
 ```typescript
-const app = createApp(mel);
+const app = createApp({ schema: mel, effects: {} });
 await app.ready();  // Required!
 app.act("increment");
 ```
