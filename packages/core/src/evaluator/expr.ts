@@ -104,6 +104,8 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
     // Object
     case "object":
       return evaluateObject(expr.fields, ctx);
+    case "field":
+      return evaluateField(expr.object, expr.property, ctx);
     case "keys":
       return evaluateKeys(expr.obj, ctx);
     case "values":
@@ -461,13 +463,22 @@ function evaluateAt(array: ExprNode, index: ExprNode, ctx: EvalContext): ExprRes
   const indexResult = evaluateExpr(index, ctx);
   if (!indexResult.ok) return indexResult;
 
-  const arr = arrayResult.value;
-  if (!Array.isArray(arr)) return ok(null);
+  const base = arrayResult.value;
+  const key = indexResult.value;
 
-  const idx = toNumber(indexResult.value);
-  if (idx < 0 || idx >= arr.length) return ok(null); // Out of bounds returns null
+  // Array indexing: at(array, numericIndex)
+  if (Array.isArray(base)) {
+    const idx = toNumber(key);
+    if (idx < 0 || idx >= base.length) return ok(null);
+    return ok(base[idx]);
+  }
 
-  return ok(arr[idx]);
+  // Record lookup: at(record, stringKey)
+  if (typeof base === "object" && base !== null && typeof key === "string") {
+    return ok((base as Record<string, unknown>)[key] ?? null);
+  }
+
+  return ok(null);
 }
 
 function evaluateFirst(array: ExprNode, ctx: EvalContext): ExprResult {
@@ -648,6 +659,16 @@ function evaluateObject(fields: Record<string, ExprNode>, ctx: EvalContext): Exp
   }
 
   return ok(result);
+}
+
+function evaluateField(objectExpr: ExprNode, property: string, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(objectExpr, ctx);
+  if (!result.ok) return result;
+
+  const obj = result.value;
+  if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return ok(null);
+
+  return ok((obj as Record<string, unknown>)[property] ?? null);
 }
 
 function evaluateKeys(obj: ExprNode, ctx: EvalContext): ExprResult {

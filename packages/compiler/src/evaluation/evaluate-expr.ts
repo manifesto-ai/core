@@ -145,6 +145,9 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
     case "object":
       return evaluateObject(expr.fields, ctx);
 
+    case "field":
+      return evaluateFieldAccess(expr.object, expr.property, ctx);
+
     case "keys":
       return evaluateKeys(expr.obj, ctx);
 
@@ -478,19 +481,23 @@ function evaluateLen(arg: ExprNode, ctx: EvaluationContext): number | null {
 }
 
 function evaluateAt(array: ExprNode, index: ExprNode, ctx: EvaluationContext): unknown {
-  const arr = evaluateNode(array, ctx);
-  const idx = evaluateNode(index, ctx);
+  const base = evaluateNode(array, ctx);
+  const key = evaluateNode(index, ctx);
 
-  if (!Array.isArray(arr) || typeof idx !== "number") {
-    return null;
+  // Array indexing: at(array, numericIndex)
+  if (Array.isArray(base) && typeof key === "number") {
+    if (key < 0 || key >= base.length) {
+      return null;
+    }
+    return base[key];
   }
 
-  // Out of bounds → null
-  if (idx < 0 || idx >= arr.length) {
-    return null;
+  // Record lookup: at(record, stringKey)
+  if (typeof base === "object" && base !== null && typeof key === "string") {
+    return (base as Record<string, unknown>)[key] ?? null;
   }
 
-  return arr[idx];
+  return null;
 }
 
 function evaluateFirst(array: ExprNode, ctx: EvaluationContext): unknown {
@@ -700,6 +707,20 @@ function evaluateObject(
     result[key] = evaluateNode(value, ctx);
   }
   return result;
+}
+
+function evaluateFieldAccess(
+  objectExpr: ExprNode,
+  property: string,
+  ctx: EvaluationContext
+): unknown {
+  const obj = evaluateNode(objectExpr, ctx);
+
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) {
+    return null;
+  }
+
+  return (obj as Record<string, unknown>)[property] ?? null;
 }
 
 function evaluateKeys(obj: ExprNode, ctx: EvaluationContext): string[] | null {

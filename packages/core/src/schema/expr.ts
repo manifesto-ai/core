@@ -53,6 +53,7 @@ export type ExprNode =
   | AppendExpr
   // Object
   | ObjectExpr
+  | FieldExpr
   | KeysExpr
   | ValuesExpr
   | EntriesExpr
@@ -325,6 +326,13 @@ export const ObjectExpr: z.ZodType<{ kind: "object"; fields: Record<string, Expr
 });
 export type ObjectExpr = z.infer<typeof ObjectExpr>;
 
+export const FieldExpr: z.ZodType<{ kind: "field"; object: ExprNode; property: string }> = z.object({
+  kind: z.literal("field"),
+  object: z.lazy(() => ExprNodeSchema),
+  property: z.string(),
+});
+export type FieldExpr = z.infer<typeof FieldExpr>;
+
 export const KeysExpr: z.ZodType<{ kind: "keys"; obj: ExprNode }> = z.object({
   kind: z.literal("keys"),
   obj: z.lazy(() => ExprNodeSchema),
@@ -417,6 +425,7 @@ export const ExprNodeSchema: z.ZodType<ExprNode> = z.union([
   AppendExpr,
   // Object
   ObjectExpr,
+  FieldExpr,
   KeysExpr,
   ValuesExpr,
   EntriesExpr,
@@ -438,7 +447,7 @@ export const ExprKind = z.enum([
   "add", "sub", "mul", "div", "mod", "min", "max", "abs", "neg",
   "concat", "substring", "trim",
   "len", "at", "first", "last", "slice", "includes", "filter", "map", "find", "every", "some", "append",
-  "object", "keys", "values", "entries", "merge",
+  "object", "field", "keys", "values", "entries", "merge",
   "typeof", "isNull", "coalesce",
 ]);
 export type ExprKind = z.infer<typeof ExprKind>;
