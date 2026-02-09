@@ -57,12 +57,12 @@ Use the package name as scope:
 - `core` - @manifesto-ai/core
 - `host` - @manifesto-ai/host
 - `world` - @manifesto-ai/world
-- `bridge` - @manifesto-ai/bridge
-- `react` - @manifesto-ai/react
+- `app` - @manifesto-ai/app
 - `compiler` - @manifesto-ai/compiler
-- `effect-utils` - @manifesto-ai/effect-utils
-- `lab` - @manifesto-ai/lab
-- `memory` - @manifesto-ai/memory
+- `intent-ir` - @manifesto-ai/intent-ir
+- `codegen` - @manifesto-ai/codegen
+- `translator` - @manifesto-ai/translator
+- `skills` - @manifesto-ai/skills
 
 If a change spans multiple packages, use a comma-separated list without spaces (e.g. `core,host`). If the change is repo-wide (docs, tooling), omit the scope or use `chore`/`docs` without scope.
 
@@ -124,11 +124,10 @@ Releases are automated using [Release Please](https://github.com/googleapis/rele
 
 Respect the layered architecture:
 
-- **Core** (pure computation) → MUST NOT import Host, World, Bridge, React
-- **Host** (execution) → MUST NOT import World governance or React
+- **Core** (pure computation) → MUST NOT import Host, World
+- **Host** (execution) → MUST NOT import World governance
 - **World** (governance) → MUST NOT import Host or Core internals
-- **Bridge** (binding) → MUST NOT import Core/Host/World internals
-- **React** (UI) → MUST NOT import Core/Host/World internals
+- **App** (composition) → MUST NOT import Core/Host/World internals
 
 See [CLAUDE.md Section 3](./CLAUDE.md#3-package-boundary-rules) for complete details.
 

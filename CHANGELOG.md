@@ -30,11 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - @manifesto-ai/core - Pure semantic computation engine
 - @manifesto-ai/host - Effect execution runtime
 - @manifesto-ai/world - Governance layer with Authority system
-- @manifesto-ai/bridge - Two-way binding for events and intents
-- @manifesto-ai/builder - Type-safe domain definition DSL
-- @manifesto-ai/react - React integration with hooks
-- @manifesto-ai/compiler - Natural language to DomainSchema compiler
-- @manifesto-ai/lab - LLM necessity governance and HITL support
+- @manifesto-ai/compiler - MEL to DomainSchema compiler
 
 ### Core Features
 - Deterministic computation with `compute(schema, snapshot, intent)`

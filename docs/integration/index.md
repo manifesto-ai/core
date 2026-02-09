@@ -16,16 +16,16 @@
 
 ## How Integration Works
 
-Manifesto's architecture separates **computation** (Core) from **execution** (Host) and **governance** (World). Integrations connect at the **Bridge** layer:
+Manifesto's architecture separates **computation** (Core) from **execution** (Host) and **governance** (World). Integrations connect through the **App** layer:
 
 ```
-UI Framework  <-->  Bridge  <-->  Host  <-->  Core
-AI Agent      <-->  Bridge  <-->  Host  <-->  Core
+UI Framework  <-->  App  <-->  Host  <-->  Core
+AI Agent      <-->  App  <-->  Host  <-->  Core
 ```
 
-Bridge handles:
-- **Events to Intents** -- UI events become domain intents
-- **Snapshot to Views** -- State changes flow to subscribers
+App handles:
+- **Actions** -- UI events become domain intents via `app.act()`
+- **Subscriptions** -- State changes flow to subscribers via `app.subscribe()`
 - **Actor identity** -- Each integration source is a tracked actor
 
 ---

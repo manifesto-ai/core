@@ -103,7 +103,7 @@ Simpler alternatives exist for:
 ## The Fundamental Equation
 
 ```
-compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 ```
 
 - **Pure**: Same inputs always produce same outputs
@@ -118,9 +118,9 @@ compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
 | What You Want | Which Concept | Where Defined |
 |---------------|---------------|---------------|
 | Store domain state | Snapshot | `snapshot.data` |
-| Request state change | Intent | `createIntent(type, input)` |
-| Describe computation | Flow | `flow.seq()`, `flow.when()` |
-| Perform IO | Effect | `flow.effect(type, params)` |
+| Request state change | Intent | `app.act("action", input)` |
+| Describe computation | Flow | MEL `action`, `when`, `once` |
+| Perform IO | Effect | MEL `effect type.name({ into: path })` |
 | Authorize actions | World | `world.registerActor(actor, policy)` |
 
 ---

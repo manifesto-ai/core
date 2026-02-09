@@ -532,20 +532,23 @@ const app = createApp({
 
 **Why wrong:** Domain logic must be traceable. If it's in the handler, Trace doesn't show it.
 
-**Fix:** Domain logic in Flow, handler just does IO.
+**Fix:** Domain logic in MEL, handler just does IO.
+
+```mel
+// RIGHT: Domain logic in MEL (traceable)
+action createTodo(title: string) {
+  when gte(len(todos), 100) {
+    fail "TOO_MANY_TODOS"
+  }
+  when lt(len(todos), 100) {
+    onceIntent {
+      effect api.createTodo({ title: title, into: newTodo })
+    }
+  }
+}
+```
 
 ```typescript
-// RIGHT: Domain logic in Flow
-flow.seq(
-  // Business rule in Flow (traceable)
-  flow.when(
-    expr.gte(expr.len(state.todos), 100),
-    flow.fail('TOO_MANY_TODOS'),
-    // Only IO in effect
-    flow.effect('api.createTodo', { title: expr.input('title') })
-  )
-)
-
 // Handler just does IO
 const app = createApp({
   schema: domainSchema,
@@ -558,26 +561,6 @@ const app = createApp({
     },
   },
 });
-```
-
-MEL equivalent (flow only):
-
-```mel
-domain TodoDomain {
-  state {
-    todos: Array<string> = []
-  }
-
-  action addTodo(title: string) {
-    when gte(len(todos), 100) {
-      fail "TOO_MANY_TODOS"
-    }
-
-    when lt(len(todos), 100) {
-      effect api.createTodo({ title: title })
-    }
-  }
-}
 ```
 
 ### Anti-Pattern 3: Not Setting Guard State
