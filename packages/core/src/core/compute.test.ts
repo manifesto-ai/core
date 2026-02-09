@@ -729,6 +729,128 @@ describe("compute", () => {
     });
   });
 
+  describe("Availability on Re-Entry (#134)", () => {
+    it("should skip availability check on re-entry when currentAction matches", async () => {
+      // Simulates the issue #134 scenario:
+      // Action `run` has `available when and(isNull(result), isNull(pending))`
+      // First compute: available passes, patches pending, declares effect → status "pending"
+      // After effect fulfillment, Host calls compute again with updated snapshot
+      // where pending and result are non-null. Without the fix, this would fail
+      // with ACTION_UNAVAILABLE because `available` re-evaluates to false.
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "and",
+              args: [
+                { kind: "isNull", arg: { kind: "get", path: "pending" } },
+                { kind: "isNull", arg: { kind: "get", path: "result" } },
+              ],
+            },
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "pending" } },
+              then: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: "pending",
+                    value: { kind: "get", path: "meta.intentId" },
+                  },
+                  {
+                    kind: "effect",
+                    type: "demo.exec",
+                    params: {
+                      into: { kind: "lit", value: "result" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      // 1st compute: initial invocation — available passes, effect declared
+      const snapshot1 = createTestSnapshot({ pending: null, result: null }, schema.hash);
+      const intent = createIntent("run", "intent-run-1");
+      const result1 = await compute(schema, snapshot1, intent, HOST_CONTEXT);
+
+      expect(result1.status).toBe("pending");
+      expect(result1.snapshot.data).toEqual(
+        expect.objectContaining({ pending: "intent-run-1" })
+      );
+      expect(result1.snapshot.system.currentAction).toBe("run");
+
+      // 2nd compute: simulate re-entry after effect fulfillment
+      // Host applied effect patches (result is now set) and calls compute again.
+      // The snapshot has currentAction === "run" (set during 1st compute pending).
+      const reEntrySnapshot = {
+        ...result1.snapshot,
+        data: { ...result1.snapshot.data as Record<string, unknown>, result: "done" },
+        system: {
+          ...result1.snapshot.system,
+          // currentAction remains "run" — this signals re-entry
+          pendingRequirements: [],
+        },
+      };
+
+      const result2 = await compute(schema, reEntrySnapshot, intent, HOST_CONTEXT);
+
+      // Should NOT fail with ACTION_UNAVAILABLE — availability is skipped on re-entry
+      expect(result2.status).not.toBe("error");
+      expect(result2.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
+    });
+
+    it("should still check availability on fresh invocation", async () => {
+      // Ensure the fix doesn't accidentally skip availability on initial calls
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "and",
+              args: [
+                { kind: "isNull", arg: { kind: "get", path: "pending" } },
+                { kind: "isNull", arg: { kind: "get", path: "result" } },
+              ],
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "pending",
+              value: { kind: "get", path: "meta.intentId" },
+            },
+          },
+        },
+      });
+
+      // Fresh invocation where available condition is false — should still fail
+      const snapshot = createTestSnapshot(
+        { pending: "already-set", result: null },
+        schema.hash
+      );
+      const intent = createTestIntent("run");
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("ACTION_UNAVAILABLE");
+    });
+  });
+
   describe("computeSync", () => {
     it("should match async compute for the same inputs", async () => {
       const schema = createTestSchema({
