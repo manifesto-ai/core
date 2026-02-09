@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/intent-ir",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Manifesto Intent IR - Chomskyan LF-based Intermediate Representation for natural language intent",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

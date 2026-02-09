@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1](https://github.com/manifesto-ai/core/compare/intent-ir-v0.3.0...intent-ir-v0.3.1) (2026-02-09)
+
+
+### Features
+
+* align intent-ir v0.2 and translator docs ([27b1457](https://github.com/manifesto-ai/core/commit/27b1457424948b0b1330d2227626189a58e10836))
+* **intent-ir:** implement Chomskyan LF-based Intent IR package (v0.1.0) ([000f1ba](https://github.com/manifesto-ai/core/commit/000f1ba64a09817e43ec746aeef030763dd734d9))
+* **intent-ir:** implement Chomskyan LF-based Intent IR package (v0.1.0) ([8677a64](https://github.com/manifesto-ai/core/commit/8677a64d8a32bfaf6948b46ef28dc597027f9fa2))
+
+
+### Bug Fixes
+
+* **intent-ir:** add strict validation and normalize path/expr terms ([b0a70a1](https://github.com/manifesto-ai/core/commit/b0a70a1eba99b78a638224003125d8b12f71296a))
+
 ## [Unreleased]
 
 ### Planned for v0.2.0
