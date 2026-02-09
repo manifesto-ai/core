@@ -1,0 +1,30 @@
+{
+  "name": "@manifesto-ai/skills",
+  "version": "0.1.0",
+  "description": "LLM knowledge pack for Manifesto — patterns, rules, and antipatterns for AI-assisted development",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "manifesto",
+    "llm",
+    "claude-code",
+    "cursor",
+    "ai-coding",
+    "skills"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "skills"
+  },
+  "files": [
+    "SKILL.md",
+    "knowledge/**",
+    "claude-code/**",
+    "scripts/**",
+    "tracking/**"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.mjs"
+  }
+}
