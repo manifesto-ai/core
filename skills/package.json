@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/skills",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "LLM knowledge pack for Manifesto — patterns, rules, and antipatterns for AI-assisted development",
   "license": "MIT",
   "type": "module",
