@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.3.0",
   "lastChecked": "2026-02-09",
   "mappings": [
     {
@@ -60,6 +60,68 @@
       "skill": "knowledge/spec-index.md",
       "sources": [
         { "path": "docs/llm/LLM-INDEX.md", "version": "latest" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/core.md",
+      "sources": [
+        { "path": "packages/core/package.json", "version": "2.3.0" },
+        { "path": "packages/core/src/index.ts", "version": "2.3.0" },
+        { "path": "packages/core/docs/SPEC-v2.0.0.md", "version": "2.0.0" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/host.md",
+      "sources": [
+        { "path": "packages/host/package.json", "version": "2.3.0" },
+        { "path": "packages/host/src/index.ts", "version": "2.3.0" },
+        { "path": "packages/host/docs/host-SPEC-v2.0.2.md", "version": "2.0.2" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/world.md",
+      "sources": [
+        { "path": "packages/world/package.json", "version": "2.3.0" },
+        { "path": "packages/world/src/index.ts", "version": "2.3.0" },
+        { "path": "packages/world/docs/world-SPEC-v2.0.3.md", "version": "2.0.3" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/app.md",
+      "sources": [
+        { "path": "packages/app/package.json", "version": "2.3.0" },
+        { "path": "packages/app/src/index.ts", "version": "2.3.0" },
+        { "path": "packages/app/docs/APP-SPEC-v2.3.0.md", "version": "2.3.0" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/compiler.md",
+      "sources": [
+        { "path": "packages/compiler/package.json", "version": "1.6.0" },
+        { "path": "packages/compiler/src/index.ts", "version": "1.6.0" },
+        { "path": "packages/compiler/docs/SPEC-v0.5.0.md", "version": "0.5.0" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/intent-ir.md",
+      "sources": [
+        { "path": "packages/intent-ir/package.json", "version": "0.3.1" },
+        { "path": "packages/intent-ir/src/index.ts", "version": "0.3.1" },
+        { "path": "packages/intent-ir/docs/SPEC-v0.2.0.md", "version": "0.2.0" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/packages/codegen.md",
+      "sources": [
+        { "path": "packages/codegen/package.json", "version": "0.1.0" },
+        { "path": "packages/codegen/src/index.ts", "version": "0.1.0" }
       ],
       "lastSynced": "2026-02-09"
     }

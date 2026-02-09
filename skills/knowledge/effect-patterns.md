@@ -75,9 +75,9 @@ async function fetchUser(params: { id: string }): Promise<Patch[]> {
 ### Effect Registration (App Layer)
 
 ```typescript
-import { createManifestoApp } from '@manifesto-ai/app';
+import { createApp } from '@manifesto-ai/app';
 
-const app = createManifestoApp({
+const app = createApp({
   schema: domainSchema,
   effects: {
     'api.fetchUser': fetchUser,
