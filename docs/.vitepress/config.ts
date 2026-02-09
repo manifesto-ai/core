@@ -158,14 +158,6 @@ export default defineConfig({
             { text: 'Code Generation', link: '/guides/code-generation' },
           ]
         },
-        {
-          text: 'Migration',
-          items: [
-            { text: 'Migration Playbook', link: '/guides/migration-from-v2-early' },
-            { text: 'Migration API Cookbook', link: '/guides/migration-api-cookbook' },
-            { text: 'Migration Checklist', link: '/guides/migration-checklist' },
-          ]
-        }
       ],
 
       '/mel/': [

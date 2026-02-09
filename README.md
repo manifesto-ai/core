@@ -64,7 +64,6 @@ console.log(app.getState().data.doc.status); // "published"
 **→ UI**
 
 ```typescript
-// conceptual — @manifesto-ai/react in development
 const state = app.getState();
 const canPublish = state.computed["computed.canPublish"];
 

@@ -29,6 +29,20 @@ Load these BEFORE writing code in each area:
 | Reviewing or debugging | `@knowledge/antipatterns.md` |
 | Looking up SPEC references | `@knowledge/spec-index.md` |
 
+## Package API Reference
+
+Load when working with a specific package API:
+
+| Package | Knowledge File |
+|---------|---------------|
+| @manifesto-ai/core | `@knowledge/packages/core.md` |
+| @manifesto-ai/host | `@knowledge/packages/host.md` |
+| @manifesto-ai/world | `@knowledge/packages/world.md` |
+| @manifesto-ai/app | `@knowledge/packages/app.md` |
+| @manifesto-ai/compiler | `@knowledge/packages/compiler.md` |
+| @manifesto-ai/intent-ir | `@knowledge/packages/intent-ir.md` |
+| @manifesto-ai/codegen | `@knowledge/packages/codegen.md` |
+
 ## Self-Check
 
 Before submitting any code change, verify:

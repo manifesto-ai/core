@@ -48,7 +48,7 @@ You have access to and MUST consult:
 - Use marketing language, hype, or AGI buzzwords
 - Create diagrams that are illustrative rather than architecturally accurate
 - Write API documentation before establishing mental models
-- Blur responsibilities between Core/Host/World/Bridge/Builder layers
+- Blur responsibilities between Core/Host/World/App layers
 
 ## MANDATORY Documentation Principles
 
@@ -166,7 +166,7 @@ You MAY generate API docs ONLY after:
 
 API docs must:
 - Be derived from real code
-- Clearly state which layer the API belongs to (Core/Host/World/Builder/Bridge)
+- Clearly state which layer the API belongs to (Core/Host/World/App)
 - Never blur responsibilities between layers
 
 ## Writing Style Requirements

@@ -44,23 +44,14 @@ type Requirement = {
 
 ## Example
 
-### Declaring an Effect (Flow)
-
-```typescript
-flow.seq(
-  flow.patch(state.loading).set(true),
-  flow.effect('api:fetchUser', {
-    userId: expr.input('userId')
-  })
-)
-```
-
-### MEL Equivalent
+### Declaring an Effect (MEL)
 
 ```mel
 action fetchUser(userId: string) {
-  patch loading = true
-  effect api:fetchUser({ userId: userId })
+  onceIntent {
+    patch loading = true
+    effect api.fetchUser({ userId: userId, into: user })
+  }
 }
 ```
 
@@ -129,18 +120,19 @@ async function createUserHandler(params, ctx) {
 
 ### Re-entry Safe Effect Usage
 
-```typescript
+```mel
 // WRONG: Effect runs every compute cycle
-flow.effect('api:submit', { data: state.form })
+action submit() {
+  effect api.submit({ data: form })
+}
 
-// RIGHT: Guard with state
-flow.when(
-  expr.isNull(state.submittedAt),
-  flow.seq(
-    flow.patch(state.submittedAt).set(expr.now()),
-    flow.effect('api:submit', { data: state.form })
-  )
-)
+// RIGHT: Guard with onceIntent
+action submit() {
+  onceIntent {
+    patch submittedAt = $meta.intentId
+    effect api.submit({ data: form, into: submitResult })
+  }
+}
 ```
 
 ## Why Effects as Declarations?

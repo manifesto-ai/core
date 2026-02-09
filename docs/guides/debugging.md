@@ -117,24 +117,6 @@ Look for:
 
 #### Example: Debugging Conditional
 
-```typescript
-// Flow
-flow.when(
-  expr.eq(expr.get(state.filter), 'completed'),
-  flow.patch(state.showAll).set(expr.lit(true))
-)
-
-// Trace shows:
-// Step 1: Flow.when
-//   Condition: expr.eq(...) → false  ← Condition didn't match!
-//   Body: skipped
-
-// Fix: Check why filter isn't 'completed'
-console.log(snapshot.data.filter); // → 'all' (not 'completed')
-```
-
-MEL equivalent:
-
 ```mel
 domain Example {
   state {
@@ -148,6 +130,18 @@ domain Example {
     }
   }
 }
+```
+
+```
+// Trace shows:
+// Step 1: Flow.when
+//   Condition: eq(filter, "completed") → false  ← Condition didn't match!
+//   Body: skipped
+```
+
+```typescript
+// Fix: Check why filter isn't 'completed'
+console.log(snapshot.data.filter); // → 'all' (not 'completed')
 ```
 
 #### Step 3: Verify Snapshot Structure
@@ -184,19 +178,6 @@ Common causes:
 
 **Cause 1: Flow branch skipped**
 
-```typescript
-// Flow
-flow.when(
-  expr.eq(state.needsSync, true),
-  flow.effect('api:sync', {})  // Only runs if needsSync is true
-)
-
-// Check:
-console.log('needsSync:', snapshot.data.needsSync);  // → false (effect skipped)
-```
-
-MEL equivalent:
-
 ```mel
 domain Example {
   state {
@@ -205,25 +186,18 @@ domain Example {
 
   action sync() {
     when eq(needsSync, true) {
-      effect api:sync({})
+      effect api:sync({})    // Only runs if needsSync is true
     }
   }
 }
 ```
 
-**Cause 2: Effect inside re-entry guard**
-
 ```typescript
-// Flow
-flow.onceNull(state.synced, ({ effect }) => {
-  effect('api:sync', {});  // Only runs once
-})
-
 // Check:
-console.log('synced:', snapshot.data.synced);  // → true (already ran)
+console.log('needsSync:', snapshot.data.needsSync);  // → false (effect skipped)
 ```
 
-MEL equivalent:
+**Cause 2: Effect inside re-entry guard**
 
 ```mel
 domain Example {
@@ -233,23 +207,18 @@ domain Example {
 
   action sync() {
     when isNull(synced) {
-      effect api:sync({})
+      effect api:sync({})    // Only runs once
     }
   }
 }
 ```
 
-**Cause 3: Effect type mismatch**
-
 ```typescript
-// Flow declares:
-flow.effect('api:fetchUser', { id: '123' })
-
-// Handler registered in createApp as:
-'api:getUser': async (params, ctx) => { ... }  // ← Wrong name!
+// Check:
+console.log('synced:', snapshot.data.synced);  // → true (already ran)
 ```
 
-MEL equivalent:
+**Cause 3: Effect type mismatch**
 
 ```mel
 domain Example {
@@ -257,6 +226,11 @@ domain Example {
     effect api:fetchUser({ id: "123" })
   }
 }
+```
+
+```typescript
+// Handler registered in createApp as:
+'api:getUser': async (params, ctx) => { ... }  // ← Wrong name! Should be 'api:fetchUser'
 ```
 
 #### Step 3: Verify Handler Registration
@@ -281,14 +255,7 @@ if (!host.hasEffect('api:fetchUser')) {
 
 Re-entry happens when a Flow runs **every time** `compute()` is called, instead of only once.
 
-**Example:**
-
-```typescript
-// WRONG: Runs every compute cycle
-flow.patch(state.count).set(expr.add(state.count, 1))  // Increments forever!
-```
-
-MEL equivalent (wrong):
+**Example (wrong -- runs every compute cycle):**
 
 ```mel
 domain Example {
@@ -297,7 +264,7 @@ domain Example {
   }
 
   action increment() {
-    patch count = add(count, 1)
+    patch count = add(count, 1)    // Increments forever!
   }
 }
 ```
@@ -336,27 +303,6 @@ console.log('Patches applied:', patchSteps.map(node => node.sourcePath));
 
 #### Step 3: Add State Guards
 
-```typescript
-// WRONG (re-enters)
-flow.patch(state.initialized).set(expr.lit(true))
-
-// RIGHT (runs once)
-flow.onceNull(state.initialized, ({ patch }) => {
-  patch(state.initialized).set(expr.lit(true));
-})
-
-// WRONG (re-enters)
-flow.effect('api:sync', {})
-
-// RIGHT (runs once)
-flow.onceNull(state.synced, ({ effect, patch }) => {
-  effect('api:sync', {});
-  patch(state.synced).set(expr.input('timestamp'));
-})
-```
-
-MEL equivalent:
-
 ```mel
 domain Example {
   state {
@@ -364,20 +310,24 @@ domain Example {
     synced: number | null = null
   }
 
+  // WRONG (re-enters)
   action initWrong() {
     patch initialized = true
   }
 
+  // RIGHT (runs once)
   action initRight() {
     when isNull(initialized) {
       patch initialized = true
     }
   }
 
+  // WRONG (re-enters)
   action syncWrong() {
     effect api:sync({})
   }
 
+  // RIGHT (runs once)
   action syncRight(timestamp: number) {
     when isNull(synced) {
       effect api:sync({})
@@ -570,21 +520,7 @@ ComputedDependencyError: Circular dependency detected
 
 **Fix:**
 
-```typescript
-// WRONG
-computed.define({
-  a: expr.get(computed.b),  // a depends on b
-  b: expr.get(computed.a),  // b depends on a - CYCLE!
-});
-
-// RIGHT
-computed.define({
-  a: expr.get(state.count),         // a depends on state
-  b: expr.add(computed.a, 1),       // b depends on a (no cycle)
-});
-```
-
-MEL equivalent (wrong):
+WRONG:
 
 ```mel
 domain Example {
@@ -592,12 +528,12 @@ domain Example {
     count: number = 0
   }
 
-  computed a = b
-  computed b = a
+  computed a = b    // a depends on b
+  computed b = a    // b depends on a - CYCLE!
 }
 ```
 
-MEL equivalent (right):
+RIGHT:
 
 ```mel
 domain Example {
@@ -605,8 +541,8 @@ domain Example {
     count: number = 0
   }
 
-  computed a = count
-  computed b = add(a, 1)
+  computed a = count          // a depends on state
+  computed b = add(a, 1)     // b depends on a (no cycle)
 }
 ```
 
@@ -622,16 +558,6 @@ PatchError: Cannot set path: todos.5.completed
 **Cause:** Trying to patch non-existent path.
 
 **Fix:**
-
-```typescript
-// Check if path exists first
-flow.when(
-  expr.lt(expr.input('index'), expr.len(state.todos)),  // Guard
-  flow.patch(state.todos[expr.input('index')].completed).set(expr.lit(true))
-)
-```
-
-MEL equivalent:
 
 ```mel
 domain Example {
@@ -872,27 +798,7 @@ console.log('Expression nodes:', exprNodes.map(node => node.sourcePath));
 
 ### Optimize Computed Values
 
-```typescript
-// Before: Recomputes every time
-computed.define({
-  filteredTodos: expr.filter(state.todos, t => expr.eq(t.completed, state.filter))
-});
-
-// After: Cache in data if expensive
-actions.define({
-  setFilter: {
-    input: z.object({ filter: z.string() }),
-    flow: flow.seq(
-      flow.patch(state.filter).set(expr.input('filter')),
-      flow.patch(state.filteredTodos).set(
-        expr.filter(state.todos, t => expr.eq(t.completed, expr.input('filter')))
-      ),
-    ),
-  },
-});
-```
-
-MEL equivalent (before):
+Before (recomputes every time):
 
 ```mel
 domain Example {
@@ -907,7 +813,7 @@ domain Example {
 }
 ```
 
-MEL equivalent (after):
+After (cache in data if expensive):
 
 ```mel
 domain Example {

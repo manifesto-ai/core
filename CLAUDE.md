@@ -86,9 +86,9 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Access wall-clock time (`Date.now()` is forbidden)
 - Execute effects
 - Have mutable state
-- Know about Host, World, or Bridge
+- Know about Host or World
 
-**Forbidden imports:** Host, World, Bridge, React, network libraries
+**Forbidden imports:** Host, World, network libraries
 
 ### @manifesto-ai/host
 
@@ -124,48 +124,6 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Make implicit decisions
 
 **Forbidden imports:** Host execution internals, Core compute internals
-
-### @manifesto-ai/bridge
-
-**IS responsible for:**
-- Two-way binding (events <-> intents, snapshot <-> subscribers)
-- Projection (SourceEvent -> IntentBody)
-- SnapshotView delivery
-- Intent issuance
-
-**MUST NOT:**
-- Mutate Snapshot
-- Apply patches
-- Execute effects
-- Make governance decisions
-- Implement domain logic
-
-**Forbidden imports:** Core compute internals, Host effect handlers, World governance internals
-
-### @manifesto-ai/lab
-
-**IS responsible for:**
-- LLM necessity governance
-- Trace recording/replay
-- HITL (human-in-the-loop) support
-- Report generation
-
-**MUST NOT:**
-- Bypass World Protocol
-- Execute Core logic directly
-- Modify governance decisions
-
-### @manifesto-ai/react
-
-**IS responsible for:**
-- React hooks (`useValue`, `useActions`, `useComputed`)
-- Provider pattern wrapping Bridge
-- Selective re-render optimization
-
-**MUST NOT:**
-- Directly mutate domain state
-- Execute business logic
-- Bypass Bridge for state changes
 
 ---
 
@@ -221,12 +179,6 @@ type Snapshot = {
 
 ```
 Actor submits Intent
-      |
-      v
-Projection (weak interpreter)
-      |
-      v
-Issuer (adds intentId, intentKey)
       |
       v
 World Protocol (Proposal + Authority)
@@ -651,17 +603,15 @@ Reference these when making decisions:
 | **World** | Govern, audit, maintain lineage | Execute, apply patches, hidden channels |
 | **Core** | Compute meaning, declare effects | IO, execution, time-awareness |
 | **Host** | Execute effects, apply patches, report | Decide, interpret, suppress effects |
-| **Bridge** | Route events, project snapshots | Mutate, apply, execute, govern |
 
 ### Forbidden Import Matrix
 
 | Package | MUST NOT Import |
 |---------|-----------------|
-| core | host, world, bridge, react |
-| host | world governance, react |
+| core | host, world |
+| host | world governance |
 | world | host internals, core compute |
-| bridge | core internals, host handlers, world internals |
-| react | core internals, host, world |
+| app | core internals, host internals, world internals |
 
 ### Priority Decision Tree
 

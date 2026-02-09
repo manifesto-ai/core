@@ -116,9 +116,8 @@ const newSnapshot = core.apply(schema, snapshot, [
 // Serialize
 const json = JSON.stringify(snapshot);
 
-// Deserialize (computed values need recalculation)
+// Deserialize — computed values are always recalculated on next compute()
 const loaded = JSON.parse(json);
-const fresh = core.rehydrate(schema, loaded);
 ```
 
 ## See Also

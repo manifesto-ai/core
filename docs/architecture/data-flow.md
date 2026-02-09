@@ -18,27 +18,22 @@ User ─────────┐
               │ 1. Click button
               ▼
          ┌─────────┐
-         │ React   │ 2. Dispatch action
+         │   App   │ 2. app.act("action", input)
          └────┬────┘
               │
               ▼
          ┌─────────┐
-         │ Bridge  │ 3. Route through projection
+         │ World   │ 3. Evaluate authority
          └────┬────┘
               │
               ▼
          ┌─────────┐
-         │ World   │ 4. Evaluate authority
+         │  Host   │ 4. Run compute loop
          └────┬────┘
               │
               ▼
          ┌─────────┐
-         │  Host   │ 5. Run compute loop
-         └────┬────┘
-              │
-              ▼
-         ┌─────────┐
-         │  Core   │ 6. Compute patches/effects
+         │  Core   │ 5. Compute patches/effects
          └────┬────┘
               │
          New Snapshot
@@ -47,12 +42,11 @@ User ─────────┐
 ### Step-by-step Explanation
 
 1. **User Action**: User clicks a button in the UI
-2. **React Dispatch**: Component calls `action({ input })` from useActions()
-3. **Bridge Routing**: Bridge wraps as IntentBody and submits to World
-4. **Authority Evaluation**: World checks if actor is authorized
-5. **Host Execution**: Host runs compute-effect loop until completion
-6. **Core Computation**: Core produces patches and effect declarations
-7. **Snapshot Update**: New snapshot propagates back to Bridge subscribers
+2. **App Dispatch**: Application calls `app.act("action", input)`
+3. **Authority Evaluation**: World checks if actor is authorized
+4. **Host Execution**: Host runs compute-effect loop until completion
+5. **Core Computation**: Core produces patches and effect declarations
+6. **Snapshot Update**: New snapshot propagates to subscribers via `app.subscribe()`
 
 ---
 
@@ -108,14 +102,14 @@ await core.compute(schema, snapshot, intent, context); // Reads result from Snap
 ## Component Interactions
 
 ```
-┌──────────┐     knows     ┌──────────┐
-│  Bridge  │──────────────▶│  World   │
+┌──────────┐               ┌──────────┐
+│   App    │──────────────▶│  World   │
 └──────────┘               └──────────┘
      │                          │
-     │ subscribes               │ uses
+     │ composes                 │ uses
      ▼                          ▼
 ┌──────────┐               ┌──────────┐
-│   React  │               │   Host   │
+│ Compiler │               │   Host   │
 └──────────┘               └──────────┘
                                 │
                                 │ calls
@@ -123,19 +117,13 @@ await core.compute(schema, snapshot, intent, context); // Reads result from Snap
                            ┌──────────┐
                            │   Core   │
                            └──────────┘
-                                ▲
-                                │ produces
-                           ┌──────────┐
-                           │ Builder  │
-                           └──────────┘
 ```
 
 | Component | Knows About | Created By | Consumed By |
 |-----------|-------------|------------|-------------|
-| DomainSchema | Core types | Builder | Core, Host |
+| DomainSchema | Core types | Compiler | Core, Host |
 | Snapshot | - | Core | Everyone |
-| World | Proposal, Decision | World | Bridge |
-| Bridge | SnapshotView | Application | React |
+| World | Proposal, Decision | World | App |
 | Requirement | Effect params | Core | Host |
 
 ---

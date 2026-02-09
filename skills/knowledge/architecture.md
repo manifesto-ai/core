@@ -40,8 +40,6 @@ compute(schema, snapshot, intent, context) → (snapshot', requirements[], trace
 ```
 Actor submits Intent
       ↓
-Bridge (Projection + Issuer → adds intentId, intentKey)
-      ↓
 World Protocol (Proposal + Authority)
       ↓
 Host (compute loop + effect execution)
@@ -63,17 +61,15 @@ Information flows ONLY through Snapshot. No other channels exist.
 | **Host** | Effect execution, patch application, compute loop, requirement fulfillment | Make decisions, interpret semantics, suppress effects |
 | **World** | Proposal management, authority evaluation, decision recording, lineage | Execute effects, apply patches, compute transitions |
 | **App** | Composition root — wires Core + Host + World together | Contain domain logic |
-| **Bridge** | Two-way binding (events↔intents, snapshot↔subscribers) | Mutate, apply, execute, govern |
 
 ## Forbidden Import Matrix
 
 | Package | MUST NOT Import |
 |---------|----------------|
-| core | host, world, bridge, react |
-| host | world governance, react |
+| core | host, world |
+| host | world governance |
 | world | host internals, core compute |
-| bridge | core internals, host handlers, world internals |
-| react | core internals, host, world |
+| app | core internals, host internals, world internals |
 
 ## Snapshot Structure
 
