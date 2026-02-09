@@ -251,6 +251,8 @@ Given no resume, the same Flow will be evaluated multiple times for a single int
 2. Host executes effect, applies patches
 3. Second `compute()`: Flow runs **from the beginning**
 
+**Availability on re-entry:** Core MUST NOT re-check `ActionSpec.available` during re-entry (ContinueCompute). The `available` condition is an **invocation precondition** evaluated at StartIntent time only. Re-entry is detected via `snapshot.system.currentAction === intent.type`. If `available` were re-evaluated against the mutated snapshot, actions that modify fields referenced in their own availability condition would self-invalidate — breaking the pending/result lifecycle pattern. See Core SPEC §9.4, R-002.
+
 **State-guarded pattern** is MUST for re-entry safety:
 
 ```typescript
