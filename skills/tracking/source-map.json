@@ -1,0 +1,67 @@
+{
+  "version": "0.1.0",
+  "lastChecked": "2026-02-09",
+  "mappings": [
+    {
+      "skill": "SKILL.md",
+      "sources": [
+        { "path": "CLAUDE.md", "version": "1.0", "sections": ["§1", "§2", "§3", "§11"] },
+        { "path": "packages/core/docs/SPEC-v2.0.0.md", "version": "2.0.0", "sections": ["§3"] }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/architecture.md",
+      "sources": [
+        { "path": "packages/core/docs/SPEC-v2.0.0.md", "version": "2.0.0", "sections": ["§3", "§13", "§16"] },
+        { "path": "packages/core/docs/SPEC-v2.0.1-patch.md", "version": "2.0.1" },
+        { "path": "packages/core/docs/FDR-v2.0.0.md", "version": "2.0.0", "sections": ["FDR-001", "FDR-002", "FDR-003", "FDR-004", "FDR-007"] },
+        { "path": "packages/host/docs/host-SPEC-v2.0.2.md", "version": "2.0.2", "sections": ["§7", "§8", "§10"] },
+        { "path": "packages/world/docs/world-SPEC-v2.0.3.md", "version": "2.0.3" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/mel-patterns.md",
+      "sources": [
+        { "path": "packages/compiler/docs/SPEC-v0.5.0.md", "version": "0.5.0", "sections": ["§2", "§4", "§6", "§8", "§14", "§21", "LLM Checklist"] },
+        { "path": "packages/compiler/docs/FDR-v0.5.0.md", "version": "0.5.0" }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/effect-patterns.md",
+      "sources": [
+        { "path": "packages/host/docs/host-SPEC-v2.0.2.md", "version": "2.0.2", "sections": ["§7", "§13"] },
+        { "path": "packages/host/docs/host-FDR-v2.0.2.md", "version": "2.0.2" },
+        { "path": "packages/app/docs/APP-SPEC-v2.3.0.md", "version": "2.3.0", "sections": ["§8"] }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/patch-rules.md",
+      "sources": [
+        { "path": "packages/core/docs/SPEC-v2.0.0.md", "version": "2.0.0", "sections": ["§13.3", "§14"] },
+        { "path": "packages/core/docs/SPEC-v2.0.1-patch.md", "version": "2.0.1" },
+        { "path": "packages/core/docs/FDR-v2.0.0.md", "version": "2.0.0", "sections": ["FDR-012"] }
+      ],
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/antipatterns.md",
+      "sources": [
+        { "path": "CLAUDE.md", "version": "1.0", "sections": ["§10"] },
+        { "path": "packages/core/docs/FDR-v2.0.0.md", "version": "2.0.0" }
+      ],
+      "note": "Accumulated from real usage feedback and constitutional violations.",
+      "lastSynced": "2026-02-09"
+    },
+    {
+      "skill": "knowledge/spec-index.md",
+      "sources": [
+        { "path": "docs/llm/LLM-INDEX.md", "version": "latest" }
+      ],
+      "lastSynced": "2026-02-09"
+    }
+  ]
+}
