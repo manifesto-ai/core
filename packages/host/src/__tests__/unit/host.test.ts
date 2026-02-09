@@ -355,6 +355,153 @@ describe("ManifestoHost", () => {
       expect(jobStartEvents.length).toBeGreaterThan(0);
     });
   });
+
+  describe("Availability bypass scenarios (#134 review concern)", () => {
+    it("SCENARIO: sequential dispatch after max-iterations leaves currentAction in snapshot", async () => {
+      // This tests the reviewer's concern: can a second dispatch of the same
+      // action type skip availability because the first dispatch left
+      // currentAction set in the shared snapshot?
+      //
+      // Setup: action "run" with available when isNull(pending),
+      // maxIterations = 1 so the first dispatch exits before ContinueCompute.
+      const lifecycleSchema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "isNull",
+              arg: { kind: "get", path: "pending" },
+            },
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "pending" } },
+              then: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: "pending",
+                    value: { kind: "get", path: "meta.intentId" },
+                  },
+                  {
+                    kind: "effect",
+                    type: "demo.exec",
+                    params: {},
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      // maxIterations = 1: loop exits before FulfillEffect is processed
+      const host = createHost(lifecycleSchema, {
+        initialData: { pending: null, result: null },
+        maxIterations: 1,
+      });
+
+      host.registerEffect("demo.exec", async () => [
+        { op: "set", path: "result", value: "done" },
+      ]);
+
+      // 1st dispatch: exits with LOOP_MAX_ITERATIONS, currentAction may be set
+      const result1 = await host.dispatch(
+        { type: "run", intentId: "intent-A", input: undefined }
+      );
+      expect(result1.status).toBe("error");
+      expect(result1.error?.code).toBe("LOOP_MAX_ITERATIONS");
+
+      // Check what the shared snapshot looks like after a max-iterations error
+      const snapshotAfter = host.getSnapshot();
+      const currentAction = snapshotAfter?.system.currentAction;
+      const pending = (snapshotAfter?.data as Record<string, unknown>)?.pending;
+
+      // Log the actual state for documentation
+      // currentAction may or may not be "run" depending on Host's cleanup behavior
+      // pending should be "intent-A" (patched by the first compute)
+
+      // 2nd dispatch: same action type, different intentId
+      const result2 = await host.dispatch(
+        { type: "run", intentId: "intent-B", input: undefined }
+      );
+
+      // VERIFIED: max-iterations exit DOES leak currentAction into shared snapshot.
+      // This confirms the reviewer's concern is technically reachable.
+      expect(currentAction).toBe("run");
+      expect(pending).toBe("intent-A");
+
+      // Intent B arrives on this dirty snapshot — type-only guard treats it as re-entry.
+      // Availability IS bypassed. But the flow's state guard prevents harmful side effects:
+      // pending is "intent-A" → if isNull(pending) is false → branch skipped → no-op.
+      expect(result2.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
+      expect((result2.snapshot.data as Record<string, unknown>).pending).toBe("intent-A");
+    });
+
+    it("SCENARIO: normal sequential dispatch does NOT leak currentAction", async () => {
+      // Verify that normal (non-error) dispatch always resets currentAction.
+      // This means the reviewer's concern is unreachable in normal operation.
+      const lifecycleSchema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "isNull",
+              arg: { kind: "get", path: "pending" },
+            },
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "pending" } },
+              then: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: "pending",
+                    value: { kind: "get", path: "meta.intentId" },
+                  },
+                  {
+                    kind: "effect",
+                    type: "demo.exec",
+                    params: {},
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      const host = createHost(lifecycleSchema, {
+        initialData: { pending: null, result: null },
+      });
+
+      host.registerEffect("demo.exec", async () => [
+        { op: "set", path: "result", value: "done" },
+      ]);
+
+      const result1 = await host.dispatch(
+        { type: "run", intentId: "intent-A", input: undefined }
+      );
+      expect(result1.status).toBe("complete");
+
+      // After normal completion, currentAction MUST be null
+      const snapshotAfter = host.getSnapshot();
+      expect(snapshotAfter?.system.currentAction).toBeNull();
+    });
+  });
 });
 
 describe("createHost factory", () => {
