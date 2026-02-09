@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@manifesto-ai/translator": "workspace:*",
-    "@anthropic-ai/sdk": "^0.72.1"
+    "@anthropic-ai/sdk": "^0.74.0"
   },
   "devDependencies": {
     "@types/node": "^25.2.0",
