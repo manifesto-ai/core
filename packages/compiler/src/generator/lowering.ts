@@ -407,6 +407,13 @@ function transformExpr(expr: CoreExprNode, ctx: LoweringContext): CoreExprNode {
         else: transformExpr((expr as any).else, ctx),
       };
 
+    case "field":
+      return {
+        kind: "field",
+        object: transformExpr((expr as any).object, ctx),
+        property: (expr as any).property,
+      };
+
     case "object":
       const fields: Record<string, CoreExprNode> = {};
       for (const [key, value] of Object.entries((expr as any).fields)) {

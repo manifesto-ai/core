@@ -175,6 +175,8 @@ export function renderExprNode(expr: ExprNode): string {
     // Object
     case "object":
       return renderObjectExpr(expr.fields);
+    case "field":
+      return `${renderExprNode(expr.object)}.${expr.property}`;
     case "keys":
       return `keys(${renderExprNode(expr.obj)})`;
     case "values":

@@ -492,8 +492,8 @@ function evaluateAt(array: ExprNode, index: ExprNode, ctx: EvaluationContext): u
     return base[key];
   }
 
-  // Record lookup: at(record, stringKey)
-  if (typeof base === "object" && base !== null && typeof key === "string") {
+  // Record lookup: at(record, stringKey) — exclude arrays
+  if (typeof base === "object" && base !== null && !Array.isArray(base) && typeof key === "string") {
     return (base as Record<string, unknown>)[key] ?? null;
   }
 
