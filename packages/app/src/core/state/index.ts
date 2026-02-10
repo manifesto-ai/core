@@ -48,19 +48,23 @@ function addComputedAliases(computed: Record<string, unknown>): void {
 /**
  * Attach App-level DX aliases to an AppState-shaped object.
  *
+ * Idempotent — safe to call multiple times on the same object.
+ *
  * - `state` → non-enumerable accessor aliasing `data` (STATE-ALIAS-1/2)
  * - Computed short keys → non-enumerable aliases (COMP-ALIAS-1~3)
  *
  * @see App SPEC v2.3.2 §2.2
  */
-export function withDxAliases<T>(obj: Omit<AppState<T>, "state">): AppState<T> {
-  Object.defineProperty(obj, "state", {
-    get() {
-      return (this as { data: T }).data;
-    },
-    enumerable: false,
-    configurable: false,
-  });
+export function withDxAliases<T>(obj: Omit<AppState<T>, "state"> | AppState<T>): AppState<T> {
+  if (!Object.getOwnPropertyDescriptor(obj, "state")) {
+    Object.defineProperty(obj, "state", {
+      get() {
+        return (this as { data: T }).data;
+      },
+      enumerable: false,
+      configurable: false,
+    });
+  }
   addComputedAliases(obj.computed as Record<string, unknown>);
   return obj as AppState<T>;
 }

@@ -473,7 +473,7 @@ describe("State Model", () => {
   });
 
   describe("DX Aliases — withDxAliases()", () => {
-    it("should be idempotent (safe to call multiple times)", () => {
+    it("should be idempotent (safe to call twice on same object)", () => {
       const obj = {
         data: { count: 1 },
         computed: { "computed.doubled": 2 } as Record<string, unknown>,
@@ -492,10 +492,74 @@ describe("State Model", () => {
         },
       };
 
+      const first = withDxAliases(obj);
+      // Second call on same object must NOT throw
+      const second = withDxAliases(first);
+
+      expect(second).toBe(first);
+      expect(second.state).toBe(second.data);
+      expect(second.computed["doubled"]).toBe(2);
+    });
+
+    it("should survive spread and re-application", () => {
+      const original = withDxAliases({
+        data: { count: 1 },
+        computed: { "computed.doubled": 2 } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [] as readonly never[],
+          pendingRequirements: [] as readonly never[],
+          currentAction: null,
+        },
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      });
+
+      // Spread drops non-enumerable state getter
+      const spread = { ...original, system: { ...original.system, status: "error" as const } };
+      expect(Object.getOwnPropertyDescriptor(spread, "state")).toBeUndefined();
+
+      // Re-apply restores aliases
+      const restored = withDxAliases(spread);
+      expect(restored.state).toBe(restored.data);
+      expect(restored.state).toEqual({ count: 1 });
+      // Computed aliases survive (same reference)
+      expect(restored.computed["doubled"]).toBe(2);
+    });
+
+    it("should handle frozen computed by skipping alias creation", () => {
+      const frozenComputed = Object.freeze({ "computed.doubled": 10 } as Record<string, unknown>);
+      const obj = {
+        data: {},
+        computed: frozenComputed,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [] as readonly never[],
+          pendingRequirements: [] as readonly never[],
+          currentAction: null,
+        },
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      // Must not throw on frozen computed
       const result = withDxAliases(obj);
 
       expect(result.state).toBe(result.data);
-      expect(result.computed["doubled"]).toBe(2);
+      // Canonical access still works
+      expect(result.computed["computed.doubled"]).toBe(10);
+      // Alias not created (frozen), falls back to undefined
+      expect(result.computed["doubled"]).toBeUndefined();
     });
   });
 });
