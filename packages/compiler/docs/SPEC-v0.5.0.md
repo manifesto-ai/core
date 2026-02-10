@@ -1403,29 +1403,32 @@ computed x = add(a, mul(b, c))
 
 ### 7.2 Expression Node Types (v0.2.4)
 
-**ONLY 7 node kinds for expressions:**
+**ONLY 8 node kinds for expressions:**
 
 ```typescript
 type ExprNode =
   // Literals
   | { kind: 'lit'; value: null | boolean | number | string }
-  
+
   // Variable (iteration context only)
   | { kind: 'var'; name: 'item' | 'acc' }
-  
+
   // System value access
   | { kind: 'sys'; path: string[] }
-  
+
   // State/Computed access
   | { kind: 'get'; path: PathNode }
   | { kind: 'get'; base: ExprNode; path: PathNode }
-  
+
+  // Static property access on computed expressions
+  | { kind: 'field'; object: ExprNode; property: string }
+
   // Function/operator call (UNIVERSAL)
   | { kind: 'call'; fn: string; args: ExprNode[] }
-  
+
   // Object literal
   | { kind: 'obj'; fields: { key: string; value: ExprNode }[] }
-  
+
   // Array literal
   | { kind: 'arr'; elements: ExprNode[] }
 ```
@@ -1449,6 +1452,7 @@ type ExprNode =
 | `isNull(x)` | `{ kind: 'call', fn: 'isNull', args: [X] }` |
 | `{ a: 1 }` | `{ kind: 'obj', fields: [{ key: 'a', value: { kind: 'lit', value: 1 } }] }` |
 | `[1, 2]` | `{ kind: 'arr', elements: [{ kind: 'lit', value: 1 }, { kind: 'lit', value: 2 }] }` |
+| `at(items, id).status` | `{ kind: 'field', object: { kind: 'call', fn: 'at', args: [ITEMS, ID] }, property: 'status' }` |
 | `coalesce(a, b)` | `{ kind: 'call', fn: 'coalesce', args: [A, B] }` |
 
 ### 7.2.1 System Values and Variables (v0.3.3)
@@ -1483,6 +1487,7 @@ type PathNode = PathSegment[];
 |--------|-----|
 | `x.y` | `{ kind: 'get', path: [{ kind: 'prop', name: 'x' }, { kind: 'prop', name: 'y' }] }` |
 | `$item.x` | `{ kind: 'get', base: { kind: 'var', name: 'item' }, path: [{ kind: 'prop', name: 'x' }] }` |
+| `expr.y` (where expr is not a path) | `{ kind: 'field', object: <expr>, property: 'y' }` |
 | `x[y]` | `{ kind: 'call', fn: 'at', args: [<x>, <y>] }` |
 | `x[0]` | `{ kind: 'call', fn: 'at', args: [<x>, { kind: 'lit', value: 0 }] }` |
 
@@ -1491,10 +1496,10 @@ type PathNode = PathSegment[];
 // Source
 tasks.active[id].title
 
-// IR (v0.2.5)
+// IR (v0.5.0)
 {
-  kind: 'get',
-  base: {
+  kind: 'field',
+  object: {
     kind: 'call',
     fn: 'at',
     args: [
@@ -1502,7 +1507,7 @@ tasks.active[id].title
       { kind: 'get', path: [{ kind: 'prop', name: 'id' }] }
     ]
   },
-  path: [{ kind: 'prop', name: 'title' }]
+  property: 'title'
 }
 ```
 
@@ -1580,6 +1585,14 @@ users["admin"]    → at(users, "admin")
   { kind: 'get', path: [{ kind: 'prop', name: 'tasks' }] },
   { kind: 'get', path: [{ kind: 'prop', name: 'id' }] }
 ]}
+```
+
+**v0.5.0 Note:** Property access on non-path expressions uses `field` node, NOT `at()`:
+```mel
+// Property access on function result:
+at(items, id).status  → { kind: 'field', object: at(items, id), property: 'status' }
+
+// NOT: at(at(items, id), "status")  ← This was the v0.2.5 bug (Issue #135)
 ```
 
 ### 7.5 Statement to IR
@@ -1796,13 +1809,21 @@ action getActiveMembers() {
 items[0]        → at(items, 0)
 items[idx]      → at(items, idx)
 
-// Record access  
+// Record access
 tasks[id]       → at(tasks, id)
 users["admin"]  → at(users, "admin")
 
 // Chained access
-nested.data[key]  → at(at(nested, "data"), key)
+nested.data[key]  → at(get(nested.data), key)
+// Property access on computed result:
+at(items, id).status  → field(at(items, id), "status")
 ```
+
+**v0.5.0 Semantic Distinction:**
+- `field(expr, "prop")`: Static property access. The property name is a compile-time constant. Used when `.prop` follows a non-path expression.
+- `at(collection, key)`: Dynamic lookup. The key is a runtime value. Used for `[]` syntax and explicit `at()` calls.
+
+The `[]` syntax is ALWAYS sugar for `at()`. The `.prop` syntax uses `get` for paths and `field` for computed expression results. See FDR-MEL-078.
 
 **v0.2.1 RESTRICTION:** `len()` is **Array-only**. Using `len()` on `Record<K,V>` is a semantic error. See FDR-MEL-026.
 

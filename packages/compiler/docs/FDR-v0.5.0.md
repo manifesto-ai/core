@@ -122,11 +122,12 @@
 75. [FDR-MEL-075: $mel Namespace](#fdr-mel-075-mel-namespace)
 76. [FDR-MEL-076: $mel Patch Safety](#fdr-mel-076-mel-patch-safety)
 77. [FDR-MEL-077: onceIntent Contextual Keyword](#fdr-mel-077-onceintent-contextual-keyword)
+78. [FDR-MEL-078: Semantic Head Separation for Property Access](#fdr-mel-078-semantic-head-separation-for-property-access)
 
 ### Summary
-78. [Summary: The MEL Identity](#summary-the-mel-identity)
-79. [Appendix: Decision Dependency Graph](#appendix-decision-dependency-graph)
-80. [Appendix: v0.3.1 to v0.3.3 Changes](#appendix-v031-to-v032-changes)
+79. [Summary: The MEL Identity](#summary-the-mel-identity)
+80. [Appendix: Decision Dependency Graph](#appendix-decision-dependency-graph)
+81. [Appendix: v0.3.1 to v0.3.3 Changes](#appendix-v031-to-v032-changes)
 
 ---
 
@@ -2633,6 +2634,58 @@ Lost guards cause:
 
 ---
 
+## FDR-MEL-078: Semantic Head Separation for Property Access
+
+### Decision
+
+**Property access on computed expressions uses a dedicated `field` node, NOT `at()`. The IR distinguishes three semantic heads for element/property access:**
+
+| Head | Syntax | Semantics | Key type |
+|------|--------|-----------|----------|
+| `get` | `x.y` | Snapshot path lookup | Static (compile-time) |
+| `field` | `expr.y` | Object property access | Static (compile-time) |
+| `at` | `x[y]`, `at(x, y)` | Collection element lookup | Dynamic (runtime) |
+
+### Context
+
+Issue #135 exposed a contract mismatch: the compiler lowered `at(items, id).status` to `at(at(items, id), "status")`, but the runtime `at()` evaluator only supported array indexing. The string `"status"` was coerced to a numeric index, silently returning `null`.
+
+The root cause was that `at()` was used as a "universal lookup" in the IR, conflating three semantically distinct operations:
+1. Array indexing (numeric)
+2. Record key lookup (dynamic string)
+3. Object property access (static string)
+
+### Rationale
+
+**Semantic coordinate clarity:** Each IR head should have exactly one meaning. When `at()` silently represents multiple operations, diagnostic tools, trace analyzers, and the runtime itself cannot distinguish intent from the IR alone.
+
+**Compile-time knowledge preservation:** When the compiler sees `.status`, it knows the property name at compile time. Encoding this as `at(expr, "status")` discards that knowledge, forcing the runtime to re-discover what the compiler already knew.
+
+**Silent failure prevention:** The `at()` evaluator legitimately returns `null` for out-of-bounds array access. Reusing `at()` for property access means a missing property is indistinguishable from an out-of-bounds index — both return `null` with no diagnostic path.
+
+**Lowering rules (normative):**
+```
+x.y (where x is a state/computed path)   → get(path)
+expr.y (where expr is not a path)        → field(expr, "y")
+x[y]                                      → at(x, y)
+at(x, y) (explicit call)                 → at(x, y)
+```
+
+### Consequences
+
+- `field` node added to ExprNode union in both Core and Compiler
+- `at()` evaluator extended to support Record lookup (object with string key)
+- IR generator emits `field` for `.prop` on non-path expressions
+- Surface syntax unchanged: `at()` remains available as sugar for dynamic lookup
+- Trace/audit tools can now distinguish static property access from dynamic lookup
+- FDR-MEL-035 (Universal Index Access) is superseded for the property access case
+
+### Canonical Statement
+
+> **Three heads, three meanings: `get` reads from Snapshot, `field` accesses a known property, `at` looks up by runtime key. If the compiler knows the name, use `field`; if only the runtime knows, use `at`.**
+
+---
+
 # Summary: The MEL Identity
 
 These design decisions collectively define what MEL IS:
@@ -2668,6 +2721,7 @@ MEL IS:
   ✓ Total expression evaluation in lowering (v0.4.0)
   ✓ $mel namespace for compiler guard state (v0.5.0)
   ✓ onceIntent sugar for per-intent idempotency (v0.5.0)
+  ✓ Semantically precise: each IR head has one meaning (v0.5.0)
 
 MEL IS NOT:
   ✗ A subset of JavaScript

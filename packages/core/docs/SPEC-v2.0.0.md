@@ -470,7 +470,7 @@ type ExprNode =
   
   // Collection
   | { kind: 'len'; arg: ExprNode }
-  | { kind: 'at'; array: ExprNode; index: ExprNode }
+  | { kind: 'at'; array: ExprNode; index: ExprNode }  // Array index or Record key lookup
   | { kind: 'first'; array: ExprNode }
   | { kind: 'last'; array: ExprNode }
   | { kind: 'slice'; array: ExprNode; start: ExprNode; end?: ExprNode }
@@ -481,9 +481,10 @@ type ExprNode =
   | { kind: 'every'; array: ExprNode; predicate: ExprNode }
   | { kind: 'some'; array: ExprNode; predicate: ExprNode }
   | { kind: 'append'; array: ExprNode; items: readonly ExprNode[] }
-  
+
   // Object
   | { kind: 'object'; fields: Record<string, ExprNode> }
+  | { kind: 'field'; object: ExprNode; property: string }
   | { kind: 'keys'; obj: ExprNode }
   | { kind: 'values'; obj: ExprNode }
   | { kind: 'entries'; obj: ExprNode }
