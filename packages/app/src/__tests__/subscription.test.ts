@@ -9,6 +9,7 @@ import { createTestApp } from "../index.js";
 import { SubscriptionStore } from "../runtime/subscription/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { AppState } from "../core/types/index.js";
+import { withDxAliases } from "../core/state/index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
@@ -428,7 +429,7 @@ describe("Subscription System", () => {
 
 // Helper function to create mock AppState
 function createMockState<T>(data: T): AppState<T> {
-  return {
+  return withDxAliases({
     data,
     computed: {},
     system: {
@@ -444,5 +445,5 @@ function createMockState<T>(data: T): AppState<T> {
       randomSeed: "test-seed",
       schemaHash: "test-schema-hash",
     },
-  };
+  });
 }

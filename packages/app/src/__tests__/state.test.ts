@@ -12,6 +12,7 @@ import {
   snapshotToAppState,
   appStateToSnapshot,
   normalizeSnapshot,
+  withDxAliases,
 } from "../core/state/index.js";
 
 // Mock DomainSchema for testing
@@ -254,6 +255,311 @@ describe("State Model", () => {
 
       expect(state.meta.randomSeed).toBeTruthy();
       expect(typeof state.meta.randomSeed).toBe("string");
+    });
+  });
+
+  // ===========================================================================
+  // DX Aliases (App SPEC v2.3.2)
+  // ===========================================================================
+
+  describe("DX Aliases — state alias (STATE-ALIAS-1/2)", () => {
+    it("state should be referentially identical to data (createInitialAppState)", () => {
+      const appState = createInitialAppState("hash-123", { count: 0 });
+
+      expect(appState.state).toBe(appState.data);
+    });
+
+    it("state should be referentially identical to data (snapshotToAppState)", () => {
+      const snapshot = {
+        data: { count: 42 },
+        computed: {},
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: {},
+        meta: {
+          version: 1,
+          timestamp: 12345,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const appState = snapshotToAppState(snapshot);
+
+      expect(appState.state).toBe(appState.data);
+      expect(appState.state).toEqual({ count: 42 });
+    });
+
+    it("state alias should be non-enumerable (STATE-ALIAS-2)", () => {
+      const appState = createInitialAppState("hash-123", { count: 0 });
+
+      const descriptor = Object.getOwnPropertyDescriptor(appState, "state");
+      expect(descriptor).toBeDefined();
+      expect(descriptor!.enumerable).toBe(false);
+    });
+
+    it("state alias should not appear in JSON serialization", () => {
+      const appState = createInitialAppState("hash-123", { count: 0 });
+
+      const json = JSON.parse(JSON.stringify(appState));
+      expect(json).not.toHaveProperty("state");
+      expect(json).toHaveProperty("data");
+    });
+
+    it("state alias should not appear in Object.keys()", () => {
+      const appState = createInitialAppState("hash-123", { count: 0 });
+
+      expect(Object.keys(appState)).not.toContain("state");
+      expect(Object.keys(appState)).toContain("data");
+    });
+  });
+
+  describe("DX Aliases — computed alias keys (COMP-ALIAS-1~3)", () => {
+    it("should expose computed.<name> aliases as short keys", () => {
+      const snapshot = {
+        data: { count: 5 },
+        computed: { "computed.doubled": 10, "computed.tripled": 15 } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: {},
+        meta: {
+          version: 1,
+          timestamp: 12345,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const appState = snapshotToAppState(snapshot);
+
+      // Canonical access still works
+      expect(appState.computed["computed.doubled"]).toBe(10);
+      expect(appState.computed["computed.tripled"]).toBe(15);
+
+      // Alias access works
+      expect(appState.computed["doubled"]).toBe(10);
+      expect(appState.computed["tripled"]).toBe(15);
+    });
+
+    it("alias keys should be non-enumerable (COMP-ALIAS-3)", () => {
+      const snapshot = {
+        data: {},
+        computed: { "computed.doubled": 10 } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: {},
+        meta: {
+          version: 1,
+          timestamp: 12345,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const appState = snapshotToAppState(snapshot);
+
+      // Canonical key is enumerable
+      expect(Object.keys(appState.computed)).toContain("computed.doubled");
+
+      // Alias is non-enumerable
+      expect(Object.keys(appState.computed)).not.toContain("doubled");
+
+      // But alias is accessible
+      expect(appState.computed["doubled"]).toBe(10);
+    });
+
+    it("should not overwrite existing keys (COMP-ALIAS-2)", () => {
+      const snapshot = {
+        data: {},
+        computed: {
+          "computed.doubled": 10,
+          "doubled": 999, // already exists
+        } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: {},
+        meta: {
+          version: 1,
+          timestamp: 12345,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const appState = snapshotToAppState(snapshot);
+
+      // Existing key preserved, alias not created
+      expect(appState.computed["doubled"]).toBe(999);
+    });
+
+    it("should skip invalid identifiers", () => {
+      const snapshot = {
+        data: {},
+        computed: { "computed.foo-bar": 10, "computed.valid": 20 } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [],
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: {},
+        meta: {
+          version: 1,
+          timestamp: 12345,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const appState = snapshotToAppState(snapshot);
+
+      // Invalid identifier not aliased
+      expect(appState.computed["foo-bar"]).toBeUndefined();
+
+      // Valid identifier is aliased
+      expect(appState.computed["valid"]).toBe(20);
+    });
+
+    it("should handle empty computed gracefully", () => {
+      const appState = createInitialAppState("hash-123");
+
+      expect(appState.computed).toEqual({});
+      // No aliases to create, should not throw
+    });
+  });
+
+  describe("DX Aliases — getSnapshot() overload (API-DX-1)", () => {
+    it("getSnapshot() no-arg should return same value as getState()", async () => {
+      const app = createTestApp(mockDomainSchema);
+      await app.ready();
+
+      const fromGetState = app.getState();
+      const fromGetSnapshot = app.getSnapshot();
+
+      expect(fromGetSnapshot).toBe(fromGetState);
+    });
+
+    it("getSnapshot() should include state alias", async () => {
+      const initialData = { count: 42 };
+      const app = createTestApp(mockDomainSchema, { initialData });
+      await app.ready();
+
+      const snapshot = app.getSnapshot<typeof initialData>();
+
+      expect(snapshot.state).toBe(snapshot.data);
+      expect(snapshot.state.count).toBe(42);
+    });
+  });
+
+  describe("DX Aliases — withDxAliases()", () => {
+    it("should be idempotent (safe to call twice on same object)", () => {
+      const obj = {
+        data: { count: 1 },
+        computed: { "computed.doubled": 2 } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [] as readonly never[],
+          pendingRequirements: [] as readonly never[],
+          currentAction: null,
+        },
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      const first = withDxAliases(obj);
+      // Second call on same object must NOT throw
+      const second = withDxAliases(first);
+
+      expect(second).toBe(first);
+      expect(second.state).toBe(second.data);
+      expect(second.computed["doubled"]).toBe(2);
+    });
+
+    it("should survive spread and re-application", () => {
+      const original = withDxAliases({
+        data: { count: 1 },
+        computed: { "computed.doubled": 2 } as Record<string, unknown>,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [] as readonly never[],
+          pendingRequirements: [] as readonly never[],
+          currentAction: null,
+        },
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      });
+
+      // Spread drops non-enumerable state getter
+      const spread = { ...original, system: { ...original.system, status: "error" as const } };
+      expect(Object.getOwnPropertyDescriptor(spread, "state")).toBeUndefined();
+
+      // Re-apply restores aliases
+      const restored = withDxAliases(spread);
+      expect(restored.state).toBe(restored.data);
+      expect(restored.state).toEqual({ count: 1 });
+      // Computed aliases survive (same reference)
+      expect(restored.computed["doubled"]).toBe(2);
+    });
+
+    it("should handle frozen computed by skipping alias creation", () => {
+      const frozenComputed = Object.freeze({ "computed.doubled": 10 } as Record<string, unknown>);
+      const obj = {
+        data: {},
+        computed: frozenComputed,
+        system: {
+          status: "idle" as const,
+          lastError: null,
+          errors: [] as readonly never[],
+          pendingRequirements: [] as readonly never[],
+          currentAction: null,
+        },
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: "hash",
+        },
+      };
+
+      // Must not throw on frozen computed
+      const result = withDxAliases(obj);
+
+      expect(result.state).toBe(result.data);
+      // Canonical access still works
+      expect(result.computed["computed.doubled"]).toBe(10);
+      // Alias not created (frozen), falls back to undefined
+      expect(result.computed["doubled"]).toBeUndefined();
     });
   });
 });

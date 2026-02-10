@@ -13,6 +13,7 @@ import { createHookContext } from "../hooks/context.js";
 import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type { AppState, Branch, HookContext } from "../core/types/index.js";
+import { withDxAliases } from "../core/state/index.js";
 import { createWorldId } from "@manifesto-ai/world";
 
 // Mock DomainSchema
@@ -31,7 +32,7 @@ const mockDomainSchema: DomainSchema = {
 };
 
 function createTestState(): AppState<unknown> {
-  return {
+  return withDxAliases({
     data: {},
     computed: {},
     system: {
@@ -47,7 +48,7 @@ function createTestState(): AppState<unknown> {
       randomSeed: "seed",
       schemaHash: mockDomainSchema.hash,
     },
-  };
+  });
 }
 
 const branchStub: Branch = {

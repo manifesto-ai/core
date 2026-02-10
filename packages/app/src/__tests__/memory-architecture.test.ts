@@ -21,6 +21,7 @@ import type {
   SelectionResult,
   SelectedMemory,
 } from "../core/types/index.js";
+import { withDxAliases } from "../core/state/index.js";
 import type { WorldId } from "@manifesto-ai/world";
 
 // ActorRef type definition (aligned with @manifesto-ai/world)
@@ -713,7 +714,7 @@ describe("Memory Architecture Report", () => {
 // =============================================================================
 
 function createMockState<T>(data: T): AppState<T> {
-  return {
+  return withDxAliases({
     data,
     computed: {},
     system: {
@@ -729,5 +730,5 @@ function createMockState<T>(data: T): AppState<T> {
       randomSeed: `seed-${Date.now()}`,
       schemaHash: "test-schema",
     },
-  };
+  });
 }

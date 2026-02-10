@@ -50,7 +50,7 @@ import {
   createSystemActionExecutor,
 } from "../execution/index.js";
 import { appStateToSnapshot } from "../execution/state-converter.js";
-import { createInitialAppState } from "../core/state/index.js";
+import { createInitialAppState, withDxAliases } from "../core/state/index.js";
 import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
 import {
   MissingDefaultActorError,
@@ -188,7 +188,7 @@ export class AppBootstrap {
     const genesisSnapshot = appStateToSnapshot(initialState);
     const computedResult = evaluateComputed(schema, genesisSnapshot);
     if (isOk(computedResult)) {
-      initialState = { ...initialState, computed: computedResult.value };
+      initialState = withDxAliases({ ...initialState, computed: computedResult.value });
     }
 
     subscriptionStore.setState(initialState);

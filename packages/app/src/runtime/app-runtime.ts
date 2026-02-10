@@ -55,6 +55,7 @@ import { SubscriptionStore } from "../runtime/subscription/index.js";
 import { SessionImpl } from "../runtime/session/index.js";
 import { SystemRuntime } from "../runtime/system/index.js";
 import { DomainCompileError } from "../errors/index.js";
+import { withDxAliases } from "../core/state/index.js";
 import type { SystemActionType } from "../constants.js";
 
 // =============================================================================
@@ -153,7 +154,7 @@ export class AppRuntime {
   }
 
   setCurrentState(state: AppState<unknown>): void {
-    this._currentState = state;
+    this._currentState = withDxAliases(state);
   }
 
   // ===========================================================================
@@ -255,6 +256,13 @@ export class AppRuntime {
   // ===========================================================================
 
   getState<T = unknown>(): AppState<T> {
+    return this._currentState as AppState<T>;
+  }
+
+  /**
+   * No-arg overload: returns same value as getState() (API-DX-1).
+   */
+  getAppSnapshot<T = unknown>(): AppState<T> {
     return this._currentState as AppState<T>;
   }
 

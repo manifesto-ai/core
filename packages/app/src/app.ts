@@ -236,8 +236,13 @@ export class ManifestoApp implements App {
     return this._getRuntime("getCurrentHead").getCurrentHead();
   }
 
-  async getSnapshot(worldId: WorldId): Promise<Snapshot> {
-    return this._getRuntime("getSnapshot").getSnapshot(worldId);
+  getSnapshot<T = unknown>(): AppState<T>;
+  getSnapshot(worldId: WorldId): Promise<Snapshot>;
+  getSnapshot<T = unknown>(worldId?: WorldId): AppState<T> | Promise<Snapshot> {
+    if (worldId !== undefined) {
+      return this._getRuntime("getSnapshot").getSnapshot(worldId);
+    }
+    return this._getRuntime("getSnapshot").getState<T>();
   }
 
   async getWorld(worldId: WorldId): Promise<World> {

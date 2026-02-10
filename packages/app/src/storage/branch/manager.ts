@@ -17,6 +17,7 @@ import type {
 } from "../../core/types/index.js";
 
 import { BranchNotFoundError } from "../../errors/index.js";
+import { withDxAliases } from "../../core/state/index.js";
 
 import {
   BranchImpl,
@@ -172,7 +173,7 @@ export class BranchManager {
     // FORK-3: Copy state from parent
     const parentState = this._branchStates.get(parentBranchId);
     if (parentState) {
-      this._branchStates.set(newBranchId, { ...parentState });
+      this._branchStates.set(newBranchId, withDxAliases({ ...parentState }));
     }
 
     this._branches.set(newBranchId, newBranch);

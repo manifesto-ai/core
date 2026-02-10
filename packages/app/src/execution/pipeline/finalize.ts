@@ -12,6 +12,7 @@
 
 import type { ActionResult } from "../../core/types/index.js";
 import type { PipelineContext, FinalizeDeps, StageResult } from "./types.js";
+import { withDxAliases } from "../../core/state/index.js";
 
 /**
  * Execute the Finalize stage.
@@ -66,7 +67,7 @@ export async function finalize(
 
     // Update system.lastError
     const currentState = getCurrentState();
-    setCurrentState({
+    setCurrentState(withDxAliases({
       ...currentState,
       system: {
         ...currentState.system,
@@ -76,7 +77,7 @@ export async function finalize(
           ...(execResult.error ? [execResult.error] : []),
         ],
       },
-    });
+    }));
 
     finalResult = {
       status: "failed" as const,
