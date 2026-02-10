@@ -2674,11 +2674,12 @@ at(x, y) (explicit call)                 → at(x, y)
 ### Consequences
 
 - `field` node added to ExprNode union in both Core and Compiler
-- `at()` evaluator extended to support Record lookup (object with string key)
+- `at()` evaluator extended to support Record lookup (non-array object with string key). Arrays are explicitly excluded from the record branch to prevent `at([1,2,3], "length")` from leaking JS object properties.
 - IR generator emits `field` for `.prop` on non-path expressions
 - Surface syntax unchanged: `at()` remains available as sugar for dynamic lookup
 - Trace/audit tools can now distinguish static property access from dynamic lookup
 - FDR-MEL-035 (Universal Index Access) is superseded for the property access case
+- **Implementation invariant:** Every expression-walking pass (lowering, renderer, validation visitor) MUST handle `field`. Adding an IR head without updating all passes causes silent data loss (e.g., `$system.*` references left unreplaced in lowering).
 
 ### Canonical Statement
 

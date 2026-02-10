@@ -1802,6 +1802,11 @@ action getActiveMembers() {
 | `at(arr, i)` | `(Array<T>, number) → T \| null` | Returns element at index |
 | `at(rec, k)` | `(Record<K, V>, K) → V \| null` | **Returns value for key (v0.2.3)** |
 
+**v0.5.0 Type Dispatch Rule (Normative):**
+- If base is `Array`: key MUST be `number`. String keys return `null` (arrays are NOT treated as records).
+- If base is `Record` (non-array object): key MUST be `string`. Returns value for key or `null`.
+- If base is `null`, primitive, or key type mismatches: returns `null`.
+
 **v0.2.3 Universal Index Access:** `at()` is overloaded to work on both Array and Record. The `[]` syntax is ALWAYS sugar for `at()`. See FDR-MEL-035.
 
 ```mel
