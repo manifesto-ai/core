@@ -1,7 +1,7 @@
 {
   "packages/app": "2.3.0",
   "packages/compiler": "1.6.0",
-  "packages/core": "2.3.0",
+  "packages/core": "2.4.0",
   "packages/intent-ir": "0.3.1",
   "packages/host": "2.3.0",
   "packages/translator/core": "0.2.1",
