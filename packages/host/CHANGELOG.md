@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/manifesto-ai/core/compare/host-v2.3.0...host-v2.3.1) (2026-02-10)
+
+
+### Bug Fixes
+
+* **core:** skip availability check on re-entry to prevent self-invalidation ([#134](https://github.com/manifesto-ai/core/issues/134)) ([#137](https://github.com/manifesto-ai/core/issues/137)) ([591edae](https://github.com/manifesto-ai/core/commit/591edaea6e8d2b61c31a225256b8c38e0bec2314))
+
 ## [2.3.0](https://github.com/manifesto-ai/core/compare/host-v2.2.0...host-v2.3.0) (2026-02-09)
 
 
