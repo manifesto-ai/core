@@ -59,7 +59,7 @@ export function snapshotToAppState(snapshot: Snapshot): AppState<unknown> {
 export function appStateToSnapshot(state: AppState<unknown>): Snapshot {
   return {
     data: state.data as Record<string, unknown>,
-    computed: state.computed,
+    computed: { ...state.computed },
     system: {
       status: state.system.status,
       lastError: state.system.lastError,

@@ -200,7 +200,7 @@ export function appStateToSnapshot<T = unknown>(
 ): Snapshot {
   return {
     data: state.data,
-    computed: state.computed,
+    computed: { ...state.computed },
     system: {
       status: state.system.status,
       lastError: state.system.lastError,
