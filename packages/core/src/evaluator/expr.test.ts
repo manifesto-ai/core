@@ -313,6 +313,23 @@ describe("Expression Evaluator", () => {
       })).toBe(null);
     });
 
+    it("at - should lookup record by string key", () => {
+      const record = { "item-1": { status: "open" }, "item-2": { status: "closed" } };
+      expect(evaluate({
+        kind: "at",
+        array: { kind: "lit", value: record },
+        index: { kind: "lit", value: "item-1" },
+      })).toEqual({ status: "open" });
+    });
+
+    it("at - should return null for missing record key", () => {
+      expect(evaluate({
+        kind: "at",
+        array: { kind: "lit", value: { a: 1 } },
+        index: { kind: "lit", value: "missing" },
+      })).toBe(null);
+    });
+
     it("first - should get first element", () => {
       expect(evaluate({ kind: "first", array: { kind: "lit", value: [1, 2, 3] } })).toBe(1);
       expect(evaluate({ kind: "first", array: { kind: "lit", value: [] } })).toBe(null);
@@ -446,6 +463,54 @@ describe("Expression Evaluator", () => {
     it("object ops - should handle non-objects", () => {
       expect(evaluate({ kind: "keys", obj: { kind: "lit", value: null } })).toEqual([]);
       expect(evaluate({ kind: "values", obj: { kind: "lit", value: 42 } })).toEqual([]);
+    });
+
+    it("field - should access object property by static key", () => {
+      expect(evaluate({
+        kind: "field",
+        object: { kind: "lit", value: { status: "open", priority: 1 } },
+        property: "status",
+      })).toBe("open");
+    });
+
+    it("field - should return null for missing property", () => {
+      expect(evaluate({
+        kind: "field",
+        object: { kind: "lit", value: { status: "open" } },
+        property: "missing",
+      })).toBe(null);
+    });
+
+    it("field - should return null for non-object base", () => {
+      expect(evaluate({
+        kind: "field",
+        object: { kind: "lit", value: null },
+        property: "status",
+      })).toBe(null);
+      expect(evaluate({
+        kind: "field",
+        object: { kind: "lit", value: [1, 2, 3] },
+        property: "status",
+      })).toBe(null);
+      expect(evaluate({
+        kind: "field",
+        object: { kind: "lit", value: 42 },
+        property: "status",
+      })).toBe(null);
+    });
+
+    it("field - should work on result of at() (Issue #135)", () => {
+      // Simulates at(items, id).status where items is a record
+      const items = { "item-1": { status: "open" }, "item-2": { status: "closed" } };
+      expect(evaluate({
+        kind: "field",
+        object: {
+          kind: "at",
+          array: { kind: "lit", value: items },
+          index: { kind: "lit", value: "item-1" },
+        },
+        property: "status",
+      })).toBe("open");
     });
   });
 

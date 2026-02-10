@@ -101,6 +101,9 @@ export function collectGetPathsFromExpr(expr: ExprNode): string[] {
       case "object":
         Object.values(node.fields).forEach(visit);
         return;
+      case "field":
+        visit(node.object);
+        return;
       case "keys":
       case "values":
       case "entries":

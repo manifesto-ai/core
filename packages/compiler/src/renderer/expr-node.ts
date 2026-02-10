@@ -55,6 +55,7 @@ export type ExprNode =
   | { kind: "append"; array: ExprNode; items: ExprNode[] }
   // Object
   | { kind: "object"; fields: Record<string, ExprNode> }
+  | { kind: "field"; object: ExprNode; property: string }
   | { kind: "keys"; obj: ExprNode }
   | { kind: "values"; obj: ExprNode }
   | { kind: "entries"; obj: ExprNode }
@@ -175,6 +176,8 @@ export function renderExprNode(expr: ExprNode): string {
     // Object
     case "object":
       return renderObjectExpr(expr.fields);
+    case "field":
+      return `${renderExprNode(expr.object)}.${expr.property}`;
     case "keys":
       return `keys(${renderExprNode(expr.obj)})`;
     case "values":

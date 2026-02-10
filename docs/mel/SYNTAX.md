@@ -701,6 +701,28 @@ action process() {
 | `strlen(s)` | `string → number` | String length |
 | `concat(...)` | `(...string) → string` | Join strings |
 
+**Property Access vs. Dynamic Lookup:**
+
+| Syntax | IR | Use case |
+|--------|-----|----------|
+| `state.field` | `get(path)` | Access state/computed by path |
+| `expr.prop` | `field(expr, "prop")` | Access property on computed result |
+| `coll[key]` | `at(coll, key)` | Dynamic lookup by runtime key |
+| `at(coll, key)` | `at(coll, key)` | Explicit dynamic lookup |
+
+```mel
+// Static property access on function result
+at(items, id).status     // → field(at(items, id), "status")
+
+// Dynamic lookup by key
+at(items, id)            // → at(items, id)
+
+// State path access
+items.count              // → get("data.items.count")
+```
+
+**Note:** `at()` works on both arrays (numeric index) and records (string key). Property access with `.` on a non-path expression uses the `field` IR node, which is semantically distinct from `at()`.
+
 ### Record Effects (Quick Reference)
 
 | Effect | Purpose | Example |

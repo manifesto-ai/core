@@ -85,6 +85,7 @@ export type CoreExprNode =
   | { kind: "some"; array: CoreExprNode; predicate: CoreExprNode }
   | { kind: "append"; array: CoreExprNode; items: CoreExprNode[] }
   | { kind: "object"; fields: Record<string, CoreExprNode> }
+  | { kind: "field"; object: CoreExprNode; property: string }
   | { kind: "keys"; obj: CoreExprNode }
   | { kind: "values"; obj: CoreExprNode }
   | { kind: "entries"; obj: CoreExprNode }
@@ -1039,12 +1040,12 @@ function generatePropertyAccess(expr: { kind: "propertyAccess"; object: ExprNode
     return { kind: "get", path: `${objectExpr.path}.${expr.property}` };
   }
 
-  // For other expressions, we need to use at with a string index
-  // This is a simplification - in reality, we'd need a proper property access expression
+  // Static member access: use field() to access a known property on a computed object.
+  // This is semantically distinct from at() (array indexing) and get() (snapshot path lookup).
   return {
-    kind: "at",
-    array: objectExpr,
-    index: { kind: "lit", value: expr.property },
+    kind: "field",
+    object: objectExpr,
+    property: expr.property,
   };
 }
 

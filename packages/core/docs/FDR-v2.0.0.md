@@ -26,7 +26,8 @@
 14. [FDR-013: Host Responsibility Boundary](#fdr-013-host-responsibility-boundary)
 15. [FDR-014: Browser Compatibility](#fdr-014-browser-compatibility)
 16. [FDR-015: Static Patch Paths](#fdr-015-static-patch-paths)
-17. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
+17. [FDR-016: Expression Semantic Heads](#fdr-016-expression-semantic-heads)
+18. [Summary: The Manifesto Identity](#summary-the-manifesto-identity)
 
 ---
 
@@ -969,6 +970,33 @@ The second `patch` becomes static because:
 ### Canonical Statement
 
 > **Patch paths are data, not computation. Dynamic resolution is IO, and IO belongs to Host.**
+
+---
+
+## FDR-016: Expression Semantic Heads
+
+### Decision
+
+**Each ExprNode kind MUST have exactly one semantic meaning. When an IR head is used to represent multiple distinct operations, it violates the deterministic semantic coordinate principle.**
+
+### Context
+
+The `at` expression kind was originally the sole mechanism for both array indexing and object property access. The compiler lowered `expr.property` to `at(expr, "property")`, but the evaluator only handled arrays — returning `null` silently for objects (Issue #135).
+
+### Rationale
+
+Core's evaluation is pure and total. When the same IR head (`at`) can mean "array element by index" or "object property by name", the evaluator must inspect runtime types to determine behavior. This is acceptable for `at()` (which is explicitly a dynamic lookup), but compile-time knowledge (like a literal property name) should be preserved in a dedicated head.
+
+The `field` kind ensures:
+1. **Deterministic meaning**: `field(obj, "status")` always means "access property `status` on `obj`"
+2. **Traceability**: Audit tools can distinguish static access from dynamic lookup
+3. **Totality**: Returns `null` for non-object bases or missing properties (never throws)
+
+### Consequences
+
+- `field` ExprNode kind added alongside `at`
+- `at` remains for dynamic collection access (arrays by index, records by key)
+- Expression evaluation remains pure and total
 
 ---
 
