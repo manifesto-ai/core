@@ -880,7 +880,7 @@ type ActionSpec = {
 ### 9.4 Requirements
 
 - Each action MUST have a unique name within the schema.
-- If `available` is defined, Core MUST check it before executing the flow.
+- If `available` is defined, Core MUST check it before executing the flow on **initial invocation** (StartIntent). Core MUST NOT re-check `available` on **re-entry** (ContinueCompute), because the action has already been admitted and its own patches may have invalidated the availability condition. Re-entry is detected when `snapshot.system.currentAction` matches the intent's action type. See §14.2 R-002.
 - If `input` is defined, Core MUST validate input against the schema.
 
 ---
@@ -1238,7 +1238,7 @@ type SnapshotMeta = {
 | Rule ID | Description |
 |---------|-------------|
 | R-001 | Intent input MUST match ActionSpec.input |
-| R-002 | ActionSpec.available MUST evaluate to true |
+| R-002 | ActionSpec.available MUST evaluate to true **on initial invocation**. Skipped on re-entry (`system.currentAction === intent.type`). |
 | R-003 | Patch paths MUST exist in StateSpec (except `$`-prefixed platform namespaces in `snapshot.data`, which are platform-owned and opaque to Core) |
 | R-004 | Patch values MUST match field types (except under `$`-prefixed platform namespaces in `snapshot.data`; Core validates only namespace roots as objects) |
 

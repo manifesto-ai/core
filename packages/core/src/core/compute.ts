@@ -72,7 +72,26 @@ export function computeSync(
   }
 
   // 2. Check availability condition
-  if (action.available) {
+  // Skip availability check on re-entry: when system.currentAction matches
+  // the intent type, this is a ContinueCompute cycle (the action was already
+  // admitted at StartIntent time). Re-checking against the mutated snapshot
+  // would cause self-invalidation (see issue #134).
+  //
+  // NOTE: This guard uses action type, not intentId. A different intent of
+  // the same action type could theoretically bypass availability if
+  // currentAction is non-null (e.g. after a LOOP_MAX_ITERATIONS error exit).
+  // This is acceptable because:
+  //   1. currentAction is only non-null in error/edge states — normal
+  //      dispatch always resets it to null on completion.
+  //   2. Flow state guards (once/if-isNull patterns) provide a second line
+  //      of defense against duplicate patches/effects per the constitution
+  //      (§10.5 Re-Entry Unsafe Flow).
+  //   3. Scoping to intentId would require adding currentIntentId to
+  //      SystemState (~30 file changes) for minimal practical benefit.
+  //      See: https://github.com/manifesto-ai/core/pull/137
+  const isReEntry = currentSnapshot.system.currentAction === intent.type;
+
+  if (action.available && !isReEntry) {
     const ctx = createContext(currentSnapshot, schema, intent.type, "available", intent.intentId, context.now);
     const availResult = evaluateExpr(action.available, ctx);
 

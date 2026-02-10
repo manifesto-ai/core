@@ -729,6 +729,263 @@ describe("compute", () => {
     });
   });
 
+  describe("Availability on Re-Entry (#134)", () => {
+    it("should skip availability check on re-entry when currentAction matches", async () => {
+      // Simulates the issue #134 scenario:
+      // Action `run` has `available when and(isNull(result), isNull(pending))`
+      // First compute: available passes, patches pending, declares effect → status "pending"
+      // After effect fulfillment, Host calls compute again with updated snapshot
+      // where pending and result are non-null. Without the fix, this would fail
+      // with ACTION_UNAVAILABLE because `available` re-evaluates to false.
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "and",
+              args: [
+                { kind: "isNull", arg: { kind: "get", path: "pending" } },
+                { kind: "isNull", arg: { kind: "get", path: "result" } },
+              ],
+            },
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "pending" } },
+              then: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: "pending",
+                    value: { kind: "get", path: "meta.intentId" },
+                  },
+                  {
+                    kind: "effect",
+                    type: "demo.exec",
+                    params: {
+                      into: { kind: "lit", value: "result" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      // 1st compute: initial invocation — available passes, effect declared
+      const snapshot1 = createTestSnapshot({ pending: null, result: null }, schema.hash);
+      const intent = createIntent("run", "intent-run-1");
+      const result1 = await compute(schema, snapshot1, intent, HOST_CONTEXT);
+
+      expect(result1.status).toBe("pending");
+      expect(result1.snapshot.data).toEqual(
+        expect.objectContaining({ pending: "intent-run-1" })
+      );
+      expect(result1.snapshot.system.currentAction).toBe("run");
+
+      // 2nd compute: simulate re-entry after effect fulfillment
+      // Host applied effect patches (result is now set) and calls compute again.
+      // The snapshot has currentAction === "run" (set during 1st compute pending).
+      const reEntrySnapshot = {
+        ...result1.snapshot,
+        data: { ...result1.snapshot.data as Record<string, unknown>, result: "done" },
+        system: {
+          ...result1.snapshot.system,
+          // currentAction remains "run" — this signals re-entry
+          pendingRequirements: [],
+        },
+      };
+
+      const result2 = await compute(schema, reEntrySnapshot, intent, HOST_CONTEXT);
+
+      // Should NOT fail with ACTION_UNAVAILABLE — availability is skipped on re-entry
+      expect(result2.status).not.toBe("error");
+      expect(result2.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
+    });
+
+    it("SCENARIO: different intentId same action type on pending snapshot bypasses availability", async () => {
+      // Models the reviewer's concern:
+      // Intent A (type "run") → pending → currentAction = "run"
+      // Then Intent B (type "run", DIFFERENT intentId) arrives on that snapshot.
+      // With current fix (type-only guard), B skips availability.
+      // This test documents whether this is reachable and what happens.
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "and",
+              args: [
+                { kind: "isNull", arg: { kind: "get", path: "pending" } },
+                { kind: "isNull", arg: { kind: "get", path: "result" } },
+              ],
+            },
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "pending" } },
+              then: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: "pending",
+                    value: { kind: "get", path: "meta.intentId" },
+                  },
+                  {
+                    kind: "effect",
+                    type: "demo.exec",
+                    params: {
+                      into: { kind: "lit", value: "result" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      // Intent A: pending → currentAction = "run"
+      const snapshot1 = createTestSnapshot({ pending: null, result: null }, schema.hash);
+      const intentA = createIntent("run", "intent-A");
+      const resultA = await compute(schema, snapshot1, intentA, HOST_CONTEXT);
+
+      expect(resultA.status).toBe("pending");
+      expect(resultA.snapshot.system.currentAction).toBe("run");
+
+      // Intent B: different intentId, same action type, on A's pending snapshot
+      const intentB = createIntent("run", "intent-B");
+      const resultB = await compute(schema, resultA.snapshot, intentB, HOST_CONTEXT);
+
+      // With type-only guard, availability IS skipped (isReEntry = true).
+      // But the flow's own state guard (if isNull(pending)) prevents double-patching.
+      // pending is already "intent-A", so the if-branch is skipped → no patches, no effects.
+      // Result: completes as no-op, does NOT corrupt state.
+      expect(resultB.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
+      expect((resultB.snapshot.data as Record<string, unknown>).pending).toBe("intent-A"); // unchanged
+    });
+
+    it("SCENARIO: different action type on pending snapshot still checks availability", async () => {
+      // Ensure that a DIFFERENT action type is NOT treated as re-entry
+      // even when currentAction is set from a previous pending action.
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+            count: { type: "number", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "isNull",
+              arg: { kind: "get", path: "pending" },
+            },
+            flow: {
+              kind: "seq",
+              steps: [
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: "pending",
+                  value: { kind: "get", path: "meta.intentId" },
+                },
+                {
+                  kind: "effect",
+                  type: "demo.exec",
+                  params: {},
+                },
+              ],
+            },
+          },
+          increment: {
+            available: {
+              kind: "isNull",
+              arg: { kind: "get", path: "pending" },
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "count",
+              value: { kind: "lit", value: 1 },
+            },
+          },
+        },
+      });
+
+      // "run" → pending → currentAction = "run"
+      const snapshot1 = createTestSnapshot({ pending: null, result: null, count: 0 }, schema.hash);
+      const intentRun = createIntent("run", "intent-run");
+      const resultRun = await compute(schema, snapshot1, intentRun, HOST_CONTEXT);
+
+      expect(resultRun.status).toBe("pending");
+      expect(resultRun.snapshot.system.currentAction).toBe("run");
+
+      // "increment" on the pending snapshot — different type, should NOT skip availability
+      const intentInc = createIntent("increment", "intent-inc");
+      const resultInc = await compute(schema, resultRun.snapshot, intentInc, HOST_CONTEXT);
+
+      // currentAction is "run" but intent type is "increment" → isReEntry = false
+      // available when isNull(pending) → pending is "intent-run" → false → ACTION_UNAVAILABLE
+      expect(resultInc.status).toBe("error");
+      expect(resultInc.snapshot.system.lastError?.code).toBe("ACTION_UNAVAILABLE");
+    });
+
+    it("should still check availability on fresh invocation", async () => {
+      // Ensure the fix doesn't accidentally skip availability on initial calls
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "and",
+              args: [
+                { kind: "isNull", arg: { kind: "get", path: "pending" } },
+                { kind: "isNull", arg: { kind: "get", path: "result" } },
+              ],
+            },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: "pending",
+              value: { kind: "get", path: "meta.intentId" },
+            },
+          },
+        },
+      });
+
+      // Fresh invocation where available condition is false — should still fail
+      const snapshot = createTestSnapshot(
+        { pending: "already-set", result: null },
+        schema.hash
+      );
+      const intent = createTestIntent("run");
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("ACTION_UNAVAILABLE");
+    });
+  });
+
   describe("computeSync", () => {
     it("should match async compute for the same inputs", async () => {
       const schema = createTestSchema({
