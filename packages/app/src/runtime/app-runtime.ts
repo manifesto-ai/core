@@ -258,6 +258,13 @@ export class AppRuntime {
     return this._currentState as AppState<T>;
   }
 
+  /**
+   * No-arg overload: returns same value as getState() (API-DX-1).
+   */
+  getAppSnapshot<T = unknown>(): AppState<T> {
+    return this._currentState as AppState<T>;
+  }
+
   subscribe<TSelected>(
     selector: (state: AppState<unknown>) => TSelected,
     listener: (selected: TSelected) => void,

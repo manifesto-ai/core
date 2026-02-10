@@ -61,9 +61,12 @@ export interface SystemState {
  * Complete app state.
  *
  * @see SPEC §7.1
+ * @see App SPEC v2.3.2 §2.2 (DX aliases)
  */
 export interface AppState<TData = unknown> {
   readonly data: TData;
+  /** DX alias for `data`. Referential identity: `state === data`. */
+  readonly state: TData;
   readonly computed: Record<string, unknown>;
   readonly system: SystemState;
   readonly meta: SnapshotMeta;

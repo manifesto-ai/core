@@ -10,6 +10,7 @@
 import type { Snapshot, Patch } from "@manifesto-ai/core";
 import type { AppState, ErrorValue } from "../core/types/index.js";
 import { generateDelta } from "../storage/world-store/index.js";
+import { withDxAliases } from "../core/state/index.js";
 export { normalizeSnapshot } from "../core/state/index.js";
 
 // =============================================================================
@@ -19,13 +20,15 @@ export { normalizeSnapshot } from "../core/state/index.js";
 /**
  * Convert a Snapshot to AppState format.
  *
+ * Includes DX aliases (state, computed short keys).
+ *
  * @param snapshot - The Snapshot from Core/Host
  * @returns AppState compatible with App's internal state representation
  */
 export function snapshotToAppState(snapshot: Snapshot): AppState<unknown> {
-  return {
+  return withDxAliases({
     data: snapshot.data,
-    computed: (snapshot.computed ?? {}) as Record<string, unknown>,
+    computed: { ...(snapshot.computed ?? {}) } as Record<string, unknown>,
     system: {
       status:
         (snapshot.system?.status as "idle" | "computing" | "pending" | "error") ?? "idle",
@@ -40,7 +43,7 @@ export function snapshotToAppState(snapshot: Snapshot): AppState<unknown> {
       randomSeed: snapshot.meta?.randomSeed ?? "",
       schemaHash: snapshot.meta?.schemaHash ?? "unknown",
     },
-  };
+  });
 }
 
 // =============================================================================

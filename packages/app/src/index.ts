@@ -195,7 +195,7 @@ export { withPlatformNamespaces } from "./core/schema/index.js";
 // State Utilities
 // =============================================================================
 
-export { normalizeSnapshot } from "./core/state/index.js";
+export { normalizeSnapshot, withDxAliases } from "./core/state/index.js";
 
 // =============================================================================
 // Memory

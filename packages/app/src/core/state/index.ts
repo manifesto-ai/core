@@ -2,25 +2,82 @@
  * State Management
  *
  * @see SPEC §7 State Model
+ * @see App SPEC v2.3.2 §2.2 (DX aliases)
  * @module
  */
 
 import type { Snapshot } from "@manifesto-ai/core";
 import type { AppState, SystemState, SnapshotMeta } from "../types/index.js";
 
+// =============================================================================
+// DX Aliases (App SPEC v2.3.2)
+// =============================================================================
+
+const VALID_IDENTIFIER_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+
+/**
+ * Add computed alias keys.
+ *
+ * For each canonical key of the form `computed.<name>`, exposes a
+ * non-enumerable alias `<name>` on the same object.
+ *
+ * @see App SPEC v2.3.2 COMP-ALIAS-1~3
+ */
+function addComputedAliases(computed: Record<string, unknown>): void {
+  if (!Object.isExtensible(computed)) {
+    return;
+  }
+  const keys = Object.keys(computed);
+  for (const key of keys) {
+    if (key.startsWith("computed.")) {
+      const alias = key.slice("computed.".length);
+      if (VALID_IDENTIFIER_RE.test(alias) && !(alias in computed)) {
+        const fullKey = key;
+        Object.defineProperty(computed, alias, {
+          get() {
+            return computed[fullKey];
+          },
+          enumerable: false,
+          configurable: false,
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Attach App-level DX aliases to an AppState-shaped object.
+ *
+ * - `state` → non-enumerable accessor aliasing `data` (STATE-ALIAS-1/2)
+ * - Computed short keys → non-enumerable aliases (COMP-ALIAS-1~3)
+ *
+ * @see App SPEC v2.3.2 §2.2
+ */
+export function withDxAliases<T>(obj: Omit<AppState<T>, "state">): AppState<T> {
+  Object.defineProperty(obj, "state", {
+    get() {
+      return (this as { data: T }).data;
+    },
+    enumerable: false,
+    configurable: false,
+  });
+  addComputedAliases(obj.computed as Record<string, unknown>);
+  return obj as AppState<T>;
+}
+
 /**
  * Convert Core Snapshot to AppState.
  *
  * AppState is a read-only projection of Snapshot that excludes
- * the transient `input` field.
+ * the transient `input` field. Includes DX aliases (state, computed short keys).
  */
 export function snapshotToAppState<T = unknown>(snapshot: Snapshot): AppState<T> {
-  return {
+  return withDxAliases<T>({
     data: snapshot.data as T,
-    computed: snapshot.computed as Record<string, unknown>,
+    computed: { ...(snapshot.computed as Record<string, unknown>) },
     system: snapshot.system as SystemState,
     meta: snapshot.meta as SnapshotMeta,
-  };
+  });
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -115,7 +172,7 @@ export function createInitialAppState<T = unknown>(
     schemaDefaults && Object.keys(schemaDefaults).length > 0
       ? { ...schemaDefaults, ...(initialData ?? {}) }
       : (initialData ?? {});
-  return {
+  return withDxAliases<T>({
     data: deepClone(base) as T,
     computed: {},
     system: {
@@ -131,7 +188,7 @@ export function createInitialAppState<T = unknown>(
       randomSeed: `${now}-${Math.random().toString(36).slice(2)}`,
       schemaHash,
     },
-  };
+  });
 }
 
 /**

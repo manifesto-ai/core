@@ -111,6 +111,16 @@ export interface App {
   getState<T = unknown>(): AppState<T>;
 
   /**
+   * Get current snapshot for the active branch head (latest published snapshot).
+   *
+   * No-arg overload: returns the same value as `getState()`.
+   * Preferred name for reading the latest published snapshot.
+   *
+   * @see App SPEC v2.3.2 API-DX-1
+   */
+  getSnapshot<T = unknown>(): AppState<T>;
+
+  /**
    * Subscribe to state changes.
    */
   subscribe<TSelected>(
@@ -218,9 +228,11 @@ export interface App {
   /**
    * Get snapshot for a World.
    *
+   * WorldId overload: retrieves historical snapshot from WorldStore.
+   *
    * @see SPEC v2.0.0 §6.2
    */
-  getSnapshot?(worldId: WorldId): Promise<Snapshot>;
+  getSnapshot(worldId: WorldId): Promise<Snapshot>;
 
   /**
    * Get World metadata.
