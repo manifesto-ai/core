@@ -55,6 +55,7 @@ export type ExprNode =
   | { kind: "append"; array: ExprNode; items: ExprNode[] }
   // Object
   | { kind: "object"; fields: Record<string, ExprNode> }
+  | { kind: "field"; object: ExprNode; property: string }
   | { kind: "keys"; obj: ExprNode }
   | { kind: "values"; obj: ExprNode }
   | { kind: "entries"; obj: ExprNode }
