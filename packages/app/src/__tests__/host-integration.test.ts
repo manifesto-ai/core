@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createApp, createTestApp } from "../index.js";
-import type { DomainSchema, Patch } from "@manifesto-ai/core";
+import type { DomainSchema, Patch, Snapshot } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
 import type { AppEffectContext, AppState, EffectHandler } from "../core/types/index.js";
 
@@ -920,12 +920,12 @@ describe("Host Integration - Type Conversion", () => {
   describe("CONV-2: AppState to Snapshot conversion", () => {
     it("should correctly convert AppState to Snapshot", async () => {
       const schema = createTestSchema();
-      let snapshotFromContext: AppState | null = null;
+      let snapshotFromContext: Snapshot | null = null;
 
       const serviceHandler = vi
         .fn()
         .mockImplementation(async (_params, ctx: AppEffectContext) => {
-          snapshotFromContext = ctx.snapshot as AppState;
+          snapshotFromContext = ctx.snapshot as Snapshot;
           return [{ op: "set", path: "effectDone", value: true }];  // Guard value
         });
 
