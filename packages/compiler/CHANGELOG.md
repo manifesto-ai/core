@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/manifesto-ai/core/compare/compiler-v1.6.0...compiler-v1.6.1) (2026-02-11)
+
+
+### Bug Fixes
+
+* add field IR kind for static property access and fix at() record lookup ([#135](https://github.com/manifesto-ai/core/issues/135)) ([#140](https://github.com/manifesto-ai/core/issues/140)) ([2f88a17](https://github.com/manifesto-ai/core/commit/2f88a17ed6d2541ab00102d134bb77324b51b023))
+
 ## [1.6.0](https://github.com/manifesto-ai/core/compare/compiler-v1.5.0...compiler-v1.6.0) (2026-02-09)
 
 
