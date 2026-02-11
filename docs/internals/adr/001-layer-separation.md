@@ -1,6 +1,6 @@
 # ADR-001: Layer Separation after Host v2.0.1
 
-> **Status:** Accepted
+> **Status:** Accepted (partially superseded by ADR-006)
 > **Date:** 2025-01-17
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Core, Host, World, App layer boundaries
@@ -264,3 +264,28 @@ class AppHostExecutor implements HostExecutor {
 One sentence:
 
 > **Results are World's; Process is App's.**
+
+---
+
+## Supersession Addendum
+
+> **Date:** 2026-02-10
+> **Superseded by:** [ADR-006](006-runtime-reframing.md)
+
+다음 섹션은 ADR-006에 의해 **부분적으로 대체**되었다:
+
+1. **"Runtime Layer Decision" (§ Runtime Layer):**
+   ADR-001은 Runtime이 App 내부의 개념적 역할로 남아야 한다고 결정했다.
+   ADR-006은 이 결정을 역전하여 Runtime을 독립 패키지(`@manifesto-ai/runtime`)로 승격하였다.
+   사유: Host↔World 통합, 실행 정책, publish boundary, telemetry를 명확한 패키지 경계로 분리.
+
+2. **"Bridge Layer Decision" (§ Bridge Layer):**
+   "새 레이어가 의존 복잡도를 추가한다"는 판단은 대체되었다.
+   ADR-006은 Runtime, SDK, Shared를 도입하되, 의미론적 경계의 명확성이 복잡도 비용을 정당화한다고 결정.
+
+3. **Event Ownership (§ Event Ownership):**
+   "Process is App's"는 다음으로 갱신:
+   > **"Results are World's; Process is Runtime's; DX is SDK's."**
+
+ADR-001의 그 외 결정(Core 순수성, Host 실행 엔진 역할, World 거버넌스, HostExecutor 인터페이스 패턴)은
+**여전히 유효**하며 ADR-006에서도 강화된다.

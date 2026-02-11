@@ -137,17 +137,19 @@ const doubled = snapshot.computed.doubled;    // alias for computed.<name>
 
 ## 6. Implementation
 
-### 6.1 `withDxAliases()` utility
+### 6.1 `toClientState()` utility
 
-A pure utility function `withDxAliases<T>(obj)` is provided in `@manifesto-ai/app` to attach aliases to any AppState-shaped object.
+A utility function `toClientState<T>(obj)` is provided in `@manifesto-ai/shared` to attach aliases to any AppState-shaped object.
 
 ```typescript
-import { withDxAliases } from "@manifesto-ai/app";
+import { toClientState } from "@manifesto-ai/shared";
 ```
 
 - Adds `state` as a non-enumerable getter aliasing `data`.
 - Adds computed short-key aliases as non-enumerable getters.
 - Called internally by `snapshotToAppState()` and `createInitialAppState()`.
+
+> **Note:** `withDxAliases`는 `toClientState`의 deprecated alias로 하위 호환을 위해 유지된다. 신규 코드는 `toClientState`를 사용해야 한다.
 
 ### 6.2 ManifestoApp facade
 

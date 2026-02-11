@@ -48,6 +48,8 @@ export type {
 } from "@manifesto-ai/runtime";
 
 // WorldStore
+// NOTE: CompactOptions, CompactResult, WorldDelta, PersistedBranchEntry,
+// PersistedBranchState 등 계약 타입은 위의 @manifesto-ai/shared blanket re-export로 제공됨.
 export {
   InMemoryWorldStore,
   WorldStoreNotFoundError,

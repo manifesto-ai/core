@@ -1,16 +1,16 @@
 # Manifesto App Documentation Index
 
 > **Package:** `@manifesto-ai/app`
-> **Last Updated:** 2026-02-08
+> **Last Updated:** 2026-02-12
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v2.3.1](APP-SPEC-v2.3.1-patch.md) (Patch, Base: v2.3.0 — Head Query API delegation)
+- **SPEC:** [v2.3.2](APP-SPEC-v2.3.2-patch.md) (Patch, Base: v2.3.1 — Snapshot DX Aliases)
 - **Architecture:** [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
 
-**Note:** v2.3.1 is a patch on v2.3.0. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) first, then apply [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md). For API rationale, see [ADR-APP-002](ADR-APP-002-v0.2.0.md).
+**Note:** v2.3.2 is a patch on v2.3.1. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) first, then apply [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md), then [APP-SPEC-v2.3.2-patch.md](APP-SPEC-v2.3.2-patch.md). For API rationale, see [ADR-APP-002](ADR-APP-002-v0.2.0.md).
 
 ---
 
@@ -18,6 +18,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
+| v2.3.2 | [SPEC](APP-SPEC-v2.3.2-patch.md) | — | Patch (Base: v2.3.1) | Draft |
 | v2.3.1 | [SPEC](APP-SPEC-v2.3.1-patch.md) | — | Patch (Base: v2.3.0) | Draft |
 | v2.3.0 | [SPEC](APP-SPEC-v2.3.0.md) | [ADR-APP-002](#adrs) | Full | Ratified |
 | v2.1.0 | [SPEC](APP-SPEC-v2.1.0-patch.md) | — | Patch (Base: v2.0.0) | Draft |
@@ -47,7 +48,15 @@
 
 ## Reading Guide
 
-### For Latest (v2.3.1)
+### For Latest (v2.3.2)
+
+1. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) (base specification)
+2. Read [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md) (Head Query API)
+3. Read [APP-SPEC-v2.3.2-patch.md](APP-SPEC-v2.3.2-patch.md) (Snapshot DX Aliases — `state` alias, computed short keys, `getSnapshot()` overload)
+4. For ADR rationale: [ADR-APP-002](ADR-APP-002-v0.2.0.md)
+5. For architecture overview: [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
+
+### For v2.3.1
 
 1. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) (base specification)
 2. Read [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md) (Head Query API — `getHeads()`, `getLatestHead()` delegation)

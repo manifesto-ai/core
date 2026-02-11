@@ -6,6 +6,9 @@
 > **Scope:** v3 Architecture (Core, Host, World, Compiler, Runtime, SDK)
 > **Supersedes / Reframes:** ADR-001의 "App=composition root" 서술 일부, App 중심 DX 서술(부분)
 > **Related:** ADR-005 (Snapshot Path DSL — Withdrawn), Constitution §6 (Type Discipline), World HASH rules, Host Contract (Snapshot canonical)
+> **Effective:**
+> - **Phase 1 (v2.x transition):** D0–D4 — 규범적, 구현 완료
+> - **Phase 2 (v3.0+ target):** D5–D11 — 규범적 설계 목표, 구현 미완 (phase-gated)
 
 ---
 
@@ -94,6 +97,11 @@ SDK는 다음을 **직접 구현/소유**한다:
 - SDK는 **실행/수렴/정책을 재정의하지 않는다.**
   - SDK는 Runtime 위에 얹혀 동작하며, 실행 의미론을 바꾸지 않는다.
 
+> **전환기 예외 (v2.x):** `toClientState()`(구 `withDxAliases`)는 `@manifesto-ai/shared`에
+> 위치하며 Runtime과 SDK 모두가 소비하는 상태 유틸이다. Shared는 Runtime/SDK 아래
+> 계약 레이어이므로 D1.3 위반이 아니다. v3.0 TypedClient(D5–D11) 구현 시 SDK의
+> `SnapshotView`(D6)로 대체 예정.
+
 ---
 
 ### D2. Publish boundary 및 채널 분리 (Normative)
@@ -159,6 +167,10 @@ v3에서 "의미론적 좌표계"는 다음 원칙으로 보호한다:
 > 목적: runtime/compiler/host의 내부 슬롯 변화가 World identity를 바꾸는 "의미론적 오염"을 구조적으로 차단한다.
 
 ---
+
+> **Phase Gate:** D5–D11은 v3.0+ TypedClient DX 목표를 기술한다.
+> 규범적 설계 약속이나 아직 구현되지 않았다. v2.x 전환기에는 기존 untyped API
+> (`act()`, `getState()`, `subscribe()`)가 지원 표면이다.
 
 ### D5. TypedClient\<TSchema\> — 제네릭 기반 타입 추론 (Normative)
 

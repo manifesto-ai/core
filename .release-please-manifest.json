@@ -4,6 +4,9 @@
   "packages/core": "2.4.0",
   "packages/intent-ir": "0.3.1",
   "packages/host": "2.3.1",
+  "packages/runtime": "0.1.0",
+  "packages/sdk": "0.1.0",
+  "packages/shared": "0.1.0",
   "packages/translator/core": "0.2.1",
   "packages/world": "2.3.0",
   "skills": "0.1.1"
