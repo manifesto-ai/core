@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.0](https://github.com/manifesto-ai/core/compare/core-v2.3.0...core-v2.4.0) (2026-02-10)
+
+
+### Features
+
+* **app:** add Snapshot DX aliases (App SPEC v2.3.2) ([#142](https://github.com/manifesto-ai/core/issues/142)) ([9bde2eb](https://github.com/manifesto-ai/core/commit/9bde2eb008d151574ac48e440d2fa6c93bac2e7b))
+
+
+### Bug Fixes
+
+* add field IR kind for static property access and fix at() record lookup ([#135](https://github.com/manifesto-ai/core/issues/135)) ([#140](https://github.com/manifesto-ai/core/issues/140)) ([2f88a17](https://github.com/manifesto-ai/core/commit/2f88a17ed6d2541ab00102d134bb77324b51b023))
+* **core:** skip availability check on re-entry to prevent self-invalidation ([#134](https://github.com/manifesto-ai/core/issues/134)) ([#137](https://github.com/manifesto-ai/core/issues/137)) ([591edae](https://github.com/manifesto-ai/core/commit/591edaea6e8d2b61c31a225256b8c38e0bec2314))
+
 ## [2.3.0](https://github.com/manifesto-ai/core/compare/core-v2.2.0...core-v2.3.0) (2026-02-09)
 
 
