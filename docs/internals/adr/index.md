@@ -32,8 +32,8 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX 개선 — `$mel` 네임스페이스 자동 주입 + `onceIntent` 문법 추가 | Proposed | 2026-01-27 | App, Compiler, World, Core, Host |
 | [ADR-003](./003-world-owns-persistence) | World Owns Persistence | Proposed | 2026-02-03 | App, World |
 | [ADR-004](./004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed | 2026-02-07 | App |
-| [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Proposed | 2026-02-10 | Core, Host, World, App, Compiler |
-| [ADR-006](./006-runtime-reframing) | Runtime Reframing — "App" 제거, DX는 SDK로, 실행 통합은 Runtime으로 | Proposed | 2026-02-10 | Core, Host, World, Compiler, Runtime, SDK |
+| [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
+| [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
 
 ---
 
@@ -71,6 +71,7 @@ The codegen package maintains its own ADRs for code generation decisions:
 |--------|---------|
 | **Proposed** | Under discussion, not yet implemented |
 | **Accepted** | Approved and implemented |
+| **Withdrawn** | Reviewed and explicitly retracted with documented rationale |
 | **Deprecated** | No longer recommended but may still be in use |
 | **Superseded** | Replaced by a newer ADR |
 
