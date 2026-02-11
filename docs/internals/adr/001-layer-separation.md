@@ -1,6 +1,6 @@
 # ADR-001: Layer Separation after Host v2.0.1
 
-> **Status:** Accepted (partially superseded by ADR-006)
+> **Status:** Accepted (planned partial supersession by ADR-006)
 > **Date:** 2025-01-17
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Core, Host, World, App layer boundaries
@@ -270,9 +270,11 @@ One sentence:
 ## Supersession Addendum
 
 > **Date:** 2026-02-10
-> **Superseded by:** [ADR-006](006-runtime-reframing.md)
+> **Planned supersession:** [ADR-006](006-runtime-reframing.md) (ADR-006이 Accepted 되면 효력 발생)
+>
+> ADR-006이 Accepted 되기 전까지, ADR-001의 v2 운영 계약은 유효하다.
 
-다음 섹션은 ADR-006에 의해 **부분적으로 대체**되었다:
+다음 섹션은 ADR-006에 의해 **부분적으로 대체될 예정**이다:
 
 1. **"Runtime Layer Decision" (§ Runtime Layer):**
    ADR-001은 Runtime이 App 내부의 개념적 역할로 남아야 한다고 결정했다.

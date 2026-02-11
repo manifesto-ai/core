@@ -9,6 +9,9 @@
 > **Effective:**
 > - **Phase 1 (v2.x transition):** D0–D4 — 규범적, 구현 완료
 > - **Phase 2 (v3.0+ target):** D5–D11 — 규범적 설계 목표, 구현 미완 (phase-gated)
+>
+> **v2 SPEC 호환:** 본 ADR이 Accepted 되기 전까지, 기존 v2 운영 SPEC 계약(World SPEC, App SPEC 등)은 유효하다.
+> ADR-006의 내부 아키텍처 변경은 v2 외부 계약을 무효화하지 않는다.
 
 ---
 
@@ -64,6 +67,8 @@ Runtime은 다음을 **직접 구현/소유**한다:
 - **Host ↔ World integration**
   - World가 요구하는 executor 인터페이스를 Runtime이 구현한다.
   - Host 내부 실행 모델(ExecutionKey mailbox, job model)은 Runtime에서 흡수한다.
+  - **v2.x 브리지:** World-facing HostExecutor contract provider는 `@manifesto-ai/app`(SDK) facade로 유지.
+    Runtime은 facade 뒤의 내부 위임(internal delegation) 구현을 소유한다.
 - **Execution policy**
   - ExecutionKey policy
   - approvedScope enforcement
