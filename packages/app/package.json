@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/app",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Manifesto App - Facade and orchestration layer over the Manifesto protocol stack",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
