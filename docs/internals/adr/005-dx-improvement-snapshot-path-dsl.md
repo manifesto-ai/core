@@ -58,7 +58,7 @@ SP-DSL은 루트 스코프를 예약어로 제공한다:
 - `$meta` : `snapshot.meta` 접근
 - `$platform` : platform reserved namespace 접근 (`snapshot.data.$*` 계열)
 
-선택적으로 다음 alias를 MAY로 제공할 수 있다:
+다음 alias를 MUST로 제공한다 (APP-NS-1, HOST-NS-1, COMPILER-MEL-1에 의해 `$host`/`$mel`은 런타임에 항상 존재하므로, SP-DSL parser도 이를 필수로 인식해야 한다):
 
 - `$mel` : `$platform.mel`의 sugar
 - `$host` : `$platform.host`의 sugar
