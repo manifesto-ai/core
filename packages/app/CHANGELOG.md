@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/manifesto-ai/core/compare/app-v2.3.0...app-v2.4.0) (2026-02-11)
+
+
+### Features
+
+* **app:** add Snapshot DX aliases (App SPEC v2.3.2) ([#142](https://github.com/manifesto-ai/core/issues/142)) ([9bde2eb](https://github.com/manifesto-ai/core/commit/9bde2eb008d151574ac48e440d2fa6c93bac2e7b))
+
 ## [2.3.0](https://github.com/manifesto-ai/core/compare/app-v2.2.0...app-v2.3.0) (2026-02-09)
 
 
