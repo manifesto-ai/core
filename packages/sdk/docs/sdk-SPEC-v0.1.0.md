@@ -8,6 +8,9 @@
 > **License:** MIT
 > **Changelog:**
 > - **v0.1.0 (2026-02-11):** Initial draft — extracted from APP-SPEC v2.3.0
+>   - **Fix:** `AppState.meta` aligned with Core SPEC SnapshotMeta (`timestamp: number`, `randomSeed` not `hash`)
+>   - **Fix:** `AppState.system` aligned with Core SPEC SystemState (added `lastError: ErrorValue | null`, status union type, `currentAction: string | null`)
+>   - **Fix:** Removed erroneous `input` field from `AppState` (not part of App-level state contract); added `state` DX alias
 
 ---
 
@@ -280,23 +283,47 @@ type Branch = {
 ### 5.8 AppState
 
 ```typescript
-type AppState<T = unknown> = {
-  readonly data: T;
+/**
+ * Complete app state.
+ * Mirrors Core's Snapshot structure with DX alias.
+ *
+ * @see Core SPEC v2.0.0 §SnapshotMeta (4 fixed fields)
+ * @see Core SPEC v2.0.0 §SystemState
+ */
+interface AppState<TData = unknown> {
+  readonly data: TData;
+  /** DX alias for `data`. Referential identity: `state === data`. */
+  readonly state: TData;
   readonly computed: Record<string, unknown>;
-  readonly system: {
-    readonly status: string;
-    readonly pendingRequirements: readonly unknown[];
-    readonly currentAction?: string;
-    readonly errors: readonly ErrorValue[];
-  };
-  readonly input: unknown;
-  readonly meta: {
-    readonly version: number;
-    readonly timestamp: string;
-    readonly hash: string;
-    readonly schemaHash: string;
-  };
-};
+  readonly system: SystemState;
+  readonly meta: SnapshotMeta;
+}
+
+/**
+ * System state within snapshot.
+ *
+ * Note: `lastError` is the most recent error (convenience accessor).
+ *       `errors` is the full error history array.
+ */
+interface SystemState {
+  readonly status: 'idle' | 'computing' | 'pending' | 'error';
+  readonly lastError: ErrorValue | null;
+  readonly errors: readonly ErrorValue[];
+  readonly pendingRequirements: readonly Requirement[];
+  readonly currentAction: string | null;
+}
+
+/**
+ * Snapshot metadata.
+ *
+ * Core SPEC v2.0.0 defines exactly 4 fields. App MUST NOT extend this type.
+ */
+interface SnapshotMeta {
+  readonly version: number;
+  readonly timestamp: number;
+  readonly randomSeed: string;
+  readonly schemaHash: string;
+}
 ```
 
 ### 5.9 Proposal (Low-Level)
