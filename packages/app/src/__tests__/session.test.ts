@@ -5,14 +5,14 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createTestApp } from "../index.js";
+import { createTestApp } from "@manifesto-ai/app";
 import {
   AppNotReadyError,
   AppDisposedError,
   MemoryDisabledError,
-} from "../errors/index.js";
+} from "@manifesto-ai/shared";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Session } from "../core/types/index.js";
+import type { Session } from "@manifesto-ai/shared";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

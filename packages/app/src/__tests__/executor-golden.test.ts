@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp, createTestApp } from "../index.js";
-import type { DomainSchema } from "@manifesto-ai/core";
+import { createApp, createTestApp } from "@manifesto-ai/app";
+import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
 import type {
   ActionPhase,
   PolicyService,
@@ -20,8 +20,7 @@ import type {
   AuthorityDecision,
   ValidationResult,
   ExecutionKey,
-} from "../core/types/index.js";
-import type { Snapshot } from "@manifesto-ai/core";
+} from "@manifesto-ai/shared";
 
 // =============================================================================
 // Fixtures

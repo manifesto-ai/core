@@ -5,13 +5,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp, createTestApp } from "../index.js";
+import { createApp, createTestApp } from "@manifesto-ai/app";
 import {
   ReservedNamespaceError,
   ReservedEffectTypeError,
-} from "../errors/index.js";
-import { executeSystemGet } from "../execution/system-get.js";
-import { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "../constants.js";
+} from "@manifesto-ai/shared";
+import { executeSystemGet } from "@manifesto-ai/runtime";
+import { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "@manifesto-ai/shared";
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
 
 // Valid mock DomainSchema

@@ -5,11 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestApp } from "../index.js";
-import { SubscriptionStore } from "../runtime/subscription/index.js";
+import { createTestApp } from "@manifesto-ai/app";
+import { SubscriptionStore } from "@manifesto-ai/runtime";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { AppState } from "../core/types/index.js";
-import { withDxAliases } from "../core/state/index.js";
+import type { AppState } from "@manifesto-ai/shared";
+import { toClientState } from "@manifesto-ai/shared";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {
@@ -429,7 +429,7 @@ describe("Subscription System", () => {
 
 // Helper function to create mock AppState
 function createMockState<T>(data: T): AppState<T> {
-  return withDxAliases({
+  return toClientState({
     data,
     computed: {},
     system: {

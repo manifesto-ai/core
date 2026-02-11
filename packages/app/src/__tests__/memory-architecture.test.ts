@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp, createTestApp } from "../index.js";
-import { MemoryHub } from "../runtime/memory/index.js";
+import { createApp, createTestApp } from "@manifesto-ai/app";
+import { MemoryHub } from "@manifesto-ai/runtime";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   MemoryProvider,
@@ -20,8 +20,8 @@ import type {
   RecallResult,
   SelectionResult,
   SelectedMemory,
-} from "../core/types/index.js";
-import { withDxAliases } from "../core/state/index.js";
+} from "@manifesto-ai/shared";
+import { toClientState } from "@manifesto-ai/shared";
 import type { WorldId } from "@manifesto-ai/world";
 
 // ActorRef type definition (aligned with @manifesto-ai/world)
@@ -714,7 +714,7 @@ describe("Memory Architecture Report", () => {
 // =============================================================================
 
 function createMockState<T>(data: T): AppState<T> {
-  return withDxAliases({
+  return toClientState({
     data,
     computed: {},
     system: {

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestApp } from "../index.js";
+import { createTestApp } from "@manifesto-ai/app";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -20,9 +20,9 @@ import {
   MissingDefaultActorError,
   ReservedNamespaceError,
   ReservedEffectTypeError,
-} from "../errors/index.js";
+} from "@manifesto-ai/shared";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { ActionPhase, App, Branch } from "../core/types/index.js";
+import type { ActionPhase, App, Branch } from "@manifesto-ai/shared";
 
 // =============================================================================
 // Test Fixtures

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createApp, createTestApp } from "../index.js";
+import { createApp, createTestApp } from "@manifesto-ai/app";
 import { hashSchemaSync, type DomainSchema, createIntent, createCore, createSnapshot } from "@manifesto-ai/core";
 import { createHost, createTestHostContextProvider } from "@manifesto-ai/host";
 

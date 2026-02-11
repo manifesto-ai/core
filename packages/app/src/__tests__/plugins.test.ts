@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp, createTestApp } from "../index.js";
-import { PluginInitError } from "../errors/index.js";
-import type { App, AppPlugin } from "../core/types/index.js";
+import { createApp, createTestApp } from "@manifesto-ai/app";
+import { PluginInitError } from "@manifesto-ai/shared";
+import type { App, AppPlugin } from "@manifesto-ai/shared";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema

@@ -37,7 +37,7 @@ import {
   // Factory
   createApp,
   createTestApp,
-} from "../index.js";
+} from "@manifesto-ai/app";
 
 describe("Package Scaffold", () => {
   describe("Error Classes", () => {

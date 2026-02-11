@@ -13,8 +13,8 @@ import { describe, it, expect } from "vitest";
 import {
   generateDelta,
   toCanonicalSnapshot,
-} from "../storage/world-store/delta-generator.js";
-import type { Snapshot } from "../core/types/index.js";
+} from "@manifesto-ai/runtime";
+import type { Snapshot } from "@manifesto-ai/shared";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);

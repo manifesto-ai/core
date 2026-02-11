@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { JobQueue } from "../hooks/queue.js";
+import { JobQueue } from "@manifesto-ai/runtime";
 
 describe("JobQueue Edge Cases", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;

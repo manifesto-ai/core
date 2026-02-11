@@ -5,15 +5,15 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp, createTestApp } from "../index.js";
+import { createApp, createTestApp } from "@manifesto-ai/app";
 import type { DomainSchema } from "@manifesto-ai/core";
 import {
   createInitialAppState,
   snapshotToAppState,
   appStateToSnapshot,
   normalizeSnapshot,
-  withDxAliases,
-} from "../core/state/index.js";
+  toClientState,
+} from "@manifesto-ai/shared";
 
 // Mock DomainSchema for testing
 const mockDomainSchema: DomainSchema = {
@@ -472,7 +472,7 @@ describe("State Model", () => {
     });
   });
 
-  describe("DX Aliases — withDxAliases()", () => {
+  describe("DX Aliases — toClientState()", () => {
     it("should be idempotent (safe to call twice on same object)", () => {
       const obj = {
         data: { count: 1 },
@@ -492,9 +492,9 @@ describe("State Model", () => {
         },
       };
 
-      const first = withDxAliases(obj);
+      const first = toClientState(obj);
       // Second call on same object must NOT throw
-      const second = withDxAliases(first);
+      const second = toClientState(first);
 
       expect(second).toBe(first);
       expect(second.state).toBe(second.data);
@@ -502,7 +502,7 @@ describe("State Model", () => {
     });
 
     it("should survive spread and re-application", () => {
-      const original = withDxAliases({
+      const original = toClientState({
         data: { count: 1 },
         computed: { "computed.doubled": 2 } as Record<string, unknown>,
         system: {
@@ -525,7 +525,7 @@ describe("State Model", () => {
       expect(Object.getOwnPropertyDescriptor(spread, "state")).toBeUndefined();
 
       // Re-apply restores aliases
-      const restored = withDxAliases(spread);
+      const restored = toClientState(spread);
       expect(restored.state).toBe(restored.data);
       expect(restored.state).toEqual({ count: 1 });
       // Computed aliases survive (same reference)
@@ -553,7 +553,7 @@ describe("State Model", () => {
       };
 
       // Must not throw on frozen computed
-      const result = withDxAliases(obj);
+      const result = toClientState(obj);
 
       expect(result.state).toBe(result.data);
       // Canonical access still works

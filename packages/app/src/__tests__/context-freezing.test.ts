@@ -18,8 +18,8 @@ import {
   freezeRecallResult,
   getFrozenRecallResult,
   clearAppNamespace,
-} from "../runtime/memory/context-freezing.js";
-import type { Snapshot, RecallResult } from "../core/types/index.js";
+} from "@manifesto-ai/runtime";
+import type { Snapshot, RecallResult } from "@manifesto-ai/shared";
 
 // =============================================================================
 // Test Helpers

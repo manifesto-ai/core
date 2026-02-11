@@ -1,0 +1,53 @@
+{
+  "name": "@manifesto-ai/sdk",
+  "version": "0.1.0",
+  "description": "Manifesto SDK - Developer experience layer (DX surface, framework integration, state projections)",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/sdk#readme",
+  "keywords": [
+    "manifesto",
+    "sdk",
+    "dx",
+    "state-management",
+    "framework-integration"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:tsc": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "echo 'lint not configured'",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/runtime": "workspace:*",
+    "@manifesto-ai/shared": "workspace:*",
+    "@manifesto-ai/world": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

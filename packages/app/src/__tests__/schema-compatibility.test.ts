@@ -12,7 +12,7 @@ import {
   validateSchemaCompatibility,
   extractEffectTypes,
   SchemaIncompatibleError,
-} from "../storage/branch/schema-compatibility.js";
+} from "@manifesto-ai/runtime";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // =============================================================================

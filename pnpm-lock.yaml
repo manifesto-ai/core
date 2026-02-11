@@ -52,19 +52,25 @@ importers:
 
   packages/app:
     dependencies:
-      '@manifesto-ai/compiler':
+      '@manifesto-ai/sdk':
         specifier: workspace:*
-        version: link:../compiler
+        version: link:../sdk
+      '@manifesto-ai/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
       '@manifesto-ai/host':
         specifier: workspace:*
         version: link:../host
+      '@manifesto-ai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@manifesto-ai/world':
         specifier: workspace:*
         version: link:../world
-    devDependencies:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -172,6 +178,60 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+
+  packages/runtime:
+    dependencies:
+      '@manifesto-ai/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@manifesto-ai/host':
+        specifier: workspace:*
+        version: link:../host
+      '@manifesto-ai/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@manifesto-ai/world':
+        specifier: workspace:*
+        version: link:../world
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/sdk:
+    dependencies:
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@manifesto-ai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@manifesto-ai/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@manifesto-ai/world':
+        specifier: workspace:*
+        version: link:../world
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/shared:
+    dependencies:
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@manifesto-ai/world':
+        specifier: workspace:*
+        version: link:../world
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/translator/adapters/translator-adapter-claude:
     dependencies:

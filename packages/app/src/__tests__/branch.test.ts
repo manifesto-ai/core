@@ -5,14 +5,14 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createTestApp } from "../index.js";
+import { createTestApp } from "@manifesto-ai/app";
 import {
   AppNotReadyError,
   BranchNotFoundError,
   WorldNotInLineageError,
-} from "../errors/index.js";
+} from "@manifesto-ai/shared";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Branch } from "../core/types/index.js";
+import type { Branch } from "@manifesto-ai/shared";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

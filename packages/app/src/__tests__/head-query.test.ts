@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createTestApp } from "../index.js";
-import { AppNotReadyError } from "../errors/index.js";
+import { createTestApp } from "@manifesto-ai/app";
+import { AppNotReadyError } from "@manifesto-ai/shared";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 const mockDomainSchema: DomainSchema = {

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp, createTestApp } from "../index.js";
+import { createApp, createTestApp } from "@manifesto-ai/app";
 import {
   AppNotReadyError,
   AppDisposedError,
@@ -13,7 +13,7 @@ import {
   ReservedNamespaceError,
   ReservedEffectTypeError,
   PluginInitError,
-} from "../errors/index.js";
+} from "@manifesto-ai/shared";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema for testing

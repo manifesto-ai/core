@@ -10,8 +10,8 @@ import {
   createSilentPolicyService,
   createStrictPolicyService,
   createRestrictedScope,
-} from "../runtime/policy/index.js";
-import type { Proposal, Snapshot } from "../core/types/index.js";
+} from "@manifesto-ai/runtime";
+import type { Proposal, Snapshot } from "@manifesto-ai/shared";
 import { createWorldId } from "@manifesto-ai/world";
 
 function createProposal(overrides?: Partial<Proposal>): Proposal {

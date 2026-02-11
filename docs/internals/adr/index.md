@@ -33,7 +33,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-003](./003-world-owns-persistence) | World Owns Persistence | Proposed | 2026-02-03 | App, World |
 | [ADR-004](./004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed | 2026-02-07 | App |
 | [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
-| [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
+| [ADR-006](./006-runtime-reframing) | Runtime Reframing & SDK Typed Client — 실행 통합은 Runtime으로, Type-Safe DX는 SDK로 | Proposed | 2026-02-10 | Core, Host, World, App, Compiler, Runtime, SDK, Shared |
 
 ---
 
