@@ -204,29 +204,38 @@ type ActionResult =
 
 type CompletedActionResult = {
   readonly status: 'completed';
-  readonly world: World;
-  readonly snapshot: Snapshot;
-  readonly stats?: ExecutionStats;
+  readonly worldId: string;
+  readonly proposalId: string;
+  readonly decisionId: string;
+  readonly stats: ExecutionStats;
+  readonly runtime: RuntimeKind;
 };
 
 type FailedActionResult = {
   readonly status: 'failed';
-  readonly world: World;
+  readonly proposalId: string;
+  readonly decisionId: string;
   readonly error: ErrorValue;
-  readonly stats?: ExecutionStats;
+  readonly worldId: string;
+  readonly runtime: RuntimeKind;
 };
 
 type RejectedActionResult = {
   readonly status: 'rejected';
-  readonly reason: string;
-  readonly decision: AuthorityDecision;
+  readonly proposalId: string;
+  readonly decisionId: string;
+  readonly reason?: string;
+  readonly runtime: RuntimeKind;
 };
 
 type PreparationFailedActionResult = {
   readonly status: 'preparation_failed';
-  readonly reason: string;
-  readonly error?: ErrorValue;
+  readonly proposalId: string;
+  readonly error: ErrorValue;
+  readonly runtime: RuntimeKind;
 };
+
+type RuntimeKind = 'domain' | 'system';
 ```
 
 **Result semantics:**
@@ -649,8 +658,15 @@ type SubscribeOptions<T> = {
   /** Fire listener immediately with current state */
   readonly fireImmediately?: boolean;
 
-  /** Batch mode for notification timing */
-  readonly batch?: BatchMode;
+  /**
+   * Batch mode for listener invocation.
+   * - 'immediate': Every snapshot change
+   * - 'transaction': Once per act() completion (default)
+   * - { debounce: number }: Debounce in ms
+   *
+   * @default 'transaction'
+   */
+  readonly batchMode?: BatchMode;
 };
 
 type BatchMode =
@@ -765,7 +781,9 @@ interface ActionHandle {
 
   /**
    * Wait for action to reach terminal state.
-   * Resolves with ActionResult (never throws).
+   * Resolves with ActionResult for any terminal status.
+   * @throws ActionTimeoutError — if `timeoutMs` exceeded
+   * @throws HandleDetachedError — if `detach()` was called before resolution
    */
   result(opts?: DoneOptions): Promise<ActionResult>;
 
@@ -811,7 +829,7 @@ type ActionUpdateDetail =
 | Method | Resolves | Throws |
 |--------|----------|--------|
 | `done()` | On `completed` only | On `failed`, `rejected`, `preparation_failed` |
-| `result()` | On any terminal state | Never (returns ActionResult with status) |
+| `result()` | On any terminal state | On timeout (`ActionTimeoutError`) or detached handle (`HandleDetachedError`) |
 
 ### 9.5 ActionHandle Rules
 
@@ -822,7 +840,7 @@ type ActionUpdateDetail =
 | SDK-HANDLE-3 | MUST | `phase` MUST reflect current action phase |
 | SDK-HANDLE-4 | MUST | `subscribe()` MUST fire for each phase transition |
 | SDK-HANDLE-5 | MUST | `done()` MUST throw on failed/rejected results |
-| SDK-HANDLE-6 | MUST | `result()` MUST NOT throw (returns result with status) |
+| SDK-HANDLE-6 | MUST | `result()` MUST NOT throw on terminal status (returns ActionResult); MAY throw `ActionTimeoutError` or `HandleDetachedError` |
 | SDK-HANDLE-7 | MUST | `preparation_failed` phase MUST resolve `result()` with `status: 'preparation_failed'` |
 | SDK-HANDLE-8 | MUST | `preparation_failed` result MUST NOT contain World reference |
 | SDK-HANDLE-9 | MUST | `proposalId` MUST be pre-allocated in `preparing` phase (before validation) |
@@ -1024,7 +1042,10 @@ interface MemoryFacade {
   backfill(opts: BackfillOptions): Promise<void>;
 
   /** Execute maintenance (forget) operations */
-  maintain(ops: readonly MemoryMaintenanceOp[]): Promise<void>;
+  maintain(
+    ops: readonly MemoryMaintenanceOp[],
+    ctx: MemoryMaintenanceContext
+  ): Promise<MemoryMaintenanceOutput>;
 }
 
 type RecallOptions = {
@@ -1032,6 +1053,16 @@ type RecallOptions = {
   readonly limit?: number;
   readonly actorId?: ActorId;
   readonly branchId?: BranchId;
+};
+
+type MemoryMaintenanceContext = {
+  readonly actor: ActorRef;
+  readonly scope: 'actor' | 'global';
+};
+
+type MemoryMaintenanceOutput = {
+  readonly results: readonly MemoryMaintenanceResult[];
+  readonly trace?: MemoryHygieneTrace;
 };
 ```
 
@@ -1310,7 +1341,7 @@ class SystemActionViaSessionError extends ManifestoAppError {}
 | SDK-ERR-1 | MUST | All SDK errors MUST extend `ManifestoAppError` |
 | SDK-ERR-2 | MUST | All errors MUST have a stable `code` property |
 | SDK-ERR-3 | MUST | `done()` on rejected/failed action MUST throw appropriate error subclass |
-| SDK-ERR-4 | MUST NOT | `result()` MUST NOT throw (returns ActionResult instead) |
+| SDK-ERR-4 | MUST NOT | `result()` MUST NOT throw on terminal status (MAY throw `ActionTimeoutError` or `HandleDetachedError`) |
 
 ---
 
@@ -1327,7 +1358,7 @@ class SystemActionViaSessionError extends ManifestoAppError {}
 | SDK-INV-5 | Hooks receive AppRef, not full App | Re-entrancy prevention |
 | SDK-INV-6 | `state:publish` fires at most once per Proposal Tick | Publish boundary |
 | SDK-INV-7 | Plugins execute after schema, before `app:ready` | Initialization order |
-| SDK-INV-8 | `result()` never throws | ActionHandle contract |
+| SDK-INV-8 | `result()` never throws on terminal status (timeout/detach may throw) | ActionHandle contract |
 | SDK-INV-9 | `done()` throws on non-completed results | ActionHandle contract |
 
 ### 19.2 Namespace Invariants

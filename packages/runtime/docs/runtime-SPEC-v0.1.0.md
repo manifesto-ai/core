@@ -313,7 +313,7 @@ type PersistOutput = {
 | PIPE-3 | MUST | Pipeline MUST halt at `authorize` if Authority rejects (no World) |
 | PIPE-4 | MUST | Pipeline MUST continue through `persist` and `finalize` even on execution failure (failed World) |
 | PIPE-5 | MUST | `proposalId` MUST be pre-allocated in `prepare` stage before any validation |
-| PIPE-6 | MUST | Each pipeline run MUST emit `state:publish` exactly once (at `persist` stage) |
+| PIPE-6 | MUST | Pipeline runs that reach `persist` stage MUST emit `state:publish` exactly once. Runs halted at `prepare` or `authorize` do NOT emit `state:publish` (no World is created, so no state to publish). |
 | PIPE-7 | MUST NOT | Pipeline stages MUST NOT be reordered or skipped |
 | PIPE-8 | MUST | Pipeline MUST be re-entrant safe; concurrent pipelines MUST NOT interfere |
 
@@ -990,8 +990,8 @@ Proposal Tick = startExecution(proposal) → ... → terminalSnapshot reached
 
 ### 15.2 Publish Semantics
 
-- `state:publish` MUST fire **at least once** per Proposal Tick (at terminalSnapshot)
-- `state:publish` MUST fire **at most once** per Proposal Tick
+- `state:publish` MUST fire **exactly once** per Proposal Tick that reaches `persist` stage (at terminalSnapshot)
+- `state:publish` MUST NOT fire for Proposal Ticks halted at `prepare` or `authorize` (no World created, no state change)
 - `state:publish` MUST NOT fire per computed-node evaluation
 - Multiple Proposals sharing the same ExecutionKey MUST NOT merge into a single publish boundary
 
@@ -999,8 +999,8 @@ Proposal Tick = startExecution(proposal) → ... → terminalSnapshot reached
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| RT-PUB-1 | MUST | Runtime MUST publish state updates at least once per Proposal Tick |
-| RT-PUB-2 | MUST | Runtime MUST publish state updates at most once per Proposal Tick |
+| RT-PUB-1 | MUST | Runtime MUST publish state updates exactly once per Proposal Tick that reaches `persist` stage |
+| RT-PUB-2 | MUST NOT | Runtime MUST NOT publish for Proposal Ticks halted before `persist` (`preparation_failed`, `rejected`) |
 | RT-PUB-3 | MUST NOT | Runtime MUST NOT publish per computed-node evaluation |
 | RT-PUB-4 | MUST NOT | Multiple Proposals on same ExecutionKey MUST NOT merge into single publish boundary |
 | RT-PUB-5 | MUST | Tick boundary MUST be per-proposal, not per-mailbox |
