@@ -763,12 +763,24 @@ System Runtime handles **meta-operations** in the `system.*` namespace. It maint
 ### 11.2 SystemRuntime
 
 ```typescript
+type SystemActionType = `system.${string}`;
+
+/**
+ * Execution context for system actions.
+ * Required for audit trail construction.
+ */
+type SystemExecutionContext = {
+  readonly actorId: string;
+  readonly proposalId: string;
+  readonly timestamp: number;
+};
+
 interface SystemRuntime {
   /** Execute a system action */
   execute(
-    type: `system.${string}`,
-    input: unknown,
-    actorId: ActorId
+    type: SystemActionType,
+    input: Record<string, unknown>,
+    ctx: SystemExecutionContext
   ): Promise<ActionResult>;
 
   /** Check if action type is a system action */

@@ -614,19 +614,34 @@ interface App {
 ```typescript
 type ActOptions = {
   /** Actor performing the action (default: 'default') */
-  readonly actorId?: ActorId;
+  readonly actorId?: string;
 
-  /** Target branch (default: current branch) */
-  readonly branchId?: BranchId;
+  /**
+   * Branch context.
+   *
+   * - Domain Actions: Execution branch override (action runs against this branch's head)
+   * - System Actions: Domain anchor for recall ONLY (MEM-SYS-2);
+   *   does NOT affect System Runtime execution
+   */
+  readonly branchId?: string;
 
-  /** Base world override (default: branch head) */
-  readonly baseWorld?: WorldId;
+  /**
+   * Memory recall to attach to proposal.
+   *
+   * - `false`: Explicitly disable recall for this action
+   * - `RecallRequest | RecallRequest[]`: Recall with given queries
+   * - `undefined`: No recall (default)
+   *
+   * IMPORTANT: If memory is disabled (`memory: false`), recall MUST NOT be used.
+   * Providing recall when memory is disabled results in `preparation_failed`.
+   */
+  readonly recall?: false | RecallRequest | readonly RecallRequest[];
 
-  /** Timeout in milliseconds */
-  readonly timeoutMs?: number;
-
-  /** Abort signal */
-  readonly signal?: AbortSignal;
+  /** Trace options */
+  readonly trace?: {
+    enabled?: boolean;
+    level?: 'minimal' | 'standard' | 'verbose';
+  };
 };
 ```
 
@@ -643,7 +658,7 @@ type ForkOptions = {
   /** New domain for schema-changing fork */
   readonly domain?: DomainSchema | string;
 
-  /** Switch to new branch after creation (default: false) */
+  /** Switch to new branch after creation. @default true */
   readonly switchTo?: boolean;
 };
 ```
@@ -812,8 +827,8 @@ type DoneOptions = {
 
 ```typescript
 type ActionUpdate = {
-  readonly proposalId: ProposalId;
   readonly phase: ActionPhase;
+  readonly previousPhase: ActionPhase;
   readonly detail?: ActionUpdateDetail;
   readonly timestamp: number;
 };
