@@ -815,11 +815,8 @@ interface ActionHandle {
 }
 
 type DoneOptions = {
-  /** Timeout in milliseconds */
+  /** Maximum wait time in ms. @default Infinity */
   readonly timeoutMs?: number;
-
-  /** Abort signal */
-  readonly signal?: AbortSignal;
 };
 ```
 
