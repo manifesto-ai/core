@@ -888,9 +888,13 @@ interface Session {
 
   /**
    * Recall memory context within this session's scope.
+   * Uses session's actorId and branchId as default recall context.
    * @throws MemoryDisabledError if memory not configured
    */
-  recall(query: string, opts?: RecallOptions): Promise<RecallResult>;
+  recall(
+    req: RecallRequest | readonly RecallRequest[],
+    ctx?: RecallContext
+  ): Promise<RecallResult>;
 
   /**
    * Get current state for this session's branch.
@@ -1047,8 +1051,16 @@ interface MemoryFacade {
   /** Whether memory is enabled */
   enabled(): boolean;
 
-  /** Recall context from memory providers */
-  recall(query: string, opts?: RecallOptions): Promise<RecallResult>;
+  /**
+   * Recall context from memory providers.
+   *
+   * Accepts a single RecallRequest or an array of requests.
+   * RecallRequest can be a plain string (query shorthand) or a structured object.
+   */
+  recall(
+    req: RecallRequest | readonly RecallRequest[],
+    ctx?: RecallContext
+  ): Promise<RecallResult>;
 
   /** List available memory providers */
   providers(): readonly string[];
@@ -1063,11 +1075,35 @@ interface MemoryFacade {
   ): Promise<MemoryMaintenanceOutput>;
 }
 
-type RecallOptions = {
-  readonly worldId?: WorldId;
+/**
+ * RecallRequest — string shorthand or structured query.
+ */
+type RecallRequest =
+  | string
+  | {
+      readonly query: string;
+      readonly provider?: string;
+      readonly constraints?: SelectionConstraints;
+    };
+
+type SelectionConstraints = {
+  readonly requireVerified?: boolean;
   readonly limit?: number;
-  readonly actorId?: ActorId;
-  readonly branchId?: BranchId;
+  readonly minConfidence?: number;
+};
+
+type RecallContext = {
+  readonly actorId?: string;
+  readonly branchId?: string;
+};
+
+type RecallResult = {
+  readonly attachments: readonly {
+    provider: string;
+    trace: MemoryTrace;
+  }[];
+  readonly selected: readonly SelectedMemory[];
+  readonly views: readonly MemorySelectionView[];
 };
 
 type MemoryMaintenanceContext = {
