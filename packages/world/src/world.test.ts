@@ -19,6 +19,7 @@ import type {
 } from "./schema/index.js";
 import { createWorldId } from "./schema/world.js";
 import type { HITLNotificationCallback } from "./authority/index.js";
+import type { WorldEvent, WorldEventSink, WorldEventType } from "./events/index.js";
 import type { Snapshot, Intent } from "@manifesto-ai/core";
 import { createIntentInstance } from "./schema/intent.js";
 
@@ -92,6 +93,42 @@ function createMockExecutor(resultSnapshot?: Snapshot): HostExecutor {
       }
     ),
   };
+}
+
+const ALLOWED_WORLD_EVENT_TYPES: readonly WorldEventType[] = [
+  "proposal:submitted",
+  "proposal:evaluating",
+  "proposal:decided",
+  "proposal:superseded",
+  "execution:completed",
+  "execution:failed",
+  "world:created",
+  "world:forked",
+];
+
+const FORBIDDEN_TELEMETRY_EVENT_TYPES = new Set<string>([
+  "execution:started",
+  "execution:computing",
+  "execution:patches",
+  "execution:effect",
+  "execution:effect_result",
+  "snapshot:changed",
+]);
+
+function createCapturingEventSink(events: WorldEvent[]): WorldEventSink {
+  return {
+    emit: (event: WorldEvent) => {
+      events.push(event);
+    },
+  };
+}
+
+function assertGovernanceOnlyEventSurface(events: readonly WorldEvent[]): void {
+  const allowed = new Set<string>(ALLOWED_WORLD_EVENT_TYPES);
+  for (const event of events) {
+    expect(allowed.has(event.type)).toBe(true);
+    expect(FORBIDDEN_TELEMETRY_EVENT_TYPES.has(event.type)).toBe(false);
+  }
 }
 
 // ============================================================================
@@ -1103,6 +1140,124 @@ describe("ManifestoWorld", () => {
       const retrievedWorld = await world.getWorld(currentWorld);
       expect(retrievedWorld).toBeDefined();
       expect(retrievedWorld?.worldId).toBe(currentWorld);
+    });
+  });
+
+  // ==========================================================================
+  // Event Surface Contracts (CHAN-1)
+  // ==========================================================================
+
+  describe("Event Surface Contracts (CHAN-1)", () => {
+    it("emits governance-only event types for completed execution", async () => {
+      const events: WorldEvent[] = [];
+      const executor = createMockExecutor(createTestSnapshot({ completed: true }));
+      world = createManifestoWorld({
+        schemaHash,
+        executor,
+        eventSink: createCapturingEventSink(events),
+      });
+
+      const genesis = await world.createGenesis(createTestSnapshot());
+      events.length = 0;
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      const result = await world.submitProposal(
+        "human-1",
+        await createTestIntent(),
+        genesis.worldId
+      );
+
+      expect(result.proposal.status).toBe("completed");
+      assertGovernanceOnlyEventSurface(events);
+      expect(events.some((e) => e.type === "execution:completed")).toBe(true);
+      expect(events.some((e) => e.type === "world:created")).toBe(true);
+    });
+
+    it("emits governance-only event types for failed execution", async () => {
+      const events: WorldEvent[] = [];
+      const failedSnapshot: Snapshot = {
+        ...createTestSnapshot({ failed: true }),
+        system: {
+          ...createTestSnapshot().system,
+          lastError: {
+            code: "FAILED",
+            message: "terminal error",
+            source: { actionId: "test", nodePath: "root" },
+            timestamp: Date.now(),
+          },
+        },
+      };
+
+      const executor: HostExecutor = {
+        execute: vi.fn().mockResolvedValue({
+          outcome: "failed" as const,
+          terminalSnapshot: failedSnapshot,
+          error: {
+            code: "FAILED",
+            message: "terminal error",
+            source: { actionId: "test", nodePath: "root" },
+            timestamp: Date.now(),
+          },
+        }),
+      };
+
+      world = createManifestoWorld({
+        schemaHash,
+        executor,
+        eventSink: createCapturingEventSink(events),
+      });
+
+      const genesis = await world.createGenesis(createTestSnapshot());
+      events.length = 0;
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      const result = await world.submitProposal(
+        "human-1",
+        await createTestIntent(),
+        genesis.worldId
+      );
+
+      expect(result.proposal.status).toBe("failed");
+      assertGovernanceOnlyEventSurface(events);
+      expect(events.some((e) => e.type === "execution:failed")).toBe(true);
+      expect(events.some((e) => e.type === "world:created")).toBe(true);
+    });
+
+    it("emits governance-only event types for evaluating (HITL) proposals", async () => {
+      const events: WorldEvent[] = [];
+      const onHITLRequired = vi.fn();
+      world = createManifestoWorld({
+        schemaHash,
+        onHITLRequired,
+        eventSink: createCapturingEventSink(events),
+      });
+
+      const genesis = await world.createGenesis(createTestSnapshot());
+      events.length = 0;
+
+      const owner = createTestActor("owner", "human");
+      const agent = createTestActor("agent-1", "agent");
+      world.registerActor(agent, {
+        mode: "hitl",
+        delegate: owner,
+      });
+
+      const result = await world.submitProposal(
+        "agent-1",
+        await createTestIntent("test-action", {}, agent),
+        genesis.worldId
+      );
+
+      expect(result.proposal.status).toBe("evaluating");
+      expect(onHITLRequired).toHaveBeenCalled();
+      assertGovernanceOnlyEventSurface(events);
+      expect(events.some((e) => e.type === "proposal:evaluating")).toBe(true);
+      expect(events.some((e) => e.type === "execution:completed")).toBe(false);
+      expect(events.some((e) => e.type === "execution:failed")).toBe(false);
     });
   });
 });
