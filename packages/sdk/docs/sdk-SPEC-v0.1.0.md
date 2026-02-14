@@ -18,6 +18,7 @@
 
 1. [Purpose](#1-purpose)
 2. [Normative Language](#2-normative-language)
+2.1 [Kickoff Lock Profile (Non-Normative)](#21-kickoff-lock-profile-non-normative)
 3. [Scope & Non-Goals](#3-scope--non-goals)
 4. [Layering Model & Boundary](#4-layering-model--boundary)
 5. [Core Types](#5-core-types)
@@ -64,6 +65,17 @@ The SDK layer is the **public developer-facing API** that:
 ## 2. Normative Language
 
 Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**, and **OPTIONAL** are interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
+
+## 2.1 Kickoff Lock Profile (Non-Normative)
+
+This document remains `Draft`, but it is treated as a kickoff-locked baseline for SDK/Runtime split kickoff.
+
+During kickoff phase:
+
+- `SDK-*` requirement IDs MUST NOT be renamed or removed.
+- Allowed updates are additive clarifications, examples, and implementation-detail refinements that preserve normative meaning.
+- `B3` (SDK-first public positioning) is an end-state for Phase 2 transition, not an immediate kickoff-time public switch.
+- Changes that alter public contract meaning or entrypoint policy require separate ADR/SPEC governance decisions.
 
 ---
 

@@ -12,6 +12,9 @@
 
 The `@manifesto-ai/app` package provides a simple, batteries-included API for building Manifesto applications. It combines Core, Host, World, and Memory into a cohesive interface.
 
+> Note: Runtime/SDK specifications currently exist as draft decomposition documents of APP-SPEC.
+> The supported public entry point remains `@manifesto-ai/app`.
+
 ---
 
 ## Core Packages

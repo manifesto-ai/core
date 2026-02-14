@@ -30,6 +30,17 @@ All specifications are maintained at the package level. This page provides navig
 | **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/) |
 
+### Runtime/SDK Decomposition Drafts
+
+The Runtime and SDK documents below are **Draft but kickoff-locked baseline** specs extracted from APP-SPEC v2.3.0.
+They are architecture documents for split kickoff planning, not finalized package split/install guidance.
+Requirement IDs remain locked for kickoff (`RT-*`, `SDK-*`), while additive clarifications and examples are allowed.
+
+| Document | Status | Notes |
+|----------|--------|-------|
+| [Runtime SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Internal execution orchestration contract decomposed from App SPEC |
+| [SDK SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Public API contract decomposed from App SPEC; SDK-first is a Phase 2 target |
+
 ---
 
 ## Quick Links to Latest Specs

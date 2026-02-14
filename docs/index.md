@@ -74,6 +74,9 @@ console.log(app.getState().data.count); // 1
 
 See [API Reference](/api/) for full documentation.
 
+> Note: Runtime/SDK specs are currently draft decomposition documents derived from APP-SPEC.
+> The recommended production entry point remains `@manifesto-ai/app`.
+
 ## Installation
 
 ```bash

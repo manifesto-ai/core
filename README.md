@@ -195,6 +195,9 @@ These are not features. They are **protocol-level invariants** — properties th
 | **App** | `@manifesto-ai/app` | Facade. `createApp()`, `app.act()`, subscriptions, branches. |
 | **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation. |
 
+> Note: Runtime/SDK specifications currently exist as draft decomposition documents derived from APP-SPEC.
+> The supported public entry point remains `@manifesto-ai/app`.
+
 **Data flow:**
 
 ```

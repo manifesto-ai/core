@@ -156,6 +156,52 @@ describe("World SPEC v2.0.4: $-prefix pattern", () => {
       // Only $host changed, so hashes should be identical
       expect(hash1).toBe(hash2);
     });
+
+    it("keeps hash stable when only input changes (CAN-4)", async () => {
+      const snapshot1 = createTestSnapshot({ count: 42 });
+      const snapshot2 = {
+        ...createTestSnapshot({ count: 42 }),
+        input: { transient: "changed-only-input" },
+      };
+
+      const hash1 = await computeSnapshotHash(snapshot1);
+      const hash2 = await computeSnapshotHash(snapshot2);
+
+      expect(hash1).toBe(hash2);
+    });
+
+    it("keeps hash stable when only computed changes (CAN-4)", async () => {
+      const snapshot1 = createTestSnapshot({ count: 42 });
+      const snapshot2 = {
+        ...createTestSnapshot({ count: 42 }),
+        computed: {
+          "computed.total": 123,
+        },
+      };
+
+      const hash1 = await computeSnapshotHash(snapshot1);
+      const hash2 = await computeSnapshotHash(snapshot2);
+
+      expect(hash1).toBe(hash2);
+    });
+
+    it("keeps hash stable when only meta version/timestamp/randomSeed change (CAN-4)", async () => {
+      const snapshot1 = createTestSnapshot({ count: 42 });
+      const snapshot2 = {
+        ...createTestSnapshot({ count: 42 }),
+        meta: {
+          ...snapshot1.meta,
+          version: 999,
+          timestamp: 1700000000000,
+          randomSeed: "different-seed",
+        },
+      };
+
+      const hash1 = await computeSnapshotHash(snapshot1);
+      const hash2 = await computeSnapshotHash(snapshot2);
+
+      expect(hash1).toBe(hash2);
+    });
   });
 
   describe("known platform namespaces", () => {

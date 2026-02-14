@@ -479,6 +479,134 @@ describe("ManifestoWorld", () => {
       expect(result.proposal.status).toBe("failed");
       expect(result.resultWorld).toBeDefined(); // World is created even on failure
     });
+
+    it("derives failed outcome even when host advisory outcome is completed", async () => {
+      const failedTerminalSnapshot: Snapshot = {
+        ...createTestSnapshot({ advisoryMismatch: true }),
+        system: {
+          ...createTestSnapshot().system,
+          lastError: {
+            code: "MISMATCH_FAILED",
+            message: "terminal snapshot indicates failure",
+            source: { actionId: "test", nodePath: "root" },
+            timestamp: Date.now(),
+          },
+        },
+      };
+
+      const advisoryCompletedExecutor: HostExecutor = {
+        execute: vi.fn().mockResolvedValue({
+          outcome: "completed" as const,
+          terminalSnapshot: failedTerminalSnapshot,
+        }),
+      };
+
+      world = createManifestoWorld({ schemaHash, executor: advisoryCompletedExecutor });
+      await world.createGenesis(createTestSnapshot());
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      const genesis = await world.getGenesis();
+      const intent = await createTestIntent();
+      const result = await world.submitProposal(
+        "human-1",
+        intent,
+        genesis!.worldId
+      );
+
+      expect(result.proposal.status).toBe("failed");
+      expect(result.resultWorld).toBeDefined();
+    });
+
+    it("derives completed outcome even when host advisory outcome is failed", async () => {
+      const completedTerminalSnapshot = createTestSnapshot({ advisoryMismatch: true });
+      const advisoryFailedExecutor: HostExecutor = {
+        execute: vi.fn().mockResolvedValue({
+          outcome: "failed" as const,
+          terminalSnapshot: completedTerminalSnapshot,
+          error: { code: "HOST_ADVISORY_FAILED", message: "host advisory only" },
+        }),
+      };
+
+      world = createManifestoWorld({ schemaHash, executor: advisoryFailedExecutor });
+      await world.createGenesis(createTestSnapshot());
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      const genesis = await world.getGenesis();
+      const intent = await createTestIntent();
+      const result = await world.submitProposal(
+        "human-1",
+        intent,
+        genesis!.worldId
+      );
+
+      expect(result.proposal.status).toBe("completed");
+      expect(result.resultWorld).toBeDefined();
+    });
+
+    it("passes raw base snapshot to executor without canonical projection", async () => {
+      const rawBaseSnapshot: Snapshot = {
+        ...createTestSnapshot({
+          count: 1,
+          $host: { internal: "keep-raw" },
+          $mel: { guards: { guardA: "value" } },
+        }),
+        input: { transient: "input-should-remain" },
+        computed: { "computed.preview": 99 },
+        meta: {
+          ...createTestSnapshot().meta,
+          version: 42,
+          timestamp: 1700000000000,
+          randomSeed: "raw-seed",
+        },
+      };
+
+      let receivedSnapshot: Snapshot | null = null;
+      const inspectingExecutor: HostExecutor = {
+        execute: vi.fn().mockImplementation(
+          async (
+            _key: ExecutionKey,
+            baseSnapshot: Snapshot
+          ): Promise<HostExecutionResult> => {
+            receivedSnapshot = baseSnapshot;
+            return {
+              outcome: "completed" as const,
+              terminalSnapshot: baseSnapshot,
+            };
+          }
+        ),
+      };
+
+      world = createManifestoWorld({ schemaHash, executor: inspectingExecutor });
+      const genesis = await world.createGenesis(rawBaseSnapshot);
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      const intent = await createTestIntent();
+      const result = await world.submitProposal(
+        "human-1",
+        intent,
+        genesis.worldId
+      );
+
+      expect(result.proposal.status).toBe("completed");
+      expect(receivedSnapshot).toEqual(rawBaseSnapshot);
+      expect((receivedSnapshot!.data as Record<string, unknown>).$host).toEqual({
+        internal: "keep-raw",
+      });
+      expect((receivedSnapshot!.data as Record<string, unknown>).$mel).toEqual({
+        guards: { guardA: "value" },
+      });
+      expect(receivedSnapshot!.input).toEqual({ transient: "input-should-remain" });
+      expect(receivedSnapshot!.computed).toEqual({ "computed.preview": 99 });
+      expect(receivedSnapshot!.meta.version).toBe(42);
+      expect(receivedSnapshot!.meta.timestamp).toBe(1700000000000);
+      expect(receivedSnapshot!.meta.randomSeed).toBe("raw-seed");
+    });
   });
 
   // ==========================================================================

@@ -15,6 +15,7 @@
 
 1. [Purpose](#1-purpose)
 2. [Normative Language](#2-normative-language)
+2.1 [Kickoff Lock Profile (Non-Normative)](#21-kickoff-lock-profile-non-normative)
 3. [Scope & Non-Goals](#3-scope--non-goals)
 4. [Layering Model & Boundary](#4-layering-model--boundary)
 5. [Execution Pipeline](#5-execution-pipeline)
@@ -59,6 +60,16 @@ The Runtime layer is the **internal execution orchestration engine** that:
 ## 2. Normative Language
 
 Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**, and **OPTIONAL** are interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
+
+## 2.1 Kickoff Lock Profile (Non-Normative)
+
+This document remains `Draft`, but it is treated as a kickoff-locked baseline for SDK/Runtime split execution.
+
+During kickoff phase:
+
+- `RT-*` requirement IDs MUST NOT be renamed or removed.
+- Allowed updates are additive clarifications, examples, and implementation-detail refinements that preserve normative meaning.
+- Changes that alter requirement semantics, boundary meaning, or package positioning are out of scope for kickoff lock and require ADR/SPEC governance update first.
 
 ---
 

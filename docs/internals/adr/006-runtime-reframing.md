@@ -5,7 +5,7 @@
 > **Revised:** 2026-02-11
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Global (Core, Host, World, App)
-> **Related:** ADR-001 (Layer Separation), ADR-004 (App Package Internal Decomposition), World HASH rules (platform namespace exclusion)
+> **Related:** ADR-001 (Layer Separation), ADR-004 (App Package Internal Decomposition), ADR-007 (SDK/Runtime Split Kickoff Gate and Staged Locking), World HASH rules (platform namespace exclusion)
 
 ---
 
@@ -139,6 +139,8 @@ v2에서 "App"은 다음 세 역할이 한 덩어리로 묶여 있었다:
 
 ## 5. Deferred Decision: Package-Level Runtime/SDK Split
 
+> **Update (2026-02-14):** Split kickoff timing and gate policy in this section are partially superseded by [ADR-007](./007-sdk-runtime-split-kickoff). ADR-006 remains normative for PUB/CHAN/CAN rules.
+
 다음 결정은 **명시적으로 유보**한다:
 
 | 유보 항목 | 전제 조건 | 판단 시점 |
@@ -147,8 +149,9 @@ v2에서 "App"은 다음 세 역할이 한 덩어리로 묶여 있었다:
 | SDK 패키지 추출 | DX 요구사항 구체화 + 프레임워크별 분리 필요성 근거 | v3 설계 시 |
 | "App" normative 용어 제거 | Runtime/SDK 분할 결정 확정 | 상동 |
 
-유보된 항목이 필요해질 경우, **별도의 ADR**로 제안하며
-ADR-001 §7.4 및 ADR-004 §4.4의 결정을 명시적으로 supersede해야 한다.
+유보된 항목이 필요해질 경우, **ADR-007 정책에 따라 별도의 ADR**로 제안하며
+최소 supersede 범위(ADR-004 §7.4, ADR-006 §5 착수 시점 조항)를 명시해야 한다.
+ADR-001의 레이어 원칙은 유지한다.
 
 ---
 
@@ -165,6 +168,17 @@ ADR-001 §7.4 및 ADR-004 §4.4의 결정을 명시적으로 supersede해야 한
 | CAN-2 | Canonicalization | Canonical snapshot을 실행 입력으로 사용 금지 |
 | CAN-3 | Canonicalization | Platform namespace (`data.$*`) semantic identity 제외 |
 | CAN-4 | Canonicalization | `input`, `meta.*`, `computed` semantic identity 제외 |
+
+---
+
+## 7. Non-Normative Companion Evidence
+
+ADR-006의 PUB/CHAN/CAN 규칙에 대한 구현/테스트 추적성은 아래 문서에서 관리한다:
+
+- [ADR-006 Evidence Matrix](./006-evidence-matrix)
+- [ADR-006 Split Readiness Pack](./006-split-readiness-pack)
+
+이 문서는 **non-normative**이며, 본 ADR의 규칙 문구를 변경하거나 대체하지 않는다.
 
 ---
 

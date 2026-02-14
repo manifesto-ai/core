@@ -34,6 +34,17 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-004](./004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed | 2026-02-07 | App |
 | [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
 | [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
+| [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted | 2026-02-14 | App, Runtime, SDK, World |
+
+### ADR-006 Companion Evidence (Non-Normative)
+
+- [ADR-006 Evidence Matrix](./006-evidence-matrix) - Rule-to-implementation and test traceability while ADR-006 remains Proposed.
+- [ADR-006 Split Readiness Pack](./006-split-readiness-pack) - Fixed baseline, current readiness verdict, and owner decision cards for package split planning.
+
+### Supersede Notes
+
+- ADR-007 partially supersedes ADR-004 §7.4 and ADR-006 §5 for split kickoff timing and gating policy.
+- ADR-007 does not supersede ADR-001 layer separation principles (package split is not a new layer).
 
 ---
 
