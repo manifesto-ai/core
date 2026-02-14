@@ -19,4 +19,23 @@ describe('@manifesto-ai/sdk bootstrap', () => {
     const mod = await import('../index.js');
     expect(mod).toBeDefined();
   });
+
+  it('exports SDK components', async () => {
+    const mod = await import('../index.js');
+
+    // App Factory
+    expect(mod.createApp).toBeDefined();
+    expect(mod.createTestApp).toBeDefined();
+
+    // ManifestoApp
+    expect(mod.ManifestoApp).toBeDefined();
+
+    // Hooks
+    expect(mod.AppRefImpl).toBeDefined();
+    expect(mod.createAppRef).toBeDefined();
+    expect(mod.HookableImpl).toBeDefined();
+    expect(mod.JobQueue).toBeDefined();
+    expect(mod.HookContextImpl).toBeDefined();
+    expect(mod.createHookContext).toBeDefined();
+  });
 });

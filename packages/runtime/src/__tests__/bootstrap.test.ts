@@ -19,4 +19,35 @@ describe('@manifesto-ai/runtime bootstrap', () => {
     const mod = await import('../index.js');
     expect(mod).toBeDefined();
   });
+
+  it('exports core runtime components', async () => {
+    const mod = await import('../index.js');
+
+    // Errors
+    expect(mod.ManifestoAppError).toBeDefined();
+    expect(mod.AppNotReadyError).toBeDefined();
+    expect(mod.AppDisposedError).toBeDefined();
+
+    // Runtime components
+    expect(mod.AppRuntime).toBeDefined();
+    expect(mod.AppBootstrap).toBeDefined();
+    expect(mod.SubscriptionStore).toBeDefined();
+
+    // WorldStore
+    expect(mod.InMemoryWorldStore).toBeDefined();
+    expect(mod.createInMemoryWorldStore).toBeDefined();
+
+    // PolicyService
+    expect(mod.createDefaultPolicyService).toBeDefined();
+    expect(mod.createSilentPolicyService).toBeDefined();
+
+    // Memory
+    expect(mod.createMemoryFacade).toBeDefined();
+
+    // Hooks
+    expect(mod.createAppRef).toBeDefined();
+
+    // Constants
+    expect(mod.SYSTEM_ACTION_TYPES).toBeDefined();
+  });
 });

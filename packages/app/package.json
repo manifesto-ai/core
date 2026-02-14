@@ -48,6 +48,8 @@
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/runtime": "workspace:*",
+    "@manifesto-ai/sdk": "workspace:*",
     "@manifesto-ai/world": "workspace:*"
   },
   "devDependencies": {

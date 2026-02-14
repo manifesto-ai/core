@@ -30,7 +30,8 @@
   },
   "dependencies": {
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/runtime": "workspace:*"
+    "@manifesto-ai/runtime": "workspace:*",
+    "@manifesto-ai/world": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

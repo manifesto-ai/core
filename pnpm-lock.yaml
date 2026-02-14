@@ -61,6 +61,12 @@ importers:
       '@manifesto-ai/host':
         specifier: workspace:*
         version: link:../host
+      '@manifesto-ai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@manifesto-ai/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       '@manifesto-ai/world':
         specifier: workspace:*
         version: link:../world
@@ -200,6 +206,9 @@ importers:
       '@manifesto-ai/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@manifesto-ai/world':
+        specifier: workspace:*
+        version: link:../world
     devDependencies:
       typescript:
         specifier: ^5.9.3
