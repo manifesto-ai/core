@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { createApp, createTestApp } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { Snapshot } from "../core/types/index.js";
+import type { Snapshot } from "../index.js";
 
 const schema: DomainSchema = {
   id: "test:publish",

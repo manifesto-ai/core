@@ -5,15 +5,16 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createApp, createTestApp } from "../index.js";
 import {
+  createApp,
+  createTestApp,
   AppNotReadyError,
   AppDisposedError,
   MissingDefaultActorError,
   ReservedNamespaceError,
   ReservedEffectTypeError,
   PluginInitError,
-} from "../errors/index.js";
+} from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // Mock DomainSchema for testing

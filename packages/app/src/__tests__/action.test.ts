@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createTestApp } from "../index.js";
 import {
+  createTestApp,
   AppNotReadyError,
   AppDisposedError,
   ActionNotFoundError,
@@ -15,9 +15,9 @@ import {
   ActionPreparationError,
   ActionTimeoutError,
   HandleDetachedError,
-} from "../errors/index.js";
+} from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { ActionPhase, ActionUpdate } from "../core/types/index.js";
+import type { ActionPhase, ActionUpdate } from "../index.js";
 
 // Mock DomainSchema with actions
 const mockDomainSchema: DomainSchema = {

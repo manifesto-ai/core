@@ -18,9 +18,9 @@ import type {
   Proposal,
   ApprovedScope,
   AuthorityDecision,
-  ValidationResult,
   ExecutionKey,
-} from "../core/types/index.js";
+} from "../index.js";
+import type { ValidationResult } from "../core/types/index.js";
 import type { Snapshot } from "@manifesto-ai/core";
 
 // =============================================================================

@@ -5,11 +5,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp, createTestApp } from "../index.js";
 import {
+  createApp,
+  createTestApp,
   ReservedNamespaceError,
   ReservedEffectTypeError,
-} from "../errors/index.js";
+} from "../index.js";
 import { executeSystemGet } from "../execution/system-get.js";
 import { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "../constants.js";
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";

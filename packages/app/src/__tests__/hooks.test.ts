@@ -5,15 +5,15 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestApp } from "../index.js";
-import { HookMutationError } from "../errors/index.js";
-import { JobQueue } from "../hooks/queue.js";
-import { HookableImpl } from "../hooks/hookable.js";
-import { createHookContext } from "../hooks/context.js";
-import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
+import {
+  createTestApp,
+  HookMutationError,
+  createAppRef,
+  withDxAliases,
+} from "../index.js";
+import type { AppRefCallbacks, AppState, Branch, HookContext } from "../index.js";
+import { JobQueue, HookableImpl, createHookContext } from "@manifesto-ai/sdk";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { AppState, Branch, HookContext } from "../core/types/index.js";
-import { withDxAliases } from "../core/state/index.js";
 import { createWorldId } from "@manifesto-ai/world";
 
 // Mock DomainSchema

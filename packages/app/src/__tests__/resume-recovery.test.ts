@@ -12,7 +12,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestApp, createInMemoryWorldStore } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { PersistedBranchState } from "../core/types/index.js";
+import type { PersistedBranchState } from "../index.js";
 
 const mockDomainSchema: DomainSchema = {
   id: "test:resume",

@@ -3,7 +3,7 @@ import {
   createInMemoryWorldStore,
   WorldNotFoundError,
 } from "../storage/world-store/index.js";
-import type { Snapshot, WorldDelta } from "../core/types/index.js";
+import type { Snapshot, WorldDelta } from "../index.js";
 import { createWorldId, createProposalId, type World } from "@manifesto-ai/world";
 
 function createSnapshot(
