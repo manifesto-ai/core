@@ -80,7 +80,8 @@ describe("Publish Boundary Stress", () => {
       effects: {
         "effect.first": async (_params, ctx) => {
           effectCallOrder.push("first");
-          const current = (ctx.snapshot.data.steps as string[] | undefined) ?? [];
+          const data = ctx.snapshot.data as Record<string, unknown>;
+          const current = (data.steps as string[] | undefined) ?? [];
           const patches: Patch[] = [
             { op: "set", path: "steps", value: [...current, "first"] },
             { op: "set", path: "firstDone", value: true },
@@ -89,7 +90,8 @@ describe("Publish Boundary Stress", () => {
         },
         "effect.second": async (_params, ctx) => {
           effectCallOrder.push("second");
-          const current = (ctx.snapshot.data.steps as string[] | undefined) ?? [];
+          const data = ctx.snapshot.data as Record<string, unknown>;
+          const current = (data.steps as string[] | undefined) ?? [];
           const patches: Patch[] = [
             { op: "set", path: "steps", value: [...current, "second"] },
             { op: "set", path: "secondDone", value: true },
