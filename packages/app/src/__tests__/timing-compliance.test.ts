@@ -7,10 +7,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp } from "../index.js";
-import { createSilentPolicyService } from "../runtime/policy/index.js";
+import { createApp, createSilentPolicyService } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { ActionPhase } from "../core/types/index.js";
+import type { ActionPhase } from "../index.js";
 import { Timeline } from "./helpers/timeline.js";
 
 // =============================================================================

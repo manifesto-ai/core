@@ -5,11 +5,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestApp } from "../index.js";
-import { SubscriptionStore } from "../runtime/subscription/index.js";
+import { createTestApp, withDxAliases } from "../index.js";
+import { SubscriptionStore } from "@manifesto-ai/runtime";
 import type { DomainSchema } from "@manifesto-ai/core";
-import type { AppState } from "../core/types/index.js";
-import { withDxAliases } from "../core/state/index.js";
+import type { AppState } from "../index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

@@ -5,21 +5,23 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createApp, createTestApp } from "../index.js";
 import {
+  createApp,
+  createTestApp,
   NoneVerifier,
   MemoryHub,
   EnabledMemoryFacade,
   DisabledMemoryFacade,
   createMemoryFacade,
-} from "../runtime/memory/index.js";
-import { MemoryDisabledError, BranchNotFoundError } from "../errors/index.js";
+  MemoryDisabledError,
+  BranchNotFoundError,
+} from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import type {
   MemoryProvider,
   MemoryHubConfig,
   AppState,
-} from "../core/types/index.js";
+} from "../index.js";
 
 // Mock DomainSchema
 const mockDomainSchema: DomainSchema = {

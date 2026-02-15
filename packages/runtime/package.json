@@ -1,0 +1,52 @@
+{
+  "name": "@manifesto-ai/runtime",
+  "version": "0.1.0",
+  "description": "Manifesto Runtime - Internal execution orchestration engine",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/runtime#readme",
+  "keywords": [
+    "manifesto",
+    "runtime",
+    "state-management",
+    "deterministic",
+    "semantic",
+    "traceable",
+    "ai"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/host": "workspace:*",
+    "@manifesto-ai/world": "workspace:*",
+    "@manifesto-ai/compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

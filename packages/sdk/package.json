@@ -1,0 +1,51 @@
+{
+  "name": "@manifesto-ai/sdk",
+  "version": "0.1.0",
+  "description": "Manifesto SDK - Public developer API layer",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/sdk#readme",
+  "keywords": [
+    "manifesto",
+    "sdk",
+    "state-management",
+    "deterministic",
+    "semantic",
+    "traceable",
+    "ai"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/runtime": "workspace:*",
+    "@manifesto-ai/world": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

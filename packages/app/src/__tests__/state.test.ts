@@ -5,15 +5,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createApp, createTestApp } from "../index.js";
+import { createApp, createTestApp, normalizeSnapshot, withDxAliases } from "../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import {
   createInitialAppState,
   snapshotToAppState,
   appStateToSnapshot,
-  normalizeSnapshot,
-  withDxAliases,
-} from "../core/state/index.js";
+} from "../index.js";
 
 // Mock DomainSchema for testing
 const mockDomainSchema: DomainSchema = {

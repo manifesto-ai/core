@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createApp, createTestApp } from "../index.js";
 import type { DomainSchema, Patch, Snapshot } from "@manifesto-ai/core";
 import { hashSchemaSync } from "@manifesto-ai/core";
-import type { AppEffectContext, AppState, EffectHandler } from "../core/types/index.js";
+import type { AppEffectContext, AppState, AppEffectHandler as EffectHandler } from "../index.js";
 
 // =============================================================================
 // Test Fixtures

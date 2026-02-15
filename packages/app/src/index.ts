@@ -2,6 +2,7 @@
  * @manifesto-ai/app
  *
  * Facade and orchestration layer over the Manifesto protocol stack.
+ * Re-exports from @manifesto-ai/runtime and @manifesto-ai/sdk.
  *
  * @packageDocumentation
  * @module @manifesto-ai/app
@@ -9,7 +10,7 @@
  */
 
 // =============================================================================
-// Types
+// Types (from @manifesto-ai/runtime)
 // =============================================================================
 
 export type {
@@ -127,10 +128,15 @@ export type {
   Effects,
   AppEffectContext,
   EffectHandler as AppEffectHandler,
-} from "./core/types/index.js";
+
+  // Internal types (exposed for tests)
+  ValidationResult,
+  SelectionResult,
+  SelectedMemory,
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
-// Errors
+// Errors (from @manifesto-ai/runtime)
 // =============================================================================
 
 export {
@@ -177,28 +183,34 @@ export {
   // Resume & Recovery (SPEC v2.0.5)
   SchemaMismatchOnResumeError,
   BranchHeadNotFoundError,
-} from "./errors/index.js";
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
-// Factory
+// Factory (from @manifesto-ai/sdk)
 // =============================================================================
 
-export { createApp } from "./create-app.js";
+export { createApp } from "@manifesto-ai/sdk";
 
 // =============================================================================
-// Schema Utilities
+// Schema Utilities (from @manifesto-ai/runtime)
 // =============================================================================
 
-export { withPlatformNamespaces } from "./core/schema/index.js";
+export { withPlatformNamespaces } from "@manifesto-ai/runtime";
 
 // =============================================================================
-// State Utilities
+// State Utilities (from @manifesto-ai/runtime)
 // =============================================================================
 
-export { normalizeSnapshot, withDxAliases } from "./core/state/index.js";
+export {
+  normalizeSnapshot,
+  withDxAliases,
+  createInitialAppState,
+  snapshotToAppState,
+  appStateToSnapshot,
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
-// Memory
+// Memory (from @manifesto-ai/runtime)
 // =============================================================================
 
 export {
@@ -208,16 +220,21 @@ export {
   EnabledMemoryFacade,
   DisabledMemoryFacade,
   createMemoryFacade,
-} from "./runtime/memory/index.js";
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
-// Constants
+// Constants (from @manifesto-ai/runtime)
 // =============================================================================
 
-export { SYSTEM_ACTION_TYPES } from "./constants.js";
+export {
+  SYSTEM_ACTION_TYPES,
+  RESERVED_EFFECT_TYPE,
+  RESERVED_NAMESPACE_PREFIX,
+  executeSystemGet,
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
-// v2.0.0 Components
+// v2.0.0 Components (from @manifesto-ai/runtime)
 // =============================================================================
 
 // WorldStore
@@ -226,14 +243,14 @@ export {
   WorldNotFoundError as WorldStoreNotFoundError,
   createInMemoryWorldStore,
   RESTORE_CONTEXT,
-} from "./storage/world-store/index.js";
+} from "@manifesto-ai/runtime";
 export type {
   WorldEntry,
   WorldStoreOptions,
   CompactOptions,
   CompactResult,
   RestoreHostContext,
-} from "./storage/world-store/index.js";
+} from "@manifesto-ai/runtime";
 
 // HostExecutor
 export {
@@ -241,11 +258,11 @@ export {
   ExecutionTimeoutError,
   ExecutionAbortedError,
   createAppHostExecutor,
-} from "./execution/host-executor/index.js";
+} from "@manifesto-ai/runtime";
 export type {
   AppHostExecutorOptions,
   ExecutionContext,
-} from "./execution/host-executor/index.js";
+} from "@manifesto-ai/runtime";
 
 // PolicyService
 export {
@@ -265,13 +282,13 @@ export {
   validateResultScope,
   createPermissiveScope,
   createRestrictedScope,
-} from "./runtime/policy/index.js";
+} from "@manifesto-ai/runtime";
 export type {
   AuthorityHandler,
   ScopeValidator,
   ResultScopeValidator,
   DefaultPolicyServiceOptions,
-} from "./runtime/policy/index.js";
+} from "@manifesto-ai/runtime";
 
 // Memory Context Freezing
 export {
@@ -283,20 +300,20 @@ export {
   freezeRecallResult,
   getFrozenRecallResult,
   clearAppNamespace,
-} from "./runtime/memory/index.js";
+} from "@manifesto-ai/runtime";
 export type {
   AppInputNamespace,
   AppExecutionContext,
-} from "./runtime/memory/index.js";
+} from "@manifesto-ai/runtime";
 
-// AppRef (Hook Enhancement)
+// AppRef (Hook Enhancement) - from @manifesto-ai/sdk
 export {
   AppRefImpl,
   createAppRef,
-} from "./hooks/index.js";
+} from "@manifesto-ai/sdk";
 export type {
   AppRefCallbacks,
-} from "./hooks/index.js";
+} from "@manifesto-ai/runtime";
 
 // Schema Compatibility
 export {
@@ -304,7 +321,7 @@ export {
   validateSchemaCompatibilityWithEffects,
   extractEffectTypes,
   SchemaIncompatibleError,
-} from "./storage/branch/index.js";
+} from "@manifesto-ai/runtime";
 
-// Test Helper
-export { createTestApp } from "./create-app.js";
+// Test Helper (from @manifesto-ai/sdk)
+export { createTestApp } from "@manifesto-ai/sdk";

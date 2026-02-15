@@ -18,8 +18,8 @@ import {
   freezeRecallResult,
   getFrozenRecallResult,
   clearAppNamespace,
-} from "../runtime/memory/context-freezing.js";
-import type { Snapshot, RecallResult } from "../core/types/index.js";
+} from "../index.js";
+import type { Snapshot, RecallResult } from "../index.js";
 
 // =============================================================================
 // Test Helpers
