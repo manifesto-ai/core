@@ -4,4 +4,5 @@ packages:
   - "packages/translator/adapters/*"
   - "packages/translator/targets/*"
   - "apps/*"
+  - "examples/*"
   - "skills"

@@ -1,0 +1,56 @@
+domain TodoApp {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean
+  }
+
+  state {
+    todos: Array<Todo> = []
+    filterMode: "all" | "active" | "completed" = "all"
+  }
+
+  computed todoCount = len(todos)
+  computed completedCount = len(filter(todos, $item.completed))
+  computed activeCount = sub(todoCount, completedCount)
+  computed hasCompleted = gt(completedCount, 0)
+
+  action addTodo(title: string) {
+    onceIntent when neq(trim(title), "") {
+      patch todos = append(todos, {
+        id: $system.uuid,
+        title: trim(title),
+        completed: false
+      })
+    }
+  }
+
+  action toggleTodo(id: string) {
+    onceIntent {
+      patch todos = map(todos,
+        cond(eq($item.id, id),
+          { id: $item.id, title: $item.title, completed: not($item.completed) },
+          $item
+        )
+      )
+    }
+  }
+
+  action removeTodo(id: string) {
+    onceIntent {
+      patch todos = filter(todos, neq($item.id, id))
+    }
+  }
+
+  action setFilter(newFilter: "all" | "active" | "completed") {
+    onceIntent {
+      patch filterMode = newFilter
+    }
+  }
+
+  action clearCompleted() {
+    onceIntent when hasCompleted {
+      patch todos = filter(todos, not($item.completed))
+    }
+  }
+}
