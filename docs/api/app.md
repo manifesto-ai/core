@@ -19,6 +19,33 @@ The App package provides:
 
 ---
 
+## Package Evolution (v2.4.0)
+
+Since v2.4.0, `@manifesto-ai/app` is a **pure re-export facade** over two new packages:
+
+```mermaid
+flowchart TB
+  U["Application Code"] --> APP["@manifesto-ai/app (facade)"]
+
+  APP --> SDK["@manifesto-ai/sdk (public API)"]
+  APP --> RT["@manifesto-ai/runtime (types, errors, internals)"]
+
+  SDK --> RT
+  RT --> C["Core"]
+  RT --> H["Host"]
+  RT --> W["World"]
+```
+
+| Package | Role |
+|---------|------|
+| [`@manifesto-ai/sdk`](/api/sdk) | Public API: `createApp`, `ManifestoApp`, hooks |
+| [`@manifesto-ai/runtime`](/api/runtime) | Internal: types, errors, execution, policy, memory |
+| `@manifesto-ai/app` | Facade: re-exports from both (you are here) |
+
+**No breaking changes.** The same `import { createApp } from "@manifesto-ai/app"` works as before. See [ADR-007](../internals/adr/007-sdk-runtime-split-kickoff) for rationale.
+
+---
+
 ## Architecture
 
 `@manifesto-ai/app` is the facade layer that wires World, Host, Core, and Memory.
@@ -1233,8 +1260,11 @@ These are useful when you need lower-level composition outside the default `crea
 
 ## Related Documentation
 
+- [SDK Package](/api/sdk) - Public developer API layer (createApp, hooks)
+- [Runtime Package](/api/runtime) - Internal execution orchestration engine
 - [Core Package](/api/core) - Domain schema and computation
 - [Host Package](/api/host) - Effect execution specification
 - [World Package](/api/world) - Governance and lineage
 - [Getting Started](/quickstart) - Step-by-step tutorial
 - [Effect Handlers](/guides/effect-handlers) - Detailed effect handler guide
+- [ADR-007](../internals/adr/007-sdk-runtime-split-kickoff) - SDK/Runtime split rationale
