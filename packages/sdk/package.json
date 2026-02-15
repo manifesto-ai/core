@@ -1,7 +1,6 @@
 {
   "name": "@manifesto-ai/sdk",
   "version": "0.1.0",
-  "private": true,
   "description": "Manifesto SDK - Public developer API layer",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -10,6 +9,19 @@
     "url": "git+https://github.com/manifesto-ai/core.git",
     "directory": "packages/sdk"
   },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/sdk#readme",
+  "keywords": [
+    "manifesto",
+    "sdk",
+    "state-management",
+    "deterministic",
+    "semantic",
+    "traceable",
+    "ai"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

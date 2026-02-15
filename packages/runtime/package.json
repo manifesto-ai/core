@@ -1,7 +1,6 @@
 {
   "name": "@manifesto-ai/runtime",
   "version": "0.1.0",
-  "private": true,
   "description": "Manifesto Runtime - Internal execution orchestration engine",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -10,6 +9,19 @@
     "url": "git+https://github.com/manifesto-ai/core.git",
     "directory": "packages/runtime"
   },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/runtime#readme",
+  "keywords": [
+    "manifesto",
+    "runtime",
+    "state-management",
+    "deterministic",
+    "semantic",
+    "traceable",
+    "ai"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
