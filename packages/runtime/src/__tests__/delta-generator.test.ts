@@ -14,7 +14,7 @@ import {
   generateDelta,
   toCanonicalSnapshot,
 } from "../storage/world-store/delta-generator.js";
-import type { Snapshot } from "../core/types/index.js";
+import type { Snapshot } from "../types/index.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);

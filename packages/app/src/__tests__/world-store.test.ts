@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createInMemoryWorldStore,
-  WorldNotFoundError,
-} from "../storage/world-store/index.js";
+} from "../index.js";
 import type { Snapshot, WorldDelta } from "../index.js";
 import { createWorldId, createProposalId, type World } from "@manifesto-ai/world";
 
@@ -87,6 +86,6 @@ describe("WorldStore (FDR-APP-INTEGRATION-001)", () => {
     const store = createInMemoryWorldStore();
     const missingId = createWorldId("world-missing");
 
-    await expect(store.restore(missingId)).rejects.toThrow(WorldNotFoundError);
+    await expect(store.restore(missingId)).rejects.toThrow("World not found");
   });
 });

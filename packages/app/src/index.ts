@@ -128,6 +128,11 @@ export type {
   Effects,
   AppEffectContext,
   EffectHandler as AppEffectHandler,
+
+  // Internal types (exposed for tests)
+  ValidationResult,
+  SelectionResult,
+  SelectedMemory,
 } from "@manifesto-ai/runtime";
 
 // =============================================================================
@@ -196,7 +201,13 @@ export { withPlatformNamespaces } from "@manifesto-ai/runtime";
 // State Utilities (from @manifesto-ai/runtime)
 // =============================================================================
 
-export { normalizeSnapshot, withDxAliases } from "@manifesto-ai/runtime";
+export {
+  normalizeSnapshot,
+  withDxAliases,
+  createInitialAppState,
+  snapshotToAppState,
+  appStateToSnapshot,
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
 // Memory (from @manifesto-ai/runtime)
@@ -215,7 +226,12 @@ export {
 // Constants (from @manifesto-ai/runtime)
 // =============================================================================
 
-export { SYSTEM_ACTION_TYPES } from "@manifesto-ai/runtime";
+export {
+  SYSTEM_ACTION_TYPES,
+  RESERVED_EFFECT_TYPE,
+  RESERVED_NAMESPACE_PREFIX,
+  executeSystemGet,
+} from "@manifesto-ai/runtime";
 
 // =============================================================================
 // v2.0.0 Components (from @manifesto-ai/runtime)

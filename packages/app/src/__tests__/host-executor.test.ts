@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { AppHostExecutor } from "../execution/host-executor/index.js";
-import type { Host, HostResult, Intent, Snapshot } from "../core/types/index.js";
+import { AppHostExecutor } from "../index.js";
+import type { Host, HostResult, Intent, Snapshot } from "../index.js";
 
 function createBaseSnapshot(): Snapshot {
   return {

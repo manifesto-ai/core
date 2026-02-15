@@ -21,7 +21,7 @@ import type {
 import type {
   SelectionResult,
   SelectedMemory,
-} from "../core/types/index.js";
+} from "../index.js";
 import type { WorldId } from "@manifesto-ai/world";
 
 // ActorRef type definition (aligned with @manifesto-ai/world)

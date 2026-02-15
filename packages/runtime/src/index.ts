@@ -137,6 +137,11 @@ export type {
 
   // MelText
   MelText,
+
+  // Internal types (exposed for app tests)
+  ValidationResult,
+  SelectionResult,
+  SelectedMemory,
 } from "./types/index.js";
 
 // Additional types from sub-modules
@@ -229,7 +234,13 @@ export { withPlatformNamespaces } from "./schema/index.js";
 // State Utilities
 // =============================================================================
 
-export { normalizeSnapshot, withDxAliases } from "./state/index.js";
+export {
+  normalizeSnapshot,
+  withDxAliases,
+  createInitialAppState,
+  snapshotToAppState,
+  appStateToSnapshot,
+} from "./state/index.js";
 
 // =============================================================================
 // Memory
@@ -356,3 +367,4 @@ export type {
 export { SystemRuntime, createSystemFacade } from "./system/index.js";
 export { SessionImpl } from "./session/index.js";
 export { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "./constants.js";
+export { executeSystemGet } from "./execution/system-get.js";

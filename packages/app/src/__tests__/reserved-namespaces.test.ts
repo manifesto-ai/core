@@ -10,9 +10,10 @@ import {
   createTestApp,
   ReservedNamespaceError,
   ReservedEffectTypeError,
+  executeSystemGet,
+  RESERVED_EFFECT_TYPE,
+  RESERVED_NAMESPACE_PREFIX,
 } from "../index.js";
-import { executeSystemGet } from "../execution/system-get.js";
-import { RESERVED_EFFECT_TYPE, RESERVED_NAMESPACE_PREFIX } from "../constants.js";
 import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
 
 // Valid mock DomainSchema

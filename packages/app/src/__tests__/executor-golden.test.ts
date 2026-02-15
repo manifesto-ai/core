@@ -20,7 +20,7 @@ import type {
   AuthorityDecision,
   ExecutionKey,
 } from "../index.js";
-import type { ValidationResult } from "../core/types/index.js";
+import type { ValidationResult } from "../index.js";
 import type { Snapshot } from "@manifesto-ai/core";
 
 // =============================================================================
