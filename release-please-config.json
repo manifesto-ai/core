@@ -26,6 +26,10 @@
       "package-name": "@manifesto-ai/app",
       "changelog-path": "CHANGELOG.md"
     },
+    "packages/codegen": {
+      "package-name": "@manifesto-ai/codegen",
+      "changelog-path": "CHANGELOG.md"
+    },
     "packages/compiler": {
       "package-name": "@manifesto-ai/compiler",
       "changelog-path": "CHANGELOG.md"
@@ -40,6 +44,14 @@
     },
     "packages/intent-ir": {
       "package-name": "@manifesto-ai/intent-ir",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/runtime": {
+      "package-name": "@manifesto-ai/runtime",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/sdk": {
+      "package-name": "@manifesto-ai/sdk",
       "changelog-path": "CHANGELOG.md"
     },
     "packages/translator/core": {
