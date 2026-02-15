@@ -3,9 +3,60 @@
 This guide helps you migrate between major versions of `createApp()` API.
 
 **Version History:**
+- [v2.3.0 → v2.4.0](#v230--v240-sdkruntime-extraction) — SDK/Runtime extraction (ADR-007)
 - [v2.2.0 → v2.3.0](#v220--v230-world-owns-persistence) — World owns persistence (ADR-003)
 - [v2.0.0 → v2.2.0](#v200--v220-effects-first-api) — Effects-first API (ADR-APP-002)
 - [v1.x → v2.0.0](#v1x--v200-injectable-host) — Injectable Host
+
+---
+
+# v2.3.0 → v2.4.0: SDK/Runtime Extraction
+
+> **Breaking Change:** None
+> **Internal Change:** App internals extracted into `@manifesto-ai/sdk` and `@manifesto-ai/runtime`
+
+## Overview
+
+v2.4.0 implements **ADR-007** (SDK/Runtime Split):
+
+| v2.3.0 | v2.4.0 |
+|--------|--------|
+| Monolithic (~14,000 LOC) | Pure re-export facade (328 LOC) |
+| All internals in `app` | Internals in `runtime`, public API in `sdk` |
+| Single package | App re-exports from `sdk` + `runtime` |
+
+## No Migration Needed
+
+**The public API is identical.** No code changes are required.
+
+```typescript
+// This works exactly the same in v2.3.0 and v2.4.0
+import { createApp } from "@manifesto-ai/app";
+
+const app = createApp({
+  schema,
+  effects: { "api.save": handler },
+});
+
+await app.ready();
+```
+
+## Advanced: Direct SDK Import (Preview)
+
+During **Phase 1**, `@manifesto-ai/app` remains the canonical entry point. Direct SDK imports are available as a preview:
+
+```typescript
+// Preview — may change in Phase 2
+import { createApp } from "@manifesto-ai/sdk";
+```
+
+> **Note:** SDK/Runtime packages are kickoff-locked per ADR-007. Requirement IDs (`SDK-*`, `RT-*`) are stable, but the packages are not yet promoted to primary entry points.
+
+## Resources
+
+- [ADR-007: SDK/Runtime Split](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md)
+- [sdk-SPEC-v0.1.0](../../sdk/docs/sdk-SPEC-v0.1.0.md)
+- [runtime-SPEC-v0.1.0](../../runtime/docs/runtime-SPEC-v0.1.0.md)
 
 ---
 

@@ -1,16 +1,19 @@
 # Manifesto App Documentation Index
 
 > **Package:** `@manifesto-ai/app`
-> **Last Updated:** 2026-02-08
+> **Last Updated:** 2026-02-15
 
 ---
 
 ## Latest Version
 
+- **Package:** v2.4.0 (facade — re-exports from SDK/Runtime per [ADR-007](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md))
 - **SPEC:** [v2.3.1](APP-SPEC-v2.3.1-patch.md) (Patch, Base: v2.3.0 — Head Query API delegation)
 - **Architecture:** [APP-ARCHITECTURE-OVERVIEW.md](APP-ARCHITECTURE-OVERVIEW.md)
 
-**Note:** v2.3.1 is a patch on v2.3.0. Read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) first, then apply [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md). For API rationale, see [ADR-APP-002](ADR-APP-002-v0.2.0.md).
+**Note:** Since v2.4.0, `@manifesto-ai/app` is a pure re-export facade. Implementation now lives in [`@manifesto-ai/sdk`](../../sdk/docs/VERSION-INDEX.md) (public API) and [`@manifesto-ai/runtime`](../../runtime/docs/VERSION-INDEX.md) (internal orchestration). No public API changes — existing imports work identically.
+
+For SPEC details, read [APP-SPEC-v2.3.0.md](APP-SPEC-v2.3.0.md) first, then apply [APP-SPEC-v2.3.1-patch.md](APP-SPEC-v2.3.1-patch.md). For API rationale, see [ADR-APP-002](ADR-APP-002-v0.2.0.md).
 
 ---
 
@@ -18,6 +21,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
+| v2.4.0 | — | [ADR-007](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md) | Facade (SDK/Runtime split) | Released |
 | v2.3.1 | [SPEC](APP-SPEC-v2.3.1-patch.md) | — | Patch (Base: v2.3.0) | Draft |
 | v2.3.0 | [SPEC](APP-SPEC-v2.3.0.md) | [ADR-APP-002](#adrs) | Full | Ratified |
 | v2.1.0 | [SPEC](APP-SPEC-v2.1.0-patch.md) | — | Patch (Base: v2.0.0) | Draft |
@@ -73,7 +77,18 @@
 
 ---
 
+## Related Packages (ADR-007)
+
+Since v2.4.0, App is a facade over:
+
+| Package | Version | Role |
+|---------|---------|------|
+| [`@manifesto-ai/sdk`](../../sdk/docs/VERSION-INDEX.md) | v0.1.0 | Public developer API |
+| [`@manifesto-ai/runtime`](../../runtime/docs/VERSION-INDEX.md) | v0.1.0 | Internal orchestration engine |
+
+---
+
 ## Additional Documents
 
 - [APP-TEST-SPEC-v2.0.0.md](APP-TEST-SPEC-v2.0.0.md) - Test specification
-- [MIGRATION-GUIDE.md](MIGRATION-GUIDE.md) - Migration guide from v0.4.x to v2.0
+- [MIGRATION-GUIDE.md](MIGRATION-GUIDE.md) - Migration guide from v0.4.x to v2.4

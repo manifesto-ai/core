@@ -136,6 +136,8 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/app', link: '/api/app' },
+            { text: '@manifesto-ai/sdk', link: '/api/sdk' },
+            { text: '@manifesto-ai/runtime', link: '/api/runtime' },
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/world', link: '/api/world' },
@@ -199,6 +201,9 @@ export default defineConfig({
             { text: 'ADR-002: DX Improvements', link: '/internals/adr/002-dx-improvement-mel-namespace-onceIntent' },
             { text: 'ADR-003: World Owns Persistence', link: '/internals/adr/003-world-owns-persistence' },
             { text: 'ADR-004: App Internal Decomposition', link: '/internals/adr/004-app-package-internal-decomposition' },
+            { text: 'ADR-005: Snapshot Path DSL (Withdrawn)', link: '/internals/adr/005-dx-improvement-snapshot-path-dsl' },
+            { text: 'ADR-006: Runtime Reframing', link: '/internals/adr/006-runtime-reframing' },
+            { text: 'ADR-007: SDK/Runtime Split', link: '/internals/adr/007-sdk-runtime-split-kickoff' },
           ]
         },
         {
