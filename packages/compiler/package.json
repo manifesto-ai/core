@@ -83,8 +83,8 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
     "@manifesto-ai/core": "workspace:*",
-    "@types/node": "^25.2.0",
-    "@types/react": "^19.2.10",
+    "@types/node": "^25.2.3",
+    "@types/react": "^19.2.14",
     "dotenv": "^17.2.3",
     "openai": "^6.17.0",
     "tsx": "^4.21.0",
