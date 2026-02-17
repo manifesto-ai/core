@@ -21,7 +21,11 @@ const changed = [];
 const skippedUnsafe = [];
 
 function parseExportList(specList) {
-  return specList
+  // Remove inline/block comments to avoid polluting symbol names.
+  const withoutBlockComments = specList.replace(/\/\*[\s\S]*?\*\//g, '');
+  const withoutLineComments = withoutBlockComments.replace(/\/\/.*$/gm, '');
+
+  return withoutLineComments
     .split(',')
     .map((raw) => raw.trim())
     .filter(Boolean)
@@ -67,30 +71,43 @@ function collectAppImportSymbols(content) {
   const symbols = new Set();
   const unresolvedNamespaceAliases = [];
 
-  const appImportStatements = /import[\s\S]*?from\s*["']@manifesto-ai\/app["'];?/g;
-  for (const statement of content.match(appImportStatements) ?? []) {
-    const trimmed = statement.trim();
+  const namedOnlyImport = /^\s*import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']@manifesto-ai\/app["']\s*;?/gm;
+  for (const match of content.matchAll(namedOnlyImport)) {
+    for (const name of parseExportList(match[1])) symbols.add(name);
+  }
 
-    const namespaceImport = trimmed.match(/import\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from/);
-    if (namespaceImport) {
-      const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, namespaceImport[1]);
+  const defaultAndNamedImport = /^\s*import\s+(?:type\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s*,\s*\{([^}]*)\}\s*from\s*["']@manifesto-ai\/app["']\s*;?/gm;
+  for (const match of content.matchAll(defaultAndNamedImport)) {
+    const alias = match[1];
+    const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, alias);
+    for (const symbol of usedSymbols) symbols.add(symbol);
+    if (!hasMemberAccess) unresolvedNamespaceAliases.push(alias);
+    for (const name of parseExportList(match[2])) symbols.add(name);
+  }
+
+  const namespaceImport = /^\s*import\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s*["']@manifesto-ai\/app["']\s*;?/gm;
+  for (const match of content.matchAll(namespaceImport)) {
+    const alias = match[1];
+    const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, alias);
+    for (const symbol of usedSymbols) symbols.add(symbol);
+    if (!hasMemberAccess) unresolvedNamespaceAliases.push(alias);
+  }
+
+  const defaultAndNamespaceImport = /^\s*import\s+(?:type\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s*,\s*\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s*["']@manifesto-ai\/app["']\s*;?/gm;
+  for (const match of content.matchAll(defaultAndNamespaceImport)) {
+    for (const alias of [match[1], match[2]]) {
+      const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, alias);
       for (const symbol of usedSymbols) symbols.add(symbol);
-      if (!hasMemberAccess) unresolvedNamespaceAliases.push(namespaceImport[1]);
-      continue;
+      if (!hasMemberAccess) unresolvedNamespaceAliases.push(alias);
     }
+  }
 
-    if (!trimmed.startsWith('import type')) {
-      const defaultImport = trimmed.match(/import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:,|\s+from)/);
-      if (defaultImport) {
-        const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, defaultImport[1]);
-        for (const symbol of usedSymbols) symbols.add(symbol);
-        if (!hasMemberAccess) unresolvedNamespaceAliases.push(defaultImport[1]);
-      }
-    }
-
-    const named = statement.match(/\{([\s\S]*?)\}/);
-    if (!named) continue;
-    for (const name of parseExportList(named[1])) symbols.add(name);
+  const defaultImport = /^\s*import\s+(?:type\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s*["']@manifesto-ai\/app["']\s*;?/gm;
+  for (const match of content.matchAll(defaultImport)) {
+    const alias = match[1];
+    const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, alias);
+    for (const symbol of usedSymbols) symbols.add(symbol);
+    if (!hasMemberAccess) unresolvedNamespaceAliases.push(alias);
   }
 
   const destructuredRequire = /(?:const|let|var)\s*\{([\s\S]*?)\}\s*=\s*require\(\s*["']@manifesto-ai\/app["']\s*\)/g;
