@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/manifesto-ai/core/compare/sdk-v1.1.0...sdk-v1.2.0) (2026-02-17)
+
+
+### Features
+
+* **r2:** retire @manifesto-ai/app and lock no-app import guard ([1834515](https://github.com/manifesto-ai/core/commit/18345151bb0a9a29f4199fbc7d64ba291d40183e))
+* **r2:** retire app package and enforce sdk-only guard ([53c9c3b](https://github.com/manifesto-ai/core/commit/53c9c3b9ef596341e3afc1295a9b7ecb3b26a92e))
+
 ## [1.1.0](https://github.com/manifesto-ai/core/compare/sdk-v1.0.0...sdk-v1.1.0) (2026-02-17)
 
 
