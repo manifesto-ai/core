@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Guard: no app imports
+      - name: Guard - no app imports
         run: pnpm check:no-app-imports
 
       - name: Build
@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Guard: no app imports
+      - name: Guard - no app imports
         run: pnpm check:no-app-imports
 
       - name: Type check
