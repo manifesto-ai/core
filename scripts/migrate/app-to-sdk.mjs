@@ -16,6 +16,7 @@ const TEXT_EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.jsx', '.json',
 const SOURCE = '@manifesto-ai/app';
 const TARGET = '@manifesto-ai/sdk';
 const SDK_INDEX = resolve(process.cwd(), 'packages/sdk/src/index.ts');
+const SELF_PATH = process.argv[1] ? resolve(process.argv[1]) : '';
 
 const changed = [];
 const skippedUnsafe = [];
@@ -145,20 +146,150 @@ function collectAliasMemberUsage(content, alias) {
   const usedSymbols = new Set();
   const escapedAlias = escapeRegExp(alias);
   let hasMemberAccess = false;
+  const ignoredRanges = collectIgnoredRanges(content);
 
   const dotAccess = new RegExp(`\\b${escapedAlias}\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)`, 'g');
   for (const match of content.matchAll(dotAccess)) {
+    if (isIndexIgnored(match.index ?? -1, ignoredRanges)) continue;
     usedSymbols.add(match[1]);
     hasMemberAccess = true;
   }
 
   const bracketAccess = new RegExp(`\\b${escapedAlias}\\s*\\[\\s*["']([A-Za-z_$][A-Za-z0-9_$]*)["']\\s*\\]`, 'g');
   for (const match of content.matchAll(bracketAccess)) {
+    if (isIndexIgnored(match.index ?? -1, ignoredRanges)) continue;
     usedSymbols.add(match[1]);
     hasMemberAccess = true;
   }
 
   return { usedSymbols, hasMemberAccess };
+}
+
+function collectIgnoredRanges(content) {
+  const ranges = [];
+  const len = content.length;
+  let i = 0;
+  let state = 'normal';
+  let start = -1;
+
+  while (i < len) {
+    const ch = content[i];
+    const next = i + 1 < len ? content[i + 1] : '';
+
+    if (state === 'normal') {
+      if (ch === '/' && next === '/') {
+        start = i;
+        state = 'lineComment';
+        i += 2;
+        continue;
+      }
+      if (ch === '/' && next === '*') {
+        start = i;
+        state = 'blockComment';
+        i += 2;
+        continue;
+      }
+      if (ch === "'") {
+        start = i;
+        state = 'singleQuote';
+        i += 1;
+        continue;
+      }
+      if (ch === '"') {
+        start = i;
+        state = 'doubleQuote';
+        i += 1;
+        continue;
+      }
+      if (ch === '`') {
+        start = i;
+        state = 'templateQuote';
+        i += 1;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state === 'lineComment') {
+      if (ch === '\n') {
+        ranges.push([start, i]);
+        state = 'normal';
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state === 'blockComment') {
+      if (ch === '*' && next === '/') {
+        i += 2;
+        ranges.push([start, i]);
+        state = 'normal';
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state === 'singleQuote') {
+      if (ch === '\\') {
+        i += 2;
+        continue;
+      }
+      if (ch === "'") {
+        i += 1;
+        ranges.push([start, i]);
+        state = 'normal';
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state === 'doubleQuote') {
+      if (ch === '\\') {
+        i += 2;
+        continue;
+      }
+      if (ch === '"') {
+        i += 1;
+        ranges.push([start, i]);
+        state = 'normal';
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (state === 'templateQuote') {
+      if (ch === '\\') {
+        i += 2;
+        continue;
+      }
+      if (ch === '`') {
+        i += 1;
+        ranges.push([start, i]);
+        state = 'normal';
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+  }
+
+  if (state !== 'normal' && start >= 0) {
+    ranges.push([start, len]);
+  }
+  return ranges;
+}
+
+function isIndexIgnored(index, ranges) {
+  if (index < 0) return false;
+  for (const [start, end] of ranges) {
+    if (index < start) return false;
+    if (index >= start && index < end) return true;
+  }
+  return false;
 }
 
 function hasAllowedExt(path) {
@@ -168,6 +299,8 @@ function hasAllowedExt(path) {
 }
 
 function walk(path) {
+  if (SELF_PATH && resolve(path) === SELF_PATH) return;
+
   const stat = statSync(path);
   if (stat.isDirectory()) {
     const name = basename(path);
