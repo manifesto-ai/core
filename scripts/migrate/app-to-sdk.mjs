@@ -20,7 +20,7 @@ const SDK_INDEX = resolve(process.cwd(), 'packages/sdk/src/index.ts');
 const changed = [];
 const skippedUnsafe = [];
 
-function parseExportList(specList) {
+function parseSpecList(specList, mode) {
   // Remove inline/block comments to avoid polluting symbol names.
   const withoutBlockComments = specList.replace(/\/\*[\s\S]*?\*\//g, '');
   const withoutLineComments = withoutBlockComments.replace(/\/\/.*$/gm, '');
@@ -33,6 +33,12 @@ function parseExportList(specList) {
       const clean = entry.replace(/^type\s+/, '').trim();
       if (clean.includes(' as ')) {
         const parts = clean.split(/\s+as\s+/);
+        if (mode === 'imported') return parts[0].trim();
+        return parts[parts.length - 1].trim();
+      }
+      if (clean.includes(':')) {
+        const parts = clean.split(/\s*:\s*/);
+        if (mode === 'imported') return parts[0].trim();
         return parts[parts.length - 1].trim();
       }
       return clean;
@@ -49,12 +55,12 @@ function loadSdkExports() {
   try {
     source = readFileSync(SDK_INDEX, 'utf8');
   } catch {
-    return exports;
+    return { exports, loaded: false };
   }
 
   const reExportBlock = /export\s+(?:type\s+)?\{([\s\S]*?)\}\s+from\s+['"][^'"]+['"]/g;
   for (const match of source.matchAll(reExportBlock)) {
-    for (const name of parseExportList(match[1])) exports.add(name);
+    for (const name of parseSpecList(match[1], 'exposed')) exports.add(name);
   }
 
   const directExport = /export\s+(?:class|function|const|let|var|type|interface|enum)\s+([A-Za-z_$][A-Za-z0-9_$]*)/g;
@@ -62,10 +68,12 @@ function loadSdkExports() {
     exports.add(match[1]);
   }
 
-  return exports;
+  return { exports, loaded: true };
 }
 
-const sdkExports = loadSdkExports();
+const loadedSdkExports = loadSdkExports();
+const sdkExports = loadedSdkExports.exports;
+const sdkExportsLoaded = loadedSdkExports.loaded;
 
 function collectAppImportSymbols(content) {
   const symbols = new Set();
@@ -73,7 +81,7 @@ function collectAppImportSymbols(content) {
 
   const namedOnlyImport = /^\s*import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']@manifesto-ai\/app["']\s*;?/gm;
   for (const match of content.matchAll(namedOnlyImport)) {
-    for (const name of parseExportList(match[1])) symbols.add(name);
+    for (const name of parseSpecList(match[1], 'imported')) symbols.add(name);
   }
 
   const defaultAndNamedImport = /^\s*import\s+(?:type\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s*,\s*\{([^}]*)\}\s*from\s*["']@manifesto-ai\/app["']\s*;?/gm;
@@ -82,7 +90,7 @@ function collectAppImportSymbols(content) {
     const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, alias);
     for (const symbol of usedSymbols) symbols.add(symbol);
     if (!hasMemberAccess) unresolvedNamespaceAliases.push(alias);
-    for (const name of parseExportList(match[2])) symbols.add(name);
+    for (const name of parseSpecList(match[2], 'imported')) symbols.add(name);
   }
 
   const namespaceImport = /^\s*import\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s*["']@manifesto-ai\/app["']\s*;?/gm;
@@ -112,7 +120,7 @@ function collectAppImportSymbols(content) {
 
   const destructuredRequire = /(?:const|let|var)\s*\{([\s\S]*?)\}\s*=\s*require\(\s*["']@manifesto-ai\/app["']\s*\)/g;
   for (const match of content.matchAll(destructuredRequire)) {
-    for (const name of parseExportList(match[1])) symbols.add(name);
+    for (const name of parseSpecList(match[1], 'imported')) symbols.add(name);
   }
 
   const namespaceRequire = /(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*require\(\s*["']@manifesto-ai\/app["']\s*\)/g;
@@ -130,7 +138,6 @@ function collectAppImportSymbols(content) {
 }
 
 function findUnsupportedSymbols(importedSymbols) {
-  if (sdkExports.size === 0) return [];
   return [...importedSymbols].filter((symbol) => !sdkExports.has(symbol));
 }
 
@@ -175,6 +182,14 @@ function walk(path) {
   if (!original.includes(SOURCE)) return;
 
   if (!allowUnsafe) {
+    if (!sdkExportsLoaded) {
+      skippedUnsafe.push({
+        path,
+        symbols: [`SDK export index not found at ${relative(process.cwd(), SDK_INDEX) || SDK_INDEX}`],
+      });
+      return;
+    }
+
     const imported = collectAppImportSymbols(original);
     const unsupported = findUnsupportedSymbols(imported.symbols);
     const unresolvedAliases = imported.unresolvedNamespaceAliases.map(

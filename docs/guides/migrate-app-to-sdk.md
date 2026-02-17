@@ -56,6 +56,7 @@ node scripts/migrate/app-to-sdk.mjs --write src docs
 - The script skips `node_modules`, `dist`, `coverage`, `.git`, and `.turbo` directories.
 - The script skips files that use app-only symbols not exported by SDK (for example `createSilentPolicyService`) and exits non-zero so you can fix them manually.
 - This safety check also covers namespace/default usage such as `import * as app from "@manifesto-ai/app"` and `const app = require("@manifesto-ai/app")`.
+- Run the script from repository root so it can load `packages/sdk/src/index.ts` for allowlist validation.
 - If you intentionally want raw path replacement anyway, use `--allow-unsafe`.
 - Historical ADR/FDR references may intentionally keep `@manifesto-ai/app` strings.
 - Re-run tests/build after migration.
