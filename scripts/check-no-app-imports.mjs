@@ -30,6 +30,7 @@ const SCAN_EXTENSIONS = new Set([
 
 const LEGACY_ALLOWLIST = [
   /^CHANGELOG\.md$/,
+  /^packages\/[^/]+(?:\/[^/]+)?\/CHANGELOG\.md$/,
   /^archives\//,
   /^docs\/api\/app\.md$/,
   /^docs\/guides\/migrate-app-to-sdk\.md$/,
