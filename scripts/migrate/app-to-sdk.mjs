@@ -35,6 +35,10 @@ function parseExportList(specList) {
     });
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function loadSdkExports() {
   const exports = new Set();
   let source = '';
@@ -61,9 +65,29 @@ const sdkExports = loadSdkExports();
 
 function collectAppImportSymbols(content) {
   const symbols = new Set();
+  const unresolvedNamespaceAliases = [];
 
   const appImportStatements = /import[\s\S]*?from\s*["']@manifesto-ai\/app["'];?/g;
   for (const statement of content.match(appImportStatements) ?? []) {
+    const trimmed = statement.trim();
+
+    const namespaceImport = trimmed.match(/import\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from/);
+    if (namespaceImport) {
+      const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, namespaceImport[1]);
+      for (const symbol of usedSymbols) symbols.add(symbol);
+      if (!hasMemberAccess) unresolvedNamespaceAliases.push(namespaceImport[1]);
+      continue;
+    }
+
+    if (!trimmed.startsWith('import type')) {
+      const defaultImport = trimmed.match(/import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:,|\s+from)/);
+      if (defaultImport) {
+        const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, defaultImport[1]);
+        for (const symbol of usedSymbols) symbols.add(symbol);
+        if (!hasMemberAccess) unresolvedNamespaceAliases.push(defaultImport[1]);
+      }
+    }
+
     const named = statement.match(/\{([\s\S]*?)\}/);
     if (!named) continue;
     for (const name of parseExportList(named[1])) symbols.add(name);
@@ -74,12 +98,43 @@ function collectAppImportSymbols(content) {
     for (const name of parseExportList(match[1])) symbols.add(name);
   }
 
-  return symbols;
+  const namespaceRequire = /(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*require\(\s*["']@manifesto-ai\/app["']\s*\)/g;
+  for (const match of content.matchAll(namespaceRequire)) {
+    const alias = match[1];
+    const { usedSymbols, hasMemberAccess } = collectAliasMemberUsage(content, alias);
+    for (const symbol of usedSymbols) symbols.add(symbol);
+    if (!hasMemberAccess) unresolvedNamespaceAliases.push(alias);
+  }
+
+  return {
+    symbols,
+    unresolvedNamespaceAliases,
+  };
 }
 
 function findUnsupportedSymbols(importedSymbols) {
   if (sdkExports.size === 0) return [];
   return [...importedSymbols].filter((symbol) => !sdkExports.has(symbol));
+}
+
+function collectAliasMemberUsage(content, alias) {
+  const usedSymbols = new Set();
+  const escapedAlias = escapeRegExp(alias);
+  let hasMemberAccess = false;
+
+  const dotAccess = new RegExp(`\\b${escapedAlias}\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)`, 'g');
+  for (const match of content.matchAll(dotAccess)) {
+    usedSymbols.add(match[1]);
+    hasMemberAccess = true;
+  }
+
+  const bracketAccess = new RegExp(`\\b${escapedAlias}\\s*\\[\\s*["']([A-Za-z_$][A-Za-z0-9_$]*)["']\\s*\\]`, 'g');
+  for (const match of content.matchAll(bracketAccess)) {
+    usedSymbols.add(match[1]);
+    hasMemberAccess = true;
+  }
+
+  return { usedSymbols, hasMemberAccess };
 }
 
 function hasAllowedExt(path) {
@@ -103,10 +158,15 @@ function walk(path) {
   if (!original.includes(SOURCE)) return;
 
   if (!allowUnsafe) {
-    const importedSymbols = collectAppImportSymbols(original);
-    const unsupported = findUnsupportedSymbols(importedSymbols);
-    if (unsupported.length > 0) {
-      skippedUnsafe.push({ path, symbols: unsupported });
+    const imported = collectAppImportSymbols(original);
+    const unsupported = findUnsupportedSymbols(imported.symbols);
+    const unresolvedAliases = imported.unresolvedNamespaceAliases.map(
+      (alias) => `namespace/default alias "${alias}" (no member access detected)`,
+    );
+    const reasons = [...unsupported, ...unresolvedAliases];
+
+    if (reasons.length > 0) {
+      skippedUnsafe.push({ path, symbols: reasons });
       return;
     }
   }
