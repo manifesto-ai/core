@@ -28,7 +28,7 @@ Guides assume you already understand the basics.
 | [Effect Handlers](./effect-handlers) | Write robust handlers for API calls, database, etc. | Intermediate |
 | [Re-entry Safety](./reentry-safe-flows) | Prevent infinite loops and duplicate effects | Intermediate |
 | [Debugging](./debugging) | Inspect traces, state, and performance | Beginner |
-| [Migrate App to SDK](./migrate-app-to-sdk) | Replace legacy `@manifesto-ai/app` imports with `@manifesto-ai/sdk` | Beginner |
+| [Migrate App to SDK](./migrate-app-to-sdk) | Replace legacy app-facade imports with `@manifesto-ai/sdk` | Beginner |
 | [Performance Report](./performance-report) | Benchmark results and reproduction commands | Advanced |
 | [Code Generation](./code-generation) | Generate TypeScript types and Zod schemas from DomainSchema | Beginner |
 

@@ -3,7 +3,7 @@
 ## Why
 
 `@manifesto-ai/sdk` is now the canonical public entry point.
-The legacy facade package `@manifesto-ai/app` is deprecated in R1 and scheduled for removal in R2.
+The legacy facade package `@manifesto-ai/app` was removed in R2.
 
 - Decision: [ADR-008](/internals/adr/008-sdk-first-transition-and-app-retirement)
 
@@ -24,7 +24,7 @@ Update dependency declarations:
 ```json
 {
   "dependencies": {
-    "@manifesto-ai/sdk": "^1.0.0"
+    "@manifesto-ai/sdk": "^1.1.0"
   }
 }
 ```

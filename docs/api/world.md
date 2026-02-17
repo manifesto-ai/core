@@ -138,10 +138,10 @@ type WorldHead = {
 };
 ```
 
-The `WorldHead` type is defined in `@manifesto-ai/world` and used by the App-level Head Query API.
+The `WorldHead` type is defined in `@manifesto-ai/world` and used by the SDK-level head query APIs.
 
 ::: info
-`ManifestoWorld` does not expose Head Query methods directly. The `getHeads()` and `getLatestHead()` APIs are implemented at the [App](/api/app#head-query-methods) level, composing data from `BranchManager` and `WorldStore`.
+`ManifestoWorld` does not expose head query methods directly. Use SDK app APIs (`getHeads()`, `getLatestHead()`) that compose data from `BranchManager` and `WorldStore`.
 :::
 
 ---

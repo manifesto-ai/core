@@ -174,7 +174,6 @@ Custom implementations must satisfy the `WorldStore` interface.
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/sdk](./sdk) | Public API layer (consumes Runtime) |
-| [@manifesto-ai/app](./app) | Deprecated compatibility package (R1), scheduled for removal in R2 |
 | [@manifesto-ai/core](./core) | Pure computation (called by Runtime) |
 | [@manifesto-ai/host](./host) | Effect execution (called by Runtime) |
 | [@manifesto-ai/world](./world) | Governance and lineage (called by Runtime) |

@@ -21,7 +21,7 @@ All specifications are maintained at the package level. This page provides navig
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/sdk** | v0.1.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/app** | Deprecated (R1) | Compatibility package (scheduled R2 removal) | [API Page](/api/app) |
+| **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.5.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### Intent & Translation

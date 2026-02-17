@@ -1,5 +1,7 @@
 # Release Deprecation Procedure (`@manifesto-ai/app`)
 
+> Status: Completed. R1 deprecation and R2 retirement have both been executed.
+
 This note documents npm deprecation workflow for the App compatibility-to-retirement transition.
 
 ## Preconditions
@@ -34,7 +36,7 @@ npm view @manifesto-ai/app deprecated
 
 ## Phase 2 Closeout Checklist
 
-Use this checklist when preparing final closeout for the SDK-first transition.
+Historical record of the closeout checklist used for SDK-first transition.
 
 ### 1) Decide Release Shape
 
@@ -85,9 +87,9 @@ npm view @manifesto-ai/app deprecated
 
 ### 5) Post-release Guard Gate
 
-Prepare R2 guard activation:
+R2 guard is active:
 
-- Add `scripts/check-no-app-imports.mjs`
-- Add workflow step in `.github/workflows/ci.yml`
+- `scripts/check-no-app-imports.mjs`
+- workflow gate in `.github/workflows/ci.yml`
 
-Enable this gate in R2 to prevent accidental reintroduction of `@manifesto-ai/app` imports in active paths.
+This gate prevents accidental reintroduction of `@manifesto-ai/app` imports in active paths.
