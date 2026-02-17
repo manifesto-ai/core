@@ -693,7 +693,7 @@ __MANIFESTO__.getTrace();
 When building React applications with Manifesto, use the standard App API:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
 // Create app instance with a recognizable name

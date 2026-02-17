@@ -83,7 +83,7 @@ In Manifesto, Schema is more than a data structure definition.
 AI agents are not special entities—they participate as equals alongside other Actors. The same `app.act()` interface works for everyone:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 
 const app = createApp({ schema: domainMel, effects: {} });
 await app.ready();
@@ -127,7 +127,7 @@ All actions performed by AI are:
 - **Verifiable** (Authority evaluation)
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 
 const app = createApp({ schema: domainMel, effects: {} });
 await app.ready();
@@ -195,7 +195,7 @@ domain TaskBoard {
 
 ```typescript
 // main.ts
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TaskBoardMel from "./task-board.mel";
 
 // Create and start app

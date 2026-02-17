@@ -258,7 +258,7 @@ How World Protocol manages authority and accountability.
 
 | Layer | Package | Responsibility | Can Do | Cannot Do |
 |-------|---------|----------------|--------|-----------|
-| **App** | `@manifesto-ai/app` | Orchestrate lifecycle, integrate UI | Subscribe, dispatch, wire layers | Define logic, execute directly |
+| **App** | `@manifesto-ai/sdk` | Orchestrate lifecycle, integrate UI | Subscribe, dispatch, wire layers | Define logic, execute directly |
 | **World** | `@manifesto-ai/world` | Govern proposals, evaluate authority | Approve/reject, record lineage | Execute, compute |
 | **Host** | `@manifesto-ai/host` | Execute effects, apply patches | Run handlers, orchestrate | Decide, interpret meaning |
 | **Core** | `@manifesto-ai/core` | Pure computation | Compute patches/effects | IO, execution, time-awareness |

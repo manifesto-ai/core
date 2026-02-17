@@ -29,7 +29,7 @@ npm init -y
 Install the required packages:
 
 ```bash
-npm install @manifesto-ai/app @manifesto-ai/compiler typescript
+npm install @manifesto-ai/sdk @manifesto-ai/compiler typescript
 ```
 
 Create a `tsconfig.json`:
@@ -95,7 +95,7 @@ Let's break this down:
 Create a file called `app.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
 // Create the app instance
@@ -271,7 +271,7 @@ domain Counter {
 
 **app.ts:**
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
 export const app = createApp({ schema: CounterMel, effects: {} });

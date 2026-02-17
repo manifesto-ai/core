@@ -20,7 +20,8 @@ All specifications are maintained at the package level. This page provides navig
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/app** | v2.3.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | v0.1.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/app** | Deprecated (R1) | Compatibility package (scheduled R2 removal) | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.5.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### Intent & Translation
@@ -30,16 +31,16 @@ All specifications are maintained at the package level. This page provides navig
 | **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/) |
 
-### Runtime/SDK Decomposition Drafts
+### Runtime/SDK Draft Baselines
 
-The Runtime and SDK documents below are **Draft but kickoff-locked baseline** specs extracted from APP-SPEC v2.3.0.
-They are architecture documents for split kickoff planning, not finalized package split/install guidance.
-Requirement IDs remain locked for kickoff (`RT-*`, `SDK-*`), while additive clarifications and examples are allowed.
+The Runtime and SDK documents below remain **Draft but kickoff-locked baseline** specs extracted from APP-SPEC v2.3.0.
+With ADR-008, SDK is now the canonical public entry package. Draft status here reflects spec-governance maturity, not package availability.
+Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications and examples are allowed.
 
 | Document | Status | Notes |
 |----------|--------|-------|
 | [Runtime SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Internal execution orchestration contract decomposed from App SPEC |
-| [SDK SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Public API contract decomposed from App SPEC; SDK-first is a Phase 2 target |
+| [SDK SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Canonical public API contract |
 
 ---
 
@@ -64,12 +65,11 @@ Requirement IDs remain locked for kickoff (`RT-*`, `SDK-*`), while additive clar
   - Patch: [world-SPEC-v2.0.5-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.5-patch.md)
   - Adds: Head Query API, resume contract, branch state persistence
 
-### App
+### SDK
 
-- **App SPEC v2.3.1** (Patch)
-  - Base: [APP-SPEC-v2.3.0.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.3.0.md)
-  - Patch: [APP-SPEC-v2.3.1-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/APP-SPEC-v2.3.1-patch.md)
-  - Adds: Head Query API delegation (`getHeads()`, `getLatestHead()`)
+- **SDK SPEC v0.1.0** (Draft)
+  - [sdk-SPEC-v0.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md)
+  - Canonical public entrypoint contract (`createApp`, `App`, hooks)
 
 ### Compiler (MEL)
 

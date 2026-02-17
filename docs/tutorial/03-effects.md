@@ -121,7 +121,7 @@ domain UserProfile {
 Create `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
 
 const app = createApp({
@@ -399,7 +399,7 @@ domain UserProfile {
 **main.ts:**
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
 
 // Mock API for testing

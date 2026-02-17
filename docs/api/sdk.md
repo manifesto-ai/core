@@ -2,7 +2,7 @@
 
 > Public developer API layer for the Manifesto protocol stack
 
-> **Phase 1:** Most users should use `@manifesto-ai/app`, which re-exports all SDK APIs.
+> **Canonical Entry:** SDK is the official public package for new integrations.
 
 ---
 
@@ -192,7 +192,7 @@ SDK re-exports error types from Runtime. Key errors:
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/app](./app) | Facade that re-exports SDK (canonical entry during Phase 1) |
+| [@manifesto-ai/app](./app) | Deprecated compatibility package (R1), scheduled for removal in R2 |
 | [@manifesto-ai/runtime](./runtime) | Internal orchestration engine (SDK delegates to Runtime) |
 | [@manifesto-ai/core](./core) | Pure computation (used by Runtime) |
 | [@manifesto-ai/host](./host) | Effect execution (used by Runtime) |

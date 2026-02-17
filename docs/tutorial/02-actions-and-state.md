@@ -238,7 +238,7 @@ domain TodoApp {
 Create `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
 const app = createApp({ schema: TodoMel, effects: {} });

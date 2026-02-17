@@ -393,7 +393,7 @@ async function apiSubmitHandler(params, ctx) {
 
 ```typescript
 import { describe, it, expect } from "vitest";
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import MyDomainMel from "./my-domain.mel";
 
 describe("Re-entry safety", () => {

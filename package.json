@@ -25,11 +25,11 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator --filter=@manifesto-ai/app",
+    "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator --filter=@manifesto-ai/runtime --filter=@manifesto-ai/sdk --filter=@manifesto-ai/app",
     "dev": "turbo run dev",
-    "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator",
-    "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator",
-    "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator",
+    "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator --filter=@manifesto-ai/runtime --filter=@manifesto-ai/sdk --filter=@manifesto-ai/app",
+    "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator --filter=@manifesto-ai/runtime --filter=@manifesto-ai/sdk --filter=@manifesto-ai/app",
+    "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/compiler --filter=@manifesto-ai/intent-ir --filter=@manifesto-ai/translator --filter=@manifesto-ai/runtime --filter=@manifesto-ai/sdk --filter=@manifesto-ai/app",
     "bench:core-host-world": "node scripts/bench-core-host-world.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "docs:dev": "vitepress dev docs",

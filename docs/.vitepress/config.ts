@@ -135,8 +135,8 @@ export default defineConfig({
           text: 'API Reference',
           items: [
             { text: 'Overview', link: '/api/' },
-            { text: '@manifesto-ai/app', link: '/api/app' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
+            { text: '@manifesto-ai/app (Deprecated Compatibility)', link: '/api/app' },
             { text: '@manifesto-ai/runtime', link: '/api/runtime' },
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
@@ -156,6 +156,7 @@ export default defineConfig({
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Migrate App to SDK', link: '/guides/migrate-app-to-sdk' },
             { text: 'Performance Report', link: '/guides/performance-report' },
             { text: 'Code Generation', link: '/guides/code-generation' },
           ]
@@ -204,6 +205,7 @@ export default defineConfig({
             { text: 'ADR-005: Snapshot Path DSL (Withdrawn)', link: '/internals/adr/005-dx-improvement-snapshot-path-dsl' },
             { text: 'ADR-006: Runtime Reframing', link: '/internals/adr/006-runtime-reframing' },
             { text: 'ADR-007: SDK/Runtime Split', link: '/internals/adr/007-sdk-runtime-split-kickoff' },
+            { text: 'ADR-008: SDK-First + App Retirement', link: '/internals/adr/008-sdk-first-transition-and-app-retirement' },
           ]
         },
         {

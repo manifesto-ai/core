@@ -35,6 +35,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
 | [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
 | [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted | 2026-02-14 | App, Runtime, SDK, World |
+| [ADR-008](./008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted | 2026-02-17 | SDK, Runtime, Docs, Release, CI |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -44,6 +45,7 @@ These ADRs affect multiple packages across the monorepo:
 ### Supersede Notes
 
 - ADR-007 partially supersedes ADR-004 §7.4 and ADR-006 §5 for split kickoff timing and gating policy.
+- ADR-008 supersedes ADR-007 Phase 1 entrypoint guardrails by promoting SDK as canonical public entry and retiring App.
 - ADR-007 does not supersede ADR-001 layer separation principles (package split is not a new layer).
 
 ---

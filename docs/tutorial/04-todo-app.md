@@ -140,7 +140,7 @@ domain TodoDomain {
 
 ```typescript
 // src/manifesto-app.ts
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
 export const app = createApp({ schema: TodoMel, effects: {} });
@@ -343,7 +343,7 @@ npm init -y
 ### 2. Install Dependencies
 
 ```bash
-npm install @manifesto-ai/app @manifesto-ai/compiler react react-dom
+npm install @manifesto-ai/sdk @manifesto-ai/compiler react react-dom
 npm install -D typescript @types/react @types/react-dom vite @vitejs/plugin-react
 ```
 
@@ -447,7 +447,7 @@ action sync() {
 ```typescript
 // Effect handler registered via createApp config
 // In your manifesto-app.ts:
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
 export const app = createApp({
