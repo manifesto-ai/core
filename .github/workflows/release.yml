@@ -71,6 +71,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Guard: no app imports
+        run: pnpm check:no-app-imports
+
       - name: Build
         run: pnpm build
 

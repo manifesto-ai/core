@@ -20,7 +20,7 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
-| **@manifesto-ai/app** | Deprecated (R1) | Compatibility facade (scheduled R2 removal) | [API Page](/api/app) |
+| **App facade (retired)** | Removed (R2) | Legacy compatibility rationale | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0-patch.md) |
 
 ### Intent & Translation
@@ -34,8 +34,8 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 
 ## App Transition Note
 
-`@manifesto-ai/app` remains available as a deprecated compatibility package in R1.
-Hard removal is scheduled in R2. App-era rationale remains part of project history and ADR context (see ADR-007, ADR-008).
+The former app compatibility facade has been removed in R2.
+App-era rationale remains part of project history and ADR context (see ADR-007, ADR-008).
 
 ---
 

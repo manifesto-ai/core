@@ -81,21 +81,13 @@ SDK re-exports public contract types and errors (for example `AppConfig`, `AppSt
 | Delegates to | `@manifesto-ai/runtime` | All orchestration via runtime pipeline |
 | Uses | `@manifesto-ai/core` | Schema and expression types |
 | Uses | `@manifesto-ai/world` | World protocol types |
-| Legacy predecessor | `@manifesto-ai/app` | Deprecated compatibility facade (R1), scheduled for removal in R2 |
+| Legacy predecessor | App facade package | Removed in R2 (see API retirement record) |
 
 ---
 
-## Migration from @manifesto-ai/app
+## Migration from Legacy App Facade
 
-`@manifesto-ai/app` imports should be replaced with `@manifesto-ai/sdk`.
-
-```typescript
-// Before
-import { createApp } from "@manifesto-ai/app";
-
-// After
-import { createApp } from "@manifesto-ai/sdk";
-```
+Legacy app-facade imports should be replaced with `@manifesto-ai/sdk`.
 
 For automated rewrite guidance, see:
 - [docs/guides/migrate-app-to-sdk.md](../../docs/guides/migrate-app-to-sdk.md)

@@ -57,7 +57,6 @@ Use the package name as scope:
 - `core` - @manifesto-ai/core
 - `host` - @manifesto-ai/host
 - `world` - @manifesto-ai/world
-- `app` - @manifesto-ai/app (deprecated compatibility package)
 - `sdk` - @manifesto-ai/sdk
 - `runtime` - @manifesto-ai/runtime
 - `compiler` - @manifesto-ai/compiler
@@ -129,7 +128,7 @@ Respect the layered architecture:
 - **Core** (pure computation) → MUST NOT import Host, World
 - **Host** (execution) → MUST NOT import World governance
 - **World** (governance) → MUST NOT import Host or Core internals
-- **App** (composition) → MUST NOT import Core/Host/World internals
+- **Runtime/SDK** (composition/public API) → MUST NOT import Core/Host/World internals outside package contracts
 
 See [CLAUDE.md Section 3](./CLAUDE.md#3-package-boundary-rules) for complete details.
 

@@ -65,10 +65,6 @@
     }
   ],
   "packages": {
-    "packages/app": {
-      "package-name": "@manifesto-ai/app",
-      "changelog-path": "CHANGELOG.md"
-    },
     "packages/codegen": {
       "package-name": "@manifesto-ai/codegen",
       "changelog-path": "CHANGELOG.md"

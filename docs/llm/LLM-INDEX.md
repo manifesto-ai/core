@@ -87,7 +87,7 @@ Translator:
   - `packages/intent-ir/docs/VERSION-INDEX.md`
 
 ## Legacy note
-`@manifesto-ai/app` is deprecated compatibility in R1 and scheduled for removal in R2. Reference page:
+The former app compatibility facade was removed in R2. Retirement record:
 - `docs/api/app.md`
 
 ## Archives

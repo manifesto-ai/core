@@ -1,41 +1,33 @@
-# @manifesto-ai/app (Deprecated Compatibility)
+# @manifesto-ai/app (Removed)
 
-> **Status:** Deprecated compatibility package (available in R1).
+> **Status:** Removed in R2.
 > **Decision:** [ADR-008](/internals/adr/008-sdk-first-transition-and-app-retirement)
 
 ---
 
-## Current Status
+## Status
 
-`@manifesto-ai/app` was the legacy facade package used during the SDK/Runtime split transition.
+`@manifesto-ai/app` was the temporary compatibility facade during the SDK-first transition.
+The package was retired in R2 and is no longer part of the workspace release set.
 
-As of Phase 2 (R1):
-- Canonical public entry point is `@manifesto-ai/sdk`
-- `@manifesto-ai/app` remains available for compatibility
-- Hard removal is scheduled for R2 (next regular release)
-
----
-
-## Migration
-
-Replace imports from `@manifesto-ai/app` with `@manifesto-ai/sdk`.
-
-```typescript
-// Before
-import { createApp } from "@manifesto-ai/app";
-
-// After
-import { createApp } from "@manifesto-ai/sdk";
-```
-
-For automated migration support:
-- [Migration Guide: app → sdk](/guides/migrate-app-to-sdk)
+- Canonical public entry point: `@manifesto-ai/sdk`
+- Compatibility package lifecycle: R1 deprecated, R2 removed
+- npm deprecation notice remains for historical consumers
 
 ---
 
-## Historical Context
+## Migration Target
+
+Use `@manifesto-ai/sdk` for all application-facing APIs.
+
+- Migration guide: [Migrate app imports to sdk](/guides/migrate-app-to-sdk)
+- Runtime internals: [@manifesto-ai/runtime](./runtime)
+
+---
+
+## Historical References
 
 - Kickoff policy and staged locking: [ADR-007](/internals/adr/007-sdk-runtime-split-kickoff)
 - Transition and retirement decision: [ADR-008](/internals/adr/008-sdk-first-transition-and-app-retirement)
 
-This page documents the compatibility package during the R1 transition window.
+This page is retained only as a retirement record.

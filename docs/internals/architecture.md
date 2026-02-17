@@ -136,52 +136,51 @@ interface HostExecutor {
 ```
 
 **Constitutional Rules:**
-1. World **declares** HostExecutor interface; App **implements** it
+1. World **declares** HostExecutor interface; Runtime **implements** it
 2. World **seals results**; it does NOT interpret execution
 3. World owns **governance events** (`proposal:*`, `world:*`, `execution:completed/failed`)
 4. World does NOT own **telemetry events** (`execution:compute`, `execution:patches`, etc.)
 
 ---
 
-### App (Composition Root)
+### Runtime/SDK (Composition Layer)
 
 > **One-liner:** Assembly layer that makes execution viable.
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Compose Host + World, implement policies, present to users |
+| **Role** | Compose Host + World, implement policies, present SDK-facing APIs |
 | **Primary API** | Application-specific |
 | **Owns** | Host↔World integration, execution telemetry, UI/session |
 | **Does NOT Know** | Core computation internals, World constitution changes |
 
 ```typescript
-// App's responsibilities
-class AppHostExecutor implements HostExecutor {
+// Runtime responsibilities
+class RuntimeHostExecutor implements HostExecutor {
   execute(...) { /* integrate Host, transform results */ }
 }
 
 host.onTrace((trace) => {
-  // Transform TraceEvent → App telemetry events
-  appEmitter.emit('execution:compute', ...);
+  // Transform TraceEvent → runtime telemetry events
+  runtimeEmitter.emit('execution:compute', ...);
 });
 ```
 
 **Constitutional Rules:**
-1. App is the **only layer** that knows both Host and World
-2. App owns **execution telemetry events** (derived from Host's TraceEvent)
-3. App implements **HostExecutor** interface for World
-4. App is the **evolution absorption layer** for Host changes
+1. Runtime is the **only layer** that knows both Host and World
+2. Runtime owns **execution telemetry events** (derived from Host's TraceEvent)
+3. Runtime implements **HostExecutor** interface for World
+4. Runtime is the **evolution absorption layer** for Host changes
 
-#### App Internal Structure (Recommended)
+#### Runtime Internal Structure (Recommended)
 
 ```
-app/
-  runtime/              # Host ↔ World integration
+runtime/
+  execution/            # Host ↔ World integration
     host-executor.ts    # HostExecutor implementation
     trace-mapper.ts     # TraceEvent → telemetry events
     execution-key.ts    # ExecutionKey policy
   session/              # Session management
-  ui/                   # User interface
   policy/               # Business policies
 ```
 
@@ -196,13 +195,13 @@ app/
 | **Core** | IO, execution loops, approval, governance, World, Host |
 | **Host** | World, Proposal, Authority, governance, approval decisions |
 | **World** | Host internal API, TraceEvent, dispatch options, execution micro-steps |
-| **App** | Core computation internals, World constitutional rules |
+| **Runtime/SDK** | Core computation internals, World constitutional rules |
 
 ### Dependency Direction
 
 ```
-App → World → (HostExecutor interface)
-App → Host
+Runtime → World → (HostExecutor interface)
+Runtime → Host
 World → Core
 Host → Core
 ```
@@ -226,7 +225,7 @@ Host → Core
 | `world:created` | New World sealed |
 | `world:forked` | Branch created |
 
-### App-Owned Events (Execution Telemetry)
+### Runtime-Owned Events (Execution Telemetry)
 
 | Event | Description |
 |-------|-------------|
@@ -238,16 +237,16 @@ Host → Core
 
 ### The Rule
 
-> **Results are World's; Process is App's.**
+> **Results are World's; Process is Runtime's.**
 
 ---
 
 ## Interface Contracts
 
-### HostExecutor (World → App)
+### HostExecutor (World → Runtime)
 
 ```typescript
-// Defined by World, implemented by App
+// Defined by World, implemented by Runtime
 interface HostExecutor {
   execute(
     key: ExecutionKey,
@@ -265,10 +264,10 @@ type HostExecutionResult = {
 };
 ```
 
-### TraceEvent (Host → App)
+### TraceEvent (Host → Runtime)
 
 ```typescript
-// Defined by Host, consumed by App
+// Defined by Host, consumed by Runtime
 type TraceEvent =
   | { type: 'compute:start'; ... }
   | { type: 'compute:end'; ... }
@@ -284,25 +283,27 @@ type TraceEvent =
 
 ```
 packages/
-  app/         # App: Composition root
+  sdk/         # SDK: Public entrypoint
+  runtime/     # Runtime: Composition layer
   core/        # Core: Semantic computation
   host/        # Host: Execution engine
   world/       # World: Governance protocol
   compiler/    # MEL → DomainSchema
-  builder/     # Type-safe domain definition DSL
+  codegen/     # DomainSchema → TypeScript/Zod
   intent-ir/   # Intent intermediate representation
 ```
 
 ### Dependency Graph
 
 ```
-@manifesto-ai/app
-  ├── @manifesto-ai/world
-  │     └── @manifesto-ai/core
-  ├── @manifesto-ai/host
-  │     └── @manifesto-ai/core
-  └── @manifesto-ai/compiler
-        └── @manifesto-ai/core
+@manifesto-ai/sdk
+  └── @manifesto-ai/runtime
+        ├── @manifesto-ai/world
+        │     └── @manifesto-ai/core
+        ├── @manifesto-ai/host
+        │     └── @manifesto-ai/core
+        └── @manifesto-ai/compiler
+              └── @manifesto-ai/core
 ```
 
 ---
@@ -311,20 +312,20 @@ packages/
 
 ### When Host Changes
 
-1. App's `runtime/` module absorbs the change
+1. Runtime module absorbs the change
 2. HostExecutor implementation adapts
 3. World remains unchanged
 
 ### When World Constitution Changes
 
 1. World SPEC/FDR updated
-2. App may need to adjust HostExecutor implementation
+2. Runtime may need to adjust HostExecutor implementation
 3. Host remains unchanged
 
 ### When Core Changes
 
 1. Both Host and World may need updates
-2. App adapts as needed
+2. Runtime/SDK adapts as needed
 3. This is rare (Core is stable)
 
 ### Adding New Features
@@ -333,7 +334,7 @@ packages/
 |--------------|--------------|
 | New effect type | Host |
 | New governance policy | World |
-| New execution strategy | App (runtime/) |
+| New execution strategy | Runtime |
 | New semantic capability | Core |
 
 ---
@@ -346,9 +347,9 @@ An implementation is compliant with this architecture if:
 - [ ] Host has no World/Proposal/Authority awareness
 - [ ] World has no Host internal API usage (only HostExecutor interface)
 - [ ] World does not emit telemetry events (only governance events)
-- [ ] App implements HostExecutor for World
-- [ ] App transforms TraceEvent to telemetry events
-- [ ] App is the only layer that imports both Host and World
+- [ ] Runtime implements HostExecutor for World
+- [ ] Runtime transforms TraceEvent to telemetry events
+- [ ] Runtime is the only layer that imports both Host and World
 
 ---
 
@@ -359,7 +360,7 @@ An implementation is compliant with this architecture if:
 | Core | Truth | Semantics | Execution |
 | Host | Engine | Execution | Governance |
 | World | History | Governance | Host internals |
-| App | Assembly | Integration | Constitutions |
+| Runtime/SDK | Assembly | Integration | Constitutions |
 
 ---
 

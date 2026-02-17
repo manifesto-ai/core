@@ -12,7 +12,7 @@
 
 The `@manifesto-ai/sdk` package is the canonical public entry point for building Manifesto applications.
 
-> Note: `@manifesto-ai/app` is a deprecated compatibility package in R1 and will be removed in R2. See [API: app](./app).
+> Legacy note: the former app compatibility package is removed in R2. See [API: app](./app) for the retirement record.
 
 ---
 
