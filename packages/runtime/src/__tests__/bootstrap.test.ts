@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as runtime from '../index.js';
 import type { RuntimeManifest } from '../index.js';
 
 describe('@manifesto-ai/runtime bootstrap', () => {
@@ -15,39 +16,36 @@ describe('@manifesto-ai/runtime bootstrap', () => {
     expect(manifest.phase).toBe('bootstrap');
   });
 
-  it('package entry point resolves without error', async () => {
-    const mod = await import('../index.js');
-    expect(mod).toBeDefined();
+  it('package entry point resolves without error', () => {
+    expect(runtime).toBeDefined();
   });
 
-  it('exports core runtime components', async () => {
-    const mod = await import('../index.js');
-
+  it('exports core runtime components', () => {
     // Errors
-    expect(mod.ManifestoAppError).toBeDefined();
-    expect(mod.AppNotReadyError).toBeDefined();
-    expect(mod.AppDisposedError).toBeDefined();
+    expect(runtime.ManifestoAppError).toBeDefined();
+    expect(runtime.AppNotReadyError).toBeDefined();
+    expect(runtime.AppDisposedError).toBeDefined();
 
     // Runtime components
-    expect(mod.AppRuntime).toBeDefined();
-    expect(mod.AppBootstrap).toBeDefined();
-    expect(mod.SubscriptionStore).toBeDefined();
+    expect(runtime.AppRuntime).toBeDefined();
+    expect(runtime.AppBootstrap).toBeDefined();
+    expect(runtime.SubscriptionStore).toBeDefined();
 
     // WorldStore
-    expect(mod.InMemoryWorldStore).toBeDefined();
-    expect(mod.createInMemoryWorldStore).toBeDefined();
+    expect(runtime.InMemoryWorldStore).toBeDefined();
+    expect(runtime.createInMemoryWorldStore).toBeDefined();
 
     // PolicyService
-    expect(mod.createDefaultPolicyService).toBeDefined();
-    expect(mod.createSilentPolicyService).toBeDefined();
+    expect(runtime.createDefaultPolicyService).toBeDefined();
+    expect(runtime.createSilentPolicyService).toBeDefined();
 
     // Memory
-    expect(mod.createMemoryFacade).toBeDefined();
+    expect(runtime.createMemoryFacade).toBeDefined();
 
     // Hooks
-    expect(mod.createAppRef).toBeDefined();
+    expect(runtime.createAppRef).toBeDefined();
 
     // Constants
-    expect(mod.SYSTEM_ACTION_TYPES).toBeDefined();
+    expect(runtime.SYSTEM_ACTION_TYPES).toBeDefined();
   });
 });

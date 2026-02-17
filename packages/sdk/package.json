@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Manifesto SDK - Public developer API layer",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as sdk from '../index.js';
 import type { SdkManifest } from '../index.js';
 
 describe('@manifesto-ai/sdk bootstrap', () => {
@@ -15,27 +16,24 @@ describe('@manifesto-ai/sdk bootstrap', () => {
     expect(manifest.phase).toBe('bootstrap');
   });
 
-  it('package entry point resolves without error', async () => {
-    const mod = await import('../index.js');
-    expect(mod).toBeDefined();
+  it('package entry point resolves without error', () => {
+    expect(sdk).toBeDefined();
   });
 
-  it('exports SDK components', async () => {
-    const mod = await import('../index.js');
-
+  it('exports SDK components', () => {
     // App Factory
-    expect(mod.createApp).toBeDefined();
-    expect(mod.createTestApp).toBeDefined();
+    expect(sdk.createApp).toBeDefined();
+    expect(sdk.createTestApp).toBeDefined();
 
     // ManifestoApp
-    expect(mod.ManifestoApp).toBeDefined();
+    expect(sdk.ManifestoApp).toBeDefined();
 
     // Hooks
-    expect(mod.AppRefImpl).toBeDefined();
-    expect(mod.createAppRef).toBeDefined();
-    expect(mod.HookableImpl).toBeDefined();
-    expect(mod.JobQueue).toBeDefined();
-    expect(mod.HookContextImpl).toBeDefined();
-    expect(mod.createHookContext).toBeDefined();
+    expect(sdk.AppRefImpl).toBeDefined();
+    expect(sdk.createAppRef).toBeDefined();
+    expect(sdk.HookableImpl).toBeDefined();
+    expect(sdk.JobQueue).toBeDefined();
+    expect(sdk.HookContextImpl).toBeDefined();
+    expect(sdk.createHookContext).toBeDefined();
   });
 });
