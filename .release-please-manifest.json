@@ -1,12 +1,12 @@
 {
-  "packages/app": "2.5.0",
+  "packages/app": "2.6.0",
   "packages/codegen": "0.1.0",
   "packages/compiler": "1.6.1",
   "packages/core": "2.4.0",
   "packages/intent-ir": "0.3.1",
   "packages/host": "2.3.1",
   "packages/runtime": "0.1.1",
-  "packages/sdk": "1.1.0",
+  "packages/sdk": "1.0.0",
   "packages/translator/core": "0.2.1",
   "packages/world": "2.3.0",
   "skills": "0.1.1"
