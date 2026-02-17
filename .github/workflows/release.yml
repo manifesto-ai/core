@@ -2,14 +2,14 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       backfill:
         description: Backfill tags/releases for merged release PRs
         required: false
-        type: boolean
-        default: false
+        default: "false"
 
 permissions:
   contents: write
@@ -35,7 +35,7 @@ jobs:
   backfill:
     name: Release Please (Backfill)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.backfill == 'true' }}
     steps:
       - name: Release Please (github-release)
         uses: googleapis/release-please-action@v4
@@ -71,7 +71,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Guard: no app imports
+      - name: Guard - no app imports
         run: pnpm check:no-app-imports
 
       - name: Build
