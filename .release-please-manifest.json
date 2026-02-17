@@ -1,6 +1,6 @@
 {
   "packages/app": "2.5.0",
-  "packages/codegen": "0.1.0",
+  "packages/codegen": "0.1.1",
   "packages/compiler": "1.6.1",
   "packages/core": "2.4.0",
   "packages/intent-ir": "0.3.1",
