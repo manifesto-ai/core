@@ -1,65 +1,30 @@
 # @manifesto-ai/sdk
 
-> **SDK** is the public developer API layer for Manifesto applications. It presents ergonomic factory functions, lifecycle management, and hook systems while delegating all execution to the Runtime.
-
-> **Phase 1 Notice:** During the current phase, most users should install `@manifesto-ai/app`, which re-exports all SDK APIs. See [ADR-007](../../docs/internals/adr/007-sdk-runtime-split-kickoff.md) for details.
+> **SDK** is the canonical public developer API for Manifesto applications.
 
 ---
 
-## What is SDK?
+## Overview
 
-SDK owns the public contract shape that developers interact with. It provides `createApp()`, the `App` interface, and the hook system — but delegates all orchestration to `@manifesto-ai/runtime`.
+SDK owns the public contract for app creation and interaction.
+It provides `createApp()`, `createTestApp()`, `ManifestoApp`, and the hook primitives while delegating orchestration to Runtime.
 
-```
+```text
 Application Code
       |
       v
-    SDK (createApp, App, Hooks)       <-- you are here
+SDK (createApp, App, Hooks)
       |
       v
-    Runtime (orchestration, execution)
+Runtime (orchestration)
       |
       v
-    Core / Host / World
+Core / Host / World
 ```
-
----
-
-## What SDK Does
-
-| Responsibility | Description |
-|----------------|-------------|
-| App factory | `createApp(config)` — single entry point for creating apps |
-| App interface | `ManifestoApp` — thin facade over Runtime |
-| Lifecycle | `ready()` / `dispose()` with status tracking |
-| Hook system | Observable lifecycle with re-entrancy guards |
-| AppRef | Read-only facade for safe hook access |
-| Job queue | Deferred execution for hook-triggered actions |
-| Test helper | `createTestApp()` — minimal app for testing |
-
----
-
-## What SDK Does NOT Do
-
-| NOT Responsible For | Who Is |
-|--------------------|--------|
-| Execution orchestration | Runtime |
-| Effect execution | Host (via Runtime) |
-| Pure state computation | Core (via Runtime) |
-| Governance and lineage | World (via Runtime) |
-| Type/error definitions | Runtime |
 
 ---
 
 ## Installation
-
-During **Phase 1**, use `@manifesto-ai/app` as the canonical entry point:
-
-```bash
-pnpm add @manifesto-ai/app
-```
-
-For direct SDK access (preview):
 
 ```bash
 pnpm add @manifesto-ai/sdk
@@ -75,105 +40,73 @@ import { createApp } from "@manifesto-ai/sdk";
 const app = createApp({
   schema: counterSchema,
   effects: {
-    "api.save": async (params, ctx) => [
+    "api.save": async (params) => [
       { op: "set", path: "data.savedAt", value: params.timestamp },
     ],
   },
 });
 
 await app.ready();
-
-const handle = app.act("increment");
-await handle.completed();
-
-console.log(app.getState().data.count); // 1
+await app.act("increment").done();
+console.log(app.getState().data.count);
 ```
 
 ---
 
-## Core API
+## Main Exports
 
-### Factory Functions
+### Factory
 
 ```typescript
 function createApp(config: AppConfig): App;
 function createTestApp(domain: DomainSchema | string, opts?: Partial<AppConfig>): App;
 ```
 
-### App Interface
+### Class
 
 ```typescript
-interface App {
-  // Lifecycle
-  ready(): Promise<void>;
-  dispose(opts?): Promise<void>;
-  readonly status: AppStatus;
-  readonly hooks: Hookable<AppHooks>;
-
-  // Schema
-  getDomainSchema(): DomainSchema;
-
-  // Actions
-  act(type: string, input?: unknown, opts?): ActionHandle;
-  submitProposal(proposal): Promise<ProposalResult>;
-
-  // State
-  getState<T>(): AppState<T>;
-  subscribe(selector, listener, opts?): () => void;
-  getSnapshot(): Snapshot;
-
-  // Session
-  session(actorId: string, opts?): Session;
-
-  // Branch
-  currentBranch(): Branch;
-  listBranches(): Branch[];
-  switchBranch(branchId): Promise<void>;
-  fork(opts?): Promise<Branch>;
-
-  // World Query
-  getCurrentHead(): WorldId;
-  getWorld(worldId?): World;
-}
+class ManifestoApp implements App { /* ... */ }
 ```
 
-> See [sdk-SPEC-v0.1.0.md](docs/sdk-SPEC-v0.1.0.md) for the complete specification.
+### Runtime-Reexported Public Types/Errors
+
+SDK re-exports public contract types and errors (for example `AppConfig`, `AppState`, `ActionHandle`, `AppNotReadyError`).
 
 ---
 
 ## Relationship with Other Packages
 
-```
-App (facade) -> SDK -> Runtime -> Core / Host / World
-```
-
 | Relationship | Package | How |
 |--------------|---------|-----|
-| Re-exported by | `@manifesto-ai/app` | App re-exports createApp, createTestApp, hooks |
-| Delegates to | `@manifesto-ai/runtime` | All orchestration via AppRuntime |
-| Depends on | `@manifesto-ai/core` | Schema types |
-| Depends on | `@manifesto-ai/world` | World types |
+| Delegates to | `@manifesto-ai/runtime` | All orchestration via runtime pipeline |
+| Uses | `@manifesto-ai/core` | Schema and expression types |
+| Uses | `@manifesto-ai/world` | World protocol types |
+| Legacy predecessor | `@manifesto-ai/app` | Deprecated compatibility facade (R1), scheduled for removal in R2 |
 
 ---
 
-## When to Use SDK Directly
+## Migration from @manifesto-ai/app
 
-**Most users should use `@manifesto-ai/app` during Phase 1.**
+`@manifesto-ai/app` imports should be replaced with `@manifesto-ai/sdk`.
 
-Use SDK directly when:
-- Building custom integrations that need only the public API surface
-- Creating framework-specific wrappers (React, Vue, etc.)
-- After Phase 2 transition when SDK becomes the primary entry point
+```typescript
+// Before
+import { createApp } from "@manifesto-ai/app";
+
+// After
+import { createApp } from "@manifesto-ai/sdk";
+```
+
+For automated rewrite guidance, see:
+- [docs/guides/migrate-app-to-sdk.md](../../docs/guides/migrate-app-to-sdk.md)
 
 ---
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [sdk-SPEC-v0.1.0.md](docs/sdk-SPEC-v0.1.0.md) | Complete specification |
-| [VERSION-INDEX.md](docs/VERSION-INDEX.md) | Version history and reading guide |
-| [ADR-007](../../docs/internals/adr/007-sdk-runtime-split-kickoff.md) | Split rationale |
+- [sdk-SPEC-v0.1.0.md](docs/sdk-SPEC-v0.1.0.md)
+- [VERSION-INDEX.md](docs/VERSION-INDEX.md)
+- [ADR-008](../../docs/internals/adr/008-sdk-first-transition-and-app-retirement.md)
 
 ---
 

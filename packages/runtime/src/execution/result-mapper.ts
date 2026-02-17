@@ -1,7 +1,7 @@
 /**
  * Result Mapper
  *
- * Maps HostResult (from @manifesto-ai/host) to ActionResult (from @manifesto-ai/app).
+ * Maps HostResult (from @manifesto-ai/host) to ActionResult (from @manifesto-ai/sdk).
  *
  * Host Status → App Status:
  * - "complete" → "completed"

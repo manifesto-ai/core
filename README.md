@@ -50,7 +50,7 @@ domain Document {
 **→ App / Backend**
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 
 const app = createApp({ schema: documentMEL, effects: {} });
 await app.ready();
@@ -192,11 +192,11 @@ These are not features. They are **protocol-level invariants** — properties th
 | **Core** | `@manifesto-ai/core` | Pure computation. Expressions, flows, patches. Zero IO. |
 | **Host** | `@manifesto-ai/host` | Effect execution. Runs the compute-effect-apply loop. |
 | **World** | `@manifesto-ai/world` | Governance. Actors, authorities, proposals, audit lineage (DAG). |
-| **App** | `@manifesto-ai/app` | Facade. `createApp()`, `app.act()`, subscriptions, branches. |
+| **SDK** | `@manifesto-ai/sdk` | Public facade. `createApp()`, `app.act()`, subscriptions, branches. |
 | **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation. |
 
 > Note: Runtime/SDK specifications currently exist as draft decomposition documents derived from APP-SPEC.
-> The supported public entry point remains `@manifesto-ai/app`.
+> The supported public entry point remains `@manifesto-ai/sdk`.
 
 **Data flow:**
 
@@ -217,11 +217,11 @@ All information flows through Snapshot. There are no other channels.
 ## Quick Start
 
 ```bash
-npm install @manifesto-ai/app
+npm install @manifesto-ai/sdk
 ```
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 
 const app = createApp({
   schema: `
@@ -251,7 +251,7 @@ console.log(app.getState().computed["computed.doubled"]); // 4
 await app.dispose();
 ```
 
-> See [examples/](./packages/app/examples/) for more: todos, effects, subscriptions.
+> See [examples/](./examples/) for more: todos, effects, subscriptions.
 
 ---
 
@@ -271,7 +271,7 @@ Manifesto is designed for domains where traceability, governance, and determinis
 
 | Package | Description |
 |---------|-------------|
-| [@manifesto-ai/app](./packages/app) | High-level application facade |
+| [@manifesto-ai/sdk](./packages/sdk) | High-level application facade |
 | [@manifesto-ai/core](./packages/core) | Pure computation engine |
 | [@manifesto-ai/host](./packages/host) | Effect execution runtime |
 | [@manifesto-ai/world](./packages/world) | Governance and lineage layer |

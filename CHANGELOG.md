@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security policy (SECURITY.md)
 - Contributing guidelines with constitutional requirements
 - MEL `onceIntent` contextual keyword with `$mel` guard namespace support
+- ADR-008 documenting SDK-first public entry and App package retirement
+- Migration tooling: `scripts/migrate/app-to-sdk.mjs` and guide `docs/guides/migrate-app-to-sdk.md`
 
 ### Changed
 - Moved package documentation from docs/packages/* to packages/*/docs/*
@@ -22,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Schema hashing clarified as semantic identity (excludes `$`-prefixed platform fields); runtime effective hash treated as internal
 - World/App snapshot handling excludes `$mel` alongside `$host` for deterministic hashing
 - Learn/Quickstart/App Migration docs updated for `onceIntent` and `$mel` platform namespaces
+- Canonical public entrypoint switched to `@manifesto-ai/sdk` (SDK package promoted to `v1.0.0`)
+- `@manifesto-ai/app` moved to deprecated compatibility status for R1 (hard removal scheduled for R2)
+- Root build/test/lint filters now include SDK/Runtime as first-class packages while keeping App compatibility coverage
 
 ## [1.0.0] - 2025-01-01
 

@@ -1,7 +1,7 @@
 /**
  * Execution Module
  *
- * This module provides the bridge between @manifesto-ai/app and @manifesto-ai/host.
+ * This module provides the bridge between @manifesto-ai/sdk and @manifesto-ai/host.
  *
  * @module
  */

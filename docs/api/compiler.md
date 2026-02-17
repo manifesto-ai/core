@@ -28,7 +28,7 @@ import { compileMelDomain } from "@manifesto-ai/compiler";
 const result = compileMelDomain(melSource, { mode: "domain" });
 
 if (result.schema) {
-  // DomainSchema ready for @manifesto-ai/core / @manifesto-ai/app
+  // DomainSchema ready for @manifesto-ai/core / @manifesto-ai/sdk
 }
 ```
 
@@ -103,6 +103,6 @@ import melWebpackLoader from "@manifesto-ai/compiler/loader";
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Executes compiled `DomainSchema` semantics |
-| [@manifesto-ai/app](./app) | Uses compiler results at app creation time |
+| [@manifesto-ai/sdk](./sdk) | Uses compiler results at app creation time |
 | [MEL Docs](/mel/) | Language reference and examples |
 

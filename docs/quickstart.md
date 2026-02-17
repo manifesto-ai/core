@@ -8,13 +8,13 @@
 
 ```bash
 # npm
-npm install @manifesto-ai/app @manifesto-ai/compiler
+npm install @manifesto-ai/sdk @manifesto-ai/compiler
 
 # pnpm
-pnpm add @manifesto-ai/app @manifesto-ai/compiler
+pnpm add @manifesto-ai/sdk @manifesto-ai/compiler
 
 # bun
-bun add @manifesto-ai/app @manifesto-ai/compiler
+bun add @manifesto-ai/sdk @manifesto-ai/compiler
 ```
 
 ---
@@ -101,7 +101,7 @@ domain Counter {
 Create `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
 const app = createApp({ schema: CounterMel, effects: {} });
@@ -162,7 +162,7 @@ domain Counter {
 Update `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
 const app = createApp({ schema: CounterMel, effects: {} });

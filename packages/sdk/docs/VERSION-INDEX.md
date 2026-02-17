@@ -1,15 +1,16 @@
 # Manifesto SDK Documentation Index
 
 > **Package:** `@manifesto-ai/sdk`
-> **Last Updated:** 2026-02-15
+> **Last Updated:** 2026-02-17
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v0.1.0](sdk-SPEC-v0.1.0.md) (Draft — kickoff-locked baseline per ADR-007)
+- **Package:** v1.0.0 (canonical public entry per ADR-008)
+- **SPEC:** [v0.1.0](sdk-SPEC-v0.1.0.md) (Draft, kickoff-locked baseline)
 
-**Note:** v0.1.0 is the initial SDK specification extracted from `@manifesto-ai/app` v2.3.0. Requirement IDs (`SDK-*`) are locked and cannot be renamed or removed. Additive clarification is allowed.
+**Note:** SDK package is now the official public entrypoint. Requirement IDs (`SDK-*`) remain locked for the current SPEC baseline.
 
 ---
 
@@ -17,27 +18,19 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v0.1.0 | [SPEC](sdk-SPEC-v0.1.0.md) | — | Full | Draft (kickoff-locked) |
+| v1.0.0 | [SPEC](sdk-SPEC-v0.1.0.md) | [ADR-008](../../../docs/internals/adr/008-sdk-first-transition-and-app-retirement.md) | Stable public entry | Released |
+| v0.1.0 | [SPEC](sdk-SPEC-v0.1.0.md) | [ADR-007](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md) | Kickoff baseline | Released |
 
 ---
 
 ## Reading Guide
 
-### For v0.1.0
-
-1. Read [sdk-SPEC-v0.1.0.md](sdk-SPEC-v0.1.0.md) (complete specification)
-2. For split rationale: [ADR-007](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md)
-3. For the App facade that re-exports SDK: [App VERSION-INDEX](../../app/docs/VERSION-INDEX.md)
+1. Read [sdk-SPEC-v0.1.0.md](sdk-SPEC-v0.1.0.md).
+2. For transition rationale, read [ADR-008](../../../docs/internals/adr/008-sdk-first-transition-and-app-retirement.md).
+3. For runtime internals, see [Runtime VERSION-INDEX](../../runtime/docs/VERSION-INDEX.md).
 
 ---
 
-## Relationship to App Package
+## Legacy Note
 
-During **Phase 1 (Kickoff)**, `@manifesto-ai/app` remains the canonical entry point. SDK is an internal/preview package.
-
-| Phase | Entry Point | SDK Status |
-|-------|-------------|------------|
-| Phase 1 (current) | `@manifesto-ai/app` | Internal/Preview |
-| Phase 2 (transition) | `@manifesto-ai/sdk` | Public |
-
-See [ADR-007](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md) for the two-phase release strategy.
+`@manifesto-ai/app` is retired from active release. Legacy API reference is kept at [/api/app](../../../docs/api/app.md).

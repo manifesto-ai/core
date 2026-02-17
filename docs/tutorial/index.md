@@ -69,7 +69,7 @@ action increment() {
 - **Node.js 18+** (or Bun)
 - **Basic TypeScript knowledge** (types, async/await)
 - A code editor (VS Code recommended)
-- `@manifesto-ai/app` and `@manifesto-ai/compiler` installed
+- `@manifesto-ai/sdk` and `@manifesto-ai/compiler` installed
 
 ---
 

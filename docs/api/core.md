@@ -171,4 +171,4 @@ console.log(result.snapshot.data);
 |---------|--------------|
 | [@manifesto-ai/host](./host) | Executes requirements/effects produced by Core |
 | [@manifesto-ai/world](./world) | Governs proposal and world lineage |
-| [@manifesto-ai/app](./app) | High-level facade using Core/Host/World |
+| [@manifesto-ai/sdk](./sdk) | High-level facade using Core/Host/World |

@@ -2,7 +2,7 @@
 
 > Internal execution orchestration engine for the Manifesto protocol stack
 
-> **Internal Package:** This package is not intended for direct consumption. Use `@manifesto-ai/app` or `@manifesto-ai/sdk` instead.
+> **Internal Package:** This package is not intended for direct consumption. Use `@manifesto-ai/sdk` instead.
 
 ---
 
@@ -174,7 +174,7 @@ Custom implementations must satisfy the `WorldStore` interface.
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/sdk](./sdk) | Public API layer (consumes Runtime) |
-| [@manifesto-ai/app](./app) | Facade that re-exports Runtime types |
+| [@manifesto-ai/app](./app) | Deprecated compatibility package (R1), scheduled for removal in R2 |
 | [@manifesto-ai/core](./core) | Pure computation (called by Runtime) |
 | [@manifesto-ai/host](./host) | Effect execution (called by Runtime) |
 | [@manifesto-ai/world](./world) | Governance and lineage (called by Runtime) |

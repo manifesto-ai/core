@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createApp, createSilentPolicyService } from "@manifesto-ai/app";
-import type { App, AppState } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
+import type { App, AppState } from "@manifesto-ai/sdk";
 
 type UseManifestoResult = {
   state: AppState<unknown> | null;
@@ -24,7 +24,6 @@ export function useManifesto(schema: unknown): UseManifestoResult {
     const app = createApp({
       schema: schema as string,
       effects: {},
-      policyService: createSilentPolicyService(),
     });
     appRef.current = app;
 

@@ -59,7 +59,7 @@ Effect handlers are registered at app creation time via `createApp()`.
 **There is NO `app.registerEffect()` method.** All handlers must be provided when creating the app.
 
 ```typescript
-import { createApp } from '@manifesto-ai/app';
+import { createApp } from '@manifesto-ai/sdk';
 
 const app = createApp({
   schema: domainSchema,
@@ -692,7 +692,7 @@ const app = createApp({
 
 ```typescript
 import { describe, it, expect, vi } from "vitest";
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 
 describe("Effect handlers", () => {
   it("handles successful API call", async () => {

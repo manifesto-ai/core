@@ -195,4 +195,4 @@ const lineage = createWorldLineage();
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure computation |
 | [@manifesto-ai/host](./host) | Executes approved intents |
-| [@manifesto-ai/app](./app) | High-level facade using World |
+| [@manifesto-ai/sdk](./sdk) | High-level facade using World |

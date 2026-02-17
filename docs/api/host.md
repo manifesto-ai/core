@@ -128,4 +128,4 @@ Use these directly when building custom orchestration/testing infrastructure.
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure semantic computation |
 | [@manifesto-ai/world](./world) | Proposal governance and lineage |
-| [@manifesto-ai/app](./app) | High-level facade over Host |
+| [@manifesto-ai/sdk](./sdk) | High-level facade over Host |

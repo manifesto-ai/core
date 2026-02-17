@@ -8,12 +8,11 @@
 
 | Package | Description |
 |---------|-------------|
-| [@manifesto-ai/app](./app) | High-level app facade. **Start here.** |
+| [@manifesto-ai/sdk](./sdk) | Public developer API. **Start here.** |
 
-The `@manifesto-ai/app` package provides a simple, batteries-included API for building Manifesto applications. It combines Core, Host, World, and Memory into a cohesive interface.
+The `@manifesto-ai/sdk` package is the canonical public entry point for building Manifesto applications.
 
-> Note: Runtime/SDK specifications currently exist as draft decomposition documents of APP-SPEC.
-> The supported public entry point remains `@manifesto-ai/app`.
+> Note: `@manifesto-ai/app` is a deprecated compatibility package in R1 and will be removed in R2. See [API: app](./app).
 
 ---
 
@@ -25,7 +24,7 @@ The `@manifesto-ai/app` package provides a simple, batteries-included API for bu
 | [@manifesto-ai/host](./host) | Effect execution runtime |
 | [@manifesto-ai/world](./world) | Governance layer |
 
-These packages form the foundation of Manifesto's architecture. Most users interact with them through `@manifesto-ai/app`, but they can be used directly for custom infrastructure.
+These packages form the foundation of Manifesto's architecture. Most users interact with them through `@manifesto-ai/sdk`.
 
 ---
 
@@ -33,6 +32,7 @@ These packages form the foundation of Manifesto's architecture. Most users inter
 
 | Package | Description |
 |---------|-------------|
+| [@manifesto-ai/runtime](./runtime) | Internal orchestration engine used by SDK |
 | [@manifesto-ai/compiler](./compiler) | MEL to DomainSchema compilation and `.mel` toolchain adapters |
 | [@manifesto-ai/codegen](./codegen) | DomainSchema to TypeScript types + Zod schemas |
 | [@manifesto-ai/intent-ir](./intent-ir) | Intent intermediate representation and key derivation |
@@ -43,21 +43,13 @@ See [Specifications](/internals/spec/) for detailed package specifications.
 
 ## Package Relationships
 
-```
-                Your Application
-                      |
-                      v
-            ┌─────────────────┐
-            │ @manifesto-ai/  │
-            │      app        │  <-- Start here
-            └─────────────────┘
-                      |
-     ┌────────────────┼────────────────┐
-     v                v                v
-┌─────────┐    ┌───────────┐    ┌───────────┐
-│  core   │    │   host    │    │   world   │
-│(compute)│    │ (execute) │    │ (govern)  │
-└─────────┘    └───────────┘    └───────────┘
+```mermaid
+flowchart TB
+  APP["Your Application"] --> SDK["@manifesto-ai/sdk"]
+  SDK --> RT["@manifesto-ai/runtime"]
+  RT --> C["@manifesto-ai/core"]
+  RT --> H["@manifesto-ai/host"]
+  RT --> W["@manifesto-ai/world"]
 ```
 
 ---
@@ -65,7 +57,7 @@ See [Specifications](/internals/spec/) for detailed package specifications.
 ## Quick Start
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 
 const app = createApp({
   schema: `
@@ -80,7 +72,6 @@ const app = createApp({
 });
 
 await app.ready();
-
 await app.act("increment").done();
 console.log(app.getState().data.count); // 1
 ```

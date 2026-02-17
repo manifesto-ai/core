@@ -1,3 +1,5 @@
+> **Addendum (2026-02-17):** Transition execution decisions moved to [ADR-008](./008-sdk-first-transition-and-app-retirement). This pack remains a pre-transition readiness snapshot.
+
 # ADR-006 Split Readiness Pack
 
 > **Status:** Working guidance (non-normative)

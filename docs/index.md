@@ -43,7 +43,7 @@ domain Counter {
 ```
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
 const app = createApp({ schema: CounterMel, effects: {} });
@@ -64,7 +64,7 @@ console.log(app.getState().data.count); // 1
 
 | Package | Description |
 |---------|-------------|
-| `@manifesto-ai/app` | High-level app facade (recommended starting point) |
+| `@manifesto-ai/sdk` | High-level app facade (recommended starting point) |
 | `@manifesto-ai/compiler` | MEL compiler |
 | `@manifesto-ai/core` | Pure computation engine |
 | `@manifesto-ai/host` | Effect execution runtime |
@@ -75,12 +75,12 @@ console.log(app.getState().data.count); // 1
 See [API Reference](/api/) for full documentation.
 
 > Note: Runtime/SDK specs are currently draft decomposition documents derived from APP-SPEC.
-> The recommended production entry point remains `@manifesto-ai/app`.
+> The recommended production entry point remains `@manifesto-ai/sdk`.
 
 ## Installation
 
 ```bash
-npm install @manifesto-ai/app @manifesto-ai/compiler
+npm install @manifesto-ai/sdk @manifesto-ai/compiler
 ```
 
 ## Community

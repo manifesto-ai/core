@@ -1,3 +1,5 @@
+> **Addendum (2026-02-17):** Public-entry transition and App retirement policy are now governed by [ADR-008](./008-sdk-first-transition-and-app-retirement). This document remains the kickoff-phase historical baseline.
+
 # ADR-007: SDK/Runtime Split Kickoff Gate and Staged Locking
 
 > **Status:** Accepted

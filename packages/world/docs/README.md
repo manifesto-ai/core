@@ -177,7 +177,7 @@ App -> World -> Host
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses Core types |
 | Integrates with | `@manifesto-ai/host` | Via HostExecutor adapter (App-provided) |
-| Used by | `@manifesto-ai/app` | App submits proposals through World |
+| Used by | `@manifesto-ai/sdk` | SDK submits proposals through World |
 
 ---
 

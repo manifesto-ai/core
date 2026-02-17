@@ -20,7 +20,7 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
-| **@manifesto-ai/app** | Multiple | See below | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/app** | Deprecated (R1) | Compatibility facade (scheduled R2 removal) | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0-patch.md) |
 
 ### Intent & Translation
@@ -32,17 +32,10 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 
 ---
 
-## App Package FDRs
+## App Transition Note
 
-The App package has multiple focused FDR documents:
-
-| FDR | Version | Scope |
-|-----|---------|-------|
-| [FDR-APP-PUB-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-PUB-001-v0.3.0.md) | v0.3.0 | Tick definition, publish boundary |
-| [FDR-APP-RUNTIME-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md) | v0.2.0 | Lifecycle, hooks, plugins |
-| [FDR-APP-INTEGRATION-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.1.md) | v0.4.1 | HostExecutor, WorldStore |
-| [FDR-APP-POLICY-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-POLICY-001-v0.2.3.md) | v0.2.3 | ExecutionKey, authority |
-| [FDR-APP-EXT-001](https://github.com/manifesto-ai/core/blob/main/packages/app/docs/FDR-APP-EXT-001-v0.4.0.md) | v0.4.0 | MemoryStore, context freezing |
+`@manifesto-ai/app` remains available as a deprecated compatibility package in R1.
+Hard removal is scheduled in R2. App-era rationale remains part of project history and ADR context (see ADR-007, ADR-008).
 
 ---
 

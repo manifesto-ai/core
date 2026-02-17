@@ -87,7 +87,7 @@ domain TodoDomain {
 ### Dispatching Intents (App)
 
 ```typescript
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
 const app = createApp({ schema: TodoMel, effects: {} });
@@ -104,7 +104,7 @@ console.log(app.getState().data.todos);
 
 ```typescript
 import { useCallback, useSyncExternalStore } from 'react';
-import { createApp } from "@manifesto-ai/app";
+import { createApp } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
 const app = createApp({ schema: TodoMel, effects: {} });

@@ -14,11 +14,6 @@ If a SPEC/FDR is published as a patch:
 - Apply the patch document in order
 - The composed document is the authoritative version
 
-Example:
-- Base: `packages/core/docs/SPEC-v2.0.0.md`
-- Patch: `packages/core/docs/SPEC-v2.0.1-patch.md`
-- Effective spec: v2.0.1
-
 ## Latest SPECs (authoritative)
 Core packages:
 - Core v2.0.1 (base + patch)
@@ -30,9 +25,10 @@ Core packages:
   - `packages/world/docs/world-SPEC-v2.0.3.md`
 
 Application layer:
-- App v2.1.0 (base + patch)
-  - `packages/app/docs/APP-SPEC-v2.0.0.md`
-  - `packages/app/docs/APP-SPEC-v2.1.0-patch.md`
+- SDK v0.1.0 (kickoff-locked spec baseline)
+  - `packages/sdk/docs/sdk-SPEC-v0.1.0.md`
+- Runtime v0.1.0 (kickoff-locked spec baseline)
+  - `packages/runtime/docs/runtime-SPEC-v0.1.0.md`
 - Compiler (MEL) v0.5.0 (full)
   - `packages/compiler/docs/SPEC-v0.5.0.md`
 
@@ -44,14 +40,16 @@ Intent + translation:
 
 ## ADRs (authoritative decisions)
 Global ADRs:
-- ADR-002: onceIntent + $mel namespace
-  - `docs/adr/adr-002-onceIntent-mel-namespace.md`
+- ADR-006: Runtime reframing
+  - `docs/internals/adr/006-runtime-reframing.md`
+- ADR-007: SDK/Runtime split kickoff
+  - `docs/internals/adr/007-sdk-runtime-split-kickoff.md`
+- ADR-008: SDK-first entry + app retirement
+  - `docs/internals/adr/008-sdk-first-transition-and-app-retirement.md`
 
 Translator ADRs:
 - ADR-001 v1.0.8
   - `packages/translator/core/docs/translator-ADR-001-v1.0.8.md`
-- ADR-001 v0.11 (historical reference)
-  - `packages/translator/core/docs/translator-ADR-001-v0.11.md`
 - ADR-002 v0.11
   - `packages/translator/core/docs/translator-ADR-002-v0.11.md`
 - ADR-003 v0.11
@@ -59,37 +57,23 @@ Translator ADRs:
 
 ## FDRs (design rationale)
 Core:
-- Core FDR v2.0.0
-  - `packages/core/docs/FDR-v2.0.0.md`
+- `packages/core/docs/FDR-v2.0.0.md`
 
 Host:
-- Host FDR v2.0.2
-  - `packages/host/docs/host-FDR-v2.0.2.md`
+- `packages/host/docs/host-FDR-v2.0.2.md`
 
 World:
-- World FDR v2.0.2
-  - `packages/world/docs/world-FDR-v2.0.2.md`
-- World Event FDR v1.0.0
-  - `packages/world/docs/WORLD-EVENT-FDR-v1.0.0.md`
+- `packages/world/docs/world-FDR-v2.0.2.md`
+- `packages/world/docs/WORLD-EVENT-FDR-v1.0.0.md`
 
-App (all current app FDRs are additive):
-- `packages/app/docs/FDR-APP-EXT-001-v0.4.0.md`
-- `packages/app/docs/FDR-APP-INTEGRATION-001-v0.4.0.md`
-- `packages/app/docs/FDR-APP-POLICY-001-v0.2.3.md`
-- `packages/app/docs/FDR-APP-PUB-001-v0.3.0.md`
-- `packages/app/docs/FDR-APP-RUNTIME-001-v0.2.0.md`
-
-Compiler (MEL):
-- FDR v0.5.0 (full)
-  - `packages/compiler/docs/FDR-v0.5.0.md`
+Compiler:
+- `packages/compiler/docs/FDR-v0.5.0.md`
 
 Intent IR:
-- FDR v0.1.0
-  - `packages/intent-ir/docs/FDR-v0.1.0.md`
+- `packages/intent-ir/docs/FDR-v0.1.0.md`
 
 Translator:
-- FDR v0.11
-  - `packages/translator/core/docs/translator-FDR-v0.11.md`
+- `packages/translator/core/docs/translator-FDR-v0.11.md`
 
 ## Supporting indexes
 - Global spec index: `docs/internals/spec/index.md`
@@ -97,9 +81,14 @@ Translator:
   - `packages/core/docs/VERSION-INDEX.md`
   - `packages/host/docs/VERSION-INDEX.md`
   - `packages/world/docs/VERSION-INDEX.md`
-  - `packages/app/docs/VERSION-INDEX.md`
+  - `packages/sdk/docs/VERSION-INDEX.md`
+  - `packages/runtime/docs/VERSION-INDEX.md`
   - `packages/compiler/docs/VERSION-INDEX.md`
   - `packages/intent-ir/docs/VERSION-INDEX.md`
+
+## Legacy note
+`@manifesto-ai/app` is deprecated compatibility in R1 and scheduled for removal in R2. Reference page:
+- `docs/api/app.md`
 
 ## Archives
 Historical docs live under `archives/`. Treat these as non-authoritative unless explicitly requested.

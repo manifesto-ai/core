@@ -8,7 +8,7 @@
 
 ## Overview
 
-Manifesto integrates with React through the `@manifesto-ai/app` package's subscription API:
+Manifesto integrates with React through the `@manifesto-ai/sdk` package's subscription API:
 
 - `app.subscribe()` - Subscribe to state changes with selectors
 - `app.act()` - Dispatch actions
@@ -21,7 +21,7 @@ Manifesto integrates with React through the `@manifesto-ai/app` package's subscr
 ## Installation
 
 ```bash
-npm install @manifesto-ai/app @manifesto-ai/compiler react react-dom
+npm install @manifesto-ai/sdk @manifesto-ai/compiler react react-dom
 ```
 
 ---
@@ -32,7 +32,7 @@ npm install @manifesto-ai/app @manifesto-ai/compiler react react-dom
 
 ```typescript
 // src/manifesto-app.ts
-import { createApp } from '@manifesto-ai/app';
+import { createApp } from '@manifesto-ai/sdk';
 import CounterMel from './counter.mel';
 
 export const app = createApp({ schema: CounterMel, effects: {} });
@@ -418,7 +418,7 @@ domain Counter {
 ### manifesto-app.ts
 
 ```typescript
-import { createApp } from '@manifesto-ai/app';
+import { createApp } from '@manifesto-ai/sdk';
 import CounterMel from './counter.mel';
 
 export const app = createApp({ schema: CounterMel, effects: {} });
