@@ -52,14 +52,12 @@ const createMockSchema = (overrides?: Partial<DomainSchema>): DomainSchema => ({
 
 describe("SPEC §5: App Creation and Lifecycle", () => {
   describe("§5.1 createApp()", () => {
-    it("SYNC-1: createApp() returns synchronously without initialization", () => {
+    it("SYNC-1: createApp() returns synchronously without initialization", async () => {
       const schema = createMockSchema();
-      const startTime = Date.now();
-
       const app = createTestApp(schema);
 
-      const elapsed = Date.now() - startTime;
-      expect(elapsed).toBeLessThan(10); // Should be nearly instant
+      expect(app.status).toBe("created");
+      await Promise.resolve();
       expect(app.status).toBe("created");
     });
 
