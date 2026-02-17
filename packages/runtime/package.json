@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/runtime",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Manifesto Runtime - Internal execution orchestration engine",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
