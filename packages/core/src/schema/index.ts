@@ -29,6 +29,9 @@ export * from "./defaults.js";
 // Patch and Intent types
 export * from "./patch.js";
 
+// Typed patch operations builder
+export * from "./typed-ops.js";
+
 // Host context types
 export * from "./host-context.js";
 
