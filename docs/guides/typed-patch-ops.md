@@ -224,9 +224,9 @@ ops.raw.set("a.b.c.d.e", "deep");  // OK via escape hatch
 
 **Why?** TypeScript recursive types have compile-time limits. 4 segments covers the vast majority of domain state shapes without impacting build performance.
 
-### `Record<string, T>` Generates Wildcard Paths
+### `Record<string, T>` Fields Are Leaf Nodes
 
-Fields typed as `Record<string, T>` accept any string key:
+Fields typed as `Record<string, T>` are treated as leaf nodes — typed paths do not recurse into dynamic keys. Core's path resolution cannot validate dynamic keys, so sub-paths like `widgets.chart` would fail at runtime with `PATH_NOT_FOUND`.
 
 ```typescript
 type State = {
@@ -234,14 +234,13 @@ type State = {
 };
 const ops = defineOps<State>();
 
-// Any key is valid — Record has string index
-ops.set("widgets.chart", { title: "Chart", visible: true });
-ops.set("widgets.table", { title: "Table", visible: false });
+// Set or merge the entire Record
+ops.set("widgets", { chart: { title: "Chart", visible: true } });
+ops.merge("widgets", { newWidget: { title: "New", visible: true } });
 
-// Merge to add entries without replacing
-ops.merge("widgets", {
-  newWidget: { title: "New", visible: true },
-});
+// Individual key access — use raw escape hatch
+ops.raw.set("widgets.chart", { title: "Chart", visible: true });
+ops.raw.set("widgets.table", { title: "Table", visible: false });
 ```
 
 ### Optional Fields Reject `undefined` in `set()`

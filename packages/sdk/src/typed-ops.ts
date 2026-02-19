@@ -17,7 +17,8 @@ type Prev = [never, 0, 1, 2, 3, 4];
  *
  * - Object keys become path segments
  * - Nested objects generate dot-separated paths (e.g. "user.name")
- * - Arrays and primitives are leaf nodes (no further path nesting)
+ * - Arrays, primitives, and Record<string, T> are leaf nodes
+ *   (Record sub-paths are not supported by Core's path resolution)
  * - Limited to 3 levels of nesting to avoid TS recursion limits
  *   (root key + 3 nested levels = max 4 path segments)
  *
@@ -37,7 +38,9 @@ export type DataPaths<T, D extends number = 3> = [D] extends [never]
             | (NonNullable<T[K]> extends Record<string, unknown>
                 ? NonNullable<T[K]> extends unknown[]
                   ? never
-                  : `${K}.${DataPaths<NonNullable<T[K]>, Prev[D]>}`
+                  : string extends keyof NonNullable<T[K]>
+                    ? never // Record<string, T> — dynamic keys not resolved by Core
+                    : `${K}.${DataPaths<NonNullable<T[K]>, Prev[D]>}`
                 : never);
         }[keyof T & string]
     : never;
@@ -82,7 +85,9 @@ export type ObjectPaths<T, D extends number = 3> = [D] extends [never]
             | (NonNullable<T[K]> extends Record<string, unknown>
                 ? NonNullable<T[K]> extends unknown[]
                   ? never
-                  : `${K}.${ObjectPaths<NonNullable<T[K]>, Prev[D]>}`
+                  : string extends keyof NonNullable<T[K]>
+                    ? never // Record<string, T> — don't recurse into dynamic keys
+                    : `${K}.${ObjectPaths<NonNullable<T[K]>, Prev[D]>}`
                 : never);
         }[keyof T & string]
     : never;
@@ -127,7 +132,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    */
   merge<P extends ObjectPaths<TData>>(
     path: P,
-    value: Partial<ValueAt<TData, P>>,
+    value: { [K in keyof ValueAt<TData, P>]?: Exclude<ValueAt<TData, P>[K], undefined> },
   ): MergePatch;
 
   /**

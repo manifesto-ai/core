@@ -389,16 +389,17 @@ describe("Scenario 7: Record<string, T> fields", () => {
     expectTypeOf<"layout">().toMatchTypeOf<Paths>();
   });
 
-  it("should accept wildcard sub-paths from Record<string, T>", () => {
-    // Record<string, T> expands keyof to `string`, generating
-    // "widgets.${string}" as a valid path template.
-    // Any concrete key matches: "widgets.chart", "widgets.table", etc.
+  it("should NOT generate sub-paths for Record<string, T> fields", () => {
+    // Record<string, T> has dynamic keys that Core's path resolution
+    // cannot validate — sub-paths would fail with PATH_NOT_FOUND.
+    // Use raw.set("widgets.chart", value) for dynamic key access.
     type Paths = DataPaths<DashboardState>;
-    expectTypeOf<"widgets.chart">().toMatchTypeOf<Paths>();
-    expectTypeOf<"widgets.anything">().toMatchTypeOf<Paths>();
+    expectTypeOf<"widgets.chart">().not.toMatchTypeOf<Paths>();
+    expectTypeOf<"widgets.anything">().not.toMatchTypeOf<Paths>();
   });
 
-  it("should resolve Record sub-path value type correctly", () => {
+  it("should still resolve Record sub-path value type via ValueAt", () => {
+    // ValueAt still resolves — useful for raw escape hatch typing
     type V = ValueAt<DashboardState, "widgets.myWidget">;
     expectTypeOf<V>().toEqualTypeOf<{ title: string; visible: boolean }>();
   });
