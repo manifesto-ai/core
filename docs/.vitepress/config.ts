@@ -158,6 +158,7 @@ export default defineConfig({
             { text: 'Migrate App to SDK', link: '/guides/migrate-app-to-sdk' },
             { text: 'Performance Report', link: '/guides/performance-report' },
             { text: 'Code Generation', link: '/guides/code-generation' },
+            { text: 'Typed Patch Ops', link: '/guides/typed-patch-ops' },
           ]
         },
       ],
