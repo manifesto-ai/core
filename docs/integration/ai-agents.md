@@ -371,5 +371,4 @@ for (const info of diagnostics.info) {
 
 - [Why AI Needs a Deterministic Protocol](/concepts/ai-native-os-layer) — Design motivation
 - [World Concept](/concepts/world) — Authority details
-- [Schema Evolution](/integration/schema-evolution) — AI-driven schema changes
 - [Effect Handlers](/guides/effect-handlers) — External integration patterns
