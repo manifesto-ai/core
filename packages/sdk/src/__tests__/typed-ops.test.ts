@@ -216,11 +216,25 @@ describe("defineOps", () => {
     });
 
     it("should include context when provided", () => {
-      const patch = ops.error("API_ERROR", "Timeout", { endpoint: "/api/v1" });
+      const patch = ops.error("API_ERROR", "Timeout", { context: { endpoint: "/api/v1" } });
       expect(patch.value).toEqual(
         expect.objectContaining({
           code: "API_ERROR",
           context: { endpoint: "/api/v1" },
+        }),
+      );
+    });
+
+    it("should accept source and timestamp overrides", () => {
+      const patch = ops.error("SYNC_FAIL", "Timeout", {
+        source: { actionId: "act-1", nodePath: "sync.run" },
+        timestamp: 1700000000,
+      });
+      expect(patch.value).toEqual(
+        expect.objectContaining({
+          code: "SYNC_FAIL",
+          source: { actionId: "act-1", nodePath: "sync.run" },
+          timestamp: 1700000000,
         }),
       );
     });

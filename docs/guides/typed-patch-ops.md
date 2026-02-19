@@ -68,7 +68,7 @@ Returns a `TypedOps<TData>` object with the following methods:
 | `set` | `(path, value) → SetPatch` | Replace value at path |
 | `unset` | `(path) → UnsetPatch` | Remove value at path |
 | `merge` | `(path, value) → MergePatch` | Shallow merge at object path |
-| `error` | `(code, message, context?) → SetPatch` | Convenience for `system.lastError` |
+| `error` | `(code, message, options?) → SetPatch` | Convenience for `system.lastError` |
 | `raw.set` | `(path, value) → SetPatch` | Untyped set (escape hatch) |
 | `raw.unset` | `(path) → UnsetPatch` | Untyped unset (escape hatch) |
 | `raw.merge` | `(path, value) → MergePatch` | Untyped merge (escape hatch) |
@@ -177,8 +177,9 @@ const ops = defineOps<State>();
 // In an effect handler's catch block:
 return [
   ops.error("API_TIMEOUT", "Request timed out after 30s", {
-    endpoint: "/api/users",
-    attemptCount: 3,
+    source: { actionId: "fetch-users", nodePath: "sync.run" },
+    timestamp: Date.now(),
+    context: { endpoint: "/api/users", attemptCount: 3 },
   }),
 ];
 ```
@@ -243,17 +244,17 @@ ops.merge("widgets", {
 });
 ```
 
-### Optional Fields Allow `undefined`
+### Optional Fields Reject `undefined` in `set()`
 
-For optional fields (`field?: T`), the value type includes `undefined`:
+For optional fields (`field?: T`), `set()` excludes `undefined` from the value type — matching `core.apply()`'s runtime validation. Use `unset()` to remove optional values:
 
 ```typescript
 type State = { bio?: string };
 const ops = defineOps<State>();
 
 ops.set("bio", "Hello");      // OK
-ops.set("bio", undefined);    // OK — but prefer unset() for clarity
-ops.unset("bio");              // Recommended for removing optional values
+// ops.set("bio", undefined); // TS Error — use unset() instead
+ops.unset("bio");              // Correct way to remove optional values
 ```
 
 ### Platform and System Paths via `raw`

@@ -208,7 +208,7 @@ ops.set("counnt", 5);           // TS Error — path does not exist
 | `set` | `(path, value) → SetPatch` | Replace value at path |
 | `unset` | `(path) → UnsetPatch` | Remove value at path |
 | `merge` | `(path, value) → MergePatch` | Shallow merge at object path |
-| `error` | `(code, message, context?) → SetPatch` | Convenience for `system.lastError` |
+| `error` | `(code, message, options?) → SetPatch` | Convenience for `system.lastError` |
 | `raw.set` | `(path, value) → SetPatch` | Untyped set (escape hatch) |
 | `raw.unset` | `(path) → UnsetPatch` | Untyped unset (escape hatch) |
 | `raw.merge` | `(path, value) → MergePatch` | Untyped merge (escape hatch) |

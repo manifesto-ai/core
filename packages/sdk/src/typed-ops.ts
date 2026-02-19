@@ -108,7 +108,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * ops.set('count', 5);
    * ops.set('user.name', 'Alice');
    */
-  set<P extends DataPaths<TData>>(path: P, value: ValueAt<TData, P>): SetPatch;
+  set<P extends DataPaths<TData>>(path: P, value: Exclude<ValueAt<TData, P>, undefined>): SetPatch;
 
   /**
    * Create an unset patch — remove property at path.
@@ -134,9 +134,18 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * Create an error patch targeting system.lastError.
    *
    * Convenience for writing error state from effect handlers.
-   * Source and timestamp use defaults (enriched by Host context).
+   * Provide source and timestamp for full audit trail;
+   * omitted fields default to empty/zero.
    */
-  error(code: string, message: string, context?: Record<string, unknown>): SetPatch;
+  error(
+    code: string,
+    message: string,
+    options?: {
+      source?: { actionId: string; nodePath: string };
+      timestamp?: number;
+      context?: Record<string, unknown>;
+    },
+  ): SetPatch;
 
   /**
    * Raw (untyped) patch creation — escape hatch for dynamic paths
@@ -197,7 +206,11 @@ export function defineOps<
     error(
       code: string,
       message: string,
-      context?: Record<string, unknown>,
+      options?: {
+        source?: { actionId: string; nodePath: string };
+        timestamp?: number;
+        context?: Record<string, unknown>;
+      },
     ): SetPatch {
       return {
         op: "set",
@@ -205,9 +218,9 @@ export function defineOps<
         value: {
           code,
           message,
-          source: { actionId: "", nodePath: "" },
-          timestamp: 0,
-          ...(context !== undefined ? { context } : {}),
+          source: options?.source ?? { actionId: "", nodePath: "" },
+          timestamp: options?.timestamp ?? 0,
+          ...(options?.context !== undefined ? { context: options.context } : {}),
         },
       };
     },

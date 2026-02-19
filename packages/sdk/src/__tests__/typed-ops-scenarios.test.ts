@@ -208,12 +208,18 @@ describe("Scenario 3: Optional fields", () => {
     expect(p.value).toEqual({ url: "https://new.com/b.png" });
   });
 
-  it("should allow undefined for optional fields (ValueAt includes undefined)", () => {
+  it("should exclude undefined from set() for optional fields", () => {
     // bio?: string  →  ValueAt = string | undefined
-    // This means ops.set("bio", undefined) is valid at type level.
-    // Documented design choice: use ops.unset() instead for clarity.
+    // But set() uses Exclude<ValueAt, undefined> so undefined is rejected.
+    // Use ops.unset("bio") to remove optional fields.
     type BioValue = ValueAt<ProfileState, "bio">;
-    expectTypeOf<undefined>().toMatchTypeOf<BioValue>();
+    expectTypeOf<undefined>().toMatchTypeOf<BioValue>(); // ValueAt still includes undefined
+
+    // But the set() method signature rejects it:
+    // ops.set("bio", undefined)  →  TS compile error
+    // ops.unset("bio")           →  correct way to clear
+    const p = ops.set("bio", "Hello");
+    expect(p.value).toBe("Hello");
   });
 });
 
@@ -270,9 +276,20 @@ describe("Scenario 4: Effect handler pattern", () => {
   });
 
   it("should create error convenience patch", () => {
-    const p = ops.error("SYNC_FAILED", "API returned 500", { endpoint: "/api/items" });
+    const p = ops.error("SYNC_FAILED", "API returned 500", { context: { endpoint: "/api/items" } });
     expect(p.op).toBe("set");
     expect(p.path).toBe("system.lastError");
+  });
+
+  it("should create error patch with source metadata", () => {
+    const p = ops.error("SYNC_FAILED", "API returned 500", {
+      source: { actionId: "sync-action", nodePath: "sync.fetch" },
+      timestamp: Date.now(),
+      context: { endpoint: "/api/items" },
+    });
+    expect(p.op).toBe("set");
+    expect((p.value as Record<string, unknown>).code).toBe("SYNC_FAILED");
+    expect((p.value as Record<string, { actionId: string }>).source.actionId).toBe("sync-action");
   });
 });
 
