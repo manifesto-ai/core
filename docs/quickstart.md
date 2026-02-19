@@ -196,7 +196,7 @@ console.log(app.getState().computed["computed.doubled"]); // 2
 | [Tutorial](/tutorial/) | Step-by-step learning path |
 | [MEL Syntax](/mel/SYNTAX) | Complete language reference |
 | [Core Concepts](/concepts/) | Snapshot, Intent, Effect, Flow |
-| [Integration](/integration/) | React, AI agents, schema evolution |
+| [Integration](/integration/) | React and AI agents |
 
 ---
 

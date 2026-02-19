@@ -125,7 +125,6 @@ export default defineConfig({
             { text: 'Overview', link: '/integration/' },
             { text: 'React', link: '/integration/react' },
             { text: 'AI Agents', link: '/integration/ai-agents' },
-            { text: 'Schema Evolution', link: '/integration/schema-evolution' },
           ]
         }
       ],

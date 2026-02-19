@@ -1,6 +1,6 @@
 # Manifesto Normative Summary (LLM)
 
-This file is a compact, non-exhaustive summary of high-salience norms. Always defer to the authoritative specs listed in `docs/llm/LLM-INDEX.md` for full detail and exact wording.
+This file is a compact, non-exhaustive summary of high-salience norms. Always defer to the authoritative specs listed in `./LLM-INDEX.md` for full detail and exact wording.
 
 ## Document precedence
 - SPEC is authoritative.

@@ -10,7 +10,6 @@
 |-------------|-------------|---------------|
 | [React](./react) | Hooks, Provider, selective re-rendering | Tutorial completed |
 | [AI Agents](./ai-agents) | Translator pipeline, natural language to intents | Tutorial completed, basic LLM knowledge |
-| [Schema Evolution](./schema-evolution) | AI-driven schema changes, migration strategies | Core concepts understood |
 
 ---
 

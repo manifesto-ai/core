@@ -1,6 +1,6 @@
 # SPEC Index
 
-> Source: docs/llm/LLM-INDEX.md
+> Source: ./llm/LLM-INDEX.md
 > Last synced: 2026-02-09
 
 ## Normative Hierarchy

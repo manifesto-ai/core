@@ -59,7 +59,7 @@
     {
       "skill": "knowledge/spec-index.md",
       "sources": [
-        { "path": "docs/llm/LLM-INDEX.md", "version": "latest" }
+        { "path": "skills/knowledge/llm/LLM-INDEX.md", "version": "latest" }
       ],
       "lastSynced": "2026-02-09"
     },
