@@ -1,7 +1,7 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
-import { defineOps } from "../schema/typed-ops.js";
-import type { DataPaths, ValueAt, ObjectPaths } from "../schema/typed-ops.js";
-import type { SetPatch, UnsetPatch, MergePatch } from "../schema/patch.js";
+import { defineOps } from "../typed-ops.js";
+import type { DataPaths, ValueAt, ObjectPaths } from "../typed-ops.js";
+import type { SetPatch, UnsetPatch, MergePatch } from "@manifesto-ai/core";
 
 // ============================================================================
 // Test Domain Types

@@ -40,6 +40,7 @@ describe('sdk public exports contract', () => {
       'createAppRef',
       'createHookContext',
       'createTestApp',
+      'defineOps',
     ].sort();
 
     expect(exportedKeys).toEqual(expectedKeys);

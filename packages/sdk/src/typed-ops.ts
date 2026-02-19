@@ -1,4 +1,4 @@
-import type { Patch, SetPatch, UnsetPatch, MergePatch } from "./patch.js";
+import type { Patch, SetPatch, UnsetPatch, MergePatch } from "@manifesto-ai/core";
 
 // ============================================================================
 // Type-Level Path Utilities
