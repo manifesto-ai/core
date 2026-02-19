@@ -18,14 +18,15 @@ type Prev = [never, 0, 1, 2, 3, 4];
  * - Object keys become path segments
  * - Nested objects generate dot-separated paths (e.g. "user.name")
  * - Arrays and primitives are leaf nodes (no further path nesting)
- * - Limited to 4 levels of nesting to avoid TS recursion limits
+ * - Limited to 3 levels of nesting to avoid TS recursion limits
+ *   (root key + 3 nested levels = max 4 path segments)
  *
  * @example
  * type State = { user: { name: string; age: number }; count: number };
  * type P = DataPaths<State>;
  * // "user" | "user.name" | "user.age" | "count"
  */
-export type DataPaths<T, D extends number = 4> = [D] extends [never]
+export type DataPaths<T, D extends number = 3> = [D] extends [never]
   ? never
   : T extends Record<string, unknown>
     ? T extends unknown[]
@@ -66,7 +67,7 @@ export type ValueAt<T, P extends string> = P extends `${infer K}.${infer Rest}`
  * type M = ObjectPaths<State>;
  * // "user" (tags and count excluded - not plain objects)
  */
-export type ObjectPaths<T, D extends number = 4> = [D] extends [never]
+export type ObjectPaths<T, D extends number = 3> = [D] extends [never]
   ? never
   : T extends Record<string, unknown>
     ? T extends unknown[]
