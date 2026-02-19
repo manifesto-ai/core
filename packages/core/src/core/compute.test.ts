@@ -730,6 +730,71 @@ describe("compute", () => {
   });
 
   describe("Availability on Re-Entry (#134)", () => {
+    it("should keep action valid when re-entering after effect mutates available fields", async () => {
+      const schema = createTestSchema({
+        state: {
+          fields: {
+            pending: { type: "string", required: false },
+            result: { type: "string", required: false },
+          },
+        },
+        actions: {
+          run: {
+            available: {
+              kind: "and",
+              args: [
+                { kind: "isNull", arg: { kind: "get", path: "pending" } },
+                { kind: "isNull", arg: { kind: "get", path: "result" } },
+              ],
+            },
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "pending" } },
+              then: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: "pending",
+                    value: { kind: "get", path: "meta.intentId" },
+                  },
+                  {
+                    kind: "effect",
+                    type: "demo.exec",
+                    params: {
+                      into: { kind: "lit", value: "result" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      const pending = createTestSnapshot({ pending: null, result: null }, schema.hash);
+      const intent = createIntent("run", "intent-run-1");
+
+      const first = await compute(schema, pending, intent, HOST_CONTEXT);
+      expect(first.status).toBe("pending");
+      expect(first.snapshot.system.currentAction).toBe("run");
+
+      const afterEffect = {
+        ...first.snapshot,
+        data: { ...(first.snapshot.data as Record<string, unknown>), result: "done" },
+        system: {
+          ...first.snapshot.system,
+          pendingRequirements: [],
+        },
+      };
+
+      const second = await compute(schema, afterEffect, intent, HOST_CONTEXT);
+
+      expect(second.status).toBe("complete");
+      expect(second.snapshot.system.lastError?.code).toBeUndefined();
+    });
+
     it("should skip availability check on re-entry when currentAction matches", async () => {
       // Simulates the issue #134 scenario:
       // Action `run` has `available when and(isNull(result), isNull(pending))`
