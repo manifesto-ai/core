@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.1](https://github.com/manifesto-ai/core/compare/sdk-v1.2.0...sdk-v1.2.1) (2026-02-20)
+
+
+### Bug Fixes
+
+* **sdk:** address PR review — exclude undefined from set(), enrich error() metadata ([705d9f8](https://github.com/manifesto-ai/core/commit/705d9f89790ddf5c7c9e0e7068140950e6ea0ecc))
+* **sdk:** correct depth limit off-by-one and add usage pattern tests ([03389b6](https://github.com/manifesto-ai/core/commit/03389b6d0d8e6127b57ec3a053c4f31ded154660))
+* **sdk:** exclude reserved snapshot roots from typed paths ([0a3c663](https://github.com/manifesto-ai/core/commit/0a3c6633cd799655401f1d665a3b3c55ac907db0))
+* **sdk:** stop DataPaths recursion into Record fields, exclude undefined from merge ([d6c1f42](https://github.com/manifesto-ai/core/commit/d6c1f428810cb83dbb1b92d6ea3971af4223ed20))
+
 ## [1.2.0](https://github.com/manifesto-ai/core/compare/sdk-v1.1.0...sdk-v1.2.0) (2026-02-17)
 
 

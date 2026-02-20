@@ -5,7 +5,7 @@
   "packages/intent-ir": "0.3.1",
   "packages/host": "2.3.1",
   "packages/runtime": "0.1.2",
-  "packages/sdk": "1.2.0",
+  "packages/sdk": "1.2.1",
   "packages/translator/core": "0.2.1",
   "packages/world": "2.4.0",
   "skills": "0.1.1"
