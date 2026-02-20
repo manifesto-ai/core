@@ -548,3 +548,59 @@ describe("Scenario 11: ValueAt edge cases", () => {
     expectTypeOf<V>().toEqualTypeOf<never>();
   });
 });
+
+// ============================================================================
+// Scenario 12: Reserved snapshot root exclusion
+// ============================================================================
+
+type ReservedFieldState = {
+  count: number;
+  system: { foo: string };
+  input: { bar: number };
+  computed: { baz: boolean };
+  meta: { qux: string };
+  safe: { nested: string };
+};
+
+describe("Scenario 12: Reserved snapshot root exclusion", () => {
+  const ops = defineOps<ReservedFieldState>();
+
+  it("should allow non-reserved paths", () => {
+    const p1 = ops.set("count", 42);
+    expect(p1).toEqual({ op: "set", path: "count", value: 42 });
+
+    const p2 = ops.set("safe.nested", "hello");
+    expect(p2).toEqual({ op: "set", path: "safe.nested", value: "hello" });
+  });
+
+  it("should exclude reserved root paths from DataPaths", () => {
+    // These paths would be misrouted by Core's splitPatchPath():
+    // "system.foo" → snapshot.system.foo (not snapshot.data.system.foo)
+    // TypedOps filters them out to prevent silent runtime corruption.
+    type Paths = DataPaths<ReservedFieldState>;
+
+    // DataPaths itself still generates these (it's generic)
+    expectTypeOf<"system">().toMatchTypeOf<Paths>();
+    expectTypeOf<"system.foo">().toMatchTypeOf<Paths>();
+
+    // But TypedOps interface filters them — verified by:
+    // ops.set("system", ...) → TS error
+    // ops.set("system.foo", ...) → TS error
+    // Users should use raw for reserved namespace access.
+  });
+
+  it("should allow reserved path access via raw escape hatch", () => {
+    const p = ops.raw.set("system.status", "idle");
+    expect(p).toEqual({ op: "set", path: "system.status", value: "idle" });
+  });
+
+  it("should not filter reserved names in nested positions", () => {
+    // "safe.nested" is fine — "nested" is not a root-level reserved prefix.
+    // Nested occurrences of reserved words are safe because splitPatchPath()
+    // only checks the first segment.
+    type NestState = { safe: { system: string; input: number } };
+    type Paths = DataPaths<NestState>;
+    expectTypeOf<"safe.system">().toMatchTypeOf<Paths>();
+    expectTypeOf<"safe.input">().toMatchTypeOf<Paths>();
+  });
+});

@@ -256,9 +256,11 @@ ops.set("bio", "Hello");      // OK
 ops.unset("bio");              // Correct way to remove optional values
 ```
 
-### Platform and System Paths via `raw`
+### Reserved Roots Are Excluded
 
-Typed paths cover `snapshot.data` only. For `system.*`, `input.*`, or platform namespaces (`$host.*`), use `raw`:
+Core's `splitPatchPath()` routes paths starting with `system`, `input`, `computed`, or `meta` to their respective snapshot containers — **not** to `snapshot.data`. To prevent silent misrouting, the typed API excludes these prefixes. Even if your domain state type has a field named `system`, `ops.set("system.foo", ...)` will be a compile error.
+
+Use `raw` for reserved namespace access:
 
 ```typescript
 const ops = defineOps<State>();
@@ -268,6 +270,8 @@ ops.raw.set("input.amount", 100);
 ops.raw.set("$host.intentSlots", { slot1: "v" });
 ops.raw.merge("$host.config", { debug: true });
 ```
+
+> **Note:** Reserved names in *nested* positions are safe — `ops.set("safe.system", value)` routes to `snapshot.data.safe.system` as expected.
 
 ---
 

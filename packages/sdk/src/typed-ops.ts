@@ -97,6 +97,25 @@ export type ObjectPaths<T, D extends number = 3> = [D] extends [never]
 // ============================================================================
 
 /**
+ * Snapshot root prefixes reserved by Core's splitPatchPath().
+ * Paths starting with these are routed to snapshot.system / .input / etc.,
+ * NOT to snapshot.data. Typed ops exclude them to prevent silent misrouting.
+ */
+type ReservedRoot = "system" | "input" | "computed" | "meta";
+
+/** DataPaths with reserved snapshot roots filtered out. */
+type SafeDataPaths<T extends Record<string, unknown>> = Exclude<
+  DataPaths<T>,
+  ReservedRoot | `${ReservedRoot}.${string}`
+>;
+
+/** ObjectPaths with reserved snapshot roots filtered out. */
+type SafeObjectPaths<T extends Record<string, unknown>> = Exclude<
+  ObjectPaths<T>,
+  ReservedRoot | `${ReservedRoot}.${string}`
+>;
+
+/**
  * Type-safe patch operations builder.
  *
  * Provides IDE autocomplete for state paths and compile-time type checking
@@ -113,7 +132,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * ops.set('count', 5);
    * ops.set('user.name', 'Alice');
    */
-  set<P extends DataPaths<TData>>(path: P, value: Exclude<ValueAt<TData, P>, undefined>): SetPatch;
+  set<P extends SafeDataPaths<TData>>(path: P, value: Exclude<ValueAt<TData, P>, undefined>): SetPatch;
 
   /**
    * Create an unset patch — remove property at path.
@@ -121,7 +140,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * @example
    * ops.unset('temporaryField');
    */
-  unset<P extends DataPaths<TData>>(path: P): UnsetPatch;
+  unset<P extends SafeDataPaths<TData>>(path: P): UnsetPatch;
 
   /**
    * Create a merge patch — shallow merge at object path.
@@ -130,7 +149,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * @example
    * ops.merge('user', { name: 'Bob' });
    */
-  merge<P extends ObjectPaths<TData>>(
+  merge<P extends SafeObjectPaths<TData>>(
     path: P,
     value: { [K in keyof ValueAt<TData, P>]?: Exclude<ValueAt<TData, P>[K], undefined> },
   ): MergePatch;
