@@ -175,6 +175,56 @@ Inside hooks, `ctx.app` is an `AppRef` — a read-only facade that prevents re-e
 
 ---
 
+## Typed Patch Operations
+
+### defineOps\<TData\>()
+
+Creates a type-safe patch builder with IDE autocomplete and compile-time type checking.
+
+```typescript
+import { defineOps } from "@manifesto-ai/sdk";
+
+type State = {
+  count: number;
+  user: { name: string; age: number };
+  tags: string[];
+};
+
+const ops = defineOps<State>();
+
+ops.set("count", 5);            // OK — value: number
+ops.set("user.name", "Alice");  // OK — value: string
+ops.merge("user", { age: 30 }); // OK — partial object merge
+ops.unset("tags");               // OK
+
+ops.set("count", "wrong");      // TS Error — expected number
+ops.set("counnt", 5);           // TS Error — path does not exist
+```
+
+### TypedOps\<TData\> Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `set` | `(path, value) → SetPatch` | Replace value at path |
+| `unset` | `(path) → UnsetPatch` | Remove value at path |
+| `merge` | `(path, value) → MergePatch` | Shallow merge at object path |
+| `error` | `(code, message, options?) → SetPatch` | Convenience for `system.lastError` |
+| `raw.set` | `(path, value) → SetPatch` | Untyped set (escape hatch) |
+| `raw.unset` | `(path) → UnsetPatch` | Untyped unset (escape hatch) |
+| `raw.merge` | `(path, value) → MergePatch` | Untyped merge (escape hatch) |
+
+### Type Utilities
+
+| Type | Purpose |
+|------|---------|
+| `DataPaths<T>` | Union of all valid dot-separated paths from `T` |
+| `ValueAt<T, P>` | Resolves the value type at path `P` in `T` |
+| `ObjectPaths<T>` | Subset of `DataPaths` — only object paths (valid for merge) |
+
+> See the **[Typed Patch Ops Guide](/guides/typed-patch-ops)** for usage patterns and design characteristics.
+
+---
+
 ## Error Types
 
 SDK re-exports error types from Runtime. Key errors:

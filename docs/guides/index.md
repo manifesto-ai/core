@@ -31,6 +31,7 @@ Guides assume you already understand the basics.
 | [Migrate App to SDK](./migrate-app-to-sdk) | Replace legacy app-facade imports with `@manifesto-ai/sdk` | Beginner |
 | [Performance Report](./performance-report) | Benchmark results and reproduction commands | Advanced |
 | [Code Generation](./code-generation) | Generate TypeScript types and Zod schemas from DomainSchema | Beginner |
+| [Typed Patch Ops](./typed-patch-ops) | Create patches with IDE autocomplete and compile-time type checking | Beginner |
 
 ---
 
@@ -46,6 +47,7 @@ Guides assume you already understand the basics.
 | Migrating legacy imports | [Migrate App to SDK](./migrate-app-to-sdk) |
 | Checking deployment readiness | [Performance Report](./performance-report) |
 | Generating types from schema | [Code Generation](./code-generation) |
+| Patches have wrong paths or values | [Typed Patch Ops](./typed-patch-ops) |
 
 ---
 

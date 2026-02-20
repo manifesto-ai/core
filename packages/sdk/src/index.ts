@@ -201,3 +201,10 @@ export { HookableImpl } from './hooks/index.js';
 export type { HookState } from './hooks/index.js';
 export { JobQueue } from './hooks/index.js';
 export { HookContextImpl, createHookContext } from './hooks/index.js';
+
+// =============================================================================
+// Typed Patch Operations
+// =============================================================================
+
+export { defineOps } from './typed-ops.js';
+export type { TypedOps, DataPaths, ValueAt, ObjectPaths } from './typed-ops.js';
