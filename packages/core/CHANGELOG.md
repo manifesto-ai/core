@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/manifesto-ai/core/compare/core-v2.4.0...core-v2.5.0) (2026-02-20)
+
+
+### Features
+
+* **core:** add type-safe defineOps&lt;T&gt;() for typed PatchOps creation ([f4dc2cf](https://github.com/manifesto-ai/core/commit/f4dc2cfc024a2695c5c215a82c32ea008e160c0e))
+
 ## [2.4.0](https://github.com/manifesto-ai/core/compare/core-v2.3.0...core-v2.4.0) (2026-02-10)
 
 
