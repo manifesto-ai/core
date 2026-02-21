@@ -49,7 +49,7 @@ export function compileMelPatchText(
   try {
     const lexResult = tokenize(syntheticMel);
     tokens = lexResult.tokens;
-    const lexErrors = mapDiagnosticsToPatchSource(
+    const lexErrors = remapDiagnosticsToPatchSource(
       lexResult.diagnostics.filter(d => d.severity === "error"),
       patchLines.length,
       patchLineStarts
@@ -76,7 +76,7 @@ export function compileMelPatchText(
   let program: ProgramNode;
   try {
     const parseResult = parse(tokens);
-    const parsedDiagnostics = mapDiagnosticsToPatchSource(
+    const parsedDiagnostics = remapDiagnosticsToPatchSource(
       parseResult.diagnostics,
       patchLines.length,
       patchLineStarts
@@ -155,12 +155,12 @@ export function compileMelPatchText(
 
   const loweredOps: CompileMelPatchResult["ops"] = [];
   for (const patchStatement of patchStatements) {
+    const patchLocation = remapLocationToPatchSource(
+      patchStatement.location,
+      patchLines.length,
+      patchLineStarts
+    );
     try {
-      const patchLocation = remapLocationToPatchSource(
-        patchStatement.location,
-        patchLines.length,
-        patchLineStarts
-      );
       const melPatch = compilePatchStmtToMelRuntime(patchStatement);
       loweredOps.push(lowerRuntimePatch(melPatch, loweringContext));
     } catch (error) {
@@ -235,7 +235,14 @@ function collectPatchStatements(
     }
 
     if (stmt.kind === "when" || stmt.kind === "once" || stmt.kind === "onceIntent") {
-      patchStatements.push(...collectPatchStatements(stmt.body, errors));
+      patchStatements.push(
+        ...collectPatchStatements(
+          stmt.body,
+          errors,
+          patchLineCount,
+          patchLineStarts
+        )
+      );
       continue;
     }
 
