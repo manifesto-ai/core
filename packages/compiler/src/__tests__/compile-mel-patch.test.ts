@@ -156,10 +156,20 @@ describe("compileMelPatch", () => {
     expect(result.ops).toHaveLength(0);
   });
 
+  it("rejects malformed wrapper-escaping syntax instead of producing empty ops", () => {
+    const result = compileMelPatch(`}`, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-wrapper-integrity",
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].code).toBe("E_PATCH_WRAPPER");
+    expect(result.errors[0].location.start.line).toBe(1);
+    expect(result.ops).toHaveLength(0);
+  });
+
   it("clamps parse diagnostics to patch text range when wrapper parsing fails", () => {
-    const melText = `patch score = 1
-}
-}`;
+    const melText = `patch score = 1\n}\n}`;
     const patchLines = melText.split("\n");
 
     const result = compileMelPatch(melText, {
@@ -174,6 +184,16 @@ describe("compileMelPatch", () => {
           error.location.start.line >= 1 && error.location.start.line <= patchLines.length
       )
     ).toBe(true);
+  });
+
+  it("rejects dynamic patch-path indexes", () => {
+    const result = compileMelPatch(`patch items[input.i] = 1`, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-dynamic-path-index",
+    });
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0].code).toBe("E_DYNAMIC_PATCH_PATH");
   });
 
   it("rejects forbidden $system paths by default", () => {

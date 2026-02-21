@@ -132,12 +132,40 @@ export function compileMelPatchText(
     return { ops: [], trace, warnings, errors };
   }
 
+  const [patchRoot] = action.body;
+  if (!patchRoot || patchRoot.kind !== "when" || !isSyntheticPatchCondition(patchRoot.condition)) {
+    errors.push({
+      severity: "error",
+      code: "E_PATCH_WRAPPER",
+      message: `Malformed synthetic patch wrapper for action '${SYNTHETIC_ACTION}'.`,
+      location: remapLocationToPatchSource(
+        action.location,
+        patchLines,
+        patchLineStarts
+      ),
+    });
+    trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart });
+    return { ops: [], trace, warnings, errors };
+  }
+
   const patchStatements = collectPatchStatements(
-    action.body,
+    patchRoot.body,
     errors,
     patchLines,
     patchLineStarts
   );
+  if (errors.length === 0 && melText.trim() !== "" && patchStatements.length === 0) {
+    errors.push({
+      severity: "error",
+      code: "E_PATCH_WRAPPER",
+      message: "Patch wrapper parsing produced no patch statements. The patch source may be malformed.",
+      location: remapLocationToPatchSource(
+        patchRoot.location,
+        patchLines,
+        patchLineStarts
+      ),
+    });
+  }
   trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart, details: { count: patchStatements.length } });
 
   if (errors.length > 0) {
@@ -230,6 +258,24 @@ function collectPatchStatements(
 
   for (const stmt of stmts) {
     if (stmt.kind === "patch") {
+      const dynamicIndexSegment = stmt.path.segments.find(
+        (segment) => segment.kind === "indexSegment" && segment.index.kind !== "literal"
+      );
+
+      if (dynamicIndexSegment) {
+        errors.push({
+          severity: "error",
+          code: "E_DYNAMIC_PATCH_PATH",
+          message: "Dynamic patch path indexes are not supported. Use a literal index.",
+          location: remapLocationToPatchSource(
+            dynamicIndexSegment.location,
+            patchLines,
+            patchLineStarts
+          ),
+        });
+        continue;
+      }
+
       patchStatements.push(stmt);
       continue;
     }
@@ -281,7 +327,11 @@ function toRuntimePatchPath(path: PathNode): string {
     }
 
     const literalValue = toPathSegmentLiteral(segment);
-    parts.push(literalValue ?? "*");
+    if (literalValue === null) {
+      throw new Error("Dynamic patch path indexes are not supported.");
+    }
+
+    parts.push(literalValue);
   }
 
   return parts.join(".");
@@ -293,6 +343,10 @@ function toPathSegmentLiteral(segment: PathSegmentNode): string | null {
   }
 
   return null;
+}
+
+function isSyntheticPatchCondition(condition: ExprNode): condition is { kind: "literal"; literalType: "boolean"; value: true } {
+  return condition.kind === "literal" && condition.literalType === "boolean" && condition.value === true;
 }
 
 function toMelExpr(input: ExprNode): MelExprNode {
