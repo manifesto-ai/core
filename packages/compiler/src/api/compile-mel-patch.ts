@@ -24,6 +24,9 @@ import type { MelExprNode, MelPathSegment } from "../lowering/lower-expr.js";
  */
 const SYNTHETIC_ACTION = "__compileMelPatch";
 const SYNTHETIC_DOMAIN = "__patchDomain";
+const SYNTHETIC_PATCH_INDENT = "      ";
+const SYNTHETIC_PATCH_PREFIX_LINES = 3;
+const SYNTHETIC_PATCH_PREFIX_COLUMNS = 6;
 
 /**
  * Compile MEL patch text into RuntimeConditionalPatchOps.
@@ -35,6 +38,8 @@ export function compileMelPatchText(
   const trace: CompileTrace[] = [];
   const warnings: Diagnostic[] = [];
   const errors: Diagnostic[] = [];
+  const patchLines = melText.split("\n");
+  const patchLineStarts = computeLineStartOffsets(patchLines);
 
   const syntheticMel = buildSyntheticPatchProgram(melText, SYNTHETIC_ACTION);
 
@@ -44,7 +49,11 @@ export function compileMelPatchText(
   try {
     const lexResult = tokenize(syntheticMel);
     tokens = lexResult.tokens;
-    const lexErrors = lexResult.diagnostics.filter(d => d.severity === "error");
+    const lexErrors = mapDiagnosticsToPatchSource(
+      lexResult.diagnostics.filter(d => d.severity === "error"),
+      patchLines.length,
+      patchLineStarts
+    );
     if (lexErrors.length > 0) {
       errors.push(...lexErrors);
       trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
@@ -67,8 +76,13 @@ export function compileMelPatchText(
   let program: ProgramNode;
   try {
     const parseResult = parse(tokens);
-    const parseErrors = parseResult.diagnostics.filter(d => d.severity === "error");
-    const parseWarnings = parseResult.diagnostics.filter(d => d.severity !== "error");
+    const parsedDiagnostics = mapDiagnosticsToPatchSource(
+      parseResult.diagnostics,
+      patchLines.length,
+      patchLineStarts
+    );
+    const parseErrors = parsedDiagnostics.filter(d => d.severity === "error");
+    const parseWarnings = parsedDiagnostics.filter(d => d.severity !== "error");
 
     if (parseErrors.length > 0) {
       errors.push(...parseErrors);
@@ -118,7 +132,12 @@ export function compileMelPatchText(
     return { ops: [], trace, warnings, errors };
   }
 
-  const patchStatements = collectPatchStatements(action.body, errors);
+  const patchStatements = collectPatchStatements(
+    action.body,
+    errors,
+    patchLines.length,
+    patchLineStarts
+  );
   trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart, details: { count: patchStatements.length } });
 
   if (errors.length > 0) {
@@ -137,6 +156,11 @@ export function compileMelPatchText(
   const loweredOps: CompileMelPatchResult["ops"] = [];
   for (const patchStatement of patchStatements) {
     try {
+      const patchLocation = remapLocationToPatchSource(
+        patchStatement.location,
+        patchLines.length,
+        patchLineStarts
+      );
       const melPatch = compilePatchStmtToMelRuntime(patchStatement);
       loweredOps.push(lowerRuntimePatch(melPatch, loweringContext));
     } catch (error) {
@@ -145,21 +169,21 @@ export function compileMelPatchText(
           severity: "error",
           code: error.code,
           message: error.message,
-          location: patchStatement.location,
+          location: patchLocation,
         });
       } else if (error instanceof Error) {
         errors.push({
           severity: "error",
           code: "E_LOWER",
           message: error.message,
-          location: patchStatement.location,
+          location: patchLocation,
         });
       } else {
         errors.push({
           severity: "error",
           code: "E_LOWER",
           message: "Unknown lowering failure",
-          location: patchStatement.location,
+          location: patchLocation,
         });
       }
     }
@@ -182,7 +206,7 @@ export function compileMelPatchText(
 function buildSyntheticPatchProgram(melText: string, actionName: string): string {
   const indentedPatchText = melText
     .split("\n")
-    .map((line) => `      ${line}`)
+    .map((line) => `${SYNTHETIC_PATCH_INDENT}${line}`)
     .join("\n");
 
   return [
@@ -198,7 +222,9 @@ function buildSyntheticPatchProgram(melText: string, actionName: string): string
 
 function collectPatchStatements(
   stmts: GuardedStmtNode[] | InnerStmtNode[],
-  errors: Diagnostic[]
+  errors: Diagnostic[],
+  patchLineCount: number,
+  patchLineStarts: number[]
 ): PatchStmtNode[] {
   const patchStatements: PatchStmtNode[] = [];
 
@@ -217,7 +243,11 @@ function collectPatchStatements(
       severity: "error",
       code: "E_UNSUPPORTED_STMT",
       message: `Unsupported statement '${stmt.kind}' in patch text. Only patch statements are allowed.`,
-      location: stmt.location,
+      location: remapLocationToPatchSource(
+        stmt.location,
+        patchLineCount,
+        patchLineStarts
+      ),
     });
   }
 
@@ -277,10 +307,14 @@ function toMelExpr(input: ExprNode): MelExprNode {
 
     case "propertyAccess": {
       const path = staticPathFromExpr(input);
-      if (!path) {
-        throw new Error("Dynamic property access is not supported in runtime patch compilation");
+      if (path) {
+        return path;
       }
-      return path;
+      return {
+        kind: "call",
+        fn: "field",
+        args: [toMelExpr(input.object), { kind: "lit", value: input.property }],
+      };
     }
 
     case "indexAccess": {
@@ -390,6 +424,75 @@ function toMelPrimitive(value: unknown, literalType: "number" | "string" | "bool
   }
 
   throw new Error("Unsupported literal type");
+}
+
+function computeLineStartOffsets(lines: string[]): number[] {
+  const offsets = [];
+  let offset = 0;
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+  return offsets;
+}
+
+function remapDiagnosticsToPatchSource(
+  diagnostics: Diagnostic[],
+  patchLineCount: number,
+  patchLineStarts: number[]
+): Diagnostic[] {
+  return diagnostics.map((diagnostic) => remapDiagnosticToPatchSource(
+    diagnostic,
+    patchLineCount,
+    patchLineStarts
+  ));
+}
+
+function remapDiagnosticToPatchSource(
+  diagnostic: Diagnostic,
+  patchLineCount: number,
+  patchLineStarts: number[]
+): Diagnostic {
+  return {
+    ...diagnostic,
+    location: remapLocationToPatchSource(
+      diagnostic.location,
+      patchLineCount,
+      patchLineStarts
+    ),
+  };
+}
+
+function remapLocationToPatchSource(
+  location: Diagnostic["location"],
+  patchLineCount: number,
+  patchLineStarts: number[]
+): Diagnostic["location"] {
+  return {
+    ...location,
+    start: remapPositionToPatchSource(location.start, patchLineCount, patchLineStarts),
+    end: remapPositionToPatchSource(location.end, patchLineCount, patchLineStarts),
+  };
+}
+
+function remapPositionToPatchSource(
+  position: Diagnostic["location"]["start"],
+  patchLineCount: number,
+  patchLineStarts: number[]
+): Diagnostic["location"]["start"] {
+  const patchLine = position.line - SYNTHETIC_PATCH_PREFIX_LINES;
+  if (patchLine < 1 || patchLine > patchLineCount) {
+    return position;
+  }
+
+  const sourceLineStart = patchLineStarts[patchLine - 1] ?? 0;
+  const sourceColumn = Math.max(1, position.column - SYNTHETIC_PATCH_PREFIX_COLUMNS);
+
+  return {
+    line: patchLine,
+    column: sourceColumn,
+    offset: Math.max(sourceLineStart + sourceColumn - 1, 0),
+  };
 }
 
 function staticPathFromExpr(expr: ExprNode): MelExprNode | null {

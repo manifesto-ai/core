@@ -195,6 +195,34 @@ describe("lowerExprNode", () => {
       });
     });
 
+    it("should lower field access on computed object", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "field",
+        args: [
+          {
+            kind: "call",
+            fn: "at",
+            args: [
+              { kind: "get", path: [{ kind: "prop", name: "records" }] },
+              { kind: "lit", value: 0 },
+            ],
+          },
+          { kind: "lit", value: "title" },
+        ],
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "field",
+        object: {
+          kind: "at",
+          array: { kind: "get", path: "records" },
+          index: { kind: "lit", value: 0 },
+        },
+        property: "title",
+      });
+    });
+
     it("should lower filter with predicate context", () => {
       const input: MelExprNode = {
         kind: "call",

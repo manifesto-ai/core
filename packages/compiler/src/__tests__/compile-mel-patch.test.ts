@@ -83,6 +83,48 @@ describe("compileMelPatch", () => {
     expect(result.ops.every((op) => op.condition === undefined)).toBe(true);
   });
 
+  it("supports non-static property access in patch expressions", () => {
+    const melText = `
+      patch firstTitle = first(records).title
+      patch nested = at(records, 0).meta.level
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-property-access",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops).toHaveLength(2);
+
+    const concretePatches = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-3" },
+        snapshot: {
+          data: {
+            records: [{ title: "A", meta: { level: 3 } }],
+          },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(concretePatches).toEqual([
+      {
+        op: "set",
+        path: "firstTitle",
+        value: "A",
+      },
+      {
+        op: "set",
+        path: "nested",
+        value: 3,
+      },
+    ]);
+  });
+
   it("rejects unsupported statement types in patch text", () => {
     const melText = `
       when true {
@@ -109,6 +151,7 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].location.start.line).toBe(1);
     expect(result.warnings).toEqual([]);
     expect(result.ops).toHaveLength(0);
   });
