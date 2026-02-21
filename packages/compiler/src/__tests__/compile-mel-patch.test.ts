@@ -156,6 +156,26 @@ describe("compileMelPatch", () => {
     expect(result.ops).toHaveLength(0);
   });
 
+  it("clamps parse diagnostics to patch text range when wrapper parsing fails", () => {
+    const melText = `patch score = 1
+}
+}`;
+    const patchLines = melText.split("\n");
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-wrapper-error",
+    });
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(
+      result.errors.every(
+        (error) =>
+          error.location.start.line >= 1 && error.location.start.line <= patchLines.length
+      )
+    ).toBe(true);
+  });
+
   it("rejects forbidden $system paths by default", () => {
     const melText = `
       patch requestId = $system.uuid

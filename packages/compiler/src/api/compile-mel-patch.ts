@@ -51,7 +51,7 @@ export function compileMelPatchText(
     tokens = lexResult.tokens;
     const lexErrors = remapDiagnosticsToPatchSource(
       lexResult.diagnostics.filter(d => d.severity === "error"),
-      patchLines.length,
+      patchLines,
       patchLineStarts
     );
     if (lexErrors.length > 0) {
@@ -78,7 +78,7 @@ export function compileMelPatchText(
     const parseResult = parse(tokens);
     const parsedDiagnostics = remapDiagnosticsToPatchSource(
       parseResult.diagnostics,
-      patchLines.length,
+      patchLines,
       patchLineStarts
     );
     const parseErrors = parsedDiagnostics.filter(d => d.severity === "error");
@@ -135,7 +135,7 @@ export function compileMelPatchText(
   const patchStatements = collectPatchStatements(
     action.body,
     errors,
-    patchLines.length,
+    patchLines,
     patchLineStarts
   );
   trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart, details: { count: patchStatements.length } });
@@ -157,7 +157,7 @@ export function compileMelPatchText(
   for (const patchStatement of patchStatements) {
     const patchLocation = remapLocationToPatchSource(
       patchStatement.location,
-      patchLines.length,
+      patchLines,
       patchLineStarts
     );
     try {
@@ -223,7 +223,7 @@ function buildSyntheticPatchProgram(melText: string, actionName: string): string
 function collectPatchStatements(
   stmts: GuardedStmtNode[] | InnerStmtNode[],
   errors: Diagnostic[],
-  patchLineCount: number,
+  patchLines: string[],
   patchLineStarts: number[]
 ): PatchStmtNode[] {
   const patchStatements: PatchStmtNode[] = [];
@@ -239,7 +239,7 @@ function collectPatchStatements(
         ...collectPatchStatements(
           stmt.body,
           errors,
-          patchLineCount,
+          patchLines,
           patchLineStarts
         )
       );
@@ -252,7 +252,7 @@ function collectPatchStatements(
       message: `Unsupported statement '${stmt.kind}' in patch text. Only patch statements are allowed.`,
       location: remapLocationToPatchSource(
         stmt.location,
-        patchLineCount,
+        patchLines,
         patchLineStarts
       ),
     });
@@ -445,26 +445,26 @@ function computeLineStartOffsets(lines: string[]): number[] {
 
 function remapDiagnosticsToPatchSource(
   diagnostics: Diagnostic[],
-  patchLineCount: number,
+  patchLines: string[],
   patchLineStarts: number[]
 ): Diagnostic[] {
   return diagnostics.map((diagnostic) => remapDiagnosticToPatchSource(
     diagnostic,
-    patchLineCount,
+    patchLines,
     patchLineStarts
   ));
 }
 
 function remapDiagnosticToPatchSource(
   diagnostic: Diagnostic,
-  patchLineCount: number,
+  patchLines: string[],
   patchLineStarts: number[]
 ): Diagnostic {
   return {
     ...diagnostic,
     location: remapLocationToPatchSource(
       diagnostic.location,
-      patchLineCount,
+      patchLines,
       patchLineStarts
     ),
   };
@@ -472,31 +472,35 @@ function remapDiagnosticToPatchSource(
 
 function remapLocationToPatchSource(
   location: Diagnostic["location"],
-  patchLineCount: number,
+  patchLines: string[],
   patchLineStarts: number[]
 ): Diagnostic["location"] {
   return {
     ...location,
-    start: remapPositionToPatchSource(location.start, patchLineCount, patchLineStarts),
-    end: remapPositionToPatchSource(location.end, patchLineCount, patchLineStarts),
+    start: remapPositionToPatchSource(location.start, patchLines, patchLineStarts),
+    end: remapPositionToPatchSource(location.end, patchLines, patchLineStarts),
   };
 }
 
 function remapPositionToPatchSource(
   position: Diagnostic["location"]["start"],
-  patchLineCount: number,
+  patchLines: string[],
   patchLineStarts: number[]
 ): Diagnostic["location"]["start"] {
   const patchLine = position.line - SYNTHETIC_PATCH_PREFIX_LINES;
-  if (patchLine < 1 || patchLine > patchLineCount) {
-    return position;
-  }
+  const patchLineCount = patchLines.length;
+  const clampedPatchLine = Math.min(Math.max(patchLine, 1), patchLineCount);
 
-  const sourceLineStart = patchLineStarts[patchLine - 1] ?? 0;
-  const sourceColumn = Math.max(1, position.column - SYNTHETIC_PATCH_PREFIX_COLUMNS);
+  const sourceLineStart = patchLineStarts[clampedPatchLine - 1] ?? 0;
+  const sourceLineText = patchLines[clampedPatchLine - 1] ?? "";
+  const maxSourceColumn = Math.max(sourceLineText.length + 1, 1);
+  const sourceColumn = Math.min(
+    Math.max(position.column - SYNTHETIC_PATCH_PREFIX_COLUMNS, 1),
+    maxSourceColumn
+  );
 
   return {
-    line: patchLine,
+    line: clampedPatchLine,
     column: sourceColumn,
     offset: Math.max(sourceLineStart + sourceColumn - 1, 0),
   };
