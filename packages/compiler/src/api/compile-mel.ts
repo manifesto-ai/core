@@ -13,6 +13,7 @@ import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.
 import { tokenize, type Token } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
 import { generate } from "../generator/ir.js";
+import { compileMelPatchText } from "./compile-mel-patch.js";
 
 // ============ Types ============
 
@@ -221,25 +222,5 @@ export function compileMelPatch(
   melText: string,
   options: CompileMelPatchOptions
 ): CompileMelPatchResult {
-  const trace: CompileTrace[] = [];
-  const warnings: Diagnostic[] = [];
-  const errors: Diagnostic[] = [];
-
-  // Note: MEL patch text parsing is not yet implemented.
-  // For now, use lowerRuntimePatches() with MelRuntimePatch[] directly.
-  // This function will be fully implemented when MEL patch grammar is defined.
-
-  if (melText.trim().length > 0) {
-    warnings.push({
-      severity: "warning",
-      code: "W_NOT_IMPLEMENTED",
-      message: "MEL patch text parsing is not yet implemented. Use lowerRuntimePatches() with MelRuntimePatch[] directly.",
-      location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
-    });
-  }
-
-  // Return empty ops for now
-  // Users should use lowerRuntimePatches() directly with MelRuntimePatch[] objects
-  return { ops: [], trace, warnings, errors };
+  return compileMelPatchText(melText, options);
 }
-
