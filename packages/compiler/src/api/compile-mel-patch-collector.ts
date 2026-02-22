@@ -1,4 +1,4 @@
-import { joinPath, sha256Sync } from "@manifesto-ai/core";
+import { sha256Sync } from "@manifesto-ai/core";
 
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
@@ -509,7 +509,7 @@ function toRuntimePatchPath(path: PathNode): string {
     parts.push(literalValue);
   }
 
-  return joinPath(...parts);
+  return joinPathPreserveEmptySegments(...parts);
 }
 
 function toPathSegmentLiteral(segment: PathNode["segments"][number]): string | null {
@@ -518,6 +518,14 @@ function toPathSegmentLiteral(segment: PathNode["segments"][number]): string | n
   }
 
   return null;
+}
+
+function joinPathPreserveEmptySegments(...segments: string[]): string {
+  return segments.map((segment) => escapePathSegment(segment)).join(".");
+}
+
+function escapePathSegment(segment: string): string {
+  return segment.replaceAll("\\", "\\\\").replaceAll(".", "\\.");
 }
 
 class ConditionComposer {

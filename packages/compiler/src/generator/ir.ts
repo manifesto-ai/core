@@ -28,7 +28,7 @@ import type {
   BinaryOperator,
 } from "../parser/ast.js";
 import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
-import { hashSchemaSync, joinPath, sha256Sync } from "@manifesto-ai/core";
+import { hashSchemaSync, sha256Sync } from "@manifesto-ai/core";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -859,6 +859,14 @@ function generateStop(stmt: StopStmtNode, ctx: GeneratorContext): CoreFlowNode {
 
 // ============ Path Generation ============
 
+function escapePathSegment(segment: string): string {
+  return segment.replaceAll("\\", "\\\\").replaceAll(".", "\\.");
+}
+
+function joinPathPreserveEmptySegments(...segments: string[]): string {
+  return segments.map(escapePathSegment).join(".");
+}
+
 function generatePath(path: PathNode, ctx: GeneratorContext): string {
   const segments: string[] = [];
 
@@ -882,17 +890,17 @@ function generatePath(path: PathNode, ctx: GeneratorContext): string {
   const first = segments[0];
   if (ctx.stateFields.has(first)) {
     // Core expects state paths without prefix (e.g., "count" not "data.count")
-    return joinPath(...segments);
+    return joinPathPreserveEmptySegments(...segments);
   }
   if (ctx.computedFields.has(first)) {
-    return `computed.${joinPath(...segments)}`;
+    return `computed.${joinPathPreserveEmptySegments(...segments)}`;
   }
   if (ctx.currentAction && ctx.actionParams.get(ctx.currentAction)?.has(first)) {
-    return `input.${joinPath(...segments)}`;
+    return `input.${joinPathPreserveEmptySegments(...segments)}`;
   }
 
   // Default to plain path (state-like)
-  return joinPath(...segments);
+  return joinPathPreserveEmptySegments(...segments);
 }
 
 // ============ Expression Generation ============

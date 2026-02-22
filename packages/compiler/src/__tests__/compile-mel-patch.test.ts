@@ -621,6 +621,21 @@ describe("compileMelPatch", () => {
     });
   });
 
+  it("preserves empty-string key segments in patch target paths", () => {
+    const result = compileMelPatch(`patch data.history.files[""] = 1`, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-empty-segment-target-path",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops).toHaveLength(1);
+    expect(result.ops[0]).toEqual({
+      op: "set",
+      path: "data.history.files.",
+      value: { kind: "lit", value: 1 },
+    });
+  });
+
   it("rejects unsupported statement types in patch text", () => {
     const melText = `
       when true {
