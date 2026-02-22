@@ -139,6 +139,7 @@ export function compileMelPatchText(
   const analyzeStart = performance.now();
   const collectContext: PatchCollectContext = {
     actionName: options.actionName,
+    onceCounter: 0,
     onceIntentCounter: 0,
     whenCounter: 0,
   };

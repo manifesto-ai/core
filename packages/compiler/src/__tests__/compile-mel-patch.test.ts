@@ -82,13 +82,17 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(8);
+    expect(result.ops).toHaveLength(10);
     expect(
       result.ops.filter((op) => op.path.startsWith("$mel.__whenGuards."))
     ).toHaveLength(4);
 
-    const stripInternalWhenGuards = (ops: { path: string }[]) =>
-      ops.filter((op) => !op.path.startsWith("$mel.__whenGuards."));
+    const stripInternalGuards = (ops: { path: string }[]) =>
+      ops.filter(
+        (op) =>
+          !op.path.startsWith("$mel.__whenGuards.") &&
+          !op.path.startsWith("$mel.__onceScopeGuards.")
+      );
 
     const guardId = sha256Sync("regression-compileMelPatch-guards:0:intent");
 
@@ -104,16 +108,11 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(stripInternalWhenGuards(positiveMatch)).toEqual([
+    expect(stripInternalGuards(positiveMatch)).toEqual([
       {
         op: "set",
         path: "inGuard",
         value: 2,
-      },
-      {
-        op: "set",
-        path: "onceValue",
-        value: 1,
       },
       {
         op: "merge",
@@ -121,6 +120,11 @@ describe("compileMelPatch", () => {
         value: {
           [guardId]: "intent-2",
         },
+      },
+      {
+        op: "set",
+        path: "onceValue",
+        value: 1,
       },
     ]);
 
@@ -136,18 +140,18 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(stripInternalWhenGuards(zeroMatch)).toEqual([
-      {
-        op: "set",
-        path: "onceValue",
-        value: 1,
-      },
+    expect(stripInternalGuards(zeroMatch)).toEqual([
       {
         op: "merge",
         path: "$mel.guards.intent",
         value: {
           [guardId]: "intent-2",
         },
+      },
+      {
+        op: "set",
+        path: "onceValue",
+        value: 1,
       },
     ]);
   });
@@ -223,7 +227,7 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(2);
+    expect(result.ops).toHaveLength(4);
 
     const firstIntent = evaluateRuntimePatches(
       result.ops,
@@ -237,16 +241,23 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(firstIntent).toEqual([
-      {
-        op: "set",
-        path: "onceValue",
-        value: 1,
-      },
+    const stripInternalGuards = (ops: { path: string }[]) =>
+      ops.filter(
+        (op) =>
+          !op.path.startsWith("$mel.__whenGuards.") &&
+          !op.path.startsWith("$mel.__onceScopeGuards.")
+      );
+
+    expect(stripInternalGuards(firstIntent)).toEqual([
       {
         op: "set",
         path: "onceMarker",
         value: "intent-1",
+      },
+      {
+        op: "set",
+        path: "onceValue",
+        value: 1,
       },
     ]);
 
@@ -265,6 +276,159 @@ describe("compileMelPatch", () => {
     );
 
     expect(sameIntentRepeat).toEqual([]);
+  });
+
+  it("evaluates once block conditions as a single unit", () => {
+    const melText = `
+      once(onceMarker) when eq(count, 0) {
+        patch count = add(count, 1)
+        patch status = "done"
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-once-single-eval",
+    });
+
+    expect(result.errors).toHaveLength(0);
+
+    const stripInternalGuards = (ops: { path: string }[]) =>
+      ops.filter(
+        (op) =>
+          !op.path.startsWith("$mel.__whenGuards.") &&
+          !op.path.startsWith("$mel.__onceScopeGuards.")
+      );
+
+    const firstIntent = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-1" },
+        snapshot: {
+          data: { count: 0 },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(stripInternalGuards(firstIntent)).toEqual([
+      {
+        op: "set",
+        path: "onceMarker",
+        value: "intent-1",
+      },
+      {
+        op: "set",
+        path: "count",
+        value: 1,
+      },
+      {
+        op: "set",
+        path: "status",
+        value: "done",
+      },
+    ]);
+
+    const sameIntentRepeat = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-1" },
+        snapshot: {
+          data: {
+            count: 1,
+            status: "done",
+            onceMarker: "intent-1",
+          },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(sameIntentRepeat).toEqual([]);
+  });
+
+  it("evaluates onceIntent block conditions as a single unit", () => {
+    const melText = `
+      onceIntent when eq(count, 0) {
+        patch count = add(count, 1)
+        patch status = "done"
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-onceIntent-single-eval",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    const guardId = sha256Sync(
+      "regression-compileMelPatch-onceIntent-single-eval:0:intent"
+    );
+
+    const stripInternalGuards = (ops: { path: string }[]) =>
+      ops.filter(
+        (op) =>
+          !op.path.startsWith("$mel.__whenGuards.") &&
+          !op.path.startsWith("$mel.__onceScopeGuards.")
+      );
+
+    const firstIntent = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-2" },
+        snapshot: {
+          data: { count: 0 },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(stripInternalGuards(firstIntent)).toEqual([
+      {
+        op: "merge",
+        path: "$mel.guards.intent",
+        value: {
+          [guardId]: "intent-2",
+        },
+      },
+      {
+        op: "set",
+        path: "count",
+        value: 1,
+      },
+      {
+        op: "set",
+        path: "status",
+        value: "done",
+      },
+    ]);
+
+    const sameIntentRepeat = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-2" },
+        snapshot: {
+          data: {
+            count: 1,
+            status: "done",
+            $mel: {
+              guards: {
+                intent: {
+                  [guardId]: "intent-2",
+                },
+              },
+            },
+          },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(stripInternalGuards(sameIntentRepeat)).toEqual([]);
   });
 
   it("supports non-static property access in patch expressions", () => {

@@ -12,6 +12,7 @@ import { toMelExpr } from "./compile-mel-patch-expr.js";
 
 export interface PatchCollectContext {
   actionName: string;
+  onceCounter: number;
   onceIntentCounter: number;
   whenCounter: number;
 }
@@ -135,6 +136,7 @@ export class PatchStatementCollector {
                 kind: "literal",
                 literalType: "boolean",
                 value: true,
+                location: stmt.location,
               },
               location: stmt.location,
             },
@@ -181,13 +183,54 @@ export class PatchStatementCollector {
         }
 
         condition = this.conditionComposer.and(parentCondition, onceCondition);
+        const onceScopeMarkerId = sha256Sync(
+          `${context.actionName}:${context.onceCounter}:once`
+        );
+        context.onceCounter += 1;
+        const onceScopeMarkerPath: PathNode = {
+          kind: "path",
+          segments: [
+            {
+              kind: "propertySegment",
+              name: "$mel",
+              location: markerLocation,
+            },
+            {
+              kind: "propertySegment",
+              name: "__onceScopeGuards",
+              location: markerLocation,
+            },
+            {
+              kind: "propertySegment",
+              name: onceScopeMarkerId,
+              location: markerLocation,
+            },
+          ],
+          location: markerLocation,
+        };
+        const onceScopeMarkerExpr = pathToMelExpr(onceScopeMarkerPath);
+        const scopedBodyPatchStatements = this.collectPatchStatements(
+          stmt.body,
+          errors,
+          context,
+          onceScopeMarkerExpr
+        );
         patchStatements.push(
-          ...this.collectPatchStatements(
-            stmt.body,
-            errors,
-            context,
-            condition
-          ),
+          {
+            patch: {
+              kind: "patch",
+              op: "set",
+              path: onceScopeMarkerPath,
+              value: {
+                kind: "literal",
+                literalType: "boolean",
+                value: true,
+                location: markerLocation,
+              },
+              location: markerLocation,
+            },
+            condition,
+          },
           {
             patch: {
               kind: "patch",
@@ -200,6 +243,16 @@ export class PatchStatementCollector {
               },
               location: markerLocation,
             },
+            condition: onceScopeMarkerExpr,
+          },
+          ...scopedBodyPatchStatements,
+          {
+            patch: {
+              kind: "patch",
+              op: "unset",
+              path: onceScopeMarkerPath,
+              location: markerLocation,
+            },
             condition,
           }
         );
@@ -207,6 +260,32 @@ export class PatchStatementCollector {
       }
 
       if (stmt.kind === "onceIntent") {
+        const markerScopeId = sha256Sync(
+          `${context.actionName}:${context.onceCounter}:onceIntent`
+        );
+        context.onceCounter += 1;
+        const markerScopePath: PathNode = {
+          kind: "path" as const,
+          segments: [
+            {
+              kind: "propertySegment",
+              name: "$mel",
+              location: stmt.location,
+            },
+            {
+              kind: "propertySegment",
+              name: "__onceScopeGuards",
+              location: stmt.location,
+            },
+            {
+              kind: "propertySegment",
+              name: markerScopeId,
+              location: stmt.location,
+            },
+          ],
+          location: stmt.location,
+        };
+        const markerScopeExpr = pathToMelExpr(markerScopePath);
         const onceIntentGuardId = sha256Sync(
           `${context.actionName}:${context.onceIntentCounter}:intent`
         );
@@ -289,15 +368,29 @@ export class PatchStatementCollector {
           location: markerLocation,
         };
 
-        const bodyPatchStatements = this.collectPatchStatements(
+        const scopedBodyPatchStatements = this.collectPatchStatements(
           stmt.body,
           errors,
           context,
-          condition
+          markerScopeExpr
         );
 
         patchStatements.push(
-          ...bodyPatchStatements,
+          {
+            patch: {
+              kind: "patch",
+              op: "set",
+              path: markerScopePath,
+              value: {
+                kind: "literal",
+                literalType: "boolean",
+                value: true,
+                location: markerLocation,
+              },
+              location: markerLocation,
+            },
+            condition,
+          },
           {
             patch: {
               kind: "patch",
@@ -319,6 +412,16 @@ export class PatchStatementCollector {
                 ],
                 location: markerLocation,
               },
+              location: markerLocation,
+            },
+            condition: markerScopeExpr,
+          },
+          ...scopedBodyPatchStatements,
+          {
+            patch: {
+              kind: "patch",
+              op: "unset",
+              path: markerScopePath,
               location: markerLocation,
             },
             condition,
