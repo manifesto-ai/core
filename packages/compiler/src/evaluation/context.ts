@@ -1,3 +1,5 @@
+import { parsePath } from "@manifesto-ai/core";
+
 /**
  * Evaluation Context Types
  *
@@ -134,7 +136,7 @@ function setValueAtPath(
   path: string,
   value: unknown
 ): void {
-  const parts = path.split(".");
+  const parts = parsePath(path);
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {

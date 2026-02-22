@@ -28,7 +28,7 @@ import type {
   BinaryOperator,
 } from "../parser/ast.js";
 import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
-import { hashSchemaSync, sha256Sync } from "@manifesto-ai/core";
+import { hashSchemaSync, joinPath, sha256Sync } from "@manifesto-ai/core";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -882,17 +882,17 @@ function generatePath(path: PathNode, ctx: GeneratorContext): string {
   const first = segments[0];
   if (ctx.stateFields.has(first)) {
     // Core expects state paths without prefix (e.g., "count" not "data.count")
-    return segments.join(".");
+    return joinPath(...segments);
   }
   if (ctx.computedFields.has(first)) {
-    return `computed.${segments.join(".")}`;
+    return `computed.${joinPath(...segments)}`;
   }
   if (ctx.currentAction && ctx.actionParams.get(ctx.currentAction)?.has(first)) {
-    return `input.${segments.join(".")}`;
+    return `input.${joinPath(...segments)}`;
   }
 
   // Default to plain path (state-like)
-  return segments.join(".");
+  return joinPath(...segments);
 }
 
 // ============ Expression Generation ============

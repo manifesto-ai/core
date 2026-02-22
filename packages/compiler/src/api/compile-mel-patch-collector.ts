@@ -1,4 +1,4 @@
-import { sha256Sync } from "@manifesto-ai/core";
+import { joinPath, sha256Sync } from "@manifesto-ai/core";
 
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
@@ -283,7 +283,7 @@ function toRuntimePatchPath(path: PathNode): string {
     parts.push(literalValue);
   }
 
-  return parts.join(".");
+  return joinPath(...parts);
 }
 
 function toPathSegmentLiteral(segment: PathNode["segments"][number]): string | null {

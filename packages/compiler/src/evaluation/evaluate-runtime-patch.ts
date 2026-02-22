@@ -16,6 +16,7 @@ import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
 import { applyPatchToWorkingSnapshot } from "./context.js";
 import { evaluateExpr } from "./evaluate-expr.js";
+import { parsePath } from "@manifesto-ai/core";
 
 // ============ Result Types ============
 
@@ -227,7 +228,7 @@ function applyUnsetToWorkingSnapshot(
  * Remove value at a dot-separated path.
  */
 function removeValueAtPath(obj: Record<string, unknown>, path: string): void {
-  const parts = path.split(".");
+  const parts = parsePath(path);
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {

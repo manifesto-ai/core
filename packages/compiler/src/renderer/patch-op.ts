@@ -9,6 +9,7 @@
 
 import { renderTypeExpr, renderTypeField, renderValue, TypeExpr, TypeField } from "./type-expr.js";
 import { renderExprNode, ExprNode } from "./expr-node.js";
+import { parsePath } from "@manifesto-ai/core";
 
 // ============ PatchOp Types ============
 
@@ -284,8 +285,8 @@ function renderAddActionAvailable(op: AddActionAvailableOp, opts: Required<Rende
  * // "count" -> "count"
  */
 function extractFieldName(path: string): string {
-  const parts = path.split(".");
-  return parts[parts.length - 1];
+  const parts = parsePath(path);
+  return parts[parts.length - 1] ?? "";
 }
 
 /**
@@ -297,7 +298,7 @@ function extractFieldName(path: string): string {
  * // "count" -> undefined
  */
 export function extractTypeName(path: string): string | undefined {
-  const parts = path.split(".");
+  const parts = parsePath(path);
   if (parts.length >= 2) {
     return parts[0];
   }

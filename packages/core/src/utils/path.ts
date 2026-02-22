@@ -1,18 +1,56 @@
 import type { SemanticPath } from "../schema/common.js";
 
 /**
- * Parse a dot-separated path into segments
+ * Parse a dot-separated path into segments.
+ *
+ * Supports escaping literal dots inside segments via backslash (for example `a\\.b` -> `a.b`).
  */
 export function parsePath(path: SemanticPath): string[] {
   if (!path) return [];
-  return path.split(".");
+
+  const segments: string[] = [];
+  let current = "";
+  let escaped = false;
+
+  for (const char of path) {
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === ".") {
+      segments.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (escaped) {
+    current += "\\";
+  }
+
+  segments.push(current);
+  return segments;
+}
+
+function escapePathSegment(segment: string): string {
+  return segment.replaceAll("\\", "\\\\").replaceAll(".", "\\.");
 }
 
 /**
  * Join path segments into a semantic path
  */
 export function joinPath(...segments: string[]): SemanticPath {
-  return segments.filter(Boolean).join(".");
+  const escapedSegments = segments.filter(Boolean).map(escapePathSegment);
+  return escapedSegments.join(".");
 }
 
 /**
@@ -148,7 +186,7 @@ export function hasPath(obj: unknown, path: SemanticPath): boolean {
  */
 export function parentPath(path: SemanticPath): SemanticPath {
   const segments = parsePath(path);
-  return segments.slice(0, -1).join(".");
+  return joinPath(...segments.slice(0, -1));
 }
 
 /**

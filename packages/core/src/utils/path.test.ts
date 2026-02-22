@@ -24,6 +24,14 @@ describe("Path Utilities", () => {
     it("should return empty array for empty path", () => {
       expect(parsePath("")).toEqual([]);
     });
+
+    it("should parse escaped dot path segments", () => {
+      expect(parsePath("files.file:///proof\\.lean")).toEqual(["files", "file:///proof.lean"]);
+    });
+
+    it("should parse escaped backslashes", () => {
+      expect(parsePath("key.with\\\\slash")).toEqual(["key", "with\\slash"]);
+    });
   });
 
   describe("joinPath", () => {
@@ -37,6 +45,12 @@ describe("Path Utilities", () => {
 
     it("should handle single segment", () => {
       expect(joinPath("a")).toBe("a");
+    });
+
+    it("should escape dot segments for reversible path encoding", () => {
+      expect(joinPath("history", "files", "file:///proof.lean")).toBe(
+        "history.files.file:///proof\\.lean"
+      );
     });
   });
 

@@ -2,6 +2,7 @@ import type { ExprNode } from "../schema/expr.js";
 import type { FlowNode } from "../schema/flow.js";
 import type { FieldSpec, StateSpec } from "../schema/field.js";
 import type { ComputedSpec } from "../schema/computed.js";
+import { parsePath } from "../utils/path.js";
 
 const SEMVER_REGEX =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
@@ -170,7 +171,7 @@ export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {
     return true;
   }
 
-  const segments = path.split(".");
+  const segments = parsePath(path);
   let current: FieldSpec | null = spec;
 
   for (const segment of segments) {
@@ -307,7 +308,7 @@ function validateObjectValue(
 export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | null {
   if (!path) return spec;
 
-  const segments = path.split(".");
+  const segments = parsePath(path);
   let current: FieldSpec | null = spec;
 
   for (const segment of segments) {

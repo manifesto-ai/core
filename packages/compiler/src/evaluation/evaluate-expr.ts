@@ -10,6 +10,7 @@
 
 import type { ExprNode } from "@manifesto-ai/core";
 import type { EvaluationContext } from "./context.js";
+import { parsePath } from "@manifesto-ai/core";
 
 // ============ Main Evaluation Function ============
 
@@ -191,7 +192,7 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
  * @see SPEC v0.4.0 §18.7
  */
 function resolvePath(path: string, ctx: EvaluationContext): unknown {
-  const parts = path.split(".");
+  const parts = parsePath(path);
 
   // Special prefixes
   if (parts[0] === "meta") {
