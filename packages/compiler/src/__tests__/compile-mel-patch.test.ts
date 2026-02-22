@@ -147,6 +147,63 @@ describe("compileMelPatch", () => {
     ]);
   });
 
+  it("emits marker patch for once guard and prevents duplicate execution", () => {
+    const melText = `
+      once(onceMarker) {
+        patch onceValue = 1
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-once",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops).toHaveLength(2);
+
+    const firstIntent = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-1" },
+        snapshot: {
+          data: {},
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(firstIntent).toEqual([
+      {
+        op: "set",
+        path: "onceValue",
+        value: 1,
+      },
+      {
+        op: "set",
+        path: "onceMarker",
+        value: "intent-1",
+      },
+    ]);
+
+    const sameIntentRepeat = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-1" },
+        snapshot: {
+          data: {
+            onceMarker: "intent-1",
+          },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(sameIntentRepeat).toEqual([]);
+  });
+
   it("supports non-static property access in patch expressions", () => {
     const melText = `
       patch firstTitle = first(records).title

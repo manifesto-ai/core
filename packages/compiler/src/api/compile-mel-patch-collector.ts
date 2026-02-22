@@ -99,6 +99,8 @@ export class PatchStatementCollector {
       if (stmt.kind === "once") {
         let condition = parentCondition;
         const markerExpr = pathToMelExpr(stmt.marker);
+        const markerPath = stmt.marker;
+        const markerLocation = stmt.location;
         let onceCondition: MelExprNode = {
           kind: "call",
           fn: "neq",
@@ -128,7 +130,21 @@ export class PatchStatementCollector {
             errors,
             context,
             condition
-          )
+          ),
+          {
+            patch: {
+              kind: "patch",
+              op: "set",
+              path: markerPath,
+              value: {
+                kind: "systemIdent",
+                path: ["meta", "intentId"],
+                location: markerLocation,
+              },
+              location: markerLocation,
+            },
+            condition,
+          }
         );
         continue;
       }
