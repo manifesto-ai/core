@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.2](https://github.com/manifesto-ai/core/compare/compiler-v1.6.1...compiler-v1.6.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* clamp synthetic parse diagnostics into patch text range ([44397fb](https://github.com/manifesto-ai/core/commit/44397fb06023189a7810faf89fb407d1c4d72071))
+* **compiler:** fix compileMelPatch remap function name and patch location scoping ([cca7db6](https://github.com/manifesto-ai/core/commit/cca7db6d1297d71576d3ba20eca5d16ea36a43f2))
+* **compiler:** implement compileMelPatch and add regression tests ([bf2bba7](https://github.com/manifesto-ai/core/commit/bf2bba73cb035061ce645b14da983148d48c698c))
+* **compiler:** support dynamic patch property access and remap parse diagnostics ([91a75ae](https://github.com/manifesto-ai/core/commit/91a75ae82a7ff7e218b1f6b901635a0736c3007c))
+* preserve empty path segments in compiler path generation ([1c8ed0e](https://github.com/manifesto-ai/core/commit/1c8ed0e9c28829d5fb364487350273f3a1d1a671))
+* reject escaped synthetic wrapper escape hatch statements ([9edde7b](https://github.com/manifesto-ai/core/commit/9edde7b47125f3119e4c0d45ac292d5c1fdd00bb))
+* validate patch wrapper integrity and reject dynamic patch-path indexes ([f674ee6](https://github.com/manifesto-ai/core/commit/f674ee658e6fb53cb818c31c8a6fccd7f9163cb1))
+
 ## [1.6.1](https://github.com/manifesto-ai/core/compare/compiler-v1.6.0...compiler-v1.6.1) (2026-02-11)
 
 
