@@ -5,6 +5,7 @@
  */
 
 import { hashSchemaSync, type DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
+import { parsePath } from "@manifesto-ai/core";
 import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } from "./ir.js";
 
 // ============ Types ============
@@ -83,8 +84,8 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
 
 function slotName(path: string): string {
   // Extract field name from path like "__sys__addTask_uuid_value"
-  const parts = path.split(".");
-  return parts[parts.length - 1];
+  const parts = parsePath(path);
+  return parts[parts.length - 1] ?? "";
 }
 
 function createContext(actionName: string): LoweringContext {

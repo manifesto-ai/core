@@ -78,6 +78,55 @@ describe("apply", () => {
     expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
   });
 
+  it("should preserve dotted record keys in patch paths", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          history: {
+            type: "object",
+            required: true,
+            fields: {
+              files: {
+                type: "object",
+                required: false,
+                fields: {
+                  "file:///proof.lean": { type: "string", required: false },
+                  "TACTIC_FAILED:simp": { type: "string", required: false },
+                },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot({ history: { files: {} } }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "set", path: "history.files.file:///proof\\.lean", value: "recorded" }],
+      HOST_CONTEXT
+    );
+
+    expect(result.data).toEqual({
+      history: {
+        files: {
+          "file:///proof.lean": "recorded",
+        },
+      },
+    });
+    expect(result.system.status).toBe("idle");
+    expect(result.system.lastError).toBeNull();
+  });
+
   it("should record errors for invalid patch value types", () => {
     const schema: DomainSchema = {
       id: "manifesto:test",

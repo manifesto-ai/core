@@ -16,6 +16,15 @@ import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
 import { applyPatchToWorkingSnapshot } from "./context.js";
 import { evaluateExpr } from "./evaluate-expr.js";
+import { parsePath } from "@manifesto-ai/core";
+
+const WHEN_SCOPE_PREFIX = "$mel.__whenGuards.";
+const ONCE_SCOPE_PREFIX = "$mel.__onceScopeGuards.";
+
+type GuardScope = {
+  markerPath: string;
+  snapshot: EvaluationSnapshot;
+};
 
 // ============ Result Types ============
 
@@ -111,14 +120,21 @@ export function evaluateRuntimePatchesWithTrace(
   const patches: Patch[] = [];
   const skipped: SkippedRuntimePatch[] = [];
   let workingSnapshot = ctx.snapshot;
+  const guardScopeStack: GuardScope[] = [];
 
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i];
+    const isScopedSet = op.op === "set" && isScopedMarkerPath(op.path);
+    const isInScope = guardScopeStack.length > 0;
+    const activeSnapshot = isScopedSet || !isInScope
+      ? workingSnapshot
+      : guardScopeStack[guardScopeStack.length - 1].snapshot;
 
-    // Create context with current working snapshot
+    // Create context with current scoped snapshot
+    // (all ops in active guard scopes evaluate against marker-entry state).
     const evalCtx: EvaluationContext = {
       ...ctx,
-      snapshot: workingSnapshot,
+      snapshot: activeSnapshot,
     };
 
     // Evaluate condition if present (boolean-only per §18.6)
@@ -147,6 +163,15 @@ export function evaluateRuntimePatchesWithTrace(
     // Build concrete patch
     const patch = buildConcretePatch(op.op, op.path, concreteValue);
     if (patch !== null) {
+      if (
+        op.op === "unset" &&
+        isScopedMarkerPath(op.path) &&
+        (!isInScope ||
+          guardScopeStack[guardScopeStack.length - 1].markerPath !== op.path)
+      ) {
+        continue;
+      }
+
       patches.push(patch);
 
       // Update working snapshot for sequential semantics (§18.5)
@@ -159,6 +184,23 @@ export function evaluateRuntimePatchesWithTrace(
       } else {
         // For unset, we need to remove the value
         workingSnapshot = applyUnsetToWorkingSnapshot(workingSnapshot, op.path);
+      }
+
+      if (
+        op.op === "set" &&
+        isScopedMarkerPath(op.path)
+      ) {
+        guardScopeStack.push({
+          markerPath: op.path,
+          snapshot: workingSnapshot,
+        });
+      } else if (
+        op.op === "unset" &&
+        isScopedMarkerPath(op.path) &&
+        guardScopeStack.length > 0 &&
+        guardScopeStack[guardScopeStack.length - 1].markerPath === op.path
+      ) {
+        guardScopeStack.pop();
       }
     }
   }
@@ -227,7 +269,7 @@ function applyUnsetToWorkingSnapshot(
  * Remove value at a dot-separated path.
  */
 function removeValueAtPath(obj: Record<string, unknown>, path: string): void {
-  const parts = path.split(".");
+  const parts = parsePath(path);
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
@@ -240,4 +282,8 @@ function removeValueAtPath(obj: Record<string, unknown>, path: string): void {
 
   const lastPart = parts[parts.length - 1];
   delete current[lastPart];
+}
+
+function isScopedMarkerPath(path: string): boolean {
+  return path.startsWith(WHEN_SCOPE_PREFIX) || path.startsWith(ONCE_SCOPE_PREFIX);
 }

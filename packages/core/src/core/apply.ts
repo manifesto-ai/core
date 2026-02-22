@@ -3,7 +3,7 @@ import type { Snapshot } from "../schema/snapshot.js";
 import type { Patch } from "../schema/patch.js";
 import type { HostContext } from "../schema/host-context.js";
 import type { FieldSpec } from "../schema/field.js";
-import { getByPath, mergeAtPath, setByPath, unsetByPath } from "../utils/path.js";
+import { getByPath, mergeAtPath, parsePath, setByPath, unsetByPath } from "../utils/path.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk, isErr } from "../schema/common.js";
 import type { SystemState, ErrorValue } from "../schema/snapshot.js";
@@ -215,7 +215,7 @@ function getPlatformNamespace(path: string): string | null {
   if (!path) {
     return null;
   }
-  const [segment] = path.split(".");
+  const [segment] = parsePath(path);
   if (segment && segment.startsWith(PLATFORM_NAMESPACE_PREFIX)) {
     return segment;
   }
@@ -238,7 +238,7 @@ function isMergeTargetCompatible(root: unknown, path: string): boolean {
     return isObjectRecord(root);
   }
 
-  const segments = path.split(".");
+  const segments = parsePath(path);
   let current: unknown = root;
 
   for (const segment of segments) {

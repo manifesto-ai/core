@@ -256,6 +256,24 @@ function lowerCall(
     };
   }
 
+  if (fn === "field") {
+    if (args.length !== 2) {
+      throw unknownCallFn(fn);
+    }
+
+    const object = lowerExprNode(args[0], ctx);
+    const property = args[1];
+    if (property.kind !== "lit" || typeof property.value !== "string") {
+      throw unknownCallFn(fn);
+    }
+
+    return {
+      kind: "field",
+      object,
+      property: property.value,
+    };
+  }
+
   // Array operators: array
   if (isArrayArgOp(fn)) {
     if (args.length !== 1) {

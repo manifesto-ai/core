@@ -781,6 +781,35 @@ describe("evaluateRuntimePatches", () => {
       });
     });
 
+    it("should evaluate patch paths with escaped segments", () => {
+      const ctx = createTestContext({
+        snapshot: {
+          data: {
+            history: {
+              files: {},
+            },
+          },
+          computed: {},
+        },
+      });
+      const ops: RuntimeConditionalPatchOp[] = [
+        {
+          op: "set",
+          path: "history.files.file:///proof\\.lean",
+          value: { kind: "lit", value: "recorded" },
+        },
+      ];
+
+      const result = evaluateRuntimePatches(ops, ctx);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        op: "set",
+        path: "history.files.file:///proof\\.lean",
+        value: "recorded",
+      });
+    });
+
     it("should fallback to set with null for invalid merge values", () => {
       const ctx = createTestContext();
       const ops: RuntimeConditionalPatchOp[] = [
