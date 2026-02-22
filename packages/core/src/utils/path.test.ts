@@ -32,6 +32,10 @@ describe("Path Utilities", () => {
     it("should parse escaped backslashes", () => {
       expect(parsePath("key.with\\\\slash")).toEqual(["key", "with\\slash"]);
     });
+
+    it("should preserve ordinary backslashes in path segments", () => {
+      expect(parsePath(String.raw`files.C:\temp`)).toEqual(["files", "C:\\temp"]);
+    });
   });
 
   describe("joinPath", () => {

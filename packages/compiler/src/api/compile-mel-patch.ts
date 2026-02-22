@@ -140,6 +140,7 @@ export function compileMelPatchText(
   const collectContext: PatchCollectContext = {
     actionName: options.actionName,
     onceIntentCounter: 0,
+    whenCounter: 0,
   };
   const action = program.domain.members.find(
     (member): member is ActionNode =>

@@ -82,8 +82,13 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(4);
-    expect(result.ops.every((op) => op.condition !== undefined)).toBe(true);
+    expect(result.ops).toHaveLength(8);
+    expect(
+      result.ops.filter((op) => op.path.startsWith("$mel.__whenGuards."))
+    ).toHaveLength(4);
+
+    const stripInternalWhenGuards = (ops: { path: string }[]) =>
+      ops.filter((op) => !op.path.startsWith("$mel.__whenGuards."));
 
     const guardId = sha256Sync("regression-compileMelPatch-guards:0:intent");
 
@@ -99,7 +104,7 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(positiveMatch).toEqual([
+    expect(stripInternalWhenGuards(positiveMatch)).toEqual([
       {
         op: "set",
         path: "inGuard",
@@ -131,7 +136,7 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(zeroMatch).toEqual([
+    expect(stripInternalWhenGuards(zeroMatch)).toEqual([
       {
         op: "set",
         path: "onceValue",
@@ -145,6 +150,64 @@ describe("compileMelPatch", () => {
         },
       },
     ]);
+  });
+
+  it("evaluates when guard condition once for every nested patch in the block", () => {
+    const melText = `
+      when eq(count, 0) {
+        patch count = add(count, 1)
+        patch status = "updated"
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-when-block-reuse",
+    });
+
+    expect(result.errors).toHaveLength(0);
+
+    const stripInternalWhenGuards = (ops: { path: string }[]) =>
+      ops.filter((op) => !op.path.startsWith("$mel.__whenGuards."));
+
+    const positiveMatch = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-3" },
+        snapshot: {
+          data: { count: 0 },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(stripInternalWhenGuards(positiveMatch)).toEqual([
+      {
+        op: "set",
+        path: "count",
+        value: 1,
+      },
+      {
+        op: "set",
+        path: "status",
+        value: "updated",
+      },
+    ]);
+
+    const zeroMatch = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-3" },
+        snapshot: {
+          data: { count: 1 },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(stripInternalWhenGuards(zeroMatch)).toEqual([]);
   });
 
   it("emits marker patch for once guard and prevents duplicate execution", () => {

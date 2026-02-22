@@ -13,6 +13,7 @@ import { toMelExpr } from "./compile-mel-patch-expr.js";
 export interface PatchCollectContext {
   actionName: string;
   onceIntentCounter: number;
+  whenCounter: number;
 }
 
 export type ConditionedPatchStatement = {
@@ -85,13 +86,69 @@ export class PatchStatementCollector {
             location: this.deps.mapLocation(stmt.condition.location),
           });
         }
+        const whenMarkerId = sha256Sync(
+          `${context.actionName}:${context.whenCounter}:when`
+        );
+        context.whenCounter += 1;
+
+        const whenMarkerPath = {
+          kind: "path" as const,
+          segments: [
+            {
+              kind: "propertySegment",
+              name: "$mel",
+              location: stmt.location,
+            },
+            {
+              kind: "propertySegment",
+              name: "__whenGuards",
+              location: stmt.location,
+            },
+            {
+              kind: "propertySegment",
+              name: whenMarkerId,
+              location: stmt.location,
+            },
+          ],
+          location: stmt.location,
+        } satisfies PathNode;
+
+        const whenMarkerExpr = pathToMelExpr(whenMarkerPath);
+
+        const guardedBody = this.collectPatchStatements(
+          stmt.body,
+          errors,
+          context,
+          undefined
+        ).map((statement) => ({
+          patch: statement.patch,
+          condition: this.conditionComposer.and(whenMarkerExpr, statement.condition),
+        }));
+
         patchStatements.push(
-          ...this.collectPatchStatements(
-            stmt.body,
-            errors,
-            context,
-            condition
-          )
+          {
+            patch: {
+              kind: "patch",
+              op: "set",
+              path: whenMarkerPath,
+              value: {
+                kind: "literal",
+                literalType: "boolean",
+                value: true,
+              },
+              location: stmt.location,
+            },
+            condition,
+          },
+          ...guardedBody,
+          {
+            patch: {
+              kind: "patch",
+              op: "unset",
+              path: whenMarkerPath,
+              location: stmt.location,
+            },
+          }
         );
         continue;
       }

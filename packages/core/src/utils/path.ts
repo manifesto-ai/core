@@ -14,7 +14,11 @@ export function parsePath(path: SemanticPath): string[] {
 
   for (const char of path) {
     if (escaped) {
-      current += char;
+      if (char === "." || char === "\\") {
+        current += char;
+      } else {
+        current += `\\${char}`;
+      }
       escaped = false;
       continue;
     }
