@@ -133,7 +133,7 @@ export function compileMelPatchText(
   }
 
   const [patchRoot] = action.body;
-  if (!patchRoot || patchRoot.kind !== "when" || !isSyntheticPatchCondition(patchRoot.condition)) {
+  if (!patchRoot || patchRoot.kind !== "when" || !isSyntheticPatchCondition(patchRoot.condition) || action.body.length !== 1) {
     errors.push({
       severity: "error",
       code: "E_PATCH_WRAPPER",

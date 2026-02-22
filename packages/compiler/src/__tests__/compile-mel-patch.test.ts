@@ -168,6 +168,19 @@ describe("compileMelPatch", () => {
     expect(result.ops).toHaveLength(0);
   });
 
+  it("rejects patch text that escapes synthetic wrapper and adds extra top-level statements", () => {
+    const result = compileMelPatch(
+      `patch a = 1\n}\nwhen true { patch b = 2 }`,
+      {
+        mode: "patch",
+        actionName: "regression-compileMelPatch-wrapper-escape",
+      }
+    );
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0].code).toBe("E_PATCH_WRAPPER");
+  });
+
   it("clamps parse diagnostics to patch text range when wrapper parsing fails", () => {
     const melText = `patch score = 1\n}\n}`;
     const patchLines = melText.split("\n");
