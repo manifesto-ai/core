@@ -38,7 +38,7 @@ Host -> CORE -> ComputeResult
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
 | Govern authority/proposals | World |
-| Handle UI/event bindings | App |
+| Handle UI/event bindings | SDK |
 
 ---
 
@@ -166,13 +166,14 @@ When an action needs IO (API call, timer, etc.), Core doesn't execute it. Instea
 ## Relationship with Other Packages
 
 ```
-App/World -> Host -> Core
+SDK/Runtime -> Host -> Core
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Used by | `@manifesto-ai/host` | Host calls compute() and apply() |
-| Schema from | App | App supplies DomainSchema |
+| Used by | `@manifesto-ai/runtime` | Runtime orchestrates compute loop |
+| Schema from | SDK | SDK supplies DomainSchema (via MEL or direct) |
 
 ---
 

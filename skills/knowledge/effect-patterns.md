@@ -1,7 +1,7 @@
 # Effect Patterns
 
-> Source: Host SPEC v2.0.2 §7, App SPEC v2.3.0 §8, Core FDR v2.0.0
-> Last synced: 2026-02-09
+> Source: Host SPEC v2.0.2 §7, SDK SPEC v0.1.0, Core FDR v2.0.0
+> Last synced: 2026-02-22
 
 ## Rules
 
@@ -13,10 +13,10 @@
 
 ## Handler Contract
 
-Developers register effect handlers through the **App layer** API:
+Developers register effect handlers through the **SDK layer** API:
 
 ```typescript
-// App-layer handler signature (what you write)
+// SDK-layer handler signature (what you write)
 type EffectHandler = (
   params: unknown,
   ctx: AppEffectContext
@@ -29,7 +29,7 @@ type Patch = {
 };
 ```
 
-Note: The Host layer internally uses a different signature `(type, params, context)` but App wraps this. Handlers receive effect params, perform IO, and return patches.
+Note: The Host layer internally uses a different signature `(type, params, context)` but SDK wraps this. Handlers receive effect params, perform IO, and return patches.
 
 ## Patterns
 
@@ -72,10 +72,10 @@ async function fetchUser(params: { id: string }): Promise<Patch[]> {
 }
 ```
 
-### Effect Registration (App Layer)
+### Effect Registration (SDK Layer)
 
 ```typescript
-import { createApp } from '@manifesto-ai/app';
+import { createApp } from '@manifesto-ai/sdk';
 
 const app = createApp({
   schema: domainSchema,

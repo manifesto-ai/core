@@ -177,13 +177,15 @@ These are not features. They are **protocol-level invariants** — properties th
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  App    — assembles, integrates, absorbs         │
+│  SDK     — public API facade (createApp, hooks)  │
 ├─────────────────────────────────────────────────┤
-│  World  — governs legitimacy and lineage         │
+│  Runtime — orchestrates the action pipeline      │
 ├─────────────────────────────────────────────────┤
-│  Host   — executes effects in reality            │
+│  World   — governs legitimacy and lineage        │
 ├─────────────────────────────────────────────────┤
-│  Core   — computes meaning (pure, deterministic) │
+│  Host    — executes effects in reality           │
+├─────────────────────────────────────────────────┤
+│  Core    — computes meaning (pure, deterministic)│
 └─────────────────────────────────────────────────┘
 ```
 
@@ -192,11 +194,9 @@ These are not features. They are **protocol-level invariants** — properties th
 | **Core** | `@manifesto-ai/core` | Pure computation. Expressions, flows, patches. Zero IO. |
 | **Host** | `@manifesto-ai/host` | Effect execution. Runs the compute-effect-apply loop. |
 | **World** | `@manifesto-ai/world` | Governance. Actors, authorities, proposals, audit lineage (DAG). |
-| **SDK** | `@manifesto-ai/sdk` | Public facade. `createApp()`, `app.act()`, subscriptions, branches. |
-| **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation. |
-
-> Note: Runtime/SDK specifications currently exist as draft decomposition documents derived from APP-SPEC.
-> The supported public entry point remains `@manifesto-ai/sdk`.
+| **Runtime** | `@manifesto-ai/runtime` | Internal orchestration. 5-stage action pipeline, policy, memory, branches. |
+| **SDK** | `@manifesto-ai/sdk` | Public facade. `createApp()`, `app.act()`, typed ops, subscriptions, hooks. |
+| **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation and bundler adapters. |
 
 **Data flow:**
 
@@ -271,11 +271,12 @@ Manifesto is designed for domains where traceability, governance, and determinis
 
 | Package | Description |
 |---------|-------------|
-| [@manifesto-ai/sdk](./packages/sdk) | High-level application facade |
+| [@manifesto-ai/sdk](./packages/sdk) | Public developer API — `createApp()`, hooks, typed patch ops |
+| [@manifesto-ai/runtime](./packages/runtime) | Internal orchestration engine (consumed by SDK) |
 | [@manifesto-ai/core](./packages/core) | Pure computation engine |
 | [@manifesto-ai/host](./packages/host) | Effect execution runtime |
 | [@manifesto-ai/world](./packages/world) | Governance and lineage layer |
-| [@manifesto-ai/compiler](./packages/compiler) | MEL → DomainSchema compiler |
+| [@manifesto-ai/compiler](./packages/compiler) | MEL → DomainSchema compiler and bundler adapters |
 | [@manifesto-ai/codegen](./packages/codegen) | TypeScript / Zod code generation from DomainSchema |
 | [@manifesto-ai/intent-ir](./packages/intent-ir) | Intent intermediate representation |
 

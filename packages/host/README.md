@@ -285,13 +285,14 @@ host.registerEffect("api.get", async (type, params) => {
 ## Relationship with Other Packages
 
 ```
-App -> HOST (v2.0.2) -> Core
+Runtime -> HOST (v2.0.2) -> Core
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
-| Used by | `@manifesto-ai/world` | World uses Host to execute |
+| Used by | `@manifesto-ai/runtime` | Runtime orchestrates Host dispatch |
+| Used by | `@manifesto-ai/world` | World uses Host to execute via HostExecutor |
 
 ---
 
