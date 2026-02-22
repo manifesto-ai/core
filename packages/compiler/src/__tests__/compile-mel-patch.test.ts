@@ -9,6 +9,13 @@ import { compileMelPatch } from "../api/index.js";
 import { sha256Sync } from "@manifesto-ai/core";
 import { createEvaluationContext, evaluateRuntimePatches } from "../evaluation/index.js";
 
+const stripInternalGuards = (ops: { path: string }[]) =>
+  ops.filter(
+    (op) =>
+      !op.path.startsWith("$mel.__whenGuards.") &&
+      !op.path.startsWith("$mel.__onceScopeGuards.")
+  );
+
 describe("compileMelPatch", () => {
   it("compiles patch text into runtime patch ops and lowers expressions", () => {
     const melText = `
@@ -212,6 +219,61 @@ describe("compileMelPatch", () => {
     );
 
     expect(stripInternalWhenGuards(zeroMatch)).toEqual([]);
+  });
+
+  it("uses one-time block entry snapshot for all when body values", () => {
+    const melText = `
+      when eq(count, 0) {
+        patch count = add(count, 1)
+        patch flag = eq(count, 0)
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-when-entry-snapshot",
+    });
+
+    expect(result.errors).toHaveLength(0);
+
+    const positiveMatch = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-enter-snapshot" },
+        snapshot: {
+          data: { count: 0, flag: null },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(stripInternalGuards(positiveMatch)).toEqual([
+      {
+        op: "set",
+        path: "count",
+        value: 1,
+      },
+      {
+        op: "set",
+        path: "flag",
+        value: true,
+      },
+    ]);
+
+    const negativeMatch = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-enter-snapshot" },
+        snapshot: {
+          data: { count: 5, flag: null },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(negativeMatch).toEqual([]);
   });
 
   it("emits marker patch for once guard and prevents duplicate execution", () => {

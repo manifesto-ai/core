@@ -36,6 +36,28 @@ describe("Path Utilities", () => {
     it("should preserve ordinary backslashes in path segments", () => {
       expect(parsePath(String.raw`files.C:\temp`)).toEqual(["files", "C:\\temp"]);
     });
+
+    it("should preserve Windows-like root segments", () => {
+      expect(parsePath(String.raw`C:\\temp`)).toEqual(["C:\\temp"]);
+      expect(parsePath(String.raw`foo\\bar`)).toEqual(["foo\\bar"]);
+      expect(parsePath(String.raw`root.\\\\network\\share`)).toEqual([
+        "root",
+        "\\\\network\\share",
+      ]);
+    });
+
+    it("should preserve unknown escape sequences", () => {
+      expect(parsePath(String.raw`foo\qbar`)).toEqual(["foo\\qbar"]);
+      expect(parsePath(String.raw`foo\\qbar`)).toEqual(["foo\\qbar"]);
+    });
+
+    it("should preserve UNC-like segments without collapsing", () => {
+      expect(parsePath(String.raw`root.\\\\network\\share.value`)).toEqual([
+        "root",
+        "\\\\network\\share",
+        "value",
+      ]);
+    });
   });
 
   describe("joinPath", () => {
@@ -93,6 +115,34 @@ describe("Path Utilities", () => {
     it("should get array elements", () => {
       const obj = { items: [1, 2, 3] };
       expect(getByPath(obj, "items")).toEqual([1, 2, 3]);
+    });
+
+    it("should preserve backslash path segments through read/write round-trip", () => {
+      const source = { root: {} };
+      const target = setByPath(source, String.raw`root.C:\temp.value`, 42);
+
+      expect(getByPath(target, String.raw`root.C:\temp.value`)).toBe(42);
+      expect(getByPath(target, String.raw`root.C:\temp`)).toEqual({ value: 42 });
+      expect(getByPath(target, "root")).toMatchObject({
+        [String.raw`C:\temp`]: {
+          value: 42,
+        },
+      });
+    });
+
+    it("should preserve escaped backslash segments with parse/join round-trip", () => {
+      expect(joinPath("root", String.raw`C:\temp`, "value")).toBe(String.raw`root.C:\\temp.value`);
+      expect(parsePath(String.raw`root.C:\temp.value`)).toEqual(["root", "C:\\temp", "value"]);
+    });
+
+    it("should preserve unknown escape segments through setByPath/getByPath", () => {
+      const source = {};
+      const target = setByPath(source, String.raw`root.foo\qbar.value`, 11);
+
+      expect(getByPath(target, String.raw`root.foo\qbar.value`)).toBe(11);
+      expect(getByPath(target, String.raw`root.foo\qbar`)).toEqual({
+        value: 11,
+      });
     });
   });
 
