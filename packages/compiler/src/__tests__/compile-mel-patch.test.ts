@@ -60,10 +60,14 @@ describe("compileMelPatch", () => {
     ]);
   });
 
-  it("extracts patch ops from guarded blocks while keeping op.condition undefined", () => {
+  it("preserves guard conditions when collecting patch statements", () => {
     const melText = `
       when gt(input.increment, 0) {
         patch inGuard = input.increment
+      }
+
+      when false {
+        patch never = 1
       }
 
       onceIntent {
@@ -77,10 +81,53 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(2);
-    expect(result.ops[0]).toMatchObject({ op: "set", path: "inGuard" });
-    expect(result.ops[1]).toMatchObject({ op: "set", path: "onceValue" });
-    expect(result.ops.every((op) => op.condition === undefined)).toBe(true);
+    expect(result.ops).toHaveLength(3);
+    expect(result.ops.every((op) => op.condition !== undefined)).toBe(true);
+
+    const positiveMatch = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-2" },
+        snapshot: {
+          data: {},
+          computed: {},
+        },
+        input: { increment: 2 },
+      })
+    );
+
+    expect(positiveMatch).toEqual([
+      {
+        op: "set",
+        path: "inGuard",
+        value: 2,
+      },
+      {
+        op: "set",
+        path: "onceValue",
+        value: 1,
+      },
+    ]);
+
+    const zeroMatch = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-2" },
+        snapshot: {
+          data: {},
+          computed: {},
+        },
+        input: { increment: 0 },
+      })
+    );
+
+    expect(zeroMatch).toEqual([
+      {
+        op: "set",
+        path: "onceValue",
+        value: 1,
+      },
+    ]);
   });
 
   it("supports non-static property access in patch expressions", () => {
@@ -121,6 +168,77 @@ describe("compileMelPatch", () => {
         op: "set",
         path: "nested",
         value: 3,
+      },
+    ]);
+  });
+
+  it("supports unary minus in patch expressions", () => {
+    const melText = `
+      patch delta = -input.amount
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-unary-minus",
+    });
+
+    expect(result.errors).toHaveLength(0);
+
+    const concretePatches = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-4" },
+        snapshot: {
+          data: {},
+          computed: {},
+        },
+        input: { amount: 7 },
+      })
+    );
+
+    expect(concretePatches).toEqual([
+      {
+        op: "set",
+        path: "delta",
+        value: -7,
+      },
+    ]);
+  });
+
+  it("keeps literal index access semantics for dotted expression keys", () => {
+    const melText = `
+      patch title = record["a.b"]
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-dotted-index-access",
+    });
+
+    expect(result.errors).toHaveLength(0);
+
+    const concretePatches = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-5" },
+        snapshot: {
+          data: {
+            record: {
+              "a.b": "outer",
+              a: { b: "nested" },
+            },
+          },
+          computed: {},
+        },
+        input: {},
+      })
+    );
+
+    expect(concretePatches).toEqual([
+      {
+        op: "set",
+        path: "title",
+        value: "outer",
       },
     ]);
   });
