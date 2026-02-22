@@ -193,13 +193,63 @@ export class PatchStatementCollector {
         }
 
         const condition = this.conditionComposer.and(parentCondition, onceIntentCondition);
+
+        const onceIntentGuardMapPath: PathNode = {
+          kind: "path",
+          segments: [
+            {
+              kind: "propertySegment",
+              name: "$mel",
+              location: markerLocation,
+            },
+            {
+              kind: "propertySegment",
+              name: "guards",
+              location: markerLocation,
+            },
+            {
+              kind: "propertySegment",
+              name: "intent",
+              location: markerLocation,
+            },
+          ],
+          location: markerLocation,
+        };
+
+        const bodyPatchStatements = this.collectPatchStatements(
+          stmt.body,
+          errors,
+          context,
+          condition
+        );
+
         patchStatements.push(
-          ...this.collectPatchStatements(
-            stmt.body,
-            errors,
-            context,
-            condition
-          )
+          ...bodyPatchStatements,
+          {
+            patch: {
+              kind: "patch",
+              op: "merge",
+              path: onceIntentGuardMapPath,
+              value: {
+                kind: "objectLiteral",
+                properties: [
+                  {
+                    kind: "objectProperty",
+                    key: onceIntentGuardId,
+                    value: {
+                      kind: "systemIdent",
+                      path: ["meta", "intentId"],
+                      location: markerLocation,
+                    },
+                    location: markerLocation,
+                  },
+                ],
+                location: markerLocation,
+              },
+              location: markerLocation,
+            },
+            condition,
+          }
         );
         continue;
       }

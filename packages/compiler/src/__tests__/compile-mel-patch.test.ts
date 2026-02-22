@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { compileMelPatch } from "../api/index.js";
+import { sha256Sync } from "@manifesto-ai/core";
 import { createEvaluationContext, evaluateRuntimePatches } from "../evaluation/index.js";
 
 describe("compileMelPatch", () => {
@@ -81,8 +82,10 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(3);
+    expect(result.ops).toHaveLength(4);
     expect(result.ops.every((op) => op.condition !== undefined)).toBe(true);
+
+    const guardId = sha256Sync("regression-compileMelPatch-guards:0:intent");
 
     const positiveMatch = evaluateRuntimePatches(
       result.ops,
@@ -107,6 +110,13 @@ describe("compileMelPatch", () => {
         path: "onceValue",
         value: 1,
       },
+      {
+        op: "merge",
+        path: "$mel.guards.intent",
+        value: {
+          [guardId]: "intent-2",
+        },
+      },
     ]);
 
     const zeroMatch = evaluateRuntimePatches(
@@ -126,6 +136,13 @@ describe("compileMelPatch", () => {
         op: "set",
         path: "onceValue",
         value: 1,
+      },
+      {
+        op: "merge",
+        path: "$mel.guards.intent",
+        value: {
+          [guardId]: "intent-2",
+        },
       },
     ]);
   });
