@@ -112,7 +112,7 @@ console.log(result.status); // -> "complete"
 console.log(result.snapshot.data.count); // -> 1
 ```
 
-> See [GUIDE.md](../../docs/packages/core/GUIDE.md) for the full tutorial.
+> See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -140,7 +140,7 @@ type Patch = { op: "set" | "unset" | "merge", path, value? };
 type ComputeResult = { status, snapshot, requirements, trace };
 ```
 
-> See [SPEC.md](../../docs/packages/core/SPEC.md) for complete API reference.
+> See [SPEC-v2.0.0.md](docs/SPEC-v2.0.0.md) for complete API reference.
 
 ---
 

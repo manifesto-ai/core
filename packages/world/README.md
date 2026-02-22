@@ -96,7 +96,7 @@ if (result.resultWorld) {
 }
 ```
 
-> See [GUIDE.md](../../docs/packages/world/GUIDE.md) for the full tutorial.
+> See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -128,7 +128,7 @@ type DecisionRecord = { decisionId, proposalId, authority, decision, decidedAt }
 type ActorRef = { actorId, kind: "human" | "agent" | "system", name?, meta? };
 ```
 
-> See [SPEC.md](../../docs/packages/world/SPEC.md) for complete API reference.
+> See [world-SPEC-v2.0.2.md](docs/world-SPEC-v2.0.2.md) for complete API reference.
 
 ---
 

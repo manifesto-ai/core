@@ -2,7 +2,7 @@
 
 > **Covers:** Effect handler patterns, error handling, async operations
 > **Purpose:** Writing robust, deterministic effect handlers
-> **Prerequisites:** Understanding of Effects and App
+> **Prerequisites:** Understanding of Effects and SDK
 
 ---
 
@@ -12,7 +12,7 @@ Effect handlers are functions that execute external operations declared by Core.
 
 **Critical distinction:**
 - **Core declares** effects (as data)
-- **App executes** effects (via handlers)
+- **SDK executes** effects (via handlers)
 
 ```
 Core: "I need effect 'api.fetch' with params {url: '/users'}"
@@ -794,7 +794,7 @@ describe("Effect handlers", () => {
 ## Related Concepts
 
 - **Effect** - External operation declared by Flow
-- **App** - Orchestrates effect execution via handlers
+- **SDK** - Orchestrates effect execution via handlers
 - **Patch** - What handlers return
 - **Re-entry Safety** - Why guard state matters
 
@@ -803,6 +803,6 @@ describe("Effect handlers", () => {
 ## See Also
 
 - [Effect Concept](/concepts/effect) - Understanding effects
-- [App API](/api/app) - How App works
+- [SDK API](/api/sdk) - How SDK works
 - [Re-entry Safe Flows](./reentry-safe-flows) - Guard patterns
 - [Specifications](/internals/spec/) - Normative contracts for App and other packages
