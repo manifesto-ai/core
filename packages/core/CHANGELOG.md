@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/manifesto-ai/core/compare/core-v2.5.0...core-v2.5.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* preserve empty segments when computing parent path ([aaed5be](https://github.com/manifesto-ai/core/commit/aaed5bef3d81aa80b7555e352d6d412c2820a1b5))
+
 ## [2.5.0](https://github.com/manifesto-ai/core/compare/core-v2.4.0...core-v2.5.0) (2026-02-20)
 
 
