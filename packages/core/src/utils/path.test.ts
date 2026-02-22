@@ -284,6 +284,10 @@ describe("Path Utilities", () => {
       expect(parentPath("a.b.c")).toBe("a.b");
     });
 
+    it("should preserve empty segments in parent path", () => {
+      expect(parentPath("files..value")).toBe("files.");
+    });
+
     it("should return empty string for single segment", () => {
       expect(parentPath("a")).toBe("");
     });

@@ -190,7 +190,7 @@ export function hasPath(obj: unknown, path: SemanticPath): boolean {
  */
 export function parentPath(path: SemanticPath): SemanticPath {
   const segments = parsePath(path);
-  return joinPath(...segments.slice(0, -1));
+  return joinPathPreserveEmptySegments(...segments.slice(0, -1));
 }
 
 /**
@@ -199,4 +199,8 @@ export function parentPath(path: SemanticPath): SemanticPath {
 export function lastSegment(path: SemanticPath): string {
   const segments = parsePath(path);
   return segments[segments.length - 1] ?? "";
+}
+
+function joinPathPreserveEmptySegments(...segments: string[]): SemanticPath {
+  return segments.map(escapePathSegment).join(".");
 }
