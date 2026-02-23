@@ -1,7 +1,7 @@
 # Manifesto Architecture
 
-> Source: Core SPEC v2.0.1, Core FDR v2.0.0, Host SPEC v2.0.2, World SPEC v2.0.3
-> Last synced: 2026-02-09
+> Source: Core SPEC v2.0.1, Core FDR v2.0.0, Host SPEC v2.0.2, World SPEC v2.0.3, SDK SPEC v0.1.0
+> Last synced: 2026-02-22
 
 ## Rules
 
@@ -60,7 +60,8 @@ Information flows ONLY through Snapshot. No other channels exist.
 | **Core** | Pure computation, expression evaluation, flow interpretation, patch generation, trace | IO, time, execution, know about Host/World |
 | **Host** | Effect execution, patch application, compute loop, requirement fulfillment | Make decisions, interpret semantics, suppress effects |
 | **World** | Proposal management, authority evaluation, decision recording, lineage | Execute effects, apply patches, compute transitions |
-| **App** | Composition root — wires Core + Host + World together | Contain domain logic |
+| **Runtime** | Internal orchestration — 5-stage action pipeline, policy, memory, branches | Public API design, domain logic |
+| **SDK** | Public developer API — `createApp()`, hooks, typed ops. Delegates to Runtime | Contain domain logic, orchestration internals |
 
 ## Forbidden Import Matrix
 
@@ -69,7 +70,8 @@ Information flows ONLY through Snapshot. No other channels exist.
 | core | host, world |
 | host | world governance |
 | world | host internals, core compute |
-| app | core internals, host internals, world internals |
+| runtime | SDK public surface |
+| sdk | core internals, host internals, world internals |
 
 ## Snapshot Structure
 

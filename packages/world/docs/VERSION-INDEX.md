@@ -28,8 +28,8 @@
 | v2.0.3 | [SPEC](world-SPEC-v2.0.3.md) | — | Full | Accepted |
 | v2.0.3 | [SPEC](world-SPEC-v2.0.3-patch.md) | — | Patch (Base: v2.0.2) | Merged |
 | v2.0.2 | [SPEC](world-SPEC-v2.0.2.md) | [FDR](world-FDR-v2.0.2.md) | Full | Accepted |
-| v2.0.1 | [SPEC](world-SPEC-v2.0.1.md) | [FDR](world-FDR-v2.0.1.md) | Full | Superseded |
-| v2.0.0 | [SPEC](world-SPEC-v2.0.0v.md) | [FDR](world-FDR-v2.0.0v.md) | Full | Superseded |
+| v2.0.1 | — (archived) | — (archived) | Full | Superseded |
+| v2.0.0 | — (archived) | — (archived) | Full | Superseded |
 | v1.0.0 | — (archived) | — (archived) | Full | Superseded |
 
 ### World Event System

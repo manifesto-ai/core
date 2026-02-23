@@ -7,15 +7,15 @@
 ## What is World?
 
 World operates above Core and Host, governing who can propose changes, who can approve them, and tracking the complete history of all state transitions.
-World never imports Host directly; App provides a HostExecutor adapter.
+World never imports Host directly; Runtime provides a HostExecutor adapter.
 
 In the Manifesto architecture:
 
 ```
-App -> WORLD -> Host -> Core
-        |
-  Governs legitimacy, authority, lineage
-  Tracks WHO proposed WHAT, WHEN, WHY
+SDK -> Runtime -> WORLD -> Host -> Core
+                   |
+         Governs legitimacy, authority, lineage
+         Tracks WHO proposed WHAT, WHEN, WHY
 ```
 
 ---
@@ -38,8 +38,8 @@ App -> WORLD -> Host -> Core
 |--------------------|--------|
 | Compute state transitions | Core |
 | Execute effects | Host |
-| Handle UI/event bindings | App |
-| Define domain logic | App |
+| Handle UI/event bindings | SDK |
+| Define domain logic | SDK |
 
 ---
 
@@ -60,7 +60,7 @@ import { createManifestoWorld, createIntentInstance } from "@manifesto-ai/world"
 
 const world = createManifestoWorld({
   schemaHash: "todo-v1",
-  executor: appHostExecutor, // App-provided HostExecutor (optional)
+  executor: hostExecutor, // Runtime-provided HostExecutor (optional)
 });
 
 // Register an actor
@@ -96,7 +96,7 @@ if (result.resultWorld) {
 }
 ```
 
-> See [GUIDE.md](../../docs/packages/world/GUIDE.md) for the full tutorial.
+> See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -128,7 +128,7 @@ type DecisionRecord = { decisionId, proposalId, authority, decision, decidedAt }
 type ActorRef = { actorId, kind: "human" | "agent" | "system", name?, meta? };
 ```
 
-> See [SPEC.md](../../docs/packages/world/SPEC.md) for complete API reference.
+> See [world-SPEC-v2.0.2.md](docs/world-SPEC-v2.0.2.md) for complete API reference.
 
 ---
 
@@ -171,13 +171,14 @@ Each successful proposal creates a new World. Worlds are immutable and form a DA
 ## Relationship with Other Packages
 
 ```
-App -> WORLD -> Host
+SDK -> Runtime -> WORLD -> Host
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses Core types |
-| Integrates with | `@manifesto-ai/host` | Via HostExecutor adapter (App-provided) |
+| Integrates with | `@manifesto-ai/host` | Via HostExecutor adapter (Runtime-provided) |
+| Used by | `@manifesto-ai/runtime` | Runtime orchestrates World proposals |
 
 ---
 

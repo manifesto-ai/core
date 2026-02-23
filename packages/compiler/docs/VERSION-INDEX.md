@@ -22,10 +22,10 @@
 | v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Merged |
 | v0.4.0 | [SPEC](SPEC-v0.4.0-patch.md) | [FDR](FDR-v0.4.0-patch.md) | Patch (Base: v0.3.3) | Merged |
 | v0.3.3 | [SPEC](SPEC-v0.3.3.md) | [FDR](FDR-v0.3.3.md) | Full | Final |
-| v0.3.2 | [SPEC](SPEC-v0.3.2.md) | [FDR](FDR-v0.3.2.md) | Full | Superseded |
-| v0.3.1 | [SPEC](SPEC-v0.3.1.md) | [FDR](FDR-v0.3.1.md) | Full | Superseded |
-| v0.3.0 | [SPEC](SPEC-v0.3.0.md) | [FDR](FDR-v0.3.0.md) | Full | Superseded |
-| v0.2.5 | — | [FDR](FDR-v0.2.5.md) | Full | Superseded |
+| v0.3.2 | — (archived) | — (archived) | Full | Superseded |
+| v0.3.1 | — (archived) | — (archived) | Full | Superseded |
+| v0.3.0 | — (archived) | — (archived) | Full | Superseded |
+| v0.2.5 | — | — (archived) | Full | Superseded |
 
 ---
 

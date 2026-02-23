@@ -829,10 +829,13 @@ Uncaught Error: Module "crypto" has been externalized for browser compatibility.
 Cannot access "crypto.createHash" in client code.
 ```
 
+> **Editorial note (2026-02):** `@manifesto-ai/app` has since been retired.
+> The dependency chain below reflects the architecture at the time this FDR was authored.
+
 Dependency chain:
 ```
 React App (browser)
-    → @manifesto-ai/app
+    → @manifesto-ai/app (retired)
         → @manifesto-ai/host
             → @manifesto-ai/compiler (build-time only expected)
                 → crypto.createHash() ← FAILS in browser

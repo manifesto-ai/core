@@ -11,7 +11,7 @@
 The Architecture section explains **how Manifesto is structured** and **why it's structured that way**.
 
 After reading this section, you'll understand:
-- The four-layer architecture (App, World, Host, Core) + Compiler (MEL)
+- The five-layer architecture (SDK, Runtime, World, Host, Core) + Compiler (MEL)
 - How data flows through the system
 - Why determinism is guaranteed
 - How failures are handled
@@ -133,7 +133,7 @@ const newSnapshot = core.apply(schema, snapshot, [
 The four-layer architecture and their responsibilities.
 
 **What you'll learn:**
-- App layer (orchestration and UI integration)
+- SDK layer (public API) and Runtime layer (orchestration)
 - World layer (governance)
 - Host layer (effect execution)
 - Core layer (pure computation)
@@ -254,11 +254,12 @@ How World Protocol manages authority and accountability.
 
 ## Architecture Quick Reference
 
-### The Four Layers + Compiler
+### The Five Layers + Compiler
 
 | Layer | Package | Responsibility | Can Do | Cannot Do |
 |-------|---------|----------------|--------|-----------|
-| **App** | `@manifesto-ai/sdk` | Orchestrate lifecycle, integrate UI | Subscribe, dispatch, wire layers | Define logic, execute directly |
+| **SDK** | `@manifesto-ai/sdk` | Public API facade, hooks, typed ops | Subscribe, dispatch, create apps | Define logic, execute directly |
+| **Runtime** | `@manifesto-ai/runtime` | Orchestrate action pipeline, policy, memory | Wire layers, manage branches | Define logic, execute effects |
 | **World** | `@manifesto-ai/world` | Govern proposals, evaluate authority | Approve/reject, record lineage | Execute, compute |
 | **Host** | `@manifesto-ai/host` | Execute effects, apply patches | Run handlers, orchestrate | Decide, interpret meaning |
 | **Core** | `@manifesto-ai/core` | Pure computation | Compute patches/effects | IO, execution, time-awareness |

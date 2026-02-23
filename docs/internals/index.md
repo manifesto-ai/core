@@ -22,6 +22,7 @@ Records of significant architectural decisions:
 | [ADR-005](./adr/005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn |
 | [ADR-006](./adr/006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed |
 | [ADR-007](./adr/007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted |
+| [ADR-008](./adr/008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted |
 
 Status meanings (Proposed, Accepted, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

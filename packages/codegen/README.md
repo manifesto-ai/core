@@ -36,7 +36,7 @@ DomainSchema -> CODEGEN -> Generated Files
 
 | NOT Responsible For | Who Is |
 |--------------------|--------|
-| Define schemas | App (DomainSchema authoring) |
+| Define schemas | SDK / Compiler (DomainSchema authoring) |
 | Runtime validation | Application code using generated Zod schemas |
 | Bundling or compilation | Build tools (tsc, esbuild, etc.) |
 | Schema versioning | `@manifesto-ai/core` |
@@ -162,7 +162,7 @@ Same DomainSchema always produces byte-identical output files. Fields and types 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Reads DomainSchema, TypeDefinition, TypeSpec |
-| Used by | App build scripts | Called during build to generate type-safe code |
+| Used by | Build scripts | Called during build to generate type-safe code |
 
 ---
 

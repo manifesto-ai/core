@@ -38,7 +38,7 @@ Host -> CORE -> ComputeResult
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
 | Govern authority/proposals | World |
-| Handle UI/event bindings | App |
+| Handle UI/event bindings | SDK |
 
 ---
 
@@ -112,7 +112,7 @@ console.log(result.status); // -> "complete"
 console.log(result.snapshot.data.count); // -> 1
 ```
 
-> See [GUIDE.md](../../docs/packages/core/GUIDE.md) for the full tutorial.
+> See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
 ---
 
@@ -140,7 +140,7 @@ type Patch = { op: "set" | "unset" | "merge", path, value? };
 type ComputeResult = { status, snapshot, requirements, trace };
 ```
 
-> See [SPEC.md](../../docs/packages/core/SPEC.md) for complete API reference.
+> See [SPEC-v2.0.0.md](docs/SPEC-v2.0.0.md) for complete API reference.
 
 ---
 
@@ -166,13 +166,14 @@ When an action needs IO (API call, timer, etc.), Core doesn't execute it. Instea
 ## Relationship with Other Packages
 
 ```
-App/World -> Host -> Core
+SDK/Runtime -> Host -> Core
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Used by | `@manifesto-ai/host` | Host calls compute() and apply() |
-| Schema from | App | App supplies DomainSchema |
+| Used by | `@manifesto-ai/runtime` | Runtime orchestrates compute loop |
+| Schema from | SDK | SDK supplies DomainSchema (via MEL or direct) |
 
 ---
 
