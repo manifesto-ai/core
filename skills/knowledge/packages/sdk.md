@@ -72,8 +72,8 @@ interface App {
   currentBranch(): Branch;
   fork(opts?): Promise<Branch>;
   switchBranch(branchId): Promise<Branch>;
-  getHeads(): HeadMap;
-  getLatestHead(): Head | null;
+  getHeads(): Promise<WorldHead[]>;
+  getLatestHead(): Promise<WorldHead | null>;
 
   // Sessions
   session(actorId, opts?): Session;

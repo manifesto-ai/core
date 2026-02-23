@@ -15,7 +15,7 @@ import { createApp } from '@manifesto-ai/app';
 import { createApp } from '@manifesto-ai/sdk';
 ```
 
-The API surface is identical. See `@knowledge/packages/sdk.md` for the current SDK API reference.
+Most public APIs carry over unchanged, but some App-only symbols (e.g. `createSilentPolicyService`) are not exported by SDK. See the [Migration Guide](../../../docs/guides/migrate-app-to-sdk.md) for the full list of differences, and `@knowledge/packages/sdk.md` for the current SDK API reference.
 
 ## Historical References
 
