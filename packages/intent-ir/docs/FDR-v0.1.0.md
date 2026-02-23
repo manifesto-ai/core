@@ -1,11 +1,20 @@
 # Manifesto Intent IR — Foundational Design Rationale (FDR)
 
-> **Status:** Draft  
-> **Version:** 0.1.0  
-> **Companion To:** `manifesto-intent-ir` SPEC v0.1.0  
+> **Status:** Draft
+> **Version:** 0.1.0
+> **Companion To:** `manifesto-intent-ir` SPEC v0.1.0
 > **License:** MIT
 
 ---
+
+> **Alignment Note (2026-02)**
+>
+> This FDR was authored against SPEC v0.1.0. The current canonical SPEC is
+> v0.2.0, which adds ListTerm, QuantitySpec, `in` predicate support,
+> term-level `ext`, and canonicalization refinements. The design rationale
+> entries below (FDR-INT-001 ~ FDR-INT-012) remain valid for the foundational
+> decisions they document; a supplementary FDR covering v0.2.0-specific
+> additions has not yet been authored.
 
 ## Changelog
 
