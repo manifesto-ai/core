@@ -945,7 +945,9 @@ function evaluateSplit(str: ExprNode, delimiter: ExprNode, ctx: EvalContext): Ex
   if (!strResult.ok) return strResult;
   const delimiterResult = evaluateExpr(delimiter, ctx);
   if (!delimiterResult.ok) return delimiterResult;
-  return ok(toString(strResult.value).split(toString(delimiterResult.value)));
+  const result = toString(strResult.value).split(toString(delimiterResult.value));
+  // JS returns [] for "".split(""); SPEC requires at least one element
+  return ok(result.length === 0 ? [""] : result);
 }
 
 // ============ Collection Extended (SPEC v2.0.3) ============

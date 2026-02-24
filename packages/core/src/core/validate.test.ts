@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validate.js";
+import { collectGetPathsFromExpr } from "./validation-utils.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import type { DomainSchema } from "../schema/domain.js";
+import type { ExprNode } from "../schema/expr.js";
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
   dummy: { type: "string", required: true },
@@ -727,5 +729,101 @@ describe("validate", () => {
       expect(result.errors.some((e) => e.code === "V-002")).toBe(true);
       expect(result.errors.some((e) => e.code === "V-004")).toBe(true);
     });
+  });
+});
+
+// ============================================================
+// collectGetPathsFromExpr — SPEC v2.0.3 expression coverage
+// ============================================================
+
+describe("collectGetPathsFromExpr", () => {
+  const get = (path: string): ExprNode => ({ kind: "get", path });
+  const lit = (value: unknown): ExprNode => ({ kind: "lit", value });
+
+  it("collects paths from pow (base + exponent)", () => {
+    const expr: ExprNode = { kind: "pow", base: get("data.x"), exponent: get("data.y") };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.x", "data.y"]);
+  });
+
+  it("collects paths from min/max (args array)", () => {
+    const expr: ExprNode = { kind: "min", args: [get("data.a"), get("data.b"), lit(0)] };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.a", "data.b"]);
+  });
+
+  it("collects paths from unary math (abs, neg, floor, ceil, round, sqrt)", () => {
+    for (const kind of ["abs", "neg", "floor", "ceil", "round", "sqrt"] as const) {
+      const expr: ExprNode = { kind, arg: get(`data.${kind}`) };
+      expect(collectGetPathsFromExpr(expr)).toEqual([`data.${kind}`]);
+    }
+  });
+
+  it("collects paths from conversion (toString, toNumber, toBoolean)", () => {
+    for (const kind of ["toString", "toNumber", "toBoolean"] as const) {
+      const expr: ExprNode = { kind, arg: get(`data.${kind}`) };
+      expect(collectGetPathsFromExpr(expr)).toEqual([`data.${kind}`]);
+    }
+  });
+
+  it("collects paths from array-only unary (reverse, unique, flat, sumArray, minArray, maxArray)", () => {
+    for (const kind of ["reverse", "unique", "flat", "sumArray", "minArray", "maxArray"] as const) {
+      const expr: ExprNode = { kind, array: get(`data.${kind}`) };
+      expect(collectGetPathsFromExpr(expr)).toEqual([`data.${kind}`]);
+    }
+  });
+
+  it("collects paths from string-only unary (toLowerCase, toUpperCase, strLen)", () => {
+    for (const kind of ["toLowerCase", "toUpperCase", "strLen"] as const) {
+      const expr: ExprNode = { kind, str: get(`data.${kind}`) };
+      expect(collectGetPathsFromExpr(expr)).toEqual([`data.${kind}`]);
+    }
+  });
+
+  it("collects paths from startsWith", () => {
+    const expr: ExprNode = { kind: "startsWith", str: get("data.s"), prefix: get("data.p") };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.s", "data.p"]);
+  });
+
+  it("collects paths from endsWith", () => {
+    const expr: ExprNode = { kind: "endsWith", str: get("data.s"), suffix: get("data.p") };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.s", "data.p"]);
+  });
+
+  it("collects paths from strIncludes / indexOf", () => {
+    for (const kind of ["strIncludes", "indexOf"] as const) {
+      const expr: ExprNode = { kind, str: get("data.s"), search: get("data.q") };
+      expect(collectGetPathsFromExpr(expr)).toEqual(["data.s", "data.q"]);
+    }
+  });
+
+  it("collects paths from replace", () => {
+    const expr: ExprNode = {
+      kind: "replace",
+      str: get("data.s"),
+      search: get("data.from"),
+      replacement: get("data.to"),
+    };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.s", "data.from", "data.to"]);
+  });
+
+  it("collects paths from split", () => {
+    const expr: ExprNode = { kind: "split", str: get("data.s"), delimiter: get("data.d") };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.s", "data.d"]);
+  });
+
+  it("collects paths from hasKey", () => {
+    const expr: ExprNode = { kind: "hasKey", obj: get("data.o"), key: get("data.k") };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.o", "data.k"]);
+  });
+
+  it("collects paths from pick / omit", () => {
+    for (const kind of ["pick", "omit"] as const) {
+      const expr: ExprNode = { kind, obj: get("data.o"), keys: get("data.ks") };
+      expect(collectGetPathsFromExpr(expr)).toEqual(["data.o", "data.ks"]);
+    }
+  });
+
+  it("collects paths from fromEntries", () => {
+    const expr: ExprNode = { kind: "fromEntries", entries: get("data.e") };
+    expect(collectGetPathsFromExpr(expr)).toEqual(["data.e"]);
   });
 });

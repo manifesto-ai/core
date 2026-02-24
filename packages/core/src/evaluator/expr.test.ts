@@ -1102,6 +1102,15 @@ describe("Expression Evaluator", () => {
         delimiter: { kind: "lit", value: "," },
       })).toEqual([""]); // toString(null) = ""
     });
+
+    it("split - should return non-empty array for empty string with empty delimiter", () => {
+      // JS returns [] for "".split(""), but SPEC requires at least one element
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: "" },
+        delimiter: { kind: "lit", value: "" },
+      })).toEqual([""]);
+    });
   });
 
   // ============================================================
