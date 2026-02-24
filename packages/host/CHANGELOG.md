@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.2](https://github.com/manifesto-ai/core/compare/host-v2.3.1...host-v2.3.2) (2026-02-24)
+
+
+### Bug Fixes
+
+* **runtime:** decouple intentId uniqueness from executionKey routing ([ce77026](https://github.com/manifesto-ai/core/commit/ce770266a26d90a3a06880959c6df51d449372ad))
+
 ## [2.3.1](https://github.com/manifesto-ai/core/compare/host-v2.3.0...host-v2.3.1) (2026-02-10)
 
 
