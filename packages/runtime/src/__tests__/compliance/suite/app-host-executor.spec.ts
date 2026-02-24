@@ -70,7 +70,7 @@ describe("Runtime HostExecutor compliance", () => {
     });
   });
 
-  it("RT-HEXEC-4: HostExecutor must route dispatch by ExecutionKey-derived intentId", async () => {
+  it("RT-HEXEC-4: HostExecutor must dispatch to Mailbox via ExecutionKey", async () => {
     const baseSnapshot = makeSnapshot({ count: 4 });
 
     const host = {
@@ -91,7 +91,7 @@ describe("Runtime HostExecutor compliance", () => {
     await executor.execute(executionKey, baseSnapshot, {
       type: "increment",
       input: {},
-      intentId: executionKey,
+      intentId: `${executionKey}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
     });
 
     expect(host.reset).toHaveBeenCalledTimes(1);
@@ -99,8 +99,9 @@ describe("Runtime HostExecutor compliance", () => {
     expect(host.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "increment",
-        intentId: executionKey,
-      })
+        intentId: expect.stringMatching(/^proposal:abc_/),
+      }),
+      { key: executionKey }
     );
   });
 });

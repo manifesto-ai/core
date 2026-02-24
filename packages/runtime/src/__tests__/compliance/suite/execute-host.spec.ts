@@ -120,7 +120,7 @@ describe("Runtime execute stage compliance", () => {
     expect(ctx.execute?.baseSnapshot).toEqual(normalizedBaseSnapshot);
     expect(ctx.execute?.execResult).toEqual(execResult);
     expect(ctx.execute?.intent.type).toBe("increment");
-    expect(ctx.execute?.intent.intentId).toBe("ek-compliance-1");
+    expect(ctx.execute?.intent.intentId).toMatch(/^intent_ek-compliance-1_/);
   });
 
   it("RT-HEXEC-2: execute() must fall back to current app state when world restore fails", async () => {
@@ -191,7 +191,7 @@ describe("Runtime execute stage compliance", () => {
     });
     expect(hostCall?.[2]).toMatchObject({
       type: "fallback",
-      intentId: "ek-compliance-2",
+      intentId: expect.stringMatching(/^intent_ek-compliance-2_/),
     });
     expect(hostCall?.[3]).toEqual({ approvedScope: undefined, timeoutMs: 300 });
   });

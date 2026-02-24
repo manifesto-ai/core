@@ -331,8 +331,8 @@ export class AppBootstrap {
     });
 
     const host: Host = {
-      dispatch: async (intent): Promise<HostResult> => {
-        const result = await internalHost.dispatch(intent);
+      dispatch: async (intent, options): Promise<HostResult> => {
+        const result = await internalHost.dispatch(intent, options);
         return {
           status: result.status === "complete" ? "complete" : "error",
           snapshot: result.snapshot as Snapshot,

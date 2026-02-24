@@ -104,7 +104,7 @@ export interface Host {
   /**
    * Execute an intent and return result.
    */
-  dispatch(intent: Intent): Promise<HostResult>;
+  dispatch(intent: Intent, options?: { key?: ExecutionKey }): Promise<HostResult>;
 
   /**
    * Register an effect handler.

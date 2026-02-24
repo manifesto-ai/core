@@ -223,9 +223,13 @@ export class ManifestoHost {
    * Dispatch an intent using v2.0.1 Mailbox + Runner + Job model
    *
    * @param intent - Intent to dispatch
+   * @param options - Optional dispatch options (routing key override)
    * @returns Host result with final snapshot and traces
    */
-  async dispatch(intent: Intent): Promise<HostResult> {
+  async dispatch(
+    intent: Intent,
+    options?: { key?: ExecutionKey }
+  ): Promise<HostResult> {
     if (!this.currentSnapshot) {
       const initialContext = this.contextProvider.createInitialContext();
       return {
@@ -252,8 +256,8 @@ export class ManifestoHost {
       };
     }
 
-    // Use intentId as execution key
-    const key: ExecutionKey = intent.intentId;
+    // Use explicit execution key when provided, otherwise fallback to intentId
+    const key: ExecutionKey = options?.key ?? intent.intentId;
 
     // Create mailbox and execution context
     const mailbox = this.mailboxManager.getOrCreate(key);
