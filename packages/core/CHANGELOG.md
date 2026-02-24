@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.6.0](https://github.com/manifesto-ai/core/compare/core-v2.5.0...core-v2.6.0) (2026-02-24)
+
+
+### Features
+
+* implement 27 new expression kinds in Core evaluator ([b67f96b](https://github.com/manifesto-ai/core/commit/b67f96b54f099dbc999eb6830ad1e64b2aa90515))
+
+
+### Bug Fixes
+
+* address PR [#193](https://github.com/manifesto-ai/core/issues/193) review — path collection for new ExprNode kinds and split edge case ([2cb0808](https://github.com/manifesto-ai/core/commit/2cb08084074dfeb2e4f7a168efce8e1cc4a5b276))
+* preserve empty segments when computing parent path ([aaed5be](https://github.com/manifesto-ai/core/commit/aaed5bef3d81aa80b7555e352d6d412c2820a1b5))
+
 ## [2.5.0](https://github.com/manifesto-ai/core/compare/core-v2.4.0...core-v2.5.0) (2026-02-20)
 
 
