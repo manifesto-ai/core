@@ -92,7 +92,7 @@ A per-`ExecutionKey` queue that serializes all state mutations:
 └────────────────────────────────────────┘
 ```
 
-- One mailbox per `ExecutionKey` (typically `intentId`)
+- One mailbox per `ExecutionKey` (default key is `intent.intentId`; optional `options.key` can override routing)
 - All state mutations go through the mailbox
 - Jobs are processed in FIFO order
 
@@ -117,7 +117,7 @@ Four job types handle different operations:
 
 | Job Type | Purpose | When Used |
 |----------|---------|-----------|
-| `StartIntent` | Begin processing a new intent | `dispatch(intent)` |
+| `StartIntent` | Begin processing a new intent | `dispatch(intent, options?)` |
 | `ContinueCompute` | Resume after effect fulfillment | After effect completes |
 | `FulfillEffect` | Apply effect results | Effect returns Patch[] |
 | `ApplyPatches` | Apply direct patches | Direct patch submission |
@@ -867,7 +867,7 @@ host.registerEffect("api.get", async (type, params) => {
 | `new ManifestoHost(schema, options)` | Create host instance |
 | `createHost(schema, options)` | Factory function (same as above) |
 | `host.registerEffect(type, handler)` | Register effect handler |
-| `host.dispatch(intent)` | Execute intent |
+| `host.dispatch(intent, options?)` | Execute intent (`options.key` overrides routing key; default is `intent.intentId`) |
 | `host.getSnapshot()` | Get current snapshot (sync) |
 | `host.reset(initialData)` | Reset to new initial data |
 

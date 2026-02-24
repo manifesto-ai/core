@@ -64,10 +64,11 @@ export async function executeHost(
   }
 
   // Create Intent for execution
+  const uniqueIntentSuffix = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   const intent: Intent = {
     type: actionType,
     input,
-    intentId: `intent_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    intentId: `intent_${executionKey}_${uniqueIntentSuffix}`,
   };
 
   // Execute via HostExecutor

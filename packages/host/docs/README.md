@@ -92,7 +92,7 @@ function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost;
 // Host class
 class ManifestoHost {
   registerEffect(type: string, handler: EffectHandler): void;
-  dispatch(intent: Intent): Promise<HostResult>;
+  dispatch(intent: Intent, options?: { key?: string }): Promise<HostResult>;
   getSnapshot(): Promise<Snapshot | null>;
 }
 

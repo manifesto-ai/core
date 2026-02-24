@@ -28,6 +28,7 @@
 1. Read [runtime-SPEC-v0.1.0.md](runtime-SPEC-v0.1.0.md).
 2. For split/transition rationale, read [ADR-007](../../../docs/internals/adr/007-sdk-runtime-split-kickoff.md) and [ADR-008](../../../docs/internals/adr/008-sdk-first-transition-and-app-retirement.md).
 3. For public API contract, see [SDK VERSION-INDEX](../../sdk/docs/VERSION-INDEX.md).
+4. For internal runtime-side compliance checks, see [runtime-SPEC-compliance-test-suite](runtime-SPEC-compliance-test-suite.md).
 
 ---
 
