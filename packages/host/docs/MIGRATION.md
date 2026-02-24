@@ -191,7 +191,8 @@ If you're using low-level Host APIs, you need to understand `ExecutionKey`:
 
 ```typescript
 // v2.0.2 low-level API
-const key: ExecutionKey = intent.intentId;  // Use intentId as ExecutionKey
+const key: ExecutionKey = intent.intentId;  // Default: intentId maps to ExecutionKey
+// In v2.0.2+, you can also pass an explicit key via host.dispatch(intent, { key }).
 
 // Seed snapshot for an execution
 host.seedSnapshot(key, snapshot);
@@ -270,7 +271,7 @@ host.reset(restored.data);
 
 | v1.x | v2.0.2 | Notes |
 |------|--------|-------|
-| `dispatch(intent)` | `dispatch(intent)` | Same |
+| `dispatch(intent)` | `dispatch(intent, options?)` | Same behavior; `options.key` can override execution routing |
 | `getSnapshot()` → `Promise<Snapshot>` | `getSnapshot()` → `Snapshot | null` | Now synchronous |
 
 ### Low-level APIs (v2.0.x)
