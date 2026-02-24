@@ -66,6 +66,22 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateAbs(expr.arg, ctx);
     case "neg":
       return evaluateNeg(expr.arg, ctx);
+    case "floor":
+      return evaluateFloor(expr.arg, ctx);
+    case "ceil":
+      return evaluateCeil(expr.arg, ctx);
+    case "round":
+      return evaluateRound(expr.arg, ctx);
+    case "sqrt":
+      return evaluateSqrt(expr.arg, ctx);
+    case "pow":
+      return evaluatePow(expr.base, expr.exponent, ctx);
+    case "sumArray":
+      return evaluateSumArray(expr.array, ctx);
+    case "minArray":
+      return evaluateMinArray(expr.array, ctx);
+    case "maxArray":
+      return evaluateMaxArray(expr.array, ctx);
 
     // String
     case "concat":
@@ -74,6 +90,24 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateSubstring(expr, ctx);
     case "trim":
       return evaluateTrim(expr.str, ctx);
+    case "toLowerCase":
+      return evaluateToLowerCase(expr.str, ctx);
+    case "toUpperCase":
+      return evaluateToUpperCase(expr.str, ctx);
+    case "strLen":
+      return evaluateStrLen(expr.str, ctx);
+    case "startsWith":
+      return evaluateStartsWith(expr.str, expr.prefix, ctx);
+    case "endsWith":
+      return evaluateEndsWith(expr.str, expr.suffix, ctx);
+    case "strIncludes":
+      return evaluateStrIncludes(expr.str, expr.search, ctx);
+    case "indexOf":
+      return evaluateIndexOf(expr.str, expr.search, ctx);
+    case "replace":
+      return evaluateReplace(expr.str, expr.search, expr.replacement, ctx);
+    case "split":
+      return evaluateSplit(expr.str, expr.delimiter, ctx);
 
     // Collection
     case "len":
@@ -100,6 +134,12 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateSome(expr.array, expr.predicate, ctx);
     case "append":
       return evaluateAppend(expr.array, expr.items, ctx);
+    case "reverse":
+      return evaluateReverse(expr.array, ctx);
+    case "unique":
+      return evaluateUnique(expr.array, ctx);
+    case "flat":
+      return evaluateFlat(expr.array, ctx);
 
     // Object
     case "object":
@@ -114,6 +154,14 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateEntries(expr.obj, ctx);
     case "merge":
       return evaluateMerge(expr.objects, ctx);
+    case "hasKey":
+      return evaluateHasKey(expr.obj, expr.key, ctx);
+    case "pick":
+      return evaluatePick(expr.obj, expr.keys, ctx);
+    case "omit":
+      return evaluateOmit(expr.obj, expr.keys, ctx);
+    case "fromEntries":
+      return evaluateFromEntries(expr.entries, ctx);
 
     // Type
     case "typeof":
@@ -122,6 +170,14 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateIsNull(expr.arg, ctx);
     case "coalesce":
       return evaluateCoalesce(expr.args, ctx);
+
+    // Conversion
+    case "toString":
+      return evaluateToString(expr.arg, ctx);
+    case "toNumber":
+      return evaluateToNumber(expr.arg, ctx);
+    case "toBoolean":
+      return evaluateToBoolean(expr.arg, ctx);
 
     default:
       return err(createError(
@@ -741,4 +797,287 @@ function evaluateCoalesce(args: ExprNode[], ctx: EvalContext): ExprResult {
     }
   }
   return ok(null);
+}
+
+// ============ Arithmetic Extended (SPEC v2.0.0) ============
+
+function evaluateFloor(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.floor(toNumber(result.value)));
+}
+
+function evaluateCeil(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.ceil(toNumber(result.value)));
+}
+
+function evaluateRound(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(Math.round(toNumber(result.value)));
+}
+
+function evaluateSqrt(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  const n = toNumber(result.value);
+  if (n < 0) return ok(null);
+  return ok(Math.sqrt(n));
+}
+
+function evaluatePow(base: ExprNode, exponent: ExprNode, ctx: EvalContext): ExprResult {
+  const baseResult = evaluateExpr(base, ctx);
+  if (!baseResult.ok) return baseResult;
+  const expResult = evaluateExpr(exponent, ctx);
+  if (!expResult.ok) return expResult;
+  const result = Math.pow(toNumber(baseResult.value), toNumber(expResult.value));
+  if (!Number.isFinite(result)) return ok(null);
+  return ok(result);
+}
+
+// ============ Array Aggregation (SPEC v2.0.0) ============
+
+function evaluateSumArray(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok(0);
+  let sum = 0;
+  for (const item of arr) {
+    sum += toNumber(item);
+  }
+  return ok(sum);
+}
+
+function evaluateMinArray(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr) || arr.length === 0) return ok(null);
+  let min = toNumber(arr[0]);
+  for (let i = 1; i < arr.length; i++) {
+    const n = toNumber(arr[i]);
+    if (n < min) min = n;
+  }
+  return ok(min);
+}
+
+function evaluateMaxArray(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr) || arr.length === 0) return ok(null);
+  let max = toNumber(arr[0]);
+  for (let i = 1; i < arr.length; i++) {
+    const n = toNumber(arr[i]);
+    if (n > max) max = n;
+  }
+  return ok(max);
+}
+
+// ============ String Extended (SPEC v2.0.0 + v2.0.3) ============
+
+function evaluateToLowerCase(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).toLowerCase());
+}
+
+function evaluateToUpperCase(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).toUpperCase());
+}
+
+function evaluateStrLen(str: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(str, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value).length);
+}
+
+function evaluateStartsWith(str: ExprNode, prefix: ExprNode, ctx: EvalContext): ExprResult {
+  const strResult = evaluateExpr(str, ctx);
+  if (!strResult.ok) return strResult;
+  const prefixResult = evaluateExpr(prefix, ctx);
+  if (!prefixResult.ok) return prefixResult;
+  return ok(toString(strResult.value).startsWith(toString(prefixResult.value)));
+}
+
+function evaluateEndsWith(str: ExprNode, suffix: ExprNode, ctx: EvalContext): ExprResult {
+  const strResult = evaluateExpr(str, ctx);
+  if (!strResult.ok) return strResult;
+  const suffixResult = evaluateExpr(suffix, ctx);
+  if (!suffixResult.ok) return suffixResult;
+  return ok(toString(strResult.value).endsWith(toString(suffixResult.value)));
+}
+
+function evaluateStrIncludes(str: ExprNode, search: ExprNode, ctx: EvalContext): ExprResult {
+  const strResult = evaluateExpr(str, ctx);
+  if (!strResult.ok) return strResult;
+  const searchResult = evaluateExpr(search, ctx);
+  if (!searchResult.ok) return searchResult;
+  return ok(toString(strResult.value).includes(toString(searchResult.value)));
+}
+
+function evaluateIndexOf(str: ExprNode, search: ExprNode, ctx: EvalContext): ExprResult {
+  const strResult = evaluateExpr(str, ctx);
+  if (!strResult.ok) return strResult;
+  const searchResult = evaluateExpr(search, ctx);
+  if (!searchResult.ok) return searchResult;
+  return ok(toString(strResult.value).indexOf(toString(searchResult.value)));
+}
+
+function evaluateReplace(str: ExprNode, search: ExprNode, replacement: ExprNode, ctx: EvalContext): ExprResult {
+  const strResult = evaluateExpr(str, ctx);
+  if (!strResult.ok) return strResult;
+  const searchResult = evaluateExpr(search, ctx);
+  if (!searchResult.ok) return searchResult;
+  const replacementResult = evaluateExpr(replacement, ctx);
+  if (!replacementResult.ok) return replacementResult;
+  // String.prototype.replace with string arg replaces only the first occurrence
+  return ok(toString(strResult.value).replace(toString(searchResult.value), toString(replacementResult.value)));
+}
+
+function evaluateSplit(str: ExprNode, delimiter: ExprNode, ctx: EvalContext): ExprResult {
+  const strResult = evaluateExpr(str, ctx);
+  if (!strResult.ok) return strResult;
+  const delimiterResult = evaluateExpr(delimiter, ctx);
+  if (!delimiterResult.ok) return delimiterResult;
+  return ok(toString(strResult.value).split(toString(delimiterResult.value)));
+}
+
+// ============ Collection Extended (SPEC v2.0.3) ============
+
+function evaluateReverse(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok([]);
+  return ok([...arr].reverse());
+}
+
+function evaluateUnique(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok([]);
+  // SPEC: strict equality (===), preserve first-occurrence order
+  const seen: unknown[] = [];
+  const unique: unknown[] = [];
+  for (const item of arr) {
+    if (!seen.some(s => s === item)) {
+      seen.push(item);
+      unique.push(item);
+    }
+  }
+  return ok(unique);
+}
+
+function evaluateFlat(array: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(array, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok([]);
+  // SPEC: flatten exactly one level
+  const flattened: unknown[] = [];
+  for (const item of arr) {
+    if (Array.isArray(item)) {
+      flattened.push(...item);
+    } else {
+      flattened.push(item);
+    }
+  }
+  return ok(flattened);
+}
+
+// ============ Object Extended (SPEC v2.0.3) ============
+
+function evaluateHasKey(obj: ExprNode, key: ExprNode, ctx: EvalContext): ExprResult {
+  const objResult = evaluateExpr(obj, ctx);
+  if (!objResult.ok) return objResult;
+  const keyResult = evaluateExpr(key, ctx);
+  if (!keyResult.ok) return keyResult;
+  const value = objResult.value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return ok(false);
+  const k = keyResult.value;
+  if (typeof k !== "string") return ok(false);
+  return ok(Object.prototype.hasOwnProperty.call(value, k));
+}
+
+function evaluatePick(obj: ExprNode, keys: ExprNode, ctx: EvalContext): ExprResult {
+  const objResult = evaluateExpr(obj, ctx);
+  if (!objResult.ok) return objResult;
+  const keysResult = evaluateExpr(keys, ctx);
+  if (!keysResult.ok) return keysResult;
+  const value = objResult.value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return ok({});
+  const keyList = keysResult.value;
+  if (!Array.isArray(keyList)) return ok({});
+  const result: Record<string, unknown> = {};
+  for (const k of keyList) {
+    if (typeof k === "string" && Object.prototype.hasOwnProperty.call(value, k)) {
+      result[k] = (value as Record<string, unknown>)[k];
+    }
+  }
+  return ok(result);
+}
+
+function evaluateOmit(obj: ExprNode, keys: ExprNode, ctx: EvalContext): ExprResult {
+  const objResult = evaluateExpr(obj, ctx);
+  if (!objResult.ok) return objResult;
+  const keysResult = evaluateExpr(keys, ctx);
+  if (!keysResult.ok) return keysResult;
+  const value = objResult.value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return ok({});
+  const keyList = keysResult.value;
+  const excludeSet = new Set<string>();
+  if (Array.isArray(keyList)) {
+    for (const k of keyList) {
+      if (typeof k === "string") excludeSet.add(k);
+    }
+  }
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (!excludeSet.has(k)) {
+      result[k] = v;
+    }
+  }
+  return ok(result);
+}
+
+function evaluateFromEntries(entries: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(entries, ctx);
+  if (!result.ok) return result;
+  const arr = result.value;
+  if (!Array.isArray(arr)) return ok({});
+  const obj: Record<string, unknown> = {};
+  for (const entry of arr) {
+    // SPEC: skip entries that are not 2-element arrays with string key
+    if (Array.isArray(entry) && entry.length === 2 && typeof entry[0] === "string") {
+      obj[entry[0]] = entry[1];
+    }
+  }
+  return ok(obj);
+}
+
+// ============ Conversion (SPEC v2.0.0 + v2.0.3) ============
+
+function evaluateToString(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(toString(result.value));
+}
+
+function evaluateToNumber(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(toNumber(result.value));
+}
+
+function evaluateToBoolean(arg: ExprNode, ctx: EvalContext): ExprResult {
+  const result = evaluateExpr(arg, ctx);
+  if (!result.ok) return result;
+  return ok(toBoolean(result.value));
 }
