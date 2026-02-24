@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/manifesto-ai/core/compare/runtime-v0.1.2...runtime-v0.1.3) (2026-02-24)
+
+
+### Bug Fixes
+
+* **runtime:** align execution baseline and executionKey routing ([b727e10](https://github.com/manifesto-ai/core/commit/b727e10f7dd9be8110e907e2beaa89c2bea82b18))
+* **runtime:** decouple intentId uniqueness from executionKey routing ([ce77026](https://github.com/manifesto-ai/core/commit/ce770266a26d90a3a06880959c6df51d449372ad))
+
 ## [0.1.2](https://github.com/manifesto-ai/core/compare/runtime-v0.1.1...runtime-v0.1.2) (2026-02-17)
 
 
