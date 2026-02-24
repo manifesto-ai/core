@@ -10,11 +10,11 @@ All specifications are maintained at the package level. This page provides navig
 
 ### Core Packages
 
-| Package | Latest SPEC | Status | Package Docs |
-|---------|-------------|--------|--------------|
-| **@manifesto-ai/core** | v2.0.1-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/host** | v2.0.2 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/world** | v2.0.5-patch | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
+| Package | SPEC | Status | Package Docs |
+|---------|------|--------|--------------|
+| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v2.0.3) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v2.0.2) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/world** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (v2.0.5) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
 ### Application Layer
 
@@ -48,22 +48,21 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 
 ### Core
 
-- **Core SPEC v2.0.1** (Patch)
-  - Base: [SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/SPEC-v2.0.0.md)
-  - Patch: [SPEC-v2.0.1-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/SPEC-v2.0.1-patch.md)
+- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v2.0.3)
+  - Consolidated from v2.0.0 base + v2.0.1/v2.0.2/v2.0.3 patches
+  - FDR rationale inlined; previous versioned files archived
 
 ### Host
 
-- **Host SPEC v2.0.2** (Full)
-  - [host-SPEC-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v2.0.2.md)
-  - Adds: Snapshot Type Alignment, `data.$host` namespace
+- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v2.0.2)
+  - Consolidated from v2.0.2 full document + FDR-H018~H025 inlined
+  - Deprecated §9 (Compiler Integration) moved to Appendix D
 
 ### World
 
-- **World SPEC v2.0.5** (Patch)
-  - Base: [world-SPEC-v2.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.3.md)
-  - Patch: [world-SPEC-v2.0.5-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC-v2.0.5-patch.md)
-  - Adds: Head Query API, resume contract, branch state persistence
+- **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v2.0.5)
+  - Consolidated from v2.0.3 base + v2.0.4/v2.0.5 patches
+  - FDR rationale inlined; Head, Resume, Branch Persistence sections added
 
 ### SDK
 
@@ -97,6 +96,7 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 02-24 | Core, Host, World | — | SPEC consolidation: Living Documents, FDR inlined, old files archived |
 | 02-08 | World | v2.0.5-patch | Head Query API, resume contract, branch persistence |
 | 02-08 | App | v2.3.1-patch | Head Query delegation (`getHeads()`, `getLatestHead()`) |
 
@@ -113,19 +113,14 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 
 ---
 
-## Reading Patch Documents
+## Living Documents
 
-Patch documents (e.g., `v2.0.1-patch`) contain only changes from a base version. To read:
+Core, Host, and World SPECs are now maintained as **Living Documents** — single consolidated files that incorporate all patch content and FDR rationale inline. Previous versioned SPEC and FDR files are preserved in `archive/` subdirectories within each package's `docs/` folder.
 
-1. Start with the **base version** (full document)
-2. Apply **patch changes** in order
-
-Example for Core v2.0.1:
-```
-SPEC-v2.0.0.md (base)
-  + SPEC-v2.0.1-patch.md (changes)
-  = Complete v2.0.1 specification
-```
+Each Living Document includes:
+- A **Changelog** table in the header tracking all version history
+- **Rationale blocks** (`> **Rationale (FDR-XXX):**`) inlined at relevant sections
+- **Appendixes** for cross-references, migration notes, and deprecated content
 
 ---
 
@@ -136,9 +131,9 @@ When documents conflict:
 ```
 SPEC (highest authority)
   ↓
-FDR (design rationale)
+FDR (design rationale — now inlined in SPECs for Core/Host/World)
   ↓
-ADR (architectural decisions)
+ADR (architectural decisions — kept as separate immutable records)
   ↓
 README / Guides (lowest authority)
 ```
