@@ -590,4 +590,844 @@ describe("Expression Evaluator", () => {
       }, ctx)).toBe(1);
     });
   });
+
+  // ============================================================
+  // SPEC v2.0.0 §7.2 — Missing Arithmetic Primitives
+  // ============================================================
+
+  describe("Arithmetic Extended (SPEC v2.0.0)", () => {
+    // --- floor ---
+    it("floor - should round down to nearest integer", () => {
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: 4.7 } })).toBe(4);
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: 4.2 } })).toBe(4);
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: 4.0 } })).toBe(4);
+    });
+
+    it("floor - should handle negative numbers", () => {
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: -2.3 } })).toBe(-3);
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: -2.0 } })).toBe(-2);
+    });
+
+    it("floor - should coerce non-number input", () => {
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: "3.7" } })).toBe(3);
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: true } })).toBe(1);
+      expect(evaluate({ kind: "floor", arg: { kind: "lit", value: null } })).toBe(0);
+    });
+
+    // --- ceil ---
+    it("ceil - should round up to nearest integer", () => {
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: 4.2 } })).toBe(5);
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: 4.7 } })).toBe(5);
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: 4.0 } })).toBe(4);
+    });
+
+    it("ceil - should handle negative numbers", () => {
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: -2.3 } })).toBe(-2);
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: -2.0 } })).toBe(-2);
+    });
+
+    it("ceil - should coerce non-number input", () => {
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: "3.2" } })).toBe(4);
+      expect(evaluate({ kind: "ceil", arg: { kind: "lit", value: null } })).toBe(0);
+    });
+
+    // --- round ---
+    it("round - should round to nearest integer", () => {
+      expect(evaluate({ kind: "round", arg: { kind: "lit", value: 4.5 } })).toBe(5);
+      expect(evaluate({ kind: "round", arg: { kind: "lit", value: 4.4 } })).toBe(4);
+      expect(evaluate({ kind: "round", arg: { kind: "lit", value: 4.6 } })).toBe(5);
+      expect(evaluate({ kind: "round", arg: { kind: "lit", value: -2.5 } })).toBe(-2); // Math.round(-2.5) = -2
+    });
+
+    it("round - should coerce non-number input", () => {
+      expect(evaluate({ kind: "round", arg: { kind: "lit", value: "3.6" } })).toBe(4);
+      expect(evaluate({ kind: "round", arg: { kind: "lit", value: null } })).toBe(0);
+    });
+
+    // --- sqrt ---
+    it("sqrt - should compute square root", () => {
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: 9 } })).toBe(3);
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: 0 } })).toBe(0);
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: 2 } })).toBeCloseTo(1.4142135);
+    });
+
+    it("sqrt - should return null for negative numbers (totality: no NaN)", () => {
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: -1 } })).toBe(null);
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: -100 } })).toBe(null);
+    });
+
+    it("sqrt - should coerce non-number input", () => {
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: "16" } })).toBe(4);
+      expect(evaluate({ kind: "sqrt", arg: { kind: "lit", value: null } })).toBe(0); // sqrt(0) = 0
+    });
+
+    // --- pow ---
+    it("pow - should compute exponentiation", () => {
+      expect(evaluate({
+        kind: "pow",
+        base: { kind: "lit", value: 2 },
+        exponent: { kind: "lit", value: 10 },
+      })).toBe(1024);
+      expect(evaluate({
+        kind: "pow",
+        base: { kind: "lit", value: 3 },
+        exponent: { kind: "lit", value: 0 },
+      })).toBe(1);
+      expect(evaluate({
+        kind: "pow",
+        base: { kind: "lit", value: 5 },
+        exponent: { kind: "lit", value: 2 },
+      })).toBe(25);
+    });
+
+    it("pow - should handle negative exponents", () => {
+      expect(evaluate({
+        kind: "pow",
+        base: { kind: "lit", value: 2 },
+        exponent: { kind: "lit", value: -1 },
+      })).toBe(0.5);
+    });
+
+    it("pow - should return null for non-finite results (totality)", () => {
+      // 0^(-1) = Infinity -> null
+      expect(evaluate({
+        kind: "pow",
+        base: { kind: "lit", value: 0 },
+        exponent: { kind: "lit", value: -1 },
+      })).toBe(null);
+    });
+
+    it("pow - should coerce non-number inputs", () => {
+      expect(evaluate({
+        kind: "pow",
+        base: { kind: "lit", value: "2" },
+        exponent: { kind: "lit", value: "3" },
+      })).toBe(8);
+    });
+  });
+
+  // ============================================================
+  // SPEC v2.0.0 §7.2 — Array Aggregation Primitives
+  // ============================================================
+
+  describe("Array Aggregation (SPEC v2.0.0)", () => {
+    // --- sumArray ---
+    it("sumArray - should sum numeric array", () => {
+      expect(evaluate({ kind: "sumArray", array: { kind: "lit", value: [1, 2, 3, 4, 5] } })).toBe(15);
+      expect(evaluate({ kind: "sumArray", array: { kind: "lit", value: [10, -5, 3] } })).toBe(8);
+    });
+
+    it("sumArray - should return 0 for empty array", () => {
+      expect(evaluate({ kind: "sumArray", array: { kind: "lit", value: [] } })).toBe(0);
+    });
+
+    it("sumArray - should coerce non-numeric elements", () => {
+      expect(evaluate({ kind: "sumArray", array: { kind: "lit", value: [1, "2", true] } })).toBe(4); // 1 + 2 + 1
+    });
+
+    it("sumArray - should return 0 for non-array input", () => {
+      expect(evaluate({ kind: "sumArray", array: { kind: "lit", value: "not array" } })).toBe(0);
+      expect(evaluate({ kind: "sumArray", array: { kind: "lit", value: null } })).toBe(0);
+    });
+
+    // --- minArray ---
+    it("minArray - should find minimum in numeric array", () => {
+      expect(evaluate({ kind: "minArray", array: { kind: "lit", value: [5, 1, 3, 2, 4] } })).toBe(1);
+      expect(evaluate({ kind: "minArray", array: { kind: "lit", value: [-10, 0, 10] } })).toBe(-10);
+    });
+
+    it("minArray - should return null for empty array", () => {
+      expect(evaluate({ kind: "minArray", array: { kind: "lit", value: [] } })).toBe(null);
+    });
+
+    it("minArray - should return null for non-array input", () => {
+      expect(evaluate({ kind: "minArray", array: { kind: "lit", value: null } })).toBe(null);
+    });
+
+    // --- maxArray ---
+    it("maxArray - should find maximum in numeric array", () => {
+      expect(evaluate({ kind: "maxArray", array: { kind: "lit", value: [5, 1, 3, 2, 4] } })).toBe(5);
+      expect(evaluate({ kind: "maxArray", array: { kind: "lit", value: [-10, 0, 10] } })).toBe(10);
+    });
+
+    it("maxArray - should return null for empty array", () => {
+      expect(evaluate({ kind: "maxArray", array: { kind: "lit", value: [] } })).toBe(null);
+    });
+
+    it("maxArray - should return null for non-array input", () => {
+      expect(evaluate({ kind: "maxArray", array: { kind: "lit", value: null } })).toBe(null);
+    });
+  });
+
+  // ============================================================
+  // SPEC v2.0.0 §7.2 — String Primitives
+  // ============================================================
+
+  describe("String Operations (SPEC v2.0.0)", () => {
+    // --- toLowerCase ---
+    it("toLowerCase - should convert string to lower case", () => {
+      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: "HELLO WORLD" } })).toBe("hello world");
+      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: "Hello" } })).toBe("hello");
+      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: "already lower" } })).toBe("already lower");
+    });
+
+    it("toLowerCase - should coerce non-string input", () => {
+      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: 42 } })).toBe("42");
+      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: null } })).toBe("");
+      expect(evaluate({ kind: "toLowerCase", str: { kind: "lit", value: true } })).toBe("true");
+    });
+
+    // --- toUpperCase ---
+    it("toUpperCase - should convert string to upper case", () => {
+      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: "hello world" } })).toBe("HELLO WORLD");
+      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: "Hello" } })).toBe("HELLO");
+      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: "ALREADY UPPER" } })).toBe("ALREADY UPPER");
+    });
+
+    it("toUpperCase - should coerce non-string input", () => {
+      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: 42 } })).toBe("42");
+      expect(evaluate({ kind: "toUpperCase", str: { kind: "lit", value: null } })).toBe("");
+    });
+
+    // --- strLen ---
+    it("strLen - should return string length", () => {
+      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: "hello" } })).toBe(5);
+      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: "" } })).toBe(0);
+      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: "abc def" } })).toBe(7);
+    });
+
+    it("strLen - should coerce non-string input", () => {
+      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: 12345 } })).toBe(5); // "12345".length
+      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: null } })).toBe(0); // "".length
+      expect(evaluate({ kind: "strLen", str: { kind: "lit", value: true } })).toBe(4); // "true".length
+    });
+  });
+
+  // ============================================================
+  // SPEC v2.0.0 §7.2 + v2.0.3 — Conversion Primitives
+  // ============================================================
+
+  describe("Conversion (SPEC v2.0.0 + v2.0.3)", () => {
+    // --- toString (SPEC v2.0.0) ---
+    it("toString - should convert values to string", () => {
+      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: 42 } })).toBe("42");
+      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: true } })).toBe("true");
+      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: false } })).toBe("false");
+      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: "hello" } })).toBe("hello");
+    });
+
+    it("toString - should handle null/undefined", () => {
+      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: null } })).toBe("");
+      expect(evaluate({ kind: "toString", arg: { kind: "lit", value: undefined } })).toBe("");
+    });
+
+    // --- toNumber (SPEC v2.0.3) ---
+    it("toNumber - should convert numeric string to number", () => {
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: "42" } })).toBe(42);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: "3.14" } })).toBe(3.14);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: "-10" } })).toBe(-10);
+    });
+
+    it("toNumber - should return identity for numbers", () => {
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: 42 } })).toBe(42);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: 0 } })).toBe(0);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: -3.5 } })).toBe(-3.5);
+    });
+
+    it("toNumber - should convert booleans: true=1, false=0", () => {
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: true } })).toBe(1);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: false } })).toBe(0);
+    });
+
+    it("toNumber - should return 0 for null/undefined", () => {
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: null } })).toBe(0);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: undefined } })).toBe(0);
+    });
+
+    it("toNumber - MUST return 0 for non-numeric strings (never NaN)", () => {
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: "hello" } })).toBe(0);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: "" } })).toBe(0);
+    });
+
+    it("toNumber - should return 0 for objects/arrays", () => {
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: { a: 1 } } })).toBe(0);
+      expect(evaluate({ kind: "toNumber", arg: { kind: "lit", value: [1, 2] } })).toBe(0);
+    });
+
+    // --- toBoolean (SPEC v2.0.3) ---
+    it("toBoolean - should return identity for booleans", () => {
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: true } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: false } })).toBe(false);
+    });
+
+    it("toBoolean - should convert null/undefined to false", () => {
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: null } })).toBe(false);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: undefined } })).toBe(false);
+    });
+
+    it("toBoolean - should convert numbers: 0=false, all others=true", () => {
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: 0 } })).toBe(false);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: 1 } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: -1 } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: 42 } })).toBe(true);
+    });
+
+    it("toBoolean - should convert strings: empty=false, non-empty=true", () => {
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: "" } })).toBe(false);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: "hello" } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: "false" } })).toBe(true); // non-empty = true
+    });
+
+    it("toBoolean - should convert objects/arrays to true (always truthy)", () => {
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: {} } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: [] } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: { a: 1 } } })).toBe(true);
+      expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: [1, 2] } })).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // SPEC v2.0.3 §1.1 — String Extensions
+  // ============================================================
+
+  describe("String Extensions (SPEC v2.0.3)", () => {
+    // --- startsWith ---
+    it("startsWith - should check if string starts with prefix", () => {
+      expect(evaluate({
+        kind: "startsWith",
+        str: { kind: "lit", value: "hello world" },
+        prefix: { kind: "lit", value: "hello" },
+      })).toBe(true);
+      expect(evaluate({
+        kind: "startsWith",
+        str: { kind: "lit", value: "hello world" },
+        prefix: { kind: "lit", value: "world" },
+      })).toBe(false);
+    });
+
+    it("startsWith - should handle empty prefix (always true)", () => {
+      expect(evaluate({
+        kind: "startsWith",
+        str: { kind: "lit", value: "hello" },
+        prefix: { kind: "lit", value: "" },
+      })).toBe(true);
+    });
+
+    it("startsWith - should coerce non-string inputs", () => {
+      expect(evaluate({
+        kind: "startsWith",
+        str: { kind: "lit", value: 12345 },
+        prefix: { kind: "lit", value: "123" },
+      })).toBe(true);
+      expect(evaluate({
+        kind: "startsWith",
+        str: { kind: "lit", value: null },
+        prefix: { kind: "lit", value: "" },
+      })).toBe(true); // "" starts with ""
+    });
+
+    // --- endsWith ---
+    it("endsWith - should check if string ends with suffix", () => {
+      expect(evaluate({
+        kind: "endsWith",
+        str: { kind: "lit", value: "hello world" },
+        suffix: { kind: "lit", value: "world" },
+      })).toBe(true);
+      expect(evaluate({
+        kind: "endsWith",
+        str: { kind: "lit", value: "hello world" },
+        suffix: { kind: "lit", value: "hello" },
+      })).toBe(false);
+    });
+
+    it("endsWith - should handle empty suffix (always true)", () => {
+      expect(evaluate({
+        kind: "endsWith",
+        str: { kind: "lit", value: "hello" },
+        suffix: { kind: "lit", value: "" },
+      })).toBe(true);
+    });
+
+    it("endsWith - should coerce non-string inputs", () => {
+      expect(evaluate({
+        kind: "endsWith",
+        str: { kind: "lit", value: 12345 },
+        suffix: { kind: "lit", value: "45" },
+      })).toBe(true);
+    });
+
+    // --- strIncludes ---
+    it("strIncludes - should check if string contains search", () => {
+      expect(evaluate({
+        kind: "strIncludes",
+        str: { kind: "lit", value: "hello world" },
+        search: { kind: "lit", value: "lo wo" },
+      })).toBe(true);
+      expect(evaluate({
+        kind: "strIncludes",
+        str: { kind: "lit", value: "hello world" },
+        search: { kind: "lit", value: "xyz" },
+      })).toBe(false);
+    });
+
+    it("strIncludes - should handle empty search (always true)", () => {
+      expect(evaluate({
+        kind: "strIncludes",
+        str: { kind: "lit", value: "hello" },
+        search: { kind: "lit", value: "" },
+      })).toBe(true);
+    });
+
+    it("strIncludes - should coerce non-string inputs", () => {
+      expect(evaluate({
+        kind: "strIncludes",
+        str: { kind: "lit", value: null },
+        search: { kind: "lit", value: "" },
+      })).toBe(true); // "" includes ""
+    });
+
+    // --- indexOf ---
+    it("indexOf - should return index of search string", () => {
+      expect(evaluate({
+        kind: "indexOf",
+        str: { kind: "lit", value: "hello world" },
+        search: { kind: "lit", value: "world" },
+      })).toBe(6);
+      expect(evaluate({
+        kind: "indexOf",
+        str: { kind: "lit", value: "hello world" },
+        search: { kind: "lit", value: "hello" },
+      })).toBe(0);
+    });
+
+    it("indexOf - MUST return -1 when search not found", () => {
+      expect(evaluate({
+        kind: "indexOf",
+        str: { kind: "lit", value: "hello world" },
+        search: { kind: "lit", value: "xyz" },
+      })).toBe(-1);
+    });
+
+    it("indexOf - should find first occurrence", () => {
+      expect(evaluate({
+        kind: "indexOf",
+        str: { kind: "lit", value: "abcabc" },
+        search: { kind: "lit", value: "bc" },
+      })).toBe(1); // First occurrence at index 1
+    });
+
+    it("indexOf - should coerce non-string inputs", () => {
+      expect(evaluate({
+        kind: "indexOf",
+        str: { kind: "lit", value: 12345 },
+        search: { kind: "lit", value: "34" },
+      })).toBe(2);
+    });
+
+    // --- replace ---
+    it("replace - MUST replace only first occurrence", () => {
+      expect(evaluate({
+        kind: "replace",
+        str: { kind: "lit", value: "aaa bbb aaa" },
+        search: { kind: "lit", value: "aaa" },
+        replacement: { kind: "lit", value: "ccc" },
+      })).toBe("ccc bbb aaa"); // Only first "aaa" replaced
+    });
+
+    it("replace - should return original string if no match", () => {
+      expect(evaluate({
+        kind: "replace",
+        str: { kind: "lit", value: "hello world" },
+        search: { kind: "lit", value: "xyz" },
+        replacement: { kind: "lit", value: "replaced" },
+      })).toBe("hello world");
+    });
+
+    it("replace - should handle empty search (prepend replacement)", () => {
+      expect(evaluate({
+        kind: "replace",
+        str: { kind: "lit", value: "hello" },
+        search: { kind: "lit", value: "" },
+        replacement: { kind: "lit", value: "X" },
+      })).toBe("Xhello"); // JS behavior: "hello".replace("", "X") = "Xhello"
+    });
+
+    it("replace - should coerce non-string inputs", () => {
+      expect(evaluate({
+        kind: "replace",
+        str: { kind: "lit", value: 12345 },
+        search: { kind: "lit", value: "23" },
+        replacement: { kind: "lit", value: "XX" },
+      })).toBe("1XX45");
+    });
+
+    // --- split ---
+    it("split - should split string by delimiter", () => {
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: "a,b,c" },
+        delimiter: { kind: "lit", value: "," },
+      })).toEqual(["a", "b", "c"]);
+    });
+
+    it("split - MUST always return at least one element", () => {
+      // When no delimiter found, returns array with original string
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: "hello" },
+        delimiter: { kind: "lit", value: "," },
+      })).toEqual(["hello"]);
+    });
+
+    it("split - should split by empty string into characters", () => {
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: "abc" },
+        delimiter: { kind: "lit", value: "" },
+      })).toEqual(["a", "b", "c"]);
+    });
+
+    it("split - should handle empty string input", () => {
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: "" },
+        delimiter: { kind: "lit", value: "," },
+      })).toEqual([""]);
+    });
+
+    it("split - should coerce non-string inputs", () => {
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: null },
+        delimiter: { kind: "lit", value: "," },
+      })).toEqual([""]); // toString(null) = ""
+    });
+
+    it("split - should return non-empty array for empty string with empty delimiter", () => {
+      // JS returns [] for "".split(""), but SPEC requires at least one element
+      expect(evaluate({
+        kind: "split",
+        str: { kind: "lit", value: "" },
+        delimiter: { kind: "lit", value: "" },
+      })).toEqual([""]);
+    });
+  });
+
+  // ============================================================
+  // SPEC v2.0.3 §1.2 — Collection Extensions
+  // ============================================================
+
+  describe("Collection Extensions (SPEC v2.0.3)", () => {
+    // --- reverse ---
+    it("reverse - should reverse array element order", () => {
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: [1, 2, 3] } })).toEqual([3, 2, 1]);
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: ["a", "b", "c"] } })).toEqual(["c", "b", "a"]);
+    });
+
+    it("reverse - should handle empty array", () => {
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: [] } })).toEqual([]);
+    });
+
+    it("reverse - should handle single-element array", () => {
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: [42] } })).toEqual([42]);
+    });
+
+    it("reverse - should return [] for non-array input", () => {
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: null } })).toEqual([]);
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: "not array" } })).toEqual([]);
+      expect(evaluate({ kind: "reverse", array: { kind: "lit", value: 42 } })).toEqual([]);
+    });
+
+    // --- unique ---
+    it("unique - should remove duplicates keeping first occurrence", () => {
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: [1, 2, 1, 3, 2] } })).toEqual([1, 2, 3]);
+    });
+
+    it("unique - MUST preserve first-occurrence order", () => {
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: [3, 1, 2, 1, 3] } })).toEqual([3, 1, 2]);
+    });
+
+    it("unique - MUST use strict equality (===)", () => {
+      // 1 !== "1" in strict equality
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: [1, "1", 1, "1"] } })).toEqual([1, "1"]);
+      // null !== undefined
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: [null, undefined, null] } })).toEqual([null, undefined]);
+    });
+
+    it("unique - should handle empty array", () => {
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: [] } })).toEqual([]);
+    });
+
+    it("unique - should handle array with no duplicates", () => {
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: [1, 2, 3] } })).toEqual([1, 2, 3]);
+    });
+
+    it("unique - should return [] for non-array input", () => {
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: null } })).toEqual([]);
+      expect(evaluate({ kind: "unique", array: { kind: "lit", value: "string" } })).toEqual([]);
+    });
+
+    // --- flat ---
+    it("flat - MUST flatten exactly one level", () => {
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: [[1, 2], [3, 4]] } })).toEqual([1, 2, 3, 4]);
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: [[1, 2], [3], [4, 5, 6]] } })).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it("flat - should NOT flatten deeper than one level", () => {
+      // [[1, [2]], [3]] -> [1, [2], 3] (only one level flattened)
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: [[1, [2]], [3]] } })).toEqual([1, [2], 3]);
+    });
+
+    it("flat - should handle mixed nested and non-nested elements", () => {
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: [1, [2, 3], 4] } })).toEqual([1, 2, 3, 4]);
+    });
+
+    it("flat - should handle empty array", () => {
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: [] } })).toEqual([]);
+    });
+
+    it("flat - should handle array of empty arrays", () => {
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: [[], [], []] } })).toEqual([]);
+    });
+
+    it("flat - should return [] for non-array input", () => {
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: null } })).toEqual([]);
+      expect(evaluate({ kind: "flat", array: { kind: "lit", value: 42 } })).toEqual([]);
+    });
+  });
+
+  // ============================================================
+  // SPEC v2.0.3 §1.3 — Object Extensions
+  // ============================================================
+
+  describe("Object Extensions (SPEC v2.0.3)", () => {
+    // --- hasKey ---
+    it("hasKey - should check if key exists in object", () => {
+      expect(evaluate({
+        kind: "hasKey",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        key: { kind: "lit", value: "a" },
+      })).toBe(true);
+      expect(evaluate({
+        kind: "hasKey",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        key: { kind: "lit", value: "c" },
+      })).toBe(false);
+    });
+
+    it("hasKey - should detect keys with null/undefined values", () => {
+      expect(evaluate({
+        kind: "hasKey",
+        obj: { kind: "lit", value: { a: null, b: undefined } },
+        key: { kind: "lit", value: "a" },
+      })).toBe(true);
+    });
+
+    it("hasKey - should return false for non-object", () => {
+      expect(evaluate({
+        kind: "hasKey",
+        obj: { kind: "lit", value: null },
+        key: { kind: "lit", value: "a" },
+      })).toBe(false);
+      expect(evaluate({
+        kind: "hasKey",
+        obj: { kind: "lit", value: [1, 2, 3] },
+        key: { kind: "lit", value: "0" },
+      })).toBe(false);
+      expect(evaluate({
+        kind: "hasKey",
+        obj: { kind: "lit", value: 42 },
+        key: { kind: "lit", value: "a" },
+      })).toBe(false);
+    });
+
+    // --- pick ---
+    it("pick - should select only listed keys", () => {
+      expect(evaluate({
+        kind: "pick",
+        obj: { kind: "lit", value: { a: 1, b: 2, c: 3 } },
+        keys: { kind: "lit", value: ["a", "c"] },
+      })).toEqual({ a: 1, c: 3 });
+    });
+
+    it("pick - should skip keys that do not exist", () => {
+      expect(evaluate({
+        kind: "pick",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        keys: { kind: "lit", value: ["a", "x", "y"] },
+      })).toEqual({ a: 1 });
+    });
+
+    it("pick - MUST ignore non-string keys in keys array", () => {
+      expect(evaluate({
+        kind: "pick",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        keys: { kind: "lit", value: ["a", 42, null, "b"] },
+      })).toEqual({ a: 1, b: 2 });
+    });
+
+    it("pick - should return {} for non-object", () => {
+      expect(evaluate({
+        kind: "pick",
+        obj: { kind: "lit", value: null },
+        keys: { kind: "lit", value: ["a"] },
+      })).toEqual({});
+    });
+
+    it("pick - should treat non-array keys as empty array", () => {
+      expect(evaluate({
+        kind: "pick",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        keys: { kind: "lit", value: "not-array" },
+      })).toEqual({});
+    });
+
+    // --- omit ---
+    it("omit - should exclude listed keys", () => {
+      expect(evaluate({
+        kind: "omit",
+        obj: { kind: "lit", value: { a: 1, b: 2, c: 3 } },
+        keys: { kind: "lit", value: ["b"] },
+      })).toEqual({ a: 1, c: 3 });
+    });
+
+    it("omit - should handle keys that do not exist", () => {
+      expect(evaluate({
+        kind: "omit",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        keys: { kind: "lit", value: ["x", "y"] },
+      })).toEqual({ a: 1, b: 2 });
+    });
+
+    it("omit - MUST ignore non-string keys in keys array", () => {
+      expect(evaluate({
+        kind: "omit",
+        obj: { kind: "lit", value: { a: 1, b: 2, c: 3 } },
+        keys: { kind: "lit", value: ["b", 42, null] },
+      })).toEqual({ a: 1, c: 3 });
+    });
+
+    it("omit - should return {} for non-object", () => {
+      expect(evaluate({
+        kind: "omit",
+        obj: { kind: "lit", value: null },
+        keys: { kind: "lit", value: ["a"] },
+      })).toEqual({});
+    });
+
+    it("omit - should treat non-array keys as empty array (return all keys)", () => {
+      expect(evaluate({
+        kind: "omit",
+        obj: { kind: "lit", value: { a: 1, b: 2 } },
+        keys: { kind: "lit", value: "not-array" },
+      })).toEqual({ a: 1, b: 2 });
+    });
+
+    // --- fromEntries ---
+    it("fromEntries - should convert entries array to object", () => {
+      expect(evaluate({
+        kind: "fromEntries",
+        entries: { kind: "lit", value: [["a", 1], ["b", 2], ["c", 3]] },
+      })).toEqual({ a: 1, b: 2, c: 3 });
+    });
+
+    it("fromEntries - MUST skip entries that are not 2-element arrays", () => {
+      expect(evaluate({
+        kind: "fromEntries",
+        entries: { kind: "lit", value: [["a", 1], "invalid", [42], ["b", 2]] },
+      })).toEqual({ a: 1, b: 2 });
+    });
+
+    it("fromEntries - should handle empty array", () => {
+      expect(evaluate({
+        kind: "fromEntries",
+        entries: { kind: "lit", value: [] },
+      })).toEqual({});
+    });
+
+    it("fromEntries - should return {} for non-array input", () => {
+      expect(evaluate({
+        kind: "fromEntries",
+        entries: { kind: "lit", value: null },
+      })).toEqual({});
+      expect(evaluate({
+        kind: "fromEntries",
+        entries: { kind: "lit", value: "not array" },
+      })).toEqual({});
+    });
+
+    it("fromEntries - last entry wins for duplicate keys", () => {
+      expect(evaluate({
+        kind: "fromEntries",
+        entries: { kind: "lit", value: [["a", 1], ["a", 2]] },
+      })).toEqual({ a: 2 });
+    });
+  });
+
+  // ============================================================
+  // Determinism Compliance (§7.5 Requirements)
+  // ============================================================
+
+  describe("Determinism Compliance", () => {
+    it("replace - determinism: same input produces same output", () => {
+      const expr: ExprNode = {
+        kind: "replace",
+        str: { kind: "lit", value: "aaa bbb aaa" },
+        search: { kind: "lit", value: "aaa" },
+        replacement: { kind: "lit", value: "ccc" },
+      };
+      const result1 = evaluate(expr);
+      const result2 = evaluate(expr);
+      expect(result1).toBe(result2);
+    });
+
+    it("unique - determinism: same input produces same output with same order", () => {
+      const expr: ExprNode = {
+        kind: "unique",
+        array: { kind: "lit", value: [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5] },
+      };
+      const result1 = evaluate(expr);
+      const result2 = evaluate(expr);
+      expect(result1).toEqual(result2);
+      expect(result1).toEqual([3, 1, 4, 5, 9, 2, 6]);
+    });
+
+    it("all new kinds - totality: always return a value, never throw", () => {
+      // All new kinds must be total - test with null/undefined/wrong-type inputs
+      const totalityTests: ExprNode[] = [
+        { kind: "floor", arg: { kind: "lit", value: null } },
+        { kind: "ceil", arg: { kind: "lit", value: undefined } },
+        { kind: "round", arg: { kind: "lit", value: "not a number" } },
+        { kind: "sqrt", arg: { kind: "lit", value: null } },
+        { kind: "sumArray", array: { kind: "lit", value: null } },
+        { kind: "minArray", array: { kind: "lit", value: null } },
+        { kind: "maxArray", array: { kind: "lit", value: null } },
+        { kind: "toLowerCase", str: { kind: "lit", value: null } },
+        { kind: "toUpperCase", str: { kind: "lit", value: null } },
+        { kind: "strLen", str: { kind: "lit", value: null } },
+        { kind: "toString", arg: { kind: "lit", value: null } },
+        { kind: "toNumber", arg: { kind: "lit", value: null } },
+        { kind: "toBoolean", arg: { kind: "lit", value: null } },
+        { kind: "startsWith", str: { kind: "lit", value: null }, prefix: { kind: "lit", value: null } },
+        { kind: "endsWith", str: { kind: "lit", value: null }, suffix: { kind: "lit", value: null } },
+        { kind: "strIncludes", str: { kind: "lit", value: null }, search: { kind: "lit", value: null } },
+        { kind: "indexOf", str: { kind: "lit", value: null }, search: { kind: "lit", value: null } },
+        { kind: "replace", str: { kind: "lit", value: null }, search: { kind: "lit", value: null }, replacement: { kind: "lit", value: null } },
+        { kind: "split", str: { kind: "lit", value: null }, delimiter: { kind: "lit", value: null } },
+        { kind: "reverse", array: { kind: "lit", value: null } },
+        { kind: "unique", array: { kind: "lit", value: null } },
+        { kind: "flat", array: { kind: "lit", value: null } },
+        { kind: "hasKey", obj: { kind: "lit", value: null }, key: { kind: "lit", value: "a" } },
+        { kind: "pick", obj: { kind: "lit", value: null }, keys: { kind: "lit", value: ["a"] } },
+        { kind: "omit", obj: { kind: "lit", value: null }, keys: { kind: "lit", value: ["a"] } },
+        { kind: "fromEntries", entries: { kind: "lit", value: null } },
+        { kind: "pow", base: { kind: "lit", value: null }, exponent: { kind: "lit", value: null } },
+      ];
+
+      for (const expr of totalityTests) {
+        // Should not throw — all expressions must be total
+        expect(() => evaluate(expr)).not.toThrow();
+      }
+    });
+  });
 });

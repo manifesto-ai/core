@@ -42,20 +42,41 @@ export function collectGetPathsFromExpr(expr: ExprNode): string[] {
         visit(node.left);
         visit(node.right);
         return;
+      case "pow":
+        visit(node.base);
+        visit(node.exponent);
+        return;
       case "and":
       case "or":
       case "concat":
       case "coalesce":
+      case "min":
+      case "max":
         node.args.forEach(visit);
         return;
       case "not":
       case "typeof":
       case "isNull":
       case "len":
+      case "abs":
+      case "neg":
+      case "floor":
+      case "ceil":
+      case "round":
+      case "sqrt":
+      case "toString":
+      case "toNumber":
+      case "toBoolean":
         visit(node.arg);
         return;
       case "first":
       case "last":
+      case "reverse":
+      case "unique":
+      case "flat":
+      case "sumArray":
+      case "minArray":
+      case "maxArray":
         visit(node.array);
         return;
       case "if":
@@ -69,7 +90,32 @@ export function collectGetPathsFromExpr(expr: ExprNode): string[] {
         if (node.end) visit(node.end);
         return;
       case "trim":
+      case "toLowerCase":
+      case "toUpperCase":
+      case "strLen":
         visit(node.str);
+        return;
+      case "startsWith":
+        visit(node.str);
+        visit(node.prefix);
+        return;
+      case "endsWith":
+        visit(node.str);
+        visit(node.suffix);
+        return;
+      case "strIncludes":
+      case "indexOf":
+        visit(node.str);
+        visit(node.search);
+        return;
+      case "replace":
+        visit(node.str);
+        visit(node.search);
+        visit(node.replacement);
+        return;
+      case "split":
+        visit(node.str);
+        visit(node.delimiter);
         return;
       case "at":
         visit(node.array);
@@ -112,6 +158,18 @@ export function collectGetPathsFromExpr(expr: ExprNode): string[] {
         return;
       case "merge":
         node.objects.forEach(visit);
+        return;
+      case "hasKey":
+        visit(node.obj);
+        visit(node.key);
+        return;
+      case "pick":
+      case "omit":
+        visit(node.obj);
+        visit(node.keys);
+        return;
+      case "fromEntries":
+        visit(node.entries);
         return;
     }
   };
