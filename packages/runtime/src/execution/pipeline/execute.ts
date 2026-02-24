@@ -67,7 +67,7 @@ export async function executeHost(
   const intent: Intent = {
     type: actionType,
     input,
-    intentId: `intent_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    intentId: executionKey,
   };
 
   // Execute via HostExecutor

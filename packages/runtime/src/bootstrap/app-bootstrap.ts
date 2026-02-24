@@ -327,7 +327,7 @@ export class AppBootstrap {
     const internalHost = createInternalHost({
       schema,
       effects,
-      initialData: config.initialData,
+      initialData: initialState.data,
     });
 
     const host: Host = {

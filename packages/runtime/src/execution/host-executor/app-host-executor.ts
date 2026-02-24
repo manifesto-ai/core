@@ -92,8 +92,11 @@ export class AppHostExecutor implements HostExecutor {
           })
         : null;
 
+      // Ensure Host starts from the provided base snapshot
+      await this._seedHostFromBaseSnapshot(baseSnapshot);
+
       // Execute with timeout and abort handling
-      const dispatchPromise = this._executeWithHost(intent, baseSnapshot);
+      const dispatchPromise = this._executeWithHost(intent);
 
       const racePromises = [dispatchPromise, timeoutPromise];
       if (abortPromise) {
@@ -136,10 +139,7 @@ export class AppHostExecutor implements HostExecutor {
   /**
    * Execute intent through Host.
    */
-  private async _executeWithHost(
-    intent: Intent,
-    _baseSnapshot: Snapshot
-  ): Promise<HostDispatchResult> {
+  private async _executeWithHost(intent: Intent): Promise<HostDispatchResult> {
     // Dispatch to Host
     const hostResult = await this._host.dispatch(intent);
 
@@ -148,6 +148,17 @@ export class AppHostExecutor implements HostExecutor {
       snapshot: hostResult.snapshot,
       error: hostResult.error,
     };
+  }
+
+  /**
+   * Seed host snapshot before execution.
+   */
+  private async _seedHostFromBaseSnapshot(baseSnapshot: Snapshot): Promise<void> {
+    if (typeof this._host.reset !== "function") {
+      return;
+    }
+
+    await this._host.reset(baseSnapshot.data);
   }
 
   /**
