@@ -1,22 +1,34 @@
 # Core Documentation Index
 
 > **Package:** `@manifesto-ai/core`
-> **Last Updated:** 2026-02-06
+> **Last Updated:** 2026-02-24
 
 ---
 
-## Latest Version
+## Current Specification
 
-- **SPEC (Full):** [v2.0.0](SPEC-v2.0.0.md)
-- **Patch Addendum:** [v2.0.1](SPEC-v2.0.1-patch.md) (supplemental clarifications)
-- **FDR:** [v2.0.0](FDR-v2.0.0.md) (Full)
+- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v2.0.3
+  - Consolidated from v2.0.0 base + v2.0.1/v2.0.2/v2.0.3 patches
+  - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
+  - See Appendix D in the SPEC for FDR cross-reference table
 
 ---
 
-## All Versions
+## Archived Versions
 
-| Version | SPEC | FDR | Type | Status |
-|---------|------|-----|------|--------|
-| v2.0.0 | [SPEC](SPEC-v2.0.0.md) | [FDR](FDR-v2.0.0.md) | Full | Draft |
-| v2.0.1 | [SPEC](SPEC-v2.0.1-patch.md) | — | Patch (Base: v2.0.0) | Draft |
-| v1.0.0 | [SPEC](SPEC-v1.0.0.md) | [FDR](FDR-v1.0.0.md) | Full | Superseded |
+Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/) subdirectory.
+
+| File | Type | Notes |
+|------|------|-------|
+| [SPEC-v2.0.0.md](archive/SPEC-v2.0.0.md) | Full SPEC | Base document for v2.0.x series |
+| [SPEC-v2.0.1-patch.md](archive/SPEC-v2.0.1-patch.md) | Patch | Reserved-key prefixes (SCHEMA-RESERVED-*) |
+| [SPEC-v2.0.2-patch.md](archive/SPEC-v2.0.2-patch.md) | Patch | `data` vs "state" normative note |
+| [SPEC-v2.0.3-patch.md](archive/SPEC-v2.0.3-patch.md) | Patch | Expression extensions (string, collection, object, coercion) |
+| [FDR-v2.0.0.md](archive/FDR-v2.0.0.md) | FDR | FDR-001~016 (now inlined in Living Document) |
+
+---
+
+## Notes
+
+- The Living Document replaces the patch-chain reading model. All content is in one file.
+- v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.
