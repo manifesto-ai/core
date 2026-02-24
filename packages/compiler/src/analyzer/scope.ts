@@ -325,8 +325,8 @@ export class ScopeAnalyzer {
 
     // E003: Invalid $system reference
     if (namespace === "system") {
-      const validKeys = ["uuid", "timestamp", "random"];
-      const key = rest[0];
+      const validKeys = ["uuid", "timestamp", "time.now", "random"];
+      const key = rest.join(".");
       if (key && !validKeys.includes(key)) {
         this.error(
           `Invalid system value '$system.${key}'. Valid values: ${validKeys.join(", ")}`,
@@ -339,7 +339,7 @@ export class ScopeAnalyzer {
     // E003: Invalid $meta reference
     if (namespace === "meta") {
       const validKeys = ["intentId", "actionName", "timestamp"];
-      const key = rest[0];
+      const key = rest.join(".");
       if (key && !validKeys.includes(key)) {
         this.error(
           `Invalid meta value '$meta.${key}'. Valid values: ${validKeys.join(", ")}`,

@@ -193,7 +193,7 @@ class ManifestoHost {
   // Snapshot access
   getSnapshot(): Snapshot | null;
   getSchema(): DomainSchema;
-  reset(initialData: unknown): void;
+  reset(snapshotOrData: unknown): void;
 }
 
 // Factory function

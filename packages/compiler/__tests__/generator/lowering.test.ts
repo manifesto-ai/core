@@ -1,5 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { compile, lowerSystemValues, type DomainSchema, type CoreFlowNode } from "../../src/index.js";
+import {
+  compileMelDomain,
+  lowerSystemValues,
+  type CompileMelDomainResult,
+  type DomainSchema,
+} from "../../src/index.js";
+
+function compile(source: string): CompileMelDomainResult & { success: boolean } {
+  const result = compileMelDomain(source, { mode: "domain" });
+  return {
+    ...result,
+    success: result.errors.length === 0 && result.schema !== null,
+  };
+}
 
 describe("System Value Lowering", () => {
   describe("lowering with compile option", () => {
@@ -35,27 +48,59 @@ describe("System Value Lowering", () => {
             }
           }
         }
-      `,
-        { lowerSystemValues: true }
+      `
       );
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        // After lowering, $system.uuid should be replaced with slot path
-        const flow = result.schema.actions.generateId.flow;
-        const hasSystemRef = JSON.stringify(flow).includes("$system.uuid");
-        expect(hasSystemRef).toBe(false);
+      const lowered = result.success
+        ? lowerSystemValues(result.schema)
+        : null;
+      expect(lowered).not.toBeNull();
+      if (!lowered) return;
 
-        // Should have the slot fields
-        expect(result.schema.state.fields).toHaveProperty("__sys__generateId_uuid_value");
-        expect(result.schema.state.fields).toHaveProperty("__sys__generateId_uuid_intent");
-      }
+      // After lowering, $system.uuid should be replaced with slot path
+      const flow = lowered.actions.generateId.flow;
+      const hasSystemRef = JSON.stringify(flow).includes("$system.uuid");
+      expect(hasSystemRef).toBe(false);
+
+      // Should have the slot fields
+      expect(lowered.state.fields).toHaveProperty("__sys__generateId_uuid_value");
+      expect(lowered.state.fields).toHaveProperty("__sys__generateId_uuid_intent");
+    });
+
+    it("normalizes dotted system keys when lowering", () => {
+      const result = compile(
+        `
+        domain Test {
+          state { createdAt: number = 0 }
+          action create() {
+            when true {
+              patch createdAt = $system.time.now
+            }
+          }
+        }
+      `);
+
+      const lowered = result.success
+        ? lowerSystemValues(result.schema)
+        : null;
+      expect(lowered).not.toBeNull();
+      if (!lowered) return;
+
+      const flow = lowered.actions.create.flow;
+      const flowStr = JSON.stringify(flow);
+
+      expect(flowStr).not.toContain("$system.time.now");
+      expect(flowStr).toContain("system.get");
+      expect(flowStr).toContain("__sys__create_time_now_value");
+      expect(flowStr).toContain("__sys__create_time_now_intent");
+      expect(lowered.state.fields).toHaveProperty("__sys__create_time_now_value");
+      expect(lowered.state.fields).toHaveProperty("__sys__create_time_now_intent");
     });
   });
 
   describe("lowerSystemValues function", () => {
     function compileAndLower(source: string): DomainSchema | null {
-      const result = compile(source, { skipSemanticAnalysis: true });
+      const result = compile(source);
       if (!result.success) return null;
       return lowerSystemValues(result.schema);
     }

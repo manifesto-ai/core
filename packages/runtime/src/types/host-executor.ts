@@ -119,7 +119,7 @@ export interface Host {
   /**
    * Reset host state.
    */
-  reset?(data: unknown): Promise<void>;
+  reset?(snapshotOrData: unknown): void | Promise<void>;
 }
 
 /**

@@ -230,7 +230,7 @@ await myStore.save(snapshot);
 
 // Restore later
 const restored = await myStore.get();
-host.reset(restored.data);
+host.reset(restored);
 ```
 
 ---

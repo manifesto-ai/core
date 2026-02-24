@@ -35,6 +35,7 @@ export class AppHostExecutor implements HostExecutor {
   private _host: Host;
   private _options: AppHostExecutorOptions;
   private _executions: Map<ExecutionKey, ExecutionContext> = new Map();
+  private _executionLocks: Map<ExecutionKey, Promise<void>> = new Map();
 
   constructor(host: Host, options?: AppHostExecutorOptions) {
     this._host = host;
@@ -59,21 +60,24 @@ export class AppHostExecutor implements HostExecutor {
     const startedAt = Date.now();
     const timeoutMs = opts?.timeoutMs ?? this._options.defaultTimeoutMs ?? 30000;
 
-    // Create execution context
-    const ctx: ExecutionContext = {
-      key,
-      startedAt,
-      baseSnapshot,
-      intent,
-      signal: opts?.signal,
-      aborted: false,
-    };
+    const previous = this._executionLocks.get(key) ?? Promise.resolve();
 
-    // Track execution
-    this._executions.set(key, ctx);
+    const run = previous.then(async () => {
+      // Create execution context
+      const ctx: ExecutionContext = {
+        key,
+        startedAt,
+        baseSnapshot,
+        intent,
+        signal: opts?.signal,
+        aborted: false,
+      };
 
-    try {
-      // Create timeout promise
+      // Track execution
+      this._executions.set(key, ctx);
+
+      // Execute with timeout and abort handling
+      const dispatchPromise = this._executeWithHost(key, intent, baseSnapshot);
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           ctx.aborted = true;
@@ -92,25 +96,34 @@ export class AppHostExecutor implements HostExecutor {
           })
         : null;
 
-      // Execute with timeout and abort handling
-      const dispatchPromise = this._executeWithHost(key, intent, baseSnapshot);
-
       const racePromises = [dispatchPromise, timeoutPromise];
       if (abortPromise) {
         racePromises.push(abortPromise);
       }
 
-      const result = await Promise.race(racePromises);
+      try {
+        const result = await Promise.race(racePromises);
 
-      // Convert to HostExecutionResult
-      return this._toHostExecutionResult(result, startedAt);
-    } catch (error) {
-      // Handle errors
-      return this._toErrorResult(error, baseSnapshot, startedAt);
-    } finally {
-      // Cleanup
-      this._executions.delete(key);
-    }
+        // Convert to HostExecutionResult
+        return this._toHostExecutionResult(result, startedAt);
+      } catch (error) {
+        // Handle errors
+        return this._toErrorResult(error, baseSnapshot, startedAt);
+      } finally {
+        // Cleanup
+        this._executions.delete(key);
+      }
+    });
+
+    const lock = run.then(() => undefined, () => undefined);
+    this._executionLocks.set(key, lock);
+    lock.finally(() => {
+      if (this._executionLocks.get(key) === lock) {
+        this._executionLocks.delete(key);
+      }
+    });
+
+    return await run;
   }
 
   /**
@@ -162,7 +175,7 @@ export class AppHostExecutor implements HostExecutor {
       return;
     }
 
-    await this._host.reset(baseSnapshot.data);
+    await this._host.reset(baseSnapshot);
   }
 
   /**

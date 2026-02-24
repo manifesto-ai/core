@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { compile, parseSource, analyzeScope, validateSemantics } from "../../src/index.js";
+import {
+  analyzeScope,
+  validateSemantics,
+  compile,
+  tokenize,
+  parse,
+} from "../../src/index.js";
+
+function parseSource(source: string) {
+  return parse(tokenize(source).tokens);
+}
 
 describe("Semantic Analyzer", () => {
   describe("scope analysis", () => {
@@ -92,6 +102,43 @@ describe("Semantic Analyzer", () => {
       if (program) {
         const { diagnostics } = analyzeScope(program);
         expect(diagnostics.filter(d => d.code === "E001")).toHaveLength(0);
+      }
+    });
+
+    it("allows dotted $system keys in actions", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { createdAt: number = 0 }
+          action create() {
+            when true {
+              patch createdAt = $system.time.now
+            }
+          }
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = analyzeScope(program);
+        expect(diagnostics.filter(d => d.code === "E001")).toHaveLength(0);
+        expect(diagnostics.filter(d => d.code === "E003")).toHaveLength(0);
+      }
+    });
+
+    it("rejects unsupported dotted $system keys", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { count: number = 0 }
+          action create() {
+            when true {
+              patch count = $system.foo.bar
+            }
+          }
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = analyzeScope(program);
+        expect(diagnostics.some(d => d.code === "E003")).toBe(true);
       }
     });
   });
@@ -187,18 +234,61 @@ describe("Semantic Analyzer", () => {
       expect(result.success).toBe(true);
     });
 
+    it("passes action with dotted and legacy system keys", () => {
+      const result = compile(`
+        domain EventLog {
+          state {
+            ts: number = 0
+            createdAt: number = 0
+          }
+
+          action record() {
+            when true {
+              patch ts = $system.timestamp
+              patch createdAt = $system.time.now
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("fails unsupported dotted system key in action", () => {
+      const result = compile(`
+        domain EventLog {
+          state {
+            count: number = 0
+          }
+
+          action bad() {
+            when true {
+              patch count = $system.env.NODE_ID
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.errors.some(e => e.code === "E003")).toBe(true);
+      }
+    });
+
     it("can skip semantic analysis", () => {
       const result = compile(
         `
         domain Test {
           computed x = undefined_var
         }
-      `,
-        { skipSemanticAnalysis: true }
-      );
+      `);
 
-      // With skipSemanticAnalysis, it should still fail in IR generation
-      // because the identifier can't be resolved to a valid path
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.errors.some(e => e.code === "E_UNDEFINED")).toBe(true);
+      }
+
+      // Undefined identifiers should still be rejected from analysis phase.
     });
   });
 });

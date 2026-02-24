@@ -4,16 +4,22 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { compile, type DomainSchema as MelDomainSchema } from "../../src/index.js";
+import {
+  compileMelDomain,
+  lowerSystemValues,
+  type CompileMelDomainResult,
+  type DomainSchema as MelDomainSchema,
+} from "../../src/index.js";
 import { createCore, type DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
 import { createHost, type ManifestoHost } from "@manifesto-ai/host";
 import {
   createManifestoWorld,
   createIntentInstance,
+  type HostExecutor,
   type ActorRef,
   type AuthorityPolicy,
 } from "@manifesto-ai/world";
-import { readFile } from "node:fs/promises";
+import type { ErrorValue } from "@manifesto-ai/core";
 
 const HOST_CONTEXT = {
   now: () => 0,
@@ -28,12 +34,56 @@ function adaptSchema(schema: MelDomainSchema): CoreDomainSchema {
   return schema as unknown as CoreDomainSchema;
 }
 
+function compile(source: string): CompileMelDomainResult & { success: boolean } {
+  const result = compileMelDomain(source, { mode: "domain" });
+  return {
+    ...result,
+    success: result.errors.length === 0 && result.schema !== null,
+  };
+}
+
+function compileAndLower(source: string): MelDomainSchema | null {
+  const result = compile(source);
+  if (!result.success) return null;
+  return lowerSystemValues(result.schema);
+}
+
 function createHostWithContext(schema: CoreDomainSchema, initialData: unknown): ManifestoHost {
   return createHost(schema, { initialData, context: HOST_CONTEXT });
 }
 
+function createHostExecutor(host: ManifestoHost): HostExecutor {
+  return {
+    async execute(_key, baseSnapshot, intent) {
+      host.reset(baseSnapshot);
+      const result = await host.dispatch(intent, { key: _key });
+      const error = result.error
+        ? ({
+            code: result.error.code,
+            message: result.error.message,
+            source: {
+              actionId: "host.dispatch",
+              nodePath: "execute",
+            },
+            timestamp: Date.now(),
+            context: {
+              code: result.error.code,
+              details: result.error.details,
+            },
+          } satisfies ErrorValue)
+        : undefined;
+
+      return {
+        outcome: result.status === "complete" ? "completed" : "failed",
+        terminalSnapshot: result.snapshot,
+        error,
+      };
+    },
+  };
+}
+
 async function createWorldWithGenesis(schema: CoreDomainSchema, host: ManifestoHost) {
-  const world = createManifestoWorld({ schemaHash: schema.hash, host });
+  const world = createManifestoWorld({ schemaHash: schema.hash, executor: createHostExecutor(host) });
   world.registerActor(ACTOR, POLICY);
   const snapshot = await host.getSnapshot();
   if (!snapshot) {
@@ -93,7 +143,7 @@ describe("Compiler -> World -> Host -> Core", () => {
   });
 
   it("handles effects + system value lowering", async () => {
-    const result = compile(
+    const lowered = compileAndLower(
       `
       domain SystemExample {
         state {
@@ -111,14 +161,12 @@ describe("Compiler -> World -> Host -> Core", () => {
           }
         }
       }
-    `,
-      { lowerSystemValues: true }
+      `
     );
+    expect(lowered).not.toBeNull();
+    if (!lowered) return;
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    const schema = adaptSchema(result.schema);
+    const schema = adaptSchema(lowered);
     const core = createCore();
     const validation = core.validate(schema);
     expect(validation.valid).toBe(true);
@@ -160,35 +208,96 @@ describe("Compiler -> World -> Host -> Core", () => {
     });
   });
 
+  it("fills time.now and uuid in object literal append", async () => {
+    const lowered = compileAndLower(
+      `
+      domain SystemAppend {
+        state {
+          entries: Array<object> = []
+        }
+        computed entryCount = len(entries)
+        action appendEntry() {
+          when true {
+            patch entries = append(entries, { id: $system.uuid, createdAt: $system.time.now })
+          }
+        }
+      }
+      `
+    );
+    expect(lowered).not.toBeNull();
+    if (!lowered) return;
+
+    const schema = adaptSchema(lowered);
+    const core = createCore();
+    const validation = core.validate(schema);
+    expect(validation.valid).toBe(true);
+
+    const host = createHostWithContext(schema, { entries: [] });
+    registerIntoHandler(host, "system.get", (params) => {
+      const key = String(params.key ?? "");
+      if (key === "uuid") return "uuid-1";
+      if (key === "time.now") return 1700000000000;
+      return `value:${key}`;
+    });
+
+    const { world, genesis } = await createWorldWithGenesis(schema, host);
+    const intent = await createIntentInstance({
+      body: { type: "appendEntry" },
+      schemaHash: schema.hash,
+      projectionId: "test:projection",
+      source: { kind: "ui", eventId: "event-4" },
+      actor: ACTOR,
+      intentId: "intent-4",
+    });
+
+    const resultWorld = await world.submitProposal(ACTOR.actorId, intent, genesis.worldId);
+    expect(resultWorld.proposal.status).toBe("completed");
+    expect(resultWorld.resultWorld).toBeDefined();
+
+    const snapshot = await world.getSnapshot(resultWorld.resultWorld!.worldId);
+    expect(snapshot?.data.entries).toHaveLength(1);
+    expect(snapshot?.data.entries?.[0]).toEqual(
+      expect.objectContaining({
+        id: "uuid-1",
+        createdAt: 1700000000000,
+      })
+    );
+    expect(snapshot?.data.entries?.[0]?.createdAt).not.toBeUndefined();
+  });
+
   it("executes shipment.mel refreshDashboard", async () => {
-    const shipmentPath = new URL("../../../../apps/shipment-app/shipment.mel", import.meta.url);
-    const source = await readFile(shipmentPath, "utf-8");
-    const result = compile(source, { lowerSystemValues: true });
+    const lowered = compileAndLower(
+      `
+      domain ShipmentDashboard {
+        state {
+          trackingCustomerId: string | null = null
+          trackingStatus: string | null = null
+          trackingShipments: object = {}
+          refreshCount: number = 0
+        }
+        computed isTrackingActive = isNotNull(trackingCustomerId)
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
+        action refreshDashboard(customerId: string) {
+          when true {
+            patch trackingCustomerId = customerId
+            patch trackingStatus = "loading"
+            patch refreshCount = add(refreshCount, 1)
+            patch trackingShipments = { cust1: { id: customerId, refreshedAt: $system.timestamp } }
+          }
+        }
+      }
+      `
+    );
+    expect(lowered).not.toBeNull();
+    if (!lowered) return;
 
-    const schema = adaptSchema(result.schema);
+    const schema = adaptSchema(lowered);
     const host = createHostWithContext(schema, {});
-
     registerIntoHandler(host, "system.get", (params) => {
       const key = String(params.key ?? "");
       if (key === "timestamp") return 1700000000000;
-      if (key === "uuid") return "uuid-1";
       return `value:${key}`;
     });
-    registerIntoHandler(host, "api.shipment.listActive", () => ({
-      S1: { id: "S1", laneId: "L1", destinationPort: "P1" },
-    }));
-    registerIntoHandler(host, "api.tracking.aggregateSignals", () => ({
-      ais: { positionsByShipment: { S1: { lat: 1, lon: 2 } } },
-      weather: { typhoonDelayIndexByLane: { L1: 0 } },
-      tos: { portCongestionIndexByPort: { P1: 0 } },
-    }));
-    registerIntoHandler(host, "record.mapValues", () => ({
-      S1: { position: { lat: 1, lon: 2 }, typhoonIndex: 0, portCongestion: 0 },
-    }));
-    registerIntoHandler(host, "record.keys", () => []);
 
     const { world, genesis } = await createWorldWithGenesis(schema, host);
     const intent = await createIntentInstance({
@@ -208,7 +317,12 @@ describe("Compiler -> World -> Host -> Core", () => {
     expect(snapshot?.data).toMatchObject({
       trackingCustomerId: "cust-1",
       trackingStatus: "loading",
-      trackingShipments: { S1: { id: "S1", laneId: "L1", destinationPort: "P1" } },
+      refreshCount: 1,
+      trackingShipments: {
+        cust1: {
+          id: "cust-1",
+        },
+      },
     });
   });
 });

@@ -573,8 +573,33 @@ export class ManifestoHost {
   /**
    * Reset the host to initial state
    */
-  reset(initialData: unknown): void {
-    this.initializeSnapshot(initialData);
+  reset(snapshotOrData: unknown): void {
+    if (this.isSnapshotLike(snapshotOrData)) {
+      this.currentSnapshot = this.cloneSnapshot(snapshotOrData);
+      return;
+    }
+
+    this.initializeSnapshot(snapshotOrData);
+  }
+
+  /**
+   * Type guard to detect full snapshots.
+   */
+  private isSnapshotLike(value: unknown): value is Snapshot {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+    const hasSystem = candidate.system !== undefined && typeof candidate.system === "object";
+    const hasMeta = candidate.meta !== undefined && typeof candidate.meta === "object";
+    const hasData = candidate.data !== undefined && typeof candidate.data === "object";
+    const hasInput = "input" in candidate && (
+      candidate.input === undefined || typeof candidate.input === "object"
+    );
+    const hasComputed = "computed" in candidate && typeof candidate.computed === "object";
+
+    return Boolean(hasSystem && hasMeta && hasData && hasInput && hasComputed);
   }
 
   // === v2.0.1 API for HCTS testing ===

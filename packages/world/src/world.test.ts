@@ -461,6 +461,32 @@ describe("ManifestoWorld", () => {
       expect(storedSnapshot?.data).toEqual({ executed: true });
     });
 
+    it("persists host terminal snapshot as-is for result world", async () => {
+      const terminalSnapshot = createTestSnapshot({
+        count: 7,
+        __sys__append_time_now_value: 1700000000000,
+        __sys__append_time_now_intent: "slot-intent-value",
+      });
+
+      executor = createMockExecutor(terminalSnapshot);
+      world = createManifestoWorld({ schemaHash, executor });
+      await world.createGenesis(createTestSnapshot({ initialized: true }));
+      world.registerActor(createTestActor("human-1", "human"), {
+        mode: "auto_approve",
+      });
+
+      const genesis = await world.getGenesis();
+      const intent = await createTestIntent();
+      const result = await world.submitProposal(
+        "human-1",
+        intent,
+        genesis!.worldId
+      );
+
+      const storedSnapshot = await world.getSnapshot(result.resultWorld!.worldId);
+      expect(storedSnapshot).toEqual(terminalSnapshot);
+    });
+
     it("adds edge to lineage", async () => {
       const intent = await createTestIntent();
       const result = await world.submitProposal(

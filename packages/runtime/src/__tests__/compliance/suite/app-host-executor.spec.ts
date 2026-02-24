@@ -28,6 +28,12 @@ function makeSnapshot(
 }
 
 describe("Runtime HostExecutor compliance", () => {
+  type HostDispatchResult = {
+    status: "complete";
+    snapshot: Snapshot;
+    error?: unknown;
+  };
+
   it("RT-HEXEC-1 / RT-HEXEC-3: AppHostExecutor should execute against provided base snapshot", async () => {
     const baseSnapshot = makeSnapshot({
       count: 3,
@@ -45,8 +51,7 @@ describe("Runtime HostExecutor compliance", () => {
       registerEffect: vi.fn(),
       getRegisteredEffectTypes: vi.fn(() => []),
       reset: vi.fn(async (data: unknown) => {
-        const nextData = (data as Record<string, unknown> | undefined) ?? {};
-        currentSnapshot = makeSnapshot(nextData);
+        currentSnapshot = (data as Snapshot) ?? makeSnapshot({});
       }),
     } as Host;
 
@@ -59,7 +64,7 @@ describe("Runtime HostExecutor compliance", () => {
 
     expect(host.dispatch).toHaveBeenCalledTimes(1);
     expect(host.reset).toHaveBeenCalledTimes(1);
-    expect(host.reset).toHaveBeenCalledWith(baseSnapshot.data);
+    expect(host.reset).toHaveBeenCalledWith(baseSnapshot);
     expect(result.outcome).toBe("completed");
     expect(result.terminalSnapshot).toBe(currentSnapshot);
     expect(result.terminalSnapshot.data).toMatchObject({
@@ -81,7 +86,7 @@ describe("Runtime HostExecutor compliance", () => {
       registerEffect: vi.fn(),
       getRegisteredEffectTypes: vi.fn(() => []),
       reset: vi.fn(async (data: unknown) => {
-        expect(data).toEqual(baseSnapshot.data);
+        expect(data).toEqual(baseSnapshot);
       }),
     } as Host;
 
@@ -103,5 +108,63 @@ describe("Runtime HostExecutor compliance", () => {
       }),
       { key: executionKey }
     );
+  });
+
+  it("RT-HEXEC-4: same ExecutionKey must wait for prior Host dispatch completion", async () => {
+    const baseSnapshot = makeSnapshot({ count: 8 });
+    const pendingDispatches: Array<(result: HostDispatchResult) => void> = [];
+    const host = {
+      dispatch: vi.fn(
+        async () =>
+          new Promise<HostDispatchResult>((resolve) => {
+            pendingDispatches.push(resolve);
+          })
+      ),
+      registerEffect: vi.fn(),
+      getRegisteredEffectTypes: vi.fn(() => []),
+      reset: vi.fn(async () => {}),
+    } as Host;
+
+    const executor = createAppHostExecutor(host);
+    const executionKey = "proposal-serial";
+
+    const first = executor.execute(executionKey, baseSnapshot, {
+      type: "increment",
+      input: { step: 1 },
+      intentId: "intent-1",
+    });
+    await vi.waitFor(() => expect(host.dispatch).toHaveBeenCalledTimes(1), { timeout: 1_000 });
+    expect(host.dispatch).toHaveBeenCalledTimes(1);
+
+    const second = executor.execute(executionKey, baseSnapshot, {
+      type: "increment",
+      input: { step: 2 },
+      intentId: "intent-2",
+    });
+
+    await vi.waitFor(() => expect(host.dispatch).toHaveBeenCalledTimes(1), { timeout: 1_000 });
+    expect(host.dispatch).toHaveBeenCalledTimes(1);
+
+    pendingDispatches[0]({
+      status: "complete",
+      snapshot: baseSnapshot,
+    });
+
+    await expect(first).resolves.toMatchObject({ outcome: "completed" });
+
+    await vi.waitFor(() => expect(host.dispatch).toHaveBeenCalledTimes(2), { timeout: 1_000 });
+    expect(host.dispatch).toHaveBeenCalledTimes(2);
+    expect(host.dispatch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "increment", input: { step: 2 }, intentId: "intent-2" }),
+      { key: executionKey }
+    );
+
+    pendingDispatches[1]({
+      status: "complete",
+      snapshot: baseSnapshot,
+    });
+
+    await expect(second).resolves.toMatchObject({ outcome: "completed" });
+    expect(host.dispatch).toHaveBeenCalledTimes(2);
   });
 });

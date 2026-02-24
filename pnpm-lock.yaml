@@ -123,6 +123,9 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/world':
+        specifier: workspace:*
+        version: link:../world
       '@types/node':
         specifier: ^25.2.3
         version: 25.2.3
@@ -216,6 +219,9 @@ importers:
         specifier: workspace:*
         version: link:../world
     devDependencies:
+      '@manifesto-ai/compiler':
+        specifier: workspace:*
+        version: link:../compiler
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
