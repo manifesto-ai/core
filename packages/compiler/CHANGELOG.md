@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.3](https://github.com/manifesto-ai/core/compare/compiler-v1.6.2...compiler-v1.6.3) (2026-02-25)
+
+
+### Bug Fixes
+
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+* **review:** restore missing type re-exports and guard abort during lock queue ([ec7e7a0](https://github.com/manifesto-ai/core/commit/ec7e7a076e58e096c5b706adcccebb139b955955))
+
 ## [1.6.2](https://github.com/manifesto-ai/core/compare/compiler-v1.6.1...compiler-v1.6.2) (2026-02-24)
 
 
