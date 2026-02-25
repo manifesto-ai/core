@@ -331,6 +331,18 @@ export class AppBootstrap {
     });
 
     const host: Host = {
+      // v2.1 Mailbox API (used by AppHostExecutor)
+      seedSnapshot: (key, snapshot) => internalHost.seedSnapshot(key, snapshot),
+      submitIntent: (key, intent) => internalHost.submitIntent(key, intent),
+      drain: (key) => internalHost.drain(key),
+      getContextSnapshot: (key) => internalHost.getContextSnapshot(key),
+      hasPendingEffects: (key) => internalHost.hasPendingEffects(key),
+      waitForPendingEffects: (key) => internalHost.waitForPendingEffects(key),
+      hasQueuedWork: (key) => internalHost.hasQueuedWork(key),
+      hasFatalError: (key) => internalHost.hasFatalError(key),
+      releaseExecution: (key) => internalHost.releaseExecution(key),
+
+      // Legacy API (kept for backward compatibility)
       dispatch: async (intent, options): Promise<HostResult> => {
         const result = await internalHost.dispatch(intent, options);
         return {

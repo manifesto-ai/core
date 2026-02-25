@@ -15,6 +15,7 @@ import {
   createSnapshot,
   evaluateComputed,
   isOk,
+  Snapshot as SnapshotSchema,
   type ManifestoCore,
   type DomainSchema,
   type Snapshot,
@@ -287,7 +288,7 @@ export class ManifestoHost {
 
       // Check if there are pending effects to execute
       if (this.hasPendingEffects(key)) {
-        await this.executePendingEffects(key);
+        await this.waitForPendingEffects(key);
         continue;
       }
 
@@ -301,13 +302,11 @@ export class ManifestoHost {
     const finalSnapshot = ctx.getSnapshot();
     this.currentSnapshot = finalSnapshot;
 
+    // Cleanup via releaseExecution
+    this.releaseExecution(key);
+
     // Determine status
     if (fatalError) {
-      // Cleanup
-      this.executionContexts.delete(key);
-      this.mailboxManager.delete(key);
-      this.fatalErrors.delete(key);
-
       return {
         status: "error",
         snapshot: finalSnapshot,
@@ -317,11 +316,6 @@ export class ManifestoHost {
     }
 
     if (iterations >= this.maxIterations) {
-      // Cleanup
-      this.executionContexts.delete(key);
-      this.mailboxManager.delete(key);
-      this.fatalErrors.delete(key);
-
       return {
         status: "error",
         snapshot: finalSnapshot,
@@ -335,11 +329,6 @@ export class ManifestoHost {
     }
 
     if (finalSnapshot.system.status === "error") {
-      // Cleanup
-      this.executionContexts.delete(key);
-      this.mailboxManager.delete(key);
-      this.fatalErrors.delete(key);
-
       return {
         status: "error",
         snapshot: finalSnapshot,
@@ -351,11 +340,6 @@ export class ManifestoHost {
         ),
       };
     }
-
-    // Cleanup
-    this.executionContexts.delete(key);
-    this.mailboxManager.delete(key);
-    this.fatalErrors.delete(key);
 
     const status = finalSnapshot.system.status === "pending" ? "pending" : "complete";
 
@@ -469,20 +453,71 @@ export class ManifestoHost {
   }
 
   /**
-   * Check if there are pending effects for a key
+   * Check if there are pending effects for a key.
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
    */
-  private hasPendingEffects(key: ExecutionKey): boolean {
+  hasPendingEffects(key: ExecutionKey): boolean {
     return this.pendingEffects.has(key);
   }
 
   /**
-   * Execute all pending effects for a key
+   * Check if the mailbox for a key still has queued jobs.
+   *
+   * Used by AppHostExecutor's drain loop to mirror the termination
+   * condition in dispatch(): break only when mailbox is empty AND
+   * no pending effects, preventing premature exit when processMailbox
+   * re-schedules itself via microtask (RUN-4/LIVE-4).
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
    */
-  private async executePendingEffects(key: ExecutionKey): Promise<void> {
+  hasQueuedWork(key: ExecutionKey): boolean {
+    const mailbox = this.mailboxManager.getOrCreate(key);
+    return !mailbox.isEmpty();
+  }
+
+  /**
+   * Check if a fatal error has been recorded for a key.
+   *
+   * Fatal errors are tracked in a separate map and are NOT written to
+   * snapshot.system.lastError (only to data.$host.lastError as best-effort).
+   * The drain loop must check this so it doesn't report "completed" after
+   * a fatal failure.
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
+   */
+  hasFatalError(key: ExecutionKey): boolean {
+    return this.fatalErrors.has(key);
+  }
+
+  /**
+   * Wait for pending effects to complete for a key.
+   *
+   * After the effect promise settles, a FulfillEffect job is enqueued
+   * in the mailbox. The caller should drain() again to process it.
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
+   */
+  async waitForPendingEffects(key: ExecutionKey): Promise<void> {
     const entry = this.pendingEffects.get(key);
     if (entry) {
       await entry.promise;
     }
+  }
+
+  /**
+   * Release execution state for a key.
+   *
+   * Cleans up mailbox, execution context, fatal errors, and pending effects.
+   * MUST be called after execution completes (or on timeout/abort) to prevent leaks.
+   *
+   * @public Used by AppHostExecutor's finally block.
+   */
+  releaseExecution(key: ExecutionKey): void {
+    this.executionContexts.delete(key);
+    this.mailboxManager.delete(key);
+    this.fatalErrors.delete(key);
+    this.pendingEffects.delete(key);
   }
 
   /**
@@ -571,10 +606,26 @@ export class ManifestoHost {
   }
 
   /**
-   * Reset the host to initial state
+   * Reset the host to initial state.
+   *
+   * Accepts either a full Snapshot (restores as-is) or plain domain data
+   * (creates a fresh snapshot). Snapshot detection checks for the canonical
+   * `meta.version` (number) + `meta.schemaHash` (string) + `system.status` (string)
+   * fields that only Snapshots carry.
+   *
+   * @deprecated Use seedSnapshot(key, snapshot) for per-key execution instead.
    */
-  reset(initialData: unknown): void {
-    this.initializeSnapshot(initialData);
+  reset(snapshotOrData: unknown): void {
+    // Use the authoritative Zod schema to detect Snapshots instead of
+    // duck-typing structural keys.  Duck-typing can misclassify domain
+    // data that happens to contain fields like `data`, `meta`, `system`.
+    const parsed = SnapshotSchema.safeParse(snapshotOrData);
+    if (parsed.success) {
+      this.currentSnapshot = this.cloneSnapshot(parsed.data);
+      return;
+    }
+
+    this.initializeSnapshot(snapshotOrData);
   }
 
   // === v2.0.1 API for HCTS testing ===

@@ -268,6 +268,14 @@ describe("Parser", () => {
       }
     });
 
+    it("parses dotted system identifiers", () => {
+      const expr = parseExpr("$system.time.now");
+      expect(expr?.kind).toBe("systemIdent");
+      if (expr?.kind === "systemIdent") {
+        expect(expr.path).toEqual(["system", "time", "now"]);
+      }
+    });
+
     it("parses $meta identifiers", () => {
       const expr = parseExpr("$meta.intentId");
       expect(expr?.kind).toBe("systemIdent");

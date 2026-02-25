@@ -5,7 +5,6 @@
  */
 
 import { hashSchemaSync, type DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
-import { parsePath } from "@manifesto-ai/core";
 import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } from "./ir.js";
 
 // ============ Types ============
@@ -14,9 +13,9 @@ import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } 
  * System value slot information
  */
 interface SystemSlot {
-  key: string; // e.g., "uuid"
-  valuePath: string; // e.g., "__sys__addTask_uuid_value"
-  intentPath: string; // e.g., "__sys__addTask_uuid_intent"
+  key: string; // e.g., "uuid", "time.now"
+  valueSlot: string; // e.g., "__sys__addTask_uuid_value"
+  intentSlot: string; // e.g., "__sys__addTask_uuid_intent"
 }
 
 /**
@@ -51,12 +50,12 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
 
     // Add state slots
     for (const slot of ctx.slots.values()) {
-      result.state.fields[slotName(slot.valuePath)] = {
+      result.state.fields[slot.valueSlot] = {
         type: systemValueType(slot.key),
         required: true,
         default: null,
       };
-      result.state.fields[slotName(slot.intentPath)] = {
+      result.state.fields[slot.intentSlot] = {
         type: "string",
         required: true,
         default: null,
@@ -82,12 +81,6 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
   };
 }
 
-function slotName(path: string): string {
-  // Extract field name from path like "__sys__addTask_uuid_value"
-  const parts = parsePath(path);
-  return parts[parts.length - 1] ?? "";
-}
-
 function createContext(actionName: string): LoweringContext {
   return {
     actionName,
@@ -103,6 +96,10 @@ function systemValueType(key: string): FieldSpec["type"] {
     default:
       return "string";
   }
+}
+
+function normalizeSystemKeyForSlot(key: string): string {
+  return key.replaceAll(".", "_");
 }
 
 // ============ Collection Phase ============
@@ -153,11 +150,22 @@ function collectSystemRefsFromExpr(expr: CoreExprNode, ctx: LoweringContext): vo
   if (expr.kind === "get" && expr.path.startsWith("$system.")) {
     const key = expr.path.slice("$system.".length);
     if (!ctx.slots.has(key)) {
+      const normalizedKey = normalizeSystemKeyForSlot(key);
       ctx.slots.set(key, {
         key,
-        valuePath: `__sys__${ctx.actionName}_${key}_value`,
-        intentPath: `__sys__${ctx.actionName}_${key}_intent`,
+        valueSlot: `__sys__${ctx.actionName}_${normalizedKey}_value`,
+        intentSlot: `__sys__${ctx.actionName}_${normalizedKey}_intent`,
       });
+    }
+    return;
+  }
+
+  // Object literal fields require recursive descent into property values
+  if (expr.kind === "object") {
+    for (const value of Object.values(expr.fields)) {
+      if (value && typeof value === "object" && "kind" in value) {
+        collectSystemRefsFromExpr(value as CoreExprNode, ctx);
+      }
     }
     return;
   }
@@ -200,7 +208,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
       kind: "if",
       cond: {
         kind: "neq",
-        left: { kind: "get", path: slot.intentPath },
+        left: { kind: "get", path: slot.intentSlot },
         right: { kind: "get", path: "meta.intentId" },
       },
       then: {
@@ -209,7 +217,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
           {
             kind: "patch",
             op: "set",
-            path: slot.intentPath,
+            path: slot.intentSlot,
             value: { kind: "get", path: "meta.intentId" },
           },
           {
@@ -217,7 +225,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
             type: "system.get",
             params: {
               key: { kind: "lit", value: slot.key },
-              into: { kind: "lit", value: slot.valuePath },
+              into: { kind: "lit", value: slot.valueSlot },
             },
           },
         ],
@@ -232,7 +240,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
   for (const slot of ctx.slots.values()) {
     readinessConditions.push({
       kind: "eq",
-      left: { kind: "get", path: slot.intentPath },
+      left: { kind: "get", path: slot.intentSlot },
       right: { kind: "get", path: "meta.intentId" },
     });
   }
@@ -317,7 +325,7 @@ function transformExpr(expr: CoreExprNode, ctx: LoweringContext): CoreExprNode {
     const key = expr.path.slice("$system.".length);
     const slot = ctx.slots.get(key);
     if (slot) {
-      return { kind: "get", path: slot.valuePath };
+      return { kind: "get", path: slot.valueSlot };
     }
   }
 

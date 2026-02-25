@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ManifestoHost, createHost, type HostOptions } from "../../host.js";
-import { createSnapshot, type DomainSchema } from "@manifesto-ai/core";
+import { createSnapshot, type DomainSchema, type Snapshot } from "@manifesto-ai/core";
 import type { EffectHandler } from "../../effects/types.js";
 import {
   createTestSchema,
@@ -202,6 +202,33 @@ describe("ManifestoHost", () => {
       const snapshot = await host.getSnapshot();
       expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 0 });
       expect(snapshot?.meta.version).toBe(0);
+    });
+
+    it("should reset from a full Snapshot without dropping meta/system", async () => {
+      const host = createHost(schema, { initialData: { count: 100 } });
+
+      await host.dispatch(createTestIntent("increment"));
+      const restored = await host.getSnapshot();
+
+      expect(restored).not.toBeNull();
+      if (!restored) return;
+
+      const nextSnapshot: Snapshot = {
+        ...restored,
+        data: { count: 999 },
+      };
+
+      host.reset(nextSnapshot);
+
+      const snapshot = await host.getSnapshot();
+      expect(snapshot?.data).toEqual({ count: 999 });
+      expect(snapshot?.meta.version).toBe(restored.meta.version);
+      expect(snapshot?.meta.timestamp).toBe(restored.meta.timestamp);
+      expect(snapshot?.meta.randomSeed).toBe(restored.meta.randomSeed);
+      expect(snapshot?.meta.schemaHash).toBe(restored.meta.schemaHash);
+      expect(snapshot?.system).toEqual(restored.system);
+      expect(snapshot?.computed).toEqual(restored.computed);
+      expect(snapshot?.input).toEqual(restored.input);
     });
   });
 
