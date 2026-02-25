@@ -3,8 +3,10 @@
 This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory.
 
 ::: tip Single Source of Truth
-All specifications are maintained at the package level. This page provides navigation and version summaries.
+All specifications are maintained as one living document per package. This page provides navigation and version summaries.
 :::
+
+If you want the governing documentation rules, see [Documentation Governance](./documentation-governance.md).
 
 ## Package Specifications
 
@@ -49,19 +51,18 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 ### Core
 
 - **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v2.0.3)
-  - Consolidated from v2.0.0 base + v2.0.1/v2.0.2/v2.0.3 patches
-  - FDR rationale inlined; previous versioned files archived
+  - Updated directly in the living document; FDR rationale inlined
 
 ### Host
 
 - **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v2.0.2)
-  - Consolidated from v2.0.2 full document + FDR-H018~H025 inlined
+  - Updated directly in the living document; FDR-H018~H025 inlined
   - Deprecated §9 (Compiler Integration) moved to Appendix D
 
 ### World
 
 - **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v2.0.5)
-  - Consolidated from v2.0.3 base + v2.0.4/v2.0.5 patches
+  - Updated directly in the living document
   - FDR rationale inlined; Head, Resume, Branch Persistence sections added
 
 ### SDK
@@ -115,7 +116,7 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 
 ## Living Documents
 
-Core, Host, and World SPECs are now maintained as **Living Documents** — single consolidated files that incorporate all patch content and FDR rationale inline. Previous versioned SPEC and FDR files are preserved in `archive/` subdirectories within each package's `docs/` folder.
+Core, Host, and World SPECs are maintained as **Living Documents** — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Previous versioned or patch documents are preserved in `archive/` subdirectories within each package's `docs/` folder.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history

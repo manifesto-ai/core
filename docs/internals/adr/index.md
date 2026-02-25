@@ -29,10 +29,10 @@ These ADRs affect multiple packages across the monorepo:
 | ID | Title | Status | Date | Affected Packages |
 |----|-------|--------|------|-------------------|
 | [ADR-001](./001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted | 2025-01-17 | Core, Host, World |
-| [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX 개선 — `$mel` 네임스페이스 자동 주입 + `onceIntent` 문법 추가 | Proposed | 2026-01-27 | App, Compiler, World, Core, Host |
+| [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX improvement — auto `$mel` namespace injection + `onceIntent` syntax | Proposed | 2026-01-27 | App, Compiler, World, Core, Host |
 | [ADR-003](./003-world-owns-persistence) | World Owns Persistence | Proposed | 2026-02-03 | App, World |
 | [ADR-004](./004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed | 2026-02-07 | App |
-| [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
+| [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX improvement — Snapshot Path DSL (`${...}`) introduction | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
 | [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
 | [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted | 2026-02-14 | App, Runtime, SDK, World |
 | [ADR-008](./008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted | 2026-02-17 | SDK, Runtime, Docs, Release, CI |
@@ -102,27 +102,28 @@ The codegen package maintains its own ADRs for code generation decisions:
 | Status | Meaning |
 |--------|---------|
 | **Proposed** | Under discussion, not yet implemented |
-| **Accepted** | Approved and implemented |
+| **Accepted** | Approved, implementation started or pending |
+| **Implemented** | Approved and fully reflected in SPEC/Changelog |
 | **Withdrawn** | Reviewed and explicitly retracted with documented rationale |
 | **Deprecated** | No longer recommended but may still be in use |
 | **Superseded** | Replaced by a newer ADR |
 
 ---
 
-## SPEC Patches from ADRs
+## SPEC Changes from ADRs
 
-ADRs often result in SPEC patches. Here's the traceability:
+ADRs often result in SPEC changes. Here's the traceability:
 
 ### ADR-001: Layer Separation
 
-| Package | SPEC Patch | Changes |
+| Package | SPEC Version | Changes |
 |---------|------------|---------|
 | World | v2.0.1 | Event ownership, boundary definition |
 | Host | v2.0.2 | Snapshot type alignment |
 
 ### ADR-002: DX Improvements
 
-| Package | SPEC Patch | Changes |
+| Package | SPEC Version | Changes |
 |---------|------------|---------|
 | Compiler | v0.5.0 | `$mel` namespace, `onceIntent` syntax |
 | App | v2.1.0 | Platform namespace injection |
@@ -132,7 +133,7 @@ ADRs often result in SPEC patches. Here's the traceability:
 
 ### ADR-003: World Owns Persistence (+ Issue #109)
 
-| Package | SPEC Patch | Changes |
+| Package | SPEC Version | Changes |
 |---------|------------|---------|
 | World | v2.0.5 | Head Query API, resume contract, branch state persistence |
 | App | v2.3.1 | Head Query delegation (`getHeads()`, `getLatestHead()`) |
@@ -154,7 +155,7 @@ Write an ADR when:
 ```markdown
 # ADR-XXX: [Title]
 
-> **Status:** Proposed | Accepted | Deprecated | Superseded
+> **Status:** Proposed | Accepted | Implemented | Deprecated | Superseded
 > **Date:** YYYY-MM-DD
 > **Deciders:** [List of decision makers]
 > **Scope:** [Affected packages/layers]

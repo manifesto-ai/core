@@ -203,6 +203,7 @@ Before opening a PR, verify:
 - [ ] Public APIs have TSDoc comments
 - [ ] Breaking changes noted in commit message
 - [ ] SPEC documents updated if behavior changes
+- [ ] `pnpm docs:governance-check` passes when ADR/SPEC/FDR docs changed
 
 ---
 

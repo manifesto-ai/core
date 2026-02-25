@@ -13,8 +13,8 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
 | **@manifesto-ai/core** | v2.0.0 | Compute equation, purity, patches | [FDR-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/FDR-v2.0.0.md) |
-| **@manifesto-ai/host** | v2.0.2 | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-FDR-v2.0.2.md) |
-| **@manifesto-ai/world** | v2.0.5 | Governance, lineage, namespaces, head query, resume | [world-FDR-v2.0.5-addendum.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-FDR-v2.0.5-addendum.md) |
+| **@manifesto-ai/host** | v2.0.2 (inlined in host-SPEC) | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/archive/host-FDR-v2.0.2.md) |
+| **@manifesto-ai/world** | v2.0.5 (inlined in world-SPEC) | Governance, lineage, namespaces, head query, resume | [world-FDR-v2.0.5-addendum.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/archive/world-FDR-v2.0.5-addendum.md) |
 
 ### Application Layer
 
@@ -22,6 +22,8 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 |---------|------------|-------|--------------|
 | **App facade (retired)** | Removed (R2) | Legacy compatibility rationale | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0-patch.md) |
+
+> Core/Host/World rationale is available in each package SPEC `Rationale` block, and patch documents are only referenced from archive paths.
 
 ### Intent & Translation
 
@@ -99,4 +101,4 @@ What follows from this decision.
 2. **Read FDR for "why"** - Understand design rationale
 3. **Check ADRs** - For cross-cutting architectural decisions
 
-FDR versions typically align with SPEC versions. When reading a SPEC patch, check if there's a corresponding FDR patch.
+FDR versions typically align with SPEC versions. Prefer reading the SPEC first, then the relevant FDR rationale when needed.

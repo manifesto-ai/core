@@ -16,10 +16,10 @@ Records of significant architectural decisions:
 | ID | Title | Status |
 |----|-------|--------|
 | [ADR-001](./adr/001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted |
-| [ADR-002](./adr/002-dx-improvement-mel-namespace-onceIntent) | DX 개선 — `$mel` 자동 주입 + `onceIntent` | Proposed |
+| [ADR-002](./adr/002-dx-improvement-mel-namespace-onceIntent) | DX improvement — automatic `$mel` injection + `onceIntent` | Proposed |
 | [ADR-003](./adr/003-world-owns-persistence) | World Owns Persistence | Proposed |
 | [ADR-004](./adr/004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed |
-| [ADR-005](./adr/005-dx-improvement-snapshot-path-dsl) | DX 개선 — Snapshot Path DSL (`${...}`) 도입 | Withdrawn |
+| [ADR-005](./adr/005-dx-improvement-snapshot-path-dsl) | DX improvement — Snapshot Path DSL (`${...}`) introduction | Withdrawn |
 | [ADR-006](./adr/006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed |
 | [ADR-007](./adr/007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted |
 | [ADR-008](./adr/008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted |
@@ -27,7 +27,11 @@ Records of significant architectural decisions:
 | [ADR-010](./adr/010-major-hard-cut) | Runtime + SDK Hard-Cut and Public Surface Simplification | Proposed |
 | [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Proposed |
 
-Status meanings (Proposed, Accepted, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
+Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
+
+### Documentation Governance
+
+- [Documentation Governance](./documentation-governance.md) — Core documentation operating rules for ADR/SPEC/FDR, link consistency, archival policy, and PR documentation gates
 
 ## Specifications
 
