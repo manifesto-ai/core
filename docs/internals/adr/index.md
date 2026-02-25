@@ -36,6 +36,8 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
 | [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted | 2026-02-14 | App, Runtime, SDK, World |
 | [ADR-008](./008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted | 2026-02-17 | SDK, Runtime, Docs, Release, CI |
+| [ADR-009](./009-structured-patch-path) | Structured PatchPath (Segments) | Proposed | 2026-02-25 | Core, Compiler, Host, Runtime, World |
+| [ADR-010](./010-major-hard-cut) | Runtime + SDK Hard-Cut and Public Surface Simplification | Proposed | 2026-02-25 | Core, Runtime, Host, World, SDK |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -47,6 +49,16 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-007 partially supersedes ADR-004 §7.4 and ADR-006 §5 for split kickoff timing and gating policy.
 - ADR-008 supersedes ADR-007 Phase 1 entrypoint guardrails by promoting SDK as canonical public entry and retiring App.
 - ADR-007 does not supersede ADR-001 layer separation principles (package split is not a new layer).
+
+### ADR-009 Companion Notes
+
+- ADR-009 is a proposed cross-cutting decision that targets a breaking path-representation rewrite for patching across Core/Compiler/Host/Runtime/World.
+- This ADR is closely coupled to issue triage (#108, #189) and depends on coordinated version alignment across affected packages before merge.
+
+### ADR-010 Companion Notes
+
+- ADR-010 defines the hard-cut naming and public boundary for SDK/Runtime to enforce a single runtime-centric entrypoint.
+- This ADR explicitly removes App-layer semantic coupling in product-facing APIs and archives translator/intent-IR from execution paths.
 
 ---
 

@@ -23,6 +23,7 @@ Records of significant architectural decisions:
 | [ADR-006](./adr/006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed |
 | [ADR-007](./adr/007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted |
 | [ADR-008](./adr/008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted |
+| [ADR-009](./adr/009-structured-patch-path) | Structured PatchPath (Segments) | Proposed |
 
 Status meanings (Proposed, Accepted, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 
