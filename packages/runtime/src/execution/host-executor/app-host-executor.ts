@@ -70,8 +70,9 @@ export class AppHostExecutor implements HostExecutor {
 
     const previous = this._executionLocks.get(key) ?? Promise.resolve();
 
-    // Tracks when the underlying drain loop fully settles (not just the race winner).
-    // The lock must wait for this so subsequent same-key calls never overlap Host state.
+    // Resolved in the finally block AFTER releaseExecution and cleanup.
+    // The lock gates on this so a queued same-key execute cannot start
+    // until the current execute has fully cleaned up Host state.
     let resolveDrainSettled!: () => void;
     const drainSettled = new Promise<void>((r) => { resolveDrainSettled = r; });
 
@@ -104,9 +105,6 @@ export class AppHostExecutor implements HostExecutor {
 
         // Drain-effect-drain loop
         const drainPromise = this._drainToCompletion(key);
-
-        // Ensure lock is held until drain fully settles regardless of race outcome
-        drainPromise.then(() => resolveDrainSettled(), () => resolveDrainSettled());
 
         // Timeout promise
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -148,7 +146,7 @@ export class AppHostExecutor implements HostExecutor {
       }
     });
 
-    // Lock waits for drain to fully settle, not just for run to resolve
+    // Lock gates on drainSettled, which is resolved in finally after cleanup.
     const lock = drainSettled.then(() => undefined);
     this._executionLocks.set(key, lock);
     lock.finally(() => {

@@ -339,6 +339,45 @@ describe("Runtime HostExecutor compliance", () => {
     expect(host.releaseExecution).toHaveBeenCalledWith("ek-cap");
   });
 
+  it("RT-HEXEC-SERIAL-2: second execute must not start before first cleanup completes", async () => {
+    const baseSnapshot = makeSnapshot({});
+    const executionKey = "ek-race";
+    const callOrder: string[] = [];
+
+    const host = createMockMailboxHost({
+      seedSnapshot: vi.fn(() => { callOrder.push("seed"); }),
+      submitIntent: vi.fn(),
+      drain: vi.fn(async () => { callOrder.push("drain"); }),
+      releaseExecution: vi.fn(() => { callOrder.push("release"); }),
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+
+    // Start two executions for the same key
+    const first = executor.execute(executionKey, baseSnapshot, {
+      type: "a",
+      input: {},
+      intentId: "intent-a",
+    });
+    const second = executor.execute(executionKey, baseSnapshot, {
+      type: "b",
+      input: {},
+      intentId: "intent-b",
+    });
+
+    await first;
+    await second;
+
+    // The call order must be: seed→drain→release for first,
+    // then seed→drain→release for second. Crucially, the second
+    // "seed" must come AFTER the first "release".
+    expect(callOrder).toEqual([
+      "seed", "drain", "release",
+      "seed", "drain", "release",
+    ]);
+  });
+
   it("RT-HEXEC-OUTCOME-1: outcome derived from terminal snapshot lastError", async () => {
     const errorSnapshot = makeSnapshot({});
     (errorSnapshot.system as Record<string, unknown>).lastError = {
