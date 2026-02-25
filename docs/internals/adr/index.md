@@ -38,7 +38,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-008](./008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted | 2026-02-17 | SDK, Runtime, Docs, Release, CI |
 | [ADR-009](./009-structured-patch-path) | Structured PatchPath (Segments) | Proposed | 2026-02-25 | Core, Compiler, Host, Runtime, World |
 | [ADR-010](./010-major-hard-cut) | Runtime + SDK Hard-Cut and Public Surface Simplification | Proposed | 2026-02-25 | Core, Runtime, Host, World, SDK |
-| [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Scope and ExecutionKey Serialization Contract | Proposed | 2026-02-25 | Host, Runtime, World, SDK |
+| [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Proposed | 2026-02-25 | Host, Runtime, World, SDK |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -63,8 +63,9 @@ These ADRs affect multiple packages across the monorepo:
 
 ### ADR-011 Companion Notes
 
-- ADR-011 defines host execution boundary behavior for reset payload scope and executionKey serialization.
-- It is the host-runtime contract companion to #198, clarifying full-snapshot vs data-only reset and timeout-safe per-key execution.
+- ADR-011 defines Host boundary baseline-completeness policy for reset/Bootstrap entry.
+- It is the host-runtime contract companion to #198, scoped to full-canonical snapshot continuity at boundary entry.
+- executionKey serialization and timeout-slot release remain Host SPEC v2.0.3 enforcement work, not architecture decisions in this ADR.
 
 ---
 

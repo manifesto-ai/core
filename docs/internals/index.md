@@ -25,7 +25,7 @@ Records of significant architectural decisions:
 | [ADR-008](./adr/008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Accepted |
 | [ADR-009](./adr/009-structured-patch-path) | Structured PatchPath (Segments) | Proposed |
 | [ADR-010](./adr/010-major-hard-cut) | Runtime + SDK Hard-Cut and Public Surface Simplification | Proposed |
-| [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Scope and ExecutionKey Serialization Contract | Proposed |
+| [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Proposed |
 
 Status meanings (Proposed, Accepted, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 
