@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2](https://github.com/manifesto-ai/core/compare/sdk-v1.2.1...sdk-v1.2.2) (2026-02-25)
+
+
+### Bug Fixes
+
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+
 ## [1.2.1](https://github.com/manifesto-ai/core/compare/sdk-v1.2.0...sdk-v1.2.1) (2026-02-20)
 
 
