@@ -287,7 +287,7 @@ export class ManifestoHost {
 
       // Check if there are pending effects to execute
       if (this.hasPendingEffects(key)) {
-        await this.executePendingEffects(key);
+        await this.waitForPendingEffects(key);
         continue;
       }
 
@@ -301,13 +301,11 @@ export class ManifestoHost {
     const finalSnapshot = ctx.getSnapshot();
     this.currentSnapshot = finalSnapshot;
 
+    // Cleanup via releaseExecution
+    this.releaseExecution(key);
+
     // Determine status
     if (fatalError) {
-      // Cleanup
-      this.executionContexts.delete(key);
-      this.mailboxManager.delete(key);
-      this.fatalErrors.delete(key);
-
       return {
         status: "error",
         snapshot: finalSnapshot,
@@ -317,11 +315,6 @@ export class ManifestoHost {
     }
 
     if (iterations >= this.maxIterations) {
-      // Cleanup
-      this.executionContexts.delete(key);
-      this.mailboxManager.delete(key);
-      this.fatalErrors.delete(key);
-
       return {
         status: "error",
         snapshot: finalSnapshot,
@@ -335,11 +328,6 @@ export class ManifestoHost {
     }
 
     if (finalSnapshot.system.status === "error") {
-      // Cleanup
-      this.executionContexts.delete(key);
-      this.mailboxManager.delete(key);
-      this.fatalErrors.delete(key);
-
       return {
         status: "error",
         snapshot: finalSnapshot,
@@ -351,11 +339,6 @@ export class ManifestoHost {
         ),
       };
     }
-
-    // Cleanup
-    this.executionContexts.delete(key);
-    this.mailboxManager.delete(key);
-    this.fatalErrors.delete(key);
 
     const status = finalSnapshot.system.status === "pending" ? "pending" : "complete";
 
@@ -469,20 +452,42 @@ export class ManifestoHost {
   }
 
   /**
-   * Check if there are pending effects for a key
+   * Check if there are pending effects for a key.
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
    */
-  private hasPendingEffects(key: ExecutionKey): boolean {
+  hasPendingEffects(key: ExecutionKey): boolean {
     return this.pendingEffects.has(key);
   }
 
   /**
-   * Execute all pending effects for a key
+   * Wait for pending effects to complete for a key.
+   *
+   * After the effect promise settles, a FulfillEffect job is enqueued
+   * in the mailbox. The caller should drain() again to process it.
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
    */
-  private async executePendingEffects(key: ExecutionKey): Promise<void> {
+  async waitForPendingEffects(key: ExecutionKey): Promise<void> {
     const entry = this.pendingEffects.get(key);
     if (entry) {
       await entry.promise;
     }
+  }
+
+  /**
+   * Release execution state for a key.
+   *
+   * Cleans up mailbox, execution context, fatal errors, and pending effects.
+   * MUST be called after execution completes (or on timeout/abort) to prevent leaks.
+   *
+   * @public Used by AppHostExecutor's finally block.
+   */
+  releaseExecution(key: ExecutionKey): void {
+    this.executionContexts.delete(key);
+    this.mailboxManager.delete(key);
+    this.fatalErrors.delete(key);
+    this.pendingEffects.delete(key);
   }
 
   /**
@@ -571,47 +576,34 @@ export class ManifestoHost {
   }
 
   /**
-   * Reset the host to initial state
+   * Reset the host to initial state.
+   *
+   * Accepts either a full Snapshot (restores as-is) or plain domain data
+   * (creates a fresh snapshot). Snapshot detection checks for the canonical
+   * `meta.version` (number) + `meta.schemaHash` (string) + `system.status` (string)
+   * fields that only Snapshots carry.
+   *
+   * @deprecated Use seedSnapshot(key, snapshot) for per-key execution instead.
    */
   reset(snapshotOrData: unknown): void {
-    if (this.isSnapshotLike(snapshotOrData)) {
-      this.currentSnapshot = this.cloneSnapshot(snapshotOrData);
+    if (
+      snapshotOrData &&
+      typeof snapshotOrData === "object" &&
+      "meta" in snapshotOrData &&
+      typeof (snapshotOrData as Record<string, unknown>).meta === "object" &&
+      (snapshotOrData as Record<string, unknown>).meta !== null &&
+      typeof ((snapshotOrData as Record<string, unknown>).meta as Record<string, unknown>).version === "number" &&
+      typeof ((snapshotOrData as Record<string, unknown>).meta as Record<string, unknown>).schemaHash === "string" &&
+      "system" in snapshotOrData &&
+      typeof (snapshotOrData as Record<string, unknown>).system === "object" &&
+      (snapshotOrData as Record<string, unknown>).system !== null &&
+      typeof ((snapshotOrData as Record<string, unknown>).system as Record<string, unknown>).status === "string"
+    ) {
+      this.currentSnapshot = this.cloneSnapshot(snapshotOrData as Snapshot);
       return;
     }
 
     this.initializeSnapshot(snapshotOrData);
-  }
-
-  /**
-   * Type guard to detect full snapshots.
-   *
-   * Checks structural markers unique to Snapshot (meta.version, meta.schemaHash,
-   * system.status) to avoid misclassifying domain data that happens to contain
-   * top-level keys named system/meta/data/computed/input.
-   */
-  private isSnapshotLike(value: unknown): value is Snapshot {
-    if (!value || typeof value !== "object") {
-      return false;
-    }
-
-    const candidate = value as Record<string, unknown>;
-
-    // Require top-level shape
-    if (typeof candidate.system !== "object" || candidate.system === null) return false;
-    if (typeof candidate.meta !== "object" || candidate.meta === null) return false;
-    if (!("data" in candidate)) return false;
-    if (!("computed" in candidate)) return false;
-
-    // Require canonical meta fields (version + schemaHash)
-    const meta = candidate.meta as Record<string, unknown>;
-    if (typeof meta.version !== "number") return false;
-    if (typeof meta.schemaHash !== "string") return false;
-
-    // Require canonical system field (status)
-    const system = candidate.system as Record<string, unknown>;
-    if (typeof system.status !== "string") return false;
-
-    return true;
   }
 
   // === v2.0.1 API for HCTS testing ===

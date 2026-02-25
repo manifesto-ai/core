@@ -27,14 +27,27 @@ function makeSnapshot(
   };
 }
 
-describe("Runtime HostExecutor compliance", () => {
-  type HostDispatchResult = {
-    status: "complete";
-    snapshot: Snapshot;
-    error?: unknown;
-  };
+function createMockMailboxHost(overrides: Partial<Host> = {}): Host {
+  return {
+    seedSnapshot: vi.fn(),
+    submitIntent: vi.fn(),
+    drain: vi.fn(async () => {}),
+    getContextSnapshot: vi.fn(() => makeSnapshot({})),
+    hasPendingEffects: vi.fn(() => false),
+    waitForPendingEffects: vi.fn(async () => {}),
+    releaseExecution: vi.fn(),
+    dispatch: vi.fn(async () => ({
+      status: "complete" as const,
+      snapshot: makeSnapshot({}),
+    })),
+    registerEffect: vi.fn(),
+    getRegisteredEffectTypes: vi.fn(() => []),
+    ...overrides,
+  } as Host;
+}
 
-  it("RT-HEXEC-1 / RT-HEXEC-3: AppHostExecutor should execute against provided base snapshot", async () => {
+describe("Runtime HostExecutor compliance", () => {
+  it("RT-HEXEC-1 / RT-HEXEC-3: execute() MUST call seedSnapshot with typed Snapshot", async () => {
     const baseSnapshot = makeSnapshot({
       count: 3,
       nested: { flag: true },
@@ -42,18 +55,16 @@ describe("Runtime HostExecutor compliance", () => {
       $host: {},
     });
 
-    let currentSnapshot = makeSnapshot({ stale: true });
-    const host = {
-      dispatch: vi.fn(async () => ({
-        status: "complete" as const,
-        snapshot: currentSnapshot,
-      })),
-      registerEffect: vi.fn(),
-      getRegisteredEffectTypes: vi.fn(() => []),
-      reset: vi.fn(async (data: unknown) => {
-        currentSnapshot = (data as Snapshot) ?? makeSnapshot({});
-      }),
-    } as Host;
+    const terminalSnapshot = makeSnapshot({
+      count: 3,
+      nested: { flag: true },
+      $mel: { guards: { intent: {} } },
+      $host: {},
+    });
+
+    const host = createMockMailboxHost({
+      getContextSnapshot: vi.fn(() => terminalSnapshot),
+    });
 
     const executor = createAppHostExecutor(host);
     const result = await executor.execute("ek-compliance", baseSnapshot, {
@@ -62,11 +73,13 @@ describe("Runtime HostExecutor compliance", () => {
       intentId: "intent-1",
     });
 
-    expect(host.dispatch).toHaveBeenCalledTimes(1);
-    expect(host.reset).toHaveBeenCalledTimes(1);
-    expect(host.reset).toHaveBeenCalledWith(baseSnapshot);
+    // seedSnapshot called with typed Snapshot (not reset with unknown)
+    expect(host.seedSnapshot).toHaveBeenCalledTimes(1);
+    expect(host.seedSnapshot).toHaveBeenCalledWith("ek-compliance", baseSnapshot);
+    expect(host.submitIntent).toHaveBeenCalledTimes(1);
+    expect(host.drain).toHaveBeenCalled();
     expect(result.outcome).toBe("completed");
-    expect(result.terminalSnapshot).toBe(currentSnapshot);
+    expect(result.terminalSnapshot).toBe(terminalSnapshot);
     expect(result.terminalSnapshot.data).toMatchObject({
       count: 3,
       nested: { flag: true },
@@ -75,20 +88,12 @@ describe("Runtime HostExecutor compliance", () => {
     });
   });
 
-  it("RT-HEXEC-4: HostExecutor must dispatch to Mailbox via ExecutionKey", async () => {
+  it("RT-HEXEC-4: submitIntent MUST be called with correct ExecutionKey", async () => {
     const baseSnapshot = makeSnapshot({ count: 4 });
 
-    const host = {
-      dispatch: vi.fn(async () => ({
-        status: "complete" as const,
-        snapshot: baseSnapshot,
-      })),
-      registerEffect: vi.fn(),
-      getRegisteredEffectTypes: vi.fn(() => []),
-      reset: vi.fn(async (data: unknown) => {
-        expect(data).toEqual(baseSnapshot);
-      }),
-    } as Host;
+    const host = createMockMailboxHost({
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
 
     const executor = createAppHostExecutor(host);
     const executionKey = "proposal:abc";
@@ -96,34 +101,75 @@ describe("Runtime HostExecutor compliance", () => {
     await executor.execute(executionKey, baseSnapshot, {
       type: "increment",
       input: {},
-      intentId: `${executionKey}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+      intentId: "intent-route",
     });
 
-    expect(host.reset).toHaveBeenCalledTimes(1);
-    expect(host.dispatch).toHaveBeenCalledTimes(1);
-    expect(host.dispatch).toHaveBeenCalledWith(
+    expect(host.seedSnapshot).toHaveBeenCalledWith(executionKey, baseSnapshot);
+    expect(host.submitIntent).toHaveBeenCalledWith(
+      executionKey,
       expect.objectContaining({
         type: "increment",
-        intentId: expect.stringMatching(/^proposal:abc_/),
-      }),
-      { key: executionKey }
+        intentId: "intent-route",
+      })
     );
   });
 
-  it("RT-HEXEC-4: same ExecutionKey must wait for prior Host dispatch completion", async () => {
+  it("RT-HEXEC-DRAIN-1: execute() MUST run drain→waitForPendingEffects→re-drain loop", async () => {
+    const baseSnapshot = makeSnapshot({ count: 0 });
+    let drainCount = 0;
+
+    const host = createMockMailboxHost({
+      drain: vi.fn(async () => { drainCount++; }),
+      // First drain cycle: effects are pending. Second cycle: no more effects.
+      hasPendingEffects: vi.fn()
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false),
+      waitForPendingEffects: vi.fn(async () => {}),
+      getContextSnapshot: vi.fn(() => makeSnapshot({ count: 1 })),
+    });
+
+    const executor = createAppHostExecutor(host);
+    await executor.execute("ek-drain", baseSnapshot, {
+      type: "increment",
+      input: {},
+      intentId: "intent-drain",
+    });
+
+    // drain called twice: once initial, once after effect settled
+    expect(drainCount).toBe(2);
+    expect(host.hasPendingEffects).toHaveBeenCalledTimes(2);
+    expect(host.waitForPendingEffects).toHaveBeenCalledTimes(1);
+  });
+
+  it("RT-HEXEC-DRAIN-2: terminal snapshot from getContextSnapshot is returned", async () => {
+    const baseSnapshot = makeSnapshot({ before: true });
+    const terminalSnapshot = makeSnapshot({ after: true });
+
+    const host = createMockMailboxHost({
+      getContextSnapshot: vi.fn(() => terminalSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+    const result = await executor.execute("ek-terminal", baseSnapshot, {
+      type: "transform",
+      input: {},
+      intentId: "intent-terminal",
+    });
+
+    expect(host.getContextSnapshot).toHaveBeenCalledWith("ek-terminal");
+    expect(result.terminalSnapshot).toBe(terminalSnapshot);
+  });
+
+  it("RT-HEXEC-SERIAL-1: same ExecutionKey must wait for prior drain completion", async () => {
     const baseSnapshot = makeSnapshot({ count: 8 });
-    const pendingDispatches: Array<(result: HostDispatchResult) => void> = [];
-    const host = {
-      dispatch: vi.fn(
-        async () =>
-          new Promise<HostDispatchResult>((resolve) => {
-            pendingDispatches.push(resolve);
-          })
+    const pendingDrains: Array<() => void> = [];
+
+    const host = createMockMailboxHost({
+      drain: vi.fn(
+        () => new Promise<void>((resolve) => { pendingDrains.push(resolve); })
       ),
-      registerEffect: vi.fn(),
-      getRegisteredEffectTypes: vi.fn(() => []),
-      reset: vi.fn(async () => {}),
-    } as Host;
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
 
     const executor = createAppHostExecutor(host);
     const executionKey = "proposal-serial";
@@ -133,8 +179,7 @@ describe("Runtime HostExecutor compliance", () => {
       input: { step: 1 },
       intentId: "intent-1",
     });
-    await vi.waitFor(() => expect(host.dispatch).toHaveBeenCalledTimes(1), { timeout: 1_000 });
-    expect(host.dispatch).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(host.drain).toHaveBeenCalledTimes(1), { timeout: 1_000 });
 
     const second = executor.execute(executionKey, baseSnapshot, {
       type: "increment",
@@ -142,29 +187,90 @@ describe("Runtime HostExecutor compliance", () => {
       intentId: "intent-2",
     });
 
-    await vi.waitFor(() => expect(host.dispatch).toHaveBeenCalledTimes(1), { timeout: 1_000 });
-    expect(host.dispatch).toHaveBeenCalledTimes(1);
+    // Second drain should NOT have started yet
+    expect(host.drain).toHaveBeenCalledTimes(1);
 
-    pendingDispatches[0]({
-      status: "complete",
-      snapshot: baseSnapshot,
-    });
-
+    // Complete first drain
+    pendingDrains[0]();
     await expect(first).resolves.toMatchObject({ outcome: "completed" });
 
-    await vi.waitFor(() => expect(host.dispatch).toHaveBeenCalledTimes(2), { timeout: 1_000 });
-    expect(host.dispatch).toHaveBeenCalledTimes(2);
-    expect(host.dispatch).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: "increment", input: { step: 2 }, intentId: "intent-2" }),
-      { key: executionKey }
+    // Now second drain should start
+    await vi.waitFor(() => expect(host.drain).toHaveBeenCalledTimes(2), { timeout: 1_000 });
+
+    // seedSnapshot called twice with correct key
+    expect(host.seedSnapshot).toHaveBeenCalledTimes(2);
+    expect(host.submitIntent).toHaveBeenNthCalledWith(
+      2,
+      executionKey,
+      expect.objectContaining({ intentId: "intent-2" })
     );
 
-    pendingDispatches[1]({
-      status: "complete",
-      snapshot: baseSnapshot,
+    pendingDrains[1]();
+    await expect(second).resolves.toMatchObject({ outcome: "completed" });
+  });
+
+  it("RT-HEXEC-ABORT-1: abort while queued returns failed without starting execution", async () => {
+    const baseSnapshot = makeSnapshot({});
+    const controller = new AbortController();
+
+    // Abort immediately
+    controller.abort();
+
+    const host = createMockMailboxHost();
+    const executor = createAppHostExecutor(host);
+
+    const result = await executor.execute("ek-abort", baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-abort",
+    }, { signal: controller.signal });
+
+    expect(result.outcome).toBe("failed");
+    expect(result.error?.code).toBe("EXECUTION_ABORTED");
+    // seedSnapshot should NOT have been called (aborted before execution)
+    expect(host.seedSnapshot).not.toHaveBeenCalled();
+    expect(host.drain).not.toHaveBeenCalled();
+  });
+
+  it("RT-HEXEC-CLEANUP-1: releaseExecution called in finally block", async () => {
+    const baseSnapshot = makeSnapshot({});
+
+    const host = createMockMailboxHost({
+      getContextSnapshot: vi.fn(() => baseSnapshot),
     });
 
-    await expect(second).resolves.toMatchObject({ outcome: "completed" });
-    expect(host.dispatch).toHaveBeenCalledTimes(2);
+    const executor = createAppHostExecutor(host);
+    await executor.execute("ek-cleanup", baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-cleanup",
+    });
+
+    expect(host.releaseExecution).toHaveBeenCalledTimes(1);
+    expect(host.releaseExecution).toHaveBeenCalledWith("ek-cleanup");
+  });
+
+  it("RT-HEXEC-OUTCOME-1: outcome derived from terminal snapshot lastError", async () => {
+    const errorSnapshot = makeSnapshot({});
+    (errorSnapshot.system as Record<string, unknown>).lastError = {
+      code: "TEST_ERROR",
+      message: "Something went wrong",
+      source: { actionId: "test", nodePath: "test" },
+      timestamp: 1_700_000_000_000,
+    };
+
+    const host = createMockMailboxHost({
+      getContextSnapshot: vi.fn(() => errorSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+    const result = await executor.execute("ek-outcome", makeSnapshot({}), {
+      type: "fail",
+      input: {},
+      intentId: "intent-outcome",
+    });
+
+    expect(result.outcome).toBe("failed");
+    expect(result.error).toMatchObject({ code: "TEST_ERROR" });
   });
 });

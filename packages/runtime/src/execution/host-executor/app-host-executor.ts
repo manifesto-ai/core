@@ -1,9 +1,11 @@
 /**
  * AppHostExecutor
  *
- * App's implementation of HostExecutor that wraps the actual Host.
+ * App's implementation of HostExecutor that wraps the actual Host
+ * using the v2 mailbox API (seedSnapshot/submitIntent/drain).
  *
  * @see SPEC v2.0.0 §8
+ * @see FDR-H018~H020 (Mailbox, Run-to-Completion, Single-Runner)
  * @module
  */
 
@@ -20,14 +22,20 @@ import type {
 } from "../../types/index.js";
 import type { AppHostExecutorOptions, ExecutionContext } from "./interface.js";
 
+/** Maximum drain-effect-drain iterations before giving up. */
+const MAX_DRAIN_ITERATIONS = 100;
+
 /**
  * AppHostExecutor: Implements HostExecutor by wrapping a Host instance.
  *
- * Responsibilities:
- * - Route execution to correct mailbox via ExecutionKey
- * - Track in-flight executions for abort support
- * - Convert Host results to HostExecutionResult
- * - Exclude Host internal types (use ArtifactRef for trace)
+ * Uses the v2 mailbox API for per-key execution isolation:
+ * - seedSnapshot(key, snapshot) — typed Snapshot, no duck-typing
+ * - submitIntent(key, intent)   — enqueues work into the key's mailbox
+ * - drain(key)                  — processes one cycle of mailbox jobs
+ * - getContextSnapshot(key)     — reads terminal snapshot
+ *
+ * Same-key serialization is enforced via _executionLocks so that
+ * concurrent calls for the same key never overlap Host state.
  *
  * @see SPEC v2.0.0 §8 HEXEC-1~6
  */
@@ -62,21 +70,21 @@ export class AppHostExecutor implements HostExecutor {
 
     const previous = this._executionLocks.get(key) ?? Promise.resolve();
 
-    // Tracks when the underlying dispatch fully settles (not just the race winner).
+    // Tracks when the underlying drain loop fully settles (not just the race winner).
     // The lock must wait for this so subsequent same-key calls never overlap Host state.
-    let resolveDispatchSettled!: () => void;
-    const dispatchSettled = new Promise<void>((r) => { resolveDispatchSettled = r; });
+    let resolveDrainSettled!: () => void;
+    const drainSettled = new Promise<void>((r) => { resolveDrainSettled = r; });
 
     const run = previous.then(async () => {
       // Early-exit if already aborted while queued
       if (opts?.signal?.aborted) {
-        resolveDispatchSettled();
+        resolveDrainSettled();
         return this._toErrorResult(
-          new ExecutionAbortedError(key), baseSnapshot, startedAt
+          new ExecutionAbortedError(key), baseSnapshot,
         );
       }
 
-      // Create execution context
+      // Create execution context for tracking
       const ctx: ExecutionContext = {
         key,
         startedAt,
@@ -85,16 +93,19 @@ export class AppHostExecutor implements HostExecutor {
         signal: opts?.signal,
         aborted: false,
       };
-
-      // Track execution
       this._executions.set(key, ctx);
 
-      // Execute with timeout and abort handling
-      const dispatchPromise = this._executeWithHost(key, intent, baseSnapshot);
+      // Seed snapshot and submit intent via mailbox API (typed, no duck-typing)
+      this._host.seedSnapshot(key, baseSnapshot);
+      this._host.submitIntent(key, intent);
 
-      // Ensure lock is held until the dispatch settles regardless of race outcome
-      dispatchPromise.then(() => resolveDispatchSettled(), () => resolveDispatchSettled());
+      // Drain-effect-drain loop
+      const drainPromise = this._drainToCompletion(key);
 
+      // Ensure lock is held until drain fully settles regardless of race outcome
+      drainPromise.then(() => resolveDrainSettled(), () => resolveDrainSettled());
+
+      // Timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           ctx.aborted = true;
@@ -102,8 +113,7 @@ export class AppHostExecutor implements HostExecutor {
         }, timeoutMs);
       });
 
-      // Create abort promise (if signal provided)
-      // Note: Using { once: true } to prevent memory leak - listener auto-removes after firing
+      // Abort promise (if signal provided)
       const abortPromise = opts?.signal
         ? new Promise<never>((_, reject) => {
             opts.signal!.addEventListener("abort", () => {
@@ -113,27 +123,28 @@ export class AppHostExecutor implements HostExecutor {
           })
         : null;
 
-      const racePromises = [dispatchPromise, timeoutPromise];
+      const racePromises: Promise<unknown>[] = [drainPromise, timeoutPromise];
       if (abortPromise) {
         racePromises.push(abortPromise);
       }
 
       try {
-        const result = await Promise.race(racePromises);
+        await Promise.race(racePromises);
 
-        // Convert to HostExecutionResult
-        return this._toHostExecutionResult(result, startedAt);
+        // Drain completed normally — get terminal snapshot
+        const terminalSnapshot = this._host.getContextSnapshot(key) ?? baseSnapshot;
+        return this._toResult(terminalSnapshot);
       } catch (error) {
-        // Handle errors
-        return this._toErrorResult(error, baseSnapshot, startedAt);
+        return this._toErrorResult(error, baseSnapshot);
       } finally {
-        // Cleanup
+        // Cleanup Host execution state and local tracking
+        this._host.releaseExecution(key);
         this._executions.delete(key);
       }
     });
 
-    // Lock waits for dispatch to fully settle, not just for run to resolve
-    const lock = dispatchSettled.then(() => undefined);
+    // Lock waits for drain to fully settle, not just for run to resolve
+    const lock = drainSettled.then(() => undefined);
     this._executionLocks.set(key, lock);
     lock.finally(() => {
       if (this._executionLocks.get(key) === lock) {
@@ -155,8 +166,6 @@ export class AppHostExecutor implements HostExecutor {
     const ctx = this._executions.get(key);
     if (ctx) {
       ctx.aborted = true;
-      // Note: Actual abort depends on Host implementation
-      // This is best-effort as the Host may not support abort
     }
   }
 
@@ -165,50 +174,51 @@ export class AppHostExecutor implements HostExecutor {
   // ===========================================================================
 
   /**
-   * Execute intent through Host.
-   */
-  private async _executeWithHost(
-    key: ExecutionKey,
-    intent: Intent,
-    baseSnapshot: Snapshot
-  ): Promise<HostDispatchResult> {
-    // Ensure Host starts from the provided base snapshot
-    await this._seedHostFromBaseSnapshot(baseSnapshot);
-
-    // Dispatch to Host
-    const hostResult = await this._host.dispatch(intent, { key });
-
-    return {
-      status: hostResult.status,
-      snapshot: hostResult.snapshot,
-      error: hostResult.error,
-    };
-  }
-
-  /**
-   * Seed host snapshot before execution.
-   */
-  private async _seedHostFromBaseSnapshot(baseSnapshot: Snapshot): Promise<void> {
-    if (typeof this._host.reset !== "function") {
-      return;
-    }
-
-    await this._host.reset(baseSnapshot);
-  }
-
-  /**
-   * Convert Host result to HostExecutionResult.
+   * Run the drain-effect-drain loop until the mailbox is fully processed.
    *
-   * HEXEC-6: MUST NOT contain Host internal types.
+   * Mirrors the loop in ManifestoHost.dispatch() but uses public mailbox API:
+   * 1. drain(key) — process all queued jobs
+   * 2. If effects are pending, wait for them (FulfillEffect job will be enqueued)
+   * 3. Re-drain to process the FulfillEffect job → may trigger more effects
+   * 4. Repeat until no more pending effects and mailbox is empty
    */
-  private _toHostExecutionResult(
-    result: HostDispatchResult,
-    startedAt: number
-  ): HostExecutionResult {
-    // Note: Host returns "complete" (not "completed") for success
-    const outcome = result.status === "complete" ? "completed" : "failed";
+  private async _drainToCompletion(key: ExecutionKey): Promise<void> {
+    for (let i = 0; i < MAX_DRAIN_ITERATIONS; i++) {
+      await this._host.drain(key);
 
-    // Generate trace reference if tracing is enabled
+      if (this._host.hasPendingEffects(key)) {
+        await this._host.waitForPendingEffects(key);
+        continue; // FulfillEffect job enqueued → re-drain
+      }
+
+      // No pending effects; drain processed everything
+      break;
+    }
+  }
+
+  /**
+   * Derive outcome from terminal snapshot.
+   *
+   * WORLD-HEXEC-6: World's deriveOutcome(terminalSnapshot) is authoritative;
+   * this is an advisory hint matching the same logic.
+   */
+  private _deriveOutcome(snapshot: Snapshot): "completed" | "failed" {
+    if (snapshot.system.lastError != null) return "failed";
+    if (
+      snapshot.system.pendingRequirements &&
+      snapshot.system.pendingRequirements.length > 0
+    ) {
+      return "failed";
+    }
+    return "completed";
+  }
+
+  /**
+   * Build HostExecutionResult from a terminal snapshot.
+   */
+  private _toResult(terminalSnapshot: Snapshot): HostExecutionResult {
+    const outcome = this._deriveOutcome(terminalSnapshot);
+
     const traceRef: ArtifactRef | undefined = this._options.traceEnabled
       ? {
           uri: `trace://execution/${Date.now().toString(36)}`,
@@ -216,10 +226,15 @@ export class AppHostExecutor implements HostExecutor {
         }
       : undefined;
 
+    const error: ErrorValue | undefined =
+      terminalSnapshot.system.lastError != null
+        ? terminalSnapshot.system.lastError
+        : undefined;
+
     return {
       outcome,
-      terminalSnapshot: result.snapshot,
-      error: result.error,
+      terminalSnapshot,
+      error,
       traceRef,
     };
   }
@@ -230,7 +245,6 @@ export class AppHostExecutor implements HostExecutor {
   private _toErrorResult(
     error: unknown,
     baseSnapshot: Snapshot,
-    startedAt: number
   ): HostExecutionResult {
     const errorValue: ErrorValue = {
       code: error instanceof ExecutionTimeoutError
@@ -272,16 +286,6 @@ export class AppHostExecutor implements HostExecutor {
     return this._host.getRegisteredEffectTypes?.() ?? [];
   }
 }
-
-/**
- * Internal Host dispatch result type.
- * Note: Host returns "complete"/"pending"/"error", not "completed"/"failed"
- */
-type HostDispatchResult = {
-  status: "complete" | "pending" | "error";
-  snapshot: Snapshot;
-  error?: ErrorValue;
-};
 
 /**
  * Error thrown when execution times out.
