@@ -35,6 +35,7 @@ function createMockMailboxHost(overrides: Partial<Host> = {}): Host {
     getContextSnapshot: vi.fn(() => makeSnapshot({})),
     hasPendingEffects: vi.fn(() => false),
     waitForPendingEffects: vi.fn(async () => {}),
+    hasQueuedWork: vi.fn(() => false),
     releaseExecution: vi.fn(),
     dispatch: vi.fn(async () => ({
       status: "complete" as const,
@@ -248,6 +249,70 @@ describe("Runtime HostExecutor compliance", () => {
 
     expect(host.releaseExecution).toHaveBeenCalledTimes(1);
     expect(host.releaseExecution).toHaveBeenCalledWith("ek-cleanup");
+  });
+
+  it("RT-HEXEC-DRAIN-3: drain loop continues when hasQueuedWork is true (P1)", async () => {
+    const baseSnapshot = makeSnapshot({ count: 0 });
+    let drainCount = 0;
+
+    const host = createMockMailboxHost({
+      drain: vi.fn(async () => { drainCount++; }),
+      // No pending effects on any cycle
+      hasPendingEffects: vi.fn(() => false),
+      // First cycle: queued work remains (runner teardown re-scheduled jobs).
+      // Second cycle: mailbox is empty.
+      hasQueuedWork: vi.fn()
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false),
+      getContextSnapshot: vi.fn(() => makeSnapshot({ count: 1 })),
+    });
+
+    const executor = createAppHostExecutor(host);
+    await executor.execute("ek-queued", baseSnapshot, {
+      type: "increment",
+      input: {},
+      intentId: "intent-queued",
+    });
+
+    // drain called twice: once initial (queued work remained), once more to settle
+    expect(drainCount).toBe(2);
+    expect(host.hasQueuedWork).toHaveBeenCalledTimes(2);
+  });
+
+  it("RT-HEXEC-SETUP-1: lock released when seedSnapshot throws (P2)", async () => {
+    const baseSnapshot = makeSnapshot({});
+
+    const host = createMockMailboxHost({
+      seedSnapshot: vi.fn(() => { throw new Error("seed failed"); }),
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+    const executionKey = "ek-setup-fail";
+
+    // First call should fail but release the lock
+    const result1 = await executor.execute(executionKey, baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-fail",
+    });
+    expect(result1.outcome).toBe("failed");
+    expect(result1.error?.code).toBe("EXECUTION_ERROR");
+
+    // Second call for the same key MUST NOT deadlock
+    const goodHost = createMockMailboxHost({
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
+    // Replace seedSnapshot to succeed this time
+    (host.seedSnapshot as ReturnType<typeof vi.fn>).mockImplementation(() => {});
+    (host.drain as ReturnType<typeof vi.fn>).mockImplementation(async () => {});
+
+    const result2 = await executor.execute(executionKey, baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-recover",
+    });
+    expect(result2.outcome).toBe("completed");
   });
 
   it("RT-HEXEC-OUTCOME-1: outcome derived from terminal snapshot lastError", async () => {

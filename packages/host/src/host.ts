@@ -461,6 +461,21 @@ export class ManifestoHost {
   }
 
   /**
+   * Check if the mailbox for a key still has queued jobs.
+   *
+   * Used by AppHostExecutor's drain loop to mirror the termination
+   * condition in dispatch(): break only when mailbox is empty AND
+   * no pending effects, preventing premature exit when processMailbox
+   * re-schedules itself via microtask (RUN-4/LIVE-4).
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
+   */
+  hasQueuedWork(key: ExecutionKey): boolean {
+    const mailbox = this.mailboxManager.getOrCreate(key);
+    return !mailbox.isEmpty();
+  }
+
+  /**
    * Wait for pending effects to complete for a key.
    *
    * After the effect promise settles, a FulfillEffect job is enqueued

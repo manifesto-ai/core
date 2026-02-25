@@ -145,6 +145,13 @@ export interface Host {
   waitForPendingEffects(key: ExecutionKey): Promise<void>;
 
   /**
+   * Check if the mailbox for a key still has queued jobs.
+   * Used by the drain loop to avoid premature exit when processMailbox
+   * re-schedules itself via microtask (RUN-4/LIVE-4).
+   */
+  hasQueuedWork(key: ExecutionKey): boolean;
+
+  /**
    * Release execution state for a key (cleanup).
    * MUST be called after execution completes to prevent resource leaks.
    */

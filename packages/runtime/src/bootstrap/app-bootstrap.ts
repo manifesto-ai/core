@@ -338,6 +338,7 @@ export class AppBootstrap {
       getContextSnapshot: (key) => internalHost.getContextSnapshot(key),
       hasPendingEffects: (key) => internalHost.hasPendingEffects(key),
       waitForPendingEffects: (key) => internalHost.waitForPendingEffects(key),
+      hasQueuedWork: (key) => internalHost.hasQueuedWork(key),
       releaseExecution: (key) => internalHost.releaseExecution(key),
 
       // Legacy API (kept for backward compatibility)

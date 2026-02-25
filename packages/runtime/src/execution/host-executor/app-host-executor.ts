@@ -95,9 +95,16 @@ export class AppHostExecutor implements HostExecutor {
       };
       this._executions.set(key, ctx);
 
-      // Seed snapshot and submit intent via mailbox API (typed, no duck-typing)
-      this._host.seedSnapshot(key, baseSnapshot);
-      this._host.submitIntent(key, intent);
+      // Seed snapshot and submit intent via mailbox API (typed, no duck-typing).
+      // Wrap in try so that a setup failure still resolves drainSettled and
+      // releases the per-key lock (P2: prevent permanent lock on setup throw).
+      try {
+        this._host.seedSnapshot(key, baseSnapshot);
+        this._host.submitIntent(key, intent);
+      } catch (setupError) {
+        resolveDrainSettled();
+        return this._toErrorResult(setupError, baseSnapshot);
+      }
 
       // Drain-effect-drain loop
       const drainPromise = this._drainToCompletion(key);
@@ -176,11 +183,14 @@ export class AppHostExecutor implements HostExecutor {
   /**
    * Run the drain-effect-drain loop until the mailbox is fully processed.
    *
-   * Mirrors the loop in ManifestoHost.dispatch() but uses public mailbox API:
-   * 1. drain(key) — process all queued jobs
+   * Mirrors the termination condition in ManifestoHost.dispatch():
+   * break only when the mailbox is empty AND no pending effects.
+   *
+   * 1. drain(key) — process one cycle of queued jobs
    * 2. If effects are pending, wait for them (FulfillEffect job will be enqueued)
-   * 3. Re-drain to process the FulfillEffect job → may trigger more effects
-   * 4. Repeat until no more pending effects and mailbox is empty
+   * 3. If mailbox still has queued work (e.g. from runner teardown microtask
+   *    re-scheduling per RUN-4/LIVE-4), re-drain
+   * 4. Repeat until no pending effects and no queued work
    */
   private async _drainToCompletion(key: ExecutionKey): Promise<void> {
     for (let i = 0; i < MAX_DRAIN_ITERATIONS; i++) {
@@ -191,8 +201,12 @@ export class AppHostExecutor implements HostExecutor {
         continue; // FulfillEffect job enqueued → re-drain
       }
 
-      // No pending effects; drain processed everything
-      break;
+      // Mirror dispatch(): only break when mailbox is truly empty.
+      // processMailbox may re-schedule via microtask during runner
+      // teardown (RUN-4/LIVE-4), leaving queued jobs after drain().
+      if (!this._host.hasQueuedWork(key)) {
+        break;
+      }
     }
   }
 
