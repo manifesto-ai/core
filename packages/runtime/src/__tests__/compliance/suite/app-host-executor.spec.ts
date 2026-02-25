@@ -279,7 +279,7 @@ describe("Runtime HostExecutor compliance", () => {
     expect(host.hasQueuedWork).toHaveBeenCalledTimes(2);
   });
 
-  it("RT-HEXEC-SETUP-1: lock released when seedSnapshot throws (P2)", async () => {
+  it("RT-HEXEC-SETUP-1: lock released and cleanup runs when seedSnapshot throws (P2)", async () => {
     const baseSnapshot = makeSnapshot({});
 
     const host = createMockMailboxHost({
@@ -290,7 +290,7 @@ describe("Runtime HostExecutor compliance", () => {
     const executor = createAppHostExecutor(host);
     const executionKey = "ek-setup-fail";
 
-    // First call should fail but release the lock
+    // First call should fail but release the lock and run cleanup
     const result1 = await executor.execute(executionKey, baseSnapshot, {
       type: "noop",
       input: {},
@@ -299,11 +299,11 @@ describe("Runtime HostExecutor compliance", () => {
     expect(result1.outcome).toBe("failed");
     expect(result1.error?.code).toBe("EXECUTION_ERROR");
 
+    // releaseExecution MUST be called even on setup failure
+    expect(host.releaseExecution).toHaveBeenCalledTimes(1);
+    expect(host.releaseExecution).toHaveBeenCalledWith(executionKey);
+
     // Second call for the same key MUST NOT deadlock
-    const goodHost = createMockMailboxHost({
-      getContextSnapshot: vi.fn(() => baseSnapshot),
-    });
-    // Replace seedSnapshot to succeed this time
     (host.seedSnapshot as ReturnType<typeof vi.fn>).mockImplementation(() => {});
     (host.drain as ReturnType<typeof vi.fn>).mockImplementation(async () => {});
 
@@ -313,6 +313,30 @@ describe("Runtime HostExecutor compliance", () => {
       intentId: "intent-recover",
     });
     expect(result2.outcome).toBe("completed");
+  });
+
+  it("RT-HEXEC-DRAIN-4: iteration cap exhaustion reports failure (P1)", async () => {
+    const baseSnapshot = makeSnapshot({});
+
+    const host = createMockMailboxHost({
+      drain: vi.fn(async () => {}),
+      hasPendingEffects: vi.fn(() => false),
+      // Always report queued work — simulates a never-settling mailbox
+      hasQueuedWork: vi.fn(() => true),
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+    const result = await executor.execute("ek-cap", baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-cap",
+    });
+
+    expect(result.outcome).toBe("failed");
+    expect(result.error?.code).toBe("DRAIN_ITERATION_CAP");
+    // releaseExecution still called
+    expect(host.releaseExecution).toHaveBeenCalledWith("ek-cap");
   });
 
   it("RT-HEXEC-OUTCOME-1: outcome derived from terminal snapshot lastError", async () => {

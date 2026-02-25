@@ -95,47 +95,42 @@ export class AppHostExecutor implements HostExecutor {
       };
       this._executions.set(key, ctx);
 
-      // Seed snapshot and submit intent via mailbox API (typed, no duck-typing).
-      // Wrap in try so that a setup failure still resolves drainSettled and
-      // releases the per-key lock (P2: prevent permanent lock on setup throw).
+      // Single try/finally ensures releaseExecution and _executions cleanup
+      // always run, including when seedSnapshot/submitIntent throw.
       try {
+        // Seed snapshot and submit intent via mailbox API (typed, no duck-typing)
         this._host.seedSnapshot(key, baseSnapshot);
         this._host.submitIntent(key, intent);
-      } catch (setupError) {
-        resolveDrainSettled();
-        return this._toErrorResult(setupError, baseSnapshot);
-      }
 
-      // Drain-effect-drain loop
-      const drainPromise = this._drainToCompletion(key);
+        // Drain-effect-drain loop
+        const drainPromise = this._drainToCompletion(key);
 
-      // Ensure lock is held until drain fully settles regardless of race outcome
-      drainPromise.then(() => resolveDrainSettled(), () => resolveDrainSettled());
+        // Ensure lock is held until drain fully settles regardless of race outcome
+        drainPromise.then(() => resolveDrainSettled(), () => resolveDrainSettled());
 
-      // Timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          ctx.aborted = true;
-          reject(new ExecutionTimeoutError(key, timeoutMs));
-        }, timeoutMs);
-      });
+        // Timeout promise
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            ctx.aborted = true;
+            reject(new ExecutionTimeoutError(key, timeoutMs));
+          }, timeoutMs);
+        });
 
-      // Abort promise (if signal provided)
-      const abortPromise = opts?.signal
-        ? new Promise<never>((_, reject) => {
-            opts.signal!.addEventListener("abort", () => {
-              ctx.aborted = true;
-              reject(new ExecutionAbortedError(key));
-            }, { once: true });
-          })
-        : null;
+        // Abort promise (if signal provided)
+        const abortPromise = opts?.signal
+          ? new Promise<never>((_, reject) => {
+              opts.signal!.addEventListener("abort", () => {
+                ctx.aborted = true;
+                reject(new ExecutionAbortedError(key));
+              }, { once: true });
+            })
+          : null;
 
-      const racePromises: Promise<unknown>[] = [drainPromise, timeoutPromise];
-      if (abortPromise) {
-        racePromises.push(abortPromise);
-      }
+        const racePromises: Promise<unknown>[] = [drainPromise, timeoutPromise];
+        if (abortPromise) {
+          racePromises.push(abortPromise);
+        }
 
-      try {
         await Promise.race(racePromises);
 
         // Drain completed normally — get terminal snapshot
@@ -144,9 +139,12 @@ export class AppHostExecutor implements HostExecutor {
       } catch (error) {
         return this._toErrorResult(error, baseSnapshot);
       } finally {
-        // Cleanup Host execution state and local tracking
+        // Cleanup Host execution state and local tracking.
+        // Also resolve drainSettled in case setup failed before drainPromise
+        // was created, preventing the per-key lock from staying stuck.
         this._host.releaseExecution(key);
         this._executions.delete(key);
+        resolveDrainSettled();
       }
     });
 
@@ -205,9 +203,13 @@ export class AppHostExecutor implements HostExecutor {
       // processMailbox may re-schedule via microtask during runner
       // teardown (RUN-4/LIVE-4), leaving queued jobs after drain().
       if (!this._host.hasQueuedWork(key)) {
-        break;
+        return;
       }
     }
+
+    // Iteration cap exhausted — execution may not have reached terminal state.
+    // Throw so the caller reports failure rather than a false "completed".
+    throw new DrainIterationCapError(key, MAX_DRAIN_ITERATIONS);
   }
 
   /**
@@ -265,6 +267,8 @@ export class AppHostExecutor implements HostExecutor {
         ? "EXECUTION_TIMEOUT"
         : error instanceof ExecutionAbortedError
         ? "EXECUTION_ABORTED"
+        : error instanceof DrainIterationCapError
+        ? "DRAIN_ITERATION_CAP"
         : "EXECUTION_ERROR",
       message: error instanceof Error ? error.message : String(error),
       source: {
@@ -313,6 +317,24 @@ export class ExecutionTimeoutError extends Error {
     this.name = "ExecutionTimeoutError";
     this.key = key;
     this.timeoutMs = timeoutMs;
+  }
+}
+
+/**
+ * Error thrown when drain loop hits MAX_DRAIN_ITERATIONS without reaching
+ * terminal state. Prevents false "completed" reports.
+ */
+export class DrainIterationCapError extends Error {
+  readonly key: ExecutionKey;
+  readonly iterations: number;
+
+  constructor(key: ExecutionKey, iterations: number) {
+    super(
+      `Drain loop exhausted ${iterations} iterations without reaching terminal state for key: ${key}`
+    );
+    this.name = "DrainIterationCapError";
+    this.key = key;
+    this.iterations = iterations;
   }
 }
 
