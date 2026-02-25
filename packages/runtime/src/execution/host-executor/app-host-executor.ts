@@ -63,6 +63,13 @@ export class AppHostExecutor implements HostExecutor {
     const previous = this._executionLocks.get(key) ?? Promise.resolve();
 
     const run = previous.then(async () => {
+      // Early-exit if already aborted while queued
+      if (opts?.signal?.aborted) {
+        return this._toErrorResult(
+          new ExecutionAbortedError(key), baseSnapshot, startedAt
+        );
+      }
+
       // Create execution context
       const ctx: ExecutionContext = {
         key,
