@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.1](https://github.com/manifesto-ai/core/compare/world-v2.4.0...world-v2.4.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+
 ## [2.4.0](https://github.com/manifesto-ai/core/compare/world-v2.3.0...world-v2.4.0) (2026-02-17)
 
 
