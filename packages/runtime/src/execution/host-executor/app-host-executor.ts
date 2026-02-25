@@ -117,10 +117,18 @@ export class AppHostExecutor implements HostExecutor {
         // Abort promise (if signal provided)
         const abortPromise = opts?.signal
           ? new Promise<never>((_, reject) => {
-              opts.signal!.addEventListener("abort", () => {
+              const onAbort = () => {
                 ctx.aborted = true;
                 reject(new ExecutionAbortedError(key));
-              }, { once: true });
+              };
+              opts.signal!.addEventListener("abort", onAbort, { once: true });
+              // Re-check after attaching: the signal may have fired between
+              // the early-exit check (line 81) and the listener attachment
+              // above.  Without this, a same-key queued execution that was
+              // aborted during the gap would proceed as if not cancelled.
+              if (opts.signal!.aborted) {
+                onAbort();
+              }
             })
           : null;
 
@@ -135,7 +143,11 @@ export class AppHostExecutor implements HostExecutor {
         const terminalSnapshot = this._host.getContextSnapshot(key) ?? baseSnapshot;
         return this._toResult(terminalSnapshot);
       } catch (error) {
-        return this._toErrorResult(error, baseSnapshot);
+        // Read context snapshot BEFORE cleanup (which happens in finally).
+        // On drain-loop failures the Host may have advanced the snapshot
+        // beyond baseSnapshot; using baseSnapshot would drop those patches.
+        const contextSnapshot = this._host.getContextSnapshot(key) ?? baseSnapshot;
+        return this._toErrorResult(error, contextSnapshot);
       } finally {
         // Cleanup Host execution state and local tracking.
         // Also resolve drainSettled in case setup failed before drainPromise

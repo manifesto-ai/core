@@ -15,6 +15,7 @@ import {
   createSnapshot,
   evaluateComputed,
   isOk,
+  Snapshot as SnapshotSchema,
   type ManifestoCore,
   type DomainSchema,
   type Snapshot,
@@ -615,24 +616,12 @@ export class ManifestoHost {
    * @deprecated Use seedSnapshot(key, snapshot) for per-key execution instead.
    */
   reset(snapshotOrData: unknown): void {
-    const obj = snapshotOrData as Record<string, unknown> | null;
-    if (
-      obj &&
-      typeof obj === "object" &&
-      // Canonical Snapshot structural keys that domain data never carries.
-      // Presence check only — values may be {} or undefined internally.
-      "data" in obj &&
-      "computed" in obj &&
-      "input" in obj &&
-      // meta: version (number) + schemaHash (string)
-      "meta" in obj && typeof obj.meta === "object" && obj.meta !== null &&
-      typeof (obj.meta as Record<string, unknown>).version === "number" &&
-      typeof (obj.meta as Record<string, unknown>).schemaHash === "string" &&
-      // system: status (string)
-      "system" in obj && typeof obj.system === "object" && obj.system !== null &&
-      typeof (obj.system as Record<string, unknown>).status === "string"
-    ) {
-      this.currentSnapshot = this.cloneSnapshot(snapshotOrData as Snapshot);
+    // Use the authoritative Zod schema to detect Snapshots instead of
+    // duck-typing structural keys.  Duck-typing can misclassify domain
+    // data that happens to contain fields like `data`, `meta`, `system`.
+    const parsed = SnapshotSchema.safeParse(snapshotOrData);
+    if (parsed.success) {
+      this.currentSnapshot = this.cloneSnapshot(parsed.data);
       return;
     }
 
