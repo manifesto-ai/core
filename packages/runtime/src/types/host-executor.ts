@@ -98,11 +98,79 @@ export type ManifestoWorld = {
 
 /**
  * Host interface for v2 injection.
- * This is a minimal interface that App requires from Host.
+ *
+ * v2.1: Added mailbox API methods (seedSnapshot, submitIntent, drain,
+ * getContextSnapshot, hasPendingEffects, waitForPendingEffects, releaseExecution)
+ * for SPEC-compliant per-key execution. Legacy dispatch/reset preserved for
+ * backward compatibility but deprecated for AppHostExecutor use.
+ *
+ * @see SPEC v2.0.0 §8, FDR-H018~H020
  */
 export interface Host {
+  // === v2.1 Mailbox API (used by AppHostExecutor) ===
+
+  /**
+   * Seed a snapshot for a given execution key.
+   * Creates per-key mailbox and execution context.
+   */
+  seedSnapshot(key: ExecutionKey, snapshot: Snapshot): void;
+
+  /**
+   * Submit an intent for processing under an execution key.
+   * Requires prior seedSnapshot() call. Enqueues a StartIntentJob.
+   */
+  submitIntent(key: ExecutionKey, intent: Intent): void;
+
+  /**
+   * Drain the mailbox for an execution key (one processing cycle).
+   * Resolves when the current batch of jobs is processed.
+   */
+  drain(key: ExecutionKey): Promise<void>;
+
+  /**
+   * Get the current terminal snapshot for an execution key.
+   * Returns a cloned snapshot or undefined if no context exists.
+   */
+  getContextSnapshot(key: ExecutionKey): Snapshot | undefined;
+
+  /**
+   * Check if there are pending (in-flight) effects for a key.
+   */
+  hasPendingEffects(key: ExecutionKey): boolean;
+
+  /**
+   * Wait for pending effects to settle for a key.
+   * After settlement, a FulfillEffect job is enqueued — caller should drain() again.
+   */
+  waitForPendingEffects(key: ExecutionKey): Promise<void>;
+
+  /**
+   * Check if the mailbox for a key still has queued jobs.
+   * Used by the drain loop to avoid premature exit when processMailbox
+   * re-schedules itself via microtask (RUN-4/LIVE-4).
+   */
+  hasQueuedWork(key: ExecutionKey): boolean;
+
+  /**
+   * Check if a fatal error has been recorded for a key.
+   * Fatal errors are escalated by the runner when jobs throw and are
+   * tracked in a separate map (not in snapshot.system.lastError), so
+   * the drain loop must check this explicitly to avoid reporting
+   * "completed" after a fatal failure.
+   */
+  hasFatalError(key: ExecutionKey): boolean;
+
+  /**
+   * Release execution state for a key (cleanup).
+   * MUST be called after execution completes to prevent resource leaks.
+   */
+  releaseExecution(key: ExecutionKey): void;
+
+  // === Legacy API (kept for backward compatibility) ===
+
   /**
    * Execute an intent and return result.
+   * @deprecated Use seedSnapshot + submitIntent + drain loop instead.
    */
   dispatch(intent: Intent, options?: { key?: ExecutionKey }): Promise<HostResult>;
 
@@ -118,6 +186,7 @@ export interface Host {
 
   /**
    * Reset host state.
+   * @deprecated Use seedSnapshot(key, snapshot) instead.
    */
   reset?(snapshotOrData: unknown): void | Promise<void>;
 }
