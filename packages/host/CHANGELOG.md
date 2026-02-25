@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.3.3](https://github.com/manifesto-ai/core/compare/host-v2.3.2...host-v2.3.3) (2026-02-25)
+
+
+### Bug Fixes
+
+* address PR [#204](https://github.com/manifesto-ai/core/issues/204) review feedback (P1/P2 issues) ([f4b0fa6](https://github.com/manifesto-ai/core/commit/f4b0fa6d973ce32f8c4488c5ac0ac4fe0ba91b7b))
+* **host-executor:** detect Host fatal errors in drain loop ([02b57f5](https://github.com/manifesto-ai/core/commit/02b57f5f7e9b740581f2e06ead765b2931bf9e5c))
+* **host-executor:** drain loop premature exit & lock leak on setup throw ([a2c18c7](https://github.com/manifesto-ai/core/commit/a2c18c763ca2881e703c81cf9e12378f7be107f8))
+* **host-executor:** stamp failure into terminal snapshot & harden reset guard ([97aef8a](https://github.com/manifesto-ai/core/commit/97aef8a2cfdecd5cabdd2335f06c9db94a0df7d0))
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+* **review:** hold lock until dispatch settles & harden isSnapshotLike guard ([ee4a4f2](https://github.com/manifesto-ai/core/commit/ee4a4f264fcf6366bcc555efcf6d6e3efd5b130c))
+
 ## [2.3.2](https://github.com/manifesto-ai/core/compare/host-v2.3.1...host-v2.3.2) (2026-02-24)
 
 
