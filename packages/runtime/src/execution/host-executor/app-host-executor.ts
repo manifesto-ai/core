@@ -62,9 +62,15 @@ export class AppHostExecutor implements HostExecutor {
 
     const previous = this._executionLocks.get(key) ?? Promise.resolve();
 
+    // Tracks when the underlying dispatch fully settles (not just the race winner).
+    // The lock must wait for this so subsequent same-key calls never overlap Host state.
+    let resolveDispatchSettled!: () => void;
+    const dispatchSettled = new Promise<void>((r) => { resolveDispatchSettled = r; });
+
     const run = previous.then(async () => {
       // Early-exit if already aborted while queued
       if (opts?.signal?.aborted) {
+        resolveDispatchSettled();
         return this._toErrorResult(
           new ExecutionAbortedError(key), baseSnapshot, startedAt
         );
@@ -85,6 +91,10 @@ export class AppHostExecutor implements HostExecutor {
 
       // Execute with timeout and abort handling
       const dispatchPromise = this._executeWithHost(key, intent, baseSnapshot);
+
+      // Ensure lock is held until the dispatch settles regardless of race outcome
+      dispatchPromise.then(() => resolveDispatchSettled(), () => resolveDispatchSettled());
+
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           ctx.aborted = true;
@@ -122,7 +132,8 @@ export class AppHostExecutor implements HostExecutor {
       }
     });
 
-    const lock = run.then(() => undefined, () => undefined);
+    // Lock waits for dispatch to fully settle, not just for run to resolve
+    const lock = dispatchSettled.then(() => undefined);
     this._executionLocks.set(key, lock);
     lock.finally(() => {
       if (this._executionLocks.get(key) === lock) {

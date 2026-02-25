@@ -584,6 +584,10 @@ export class ManifestoHost {
 
   /**
    * Type guard to detect full snapshots.
+   *
+   * Checks structural markers unique to Snapshot (meta.version, meta.schemaHash,
+   * system.status) to avoid misclassifying domain data that happens to contain
+   * top-level keys named system/meta/data/computed/input.
    */
   private isSnapshotLike(value: unknown): value is Snapshot {
     if (!value || typeof value !== "object") {
@@ -591,15 +595,23 @@ export class ManifestoHost {
     }
 
     const candidate = value as Record<string, unknown>;
-    const hasSystem = candidate.system !== undefined && typeof candidate.system === "object";
-    const hasMeta = candidate.meta !== undefined && typeof candidate.meta === "object";
-    const hasData = candidate.data !== undefined && typeof candidate.data === "object";
-    const hasInput = "input" in candidate && (
-      candidate.input === undefined || typeof candidate.input === "object"
-    );
-    const hasComputed = "computed" in candidate && typeof candidate.computed === "object";
 
-    return Boolean(hasSystem && hasMeta && hasData && hasInput && hasComputed);
+    // Require top-level shape
+    if (typeof candidate.system !== "object" || candidate.system === null) return false;
+    if (typeof candidate.meta !== "object" || candidate.meta === null) return false;
+    if (!("data" in candidate)) return false;
+    if (!("computed" in candidate)) return false;
+
+    // Require canonical meta fields (version + schemaHash)
+    const meta = candidate.meta as Record<string, unknown>;
+    if (typeof meta.version !== "number") return false;
+    if (typeof meta.schemaHash !== "string") return false;
+
+    // Require canonical system field (status)
+    const system = candidate.system as Record<string, unknown>;
+    if (typeof system.status !== "string") return false;
+
+    return true;
   }
 
   // === v2.0.1 API for HCTS testing ===
