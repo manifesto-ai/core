@@ -192,6 +192,15 @@ export class AppHostExecutor implements HostExecutor {
     for (let i = 0; i < MAX_DRAIN_ITERATIONS; i++) {
       await this._host.drain(key);
 
+      // Mirror dispatch(): check for fatal errors after each drain cycle.
+      // Fatal errors are tracked in a separate Host map (not in
+      // snapshot.system.lastError), so hasPendingEffects/hasQueuedWork
+      // both return false after a fatal — without this check the loop
+      // would exit "normally" and the caller would report "completed".
+      if (this._host.hasFatalError(key)) {
+        throw new HostFatalError(key);
+      }
+
       if (this._host.hasPendingEffects(key)) {
         await this._host.waitForPendingEffects(key);
         continue; // FulfillEffect job enqueued → re-drain
@@ -271,6 +280,8 @@ export class AppHostExecutor implements HostExecutor {
         ? "EXECUTION_ABORTED"
         : error instanceof DrainIterationCapError
         ? "DRAIN_ITERATION_CAP"
+        : error instanceof HostFatalError
+        ? "HOST_FATAL_ERROR"
         : "EXECUTION_ERROR",
       message: error instanceof Error ? error.message : String(error),
       source: {
@@ -315,6 +326,21 @@ export class AppHostExecutor implements HostExecutor {
    */
   getRegisteredEffectTypes(): readonly string[] {
     return this._host.getRegisteredEffectTypes?.() ?? [];
+  }
+}
+
+/**
+ * Error thrown when a Host fatal error is detected during drain.
+ * Fatal errors are tracked in a Host-internal map and are NOT reflected
+ * in snapshot.system.lastError, so the drain loop must check explicitly.
+ */
+export class HostFatalError extends Error {
+  readonly key: ExecutionKey;
+
+  constructor(key: ExecutionKey) {
+    super(`Host fatal error during execution for key: ${key}`);
+    this.name = "HostFatalError";
+    this.key = key;
   }
 }
 

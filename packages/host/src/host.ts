@@ -476,6 +476,20 @@ export class ManifestoHost {
   }
 
   /**
+   * Check if a fatal error has been recorded for a key.
+   *
+   * Fatal errors are tracked in a separate map and are NOT written to
+   * snapshot.system.lastError (only to data.$host.lastError as best-effort).
+   * The drain loop must check this so it doesn't report "completed" after
+   * a fatal failure.
+   *
+   * @public Used by AppHostExecutor's drain-effect-drain loop.
+   */
+  hasFatalError(key: ExecutionKey): boolean {
+    return this.fatalErrors.has(key);
+  }
+
+  /**
    * Wait for pending effects to complete for a key.
    *
    * After the effect promise settles, a FulfillEffect job is enqueued

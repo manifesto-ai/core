@@ -339,6 +339,7 @@ export class AppBootstrap {
       hasPendingEffects: (key) => internalHost.hasPendingEffects(key),
       waitForPendingEffects: (key) => internalHost.waitForPendingEffects(key),
       hasQueuedWork: (key) => internalHost.hasQueuedWork(key),
+      hasFatalError: (key) => internalHost.hasFatalError(key),
       releaseExecution: (key) => internalHost.releaseExecution(key),
 
       // Legacy API (kept for backward compatibility)

@@ -36,6 +36,7 @@ function createMockMailboxHost(overrides: Partial<Host> = {}): Host {
     hasPendingEffects: vi.fn(() => false),
     waitForPendingEffects: vi.fn(async () => {}),
     hasQueuedWork: vi.fn(() => false),
+    hasFatalError: vi.fn(() => false),
     releaseExecution: vi.fn(),
     dispatch: vi.fn(async () => ({
       status: "complete" as const,
@@ -359,6 +360,31 @@ describe("Runtime HostExecutor compliance", () => {
     expect(result.terminalSnapshot.system.lastError).not.toBeNull();
     expect(result.terminalSnapshot.system.lastError?.code).toBe("EXECUTION_ERROR");
     expect(result.terminalSnapshot.system.status).toBe("error");
+  });
+
+  it("RT-HEXEC-FATAL-1: drain loop detects Host fatal error and reports failure", async () => {
+    const baseSnapshot = makeSnapshot({});
+
+    const host = createMockMailboxHost({
+      drain: vi.fn(async () => {}),
+      hasPendingEffects: vi.fn(() => false),
+      hasQueuedWork: vi.fn(() => false),
+      // Fatal error recorded by Host (not in snapshot.system.lastError)
+      hasFatalError: vi.fn(() => true),
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+    const result = await executor.execute("ek-fatal", baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-fatal",
+    });
+
+    expect(result.outcome).toBe("failed");
+    expect(result.error?.code).toBe("HOST_FATAL_ERROR");
+    expect(result.terminalSnapshot.system.lastError).not.toBeNull();
+    expect(host.releaseExecution).toHaveBeenCalledWith("ek-fatal");
   });
 
   it("RT-HEXEC-SERIAL-2: second execute must not start before first cleanup completes", async () => {

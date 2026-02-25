@@ -152,6 +152,15 @@ export interface Host {
   hasQueuedWork(key: ExecutionKey): boolean;
 
   /**
+   * Check if a fatal error has been recorded for a key.
+   * Fatal errors are escalated by the runner when jobs throw and are
+   * tracked in a separate map (not in snapshot.system.lastError), so
+   * the drain loop must check this explicitly to avoid reporting
+   * "completed" after a fatal failure.
+   */
+  hasFatalError(key: ExecutionKey): boolean;
+
+  /**
    * Release execution state for a key (cleanup).
    * MUST be called after execution completes to prevent resource leaks.
    */
