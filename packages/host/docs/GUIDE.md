@@ -869,7 +869,7 @@ host.registerEffect("api.get", async (type, params) => {
 | `host.registerEffect(type, handler)` | Register effect handler |
 | `host.dispatch(intent, options?)` | Execute intent (`options.key` overrides routing key; default is `intent.intentId`) |
 | `host.getSnapshot()` | Get current snapshot (sync) |
-| `host.reset(snapshotOrData)` | Reset to initial data or full snapshot |
+| `host.reset(snapshot)` | Reset to a full canonical snapshot only (ADR-011) |
 
 ### Effect Handler Return
 

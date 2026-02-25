@@ -1,11 +1,12 @@
 # ADR-011: Host Boundary Reset Completeness Policy
 
-> **Status:** Proposed
+> **Status:** Accepted
 > **Date:** 2026-02-25
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Host, Runtime, World, SDK
 > **Resolves:** [#198](https://github.com/manifesto-ai/core/issues/198)
 > **Related ADRs:** [ADR-008](./008-sdk-first-transition-and-app-retirement), [ADR-010](./010-major-hard-cut)
+> **Implemented-by:** [Host SPEC v2.0.3 (pending patch)](../../packages/host/docs/host-SPEC.md) + runtime bootstrap adapter hardening (PR-D)
 > **Breaking:** Yes — Host boundary input contract is tightened
 
 ---

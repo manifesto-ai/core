@@ -22,6 +22,7 @@ If you want the governing documentation rules, see [Documentation Governance](./
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
+| **@manifesto-ai/runtime** | v0.1.0 | Draft (post-hard-cut) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/sdk** | v0.1.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.5.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
@@ -35,14 +36,14 @@ If you want the governing documentation rules, see [Documentation Governance](./
 
 ### Runtime/SDK Draft Baselines
 
-The Runtime and SDK documents below remain **Draft but kickoff-locked baseline** specs extracted from APP-SPEC v2.3.0.
-With ADR-008, SDK is now the canonical public entry package. Draft status here reflects spec-governance maturity, not package availability.
-Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications and examples are allowed.
+The Runtime and SDK documents below remain **Draft baseline specs** extracted from APP-SPEC v2.3.0.
+Since ADR-010 is now accepted, public entrypoint language is migrating to `createRuntime`/`RuntimeHandle` and legacy `createApp` semantics are treated as deprecated transition notes.
+Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, `SDK-*`).
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| [Runtime SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Internal execution orchestration contract decomposed from App SPEC |
-| [SDK SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md) | Draft (Kickoff-Locked) | Canonical public API contract |
+| [Runtime SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.1.0.md) | Draft | Execution orchestration contract decomposed from App SPEC |
+| [SDK SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md) | Draft | Canonical public API contract (hard-cut migration active) |
 
 ---
 
@@ -69,7 +70,7 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 
 - **SDK SPEC v0.1.0** (Draft)
   - [sdk-SPEC-v0.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md)
-  - Canonical public entrypoint contract (`createApp`, `App`, hooks)
+  - Canonical public entrypoint contract (hard-cut branch: `createRuntime`, `RuntimeHandle`, `dispatch`)
 
 ### Compiler (MEL)
 
@@ -97,6 +98,7 @@ Requirement IDs remain locked (`RT-*`, `SDK-*`) while additive clarifications an
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 02-25 | ADR/Docs | v1.0 | ADR-010/011 accepted; living spec index updated for hard-cut and baseline rules |
 | 02-24 | Core, Host, World | — | SPEC consolidation: Living Documents, FDR inlined, old files archived |
 | 02-08 | World | v2.0.5-patch | Head Query API, resume contract, branch persistence |
 | 02-08 | App | v2.3.1-patch | Head Query delegation (`getHeads()`, `getLatestHead()`) |

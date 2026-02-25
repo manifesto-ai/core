@@ -4,6 +4,7 @@
 > **Scope:** Manifesto SDK Layer — Public Developer API
 > **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, World Protocol v2.0.3, APP-SPEC v2.3.0, Runtime SPEC v0.1.0
 > **Derived from:** APP-SPEC v2.3.0 §5–§7, §14, §16–§18; ADR-APP-002
+> **Hard-cut Alignment:** ADR-010
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
@@ -11,6 +12,7 @@
 >   - **Fix:** `AppState.meta` aligned with Core SPEC SnapshotMeta (`timestamp: number`, `randomSeed` not `hash`)
 >   - **Fix:** `AppState.system` aligned with Core SPEC SystemState (added `lastError: ErrorValue | null`, status union type, `currentAction: string | null`)
 >   - **Fix:** Removed erroneous `input` field from `AppState` (not part of App-level state contract); added `state` DX alias
+>   - **Update:** ADR-010 migration notes added (canonical entrypoint moved to `createRuntime` + `RuntimeHandle` in v1 hard-cut)
 
 ---
 
@@ -47,7 +49,8 @@ This document defines the **Manifesto SDK Specification v0.1.0**.
 
 The SDK layer is the **public developer-facing API** that:
 
-- Provides the `createApp()` factory as the single entry point
+- Provides the `createRuntime()` factory as the canonical entry point (ADR-010 hard-cut migration)
+- `createApp()` is retired as part of public API simplification
 - Defines the `App` interface for all application operations
 - Defines `ActionHandle` for observable, asynchronous action execution
 - Defines `Session` for actor-scoped operation context
@@ -58,7 +61,7 @@ The SDK layer is the **public developer-facing API** that:
 
 **Relationship to Runtime:** The SDK layer delegates all internal orchestration to the Runtime layer (see runtime-SPEC). The SDK owns the public contract shape; the Runtime owns execution mechanics.
 
-**Relationship to App:** This specification, together with the Runtime Specification, represents a decomposition of APP-SPEC v2.3.0. The combined contract of SDK + Runtime MUST be equivalent to the App layer's responsibilities as defined in APP-SPEC v2.3.0.
+**Relationship to App:** Legacy App terminology is removed from the v1 hard-cut contract; this specification tracks SDK-facing behavior and delegates orchestration details to Runtime.
 
 ---
 
@@ -69,6 +72,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 ## 2.1 Kickoff Lock Profile (Non-Normative)
 
 This document remains `Draft`, but it is treated as a kickoff-locked baseline for SDK/Runtime split kickoff.
+ADR-010 lifts the old lock for public API naming where the contract now targets `createRuntime`/`RuntimeHandle`.
 
 During kickoff phase:
 

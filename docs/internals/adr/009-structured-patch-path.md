@@ -1,11 +1,12 @@
 # ADR-009: Structured PatchPath (Segments)
 
-> **Status:** Proposed
+> **Status:** Accepted
 > **Date:** 2026-02-25
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Core, Compiler, Host, Runtime, World
 > **Resolves:** [#108](https://github.com/manifesto-ai/core/issues/108), [#189](https://github.com/manifesto-ai/core/issues/189)
 > **Supersedes:** None
+> **Implemented-by:** [/packages/core/src/schema/patch.ts](../../packages/core/src/schema/patch.ts), [/packages/core/src/core/apply.ts](../../packages/core/src/core/apply.ts), [/packages/compiler/src/lowering/lower-runtime-patch.ts](../../packages/compiler/src/lowering/lower-runtime-patch.ts) (planned in PR-B)
 > **Strengthens:** FDR-015 (Static Patch Paths), FDR-MEL-032 (Dynamic Path Segments)
 > **Breaking:** Yes — Major version bump required for Core, Compiler
 

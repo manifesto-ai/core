@@ -148,6 +148,33 @@ export class ManifestoHost {
     return structuredClone(snapshot);
   }
 
+  private normalizeResetSnapshot(candidate: unknown): Snapshot {
+    const normalized = typeof candidate === "object" &&
+      candidate !== null &&
+      "data" in candidate &&
+      "computed" in candidate &&
+      "system" in candidate &&
+      "meta" in candidate
+      ? {
+          ...(candidate as Record<string, unknown>),
+          input: (candidate as Record<string, unknown>).input ?? null,
+        }
+      : null;
+
+    if (!normalized) {
+      throw createHostError("INVALID_STATE", "Host.reset() requires a canonical Snapshot payload");
+    }
+
+    const parsed = SnapshotSchema.safeParse(normalized);
+    if (!parsed.success) {
+      throw createHostError("INVALID_STATE", "Host.reset() canonical Snapshot validation failed", {
+        issues: parsed.error.issues,
+      });
+    }
+
+    return this.cloneSnapshot(parsed.data);
+  }
+
   constructor(schema: DomainSchema, options: HostOptions = {}) {
     this.core = createCore();
     this.schema = schema;
@@ -608,24 +635,12 @@ export class ManifestoHost {
   /**
    * Reset the host to initial state.
    *
-   * Accepts either a full Snapshot (restores as-is) or plain domain data
-   * (creates a fresh snapshot). Snapshot detection checks for the canonical
-   * `meta.version` (number) + `meta.schemaHash` (string) + `system.status` (string)
-   * fields that only Snapshots carry.
-   *
-   * @deprecated Use seedSnapshot(key, snapshot) for per-key execution instead.
+   * ADR-011 hard-cut: only canonical Snapshot payloads are accepted.
+   * Runtime or SDK layers must normalize/construct canonical baselines before
+   * invoking Host.reset().
    */
   reset(snapshotOrData: unknown): void {
-    // Use the authoritative Zod schema to detect Snapshots instead of
-    // duck-typing structural keys.  Duck-typing can misclassify domain
-    // data that happens to contain fields like `data`, `meta`, `system`.
-    const parsed = SnapshotSchema.safeParse(snapshotOrData);
-    if (parsed.success) {
-      this.currentSnapshot = this.cloneSnapshot(parsed.data);
-      return;
-    }
-
-    this.initializeSnapshot(snapshotOrData);
+    this.currentSnapshot = this.normalizeResetSnapshot(snapshotOrData);
   }
 
   // === v2.0.1 API for HCTS testing ===

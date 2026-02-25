@@ -4,10 +4,12 @@
 > **Scope:** Manifesto Runtime Layer — Internal Execution Orchestration
 > **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, World Protocol v2.0.3, APP-SPEC v2.3.0
 > **Derived from:** APP-SPEC v2.3.0 §8–§13, §15; FDR-APP-PUB-001, FDR-APP-RUNTIME-001, FDR-APP-INTEGRATION-001, FDR-APP-POLICY-001, FDR-APP-EXT-001
+> **Hard-cut Alignment:** ADR-010
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
 > - **v0.1.0 (2026-02-11):** Initial draft — extracted from APP-SPEC v2.3.0
+>   - **Update:** Runtime is confirmed as non-user-facing execution kernel in ADR-010 hard-cut.
 
 ---
 
@@ -51,7 +53,7 @@ The Runtime layer is the **internal execution orchestration engine** that:
 - Provides a separate System Runtime for `system.*` meta-operations
 - Enforces the Publish Boundary (one state:publish per Proposal Tick)
 
-**Relationship to SDK:** The SDK layer (see sdk-SPEC) provides the public developer API (`createApp`, `App`, `ActionHandle`, `Session`). The SDK delegates all internal orchestration to the Runtime. The Runtime MUST NOT be directly accessible to end-users.
+**Relationship to SDK:** The SDK layer (see sdk-SPEC) provides the public developer API (`createRuntime`, `RuntimeHandle`, `dispatch`, `subscribe`, `snapshot`, `close`, `abort` in ADR-010 migration state). The SDK delegates all internal orchestration to the Runtime. The Runtime MUST NOT be directly accessible to end-users.
 
 **Relationship to App:** This specification, together with the SDK Specification, represents a decomposition of APP-SPEC v2.3.0. The combined contract of Runtime + SDK MUST be equivalent to the App layer's responsibilities as defined in APP-SPEC v2.3.0.
 

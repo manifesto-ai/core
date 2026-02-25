@@ -359,6 +359,35 @@ export class AppBootstrap {
       },
       getRegisteredEffectTypes: () => internalHost.getEffectTypes(),
       reset: async (data) => {
+        const isCanonicalSnapshot =
+          data &&
+          typeof data === "object" &&
+          "data" in data &&
+          "computed" in data &&
+          "system" in data &&
+          "meta" in data;
+
+        if (isCanonicalSnapshot) {
+          internalHost.reset(data as Snapshot);
+          return;
+        }
+
+        const isLegacyAppState =
+          data &&
+          typeof data === "object" &&
+          "status" in data &&
+          "lastError" in data &&
+          "errors" in data &&
+          "pendingRequirements" in data &&
+          "currentAction" in data &&
+          "data" in data &&
+          "meta" in data;
+
+        if (isLegacyAppState) {
+          internalHost.reset(appStateToSnapshot(data as AppState<unknown>));
+          return;
+        }
+
         internalHost.reset(data);
       },
     };

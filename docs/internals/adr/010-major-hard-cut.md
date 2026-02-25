@@ -1,11 +1,12 @@
 # ADR-010: Manifesto Runtime/App Hard-Cut and Public Surface Simplification
 
-> **Status:** Proposed
+> **Status:** Accepted
 > **Date:** 2026-02-25
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Core, Runtime, Host, World, SDK
 > **Resolves:** [#108](https://github.com/manifesto-ai/core/issues/108), [#189](https://github.com/manifesto-ai/core/issues/189), [#187](https://github.com/manifesto-ai/core/issues/187), [#198](https://github.com/manifesto-ai/core/issues/198), [#201](https://github.com/manifesto-ai/core/issues/201), [#202](https://github.com/manifesto-ai/core/issues/202)
 > **Supersedes:** ADR-009 (implementation pathway to be executed after hard-cut)
+> **Accepted-with-condition:** [/docs/internals/spec/index.md](../spec/index.md) (runtime + sdk public surface migration to runtime-centric API; legacy App façade removed)
 > **Breaking:** Yes — major version bump required for public packages
 
 ## 1. Context

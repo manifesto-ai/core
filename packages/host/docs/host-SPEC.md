@@ -4,6 +4,7 @@
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
 > **Compatible with:** Core SPEC v2.0.0, ARCHITECTURE v2.0
+> **Hard-cut Alignment:** ADR-011
 > **Authors:** Manifesto Team
 > **License:** MIT
 
@@ -18,6 +19,7 @@
 | v2.0 | Event-Loop Execution Model — Mailbox, Job model, Single-runner | FDR-H018 ~ H022 |
 | v2.0.1 | Context Determinism — HostContext frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
 | v2.0.2 | Snapshot Type Alignment — Core Snapshot canonical reference; Snapshot Ownership | FDR-H025 |
+| v2.0.3 | Baseline snapshot completeness at boundary entry (ADR-011 migration, data-only reset rejected) | FDR-H025 |
 
 ---
 
@@ -256,6 +258,7 @@ Host executes reality.
 | CORE-HOST-2 | Host MUST NOT interpret Flow semantics or compute derived values |
 | CORE-HOST-3 | Core MUST remain pure: same input -> same output |
 | CORE-HOST-4 | Host MUST handle all IO, network, and persistence |
+| CORE-HOST-5 | Host MUST receive a full canonical Snapshot at reset/bootstrap boundary |
 
 ### 4.3 Diagram
 
@@ -1294,6 +1297,7 @@ const context = testProvider.createFrozenContext(intentId);
 | INV-SNAP-5 | **Host reads Core fields but MUST NOT assume field absence** |
 | INV-SNAP-6 | **Host-owned state MUST be stored in `data.$host` namespace** |
 | INV-SNAP-7 | **Host MUST NOT extend Core's SystemState with custom fields** |
+| INV-SNAP-8 | **Host reset/bootstrap MUST reject non-canonical baseline payloads (missing `computed`, `system`, or `meta`)** |
 
 ---
 

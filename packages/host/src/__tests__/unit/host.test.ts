@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ManifestoHost, createHost, type HostOptions } from "../../host.js";
-import { createSnapshot, type DomainSchema, type Snapshot } from "@manifesto-ai/core";
+import { type DomainSchema, type Snapshot } from "@manifesto-ai/core";
 import type { EffectHandler } from "../../effects/types.js";
 import {
   createTestSchema,
   createTestIntent,
   stripHostState,
   DEFAULT_HOST_CONTEXT,
+  createTestSnapshot,
 } from "../helpers/index.js";
 
 const HOST_CONTEXT = DEFAULT_HOST_CONTEXT;
@@ -197,7 +198,7 @@ describe("ManifestoHost", () => {
       await host.dispatch(createTestIntent("increment"));
       expect(stripHostState((await host.getSnapshot())?.data ?? {})).toEqual({ count: 101 });
 
-      await host.reset({ count: 0 });
+      await host.reset(createTestSnapshot({ count: 0 }, schema.hash, DEFAULT_HOST_CONTEXT));
 
       const snapshot = await host.getSnapshot();
       expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 0 });
@@ -229,6 +230,17 @@ describe("ManifestoHost", () => {
       expect(snapshot?.system).toEqual(restored.system);
       expect(snapshot?.computed).toEqual(restored.computed);
       expect(snapshot?.input).toEqual(restored.input);
+    });
+
+    it("should reject partial snapshot on reset", async () => {
+      const host = createHost(schema, { initialData: { count: 100 } });
+
+      expect(() => {
+        host.reset({ count: 0 });
+      }).toThrowError();
+
+      const snapshot = await host.getSnapshot();
+      expect(snapshot).not.toBeNull();
     });
   });
 
