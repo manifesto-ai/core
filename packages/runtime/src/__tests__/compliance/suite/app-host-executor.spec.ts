@@ -339,6 +339,28 @@ describe("Runtime HostExecutor compliance", () => {
     expect(host.releaseExecution).toHaveBeenCalledWith("ek-cap");
   });
 
+  it("RT-HEXEC-ERROR-1: error result stamps lastError into terminal snapshot", async () => {
+    const baseSnapshot = makeSnapshot({});
+
+    const host = createMockMailboxHost({
+      seedSnapshot: vi.fn(() => { throw new Error("setup boom"); }),
+      getContextSnapshot: vi.fn(() => baseSnapshot),
+    });
+
+    const executor = createAppHostExecutor(host);
+    const result = await executor.execute("ek-stamp", baseSnapshot, {
+      type: "noop",
+      input: {},
+      intentId: "intent-stamp",
+    });
+
+    expect(result.outcome).toBe("failed");
+    // Terminal snapshot MUST carry the error so World.deriveOutcome sees failure
+    expect(result.terminalSnapshot.system.lastError).not.toBeNull();
+    expect(result.terminalSnapshot.system.lastError?.code).toBe("EXECUTION_ERROR");
+    expect(result.terminalSnapshot.system.status).toBe("error");
+  });
+
   it("RT-HEXEC-SERIAL-2: second execute must not start before first cleanup completes", async () => {
     const baseSnapshot = makeSnapshot({});
     const executionKey = "ek-race";

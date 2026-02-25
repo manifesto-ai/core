@@ -255,6 +255,10 @@ export class AppHostExecutor implements HostExecutor {
 
   /**
    * Convert error to HostExecutionResult.
+   *
+   * Injects failure markers (status + lastError) into the terminal snapshot
+   * so that World's deriveOutcome(terminalSnapshot) sees the failure, not
+   * just the advisory `error` field on HostExecutionResult.
    */
   private _toErrorResult(
     error: unknown,
@@ -276,9 +280,20 @@ export class AppHostExecutor implements HostExecutor {
       timestamp: Date.now(),
     };
 
+    // Stamp failure into the snapshot itself so downstream consumers
+    // (World.deriveOutcome) cannot misinterpret it as successful.
+    const terminalSnapshot: Snapshot = {
+      ...baseSnapshot,
+      system: {
+        ...baseSnapshot.system,
+        status: "error",
+        lastError: errorValue,
+      },
+    };
+
     return {
       outcome: "failed",
-      terminalSnapshot: baseSnapshot,
+      terminalSnapshot,
       error: errorValue,
     };
   }
