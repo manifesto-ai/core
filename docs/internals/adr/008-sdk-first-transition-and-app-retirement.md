@@ -1,6 +1,6 @@
 # ADR-008: SDK-First Public Entry and App Package Retirement
 
-> **Status:** Accepted
+> **Status:** Deprecated
 > **Date:** 2026-02-17
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Global (SDK, Runtime, Docs, Release, CI)
