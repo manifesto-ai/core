@@ -10,10 +10,6 @@
 |---------|-------------|
 | [@manifesto-ai/sdk](./sdk) | Public developer API. **Start here.** |
 
-The `@manifesto-ai/sdk` package is the canonical public entry point for building Manifesto applications.
-
-> Legacy note: the former app compatibility package is removed in R2. See [API: app](./app) for the retirement record.
-
 ---
 
 ## Core Packages
@@ -24,8 +20,6 @@ The `@manifesto-ai/sdk` package is the canonical public entry point for building
 | [@manifesto-ai/host](./host) | Effect execution runtime |
 | [@manifesto-ai/world](./world) | Governance layer |
 
-These packages form the foundation of Manifesto's architecture. Most users interact with them through `@manifesto-ai/sdk`.
-
 ---
 
 ## Additional Packages
@@ -33,11 +27,11 @@ These packages form the foundation of Manifesto's architecture. Most users inter
 | Package | Description |
 |---------|-------------|
 | [@manifesto-ai/runtime](./runtime) | Internal orchestration engine used by SDK |
-| [@manifesto-ai/compiler](./compiler) | MEL to DomainSchema compilation and `.mel` toolchain adapters |
-| [@manifesto-ai/codegen](./codegen) | DomainSchema to TypeScript types + Zod schemas |
-| [@manifesto-ai/intent-ir](./intent-ir) | Intent intermediate representation and key derivation |
+| [@manifesto-ai/compiler](./compiler) | MEL compiler and patch IR lowering |
+| [@manifesto-ai/codegen](./codegen) | DomainSchema to TypeScript + Zod codegen |
+| [@manifesto-ai/intent-ir](./intent-ir) | Intent intermediate representation |
 
-See [Specifications](/internals/spec/) for detailed package specifications.
+See [Specifications](/internals/spec/) for normative contracts.
 
 ---
 
@@ -57,29 +51,26 @@ flowchart TB
 ## Quick Start
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import { createRuntime } from "@manifesto-ai/sdk";
 
-const app = createApp({
-  schema: `
-    domain Counter {
-      state { count: number = 0 }
-      action increment() {
-        onceIntent { patch count = add(count, 1) }
-      }
-    }
-  `,
-  effects: {},
+const runtime = createRuntime({
+  schema: domainSchema,
+  effects: {
+    "counter.save": async () => [
+      { op: "set", path: [{ kind: "prop", name: "saved" }], value: true },
+    ],
+  },
 });
 
-await app.ready();
-await app.act("increment").done();
-console.log(app.getState().data.count); // 1
+await runtime.ready();
+await runtime.dispatch({ type: "increment" });
+console.log(runtime.snapshot().data.count);
 ```
 
 ---
 
 ## Related Documentation
 
-- **[Core Concepts](/concepts/)** - Understand Manifesto fundamentals
-- **[Specifications](/internals/spec/)** - Normative contracts for implementations
-- **[Architecture](/architecture/)** - System design and component relationships
+- **[Core Concepts](/concepts/)** - Manifesto fundamentals
+- **[Specifications](/internals/spec/)** - Normative contracts
+- **[Architecture](/architecture/)** - System design and boundaries

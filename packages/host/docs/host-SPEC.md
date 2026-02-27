@@ -3,7 +3,7 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
-> **Compatible with:** Core SPEC v2.0.0, ARCHITECTURE v2.0
+> **Compatible with:** Core SPEC v3.0.0, ARCHITECTURE v2.0
 > **Hard-cut Alignment:** ADR-011
 > **Authors:** Manifesto Team
 > **License:** MIT
@@ -14,6 +14,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()` interlock | FDR-H025 |
 | v1.0 | Initial release — Core-Host boundary, Snapshot communication, Effect handlers | FDR-H001 ~ H010 |
 | v1.x | Compiler Integration — Translator pipeline, Expression evaluation | FDR-H011 ~ H017 |
 | v2.0 | Event-Loop Execution Model — Mailbox, Job model, Single-runner | FDR-H018 ~ H022 |
@@ -81,8 +82,11 @@ The pure computation engine that evaluates Flows against Snapshots.
 interface Core {
   compute(schema: DomainSchema, snapshot: Snapshot, intent: Intent, context: HostContext): ComputeResult;
   apply(schema: DomainSchema, snapshot: Snapshot, patches: Patch[], context: HostContext): Snapshot;
+  applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapshot;
 }
 ```
+
+> **Implementation convergence pending (ADR-009):** Some current `src` paths may still use pre-ADR contracts. This SPEC is normative for the accepted hard-cut target.
 
 ### 3.2 Host
 
@@ -103,10 +107,10 @@ The complete state of a domain at a point in time.
 
 ```typescript
 // Host imports from Core (NOT redefined here)
-import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto-ai/core';
+import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } from '@manifesto-ai/core';
 
 // ============================================================
-// AUTHORITATIVE DEFINITION - Core SPEC v2.0.0
+// AUTHORITATIVE DEFINITION - Core SPEC v3.0.0
 // ============================================================
 // type Snapshot<TData = unknown> = {
 //   readonly data: TData;
@@ -150,7 +154,7 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue } from '@manifesto
 | `system.status` | Core | Yes | No | Core sets via compute() |
 | `system.lastError` | Core | Yes | No | Current error state |
 | `system.errors` | Core | Yes | No | Error history (accumulated) |
-| `system.pendingRequirements` | Core | Yes | via Patch | Requirement lifecycle |
+| `system.pendingRequirements` | Core | Yes | via `core.applySystemDelta()` | Requirement lifecycle |
 | `system.currentAction` | Core | Yes | No | Core sets during compute |
 | `meta.schemaHash` | Core | Yes | No | Domain schema identity |
 | `meta.version` | Core | Yes | No | Core-owned versioning |
@@ -608,15 +612,16 @@ FulfillEffect job enqueued -> Patches applied -> ContinueCompute enqueued
 | Rule ID | Description |
 |---------|-------------|
 | COMP-REQ-INTERLOCK-1 | **All snapshot mutations from `Core.compute()` MUST be applied BEFORE effect execution requests are dispatched** |
+| COMP-REQ-INTERLOCK-1a | **Host MUST apply domain `patches` first, then `systemDelta`, before dispatch** |
 | COMP-REQ-INTERLOCK-2 | **Effect dispatch list SHOULD be read from `snapshot.system.pendingRequirements` AFTER apply, not from compute return value** |
 
 **Why This Matters:**
 
 Core.compute() returns both:
-- Patches to apply (including `pendingRequirements` update in system state)
-- Effect execution needs
+- Domain `patches` to apply at `snapshot.data` root
+- `systemDelta` describing system transitions (`addRequirements`, etc.)
 
-If effect execution starts BEFORE patches are applied:
+If effect execution starts BEFORE `patches + systemDelta` are applied:
 - `pendingRequirements` may not contain the new requirement yet
 - FULFILL-0 check will incorrectly treat fulfillment as "stale"
 - Race condition between apply and fulfill
@@ -635,16 +640,19 @@ function handleStartIntent(job: StartIntent) {
   const snapshot = ctx.getCanonicalHead();
   const result = Core.compute(schema, snapshot, job.intent);
   
-  // STEP 1: Apply ALL mutations FIRST (COMP-REQ-INTERLOCK-1)
+  // STEP 1: Apply domain patches first
   if (result.patches.length > 0) {
-    applyPatches(result.patches);  // Includes pendingRequirements update
+    applyPatches(result.patches);
   }
+
+  // STEP 2: Apply system transitions second
+  applySystemDelta(result.systemDelta);
   
-  // STEP 2: Read requirements from UPDATED snapshot (COMP-REQ-INTERLOCK-2)
+  // STEP 3: Read requirements from UPDATED snapshot (COMP-REQ-INTERLOCK-2)
   const updatedSnapshot = ctx.getCanonicalHead();  // Fresh read after apply
   const requirements = updatedSnapshot.system.pendingRequirements;
   
-  // STEP 3: THEN dispatch effect requests
+  // STEP 4: THEN dispatch effect requests
   if (requirements.length > 0) {
     for (const req of requirements) {
       requestEffectExecution(job.intentId, req);  // Async, outside mailbox
@@ -662,12 +670,13 @@ function handleStartIntent(job: StartIntent) {
 If implementation guarantees compute return value matches snapshot update:
 
 ```typescript
-// Acceptable if Core guarantees result.pendingRequirements === snapshot update
+// Acceptable if Core guarantees requirements mirror applied systemDelta
 const result = Core.compute(schema, snapshot, job.intent);
 applyPatches(result.patches);
+applySystemDelta(result.systemDelta);
 
-if (result.pendingRequirements.length > 0) {
-  for (const req of result.pendingRequirements) {
+if (result.requirements.length > 0) {
+  for (const req of result.requirements) {
     requestEffectExecution(job.intentId, req);
   }
 }
@@ -680,11 +689,12 @@ if (result.pendingRequirements.length > 0) {
 function handleStartIntent(job: StartIntent) {
   const result = Core.compute(schema, snapshot, job.intent);
   
-  // Effect requested BEFORE pendingRequirements is in snapshot
-  requestEffectExecution(job.intentId, result.pendingRequirements[0]);
+  // Effect requested BEFORE pendingRequirements is materialized in snapshot
+  requestEffectExecution(job.intentId, result.requirements[0]);
   
   // Now apply patches - too late!
   applyPatches(result.patches);
+  applySystemDelta(result.systemDelta);
 }
 ```
 
@@ -977,7 +987,7 @@ FulfillEffect job MUST perform the complete requirement lifecycle atomically, wi
 |---------|-------------|
 | FULFILL-0 | **FulfillEffect MUST verify requirementId exists in pendingRequirements before applying** |
 | FULFILL-1 | FulfillEffect MUST apply result patches (only if FULFILL-0 passes) |
-| FULFILL-2 | FulfillEffect MUST clear requirement from `pendingRequirements` |
+| FULFILL-2 | FulfillEffect MUST clear requirement via `applySystemDelta({ removeRequirementIds })` |
 | FULFILL-3 | FulfillEffect MUST enqueue ContinueCompute |
 | FULFILL-4 | Steps 0, 1, 2, 3 MUST be executed in one job (no splitting) |
 
@@ -1029,8 +1039,8 @@ function handleFulfillEffect(job: FulfillEffect) {
   // FULFILL-1: Apply result patches
   applyPatches(job.resultPatches);
   
-  // FULFILL-2: Clear requirement
-  clearRequirement(job.requirementId);
+  // FULFILL-2: Clear requirement through system delta
+  applySystemDelta({ removeRequirementIds: [job.requirementId] });
   
   // FULFILL-3: Continue
   enqueue({ type: 'ContinueCompute', intentId: job.intentId });
@@ -1307,7 +1317,7 @@ const context = testProvider.createFrozenContext(intentId);
 
 Effect handlers MUST NOT throw. Errors are expressed as patches.
 Host-generated error patches MUST target `$host` or domain-owned paths.
-Patches to `system.*` are forbidden (INV-SNAP-4).
+`system.*` is structurally non-patchable at Core boundary. Host MUST use `core.applySystemDelta()` for system transitions.
 
 ### 12.2 Mailbox Processing Errors
 
@@ -1322,8 +1332,8 @@ Patches to `system.*` are forbidden (INV-SNAP-4).
 
 | Error Type | Handling |
 |------------|----------|
-| Effect timeout | Apply timeout error patch (not `system.*`), clear requirement, continue |
-| Effect network error | Apply error patch (not `system.*`), clear requirement, continue |
+| Effect timeout | Apply timeout error patch (not `system.*`), clear via `removeRequirementIds`, continue |
+| Effect network error | Apply error patch (not `system.*`), clear via `removeRequirementIds`, continue |
 | Clear failed | CRITICAL: Must retry or fail execution |
 
 ### 12.4 FulfillEffect Error Handling (Critical)
@@ -1373,9 +1383,9 @@ function handleFulfillEffect(job: FulfillEffect) {
     // DO NOT RETURN - must still clear
   }
 
-  // Step 2: ALWAYS clear (ERR-FE-1, ERR-FE-2)
+  // Step 2: ALWAYS clear via system delta (ERR-FE-1, ERR-FE-2)
   try {
-    clearRequirement(job.requirementId);
+    applySystemDelta({ removeRequirementIds: [job.requirementId] });
   } catch (clearError) {
     // ERR-FE-3: Clear failure is fatal - cannot recover safely
     escalateToFatal(job.intentId, clearError);
