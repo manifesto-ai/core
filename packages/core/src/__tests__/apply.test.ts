@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import { apply } from "../core/apply.js";
 import { createSnapshot } from "../factories.js";
 import type { DomainSchema } from "../schema/domain.js";
+import { semanticPathToPatchPath } from "../utils/patch-path.js";
 
 const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const pp = (path: string) => semanticPathToPatchPath(path);
 
 describe("apply", () => {
   it("should surface computed evaluation errors as values", () => {
@@ -38,7 +40,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: "dummy", value: "updated" }],
+      [{ op: "set", path: pp("dummy"), value: "updated" }],
       HOST_CONTEXT
     );
 
@@ -69,7 +71,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: "missing", value: "value" }],
+      [{ op: "set", path: pp("missing"), value: "value" }],
       HOST_CONTEXT
     );
 
@@ -112,7 +114,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: "history.files.file:///proof\\.lean", value: "recorded" }],
+      [{ op: "set", path: pp("history.files.file:///proof\\.lean"), value: "recorded" }],
       HOST_CONTEXT
     );
 
@@ -148,7 +150,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: "dummy", value: 42 }],
+      [{ op: "set", path: pp("dummy"), value: 42 }],
       HOST_CONTEXT
     );
 
@@ -190,9 +192,9 @@ describe("apply", () => {
       schema,
       snapshot,
       [
-        { op: "set", path: "computed.double", value: 999 },
-        { op: "set", path: "meta.version", value: 999 },
-        { op: "set", path: "count", value: 3 },
+        { op: "set", path: pp("computed.double"), value: 999 },
+        { op: "set", path: pp("meta.version"), value: 999 },
+        { op: "set", path: pp("count"), value: 3 },
       ],
       HOST_CONTEXT
     );
@@ -223,7 +225,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: "name", value: { extra: "value" } }],
+      [{ op: "merge", path: pp("name"), value: { extra: "value" } }],
       HOST_CONTEXT
     );
 
@@ -253,7 +255,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: "$mel.guards.intent", value: { addTodo: "intent-1" } }],
+      [{ op: "merge", path: pp("$mel.guards.intent"), value: { addTodo: "intent-1" } }],
       HOST_CONTEXT
     );
 
@@ -292,7 +294,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: "$mel", value: "invalid" }],
+      [{ op: "set", path: pp("$mel"), value: "invalid" }],
       HOST_CONTEXT
     );
 
@@ -334,7 +336,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: "profile.meta", value: { source: "import" } }],
+      [{ op: "merge", path: pp("profile.meta"), value: { source: "import" } }],
       HOST_CONTEXT
     );
 
@@ -390,7 +392,7 @@ describe("apply", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: "profile.meta", value: { source: "import" } }],
+      [{ op: "merge", path: pp("profile.meta"), value: { source: "import" } }],
       HOST_CONTEXT
     );
 

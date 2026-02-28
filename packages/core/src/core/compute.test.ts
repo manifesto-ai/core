@@ -1,8 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { compute, computeSync } from "./compute.js";
+import { compute as computeRaw, computeSync as computeSyncRaw } from "./compute.js";
+import { apply } from "./apply.js";
+import { applySystemDelta } from "./system-delta.js";
 import { createSnapshot, createIntent } from "../factories.js";
 import { hashSchemaSync } from "../utils/hash.js";
+import { semanticPathToPatchPath } from "../utils/patch-path.js";
 import type { DomainSchema } from "../schema/domain.js";
+import type { ComputeResult } from "../schema/result.js";
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
   dummy: { type: "string", required: true },
@@ -77,6 +81,7 @@ function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
 }
 
 const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const pp = (path: string) => semanticPathToPatchPath(path);
 let intentCounter = 0;
 const nextIntentId = () => `intent-${intentCounter++}`;
 const createTestIntent = (type: string, input?: unknown) =>
@@ -85,11 +90,50 @@ const createTestIntent = (type: string, input?: unknown) =>
     : createIntent(type, input, nextIntentId());
 const createTestSnapshot = (data: unknown, schemaHash: string) =>
   createSnapshot(data, schemaHash, HOST_CONTEXT);
+
+type SnapshotType = ReturnType<typeof createSnapshot>;
+type ComputeResultWithSnapshot = ComputeResult & { snapshot: SnapshotType };
+
+function materializeComputeResult(
+  schema: DomainSchema,
+  snapshot: SnapshotType,
+  result: ComputeResult
+): SnapshotType {
+  const patched = apply(schema, snapshot, result.patches, HOST_CONTEXT);
+  return applySystemDelta(patched, result.systemDelta) as SnapshotType;
+}
+
+const computeSync = (
+  schema: DomainSchema,
+  snapshot: SnapshotType,
+  intent: ReturnType<typeof createIntent>,
+  context: typeof HOST_CONTEXT = HOST_CONTEXT
+): ComputeResultWithSnapshot => {
+  const result = computeSyncRaw(schema, snapshot, intent, context);
+  return {
+    ...result,
+    snapshot: materializeComputeResult(schema, snapshot, result),
+  };
+};
+
+const compute = async (
+  schema: DomainSchema,
+  snapshot: SnapshotType,
+  intent: ReturnType<typeof createIntent>,
+  context: typeof HOST_CONTEXT = HOST_CONTEXT
+): Promise<ComputeResultWithSnapshot> => {
+  const result = await computeRaw(schema, snapshot, intent, context);
+  return {
+    ...result,
+    snapshot: materializeComputeResult(schema, snapshot, result),
+  };
+};
+
 const computeWithContext = (
   schema: DomainSchema,
   snapshot: ReturnType<typeof createSnapshot>,
   intent: ReturnType<typeof createIntent>
-) => compute(schema, snapshot, intent, HOST_CONTEXT);
+) => compute(schema, snapshot, intent);
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {
@@ -99,8 +143,7 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: {
                 kind: "add",
                 left: { kind: "coalesce", args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }] },
@@ -138,8 +181,7 @@ describe("compute", () => {
           setName: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "name",
+              op: "set", path: pp("name"),
               value: { kind: "get", path: "input.name" },
             },
           },
@@ -161,8 +203,7 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -180,14 +221,13 @@ describe("compute", () => {
   });
 
   describe("Meta Access", () => {
-    it("should expose meta intentId without mutating input", async () => {
+    it("should expose meta intentId without mutating snapshot input", async () => {
       const schema = createTestSchema({
         actions: {
           markIntent: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "value",
+              op: "set", path: pp("value"),
               value: { kind: "get", path: "meta.intentId" },
             },
           },
@@ -201,7 +241,7 @@ describe("compute", () => {
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ value: intent.intentId });
-      expect(result.snapshot.input).toEqual({ name: "Alice" });
+      expect(result.snapshot.input).toBeUndefined();
     });
   });
 
@@ -217,8 +257,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "balance",
+              op: "set", path: pp("balance"),
               value: {
                 kind: "sub",
                 left: { kind: "get", path: "balance" },
@@ -257,8 +296,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -289,8 +327,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -319,8 +356,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -349,8 +385,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -386,8 +421,7 @@ describe("compute", () => {
           setA: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "a",
+              op: "set", path: pp("a"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -413,7 +447,7 @@ describe("compute", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: "loading", value: { kind: "lit", value: true } },
+                { kind: "patch", op: "set", path: pp("loading"), value: { kind: "lit", value: true } },
                 {
                   kind: "effect",
                   type: "http",
@@ -447,13 +481,13 @@ describe("compute", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: "started", value: { kind: "lit", value: true } },
+                { kind: "patch", op: "set", path: pp("started"), value: { kind: "lit", value: true } },
                 {
                   kind: "if",
                   cond: { kind: "get", path: "input.shouldHalt" },
                   then: { kind: "halt", reason: "User requested halt" },
                 },
-                { kind: "patch", op: "set", path: "completed", value: { kind: "lit", value: true } },
+                { kind: "patch", op: "set", path: pp("completed"), value: { kind: "lit", value: true } },
               ],
             },
           },
@@ -487,7 +521,7 @@ describe("compute", () => {
               kind: "if",
               cond: { kind: "isNull", arg: { kind: "get", path: "input.value" } },
               then: { kind: "fail", code: "MISSING_VALUE", message: { kind: "lit", value: "Value is required" } },
-              else: { kind: "patch", op: "set", path: "value", value: { kind: "get", path: "input.value" } },
+              else: { kind: "patch", op: "set", path: pp("value"), value: { kind: "get", path: "input.value" } },
             },
           },
         },
@@ -519,8 +553,8 @@ describe("compute", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: "a", value: { kind: "lit", value: 1 } },
-                { kind: "patch", op: "set", path: "b", value: { kind: "lit", value: 2 } },
+                { kind: "patch", op: "set", path: pp("a"), value: { kind: "lit", value: 1 } },
+                { kind: "patch", op: "set", path: pp("b"), value: { kind: "lit", value: 2 } },
               ],
             },
           },
@@ -563,8 +597,7 @@ describe("compute", () => {
           addTodo: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "todos",
+              op: "set", path: pp("todos"),
               value: {
                 kind: "coalesce",
                 args: [
@@ -601,8 +634,7 @@ describe("compute", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "fromBalance",
+                  op: "set", path: pp("fromBalance"),
                   value: {
                     kind: "sub",
                     left: { kind: "get", path: "fromBalance" },
@@ -611,8 +643,7 @@ describe("compute", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "toBalance",
+                  op: "set", path: pp("toBalance"),
                   value: {
                     kind: "add",
                     left: { kind: "get", path: "toBalance" },
@@ -687,7 +718,7 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           test: {
-            flow: { kind: "patch", op: "set", path: "done", value: { kind: "lit", value: true } },
+            flow: { kind: "patch", op: "set", path: pp("done"), value: { kind: "lit", value: true } },
           },
         },
       });
@@ -707,8 +738,7 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: {
                 kind: "add",
                 left: { kind: "get", path: "count" },
@@ -755,8 +785,7 @@ describe("compute", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set",
-                    path: "pending",
+                    op: "set", path: pp("pending"),
                     value: { kind: "get", path: "meta.intentId" },
                   },
                   {
@@ -826,8 +855,7 @@ describe("compute", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set",
-                    path: "pending",
+                    op: "set", path: pp("pending"),
                     value: { kind: "get", path: "meta.intentId" },
                   },
                   {
@@ -905,8 +933,7 @@ describe("compute", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set",
-                    path: "pending",
+                    op: "set", path: pp("pending"),
                     value: { kind: "get", path: "meta.intentId" },
                   },
                   {
@@ -965,8 +992,7 @@ describe("compute", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "pending",
+                  op: "set", path: pp("pending"),
                   value: { kind: "get", path: "meta.intentId" },
                 },
                 {
@@ -984,8 +1010,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -1030,8 +1055,7 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "pending",
+              op: "set", path: pp("pending"),
               value: { kind: "get", path: "meta.intentId" },
             },
           },
@@ -1058,8 +1082,7 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: {
                 kind: "add",
                 left: { kind: "get", path: "count" },

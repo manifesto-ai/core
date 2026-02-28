@@ -2,6 +2,7 @@ import type { ExprNode } from "../schema/expr.js";
 import type { FlowNode } from "../schema/flow.js";
 import type { FieldSpec, StateSpec } from "../schema/field.js";
 import type { ComputedSpec } from "../schema/computed.js";
+import type { PatchSegment } from "../schema/patch.js";
 import { parsePath } from "../utils/path.js";
 
 const SEMVER_REGEX =
@@ -230,6 +231,17 @@ export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {
   }
 
   const segments = parsePath(path);
+  return pathExistsInFieldSpecSegments(spec, segments.map(stringSegmentToPatchSegment));
+}
+
+export function pathExistsInFieldSpecSegments(
+  spec: FieldSpec,
+  segments: readonly PatchSegment[]
+): boolean {
+  if (segments.length === 0) {
+    return true;
+  }
+
   let current: FieldSpec | null = spec;
 
   for (const segment of segments) {
@@ -239,19 +251,22 @@ export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {
 
     const fieldType = current.type;
     if (fieldType === "object") {
+      if (segment.kind !== "prop") {
+        return false;
+      }
       if (!current.fields) {
         // Open object allows any nested path (e.g., Json types)
         return true;
       }
-      if (!(segment in current.fields)) {
+      if (!(segment.name in current.fields)) {
         return false;
       }
-      current = current.fields[segment];
+      current = current.fields[segment.name];
       continue;
     }
 
     if (fieldType === "array") {
-      if (!isNumericSegment(segment)) {
+      if (segment.kind !== "index") {
         return false;
       }
       current = current.items ?? null;
@@ -367,6 +382,15 @@ export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | n
   if (!path) return spec;
 
   const segments = parsePath(path);
+  return getFieldSpecAtSegments(spec, segments.map(stringSegmentToPatchSegment));
+}
+
+export function getFieldSpecAtSegments(
+  spec: FieldSpec,
+  segments: readonly PatchSegment[]
+): FieldSpec | null {
+  if (segments.length === 0) return spec;
+
   let current: FieldSpec | null = spec;
 
   for (const segment of segments) {
@@ -374,15 +398,18 @@ export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | n
 
     const fieldType = current.type;
     if (fieldType === "object") {
-      if (!current.fields || !(segment in current.fields)) {
+      if (segment.kind !== "prop") {
         return null;
       }
-      current = current.fields[segment];
+      if (!current.fields || !(segment.name in current.fields)) {
+        return null;
+      }
+      current = current.fields[segment.name];
       continue;
     }
 
     if (fieldType === "array") {
-      if (!isNumericSegment(segment)) {
+      if (segment.kind !== "index") {
         return null;
       }
       current = current.items ?? null;
@@ -397,4 +424,11 @@ export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | n
 
 function isNumericSegment(segment: string): boolean {
   return /^[0-9]+$/.test(segment);
+}
+
+function stringSegmentToPatchSegment(segment: string): PatchSegment {
+  if (isNumericSegment(segment)) {
+    return { kind: "index", index: Number(segment) };
+  }
+  return { kind: "prop", name: segment };
 }
