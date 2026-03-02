@@ -76,6 +76,7 @@ export type {
 export type {
   WorldDelta,
   PersistedPatchEnvelope,
+  PersistedSnapshotEnvelope,
   CompactOptions,
   CompactResult,
   PersistedBranchEntry,

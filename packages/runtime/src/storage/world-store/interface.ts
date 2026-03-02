@@ -11,6 +11,7 @@ import type {
   WorldStore,
   WorldDelta,
   PersistedPatchEnvelope,
+  PersistedSnapshotEnvelope,
   CompactOptions,
   CompactResult,
   Snapshot,
@@ -22,6 +23,7 @@ export type {
   WorldStore,
   WorldDelta,
   PersistedPatchEnvelope,
+  PersistedSnapshotEnvelope,
   CompactOptions,
   CompactResult,
 };

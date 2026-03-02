@@ -12,6 +12,7 @@
 
 import { patchPathToDisplayString, type PatchPath } from "@manifesto-ai/core";
 import type { Patch, Snapshot } from "../../types/index.js";
+import type { PersistedSnapshotEnvelope } from "../../types/world-store.js";
 import { stripPlatformNamespaces } from "./platform-namespaces.js";
 
 /**
@@ -39,6 +40,8 @@ export interface DeltaGeneratorOptions {
 
 /**
  * Generate canonical data-root patches from base snapshot to terminal snapshot.
+ *
+ * Non-data snapshot fields are persisted through `createSnapshotEnvelope()`.
  */
 export function generateDelta(
   base: Snapshot,
@@ -66,6 +69,22 @@ export function generateDelta(
   const filteredPatches = eliminateNoOps(patches);
   const normalizedPatches = normalizePatches(filteredPatches);
   return sortPatches(normalizedPatches);
+}
+
+/**
+ * Create persisted non-data snapshot envelope.
+ *
+ * ADR-009 constrains patch roots to `snapshot.data`, so WorldStore persists
+ * non-data transitions explicitly via this envelope.
+ */
+export function createSnapshotEnvelope(snapshot: Snapshot): PersistedSnapshotEnvelope {
+  const canonical = toCanonicalSnapshot(snapshot);
+  return {
+    computed: canonical.computed,
+    system: canonical.system,
+    input: canonical.input,
+    meta: canonical.meta,
+  };
 }
 
 /**

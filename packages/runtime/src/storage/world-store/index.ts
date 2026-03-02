@@ -8,6 +8,7 @@ export {
   type WorldStore,
   type WorldDelta,
   type PersistedPatchEnvelope,
+  type PersistedSnapshotEnvelope,
   type CompactOptions,
   type CompactResult,
   type WorldEntry,
@@ -24,6 +25,7 @@ export {
 
 export {
   generateDelta,
+  createSnapshotEnvelope,
   toCanonicalSnapshot,
   eliminateNoOps,
   normalizePatches,

@@ -11,6 +11,7 @@ import type {
   WorldStore,
   WorldDelta,
   PersistedPatchEnvelope,
+  PersistedSnapshotEnvelope,
   CompactOptions,
   CompactResult,
   PersistedBranchState,
@@ -63,6 +64,7 @@ export class InMemoryWorldStore implements WorldStore {
         toWorld: genesis.worldId,
         patches: [],
         patchEnvelope: createPersistedPatchEnvelope([]),
+        snapshotEnvelope: createPersistedSnapshotEnvelope(snapshot),
         createdAt: Date.now(),
       };
 
@@ -89,6 +91,7 @@ export class InMemoryWorldStore implements WorldStore {
       toWorld: world.worldId,
       patches: [],
       patchEnvelope: createPersistedPatchEnvelope([]),
+      snapshotEnvelope: createPersistedSnapshotEnvelope(snapshot),
       createdAt: world.createdAt,
     };
 
@@ -119,12 +122,11 @@ export class InMemoryWorldStore implements WorldStore {
 
     // Get terminal snapshot if available (for full snapshot storage)
     let snapshot: Snapshot | undefined;
-    const persistedPatches = this._getPersistedPatches(normalizedDelta, world.worldId);
-    if (withinHorizon && persistedPatches.length > 0) {
+    if (withinHorizon) {
       // Reconstruct snapshot from parent + delta
       const parentSnapshot = await this._getSnapshotForDelta(normalizedDelta.fromWorld);
       if (parentSnapshot) {
-        snapshot = this._applyPatches(parentSnapshot, persistedPatches);
+        snapshot = this._applyDelta(parentSnapshot, normalizedDelta, world.worldId);
       }
     }
 
@@ -346,10 +348,7 @@ export class InMemoryWorldStore implements WorldStore {
     for (let i = startIndex - 1; i >= 0; i--) {
       const entry = this._worlds.get(lineage[i]);
       if (entry) {
-        const patches = this._getPersistedPatches(entry.delta, lineage[i]);
-        if (patches.length > 0) {
-          currentSnapshot = this._applyPatches(currentSnapshot, patches);
-        }
+        currentSnapshot = this._applyDelta(currentSnapshot, entry.delta, lineage[i]);
       }
     }
 
@@ -366,6 +365,27 @@ export class InMemoryWorldStore implements WorldStore {
     for (const patch of patches) {
       result = this._applyPatch(result, patch);
     }
+    return result;
+  }
+
+  /**
+   * Apply world delta (data patches + non-data envelope) to snapshot.
+   */
+  private _applyDelta(snapshot: Snapshot, delta: WorldDelta, worldId: WorldId): Snapshot {
+    const patches = this._getPersistedPatches(delta, worldId);
+    let result = patches.length > 0 ? this._applyPatches(snapshot, patches) : { ...snapshot };
+
+    if (delta.snapshotEnvelope) {
+      const envelope = createPersistedSnapshotEnvelope(delta.snapshotEnvelope);
+      result = {
+        ...result,
+        computed: envelope.computed,
+        system: envelope.system,
+        input: envelope.input,
+        meta: envelope.meta,
+      };
+    }
+
     return result;
   }
 
@@ -434,6 +454,9 @@ export class InMemoryWorldStore implements WorldStore {
         _patchFormat: PATCH_FORMAT_V2,
         patches: [...envelope.patches],
       },
+      snapshotEnvelope: delta.snapshotEnvelope
+        ? createPersistedSnapshotEnvelope(delta.snapshotEnvelope)
+        : undefined,
     };
   }
 
@@ -520,6 +543,21 @@ function createPersistedPatchEnvelope(patches: readonly Patch[]): PersistedPatch
   return {
     _patchFormat: PATCH_FORMAT_V2,
     patches: [...patches],
+  };
+}
+
+function createPersistedSnapshotEnvelope(
+  snapshot: Pick<Snapshot, "computed" | "system" | "input" | "meta">
+): PersistedSnapshotEnvelope {
+  return {
+    computed: { ...(snapshot.computed as Record<string, unknown>) },
+    system: {
+      ...snapshot.system,
+      errors: [...snapshot.system.errors],
+      pendingRequirements: [...snapshot.system.pendingRequirements],
+    },
+    input: { ...(snapshot.input as Record<string, unknown>) },
+    meta: { ...snapshot.meta },
   };
 }
 

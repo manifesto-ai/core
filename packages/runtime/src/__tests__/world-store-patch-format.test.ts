@@ -3,6 +3,7 @@ import { createProposalId, createWorldId, type World } from "@manifesto-ai/world
 import type { Snapshot, WorldDelta } from "../types/index.js";
 import { IncompatiblePatchFormatError } from "../errors/index.js";
 import { createInMemoryWorldStore } from "../storage/world-store/index.js";
+import { createSnapshotEnvelope } from "../storage/world-store/delta-generator.js";
 
 function makeSnapshot(data: Record<string, unknown>): Snapshot {
   return {
@@ -122,5 +123,48 @@ describe("InMemoryWorldStore patch format boundary (ADR-009)", () => {
     };
 
     await expect(store.restore(world2.worldId)).rejects.toBeInstanceOf(IncompatiblePatchFormatError);
+  });
+
+  it("RW-04: restore() preserves non-data transitions for delta-only entries", async () => {
+    const store = createInMemoryWorldStore({ activeHorizon: 1 });
+    const genesis = makeWorld("genesis");
+    await store.initializeGenesis(genesis, makeSnapshot({ count: 0 }));
+
+    const world2 = makeWorld("world-2", "proposal-1");
+    const terminalSnapshot: Snapshot = {
+      data: { count: 0 },
+      computed: { "computed.synced": true },
+      system: {
+        status: "pending",
+        lastError: null,
+        errors: [],
+        pendingRequirements: [],
+        currentAction: "sync",
+      },
+      input: { requestId: "r-1" },
+      meta: {
+        version: 2,
+        timestamp: 1700000000000,
+        randomSeed: "seed-2",
+        schemaHash: "schema-1",
+      },
+    };
+
+    const delta: WorldDelta = {
+      fromWorld: genesis.worldId,
+      toWorld: world2.worldId,
+      createdAt: Date.now(),
+      patches: [],
+      snapshotEnvelope: createSnapshotEnvelope(terminalSnapshot),
+    };
+
+    await store.store(world2, delta);
+
+    const restored = await store.restore(world2.worldId);
+    expect(restored.data).toEqual({ count: 0 });
+    expect(restored.computed).toEqual(terminalSnapshot.computed);
+    expect(restored.system).toEqual(terminalSnapshot.system);
+    expect(restored.input).toEqual(terminalSnapshot.input);
+    expect(restored.meta).toEqual(terminalSnapshot.meta);
   });
 });

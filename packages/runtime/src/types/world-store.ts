@@ -26,6 +26,19 @@ export type PersistedPatchEnvelope = {
   readonly patches: readonly Patch[];
 };
 
+/**
+ * Persisted non-data snapshot envelope.
+ *
+ * ADR-009 restricts Patch paths to `snapshot.data`, so non-data fields are
+ * persisted separately to preserve full Snapshot fidelity across restore.
+ */
+export type PersistedSnapshotEnvelope = {
+  readonly computed: Snapshot["computed"];
+  readonly system: Snapshot["system"];
+  readonly input: Snapshot["input"];
+  readonly meta: Snapshot["meta"];
+};
+
 // =============================================================================
 // Branch Persistence Types (SPEC v2.0.5)
 // =============================================================================
@@ -74,6 +87,13 @@ export type WorldDelta = {
    * Implementations SHOULD materialize this as `_patchFormat: 2`.
    */
   readonly patchEnvelope?: PersistedPatchEnvelope;
+  /**
+   * Optional persisted non-data snapshot envelope.
+   *
+   * This preserves `computed/system/input/meta` transitions when replaying
+   * data-root patches during restore.
+   */
+  readonly snapshotEnvelope?: PersistedSnapshotEnvelope;
   readonly createdAt: number;
 };
 
