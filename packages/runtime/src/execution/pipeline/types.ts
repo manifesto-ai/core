@@ -145,6 +145,11 @@ export type ExecuteDeps = {
   readonly policyService: PolicyService;
   readonly schedulerOptions?: { defaultTimeoutMs?: number };
   readonly getCurrentState: () => AppState<unknown>;
+  readonly resetToGenesisOnPatchFormatError?: (params: {
+    readonly error: unknown;
+    readonly baseWorldId: WorldId;
+    readonly branchId: string;
+  }) => Promise<Snapshot>;
 };
 
 /**

@@ -107,6 +107,7 @@ export type {
   HostExecutionResult,
   WorldStore,
   WorldDelta,
+  PersistedPatchEnvelope,
   PersistedBranchEntry,
   PersistedBranchState,
   PolicyService,
@@ -152,6 +153,8 @@ export type {
   CompactResult,
   RestoreHostContext,
 } from "./storage/world-store/index.js";
+
+export { PATCH_FORMAT_V2 } from "./types/world-store.js";
 
 export type {
   AppHostExecutorOptions,
@@ -212,6 +215,7 @@ export {
   WorldNotFoundError,
   WorldSchemaHashMismatchError,
   WorldNotInLineageError,
+  IncompatiblePatchFormatError,
 
   // Other
   ReservedNamespaceError,

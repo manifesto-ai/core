@@ -35,6 +35,8 @@ import type {
 } from "./interface.js";
 import { createWorldError } from "../errors.js";
 
+const SERIALIZED_PATCH_FORMAT_V2 = 2 as const;
+
 // ============================================================================
 // Memory World Store Implementation
 // ============================================================================
@@ -546,6 +548,7 @@ export class MemoryWorldStore implements ObservableWorldStore {
    * Export store state to JSON-serializable object
    */
   toJSON(): {
+    _patchFormat: 2;
     worlds: World[];
     snapshots: { worldId: string; snapshot: Snapshot }[];
     edges: WorldEdge[];
@@ -555,6 +558,7 @@ export class MemoryWorldStore implements ObservableWorldStore {
     genesisId: string | null;
   } {
     return {
+      _patchFormat: SERIALIZED_PATCH_FORMAT_V2,
       worlds: Array.from(this.worlds.values()),
       snapshots: Array.from(this.snapshots.entries()).map(([worldId, snapshot]) => ({
         worldId,
@@ -572,6 +576,7 @@ export class MemoryWorldStore implements ObservableWorldStore {
    * Import store state from JSON object
    */
   static fromJSON(data: {
+    _patchFormat?: number;
     worlds: World[];
     snapshots?: { worldId: string; snapshot: Snapshot }[];
     edges: WorldEdge[];
@@ -580,6 +585,14 @@ export class MemoryWorldStore implements ObservableWorldStore {
     bindings: ActorAuthorityBinding[];
     genesisId: string | null;
   }): MemoryWorldStore {
+    if (data._patchFormat !== SERIALIZED_PATCH_FORMAT_V2) {
+      throw new Error(
+        data._patchFormat === undefined
+          ? "Incompatible patch format: missing _patchFormat. Re-initialize from genesis."
+          : `Incompatible patch format: ${data._patchFormat}. Only _patchFormat: 2 is supported.`
+      );
+    }
+
     const store = new MemoryWorldStore();
 
     // Restore worlds

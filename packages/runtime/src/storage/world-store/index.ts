@@ -7,6 +7,7 @@
 export {
   type WorldStore,
   type WorldDelta,
+  type PersistedPatchEnvelope,
   type CompactOptions,
   type CompactResult,
   type WorldEntry,

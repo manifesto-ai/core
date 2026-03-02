@@ -11,6 +11,7 @@
 import type { Snapshot } from "@manifesto-ai/core";
 import type { Intent, RecallRequest } from "../../types/index.js";
 import type { PipelineContext, ExecuteDeps, StageResult } from "./types.js";
+import { IncompatiblePatchFormatError } from "../../errors/index.js";
 import {
   appStateToSnapshot,
   normalizeSnapshot,
@@ -42,8 +43,20 @@ export async function executeHost(
   try {
     baseSnapshot = await worldStore.restore(baseWorldId);
   } catch (error) {
-    // Fallback to current state if WorldStore fails
-    baseSnapshot = appStateToSnapshot(getCurrentState());
+    if (error instanceof IncompatiblePatchFormatError) {
+      if (deps.resetToGenesisOnPatchFormatError) {
+        baseSnapshot = await deps.resetToGenesisOnPatchFormatError({
+          error,
+          baseWorldId,
+          branchId,
+        });
+      } else {
+        baseSnapshot = appStateToSnapshot(getCurrentState());
+      }
+    } else {
+      // Fallback to current state for generic WorldStore failures
+      baseSnapshot = appStateToSnapshot(getCurrentState());
+    }
   }
   baseSnapshot = normalizeSnapshot(baseSnapshot);
 

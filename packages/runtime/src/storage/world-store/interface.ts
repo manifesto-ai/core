@@ -10,6 +10,7 @@
 import type {
   WorldStore,
   WorldDelta,
+  PersistedPatchEnvelope,
   CompactOptions,
   CompactResult,
   Snapshot,
@@ -17,7 +18,13 @@ import type {
 import type { World, WorldId } from "@manifesto-ai/world";
 
 // Re-export types
-export type { WorldStore, WorldDelta, CompactOptions, CompactResult };
+export type {
+  WorldStore,
+  WorldDelta,
+  PersistedPatchEnvelope,
+  CompactOptions,
+  CompactResult,
+};
 export type { World, WorldId };
 export type { Snapshot };
 

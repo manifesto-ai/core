@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { patchPathToDisplayString, type PatchPath } from "@manifesto-ai/core";
 import {
   generateDelta,
   toCanonicalSnapshot,
@@ -43,6 +44,10 @@ function createSnapshot(
     },
     ...overrides,
   };
+}
+
+function pp(...parts: string[]): PatchPath {
+  return parts.map((name) => ({ kind: "prop" as const, name }));
 }
 
 describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
@@ -153,12 +158,14 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       expect(patches).toHaveLength(1);
       expect(patches[0]).toEqual({
         op: "set",
-        path: "data.count",
+        path: pp("count"),
         value: 1,
       });
 
       // No patches for $host changes
-      const hostPatches = patches.filter((p) => p.path.includes("$host"));
+      const hostPatches = patches.filter((p) =>
+        patchPathToDisplayString(p.path).includes("$host")
+      );
       expect(hostPatches).toHaveLength(0);
     });
 
@@ -179,12 +186,14 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       expect(patches).toHaveLength(1);
       expect(patches[0]).toEqual({
         op: "set",
-        path: "data.count",
+        path: pp("count"),
         value: 1,
       });
 
       // No patches for $mel changes
-      const melPatches = patches.filter((p) => p.path.includes("$mel"));
+      const melPatches = patches.filter((p) =>
+        patchPathToDisplayString(p.path).includes("$mel")
+      );
       expect(melPatches).toHaveLength(0);
     });
 
@@ -242,7 +251,11 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       const patches = generateDelta(base, terminal);
 
       const paths = patches.map((p) => p.path);
-      expect(paths).toEqual(["data.alpha", "data.beta", "data.zebra"]);
+      expect(paths.map((path) => patchPathToDisplayString(path))).toEqual([
+        "alpha",
+        "beta",
+        "zebra",
+      ]);
     });
 
     it("handles nested platform namespaces correctly", () => {
@@ -260,7 +273,7 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
 
       // Only user.name change
       expect(patches).toHaveLength(1);
-      expect(patches[0].path).toBe("data.user.name");
+      expect(patchPathToDisplayString(patches[0].path)).toBe("user.name");
     });
 
     it("SCHEMA-RESERVED-1: excludes ANY $-prefixed namespace from delta (future-proof)", () => {
@@ -286,12 +299,14 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       expect(patches).toHaveLength(1);
       expect(patches[0]).toEqual({
         op: "set",
-        path: "data.count",
+        path: pp("count"),
         value: 1,
       });
 
       // No patches for ANY $-prefixed namespace
-      const platformPatches = patches.filter((p) => p.path.includes("$"));
+      const platformPatches = patches.filter((p) =>
+        patchPathToDisplayString(p.path).includes("$")
+      );
       expect(platformPatches).toHaveLength(0);
     });
   });
@@ -320,14 +335,15 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
 
       // Verify: patches only contain domain fields (snapshotHash input scope)
       for (const patch of patches) {
-        expect(patch.path).not.toContain("$host");
-        expect(patch.path).not.toContain("$mel");
+        const displayPath = patchPathToDisplayString(patch.path);
+        expect(displayPath).not.toContain("$host");
+        expect(displayPath).not.toContain("$mel");
       }
 
       // Verify: domain change is captured
       expect(patches).toContainEqual({
         op: "set",
-        path: "data.domainField",
+        path: pp("domainField"),
         value: "changed",
       });
     });

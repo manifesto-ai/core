@@ -8,7 +8,8 @@
  * @module
  */
 
-import type { DomainSchema } from "@manifesto-ai/core";
+import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
+import type { WorldId } from "@manifesto-ai/world";
 import type {
   ActOptions,
   AppState,
@@ -63,6 +64,11 @@ export interface AppExecutorDependencies {
   schedulerOptions?: { defaultTimeoutMs?: number };
   getCurrentState: () => AppState<unknown>;
   setCurrentState: (state: AppState<unknown>) => void;
+  resetToGenesisOnPatchFormatError?: (params: {
+    readonly error: unknown;
+    readonly baseWorldId: WorldId;
+    readonly branchId: string;
+  }) => Promise<Snapshot>;
 }
 
 /**
@@ -128,6 +134,7 @@ export class AppExecutorImpl implements AppExecutor {
       policyService: deps.policyService,
       schedulerOptions: deps.schedulerOptions,
       getCurrentState: deps.getCurrentState,
+      resetToGenesisOnPatchFormatError: deps.resetToGenesisOnPatchFormatError,
     };
 
     this._persistDeps = {

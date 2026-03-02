@@ -9,6 +9,23 @@
 import type { Patch, Snapshot } from "@manifesto-ai/core";
 import type { World, WorldId } from "@manifesto-ai/world";
 
+/**
+ * Serialized patch payload format version for ADR-009.
+ */
+export const PATCH_FORMAT_V2 = 2 as const;
+
+/**
+ * Persisted patch envelope (ADR-009 hard cut).
+ *
+ * NOTE:
+ * - This envelope is for persistence boundaries only.
+ * - In-memory Patch values remain plain Patch[].
+ */
+export type PersistedPatchEnvelope = {
+  readonly _patchFormat: typeof PATCH_FORMAT_V2;
+  readonly patches: readonly Patch[];
+};
+
 // =============================================================================
 // Branch Persistence Types (SPEC v2.0.5)
 // =============================================================================
@@ -51,6 +68,12 @@ export type WorldDelta = {
   readonly fromWorld: WorldId;
   readonly toWorld: WorldId;
   readonly patches: readonly Patch[];
+  /**
+   * Optional persisted envelope for restore boundary validation.
+   *
+   * Implementations SHOULD materialize this as `_patchFormat: 2`.
+   */
+  readonly patchEnvelope?: PersistedPatchEnvelope;
   readonly createdAt: number;
 };
 

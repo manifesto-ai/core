@@ -4,6 +4,7 @@ import { ActionHandleImpl } from "../../../execution/action/index.js";
 import { executeHost } from "../../../execution/pipeline/execute.js";
 import { normalizeSnapshot, snapshotToAppState } from "../../../state/index.js";
 import type { ExecuteDeps, PipelineContext } from "../../../execution/pipeline/types.js";
+import { IncompatiblePatchFormatError } from "../../../errors/index.js";
 
 /**
  * Minimal Snapshot fixture for pipeline tests.
@@ -194,5 +195,82 @@ describe("Runtime execute stage compliance", () => {
       intentId: expect.stringMatching(/^intent_ek-compliance-2_/),
     });
     expect(hostCall?.[3]).toEqual({ approvedScope: undefined, timeoutMs: 300 });
+  });
+
+  it("RT-PATCHFMT-4: execute() must use genesis reset callback on incompatible patch format", async () => {
+    const baseWorldId = createWorldId("legacy-world");
+    const resetSnapshot = normalizeSnapshot(makeSnapshot({ reset: "genesis" }));
+
+    const hostExecutor = {
+      execute: vi.fn().mockResolvedValue({
+        outcome: "completed" as const,
+        terminalSnapshot: makeSnapshot({ reset: "genesis", after: true }),
+      }),
+    };
+
+    const worldStore = {
+      restore: vi.fn().mockRejectedValue(
+        new IncompatiblePatchFormatError(String(baseWorldId), 1)
+      ),
+    };
+
+    const resetToGenesisOnPatchFormatError = vi
+      .fn()
+      .mockResolvedValue(resetSnapshot);
+
+    const deps = {
+      worldStore,
+      memoryFacade: { recall: vi.fn() },
+      hostExecutor,
+      policyService: {},
+      schedulerOptions: { defaultTimeoutMs: 321 },
+      getCurrentState: () => snapshotToAppState(makeSnapshot({ fallback: true })),
+      resetToGenesisOnPatchFormatError,
+    } as unknown as ExecuteDeps;
+
+    const handle = new ActionHandleImpl("proposal-compliance-3", "domain");
+    const ctx: PipelineContext = {
+      handle,
+      actionType: "repair",
+      input: {},
+      actorId: "actor-1",
+      branchId: "main",
+      prepare: {
+        proposal: {
+          proposalId: handle.proposalId,
+          actorId: "actor-1",
+          intentType: "repair",
+          intentBody: {},
+          baseWorld: baseWorldId,
+          branchId: "main",
+          createdAt: 1_700_000_000_000,
+        },
+        baseWorldId,
+        baseWorldIdStr: String(baseWorldId),
+      },
+      authorize: {
+        decision: {
+          approved: true,
+          timestamp: 1_700_000_000_001,
+        },
+        executionKey: "ek-compliance-3",
+      },
+    };
+
+    await executeHost(ctx, deps);
+
+    expect(resetToGenesisOnPatchFormatError).toHaveBeenCalledWith({
+      error: expect.any(IncompatiblePatchFormatError),
+      baseWorldId,
+      branchId: "main",
+    });
+    expect(hostExecutor.execute).toHaveBeenCalledWith(
+      "ek-compliance-3",
+      resetSnapshot,
+      expect.objectContaining({
+        type: "repair",
+      }),
+      { approvedScope: undefined, timeoutMs: 321 }
+    );
   });
 });
