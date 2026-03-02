@@ -573,6 +573,32 @@ describe("compute", () => {
       expect(result.trace.duration).toBeGreaterThanOrEqual(0);
       expect(result.trace.terminatedBy).toBe("complete");
     });
+
+    it("should include empty-apply version bump for halted no-patch results", async () => {
+      const schema = createTestSchema();
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("noop");
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("halted");
+      expect(result.trace.baseVersion).toBe(0);
+      expect(result.trace.resultVersion).toBe(1);
+      expect(result.snapshot.meta.version).toBe(result.trace.resultVersion);
+    });
+
+    it("should include empty-apply and system-delta bumps for error results", async () => {
+      const schema = createTestSchema();
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("unknownAction");
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.trace.baseVersion).toBe(0);
+      expect(result.trace.resultVersion).toBe(2);
+      expect(result.snapshot.meta.version).toBe(result.trace.resultVersion);
+    });
   });
 
   describe("Complex Scenarios", () => {

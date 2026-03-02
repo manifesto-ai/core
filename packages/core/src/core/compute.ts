@@ -291,9 +291,9 @@ function createSystemDeltaForFlow(
 function estimateResultVersion(snapshot: Snapshot, patches: readonly Patch[], delta: SystemDelta): number {
   let version = snapshot.meta.version;
 
-  if (patches.length > 0) {
-    version += 1;
-  }
+  // Host interlock always executes core.apply() first, even for empty patch arrays.
+  // apply() increments snapshot version by exactly 1.
+  version += 1;
 
   const applied = applySystemDelta(snapshot, delta);
   if (applied !== snapshot) {

@@ -258,6 +258,37 @@ describe("Delta Generator (FDR-APP-INTEGRATION-001 §3.6)", () => {
       ]);
     });
 
+    it("does not collapse distinct PatchPath structures with same display string", () => {
+      const base = createSnapshot({
+        a: { b: 0 },
+      });
+
+      const terminal = createSnapshot({
+        a: { b: 1 },
+        "a.b": 1,
+      });
+
+      const patches = generateDelta(base, terminal);
+      expect(patches).toHaveLength(2);
+
+      const serialized = patches.map((patch) => ({
+        op: patch.op,
+        path: JSON.stringify(patch.path),
+        value: "value" in patch ? patch.value : undefined,
+      }));
+
+      expect(serialized).toContainEqual({
+        op: "set",
+        path: JSON.stringify(pp("a", "b")),
+        value: 1,
+      });
+      expect(serialized).toContainEqual({
+        op: "set",
+        path: JSON.stringify(pp("a.b")),
+        value: 1,
+      });
+    });
+
     it("handles nested platform namespaces correctly", () => {
       const base = createSnapshot({
         user: { name: "old" },

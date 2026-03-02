@@ -121,7 +121,7 @@ export function eliminateNoOps(patches: CanonicalPatch[]): CanonicalPatch[] {
   const result: CanonicalPatch[] = [];
 
   for (const patch of patches) {
-    const pathKey = patchPathToDisplayString(patch.path);
+    const pathKey = patchPathStructuralKey(patch.path);
     const value = "value" in patch ? patch.value : undefined;
 
     const existing = pathStates.get(pathKey);
@@ -159,6 +159,13 @@ export function sortPatches(patches: CanonicalPatch[]): CanonicalPatch[] {
     const pathCompare = aPath.localeCompare(bPath);
     if (pathCompare !== 0) {
       return pathCompare;
+    }
+
+    const aStructuralPath = patchPathStructuralKey(a.path);
+    const bStructuralPath = patchPathStructuralKey(b.path);
+    const structuralCompare = aStructuralPath.localeCompare(bStructuralPath);
+    if (structuralCompare !== 0) {
+      return structuralCompare;
     }
 
     const opOrder: Record<Patch["op"], number> = {
@@ -232,6 +239,10 @@ function diffObject(
       patches.push({ op: "set", path: childPath, value: terminalValue });
     }
   }
+}
+
+function patchPathStructuralKey(path: PatchPath): string {
+  return JSON.stringify(path);
 }
 
 function pushSetIfChanged(
