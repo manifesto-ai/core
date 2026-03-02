@@ -1,4 +1,5 @@
-import type { Patch, SetPatch, UnsetPatch, MergePatch } from "@manifesto-ai/core";
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+import type { SetPatch, UnsetPatch, MergePatch } from "@manifesto-ai/core";
 
 // ============================================================================
 // Type-Level Path Utilities
@@ -97,30 +98,12 @@ export type ObjectPaths<T, D extends number = 3> = [D] extends [never]
 // ============================================================================
 
 /**
- * Snapshot root prefixes reserved by Core's splitPatchPath().
- * Paths starting with these are routed to snapshot.system / .input / etc.,
- * NOT to snapshot.data. Typed ops exclude them to prevent silent misrouting.
- */
-type ReservedRoot = "system" | "input" | "computed" | "meta";
-
-/** DataPaths with reserved snapshot roots filtered out. */
-type SafeDataPaths<T extends Record<string, unknown>> = Exclude<
-  DataPaths<T>,
-  ReservedRoot | `${ReservedRoot}.${string}`
->;
-
-/** ObjectPaths with reserved snapshot roots filtered out. */
-type SafeObjectPaths<T extends Record<string, unknown>> = Exclude<
-  ObjectPaths<T>,
-  ReservedRoot | `${ReservedRoot}.${string}`
->;
-
-/**
  * Type-safe patch operations builder.
  *
  * Provides IDE autocomplete for state paths and compile-time type checking
  * for patch values. All methods return standard Patch objects compatible
  * with Core's apply() function.
+ * System mutation convenience APIs are intentionally excluded.
  *
  * @typeParam TData - The shape of domain state (snapshot.data)
  */
@@ -132,7 +115,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * ops.set('count', 5);
    * ops.set('user.name', 'Alice');
    */
-  set<P extends SafeDataPaths<TData>>(path: P, value: Exclude<ValueAt<TData, P>, undefined>): SetPatch;
+  set<P extends DataPaths<TData>>(path: P, value: Exclude<ValueAt<TData, P>, undefined>): SetPatch;
 
   /**
    * Create an unset patch — remove property at path.
@@ -140,7 +123,7 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * @example
    * ops.unset('temporaryField');
    */
-  unset<P extends SafeDataPaths<TData>>(path: P): UnsetPatch;
+  unset<P extends DataPaths<TData>>(path: P): UnsetPatch;
 
   /**
    * Create a merge patch — shallow merge at object path.
@@ -149,27 +132,10 @@ export interface TypedOps<TData extends Record<string, unknown>> {
    * @example
    * ops.merge('user', { name: 'Bob' });
    */
-  merge<P extends SafeObjectPaths<TData>>(
+  merge<P extends ObjectPaths<TData>>(
     path: P,
     value: { [K in keyof ValueAt<TData, P>]?: Exclude<ValueAt<TData, P>[K], undefined> },
   ): MergePatch;
-
-  /**
-   * Create an error patch targeting system.lastError.
-   *
-   * Convenience for writing error state from effect handlers.
-   * Provide source and timestamp for full audit trail;
-   * omitted fields default to empty/zero.
-   */
-  error(
-    code: string,
-    message: string,
-    options?: {
-      source?: { actionId: string; nodePath: string };
-      timestamp?: number;
-      context?: Record<string, unknown>;
-    },
-  ): SetPatch;
 
   /**
    * Raw (untyped) patch creation — escape hatch for dynamic paths
@@ -217,46 +183,27 @@ export interface TypedOps<TData extends Record<string, unknown>> {
 export function defineOps<
   TData extends Record<string, unknown>,
 >(): TypedOps<TData> {
+  const toPatchPath = (path: string) => semanticPathToPatchPath(path);
+
   return {
     set(path: string, value: unknown): SetPatch {
-      return { op: "set", path, value };
+      return { op: "set", path: toPatchPath(path), value };
     },
     unset(path: string): UnsetPatch {
-      return { op: "unset", path };
+      return { op: "unset", path: toPatchPath(path) };
     },
     merge(path: string, value: unknown): MergePatch {
-      return { op: "merge", path, value: value as Record<string, unknown> };
-    },
-    error(
-      code: string,
-      message: string,
-      options?: {
-        source?: { actionId: string; nodePath: string };
-        timestamp?: number;
-        context?: Record<string, unknown>;
-      },
-    ): SetPatch {
-      return {
-        op: "set",
-        path: "system.lastError",
-        value: {
-          code,
-          message,
-          source: options?.source ?? { actionId: "", nodePath: "" },
-          timestamp: options?.timestamp ?? 0,
-          ...(options?.context !== undefined ? { context: options.context } : {}),
-        },
-      };
+      return { op: "merge", path: toPatchPath(path), value: value as Record<string, unknown> };
     },
     raw: {
       set(path: string, value: unknown): SetPatch {
-        return { op: "set", path, value };
+        return { op: "set", path: toPatchPath(path), value };
       },
       unset(path: string): UnsetPatch {
-        return { op: "unset", path };
+        return { op: "unset", path: toPatchPath(path) };
       },
       merge(path: string, value: Record<string, unknown>): MergePatch {
-        return { op: "merge", path, value };
+        return { op: "merge", path: toPatchPath(path), value };
       },
     },
   };

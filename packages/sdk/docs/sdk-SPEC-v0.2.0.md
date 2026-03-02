@@ -499,6 +499,7 @@ type AppConfig = {
  * - Patch paths MUST use ADR-009 `PatchPath` segments (data-rooted)
  * - MUST NOT throw exceptions (return error patches instead)
  * - MUST NOT patch `system.*` fields directly (system transitions are Core-owned)
+ * - SDK typed ops MUST NOT provide `system.lastError` convenience mutation APIs
  * - MUST NOT contain domain logic
  */
 type EffectHandler = (

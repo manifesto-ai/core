@@ -7,7 +7,10 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
 import { defineOps } from "../typed-ops.js";
 import type { DataPaths, ValueAt, ObjectPaths } from "../typed-ops.js";
-import type { Patch, SetPatch } from "@manifesto-ai/core";
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+import type { Patch } from "@manifesto-ai/core";
+
+const pp = (path: string) => semanticPathToPatchPath(path);
 
 // ============================================================================
 // Scenario 1: Todo App (basic CRUD)
@@ -26,10 +29,10 @@ describe("Scenario 1: Todo App", () => {
 
   it("should set primitive fields", () => {
     const p1 = ops.set("count", 10);
-    expect(p1).toEqual({ op: "set", path: "count", value: 10 });
+    expect(p1).toEqual({ op: "set", path: pp("count"), value: 10 });
 
     const p2 = ops.set("filter", "active");
-    expect(p2).toEqual({ op: "set", path: "filter", value: "active" });
+    expect(p2).toEqual({ op: "set", path: pp("filter"), value: "active" });
   });
 
   it("should replace entire array", () => {
@@ -37,7 +40,7 @@ describe("Scenario 1: Todo App", () => {
       { id: "1", title: "Test", completed: false },
     ];
     const p = ops.set("todos", newTodos);
-    expect(p).toEqual({ op: "set", path: "todos", value: newTodos });
+    expect(p).toEqual({ op: "set", path: pp("todos"), value: newTodos });
   });
 
   it("should NOT allow merge on primitive or array fields", () => {
@@ -133,14 +136,14 @@ describe("Scenario 2: E-commerce (deep nesting)", () => {
     const p1 = ops.merge("customer.address", { city: "Busan", zip: "12345" });
     expect(p1).toEqual({
       op: "merge",
-      path: "customer.address",
+      path: pp("customer.address"),
       value: { city: "Busan", zip: "12345" },
     });
 
     const p2 = ops.merge("customer.preferences", { newsletter: true });
     expect(p2).toEqual({
       op: "merge",
-      path: "customer.preferences",
+      path: pp("customer.preferences"),
       value: { newsletter: true },
     });
 
@@ -252,8 +255,8 @@ describe("Scenario 4: Effect handler pattern", () => {
     ];
 
     expect(patches).toHaveLength(4);
-    expect(patches[0]).toEqual({ op: "set", path: "data.items", value: items });
-    expect(patches[2]).toEqual({ op: "set", path: "syncStatus", value: "success" });
+    expect(patches[0]).toEqual({ op: "set", path: pp("data.items"), value: items });
+    expect(patches[2]).toEqual({ op: "set", path: pp("syncStatus"), value: "success" });
   });
 
   it("should build error patch sequence", () => {
@@ -270,26 +273,35 @@ describe("Scenario 4: Effect handler pattern", () => {
     const p = ops.merge("data", { lastSync: "2026-02-19T12:00:00Z" });
     expect(p).toEqual({
       op: "merge",
-      path: "data",
+      path: pp("data"),
       value: { lastSync: "2026-02-19T12:00:00Z" },
     });
   });
 
-  it("should create error convenience patch", () => {
-    const p = ops.error("SYNC_FAILED", "API returned 500", { context: { endpoint: "/api/items" } });
-    expect(p.op).toBe("set");
-    expect(p.path).toBe("system.lastError");
+  it("should model failure via domain error fields", () => {
+    const patches: Patch[] = [
+      ops.set("syncStatus", "error"),
+      ops.set("errorMessage", "API returned 500"),
+      ops.set("retryCount", 1),
+    ];
+    expect(patches).toHaveLength(3);
+    expect(patches[1]).toEqual({
+      op: "set",
+      path: pp("errorMessage"),
+      value: "API returned 500",
+    });
   });
 
-  it("should create error patch with source metadata", () => {
-    const p = ops.error("SYNC_FAILED", "API returned 500", {
+  it("should support host-scoped error payload via raw escape hatch", () => {
+    const p = ops.raw.set("$host.lastError", {
+      code: "SYNC_FAILED",
+      message: "API returned 500",
       source: { actionId: "sync-action", nodePath: "sync.fetch" },
-      timestamp: Date.now(),
       context: { endpoint: "/api/items" },
     });
     expect(p.op).toBe("set");
+    expect(p.path).toEqual(pp("$host.lastError"));
     expect((p.value as Record<string, unknown>).code).toBe("SYNC_FAILED");
-    expect((p.value as Record<string, { actionId: string }>).source.actionId).toBe("sync-action");
   });
 });
 
@@ -306,20 +318,20 @@ describe("Scenario 5: raw escape hatch", () => {
 
   it("should allow platform namespace paths via raw", () => {
     const p1 = ops.raw.set("$host.intentSlots", { slot1: "value" });
-    expect(p1.path).toBe("$host.intentSlots");
+    expect(p1.path).toEqual(pp("$host.intentSlots"));
 
     const p2 = ops.raw.merge("$host.config", { debug: true });
-    expect(p2.path).toBe("$host.config");
+    expect(p2.path).toEqual(pp("$host.config"));
   });
 
   it("should allow system paths via raw", () => {
     const p = ops.raw.set("system.status", "idle");
-    expect(p).toEqual({ op: "set", path: "system.status", value: "idle" });
+    expect(p).toEqual({ op: "set", path: pp("system.status"), value: "idle" });
   });
 
   it("should allow input paths via raw", () => {
     const p = ops.raw.set("input.amount", 100);
-    expect(p).toEqual({ op: "set", path: "input.amount", value: 100 });
+    expect(p).toEqual({ op: "set", path: pp("input.amount"), value: 100 });
   });
 
   it("should allow array item access via raw", () => {
@@ -332,7 +344,7 @@ describe("Scenario 5: raw escape hatch", () => {
 
     // Raw allows individual item access
     const p2 = todoOps.raw.set("todos.0.completed", true);
-    expect(p2).toEqual({ op: "set", path: "todos.0.completed", value: true });
+    expect(p2).toEqual({ op: "set", path: pp("todos.0.completed"), value: true });
   });
 });
 
@@ -364,10 +376,10 @@ describe("Scenario 6: Flat state (no nesting)", () => {
   });
 
   it("should create correct patches", () => {
-    expect(ops.set("a", "hello")).toEqual({ op: "set", path: "a", value: "hello" });
-    expect(ops.set("b", 42)).toEqual({ op: "set", path: "b", value: 42 });
-    expect(ops.set("c", true)).toEqual({ op: "set", path: "c", value: true });
-    expect(ops.unset("a")).toEqual({ op: "unset", path: "a" });
+    expect(ops.set("a", "hello")).toEqual({ op: "set", path: pp("a"), value: "hello" });
+    expect(ops.set("b", 42)).toEqual({ op: "set", path: pp("b"), value: 42 });
+    expect(ops.set("c", true)).toEqual({ op: "set", path: pp("c"), value: true });
+    expect(ops.unset("a")).toEqual({ op: "unset", path: pp("a") });
   });
 });
 
@@ -410,7 +422,7 @@ describe("Scenario 7: Record<string, T> fields", () => {
     });
     expect(p).toEqual({
       op: "merge",
-      path: "widgets",
+      path: pp("widgets"),
       value: { widget1: { title: "Chart", visible: true } },
     });
   });
@@ -550,7 +562,7 @@ describe("Scenario 11: ValueAt edge cases", () => {
 });
 
 // ============================================================================
-// Scenario 12: Reserved snapshot root exclusion
+// Scenario 12: Data-root anchoring for reserved-like keys
 // ============================================================================
 
 type ReservedFieldState = {
@@ -562,42 +574,54 @@ type ReservedFieldState = {
   safe: { nested: string };
 };
 
-describe("Scenario 12: Reserved snapshot root exclusion", () => {
+describe("Scenario 12: Data-root anchoring for reserved-like keys", () => {
   const ops = defineOps<ReservedFieldState>();
 
-  it("should allow non-reserved paths", () => {
+  it("should allow ordinary data paths", () => {
     const p1 = ops.set("count", 42);
-    expect(p1).toEqual({ op: "set", path: "count", value: 42 });
+    expect(p1).toEqual({ op: "set", path: pp("count"), value: 42 });
 
     const p2 = ops.set("safe.nested", "hello");
-    expect(p2).toEqual({ op: "set", path: "safe.nested", value: "hello" });
+    expect(p2).toEqual({ op: "set", path: pp("safe.nested"), value: "hello" });
   });
 
-  it("should exclude reserved root paths from DataPaths", () => {
-    // These paths would be misrouted by Core's splitPatchPath():
-    // "system.foo" → snapshot.system.foo (not snapshot.data.system.foo)
-    // TypedOps filters them out to prevent silent runtime corruption.
+  it("should include system/input/computed/meta keys as data paths", () => {
     type Paths = DataPaths<ReservedFieldState>;
 
-    // DataPaths itself still generates these (it's generic)
     expectTypeOf<"system">().toMatchTypeOf<Paths>();
     expectTypeOf<"system.foo">().toMatchTypeOf<Paths>();
+    expectTypeOf<"input.bar">().toMatchTypeOf<Paths>();
+    expectTypeOf<"computed.baz">().toMatchTypeOf<Paths>();
+    expectTypeOf<"meta.qux">().toMatchTypeOf<Paths>();
 
-    // But TypedOps interface filters them — verified by:
-    // ops.set("system", ...) → TS error
-    // ops.set("system.foo", ...) → TS error
-    // Users should use raw for reserved namespace access.
+    expect(ops.set("system.foo", "domain")).toEqual({
+      op: "set",
+      path: pp("system.foo"),
+      value: "domain",
+    });
+    expect(ops.set("input.bar", 10)).toEqual({
+      op: "set",
+      path: pp("input.bar"),
+      value: 10,
+    });
+    expect(ops.set("computed.baz", true)).toEqual({
+      op: "set",
+      path: pp("computed.baz"),
+      value: true,
+    });
+    expect(ops.merge("meta", { qux: "updated" })).toEqual({
+      op: "merge",
+      path: pp("meta"),
+      value: { qux: "updated" },
+    });
   });
 
-  it("should allow reserved path access via raw escape hatch", () => {
-    const p = ops.raw.set("system.status", "idle");
-    expect(p).toEqual({ op: "set", path: "system.status", value: "idle" });
+  it("should support raw paths for namespaces like $host", () => {
+    const p = ops.raw.set("$host.status", "idle");
+    expect(p).toEqual({ op: "set", path: pp("$host.status"), value: "idle" });
   });
 
-  it("should not filter reserved names in nested positions", () => {
-    // "safe.nested" is fine — "nested" is not a root-level reserved prefix.
-    // Nested occurrences of reserved words are safe because splitPatchPath()
-    // only checks the first segment.
+  it("should include reserved-like words in nested positions", () => {
     type NestState = { safe: { system: string; input: number } };
     type Paths = DataPaths<NestState>;
     expectTypeOf<"safe.system">().toMatchTypeOf<Paths>();

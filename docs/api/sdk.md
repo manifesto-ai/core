@@ -64,7 +64,16 @@ Rules:
 - `unset(path)`
 - `merge(path, value)`
 
-`system.*` convenience mutation APIs are intentionally excluded from typed data patch ops.
+`system.*` convenience mutation APIs are intentionally excluded from typed data patch ops (`ops.error()` is not provided).
+
+```typescript
+const ops = defineOps<MyState>();
+return [
+  ops.set("syncStatus", "error"),
+  ops.set("errorMessage", "API timeout"),
+  ops.raw.set("$host.lastError", { code: "SYNC_TIMEOUT" }),
+];
+```
 
 ---
 

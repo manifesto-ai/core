@@ -2,21 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   compileMelDomain,
   lowerSystemValues,
-  type CompileMelDomainResult,
 } from "@manifesto-ai/compiler";
 import { createTestApp } from "../index.js";
 
-function compile(source: string): CompileMelDomainResult & { success: boolean } {
-  const result = compileMelDomain(source, { mode: "domain" });
-  return {
-    ...result,
-    success: result.errors.length === 0 && result.schema !== null,
-  };
-}
-
 describe("SDK stack integration: compiler-lowered system values", () => {
   it("hydrates $system.uuid and $system.time.now in createTestApp execution", async () => {
-    const result = compile(
+    const result = compileMelDomain(
       `
       domain SystemRuntime {
         state {
@@ -35,8 +26,10 @@ describe("SDK stack integration: compiler-lowered system values", () => {
       `
     );
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
+    expect(result.errors).toHaveLength(0);
+    expect(result.schema).not.toBeNull();
+    if (result.schema === null) return;
+
     const lowered = lowerSystemValues(result.schema);
     if (!lowered) return;
 
@@ -48,9 +41,9 @@ describe("SDK stack integration: compiler-lowered system values", () => {
     try {
       const handle = app.act("appendEntry");
       const completed = await handle.done({ timeoutMs: 5000 });
-      const snapshot = await app.getSnapshot(completed.worldId);
-
-      const entries = snapshot.data.entries;
+      const snapshot = await app.getSnapshot(completed.worldId as Parameters<typeof app.getSnapshot>[0]);
+      const data = snapshot.data as { entries: unknown[] };
+      const entries = data.entries;
       expect(entries).toHaveLength(1);
 
       const item = entries[0] as { id: unknown; createdAt: unknown };
