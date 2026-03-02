@@ -273,4 +273,83 @@ describe("Runtime execute stage compliance", () => {
       { approvedScope: undefined, timeoutMs: 321 }
     );
   });
+
+  it("RT-PATCHFMT-5: execute() must rebase prepare baseWorldId when reset callback returns lineage anchor", async () => {
+    const legacyBaseWorldId = createWorldId("legacy-world");
+    const genesisWorldId = createWorldId("genesis-world");
+    const resetSnapshot = normalizeSnapshot(makeSnapshot({ reset: "genesis" }));
+
+    const hostExecutor = {
+      execute: vi.fn().mockResolvedValue({
+        outcome: "completed" as const,
+        terminalSnapshot: makeSnapshot({ reset: "genesis", after: true }),
+      }),
+    };
+
+    const worldStore = {
+      restore: vi.fn().mockRejectedValue(
+        new IncompatiblePatchFormatError(String(legacyBaseWorldId), 1)
+      ),
+    };
+
+    const resetToGenesisOnPatchFormatError = vi
+      .fn()
+      .mockResolvedValue({
+        snapshot: resetSnapshot,
+        baseWorldId: genesisWorldId,
+      });
+
+    const deps = {
+      worldStore,
+      memoryFacade: { recall: vi.fn() },
+      hostExecutor,
+      policyService: {},
+      schedulerOptions: { defaultTimeoutMs: 321 },
+      getCurrentState: () => snapshotToAppState(makeSnapshot({ fallback: true })),
+      resetToGenesisOnPatchFormatError,
+    } as unknown as ExecuteDeps;
+
+    const handle = new ActionHandleImpl("proposal-compliance-4", "domain");
+    const ctx: PipelineContext = {
+      handle,
+      actionType: "repair",
+      input: {},
+      actorId: "actor-1",
+      branchId: "main",
+      prepare: {
+        proposal: {
+          proposalId: handle.proposalId,
+          actorId: "actor-1",
+          intentType: "repair",
+          intentBody: {},
+          baseWorld: legacyBaseWorldId,
+          branchId: "main",
+          createdAt: 1_700_000_000_000,
+        },
+        baseWorldId: legacyBaseWorldId,
+        baseWorldIdStr: String(legacyBaseWorldId),
+      },
+      authorize: {
+        decision: {
+          approved: true,
+          timestamp: 1_700_000_000_001,
+        },
+        executionKey: "ek-compliance-4",
+      },
+    };
+
+    await executeHost(ctx, deps);
+
+    expect(ctx.prepare?.baseWorldId).toBe(genesisWorldId);
+    expect(ctx.prepare?.baseWorldIdStr).toBe(String(genesisWorldId));
+    expect(ctx.prepare?.proposal.baseWorld).toBe(genesisWorldId);
+    expect(hostExecutor.execute).toHaveBeenCalledWith(
+      "ek-compliance-4",
+      resetSnapshot,
+      expect.objectContaining({
+        type: "repair",
+      }),
+      { approvedScope: undefined, timeoutMs: 321 }
+    );
+  });
 });

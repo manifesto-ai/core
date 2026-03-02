@@ -29,6 +29,7 @@ import { ActionHandleImpl } from "./action/index.js";
 import { generateWorldId } from "../storage/branch/index.js";
 import type {
   PipelineContext,
+  PatchFormatRecovery,
   PrepareDeps,
   AuthorizeDeps,
   ExecuteDeps,
@@ -68,7 +69,7 @@ export interface AppExecutorDependencies {
     readonly error: unknown;
     readonly baseWorldId: WorldId;
     readonly branchId: string;
-  }) => Promise<Snapshot>;
+  }) => Promise<PatchFormatRecovery>;
 }
 
 /**

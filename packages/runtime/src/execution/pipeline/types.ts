@@ -149,8 +149,21 @@ export type ExecuteDeps = {
     readonly error: unknown;
     readonly baseWorldId: WorldId;
     readonly branchId: string;
-  }) => Promise<Snapshot>;
+  }) => Promise<PatchFormatRecovery>;
 };
+
+/**
+ * Patch format recovery result.
+ *
+ * Callback MAY return only a recovered snapshot, or snapshot + rebased
+ * baseWorldId when lineage anchor changed (for example reset to genesis).
+ */
+export type PatchFormatRecovery =
+  | Snapshot
+  | {
+    readonly snapshot: Snapshot;
+    readonly baseWorldId: WorldId;
+  };
 
 /**
  * Dependencies for the Persist stage.

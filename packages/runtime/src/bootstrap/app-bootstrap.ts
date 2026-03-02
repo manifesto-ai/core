@@ -36,6 +36,7 @@ import type { SchemaManager } from "../schema/index.js";
 import type {
   ActionQueue,
   LivenessGuard,
+  PatchFormatRecovery,
   ProposalManager,
 } from "../execution/index.js";
 import type { WorldHeadTracker } from "../storage/world/index.js";
@@ -419,7 +420,7 @@ export class AppBootstrap {
       readonly error: unknown;
       readonly baseWorldId: import("@manifesto-ai/world").WorldId;
       readonly branchId: string;
-    }): Promise<Snapshot> => {
+    }): Promise<PatchFormatRecovery> => {
       const fallbackSnapshot = appStateToSnapshot(runtime.getCurrentState());
       const genesisWorldId = worldHeadTracker.getGenesisWorldId();
 
@@ -463,7 +464,10 @@ export class AppBootstrap {
         `[Manifesto] Incompatible patch payload detected (${String(error)}). ` +
         `Execution reset to genesis '${String(genesisWorldId)}' (epoch reset policy).`
       );
-      return genesisSnapshot;
+      return {
+        snapshot: genesisSnapshot,
+        baseWorldId: genesisWorldId,
+      };
     };
 
     // 8h. AppExecutor

@@ -16,6 +16,7 @@ export type {
   PrepareDeps,
   AuthorizeDeps,
   ExecuteDeps,
+  PatchFormatRecovery,
   PersistDeps,
   FinalizeDeps,
 } from "./types.js";
