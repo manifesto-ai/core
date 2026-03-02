@@ -273,6 +273,43 @@ describe("apply", () => {
     expect(result.system.lastError).toBeNull();
   });
 
+  it("should allow merge on arbitrary $-prefixed platform namespaces", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          count: { type: "number", required: true },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "merge", path: pp("$runtime.cache"), value: { warmed: true } }],
+      HOST_CONTEXT
+    );
+
+    expect(result.data).toEqual({
+      count: 1,
+      $runtime: {
+        cache: {
+          warmed: true,
+        },
+      },
+    });
+    expect(result.system.status).toBe("idle");
+    expect(result.system.lastError).toBeNull();
+  });
+
   it("should record TYPE_MISMATCH for non-object values at platform namespace root", () => {
     const schema: DomainSchema = {
       id: "manifesto:test",

@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validate.js";
-import { collectGetPathsFromExpr } from "./validation-utils.js";
+import { collectGetPathsFromExpr, getFieldSpecAtPath, pathExistsInFieldSpec } from "./validation-utils.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import { semanticPathToPatchPath } from "../utils/patch-path.js";
 import type { DomainSchema } from "../schema/domain.js";
 import type { ExprNode } from "../schema/expr.js";
+import type { FieldSpec } from "../schema/field.js";
 
 const pp = (path: string) => semanticPathToPatchPath(path);
 
@@ -824,5 +825,51 @@ describe("collectGetPathsFromExpr", () => {
   it("collects paths from fromEntries", () => {
     const expr: ExprNode = { kind: "fromEntries", entries: get("data.e") };
     expect(collectGetPathsFromExpr(expr)).toEqual(["data.e"]);
+  });
+});
+
+describe("validation-utils path lookup", () => {
+  it("preserves numeric object keys for string paths", () => {
+    const spec: FieldSpec = {
+      type: "object",
+      required: true,
+      fields: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            "2024": { type: "string", required: false },
+          },
+        },
+      },
+    };
+
+    expect(pathExistsInFieldSpec(spec, "input.2024")).toBe(true);
+    expect(getFieldSpecAtPath(spec, "input.2024")).toEqual({ type: "string", required: false });
+  });
+
+  it("still treats numeric segments as array indices when traversing array specs", () => {
+    const spec: FieldSpec = {
+      type: "object",
+      required: true,
+      fields: {
+        items: {
+          type: "array",
+          required: true,
+          items: {
+            type: "object",
+            required: true,
+            fields: {
+              title: { type: "string", required: true },
+            },
+          },
+        },
+      },
+    };
+
+    expect(pathExistsInFieldSpec(spec, "items.0.title")).toBe(true);
+    expect(pathExistsInFieldSpec(spec, "items.foo.title")).toBe(false);
+    expect(getFieldSpecAtPath(spec, "items.0.title")).toEqual({ type: "string", required: true });
+    expect(getFieldSpecAtPath(spec, "items.foo.title")).toBeNull();
   });
 });

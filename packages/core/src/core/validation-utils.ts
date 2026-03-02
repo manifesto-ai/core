@@ -231,7 +231,42 @@ export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {
   }
 
   const segments = parsePath(path);
-  return pathExistsInFieldSpecSegments(spec, segments.map(stringSegmentToPatchSegment));
+  if (segments.length === 0) {
+    return true;
+  }
+
+  let current: FieldSpec | null = spec;
+
+  for (const segment of segments) {
+    if (!current) {
+      return false;
+    }
+
+    const fieldType = current.type;
+    if (fieldType === "object") {
+      if (!current.fields) {
+        // Open object allows any nested path (e.g., Json types)
+        return true;
+      }
+      if (!(segment in current.fields)) {
+        return false;
+      }
+      current = current.fields[segment];
+      continue;
+    }
+
+    if (fieldType === "array") {
+      if (!isNumericSegment(segment)) {
+        return false;
+      }
+      current = current.items ?? null;
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
 }
 
 export function pathExistsInFieldSpecSegments(
@@ -379,10 +414,43 @@ function validateObjectValue(
 }
 
 export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | null {
-  if (!path) return spec;
+  if (!path) {
+    return spec;
+  }
 
   const segments = parsePath(path);
-  return getFieldSpecAtSegments(spec, segments.map(stringSegmentToPatchSegment));
+  if (segments.length === 0) {
+    return spec;
+  }
+
+  let current: FieldSpec | null = spec;
+
+  for (const segment of segments) {
+    if (!current) {
+      return null;
+    }
+
+    const fieldType = current.type;
+    if (fieldType === "object") {
+      if (!current.fields || !(segment in current.fields)) {
+        return null;
+      }
+      current = current.fields[segment];
+      continue;
+    }
+
+    if (fieldType === "array") {
+      if (!isNumericSegment(segment)) {
+        return null;
+      }
+      current = current.items ?? null;
+      continue;
+    }
+
+    return null;
+  }
+
+  return current;
 }
 
 export function getFieldSpecAtSegments(
@@ -424,11 +492,4 @@ export function getFieldSpecAtSegments(
 
 function isNumericSegment(segment: string): boolean {
   return /^[0-9]+$/.test(segment);
-}
-
-function stringSegmentToPatchSegment(segment: string): PatchSegment {
-  if (isNumericSegment(segment)) {
-    return { kind: "index", index: Number(segment) };
-  }
-  return { kind: "prop", name: segment };
 }

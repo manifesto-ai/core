@@ -19,7 +19,6 @@ import {
   unsetByPatchPath,
 } from "../utils/patch-path.js";
 
-const PLATFORM_BYPASS_ROOTS = new Set(["$host", "$mel"]);
 const PLATFORM_NAMESPACE_SPEC: FieldSpec = { type: "object", required: false };
 
 /**
@@ -194,7 +193,7 @@ function getPlatformBypassRoot(path: PatchPath): string | null {
   if (first.kind !== "prop") {
     return null;
   }
-  return PLATFORM_BYPASS_ROOTS.has(first.name) ? first.name : null;
+  return first.name.startsWith("$") ? first.name : null;
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
