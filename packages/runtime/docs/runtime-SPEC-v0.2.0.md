@@ -1,6 +1,8 @@
 # Manifesto Runtime Specification v0.2.0
 
-> **Status:** Draft
+> **Status:** Superseded (no successor — absorbed into SDK per ADR-010)
+> **Superseded by:** [SDK SPEC v1.0.0](../../sdk/docs/sdk-SPEC-v1.0.0.md) (`createManifesto()` absorbs Runtime responsibilities)
+> **Superseded date:** 2026-03-02
 > **Scope:** Manifesto Runtime Layer — Internal Execution Orchestration
 > **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, World Protocol v3.0.0, APP-SPEC v2.3.0
 > **Derived from:** APP-SPEC v2.3.0 §8–§13, §15; FDR-APP-PUB-001, FDR-APP-RUNTIME-001, FDR-APP-INTEGRATION-001, FDR-APP-POLICY-001, FDR-APP-EXT-001
@@ -11,6 +13,26 @@
 > - **v0.2.0 (2026-02-27):** ADR-009 alignment — patch format versioning (`_patchFormat: 2`) and system transition wording aligned to `SystemDelta`
 > - **v0.1.0 (2026-02-11):** Initial draft — extracted from APP-SPEC v2.3.0
 >   - **Update:** Runtime is confirmed as non-user-facing execution kernel in ADR-010 hard-cut.
+
+---
+
+> **SUPERSEDED NOTICE**
+>
+> This specification is superseded by [ADR-010](../../../docs/internals/adr/010-major-hard-cut.md) (Protocol-First SDK Reconstruction).
+> The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are redistributed as follows:
+>
+> | Runtime responsibility | New home |
+> |---|---|
+> | Execution pipeline | `createManifesto` dispatch path |
+> | HostExecutor bridge | `createManifesto` internal wiring |
+> | PolicyService | `@manifesto-ai/world` (governance) |
+> | SubscriptionStore | `createManifesto` subscribe implementation |
+> | MemoryHub | Deferred — not in v3 scope |
+> | BranchManager | Deferred — future extension package |
+> | SchemaRegistry | Not needed — single schema per instance |
+> | ActionQueue / SystemRuntime | `createManifesto` dispatch serialization |
+>
+> See: [SDK SPEC v1.0.0](../../sdk/docs/sdk-SPEC-v1.0.0.md) | [ADR-010](../../../docs/internals/adr/010-major-hard-cut.md)
 
 ---
 

@@ -22,8 +22,8 @@ If you want the governing documentation rules, see [Documentation Governance](..
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/runtime** | v0.2.0 | Draft (post-hard-cut) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/sdk** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | v1.0.0 | Normative (ADR-010) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/VERSION-INDEX.md) |
 | **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.6.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
@@ -34,16 +34,17 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/) |
 
-### Runtime/SDK Draft Baselines
+### SDK v1.0.0 (ADR-010 Hard Cut)
 
-The Runtime and SDK documents below remain **Draft baseline specs** extracted from APP-SPEC v2.3.0.
-Since ADR-010 is now accepted, public entrypoint language is migrating to `createRuntime`/`RuntimeHandle` and legacy `createApp` semantics are treated as deprecated transition notes.
-Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, `SDK-*`).
+ADR-010 reconstructed the SDK as a **thin composition layer** over the Manifesto protocol. The canonical public entrypoint is `createManifesto()` returning `ManifestoInstance` with 5 methods: `dispatch`, `subscribe`, `on`, `getSnapshot`, `dispose`.
+
+The `@manifesto-ai/runtime` package is **retired** — its responsibilities are absorbed into `createManifesto()` internal wiring. Runtime SPEC v0.2.0 is superseded with no successor.
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| [Runtime SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.2.0.md) | Draft | Execution orchestration contract decomposed from App SPEC (ADR-009 aligned) |
-| [SDK SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.2.0.md) | Draft | Canonical public API contract (hard-cut migration active) |
+| [SDK SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v1.0.0.md) | Normative | Protocol-first SDK — `createManifesto()` as sole owned concept |
+| [SDK SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.2.0.md) | Superseded | Historical — pre-ADR-010 draft baseline |
+| [Runtime SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.2.0.md) | Superseded | Historical — Runtime retired per ADR-010 (no successor) |
 
 ---
 
@@ -68,9 +69,9 @@ Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, 
 
 ### SDK
 
-- **SDK SPEC v0.2.0** (Draft)
-  - [sdk-SPEC-v0.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.2.0.md)
-  - Canonical public entrypoint contract (hard-cut branch: `createRuntime`, `RuntimeHandle`, `dispatch`)
+- **SDK SPEC v1.0.0** (Normative)
+  - [sdk-SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v1.0.0.md)
+  - Protocol-first SDK — `createManifesto()` as sole owned concept, `ManifestoInstance` (5 methods)
 
 ### Compiler (MEL)
 
@@ -93,6 +94,12 @@ Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, 
 ---
 
 ## Version History Summary
+
+### Recent Changes (2026-03)
+
+| Date | Package | Version | Change |
+|------|---------|---------|--------|
+| 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
 ### Recent Changes (2026-02)
 

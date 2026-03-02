@@ -1,6 +1,6 @@
 # ADR-010: Protocol-First SDK Reconstruction
 
-> **Status:** Proposed
+> **Status:** Accepted
 > **Date:** 2026-02-27
 > **Deciders:** 정성우, Manifesto Architecture Team
 > **Scope:** Global (SDK, Runtime, Core, Host, World, MEL/Compiler)
