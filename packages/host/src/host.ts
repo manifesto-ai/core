@@ -582,7 +582,7 @@ export class ManifestoHost {
         const patches: Patch[] = [
           {
             op: "merge",
-            path: "$host",
+            path: [{ kind: "prop", name: "$host" }],
             value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
           },
         ];

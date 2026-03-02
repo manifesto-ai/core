@@ -36,6 +36,7 @@ export type TraceEvent =
   // Core computation events (COMP-REQ-INTERLOCK-1~2)
   | { t: "core:compute"; key: ExecutionKey; intentId: string; iteration: number }
   | { t: "core:apply"; key: ExecutionKey; patchCount: number; source: string }
+  | { t: "core:applySystemDelta"; key: ExecutionKey; source: string }
 
   // Effect execution events (FULFILL-0~4, ERR-FE-1~5, REQ-CLEAR-1)
   | {

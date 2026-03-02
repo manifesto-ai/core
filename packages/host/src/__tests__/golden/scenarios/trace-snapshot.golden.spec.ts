@@ -13,6 +13,9 @@
  * @see host-SPEC-v2.0.1.md
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
@@ -52,8 +55,7 @@ describe("Golden: Trace Snapshots", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "count",
+                op: "set", path: pp("count"),
                 value: {
                   kind: "add",
                   left: {
@@ -65,8 +67,7 @@ describe("Golden: Trace Snapshots", () => {
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "increment" },
               },
             ],
@@ -78,8 +79,7 @@ describe("Golden: Trace Snapshots", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "count",
+                op: "set", path: pp("count"),
                 value: {
                   kind: "sub",
                   left: { kind: "get", path: "count" },
@@ -88,8 +88,7 @@ describe("Golden: Trace Snapshots", () => {
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "decrement" },
               },
             ],
@@ -101,14 +100,12 @@ describe("Golden: Trace Snapshots", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "count",
+                op: "set", path: pp("count"),
                 value: { kind: "lit", value: 0 },
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "reset" },
               },
             ],

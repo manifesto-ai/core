@@ -180,18 +180,22 @@ export function assertApplyBeforeDispatch(
   const keyEvents = trace.filter((e) => e.key === key);
   const violations: TraceEvent[] = [];
 
-  // Find sequences of compute -> apply -> dispatch
+  // Find sequences of compute -> apply -> applySystemDelta -> dispatch
   let lastCompute: TraceEvent | null = null;
-  let appliedAfterCompute = false;
+  let applySeenAfterCompute = false;
+  let systemDeltaSeenAfterCompute = false;
 
   for (const event of keyEvents) {
     if (event.t === "core:compute") {
       lastCompute = event;
-      appliedAfterCompute = false;
+      applySeenAfterCompute = false;
+      systemDeltaSeenAfterCompute = false;
     } else if (event.t === "core:apply" && event.source === "compute") {
-      appliedAfterCompute = true;
+      applySeenAfterCompute = true;
+    } else if (event.t === "core:applySystemDelta" && event.source === "compute") {
+      systemDeltaSeenAfterCompute = true;
     } else if (event.t === "effect:dispatch") {
-      if (lastCompute && !appliedAfterCompute) {
+      if (lastCompute && (!applySeenAfterCompute || !systemDeltaSeenAfterCompute)) {
         violations.push(event);
       }
     }
@@ -201,7 +205,7 @@ export function assertApplyBeforeDispatch(
     return {
       ruleId: "COMP-REQ-INTERLOCK-1",
       status: "FAIL",
-      message: "Effect dispatch occurred before compute patches were applied",
+      message: "Effect dispatch occurred before compute apply + applySystemDelta",
       evidence: violations,
     };
   }
@@ -521,6 +525,8 @@ export function formatTimeline(trace: TraceEvent[]): string {
           return `[${key}] COMPUTE: ${e.intentId} iter=${e.iteration}`;
         case "core:apply":
           return `[${key}] APPLY: ${e.patchCount} patches (${e.source})`;
+        case "core:applySystemDelta":
+          return `[${key}] APPLY_SYSTEM_DELTA: (${e.source})`;
         case "effect:dispatch":
           return `[${key}] DISPATCH: ${e.effectType} (${e.requirementId})`;
         case "requirement:clear":

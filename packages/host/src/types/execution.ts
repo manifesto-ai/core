@@ -14,6 +14,7 @@ import type {
   Intent,
   ManifestoCore,
   Patch,
+  SystemDelta,
   Snapshot,
 } from "@manifesto-ai/core";
 import type { ExecutionMailbox } from "../mailbox.js";
@@ -136,6 +137,13 @@ export interface ExecutionContext {
    * @returns The new snapshot after applying patches
    */
   applyPatches(patches: Patch[], source: string): Snapshot;
+
+  /**
+   * Apply a system delta emitted by Core.compute().
+   *
+   * @returns The new snapshot after applying the system delta
+   */
+  applySystemDelta(delta: SystemDelta, source: string): Snapshot;
 
   /**
    * Emit a trace event for debugging and compliance testing.

@@ -13,6 +13,9 @@
  * @see host-SPEC-v2.0.1.md §11 (Context Determinism)
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
@@ -51,8 +54,7 @@ describe("Golden: Determinism Verification", () => {
         increment: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "counter",
+            op: "set", path: pp("counter"),
             value: {
               kind: "add",
               left: {
@@ -66,8 +68,7 @@ describe("Golden: Determinism Verification", () => {
         addTen: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "counter",
+            op: "set", path: pp("counter"),
             value: {
               kind: "add",
               left: { kind: "get", path: "counter" },
@@ -78,32 +79,28 @@ describe("Golden: Determinism Verification", () => {
         setValueA: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "valueA",
+            op: "set", path: pp("valueA"),
             value: { kind: "get", path: "input.value" },
           },
         },
         setValueB: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "valueB",
+            op: "set", path: pp("valueB"),
             value: { kind: "get", path: "input.value" },
           },
         },
         setFlag: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "flag",
+            op: "set", path: pp("flag"),
             value: { kind: "get", path: "input.flag" },
           },
         },
         setLabel: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "label",
+            op: "set", path: pp("label"),
             value: { kind: "get", path: "input.label" },
           },
         },
@@ -117,14 +114,12 @@ describe("Golden: Determinism Verification", () => {
             },
             then: {
               kind: "patch",
-              op: "set",
-              path: "flag",
+              op: "set", path: pp("flag"),
               value: { kind: "lit", value: true },
             },
             else: {
               kind: "patch",
-              op: "set",
-              path: "flag",
+              op: "set", path: pp("flag"),
               value: { kind: "lit", value: false },
             },
           },
@@ -135,8 +130,7 @@ describe("Golden: Determinism Verification", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "counter",
+                op: "set", path: pp("counter"),
                 value: {
                   kind: "add",
                   left: { kind: "get", path: "counter" },
@@ -145,8 +139,7 @@ describe("Golden: Determinism Verification", () => {
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "label",
+                op: "set", path: pp("label"),
                 value: { kind: "lit", value: "multi-patched" },
               },
             ],

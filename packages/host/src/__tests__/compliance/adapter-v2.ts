@@ -7,6 +7,9 @@
  * @see host-SPEC-v2.0.1.md
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import type { Snapshot, Intent, Patch, DomainSchema } from "@manifesto-ai/core";
 import { createCore, type ManifestoCore } from "@manifesto-ai/core";
 import type { ExecutionKey, TraceEvent } from "./hcts-types.js";
@@ -131,7 +134,7 @@ export class V2HostAdapter implements HostTestAdapter {
         const req = pendingReqs[0];
         if (req) {
           const handler = this.effectRunner.getHandler(req.type);
-          let patches: Array<{ op: string; path: string; value?: unknown }> = [];
+          let patches: Patch[] = [];
 
           if (handler) {
             try {
@@ -150,7 +153,7 @@ export class V2HostAdapter implements HostTestAdapter {
           }
 
           // Inject the result with the stored intent
-          this.host.injectEffectResult(key, req.id, intentId, patches as any, intent);
+          this.host.injectEffectResult(key, req.id, intentId, patches, intent);
         }
 
         // If we had pending requirements, continue processing
@@ -195,7 +198,7 @@ export class V2HostAdapter implements HostTestAdapter {
     message: string,
     code: string,
     snapshot: Snapshot
-  ): Array<{ op: string; path: string; value?: unknown }> {
+  ): Patch[] {
     const errorValue = {
       code,
       message,
@@ -208,8 +211,7 @@ export class V2HostAdapter implements HostTestAdapter {
 
     return [
       {
-        op: "merge",
-        path: "$host",
+        op: "merge", path: pp("$host"),
         value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
       },
     ];

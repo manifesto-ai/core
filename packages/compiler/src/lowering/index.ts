@@ -64,7 +64,11 @@ export { lowerPatchFragments } from "./lower-patch.js";
 // Runtime patch lowering
 export type {
   MelRuntimePatchOp,
+  MelIRPathSegment,
+  MelIRPatchPath,
   MelRuntimePatch,
+  IRPathSegment,
+  IRPatchPath,
   RuntimeConditionalPatchOp,
 } from "./lower-runtime-patch.js";
 

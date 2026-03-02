@@ -68,7 +68,7 @@ export function handleStartIntent(
     [
       {
         op: "merge",
-        path: "$host",
+        path: [{ kind: "prop", name: "$host" }],
         value: { intentSlots: nextSlots },
       },
     ],
@@ -84,9 +84,6 @@ export function handleStartIntent(
     frozenContext
   );
 
-  // Update canonical head with computed snapshot (patches already applied by Core)
-  ctx.setSnapshot(result.snapshot);
-
   // Emit core:compute trace
   ctx.trace({
     t: "core:compute",
@@ -95,17 +92,16 @@ export function handleStartIntent(
     iteration: 1,
   });
 
-  // Emit core:apply trace to signal patches were applied from compute
-  // Note: Patch count is approximate based on snapshot delta (Core applies internally)
-  ctx.trace({
-    t: "core:apply",
-    key: ctx.key,
-    patchCount: 0, // Core applies patches internally, we don't have access to count
-    source: "compute",
-  });
+  // Interlock order: apply(patches) -> applySystemDelta(systemDelta) -> dispatch
+  ctx.applyPatches(result.patches, "compute");
+  ctx.applySystemDelta(result.systemDelta, "compute");
 
   // Check terminal states
-  if (result.status === "complete" || result.status === "error") {
+  if (
+    result.status === "complete"
+    || result.status === "error"
+    || result.status === "halted"
+  ) {
     // Emit job:end trace
     ctx.trace({
       t: "job:end",

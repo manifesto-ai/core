@@ -28,7 +28,7 @@ import type {
   BinaryOperator,
 } from "../parser/ast.js";
 import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
-import { hashSchemaSync, sha256Sync } from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, sha256Sync, type PatchPath } from "@manifesto-ai/core";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -101,7 +101,7 @@ export type CoreExprNode =
 export type CoreFlowNode =
   | { kind: "seq"; steps: CoreFlowNode[] }
   | { kind: "if"; cond: CoreExprNode; then: CoreFlowNode; else?: CoreFlowNode }
-  | { kind: "patch"; op: "set" | "unset" | "merge"; path: string; value?: CoreExprNode }
+  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
   | { kind: "effect"; type: string; params: Record<string, CoreExprNode> }
   | { kind: "call"; flow: string }
   | { kind: "halt"; reason?: string }
@@ -732,7 +732,7 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CoreFlowNode {
   const markerPatch: CoreFlowNode = {
     kind: "patch",
     op: "set",
-    path: markerPath,
+    path: toPatchPath(markerPath),
     value: intentIdExpr,
   };
 
@@ -775,7 +775,7 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
   const markerPatch: CoreFlowNode = {
     kind: "patch",
     op: "merge",
-    path: "$mel.guards.intent",
+    path: toPatchPath("$mel.guards.intent"),
     value: {
       kind: "object",
       fields: { [guardId]: intentIdExpr },
@@ -800,11 +800,11 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CoreFlowNode
   const result: CoreFlowNode = {
     kind: "patch",
     op: stmt.op,
-    path,
+    path: toPatchPath(path),
   };
 
   if (stmt.value) {
-    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: string; value?: CoreExprNode }).value = generateExpr(stmt.value, ctx);
+    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }).value = generateExpr(stmt.value, ctx);
   }
 
   return result;
@@ -901,6 +901,10 @@ function generatePath(path: PathNode, ctx: GeneratorContext): string {
 
   // Default to plain path (state-like)
   return joinPathPreserveEmptySegments(...segments);
+}
+
+function toPatchPath(path: string): PatchPath {
+  return semanticPathToPatchPath(path);
 }
 
 // ============ Expression Generation ============

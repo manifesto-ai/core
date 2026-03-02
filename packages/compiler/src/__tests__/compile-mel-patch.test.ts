@@ -6,15 +6,104 @@
 
 import { describe, it, expect } from "vitest";
 import { compileMelPatch } from "../api/index.js";
-import { sha256Sync } from "@manifesto-ai/core";
-import { createEvaluationContext, evaluateRuntimePatches } from "../evaluation/index.js";
+import {
+  patchPathToDisplayString,
+  semanticPathToPatchPath,
+  sha256Sync,
+  type Patch,
+  type PatchPath,
+} from "@manifesto-ai/core";
+import {
+  createEvaluationContext,
+  evaluateRuntimePatches,
+  evaluateRuntimePatchesWithTrace,
+} from "../evaluation/index.js";
+import type { RuntimeConditionalPatchOp } from "../lowering/index.js";
 
-const stripInternalGuards = (ops: { path: string }[]) =>
-  ops.filter(
-    (op) =>
-      !op.path.startsWith("$mel.__whenGuards.") &&
-      !op.path.startsWith("$mel.__onceScopeGuards.")
+type LegacyPatch = {
+  op: Patch["op"];
+  path: string;
+  value?: unknown;
+};
+
+const pp = semanticPathToPatchPath;
+
+const stripInternalGuards = (ops: Patch[]): LegacyPatch[] =>
+  toLegacyPatches(ops.filter((op) => !isInternalGuardPath(op.path)));
+
+const stripInternalWhenGuards = (ops: Patch[]): LegacyPatch[] =>
+  toLegacyPatches(ops.filter((op) => !isWhenGuardPath(op.path)));
+
+function toLegacyPatches(ops: Patch[]): LegacyPatch[] {
+  return ops.map((op) => {
+    if (op.op === "set") {
+      return { op: "set", path: patchPathToDisplayString(op.path), value: op.value };
+    }
+    if (op.op === "merge") {
+      return { op: "merge", path: patchPathToDisplayString(op.path), value: op.value };
+    }
+    return { op: "unset", path: patchPathToDisplayString(op.path) };
+  });
+}
+
+function isWhenGuardPath(path: PatchPath): boolean {
+  return (
+    path.length >= 2
+    && path[0].kind === "prop"
+    && path[0].name === "$mel"
+    && path[1].kind === "prop"
+    && path[1].name === "__whenGuards"
   );
+}
+
+function isInternalGuardPath(path: PatchPath): boolean {
+  return (
+    path.length >= 2
+    && path[0].kind === "prop"
+    && path[0].name === "$mel"
+    && path[1].kind === "prop"
+    && (path[1].name === "__whenGuards" || path[1].name === "__onceScopeGuards")
+  );
+}
+
+function isRuntimeWhenGuardPath(path: RuntimeConditionalPatchOp["path"]): boolean {
+  return (
+    path.length >= 2
+    && path[0].kind === "prop"
+    && path[0].name === "$mel"
+    && path[1].kind === "prop"
+    && path[1].name === "__whenGuards"
+  );
+}
+
+function renderRuntimePath(path: RuntimeConditionalPatchOp["path"]): string {
+  const rendered: string[] = [];
+
+  for (const segment of path) {
+    if (segment.kind === "prop") {
+      rendered.push(escapePathSegment(segment.name));
+      continue;
+    }
+
+    if (segment.expr.kind === "lit" && typeof segment.expr.value === "string") {
+      rendered.push(escapePathSegment(segment.expr.value));
+      continue;
+    }
+
+    if (segment.expr.kind === "lit" && typeof segment.expr.value === "number") {
+      rendered.push(String(segment.expr.value));
+      continue;
+    }
+
+    rendered.push("[expr]");
+  }
+
+  return rendered.join(".");
+}
+
+function escapePathSegment(segment: string): string {
+  return segment.replaceAll("\\", "\\\\").replaceAll(".", "\\.");
+}
 
 describe("compileMelPatch", () => {
   it("compiles patch text into runtime patch ops and lowers expressions", () => {
@@ -31,7 +120,7 @@ describe("compileMelPatch", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.ops).toHaveLength(3);
-    expect(result.ops.map((op) => op.path)).toEqual([
+    expect(result.ops.map((op) => renderRuntimePath(op.path))).toEqual([
       "score",
       "status",
       "obsolete",
@@ -50,7 +139,7 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(concretePatches).toEqual([
+    expect(toLegacyPatches(concretePatches)).toEqual([
       {
         op: "set",
         path: "score",
@@ -91,15 +180,8 @@ describe("compileMelPatch", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.ops).toHaveLength(10);
     expect(
-      result.ops.filter((op) => op.path.startsWith("$mel.__whenGuards."))
+      result.ops.filter((op) => isRuntimeWhenGuardPath(op.path))
     ).toHaveLength(4);
-
-    const stripInternalGuards = (ops: { path: string }[]) =>
-      ops.filter(
-        (op) =>
-          !op.path.startsWith("$mel.__whenGuards.") &&
-          !op.path.startsWith("$mel.__onceScopeGuards.")
-      );
 
     const guardId = sha256Sync("regression-compileMelPatch-guards:0:intent");
 
@@ -177,9 +259,6 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-
-    const stripInternalWhenGuards = (ops: { path: string }[]) =>
-      ops.filter((op) => !op.path.startsWith("$mel.__whenGuards."));
 
     const positiveMatch = evaluateRuntimePatches(
       result.ops,
@@ -303,13 +382,6 @@ describe("compileMelPatch", () => {
       })
     );
 
-    const stripInternalGuards = (ops: { path: string }[]) =>
-      ops.filter(
-        (op) =>
-          !op.path.startsWith("$mel.__whenGuards.") &&
-          !op.path.startsWith("$mel.__onceScopeGuards.")
-      );
-
     expect(stripInternalGuards(firstIntent)).toEqual([
       {
         op: "set",
@@ -354,13 +426,6 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(0);
-
-    const stripInternalGuards = (ops: { path: string }[]) =>
-      ops.filter(
-        (op) =>
-          !op.path.startsWith("$mel.__whenGuards.") &&
-          !op.path.startsWith("$mel.__onceScopeGuards.")
-      );
 
     const firstIntent = evaluateRuntimePatches(
       result.ops,
@@ -428,13 +493,6 @@ describe("compileMelPatch", () => {
     const guardId = sha256Sync(
       "regression-compileMelPatch-onceIntent-single-eval:0:intent"
     );
-
-    const stripInternalGuards = (ops: { path: string }[]) =>
-      ops.filter(
-        (op) =>
-          !op.path.startsWith("$mel.__whenGuards.") &&
-          !op.path.startsWith("$mel.__onceScopeGuards.")
-      );
 
     const firstIntent = evaluateRuntimePatches(
       result.ops,
@@ -521,7 +579,7 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(concretePatches).toEqual([
+    expect(toLegacyPatches(concretePatches)).toEqual([
       {
         op: "set",
         path: "firstTitle",
@@ -559,7 +617,7 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(concretePatches).toEqual([
+    expect(toLegacyPatches(concretePatches)).toEqual([
       {
         op: "set",
         path: "delta",
@@ -597,7 +655,7 @@ describe("compileMelPatch", () => {
       })
     );
 
-    expect(concretePatches).toEqual([
+    expect(toLegacyPatches(concretePatches)).toEqual([
       {
         op: "set",
         path: "title",
@@ -614,11 +672,13 @@ describe("compileMelPatch", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.ops).toHaveLength(1);
-    expect(result.ops[0]).toEqual({
+    expect(result.ops[0]).toMatchObject({
       op: "set",
-      path: "data.history.files.file:///proof\\.lean",
       value: { kind: "lit", value: 1 },
     });
+    expect(renderRuntimePath(result.ops[0].path)).toBe(
+      "data.history.files.file:///proof\\.lean"
+    );
   });
 
   it("preserves empty-string key segments in patch target paths", () => {
@@ -629,11 +689,11 @@ describe("compileMelPatch", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.ops).toHaveLength(1);
-    expect(result.ops[0]).toEqual({
+    expect(result.ops[0]).toMatchObject({
       op: "set",
-      path: "data.history.files.",
       value: { kind: "lit", value: 1 },
     });
+    expect(renderRuntimePath(result.ops[0].path)).toBe("data.history.files.");
   });
 
   it("rejects unsupported statement types in patch text", () => {
@@ -710,14 +770,27 @@ describe("compileMelPatch", () => {
     ).toBe(true);
   });
 
-  it("rejects dynamic patch-path indexes", () => {
+  it("supports dynamic patch-path indexes and resolves them at evaluation time", () => {
     const result = compileMelPatch(`patch items[input.i] = 1`, {
       mode: "patch",
       actionName: "regression-compileMelPatch-dynamic-path-index",
     });
 
-    expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0].code).toBe("E_DYNAMIC_PATCH_PATH");
+    expect(result.errors).toHaveLength(0);
+
+    const evaluation = evaluateRuntimePatchesWithTrace(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-dynamic-path-index" },
+        snapshot: { data: { items: [] }, computed: {} },
+        input: { i: 0 },
+      })
+    );
+
+    expect(toLegacyPatches(evaluation.patches)).toEqual([
+      { op: "set", path: "items[0]", value: 1 },
+    ]);
+    expect(evaluation.warnings).toHaveLength(0);
   });
 
   it("rejects forbidden $system paths by default", () => {

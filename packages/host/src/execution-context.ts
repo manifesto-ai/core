@@ -15,6 +15,7 @@ import type {
   Intent,
   ManifestoCore,
   Patch,
+  SystemDelta,
   Snapshot,
 } from "@manifesto-ai/core";
 import type {
@@ -130,7 +131,7 @@ export class ExecutionContextImpl implements ExecutionContext {
     const patches: Patch[] = [
       {
         op: "merge",
-        path: "$host",
+        path: [{ kind: "prop", name: "$host" }],
         value: { intentSlots: nextSlots },
       },
     ];
@@ -200,6 +201,22 @@ export class ExecutionContextImpl implements ExecutionContext {
   }
 
   /**
+   * Apply a system delta to the current snapshot
+   */
+  applySystemDelta(delta: SystemDelta, source: string): Snapshot {
+    const newSnapshot = this.core.applySystemDelta(this.snapshot, delta);
+    this.snapshot = newSnapshot;
+
+    this.trace({
+      t: "core:applySystemDelta",
+      key: this.key,
+      source,
+    });
+
+    return newSnapshot;
+  }
+
+  /**
    * Emit a trace event
    */
   trace(event: TraceEvent): void {
@@ -223,15 +240,14 @@ export class ExecutionContextImpl implements ExecutionContext {
    * @see SPEC §10.7.1 FULFILL-2, REQ-CLEAR-1
    */
   clearRequirement(requirementId: string): void {
-    const remaining = this.snapshot.system.pendingRequirements.filter(
-      (r) => r.id !== requirementId
+    this.applySystemDelta(
+      {
+        appendErrors: [],
+        addRequirements: [],
+        removeRequirementIds: [requirementId],
+      },
+      "clear-requirement"
     );
-
-    const patches: Patch[] = [
-      { op: "set", path: "system.pendingRequirements", value: remaining },
-    ];
-
-    this.applyPatches(patches, "clear-requirement");
   }
 
   /**

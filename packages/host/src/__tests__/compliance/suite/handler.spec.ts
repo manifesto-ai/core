@@ -11,6 +11,9 @@
  * @see host-SPEC-v2.0.2.md §7
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -57,7 +60,7 @@ describe("HCTS Effect Handler Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("returnPatches", async () => [
-        { op: "set", path: "response", value: { success: true, timestamp: 123 } },
+        { op: "set", path: pp("response"), value: { success: true, timestamp: 123 } },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -138,7 +141,7 @@ describe("HCTS Effect Handler Tests", () => {
       effectRunner.register("fetchData", async () => {
         // Simulating a proper handler that returns error as patches
         return [
-          { op: "set", path: "response", value: { error: true, message: "Network timeout" } },
+          { op: "set", path: pp("response"), value: { error: true, message: "Network timeout" } },
         ];
       });
 
@@ -185,7 +188,7 @@ describe("HCTS Effect Handler Tests", () => {
       effectRunner.register("pureHandler", async (_type, params) => {
         receivedParams = params;
         return [
-          { op: "set", path: "response", value: { echoed: params.input } },
+          { op: "set", path: pp("response"), value: { echoed: params.input } },
         ];
       });
 

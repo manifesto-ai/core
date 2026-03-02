@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { compile, type DomainSchema as MelDomainSchema } from "../../src/index.js";
 import {
+  type ComputeResult,
   createCore,
   createSnapshot,
   createIntent,
@@ -29,12 +30,26 @@ const createTestIntent = (type: string, input?: unknown) =>
     : createIntent(type, input, nextIntentId());
 const createTestSnapshot = (data: unknown, schemaHash: string) =>
   createSnapshot(data, schemaHash, HOST_CONTEXT);
-const computeWithContext = (
+const computeWithContext = async (
   core: ReturnType<typeof createCore>,
   schema: CoreDomainSchema,
   snapshot: Snapshot,
   intent: ReturnType<typeof createIntent>
-) => core.compute(schema, snapshot, intent, HOST_CONTEXT);
+) => {
+  const result = await core.compute(schema, snapshot, intent, HOST_CONTEXT);
+  const nextSnapshot = applyComputeResult(core, schema, snapshot, result);
+  return { ...result, snapshot: nextSnapshot };
+};
+
+function applyComputeResult(
+  core: ReturnType<typeof createCore>,
+  schema: CoreDomainSchema,
+  snapshot: Snapshot,
+  result: ComputeResult
+): Snapshot {
+  const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
+  return core.applySystemDelta(patchedSnapshot, result.systemDelta);
+}
 
 describe("Core Integration", () => {
   describe("Schema Type Compatibility", () => {

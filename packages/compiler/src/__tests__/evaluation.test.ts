@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { ExprNode } from "@manifesto-ai/core";
+import { patchPathToDisplayString, semanticPathToPatchPath, type ExprNode, type Patch } from "@manifesto-ai/core";
 import {
   evaluateExpr,
   evaluateConditionalPatchOps,
@@ -18,6 +18,26 @@ import {
   type EvaluationContext,
 } from "../evaluation/index.js";
 import type { ConditionalPatchOp, RuntimeConditionalPatchOp } from "../lowering/index.js";
+
+const irp = (path: string): RuntimeConditionalPatchOp["path"] =>
+  semanticPathToPatchPath(path).map((segment) =>
+    segment.kind === "prop"
+      ? { kind: "prop" as const, name: segment.name }
+      : { kind: "expr" as const, expr: { kind: "lit", value: segment.index } }
+  );
+
+const toLegacyPatch = (patch: Patch) => {
+  if (patch.op === "unset") {
+    return { op: "unset" as const, path: patchPathToDisplayString(patch.path) };
+  }
+  return {
+    op: patch.op,
+    path: patchPathToDisplayString(patch.path),
+    value: patch.value,
+  };
+};
+
+const toLegacyPatches = (patches: Patch[]) => patches.map(toLegacyPatch);
 
 // Test helpers
 function createTestContext(
@@ -729,7 +749,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "newValue",
+          path: irp("newValue"),
           value: { kind: "lit", value: 42 },
         },
       ];
@@ -737,7 +757,11 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ op: "set", path: "newValue", value: 42 });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "newValue",
+        value: 42,
+      });
     });
 
     it("should evaluate unset patches", () => {
@@ -745,14 +769,14 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "unset",
-          path: "count",
+          path: irp("count"),
         },
       ];
 
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ op: "unset", path: "count" });
+      expect(toLegacyPatches(result)[0]).toEqual({ op: "unset", path: "count" });
     });
 
     it("should evaluate merge patches with object values", () => {
@@ -760,7 +784,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "merge",
-          path: "user",
+          path: irp("user"),
           value: {
             kind: "object",
             fields: {
@@ -774,7 +798,7 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expect(toLegacyPatches(result)[0]).toEqual({
         op: "merge",
         path: "user",
         value: { name: "Alice", age: 30 },
@@ -795,7 +819,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "history.files.file:///proof\\.lean",
+          path: irp("history.files.file:///proof\\.lean"),
           value: { kind: "lit", value: "recorded" },
         },
       ];
@@ -803,9 +827,9 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expect(toLegacyPatches(result)[0]).toEqual({
         op: "set",
-        path: "history.files.file:///proof\\.lean",
+        path: "history.files.file:///proof.lean",
         value: "recorded",
       });
     });
@@ -815,7 +839,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "merge",
-          path: "items",
+          path: irp("items"),
           value: { kind: "lit", value: [1, 2, 3] }, // Array is not valid for merge
         },
       ];
@@ -823,7 +847,11 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ op: "set", path: "items", value: null });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "items",
+        value: null,
+      });
     });
   });
 
@@ -833,7 +861,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "doubled",
+          path: irp("doubled"),
           value: {
             kind: "mul",
             left: { kind: "get", path: "count" },
@@ -844,7 +872,11 @@ describe("evaluateRuntimePatches", () => {
 
       const result = evaluateRuntimePatches(ops, ctx);
 
-      expect(result[0]).toEqual({ op: "set", path: "doubled", value: 20 });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "doubled",
+        value: 20,
+      });
     });
 
     it("should evaluate expressions referencing input", () => {
@@ -852,14 +884,18 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "newTitle",
+          path: irp("newTitle"),
           value: { kind: "get", path: "input.title" },
         },
       ];
 
       const result = evaluateRuntimePatches(ops, ctx);
 
-      expect(result[0]).toEqual({ op: "set", path: "newTitle", value: "Hello" });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "newTitle",
+        value: "Hello",
+      });
     });
 
     it("should evaluate expressions referencing meta", () => {
@@ -867,14 +903,14 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "lastIntentId",
+          path: irp("lastIntentId"),
           value: { kind: "get", path: "meta.intentId" },
         },
       ];
 
       const result = evaluateRuntimePatches(ops, ctx);
 
-      expect(result[0]).toEqual({
+      expect(toLegacyPatches(result)[0]).toEqual({
         op: "set",
         path: "lastIntentId",
         value: "test-intent-123",
@@ -886,14 +922,18 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "cachedTotal",
+          path: irp("cachedTotal"),
           value: { kind: "get", path: "computed.total" },
         },
       ];
 
       const result = evaluateRuntimePatches(ops, ctx);
 
-      expect(result[0]).toEqual({ op: "set", path: "cachedTotal", value: 100 });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "cachedTotal",
+        value: 100,
+      });
     });
   });
 
@@ -903,7 +943,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: { kind: "lit", value: "yes" },
           condition: { kind: "lit", value: true },
         },
@@ -920,7 +960,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: { kind: "lit", value: "yes" },
           condition: { kind: "lit", value: false },
         },
@@ -942,7 +982,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: { kind: "lit", value: "yes" },
           condition: { kind: "get", path: "nonexistent" }, // returns null
         },
@@ -960,7 +1000,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: { kind: "lit", value: "yes" },
           condition: { kind: "lit", value: 1 }, // truthy but not boolean
         },
@@ -978,7 +1018,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: { kind: "lit", value: "big" },
           condition: {
             kind: "gt",
@@ -1006,12 +1046,12 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "count",
+          path: irp("count"),
           value: { kind: "lit", value: 10 },
         },
         {
           op: "set",
-          path: "doubled",
+          path: irp("doubled"),
           value: {
             kind: "mul",
             left: { kind: "get", path: "count" },
@@ -1023,8 +1063,16 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatchesWithTrace(ops, ctx);
 
       expect(result.patches).toHaveLength(2);
-      expect(result.patches[0]).toEqual({ op: "set", path: "count", value: 10 });
-      expect(result.patches[1]).toEqual({ op: "set", path: "doubled", value: 20 });
+      expect(toLegacyPatches(result.patches)[0]).toEqual({
+        op: "set",
+        path: "count",
+        value: 10,
+      });
+      expect(toLegacyPatches(result.patches)[1]).toEqual({
+        op: "set",
+        path: "doubled",
+        value: 20,
+      });
       expect(result.finalSnapshot.data).toEqual({ count: 10, doubled: 20 });
     });
 
@@ -1038,12 +1086,12 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "status",
+          path: irp("status"),
           value: { kind: "lit", value: "processing" },
         },
         {
           op: "set",
-          path: "message",
+          path: irp("message"),
           value: { kind: "lit", value: "Started" },
           condition: {
             kind: "eq",
@@ -1056,7 +1104,7 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatchesWithTrace(ops, ctx);
 
       expect(result.patches).toHaveLength(2);
-      expect(result.patches[1]).toEqual({
+      expect(toLegacyPatches(result.patches)[1]).toEqual({
         op: "set",
         path: "message",
         value: "Started",
@@ -1073,11 +1121,11 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "unset",
-          path: "temp",
+          path: irp("temp"),
         },
         {
           op: "set",
-          path: "final",
+          path: irp("final"),
           value: { kind: "lit", value: "done" },
           condition: {
             kind: "isNull",
@@ -1089,7 +1137,7 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatchesWithTrace(ops, ctx);
 
       expect(result.patches).toHaveLength(2);
-      expect(result.patches[1]).toEqual({
+      expect(toLegacyPatches(result.patches)[1]).toEqual({
         op: "set",
         path: "final",
         value: "done",
@@ -1103,7 +1151,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: {
             kind: "div",
             left: { kind: "lit", value: 10 },
@@ -1115,7 +1163,11 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ op: "set", path: "result", value: null });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "result",
+        value: null,
+      });
     });
 
     it("should handle missing path references gracefully", () => {
@@ -1123,7 +1175,7 @@ describe("evaluateRuntimePatches", () => {
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
-          path: "result",
+          path: irp("result"),
           value: { kind: "get", path: "deep.nested.missing.path" },
         },
       ];
@@ -1131,7 +1183,11 @@ describe("evaluateRuntimePatches", () => {
       const result = evaluateRuntimePatches(ops, ctx);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ op: "set", path: "result", value: null });
+      expect(toLegacyPatches(result)[0]).toEqual({
+        op: "set",
+        path: "result",
+        value: null,
+      });
     });
   });
 });

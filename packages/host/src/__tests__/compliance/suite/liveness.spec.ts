@@ -10,6 +10,9 @@
  * @see host-SPEC-v2.0.1.md §10.3
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -46,8 +49,7 @@ describe("HCTS Liveness Tests", () => {
           setFlag: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "wasProcessed",
+              op: "set", path: pp("wasProcessed"),
               value: { kind: "lit", value: true },
             },
           },
@@ -86,7 +88,7 @@ describe("HCTS Liveness Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("async", async () => [
-        { op: "set", path: "response", value: { success: true } },
+        { op: "set", path: pp("response"), value: { success: true } },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -141,8 +143,7 @@ describe("HCTS Liveness Tests", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "complete",
+                  op: "set", path: pp("complete"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -153,10 +154,10 @@ describe("HCTS Liveness Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("step1", async () => [
-        { op: "set", path: "step1", value: true },
+        { op: "set", path: pp("step1"), value: true },
       ]);
       effectRunner.register("step2", async () => [
-        { op: "set", path: "step2", value: true },
+        { op: "set", path: pp("step2"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -190,8 +191,7 @@ describe("HCTS Liveness Tests", () => {
           complete: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },

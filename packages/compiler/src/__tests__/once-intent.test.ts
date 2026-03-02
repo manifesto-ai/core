@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import { tokenize } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
 import { compileMelDomain } from "../api/index.js";
-import { sha256Sync } from "@manifesto-ai/core";
+import { semanticPathToPatchPath, sha256Sync } from "@manifesto-ai/core";
 import type { CoreExprNode, CoreFlowNode } from "../generator/ir.js";
 
 function collectIfNodes(flow: CoreFlowNode, acc: CoreFlowNode[] = []): CoreFlowNode[] {
@@ -120,7 +120,7 @@ describe("onceIntent", () => {
       expect(firstStep.kind).toBe("patch");
       if (firstStep.kind === "patch") {
         expect(firstStep.op).toBe("merge");
-        expect(firstStep.path).toBe("$mel.guards.intent");
+        expect(firstStep.path).toEqual(semanticPathToPatchPath("$mel.guards.intent"));
         const value = firstStep.value as CoreExprNode;
         expect(value.kind).toBe("object");
         if (value.kind === "object") {
