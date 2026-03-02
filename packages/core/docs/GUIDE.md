@@ -403,7 +403,7 @@ const flow = {
 
 ```typescript
 // Check your path format
-// Correct: "todos.0.title"
+// Correct: "todos[0].title"
 // Wrong: "/data/todos/0/title"
 
 const patch = { op: "set", path: "count", value: 5 }; // Use dot-separated semantic paths

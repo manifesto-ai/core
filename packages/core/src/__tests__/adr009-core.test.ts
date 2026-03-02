@@ -66,6 +66,78 @@ describe("ADR-009 core acceptance", () => {
     });
   });
 
+  it("preserves numeric prop segments and only treats explicit brackets as index segments", () => {
+    expect(pp("metrics.2024")).toEqual([
+      { kind: "prop", name: "metrics" },
+      { kind: "prop", name: "2024" },
+    ]);
+    expect(pp("todos[0].title")).toEqual([
+      { kind: "prop", name: "todos" },
+      { kind: "index", index: 0 },
+      { kind: "prop", name: "title" },
+    ]);
+    expect(pp("todos.0.title")).toEqual([
+      { kind: "prop", name: "todos" },
+      { kind: "prop", name: "0" },
+      { kind: "prop", name: "title" },
+    ]);
+
+    const schema = createSchema(
+      {
+        metrics: {
+          type: "object",
+          required: true,
+          fields: {
+            "2024": { type: "number", required: false },
+          },
+        },
+      },
+      { noop: { flow: { kind: "halt", reason: "noop" } } }
+    );
+
+    const snapshot = createSnapshot({ metrics: {} }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "set", path: pp("metrics.2024"), value: 7 }],
+      HOST_CONTEXT
+    );
+
+    const metrics = (result.data as { metrics: unknown }).metrics;
+    expect(Array.isArray(metrics)).toBe(false);
+    expect(metrics).toEqual({ "2024": 7 });
+  });
+
+  it("keeps array index positions stable when unsetting by index", () => {
+    const schema = createSchema(
+      {
+        items: {
+          type: "array",
+          required: true,
+          items: { type: "string", required: false },
+        },
+      },
+      { noop: { flow: { kind: "halt", reason: "noop" } } }
+    );
+
+    const snapshot = createSnapshot({ items: ["a", "b", "c"] }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [
+        { op: "unset", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 0 }] },
+        { op: "set", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 1 }], value: "B" },
+      ],
+      HOST_CONTEXT
+    );
+
+    const items = (result.data as { items: unknown[] }).items;
+    expect(items).toHaveLength(3);
+    expect(items[0]).toBeUndefined();
+    expect(items[1]).toBe("B");
+    expect(items[2]).toBe("c");
+  });
+
   it("ADR §9.5: allows dotted/URI keys and blocks prototype pollution", () => {
     const schema = createSchema(
       {

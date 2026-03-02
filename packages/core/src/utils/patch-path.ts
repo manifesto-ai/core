@@ -31,12 +31,17 @@ export function semanticPathToPatchPath(path: string): PatchPath {
     return [{ kind: "prop", name: path }];
   }
 
-  return segments.map((segment): PatchSegment => {
-    if (/^[0-9]+$/.test(segment)) {
-      return { kind: "index", index: Number(segment) };
+  const patchPath: PatchSegment[] = [];
+  for (const segment of segments) {
+    const parsed = parseBracketIndexedSegment(segment);
+    if (parsed) {
+      patchPath.push(...parsed);
+      continue;
     }
-    return { kind: "prop", name: segment };
-  });
+    patchPath.push({ kind: "prop", name: segment });
+  }
+
+  return patchPath.length > 0 ? patchPath : [{ kind: "prop", name: path }];
 }
 
 export function isSafePatchPath(path: PatchPath): boolean {
@@ -133,7 +138,9 @@ function unsetBySegments(obj: unknown, segments: PatchPath): unknown {
   const next = [...obj];
   if (tail.length === 0) {
     if (head.index >= 0 && head.index < next.length) {
-      next.splice(head.index, 1);
+      // Preserve index stability for same-apply patch ordering.
+      // `unset` on arrays removes the slot without shifting subsequent indices.
+      delete next[head.index];
     }
     return next;
   }
@@ -144,4 +151,56 @@ function unsetBySegments(obj: unknown, segments: PatchPath): unknown {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseBracketIndexedSegment(segment: string): PatchSegment[] | null {
+  if (!segment.includes("[")) {
+    return null;
+  }
+  if (segment.includes("\\[") || segment.includes("\\]")) {
+    return null;
+  }
+
+  const parsed: PatchSegment[] = [];
+  let cursor = 0;
+  let sawIndex = false;
+
+  while (cursor < segment.length) {
+    const open = segment.indexOf("[", cursor);
+    if (open === -1) {
+      const tail = segment.slice(cursor);
+      if (tail.length === 0) {
+        break;
+      }
+      if (sawIndex) {
+        return null;
+      }
+      parsed.push({ kind: "prop", name: tail });
+      break;
+    }
+
+    const prefix = segment.slice(cursor, open);
+    if (prefix.length > 0) {
+      if (sawIndex) {
+        return null;
+      }
+      parsed.push({ kind: "prop", name: prefix });
+    }
+
+    const close = segment.indexOf("]", open + 1);
+    if (close === -1) {
+      return null;
+    }
+
+    const indexText = segment.slice(open + 1, close);
+    if (!/^[0-9]+$/.test(indexText)) {
+      return null;
+    }
+
+    parsed.push({ kind: "index", index: Number(indexText) });
+    sawIndex = true;
+    cursor = close + 1;
+  }
+
+  return parsed.length > 0 ? parsed : null;
 }

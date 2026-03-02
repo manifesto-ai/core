@@ -342,9 +342,9 @@ describe("Scenario 5: raw escape hatch", () => {
     const p1 = todoOps.set("todos", [{ id: "1", title: "a", completed: false }]);
     expect(p1.op).toBe("set");
 
-    // Raw allows individual item access
-    const p2 = todoOps.raw.set("todos.0.completed", true);
-    expect(p2).toEqual({ op: "set", path: pp("todos.0.completed"), value: true });
+    // Raw allows individual item access via explicit bracket index
+    const p2 = todoOps.raw.set("todos[0].completed", true);
+    expect(p2).toEqual({ op: "set", path: pp("todos[0].completed"), value: true });
   });
 });
 
