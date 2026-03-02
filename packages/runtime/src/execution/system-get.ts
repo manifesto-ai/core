@@ -9,7 +9,11 @@
  * @module
  */
 
-import type { Patch, Snapshot } from "@manifesto-ai/core";
+import {
+  semanticPathToPatchPath,
+  type Patch,
+  type Snapshot,
+} from "@manifesto-ai/core";
 
 /**
  * Parameters for system.get effect (read mode).
@@ -103,7 +107,7 @@ export function executeSystemGet(
     const value = generateSystemValue(params.key);
     const patches: Patch[] = [{
       op: "set",
-      path: normalizePath(params.into),
+      path: normalizeTargetPath(params.into),
       value,
     }];
     return { patches, result: { value, found: true } };
@@ -120,7 +124,7 @@ export function executeSystemGet(
   if (target) {
     patches.push({
       op: "set",
-      path: normalizePath(target),
+      path: normalizeTargetPath(target),
       value: result.value,
     });
   }
@@ -136,6 +140,14 @@ function normalizePath(path: string): string {
     return path.slice(1).replace(/\//g, ".");
   }
   return path;
+}
+
+function normalizeTargetPath(path: string): Patch["path"] {
+  const normalized = normalizePath(path);
+  const withoutDataRoot = normalized.startsWith("data.")
+    ? normalized.slice("data.".length)
+    : normalized;
+  return semanticPathToPatchPath(withoutDataRoot);
 }
 
 /**

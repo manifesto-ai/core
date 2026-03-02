@@ -11,27 +11,28 @@
 - Same input -> same output
 - No IO or side effects
 - Host-provided context only (`now`, `randomSeed`)
+- ADR-009 hard cut: structured patch paths + explicit system transition channel
 
 ---
 
 ## Architecture Role
 
-Core is responsible only for semantic computation.
+Core computes transitions only.
 
 - Input: `schema + snapshot + intent + hostContext`
-- Output: `snapshot + requirements + trace + status`
-- It never executes effects and never performs IO
+- Output: `patches + systemDelta + trace + status`
+- System fields are transitioned through `SystemDelta`, not patch paths
 
 ```mermaid
 flowchart LR
   S["DomainSchema"] --> C["compute / computeSync"]
   SN["Snapshot"] --> C
   I["Intent"] --> C
-  HC["HostContext (now, randomSeed)"] --> C
+  HC["HostContext"] --> C
 
-  C --> RS["snapshot'"]
-  C --> RR["requirements[]"]
-  C --> RT["trace"]
+  C --> P["patches: Patch[]"]
+  C --> SD["systemDelta: SystemDelta"]
+  C --> T["trace"]
   C --> ST["status"]
 ```
 
@@ -72,6 +73,8 @@ interface ManifestoCore {
     context: HostContext
   ): Snapshot;
 
+  applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapshot;
+
   validate(schema: unknown): ValidationResult;
 
   explain(
@@ -82,86 +85,78 @@ interface ManifestoCore {
 }
 ```
 
-### Direct Function Exports
-
-```typescript
-import {
-  compute,
-  computeSync,
-  apply,
-  validate,
-  explain,
-} from "@manifesto-ai/core";
-```
-
 ---
 
 ## Key Types
+
+### PatchPath / PatchSegment
+
+```typescript
+type PatchSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "index"; index: number };
+
+type PatchPath = readonly PatchSegment[];
+```
+
+### Patch
+
+```typescript
+type Patch =
+  | { op: "set"; path: PatchPath; value: unknown }
+  | { op: "unset"; path: PatchPath }
+  | { op: "merge"; path: PatchPath; value: Record<string, unknown> };
+```
+
+### SystemDelta
+
+```typescript
+type SystemDelta = {
+  status?: SystemState["status"];
+  currentAction?: string | null;
+  lastError?: ErrorValue | null;
+  appendErrors?: readonly ErrorValue[];
+  addRequirements?: readonly Requirement[];
+  removeRequirementIds?: readonly string[];
+};
+```
 
 ### ComputeResult
 
 ```typescript
 interface ComputeResult {
-  snapshot: Snapshot;
-  requirements: readonly Requirement[];
+  patches: readonly Patch[];
+  systemDelta: SystemDelta;
   trace: TraceGraph;
   status: "complete" | "pending" | "halted" | "error";
+  requirements?: readonly Requirement[];
 }
 ```
 
-### HostContext
+---
 
-```typescript
-interface HostContext {
-  now: number;
-  randomSeed: string;
-  env?: Record<string, unknown>;
-  durationMs?: number;
-}
-```
+## Boundary Rules
+
+- Patch paths are rooted at `snapshot.data`.
+- `system/input/computed/meta` are not patch targets.
+- Use `applySystemDelta()` for all system transitions.
+- `patchPathToDisplayString()` is display-only and must not be parsed for execution.
 
 ---
 
 ## Basic Usage
 
 ```typescript
-import {
-  createCore,
-  createSnapshot,
-  createIntent,
-} from "@manifesto-ai/core";
-
-const core = createCore();
-
-const context = {
-  now: Date.now(),
-  randomSeed: "seed-001",
-};
-
-const snapshot = createSnapshot(
-  { count: 0 },
-  "counter-v1",
-  context
-);
-
-const intent = createIntent("increment", { by: 1 }, "intent_001");
-
 const result = core.computeSync(schema, snapshot, intent, context);
-console.log(result.status);
-console.log(result.snapshot.data);
+
+let next = snapshot;
+
+if (result.patches.length > 0) {
+  next = core.apply(schema, next, result.patches, context);
+}
+
+next = core.applySystemDelta(next, result.systemDelta);
 ```
-
----
-
-## Additional Public Modules
-
-`@manifesto-ai/core` also re-exports:
-
-- `./schema/*` (schema and core domain types)
-- `./utils/*` (hash, canonicalization, helpers)
-- `./evaluator/*` (advanced evaluator APIs)
-- `./errors` (error helpers/types)
-- `./factories` (`createSnapshot`, `createIntent`, etc.)
 
 ---
 
@@ -171,4 +166,4 @@ console.log(result.snapshot.data);
 |---------|--------------|
 | [@manifesto-ai/host](./host) | Executes requirements/effects produced by Core |
 | [@manifesto-ai/world](./world) | Governs proposal and world lineage |
-| [@manifesto-ai/sdk](./sdk) | High-level facade using Core/Host/World |
+| [@manifesto-ai/sdk](./sdk) | Public facade using Core/Host/World |

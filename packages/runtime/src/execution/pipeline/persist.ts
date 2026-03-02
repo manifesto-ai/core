@@ -11,6 +11,8 @@
 import type { Snapshot } from "@manifesto-ai/core";
 import { createWorldId, createProposalId } from "@manifesto-ai/world";
 import type { World, WorldDelta } from "../../types/index.js";
+import { PATCH_FORMAT_V2 } from "../../types/world-store.js";
+import { createSnapshotEnvelope } from "../../storage/world-store/delta-generator.js";
 import type { PipelineContext, PersistDeps, StageResult } from "./types.js";
 import {
   snapshotToAppState,
@@ -62,10 +64,16 @@ export async function persist(
   };
 
   // Create WorldDelta
+  const deltaPatches = computePatches(baseSnapshot, execResult.terminalSnapshot);
   const delta: WorldDelta = {
     fromWorld: baseWorldId,
     toWorld: newWorldId,
-    patches: computePatches(baseSnapshot, execResult.terminalSnapshot),
+    patches: deltaPatches,
+    patchEnvelope: {
+      _patchFormat: PATCH_FORMAT_V2,
+      patches: deltaPatches,
+    },
+    snapshotEnvelope: createSnapshotEnvelope(execResult.terminalSnapshot),
     createdAt: Date.now(),
   };
 

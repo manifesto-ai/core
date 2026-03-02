@@ -8,6 +8,9 @@
  * @see host-SPEC-v2.0.1.md §10.4
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { TraceEvent } from "../hcts-types.js";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
@@ -53,8 +56,7 @@ describe("HCTS Interlock Tests", () => {
                 // First, set a flag
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "patchApplied",
+                  op: "set", path: pp("patchApplied"),
                   value: { kind: "lit", value: true },
                 },
                 // Then, if response is null, trigger effect (guarded)
@@ -79,7 +81,7 @@ describe("HCTS Interlock Tests", () => {
       effectRunner.register("http", async (_type, _params, context) => {
         // Capture what the snapshot looks like when effect runs
         snapshotAtEffectTime = context.snapshot.data as Record<string, unknown>;
-        return [{ op: "set", path: "response", value: { data: "fetched" } }];
+        return [{ op: "set", path: pp("response"), value: { data: "fetched" } }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -111,8 +113,7 @@ describe("HCTS Interlock Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "counter",
+                  op: "set", path: pp("counter"),
                   value: { kind: "lit", value: 42 },
                 },
                 {
@@ -139,7 +140,7 @@ describe("HCTS Interlock Tests", () => {
 
       effectRunner.register("readCounter", async (_type, params) => {
         receivedCounterValue = params.counterValue;
-        return [{ op: "set", path: "effectSawValue", value: params.counterValue }];
+        return [{ op: "set", path: pp("effectSawValue"), value: params.counterValue }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -170,8 +171,7 @@ describe("HCTS Interlock Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -213,7 +213,7 @@ describe("HCTS Interlock Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("test", async () => [
-        { op: "set", path: "response", value: "done" },
+        { op: "set", path: pp("response"), value: "done" },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });

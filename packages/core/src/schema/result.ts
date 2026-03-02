@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SemanticPath } from "./common.js";
-import { Snapshot, Requirement } from "./snapshot.js";
+import { Patch } from "./patch.js";
+import { ErrorValue, Requirement, SystemState } from "./snapshot.js";
 import { TraceGraph, TraceNode } from "./trace.js";
 
 /**
@@ -15,18 +16,31 @@ export const ComputeStatus = z.enum([
 export type ComputeStatus = z.infer<typeof ComputeStatus>;
 
 /**
+ * SystemDelta - Declarative system transition emitted by compute().
+ */
+export const SystemDelta = z.object({
+  status: SystemState.shape.status.optional(),
+  currentAction: z.string().nullable().optional(),
+  lastError: ErrorValue.nullable().optional(),
+  appendErrors: z.array(ErrorValue),
+  addRequirements: z.array(Requirement),
+  removeRequirementIds: z.array(z.string()),
+});
+export type SystemDelta = z.infer<typeof SystemDelta>;
+
+/**
  * ComputeResult - Result of compute() call
  */
 export const ComputeResult = z.object({
   /**
-   * New snapshot after computation
+   * Domain patches rooted at snapshot.data
    */
-  snapshot: Snapshot,
+  patches: z.array(Patch),
 
   /**
-   * Pending requirements (effects) declared by the flow
+   * System transition to be applied separately
    */
-  requirements: z.array(Requirement),
+  systemDelta: SystemDelta,
 
   /**
    * Computation trace

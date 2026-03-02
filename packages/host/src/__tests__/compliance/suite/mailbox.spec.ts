@@ -10,6 +10,9 @@
  * @see host-SPEC-v2.0.2.md §10.1
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -41,8 +44,7 @@ describe("HCTS Mailbox Tests", () => {
           setCounter: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "counter",
+              op: "set", path: pp("counter"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -93,7 +95,7 @@ describe("HCTS Mailbox Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("delayed", async () => [
-        { op: "set", path: "result", value: "completed" },
+        { op: "set", path: pp("result"), value: "completed" },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -130,8 +132,7 @@ describe("HCTS Mailbox Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -183,7 +184,7 @@ describe("HCTS Mailbox Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("stateChanging", async () => [
-        { op: "set", path: "effectResult", value: "from-effect" },
+        { op: "set", path: pp("effectResult"), value: "from-effect" },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -217,14 +218,12 @@ describe("HCTS Mailbox Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "a",
+                  op: "set", path: pp("a"),
                   value: { kind: "lit", value: 1 },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "b",
+                  op: "set", path: pp("b"),
                   value: { kind: "lit", value: 2 },
                 },
               ],
@@ -261,8 +260,7 @@ describe("HCTS Mailbox Tests", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "counter",
+              op: "set", path: pp("counter"),
               value: {
                 kind: "add",
                 left: {

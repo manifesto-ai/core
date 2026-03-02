@@ -8,6 +8,9 @@
  * @see host-SPEC-v2.0.2.md §3.3
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -41,8 +44,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -88,14 +90,12 @@ describe("HCTS Snapshot Ownership Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "step1",
+                  op: "set", path: pp("step1"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "step2",
+                  op: "set", path: pp("step2"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -222,8 +222,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
           complete: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -345,8 +344,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "processed",
+              op: "set", path: pp("processed"),
               value: { kind: "lit", value: true },
             },
           },

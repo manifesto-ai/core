@@ -11,6 +11,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at `snapshot.data` | FDR-015 |
 | v2.0.0 | Initial release — DomainSchema, StateSpec, ComputedSpec, ExprSpec, FlowSpec, Snapshot | FDR-001 ~ FDR-016 |
 | v2.0.1 | Patch operation clarification (`merge` is shallow), platform-reserved namespace policy | — |
 | v2.0.2 | Normative note on `data` vs "state" terminology, computed key access semantics | — |
@@ -629,7 +630,7 @@ type FlowNode =
   | { kind: 'if'; cond: ExprNode; then: FlowNode; else?: FlowNode }
   
   // State mutation
-  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: SemanticPath; value?: ExprNode }
+  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: PatchPath; value?: ExprNode }
   
   // Requirement declaration
   | { kind: 'effect'; type: string; params: Record<string, ExprNode> }
@@ -676,10 +677,12 @@ Evaluates condition against current Snapshot. Executes `then` or `else` branch.
 
 #### 8.4.3 `patch`
 
-Declares a state change. Three operations:
+Declares a domain state change. Three operations:
 
 > **Rationale (FDR-012):** Only three patch operations exist: `set`, `unset`, `merge`. More operations (move, copy, array splice) were considered and rejected — they add complexity without proportional benefit. All complex state changes can be composed from these three primitives. Simplicity reduces bugs and makes traces readable.
 > **Canonical statement:** "Three operations are enough. Complexity is composed, not built-in."
+>
+> **Rationale (FDR-015):** Patch paths are structured data, not encoded strings. Core uses `PatchPath` segment arrays to eliminate key-encoding ambiguity and preserve replay determinism.
 
 | Operation | Description |
 |-----------|-------------|
@@ -687,10 +690,23 @@ Declares a state change. Three operations:
 | `unset` | Remove value at path |
 | `merge` | Shallow merge object at path |
 
+```typescript
+type PatchSegment =
+  | { readonly kind: "prop"; readonly name: string }
+  | { readonly kind: "index"; readonly index: number };
+
+type PatchPath = readonly PatchSegment[];
+
+type Patch =
+  | { readonly op: "set"; readonly path: PatchPath; readonly value: unknown }
+  | { readonly op: "unset"; readonly path: PatchPath }
+  | { readonly op: "merge"; readonly path: PatchPath; readonly value: Record<string, unknown> };
+```
+
 ```json
-{ "kind": "patch", "op": "set", "path": "user.name", "value": { "kind": "get", "path": "input.name" } }
-{ "kind": "patch", "op": "unset", "path": "user.tempData" }
-{ "kind": "patch", "op": "merge", "path": "user", "value": { "kind": "get", "path": "input.updates" } }
+{ "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "user" }, { "kind": "prop", "name": "name" }], "value": { "kind": "get", "path": "input.name" } }
+{ "kind": "patch", "op": "unset", "path": [{ "kind": "prop", "name": "user" }, { "kind": "prop", "name": "tempData" }] }
+{ "kind": "patch", "op": "merge", "path": [{ "kind": "prop", "name": "user" }], "value": { "kind": "get", "path": "input.updates" } }
 ```
 
 **`merge` Semantics (Deterministic):**
@@ -701,51 +717,47 @@ Declares a state change. Three operations:
 
 **CRITICAL: Patch Path Resolution**
 
-Patch paths MUST be **statically resolvable** at apply-time. Dynamic path expressions are NOT evaluated by `core.apply()`.
+Patch paths MUST be concrete `PatchPath` values at apply-time. Dynamic path expressions are NOT evaluated by `core.apply()`.
+Compiler/runtime evaluation MUST resolve dynamic segments before calling Core.
 
 ```
 ALLOWED:
-  patch todos = ...           // Static path
-  patch user.profile.name = ...  // Static nested path
+  patch todos = ...              // lowered to concrete PatchPath
+  patch user.profile.name = ...  // lowered to concrete PatchPath
 
 NOT ALLOWED at apply-time:
-  patch items[$system.uuid] = ...   // Dynamic key from expression
-  patch records[activeId] = ...     // Dynamic key from state value
+  patch items[$system.uuid] = ...   // unresolved expr segment
+  patch records[activeId] = ...     // unresolved expr segment
 ```
 
-When MEL source contains a dynamic path like `patch items[$system.uuid] = value`:
+When MEL source contains a dynamic path like `patch items[$system.uuid] = value`, lower/evaluate stages MUST:
 
-1. The **Compiler** parses this as valid syntax.
-2. The **Compiler** MUST lower this to a two-step pattern:
-   - First: Store the dynamic key to a known state field (e.g., via `system.get` effect for `$system.*`)
-   - Then: Use the stored value to construct a static patch path
-3. **Core.apply()** receives only static paths — it NEVER evaluates expressions in paths.
+1. Parse as valid MEL syntax.
+2. Resolve expression segments to concrete runtime values.
+3. Produce `PatchPath` with only `prop` and `index` segments.
+4. Skip invalid path resolutions (TOTAL rule) with warnings, never throw.
 
 **Rationale:**
 
 | Concern | Why Dynamic Paths Violate It |
 |---------|------------------------------|
-| **Determinism** | Path evaluation could depend on execution order |
-| **Purity** | `$system.*` values require IO (effect execution) |
-| **Reproducibility** | Same IR with different system state → different paths |
-| **Traceability** | Path construction becomes opaque |
+| **Determinism** | Unresolved paths would depend on external runtime state |
+| **Purity** | Core would need expression execution in `apply()` |
+| **Reproducibility** | Same patch payload could map to different fields |
+| **Traceability** | String encoding/escaping loses structural intent |
 
-**Correct Pattern for Dynamic Keys:**
+**Patch Root Anchor (Normative):**
 
-```mel
-// Step 1: Fix the dynamic value to Snapshot first
-once(creating) {
-  patch creating = $meta.intentId
-  patch newItemId = $system.uuid  // UUID is now in Snapshot
-}
+- `PatchPath` is always rooted at `snapshot.data`.
+- Patches MUST NOT target `snapshot.system`, `snapshot.input`, `snapshot.computed`, or `snapshot.meta`.
+- System transitions are represented by `SystemDelta` (see §16.2), not by patches.
+- `$host` and `$mel` are platform-reserved data namespaces. If the first segment is `$host` or `$mel`, Core MUST treat subpaths as owner-managed and bypass state schema path checks.
 
-// Step 2: Use the fixed value (this works because newItemId is a state path)
-when isNotNull(newItemId) {
-  patch items[newItemId] = { id: newItemId, ... }
-}
+```typescript
+function patchPathToDisplayString(path: PatchPath): string;
 ```
 
-After lowering, the second patch becomes a static path like `items.abc-123` where `abc-123` is the resolved UUID from Snapshot.
+`patchPathToDisplayString()` is informational only. Its output MUST NOT be parsed back as authority for execution.
 
 #### 8.4.4 `effect`
 
@@ -755,8 +767,8 @@ Declares that an external operation is required.
 
 When Core encounters an `effect` node:
 
-1. Core **records a Requirement** in `snapshot.system.pendingRequirements`.
-2. Core **terminates the current computation**.
+1. Core emits a `SystemDelta` that appends a Requirement (`addRequirements`).
+2. Core terminates the current computation.
 3. Core returns with `status: 'pending'`.
 
 **There is no suspended execution context.**
@@ -803,7 +815,7 @@ If you need to pass context to a called Flow, write it to Snapshot first:
 {
   "kind": "seq",
   "steps": [
-    { "kind": "patch", "op": "set", "path": "system.callContext", "value": { "kind": "get", "path": "input" } },
+    { "kind": "patch", "op": "set", "path": "callContext", "value": { "kind": "get", "path": "input" } },
     { "kind": "call", "flow": "shared.processWithContext" }
   ]
 }
@@ -1111,10 +1123,12 @@ type ErrorValue = {
 When a `fail` node is executed:
 
 ```typescript
-// Core automatically patches:
-{ op: 'set', path: 'system.lastError', value: errorValue }
-{ op: 'set', path: 'system.errors', value: [...existing, errorValue] }
-{ op: 'set', path: 'system.status', value: 'error' }
+// Core emits system transition (not Patch):
+{
+  lastError: errorValue,
+  appendErrors: [errorValue],
+  status: 'error'
+} satisfies SystemDelta;
 ```
 
 ### 11.4 Error Handling Pattern
@@ -1140,7 +1154,7 @@ After Host fulfills the effect and calls `compute()` again:
     "kind": "seq",
     "steps": [
       { "kind": "patch", "op": "set", "path": "ui.showErrorModal", "value": { "kind": "lit", "value": true } },
-      { "kind": "patch", "op": "set", "path": "system.lastError", "value": { "kind": "lit", "value": null } }
+      { "kind": "patch", "op": "set", "path": "ui.errorAcknowledged", "value": { "kind": "lit", "value": true } }
     ]
   },
   "else": {
@@ -1442,19 +1456,23 @@ interface ManifestoCore {
   ): ComputeResult;
   
   /**
-   * Apply patches to a snapshot.
-   * Returns new snapshot with recomputed values.
-   *
-   * IMPORTANT: Patch paths MUST be static strings.
-   * This function does NOT evaluate path expressions.
-   * Dynamic paths (e.g., `items[someVar]`) MUST be resolved
-   * to static paths BEFORE calling apply().
+   * Apply domain data patches to a snapshot.
+   * Patch paths are rooted at snapshot.data.
    */
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
     patches: readonly Patch[],
     context: HostContext
+  ): Snapshot;
+
+  /**
+   * Apply a system transition to a snapshot.
+   * This is the ONLY system mutation channel at Core boundary.
+   */
+  applySystemDelta(
+    snapshot: Snapshot,
+    delta: SystemDelta
   ): Snapshot;
   
   /**
@@ -1492,12 +1510,32 @@ type HostContext = {
   readonly durationMs?: number;
 };
 
-type ComputeResult = {
-  /** New snapshot after computation */
-  readonly snapshot: Snapshot;
+type PatchSegment =
+  | { readonly kind: 'prop'; readonly name: string }
+  | { readonly kind: 'index'; readonly index: number };
 
-  /** Pending requirements (effects) declared by the flow */
-  readonly requirements: readonly Requirement[];
+type PatchPath = readonly PatchSegment[];
+
+type Patch =
+  | { readonly op: 'set'; readonly path: PatchPath; readonly value: unknown }
+  | { readonly op: 'unset'; readonly path: PatchPath }
+  | { readonly op: 'merge'; readonly path: PatchPath; readonly value: Record<string, unknown> };
+
+type SystemDelta = {
+  readonly status?: SystemState['status'];
+  readonly currentAction?: string | null;
+  readonly lastError?: ErrorValue | null;
+  readonly appendErrors?: readonly ErrorValue[];
+  readonly addRequirements?: readonly Requirement[];
+  readonly removeRequirementIds?: readonly string[];
+};
+
+type ComputeResult = {
+  /** Domain state patches only (snapshot.data root) */
+  readonly patches: readonly Patch[];
+  
+  /** System transition emitted by compute */
+  readonly systemDelta: SystemDelta;
   
   /** Computation trace */
   readonly trace: TraceGraph;
@@ -1513,12 +1551,22 @@ type ComputeStatus =
   | 'error';      // Flow encountered error
 ```
 
+**Normative rules:**
+
+- `PatchPath` is rooted at `snapshot.data`.
+- Patches MUST NOT target `system/input/computed/meta`.
+- System changes MUST be expressed via `SystemDelta` and applied with `applySystemDelta()`.
+- `patchPathToDisplayString(path)` is display-only and MUST NOT be used as parse input.
+
+> **Implementation convergence pending (ADR-009):** Some current `src` modules may still expose pre-ADR path contracts. The normative contract in this document is the accepted ADR-009 hard-cut target.
+
 ### 16.3 Host Responsibilities
 
 | Responsibility | Description |
 |----------------|-------------|
 | **Effect Execution** | Execute effects recorded in pendingRequirements |
-| **Patch Application** | Apply result patches via `core.apply()` |
+| **Patch Application** | Apply domain patches via `core.apply()` |
+| **System Transition Application** | Apply system deltas via `core.applySystemDelta()` |
 | **Loop Control** | Call `compute()` again after fulfilling requirements |
 | **Persistence** | Store/retrieve snapshots |
 | **User Interaction** | Render UI, capture user input |
@@ -1539,7 +1587,14 @@ async function processIntent(
   while (true) {
     // Compute
     const result = await core.compute(schema, current, intent, context);
-    current = result.snapshot;
+    
+    // Step 1: apply domain patches
+    if (result.patches.length > 0) {
+      current = core.apply(schema, current, result.patches, context);
+    }
+    
+    // Step 2: apply system transition
+    current = core.applySystemDelta(current, result.systemDelta);
     
     // Check status
     switch (result.status) {
@@ -1554,14 +1609,13 @@ async function processIntent(
         
       case 'pending':
         // Fulfill requirements
-        for (const req of result.requirements) {
+        for (const req of current.system.pendingRequirements) {
           const patches = await executeEffect(req, current, context);
           current = core.apply(schema, current, patches, context);
+          current = core.applySystemDelta(current, {
+            removeRequirementIds: [req.id],
+          });
         }
-        // Clear pending requirements
-        current = core.apply(schema, current, [
-          { op: 'set', path: 'system.pendingRequirements', value: [] }
-        ], context);
         // Loop continues - compute() will be called again
         break;
     }
@@ -1576,7 +1630,7 @@ async function executeEffect(
   const handler = effectHandlers[requirement.type];
   if (!handler) {
     return [
-      { op: 'set', path: 'system.lastError', value: {
+      { op: 'set', path: [{ kind: 'prop', name: '$host' }, { kind: 'prop', name: 'lastUnknownEffectError' }], value: {
         code: 'UNKNOWN_EFFECT',
         message: `No handler for effect type: ${requirement.type}`,
         source: { actionId: snapshot.system.currentAction, nodePath: '' },
@@ -1599,8 +1653,9 @@ When computation yields due to an effect:
 
 1. Host reads `snapshot.system.pendingRequirements`.
 2. Host executes effects and collects result patches.
-3. Host applies patches via `core.apply()`.
-4. Host calls `core.compute()` **again** with the new snapshot.
+3. Host applies domain patches via `core.apply()`.
+4. Host clears fulfilled requirements via `core.applySystemDelta({ removeRequirementIds })`.
+5. Host calls `core.compute()` again with the updated snapshot.
 
 The Flow will naturally proceed because:
 

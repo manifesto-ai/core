@@ -10,6 +10,9 @@
  * @see host-SPEC-v2.0.2.md §10.6
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -82,12 +85,12 @@ describe("HCTS Ordering Tests", () => {
 
       effectRunner.register("effect1", async () => {
         executionOrder.push("effect1");
-        return [{ op: "set", path: "step1", value: true }];
+        return [{ op: "set", path: pp("step1"), value: true }];
       });
 
       effectRunner.register("effect2", async () => {
         executionOrder.push("effect2");
-        return [{ op: "set", path: "step2", value: true }];
+        return [{ op: "set", path: pp("step2"), value: true }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -129,7 +132,7 @@ describe("HCTS Ordering Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("ordered", async () => [
-        { op: "set", path: "result", value: "completed" },
+        { op: "set", path: pp("result"), value: "completed" },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -197,11 +200,11 @@ describe("HCTS Ordering Tests", () => {
       const effectRunner = createTestEffectRunner();
 
       effectRunner.register("step1", async () => [
-        { op: "set", path: "step1", value: true },
+        { op: "set", path: pp("step1"), value: true },
       ]);
 
       effectRunner.register("step2", async () => [
-        { op: "set", path: "step2", value: true },
+        { op: "set", path: pp("step2"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -246,7 +249,7 @@ describe("HCTS Ordering Tests", () => {
       effectRunner.register("serialEffect", async () => {
         effectExecuted = true;
         return [
-          { op: "set", path: "response", value: { first: true, second: true } },
+          { op: "set", path: pp("response"), value: { first: true, second: true } },
         ];
       });
 
@@ -288,7 +291,7 @@ describe("HCTS Ordering Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("traceable", async () => [
-        { op: "set", path: "done", value: true },
+        { op: "set", path: pp("done"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });

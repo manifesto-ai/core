@@ -5,6 +5,9 @@
  * reconstruct intent execution order and reproduce the same result.
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect } from "vitest";
 import type { DomainSchema, Intent, Snapshot } from "@manifesto-ai/core";
 import type { TraceEvent } from "../compliance/hcts-types.js";
@@ -105,8 +108,7 @@ describe("Golden: Trace-derived replay", () => {
         increment: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "counter",
+            op: "set", path: pp("counter"),
             value: {
               kind: "add",
               left: {
@@ -133,7 +135,7 @@ describe("Golden: Trace-derived replay", () => {
 
     const effectHandlers: Record<string, EffectHandler> = {
       "mock.fetch": async () => [
-        { op: "set", path: "response", value: "done" },
+        { op: "set", path: pp("response"), value: "done" },
       ],
     };
 

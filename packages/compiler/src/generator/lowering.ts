@@ -4,7 +4,11 @@
  * Based on MEL SPEC v0.3.1 Section 5.4
  */
 
-import { hashSchemaSync, type DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
+import {
+  hashSchemaSync,
+  semanticPathToPatchPath,
+  type DomainSchema as CoreDomainSchema,
+} from "@manifesto-ai/core";
 import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } from "./ir.js";
 
 // ============ Types ============
@@ -100,6 +104,10 @@ function systemValueType(key: string): FieldSpec["type"] {
 
 function normalizeSystemKeyForSlot(key: string): string {
   return key.replaceAll(".", "_");
+}
+
+function toPatchPath(path: string) {
+  return semanticPathToPatchPath(path);
 }
 
 // ============ Collection Phase ============
@@ -217,7 +225,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
           {
             kind: "patch",
             op: "set",
-            path: slot.intentSlot,
+            path: toPatchPath(slot.intentSlot),
             value: { kind: "get", path: "meta.intentId" },
           },
           {

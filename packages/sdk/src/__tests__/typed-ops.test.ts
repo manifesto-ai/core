@@ -1,7 +1,10 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
 import { defineOps } from "../typed-ops.js";
 import type { DataPaths, ValueAt, ObjectPaths } from "../typed-ops.js";
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
 import type { SetPatch, UnsetPatch, MergePatch } from "@manifesto-ai/core";
+
+const pp = (path: string) => semanticPathToPatchPath(path);
 
 // ============================================================================
 // Test Domain Types
@@ -114,6 +117,14 @@ describe("Type-level: ObjectPaths", () => {
   });
 });
 
+describe("Type-level: TypedOps contract", () => {
+  it("should not expose system error convenience helpers", () => {
+    type Ops = ReturnType<typeof defineOps<TestState>>;
+    type HasError = "error" extends keyof Ops ? true : false;
+    expectTypeOf<HasError>().toEqualTypeOf<false>();
+  });
+});
+
 // ============================================================================
 // Runtime Tests
 // ============================================================================
@@ -124,24 +135,24 @@ describe("defineOps", () => {
   describe("set", () => {
     it("should create a set patch for a top-level field", () => {
       const patch = ops.set("count", 42);
-      expect(patch).toEqual({ op: "set", path: "count", value: 42 });
+      expect(patch).toEqual({ op: "set", path: pp("count"), value: 42 });
     });
 
     it("should create a set patch for a nested field", () => {
       const patch = ops.set("user.name", "Alice");
-      expect(patch).toEqual({ op: "set", path: "user.name", value: "Alice" });
+      expect(patch).toEqual({ op: "set", path: pp("user.name"), value: "Alice" });
     });
 
     it("should create a set patch for an enum field", () => {
       const patch = ops.set("filter", "active");
-      expect(patch).toEqual({ op: "set", path: "filter", value: "active" });
+      expect(patch).toEqual({ op: "set", path: pp("filter"), value: "active" });
     });
 
     it("should create a set patch for a deeply nested field", () => {
       const patch = ops.set("user.address.city", "Seoul");
       expect(patch).toEqual({
         op: "set",
-        path: "user.address.city",
+        path: pp("user.address.city"),
         value: "Seoul",
       });
     });
@@ -149,7 +160,7 @@ describe("defineOps", () => {
     it("should create a set patch for an array field", () => {
       const todos: TodoItem[] = [{ title: "test", completed: false }];
       const patch = ops.set("todos", todos);
-      expect(patch).toEqual({ op: "set", path: "todos", value: todos });
+      expect(patch).toEqual({ op: "set", path: pp("todos"), value: todos });
     });
 
     it("should return SetPatch type", () => {
@@ -161,12 +172,12 @@ describe("defineOps", () => {
   describe("unset", () => {
     it("should create an unset patch", () => {
       const patch = ops.unset("count");
-      expect(patch).toEqual({ op: "unset", path: "count" });
+      expect(patch).toEqual({ op: "unset", path: pp("count") });
     });
 
     it("should create an unset patch for nested field", () => {
       const patch = ops.unset("user.name");
-      expect(patch).toEqual({ op: "unset", path: "user.name" });
+      expect(patch).toEqual({ op: "unset", path: pp("user.name") });
     });
 
     it("should return UnsetPatch type", () => {
@@ -180,7 +191,7 @@ describe("defineOps", () => {
       const patch = ops.merge("user", { name: "Bob" });
       expect(patch).toEqual({
         op: "merge",
-        path: "user",
+        path: pp("user"),
         value: { name: "Bob" },
       });
     });
@@ -189,7 +200,7 @@ describe("defineOps", () => {
       const patch = ops.merge("user.address", { city: "Busan" });
       expect(patch).toEqual({
         op: "merge",
-        path: "user.address",
+        path: pp("user.address"),
         value: { city: "Busan" },
       });
     });
@@ -200,71 +211,26 @@ describe("defineOps", () => {
     });
   });
 
-  describe("error", () => {
-    it("should create a system.lastError set patch", () => {
-      const patch = ops.error("VALIDATION", "Field required");
-      expect(patch).toEqual({
-        op: "set",
-        path: "system.lastError",
-        value: {
-          code: "VALIDATION",
-          message: "Field required",
-          source: { actionId: "", nodePath: "" },
-          timestamp: 0,
-        },
-      });
-    });
-
-    it("should include context when provided", () => {
-      const patch = ops.error("API_ERROR", "Timeout", { context: { endpoint: "/api/v1" } });
-      expect(patch.value).toEqual(
-        expect.objectContaining({
-          code: "API_ERROR",
-          context: { endpoint: "/api/v1" },
-        }),
-      );
-    });
-
-    it("should accept source and timestamp overrides", () => {
-      const patch = ops.error("SYNC_FAIL", "Timeout", {
-        source: { actionId: "act-1", nodePath: "sync.run" },
-        timestamp: 1700000000,
-      });
-      expect(patch.value).toEqual(
-        expect.objectContaining({
-          code: "SYNC_FAIL",
-          source: { actionId: "act-1", nodePath: "sync.run" },
-          timestamp: 1700000000,
-        }),
-      );
-    });
-
-    it("should return SetPatch type", () => {
-      const patch = ops.error("CODE", "msg");
-      expectTypeOf(patch).toEqualTypeOf<SetPatch>();
-    });
-  });
-
   describe("raw", () => {
     it("should create untyped set patch", () => {
       const patch = ops.raw.set("$host.custom", { key: "value" });
       expect(patch).toEqual({
         op: "set",
-        path: "$host.custom",
+        path: pp("$host.custom"),
         value: { key: "value" },
       });
     });
 
     it("should create untyped unset patch", () => {
       const patch = ops.raw.unset("$host.temp");
-      expect(patch).toEqual({ op: "unset", path: "$host.temp" });
+      expect(patch).toEqual({ op: "unset", path: pp("$host.temp") });
     });
 
     it("should create untyped merge patch", () => {
       const patch = ops.raw.merge("$host.config", { enabled: true });
       expect(patch).toEqual({
         op: "merge",
-        path: "$host.config",
+        path: pp("$host.config"),
         value: { enabled: true },
       });
     });
@@ -282,7 +248,7 @@ describe("defineOps", () => {
       for (const patch of patches) {
         expect(patch).toHaveProperty("op");
         expect(patch).toHaveProperty("path");
-        expect(typeof patch.path).toBe("string");
+        expect(Array.isArray(patch.path)).toBe(true);
         expect(patch.path.length).toBeGreaterThan(0);
       }
     });

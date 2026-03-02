@@ -2,6 +2,7 @@ import { sha256Sync } from "@manifesto-ai/core";
 
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
+import type { MelIRPatchPath } from "../lowering/lower-runtime-patch.js";
 import type {
   GuardedStmtNode,
   InnerStmtNode,
@@ -51,20 +52,6 @@ export class PatchStatementCollector {
 
     for (const stmt of stmts) {
       if (stmt.kind === "patch") {
-        const dynamicIndexSegment = stmt.path.segments.find(
-          (segment) => segment.kind === "indexSegment" && segment.index.kind !== "literal"
-        );
-
-        if (dynamicIndexSegment) {
-          errors.push({
-            severity: "error",
-            code: "E_DYNAMIC_PATCH_PATH",
-            message: "Dynamic patch path indexes are not supported. Use a literal index.",
-            location: this.deps.mapLocation(dynamicIndexSegment.location),
-          });
-          continue;
-        }
-
         patchStatements.push({
           patch: stmt,
           condition: parentCondition,
@@ -444,7 +431,7 @@ export class PatchStatementCollector {
 
 export function compilePatchStmtToMelRuntime(
   patchStatement: ConditionedPatchStatement
-): { op: "set" | "unset" | "merge"; path: string; value?: MelExprNode; condition?: MelExprNode } {
+): { op: "set" | "unset" | "merge"; path: MelIRPatchPath; value?: MelExprNode; condition?: MelExprNode } {
   return {
     op: patchStatement.patch.op,
     path: toRuntimePatchPath(patchStatement.patch.path),
@@ -492,40 +479,14 @@ function pathToMelExpr(path: PathNode): MelExprNode {
   return result;
 }
 
-function toRuntimePatchPath(path: PathNode): string {
-  const parts: string[] = [];
-
-  for (const segment of path.segments) {
+function toRuntimePatchPath(path: PathNode): MelIRPatchPath {
+  return path.segments.map((segment) => {
     if (segment.kind === "propertySegment") {
-      parts.push(segment.name);
-      continue;
+      return { kind: "prop" as const, name: segment.name };
     }
 
-    const literalValue = toPathSegmentLiteral(segment);
-    if (literalValue === null) {
-      throw new Error("Dynamic patch path indexes are not supported.");
-    }
-
-    parts.push(literalValue);
-  }
-
-  return joinPathPreserveEmptySegments(...parts);
-}
-
-function toPathSegmentLiteral(segment: PathNode["segments"][number]): string | null {
-  if (segment.kind === "indexSegment" && segment.index.kind === "literal") {
-    return String(segment.index.value);
-  }
-
-  return null;
-}
-
-function joinPathPreserveEmptySegments(...segments: string[]): string {
-  return segments.map((segment) => escapePathSegment(segment)).join(".");
-}
-
-function escapePathSegment(segment: string): string {
-  return segment.replaceAll("\\", "\\\\").replaceAll(".", "\\.");
+    return { kind: "expr" as const, expr: toMelExpr(segment.index) };
+  });
 }
 
 class ConditionComposer {

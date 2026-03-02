@@ -10,14 +10,24 @@
 import type {
   WorldStore,
   WorldDelta,
+  PersistedPatchEnvelope,
+  PersistedSnapshotEnvelope,
   CompactOptions,
   CompactResult,
   PersistedBranchState,
   Snapshot,
   Patch,
 } from "../../types/index.js";
+import { PATCH_FORMAT_V2 } from "../../types/world-store.js";
 import type { World, WorldId } from "@manifesto-ai/world";
+import {
+  mergeAtPatchPath,
+  setByPatchPath,
+  unsetByPatchPath,
+  type PatchPath,
+} from "@manifesto-ai/core";
 import type { WorldStoreOptions, WorldEntry } from "./interface.js";
+import { IncompatiblePatchFormatError } from "../../errors/index.js";
 import { stripPlatformNamespaces } from "./platform-namespaces.js";
 
 /**
@@ -53,6 +63,8 @@ export class InMemoryWorldStore implements WorldStore {
         fromWorld: genesis.worldId,
         toWorld: genesis.worldId,
         patches: [],
+        patchEnvelope: createPersistedPatchEnvelope([]),
+        snapshotEnvelope: createPersistedSnapshotEnvelope(snapshot),
         createdAt: Date.now(),
       };
 
@@ -78,6 +90,8 @@ export class InMemoryWorldStore implements WorldStore {
       fromWorld: world.worldId,
       toWorld: world.worldId,
       patches: [],
+      patchEnvelope: createPersistedPatchEnvelope([]),
+      snapshotEnvelope: createPersistedSnapshotEnvelope(snapshot),
       createdAt: world.createdAt,
     };
 
@@ -101,16 +115,18 @@ export class InMemoryWorldStore implements WorldStore {
    * @see SPEC v2.0.0 §9.3
    */
   async store(world: World, delta: WorldDelta): Promise<void> {
+    const normalizedDelta = this._normalizeDelta(world.worldId, delta);
+
     // Determine if we should store full snapshot
     const withinHorizon = this._isWithinActiveHorizon(world.worldId);
 
     // Get terminal snapshot if available (for full snapshot storage)
     let snapshot: Snapshot | undefined;
-    if (withinHorizon && delta.patches.length > 0) {
+    if (withinHorizon) {
       // Reconstruct snapshot from parent + delta
-      const parentSnapshot = await this._getSnapshotForDelta(delta.fromWorld);
+      const parentSnapshot = await this._getSnapshotForDelta(normalizedDelta.fromWorld);
       if (parentSnapshot) {
-        snapshot = this._applyPatches(parentSnapshot, delta.patches);
+        snapshot = this._applyDelta(parentSnapshot, normalizedDelta, world.worldId);
       }
     }
 
@@ -119,14 +135,14 @@ export class InMemoryWorldStore implements WorldStore {
 
     const entry: WorldEntry = {
       world,
-      delta,
+      delta: normalizedDelta,
       snapshot: cleanSnapshot,
     };
 
     this._worlds.set(world.worldId, entry);
 
     // Track parent-child relationship
-    const parentId = delta.fromWorld;
+    const parentId = normalizedDelta.fromWorld;
     if (parentId && parentId !== world.worldId) {
       if (!this._children.has(parentId)) {
         this._children.set(parentId, new Set());
@@ -154,6 +170,9 @@ export class InMemoryWorldStore implements WorldStore {
     if (!entry) {
       throw new WorldNotFoundError(worldId);
     }
+
+    // ADR-009 hard cut: reject legacy/missing persisted patch format at ingress.
+    this._assertPersistedPatchEnvelope(entry.delta, worldId);
 
     // If full snapshot is stored, return it
     if (entry.snapshot) {
@@ -328,8 +347,8 @@ export class InMemoryWorldStore implements WorldStore {
     let currentSnapshot = baseSnapshot;
     for (let i = startIndex - 1; i >= 0; i--) {
       const entry = this._worlds.get(lineage[i]);
-      if (entry && entry.delta.patches.length > 0) {
-        currentSnapshot = this._applyPatches(currentSnapshot, entry.delta.patches);
+      if (entry) {
+        currentSnapshot = this._applyDelta(currentSnapshot, entry.delta, lineage[i]);
       }
     }
 
@@ -350,45 +369,49 @@ export class InMemoryWorldStore implements WorldStore {
   }
 
   /**
-   * Apply single patch manually.
+   * Apply world delta (data patches + non-data envelope) to snapshot.
    */
-  private _applyPatch(snapshot: Snapshot, patch: Patch): Snapshot {
-    const { op, path } = patch;
-    const value = "value" in patch ? patch.value : undefined;
-    const pathParts = path.split(".").filter(Boolean);
+  private _applyDelta(snapshot: Snapshot, delta: WorldDelta, worldId: WorldId): Snapshot {
+    const patches = this._getPersistedPatches(delta, worldId);
+    let result = patches.length > 0 ? this._applyPatches(snapshot, patches) : { ...snapshot };
 
-    if (pathParts.length === 0) {
-      return snapshot;
-    }
-
-    // Deep clone and modify
-    const result = JSON.parse(JSON.stringify(snapshot)) as Snapshot;
-    let current: any = result;
-
-    for (let i = 0; i < pathParts.length - 1; i++) {
-      const key = pathParts[i];
-      if (!(key in current)) {
-        if (op === "unset") return result;
-        current[key] = {};
-      }
-      current = current[key];
-    }
-
-    const lastKey = pathParts[pathParts.length - 1];
-
-    switch (op) {
-      case "set":
-        current[lastKey] = value;
-        break;
-      case "unset":
-        delete current[lastKey];
-        break;
-      case "merge":
-        current[lastKey] = { ...(current[lastKey] ?? {}), ...(value as Record<string, unknown>) };
-        break;
+    if (delta.snapshotEnvelope) {
+      const envelope = createPersistedSnapshotEnvelope(delta.snapshotEnvelope);
+      result = {
+        ...result,
+        computed: envelope.computed,
+        system: envelope.system,
+        input: envelope.input,
+        meta: envelope.meta,
+      };
     }
 
     return result;
+  }
+
+  /**
+   * Apply single patch manually.
+   */
+  private _applyPatch(snapshot: Snapshot, patch: Patch): Snapshot {
+    const baseData = snapshot.data;
+
+    switch (patch.op) {
+      case "set":
+        return {
+          ...snapshot,
+          data: setByPatchPath(baseData, patch.path, patch.value) as Record<string, unknown>,
+        };
+      case "unset":
+        return {
+          ...snapshot,
+          data: unsetByPatchPath(baseData, patch.path) as Record<string, unknown>,
+        };
+      case "merge":
+        return {
+          ...snapshot,
+          data: mergeAtPatchPath(baseData, patch.path, patch.value) as Record<string, unknown>,
+        };
+    }
   }
 
   /**
@@ -416,6 +439,61 @@ export class InMemoryWorldStore implements WorldStore {
     return {
       ...snapshot,
       data: cleanData,
+    };
+  }
+
+  private _normalizeDelta(worldId: WorldId, delta: WorldDelta): WorldDelta {
+    const envelope = delta.patchEnvelope
+      ? this._parsePersistedPatchEnvelope(delta.patchEnvelope as unknown, worldId)
+      : createPersistedPatchEnvelope(delta.patches);
+
+    return {
+      ...delta,
+      patches: [...envelope.patches],
+      patchEnvelope: {
+        _patchFormat: PATCH_FORMAT_V2,
+        patches: [...envelope.patches],
+      },
+      snapshotEnvelope: delta.snapshotEnvelope
+        ? createPersistedSnapshotEnvelope(delta.snapshotEnvelope)
+        : undefined,
+    };
+  }
+
+  private _assertPersistedPatchEnvelope(delta: WorldDelta, worldId: WorldId): void {
+    this._parsePersistedPatchEnvelope(delta.patchEnvelope as unknown, worldId);
+  }
+
+  private _getPersistedPatches(delta: WorldDelta, worldId: WorldId): readonly Patch[] {
+    return this._parsePersistedPatchEnvelope(delta.patchEnvelope as unknown, worldId).patches;
+  }
+
+  private _parsePersistedPatchEnvelope(
+    envelope: unknown,
+    worldId: WorldId
+  ): PersistedPatchEnvelope {
+    if (!isRecord(envelope) || !("_patchFormat" in envelope)) {
+      throw new IncompatiblePatchFormatError(String(worldId), null);
+    }
+
+    const format = typeof envelope._patchFormat === "number" ? envelope._patchFormat : null;
+    if (format !== PATCH_FORMAT_V2) {
+      throw new IncompatiblePatchFormatError(String(worldId), format);
+    }
+
+    if (!Array.isArray(envelope.patches)) {
+      throw new IncompatiblePatchFormatError(String(worldId), format);
+    }
+
+    for (const patch of envelope.patches) {
+      if (!isPatchPath(patch.path)) {
+        throw new IncompatiblePatchFormatError(String(worldId), null);
+      }
+    }
+
+    return {
+      _patchFormat: PATCH_FORMAT_V2,
+      patches: envelope.patches as readonly Patch[],
     };
   }
 
@@ -459,4 +537,57 @@ export function createInMemoryWorldStore(
   options?: WorldStoreOptions
 ): InMemoryWorldStore {
   return new InMemoryWorldStore(options);
+}
+
+function createPersistedPatchEnvelope(patches: readonly Patch[]): PersistedPatchEnvelope {
+  return {
+    _patchFormat: PATCH_FORMAT_V2,
+    patches: [...patches],
+  };
+}
+
+function createPersistedSnapshotEnvelope(
+  snapshot: Pick<Snapshot, "computed" | "system" | "input" | "meta">
+): PersistedSnapshotEnvelope {
+  return {
+    computed: { ...(snapshot.computed as Record<string, unknown>) },
+    system: {
+      ...snapshot.system,
+      errors: [...snapshot.system.errors],
+      pendingRequirements: [...snapshot.system.pendingRequirements],
+    },
+    input: { ...(snapshot.input as Record<string, unknown>) },
+    meta: { ...snapshot.meta },
+  };
+}
+
+function isPatchPath(value: unknown): value is PatchPath {
+  return Array.isArray(value)
+    && value.every((segment) => {
+      if (typeof segment !== "object" || segment === null) {
+        return false;
+      }
+
+      const candidate = segment as {
+        kind?: unknown;
+        name?: unknown;
+        index?: unknown;
+      };
+
+      if (candidate.kind === "prop") {
+        return typeof candidate.name === "string";
+      }
+
+      if (candidate.kind === "index") {
+        return typeof candidate.index === "number"
+          && Number.isInteger(candidate.index)
+          && candidate.index >= 0;
+      }
+
+      return false;
+    });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

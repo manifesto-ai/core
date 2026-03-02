@@ -10,6 +10,9 @@
  * @see host-SPEC-v2.0.2.md §10.4
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -56,7 +59,7 @@ describe("HCTS Reinjection Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("async", async () => [
-        { op: "set", path: "result", value: "completed" },
+        { op: "set", path: pp("result"), value: "completed" },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -102,7 +105,7 @@ describe("HCTS Reinjection Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("enqueuing", async () => [
-        { op: "set", path: "effectDone", value: true },
+        { op: "set", path: pp("effectDone"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -183,15 +186,15 @@ describe("HCTS Reinjection Tests", () => {
 
       effectRunner.register("step1Effect", async () => {
         executionOrder.push("step1");
-        return [{ op: "set", path: "step1", value: true }];
+        return [{ op: "set", path: pp("step1"), value: true }];
       });
       effectRunner.register("step2Effect", async () => {
         executionOrder.push("step2");
-        return [{ op: "set", path: "step2", value: true }];
+        return [{ op: "set", path: pp("step2"), value: true }];
       });
       effectRunner.register("step3Effect", async () => {
         executionOrder.push("step3");
-        return [{ op: "set", path: "step3", value: true }];
+        return [{ op: "set", path: pp("step3"), value: true }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -233,7 +236,7 @@ describe("HCTS Reinjection Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("lifecycle", async () => [
-        { op: "set", path: "response", value: { executed: true } },
+        { op: "set", path: pp("response"), value: { executed: true } },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });

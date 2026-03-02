@@ -8,7 +8,8 @@
  * @module
  */
 
-import type { DomainSchema } from "@manifesto-ai/core";
+import type { DomainSchema, Snapshot } from "@manifesto-ai/core";
+import type { WorldId } from "@manifesto-ai/world";
 import type {
   ActOptions,
   AppState,
@@ -28,6 +29,7 @@ import { ActionHandleImpl } from "./action/index.js";
 import { generateWorldId } from "../storage/branch/index.js";
 import type {
   PipelineContext,
+  PatchFormatRecovery,
   PrepareDeps,
   AuthorizeDeps,
   ExecuteDeps,
@@ -63,6 +65,11 @@ export interface AppExecutorDependencies {
   schedulerOptions?: { defaultTimeoutMs?: number };
   getCurrentState: () => AppState<unknown>;
   setCurrentState: (state: AppState<unknown>) => void;
+  resetToGenesisOnPatchFormatError?: (params: {
+    readonly error: unknown;
+    readonly baseWorldId: WorldId;
+    readonly branchId: string;
+  }) => Promise<PatchFormatRecovery>;
 }
 
 /**
@@ -128,6 +135,7 @@ export class AppExecutorImpl implements AppExecutor {
       policyService: deps.policyService,
       schedulerOptions: deps.schedulerOptions,
       getCurrentState: deps.getCurrentState,
+      resetToGenesisOnPatchFormatError: deps.resetToGenesisOnPatchFormatError,
     };
 
     this._persistDeps = {

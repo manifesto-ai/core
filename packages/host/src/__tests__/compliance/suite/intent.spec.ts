@@ -8,6 +8,9 @@
  * @see host-SPEC-v2.0.2.md §6
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -57,7 +60,7 @@ describe("HCTS Intent Processing Tests", () => {
 
       effectRunner.register("fetchOnce", async () => {
         executionCount++;
-        return [{ op: "set", path: "response", value: { fetched: true } }];
+        return [{ op: "set", path: pp("response"), value: { fetched: true } }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -116,10 +119,10 @@ describe("HCTS Intent Processing Tests", () => {
       const effectRunner = createTestEffectRunner();
 
       effectRunner.register("step1", async () => [
-        { op: "set", path: "step1", value: true },
+        { op: "set", path: pp("step1"), value: true },
       ]);
       effectRunner.register("step2", async () => [
-        { op: "set", path: "step2", value: true },
+        { op: "set", path: pp("step2"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -156,7 +159,7 @@ describe("HCTS Intent Processing Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("trackProgress", async () => [
-        { op: "set", path: "response", value: { progress: 100 } },
+        { op: "set", path: pp("response"), value: { progress: 100 } },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -195,7 +198,7 @@ describe("HCTS Intent Processing Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("checkIntent", async () => [
-        { op: "set", path: "response", value: { checked: true } },
+        { op: "set", path: pp("response"), value: { checked: true } },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -269,10 +272,10 @@ describe("HCTS Intent Processing Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("first", async () => [
-        { op: "set", path: "step1", value: true },
+        { op: "set", path: pp("step1"), value: true },
       ]);
       effectRunner.register("second", async () => [
-        { op: "set", path: "step2", value: true },
+        { op: "set", path: pp("step2"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -316,7 +319,7 @@ describe("HCTS Intent Processing Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("traced", async () => [
-        { op: "set", path: "done", value: true },
+        { op: "set", path: pp("done"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });

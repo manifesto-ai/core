@@ -8,8 +8,8 @@
 
 `@manifesto-ai/host` executes intents against Core and fulfills effect requirements.
 
-- Owns runtime orchestration (Mailbox + Runner + Job)
-- Applies effect patches
+- Runtime orchestration (Mailbox + Runner + Jobs)
+- Applies domain patches and system transitions in interlocked order
 - Produces terminal snapshot/status per dispatch
 
 ---
@@ -18,22 +18,19 @@
 
 Host runs the compute-fulfill loop around Core.
 
-- `dispatch(intent)` starts a job pipeline
-- Core declares requirements
-- Host executes handlers and feeds patches back into the loop
-- Loop terminates with `HostResult`
-
 ```mermaid
 flowchart TD
   IN["Intent"] --> MB["Mailbox"]
   MB --> RN["Runner"]
   RN --> CC["core.compute"]
-  CC --> RS["snapshot/status"]
-  CC --> REQ["requirements[]"]
+  CC --> P["patches"]
+  CC --> SD["systemDelta"]
+  P --> AP["core.apply"]
+  SD --> ASD["core.applySystemDelta"]
+  ASD --> REQ["snapshot.system.pendingRequirements"]
   REQ --> FX["EffectExecutor"]
   FX --> EP["effect patches"]
   EP --> RN
-  RS --> OUT["HostResult"]
 ```
 
 ---
@@ -88,7 +85,13 @@ const registry = createEffectRegistry();
 registry.register("api.fetch", async (_type, params, ctx) => {
   const response = await fetch(String(params.url));
   const data = await response.json();
-  return [{ op: "set", path: "data.result", value: data }];
+  return [
+    {
+      op: "set",
+      path: [{ kind: "prop", name: "result" }],
+      value: data,
+    },
+  ];
 });
 
 const executor = createEffectExecutor(registry);
@@ -109,16 +112,12 @@ type EffectHandler = (
 
 ---
 
-## Execution Model Exports
+## Interlock Requirements
 
-`@manifesto-ai/host` also exports lower-level runtime pieces:
-
-- Mailbox: `createMailbox`, `MailboxManager`, `DefaultExecutionMailbox`
-- Runner: `processMailbox`, `enqueueAndKick`, `kickRunner`, `createRunnerState`
-- Jobs: `createStartIntentJob`, `createContinueComputeJob`, `createFulfillEffectJob`, `createApplyPatchesJob`
-- Context: `createExecutionContext`, `createHostContextProvider`, `createTestHostContextProvider`
-
-Use these directly when building custom orchestration/testing infrastructure.
+- Apply order MUST be: `core.apply(patches)` then `core.applySystemDelta(systemDelta)`.
+- Effect dispatch list SHOULD be read from `snapshot.system.pendingRequirements` after both applies.
+- Fulfillment clear MUST use `applySystemDelta({ removeRequirementIds })`.
+- Error patches MUST NOT target `system.*`.
 
 ---
 

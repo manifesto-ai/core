@@ -1,3 +1,6 @@
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach } from "vitest";
 import { ManifestoHost, createHost, type HostOptions } from "../../host.js";
 import { type DomainSchema, type Snapshot } from "@manifesto-ai/core";
@@ -21,8 +24,7 @@ describe("ManifestoHost", () => {
         increment: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "count",
+            op: "set", path: pp("count"),
             value: {
               kind: "add",
               left: { kind: "coalesce", args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }] },
@@ -33,8 +35,7 @@ describe("ManifestoHost", () => {
         setName: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "name",
+            op: "set", path: pp("name"),
             value: { kind: "get", path: "input.name" },
           },
         },
@@ -124,7 +125,7 @@ describe("ManifestoHost", () => {
       const host = createHost(schemaWithEffect, { initialData: {} });
 
       const httpHandler: EffectHandler = async (_type, params) => {
-        return [{ op: "set", path: "response", value: { url: params.url } }];
+        return [{ op: "set", path: pp("response"), value: { url: params.url } }];
       };
       host.registerEffect("http", httpHandler);
 
@@ -229,7 +230,7 @@ describe("ManifestoHost", () => {
       expect(snapshot?.meta.schemaHash).toBe(restored.meta.schemaHash);
       expect(snapshot?.system).toEqual(restored.system);
       expect(snapshot?.computed).toEqual(restored.computed);
-      expect(snapshot?.input).toEqual(restored.input);
+      expect(snapshot?.input).toEqual(restored.input ?? null);
     });
 
     it("should reject partial snapshot on reset", async () => {
@@ -311,8 +312,7 @@ describe("ManifestoHost", () => {
           addItem: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "itemsTotal",
+              op: "set", path: pp("itemsTotal"),
               value: {
                 kind: "add",
                 left: { kind: "coalesce", args: [{ kind: "get", path: "itemsTotal" }, { kind: "lit", value: 0 }] },
@@ -323,8 +323,7 @@ describe("ManifestoHost", () => {
           setShipping: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "shipping",
+              op: "set", path: pp("shipping"),
               value: { kind: "get", path: "input.amount" },
             },
           },
@@ -364,7 +363,7 @@ describe("ManifestoHost", () => {
         if (attempts < 3) {
           throw new Error("Temporary failure");
         }
-        return [{ op: "set", path: "data", value: "success" }];
+        return [{ op: "set", path: pp("data"), value: "success" }];
       };
 
       host.registerEffect("flaky", flakyHandler, { retries: 3, retryDelay: 10 });
@@ -424,8 +423,7 @@ describe("ManifestoHost", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set",
-                    path: "pending",
+                    op: "set", path: pp("pending"),
                     value: { kind: "get", path: "meta.intentId" },
                   },
                   {
@@ -447,7 +445,7 @@ describe("ManifestoHost", () => {
       });
 
       host.registerEffect("demo.exec", async () => [
-        { op: "set", path: "result", value: "done" },
+        { op: "set", path: pp("result"), value: "done" },
       ]);
 
       // 1st dispatch: exits with LOOP_MAX_ITERATIONS, currentAction may be set
@@ -507,8 +505,7 @@ describe("ManifestoHost", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set",
-                    path: "pending",
+                    op: "set", path: pp("pending"),
                     value: { kind: "get", path: "meta.intentId" },
                   },
                   {
@@ -528,7 +525,7 @@ describe("ManifestoHost", () => {
       });
 
       host.registerEffect("demo.exec", async () => [
-        { op: "set", path: "result", value: "done" },
+        { op: "set", path: pp("result"), value: "done" },
       ]);
 
       const result1 = await host.dispatch(

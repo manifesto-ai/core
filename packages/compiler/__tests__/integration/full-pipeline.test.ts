@@ -10,8 +10,12 @@ import {
   type CompileMelDomainResult,
   type DomainSchema as MelDomainSchema,
 } from "../../src/index.js";
-import { createCore, type DomainSchema as CoreDomainSchema } from "@manifesto-ai/core";
-import { createHost, type ManifestoHost } from "@manifesto-ai/host";
+import {
+  createCore,
+  semanticPathToPatchPath,
+  type DomainSchema as CoreDomainSchema,
+} from "@manifesto-ai/core";
+import { createHost, type ManifestoHost } from "../../../host/src/index.js";
 import {
   createManifestoWorld,
   createIntentInstance,
@@ -25,6 +29,12 @@ const HOST_CONTEXT = {
   now: () => 0,
   randomSeed: () => "seed",
   initialRandomSeed: "seed",
+};
+
+const HOST_RUNTIME = {
+  now: HOST_CONTEXT.now,
+  microtask: (fn: () => void) => queueMicrotask(fn),
+  yield: async () => Promise.resolve(),
 };
 
 const ACTOR: ActorRef = { actorId: "actor-1", kind: "human" };
@@ -49,35 +59,51 @@ function compileAndLower(source: string): MelDomainSchema | null {
 }
 
 function createHostWithContext(schema: CoreDomainSchema, initialData: unknown): ManifestoHost {
-  return createHost(schema, { initialData, context: HOST_CONTEXT });
+  return createHost(schema, { initialData, runtime: HOST_RUNTIME });
 }
 
 function createHostExecutor(host: ManifestoHost): HostExecutor {
   return {
     async execute(_key, baseSnapshot, intent) {
-      host.reset(baseSnapshot);
-      const result = await host.dispatch(intent, { key: _key });
-      const error = result.error
-        ? ({
-            code: result.error.code,
-            message: result.error.message,
+      try {
+        host.reset(baseSnapshot);
+        const result = await host.dispatch(intent, { key: _key });
+        const error = result.error
+          ? ({
+              code: result.error.code,
+              message: result.error.message,
+              source: {
+                actionId: "host.dispatch",
+                nodePath: "execute",
+              },
+              timestamp: Date.now(),
+              context: {
+                code: result.error.code,
+                details: result.error.details,
+              },
+            } satisfies ErrorValue)
+          : undefined;
+
+        return {
+          outcome: result.status === "complete" ? "completed" : "failed",
+          terminalSnapshot: result.snapshot,
+          error,
+        };
+      } catch (error) {
+        return {
+          outcome: "failed",
+          terminalSnapshot: baseSnapshot,
+          error: {
+            code: "HOST_EXECUTOR_THROW",
+            message: error instanceof Error ? error.message : String(error),
             source: {
               actionId: "host.dispatch",
               nodePath: "execute",
             },
             timestamp: Date.now(),
-            context: {
-              code: result.error.code,
-              details: result.error.details,
-            },
-          } satisfies ErrorValue)
-        : undefined;
-
-      return {
-        outcome: result.status === "complete" ? "completed" : "failed",
-        terminalSnapshot: result.snapshot,
-        error,
-      };
+          },
+        };
+      }
     },
   };
 }
@@ -103,7 +129,7 @@ function registerIntoHandler(
     if (typeof into !== "string") {
       return [];
     }
-    return [{ op: "set", path: into, value: valueFactory(params) }];
+    return [{ op: "set", path: semanticPathToPatchPath(into), value: valueFactory(params) }];
   });
 }
 
@@ -136,7 +162,6 @@ describe("Compiler -> World -> Host -> Core", () => {
     });
 
     const resultWorld = await world.submitProposal(ACTOR.actorId, intent, genesis.worldId);
-
     expect(resultWorld.resultWorld).toBeDefined();
     const snapshot = await world.getSnapshot(resultWorld.resultWorld!.worldId);
     expect(snapshot?.data).toMatchObject({ count: 1 });

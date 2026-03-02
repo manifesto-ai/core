@@ -3,22 +3,20 @@
  *
  * Canonical patch generation for World deltas.
  *
- * Per FDR-APP-INTEGRATION-001 v0.4.1:
- * - Delta scope matches snapshotHash input scope (D-STORE-3, STORE-4)
- * - Platform namespaces ($host, $mel) excluded from delta (WORLD-HASH-4a, WORLD-HASH-4b)
+ * Per ADR-009:
+ * - Patch paths are structured segments (PatchPath), rooted at snapshot.data.
+ * - system/input/computed/meta are not patch targets.
  *
- * @see FDR-APP-INTEGRATION-001 §3.6 (DELTA-GEN-1~6)
- * @see World SPEC v2.0.3 §5.5.2 (WORLD-HASH-*)
  * @module
  */
 
+import { patchPathToDisplayString, type PatchPath } from "@manifesto-ai/core";
 import type { Patch, Snapshot } from "../../types/index.js";
+import type { PersistedSnapshotEnvelope } from "../../types/world-store.js";
 import { stripPlatformNamespaces } from "./platform-namespaces.js";
 
 /**
  * Canonical patch type (v2 operators only).
- *
- * DELTA-GEN-5: Only set/unset/merge operators.
  */
 export type CanonicalPatch = Patch;
 
@@ -33,25 +31,17 @@ export interface DeltaGeneratorOptions {
   maxDepth?: number;
 
   /**
-   * Include computed values in delta.
+   * Kept for backward compatibility.
+   * Ignored under ADR-009 because patch root is snapshot.data.
    * @default false
    */
   includeComputed?: boolean;
 }
 
 /**
- * Generate canonical patches from base snapshot to terminal snapshot.
+ * Generate canonical data-root patches from base snapshot to terminal snapshot.
  *
- * DELTA-GEN-2: Deterministic generation.
- * DELTA-GEN-3: Platform namespaces stripped ($host, $mel).
- * DELTA-GEN-4: No-op elimination.
- * DELTA-GEN-5: v2 operators only.
- * DELTA-GEN-6: Lexicographic path sort.
- *
- * @param base - Base snapshot
- * @param terminal - Terminal snapshot
- * @param options - Generation options
- * @returns Canonical patches (excluding platform namespace changes)
+ * Non-data snapshot fields are persisted through `createSnapshotEnvelope()`.
  */
 export function generateDelta(
   base: Snapshot,
@@ -63,54 +53,44 @@ export function generateDelta(
     includeComputed: options?.includeComputed ?? false,
   };
 
-  // DELTA-GEN-3: Convert to canonical form (platform namespaces stripped, sorted keys)
   const canonicalBase = toCanonicalSnapshot(base);
   const canonicalTerminal = toCanonicalSnapshot(terminal);
 
-  // Generate patches
   const patches: CanonicalPatch[] = [];
 
-  // Diff data
-  diffObject(canonicalBase.data, canonicalTerminal.data, "data", patches, opts.maxDepth);
+  // ADR-009 root anchor: patches target snapshot.data only.
+  diffObject(canonicalBase.data, canonicalTerminal.data, [], patches, opts.maxDepth);
 
-  // Optionally diff computed
+  // Reserved for compatibility; intentionally ignored in ADR-009 mode.
   if (opts.includeComputed) {
-    diffObject(
-      canonicalBase.computed ?? {},
-      canonicalTerminal.computed ?? {},
-      "computed",
-      patches,
-      opts.maxDepth
-    );
+    // no-op
   }
 
-  // Diff system (except transient fields)
-  diffSystemFields(canonicalBase.system, canonicalTerminal.system, patches);
-
-  // DELTA-GEN-4: Eliminate no-ops
   const filteredPatches = eliminateNoOps(patches);
-
-  // DELTA-GEN-5: Normalize to v2 operators
   const normalizedPatches = normalizePatches(filteredPatches);
-
-  // DELTA-GEN-6: Sort by path lexicographically
   return sortPatches(normalizedPatches);
 }
 
 /**
+ * Create persisted non-data snapshot envelope.
+ *
+ * ADR-009 constrains patch roots to `snapshot.data`, so WorldStore persists
+ * non-data transitions explicitly via this envelope.
+ */
+export function createSnapshotEnvelope(snapshot: Snapshot): PersistedSnapshotEnvelope {
+  const canonical = toCanonicalSnapshot(snapshot);
+  return {
+    computed: canonical.computed,
+    system: canonical.system,
+    input: canonical.input,
+    meta: canonical.meta,
+  };
+}
+
+/**
  * Convert snapshot to canonical form with sorted keys and platform namespaces removed.
- *
- * DELTA-GEN-3: Canonical snapshot has:
- * - Platform namespaces removed ($host, $mel) per WORLD-HASH-4a, WORLD-HASH-4b
- * - Sorted keys for deterministic hashing
- *
- * This ensures delta scope matches snapshotHash input scope (D-STORE-3, STORE-4).
- *
- * @param snapshot - Input snapshot
- * @returns Canonical snapshot with platform namespaces removed and sorted keys
  */
 export function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
-  // Strip platform namespaces from data (WORLD-HASH-4a, WORLD-HASH-4b)
   const strippedData = stripPlatformNamespaces(snapshot.data);
 
   return {
@@ -133,12 +113,6 @@ export function toCanonicalSnapshot(snapshot: Snapshot): Snapshot {
   };
 }
 
-/**
- * Recursively sort object keys.
- *
- * @param obj - Object to sort
- * @returns Object with sorted keys
- */
 function sortObjectKeys<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
@@ -160,35 +134,26 @@ function sortObjectKeys<T>(obj: T): T {
 
 /**
  * Eliminate no-op patches.
- *
- * DELTA-GEN-4: Patches that don't change anything are removed.
- *
- * @param patches - Input patches
- * @returns Patches without no-ops
  */
 export function eliminateNoOps(patches: CanonicalPatch[]): CanonicalPatch[] {
-  // Track path states to detect redundant operations
   const pathStates: Map<string, { op: string; value?: unknown }> = new Map();
-
   const result: CanonicalPatch[] = [];
 
   for (const patch of patches) {
-    const { op, path } = patch;
+    const pathKey = patchPathStructuralKey(patch.path);
     const value = "value" in patch ? patch.value : undefined;
 
-    // Skip if this is an unset after another unset on same path
-    const existing = pathStates.get(path);
+    const existing = pathStates.get(pathKey);
     if (existing) {
-      if (op === "unset" && existing.op === "unset") {
+      if (patch.op === "unset" && existing.op === "unset") {
         continue;
       }
-      // If setting same value, skip
-      if (op === "set" && existing.op === "set" && deepEquals(existing.value, value)) {
+      if (patch.op === "set" && existing.op === "set" && deepEquals(existing.value, value)) {
         continue;
       }
     }
 
-    pathStates.set(path, { op, value });
+    pathStates.set(pathKey, { op: patch.op, value });
     result.push(patch);
   }
 
@@ -197,204 +162,163 @@ export function eliminateNoOps(patches: CanonicalPatch[]): CanonicalPatch[] {
 
 /**
  * Normalize patches to v2 operators only.
- *
- * DELTA-GEN-5: Only set/unset/merge operators are allowed.
- *
- * @param patches - Input patches
- * @returns Normalized patches
  */
 export function normalizePatches(patches: CanonicalPatch[]): CanonicalPatch[] {
-  return patches.filter((patch) => {
-    const { op } = patch;
-    return op === "set" || op === "unset" || op === "merge";
-  });
+  return patches.filter((patch) => patch.op === "set" || patch.op === "unset" || patch.op === "merge");
 }
 
 /**
- * Sort patches by path lexicographically.
- *
- * DELTA-GEN-6: Patches MUST be sorted by path for determinism.
- *
- * @param patches - Input patches
- * @returns Sorted patches
+ * Sort patches deterministically.
  */
 export function sortPatches(patches: CanonicalPatch[]): CanonicalPatch[] {
   return [...patches].sort((a, b) => {
-    // Primary sort: path
-    const pathCompare = a.path.localeCompare(b.path);
-    if (pathCompare !== 0) return pathCompare;
+    const aPath = patchPathToDisplayString(a.path);
+    const bPath = patchPathToDisplayString(b.path);
 
-    // Secondary sort: operation (set < unset < merge)
-    const opOrder: Record<string, number> = { set: 0, unset: 1, merge: 2 };
-    return (opOrder[a.op] ?? 3) - (opOrder[b.op] ?? 3);
+    const pathCompare = aPath.localeCompare(bPath);
+    if (pathCompare !== 0) {
+      return pathCompare;
+    }
+
+    const aStructuralPath = patchPathStructuralKey(a.path);
+    const bStructuralPath = patchPathStructuralKey(b.path);
+    const structuralCompare = aStructuralPath.localeCompare(bStructuralPath);
+    if (structuralCompare !== 0) {
+      return structuralCompare;
+    }
+
+    const opOrder: Record<Patch["op"], number> = {
+      set: 0,
+      unset: 1,
+      merge: 2,
+    };
+
+    return opOrder[a.op] - opOrder[b.op];
   });
 }
 
-/**
- * Deep diff two objects and generate patches.
- *
- * @param base - Base object
- * @param terminal - Terminal object
- * @param path - Current path prefix
- * @param patches - Accumulator for patches
- * @param maxDepth - Maximum recursion depth
- */
 function diffObject(
   base: unknown,
   terminal: unknown,
-  path: string,
+  path: PatchPath,
   patches: CanonicalPatch[],
   maxDepth: number,
   depth: number = 0
 ): void {
   if (depth > maxDepth) {
-    // At max depth, treat as atomic value
-    if (!deepEquals(base, terminal)) {
-      patches.push({ op: "set", path, value: terminal });
-    }
+    pushSetIfChanged(base, terminal, path, patches);
     return;
   }
 
-  const baseObj = (base ?? {}) as Record<string, unknown>;
-  const terminalObj = (terminal ?? {}) as Record<string, unknown>;
-
-  // Handle non-object values
-  if (typeof baseObj !== "object" || typeof terminalObj !== "object") {
-    if (!deepEquals(base, terminal)) {
-      patches.push({ op: "set", path, value: terminal });
-    }
+  if (isArray(base) || isArray(terminal)) {
+    pushSetIfChanged(base, terminal, path, patches);
     return;
   }
 
-  // Handle null values
-  if (baseObj === null || terminalObj === null) {
-    if (base !== terminal) {
-      patches.push({ op: "set", path, value: terminal });
-    }
+  if (!isRecord(base) || !isRecord(terminal)) {
+    pushSetIfChanged(base, terminal, path, patches);
     return;
   }
 
-  // Handle array values
-  if (Array.isArray(baseObj) || Array.isArray(terminalObj)) {
-    if (!deepEquals(base, terminal)) {
-      patches.push({ op: "set", path, value: terminal });
-    }
-    return;
-  }
-
-  // Get all keys from both objects
-  const allKeys = new Set([...Object.keys(baseObj), ...Object.keys(terminalObj)]);
+  const allKeys = Array.from(new Set([...Object.keys(base), ...Object.keys(terminal)])).sort();
 
   for (const key of allKeys) {
-    const childPath = path ? `${path}.${key}` : key;
-    const baseValue = baseObj[key];
-    const terminalValue = terminalObj[key];
+    if (!isSafePropKey(key)) {
+      continue;
+    }
 
-    if (!(key in terminalObj)) {
-      // Key removed
+    const childPath = appendProp(path, key);
+    const baseHas = Object.prototype.hasOwnProperty.call(base, key);
+    const terminalHas = Object.prototype.hasOwnProperty.call(terminal, key);
+
+    if (!terminalHas) {
       patches.push({ op: "unset", path: childPath });
-    } else if (!(key in baseObj)) {
-      // Key added
-      patches.push({ op: "set", path: childPath, value: terminalValue });
-    } else if (
-      typeof baseValue === "object" &&
-      typeof terminalValue === "object" &&
-      baseValue !== null &&
-      terminalValue !== null &&
-      !Array.isArray(baseValue) &&
-      !Array.isArray(terminalValue)
+      continue;
+    }
+
+    if (!baseHas) {
+      patches.push({ op: "set", path: childPath, value: terminal[key] });
+      continue;
+    }
+
+    const baseValue = base[key];
+    const terminalValue = terminal[key];
+
+    if (
+      isRecord(baseValue)
+      && isRecord(terminalValue)
+      && !isArray(baseValue)
+      && !isArray(terminalValue)
     ) {
-      // Both are objects, recurse
       diffObject(baseValue, terminalValue, childPath, patches, maxDepth, depth + 1);
-    } else if (!deepEquals(baseValue, terminalValue)) {
-      // Value changed
+      continue;
+    }
+
+    if (!deepEquals(baseValue, terminalValue)) {
       patches.push({ op: "set", path: childPath, value: terminalValue });
     }
   }
 }
 
-/**
- * Diff system fields (special handling for transient fields).
- *
- * @param base - Base system object
- * @param terminal - Terminal system object
- * @param patches - Accumulator for patches
- */
-function diffSystemFields(
-  base: Snapshot["system"],
-  terminal: Snapshot["system"],
+function patchPathStructuralKey(path: PatchPath): string {
+  return JSON.stringify(path);
+}
+
+function pushSetIfChanged(
+  base: unknown,
+  terminal: unknown,
+  path: PatchPath,
   patches: CanonicalPatch[]
 ): void {
-  const baseSystem = base ?? {
-    status: "idle",
-    pendingRequirements: [],
-    errors: [],
-  };
-  const terminalSystem = terminal ?? {
-    status: "idle",
-    pendingRequirements: [],
-    errors: [],
-  };
-
-  // Status
-  if (baseSystem.status !== terminalSystem.status) {
-    patches.push({ op: "set", path: "system.status", value: terminalSystem.status });
+  if (path.length === 0) {
+    return;
   }
 
-  // Errors (array, treat as atomic)
-  if (!deepEquals(baseSystem.errors, terminalSystem.errors)) {
-    patches.push({ op: "set", path: "system.errors", value: terminalSystem.errors ?? [] });
-  }
-
-  // lastError
-  if (!deepEquals(baseSystem.lastError, terminalSystem.lastError)) {
-    if (terminalSystem.lastError) {
-      patches.push({ op: "set", path: "system.lastError", value: terminalSystem.lastError });
-    } else {
-      patches.push({ op: "unset", path: "system.lastError" });
-    }
-  }
-
-  // pendingRequirements (array, treat as atomic)
-  if (!deepEquals(baseSystem.pendingRequirements, terminalSystem.pendingRequirements)) {
-    patches.push({
-      op: "set",
-      path: "system.pendingRequirements",
-      value: terminalSystem.pendingRequirements ?? [],
-    });
+  if (!deepEquals(base, terminal)) {
+    patches.push({ op: "set", path, value: terminal });
   }
 }
 
-/**
- * Deep equality check using JSON serialization.
- *
- * @param a - First value
- * @param b - Second value
- * @returns True if deeply equal
- */
-function deepEquals(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return a === b;
-  if (typeof a !== typeof b) return false;
-  if (typeof a !== "object") return a === b;
+function appendProp(path: PatchPath, name: string): PatchPath {
+  return [...path, { kind: "prop", name }];
+}
 
-  // Use JSON serialization for deep comparison
+function isSafePropKey(key: string): boolean {
+  return key !== "__proto__" && key !== "constructor" && key !== "prototype";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+function deepEquals(a: unknown, b: unknown): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a === null || b === null) {
+    return a === b;
+  }
+  if (typeof a !== typeof b) {
+    return false;
+  }
+  if (typeof a !== "object") {
+    return a === b;
+  }
+
   return JSON.stringify(sortObjectKeys(a)) === JSON.stringify(sortObjectKeys(b));
 }
 
 /**
  * Compute canonical hash for a snapshot.
- *
- * Uses deterministic JSON serialization of canonical snapshot.
- *
- * @param snapshot - Snapshot to hash
- * @returns Canonical hash string
  */
 export function computeCanonicalHash(snapshot: Snapshot): string {
   const canonical = toCanonicalSnapshot(snapshot);
   const json = JSON.stringify(canonical);
 
-  // Simple hash function (djb2)
   let hash = 5381;
   for (let i = 0; i < json.length; i++) {
     hash = ((hash << 5) + hash) ^ json.charCodeAt(i);

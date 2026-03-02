@@ -1,15 +1,15 @@
 # World Protocol Documentation Index
 
 > **Package:** `@manifesto-ai/world`
-> **Last Updated:** 2026-02-24
+> **Last Updated:** 2026-02-27
 
 ---
 
 ## Current Specification
 
 ### World Protocol
-- **SPEC (Living Document):** [world-SPEC.md](world-SPEC.md) — Normative, current through v2.0.5
-  - Consolidated from v2.0.3 base + v2.0.4/v2.0.5 patches
+- **SPEC (Living Document):** [world-SPEC.md](world-SPEC.md) — Normative, current through v3.0.0
+  - Consolidated from v2.x living document + ADR-009 persistence hard-cut updates
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix B in the SPEC for FDR cross-reference tables
 
@@ -36,6 +36,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Reading Guide
 
+- **v3.0.0**: ADR-009 persistence alignment — serialized patch envelopes require `_patchFormat: 2`; restore boundary hard-rejects legacy format and requires genesis reset on incompatibility.
 - **v2.0.5**: Head Query API — Formal head definition (branch pointer), resume contract, branch state persistence. `getHeads()`, `getLatestHead()` added to World public interface. HEAD-1~8, RESUME-1~6, BRANCH-PERSIST-1~5, INV-W16~W19.
 - **v2.0.4**: Platform namespace prefix — `stripPlatformNamespaces()` uses `$`-prefix pattern, `isPlatformNamespace()` API.
 - **v2.0.3**: Platform namespace extension - `$mel` namespace hash exclusion (WORLD-HASH-4b), `stripPlatformNamespaces()` API, platform namespace policy rules (NS-PLAT-*).

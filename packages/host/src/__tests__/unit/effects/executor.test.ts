@@ -1,3 +1,6 @@
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EffectExecutor, createEffectExecutor } from "../../../effects/executor.js";
 import { EffectHandlerRegistry, createEffectRegistry } from "../../../effects/registry.js";
@@ -20,7 +23,7 @@ describe("EffectExecutor", () => {
   describe("execute", () => {
     it("should execute a registered handler", async () => {
       const handler: EffectHandler = async (_type, _params, _context) => [
-        { op: "set", path: "result", value: "success" },
+        { op: "set", path: pp("result"), value: "success" },
       ];
       registry.register("test", handler);
 
@@ -32,8 +35,7 @@ describe("EffectExecutor", () => {
       expect(result.success).toBe(true);
       expect(result.patches).toHaveLength(1);
       expect(result.patches[0]).toEqual({
-        op: "set",
-        path: "result",
+        op: "set", path: pp("result"),
         value: "success",
       });
       expect(result.duration).toBeGreaterThanOrEqual(0);
@@ -122,9 +124,9 @@ describe("EffectExecutor", () => {
 
     it("should return multiple patches from handler", async () => {
       const patches: Patch[] = [
-        { op: "set", path: "a", value: 1 },
-        { op: "set", path: "b", value: 2 },
-        { op: "set", path: "c", value: 3 },
+        { op: "set", path: pp("a"), value: 1 },
+        { op: "set", path: pp("b"), value: 2 },
+        { op: "set", path: pp("c"), value: 3 },
       ];
       const handler: EffectHandler = async () => patches;
       registry.register("multi", handler);
@@ -225,7 +227,7 @@ describe("EffectExecutor", () => {
         if (attempts < 3) {
           throw new Error("Not yet");
         }
-        return [{ op: "set", path: "success", value: true }];
+        return [{ op: "set", path: pp("success"), value: true }];
       };
       registry.register("retry", handler, { retries: 3, retryDelay: 10 });
 
@@ -281,7 +283,7 @@ describe("EffectExecutor", () => {
   describe("executeAll", () => {
     it("should execute multiple requirements", async () => {
       const handler: EffectHandler = async (type, params) => [
-        { op: "set", path: params.key as string, value: params.value },
+        { op: "set", path: pp(String(params.key)), value: params.value },
       ];
       registry.register("set", handler);
 
@@ -303,7 +305,7 @@ describe("EffectExecutor", () => {
 
     it("should continue after failed effect", async () => {
       const successHandler: EffectHandler = async () => [
-        { op: "set", path: "ok", value: true },
+        { op: "set", path: pp("ok"), value: true },
       ];
       const failHandler: EffectHandler = async () => {
         throw new Error("Failed");

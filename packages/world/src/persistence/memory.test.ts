@@ -767,6 +767,7 @@ describe("MemoryWorldStore", () => {
 
       const json = store.toJSON();
 
+      expect(json._patchFormat).toBe(2);
       expect(json.worlds).toHaveLength(1);
       expect(json.snapshots).toHaveLength(1);
       expect(json.bindings).toHaveLength(1);
@@ -821,6 +822,25 @@ describe("MemoryWorldStore", () => {
 
       const byProposal = await restored.getDecisionByProposal(createProposalId("prop-1"));
       expect(byProposal).toEqual(decision);
+    });
+
+    it("rejects JSON payloads with missing _patchFormat", () => {
+      const json = store.toJSON();
+      const legacy = { ...json } as Partial<typeof json>;
+      delete (legacy as { _patchFormat?: number })._patchFormat;
+
+      expect(() => {
+        MemoryWorldStore.fromJSON(legacy as typeof json);
+      }).toThrow(/missing _patchFormat/i);
+    });
+
+    it("rejects JSON payloads with legacy _patchFormat: 1", () => {
+      const json = store.toJSON();
+      const legacy = { ...json, _patchFormat: 1 };
+
+      expect(() => {
+        MemoryWorldStore.fromJSON(legacy as typeof json);
+      }).toThrow(/Only _patchFormat: 2 is supported/i);
     });
   });
 

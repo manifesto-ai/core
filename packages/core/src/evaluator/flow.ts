@@ -1,15 +1,21 @@
 import type { FlowNode } from "../schema/flow.js";
 import type { Snapshot, Requirement, ErrorValue } from "../schema/snapshot.js";
-import type { Patch } from "../schema/patch.js";
+import type { Patch, PatchPath, PatchSegment } from "../schema/patch.js";
 import type { TraceNode } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createTraceNode } from "../schema/trace.js";
 import { createError } from "../errors.js";
-import { setByPath, unsetByPath, mergeAtPath } from "../utils/path.js";
+import {
+  mergeAtPatchPath,
+  patchPathToDisplayString,
+  semanticPathToPatchPath,
+  setByPatchPath,
+  unsetByPatchPath,
+} from "../utils/patch-path.js";
 import { generateRequirementIdSync } from "../utils/hash.js";
 import { type EvalContext, withSnapshot, withNodePath, withCollectionContext } from "./context.js";
 import { evaluateExpr } from "./expr.js";
-import { getFieldSpecAtPath, validateValueAgainstFieldSpec } from "../core/validation-utils.js";
+import { getFieldSpecAtSegments, validateValueAgainstFieldSpec } from "../core/validation-utils.js";
 
 /**
  * Flow execution status
@@ -35,18 +41,6 @@ export type FlowResult = {
   readonly trace: TraceNode;
 };
 
-const SYSTEM_FIELD_SPEC: FieldSpec = {
-  type: "object",
-  required: true,
-  fields: {
-    status: { type: { enum: ["idle", "computing", "pending", "error"] }, required: true },
-    lastError: { type: "object", required: true },
-    errors: { type: "array", required: true, items: { type: "object", required: true } },
-    pendingRequirements: { type: "array", required: true, items: { type: "object", required: true } },
-    currentAction: { type: "string", required: true },
-  },
-};
-
 /**
  * Create initial flow state
  */
@@ -64,43 +58,17 @@ export function createFlowState(snapshot: Snapshot): FlowState {
  * Apply a patch to flow state
  */
 function applyPatchToState(state: FlowState, patch: Patch): FlowState {
-  if (patch.path === "system" || patch.path.startsWith("system.")) {
-    const subPath = patch.path === "system" ? "" : patch.path.slice(7);
-    let newSystem = state.snapshot.system;
-
-    switch (patch.op) {
-      case "set":
-        newSystem = setByPath(newSystem, subPath, patch.value) as typeof newSystem;
-        break;
-      case "unset":
-        newSystem = unsetByPath(newSystem, subPath) as typeof newSystem;
-        break;
-      case "merge":
-        newSystem = mergeAtPath(newSystem, subPath, patch.value) as typeof newSystem;
-        break;
-    }
-
-    return {
-      ...state,
-      snapshot: {
-        ...state.snapshot,
-        system: newSystem,
-      },
-      patches: [...state.patches, patch],
-    };
-  }
-
   let newData = state.snapshot.data;
 
   switch (patch.op) {
     case "set":
-      newData = setByPath(newData, patch.path, patch.value);
+      newData = setByPatchPath(newData, patch.path, patch.value);
       break;
     case "unset":
-      newData = unsetByPath(newData, patch.path);
+      newData = unsetByPatchPath(newData, patch.path);
       break;
     case "merge":
-      newData = mergeAtPath(newData, patch.path, patch.value);
+      newData = mergeAtPatchPath(newData, patch.path, patch.value);
       break;
   }
 
@@ -267,7 +235,7 @@ function evaluateIf(
 }
 
 function evaluatePatch(
-  flow: { op: "set" | "unset" | "merge"; path: string; value?: import("../schema/expr.js").ExprNode },
+  flow: { op: "set" | "unset" | "merge"; path: PatchPath; value?: import("../schema/expr.js").ExprNode },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
@@ -285,20 +253,14 @@ function evaluatePatch(
     patchValue = valueResult.value;
   }
 
-  const rootSpec: FieldSpec = {
-    type: "object",
-    required: true,
-    fields: {
-      ...ctx.schema.state.fields,
-      system: SYSTEM_FIELD_SPEC,
-    },
-  };
-  const fieldSpec = getFieldSpecAtPath(rootSpec, flow.path);
+  const rootSpec: FieldSpec = { type: "object", required: true, fields: ctx.schema.state.fields };
+  const fieldSpec = getFieldSpecAtSegments(rootSpec, flow.path);
+  const displayPath = patchPathToDisplayString(flow.path);
   if (!fieldSpec) {
     return {
       state: setError(state, createError(
         "PATH_NOT_FOUND",
-        `Unknown patch path: ${flow.path}`,
+        `Unknown patch path: ${displayPath}`,
         ctx.currentAction ?? "",
         nodePath,
         ctx.trace.timestamp
@@ -316,7 +278,7 @@ function evaluatePatch(
       return {
         state: setError(state, createError(
           "TYPE_MISMATCH",
-          `Invalid patch value at ${flow.path}: ${validation.message ?? "type mismatch"}`,
+          `Invalid patch value at ${displayPath}: ${validation.message ?? "type mismatch"}`,
           ctx.currentAction ?? "",
           nodePath,
           ctx.trace.timestamp
@@ -336,7 +298,7 @@ function evaluatePatch(
 
   return {
     state: newState,
-    trace: createTraceNode(ctx.trace, "patch", nodePath, { op: flow.op, path: flow.path }, patchValue, []),
+    trace: createTraceNode(ctx.trace, "patch", nodePath, { op: flow.op, path: displayPath }, patchValue, []),
   };
 }
 
@@ -467,7 +429,19 @@ function evaluateArrayOperation(
     };
   }
 
-  const targetPath = String(intoResult.value);
+  const targetPath = toPatchPath(intoResult.value);
+  if (!targetPath) {
+    return {
+      state: setError(state, createError(
+        "INVALID_INPUT",
+        `${flow.type} into must resolve to PatchPath segments or semantic string path`,
+        currentCtx.currentAction ?? "",
+        nodePath,
+        currentCtx.trace.timestamp
+      )),
+      trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
+    };
+  }
 
   // Get the transformation expression
   const transformExpr = flow.type === "array.map" ? params.select : params.where;
@@ -521,6 +495,46 @@ function evaluateArrayOperation(
     state: newState,
     trace: createTraceNode(currentCtx.trace, "effect", nodePath, { type: flow.type, target: targetPath }, { count: resultArray.length }, []),
   };
+}
+
+function toPatchPath(value: unknown): PatchPath | null {
+  if (typeof value === "string") {
+    return semanticPathToPatchPath(value);
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const segments: PatchSegment[] = [];
+  for (const segment of value) {
+    if (!segment || typeof segment !== "object") {
+      return null;
+    }
+
+    const kind = (segment as { kind?: unknown }).kind;
+    if (kind === "prop") {
+      const name = (segment as { name?: unknown }).name;
+      if (typeof name !== "string" || name.length === 0) {
+        return null;
+      }
+      segments.push({ kind: "prop", name });
+      continue;
+    }
+
+    if (kind === "index") {
+      const index = (segment as { index?: unknown }).index;
+      if (!Number.isInteger(index) || (index as number) < 0) {
+        return null;
+      }
+      segments.push({ kind: "index", index: index as number });
+      continue;
+    }
+
+    return null;
+  }
+
+  return segments.length > 0 ? segments : null;
 }
 
 function evaluateCall(

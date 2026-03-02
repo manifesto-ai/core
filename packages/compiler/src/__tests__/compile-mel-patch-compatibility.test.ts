@@ -14,6 +14,9 @@ import {
   createCore,
   createIntent,
   createSnapshot,
+  type ComputeResult,
+  type Patch,
+  type PatchPath,
   type Snapshot,
 } from "@manifesto-ai/core";
 import { createEvaluationContext, evaluateRuntimePatches } from "../evaluation/index.js";
@@ -53,11 +56,21 @@ function domainSource(actionBody: string, stateSource = DEFAULT_STATE): string {
   `;
 }
 
-function stripInternalGuards(ops: { path: string }[]) {
+function stripInternalGuards(ops: Patch[]) {
   return ops.filter(
-    (op) =>
-      !op.path.startsWith("$mel.__whenGuards.") &&
-      !op.path.startsWith("$mel.__onceScopeGuards.")
+    (op) => !isInternalGuardPath(op.path)
+  );
+}
+
+function isInternalGuardPath(path: PatchPath): boolean {
+  if (path.length < 2) {
+    return false;
+  }
+  return (
+    path[0].kind === "prop"
+    && path[0].name === "$mel"
+    && path[1].kind === "prop"
+    && (path[1].name === "__whenGuards" || path[1].name === "__onceScopeGuards")
   );
 }
 
@@ -78,12 +91,17 @@ async function runLegacyCycle(
   intentId: string,
   input?: Record<string, unknown>
 ) {
-  return await core.compute(
+  const result = await core.compute(
     schema,
     snapshot,
     createIntent("probe", input ?? {}, intentId),
     HOST_CONTEXT
   );
+
+  return {
+    ...result,
+    snapshot: applyComputeResult(core, schema, snapshot, result),
+  };
 }
 
 function runCompileMelPatchCycle(
@@ -116,6 +134,16 @@ function runCompileMelPatchCycle(
     stripInternalGuards(concretePatches),
     HOST_CONTEXT
   );
+}
+
+function applyComputeResult(
+  core: ReturnType<typeof createCore>,
+  schema: any,
+  snapshot: Snapshot,
+  result: ComputeResult
+): Snapshot {
+  const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
+  return core.applySystemDelta(patchedSnapshot, result.systemDelta);
 }
 
 async function runParityCycleBatch(options: {

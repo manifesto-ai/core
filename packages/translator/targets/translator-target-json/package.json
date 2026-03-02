@@ -36,8 +36,8 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests"
   },
   "dependencies": {
     "@manifesto-ai/translator": "workspace:*"

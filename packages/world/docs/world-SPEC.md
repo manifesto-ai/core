@@ -3,7 +3,7 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/world`
 > **Scope:** All Manifesto World Implementations
-> **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, ARCHITECTURE v2.0
+> **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, ARCHITECTURE v2.0
 > **Implements:** ADR-001 (Layer Separation)
 > **Authors:** Manifesto Team
 > **License:** MIT
@@ -14,6 +14,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v3.0.0 | ADR-009 persistence hard cut — `_patchFormat: 2` required, legacy restore rejection | FDR-W038 |
 | v1.0 | Initial release — Governance entities, Proposal lifecycle, Lineage DAG | FDR-W001 ~ W017 |
 | v2.0 | Host v2.0.1 Integration — ExecutionKey, Ingress/Execution staging, Event system | FDR-W018 ~ W026 |
 | v2.0.1 | ADR-001 Layer Separation — Event ownership, "Does NOT Know" boundary | FDR-W027 ~ W031 |
@@ -1545,6 +1546,7 @@ World implementations MUST persist (in serializable form) at minimum:
 |--------|-----|-------------|
 | Worlds | WorldId | Immutable World records |
 | TerminalSnapshots | WorldId | Full terminal snapshot (or sufficient data to restore it) |
+| PatchDeltas | `(fromWorld,toWorld)` | Serialized patch deltas for replay/restore (format-versioned) |
 | **SnapshotHashInputs** | snapshotHash | **Normalized hash input** (RECOMMENDED for audit/replay) |
 | Proposals | ProposalId | Proposal records with status |
 | DecisionRecords | DecisionId | Authority decisions |
@@ -1629,6 +1631,28 @@ async function getBaseSnapshot(worldId: WorldId): Promise<Snapshot> {
   return Core.rehydrate(hashInput.data, world.schemaHash);
 }
 ```
+
+### 9.3.1 Serialized Patch Format (ADR-009 Hard Cut)
+
+Persisted patch deltas MUST carry an explicit patch format version envelope.
+
+> **Implementation convergence pending (ADR-009):** Some existing stores may still contain pre-ADR serialized string-path payloads. This SPEC defines the normative post-cut contract and required rejection behavior.
+
+```typescript
+type PersistedPatchDeltaV2 = {
+  readonly _patchFormat: 2;
+  readonly patches: readonly Patch[];
+};
+```
+
+| Rule ID | Description |
+|---------|-------------|
+| PERSIST-PATCH-1 | Serialized patch payloads MUST include `_patchFormat` |
+| PERSIST-PATCH-2 | Runtime/WorldStore restore MUST accept only `_patchFormat: 2` |
+| PERSIST-PATCH-3 | `_patchFormat: 1` or missing format tag MUST be hard-rejected |
+| PERSIST-PATCH-4 | On legacy format rejection, App MUST require re-initialization from genesis (epoch reset) |
+
+**Restore boundary rule:** the rejection MUST happen at `WorldStore.restore()` (or equivalent store ingress boundary), before any patch replay/apply is attempted.
 
 ### 9.4 WorldEdge (Lineage)
 

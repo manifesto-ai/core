@@ -2,27 +2,18 @@
  * Runtime Patch Evaluation
  *
  * Evaluates RuntimeConditionalPatchOp[] to produce concrete Patch[].
- *
- * Implements:
- * - SPEC v0.4.0 §18.5: Sequential evaluation with working snapshot
- * - SPEC v0.4.0 §18.6: Boolean-only conditions
- * - SPEC v0.4.0 A35: Total function (returns null on error, never throws)
- *
- * @see SPEC v0.4.0 §20
  */
 
-import type { Patch, SetPatch, UnsetPatch, MergePatch } from "@manifesto-ai/core";
-import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
+import type { MergePatch, Patch, PatchPath, PatchSegment, SetPatch, UnsetPatch } from "@manifesto-ai/core";
+import { mergeAtPatchPath, patchPathToDisplayString, setByPatchPath, unsetByPatchPath } from "@manifesto-ai/core";
+import type { IRPatchPath, RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
-import { applyPatchToWorkingSnapshot } from "./context.js";
 import { evaluateExpr } from "./evaluate-expr.js";
-import { parsePath } from "@manifesto-ai/core";
 
-const WHEN_SCOPE_PREFIX = "$mel.__whenGuards.";
-const ONCE_SCOPE_PREFIX = "$mel.__onceScopeGuards.";
+const UNSAFE_PROP_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
 type GuardScope = {
-  markerPath: string;
+  markerPath: PatchPath;
   snapshot: EvaluationSnapshot;
 };
 
@@ -31,7 +22,7 @@ type GuardScope = {
 /**
  * Skip reason for runtime patches.
  */
-export type RuntimePatchSkipReason = "false" | "null" | "non-boolean";
+export type RuntimePatchSkipReason = "false" | "null" | "non-boolean" | "invalid-path";
 
 /**
  * Skipped patch info.
@@ -43,7 +34,7 @@ export interface SkippedRuntimePatch {
   index: number;
 
   /**
-   * Target path.
+   * Target path (display form).
    */
   path: string;
 
@@ -69,6 +60,11 @@ export interface RuntimePatchEvaluationResult {
   skipped: SkippedRuntimePatch[];
 
   /**
+   * Non-fatal warnings collected during evaluation.
+   */
+  warnings: string[];
+
+  /**
    * Final working snapshot after all evaluations.
    */
   finalSnapshot: EvaluationSnapshot;
@@ -78,22 +74,6 @@ export interface RuntimePatchEvaluationResult {
 
 /**
  * Evaluate runtime conditional patches to concrete Patch[].
- *
- * This is the main API for Host integration. It transforms
- * RuntimeConditionalPatchOp[] (with Core IR expressions) to
- * concrete Patch[] (with evaluated values) that can be passed
- * directly to core.apply().
- *
- * Implements:
- * - §18.5: Sequential evaluation with working snapshot
- * - §18.6: Boolean-only conditions (non-boolean → skip)
- * - A35: Total function (expression errors → null value)
- *
- * @param ops - Runtime conditional patch operations
- * @param ctx - Evaluation context
- * @returns Concrete patches that passed conditions
- *
- * @see SPEC v0.4.0 §20.2
  */
 export function evaluateRuntimePatches(
   ops: RuntimeConditionalPatchOp[],
@@ -105,13 +85,6 @@ export function evaluateRuntimePatches(
 
 /**
  * Evaluate runtime patches with trace information.
- *
- * Returns additional information about skipped patches and
- * final snapshot state.
- *
- * @param ops - Runtime conditional patch operations
- * @param ctx - Evaluation context
- * @returns Evaluation result with patches, skipped, and finalSnapshot
  */
 export function evaluateRuntimePatchesWithTrace(
   ops: RuntimeConditionalPatchOp[],
@@ -119,6 +92,7 @@ export function evaluateRuntimePatchesWithTrace(
 ): RuntimePatchEvaluationResult {
   const patches: Patch[] = [];
   const skipped: SkippedRuntimePatch[] = [];
+  const warnings: string[] = [];
   let workingSnapshot = ctx.snapshot;
   const guardScopeStack: GuardScope[] = [];
 
@@ -130,19 +104,15 @@ export function evaluateRuntimePatchesWithTrace(
       ? workingSnapshot
       : guardScopeStack[guardScopeStack.length - 1].snapshot;
 
-    // Create context with current scoped snapshot
-    // (all ops in active guard scopes evaluate against marker-entry state).
     const evalCtx: EvaluationContext = {
       ...ctx,
       snapshot: activeSnapshot,
     };
 
-    // Evaluate condition if present (boolean-only per §18.6)
     if (op.condition !== undefined) {
       const conditionResult = evaluateExpr(op.condition, evalCtx);
 
       if (conditionResult !== true) {
-        // Skip this patch
         const reason: RuntimePatchSkipReason =
           conditionResult === false
             ? "false"
@@ -150,81 +120,85 @@ export function evaluateRuntimePatchesWithTrace(
               ? "null"
               : "non-boolean";
 
-        skipped.push({ index: i, path: op.path, reason });
+        skipped.push({
+          index: i,
+          path: irPathToDisplayString(op.path),
+          reason,
+        });
         continue;
       }
     }
 
-    // Evaluate value expression to concrete value (A35: null on error)
+    const resolvedPath = resolveIRPath(op.path, evalCtx);
+    if (!resolvedPath.ok) {
+      skipped.push({
+        index: i,
+        path: irPathToDisplayString(op.path),
+        reason: "invalid-path",
+      });
+      warnings.push(`Skipped runtime patch at index ${i}: ${resolvedPath.warning}`);
+      continue;
+    }
+
+    const concretePath = resolvedPath.path;
     const concreteValue = op.value
       ? evaluateExpr(op.value, evalCtx)
       : undefined;
 
-    // Build concrete patch
-    const patch = buildConcretePatch(op.op, op.path, concreteValue);
-    if (patch !== null) {
-      if (
-        op.op === "unset" &&
-        isScopedMarkerPath(op.path) &&
-        (!isInScope ||
-          guardScopeStack[guardScopeStack.length - 1].markerPath !== op.path)
-      ) {
-        continue;
-      }
+    const patch = buildConcretePatch(op.op, concretePath, concreteValue);
+    if (patch === null) {
+      continue;
+    }
 
-      patches.push(patch);
+    if (
+      op.op === "unset"
+      && isScopedMarkerPath(op.path)
+      && (!isInScope
+        || !isPatchPathEqual(
+          guardScopeStack[guardScopeStack.length - 1].markerPath,
+          concretePath
+        ))
+    ) {
+      continue;
+    }
 
-      // Update working snapshot for sequential semantics (§18.5)
-      if (op.op !== "unset") {
-        workingSnapshot = applyPatchToWorkingSnapshot(
-          workingSnapshot,
-          op.path,
-          concreteValue
-        );
-      } else {
-        // For unset, we need to remove the value
-        workingSnapshot = applyUnsetToWorkingSnapshot(workingSnapshot, op.path);
-      }
+    patches.push(patch);
+    workingSnapshot = applyConcretePatchToWorkingSnapshot(workingSnapshot, patch);
 
-      if (
-        op.op === "set" &&
-        isScopedMarkerPath(op.path)
-      ) {
-        guardScopeStack.push({
-          markerPath: op.path,
-          snapshot: workingSnapshot,
-        });
-      } else if (
-        op.op === "unset" &&
-        isScopedMarkerPath(op.path) &&
-        guardScopeStack.length > 0 &&
-        guardScopeStack[guardScopeStack.length - 1].markerPath === op.path
-      ) {
-        guardScopeStack.pop();
-      }
+    if (op.op === "set" && isScopedMarkerPath(op.path)) {
+      guardScopeStack.push({
+        markerPath: concretePath,
+        snapshot: workingSnapshot,
+      });
+      continue;
+    }
+
+    if (
+      op.op === "unset"
+      && isScopedMarkerPath(op.path)
+      && guardScopeStack.length > 0
+      && isPatchPathEqual(
+        guardScopeStack[guardScopeStack.length - 1].markerPath,
+        concretePath
+      )
+    ) {
+      guardScopeStack.pop();
     }
   }
 
   return {
     patches,
     skipped,
+    warnings,
     finalSnapshot: workingSnapshot,
   };
 }
 
 // ============ Helper Functions ============
 
-/**
- * Build a concrete Patch from operation type, path, and value.
- *
- * @param op - Operation type
- * @param path - Target path
- * @param value - Evaluated value
- * @returns Concrete patch or null if invalid
- */
 function buildConcretePatch(
   op: "set" | "unset" | "merge",
-  path: string,
+  path: PatchPath,
   value: unknown
 ): Patch | null {
   switch (op) {
@@ -235,55 +209,156 @@ function buildConcretePatch(
       return { op: "unset", path } as UnsetPatch;
 
     case "merge":
-      // Merge requires an object value
-      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-        return { op: "merge", path, value: value as Record<string, unknown> } as MergePatch;
+      if (isRecord(value)) {
+        return { op: "merge", path, value } as MergePatch;
       }
-      // Invalid merge value - fallback to set with null (A35: no throw)
       return { op: "set", path, value: null } as SetPatch;
   }
 }
 
-/**
- * Apply unset to working snapshot.
- *
- * Removes the value at path in the working snapshot.
- */
-function applyUnsetToWorkingSnapshot(
+function applyConcretePatchToWorkingSnapshot(
   snapshot: EvaluationSnapshot,
-  path: string
+  patch: Patch
 ): EvaluationSnapshot {
-  // Deep clone data
-  const newData = structuredClone(snapshot.data) as Record<string, unknown>;
+  const baseData = snapshot.data;
 
-  // Remove value at path
-  removeValueAtPath(newData, path);
+  const nextData = (() => {
+    switch (patch.op) {
+      case "set":
+        return setByPatchPath(baseData, patch.path, patch.value);
+      case "unset":
+        return unsetByPatchPath(baseData, patch.path);
+      case "merge":
+        return mergeAtPatchPath(baseData, patch.path, patch.value);
+    }
+  })();
 
   return {
-    data: newData,
+    data: nextData,
     computed: snapshot.computed,
   };
 }
 
-/**
- * Remove value at a dot-separated path.
- */
-function removeValueAtPath(obj: Record<string, unknown>, path: string): void {
-  const parts = parsePath(path);
-  let current: Record<string, unknown> = obj;
-
-  for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i];
-    if (!(part in current) || typeof current[part] !== "object" || current[part] === null) {
-      return; // Path doesn't exist, nothing to remove
-    }
-    current = current[part] as Record<string, unknown>;
+function resolveIRPath(
+  path: IRPatchPath,
+  ctx: EvaluationContext
+): { ok: true; path: PatchPath } | { ok: false; warning: string } {
+  if (path.length === 0) {
+    return { ok: false, warning: "path is empty" };
   }
 
-  const lastPart = parts[parts.length - 1];
-  delete current[lastPart];
+  const resolved: PatchSegment[] = [];
+
+  for (let i = 0; i < path.length; i++) {
+    const segment = path[i];
+
+    if (segment.kind === "prop") {
+      if (!isValidPropSegment(segment.name)) {
+        return { ok: false, warning: `invalid prop segment '${segment.name}'` };
+      }
+      resolved.push({ kind: "prop", name: segment.name });
+      continue;
+    }
+
+    const value = evaluateExpr(segment.expr, ctx);
+    const concrete = toConcreteSegment(value);
+    if (concrete === null) {
+      return {
+        ok: false,
+        warning: `expr segment at index ${i} resolved to invalid value`,
+      };
+    }
+    resolved.push(concrete);
+  }
+
+  return { ok: true, path: resolved as PatchPath };
 }
 
-function isScopedMarkerPath(path: string): boolean {
-  return path.startsWith(WHEN_SCOPE_PREFIX) || path.startsWith(ONCE_SCOPE_PREFIX);
+function toConcreteSegment(value: unknown): PatchSegment | null {
+  if (
+    typeof value === "number"
+    && Number.isInteger(value)
+    && Number.isFinite(value)
+    && value >= 0
+  ) {
+    return { kind: "index", index: value };
+  }
+
+  if (typeof value === "string" && value.length > 0 && isValidPropSegment(value)) {
+    return { kind: "prop", name: value };
+  }
+
+  return null;
+}
+
+function isValidPropSegment(name: string): boolean {
+  return name.length > 0 && !UNSAFE_PROP_SEGMENTS.has(name);
+}
+
+function isScopedMarkerPath(path: IRPatchPath): boolean {
+  return hasPropPrefix(path, ["$mel", "__whenGuards"])
+    || hasPropPrefix(path, ["$mel", "__onceScopeGuards"]);
+}
+
+function hasPropPrefix(path: IRPatchPath, prefix: string[]): boolean {
+  if (path.length < prefix.length) {
+    return false;
+  }
+
+  for (let i = 0; i < prefix.length; i++) {
+    const segment = path[i];
+    if (segment.kind !== "prop" || segment.name !== prefix[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isPatchPathEqual(a: PatchPath, b: PatchPath): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (left.kind !== right.kind) {
+      return false;
+    }
+    if (left.kind === "prop" && right.kind === "prop" && left.name !== right.name) {
+      return false;
+    }
+    if (left.kind === "index" && right.kind === "index" && left.index !== right.index) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function irPathToDisplayString(path: IRPatchPath): string {
+  const concretePrefix: PatchSegment[] = [];
+
+  for (const segment of path) {
+    if (segment.kind === "prop") {
+      concretePrefix.push({ kind: "prop", name: segment.name });
+      continue;
+    }
+
+    if (concretePrefix.length === 0) {
+      return "[expr]";
+    }
+    return `${patchPathToDisplayString(concretePrefix as PatchPath)}.[expr]`;
+  }
+
+  if (concretePrefix.length === 0) {
+    return "";
+  }
+
+  return patchPathToDisplayString(concretePrefix as PatchPath);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

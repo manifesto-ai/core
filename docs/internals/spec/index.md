@@ -6,7 +6,7 @@ This page serves as a hub linking to the authoritative specifications maintained
 All specifications are maintained as one living document per package. This page provides navigation and version summaries.
 :::
 
-If you want the governing documentation rules, see [Documentation Governance](./documentation-governance.md).
+If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
 
 ## Package Specifications
 
@@ -14,18 +14,18 @@ If you want the governing documentation rules, see [Documentation Governance](./
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v2.0.3) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v2.0.2) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/world** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (v2.0.5) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/world** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
 ### Application Layer
 
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
-| **@manifesto-ai/runtime** | v0.1.0 | Draft (post-hard-cut) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/sdk** | v0.1.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/runtime** | v0.2.0 | Draft (post-hard-cut) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
-| **@manifesto-ai/compiler** | v0.5.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.6.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### Intent & Translation
 
@@ -42,8 +42,8 @@ Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, 
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| [Runtime SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.1.0.md) | Draft | Execution orchestration contract decomposed from App SPEC |
-| [SDK SPEC v0.1.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md) | Draft | Canonical public API contract (hard-cut migration active) |
+| [Runtime SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.2.0.md) | Draft | Execution orchestration contract decomposed from App SPEC (ADR-009 aligned) |
+| [SDK SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.2.0.md) | Draft | Canonical public API contract (hard-cut migration active) |
 
 ---
 
@@ -51,32 +51,32 @@ Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, 
 
 ### Core
 
-- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v2.0.3)
+- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v3.0.0)
   - Updated directly in the living document; FDR rationale inlined
 
 ### Host
 
-- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v2.0.2)
+- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v3.0.0)
   - Updated directly in the living document; FDR-H018~H025 inlined
   - Deprecated §9 (Compiler Integration) moved to Appendix D
 
 ### World
 
-- **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v2.0.5)
+- **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v3.0.0)
   - Updated directly in the living document
   - FDR rationale inlined; Head, Resume, Branch Persistence sections added
 
 ### SDK
 
-- **SDK SPEC v0.1.0** (Draft)
-  - [sdk-SPEC-v0.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.1.0.md)
+- **SDK SPEC v0.2.0** (Draft)
+  - [sdk-SPEC-v0.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.2.0.md)
   - Canonical public entrypoint contract (hard-cut branch: `createRuntime`, `RuntimeHandle`, `dispatch`)
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v0.5.0** (Full)
-  - [SPEC-v0.5.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.5.0.md)
-  - Adds: `$mel` namespace, `onceIntent` syntax
+- **Compiler SPEC v0.6.0** (Full)
+  - [SPEC-v0.6.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.6.0.md)
+  - Adds: ADR-009 path model alignment (`IRPatchPath`, `resolveIRPath()`)
 
 ### Intent IR
 
@@ -98,6 +98,7 @@ Requirement IDs remain locked while migration-aware wording is applied (`RT-*`, 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 02-27 | Core/Host/World/Compiler/Runtime/SDK | Core/Host/World v3.0.0, Compiler v0.6.0, Runtime/SDK v0.2.0 | ADR-009 hard cut reflected in normative specs and API docs |
 | 02-25 | ADR/Docs | v1.0 | ADR-010/011 accepted; living spec index updated for hard-cut and baseline rules |
 | 02-24 | Core, Host, World | — | SPEC consolidation: Living Documents, FDR inlined, old files archived |
 | 02-08 | World | v2.0.5-patch | Head Query API, resume contract, branch persistence |

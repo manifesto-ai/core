@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validate.js";
-import { collectGetPathsFromExpr } from "./validation-utils.js";
+import { collectGetPathsFromExpr, getFieldSpecAtPath, pathExistsInFieldSpec } from "./validation-utils.js";
 import { hashSchemaSync } from "../utils/hash.js";
+import { semanticPathToPatchPath } from "../utils/patch-path.js";
 import type { DomainSchema } from "../schema/domain.js";
 import type { ExprNode } from "../schema/expr.js";
+import type { FieldSpec } from "../schema/field.js";
+
+const pp = (path: string) => semanticPathToPatchPath(path);
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
   dummy: { type: "string", required: true },
@@ -346,8 +350,7 @@ describe("validate", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -369,8 +372,7 @@ describe("validate", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "balance",
+              op: "set", path: pp("balance"),
               value: { kind: "lit", value: 0 },
             },
           },
@@ -387,8 +389,7 @@ describe("validate", () => {
           mark: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "dummy",
+              op: "set", path: pp("dummy"),
               value: { kind: "get", path: "meta.intentId" },
             },
           },
@@ -412,8 +413,7 @@ describe("validate", () => {
             },
             flow: {
               kind: "patch",
-              op: "set",
-              path: "dummy",
+              op: "set", path: pp("dummy"),
               value: { kind: "get", path: "input.missing" },
             },
           },
@@ -452,7 +452,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         actions: {
           helper: {
-            flow: { kind: "patch", op: "set", path: "x", value: { kind: "lit", value: 1 } },
+            flow: { kind: "patch", op: "set", path: pp("x"), value: { kind: "lit", value: 1 } },
           },
           main: {
             flow: {
@@ -474,7 +474,7 @@ describe("validate", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: "x", value: { kind: "lit", value: 1 } },
+                { kind: "patch", op: "set", path: pp("x"), value: { kind: "lit", value: 1 } },
                 {
                   kind: "if",
                   cond: { kind: "lit", value: true },
@@ -537,7 +537,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         actions: {
           step1: {
-            flow: { kind: "patch", op: "set", path: "x", value: { kind: "lit", value: 1 } },
+            flow: { kind: "patch", op: "set", path: pp("x"), value: { kind: "lit", value: 1 } },
           },
           step2: {
             flow: { kind: "call", flow: "step1" },
@@ -567,8 +567,8 @@ describe("validate", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: "a", value: { kind: "lit", value: 1 } },
-                { kind: "patch", op: "set", path: "b", value: { kind: "lit", value: 2 } },
+                { kind: "patch", op: "set", path: pp("a"), value: { kind: "lit", value: 1 } },
+                { kind: "patch", op: "set", path: pp("b"), value: { kind: "lit", value: 2 } },
               ],
             },
           },
@@ -586,8 +586,8 @@ describe("validate", () => {
             flow: {
               kind: "if",
               cond: { kind: "get", path: "flag" },
-              then: { kind: "patch", op: "set", path: "result", value: { kind: "lit", value: "yes" } },
-              else: { kind: "patch", op: "set", path: "result", value: { kind: "lit", value: "no" } },
+              then: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "yes" } },
+              else: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "no" } },
             },
           },
         },
@@ -825,5 +825,51 @@ describe("collectGetPathsFromExpr", () => {
   it("collects paths from fromEntries", () => {
     const expr: ExprNode = { kind: "fromEntries", entries: get("data.e") };
     expect(collectGetPathsFromExpr(expr)).toEqual(["data.e"]);
+  });
+});
+
+describe("validation-utils path lookup", () => {
+  it("preserves numeric object keys for string paths", () => {
+    const spec: FieldSpec = {
+      type: "object",
+      required: true,
+      fields: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            "2024": { type: "string", required: false },
+          },
+        },
+      },
+    };
+
+    expect(pathExistsInFieldSpec(spec, "input.2024")).toBe(true);
+    expect(getFieldSpecAtPath(spec, "input.2024")).toEqual({ type: "string", required: false });
+  });
+
+  it("still treats numeric segments as array indices when traversing array specs", () => {
+    const spec: FieldSpec = {
+      type: "object",
+      required: true,
+      fields: {
+        items: {
+          type: "array",
+          required: true,
+          items: {
+            type: "object",
+            required: true,
+            fields: {
+              title: { type: "string", required: true },
+            },
+          },
+        },
+      },
+    };
+
+    expect(pathExistsInFieldSpec(spec, "items.0.title")).toBe(true);
+    expect(pathExistsInFieldSpec(spec, "items.foo.title")).toBe(false);
+    expect(getFieldSpecAtPath(spec, "items.0.title")).toEqual({ type: "string", required: true });
+    expect(getFieldSpecAtPath(spec, "items.foo.title")).toBeNull();
   });
 });

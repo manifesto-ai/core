@@ -368,6 +368,28 @@ export class BranchHeadNotFoundError extends ManifestoAppError {
   }
 }
 
+/**
+ * Thrown when persisted patch payload format is incompatible with ADR-009.
+ *
+ * @see ADR-009 §6.2
+ */
+export class IncompatiblePatchFormatError extends ManifestoAppError {
+  readonly code = "INCOMPATIBLE_PATCH_FORMAT" as const;
+
+  constructor(
+    public readonly worldId: string,
+    public readonly patchFormat: number | null
+  ) {
+    super(
+      patchFormat === null
+        ? `World '${worldId}' has persisted patches without _patchFormat. ` +
+          "Patch format v1/missing is no longer supported. Re-initialize from genesis."
+        : `World '${worldId}' has incompatible patch format '${patchFormat}'. ` +
+          "Only _patchFormat: 2 is supported. Re-initialize from genesis."
+    );
+  }
+}
+
 // =============================================================================
 // Other Errors
 // =============================================================================

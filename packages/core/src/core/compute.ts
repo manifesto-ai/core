@@ -1,7 +1,8 @@
 import type { DomainSchema } from "../schema/domain.js";
-import type { Snapshot, SystemState } from "../schema/snapshot.js";
-import type { Intent } from "../schema/patch.js";
-import type { ComputeResult, ComputeStatus } from "../schema/result.js";
+import type { Snapshot } from "../schema/snapshot.js";
+import type { ErrorValue, Requirement } from "../schema/snapshot.js";
+import type { Intent, Patch } from "../schema/patch.js";
+import type { ComputeResult, ComputeStatus, SystemDelta } from "../schema/result.js";
 import type { TraceGraph } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
@@ -11,6 +12,7 @@ import { evaluateFlowSync, createFlowState, type FlowStatus } from "../evaluator
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk, isErr } from "../schema/common.js";
 import type { HostContext } from "../schema/host-context.js";
+import { applySystemDelta } from "./system-delta.js";
 
 /**
  * Compute the result of dispatching an intent (synchronous).
@@ -24,7 +26,6 @@ export function computeSync(
   intent: Intent,
   context: HostContext
 ): ComputeResult {
-  // 0. Ensure computed values are up-to-date before availability check
   let currentSnapshot = snapshot;
   const initialComputedResult = evaluateComputed(schema, snapshot);
   if (isOk(initialComputedResult)) {
@@ -34,7 +35,6 @@ export function computeSync(
     };
   }
 
-  // 1. Look up the action
   const action = schema.actions[intent.type];
   if (!action) {
     return createErrorResult(
@@ -46,7 +46,6 @@ export function computeSync(
     );
   }
 
-  // 1.5 Validate intentId (must be non-empty)
   if (!intent.intentId || intent.intentId === "") {
     return createErrorResult(
       currentSnapshot,
@@ -57,7 +56,6 @@ export function computeSync(
     );
   }
 
-  // 1.6 Validate input against action's input schema
   if (action.input) {
     const inputError = validateInput(action.input, intent.input);
     if (inputError) {
@@ -71,24 +69,6 @@ export function computeSync(
     }
   }
 
-  // 2. Check availability condition
-  // Skip availability check on re-entry: when system.currentAction matches
-  // the intent type, this is a ContinueCompute cycle (the action was already
-  // admitted at StartIntent time). Re-checking against the mutated snapshot
-  // would cause self-invalidation (see issue #134).
-  //
-  // NOTE: This guard uses action type, not intentId. A different intent of
-  // the same action type could theoretically bypass availability if
-  // currentAction is non-null (e.g. after a LOOP_MAX_ITERATIONS error exit).
-  // This is acceptable because:
-  //   1. currentAction is only non-null in error/edge states — normal
-  //      dispatch always resets it to null on completion.
-  //   2. Flow state guards (once/if-isNull patterns) provide a second line
-  //      of defense against duplicate patches/effects per the constitution
-  //      (§10.5 Re-Entry Unsafe Flow).
-  //   3. Scoping to intentId would require adding currentIntentId to
-  //      SystemState (~30 file changes) for minimal practical benefit.
-  //      See: https://github.com/manifesto-ai/core/pull/137
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
 
   if (action.available && !isReEntry) {
@@ -105,7 +85,6 @@ export function computeSync(
       );
     }
 
-    // Availability must return a boolean (A28: available conditions must be pure)
     if (typeof availResult.value !== "boolean") {
       return createErrorResult(
         currentSnapshot,
@@ -127,7 +106,6 @@ export function computeSync(
     }
   }
 
-  // 3. Prepare snapshot with input and system state
   const preparedSnapshot: Snapshot = {
     ...currentSnapshot,
     input: intent.input,
@@ -138,11 +116,9 @@ export function computeSync(
     },
   };
 
-  // 4. Create evaluation context and flow state
   const ctx = createContext(preparedSnapshot, schema, intent.type, `actions.${intent.type}.flow`, intent.intentId, context.now);
   const flowState = createFlowState(preparedSnapshot);
 
-  // 5. Evaluate the flow
   const flowResult = evaluateFlowSync(
     action.flow,
     ctx,
@@ -150,56 +126,25 @@ export function computeSync(
     `actions.${intent.type}.flow`
   );
 
-  // 6. Get final snapshot from flow state
-  let finalSnapshot = flowResult.state.snapshot;
+  const status = mapFlowStatus(flowResult.state.status);
+  const systemDelta = createSystemDeltaForFlow(currentSnapshot, intent, status, flowResult.state.error, flowResult.state.requirements);
+  const patches = [...flowResult.state.patches];
 
-  // 7. Recompute all computed values
-  const computedResult = evaluateComputed(schema, finalSnapshot);
-  if (isOk(computedResult)) {
-    finalSnapshot = {
-      ...finalSnapshot,
-      computed: computedResult.value,
-    };
-  }
-
-  // 8. Update system state based on flow result
-  const systemStatus = mapFlowStatus(flowResult.state.status);
-  const systemState: SystemState = {
-    status: systemStatus === "complete" || systemStatus === "halted" ? "idle" : systemStatus,
-    lastError: flowResult.state.error,
-    errors: flowResult.state.error
-      ? [...finalSnapshot.system.errors, flowResult.state.error]
-      : finalSnapshot.system.errors,
-    pendingRequirements: [...flowResult.state.requirements],
-    currentAction: systemStatus === "pending" ? intent.type : null,
-  };
-
-  finalSnapshot = {
-    ...finalSnapshot,
-    system: systemState,
-    meta: {
-      ...finalSnapshot.meta,
-      version: finalSnapshot.meta.version + 1,
-      timestamp: context.now,
-    },
-  };
-
-  // 9. Build trace graph
   const trace: TraceGraph = {
     root: flowResult.trace,
     nodes: collectTraceNodes(flowResult.trace),
     intent: { type: intent.type, input: intent.input },
     baseVersion: currentSnapshot.meta.version,
-    resultVersion: finalSnapshot.meta.version,
+    resultVersion: estimateResultVersion(currentSnapshot, patches, systemDelta),
     duration: context.durationMs ?? 0,
     terminatedBy: mapFlowStatusToTermination(flowResult.state.status),
   };
 
   return {
-    snapshot: finalSnapshot,
-    requirements: [...flowResult.state.requirements],
+    patches,
+    systemDelta,
     trace,
-    status: systemStatus,
+    status,
   };
 }
 
@@ -284,21 +229,13 @@ function createErrorResult(
     context.now
   );
 
-  const errorSnapshot: Snapshot = {
-    ...snapshot,
-    input: intent.input,
-    system: {
-      ...snapshot.system,
-      status: "error",
-      lastError: error,
-      errors: [...snapshot.system.errors, error],
-      currentAction: null,
-    },
-    meta: {
-      ...snapshot.meta,
-      version: snapshot.meta.version + 1,
-      timestamp: context.now,
-    },
+  const systemDelta: SystemDelta = {
+    status: "error",
+    currentAction: null,
+    lastError: error,
+    appendErrors: [error],
+    addRequirements: [],
+    removeRequirementIds: [],
   };
 
   const trace: TraceGraph = {
@@ -314,17 +251,56 @@ function createErrorResult(
     nodes: {},
     intent: { type: intent.type, input: intent.input },
     baseVersion: snapshot.meta.version,
-    resultVersion: errorSnapshot.meta.version,
+    resultVersion: estimateResultVersion(snapshot, [], systemDelta),
     duration: context.durationMs ?? 0,
     terminatedBy: "error",
   };
 
   return {
-    snapshot: errorSnapshot,
-    requirements: [],
+    patches: [],
+    systemDelta,
     trace,
     status: "error",
   };
+}
+
+function createSystemDeltaForFlow(
+  snapshot: Snapshot,
+  intent: Intent,
+  status: ComputeStatus,
+  flowError: ErrorValue | null,
+  requirements: readonly Requirement[]
+): SystemDelta {
+  const isError = status === "error";
+  const systemStatus = status === "pending"
+    ? "pending"
+    : status === "error"
+      ? "error"
+      : "idle";
+
+  return {
+    status: systemStatus,
+    currentAction: status === "pending" ? intent.type : null,
+    lastError: flowError,
+    appendErrors: flowError && isError ? [flowError] : [],
+    addRequirements: [...requirements],
+    removeRequirementIds: snapshot.system.pendingRequirements.map((requirement) => requirement.id),
+  };
+}
+
+function estimateResultVersion(snapshot: Snapshot, patches: readonly Patch[], delta: SystemDelta): number {
+  let version = snapshot.meta.version;
+
+  // Host interlock always executes core.apply() first, even for empty patch arrays.
+  // apply() increments snapshot version by exactly 1.
+  version += 1;
+
+  const applied = applySystemDelta(snapshot, delta);
+  if (applied !== snapshot) {
+    version += 1;
+  }
+
+  return version;
 }
 
 /**
@@ -332,7 +308,6 @@ function createErrorResult(
  * Returns error message if invalid, null if valid
  */
 function validateInput(inputSpec: FieldSpec, input: unknown): string | null {
-  // Check type
   if (inputSpec.type === "object") {
     if (typeof input !== "object" || input === null || Array.isArray(input)) {
       return `Expected object input, got ${typeof input}`;
@@ -341,21 +316,18 @@ function validateInput(inputSpec: FieldSpec, input: unknown): string | null {
     const inputObj = input as Record<string, unknown>;
     const fields = inputSpec.fields ?? {};
 
-    // Check for required fields
     for (const [fieldName, fieldSpec] of Object.entries(fields)) {
       if (fieldSpec.required && !(fieldName in inputObj)) {
         return `Missing required field: ${fieldName}`;
       }
     }
 
-    // Check for unknown fields
     for (const key of Object.keys(inputObj)) {
       if (!(key in fields)) {
         return `Unknown field: ${key}`;
       }
     }
 
-    // Recursively validate nested fields
     for (const [fieldName, fieldSpec] of Object.entries(fields)) {
       if (fieldName in inputObj) {
         const error = validateFieldValue(fieldSpec, inputObj[fieldName], fieldName);

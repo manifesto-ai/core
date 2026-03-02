@@ -145,7 +145,25 @@ export type ExecuteDeps = {
   readonly policyService: PolicyService;
   readonly schedulerOptions?: { defaultTimeoutMs?: number };
   readonly getCurrentState: () => AppState<unknown>;
+  readonly resetToGenesisOnPatchFormatError?: (params: {
+    readonly error: unknown;
+    readonly baseWorldId: WorldId;
+    readonly branchId: string;
+  }) => Promise<PatchFormatRecovery>;
 };
+
+/**
+ * Patch format recovery result.
+ *
+ * Callback MAY return only a recovered snapshot, or snapshot + rebased
+ * baseWorldId when lineage anchor changed (for example reset to genesis).
+ */
+export type PatchFormatRecovery =
+  | Snapshot
+  | {
+    readonly snapshot: Snapshot;
+    readonly baseWorldId: WorldId;
+  };
 
 /**
  * Dependencies for the Persist stage.

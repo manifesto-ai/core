@@ -9,8 +9,10 @@
  */
 
 import type { Snapshot } from "@manifesto-ai/core";
+import type { WorldId } from "@manifesto-ai/world";
 import type { Intent, RecallRequest } from "../../types/index.js";
-import type { PipelineContext, ExecuteDeps, StageResult } from "./types.js";
+import type { PipelineContext, ExecuteDeps, PatchFormatRecovery, StageResult } from "./types.js";
+import { IncompatiblePatchFormatError } from "../../errors/index.js";
 import {
   appStateToSnapshot,
   normalizeSnapshot,
@@ -29,7 +31,7 @@ export async function executeHost(
 ): Promise<StageResult> {
   const { handle, actionType, input, opts } = ctx;
   const { worldStore, memoryFacade, hostExecutor, policyService, schedulerOptions, getCurrentState } = deps;
-  const { baseWorldId } = ctx.prepare!;
+  let { baseWorldId } = ctx.prepare!;
   const { executionKey, decision } = ctx.authorize!;
   const actorId = ctx.actorId;
   const branchId = ctx.branchId;
@@ -42,8 +44,38 @@ export async function executeHost(
   try {
     baseSnapshot = await worldStore.restore(baseWorldId);
   } catch (error) {
-    // Fallback to current state if WorldStore fails
-    baseSnapshot = appStateToSnapshot(getCurrentState());
+    if (error instanceof IncompatiblePatchFormatError) {
+      if (deps.resetToGenesisOnPatchFormatError) {
+        const recovery = normalizePatchFormatRecoveryResult(
+          await deps.resetToGenesisOnPatchFormatError({
+            error,
+            baseWorldId,
+            branchId,
+          }),
+          baseWorldId
+        );
+        baseSnapshot = recovery.snapshot;
+
+        if (recovery.baseWorldId !== baseWorldId && ctx.prepare) {
+          const nextBaseWorldId = recovery.baseWorldId;
+          ctx.prepare = {
+            ...ctx.prepare,
+            baseWorldId: nextBaseWorldId,
+            baseWorldIdStr: String(nextBaseWorldId),
+            proposal: {
+              ...ctx.prepare.proposal,
+              baseWorld: nextBaseWorldId,
+            },
+          };
+          baseWorldId = nextBaseWorldId;
+        }
+      } else {
+        baseSnapshot = appStateToSnapshot(getCurrentState());
+      }
+    } else {
+      // Fallback to current state for generic WorldStore failures
+      baseSnapshot = appStateToSnapshot(getCurrentState());
+    }
   }
   baseSnapshot = normalizeSnapshot(baseSnapshot);
 
@@ -104,4 +136,22 @@ export async function executeHost(
   };
 
   return { halted: false };
+}
+
+function normalizePatchFormatRecoveryResult(
+  recovery: PatchFormatRecovery,
+  defaultBaseWorldId: WorldId
+): { snapshot: Snapshot; baseWorldId: WorldId } {
+  if (typeof recovery === "object" && recovery !== null && "snapshot" in recovery) {
+    const recovered = recovery as { snapshot: Snapshot; baseWorldId: WorldId };
+    return {
+      snapshot: recovered.snapshot,
+      baseWorldId: recovered.baseWorldId ?? defaultBaseWorldId,
+    };
+  }
+
+  return {
+    snapshot: recovery,
+    baseWorldId: defaultBaseWorldId,
+  };
 }

@@ -58,6 +58,7 @@ These ADRs affect multiple packages across the monorepo:
 
 - ADR-009 is an Accepted cross-cutting decision that targets a breaking path-representation rewrite for patching across Core/Compiler/Host/Runtime/World.
 - This ADR is closely coupled to issue triage (#108, #189) and depends on coordinated version alignment across affected packages before merge.
+- [ADR-009 Week 1 Convergence Pack](./009-week1-convergence-pack) - Frozen gap matrix, decision-complete ticket set, and Week 2 PR wave plan.
 
 ### ADR-010 Companion Notes
 

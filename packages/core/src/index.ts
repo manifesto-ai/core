@@ -12,11 +12,12 @@ import type { DomainSchema } from "./schema/domain.js";
 import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent, Patch } from "./schema/patch.js";
 import type { SemanticPath } from "./schema/common.js";
-import type { ComputeResult, ValidationResult, ExplainResult } from "./schema/result.js";
+import type { ComputeResult, ValidationResult, ExplainResult, SystemDelta } from "./schema/result.js";
 import type { HostContext } from "./schema/host-context.js";
 
 import { compute, computeSync } from "./core/compute.js";
 import { apply } from "./core/apply.js";
+import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
 
@@ -59,6 +60,11 @@ export interface ManifestoCore {
   ): Snapshot;
 
   /**
+   * Apply a system transition emitted by compute().
+   */
+  applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapshot;
+
+  /**
    * Validate a schema.
    */
   validate(schema: unknown): ValidationResult;
@@ -81,6 +87,7 @@ export function createCore(): ManifestoCore {
     compute,
     computeSync,
     apply,
+    applySystemDelta,
     validate,
     explain,
   };
@@ -104,4 +111,4 @@ export * from "./errors.js";
 export * from "./factories.js";
 
 // Core functions (for direct usage)
-export { compute, computeSync, apply, validate, explain };
+export { compute, computeSync, apply, applySystemDelta, validate, explain };

@@ -1,14 +1,14 @@
 # Core Documentation Index
 
 > **Package:** `@manifesto-ai/core`
-> **Last Updated:** 2026-02-24
+> **Last Updated:** 2026-02-27
 
 ---
 
 ## Current Specification
 
-- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v2.0.3
-  - Consolidated from v2.0.0 base + v2.0.1/v2.0.2/v2.0.3 patches
+- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v3.0.0
+  - Consolidated from v2.x living document with ADR-009 hard-cut updates
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix D in the SPEC for FDR cross-reference table
 
@@ -31,4 +31,5 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 ## Notes
 
 - The Living Document replaces the patch-chain reading model. All content is in one file.
+- v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
 - v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.

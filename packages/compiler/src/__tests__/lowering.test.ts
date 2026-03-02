@@ -16,10 +16,14 @@ import {
   EFFECT_ARGS_CONTEXT,
   DEFAULT_PATCH_CONTEXT,
   LoweringError,
+  type MelIRPatchPath,
   type MelExprNode,
   type MelPatchFragment,
   type MelRuntimePatch,
 } from "../lowering/index.js";
+
+const irp = (...segments: string[]): MelIRPatchPath =>
+  segments.map((name) => ({ kind: "prop" as const, name }));
 
 describe("lowerExprNode", () => {
   describe("lit", () => {
@@ -407,7 +411,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "set",
-        path: "count",
+        path: irp("count"),
         value: { kind: "lit", value: 42 },
       },
     ];
@@ -416,7 +420,7 @@ describe("lowerRuntimePatches", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].op).toBe("set");
-    expect(result[0].path).toBe("count");
+    expect(result[0].path).toEqual(irp("count"));
     expect(result[0].value).toEqual({ kind: "lit", value: 42 });
     expect(result[0].condition).toBeUndefined();
   });
@@ -425,7 +429,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "unset",
-        path: "obsoleteField",
+        path: irp("obsoleteField"),
       },
     ];
 
@@ -433,7 +437,7 @@ describe("lowerRuntimePatches", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].op).toBe("unset");
-    expect(result[0].path).toBe("obsoleteField");
+    expect(result[0].path).toEqual(irp("obsoleteField"));
     expect(result[0].value).toBeUndefined();
   });
 
@@ -441,7 +445,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "merge",
-        path: "user",
+        path: irp("user"),
         value: {
           kind: "obj",
           fields: [
@@ -455,7 +459,7 @@ describe("lowerRuntimePatches", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].op).toBe("merge");
-    expect(result[0].path).toBe("user");
+    expect(result[0].path).toEqual(irp("user"));
     expect(result[0].value).toEqual({
       kind: "object",
       fields: { name: { kind: "lit", value: "Alice" } },
@@ -466,7 +470,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "set",
-        path: "status",
+        path: irp("status"),
         value: { kind: "lit", value: "completed" },
         condition: {
           kind: "call",
@@ -489,7 +493,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "set",
-        path: "title",
+        path: irp("title"),
         value: { kind: "sys", path: ["input", "newTitle"] },
       },
     ];
@@ -504,7 +508,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "set",
-        path: "lastUpdatedBy",
+        path: irp("lastUpdatedBy"),
         value: { kind: "sys", path: ["meta", "intentId"] },
       },
     ];
@@ -519,7 +523,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "set",
-        path: "total",
+        path: irp("total"),
         value: {
           kind: "call",
           fn: "add",
@@ -545,7 +549,7 @@ describe("lowerRuntimePatches", () => {
     const patches: MelRuntimePatch[] = [
       {
         op: "set",
-        path: "uuid",
+        path: irp("uuid"),
         value: { kind: "sys", path: ["system", "uuid"] },
       },
     ];
@@ -557,17 +561,17 @@ describe("lowerRuntimePatches", () => {
 
   it("should lower multiple patches", () => {
     const patches: MelRuntimePatch[] = [
-      { op: "set", path: "a", value: { kind: "lit", value: 1 } },
-      { op: "set", path: "b", value: { kind: "lit", value: 2 } },
-      { op: "unset", path: "c" },
+      { op: "set", path: irp("a"), value: { kind: "lit", value: 1 } },
+      { op: "set", path: irp("b"), value: { kind: "lit", value: 2 } },
+      { op: "unset", path: irp("c") },
     ];
 
     const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
 
     expect(result).toHaveLength(3);
-    expect(result[0].path).toBe("a");
-    expect(result[1].path).toBe("b");
-    expect(result[2].path).toBe("c");
+    expect(result[0].path).toEqual(irp("a"));
+    expect(result[1].path).toEqual(irp("b"));
+    expect(result[2].path).toEqual(irp("c"));
     expect(result[2].op).toBe("unset");
   });
 });

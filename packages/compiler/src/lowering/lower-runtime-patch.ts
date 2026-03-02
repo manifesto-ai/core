@@ -21,6 +21,30 @@ import { lowerExprNode } from "./lower-expr.js";
 export type MelRuntimePatchOp = "set" | "unset" | "merge";
 
 /**
+ * MEL path segment for runtime patches before expression lowering.
+ */
+export type MelIRPathSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "expr"; expr: MelExprNode };
+
+/**
+ * MEL runtime patch path represented as IR segments.
+ */
+export type MelIRPatchPath = MelIRPathSegment[];
+
+/**
+ * Lowered runtime IR path segment.
+ */
+export type IRPathSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "expr"; expr: CoreExprNode };
+
+/**
+ * Runtime patch path represented as IR segments.
+ */
+export type IRPatchPath = IRPathSegment[];
+
+/**
  * MEL runtime patch (Translator output for action patches).
  *
  * Contains MEL IR expressions that need lowering to Core IR.
@@ -39,9 +63,9 @@ export interface MelRuntimePatch {
 
   /**
    * Target path in snapshot.
-   * Uses Core path convention (no $ prefix for data paths).
+   * Uses IR segments and is resolved to concrete PatchPath at evaluation time.
    */
-  path: string;
+  path: MelIRPatchPath;
 
   /**
    * Value expression (MEL IR) for set/merge operations.
@@ -76,11 +100,10 @@ export interface RuntimeConditionalPatchOp {
   op: "set" | "unset" | "merge";
 
   /**
-   * Target path in snapshot.
-   *
-   * @see SPEC v0.4.0 §18.7 for path resolution rules
+   * Target path in IR form.
+   * Evaluator resolves this to concrete PatchPath.
    */
-  path: string;
+  path: IRPatchPath;
 
   /**
    * Value expression (Core IR) for set/merge operations.
@@ -129,9 +152,21 @@ function lowerRuntimePatch(
   return {
     condition,
     op: patch.op,
-    path: patch.path,
+    path: lowerRuntimePath(patch.path, ctx),
     value,
   };
+}
+
+function lowerRuntimePath(
+  path: MelIRPatchPath,
+  ctx: ExprLoweringContext
+): IRPatchPath {
+  return path.map((segment) => {
+    if (segment.kind === "prop") {
+      return segment;
+    }
+    return { kind: "expr" as const, expr: lowerExprNode(segment.expr, ctx) };
+  });
 }
 
 /**

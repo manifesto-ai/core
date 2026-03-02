@@ -16,6 +16,9 @@
  * @see host-SPEC-v2.0.1.md §7-8 (Effect Handler Contract, Requirement Lifecycle)
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
@@ -69,8 +72,7 @@ describe("Golden: Complex Effect Scenarios", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "loading",
+                  op: "set", path: pp("loading"),
                   value: { kind: "lit", value: true },
                 },
                 {
@@ -88,8 +90,7 @@ describe("Golden: Complex Effect Scenarios", () => {
         incrementCounter: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "fetchCount",
+            op: "set", path: pp("fetchCount"),
             value: {
               kind: "add",
               left: {
@@ -124,8 +125,7 @@ describe("Golden: Complex Effect Scenarios", () => {
             },
             else: {
               kind: "patch",
-              op: "set",
-              path: "errorMessage",
+              op: "set", path: pp("errorMessage"),
               value: { kind: "lit", value: "No fetches yet" },
             },
           },
@@ -154,14 +154,12 @@ describe("Golden: Complex Effect Scenarios", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "response",
+                op: "set", path: pp("response"),
                 value: { kind: "lit", value: null },
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastUrl",
+                op: "set", path: pp("lastUrl"),
                 value: { kind: "lit", value: "" },
               },
             ],
@@ -180,9 +178,9 @@ describe("Golden: Complex Effect Scenarios", () => {
       "api:fetch": (async (_type, params) => {
         const url = params.url as string;
         return [
-          { op: "set", path: "loading", value: false },
-          { op: "set", path: "response", value: { url, success: true } },
-          { op: "set", path: "lastUrl", value: url },
+          { op: "set", path: pp("loading"), value: false },
+          { op: "set", path: pp("response"), value: { url, success: true } },
+          { op: "set", path: pp("lastUrl"), value: url },
         ];
       }) as EffectHandler,
     };

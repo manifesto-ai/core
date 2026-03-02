@@ -14,6 +14,9 @@
  * @see host-SPEC-v2.0.1.md
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
@@ -54,8 +57,7 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "count",
+                op: "set", path: pp("count"),
                 value: {
                   kind: "add",
                   left: {
@@ -67,8 +69,7 @@ describe("Golden: Workflow End-to-End", () => {
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "increment" },
               },
             ],
@@ -80,8 +81,7 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "count",
+                op: "set", path: pp("count"),
                 value: {
                   kind: "sub",
                   left: { kind: "get", path: "count" },
@@ -90,8 +90,7 @@ describe("Golden: Workflow End-to-End", () => {
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "decrement" },
               },
             ],
@@ -103,20 +102,17 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "taskName",
+                op: "set", path: pp("taskName"),
                 value: { kind: "get", path: "input.name" },
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "isComplete",
+                op: "set", path: pp("isComplete"),
                 value: { kind: "lit", value: false },
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "setTask" },
               },
             ],
@@ -128,14 +124,12 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "isComplete",
+                op: "set", path: pp("isComplete"),
                 value: { kind: "lit", value: true },
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "completeTask" },
               },
             ],
@@ -147,14 +141,12 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set",
-                path: "priority",
+                op: "set", path: pp("priority"),
                 value: { kind: "get", path: "input.priority" },
               },
               {
                 kind: "patch",
-                op: "set",
-                path: "lastAction",
+                op: "set", path: pp("lastAction"),
                 value: { kind: "lit", value: "setPriority" },
               },
             ],
@@ -164,11 +156,11 @@ describe("Golden: Workflow End-to-End", () => {
           flow: {
             kind: "seq",
             steps: [
-              { kind: "patch", op: "set", path: "count", value: { kind: "lit", value: 0 } },
-              { kind: "patch", op: "set", path: "taskName", value: { kind: "lit", value: "" } },
-              { kind: "patch", op: "set", path: "isComplete", value: { kind: "lit", value: false } },
-              { kind: "patch", op: "set", path: "priority", value: { kind: "lit", value: 0 } },
-              { kind: "patch", op: "set", path: "lastAction", value: { kind: "lit", value: "reset" } },
+              { kind: "patch", op: "set", path: pp("count"), value: { kind: "lit", value: 0 } },
+              { kind: "patch", op: "set", path: pp("taskName"), value: { kind: "lit", value: "" } },
+              { kind: "patch", op: "set", path: pp("isComplete"), value: { kind: "lit", value: false } },
+              { kind: "patch", op: "set", path: pp("priority"), value: { kind: "lit", value: 0 } },
+              { kind: "patch", op: "set", path: pp("lastAction"), value: { kind: "lit", value: "reset" } },
             ],
           },
         },

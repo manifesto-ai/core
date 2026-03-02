@@ -13,6 +13,9 @@
  * @see host-SPEC-v2.0.1.md §10.2
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -53,8 +56,7 @@ describe("HCTS Runner Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -86,8 +88,7 @@ describe("HCTS Runner Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -124,8 +125,7 @@ describe("HCTS Runner Tests", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "count",
+              op: "set", path: pp("count"),
               value: {
                 kind: "add",
                 left: {

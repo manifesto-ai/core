@@ -75,6 +75,8 @@ export type {
 // WorldStore Types
 export type {
   WorldDelta,
+  PersistedPatchEnvelope,
+  PersistedSnapshotEnvelope,
   CompactOptions,
   CompactResult,
   PersistedBranchEntry,

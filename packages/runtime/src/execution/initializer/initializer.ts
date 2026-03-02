@@ -22,6 +22,7 @@ import type {
 } from "../../types/index.js";
 import type { BranchManager } from "../../storage/branch/index.js";
 import type { WorldHeadTracker } from "../../storage/world/index.js";
+import { PATCH_FORMAT_V2 } from "../../types/world-store.js";
 import { AppHostExecutor, createAppHostExecutor } from "../host-executor/index.js";
 import { generateWorldId } from "../../storage/branch/index.js";
 import {
@@ -136,6 +137,10 @@ export class HostInitializerImpl implements HostInitializer {
       fromWorld: genesisWorldId,
       toWorld: genesisWorldId,
       patches: [],
+      patchEnvelope: {
+        _patchFormat: PATCH_FORMAT_V2,
+        patches: [],
+      },
       createdAt: Date.now(),
     };
 

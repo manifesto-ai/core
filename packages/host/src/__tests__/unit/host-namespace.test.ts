@@ -7,6 +7,9 @@
  * @see host-SPEC-v2.0.2.md §3.3.1 HOST-NS-1
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach } from "vitest";
 import { createHost, getHostState } from "../../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
@@ -25,8 +28,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         simpleAction: {
           flow: {
             kind: "patch",
-            op: "set",
-            path: "count",
+            op: "set", path: pp("count"),
             value: { kind: "lit", value: 1 },
           },
         },
@@ -97,7 +99,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       });
 
       // Verify we can still inject effect results using stored intent slot
-      const patches = [{ op: "set" as const, path: "data.result", value: "ok" }];
+      const patches = [{ op: "set" as const, path: pp("result"), value: "ok" }];
 
       // This should not throw - if intent slots weren't stored, it would fail
       host.injectEffectResult(key, "req-1", intent.intentId!, patches);

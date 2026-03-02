@@ -11,6 +11,9 @@
  * @see host-SPEC-v2.0.1.md §11
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -53,14 +56,12 @@ describe("HCTS Context Determinism Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "firstTimestamp",
+                  op: "set", path: pp("firstTimestamp"),
                   value: { kind: "get", path: "meta.timestamp" },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "secondTimestamp",
+                  op: "set", path: pp("secondTimestamp"),
                   value: { kind: "get", path: "meta.timestamp" },
                 },
               ],
@@ -97,8 +98,7 @@ describe("HCTS Context Determinism Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "firstSeed",
+                  op: "set", path: pp("firstSeed"),
                   value: { kind: "get", path: "meta.randomSeed" },
                 },
                 {
@@ -112,8 +112,7 @@ describe("HCTS Context Determinism Tests", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "secondSeed",
+                  op: "set", path: pp("secondSeed"),
                   value: { kind: "get", path: "meta.randomSeed" },
                 },
               ],
@@ -124,7 +123,7 @@ describe("HCTS Context Determinism Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("mark", async () => [
-        { op: "set", path: "effectDone", value: true },
+        { op: "set", path: pp("effectDone"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -152,8 +151,7 @@ describe("HCTS Context Determinism Tests", () => {
           setDone: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "done",
+              op: "set", path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -193,8 +191,7 @@ describe("HCTS Context Determinism Tests", () => {
           captureIntentId: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "capturedSeed",
+              op: "set", path: pp("capturedSeed"),
               value: { kind: "get", path: "meta.intentId" },
             },
           },

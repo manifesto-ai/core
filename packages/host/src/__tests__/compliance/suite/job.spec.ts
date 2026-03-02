@@ -11,6 +11,9 @@
  * @see host-SPEC-v2.0.1.md §10.4
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
@@ -53,20 +56,17 @@ describe("HCTS Job Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "step1",
+                  op: "set", path: pp("step1"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "step2",
+                  op: "set", path: pp("step2"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "step3",
+                  op: "set", path: pp("step3"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -106,20 +106,17 @@ describe("HCTS Job Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "a",
+                  op: "set", path: pp("a"),
                   value: { kind: "lit", value: 1 },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "b",
+                  op: "set", path: pp("b"),
                   value: { kind: "lit", value: 2 },
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "c",
+                  op: "set", path: pp("c"),
                   value: { kind: "lit", value: 3 },
                 },
               ],
@@ -158,8 +155,7 @@ describe("HCTS Job Tests", () => {
           start: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "started",
+              op: "set", path: pp("started"),
               value: { kind: "lit", value: true },
             },
           },
@@ -201,8 +197,7 @@ describe("HCTS Job Tests", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set",
-                  path: "continued",
+                  op: "set", path: pp("continued"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -213,7 +208,7 @@ describe("HCTS Job Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("async", async () => [
-        { op: "set", path: "effectDone", value: true },
+        { op: "set", path: pp("effectDone"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });

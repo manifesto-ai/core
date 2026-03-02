@@ -9,6 +9,9 @@
  * @see host-SPEC-v2.0.1.md §10.6
  */
 
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+const pp = semanticPathToPatchPath;
+
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createCore, type ManifestoCore } from "@manifesto-ai/core";
 import type { TraceEvent } from "../hcts-types.js";
@@ -66,7 +69,7 @@ describe("HCTS Fulfillment Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("http", async () => [
-        { op: "set", path: "response", value: { data: "fetched" } },
+        { op: "set", path: pp("response"), value: { data: "fetched" } },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -117,10 +120,10 @@ describe("HCTS Fulfillment Tests", () => {
 
       const effectRunner = createTestEffectRunner();
       effectRunner.register("step1", async () => [
-        { op: "set", path: "step1Done", value: true },
+        { op: "set", path: pp("step1Done"), value: true },
       ]);
       effectRunner.register("step2", async () => [
-        { op: "set", path: "step2Done", value: true },
+        { op: "set", path: pp("step2Done"), value: true },
       ]);
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -146,8 +149,7 @@ describe("HCTS Fulfillment Tests", () => {
           checkStale: {
             flow: {
               kind: "patch",
-              op: "set",
-              path: "checked",
+              op: "set", path: pp("checked"),
               value: { kind: "lit", value: true },
             },
           },
@@ -250,8 +252,7 @@ describe("HCTS Fulfillment Tests", () => {
               cond: { kind: "get", path: "$host.lastError" },
               then: {
                 kind: "patch",
-                op: "set",
-                path: "errorHandled",
+                op: "set", path: pp("errorHandled"),
                 value: { kind: "lit", value: true },
               },
               else: {

@@ -1,18 +1,17 @@
 # @manifesto-ai/compiler
 
-> MEL compiler package (MEL text -> DomainSchema / IR / module code)
+> MEL compiler package (MEL text -> DomainSchema / patch IR / module code)
 
 ---
 
 ## Overview
 
-`@manifesto-ai/compiler` provides the MEL compilation pipeline and integration adapters for loading `.mel` files in build tools.
+`@manifesto-ai/compiler` provides MEL compilation and lowering adapters.
 
-Use this package when you need:
-
-- Programmatic MEL compilation in tooling or CLIs
-- Direct access to lexer/parser/analyzer/lowering/evaluation layers
-- Build-time `.mel` module support (Vite / Node loader / Webpack loader)
+ADR-009 alignment points:
+- Conditional patch ops use `IRPatchPath`
+- Runtime evaluation resolves IR path segments to concrete `PatchPath`
+- Invalid segment resolution is skipped with warnings (TOTAL behavior)
 
 ---
 
@@ -20,28 +19,13 @@ Use this package when you need:
 
 ### compileMelDomain()
 
-Compiles MEL domain source text into a `DomainSchema`.
-
 ```typescript
 import { compileMelDomain } from "@manifesto-ai/compiler";
 
 const result = compileMelDomain(melSource, { mode: "domain" });
-
-if (result.schema) {
-  // DomainSchema ready for @manifesto-ai/core / @manifesto-ai/sdk
-}
 ```
 
-`CompileMelDomainResult` includes:
-
-- `schema: DomainSchema | null`
-- `trace: CompileTrace[]`
-- `warnings: Diagnostic[]`
-- `errors: Diagnostic[]`
-
 ### compileMelPatch()
-
-Compiles MEL patch text into runtime patch ops shape.
 
 ```typescript
 import { compileMelPatch } from "@manifesto-ai/compiler";
@@ -52,49 +36,43 @@ const result = compileMelPatch(patchText, {
 });
 ```
 
-Note: current implementation returns `ops: []` with a warning indicating MEL patch text parsing is not fully implemented yet.
+`compileMelPatch()` returns unresolved conditional ops. Runtime MUST evaluate them before applying to Core.
 
 ---
 
-## Pipeline Exports
+## Patch IR Types
 
-The package root exports each stage for advanced use:
+```typescript
+type IRPathSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "expr"; expr: CoreExprNode };
 
-- `lexer/*` - tokenization
-- `parser/*` - AST parsing
-- `analyzer/*` - static analysis
-- `diagnostics/*` - diagnostics types/helpers
-- `generator/*` - IR generation
-- `lowering/*` - MEL IR -> Core IR lowering
-- `evaluation/*` - Core IR evaluation
-- `renderer/*` - PatchFragment -> MEL rendering
-- `api/*` - high-level compile APIs
+type IRPatchPath = readonly IRPathSegment[];
+
+type ConditionalPatchOp = {
+  condition?: CoreExprNode;
+  op: "set" | "unset" | "merge";
+  path: IRPatchPath;
+  value?: CoreExprNode;
+};
+```
 
 ---
 
-## Toolchain Adapters
-
-### Vite Plugin (`@manifesto-ai/compiler/vite`)
+## Evaluation Contract
 
 ```typescript
-import { defineConfig } from "vite";
-import { melPlugin } from "@manifesto-ai/compiler/vite";
-
-export default defineConfig({
-  plugins: [melPlugin()],
-});
+function evaluateConditionalPatchOps(
+  ops: ConditionalPatchOp[],
+  ctx: EvaluationContext
+): Patch[];
 ```
 
-### Node / Webpack Loader (`@manifesto-ai/compiler/loader`)
-
-Supports:
-
-- Node ESM loader hooks: `resolve`, `load`
-- Webpack loader default export
-
-```typescript
-import melWebpackLoader from "@manifesto-ai/compiler/loader";
-```
+- `resolveIRPath()` MUST convert `IRPatchPath` -> concrete `PatchPath`.
+- `expr` segment evaluates to:
+  - string -> `{ kind: "prop", name }`
+  - non-negative integer -> `{ kind: "index", index }`
+- Any other value => skip op + emit warning (never throw due to runtime data).
 
 ---
 
@@ -103,6 +81,5 @@ import melWebpackLoader from "@manifesto-ai/compiler/loader";
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Executes compiled `DomainSchema` semantics |
-| [@manifesto-ai/sdk](./sdk) | Uses compiler results at app creation time |
+| [@manifesto-ai/sdk](./sdk) | Uses compiler results at runtime creation |
 | [MEL Docs](/mel/) | Language reference and examples |
-

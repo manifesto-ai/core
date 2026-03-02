@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { SemanticPath } from "./common.js";
 import { ExprNodeSchema, type ExprNode } from "./expr.js";
+import { PatchPath } from "./patch.js";
 
 /**
  * FlowNode - Declarative state transition programs
@@ -52,7 +52,7 @@ export type IfFlow = z.infer<typeof IfFlow>;
 export const PatchFlow = z.object({
   kind: z.literal("patch"),
   op: PatchOp,
-  path: SemanticPath,
+  path: PatchPath,
   value: ExprNodeSchema.optional(),
 });
 export type PatchFlow = z.infer<typeof PatchFlow>;

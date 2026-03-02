@@ -1,16 +1,16 @@
 # MEL Compiler Documentation Index
 
 > **Package:** `@manifesto-ai/compiler`
-> **Last Updated:** 2026-02-02
+> **Last Updated:** 2026-02-27
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v0.5.0](SPEC-v0.5.0.md) (Full)
+- **SPEC:** [v0.6.0](SPEC-v0.6.0.md) (Full)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** v0.5.0 SPEC and FDR are now consolidated. Patch documents remain for historical context.
+**Note:** v0.6.0 adds ADR-009 patch-path alignment. FDR remains at v0.5.0 baseline.
 
 ---
 
@@ -18,6 +18,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
+| v0.6.0 | [SPEC](SPEC-v0.6.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
 | v0.5.0 | [SPEC](SPEC-v0.5.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
 | v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Merged |
 | v0.4.0 | [SPEC](SPEC-v0.4.0-patch.md) | [FDR](FDR-v0.4.0-patch.md) | Patch (Base: v0.3.3) | Merged |
@@ -31,14 +32,14 @@
 
 ## Reading Guide
 
-### For Latest (v0.5.0)
+### For Latest (v0.6.0)
 
-1. Read [SPEC-v0.5.0.md](SPEC-v0.5.0.md) (full specification)
+1. Read [SPEC-v0.6.0.md](SPEC-v0.6.0.md) (full specification)
 2. For rationale: [FDR-v0.5.0.md](FDR-v0.5.0.md)
 
 ### For v0.4.0 (Historical Patch)
 
-1. Read [SPEC-v0.5.0.md](SPEC-v0.5.0.md) for the consolidated spec.
+1. Read [SPEC-v0.6.0.md](SPEC-v0.6.0.md) for the consolidated spec.
 2. For historical diff: [SPEC-v0.4.0-patch.md](SPEC-v0.4.0-patch.md)
 3. For rationale: [FDR-v0.5.0.md](FDR-v0.5.0.md) + [FDR-v0.4.0-patch.md](FDR-v0.4.0-patch.md)
 

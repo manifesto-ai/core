@@ -39,6 +39,7 @@ export type TraceEvent =
   | { t: 'job:end'; key: ExecutionKey; jobType: string }
   | { t: 'core:compute'; key: ExecutionKey; intentId: string }
   | { t: 'core:apply'; key: ExecutionKey; patchCount: number; source: string }
+  | { t: 'core:applySystemDelta'; key: ExecutionKey; source: string }
   | { t: 'effect:dispatch'; key: ExecutionKey; requirementId: string; effectType: string }
   | { t: 'effect:fulfill:drop'; key: ExecutionKey; requirementId: string; reason: 'stale' | 'duplicate' }
   | { t: 'requirement:clear'; key: ExecutionKey; requirementId: string }
@@ -176,20 +177,21 @@ export interface DeterministicRuntime {
 
 ## C. Compute↔Effect interlock (apply-before-dispatch)
 
-### HCTS-INTERLOCK-001: compute patches apply 후 effect dispatch
+### HCTS-INTERLOCK-001: compute apply + systemDelta apply 후 effect dispatch
 
-* **커버:** COMP-REQ-INTERLOCK-1, INV-EX-15
+* **커버:** COMP-REQ-INTERLOCK-1, COMP-REQ-INTERLOCK-1a, INV-EX-15
 * **시나리오:**
 
-    * core.compute가 pendingRequirements를 추가하는 patch를 반환
-    * host는 그 patch를 apply한 뒤에 effect dispatch해야 함
+    * core.compute가 domain patches + systemDelta(addRequirements)를 반환
+    * host는 apply(patches) -> applySystemDelta(delta) 순으로 반영한 뒤 effect dispatch해야 함
 * **검증:**
 
     * trace 순서가 반드시:
 
         1. `core:compute`
         2. `core:apply (source=compute)`
-        3. `effect:dispatch`
+        3. `core:applySystemDelta (source=compute)`
+        4. `effect:dispatch`
     * 반대면 FAIL
 
 ### HCTS-INTERLOCK-002: dispatch list는 snapshot에서 읽는 SHOULD
@@ -418,6 +420,7 @@ export type TraceEvent =
   | { t: 'job:end'; key: ExecutionKey; jobType: string }
   | { t: 'core:compute'; key: ExecutionKey; intentId: string }
   | { t: 'core:apply'; key: ExecutionKey; patchCount: number; source: string }
+  | { t: 'core:applySystemDelta'; key: ExecutionKey; source: string }
   | { t: 'effect:dispatch'; key: ExecutionKey; requirementId: string; effectType: string }
   | { t: 'effect:fulfill:drop'; key: ExecutionKey; requirementId: string; reason: 'stale' | 'duplicate' }
   | { t: 'requirement:clear'; key: ExecutionKey; requirementId: string }
@@ -555,20 +558,21 @@ export interface DeterministicRuntime {
 
 ## C. Compute↔Effect interlock (apply-before-dispatch)
 
-### HCTS-INTERLOCK-001: compute patches apply 후 effect dispatch
+### HCTS-INTERLOCK-001: compute apply + systemDelta apply 후 effect dispatch
 
-* **커버:** COMP-REQ-INTERLOCK-1, INV-EX-15
+* **커버:** COMP-REQ-INTERLOCK-1, COMP-REQ-INTERLOCK-1a, INV-EX-15
 * **시나리오:**
 
-    * core.compute가 pendingRequirements를 추가하는 patch를 반환
-    * host는 그 patch를 apply한 뒤에 effect dispatch해야 함
+    * core.compute가 domain patches + systemDelta(addRequirements)를 반환
+    * host는 apply(patches) -> applySystemDelta(delta) 순으로 반영한 뒤 effect dispatch해야 함
 * **검증:**
 
     * trace 순서가 반드시:
 
         1. `core:compute`
         2. `core:apply (source=compute)`
-        3. `effect:dispatch`
+        3. `core:applySystemDelta (source=compute)`
+        4. `effect:dispatch`
     * 반대면 FAIL
 
 ### HCTS-INTERLOCK-002: dispatch list는 snapshot에서 읽는 SHOULD

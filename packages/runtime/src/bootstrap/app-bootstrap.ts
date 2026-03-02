@@ -36,6 +36,7 @@ import type { SchemaManager } from "../schema/index.js";
 import type {
   ActionQueue,
   LivenessGuard,
+  PatchFormatRecovery,
   ProposalManager,
 } from "../execution/index.js";
 import type { WorldHeadTracker } from "../storage/world/index.js";
@@ -49,7 +50,11 @@ import {
   createHostInitializer,
   createSystemActionExecutor,
 } from "../execution/index.js";
-import { appStateToSnapshot } from "../execution/state-converter.js";
+import {
+  appStateToSnapshot,
+  normalizeSnapshot,
+  snapshotToAppState,
+} from "../execution/state-converter.js";
 import { createInitialAppState, withDxAliases } from "../state/index.js";
 import { createAppRef, type AppRefCallbacks } from "../hooks/index.js";
 import {
@@ -384,7 +389,7 @@ export class AppBootstrap {
           "meta" in data;
 
         if (isLegacyAppState) {
-          internalHost.reset(appStateToSnapshot(data as AppState<unknown>));
+          internalHost.reset(appStateToSnapshot(data as unknown as AppState<unknown>));
           return;
         }
 
@@ -407,6 +412,64 @@ export class AppBootstrap {
     const { hostExecutor } = hostInitializer.initialize();
     await hostInitializer.initializeGenesisWorld();
 
+    const resetToGenesisOnPatchFormatError = async ({
+      error,
+      baseWorldId,
+      branchId,
+    }: {
+      readonly error: unknown;
+      readonly baseWorldId: import("@manifesto-ai/world").WorldId;
+      readonly branchId: string;
+    }): Promise<PatchFormatRecovery> => {
+      const fallbackSnapshot = appStateToSnapshot(runtime.getCurrentState());
+      const genesisWorldId = worldHeadTracker.getGenesisWorldId();
+
+      if (!genesisWorldId) {
+        console.warn(
+          `[Manifesto] Patch format recovery requested for base '${String(baseWorldId)}', ` +
+          "but genesis is unavailable. Falling back to current state."
+        );
+        return fallbackSnapshot;
+      }
+
+      let genesisSnapshot: Snapshot;
+      try {
+        genesisSnapshot = normalizeSnapshot(await worldStore.restore(genesisWorldId));
+      } catch (restoreError) {
+        console.warn(
+          `[Manifesto] Failed to restore genesis '${String(genesisWorldId)}' during patch format recovery:`,
+          restoreError
+        );
+        return fallbackSnapshot;
+      }
+
+      const genesisState = snapshotToAppState(genesisSnapshot);
+      runtime.setCurrentState(genesisState);
+      currentState = genesisState;
+
+      try {
+        const targetBranch = branchManager.getBranch(branchId) ?? branchManager.currentBranch();
+        await targetBranch.checkout(String(genesisWorldId));
+        branchManager.switchBranch(targetBranch.id);
+        branchManager.updateBranchState(targetBranch.id, genesisState);
+      } catch (checkoutError) {
+        console.warn(
+          `[Manifesto] Failed to checkout branch '${branchId}' to genesis '${String(genesisWorldId)}':`,
+          checkoutError
+        );
+      }
+
+      worldHeadTracker.initialize(genesisWorldId);
+      console.warn(
+        `[Manifesto] Incompatible patch payload detected (${String(error)}). ` +
+        `Execution reset to genesis '${String(genesisWorldId)}' (epoch reset policy).`
+      );
+      return {
+        snapshot: genesisSnapshot,
+        baseWorldId: genesisWorldId,
+      };
+    };
+
     // 8h. AppExecutor
     const executor = createAppExecutor({
       domainSchema: schema,
@@ -424,6 +487,7 @@ export class AppBootstrap {
       schedulerOptions: config.scheduler,
       getCurrentState: () => runtime.getCurrentState(),
       setCurrentState: (state) => { runtime.setCurrentState(state); },
+      resetToGenesisOnPatchFormatError,
     });
 
     // 9. Construct AppRuntime
