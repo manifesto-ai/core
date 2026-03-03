@@ -194,8 +194,7 @@ These are not features. They are **protocol-level invariants** — properties th
 | **Core** | `@manifesto-ai/core` | Pure computation. Expressions, flows, patches. Zero IO. |
 | **Host** | `@manifesto-ai/host` | Effect execution. Runs the compute-effect-apply loop. |
 | **World** | `@manifesto-ai/world` | Governance. Actors, authorities, proposals, audit lineage (DAG). |
-| **Runtime** | `@manifesto-ai/runtime` | Internal orchestration. 5-stage action pipeline, policy, memory, branches. |
-| **SDK** | `@manifesto-ai/sdk` | Public facade. `createApp()`, `app.act()`, typed ops, subscriptions, hooks. |
+| **SDK** | `@manifesto-ai/sdk` | Public facade. `createManifesto()`, dispatch, typed ops, subscriptions. |
 | **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation and bundler adapters. |
 
 **Data flow:**
@@ -271,8 +270,7 @@ Manifesto is designed for domains where traceability, governance, and determinis
 
 | Package | Description |
 |---------|-------------|
-| [@manifesto-ai/sdk](./packages/sdk) | Public developer API — `createApp()`, hooks, typed patch ops |
-| [@manifesto-ai/runtime](./packages/runtime) | Internal orchestration engine (consumed by SDK) |
+| [@manifesto-ai/sdk](./packages/sdk) | Public developer API — `createManifesto()`, typed patch ops |
 | [@manifesto-ai/core](./packages/core) | Pure computation engine |
 | [@manifesto-ai/host](./packages/host) | Effect execution runtime |
 | [@manifesto-ai/world](./packages/world) | Governance and lineage layer |

@@ -166,13 +166,13 @@ When an action needs IO (API call, timer, etc.), Core doesn't execute it. Instea
 ## Relationship with Other Packages
 
 ```
-SDK/Runtime -> Host -> Core
+SDK -> Host -> Core
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Used by | `@manifesto-ai/host` | Host calls compute() and apply() |
-| Used by | `@manifesto-ai/runtime` | Runtime orchestrates compute loop |
+| Used by | `@manifesto-ai/sdk` | SDK orchestrates compute loop via Host |
 | Schema from | SDK | SDK supplies DomainSchema (via MEL or direct) |
 
 ---

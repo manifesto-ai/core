@@ -136,7 +136,6 @@ export default defineConfig({
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
             { text: 'App Facade (Removed Legacy)', link: '/api/app' },
-            { text: '@manifesto-ai/runtime', link: '/api/runtime' },
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/world', link: '/api/world' },

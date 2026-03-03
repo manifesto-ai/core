@@ -23,7 +23,7 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | Package | Latest SPEC | Status | Package Docs |
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/sdk** | v1.0.0 | Normative (ADR-010) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.6.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 

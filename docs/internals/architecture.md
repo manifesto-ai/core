@@ -297,13 +297,12 @@ packages/
 
 ```
 @manifesto-ai/sdk
-  └── @manifesto-ai/runtime
-        ├── @manifesto-ai/world
-        │     └── @manifesto-ai/core
-        ├── @manifesto-ai/host
-        │     └── @manifesto-ai/core
-        └── @manifesto-ai/compiler
-              └── @manifesto-ai/core
+  ├── @manifesto-ai/host
+  │     └── @manifesto-ai/core
+  ├── @manifesto-ai/world
+  │     └── @manifesto-ai/core
+  └── @manifesto-ai/compiler
+        └── @manifesto-ai/core
 ```
 
 ---

@@ -36,4 +36,4 @@
 
 `@manifesto-ai/app` is retired from active release. Legacy API reference is kept at [/api/app](../../../docs/api/app.md).
 
-`@manifesto-ai/runtime` is retired per ADR-010. Runtime responsibilities are absorbed into `createManifesto()`. See [Runtime VERSION-INDEX](../../runtime/docs/VERSION-INDEX.md) for historical reference.
+`@manifesto-ai/runtime` is retired per ADR-010. Runtime responsibilities are absorbed into `createManifesto()`. The runtime package has been removed from the workspace.

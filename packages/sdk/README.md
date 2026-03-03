@@ -78,9 +78,10 @@ SDK re-exports public contract types and errors (for example `AppConfig`, `AppSt
 
 | Relationship | Package | How |
 |--------------|---------|-----|
-| Delegates to | `@manifesto-ai/runtime` | All orchestration via runtime pipeline |
 | Uses | `@manifesto-ai/core` | Schema and expression types |
+| Uses | `@manifesto-ai/host` | Effect execution and compute loop |
 | Uses | `@manifesto-ai/world` | World protocol types |
+| Uses | `@manifesto-ai/compiler` | MEL → DomainSchema compilation |
 | Legacy predecessor | App facade package | Removed in R2 (see API retirement record) |
 
 ---
