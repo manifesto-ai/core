@@ -4,6 +4,6 @@
  */
 export type SdkManifest = {
   readonly name: '@manifesto-ai/sdk';
-  readonly specVersion: '0.1.0';
-  readonly phase: 'bootstrap';
+  readonly specVersion: '1.0.0';
+  readonly phase: 'released';
 };

@@ -3,10 +3,10 @@ import {
   compileMelDomain,
   lowerSystemValues,
 } from "@manifesto-ai/compiler";
-import { createTestApp } from "../index.js";
+import { createManifesto } from "../index.js";
 
 describe("SDK stack integration: compiler-lowered system values", () => {
-  it("hydrates $system.uuid and $system.time.now in createTestApp execution", async () => {
+  it("hydrates $system.uuid and $system.time.now via createManifesto dispatch", async () => {
     const result = compileMelDomain(
       `
       domain SystemRuntime {
@@ -23,7 +23,7 @@ describe("SDK stack integration: compiler-lowered system values", () => {
           }
         }
       }
-      `
+      `,
     );
 
     expect(result.errors).toHaveLength(0);
@@ -33,15 +33,18 @@ describe("SDK stack integration: compiler-lowered system values", () => {
     const lowered = lowerSystemValues(result.schema);
     if (!lowered) return;
 
-    const app = createTestApp(lowered, {
-      initialData: { entries: [] },
+    const instance = createManifesto({
+      schema: lowered,
+      effects: {},
     });
-    await app.ready();
 
     try {
-      const handle = app.act("appendEntry");
-      const completed = await handle.done({ timeoutMs: 5000 });
-      const snapshot = await app.getSnapshot(completed.worldId as Parameters<typeof app.getSnapshot>[0]);
+      instance.dispatch({ type: "appendEntry", intentId: "test-intent-1" });
+
+      // Wait for async dispatch processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const snapshot = instance.getSnapshot();
       const data = snapshot.data as { entries: unknown[] };
       const entries = data.entries;
       expect(entries).toHaveLength(1);
@@ -51,7 +54,41 @@ describe("SDK stack integration: compiler-lowered system values", () => {
       expect(item.createdAt).not.toBeUndefined();
       expect(typeof item.createdAt).toBe("number");
     } finally {
-      await app.dispose();
+      instance.dispose();
     }
+  });
+
+  it("rejects dispatch on disposed instance", () => {
+    const result = compileMelDomain(
+      `
+      domain Empty {
+        state {
+          count: number = 0
+        }
+        action inc() {
+          when true {
+            patch count = count + 1
+          }
+        }
+      }
+      `,
+    );
+
+    expect(result.errors).toHaveLength(0);
+    if (!result.schema) return;
+
+    const lowered = lowerSystemValues(result.schema);
+    if (!lowered) return;
+
+    const instance = createManifesto({
+      schema: lowered,
+      effects: {},
+    });
+
+    instance.dispose();
+
+    expect(() => {
+      instance.dispatch({ type: "inc", intentId: "test-2" });
+    }).toThrow("disposed");
   });
 });

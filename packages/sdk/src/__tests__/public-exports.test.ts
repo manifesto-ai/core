@@ -1,60 +1,75 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
-import * as sdk from '../index.js';
+import * as sdk from "../index.js";
 
-describe('sdk public exports contract', () => {
-  it('exposes the expected runtime value exports only', () => {
+describe("sdk public exports contract", () => {
+  it("exposes the expected runtime value exports only", () => {
     const exportedKeys = Object.keys(sdk).sort();
 
     const expectedKeys = [
-      'ActionFailedError',
-      'ActionNotFoundError',
-      'ActionPreparationError',
-      'ActionRejectedError',
-      'ActionTimeoutError',
-      'AppDisposedError',
-      'AppNotReadyError',
-      'AppRefImpl',
-      'BranchHeadNotFoundError',
-      'BranchNotFoundError',
-      'DomainCompileError',
-      'HandleDetachedError',
-      'HookContextImpl',
-      'HookMutationError',
-      'HookableImpl',
-      'JobQueue',
-      'ManifestoApp',
-      'ManifestoAppError',
-      'MemoryDisabledError',
-      'MissingDefaultActorError',
-      'PluginInitError',
-      'ReservedEffectTypeError',
-      'ReservedNamespaceError',
-      'SchemaMismatchOnResumeError',
-      'SystemActionDisabledError',
-      'SystemActionRoutingError',
-      'WorldNotFoundError',
-      'WorldNotInLineageError',
-      'WorldSchemaHashMismatchError',
-      'createApp',
-      'createAppRef',
-      'createHookContext',
-      'createTestApp',
-      'defineOps',
+      // SDK-owned
+      "createManifesto",
+      "ManifestoError",
+      "ReservedEffectError",
+      "DisposedError",
+      "defineOps",
+      // Core re-exports
+      "createIntent",
+      "createSnapshot",
+      "createCore",
+      // World re-exports
+      "createMemoryWorldStore",
     ].sort();
 
     expect(exportedKeys).toEqual(expectedKeys);
   });
 
-  it('does not expose non-contract helpers from former app facade', () => {
+  it("does not expose removed v0.x runtime re-exports", () => {
     const forbidden = [
-      'createSilentPolicyService',
-      'createStrictPolicyService',
-      'createDefaultPolicyService',
-      'createInMemoryWorldStore',
-      'withDxAliases',
-      'validateSchemaCompatibility',
-      'withPlatformNamespaces',
+      // Old factory / class
+      "createApp",
+      "createTestApp",
+      "ManifestoApp",
+      // Old errors
+      "ManifestoAppError",
+      "AppNotReadyError",
+      "AppDisposedError",
+      "ActionRejectedError",
+      "ActionFailedError",
+      "ActionPreparationError",
+      "ActionTimeoutError",
+      "ActionNotFoundError",
+      "HandleDetachedError",
+      "HookMutationError",
+      "ReservedEffectTypeError",
+      "SystemActionDisabledError",
+      "SystemActionRoutingError",
+      "MemoryDisabledError",
+      "BranchNotFoundError",
+      "WorldNotFoundError",
+      "WorldSchemaHashMismatchError",
+      "WorldNotInLineageError",
+      "ReservedNamespaceError",
+      "MissingDefaultActorError",
+      "DomainCompileError",
+      "PluginInitError",
+      "SchemaMismatchOnResumeError",
+      "BranchHeadNotFoundError",
+      // Old hooks
+      "AppRefImpl",
+      "createAppRef",
+      "HookableImpl",
+      "JobQueue",
+      "HookContextImpl",
+      "createHookContext",
+      // Old internal re-exports
+      "createSilentPolicyService",
+      "createStrictPolicyService",
+      "createDefaultPolicyService",
+      "createInMemoryWorldStore",
+      "withDxAliases",
+      "validateSchemaCompatibility",
+      "withPlatformNamespaces",
     ];
 
     for (const key of forbidden) {

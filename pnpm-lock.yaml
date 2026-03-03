@@ -209,19 +209,19 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@manifesto-ai/compiler':
+        specifier: workspace:*
+        version: link:../compiler
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
-      '@manifesto-ai/runtime':
+      '@manifesto-ai/host':
         specifier: workspace:*
-        version: link:../runtime
+        version: link:../host
       '@manifesto-ai/world':
         specifier: workspace:*
         version: link:../world
     devDependencies:
-      '@manifesto-ai/compiler':
-        specifier: workspace:*
-        version: link:../compiler
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
