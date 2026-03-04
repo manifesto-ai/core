@@ -1,24 +1,24 @@
-# @manifesto-ai/sdk v1.2.1
+# @manifesto-ai/sdk v1.0.0
 
 > Public developer API layer. Canonical entry point for Manifesto applications.
 
 ## Role
 
-SDK owns the public contract for app creation and interaction.
-It provides `createApp()`, `createTestApp()`, `ManifestoApp`, hooks, and typed patch ops while delegating orchestration to Runtime.
+SDK owns the public contract for creating and interacting with Manifesto instances.
+It provides `createManifesto()`, `ManifestoInstance`, and typed patch ops while directly orchestrating Host, World, and Compiler internally.
 
 ## Dependencies
 
-- `@manifesto-ai/core`, `@manifesto-ai/runtime`, `@manifesto-ai/world`
+- `@manifesto-ai/core`, `@manifesto-ai/host`, `@manifesto-ai/world`, `@manifesto-ai/compiler`
 
 ## Public API
 
-### `createApp(config): App`
+### `createManifesto(config): ManifestoInstance`
 
 ```typescript
-import { createApp } from '@manifesto-ai/sdk';
+import { createManifesto } from '@manifesto-ai/sdk';
 
-const app = createApp({
+const instance = createManifesto({
   schema: domainSchema,   // DomainSchema or MEL source string
   effects: {              // Effect handlers (required)
     'api.fetchUser': async (params, ctx) => {
@@ -26,74 +26,31 @@ const app = createApp({
       return [{ op: 'set', path: 'user', value: data }];
     },
   },
-  initialData: {},        // Optional initial state
 });
 ```
 
-### AppConfig (Full)
+### ManifestoConfig
 
 ```typescript
-interface AppConfig {
+interface ManifestoConfig {
   readonly schema: DomainSchema | string;
-  readonly effects: Effects;
-  readonly world?: ManifestoWorld;
-  readonly policyService?: PolicyService;
-  readonly executionKeyPolicy?: ExecutionKeyPolicy;
-  readonly memoryStore?: MemoryStore;
-  readonly memoryProvider?: MemoryProvider;
-  readonly memory?: false | MemoryHubConfig;
-  readonly plugins?: readonly AppPlugin[];
-  readonly hooks?: Partial<AppHooks>;
-  readonly initialData?: unknown;
-  readonly actorPolicy?: ActorPolicyConfig;
-  readonly systemActions?: SystemActionsConfig;
-  readonly validation?: { readonly effects?: 'strict' | 'warn' | 'off' };
+  readonly effects: Record<string, EffectHandler>;
+  readonly store?: WorldStore;
+  readonly guard?: (intent: Intent, snapshot: Snapshot) => boolean;
+  readonly snapshot?: Snapshot;
 }
 ```
 
-### App Interface
+### ManifestoInstance (5 methods)
 
 ```typescript
-interface App {
-  // Lifecycle
-  status: 'created' | 'ready' | 'disposing' | 'disposed';
-  ready(): Promise<void>;
-  dispose(opts?): Promise<void>;
-
-  // State
-  getDomainSchema(): DomainSchema;
-  getState<T>(): AppState<T>;
-  subscribe<T>(selector, listener, opts?): Unsubscribe;
-
-  // Actions (primary API)
-  act(type: string, input?: unknown, opts?: ActOptions): ActionHandle;
-
-  // Branching
-  currentBranch(): Branch;
-  fork(opts?): Promise<Branch>;
-  switchBranch(branchId): Promise<Branch>;
-  getHeads(): Promise<WorldHead[]>;
-  getLatestHead(): Promise<WorldHead | null>;
-
-  // Sessions
-  session(actorId, opts?): Session;
-
-  // System
-  system: SystemFacade;
-  memory: MemoryFacade;
-  hooks: Hookable<AppHooks>;
+interface ManifestoInstance {
+  dispatch(intent: Intent): void;
+  subscribe<R>(selector: Selector<R>, listener: (value: R) => void): Unsubscribe;
+  on(event: ManifestoEvent, handler: (payload: ManifestoEventPayload) => void): Unsubscribe;
+  getSnapshot(): Snapshot;
+  dispose(): void;
 }
-```
-
-### `createTestApp(config): App`
-
-Testing helper with in-memory defaults and minimal config.
-
-```typescript
-import { createTestApp } from '@manifesto-ai/sdk';
-
-const app = createTestApp(schema, { effects: {} });
-await app.ready();
 ```
 
 ### Effect Handler Signature (SDK-level)
@@ -106,17 +63,6 @@ type EffectHandler = (
 ```
 
 Note: SDK wraps this into the Host-level `(type, params, ctx)` signature internally.
-
-### ActionHandle & ActionPhase
-
-```typescript
-const handle = app.act('addTodo', { title: 'Buy milk' });
-const result = await handle.done();
-
-type ActionPhase =
-  | 'created' | 'preparing' | 'proposed' | 'evaluating'
-  | 'approved' | 'executing' | 'completed' | 'rejected' | 'failed';
-```
 
 ### Typed Patch Operations (defineOps)
 
@@ -135,28 +81,14 @@ ops.set('count', 'wrong');      // TS Error — expected number
 ops.set('counnt', 5);           // TS Error — path does not exist
 ```
 
-### Hook System
+### Events
 
 ```typescript
-const app = createApp({
-  schema,
-  effects: {},
-  hooks: {
-    'app:ready': (ctx) => { /* ... */ },
-    'action:completed': (ctx, result) => {
-      ctx.app.getState();                      // Read-only via AppRef
-      ctx.app.enqueueAction('log', { result }); // Deferred execution
-    },
-  },
-});
+type ManifestoEvent = 'dispatch:completed' | 'dispatch:rejected' | 'dispatch:failed';
 ```
-
-Inside hooks, `ctx.app` is an `AppRef` — a read-only facade preventing re-entrant mutations.
 
 ## Errors
 
-Lifecycle: `AppNotReadyError`, `AppDisposedError`
-Action: `ActionRejectedError`, `ActionFailedError`, `ActionTimeoutError`, `ActionNotFoundError`
-Effects: `ReservedEffectTypeError`
-Hook: `HookMutationError`
-Branch: `BranchNotFoundError`, `WorldNotFoundError`, `WorldSchemaHashMismatchError`
+- `ManifestoError` — base error class
+- `ReservedEffectError` — conflict with reserved effect types (e.g. `system.get`)
+- `DisposedError` — operation attempted after dispose()

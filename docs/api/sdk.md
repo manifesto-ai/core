@@ -81,7 +81,6 @@ return [
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/runtime](./runtime) | Internal orchestration engine |
 | [@manifesto-ai/core](./core) | Pure computation |
 | [@manifesto-ai/host](./host) | Effect execution |
 | [@manifesto-ai/world](./world) | Governance and lineage |

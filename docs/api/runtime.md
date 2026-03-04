@@ -1,56 +1,20 @@
-# @manifesto-ai/runtime
+# @manifesto-ai/runtime (Retired)
 
-> Internal execution orchestration engine for the Manifesto protocol stack
+> **Status:** Retired per [ADR-010](/internals/adr/010-major-hard-cut).
 
-> **Internal Package:** not intended for direct end-user consumption. Use `@manifesto-ai/sdk`.
+The `@manifesto-ai/runtime` package has been retired. Its responsibilities have been absorbed into `@manifesto-ai/sdk` via `createManifesto()`.
 
----
+## Migration
 
-## Overview
-
-`@manifesto-ai/runtime` orchestrates SDK, Host, and World.
-
-- Action pipeline: prepare -> authorize -> execute -> persist -> finalize
-- Policy/memory/branch/subscription management
-- WorldStore integration for snapshot and delta persistence
-
----
-
-## ADR-009 Runtime Alignment
-
-### Patch Persistence Envelope
-
-Runtime persistence adapters MUST version serialized patch payloads:
+Use `@manifesto-ai/sdk` directly:
 
 ```typescript
-type PersistedPatchEnvelope = {
-  _patchFormat: 2;
-  patches: readonly Patch[];
-};
+import { createManifesto } from '@manifesto-ai/sdk';
+
+const instance = createManifesto({
+  schema: domainSchema,
+  effects: { /* ... */ },
+});
 ```
 
-### Restore Boundary Rules
-
-- Restore ingress MUST accept only `_patchFormat: 2`.
-- `_patchFormat: 1` or missing tag MUST be hard-rejected.
-- Legacy rejection MUST trigger fresh genesis initialization (epoch reset policy).
-
----
-
-## Pipeline Note
-
-- Domain state changes are applied through `Patch[]`.
-- System transitions are represented through Core `SystemDelta` channel.
-- Runtime MUST NOT rely on direct patching of `system.*` fields.
-
----
-
-## Related Packages
-
-| Package | Relationship |
-|---------|--------------|
-| [@manifesto-ai/sdk](./sdk) | Public API layer (consumes Runtime) |
-| [@manifesto-ai/core](./core) | Pure computation |
-| [@manifesto-ai/host](./host) | Effect execution |
-| [@manifesto-ai/world](./world) | Governance and lineage |
-| [@manifesto-ai/compiler](./compiler) | MEL compilation |
+See [@manifesto-ai/sdk](./sdk) for the current API.

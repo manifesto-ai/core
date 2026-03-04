@@ -188,7 +188,7 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
-  packages/runtime:
+  packages/sdk:
     dependencies:
       '@manifesto-ai/compiler':
         specifier: workspace:*
@@ -203,25 +203,6 @@ importers:
         specifier: workspace:*
         version: link:../world
     devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  packages/sdk:
-    dependencies:
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
-    devDependencies:
-      '@manifesto-ai/compiler':
-        specifier: workspace:*
-        version: link:../compiler
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

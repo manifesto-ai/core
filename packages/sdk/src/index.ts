@@ -1,210 +1,75 @@
 /**
  * @manifesto-ai/sdk v1.0.0
  *
- * Public developer API layer for the Manifesto protocol stack.
- * Canonical entry point since Phase 2 (ADR-008).
+ * Protocol-first SDK — thin composition layer over the Manifesto protocol stack.
+ * The SDK owns one concept: createManifesto().
  *
- * @see sdk-SPEC-v0.1.0.md
+ * @see sdk-SPEC-v1.0.0.md
+ * @see ADR-010
  * @packageDocumentation
  */
 
-export type { SdkManifest } from './manifest.js';
+export type { SdkManifest } from "./manifest.js";
 
 // =============================================================================
-// Public Types (re-exported from Runtime)
+// SDK-Owned Exports
+// =============================================================================
+
+export { createManifesto } from "./create-manifesto.js";
+
+export type {
+  ManifestoInstance,
+  ManifestoConfig,
+  ManifestoEvent,
+  ManifestoEventPayload,
+  EffectContext,
+  EffectHandler,
+  Selector,
+  Unsubscribe,
+} from "./types.js";
+
+export {
+  ManifestoError,
+  ReservedEffectError,
+  DisposedError,
+} from "./errors.js";
+
+// =============================================================================
+// Typed Patch Operations (SDK-owned utility)
+// =============================================================================
+
+export { defineOps } from "./typed-ops.js";
+export type { TypedOps, DataPaths, ValueAt, ObjectPaths } from "./typed-ops.js";
+
+// =============================================================================
+// Protocol Re-exports — @manifesto-ai/core (SDK-REEXPORT-1)
 // =============================================================================
 
 export type {
-  // App Status
-  AppStatus,
-  RuntimeKind,
-  Unsubscribe,
-
-  // Action Phase
-  ActionPhase,
-
-  // Action Results
-  ActionResult,
-  CompletedActionResult,
-  RejectedActionResult,
-  FailedActionResult,
-  PreparationFailedActionResult,
-  ExecutionStats,
-
-  // Action Update
-  ActionUpdate,
-  ActionUpdateDetail,
-
-  // Options
-  ActorPolicyConfig,
-  SystemActionsConfig,
-  DisposeOptions,
-  DoneOptions,
-  ActOptions,
-  ForkOptions,
-  SessionOptions,
-  SubscribeOptions,
-  LineageOptions,
-
-  // State
-  AppState,
-  SystemState,
-  SnapshotMeta,
-
-  // Memory
-  MemoryHubConfig,
-  BackfillConfig,
-  RecallRequest,
-  RecallResult,
-  MemoryMaintenanceOptions,
-
-  // Migration
-  MigrationLink,
-  MigrationContext,
-  MigrationFn,
-
-  // Interfaces
-  App,
-  ActionHandle,
-  Branch,
-  Session,
-  MemoryFacade,
-  SystemFacade,
-  SystemMemoryFacade,
-  Hookable,
-  HookContext,
-  EnqueueOptions,
-
-  // Plugins
-  AppPlugin,
-
-  // Hook Events
-  AppHooks,
-
-  // Memory Provider
-  MemoryProvider,
-  MemoryVerifier,
-  MemoryIngestEntry,
-  MemorySelectionView,
-  ProveResult,
-
-  // Requirement
-  Requirement,
-
-  // Core Public Types
-  AppConfig,
-  AppRef,
-  Proposal,
-  ProposalResult,
-  ExecutionKey,
-  ExecutionKeyPolicy,
-  ProposalId,
-  ActorId,
-  BranchId,
-  ApprovedScope,
-  AuthorityDecision,
-  PolicyService,
-  ArtifactRef,
-  Intent,
-  SchemaCompatibilityResult,
-  MemoryStore,
-  StoredMemoryRecord,
-  MemoryRecordInput,
-  MemoryFilter,
-  World,
-  WorldId,
+  DomainSchema,
   Snapshot,
   Patch,
-  WorldHead,
-
-  // Effects API
-  Effects,
-  AppEffectContext,
-  EffectHandler,
-
-  // Error value
+  SetPatch,
+  UnsetPatch,
+  MergePatch,
+  Intent,
+  ComputeResult,
+  Requirement,
   ErrorValue,
+  TraceGraph,
+} from "@manifesto-ai/core";
 
-  // MEL text alias
-  MelText,
-} from '@manifesto-ai/runtime';
-
-// =============================================================================
-// Public Errors (re-exported from Runtime)
-// =============================================================================
-
-export {
-  // Base
-  ManifestoAppError,
-
-  // Lifecycle
-  AppNotReadyError,
-  AppDisposedError,
-
-  // Action
-  ActionRejectedError,
-  ActionFailedError,
-  ActionPreparationError,
-  ActionTimeoutError,
-  ActionNotFoundError,
-  HandleDetachedError,
-
-  // Hook
-  HookMutationError,
-
-  // Effects
-  ReservedEffectTypeError,
-
-  // System
-  SystemActionDisabledError,
-  SystemActionRoutingError,
-
-  // Memory
-  MemoryDisabledError,
-
-  // Branch/World
-  BranchNotFoundError,
-  WorldNotFoundError,
-  WorldSchemaHashMismatchError,
-  WorldNotInLineageError,
-
-  // Other
-  ReservedNamespaceError,
-  MissingDefaultActorError,
-  DomainCompileError,
-  PluginInitError,
-
-  // Resume & Recovery
-  SchemaMismatchOnResumeError,
-  BranchHeadNotFoundError,
-} from '@manifesto-ai/runtime';
+export { createIntent, createSnapshot, createCore } from "@manifesto-ai/core";
 
 // =============================================================================
-// App Factory
+// Protocol Re-exports — @manifesto-ai/host (SDK-REEXPORT-1)
 // =============================================================================
 
-export { createApp, createTestApp } from './create-app.js';
+export type { HostResult, HostOptions } from "@manifesto-ai/host";
 
 // =============================================================================
-// ManifestoApp
+// Protocol Re-exports — @manifesto-ai/world (SDK-REEXPORT-1)
 // =============================================================================
 
-export { ManifestoApp } from './app.js';
-
-// =============================================================================
-// Hook Internals (public for advanced integrations)
-// =============================================================================
-
-export { AppRefImpl, createAppRef } from './hooks/index.js';
-export type { AppRefCallbacks } from './hooks/index.js';
-export { HookableImpl } from './hooks/index.js';
-export type { HookState } from './hooks/index.js';
-export { JobQueue } from './hooks/index.js';
-export { HookContextImpl, createHookContext } from './hooks/index.js';
-
-// =============================================================================
-// Typed Patch Operations
-// =============================================================================
-
-export { defineOps } from './typed-ops.js';
-export type { TypedOps, DataPaths, ValueAt, ObjectPaths } from './typed-ops.js';
+export type { WorldStore } from "@manifesto-ai/world";
+export { createMemoryWorldStore } from "@manifesto-ai/world";

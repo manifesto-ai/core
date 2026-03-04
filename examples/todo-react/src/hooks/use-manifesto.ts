@@ -1,61 +1,55 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createApp } from "@manifesto-ai/sdk";
-import type { App, AppState } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
+import type { ManifestoInstance, Snapshot } from "@manifesto-ai/sdk";
 
 type UseManifestoResult = {
-  state: AppState<unknown> | null;
+  state: Snapshot | null;
   ready: boolean;
-  act: (type: string, input?: unknown) => Promise<void>;
+  act: (type: string, input?: unknown) => void;
 };
 
 /**
- * React hook that bridges a Manifesto app to React state.
+ * React hook that bridges a ManifestoInstance to React state.
  *
- * - Creates the app on mount, disposes on unmount
+ * - Creates the instance on mount, disposes on unmount
  * - Subscribes to state changes and triggers re-renders
- * - Provides a stable `act()` callback for dispatching actions
+ * - Provides a stable `act()` callback for dispatching intents
  */
 export function useManifesto(schema: unknown): UseManifestoResult {
-  const appRef = useRef<App | null>(null);
-  const [ready, setReady] = useState(false);
-  const [state, setState] = useState<AppState<unknown> | null>(null);
+  const instanceRef = useRef<ManifestoInstance | null>(null);
+  const [state, setState] = useState<Snapshot | null>(null);
 
   useEffect(() => {
-    const app = createApp({
+    const instance = createManifesto({
       schema: schema as string,
       effects: {},
     });
-    appRef.current = app;
+    instanceRef.current = instance;
 
     let disposed = false;
 
-    app.ready().then(() => {
-      if (disposed) return;
-      setState(app.getState());
+    // Synchronous — no ready() needed
+    setState(instance.getSnapshot());
 
-      app.subscribe(
-        (s) => s,
-        (newState) => {
-          if (!disposed) setState(newState);
-        },
-      );
-
-      setReady(true);
-    });
+    instance.subscribe(
+      (s) => s,
+      (newState) => {
+        if (!disposed) setState(newState);
+      },
+    );
 
     return () => {
       disposed = true;
-      appRef.current = null;
-      setReady(false);
+      instanceRef.current = null;
       setState(null);
-      app.dispose();
+      instance.dispose();
     };
   }, [schema]);
 
-  const act = useCallback(async (type: string, input?: unknown) => {
-    if (!appRef.current) return;
-    await appRef.current.act(type, input).done();
+  const act = useCallback((type: string, input?: unknown) => {
+    if (!instanceRef.current) return;
+    instanceRef.current.dispatch({ type, input, intentId: crypto.randomUUID() });
   }, []);
 
-  return { state, ready, act };
+  return { state, ready: state !== null, act };
 }

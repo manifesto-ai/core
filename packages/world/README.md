@@ -177,8 +177,8 @@ SDK -> Runtime -> WORLD -> Host
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses Core types |
-| Integrates with | `@manifesto-ai/host` | Via HostExecutor adapter (Runtime-provided) |
-| Used by | `@manifesto-ai/runtime` | Runtime orchestrates World proposals |
+| Integrates with | `@manifesto-ai/host` | Via HostExecutor adapter |
+| Used by | `@manifesto-ai/sdk` | SDK orchestrates World proposals via createManifesto() |
 
 ---
 

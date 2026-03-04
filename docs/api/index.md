@@ -26,7 +26,6 @@
 
 | Package | Description |
 |---------|-------------|
-| [@manifesto-ai/runtime](./runtime) | Internal orchestration engine used by SDK |
 | [@manifesto-ai/compiler](./compiler) | MEL compiler and patch IR lowering |
 | [@manifesto-ai/codegen](./codegen) | DomainSchema to TypeScript + Zod codegen |
 | [@manifesto-ai/intent-ir](./intent-ir) | Intent intermediate representation |
@@ -40,10 +39,12 @@ See [Specifications](/internals/spec/) for normative contracts.
 ```mermaid
 flowchart TB
   APP["Your Application"] --> SDK["@manifesto-ai/sdk"]
-  SDK --> RT["@manifesto-ai/runtime"]
-  RT --> C["@manifesto-ai/core"]
-  RT --> H["@manifesto-ai/host"]
-  RT --> W["@manifesto-ai/world"]
+  SDK --> H["@manifesto-ai/host"]
+  SDK --> W["@manifesto-ai/world"]
+  SDK --> COMP["@manifesto-ai/compiler"]
+  H --> C["@manifesto-ai/core"]
+  W --> C
+  COMP --> C
 ```
 
 ---
@@ -51,9 +52,9 @@ flowchart TB
 ## Quick Start
 
 ```typescript
-import { createRuntime } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 
-const runtime = createRuntime({
+const instance = createManifesto({
   schema: domainSchema,
   effects: {
     "counter.save": async () => [
@@ -62,9 +63,8 @@ const runtime = createRuntime({
   },
 });
 
-await runtime.ready();
-await runtime.dispatch({ type: "increment" });
-console.log(runtime.snapshot().data.count);
+instance.dispatch({ type: "increment", intentId: crypto.randomUUID() });
+console.log(instance.getSnapshot().data);
 ```
 
 ---

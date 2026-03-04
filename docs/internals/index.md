@@ -24,8 +24,8 @@ Records of significant architectural decisions:
 | [ADR-007](./adr/007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted |
 | [ADR-008](./adr/008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Deprecated |
 | [ADR-009](./adr/009-structured-patch-path) | Structured PatchPath (Segments) | Accepted |
-| [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Proposed |
-| [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Proposed |
+| [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted |
+| [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

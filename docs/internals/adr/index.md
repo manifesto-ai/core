@@ -37,7 +37,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted | 2026-02-14 | App, Runtime, SDK, World |
 | [ADR-008](./008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Deprecated | 2026-02-17 | SDK, Runtime, Docs, Release, CI |
 | [ADR-009](./009-structured-patch-path) | Structured PatchPath (Segments) | Accepted | 2026-02-25 | Core, Compiler, Host, Runtime, World |
-| [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Proposed | 2026-02-27 | Core, Runtime, Host, World, SDK |
+| [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted | 2026-02-27 | Core, Runtime, Host, World, SDK |
 | [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted | 2026-02-25 | Host, Runtime, World, SDK |
 
 ### ADR-006 Companion Evidence (Non-Normative)
@@ -53,6 +53,7 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-010 supersedes ADR-008. ADR-008 is deprecated as historical transition record; ADR-010 is the active boundary.
 - ADR-010 accepts ADR-008 outcomes and converts App-retirement policy from migration guidance into canonical hard-cut.
 - ADR-010 is the active boundary for submit/dispatch API simplification; public `createApp` surface is removed in v1+ implementation.
+- ADR-010 supersedes SDK-SPEC v0.1.0/v0.2.0 via SDK-SPEC v1.0.0. Runtime-SPEC v0.1.0/v0.2.0 are retired (no successor).
 
 ### ADR-009 Companion Notes
 
@@ -62,10 +63,12 @@ These ADRs affect multiple packages across the monorepo:
 
 ### ADR-010 Companion Notes
 
-- ADR-010 defines the hard-cut naming and public boundary for SDK/Runtime to enforce a single runtime-centric entrypoint.
-- This ADR explicitly removes App-layer semantic coupling in product-facing APIs and archives translator/intent-IR from execution paths.
+- ADR-010 defines the protocol-first reconstruction of the SDK as a thin composition layer with `createManifesto()` as its sole owned concept.
+- This ADR explicitly removes App-layer semantic coupling in product-facing APIs. ActionHandle, Session, Hook, Plugin, and 20+ binding-layer concepts are retired.
 - ADR-010 lifts the old SDK SPEC v0.1.0 kickoff lock for `submitProposal`, `createApp`, and legacy `App` aliases.
-- Public migration contract for v1 is `createRuntime` + `RuntimeHandle` with `dispatch()` as the single action entrypoint.
+- Public migration contract for v1 is `createManifesto()` returning `ManifestoInstance` with `dispatch()` as the single action entrypoint.
+- ADR-010 supersedes SDK SPEC v0.1.0 and v0.2.0 via SDK SPEC v1.0.0.
+- ADR-010 retires Runtime SPEC v0.1.0 and v0.2.0 (no successor — responsibilities absorbed into `createManifesto`).
 
 ### ADR-011 Companion Notes
 
@@ -144,6 +147,13 @@ ADRs often result in SPEC changes. Here's the traceability:
 |---------|------------|---------|
 | World | v2.0.5 | Head Query API, resume contract, branch state persistence |
 | App | v2.3.1 | Head Query delegation (`getHeads()`, `getLatestHead()`) |
+
+### ADR-010: Protocol-First SDK Reconstruction
+
+| Package | SPEC Version | Changes |
+|---------|------------|---------|
+| SDK | v1.0.0 | Complete reconstruction: `createManifesto()`, `ManifestoInstance` (5 methods), Runtime absorbed |
+| Runtime | (retired) | Superseded — no successor SPEC. Responsibilities absorbed into `createManifesto()` |
 
 ---
 

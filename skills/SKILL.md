@@ -36,7 +36,6 @@ Load when working with a specific package API:
 | Package | Knowledge File |
 |---------|---------------|
 | @manifesto-ai/sdk | `@knowledge/packages/sdk.md` |
-| @manifesto-ai/runtime | `@knowledge/packages/runtime.md` |
 | @manifesto-ai/core | `@knowledge/packages/core.md` |
 | @manifesto-ai/host | `@knowledge/packages/host.md` |
 | @manifesto-ai/world | `@knowledge/packages/world.md` |
