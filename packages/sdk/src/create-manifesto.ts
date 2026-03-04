@@ -123,6 +123,9 @@ export function createManifesto(
    * Process a single intent through the Host dispatch cycle.
    */
   async function processIntent(intent: Intent): Promise<void> {
+    // SDK-DISPOSE-1: Do not process queued intents after dispose
+    if (disposed) return;
+
     // SDK-INV-5: Guard evaluates against current snapshot at dequeue time
     if (guard) {
       const allowed = guard(intent, currentSnapshot);
@@ -507,6 +510,13 @@ function createInternalHost(
   const host = createHost(schema, {
     initialData: initialSnapshot?.data ?? {},
   });
+
+  // P1-1: When restoring from a persisted snapshot, use host.reset() to
+  // hydrate the full canonical Snapshot (meta, system, input) rather than
+  // only forwarding data via initialData which resets meta.version to 0.
+  if (initialSnapshot) {
+    host.reset(initialSnapshot);
+  }
 
   // Register reserved system.get handler (compiler-internal, CRITICAL)
   host.registerEffect(RESERVED_EFFECT_TYPE, async (

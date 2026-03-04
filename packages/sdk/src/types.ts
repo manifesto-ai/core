@@ -8,7 +8,6 @@
  */
 
 import type { DomainSchema, Snapshot, Patch, Intent } from "@manifesto-ai/core";
-import type { WorldStore } from "@manifesto-ai/world";
 
 // =============================================================================
 // Effect Handler Types (SDK-owned, simplified from Host 3-param contract)
@@ -59,13 +58,6 @@ export interface ManifestoConfig {
    * @see SDK-CONFIG-2
    */
   effects: Record<string, EffectHandler>;
-
-  /**
-   * Optional: World store implementation (default: in-memory).
-   *
-   * @see SDK-CONFIG-3
-   */
-  store?: WorldStore;
 
   /**
    * Optional: Guard function for intent validation.
