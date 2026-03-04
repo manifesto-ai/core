@@ -129,7 +129,8 @@ export function createManifesto(
     // SDK-INV-5: Guard evaluates against current snapshot at dequeue time
     if (guard) {
       try {
-        const allowed = guard(intent, currentSnapshot);
+        // SDK-SNAP-IMMUTABLE: Prevent guard from mutating internal state
+        const allowed = guard(intent, Object.freeze(structuredClone(currentSnapshot)));
         if (!allowed) {
           emitEvent("dispatch:rejected", {
             intentId: intent.intentId,
@@ -257,8 +258,11 @@ export function createManifesto(
 
   /** Notify all subscribers with current snapshot (SDK-INV-1). */
   function notifySubscribers(): void {
+    // SDK-SNAP-IMMUTABLE: Pass a frozen clone to selectors so that neither
+    // selector nor listener can mutate internal state.
+    const frozenSnap = Object.freeze(structuredClone(currentSnapshot));
     for (const sub of subscribers) {
-      const selected = sub.selector(currentSnapshot);
+      const selected = sub.selector(frozenSnap);
 
       // Selector-based change detection (SDK-SUB-4)
       if (sub.initialized && Object.is(sub.lastValue, selected)) {
