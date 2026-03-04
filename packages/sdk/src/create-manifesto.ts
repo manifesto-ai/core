@@ -128,12 +128,21 @@ export function createManifesto(
 
     // SDK-INV-5: Guard evaluates against current snapshot at dequeue time
     if (guard) {
-      const allowed = guard(intent, currentSnapshot);
-      if (!allowed) {
-        emitEvent("dispatch:rejected", {
+      try {
+        const allowed = guard(intent, currentSnapshot);
+        if (!allowed) {
+          emitEvent("dispatch:rejected", {
+            intentId: intent.intentId,
+            intent,
+            reason: "Guard rejected the intent",
+          });
+          return;
+        }
+      } catch (error) {
+        emitEvent("dispatch:failed", {
           intentId: intent.intentId,
           intent,
-          reason: "Guard rejected the intent",
+          error: error instanceof Error ? error : new Error(String(error)),
         });
         return;
       }
@@ -224,7 +233,9 @@ export function createManifesto(
   // =========================================================================
 
   function getSnapshot(): Snapshot {
-    return currentSnapshot;
+    // SDK-SNAP-IMMUTABLE: Return a frozen copy to prevent external mutation
+    // that would bypass the patch/apply pipeline.
+    return Object.freeze(structuredClone(currentSnapshot));
   }
 
   // =========================================================================
