@@ -298,7 +298,7 @@ describe("ManifestoHost", () => {
       const workflowSchema = createTestSchema({
         computed: {
           fields: {
-            "computed.total": {
+            "total": {
               expr: {
                 kind: "add",
                 left: { kind: "coalesce", args: [{ kind: "get", path: "itemsTotal" }, { kind: "lit", value: 0 }] },
@@ -339,7 +339,7 @@ describe("ManifestoHost", () => {
       const snapshot = await host.getSnapshot();
 
       expect(stripHostState(snapshot?.data ?? {})).toEqual({ itemsTotal: 150, shipping: 10 });
-      expect(snapshot?.computed["computed.total"]).toBe(160);
+      expect(snapshot?.computed["total"]).toBe(160);
     });
 
     it("should handle effect with retry on failure", async () => {

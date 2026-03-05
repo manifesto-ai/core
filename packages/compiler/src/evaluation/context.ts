@@ -22,7 +22,7 @@ export interface EvaluationSnapshot {
 
   /**
    * Computed values (matches ComputedSpec).
-   * Accessed via "computed.*" paths.
+   * Accessed via bare key paths (e.g., "total", not "computed.total").
    */
   computed: Record<string, unknown>;
 }

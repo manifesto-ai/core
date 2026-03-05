@@ -74,7 +74,7 @@ const schema: DomainSchema = {
   },
   computed: {
     fields: {
-      "computed.count": {
+      "count": {
         deps: ["count"],
         expr: { kind: "get", path: "count" },
       },

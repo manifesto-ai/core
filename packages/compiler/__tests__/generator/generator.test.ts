@@ -89,8 +89,8 @@ describe("IR Generator", () => {
       `);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.schema.computed.fields).toHaveProperty("computed.doubled");
-        const doubled = result.schema.computed.fields["computed.doubled"];
+        expect(result.schema.computed.fields).toHaveProperty("doubled");
+        const doubled = result.schema.computed.fields["doubled"];
         expect(doubled.expr.kind).toBe("mul");
       }
     });
@@ -106,7 +106,7 @@ describe("IR Generator", () => {
       `);
       expect(result.success).toBe(true);
       if (result.success) {
-        const doubled = result.schema.computed.fields["computed.doubled"];
+        const doubled = result.schema.computed.fields["doubled"];
         // Core expects state deps without prefix
         expect(doubled.deps).toContain("count");
       }
@@ -184,7 +184,7 @@ describe("IR Generator", () => {
     function compileExpr(exprStr: string): CoreExprNode | null {
       const result = compile(`domain T { computed x = ${exprStr} }`);
       if (!result.success) return null;
-      const computed = result.schema.computed.fields["computed.x"];
+      const computed = result.schema.computed.fields["x"];
       return computed?.expr ?? null;
     }
 
@@ -267,7 +267,7 @@ describe("IR Generator", () => {
       `);
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.doubled"].expr as {
+        const expr = result.schema.computed.fields["doubled"].expr as {
           kind: "mul";
           left: CoreExprNode;
         };
@@ -492,7 +492,7 @@ describe("IR Generator", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.total"].expr;
+        const expr = result.schema.computed.fields["total"].expr;
         expect(expr.kind).toBe("sumArray");
         if (expr.kind === "sumArray") {
           expect(expr.array).toEqual({ kind: "get", path: "items" });
@@ -510,7 +510,7 @@ describe("IR Generator", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.smallest"].expr;
+        const expr = result.schema.computed.fields["smallest"].expr;
         expect(expr.kind).toBe("minArray");
         if (expr.kind === "minArray") {
           expect(expr.array).toEqual({ kind: "get", path: "items" });
@@ -528,7 +528,7 @@ describe("IR Generator", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.largest"].expr;
+        const expr = result.schema.computed.fields["largest"].expr;
         expect(expr.kind).toBe("maxArray");
         if (expr.kind === "maxArray") {
           expect(expr.array).toEqual({ kind: "get", path: "items" });
@@ -549,7 +549,7 @@ describe("IR Generator", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.smaller"].expr;
+        const expr = result.schema.computed.fields["smaller"].expr;
         expect(expr.kind).toBe("min");
         if (expr.kind === "min") {
           expect(expr.args.length).toBe(2);

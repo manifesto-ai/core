@@ -395,7 +395,7 @@ type ComputedFieldSpec = {
   readonly description?: string;
 };
 
-/** Dot-separated path (e.g., "user.profile.name", "computed.isValid") */
+/** Dot-separated path (e.g., "user.profile.name", "isValid") */
 type SemanticPath = string;
 ```
 
@@ -404,7 +404,7 @@ type SemanticPath = string;
 ```json
 {
   "fields": {
-    "computed.activeCount": {
+    "activeCount": {
       "deps": ["todos"],
       "expr": {
         "kind": "len",
@@ -418,7 +418,7 @@ type SemanticPath = string;
         }
       }
     },
-    "computed.canClearCompleted": {
+    "canClearCompleted": {
       "deps": ["todos"],
       "expr": {
         "kind": "gt",
@@ -840,7 +840,7 @@ Stops Flow execution with an error. The error is recorded in Snapshot.
 ```json
 {
   "kind": "if",
-  "cond": { "kind": "not", "arg": { "kind": "get", "path": "computed.isValid" } },
+  "cond": { "kind": "not", "arg": { "kind": "get", "path": "isValid" } },
   "then": { 
     "kind": "fail", 
     "code": "VALIDATION_ERROR",
@@ -942,7 +942,7 @@ type ActionSpec = {
     "available": {
       "kind": "and",
       "args": [
-        { "kind": "get", "path": "computed.canAddTodo" },
+        { "kind": "get", "path": "canAddTodo" },
         { "kind": "not", "arg": { "kind": "get", "path": "isLoading" } }
       ]
     },
@@ -951,7 +951,7 @@ type ActionSpec = {
   
   "clearCompleted": {
     "description": "Remove all completed todos",
-    "available": { "kind": "get", "path": "computed.canClearCompleted" },
+    "available": { "kind": "get", "path": "canClearCompleted" },
     "flow": { "kind": "seq", "steps": ["..."] }
   }
 }
@@ -1309,9 +1309,9 @@ This is terminology only.
   `data`, `computed`, `system`, `input`, `meta`.
   In particular, the field name is `data` (not `state`).
 
-- `snapshot.computed` is a **string-keyed map** whose keys are `SemanticPath` values (dot-separated paths such as `computed.doubled` or `summary.total`).
+- `snapshot.computed` is a **string-keyed map** whose keys are `SemanticPath` values (dot-separated paths such as `doubled` or `total`).
   Therefore, consumers MUST treat `snapshot.computed` as a dictionary/map and access values by string key
-  (e.g., `snapshot.computed['computed.doubled']`), not by assuming nested object structure.
+  (e.g., `snapshot.computed['doubled']`), not by assuming nested object structure.
 
 - Higher-level layers **MAY** provide derived read-only views or aliases (e.g., `snapshot.state` as an alias of `snapshot.data`,
   or ergonomic aliases for computed keys), but such views **MUST NOT** change the canonical Snapshot contract at the Core/Host boundary.
@@ -1710,7 +1710,7 @@ The Flow will naturally proceed because:
   
   "computed": {
     "fields": {
-      "computed.activeCount": {
+      "activeCount": {
         "deps": ["todos"],
         "expr": {
           "kind": "len",
@@ -1721,7 +1721,7 @@ The Flow will naturally proceed because:
           }
         }
       },
-      "computed.completedCount": {
+      "completedCount": {
         "deps": ["todos"],
         "expr": {
           "kind": "len",
@@ -1732,11 +1732,11 @@ The Flow will naturally proceed because:
           }
         }
       },
-      "computed.canClearCompleted": {
-        "deps": ["computed.completedCount"],
+      "canClearCompleted": {
+        "deps": ["completedCount"],
         "expr": {
           "kind": "gt",
-          "left": { "kind": "get", "path": "computed.completedCount" },
+          "left": { "kind": "get", "path": "completedCount" },
           "right": { "kind": "lit", "value": 0 }
         }
       }
@@ -1806,7 +1806,7 @@ The Flow will naturally proceed because:
     
     "clearCompleted": {
       "description": "Remove all completed todos",
-      "available": { "kind": "get", "path": "computed.canClearCompleted" },
+      "available": { "kind": "get", "path": "canClearCompleted" },
       "flow": {
         "kind": "seq",
         "steps": [

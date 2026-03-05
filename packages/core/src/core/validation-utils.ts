@@ -222,7 +222,7 @@ export function pathExistsInStateSpec(state: StateSpec, path: string): boolean {
 }
 
 export function pathExistsInComputedSpec(computed: ComputedSpec, path: string): boolean {
-  return path in computed.fields;
+  return Object.prototype.hasOwnProperty.call(computed.fields, path);
 }
 
 export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {

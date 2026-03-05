@@ -89,7 +89,7 @@ describe("evaluateExpr", () => {
 
     it("should resolve computed paths", () => {
       const ctx = createTestContext();
-      expect(evaluateExpr({ kind: "get", path: "computed.total" }, ctx)).toBe(
+      expect(evaluateExpr({ kind: "get", path: "total" }, ctx)).toBe(
         100
       );
     });
@@ -923,7 +923,7 @@ describe("evaluateRuntimePatches", () => {
         {
           op: "set",
           path: irp("cachedTotal"),
-          value: { kind: "get", path: "computed.total" },
+          value: { kind: "get", path: "total" },
         },
       ];
 

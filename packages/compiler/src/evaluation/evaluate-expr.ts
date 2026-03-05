@@ -213,8 +213,9 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
     return getValueAtPath(ctx.item, parts.slice(1));
   }
 
-  if (parts[0] === "computed") {
-    return getValueAtPath(ctx.snapshot.computed, parts.slice(1));
+  // Computed: bare key lookup (no prefix)
+  if (path in ctx.snapshot.computed) {
+    return ctx.snapshot.computed[path];
   }
 
   // Default: resolve in snapshot.data

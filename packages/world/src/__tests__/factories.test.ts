@@ -175,7 +175,7 @@ describe("World SPEC v2.0.4: $-prefix pattern", () => {
       const snapshot2 = {
         ...createTestSnapshot({ count: 42 }),
         computed: {
-          "computed.total": 123,
+          "total": 123,
         },
       };
 

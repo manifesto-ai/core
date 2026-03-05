@@ -17,8 +17,8 @@ export function App() {
 
   const todos = data.todos as Todo[];
   const filterMode = data.filterMode;
-  const activeCount = computed["computed.activeCount"] as number;
-  const hasCompleted = computed["computed.hasCompleted"] as boolean;
+  const activeCount = computed["activeCount"] as number;
+  const hasCompleted = computed["hasCompleted"] as boolean;
 
   const filteredTodos = todos.filter((todo) => {
     if (filterMode === "active") return !todo.completed;

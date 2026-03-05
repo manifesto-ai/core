@@ -1276,7 +1276,7 @@ domain Example {
   }
   
   computed total = len(items)           // items → state.items
-  computed hasItems = gt(total, 0)      // total → computed.total ✓
+  computed hasItems = gt(total, 0)      // total → total ✓
   
   action process(count: number) {       // count shadows state.count
     when gt(count, 0) {                 // count → parameter (shadows state)
@@ -4316,14 +4316,14 @@ function shouldApplyPatch(condition: CoreExprNode | undefined, ctx: EvaluationCo
 | `meta.*` | `ctx.meta.*` |
 | `input.*` | `ctx.input.*` |
 | `$item.*` | `ctx.item.*` |
-| `computed.*` | `ctx.snapshot.computed.*` |
+| (computed) | `ctx.snapshot.computed.*` |
 | (other) | `ctx.snapshot.data.*` |
 
 ```typescript
 // get(path: "meta.intentId") → ctx.meta.intentId
 // get(path: "input.title") → ctx.input.title
 // get(path: "$item.name") → ctx.item?.name
-// get(path: "computed.total") → ctx.snapshot.computed?.total
+// get(path: "total") → ctx.snapshot.computed?.total
 // get(path: "user.name") → ctx.snapshot.data.user?.name
 // get(path: "user.name") → ctx.snapshot.state.user?.name
 ```

@@ -88,7 +88,7 @@ describe("Core Integration", () => {
 
       // Verify ComputedSpec structure
       expect(schema.computed).toHaveProperty("fields");
-      const doubledSpec = schema.computed.fields["computed.doubled"];
+      const doubledSpec = schema.computed.fields["doubled"];
       expect(doubledSpec).toHaveProperty("deps");
       expect(doubledSpec).toHaveProperty("expr");
 
@@ -133,10 +133,10 @@ describe("Core Integration", () => {
       if (!result.success) return;
 
       const computed = result.schema.computed.fields;
-      expect(computed["computed.a"].expr.kind).toBe("add");
-      expect(computed["computed.b"].expr.kind).toBe("mul");
-      expect(computed["computed.c"].expr.kind).toBe("gt");
-      expect(computed["computed.d"].expr.kind).toBe("and");
+      expect(computed["a"].expr.kind).toBe("add");
+      expect(computed["b"].expr.kind).toBe("mul");
+      expect(computed["c"].expr.kind).toBe("gt");
+      expect(computed["d"].expr.kind).toBe("and");
     });
   });
 
@@ -261,8 +261,8 @@ describe("Core Integration", () => {
 
       expect(computeResult.status).toBe("complete");
       expect(computeResult.snapshot.data.count).toBe(6);
-      expect(computeResult.snapshot.computed["computed.doubled"]).toBe(12);
-      expect(computeResult.snapshot.computed["computed.isPositive"]).toBe(true);
+      expect(computeResult.snapshot.computed["doubled"]).toBe(12);
+      expect(computeResult.snapshot.computed["isPositive"]).toBe(true);
     });
 
     it("handles once guard (idempotency)", async () => {
@@ -422,7 +422,7 @@ describe("Core Integration", () => {
         title: "Buy milk",
         done: false,
       });
-      expect(result1.snapshot.computed["computed.itemCount"]).toBe(1);
+      expect(result1.snapshot.computed["itemCount"]).toBe(1);
 
       // Add second todo
       const result2 = await computeWithContext(core, 
@@ -432,7 +432,7 @@ describe("Core Integration", () => {
       );
 
       expect(result2.snapshot.data.items).toHaveLength(2);
-      expect(result2.snapshot.computed["computed.itemCount"]).toBe(2);
+      expect(result2.snapshot.computed["itemCount"]).toBe(2);
     });
 
     it("handles ternary expressions in computed", async () => {
@@ -463,7 +463,7 @@ describe("Core Integration", () => {
           snapshot,
           createTestIntent("setScore", { value: score })
         );
-        expect(r.snapshot.computed["computed.grade"]).toBe(expectedGrade);
+        expect(r.snapshot.computed["grade"]).toBe(expectedGrade);
       };
 
       await test(95, "A");

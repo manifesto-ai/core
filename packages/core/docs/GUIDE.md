@@ -47,7 +47,7 @@ const schema: DomainSchema = {
   },
   computed: {
     fields: {
-      "computed.count": {
+      "count": {
         deps: ["count"],
         expr: { kind: "get", path: "count" },
       },
@@ -159,7 +159,7 @@ const schemaWithEffect: DomainSchema = {
   },
   computed: {
     fields: {
-      "computed.user": {
+      "user": {
         deps: ["user"],
         expr: { kind: "get", path: "user" },
       },
@@ -284,7 +284,7 @@ const schema: DomainSchema = {
   },
   computed: {
     fields: {
-      "computed.total": {
+      "total": {
         deps: ["items"],
         expr: { kind: "length", arg: { kind: "get", path: "items" } },
       },
@@ -297,7 +297,7 @@ const schema: DomainSchema = {
 
 const context = { now: 0, randomSeed: "seed" };
 const snapshot = createSnapshot({ items: [] }, schema.hash, context);
-const explanation = core.explain(schema, snapshot, "computed.total");
+const explanation = core.explain(schema, snapshot, "total");
 
 console.log(explanation);
 // → { value: 0, deps: ["items"], trace: [...] }
@@ -433,7 +433,7 @@ console.log(result.errors);
 // Ensure deps are correct
 const computed = {
   fields: {
-    "computed.total": {
+    "total": {
       deps: ["items"],  // Must match actual paths
       expr: { kind: "length", arg: { kind: "get", path: "items" } },
     },

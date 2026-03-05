@@ -56,8 +56,8 @@ describe("E2E Compilation", () => {
         expect(schema.state.fields.count.default).toBe(0);
 
         // Check computed
-        expect(schema.computed.fields).toHaveProperty("computed.doubled");
-        expect(schema.computed.fields).toHaveProperty("computed.isPositive");
+        expect(schema.computed.fields).toHaveProperty("doubled");
+        expect(schema.computed.fields).toHaveProperty("isPositive");
 
         // Check actions
         expect(schema.actions).toHaveProperty("increment");
@@ -137,7 +137,7 @@ describe("E2E Compilation", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.y"].expr;
+        const expr = result.schema.computed.fields["y"].expr;
         expect(expr.kind).toBe("mul");
       }
     });
@@ -152,7 +152,7 @@ describe("E2E Compilation", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.sign"].expr;
+        const expr = result.schema.computed.fields["sign"].expr;
         expect(expr.kind).toBe("if");
       }
     });
@@ -181,7 +181,7 @@ describe("E2E Compilation", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const expr = result.schema.computed.fields["computed.items"].expr;
+        const expr = result.schema.computed.fields["items"].expr;
         expect(expr.kind).toBe("lit");
         if (expr.kind === "lit") {
           expect(expr.value).toEqual([1, 2, 3]);

@@ -618,7 +618,7 @@ describe("ManifestoWorld", () => {
           $mel: { guards: { guardA: "value" } },
         }),
         input: { transient: "input-should-remain" },
-        computed: { "computed.preview": 99 },
+        computed: { "preview": 99 },
         meta: {
           ...createTestSnapshot().meta,
           version: 42,
@@ -665,7 +665,7 @@ describe("ManifestoWorld", () => {
         guards: { guardA: "value" },
       });
       expect(receivedSnapshot!.input).toEqual({ transient: "input-should-remain" });
-      expect(receivedSnapshot!.computed).toEqual({ "computed.preview": 99 });
+      expect(receivedSnapshot!.computed).toEqual({ "preview": 99 });
       expect(receivedSnapshot!.meta.version).toBe(42);
       expect(receivedSnapshot!.meta.timestamp).toBe(1700000000000);
       expect(receivedSnapshot!.meta.randomSeed).toBe("raw-seed");

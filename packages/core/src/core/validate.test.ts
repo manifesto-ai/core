@@ -32,9 +32,9 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 };
 
 const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
-  "computed.dummy": {
-    expr: { kind: "get", path: "dummy" },
-    deps: ["dummy"],
+  "dummy": {
+    expr: { kind: "get", path: "x" },
+    deps: ["x"],
   },
 };
 
@@ -184,7 +184,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.total": {
+            "total": {
               expr: { kind: "add", left: { kind: "get", path: "a" }, right: { kind: "get", path: "b" } },
               deps: ["a", "b"],
             },
@@ -200,7 +200,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.sum": {
+            "sum": {
               expr: { kind: "add", left: { kind: "get", path: "a" }, right: { kind: "get", path: "b" } },
               deps: ["a"],
             },
@@ -218,7 +218,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.sum": {
+            "sum": {
               expr: { kind: "get", path: "a" },
               deps: ["a", "missing.path"],
             },
@@ -237,7 +237,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.invalid": {
+            "invalid": {
               expr: { kind: "get", path: "system.status" },
               deps: ["dummy"],
             },
@@ -256,13 +256,13 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.a": {
-              expr: { kind: "get", path: "computed.b" },
-              deps: ["computed.b"],
+            "a": {
+              expr: { kind: "get", path: "b" },
+              deps: ["b"],
             },
-            "computed.b": {
-              expr: { kind: "get", path: "computed.a" },
-              deps: ["computed.a"],
+            "b": {
+              expr: { kind: "get", path: "a" },
+              deps: ["a"],
             },
           },
         },
@@ -278,9 +278,9 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.self": {
-              expr: { kind: "get", path: "computed.self" },
-              deps: ["computed.self"],
+            "self": {
+              expr: { kind: "get", path: "self" },
+              deps: ["self"],
             },
           },
         },
@@ -296,17 +296,17 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.a": {
-              expr: { kind: "get", path: "computed.b" },
-              deps: ["computed.b"],
+            "a": {
+              expr: { kind: "get", path: "b" },
+              deps: ["b"],
             },
-            "computed.b": {
-              expr: { kind: "get", path: "computed.c" },
-              deps: ["computed.c"],
+            "b": {
+              expr: { kind: "get", path: "c" },
+              deps: ["c"],
             },
-            "computed.c": {
-              expr: { kind: "get", path: "computed.a" },
-              deps: ["computed.a"],
+            "c": {
+              expr: { kind: "get", path: "a" },
+              deps: ["a"],
             },
           },
         },
@@ -322,17 +322,17 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.a": {
+            "a": {
               expr: { kind: "get", path: "x" },
               deps: ["x"],
             },
-            "computed.b": {
-              expr: { kind: "get", path: "computed.a" },
-              deps: ["computed.a"],
+            "b": {
+              expr: { kind: "get", path: "a" },
+              deps: ["a"],
             },
-            "computed.c": {
-              expr: { kind: "get", path: "computed.b" },
-              deps: ["computed.b"],
+            "c": {
+              expr: { kind: "get", path: "b" },
+              deps: ["b"],
             },
           },
         },
@@ -652,7 +652,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.complex": {
+            "complex": {
               expr: {
                 kind: "if",
                 cond: {
@@ -683,7 +683,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.filtered": {
+            "filtered": {
               expr: {
                 kind: "filter",
                 array: { kind: "get", path: "items" },
@@ -705,13 +705,13 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "computed.a": {
-              expr: { kind: "get", path: "computed.b" },
-              deps: ["computed.b"],
+            "a": {
+              expr: { kind: "get", path: "b" },
+              deps: ["b"],
             },
-            "computed.b": {
-              expr: { kind: "get", path: "computed.a" },
-              deps: ["computed.a"],
+            "b": {
+              expr: { kind: "get", path: "a" },
+              deps: ["a"],
             },
           },
         },

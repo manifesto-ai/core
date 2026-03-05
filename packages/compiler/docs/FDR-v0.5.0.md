@@ -2111,7 +2111,7 @@ Mixing conventions creates confusion and potential bugs.
 | Intent input | `$input.title` | `input.title` | `ctx.input.*` |
 | Iteration var | `$item.name` | `$item.name` | `ctx.item.*` |
 | State | `user.name` | `user.name` | `ctx.snapshot.data.*` |
-| Computed | `computed.total` | `computed.total` | `ctx.snapshot.computed.*` |
+| Computed | `total` | `total` | `ctx.snapshot.computed.*` |
 
 `$item` retains $ because it's semantically distinct (iteration variable, not a snapshot path).
 
