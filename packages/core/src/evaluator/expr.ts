@@ -308,7 +308,7 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   }
 
   // Handle computed path (schema lookup, no prefix)
-  if (ctx.schema.computed.fields[path] !== undefined) {
+  if (Object.prototype.hasOwnProperty.call(ctx.schema.computed.fields, path)) {
     return ok(ctx.snapshot.computed[path]);
   }
 
