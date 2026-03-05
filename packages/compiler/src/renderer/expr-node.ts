@@ -259,10 +259,6 @@ function renderPath(path: string): string {
   if (path.startsWith("data.")) {
     return path.slice(5);
   }
-  if (path.startsWith("computed.")) {
-    return path.slice(9);
-  }
-
   return path;
 }
 

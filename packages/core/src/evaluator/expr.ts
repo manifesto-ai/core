@@ -307,8 +307,8 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(subPath ? getByPath(ctx.snapshot.input, subPath) : ctx.snapshot.input);
   }
 
-  // Handle computed path
-  if (path.startsWith("computed.")) {
+  // Handle computed path (schema lookup, no prefix)
+  if (ctx.schema.computed.fields[path] !== undefined) {
     return ok(ctx.snapshot.computed[path]);
   }
 

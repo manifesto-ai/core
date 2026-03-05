@@ -31,8 +31,8 @@ function explainWithTrace(
   path: SemanticPath,
   trace: ReturnType<typeof createTraceContext>
 ): ExplainResult {
-  // Check if it's a computed path
-  if (path.startsWith("computed.")) {
+  // Check if it's a computed path (schema lookup, no prefix)
+  if (schema.computed.fields[path] !== undefined) {
     return explainComputed(schema, snapshot, path, trace);
   }
 

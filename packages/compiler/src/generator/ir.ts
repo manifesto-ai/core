@@ -549,7 +549,7 @@ function generateComputed(domain: DomainNode, ctx: GeneratorContext): ComputedSp
       const expr = generateExpr(member.expression, ctx);
       const deps = extractDeps(expr);
 
-      fields[`computed.${member.name}`] = {
+      fields[member.name] = {
         deps,
         expr,
       };
@@ -893,7 +893,7 @@ function generatePath(path: PathNode, ctx: GeneratorContext): string {
     return joinPathPreserveEmptySegments(...segments);
   }
   if (ctx.computedFields.has(first)) {
-    return `computed.${joinPathPreserveEmptySegments(...segments)}`;
+    return joinPathPreserveEmptySegments(...segments);
   }
   if (ctx.currentAction && ctx.actionParams.get(ctx.currentAction)?.has(first)) {
     return `input.${joinPathPreserveEmptySegments(...segments)}`;
@@ -997,7 +997,7 @@ function generateIdentifier(name: string, ctx: GeneratorContext): CoreExprNode {
     return { kind: "get", path: name };
   }
   if (ctx.computedFields.has(name)) {
-    return { kind: "get", path: `computed.${name}` };
+    return { kind: "get", path: name };
   }
   if (ctx.currentAction && ctx.actionParams.get(ctx.currentAction)?.has(name)) {
     return { kind: "get", path: `input.${name}` };

@@ -39,6 +39,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-009](./009-structured-patch-path) | Structured PatchPath (Segments) | Accepted | 2026-02-25 | Core, Compiler, Host, Runtime, World |
 | [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted | 2026-02-27 | Core, Runtime, Host, World, SDK |
 | [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted | 2026-02-25 | Host, Runtime, World, SDK |
+| [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 

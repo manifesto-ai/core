@@ -318,8 +318,8 @@ function validateComputedExprPaths(
     const exprPaths = collectGetPathsFromExpr(spec.expr);
     const invalidPaths = exprPaths.filter((exprPath) => {
       if (exprPath.startsWith("$")) return false;
-      if (exprPath.startsWith("computed.")) {
-        return !pathExistsInComputedSpec(schema.computed, exprPath);
+      if (pathExistsInComputedSpec(schema.computed, exprPath)) {
+        return false;
       }
       if (exprPath.startsWith("input.")) {
         return true;
@@ -364,8 +364,8 @@ function validateComputedDepsCoverage(
         if (exprPath === "meta" || exprPath.startsWith("meta.")) {
           return false;
         }
-        if (exprPath.startsWith("computed.")) {
-          return pathExistsInComputedSpec(schema.computed, exprPath);
+        if (pathExistsInComputedSpec(schema.computed, exprPath)) {
+          return true;
         }
         return pathExistsInStateSpec(schema.state, exprPath);
       })
@@ -415,14 +415,7 @@ function validateActionExprPaths(
         continue;
       }
 
-      if (exprPath.startsWith("computed.")) {
-        if (!pathExistsInComputedSpec(schema.computed, exprPath)) {
-          errors.push({
-            code: "V-003",
-            message: `Unknown computed path: ${exprPath}`,
-            path: `actions.${actionName}`,
-          });
-        }
+      if (pathExistsInComputedSpec(schema.computed, exprPath)) {
         continue;
       }
 

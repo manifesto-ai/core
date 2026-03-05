@@ -65,11 +65,11 @@ console.log(app.getState().data.doc.status); // "published"
 
 ```typescript
 const state = app.getState();
-const canPublish = state.computed["computed.canPublish"];
+const canPublish = state.computed["canPublish"];
 
 // UI is a projection of Snapshot — no separate state management needed
 <button disabled={!canPublish} onClick={() => app.act("publish")}>
-  Publish ({state.computed["computed.sectionCount"]} sections)
+  Publish ({state.computed["sectionCount"]} sections)
 </button>
 ```
 
@@ -245,7 +245,7 @@ await app.ready();
 await app.act("increment").done();
 await app.act("increment").done();
 console.log(app.getState().data.count);                  // 2
-console.log(app.getState().computed["computed.doubled"]); // 4
+console.log(app.getState().computed["doubled"]); // 4
 
 await app.dispose();
 ```

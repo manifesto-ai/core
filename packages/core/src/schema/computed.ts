@@ -31,8 +31,7 @@ export type ComputedFieldSpec = z.infer<typeof ComputedFieldSpec>;
  */
 export const ComputedSpec = z.object({
   /**
-   * Computed field definitions keyed by their semantic path.
-   * Paths typically start with "computed." prefix.
+   * Computed field definitions keyed by bare name (e.g., "activeCount").
    */
   fields: z.record(SemanticPath, ComputedFieldSpec),
 });

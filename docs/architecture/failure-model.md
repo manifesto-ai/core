@@ -219,12 +219,12 @@ async function fetchUserHandler(params) {
       "kind": "if",
       "cond": {
         "kind": "not",
-        "arg": { "kind": "get", "path": "computed.isValid" }
+        "arg": { "kind": "get", "path": "isValid" }
       },
       "then": {
         "kind": "fail",
         "code": "VALIDATION_ERROR",
-        "message": { "kind": "get", "path": "computed.validationMessage" }
+        "message": { "kind": "get", "path": "validationMessage" }
       }
     },
     {

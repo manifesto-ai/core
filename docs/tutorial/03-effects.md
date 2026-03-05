@@ -263,11 +263,11 @@ Use the computed values in your app:
 ```typescript
 const state = app.getState();
 
-if (state.computed["computed.isLoading"]) {
+if (state.computed["isLoading"]) {
   console.log("Loading...");
-} else if (state.computed["computed.hasError"]) {
+} else if (state.computed["hasError"]) {
   console.log("Error:", state.data.error);
-} else if (state.computed["computed.hasUser"]) {
+} else if (state.computed["hasUser"]) {
   console.log("User:", state.data.user);
 }
 ```

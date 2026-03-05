@@ -36,9 +36,9 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 };
 
 const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
-  "computed.dummy": {
-    expr: { kind: "get", path: "dummy" },
-    deps: ["dummy"],
+  "dummy": {
+    expr: { kind: "get", path: "count" },
+    deps: ["count"],
   },
 };
 
@@ -407,7 +407,7 @@ describe("compute", () => {
       const schema = createTestSchema({
         computed: {
           fields: {
-            "computed.total": {
+            "total": {
               expr: {
                 kind: "add",
                 left: { kind: "coalesce", args: [{ kind: "get", path: "a" }, { kind: "lit", value: 0 }] },
@@ -435,7 +435,7 @@ describe("compute", () => {
 
       expect(result.status).toBe("complete");
       expect(result.snapshot.data).toEqual({ a: 100, b: 20 });
-      expect(result.snapshot.computed["computed.total"]).toBe(120);
+      expect(result.snapshot.computed["total"]).toBe(120);
     });
   });
 
@@ -606,7 +606,7 @@ describe("compute", () => {
       const schema = createTestSchema({
         computed: {
           fields: {
-            "computed.activeCount": {
+            "activeCount": {
               expr: {
                 kind: "len",
                 arg: {
@@ -648,7 +648,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.computed["computed.activeCount"]).toBe(0);
+      expect(result.snapshot.computed["activeCount"]).toBe(0);
     });
 
     it("should handle sequential operations with state dependencies", async () => {

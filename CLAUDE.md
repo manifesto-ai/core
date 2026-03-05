@@ -278,7 +278,7 @@ type FieldRef<T> = {
 
 type ComputedRef<T> = {
   readonly __kind: 'ComputedRef';
-  readonly path: `computed.${string}`;
+  readonly path: string;
   readonly _type?: T;
 };
 ```

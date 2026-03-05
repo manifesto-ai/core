@@ -57,9 +57,9 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 };
 
 const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
-  "computed.dummy": {
-    expr: { kind: "get", path: "dummy" },
-    deps: ["dummy"],
+  "dummy": {
+    expr: { kind: "get", path: "count" },
+    deps: ["count"],
   },
 };
 

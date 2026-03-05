@@ -21,13 +21,13 @@ describe("apply", () => {
       },
       computed: {
         fields: {
-          "computed.a": {
-            expr: { kind: "get", path: "computed.b" },
-            deps: ["computed.b"],
+          "a": {
+            expr: { kind: "get", path: "b" },
+            deps: ["b"],
           },
-          "computed.b": {
-            expr: { kind: "get", path: "computed.a" },
-            deps: ["computed.a"],
+          "b": {
+            expr: { kind: "get", path: "a" },
+            deps: ["a"],
           },
         },
       },
@@ -172,7 +172,7 @@ describe("apply", () => {
       },
       computed: {
         fields: {
-          "computed.double": {
+          "double": {
             expr: {
               kind: "mul",
               left: { kind: "get", path: "count" },
@@ -192,7 +192,7 @@ describe("apply", () => {
       schema,
       snapshot,
       [
-        { op: "set", path: pp("computed.double"), value: 999 },
+        { op: "set", path: pp("double"), value: 999 },
         { op: "set", path: pp("meta.version"), value: 999 },
         { op: "set", path: pp("count"), value: 3 },
       ],
@@ -200,7 +200,7 @@ describe("apply", () => {
     );
 
     expect(result.data).toEqual({ count: 3 });
-    expect(result.computed["computed.double"]).toBe(6);
+    expect(result.computed["double"]).toBe(6);
     expect(result.meta.version).toBe(snapshot.meta.version + 1);
   });
 
