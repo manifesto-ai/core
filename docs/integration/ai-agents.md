@@ -1,374 +1,137 @@
 # AI Agent Integration
 
-> How AI collaborates with Manifesto
+> Let an agent propose intents against the same Snapshot model your human-facing code uses.
 
-## Overview
+---
 
-In Manifesto, AI agents are Actors equal to humans.
-This guide covers patterns for AI generating and executing Intents.
+## The Core Idea
 
-## The Translator Pipeline
+An AI agent should not mutate state directly. It should produce intent candidates and submit them through the same public SDK contract:
 
-Manifesto provides a Translator that converts natural language to Intent Graphs.
+1. Build or receive an intent description
+2. Convert it to a real `Intent`
+3. Dispatch it
+4. Read the resulting snapshot or telemetry
 
-```
-Natural Language → Translator → Intent Graph → Manifesto Core
-```
+That keeps humans, agents, and automation on one state model.
 
-### Pipeline Architecture
+---
 
-```typescript
-import { TranslatorPipeline } from "@manifesto-ai/translator";
-import { OpenAIAdapter } from "@manifesto-ai/translator-adapter-openai";
-import { manifestoExporter } from "@manifesto-ai/translator-target-manifesto";
-
-// 1. Create pipeline with LLM adapter
-const pipeline = new TranslatorPipeline(
-  decomposer,   // Breaks text into chunks
-  translator,   // Translates chunks to Intent IR
-  merger,       // Merges chunk graphs
-  { concurrency: 5 }
-);
-
-// 2. Process natural language
-const result = await pipeline.process(
-  "Add a task to review the PR and mark it as high priority"
-);
-
-// 3. Export to Manifesto format
-const bundle = await manifestoExporter.export(
-  { graph: result.graph },
-  exportContext
-);
-```
-
-### Intent Graph Structure
+## A Small Pattern
 
 ```typescript
-interface IntentGraph {
-  readonly nodes: readonly IntentNode[];
-  readonly meta?: GraphMeta;
-}
+import { createIntent, type ManifestoInstance, type Snapshot } from "@manifesto-ai/sdk";
 
-interface IntentNode {
-  readonly id: IntentNodeId;
-  readonly ir: IntentIR;              // Intent IR instance
-  readonly resolution: Resolution;    // Resolved | Ambiguous | Abstract
-  readonly dependsOn: readonly IntentNodeId[];
-}
-```
+export async function dispatchAsync(
+  manifesto: ManifestoInstance,
+  type: string,
+  input?: unknown,
+): Promise<Snapshot> {
+  const intentId = crypto.randomUUID();
+  const intent =
+    input === undefined
+      ? createIntent(type, intentId)
+      : createIntent(type, input, intentId);
 
-### Resolution Status
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      offCompleted();
+      offRejected();
+      offFailed();
+    };
 
-| Status | Meaning | Action |
-|--------|---------|--------|
-| **Resolved** | All required info complete | Ready to execute |
-| **Ambiguous** | Some info unclear | Needs clarification |
-| **Abstract** | Too vague | Needs decomposition |
+    const offCompleted = manifesto.on("dispatch:completed", (event) => {
+      if (event.intentId !== intentId) return;
+      cleanup();
+      resolve(event.snapshot!);
+    });
+    const offRejected = manifesto.on("dispatch:rejected", (event) => {
+      if (event.intentId !== intentId) return;
+      cleanup();
+      reject(new Error(event.reason ?? "Dispatch rejected"));
+    });
+    const offFailed = manifesto.on("dispatch:failed", (event) => {
+      if (event.intentId !== intentId) return;
+      cleanup();
+      reject(event.error ?? new Error("Dispatch failed"));
+    });
 
-## Basic Usage
-
-### Step 1: Set Up Pipeline
-
-```typescript
-import {
-  TranslatorPipeline,
-  SentenceBasedDecomposer,
-  LlmTranslator,
-  ConservativeMerger
-} from "@manifesto-ai/translator";
-import { OpenAIAdapter } from "@manifesto-ai/translator-adapter-openai";
-
-const llm = new OpenAIAdapter({
-  model: "gpt-4",
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-const pipeline = new TranslatorPipeline(
-  new SentenceBasedDecomposer(),
-  new LlmTranslator(llm),
-  new ConservativeMerger()
-);
-```
-
-### Step 2: Natural Language → Intent Graph
-
-```typescript
-const result = await pipeline.process(
-  "Add a task to review the PR and mark it as high priority"
-);
-
-// Check pipeline result
-console.log(result.meta);
-// { chunkCount: 1, nodeCount: 2, processingTimeMs: 1234, hasOverlap: false }
-
-// Inspect nodes
-for (const node of result.graph.nodes) {
-  console.log(node.ir.event.lemma);  // "add", "mark"
-  console.log(node.resolution.status);  // "Resolved"
-}
-```
-
-### Step 3: Intent Graph → Manifesto Intent
-
-```typescript
-import { manifestoExporter } from "@manifesto-ai/translator-target-manifesto";
-
-const bundle = await manifestoExporter.export(
-  { graph: result.graph },
-  {
-    resolver: myResolver,
-    lexicon: myLexicon,
-    strictValidation: true
-  }
-);
-
-// Execute ready steps
-for (const step of bundle.invocationPlan.steps) {
-  if (step.lowering.status === "ready") {
-    await app.dispatch(step.lowering.intentBody);
-  }
-}
-```
-
-## Human-in-the-Loop Pattern
-
-AI-generated Intents that require human approval:
-
-```typescript
-async function processWithHumanApproval(userMessage: string) {
-  // 1. AI generates Intent Graph
-  const result = await pipeline.process(userMessage);
-
-  // 2. Check for ambiguous nodes
-  const ambiguous = result.graph.nodes.filter(
-    n => n.resolution.status === "Ambiguous"
-  );
-
-  if (ambiguous.length > 0) {
-    // 3. Collect clarification questions
-    const questions = ambiguous.flatMap(n =>
-      n.resolution.questions ?? []
-    );
-
-    // 4. Ask user
-    const answers = await askUser(questions);
-
-    // 5. Re-process with answers
-    // (Implementation depends on pipeline configuration)
-  }
-
-  // 6. Show plan to user for approval
-  const bundle = await manifestoExporter.export(
-    { graph: result.graph },
-    exportContext
-  );
-
-  const approved = await getUserApproval({
-    steps: bundle.invocationPlan.steps,
-    summary: generateSummary(bundle)
+    manifesto.dispatch(intent);
   });
-
-  if (!approved) {
-    return { status: "cancelled" };
-  }
-
-  // 7. Execute approved intents
-  const results = [];
-  for (const step of bundle.invocationPlan.steps) {
-    if (step.lowering.status === "ready") {
-      const result = await app.dispatch(step.lowering.intentBody);
-      results.push(result);
-    }
-  }
-
-  return { status: "completed", results };
 }
 ```
 
-## Authority Configuration
+Your agent can now work with the same lifecycle as the rest of the application.
 
-Configure Authority for AI Actors:
+---
 
-```typescript
-// Register AI actor with policy_rules authority
-world.registerActor(
-  { actorId: "ai-agent-1", kind: "ai" },
-  {
-    mode: "policy_rules",
-    rules: [
-      // Auto-approve safe actions
-      { match: { intentType: "addTask" }, decision: "approved" },
-      { match: { intentType: "updateTaskTitle" }, decision: "approved" },
-      { match: { intentType: "completeTask" }, decision: "approved" },
-      // Dangerous actions require human approval
-      { match: { intentType: "deleteAll" }, decision: "pending" },
-      { match: { intentType: "resetData" }, decision: "pending" },
-    ]
-  }
-);
-
-// For human-in-the-loop approvals, register a HITL callback
-world.onHITLRequired((state) => {
-  console.log("Human decision needed:", state.proposal);
-  // Present to human for approval/rejection
-});
-```
-
-## MEL Generation Pattern
-
-AI generating MEL code directly:
+## Example: Agent Produces Intent Candidates
 
 ```typescript
-async function generateMelAction(description: string, schema: Schema) {
-  const prompt = `
-Generate a MEL action for: ${description}
+type IntentCandidate = {
+  type: string;
+  input?: unknown;
+};
 
-Schema context:
-${JSON.stringify(schema, null, 2)}
+async function runAgentTurn(
+  manifesto: ManifestoInstance,
+  candidate: IntentCandidate,
+) {
+  const snapshot = await dispatchAsync(
+    manifesto,
+    candidate.type,
+    candidate.input,
+  );
 
-Rules:
-- Use 'when' guards for re-entry safety
-- Use state paths from the schema
-- Keep actions focused and single-purpose
-
-Example:
-action addTask(title: string) {
-  when true {
-    patch data.tasks = append(data.tasks, {
-      id: input.id,
-      title: input.title,
-      completed: false
-    })
-  }
-}
-`;
-
-  const melCode = await llm.generate(prompt);
-
-  // Validate generated MEL
-  const validated = melCompiler.validate(melCode);
-
-  if (validated.errors.length > 0) {
-    // Log errors for improvement
-    console.error("MEL validation failed:", validated.errors);
-    return null;
-  }
-
-  return melCode;
+  return snapshot.data;
 }
 ```
 
-## Extension Candidates
+The agent does not need a special write path. It needs a good way to choose the next intent.
 
-When Intent lowering fails, the pipeline generates extension candidates:
+---
 
-```typescript
-const bundle = await manifestoExporter.export(
-  { graph: result.graph },
-  exportContext
-);
+## Optional Governance With World
 
-// Check for extension candidates
-for (const candidate of bundle.extensionCandidates) {
-  console.log("Suggested MEL extension:");
-  console.log(candidate.payload.template);
-  console.log("Would enable:", candidate.wouldEnable);
-}
+If agent actions require approval, lineage, or explicit actor tracking, add `@manifesto-ai/world` as a separate integration step. A typical governed flow looks like this:
 
-// Example candidate:
-// {
-//   nodeId: "node_1",
-//   kind: "mel",
-//   payload: {
-//     template: "action markHighPriority(taskId: string) { ... }",
-//     reason: "UNSUPPORTED_EVENT"
-//   },
-//   wouldEnable: ["node_1"]
-// }
+```text
+agent proposal -> World authority check -> approved intent -> Host/Core -> next Snapshot
 ```
 
-## Best Practices
+That is a higher-level deployment choice. It is not automatically wired by `createManifesto()`.
 
-### 1. Always Check Resolution Status
+---
 
-```typescript
-// Don't execute ambiguous or abstract nodes
-const readyNodes = result.graph.nodes.filter(
-  n => n.resolution.status === "Resolved"
-);
-```
+## Where the Translator Fits
 
-### 2. Configure Appropriate Authority
+If you use the translator stack, treat its output as intent candidates or plans. The final step is still the same:
 
-```typescript
-// AI actions should have explicit authority rules
-// Don't use permissive defaults for AI actors
-```
+- lower the result to a Manifesto intent shape
+- create a stable `intentId`
+- dispatch it or route it through World
 
-### 3. Use Trace for Auditing
+Keep the boundary clean: the agent proposes, the Manifesto runtime applies the resulting state transition.
 
-```typescript
-// Every AI action is traced
-const result = await app.dispatch(intent);
-await auditLog.record({
-  actor: aiActor,
-  intent,
-  trace: result.trace,
-  timestamp: Date.now()
-});
-```
+---
 
-### 4. Start with Conservative Automation
+## Common Mistakes
 
-```typescript
-// Phase 1: All AI actions require approval
-// Phase 2: Safe actions auto-approved
-// Phase 3: Learned patterns auto-approved
-```
+### Letting the agent bypass the SDK
 
-### 5. Handle Failures Gracefully
+If the agent edits storage or UI state directly, humans and automation stop sharing one truth.
 
-```typescript
-for (const step of bundle.invocationPlan.steps) {
-  switch (step.lowering.status) {
-    case "ready":
-      await execute(step);
-      break;
-    case "deferred":
-      await queueForClarification(step);
-      break;
-    case "failed":
-      await logFailure(step);
-      await suggestExtension(step);
-      break;
-  }
-}
-```
+### Hiding approval logic in the agent layer
 
-## Diagnostics
+If you need explicit approval, model it in World or application policy, not in ad-hoc prompt logic alone.
 
-The pipeline provides rich diagnostics:
+### Forgetting to persist the resulting snapshot
 
-```typescript
-const result = await pipeline.process(text);
+The agent should reason from Snapshot, not from a private memory of what it thinks happened.
 
-// Access diagnostics
-const diagnostics = result.diagnostics;
+---
 
-// Warnings
-for (const warning of diagnostics.warnings) {
-  console.warn(warning.message);
-}
+## Next
 
-// Info
-for (const info of diagnostics.info) {
-  console.log(info.message);
-}
-```
-
-## See Also
-
-- [Why AI Needs a Deterministic Protocol](/concepts/ai-native-os-layer) — Design motivation
-- [World Concept](/concepts/world) — Authority details
-- [Effect Handlers](/guides/effect-handlers) — External integration patterns
+- Read [React](./react) to connect the same instance to a UI
+- Read [Architecture](/architecture/) when you want the bigger system model

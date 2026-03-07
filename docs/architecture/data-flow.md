@@ -1,208 +1,95 @@
 # Data Flow
 
-> **Extracted from:** docs-original/ARCHITECTURE.md
-> **Purpose:** Understanding how data moves through Manifesto's layers
+> Follow one intent from caller input to the next terminal snapshot.
 
 ---
 
-## Overview
+## Default SDK Flow
 
-Manifesto enforces a strict unidirectional data flow through its layers. Understanding this flow is critical to avoiding category errors where developers expect bidirectional communication or hidden state channels.
+In the default path, a caller submits an intent through the SDK:
+
+```text
+caller
+  -> createIntent()
+  -> manifesto.dispatch()
+  -> Host
+  -> Core
+  -> terminal Snapshot
+  -> subscribe()/on()/getSnapshot()
+```
+
+That is the core loop a new developer should keep in mind.
 
 ---
 
-## Primary Flow: Intent Execution
+## Step by Step
 
-```
-User ─────────┐
-              │ 1. Click button
-              ▼
-         ┌─────────┐
-         │   App   │ 2. app.act("action", input)
-         └────┬────┘
-              │
-              ▼
-         ┌─────────┐
-         │ World   │ 3. Evaluate authority
-         └────┬────┘
-              │
-              ▼
-         ┌─────────┐
-         │  Host   │ 4. Run compute loop
-         └────┬────┘
-              │
-              ▼
-         ┌─────────┐
-         │  Core   │ 5. Compute patches/effects
-         └────┬────┘
-              │
-         New Snapshot
-```
+### 1. The caller creates an Intent
 
-### Step-by-step Explanation
+Usually with `createIntent(type, input, intentId)`.
 
-1. **User Action**: User clicks a button in the UI
-2. **App Dispatch**: Application calls `app.act("action", input)`
-3. **Authority Evaluation**: World checks if actor is authorized
-4. **Host Execution**: Host runs compute-effect loop until completion
-5. **Core Computation**: Core produces patches and effect declarations
-6. **Snapshot Update**: New snapshot propagates to subscribers via `app.subscribe()`
+### 2. SDK enqueues the work
+
+`dispatch()` is synchronous enqueue-only. It does not return the result of the action.
+
+### 3. Host runs the compute/execution loop
+
+Host evaluates the domain flow, fulfills declared work, and applies patches.
+
+### 4. Core computes semantic changes
+
+Core stays pure. Given the same schema, snapshot, and intent, it computes the same result.
+
+### 5. SDK publishes the terminal snapshot
+
+Once the intent reaches a terminal result, consumers observe it through:
+
+- `subscribe()` for selected state changes
+- `on()` for lifecycle telemetry
+- `getSnapshot()` for direct reads
 
 ---
 
-## Secondary Flow: Effect Handling
+## Effect Flow
 
-```
-Core declares effect
-        │
-        ▼
-┌───────────────┐
-│  Requirement  │ (stored in snapshot.system.pendingRequirements)
-└───────┬───────┘
-        │
-        ▼
-┌───────────────┐
-│    Host       │ Reads requirement, calls handler
-└───────┬───────┘
-        │
-        ▼
-┌───────────────┐
-│ Effect Handler│ Executes IO (API call, etc.)
-└───────┬───────┘
-        │
-        ▼
-   EffectResult
-  (patches to apply)
-        │
-        ▼
-┌───────────────┐
-│    Core       │ Apply patches, recompute
-└───────────────┘
+If an action declares an effect, the flow expands like this:
+
+```text
+intent
+  -> Core evaluates action
+  -> effect declared
+  -> Host runs matching effect handler
+  -> handler returns patches
+  -> patches applied
+  -> next terminal Snapshot
 ```
 
-### Critical Principle
-
-**Effects do NOT return values to Flows.** They return patches that modify Snapshot. The next compute() reads the result from Snapshot.
-
-```typescript
-const context = { now: 0, randomSeed: "seed" };
-
-// WRONG: Effect returning value
-const result = await executeEffect();
-await core.compute(schema, snapshot, { ...intent, result }, context); // Hidden channel!
-
-// RIGHT: Effect returns patches
-const patches = await executeEffect(); // [{ op: "set", path: "result", value: ... }]
-snapshot = core.apply(schema, snapshot, patches, context);
-await core.compute(schema, snapshot, intent, context); // Reads result from Snapshot
-```
+The effect handler does not bypass Snapshot. Its output still lands as patches.
 
 ---
 
-## Component Interactions
+## Optional Governed Flow
 
-```
-┌──────────┐               ┌──────────┐
-│   App    │──────────────▶│  World   │
-└──────────┘               └──────────┘
-     │                          │
-     │ composes                 │ uses
-     ▼                          ▼
-┌──────────┐               ┌──────────┐
-│ Compiler │               │   Host   │
-└──────────┘               └──────────┘
-                                │
-                                │ calls
-                                ▼
-                           ┌──────────┐
-                           │   Core   │
-                           └──────────┘
+When you need explicit authority and lineage, add World in front of execution:
+
+```text
+participant
+  -> proposal / approval flow in World
+  -> approved intent
+  -> Host
+  -> Core
+  -> Snapshot + lineage records
 ```
 
-| Component | Knows About | Created By | Consumed By |
-|-----------|-------------|------------|-------------|
-| DomainSchema | Core types | Compiler | Core, Host |
-| Snapshot | - | Core | Everyone |
-| World | Proposal, Decision | World | App |
-| Requirement | Effect params | Core | Host |
+That is a deliberate deployment choice, not an implicit part of the basic SDK onboarding path.
 
 ---
 
-## The Snapshot Principle
+## What New Developers Should Remember
 
-> **All communication happens through Snapshot. There is no other channel.**
+- `dispatch()` submits work
+- Snapshot is the visible result
+- Effects still resolve through patches
+- World is optional and explicit
 
-- Effects do NOT "return" values to Flows
-- Effects produce Patches that modify Snapshot
-- The next computation reads from the modified Snapshot
-- **There is no suspended execution context**
-- **All continuity is expressed exclusively through Snapshot**
-
-### Example: Correct Pattern
-
-```
-WRONG:  result ← effect('api:call')    // Implies value passing
-        if result.ok then ...
-
-RIGHT:  effect('api:call')             // Declares requirement
-        // Host fulfills requirement by patching snapshot
-        // Next compute() reads snapshot.api.result
-        if snapshot.api.result.ok then ...
-```
-
----
-
-## Computation Cycle
-
-Each `compute()` call is **complete and independent**:
-
-```
-compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
-```
-
-- If `requirements` is empty: computation is **complete**
-- If `requirements` is non-empty: Host MUST fulfill them, then call `compute()` **again**
-- There is no "resume". Each `compute()` is a fresh calculation
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    COMPUTATION CYCLE                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Host calls: compute(snapshot, intent, context)                 │
-│                     │                                            │
-│                     ▼                                            │
-│  ┌─────────────────────────────────────┐                        │
-│  │ Core evaluates Flow until:          │                        │
-│  │   - Flow completes (requirements=[])│                        │
-│  │   - Effect encountered (req=[...])  │                        │
-│  │   - Error occurs                    │                        │
-│  └─────────────────────────────────────┘                        │
-│                     │                                            │
-│                     ▼                                            │
-│  Returns: (snapshot', requirements, trace)                      │
-│                     │                                            │
-│         ┌──────────┴──────────┐                                 │
-│         ▼                     ▼                                 │
-│   requirements=[]       requirements=[r1,r2]                    │
-│   (DONE)                      │                                 │
-│                               ▼                                 │
-│                    Host executes effects                        │
-│                    Host applies patches                         │
-│                               │                                 │
-│                               ▼                                 │
-│                    Host calls compute() AGAIN                   │
-│                    with same intent + context                   │
-│                    with new snapshot                            │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Related Documents
-
-- [Layer Model](/internals/architecture) - Understanding the layered architecture
-- [Snapshot](/concepts/snapshot) - The single medium of communication
-- [Effect](/concepts/effect) - How effects work
-- [Design Rationale](/internals/fdr/) - FDRs including Core design rationale
+If those four points are clear, the rest of the architecture follows naturally.

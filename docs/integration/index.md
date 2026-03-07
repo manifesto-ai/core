@@ -1,45 +1,55 @@
 # Integration
 
-> Connect Manifesto with UI frameworks, AI agents, and evolving schemas.
+> Connect a `ManifestoInstance` to the rest of your system.
 
 ---
 
-## Available Integrations
+## What Integration Means Today
 
-| Integration | Description | Prerequisites |
-|-------------|-------------|---------------|
-| [React](./react) | Hooks, Provider, selective re-rendering | Tutorial completed |
-| [AI Agents](./ai-agents) | Translator pipeline, natural language to intents | Tutorial completed, basic LLM knowledge |
+The current SDK gives you one runtime handle:
+
+- `dispatch()` to submit intents
+- `subscribe()` to react to snapshot changes
+- `on()` to observe per-intent lifecycle events
+- `getSnapshot()` to read the latest terminal snapshot
+
+Every integration pattern in this section builds on those same methods.
 
 ---
 
-## How Integration Works
+## Available Integration Paths
 
-Manifesto's architecture separates **computation** (Core) from **execution** (Host) and **governance** (World). Integrations connect through the **App** layer:
+| Path | Use It When |
+|------|-------------|
+| [React](./react) | You want UI components to render snapshot slices |
+| [AI Agents](./ai-agents) | You want an agent to propose or execute intents |
 
+---
+
+## The Default Shape
+
+```text
+External system -> createIntent() -> manifesto.dispatch()
+                                     -> subscribe()/on()/getSnapshot()
 ```
-UI Framework  <-->  App  <-->  Host  <-->  Core
-AI Agent      <-->  App  <-->  Host  <-->  Core
-```
 
-App handles:
-- **Actions** -- UI events become domain intents via `app.act()`
-- **Subscriptions** -- State changes flow to subscribers via `app.subscribe()`
-- **Actor identity** -- Each integration source is a tracked actor
+That shape stays the same whether the caller is:
+
+- a React component
+- a server route
+- a CLI command
+- an AI worker
 
 ---
 
-## Coming Soon
+## Optional Governance
 
-- **Vue** -- Composition API integration
-- **Svelte** -- Store-based integration
-- **Angular** -- Service-based integration
-- **CLI** -- Command-line tools for automation
+If your integration needs explicit actor approval, audit lineage, or proposal review, add `@manifesto-ai/world` on top of the same Snapshot and Intent model. The default `createManifesto()` path does not wire World implicitly.
 
 ---
 
 ## See Also
 
-- **[Tutorial](/tutorial/)** -- Learn Manifesto basics first
-- **[How-to Guides](/guides/)** -- Solve specific problems
-- **[API Reference](/api/)** -- Package documentation
+- [Tutorial](/tutorial/) for the onboarding path
+- [Guides](/guides/) for effect handlers, debugging, and re-entry safety
+- [Architecture](/architecture/) for the broader system model

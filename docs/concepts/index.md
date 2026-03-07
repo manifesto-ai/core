@@ -118,7 +118,7 @@ compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 | What You Want | Which Concept | Where Defined |
 |---------------|---------------|---------------|
 | Store domain state | Snapshot | `snapshot.data` |
-| Request state change | Intent | `app.act("action", input)` |
+| Request state change | Intent | `manifesto.dispatch(createIntent("action", input, intentId))` |
 | Describe computation | Flow | MEL `action`, `when`, `once` |
 | Perform IO | Effect | MEL `effect type.name({ into: path })` |
 | Authorize actions | World | `world.registerActor(actor, policy)` |

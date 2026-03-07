@@ -1,56 +1,26 @@
-# Tutorial 3: Working with Effects
+# Working with Effects
 
-> **Time:** 25 minutes
-> **Goal:** Connect to external APIs and handle async operations
-
-In this tutorial, you'll build a user profile application that fetches data from an API, handles loading states, and manages errors gracefully.
+> Connect a pure domain to real IO without leaving the Snapshot model.
 
 ---
 
-## What You'll Build
+## What You'll Learn
 
-A user profile app with:
-- Fetch user data from an API
-- Loading and error state management
-- Retry functionality
+- What an effect declaration does in MEL
+- What an effect handler does in TypeScript
+- Why effect handlers return patches instead of values
+- How to model loading, success, and failure in `snapshot.data`
 
 ---
 
 ## Prerequisites
 
-Before starting, ensure you've completed:
-1. [Your First App](./01-your-first-app)
-2. [Actions and State](./02-actions-and-state)
+- You finished [Actions and State](./02-actions-and-state)
+- You still have the `dispatchAsync()` helper from tutorial 1
 
 ---
 
-## Understanding Effects
-
-**Effects are declarations, not executions.**
-
-When Core encounters an effect in a Flow:
-1. It records a **Requirement** in `snapshot.system.pendingRequirements`
-2. It returns with `status: 'pending'`
-3. **Host** executes the effect via a registered handler
-4. The handler returns **patches** (not values!)
-5. Host applies patches and calls `compute()` again
-6. Core sees the result in Snapshot
-
-```
-Core: "I need effect 'api.fetchUser' with params {id: '123'}"
-       ↓
-Host: Executes via registered handler
-       ↓
-Handler: Returns patches like [{op: 'set', path: 'user', value: {...}}]
-       ↓
-Host: Applies patches to Snapshot
-       ↓
-Core: Sees result in next compute cycle
-```
-
----
-
-## Step 1: Define State for API Data
+## 1. Declare the Effect in MEL
 
 Create `user-profile.mel`:
 
@@ -58,497 +28,186 @@ Create `user-profile.mel`:
 domain UserProfile {
   type User = {
     id: string,
-    name: string,
-    email: string
+    name: string
   }
 
   state {
-    status: "idle" | "loading" | "success" | "error" = "idle"
-    user: User | null = null
-    error: string | null = null
-  }
-}
-```
-
-**Key points:**
-- `status` tracks the request lifecycle
-- `user` holds the fetched data (null until loaded)
-- `error` stores error messages
-- Re-entry is guarded with `onceIntent` (stored in the platform `$mel` namespace)
-
----
-
-## Step 2: Add the Fetch Action
-
-```mel
-domain UserProfile {
-  type User = {
-    id: string,
-    name: string,
-    email: string
+    user: User? = null
+    loading: boolean = false
+    error: string? = null
+    requestedId: string? = null
   }
 
-  state {
-    status: "idle" | "loading" | "success" | "error" = "idle"
-    user: User | null = null
-    error: string | null = null
-  }
+  computed hasUser = neq(user, null)
 
   action fetchUser(id: string) {
     onceIntent {
-      patch status = "loading"
+      patch loading = true
       patch error = null
+      patch requestedId = id
       effect api.fetchUser({ id: id })
+    }
+  }
+
+  action reset() {
+    onceIntent {
+      patch user = null
+      patch loading = false
+      patch error = null
+      patch requestedId = null
     }
   }
 }
 ```
 
-**New concepts:**
+The important part is this line:
 
-| Element | Description |
-|---------|-------------|
-| `effect api.fetchUser({...})` | Declares an effect for Host to execute |
-| `patch status = "loading"` | Set loading state before effect |
-| `patch error = null` | Clear previous errors |
+```mel
+effect api.fetchUser({ id: id })
+```
 
-**Important:** The `onceIntent` guard prevents the effect from being declared multiple times and stores its guard state in `$mel` (no extra schema fields required).
+That does not execute the request by itself. It declares a requirement for the Host layer to fulfill.
 
 ---
 
-## Step 3: Register the Effect Handler
+## 2. Implement the Effect Handler
+
+Create `effects.ts`:
+
+```typescript
+import type { EffectHandler } from "@manifesto-ai/sdk";
+
+export const effects = {
+  "api.fetchUser": async (params, ctx) => {
+    const { id } = params as { id: string };
+
+    try {
+      const response = await fetch(`https://example.com/users/${id}`);
+      if (!response.ok) {
+        throw new Error(`Request failed with ${response.status}`);
+      }
+
+      const user = (await response.json()) as { id: string; name: string };
+
+      return [
+        { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
+        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+        { op: "unset", path: [{ kind: "prop", name: "error" }] },
+      ];
+    } catch (error) {
+      return [
+        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+        {
+          op: "set",
+          path: [{ kind: "prop", name: "error" }],
+          value: error instanceof Error ? error.message : "Unknown error",
+        },
+      ];
+    }
+  },
+} satisfies Record<string, EffectHandler>;
+```
+
+Two details matter here:
+
+- The handler receives `params` plus `{ snapshot }`
+- The handler returns patches that update the domain
+
+It does not “return the fetched user to the action.” The next snapshot carries that result.
+
+---
+
+## 3. Run It
 
 Create `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
+import { dispatchAsync } from "./dispatch-async";
+import { effects } from "./effects";
 
-const app = createApp({
+const manifesto = createManifesto({
   schema: UserProfileMel,
-  effects: {
-    'api.fetchUser': async (params, ctx) => {
-      try {
-        const response = await fetch(`/api/users/${params.id}`);
-
-        if (!response.ok) {
-          return [
-            { op: 'set', path: 'data.status', value: 'error' },
-            { op: 'set', path: 'data.error', value: `HTTP ${response.status}` }
-          ];
-        }
-
-        const user = await response.json();
-
-        return [
-          { op: 'set', path: 'data.user', value: user },
-          { op: 'set', path: 'data.status', value: 'success' }
-        ];
-      } catch (error) {
-        return [
-          { op: 'set', path: 'data.status', value: 'error' },
-          { op: 'set', path: 'data.error', value: error.message }
-        ];
-      }
-    }
-  }
+  effects,
 });
 
-async function main() {
-  await app.ready();
+manifesto.subscribe(
+  (snapshot) => ({
+    loading: snapshot.data.loading,
+    error: snapshot.data.error,
+    user: snapshot.data.user,
+  }),
+  (view) => {
+    console.log("View state:", view);
+  },
+);
 
-  // Subscribe to status changes
-  app.subscribe(
-    (state) => state.data.status,
-    (status) => console.log("Status:", status)
-  );
+async function run() {
+  await dispatchAsync(manifesto, "fetchUser", { id: "123" });
 
-  // Fetch a user
-  await app.act("fetchUser", { id: "123" }).done();
+  const snapshot = manifesto.getSnapshot();
+  console.log("Has user:", snapshot.computed["hasUser"]);
+  console.log("User data:", snapshot.data.user);
 
-  // Check results
-  const state = app.getState();
-  if (state.data.status === "success") {
-    console.log("User:", state.data.user);
-  } else {
-    console.log("Error:", state.data.error);
-  }
+  manifesto.dispose();
 }
 
-main().catch(console.error);
+run().catch((error) => {
+  console.error(error);
+  manifesto.dispose();
+});
 ```
 
 ---
 
-## Step 4: Understanding the Handler Contract
+## What Just Happened
 
-Effect handlers MUST follow this contract:
+1. `fetchUser` declared `api.fetchUser`
+2. Host invoked the registered handler
+3. The handler returned patches
+4. Those patches became part of the next snapshot
+5. `subscribe()` and `getSnapshot()` saw the updated state
+
+That is the core pattern for all IO in Manifesto.
+
+---
+
+## Model the Result in State
+
+A practical effect-driven domain usually keeps these fields in `state`:
+
+- The current value, such as `user`
+- A loading flag
+- A recoverable error message
+- Enough context to retry later, such as `requestedId`
+
+This makes the result visible to UI, scripts, tests, and AI agents through the same Snapshot.
+
+---
+
+## Common Mistakes
+
+### Returning raw values from the handler
+
+This is wrong:
 
 ```typescript
-type EffectHandler = (
-  params: unknown,                    // Parameters from effect declaration
-  ctx: AppEffectContext               // Contains snapshot
-) => Promise<readonly Patch[]>;       // MUST return patches, NEVER throw
-```
-
-**Critical rules:**
-
-1. **Always return patches** - Never return raw values
-2. **Never throw** - Catch all errors and return error patches
-3. **No domain logic** - Handlers do IO only, domain logic stays in Flow
-4. **Only JSON-serializable values** - No functions, Dates, or class instances
-
-```typescript
-// WRONG: Returning value
 return user;
-
-// WRONG: Throwing
-throw new Error("Failed");
-
-// RIGHT: Returning patches
-return [
-  { op: 'set', path: 'data.user', value: user }
-];
-
-// RIGHT: Error as patches
-return [
-  { op: 'set', path: 'data.error', value: error.message }
-];
 ```
+
+Handlers must return `Patch[]`.
+
+### Throwing business failures out of the handler
+
+Network code may throw, but your handler should translate that failure into patches that keep the domain honest.
+
+### Hiding loading state outside the Snapshot
+
+If your UI needs `loading`, store it in domain state so every consumer sees the same truth.
 
 ---
 
-## Step 5: Handle Errors Gracefully
+## Next
 
-Update the MEL domain to add a reset action:
-
-```mel
-domain UserProfile {
-  type User = {
-    id: string,
-    name: string,
-    email: string
-  }
-
-  state {
-    status: "idle" | "loading" | "success" | "error" = "idle"
-    user: User | null = null
-    error: string | null = null
-  }
-
-  computed hasError = eq(status, "error")
-  computed isLoading = eq(status, "loading")
-  computed hasUser = isNotNull(user)
-
-  action fetchUser(id: string) {
-    onceIntent {
-      patch status = "loading"
-      patch error = null
-      effect api.fetchUser({ id: id })
-    }
-  }
-
-  action reset() {
-    onceIntent {
-      patch status = "idle"
-      patch user = null
-      patch error = null
-    }
-  }
-}
-```
-
-Use the computed values in your app:
-
-```typescript
-const state = app.getState();
-
-if (state.computed["isLoading"]) {
-  console.log("Loading...");
-} else if (state.computed["hasError"]) {
-  console.log("Error:", state.data.error);
-} else if (state.computed["hasUser"]) {
-  console.log("User:", state.data.user);
-}
-```
-
----
-
-## Step 6: Add Retry Functionality
-
-Update the domain with retry state:
-
-```mel
-domain UserProfile {
-  type User = {
-    id: string,
-    name: string,
-    email: string
-  }
-
-  state {
-    status: "idle" | "loading" | "success" | "error" = "idle"
-    user: User | null = null
-    error: string | null = null
-    lastUserId: string | null = null
-    retryCount: number = 0
-  }
-
-  computed hasError = eq(status, "error")
-  computed isLoading = eq(status, "loading")
-  computed hasUser = isNotNull(user)
-  computed canRetry = and(hasError, lt(retryCount, 3))
-
-  action fetchUser(id: string) {
-    onceIntent {
-      patch status = "loading"
-      patch error = null
-      patch lastUserId = id
-      patch retryCount = 0
-      effect api.fetchUser({ id: id })
-    }
-  }
-
-  action retry() available when canRetry {
-    onceIntent {
-      patch status = "loading"
-      patch error = null
-      patch retryCount = add(retryCount, 1)
-      effect api.fetchUser({ id: lastUserId })
-    }
-  }
-
-  action reset() {
-    onceIntent {
-      patch status = "idle"
-      patch user = null
-      patch error = null
-      patch lastUserId = null
-      patch retryCount = 0
-    }
-  }
-}
-```
-
-**Key patterns:**
-- `lastUserId` stores the ID for retry
-- `retryCount` tracks attempts
-- `canRetry` computed value limits retries to 3
-- `available when canRetry` disables retry when limit reached
-
----
-
-## Complete Example
-
-Here's the complete application:
-
-**user-profile.mel:**
-
-```mel
-domain UserProfile {
-  type User = {
-    id: string,
-    name: string,
-    email: string
-  }
-
-  state {
-    status: "idle" | "loading" | "success" | "error" = "idle"
-    user: User | null = null
-    error: string | null = null
-    lastUserId: string | null = null
-    retryCount: number = 0
-  }
-
-  computed hasError = eq(status, "error")
-  computed isLoading = eq(status, "loading")
-  computed hasUser = isNotNull(user)
-  computed canRetry = and(hasError, lt(retryCount, 3))
-
-  action fetchUser(id: string) {
-    onceIntent {
-      patch status = "loading"
-      patch error = null
-      patch lastUserId = id
-      patch retryCount = 0
-      effect api.fetchUser({ id: id })
-    }
-  }
-
-  action retry() available when canRetry {
-    onceIntent {
-      patch status = "loading"
-      patch error = null
-      patch retryCount = add(retryCount, 1)
-      effect api.fetchUser({ id: lastUserId })
-    }
-  }
-
-  action reset() {
-    onceIntent {
-      patch status = "idle"
-      patch user = null
-      patch error = null
-      patch lastUserId = null
-      patch retryCount = 0
-    }
-  }
-}
-```
-
-**main.ts:**
-
-```typescript
-import { createApp } from "@manifesto-ai/sdk";
-import UserProfileMel from "./user-profile.mel";
-
-// Mock API for testing
-const mockUsers = {
-  "123": { id: "123", name: "Alice", email: "alice@example.com" },
-  "456": { id: "456", name: "Bob", email: "bob@example.com" },
-};
-
-const app = createApp({
-  schema: UserProfileMel,
-  effects: {
-    'api.fetchUser': async (params, ctx) => {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const user = mockUsers[params.id as string];
-
-      if (!user) {
-        return [
-          { op: 'set', path: 'data.status', value: 'error' },
-          { op: 'set', path: 'data.error', value: 'User not found' }
-        ];
-      }
-
-      return [
-        { op: 'set', path: 'data.user', value: user },
-        { op: 'set', path: 'data.status', value: 'success' }
-      ];
-    }
-  }
-});
-
-async function main() {
-  await app.ready();
-
-  // Subscribe to all relevant state
-  app.subscribe(
-    (state) => ({
-      status: state.data.status,
-      user: state.data.user,
-      error: state.data.error,
-      retryCount: state.data.retryCount
-    }),
-    (data) => console.log("State:", data)
-  );
-
-  // Fetch existing user
-  console.log("\n--- Fetching user 123 ---");
-  await app.act("fetchUser", { id: "123" }).done();
-
-  // Reset and fetch non-existent user
-  console.log("\n--- Fetching user 999 (will fail) ---");
-  await app.act("reset").done();
-  await app.act("fetchUser", { id: "999" }).done();
-
-  // Try retry
-  console.log("\n--- Retrying ---");
-  await app.act("retry").done();
-
-  console.log("\nRetry count:", app.getState().data.retryCount);
-
-  await app.dispose();
-}
-
-main().catch(console.error);
-```
-
-Run with:
-
-```bash
-npx tsx main.ts
-```
-
----
-
-## Key Concepts Learned
-
-| Concept | Description |
-|---------|-------------|
-| **Effect declaration** | `effect type({ params })` - declares what Host should do |
-| **Effect handler** | Async function returning `Patch[]`, never throws |
-| **Loading states** | Use status enum: `"idle" \| "loading" \| "success" \| "error"` |
-| **Error handling** | Errors are patches to state, not exceptions |
-| **Retry pattern** | Store context for retry, track attempt count |
-| **Re-entry guard** | Use `onceIntent` for per-intent idempotency (guard stored in `$mel`) |
-
----
-
-## Exercises
-
-### Exercise 1: Add Cancel Functionality
-
-Add a `cancel` action that:
-- Sets status back to "idle"
-- Clears any error
-- Only available when loading
-
-### Exercise 2: Fetch Multiple Users
-
-Extend the domain to:
-- Store multiple users in `users: Record<string, User>`
-- Add `fetchUsers(ids: Array<string>)` action
-- Track loading state per user
-
-### Exercise 3: Add Caching
-
-Implement caching:
-- Store `fetchedAt: number | null` per user
-- Add `isCacheValid` computed (e.g., within 5 minutes)
-- Skip API call if cache is valid
-
----
-
-## What's Next?
-
-In the next tutorial, you'll learn about **Governance** - how to:
-- Control who can perform actions
-- Add authority checks
-- Implement approval workflows
-
-[Learn about World](/concepts/world) | [Effect Handlers Guide](/guides/effect-handlers)
-
----
-
-## Reference
-
-### Effect Handler Signature
-
-```typescript
-type EffectHandler = (
-  params: unknown,
-  ctx: AppEffectContext  // { snapshot: Readonly<Snapshot> }
-) => Promise<readonly Patch[]>;
-```
-
-### Patch Operations
-
-| Operation | Description |
-|-----------|-------------|
-| `{ op: 'set', path, value }` | Set value at path |
-| `{ op: 'unset', path }` | Remove value at path |
-| `{ op: 'merge', path, value }` | Shallow merge at path |
-
-### Common Effect Patterns
-
-| Pattern | Use Case |
-|---------|----------|
-| API GET | Fetch data from server |
-| API POST | Create/update resources |
-| Timer | Delayed operations |
-| Storage | Persist to localStorage/DB |
-| Log | Record events |
+Continue to [Building a Todo App](./04-todo-app) to assemble a larger example before adding a UI framework.

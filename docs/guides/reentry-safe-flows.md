@@ -1,492 +1,152 @@
-# Re-entry Safe Flows
+# Re-entry Safety
 
-> **Covers:** Re-entry safety patterns, state guards, common pitfalls
-> **Purpose:** Understanding and implementing re-entry safe flows
-> **Prerequisites:** Basic understanding of Flows and Effects
+> Prevent the same action or effect from running more than once for a single intent.
 
 ---
 
-## The Problem: Unbounded Re-execution
+## Why Re-entry Happens
 
-**Critical insight:** Because there's no `resume()` API in Manifesto, the same Flow will be evaluated **multiple times** for a single user action.
+Manifesto actions participate in a compute loop. If an action stays eligible while the loop revisits it, patches or effects can repeat.
 
-This is by design (see FDR-H003: No Pause/Resume), but it creates a challenge: **how do we prevent duplicate effects?**
-
----
-
-## Timeline: What Actually Happens
-
-### Unsafe Flow (WRONG)
-
-```mel
-action init() {
-  // NO GUARD - This is wrong!
-  effect api.init({})
-  patch initialized = true
-}
-```
-
-**Timeline of execution:**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Compute Cycle 1 (intent submitted)                             │
-├─────────────────────────────────────────────────────────────────┤
-│ Flow evaluation:                                                │
-│   1. effect api.init({})  → Requirement declared                │
-│   2. patch initialized = true  → Skipped (pending)              │
-│ Result: status="pending", requirements=[effect:api.init]        │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Host executes effect "api.init"                                 │
-│ Returns patches: [{ op: "set", path: "initData", ... }]         │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Compute Cycle 2 (auto-triggered by Host)                       │
-├─────────────────────────────────────────────────────────────────┤
-│ Flow evaluation:                                                │
-│   1. effect api.init({})  → Requirement declared AGAIN!         │
-│   2. patch initialized = true  → Skipped (pending)              │
-│ Result: status="pending", requirements=[effect:api.init]        │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Host executes effect "api.init" AGAIN                           │
-│ (Infinite loop! Effect keeps re-executing)                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Why This Happens
-
-1. Flow is **pure computation** — it has no memory of previous executions
-2. Each `compute()` call starts from the beginning of the Flow
-3. Without a state guard, the effect is **always** declared
-4. Host executes effect → triggers re-compute → effect declared again → infinite loop
-
----
-
-## The Solution: State Guards
-
-### Safe Flow with `onceIntent` (RECOMMENDED)
-
-The simplest solution is to use `onceIntent`, which automatically guards the block to run only once per intent:
-
-```mel
-domain Example {
-  state {
-    initialized: boolean = false
-    initData: object | null = null
-  }
-
-  action init() {
-    onceIntent {
-      effect api.init({})
-      patch initialized = true
-    }
-  }
-}
-```
-
-**How `onceIntent` works:**
-- Compiler generates a unique guard ID based on the action
-- Guard state is stored in `$mel.guards.intent`
-- Block executes only once per unique intentId
-
-### Safe Flow with Manual Guard (ALTERNATIVE)
-
-For more control, use explicit `when` guards:
-
-```mel
-domain Example {
-  state {
-    initialized: boolean = false
-    initData: object | null = null
-  }
-
-  action init() {
-    when not(initialized) {
-      effect api.init({})
-      patch initialized = true
-    }
-  }
-}
-```
-
-**Timeline of execution:**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Initial State: { initialized: false, initData: null }          │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Compute Cycle 1 (intent submitted)                             │
-├─────────────────────────────────────────────────────────────────┤
-│ Flow evaluation:                                                │
-│   1. when not(initialized)  → true, enter branch                │
-│   2. effect api.init({})  → Requirement declared                │
-│   3. patch initialized = true  → Skipped (pending)              │
-│ Result: status="pending", requirements=[effect:api.init]        │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Host executes effect "api.init"                                 │
-│ Returns patches:                                                │
-│   [{ op: "set", path: "initialized", value: true },             │
-│    { op: "set", path: "initData", value: {...} }]               │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Updated State: { initialized: true, initData: {...} }          │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Compute Cycle 2 (auto-triggered by Host)                       │
-├─────────────────────────────────────────────────────────────────┤
-│ Flow evaluation:                                                │
-│   1. when not(initialized)  → false, SKIP branch                │
-│ Result: status="complete", requirements=[]                      │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-                      ✓ Flow completes
-                   (Effect runs only once)
-```
-
----
-
-## Guard Patterns in MEL
-
-### Pattern 1: `onceIntent` (Simplest)
-
-Use when you want the action body to run exactly once per intent:
+That is why the beginner default is:
 
 ```mel
 action submit() {
   onceIntent {
-    patch submitted = true
-    effect api.submit({ data: formData })
-  }
-}
-```
-
-### Pattern 2: `when` with Null Check
-
-Use when the action should run only if data hasn't been loaded:
-
-```mel
-action loadUser(userId: string) {
-  when isNull(user) {
-    patch loading = true
-    effect api.fetchUser({ id: userId })
-  }
-}
-```
-
-### Pattern 3: `when` with Boolean Flag
-
-Use when you need explicit control over when action runs:
-
-```mel
-action submit() {
-  when not(submitted) {
-    patch submitted = true
-    effect api.submit({ data: formData })
-  }
-}
-```
-
-### Pattern 4: `onceIntent when` (Conditional + Once)
-
-Use when you need both automatic deduplication AND a condition:
-
-```mel
-action submit() {
-  onceIntent when not(alreadySubmitted) {
-    patch submitted = true
-    effect api.submit({ data: formData })
-  }
-}
-```
-
-### Pattern 5: Status-Based Guards
-
-Use when you have multiple states to track:
-
-```mel
-domain Example {
-  state {
-    status: "idle" | "loading" | "loaded" | "error" = "idle"
-    data: object | null = null
-  }
-
-  action load() {
-    when or(eq(status, "idle"), eq(status, "error")) {
-      patch status = "loading"
-      effect api.load({})
-    }
-  }
-}
-```
-
-### Pattern 6: Timestamp-Based Guards
-
-Use for cache invalidation:
-
-```mel
-domain Example {
-  state {
-    lastFetchedAt: number | null = null
-    cacheMs: number = 60000
-  }
-
-  action fetchWithCache(now: number) {
-    when or(
-      isNull(lastFetchedAt),
-      gt(sub(now, lastFetchedAt), cacheMs)
-    ) {
-      effect api.fetch({})
-      patch lastFetchedAt = now
-    }
-  }
-}
-```
-
----
-
-## The Pattern: Feedback Loop
-
-**Every effect MUST be guarded by state that the effect changes.**
-
-```
-┌─────────────────────────────────────────────────┐
-│  Check state → Effect not run?                  │
-│       │              │                          │
-│       │ YES          │ NO                       │
-│       ▼              ▼                          │
-│  Run effect    Skip effect                      │
-│       │                                         │
-│       ▼                                         │
-│  Effect sets state flag                         │
-│       │                                         │
-│       └──────────────┘                          │
-│    Next cycle checks flag → skips               │
-└─────────────────────────────────────────────────┘
-```
-
-This creates a **feedback loop** that prevents re-execution.
-
----
-
-## Anti-Patterns (What NOT to Do)
-
-### Anti-Pattern 1: No Guard
-
-```mel
-// WRONG: No state guard
-action submit() {
-  patch count = add(count, 1)
-  effect api.submit({})
-}
-```
-
-**Problem:** Runs every compute cycle. Count increments forever, API called repeatedly.
-
-**Fix:** Add `onceIntent` or explicit guard:
-
-```mel
-// RIGHT: Guarded
-action submit(timestamp: number) {
-  onceIntent {
-    patch count = add(count, 1)
-    patch submittedAt = timestamp
     effect api.submit({})
   }
 }
 ```
 
-### Anti-Pattern 2: Boolean Toggle Without Guard
+`onceIntent` is the easiest safe default for one-shot work.
+
+---
+
+## The Unsafe Version
 
 ```mel
-// WRONG: Toggle without tracking which request
-action toggle() {
-  patch flag = not(flag)
+action submit() {
+  effect api.submit({})
 }
 ```
 
-**Problem:** If called multiple times or with effects, the flag oscillates.
+This action has no marker and no exit condition. If the loop revisits it, the effect can be declared again.
 
-**Fix:** Use a target value, not a toggle:
+---
+
+## The Safe Version
 
 ```mel
-// RIGHT: Set to specific value
-action setFlag(value: boolean) {
+action submit() {
   onceIntent {
-    patch flag = value
+    patch status = "submitting"
+    effect api.submit({})
   }
 }
 ```
 
-### Anti-Pattern 3: Increment Without Guard (with Effects)
+Now the work is tied to a single intent.
+
+---
+
+## Use State Guards for Repeatable Workflows
+
+Not every action is one-shot forever. Some actions are repeatable, but only when state says they should run.
 
 ```mel
-// WRONG when combined with effects
-action incrementAndLog() {
+action retry() available when eq(status, "error") {
+  onceIntent {
+    patch status = "loading"
+    patch error = null
+    effect api.fetchUser({ id: requestedId })
+  }
+}
+```
+
+This action is safe because:
+
+- the domain only exposes it when retry makes sense
+- each retry attempt is still guarded per intent
+
+---
+
+## Pure Array Effects Are Still Part of the Flow
+
+Inline array operations should also live inside guards:
+
+```mel
+action clearCompleted() {
+  onceIntent {
+    effect array.filter({
+      source: todos,
+      where: eq($item.completed, false),
+      into: todos
+    })
+  }
+}
+```
+
+They are pure, but they are still part of the same action flow.
+
+---
+
+## How to Test for Re-entry Bugs
+
+Dispatch the same action more than once and inspect the resulting snapshot:
+
+```typescript
+await dispatchAsync(manifesto, "submit");
+await dispatchAsync(manifesto, "submit");
+
+const snapshot = manifesto.getSnapshot();
+console.log(snapshot.data);
+```
+
+Then ask:
+
+- Did the second dispatch intentionally do new work?
+- Did the same effect fire twice for one intent?
+- Did the snapshot end in a stable state?
+
+---
+
+## Common Traps
+
+### Unguarded patches
+
+```mel
+action increment() {
   patch count = add(count, 1)
-  effect log.increment({ count: count })
 }
 ```
 
-**Problem:** Both patch and effect run every cycle.
-
-**Fix:** Guard with request ID:
+### Unguarded effects
 
 ```mel
-action incrementAndLog(requestId: string) {
-  when neq(lastRequestId, requestId) {
-    patch count = add(count, 1)
-    patch lastRequestId = requestId
-    effect log.increment({ count: count })
-  }
+action load() {
+  effect api.fetch({})
 }
 ```
 
----
+### State that never leaves the triggering condition
 
-## Effect Handler Responsibilities
-
-Effect handlers also play a role in re-entry safety by **setting the guard state**:
-
-```typescript
-// Effect handler MUST set the guard state
-// Registered via createApp({ effects: { ... } })
-async function apiSubmitHandler(params, ctx) {
-  try {
-    const result = await api.submit(params.data);
-
-    return [
-      // Set result
-      { op: 'set', path: 'data.result', value: result },
-
-      // CRITICAL: Set the guard state
-      { op: 'set', path: 'data.submitted', value: true },
-      { op: 'set', path: 'data.submittedAt', value: Date.now() }
-    ];
-  } catch (error) {
-    return [
-      { op: 'set', path: 'data.error', value: error.message },
-
-      // Even on error, mark as attempted
-      { op: 'set', path: 'data.submitted', value: true },
-      { op: 'set', path: 'data.submittedAt', value: Date.now() }
-    ];
-  }
-}
-```
-
-**If effect handler forgets to set guard state, infinite loop occurs.**
+If an action depends on `status == "loading"` and you never transition out of that state, the flow can keep re-triggering.
 
 ---
 
-## Testing Re-entry Safety
+## Practical Rule of Thumb
 
-```typescript
-import { describe, it, expect } from "vitest";
-import { createApp } from "@manifesto-ai/sdk";
-import MyDomainMel from "./my-domain.mel";
+Start with `onceIntent`. Remove it only when you can explain:
 
-describe("Re-entry safety", () => {
-  it("effect executes only once per intent", async () => {
-    let effectCallCount = 0;
+- why repeat execution is correct
+- what state condition controls the repetition
+- what makes the loop terminate
 
-    const app = createApp({
-      schema: MyDomainMel,
-      effects: {
-        'api.submit': async (params, ctx) => {
-          effectCallCount++;
-          return [
-            { op: 'set', path: 'data.submitted', value: true }
-          ];
-        },
-      },
-    });
-
-    await app.ready();
-
-    // Dispatch intent
-    await app.act('submit').done();
-
-    // Effect should have been called exactly once
-    expect(effectCallCount).toBe(1);
-  });
-
-  it("second dispatch doesn't re-execute guarded effect", async () => {
-    let effectCallCount = 0;
-
-    const app = createApp({
-      schema: MyDomainMel,
-      effects: {
-        'api.submit': async (params, ctx) => {
-          effectCallCount++;
-          return [
-            { op: 'set', path: 'data.submitted', value: true }
-          ];
-        },
-      },
-    });
-
-    await app.ready();
-
-    // Dispatch twice
-    await app.act('submit').done();
-    await app.act('submit').done();
-
-    // Effect should still only have been called once (guarded)
-    expect(effectCallCount).toBe(1);
-  });
-});
-```
+If you cannot explain those three points clearly, keep the guard.
 
 ---
 
-## Checklist: Is My Flow Re-entry Safe?
+## Next
 
-- [ ] Every action body is wrapped in `onceIntent` OR has explicit `when` guard
-- [ ] Guard state is set by the effect handler
-- [ ] Guard state is checked before executing the effect
-- [ ] No unconditional patches that modify state repeatedly
-- [ ] No boolean toggles without request tracking
-- [ ] Effect handlers set guard state even on error
-
----
-
-## Quick Reference: Choosing the Right Guard
-
-| Scenario | Pattern |
-|----------|---------|
-| Simple one-time action | `onceIntent { ... }` |
-| Load data if not present | `when isNull(data) { ... }` |
-| Submit if not submitted | `when not(submitted) { ... }` |
-| Status machine | `when eq(status, "idle") { ... }` |
-| Cache with TTL | `when gt(sub(now, lastFetched), ttl) { ... }` |
-| Conditional one-time | `onceIntent when condition { ... }` |
-
----
-
-## Related Concepts
-
-- **Flow** - Declarative computation without memory
-- **Effect** - External operation that must be guarded
-- **Snapshot** - The only medium of communication
-- **Host** - Executes the compute-effect loop
-
----
-
-## See Also
-
-- [Design Rationale](/internals/fdr/) - FDRs including Host design rationale
-- [Effect Handlers Guide](./effect-handlers) - Writing safe effect handlers
-- [Tutorial](/tutorial/) - Step-by-step learning path
-- [Flow Concept](/concepts/flow) - Understanding Flows
-- [MEL Syntax](/mel/SYNTAX) - Complete MEL reference
+- Read [Debugging](./debugging) if you need help spotting duplicate work
+- Read [Effect Handlers](./effect-handlers) if repeated effects are causing inconsistent data

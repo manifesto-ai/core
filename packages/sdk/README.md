@@ -1,26 +1,26 @@
 # @manifesto-ai/sdk
 
-> **SDK** is the canonical public developer API for Manifesto applications.
+> Thin public composition layer for the Manifesto protocol stack.
 
 ---
 
 ## Overview
 
-SDK owns the public contract for app creation and interaction.
-It provides `createApp()`, `createTestApp()`, `ManifestoApp`, and the hook primitives while delegating orchestration to Runtime.
+`@manifesto-ai/sdk` is the canonical entry point for new Manifesto integrations.
 
 ```text
 Application Code
       |
       v
-SDK (createApp, App, Hooks)
+SDK (createManifesto, defineOps, re-exports)
       |
       v
-Runtime (orchestration)
-      |
-      v
-Core / Host / World
+Compiler / Host / Core
+      +
+optional World integration
 ```
+
+The SDK owns exactly one concept: `createManifesto()`. Everything else is either a small SDK utility (`defineOps`) or a re-export from protocol packages. Legacy app-package facade APIs are retired in v1.0.0. Governance and lineage remain explicit integrations through `@manifesto-ai/world`.
 
 ---
 
@@ -35,42 +35,61 @@ pnpm add @manifesto-ai/sdk
 ## Quick Example
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import { createManifesto, createIntent } from "@manifesto-ai/sdk";
 
-const app = createApp({
+const manifesto = createManifesto({
   schema: counterSchema,
-  effects: {
-    "api.save": async (params) => [
-      { op: "set", path: "data.savedAt", value: params.timestamp },
-    ],
-  },
+  effects: {},
 });
 
-await app.ready();
-await app.act("increment").done();
-console.log(app.getState().data.count);
+manifesto.on("dispatch:completed", ({ snapshot }) => {
+  console.log(snapshot?.data.count);
+});
+
+manifesto.dispatch(createIntent("increment", "intent-1"));
 ```
 
 ---
 
 ## Main Exports
 
-### Factory
+### SDK-Owned
 
 ```typescript
-function createApp(config: AppConfig): App;
-function createTestApp(domain: DomainSchema | string, opts?: Partial<AppConfig>): App;
+function createManifesto(config: ManifestoConfig): ManifestoInstance;
+function defineOps<TData>(): TypedOps<TData>;
 ```
 
-### Class
+### ManifestoInstance
 
 ```typescript
-class ManifestoApp implements App { /* ... */ }
+interface ManifestoInstance {
+  dispatch(intent: Intent): void;
+  subscribe(selector, listener): Unsubscribe;
+  on(event, handler): Unsubscribe;
+  getSnapshot(): Snapshot;
+  dispose(): void;
+}
 ```
 
-### Runtime-Reexported Public Types/Errors
+### Event Channel
 
-SDK re-exports public contract types and errors (for example `AppConfig`, `AppState`, `ActionHandle`, `AppNotReadyError`).
+```typescript
+type ManifestoEvent =
+  | "dispatch:completed"
+  | "dispatch:rejected"
+  | "dispatch:failed";
+```
+
+`dispatch()` is enqueue-only. Observe results through `subscribe()` for state changes or `on()` for per-intent telemetry.
+
+### Re-Exported Protocol Surface
+
+SDK re-exports selected protocol types and factories from:
+
+- `@manifesto-ai/core`
+- `@manifesto-ai/world`
+- `@manifesto-ai/host` (types)
 
 ---
 
@@ -80,26 +99,32 @@ SDK re-exports public contract types and errors (for example `AppConfig`, `AppSt
 |--------------|---------|-----|
 | Uses | `@manifesto-ai/core` | Schema and expression types |
 | Uses | `@manifesto-ai/host` | Effect execution and compute loop |
-| Uses | `@manifesto-ai/world` | World protocol types |
+| Re-exports | `@manifesto-ai/world` | World protocol types and store factory for explicit governance integration |
 | Uses | `@manifesto-ai/compiler` | MEL → DomainSchema compilation |
-| Legacy predecessor | App facade package | Removed in R2 (see API retirement record) |
+| Retired predecessor | `@manifesto-ai/runtime` | Absorbed into `createManifesto()` per ADR-010 |
 
 ---
 
-## Migration from Legacy App Facade
+## Migration Notes
 
-Legacy app-facade imports should be replaced with `@manifesto-ai/sdk`.
+Older app-package code usually maps to three current patterns:
 
-For automated rewrite guidance, see:
-- [docs/guides/migrate-app-to-sdk.md](../../docs/guides/migrate-app-to-sdk.md)
+- use `createManifesto({ schema, effects })` as the public entry point
+- create intents explicitly with `createIntent(...)`
+- treat `dispatch()` as enqueue-only and observe completion through `dispatch:*` events or a small `dispatchAsync()` helper
+
+For migration details, see:
+- [Migrate App to SDK](../../docs/guides/migrate-app-to-sdk.md)
+- [sdk-SPEC-v1.0.0.md](docs/sdk-SPEC-v1.0.0.md)
+- [ADR-010](../../docs/internals/adr/010-major-hard-cut.md)
 
 ---
 
 ## Documentation
 
-- [sdk-SPEC-v0.1.0.md](docs/sdk-SPEC-v0.1.0.md)
+- [sdk-SPEC-v1.0.0.md](docs/sdk-SPEC-v1.0.0.md)
 - [VERSION-INDEX.md](docs/VERSION-INDEX.md)
-- [ADR-008](../../docs/internals/adr/008-sdk-first-transition-and-app-retirement.md)
+- [ADR-010](../../docs/internals/adr/010-major-hard-cut.md)
 
 ---
 

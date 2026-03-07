@@ -50,38 +50,47 @@ domain Document {
 **→ App / Backend**
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import { createManifesto, createIntent } from "@manifesto-ai/sdk";
+import DocumentMel from "./document.mel";
 
-const app = createApp({ schema: documentMEL, effects: {} });
-await app.ready();
+const manifesto = createManifesto({ schema: DocumentMel, effects: {} });
 
-await app.act("addSection", { text: "Introduction..." }).done();
-await app.act("publish").done();
+manifesto.subscribe(
+  (snapshot) => snapshot.data.doc.status,
+  (status) => console.log("Document status:", status),
+);
 
-console.log(app.getState().data.doc.status); // "published"
+manifesto.dispatch(
+  createIntent("addSection", { text: "Introduction..." }, "intent-add-section-1"),
+);
+manifesto.dispatch(createIntent("publish", "intent-publish-1"));
 ```
 
 **→ UI**
 
 ```typescript
-const state = app.getState();
-const canPublish = state.computed["canPublish"];
+const snapshot = manifesto.getSnapshot();
+const canPublish = snapshot.computed["canPublish"];
 
 // UI is a projection of Snapshot — no separate state management needed
-<button disabled={!canPublish} onClick={() => app.act("publish")}>
-  Publish ({state.computed["sectionCount"]} sections)
+<button
+  disabled={!canPublish}
+  onClick={() => manifesto.dispatch(createIntent("publish", "intent-publish-ui"))}
+>
+  Publish ({snapshot.computed["sectionCount"]} sections)
 </button>
 ```
 
-**→ History / Audit**
+**→ Telemetry / Audit**
 
 ```typescript
-// Every act() produces an immutable World — who, when, what, why
-const result = await app.act("publish").done();
-console.log(result.worldId); // content-addressable, immutable
-
-const branch = app.currentBranch();
-const history = branch.lineage(); // full DAG of state transitions
+manifesto.on("dispatch:completed", ({ intentId, snapshot }) => {
+  auditLog.append({
+    intentId,
+    version: snapshot?.meta.version,
+    status: snapshot?.data.doc.status,
+  });
+});
 ```
 
 Three projections, one source of truth. Change the domain declaration — every projection updates.
@@ -100,7 +109,7 @@ compute(schema, snapshot, intent) → (snapshot', requirements, trace)
 
 This function is **pure** (same inputs → same outputs), **total** (always returns), and **traceable** (every step recorded). All state transitions in Manifesto follow this equation.
 
-Humans, AI agents, and automated systems all participate through the same interface: `app.act()`. Every state change records who proposed it, who authorized it, and why. The protocol does not distinguish between actor types — governance rules apply equally.
+At the current SDK boundary, humans, AI agents, and automated systems submit the same `Intent` shape through `dispatch()`. Governance, authority, and lineage remain available as explicit integrations through `@manifesto-ai/world`.
 
 Manifesto is not a library you add to your stack. It is the **semantic layer** between your domain logic and whatever surface consumes it — React renders a Snapshot, Express serves a Snapshot, an AI agent reads a Snapshot and proposes actions against it.
 
@@ -124,11 +133,11 @@ Manifesto is the semantic layer that all of these can work *on top of*.
 |---------|-----------------|----------------|
 | **State definition** | Scattered across reducers, handlers, models | Single MEL domain declaration |
 | **Validation** | Imperative checks in handlers | Declarative `when` guards + `available when` |
-| **Audit trail** | Bolted-on logging after the fact | Built-in — every World records actor, intent, and trace |
-| **AI integration** | Separate wrapper API per agent | Same `app.act()` interface as human users |
+| **Audit trail** | Bolted-on logging after the fact | Telemetry is built in; governed lineage composes through `@manifesto-ai/world` |
+| **AI integration** | Separate wrapper API per agent | Same Intent protocol and Snapshot model as any other caller |
 | **Determinism** | Hope and testing | Guaranteed — `compute()` is pure |
-| **Undo / branching** | Custom implementation | Built-in — `app.fork()`, `app.switchBranch()` |
-| **Reproducibility** | Not feasible in most systems | Any past state reconstructible from lineage |
+| **Undo / branching** | Custom implementation | Immutable Snapshots are the base; lineage and branch tooling layer on through World |
+| **Reproducibility** | Not feasible in most systems | Deterministic snapshots are reproducible; governed history comes from World integration |
 
 **Current software development:**
 
@@ -164,52 +173,45 @@ These are not features. They are **protocol-level invariants** — properties th
 | Guarantee | Mechanism |
 |-----------|-----------|
 | **Determinism** | `compute()` is pure — same schema + snapshot + intent always yields the same result |
-| **Accountability** | Every state change records Actor + Authority + Intent |
-| **Traceability** | Complete trace for every transition — every value answers "why?" |
+| **Accountability** | Telemetry is built in; full Actor + Authority lineage comes from World integration |
+| **Traceability** | Core produces traceable transitions; SDK emits per-intent lifecycle events |
 | **Immutability** | Snapshots and Worlds never mutate after creation |
 | **Re-entry safety** | `onceIntent` guards prevent duplicate effects across compute cycles |
-| **Governance** | World Protocol evaluates every intent through Authority before execution |
+| **Governance** | Available through `@manifesto-ai/world` when you need proposal and authority flow |
 | **Schema-first** | All semantics are JSON-serializable data — machines can read, analyze, and generate domains |
 
 ---
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────┐
-│  SDK     — public API facade (createApp, hooks)  │
-├─────────────────────────────────────────────────┤
-│  Runtime — orchestrates the action pipeline      │
-├─────────────────────────────────────────────────┤
-│  World   — governs legitimacy and lineage        │
-├─────────────────────────────────────────────────┤
-│  Host    — executes effects in reality           │
-├─────────────────────────────────────────────────┤
-│  Core    — computes meaning (pure, deterministic)│
-└─────────────────────────────────────────────────┘
+```text
+createManifesto() default path
+SDK -> Compiler -> Host -> Core
+
+Governed deployments
+SDK + @manifesto-ai/world -> Host -> Core
 ```
 
 | Layer | Package | Responsibility |
 |-------|---------|----------------|
 | **Core** | `@manifesto-ai/core` | Pure computation. Expressions, flows, patches. Zero IO. |
 | **Host** | `@manifesto-ai/host` | Effect execution. Runs the compute-effect-apply loop. |
-| **World** | `@manifesto-ai/world` | Governance. Actors, authorities, proposals, audit lineage (DAG). |
-| **SDK** | `@manifesto-ai/sdk` | Public facade. `createManifesto()`, dispatch, typed ops, subscriptions. |
-| **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation and bundler adapters. |
+| **World** | `@manifesto-ai/world` | Governance, proposal flow, actors, authorities, audit lineage (DAG). |
+| **SDK** | `@manifesto-ai/sdk` | Thin public layer. `createManifesto()`, dispatch, subscriptions, typed ops, protocol re-exports. |
+| **Compiler** | `@manifesto-ai/compiler` | MEL → `DomainSchema` compilation and bundler adapters. |
 
-**Data flow:**
+**Default SDK flow today:**
 
-```
-Actor submits Intent
-  → World Protocol (governance)
+```text
+Caller submits Intent
+  → SDK dispatch queue
     → Host (effect execution)
       → Core (pure computation)
-        → new Snapshot (via patches)
-          → new World (immutable)
-            → Projections (UI, API, AI, History)
+        → terminal Snapshot
+          → subscribe/on consumers
 ```
 
-All information flows through Snapshot. There are no other channels.
+When you need proposal, authority, or lineage semantics, integrate `@manifesto-ai/world` explicitly on top of the same Snapshot/Intent model.
 
 ---
 
@@ -220,9 +222,37 @@ npm install @manifesto-ai/sdk
 ```
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import {
+  createManifesto,
+  createIntent,
+  type ManifestoInstance,
+  type Intent,
+  type Snapshot,
+} from "@manifesto-ai/sdk";
 
-const app = createApp({
+function dispatchAsync(
+  manifesto: ManifestoInstance,
+  intent: Intent,
+): Promise<Snapshot> {
+  return new Promise((resolve, reject) => {
+    const offCompleted = manifesto.on("dispatch:completed", (event) => {
+      if (event.intentId !== intent.intentId) return;
+      offCompleted();
+      offFailed();
+      resolve(event.snapshot!);
+    });
+    const offFailed = manifesto.on("dispatch:failed", (event) => {
+      if (event.intentId !== intent.intentId) return;
+      offCompleted();
+      offFailed();
+      reject(event.error ?? new Error("Dispatch failed"));
+    });
+
+    manifesto.dispatch(intent);
+  });
+}
+
+const manifesto = createManifesto({
   schema: `
     domain Counter {
       state { count: number = 0 }
@@ -240,14 +270,14 @@ const app = createApp({
   effects: {},
 });
 
-await app.ready();
+await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
+await dispatchAsync(manifesto, createIntent("increment", "intent-2"));
 
-await app.act("increment").done();
-await app.act("increment").done();
-console.log(app.getState().data.count);                  // 2
-console.log(app.getState().computed["doubled"]); // 4
+const snapshot = manifesto.getSnapshot();
+console.log(snapshot.data.count);          // 2
+console.log(snapshot.computed["doubled"]); // 4
 
-await app.dispose();
+manifesto.dispose();
 ```
 
 > See [examples/](./examples/) for more: todos, effects, subscriptions.
@@ -262,7 +292,7 @@ Manifesto is designed for domains where traceability, governance, and determinis
 
 - **[Mind Protocol](https://github.com/manifesto-ai/mind-protocol)** — A protocol for continuous AI existence — memory, inner monologue, and personality grounded in deterministic Snapshots and traceable World lineage.
 
-- **[TaskFlow](https://taskflow.manifesto-ai.dev)** — Collaborative task management demonstrating multi-actor governance: human and AI actors share the same domain through `app.act()`.
+- **[TaskFlow](https://taskflow.manifesto-ai.dev)** — Collaborative task management demonstrating multi-actor governance: human and AI actors share the same domain through the Intent protocol.
 
 ---
 

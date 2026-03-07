@@ -1,55 +1,45 @@
 # @manifesto-ai/world
 
-> **World** is the governance layer of Manifesto. It manages authority, proposals, decision records, and lineage.
+> Explicit governance, proposal flow, and lineage for Manifesto deployments that need more than the default SDK path.
 
 ---
 
-## What is World?
+## What This Package Is For
 
-World operates above Core and Host, governing who can propose changes, who can approve them, and tracking the complete history of all state transitions.
-World never imports Host directly; Runtime provides a HostExecutor adapter.
+Use `@manifesto-ai/world` when you need to answer questions like:
 
-In the Manifesto architecture:
+- Who proposed this change?
+- Who approved it?
+- What world did this transition come from?
+- How do I require human review for agent actions?
 
-```
-SDK -> Runtime -> WORLD -> Host -> Core
-                   |
-         Governs legitimacy, authority, lineage
-         Tracks WHO proposed WHAT, WHEN, WHY
-```
+If you only need the default `createManifesto()` runtime, you do not need this package on day one.
 
 ---
 
-## What World Does
+## How World Fits
+
+```text
+default path
+SDK -> Host -> Core
+
+governed path
+participant -> World -> Host -> Core
+```
+
+World is an explicit integration layer. The current SDK does not wire it implicitly.
+
+---
+
+## Main Responsibilities
 
 | Responsibility | Description |
 |----------------|-------------|
-| Manage actors | Register and track actors (human, agent, system) |
-| Evaluate authority | Route proposals to appropriate authority handlers |
-| Track proposals | Full lifecycle from submission to completion |
-| Maintain lineage | DAG of World ancestry (who came from where) |
-| Create decision records | Immutable audit trail of authority decisions |
-
----
-
-## What World Does NOT Do
-
-| NOT Responsible For | Who Is |
-|--------------------|--------|
-| Compute state transitions | Core |
-| Execute effects | Host |
-| Handle UI/event bindings | SDK |
-| Define domain logic | SDK |
-
----
-
-## Installation
-
-```bash
-npm install @manifesto-ai/world @manifesto-ai/core
-# or
-pnpm add @manifesto-ai/world @manifesto-ai/core
-```
+| Actor registry | Track human, agent, and system participants |
+| Proposal flow | Accept, evaluate, and resolve proposed transitions |
+| Authority policies | Auto-approve, rule-check, or require review |
+| Lineage | Track immutable world ancestry |
+| Audit records | Preserve approval and execution history |
 
 ---
 
@@ -60,151 +50,88 @@ import { createManifestoWorld, createIntentInstance } from "@manifesto-ai/world"
 
 const world = createManifestoWorld({
   schemaHash: "todo-v1",
-  executor: hostExecutor, // Runtime-provided HostExecutor (optional)
+  executor: hostExecutor,
 });
 
-// Register an actor
 const actor = {
   actorId: "user-1",
   kind: "human",
   name: "Alice",
 };
+
 world.registerActor(actor, { mode: "auto_approve" });
 
-// Create genesis world
-const initialSnapshot = /* Snapshot from Core */;
 const genesis = await world.createGenesis(initialSnapshot);
 
-// Build intent instance
 const intent = await createIntentInstance({
   body: {
     type: "todo.add",
-    input: { title: "Buy milk" },
+    input: { title: "Review the governance model" },
   },
   schemaHash: world.schemaHash,
-  projectionId: "app:ui",
+  projectionId: "todo-ui",
   source: { kind: "ui", eventId: "evt-1" },
   actor,
 });
 
-// Submit a proposal
-const result = await world.submitProposal(actor.actorId, intent, genesis.worldId);
+const result = await world.submitProposal(
+  actor.actorId,
+  intent,
+  genesis.worldId,
+);
 
-console.log(result.proposal.status); // -> "completed" | "failed" | "rejected" | "evaluating"
-if (result.resultWorld) {
-  console.log(result.resultWorld.worldId); // -> "w_abc123..."
-}
+console.log(result.proposal.status);
+console.log(result.resultWorld?.worldId);
 ```
-
-> See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
 ---
 
-## World API
-
-### Main Exports
+## Important Types
 
 ```typescript
-// Factory
 function createManifestoWorld(config: ManifestoWorldConfig): ManifestoWorld;
 
-// World class
 class ManifestoWorld {
-  registerActor(actor: ActorRef): void;
+  createGenesis(initialSnapshot: Snapshot): Promise<World>;
   registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
-  updateActorBinding(actorId: string, policy: AuthorityPolicy): void;
-  submitProposal(actorId: string, intent: IntentInstance, baseWorld: WorldId, trace?: ProposalTrace): Promise<ProposalResult>;
-  processHITLDecision(proposalId: string, decision: "approved" | "rejected", reason?: string, approvedScope?: IntentScope | null): Promise<ProposalResult>;
-  getWorld(worldId: WorldId): Promise<World | null>;
-  getSnapshot(worldId: WorldId): Promise<Snapshot | null>;
-  getProposal(proposalId: string): Promise<Proposal | null>;
-  getEvaluatingProposals(): Promise<Proposal[]>;
+  submitProposal(
+    actorId: string,
+    intent: IntentInstance,
+    baseWorld: WorldId,
+    trace?: ProposalTrace,
+  ): Promise<ProposalResult>;
 }
-
-// Key types
-type World = { worldId, schemaHash, snapshotHash, createdAt, createdBy };
-type Proposal = { proposalId, actor, intent, baseWorld, status, decisionId? };
-type DecisionRecord = { decisionId, proposalId, authority, decision, decidedAt };
-type ActorRef = { actorId, kind: "human" | "agent" | "system", name?, meta? };
 ```
 
-> See [world-SPEC-v2.0.2.md](docs/world-SPEC-v2.0.2.md) for complete API reference.
+Actor kinds are currently:
+
+- `human`
+- `agent`
+- `system`
 
 ---
 
-## Core Concepts
+## Relationship With SDK
 
-### Authority System
-
-World supports multiple authority types:
-
-| Authority | Description |
-|-----------|-------------|
-| `auto` | Auto-approve all proposals (no deliberation) |
-| `policy` | Rule-based decisions (path restrictions, rate limits) |
-| `human` | Human-in-the-loop approval required |
-| `tribunal` | Multi-agent review process |
-
-```typescript
-// Human-in-the-loop example
-const reviewer = { actorId: "human-1", kind: "human" };
-world.registerActor(
-  { actorId: "agent-1", kind: "agent" },
-  { mode: "hitl", delegate: reviewer }
-);
-```
-
-### Proposal Lifecycle
-
-```
-submitted -> evaluating -> approved -> executing -> completed
-                     v                    v
-                  rejected              failed
-```
-
-### Immutable Worlds
-
-Each successful proposal creates a new World. Worlds are immutable and form a DAG (directed acyclic graph) of lineage.
+`@manifesto-ai/sdk` re-exports a small part of World for explicit integrations, such as the `WorldStore` type and `createMemoryWorldStore()`. The default `createManifesto()` path still focuses on direct intent dispatch rather than proposal orchestration.
 
 ---
 
-## Relationship with Other Packages
+## When to Adopt World
 
-```
-SDK -> Runtime -> WORLD -> Host
-```
+Bring in World when you need:
 
-| Relationship | Package | How |
-|--------------|---------|-----|
-| Depends on | `@manifesto-ai/core` | Uses Core types |
-| Integrates with | `@manifesto-ai/host` | Via HostExecutor adapter |
-| Used by | `@manifesto-ai/sdk` | SDK orchestrates World proposals via createManifesto() |
+- human-in-the-loop approval
+- explicit actor policies
+- lineage across worlds
+- governed multi-agent systems
 
----
-
-## When to Use World Directly
-
-Use World directly when:
-- Building applications with governance requirements
-- Implementing human-in-the-loop approval flows
-- Tracking audit trails for compliance
-- Building multi-agent systems with authority policies
-
-For simple applications without governance, you can use Host directly.
+Stay with the default SDK path when you only need direct domain execution.
 
 ---
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [GUIDE.md](docs/GUIDE.md) | Step-by-step usage guide |
-| [world-SPEC-v2.0.2.md](docs/world-SPEC-v2.0.2.md) | Complete specification |
-| [world-FDR-v2.0.2.md](docs/world-FDR-v2.0.2.md) | Design rationale |
-| [VERSION-INDEX.md](docs/VERSION-INDEX.md) | Version history |
-
----
-
-## License
-
-[MIT](../../LICENSE)
+- [World API](/api/world)
+- [World Concept](/concepts/world)
+- [Specifications](/internals/spec/)

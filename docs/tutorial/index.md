@@ -1,129 +1,74 @@
 # Tutorial
 
-Build a Manifesto application in 4 steps. Each tutorial builds on the previous one.
+> Build up from one `ManifestoInstance` to a small app, one step at a time.
+
+These tutorials are for developers who know TypeScript but are new to Manifesto. They assume the current SDK surface:
+
+- `createManifesto()` creates a ready-to-use instance
+- `dispatch()` enqueues an `Intent`
+- `subscribe()` and `on()` let you observe what happened
+- `getSnapshot()` gives you the latest terminal snapshot
 
 ---
 
-## Understanding the Compute Loop
+## Before You Start
 
-Before diving in, understand the core mechanism. When you trigger an action:
-
-```
-compute(snapshot, intent)
-        |
-        v
-    Patches[]
-        |
-        v
-apply(snapshot, patches)
-        |
-        v
-    snapshot'
-        |
-        v
-compute(snapshot', intent)  <- Loop continues until no more changes
-```
-
-1. **compute()** evaluates the action against the current snapshot
-2. It produces **patches** (state changes)
-3. **apply()** creates a new snapshot
-4. The loop **repeats** until no more patches are generated
-
-### Why Guards Matter
-
-Without guards, patches re-apply infinitely:
-
-```mel
-action increment() {
-  patch count = add(count, 1)  // runs every cycle!
-}
-```
-
-Use `onceIntent` to run exactly once per intent:
-
-```mel
-action increment() {
-  onceIntent {
-    patch count = add(count, 1)
-  }
-}
-```
+- Finish the [Quickstart](/quickstart)
+- Be comfortable reading basic TypeScript
+- Have a `.mel` loader configured with `@manifesto-ai/compiler`
 
 ---
 
-## Tutorials
+## The Mental Model
 
-| # | Tutorial | Time | What You'll Build |
-|---|----------|------|-------------------|
-| 1 | [Your First App](./01-your-first-app) | 15 min | Counter app with MEL |
-| 2 | [Actions and State](./02-actions-and-state) | 20 min | State mutations, computed values |
-| 3 | [Working with Effects](./03-effects) | 25 min | External operations, async patterns |
-| 4 | [Building a Todo App](./04-todo-app) | 45 min | Full CRUD app with filtering |
+Manifesto applications start with the same three pieces:
 
-**Total time:** ~2 hours
+1. A MEL domain that defines state, computed values, actions, and effects
+2. A `ManifestoInstance` created with `createManifesto()`
+3. A small helper that turns `dispatch()` + telemetry events into an awaitable workflow when you need one
+
+If you keep those three pieces clear, the rest of the learning path gets much easier.
 
 ---
 
-## Prerequisites
+## Learning Path
 
-- **Node.js 18+** (or Bun)
-- **Basic TypeScript knowledge** (types, async/await)
-- A code editor (VS Code recommended)
-- `@manifesto-ai/sdk` and `@manifesto-ai/compiler` installed
+| Step | Tutorial | Time | Outcome |
+|------|----------|------|---------|
+| 1 | [Your First Manifesto Instance](./01-your-first-app) | 15 min | Create a counter and learn `dispatch`, `subscribe`, `getSnapshot` |
+| 2 | [Actions and State](./02-actions-and-state) | 20 min | Work with arrays, computed values, and selector-based subscriptions |
+| 3 | [Working with Effects](./03-effects) | 25 min | Connect effect declarations to real effect handlers |
+| 4 | [Building a Todo App](./04-todo-app) | 30 min | Organize a small app before adding any UI framework |
 
 ---
 
 ## Common Beginner Mistakes
 
-### Missing `onceIntent` Guard
+### Expecting `dispatch()` to return the result
 
-```mel
-// WRONG: Runs every compute cycle!
-action increment() {
-  patch count = add(count, 1)
-}
+`dispatch()` only enqueues work. Read the next state through `subscribe()` or `getSnapshot()`, or use a small `dispatchAsync()` helper built on top of `on()`.
 
-// RIGHT: Runs only once per intent
-action increment() {
-  onceIntent {
-    patch count = add(count, 1)
-  }
-}
-```
+### Forgetting `onceIntent`
 
-### Mutating Snapshots Directly
+If an action can re-enter during the compute loop, an unguarded patch or effect can run more than once. Use `onceIntent` unless you are intentionally building a state-driven loop.
 
-```typescript
-// WRONG: Direct mutation does nothing!
-const state = app.getState();
-state.data.count = 5;
+### Mutating a snapshot directly
 
-// RIGHT: Use actions
-await app.act("setCount", { value: 5 }).done();
-```
+Snapshots are read models. You do not change them in place. You dispatch intents and let Manifesto compute the next snapshot.
 
-### Expecting Effects to Return Values
+### Treating effects like returned values
 
-```typescript
-// WRONG: Effects don't return values to actions
-const user = await someEffect();
-
-// RIGHT: Effects write to Snapshot, read it after
-await app.act("fetchUser", { id: "123" }).done();
-const user = app.getState().data.user;
-```
+Effect handlers do not feed values back through a hidden return channel. They return patches, and those patches become part of the next snapshot.
 
 ---
 
 ## After the Tutorials
 
-Once you've completed all 4 tutorials, explore:
-
-- **[How-to Guides](/guides/)** -- Solve specific problems (debugging, re-entry safety, etc.)
-- **[Integration](/integration/)** -- Connect with React, AI agents
-- **[Core Concepts](/concepts/)** -- Deep-dive into Snapshot, Intent, Flow, Effect, World
-- **[MEL Syntax](/mel/SYNTAX)** -- Complete language reference
+- Go to [How-to Guides](/guides/) when you need a concrete technique
+- Go to [Integration](/integration/) when you want React or AI-agent patterns
+- Go to [Core Concepts](/concepts/) when you want a deeper model of Snapshot, Intent, Flow, and Effect
+- Go to [Architecture](/architecture/) when you want the system-level picture
 
 ---
 
-**Ready? Start with [Your First App](./01-your-first-app).**
+Start with [Your First Manifesto Instance](./01-your-first-app).

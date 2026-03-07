@@ -76,7 +76,7 @@ declare module '*.mel' {
 
 ---
 
-## Create Your First App
+## Create Your First Manifesto Instance
 
 ### 1. Define Your Domain
 
@@ -101,17 +101,44 @@ domain Counter {
 Create `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import {
+  createManifesto,
+  createIntent,
+  type ManifestoInstance,
+  type Intent,
+  type Snapshot,
+} from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const app = createApp({ schema: CounterMel, effects: {} });
-await app.ready();
+function dispatchAsync(
+  manifesto: ManifestoInstance,
+  intent: Intent,
+): Promise<Snapshot> {
+  return new Promise((resolve, reject) => {
+    const offCompleted = manifesto.on("dispatch:completed", (event) => {
+      if (event.intentId !== intent.intentId) return;
+      offCompleted();
+      offFailed();
+      resolve(event.snapshot!);
+    });
+    const offFailed = manifesto.on("dispatch:failed", (event) => {
+      if (event.intentId !== intent.intentId) return;
+      offCompleted();
+      offFailed();
+      reject(event.error ?? new Error("Dispatch failed"));
+    });
 
-await app.act("increment").done();
-console.log(app.getState().data.count); // 1
+    manifesto.dispatch(intent);
+  });
+}
 
-await app.act("increment").done();
-console.log(app.getState().data.count); // 2
+const manifesto = createManifesto({ schema: CounterMel, effects: {} });
+
+await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
+console.log(manifesto.getSnapshot().data.count); // 1
+
+await dispatchAsync(manifesto, createIntent("increment", "intent-2"));
+console.log(manifesto.getSnapshot().data.count); // 2
 ```
 
 Run it:
@@ -127,9 +154,10 @@ npx tsx main.ts
 - **MEL domain** defined your state schema and actions declaratively
 - **`onceIntent` guard** ensured the action runs exactly once per intent (re-entry safe)
 - **No guard fields** needed — `onceIntent` stores guard state in the platform `$mel` namespace
-- **`createApp()`** compiled MEL and set up the runtime
-- **`app.act()`** executed the action through the World Protocol
-- **`app.getState()`** returned the current snapshot
+- **`createManifesto()`** compiled or accepted your schema and assembled the protocol stack
+- **`dispatch()`** enqueued intents for serial processing
+- **`dispatchAsync()`** is a tiny convenience built on top of `dispatch()` + `on()`
+- **`getSnapshot()`** returned the current terminal snapshot
 
 ---
 
@@ -162,29 +190,56 @@ domain Counter {
 Update `main.ts`:
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import {
+  createManifesto,
+  createIntent,
+  type ManifestoInstance,
+  type Intent,
+  type Snapshot,
+} from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const app = createApp({ schema: CounterMel, effects: {} });
-await app.ready();
+function dispatchAsync(
+  manifesto: ManifestoInstance,
+  intent: Intent,
+): Promise<Snapshot> {
+  return new Promise((resolve, reject) => {
+    const offCompleted = manifesto.on("dispatch:completed", (event) => {
+      if (event.intentId !== intent.intentId) return;
+      offCompleted();
+      offFailed();
+      resolve(event.snapshot!);
+    });
+    const offFailed = manifesto.on("dispatch:failed", (event) => {
+      if (event.intentId !== intent.intentId) return;
+      offCompleted();
+      offFailed();
+      reject(event.error ?? new Error("Dispatch failed"));
+    });
+
+    manifesto.dispatch(intent);
+  });
+}
+
+const manifesto = createManifesto({ schema: CounterMel, effects: {} });
 
 // Subscribe to changes
-app.subscribe(
+manifesto.subscribe(
   (state) => state.data.count,
   (count) => console.log("Count changed:", count)
 );
 
-await app.act("increment").done();
+await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
 // → Count changed: 1
 
-await app.act("increment").done();
+await dispatchAsync(manifesto, createIntent("increment", "intent-2"));
 // → Count changed: 2
 
-await app.act("decrement").done();
+await dispatchAsync(manifesto, createIntent("decrement", "intent-3"));
 // → Count changed: 1
 
 // Access computed values
-console.log(app.getState().computed["doubled"]); // 2
+console.log(manifesto.getSnapshot().computed["doubled"]); // 2
 ```
 
 ---

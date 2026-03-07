@@ -40,8 +40,8 @@ See [Specifications](/internals/spec/) for normative contracts.
 flowchart TB
   APP["Your Application"] --> SDK["@manifesto-ai/sdk"]
   SDK --> H["@manifesto-ai/host"]
-  SDK --> W["@manifesto-ai/world"]
   SDK --> COMP["@manifesto-ai/compiler"]
+  SDK -. optional .-> W["@manifesto-ai/world"]
   H --> C["@manifesto-ai/core"]
   W --> C
   COMP --> C
@@ -52,7 +52,7 @@ flowchart TB
 ## Quick Start
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
+import { createIntent, createManifesto } from "@manifesto-ai/sdk";
 
 const instance = createManifesto({
   schema: domainSchema,
@@ -63,7 +63,7 @@ const instance = createManifesto({
   },
 });
 
-instance.dispatch({ type: "increment", intentId: crypto.randomUUID() });
+instance.dispatch(createIntent("increment", crypto.randomUUID()));
 console.log(instance.getSnapshot().data);
 ```
 

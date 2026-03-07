@@ -1,808 +1,197 @@
-# Effect Handlers Guide
+# Effect Handlers
 
-> **Covers:** Effect handler patterns, error handling, async operations
-> **Purpose:** Writing robust, deterministic effect handlers
-> **Prerequisites:** Understanding of Effects and SDK
+> Fulfill declared effects and return patches for the next snapshot.
 
 ---
 
-## What Are Effect Handlers?
+## When to Read This
 
-Effect handlers are functions that execute external operations declared by Core.
+Read this guide when your MEL domain declares an effect such as:
 
-**Critical distinction:**
-- **Core declares** effects (as data)
-- **SDK executes** effects (via handlers)
-
+```mel
+action fetchUser(id: string) {
+  onceIntent {
+    patch loading = true
+    effect api.fetchUser({ id: id })
+  }
+}
 ```
-Core: "I need effect 'api.fetch' with params {url: '/users'}"
-       ↓
-App: "Let me find the handler for 'api.fetch'"
-       ↓
-Handler: async (params, ctx) => { ... }
-       ↓
-Returns: Patch[]
-```
+
+At that point you need to register a handler in `createManifesto({ effects })`.
 
 ---
 
-## Handler Contract
+## The Current Contract
 
-Effect handlers MUST:
-
-1. **Accept** `(params: unknown, ctx: AppEffectContext)`
-2. **Return** `Promise<readonly Patch[]>` (never throw)
-3. **Express errors as patches**, not exceptions
+An SDK effect handler looks like this:
 
 ```typescript
-type AppEffectContext = {
-  readonly snapshot: Readonly<Snapshot>;
-};
-
 type EffectHandler = (
   params: unknown,
-  ctx: AppEffectContext
+  ctx: { readonly snapshot: Readonly<Snapshot> },
 ) => Promise<readonly Patch[]>;
 ```
 
-**Key differences from older versions:**
-- Handler signature is `(params, ctx)` — 2 args, not 3
-- Context contains ONLY `snapshot` (no `requirement`)
-- Effect type is determined by the key in the `effects` record
+The rules are simple:
+
+- Read what you need from `params`
+- Optionally inspect `ctx.snapshot`
+- Perform IO
+- Return patches
+
+Do not return raw values. Do not rely on a hidden callback channel.
 
 ---
 
-## Registering Handlers
-
-Effect handlers are registered at app creation time via `createApp()`.
-
-**There is NO `app.registerEffect()` method.** All handlers must be provided when creating the app.
+## A Minimal Example
 
 ```typescript
-import { createApp } from '@manifesto-ai/sdk';
+import type { EffectHandler } from "@manifesto-ai/sdk";
 
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetch': async (params, ctx) => {
-      // Handler implementation
-    },
-    'api.save': async (params, ctx) => {
-      // Handler implementation
-    },
-  },
-});
+export const effects = {
+  "api.fetchUser": async (params) => {
+    const { id } = params as { id: string };
 
-await app.ready();
-```
-
----
-
-## Basic Pattern
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetch': async (params, ctx) => {
-      try {
-        // 1. Execute IO
-        const url = params.url as string;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        // 2. Return success patches
-        return [
-          { op: 'set', path: params.target as string, value: data },
-          { op: 'set', path: 'status', value: 'success' }
-        ];
-      } catch (error) {
-        // 3. Return error patches (NOT throw!)
-        return [
-          { op: 'set', path: 'status', value: 'error' },
-          { op: 'set', path: 'errorMessage', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-**Key points:**
-- No `throw` - all outcomes are patches
-- Success writes result to Snapshot
-- Failure writes error info to Snapshot
-- Next `compute()` sees the result in Snapshot
-
----
-
-## Common Effect Types
-
-### 1. API GET Request
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.get': async (params, ctx) => {
-      const url = params.url as string;
-      const target = params.target as string;
-
-      try {
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          return [
-            { op: 'set', path: 'error', value: `HTTP ${response.status}` }
-          ];
-        }
-
-        const data = await response.json();
-        return [
-          { op: 'set', path: target, value: data },
-          { op: 'unset', path: 'error' }
-        ];
-      } catch (error) {
-        return [
-          { op: 'set', path: 'error', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-### 2. API POST Request
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.post': async (params, ctx) => {
-      const url = params.url as string;
-      const body = params.body;
-      const target = params.target as string | undefined;
-
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-
-        const data = await response.json();
-
-        const patches: Patch[] = [
-          { op: 'set', path: 'lastPostStatus', value: response.status }
-        ];
-
-        if (target) {
-          patches.push({ op: 'set', path: target, value: data });
-        }
-
-        return patches;
-      } catch (error) {
-        return [
-          { op: 'set', path: 'error', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-### 3. Database Write
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'db.save': async (params, ctx) => {
-      const table = params.table as string;
-      const record = params.record as Record<string, unknown>;
-
-      try {
-        const savedRecord = await db.table(table).insert(record);
-
-        return [
-          {
-            op: 'set',
-            path: `${table}.${savedRecord.id}`,
-            value: savedRecord
-          },
-          {
-            op: 'set',
-            path: `${table}.lastSaved`,
-            value: Date.now()
-          }
-        ];
-      } catch (error) {
-        return [
-          { op: 'set', path: 'dbError', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-### 4. Timer/Delay
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'timer.delay': async (params, ctx) => {
-      const ms = params.ms as number;
-
-      await new Promise(resolve => setTimeout(resolve, ms));
-
-      return [
-        { op: 'set', path: 'delayCompleted', value: true }
-      ];
-    },
-  },
-});
-```
-
-### 5. Logging
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'log.info': async (params, ctx) => {
-      const message = params.message as string;
-      const level = params.level as string || 'info';
-
-      console.log(`[${level.toUpperCase()}]`, message);
-
-      // Logging effects usually don't modify state
-      return [];
-    },
-  },
-});
-```
-
----
-
-## Advanced Patterns
-
-### Pattern 1: Retry Logic
-
-```typescript
-function createRetryHandler(maxRetries: number, backoff: number) {
-  return async (params: unknown, ctx: AppEffectContext) => {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const url = params.url as string;
-        const target = params.target as string;
-
-        const response = await fetch(url);
-        const data = await response.json();
-
-        return [
-          { op: 'set', path: target, value: data },
-          { op: 'set', path: 'retryAttempts', value: attempt + 1 }
-        ];
-      } catch (error) {
-        lastError = error as Error;
-
-        // Wait before retry
-        if (attempt < maxRetries - 1) {
-          await new Promise(resolve =>
-            setTimeout(resolve, backoff * Math.pow(2, attempt))
-          );
-        }
-      }
-    }
-
-    // All retries failed
-    return [
-      { op: 'set', path: 'error', value: lastError?.message },
-      { op: 'set', path: 'retryAttempts', value: maxRetries }
-    ];
-  };
-}
-
-// Register
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetchWithRetry': createRetryHandler(3, 1000),
-  },
-});
-```
-
-### Pattern 2: Timeout Handling
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetchWithTimeout': async (params, ctx) => {
-      const url = params.url as string;
-      const target = params.target as string;
-      const timeoutMs = (params.timeout as number) || 10000;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const response = await fetch(url, { signal: controller.signal });
-        const data = await response.json();
-
-        clearTimeout(timeoutId);
-
-        return [
-          { op: 'set', path: target, value: data }
-        ];
-      } catch (error) {
-        clearTimeout(timeoutId);
-
-        if (error.name === 'AbortError') {
-          return [
-            { op: 'set', path: 'error', value: 'Request timeout' }
-          ];
-        }
-
-        return [
-          { op: 'set', path: 'error', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-### Pattern 3: Cleanup on Failure
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'file.upload': async (params, ctx) => {
-      let uploadId: string | undefined;
-
-      try {
-        // Step 1: Initialize upload
-        const initResponse = await fetch('/api/upload/init', { method: 'POST' });
-        uploadId = (await initResponse.json()).uploadId;
-
-        // Step 2: Upload chunks
-        await fetch(`/api/upload/${uploadId}/data`, {
-          method: 'PUT',
-          body: params.data
-        });
-
-        // Step 3: Finalize
-        await fetch(`/api/upload/${uploadId}/finalize`, { method: 'POST' });
-
-        return [
-          { op: 'set', path: 'uploadResult', value: { uploadId } }
-        ];
-      } catch (error) {
-        // Cleanup: delete partial upload
-        if (uploadId) {
-          await fetch(`/api/upload/${uploadId}`, { method: 'DELETE' })
-            .catch(() => {}); // Ignore cleanup errors
-        }
-
-        return [
-          { op: 'set', path: 'uploadError', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-### Pattern 4: Batching
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.batchFetch': async (params, ctx) => {
-      const urls = params.urls as string[];
-      const targets = params.targets as string[];
-
-      const results = await Promise.all(
-        urls.map(url => fetch(url).then(r => r.json()))
-      );
-
-      const patches: Patch[] = results.map((result, index) => ({
-        op: 'set',
-        path: targets[index],
-        value: result
-      }));
-
-      return patches;
-    },
-  },
-});
-```
-
-### Pattern 5: Reading Current State
-
-```typescript
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.saveCurrentState': async (params, ctx) => {
-      // Read current state from snapshot
-      const currentData = ctx.snapshot.data;
-
-      try {
-        await fetch('/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(currentData)
-        });
-
-        return [
-          { op: 'set', path: 'lastSyncedAt', value: Date.now() }
-        ];
-      } catch (error) {
-        return [
-          { op: 'set', path: 'syncError', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
----
-
-## Anti-Patterns (What NOT to Do)
-
-### Anti-Pattern 1: Throwing Exceptions
-
-```typescript
-// WRONG: Throwing
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetch': async (params, ctx) => {
-      const response = await fetch(params.url);
+    try {
+      const response = await fetch(`https://example.com/users/${id}`);
       if (!response.ok) {
-        throw new Error('API failed'); // WRONG!
-      }
-      return [{ op: 'set', path: 'result', value: await response.json() }];
-    },
-  },
-});
-```
-
-**Why wrong:** Exceptions bypass error handling. App execution fails.
-
-**Fix:** Return error patches.
-
-```typescript
-// RIGHT: Return error patches
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetch': async (params, ctx) => {
-      try {
-        const response = await fetch(params.url);
-        if (!response.ok) {
-          return [
-            { op: 'set', path: 'error', value: `HTTP ${response.status}` }
-          ];
-        }
-        return [
-          { op: 'set', path: 'result', value: await response.json() }
-        ];
-      } catch (error) {
-        return [
-          { op: 'set', path: 'error', value: error.message }
-        ];
-      }
-    },
-  },
-});
-```
-
-### Anti-Pattern 2: Domain Logic in Handlers
-
-```typescript
-// WRONG: Business rule in handler
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.createTodo': async (params, ctx) => {
-      const { snapshot } = ctx;
-      // Business rule!
-      if (snapshot.data.todos.length >= 100) {
-        return [
-          { op: 'set', path: 'error', value: 'Too many todos' }
-        ];
+        throw new Error(`Request failed with ${response.status}`);
       }
 
-      const result = await api.createTodo(params);
-      return [{ op: 'set', path: 'newTodo', value: result }];
-    },
-  },
-});
-```
+      const user = await response.json();
 
-**Why wrong:** Domain logic must be traceable. If it's in the handler, Trace doesn't show it.
-
-**Fix:** Domain logic in MEL, handler just does IO.
-
-```mel
-// RIGHT: Domain logic in MEL (traceable)
-action createTodo(title: string) {
-  when gte(len(todos), 100) {
-    fail "TOO_MANY_TODOS"
-  }
-  when lt(len(todos), 100) {
-    onceIntent {
-      effect api.createTodo({ title: title, into: newTodo })
+      return [
+        { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
+        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+        { op: "unset", path: [{ kind: "prop", name: "error" }] },
+      ];
+    } catch (error) {
+      return [
+        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+        {
+          op: "set",
+          path: [{ kind: "prop", name: "error" }],
+          value: error instanceof Error ? error.message : "Unknown error",
+        },
+      ];
     }
-  }
-}
+  },
+} satisfies Record<string, EffectHandler>;
 ```
 
-```typescript
-// Handler just does IO
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.createTodo': async (params, ctx) => {
-      const result = await api.createTodo(params.title);
-      return [
-        { op: 'set', path: 'newTodo', value: result }
-      ];
-    },
-  },
-});
-```
-
-### Anti-Pattern 3: Not Setting Guard State
+Register it:
 
 ```typescript
-// WRONG: Missing guard state
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.init': async (params, ctx) => {
-      const result = await api.init();
-      return [
-        { op: 'set', path: 'initResult', value: result }
-        // Missing: set initialized flag!
-      ];
-    },
-  },
-});
-```
+import { createManifesto } from "@manifesto-ai/sdk";
+import DomainMel from "./domain.mel";
+import { effects } from "./effects";
 
-**Why wrong:** Flow will re-declare effect on next compute, causing infinite loop.
-
-**Fix:** Set guard state.
-
-```typescript
-// RIGHT: Set guard state
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.init': async (params, ctx) => {
-      const result = await api.init();
-      return [
-        { op: 'set', path: 'initResult', value: result },
-        { op: 'set', path: 'initialized', value: true } // Guard state!
-      ];
-    },
-  },
-});
-```
-
-### Anti-Pattern 4: Mutating Snapshot
-
-```typescript
-// WRONG: Mutating snapshot from context
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'increment': async (params, ctx) => {
-      const { snapshot } = ctx;
-      snapshot.data.count++; // WRONG! Direct mutation
-      return [];
-    },
-  },
-});
-```
-
-**Why wrong:** Snapshot is immutable. Mutations are lost or cause bugs.
-
-**Fix:** Return patches.
-
-```typescript
-// RIGHT: Return patches
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'increment': async (params, ctx) => {
-      const { snapshot } = ctx;
-      return [
-        { op: 'set', path: 'count', value: snapshot.data.count + 1 }
-      ];
-    },
-  },
-});
-```
-
-### Anti-Pattern 5: Returning Non-Serializable Values
-
-```typescript
-// WRONG: Returning function
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetch': async (params, ctx) => {
-      const result = await api.fetch();
-      return [
-        {
-          op: 'set',
-          path: 'result',
-          value: {
-            data: result.data,
-            refresh: () => api.fetch() // Function! Not serializable!
-          }
-        }
-      ];
-    },
-  },
-});
-```
-
-**Why wrong:** Snapshot must be JSON-serializable. Functions, Dates, etc. break serialization.
-
-**Fix:** Only return serializable data.
-
-```typescript
-// RIGHT: Only serializable data
-const app = createApp({
-  schema: domainSchema,
-  effects: {
-    'api.fetch': async (params, ctx) => {
-      const result = await api.fetch();
-      return [
-        {
-          op: 'set',
-          path: 'result',
-          value: {
-            data: result.data,
-            fetchedAt: Date.now() // Number, not Date object
-          }
-        }
-      ];
-    },
-  },
+const manifesto = createManifesto({
+  schema: DomainMel,
+  effects,
 });
 ```
 
 ---
 
-## Testing Effect Handlers
+## What a Good Handler Usually Writes
+
+Most handlers patch some combination of:
+
+- The fetched or created value
+- A loading flag
+- A recoverable error message
+- Retry context, such as the last requested id
+
+That keeps the result visible to every consumer of the snapshot.
+
+---
+
+## Using `ctx.snapshot`
+
+The snapshot context is useful when the effect depends on current state:
 
 ```typescript
-import { describe, it, expect, vi } from "vitest";
-import { createApp } from "@manifesto-ai/sdk";
+const effects = {
+  "api.saveDraft": async (_params, ctx) => {
+    const draft = ctx.snapshot.data.draft as { title: string; body: string };
 
-describe("Effect handlers", () => {
-  it("handles successful API call", async () => {
-    // Mock fetch
+    try {
+      await saveDraftToApi(draft);
+      return [
+        { op: "set", path: [{ kind: "prop", name: "saveStatus" }], value: "saved" },
+      ];
+    } catch (error) {
+      return [
+        { op: "set", path: [{ kind: "prop", name: "saveStatus" }], value: "error" },
+      ];
+    }
+  },
+} satisfies Record<string, EffectHandler>;
+```
+
+The handler still returns patches. The snapshot is input, not mutable shared state.
+
+---
+
+## Testing a Handler
+
+You can test an effect handler directly because it is just an async function:
+
+```typescript
+import { describe, expect, it, vi } from "vitest";
+import type { Snapshot } from "@manifesto-ai/sdk";
+import { effects } from "./effects";
+
+describe("api.fetchUser", () => {
+  it("returns patches for the success path", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ id: "123", name: "Test" })
-    });
+      json: async () => ({ id: "123", name: "Ada" }),
+    }) as typeof fetch;
 
-    // Create app with handler
-    const app = createApp({
-      schema: domainSchema,
-      effects: {
-        'api.get': async (params, ctx) => {
-          const response = await fetch(params.url);
-          const data = await response.json();
-          return [{ op: 'set', path: params.target, value: data }];
-        },
-      },
-    });
+    const snapshot = {
+      data: { loading: true, user: null, error: null },
+    } as Snapshot;
 
-    await app.ready();
+    const patches = await effects["api.fetchUser"]({ id: "123" }, { snapshot });
 
-    // Trigger action that declares api.get effect
-    await app.act('fetchUser', { url: '/api/users/123' }).done();
-
-    expect(app.getState().data.user).toEqual({ id: "123", name: "Test" });
-  });
-
-  it("handles API error", async () => {
-    // Mock fetch error
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
-
-    const app = createApp({
-      schema: domainSchema,
-      effects: {
-        'api.get': async (params, ctx) => {
-          try {
-            const response = await fetch(params.url);
-            const data = await response.json();
-            return [{ op: 'set', path: params.target, value: data }];
-          } catch (error) {
-            return [{ op: 'set', path: 'error', value: error.message }];
-          }
-        },
-      },
-    });
-
-    await app.ready();
-
-    await app.act('fetchUser', { url: '/api/users/123' }).result();
-
-    expect(app.getState().data.error).toBe('Network error');
-  });
-
-  it("never throws", async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Fatal error'));
-
-    const app = createApp({
-      schema: domainSchema,
-      effects: {
-        'api.get': async (params, ctx) => {
-          try {
-            const response = await fetch(params.url);
-            return [{ op: 'set', path: 'result', value: response }];
-          } catch (error) {
-            return [{ op: 'set', path: 'error', value: error.message }];
-          }
-        },
-      },
-    });
-
-    await app.ready();
-
-    // Effect handler catches error and returns patches — no throw
-    await app.act('fetchUser', { url: '/api/fail' }).result();
-
-    expect(app.getState().data.error).toBe('Fatal error');
+    expect(patches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ op: "set" }),
+      ]),
+    );
   });
 });
 ```
 
 ---
 
-## Checklist: Is My Handler Correct?
+## Common Mistakes
 
-- [ ] Accepts `(params, ctx)`
-- [ ] Returns `Promise<readonly Patch[]>`
-- [ ] Never throws (all errors as patches)
-- [ ] No domain logic (only IO)
-- [ ] Sets guard state for re-entry safety
-- [ ] Returns only JSON-serializable values
-- [ ] Does not mutate snapshot from context
-- [ ] Handles success and error cases
-- [ ] Has tests for both success and error
+### Returning a value instead of patches
+
+This is wrong:
+
+```typescript
+return user;
+```
+
+### Throwing recoverable business errors out of the handler
+
+Translate recoverable failures into patches so the domain can show them in Snapshot.
+
+### Hiding status outside the domain
+
+If the UI needs `loading`, `saved`, or `error`, patch those values into state.
+
+### Writing overly broad patches
+
+Patch only the state you intend to change. It keeps handlers easier to review and easier to test.
 
 ---
 
-## Related Concepts
+## Next
 
-- **Effect** - External operation declared by Flow
-- **SDK** - Orchestrates effect execution via handlers
-- **Patch** - What handlers return
-- **Re-entry Safety** - Why guard state matters
-
----
-
-## See Also
-
-- [Effect Concept](/concepts/effect) - Understanding effects
-- [SDK API](/api/sdk) - How SDK works
-- [Re-entry Safe Flows](./reentry-safe-flows) - Guard patterns
-- [Specifications](/internals/spec/) - Normative contracts for App and other packages
+- Read [Debugging](./debugging) if an effect is not behaving the way you expect
+- Read [Typed Patch Ops](./typed-patch-ops) if you want safer patch creation in TypeScript

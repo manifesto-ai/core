@@ -1,450 +1,72 @@
 # Architecture
 
-> **Purpose:** Structural understanding of Manifesto's design
-> **Audience:** System designers, architects, implementers
-> **Reading time:** 5 minutes (overview) + 1.5 hours (all pages)
+> Understand the current implementation shape before you dig into the lower layers.
 
 ---
 
-## What is Covered Here?
+## The Current Picture
 
-The Architecture section explains **how Manifesto is structured** and **why it's structured that way**.
+For the default SDK path today, the mental model is:
 
-After reading this section, you'll understand:
-- The five-layer architecture (SDK, Runtime, World, Host, Core) + Compiler (MEL)
-- How data flows through the system
-- Why determinism is guaranteed
-- How failures are handled
-- How governance works
-
-This is not API documentation. This is structural understanding.
-
----
-
-## The Semantic Space Model
-
-Before understanding the layers and components, grasp the foundational model that drives all of Manifesto's architecture:
-
-**Manifesto treats domain state as coordinates in a semantic space.**
-
-| Concept | In Manifesto |
-|---------|--------------|
-| **Schema** | Defines the semantic space — dimensions, valid regions, navigation rules |
-| **Snapshot** | A coordinate — one point in that space |
-| **Intent** | A navigation command — where to move in the space |
-| **Computation** | Coordinate calculation — finding the next valid position |
-
-```
-compute(schema, snapshot, intent) → snapshot'
-        ↓        ↓         ↓           ↓
-      space   current   navigation    next
-      defn    coord     command       coord
+```text
+caller -> SDK (`createManifesto`)
+       -> Compiler (if schema is MEL text)
+       -> Host
+       -> Core
+       -> terminal Snapshot
 ```
 
-This model explains **why** Manifesto guarantees:
-
-- **Determinism**: Same coordinate + same navigation = same destination. Always.
-- **Accountability**: Every coordinate transition is recorded in the lineage DAG.
-- **Explainability**: Every position can trace its derivation path through semantic space.
-
-Traditional state management asks: *"How do I mutate this data?"*
-Manifesto asks: *"What is the next valid position in semantic space?"*
-
-This shift from data mutation to coordinate calculation is the foundational insight that enables all other guarantees.
+If you need explicit governance, actor approval, or lineage, add `@manifesto-ai/world` as a separate integration around the same Snapshot and Intent model.
 
 ---
 
-## The Core Architectural Principles
+## What Each Layer Owns
 
-### Principle 1: Separation of Concerns
+| Layer | Responsibility |
+|-------|----------------|
+| SDK | Public entrypoint and runtime handle |
+| Compiler | MEL to `DomainSchema` conversion |
+| Host | Effect execution and patch application loop |
+| Core | Pure computation of the next semantic state |
+| World | Optional governance, proposals, approvals, and lineage |
 
-**Core computes. Host executes. World governs.**
-
-```
-┌─────────────────────────────────────────────┐
-│ Core: What should happen                    │
-│   - Pure computation                        │
-│   - No IO, no side effects                  │
-│   - Same input → same output                │
-└─────────────────────────────────────────────┘
-                    ↓
-         Declares requirements
-                    ↓
-┌─────────────────────────────────────────────┐
-│ Host: How to make it happen                 │
-│   - Executes effects                        │
-│   - Applies patches                         │
-│   - Reports results                         │
-└─────────────────────────────────────────────┘
-                    ↓
-         Notifies World
-                    ↓
-┌─────────────────────────────────────────────┐
-│ World: Who can do what                      │
-│   - Evaluates authority                     │
-│   - Records decisions                       │
-│   - Maintains lineage                       │
-└─────────────────────────────────────────────┘
-```
-
-**Why this matters:** Each concern can be tested, replaced, and reasoned about independently.
-
-### Principle 2: Snapshot as Sole Medium
-
-**All communication happens through Snapshot. There is no other channel.**
-
-```
-┌──────────┐         ┌──────────┐         ┌──────────┐
-│  Core    │────────▶│ Snapshot │◀────────│   Host   │
-└──────────┘         └──────────┘         └──────────┘
-     ▲                     │                     │
-     │                     ▼                     │
-     │               ┌──────────┐                │
-     └───────────────│  World   │◀───────────────┘
-                     └──────────┘
-```
-
-**Why this matters:** No hidden state, no suspended context, complete visibility.
-
-### Principle 3: Immutability
-
-**Snapshots and Worlds are immutable after creation.**
-
-```typescript
-// FORBIDDEN
-snapshot.data.count = 5;
-snapshot.meta.version++;
-
-// REQUIRED
-const context = { now: 0, randomSeed: "seed" };
-const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'count', value: 5 }
-], context);
-```
-
-**Why this matters:** Time-travel debugging, safe concurrency, reproducible computation.
+The important beginner takeaway is that not every layer needs to be in your head on day one. Most onboarding work starts with SDK, Host, and Core.
 
 ---
 
-## Pages in This Section
+## Architecture Principles
 
-### [Layers](/internals/architecture)
+### Snapshot is the shared truth
 
-The four-layer architecture and their responsibilities.
+State is read through Snapshot, not through hidden runtime variables.
 
-**What you'll learn:**
-- SDK layer (public API) and Runtime layer (orchestration)
-- World layer (governance)
-- Host layer (effect execution)
-- Core layer (pure computation)
-- Compiler (MEL) for domain definition
-- Boundaries and contracts between layers
+### Core computes, Host fulfills
 
-**When to read:** Start here to understand the big picture.
+Core determines what should happen. Host fulfills declared work and applies resulting patches.
 
-**Reading time:** 15 minutes
+### Governance is explicit
+
+World is available when you need approval and lineage semantics. It is not an implicit black box inside the current `createManifesto()` path.
 
 ---
 
-### [Data Flow](./data-flow)
+## Recommended Reading Order
 
-How data moves through Manifesto's layers.
+1. [Data Flow](./data-flow)
+2. [Determinism](./determinism)
+3. [Failure Model](./failure-model)
+4. [World Concept](/concepts/world)
 
-**What you'll learn:**
-- Primary flow: Intent execution
-- Secondary flow: Effect handling
-- The Snapshot principle
-- Computation cycle
-- Component interactions
-
-**When to read:** After Layers. Understand how layers work together.
-
-**Reading time:** 20 minutes
+That order matches how most new developers encounter real problems.
 
 ---
 
-### [Determinism](./determinism)
+## When to Read This Section
 
-How Manifesto guarantees deterministic computation.
+Read the architecture pages when:
 
-**What you'll learn:**
-- What determinism means
-- Why it matters
-- How Core achieves it
-- What breaks determinism
-- Testing for determinism
+- the tutorial examples make sense, but you want to know why
+- you are integrating Manifesto into a larger system
+- you need to decide whether to bring in World
 
-**When to read:** After Data Flow. Understand the core guarantee.
-
-**Reading time:** 25 minutes
-
----
-
-### [Failure Model](./failure-model)
-
-How Manifesto handles errors and failures.
-
-**What you'll learn:**
-- Errors as values (not exceptions)
-- Effect failure handling
-- Flow failure patterns
-- Recovery strategies
-- Audit trails for failures
-
-**When to read:** After Determinism. Understand how things fail safely.
-
-**Reading time:** 20 minutes
-
----
-
-### Governance Model
-
-How World Protocol manages authority and accountability.
-
-**What you'll learn:**
-- Proposal → Authority → Decision flow
-- Authority registration and evaluation
-- Multi-authority coordination
-- Lineage DAG
-- Audit trail generation
-
-**When to read:** After Failure Model. Understand governance architecture.
-
-**Reading time:** 25 minutes
-
-**Note:** See [World Concept](/concepts/world) and [Specifications](/internals/spec/) for governance details.
-
----
-
-## Reading Order
-
-### For System Designers
-
-**Goal:** Understand architectural decisions and trade-offs
-
-1. **[Layers](/internals/architecture)** — See the structure
-2. **[Data Flow](./data-flow)** — See how it works
-3. **[Determinism](./determinism)** — Understand core guarantee
-4. **[Specifications](/internals/spec/)** — Understand authority architecture
-
-**Total time:** ~1 hour
-
-### For Implementers
-
-**Goal:** Build compliant implementations
-
-1. **[Layers](/internals/architecture)** — Understand boundaries
-2. **[Data Flow](./data-flow)** — Understand execution model
-3. **[Failure Model](./failure-model)** — Handle errors correctly
-4. **[Specifications](/internals/spec/)** — Read normative contracts
-
-**Total time:** ~1.5 hours + specs
-
-### For Evaluators
-
-**Goal:** Decide if architecture fits your needs
-
-1. **[Layers](/internals/architecture)** — See high-level structure
-2. **[Determinism](./determinism)** — Understand key guarantee
-3. **[Design Rationale](/internals/fdr/)** — Understand why
-
-**Total time:** ~45 minutes
-
----
-
-## Architecture Quick Reference
-
-### The Five Layers + Compiler
-
-| Layer | Package | Responsibility | Can Do | Cannot Do |
-|-------|---------|----------------|--------|-----------|
-| **SDK** | `@manifesto-ai/sdk` | Public API facade, typed ops | Subscribe, dispatch, createManifesto | Define logic, execute directly |
-| **World** | `@manifesto-ai/world` | Govern proposals, evaluate authority | Approve/reject, record lineage | Execute, compute |
-| **Host** | `@manifesto-ai/host` | Execute effects, apply patches | Run handlers, orchestrate | Decide, interpret meaning |
-| **Core** | `@manifesto-ai/core` | Pure computation | Compute patches/effects | IO, execution, time-awareness |
-| **Compiler** | `@manifesto-ai/compiler` | MEL → DomainSchema compilation | Parse, validate, generate schemas | Execute anything |
-
-### Data Flow Summary
-
-```
-User Action
-    ↓
-React/UI Dispatch
-    ↓
-App Routing (app.act())
-    ↓
-World Authority
-    ↓
-Host Orchestration
-    ↓
-Core Computation
-    ↓
-New Snapshot
-    ↓
-App Notification (app.subscribe())
-```
-
-### Key Guarantees
-
-| Guarantee | How It's Enforced |
-|-----------|-------------------|
-| **Determinism** | Core is pure (no IO, no time, no mutation) |
-| **Accountability** | World records all decisions |
-| **Immutability** | Snapshots/Worlds never mutate after creation |
-| **Completeness** | Snapshot contains all state (no hidden channels) |
-| **Termination** | Flows are not Turing-complete |
-
----
-
-## Common Architectural Questions
-
-### Why separate Core and Host?
-
-**Question:** Why not just have Core execute effects directly?
-
-**Answer:** Separation enables:
-- **Deterministic testing**: Core is pure, testable without mocks
-- **Time-travel debugging**: Replay Core computation exactly
-- **Effect isolation**: Swap implementations (mock APIs, different databases)
-- **Parallelization**: Host can execute effects in parallel
-
-See [Determinism](./determinism) for details.
-
-### Why is Snapshot the only medium?
-
-**Question:** Why not pass values directly between layers?
-
-**Answer:** Single medium ensures:
-- **Complete state visibility**: No hidden state
-- **Serialization**: Can save entire world
-- **Reproducibility**: Can replay from Snapshot
-- **Simplicity**: One place to look for state
-
-See [Data Flow](./data-flow#the-snapshot-principle) for details.
-
-### Why is Flow not Turing-complete?
-
-**Question:** Why can't Flows have unbounded loops?
-
-**Answer:** Guarantees:
-- **Termination**: Flows always finish in finite steps
-- **Static analysis**: Can analyze Flow without executing
-- **Complete traces**: Finite execution means complete logs
-
-For unbounded iteration, Host controls the loop.
-
-See [Flow Concept](/concepts/flow) for details.
-
-### Why is World required?
-
-**Question:** Can I skip World for simple apps?
-
-**Answer:** World provides:
-- **Audit trails**: Who did what, when, why
-- **Lineage tracking**: How we got to this state
-- **Authority evaluation**: Even if it always approves
-- **Decision records**: Compliance and debugging
-
-Even "always approve" authority provides value. World is not optional.
-
-See [World Concept](/concepts/world) and [Specifications](/internals/spec/) for details.
-
----
-
-## Architecture Diagrams
-
-### Layer Dependencies
-
-```mermaid
-graph BT
-    Compiler["Compiler<br/>(MEL)"]
-    Core["Core<br/>(Computation)"]
-    Host["Host<br/>(Execution)"]
-    World["World<br/>(Governance)"]
-    App["App<br/>(Orchestration)"]
-    UI["React/UI<br/>(Presentation)"]
-
-    Core --> Compiler
-    Host --> Core
-    Host --> World
-    App --> World
-    App --> Host
-    UI --> App
-
-    style Core fill:#e1f5ff
-    style Host fill:#fff4e1
-    style World fill:#ffe1f5
-    style App fill:#f0f0f0
-    style UI fill:#e8f5e9
-    style Compiler fill:#fff9c4
-```
-
-### Execution Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant UI as React/UI
-    participant App
-    participant World
-    participant Host
-    participant Core
-
-    User->>UI: Click button
-    UI->>App: app.act('action')
-    App->>World: Submit proposal
-    World->>World: Evaluate authority
-    alt Approved
-        World->>Host: Execute intent
-        Host->>Core: compute()
-        Core-->>Host: (patches, requirements)
-        Host->>Host: Execute effects
-        Host->>Host: Apply patches
-        Host->>Core: compute() again
-        Core-->>Host: (new snapshot, [])
-        Host->>World: Commit decision
-        World->>App: Notify
-        App->>UI: Trigger subscribers
-        UI->>User: Render
-    else Rejected
-        World->>App: Notify rejection
-        App->>UI: Trigger subscribers
-        UI->>User: Show error
-    end
-```
-
----
-
-## Next Steps
-
-### After Reading Architecture
-
-1. **Understand specifications:** Read [Specifications](/internals/spec/)
-2. **Understand rationale:** Read [Design Rationale](/internals/fdr/)
-3. **Build something:** Try [Getting Started](/quickstart)
-
-### If You're Designing a System
-
-1. **Map your domain:** Identify state, actions, effects
-2. **Define authorities:** Determine who can do what
-3. **Model failures:** Plan error handling
-4. **Choose integration points:** Decide where Manifesto fits in your stack
-
-### If You're Evaluating Manifesto
-
-1. **Check fit:** Does your problem need determinism, accountability, or governance?
-2. **Assess trade-offs:** More upfront structure, less imperative flexibility
-3. **Review alternatives:** See [Manifesto vs. Others](/concepts/)
-
----
-
-## Related Sections
-
-- **[Core Concepts](/concepts/)** — Understand building blocks
-- **[Specifications](/internals/spec/)** — Normative contracts
-- **[Rationale](/internals/fdr/)** — Why decisions were made
-- **[Guides](/guides/)** — Practical tutorials
-
----
-
-**Start with [Layers](/internals/architecture) to understand Manifesto's structure.**
+If you are still learning the APIs, go back to [Tutorial](/tutorial/) first.

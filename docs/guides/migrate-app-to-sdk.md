@@ -1,43 +1,52 @@
-# Migrate from `@manifesto-ai/app` to `@manifesto-ai/sdk`
+# Legacy App Migration
 
-## Why
+> Historical guide for repositories that still depend on `@manifesto-ai/app`.
 
-`@manifesto-ai/sdk` is now the canonical public entry point.
-The legacy facade package `@manifesto-ai/app` was removed in R2.
+`@manifesto-ai/app` is retired. The current SDK surface is `createManifesto()` from `@manifesto-ai/sdk`.
 
-- Decision: [ADR-008](/internals/adr/008-sdk-first-transition-and-app-retirement)
+---
 
-## Manual Migration
+## What This Guide Covers
 
-Replace import paths:
+- Replacing legacy package imports
+- Updating call sites that still assume `createApp()`
+- Using the repo migration script as a first pass
+
+This guide is intentionally narrow. If you are starting new work, skip it and use the [Tutorial](/tutorial/) instead.
+
+---
+
+## 1. Replace the Package Import
 
 ```typescript
 // Before
 import { createApp } from "@manifesto-ai/app";
 
 // After
-import { createApp } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 ```
 
-Update dependency declarations:
+---
 
-```json
-{
-  "dependencies": {
-    "@manifesto-ai/sdk": "^1.2.0"
-  }
-}
-```
+## 2. Update the Public API Usage
 
-## Automated Migration Script
+The important migration is not just the import path. The public shape changed.
 
-Use the repository migration helper:
+| Legacy App Facade | Current SDK |
+|-------------------|-------------|
+| `createApp({ schema, effects })` | `createManifesto({ schema, effects })` |
+| `await app.ready()` | Not needed |
+| `app.act("type", input)` | `manifesto.dispatch(createIntent("type", input, intentId))` |
+| `await handle.done()` | `on()` events or a `dispatchAsync()` helper |
+| `app.getState()` | `manifesto.getSnapshot()` |
+
+---
+
+## 3. Use the Migration Script Carefully
 
 ```bash
 node scripts/migrate/app-to-sdk.mjs
 ```
-
-This runs in dry-run mode by default.
 
 Apply changes:
 
@@ -45,18 +54,22 @@ Apply changes:
 node scripts/migrate/app-to-sdk.mjs --write
 ```
 
-Target specific paths:
+The script is a first pass only. It helps with import-path replacement. You still need to review code that assumed the old App facade API.
 
-```bash
-node scripts/migrate/app-to-sdk.mjs --write src docs
-```
+---
+
+## 4. Manual Review Checklist
+
+- Replace `createApp` with `createManifesto`
+- Remove `ready()`
+- Replace `act()` flows with `dispatch()` plus telemetry or a helper
+- Replace `getState()` with `getSnapshot()`
+- Re-run tests and docs build
+
+---
 
 ## Notes
 
-- The script skips `node_modules`, `dist`, `coverage`, `.git`, and `.turbo` directories.
-- The script skips files that use app-only symbols not exported by SDK (for example `createSilentPolicyService`) and exits non-zero so you can fix them manually.
-- This safety check also covers namespace/default usage such as `import * as app from "@manifesto-ai/app"` and `const app = require("@manifesto-ai/app")`.
-- Run the script from repository root so it can load `packages/sdk/src/index.ts` for allowlist validation.
-- If you intentionally want raw path replacement anyway, use `--allow-unsafe`.
-- Historical ADR/FDR references may intentionally keep `@manifesto-ai/app` strings.
-- Re-run tests/build after migration.
+- Historical ADR/FDR pages may intentionally keep legacy names
+- The migration script skips generated folders and exits non-zero when it finds unsupported app-only symbols
+- If the old code relied on App-only abstractions, rewrite those call sites manually

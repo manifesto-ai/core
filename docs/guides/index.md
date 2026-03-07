@@ -1,59 +1,47 @@
 # How-to Guides
 
-> Task-oriented guides for solving specific problems with Manifesto.
+> Solve one concrete problem at a time.
 
-::: tip Looking for tutorials?
-If you're new to Manifesto, start with the **[Tutorial](/tutorial/)** which walks you through building an app step by step.
-
-Guides assume you already understand the basics.
-:::
-
----
-
-## Tutorials vs Guides
-
-| | Tutorials | Guides |
-|---|-----------|--------|
-| **Goal** | Learn Manifesto | Solve a specific problem |
-| **Structure** | Sequential, step-by-step | Standalone, jump to what you need |
-| **Audience** | Beginners | Developers who know the basics |
-| **Example** | "Build a counter app" | "Debug a re-entry loop" |
+If you are still learning the basics, start with the [Tutorial](/tutorial/). These guides assume you already know what a `ManifestoInstance` is and how to dispatch intents.
 
 ---
 
 ## Available Guides
 
-| Guide | Description | Difficulty |
-|-------|-------------|------------|
-| [Effect Handlers](./effect-handlers) | Write robust handlers for API calls, database, etc. | Intermediate |
-| [Re-entry Safety](./reentry-safe-flows) | Prevent infinite loops and duplicate effects | Intermediate |
-| [Debugging](./debugging) | Inspect traces, state, and performance | Beginner |
-| [Migrate App to SDK](./migrate-app-to-sdk) | Replace legacy app-facade imports with `@manifesto-ai/sdk` | Beginner |
-| [Performance Report](./performance-report) | Benchmark results and reproduction commands | Advanced |
-| [Code Generation](./code-generation) | Generate TypeScript types and Zod schemas from DomainSchema | Beginner |
-| [Typed Patch Ops](./typed-patch-ops) | Create patches with IDE autocomplete and compile-time type checking | Beginner |
+| Guide | When to Read It |
+|-------|-----------------|
+| [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
+| [Debugging](./debugging) | A dispatch does not do what you expected |
+| [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |
+| [Typed Patch Ops](./typed-patch-ops) | You want safer patch creation in TypeScript |
+| [Code Generation](./code-generation) | You want generated TypeScript or Zod artifacts from a schema |
+| [Performance Report](./performance-report) | You want benchmark numbers and reproduction steps |
+| [Legacy App Migration](./migrate-app-to-sdk) | You still have old `@manifesto-ai/app` code |
 
 ---
 
-## Quick Reference
+## Recommended Order After the Tutorial
 
-### When to Use Which Guide
+1. Read [Effect Handlers](./effect-handlers)
+2. Read [Debugging](./debugging)
+3. Read [Re-entry Safety](./reentry-safe-flows)
+4. Read [Typed Patch Ops](./typed-patch-ops)
 
-| Problem | Guide |
-|---------|-------|
-| Flow runs multiple times | [Re-entry Safety](./reentry-safe-flows) |
-| Effect handler never called | [Effect Handlers](./effect-handlers) |
-| State not updating | [Debugging](./debugging) |
-| Migrating legacy imports | [Migrate App to SDK](./migrate-app-to-sdk) |
-| Checking deployment readiness | [Performance Report](./performance-report) |
-| Generating types from schema | [Code Generation](./code-generation) |
-| Patches have wrong paths or values | [Typed Patch Ops](./typed-patch-ops) |
+That sequence matches the problems most teams hit first.
+
+---
+
+## What These Guides Assume
+
+- You use `createManifesto()` as the public SDK entry
+- You create intents with `createIntent()`
+- You observe outcomes through `subscribe()`, `on()`, or a small `dispatchAsync()` helper
+- You treat Snapshot as the single source of truth
 
 ---
 
 ## See Also
 
-- **[Tutorial](/tutorial/)** -- Step-by-step learning path (start here if new)
-- **[Integration](/integration/)** -- Connect Manifesto with React, AI agents
-- **[API Reference](/api/)** -- Complete package documentation
-- **[MEL Syntax](/mel/SYNTAX)** -- Domain definition language
+- [Tutorial](/tutorial/) for the step-by-step learning path
+- [Integration](/integration/) for React and AI-agent patterns
+- [Architecture](/architecture/) for the system-level model

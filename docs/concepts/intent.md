@@ -1,175 +1,107 @@
 # Intent
 
-> A request to perform a domain action.
+> An Intent is a request to move the domain from one snapshot to the next.
 
-## What is Intent?
+---
 
-Intent represents what a user (or agent) wants to happen. It's a proposal for state change, not a command. The system decides whether to approve and execute it.
+## What an Intent Is
 
-An Intent has a type (which action to perform) and optional input data. When submitted, it flows through World Protocol for authority evaluation before Host executes it.
+In Manifesto, you do not call domain methods that mutate state directly. You submit an `Intent` and let the runtime compute the next terminal snapshot.
 
-Think of Intent as a customer's order. The order describes what they want; the kitchen (Flow) defines how to make it; the restaurant (World) decides whether to accept it.
+At the SDK level, an intent is the unit that goes into `dispatch()`.
 
-## Structure
+---
 
-### IntentBody
+## The Practical SDK Shape
 
-The command structure itself:
-
-```typescript
-type IntentBody = {
-  /** The action to perform (matches an ActionSpec) */
-  readonly type: string;
-
-  /** Optional input data */
-  readonly input?: unknown;
-};
-```
-
-### IntentInstance
-
-A specific invocation with unique identity:
+The safest path is to create intents with `createIntent()`:
 
 ```typescript
-type IntentInstance = {
-  readonly body: IntentBody;
-  readonly intentId: string;      // Unique per invocation
-  readonly intentKey: string;     // Content-addressable
-  readonly meta: {
-    readonly origin?: string;
-    readonly timestamp?: number;
-  };
-};
-```
+import { createIntent } from "@manifesto-ai/sdk";
 
-## Key Properties
-
-- **Typed**: Intent type must match a defined Action.
-- **Stateless**: Intent carries only input; all other state comes from Snapshot.
-- **Traceable**: Every Intent has a unique `intentId` for audit trails.
-- **Validated**: Input is validated against ActionSpec before execution.
-
-## Example
-
-```typescript
-// Simple intent
-const intent: IntentBody = {
-  type: "addTodo",
-  input: { title: "Buy milk" }
-};
-
-// Creating an IntentInstance
-import { createIntent } from "@manifesto-ai/core";
-
-const instance = createIntent(
+const intent = createIntent(
   "addTodo",
-  { title: "Buy milk", priority: "high" },
-  "intent-123"  // intentId
+  { id: crypto.randomUUID(), title: "Review the docs" },
+  crypto.randomUUID(),
 );
 ```
 
-### MEL Equivalent
-
-```mel
-domain TodoDomain {
-  state {
-    todos: Array<string> = []
-  }
-
-  action addTodo(title: string) {
-    patch todos = append(todos, title)
-  }
-}
-```
-
-## Common Patterns
-
-### Dispatching Intents (App)
+Then dispatch it:
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+manifesto.dispatch(intent);
+```
+
+That keeps the `intentId` explicit and stable for the lifetime of that intent.
+
+---
+
+## Why `intentId` Matters
+
+The current SDK uses `intentId` to correlate lifecycle events:
+
+- `dispatch:completed`
+- `dispatch:rejected`
+- `dispatch:failed`
+
+If you build a `dispatchAsync()` helper on top of `on()`, it usually matches completion or failure by `intentId`.
+
+---
+
+## Intent vs Command
+
+An Intent is not “do this imperative step right now.” It is “this is the requested transition.”
+
+That difference matters because:
+
+- the domain may reject it
+- effects may be involved
+- the result is observed through Snapshot, not a hidden return channel
+
+---
+
+## A Simple Example
+
+```typescript
+import { createManifesto, createIntent } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
-const app = createApp({ schema: TodoMel, effects: {} });
-await app.ready();
+const manifesto = createManifesto({
+  schema: TodoMel,
+  effects: {},
+});
 
-// Dispatch intent
-await app.act("addTodo", { title: "New task" }).done();
-
-// Read result from snapshot
-console.log(app.getState().data.todos);
-```
-
-### Dispatching Intents (React with App)
-
-```typescript
-import { useCallback, useSyncExternalStore } from 'react';
-import { createApp } from "@manifesto-ai/sdk";
-import TodoMel from "./todo.mel";
-
-const app = createApp({ schema: TodoMel, effects: {} });
-
-function useAction(actionName: string) {
-  return useCallback(
-    (input?: Record<string, unknown>) => app.act(actionName, input),
-    [actionName]
-  );
-}
-
-function AddTodoButton() {
-  const addTodo = useAction('addTodo');
-
-  return (
-    <button onClick={() => addTodo({ title: "New task" })}>
-      Add Todo
-    </button>
-  );
-}
-```
-
-### Dispatching Intents (Host)
-
-```typescript
-import { createHost } from "@manifesto-ai/host";
-import { createIntent } from "@manifesto-ai/core";
-
-const host = createHost(schema, { initialData: {} });
-
-const result = await host.dispatch(
-  createIntent("addTodo", { title: "Buy milk" }, "intent-1")
+manifesto.dispatch(
+  createIntent(
+    "addTodo",
+    { id: crypto.randomUUID(), title: "Ship the rewrite" },
+    crypto.randomUUID(),
+  ),
 );
 
-console.log(result.status); // "complete" | "pending" | "error"
+console.log(manifesto.getSnapshot().data);
 ```
 
-### Conditional Availability (MEL)
+---
 
-```mel
-domain TodoDomain {
-  state {
-    todos: Array<{ id: string, completed: boolean }> = []
-  }
+## Common Mistakes
 
-  computed completedCount = len(filter(todos, $item.completed))
+### Treating the intent like the result
 
-  // Action only runs when condition is met
-  action clearCompleted() {
-    when gt(completedCount, 0) {
-      patch todos = filter(todos, not($item.completed))
-    }
-  }
-}
-```
+The intent is the request. The snapshot is the result.
 
-## Intent vs Event
+### Skipping `createIntent()`
 
-| Concept | Nature | Timing |
-|---------|--------|--------|
-| **Intent** | Command (request) | Future: "Make this happen" |
-| **Event** | Fact (notification) | Past: "This happened" |
+You can construct the object yourself, but `createIntent()` is the safer and clearer path for current SDK usage.
+
+### Assuming `dispatch()` completes synchronously
+
+`dispatch()` enqueues work and returns immediately. Use telemetry or read the next terminal snapshot later.
+
+---
 
 ## See Also
 
-- [Flow](./flow.md) - How intents are executed
-- [World](./world.md) - How intents are governed
-- [Snapshot](./snapshot.md) - Where intent results appear
+- [Tutorial](/tutorial/) for the first end-to-end examples
+- [Effect](./effect) for what happens when an action declares external work
+- [World](./world) for explicit governance and lineage

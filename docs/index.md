@@ -43,13 +43,16 @@ domain Counter {
 ```
 
 ```typescript
-import { createApp } from "@manifesto-ai/sdk";
+import { createManifesto, createIntent } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const app = createApp({ schema: CounterMel, effects: {} });
-await app.ready();
-await app.act("increment").done();
-console.log(app.getState().data.count); // 1
+const manifesto = createManifesto({ schema: CounterMel, effects: {} });
+
+manifesto.on("dispatch:completed", ({ snapshot }) => {
+  console.log(snapshot?.data.count); // 1
+});
+
+manifesto.dispatch(createIntent("increment", "intent-1"));
 ```
 
 ## Learn
@@ -64,7 +67,7 @@ console.log(app.getState().data.count); // 1
 
 | Package | Description |
 |---------|-------------|
-| `@manifesto-ai/sdk` | High-level app facade (recommended starting point) |
+| `@manifesto-ai/sdk` | Thin public composition layer (recommended starting point) |
 | `@manifesto-ai/compiler` | MEL compiler |
 | `@manifesto-ai/core` | Pure computation engine |
 | `@manifesto-ai/host` | Effect execution runtime |
@@ -74,8 +77,7 @@ console.log(app.getState().data.count); // 1
 
 See [API Reference](/api/) for full documentation.
 
-> Note: Runtime/SDK specs are currently draft decomposition documents derived from APP-SPEC.
-> The recommended production entry point remains `@manifesto-ai/sdk`.
+> Note: `@manifesto-ai/runtime` is retired per ADR-010. The recommended production entry point remains `@manifesto-ai/sdk`.
 
 ## Installation
 
