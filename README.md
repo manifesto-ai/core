@@ -1,6 +1,6 @@
 # Manifesto
 
-**Semantic Protocol for Deterministic State**
+**Semantic Layer for Deterministic Domain State**
 
 Define your domain's meaning once — derive UI, backend, AI, and full history as projections.
 
@@ -99,7 +99,7 @@ Three projections, one source of truth. Change the domain declaration — every 
 
 ## What is Manifesto?
 
-Manifesto is a **semantic protocol** that separates *meaning* from *mechanism*. You declare what your domain means in [MEL](https://docs.manifesto-ai.dev/mel/); the protocol handles computation, execution, governance, and history.
+Manifesto is a **semantic layer for deterministic domain state**. You declare what your domain means in [MEL](https://docs.manifesto-ai.dev/mel/); the semantic layer handles computation, effect declaration, and traceable state transitions.
 
 The core equation:
 
@@ -109,21 +109,25 @@ compute(schema, snapshot, intent) → (snapshot', requirements, trace)
 
 This function is **pure** (same inputs → same outputs), **total** (always returns), and **traceable** (every step recorded). All state transitions in Manifesto follow this equation.
 
-At the current SDK boundary, humans, AI agents, and automated systems submit the same `Intent` shape through `dispatch()`. Governance, authority, and lineage remain available as explicit integrations through `@manifesto-ai/world`.
+What this means in practice:
 
-Manifesto is not a library you add to your stack. It is the **semantic layer** between your domain logic and whatever surface consumes it — React renders a Snapshot, Express serves a Snapshot, an AI agent reads a Snapshot and proposes actions against it.
+- **Snapshot is the single source of truth.** Every surface — UI, API, agent, audit — reads from the same Snapshot.
+- **Core computes, Host executes.** Pure semantic computation is separated from IO and effect execution.
+- **Intents carry meaning.** State changes are requested through typed Intents, not ad-hoc mutations.
+
+Governance, authority, and lineage are available as explicit integrations through `@manifesto-ai/world` when your deployment needs them.
 
 ---
 
 ## What Manifesto is NOT
 
 - **Not a state management library.** Redux and Zustand manage UI state. Manifesto defines domain semantics — the meaning behind the state.
-- **Not an AI framework.** LangChain and CrewAI orchestrate LLM calls. Manifesto governs the state that AI agents modify.
+- **Not an AI framework.** LangChain and CrewAI orchestrate LLM calls. Manifesto provides the deterministic state layer that AI agents can operate on.
 - **Not an event sourcing framework.** Events are a mechanism. Manifesto operates at the semantic level — Intents carry meaning, not just data.
 - **Not a database or ORM.** Manifesto computes state transitions. Persistence is delegated to Host.
 - **Not a workflow engine.** Workflows are imperative sequences. Manifesto domains are declarative — the runtime determines execution order.
 
-Manifesto is the semantic layer that all of these can work *on top of*.
+Manifesto is the semantic layer that sits between your domain logic and whatever surface consumes it — React renders a Snapshot, Express serves a Snapshot, an AI agent reads a Snapshot and proposes actions against it.
 
 ---
 
@@ -286,7 +290,7 @@ manifesto.dispose();
 
 ## Built on Manifesto
 
-Manifesto is designed for domains where traceability, governance, and determinism are not optional.
+Manifesto is designed for domains where determinism, traceability, and semantic clarity are not optional.
 
 - **[ProofFlow](https://github.com/manifesto-ai/proofflow)** — Structural recording and pattern reuse for Lean 4 mathematical proof experiences. Every proof step is a governed state transition in the Manifesto lineage.
 

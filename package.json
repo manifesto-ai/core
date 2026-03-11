@@ -2,7 +2,7 @@
   "name": "@manifesto-ai/monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Deterministic state management with built-in history, approval, and traceability",
+  "description": "Semantic layer for deterministic domain state",
   "homepage": "https://docs.manifesto-ai.dev",
   "repository": {
     "type": "git",
@@ -10,14 +10,13 @@
   },
   "keywords": [
     "manifesto",
-    "state-management",
+    "semantic-layer",
     "deterministic",
+    "domain-state",
     "traceable",
-    "semantic",
-    "governance",
-    "audit-trail",
-    "actor-model",
-    "ai"
+    "snapshot",
+    "pure-computation",
+    "schema-first"
   ],
   "type": "module",
   "packageManager": "pnpm@9.15.2",
