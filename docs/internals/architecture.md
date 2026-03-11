@@ -1,14 +1,14 @@
 # Architecture
 
-> **Version:** 2.0
+> **Version:** 2.1
 > **Status:** Normative
-> **Last Updated:** 2025-01-17
+> **Last Updated:** 2026-03-11
 
 ---
 
 ## Overview
 
-Manifesto is an AI architecture framework that creates **"minds"** for AI—not just intelligence, but consciousness, memory, relationships, and responsibility.
+Manifesto is a semantic layer for deterministic domain state. It separates pure computation from effect execution and governance, enabling full traceability, reproducibility, and accountability for every state transition.
 
 This document defines the **constitutional boundaries** between Manifesto's layers. It is the authoritative reference for architectural decisions.
 
@@ -29,10 +29,10 @@ This document defines the **constitutional boundaries** between Manifesto's laye
 
 3. **Results vs Process**
    - **World** owns results (what becomes history)
-   - **App** owns process (how execution happens)
+   - **SDK** owns process (how execution happens)
 
 4. **Composition over Inheritance**
-   - App assembles; it doesn't extend
+   - SDK assembles; it doesn't extend
    - Layers are composed, not inherited
 
 ---
@@ -41,11 +41,10 @@ This document defines the **constitutional boundaries** between Manifesto's laye
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                           App                                   │
+│                           SDK                                   │
 │                   (Composition Root)                            │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                 runtime/ (internal)                       │  │
-│  │         Host ↔ World Integration                          │  │
+│  │              Host ↔ World Integration                     │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                             │                                   │
 │              ┌──────────────┴──────────────┐                    │
@@ -136,53 +135,41 @@ interface HostExecutor {
 ```
 
 **Constitutional Rules:**
-1. World **declares** HostExecutor interface; Runtime **implements** it
+1. World **declares** HostExecutor interface; SDK **implements** it
 2. World **seals results**; it does NOT interpret execution
 3. World owns **governance events** (`proposal:*`, `world:*`, `execution:completed/failed`)
 4. World does NOT own **telemetry events** (`execution:compute`, `execution:patches`, etc.)
 
 ---
 
-### Runtime/SDK (Composition Layer)
+### SDK (Composition Layer)
 
 > **One-liner:** Assembly layer that makes execution viable.
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Compose Host + World, implement policies, present SDK-facing APIs |
-| **Primary API** | Application-specific |
+| **Role** | Compose Host + World, implement policies, present public APIs |
+| **Primary API** | `createManifesto()`, `dispatch()`, `subscribe()` |
 | **Owns** | Host↔World integration, execution telemetry, UI/session |
 | **Does NOT Know** | Core computation internals, World constitution changes |
 
 ```typescript
-// Runtime responsibilities
-class RuntimeHostExecutor implements HostExecutor {
+// SDK responsibilities
+class SdkHostExecutor implements HostExecutor {
   execute(...) { /* integrate Host, transform results */ }
 }
 
 host.onTrace((trace) => {
-  // Transform TraceEvent → runtime telemetry events
-  runtimeEmitter.emit('execution:compute', ...);
+  // Transform TraceEvent → SDK telemetry events
+  sdkEmitter.emit('execution:compute', ...);
 });
 ```
 
 **Constitutional Rules:**
-1. Runtime is the **only layer** that knows both Host and World
-2. Runtime owns **execution telemetry events** (derived from Host's TraceEvent)
-3. Runtime implements **HostExecutor** interface for World
-4. Runtime is the **evolution absorption layer** for Host changes
-
-#### Runtime Internal Structure (Recommended)
-
-```
-runtime/
-  execution/            # Host ↔ World integration
-    host-executor.ts    # HostExecutor implementation
-    trace-mapper.ts     # TraceEvent → telemetry events
-    execution-key.ts    # ExecutionKey policy
-  session/              # Session management
-  policy/               # Business policies
-```
+1. SDK is the **only layer** that knows both Host and World
+2. SDK owns **execution telemetry events** (derived from Host's TraceEvent)
+3. SDK implements **HostExecutor** interface for World
+4. SDK is the **evolution absorption layer** for Host changes
 
 ---
 
@@ -195,13 +182,13 @@ runtime/
 | **Core** | IO, execution loops, approval, governance, World, Host |
 | **Host** | World, Proposal, Authority, governance, approval decisions |
 | **World** | Host internal API, TraceEvent, dispatch options, execution micro-steps |
-| **Runtime/SDK** | Core computation internals, World constitutional rules |
+| **SDK** | Core computation internals, World constitutional rules |
 
 ### Dependency Direction
 
 ```
-Runtime → World → (HostExecutor interface)
-Runtime → Host
+SDK → World → (HostExecutor interface)
+SDK → Host
 World → Core
 Host → Core
 ```
@@ -225,7 +212,7 @@ Host → Core
 | `world:created` | New World sealed |
 | `world:forked` | Branch created |
 
-### Runtime-Owned Events (Execution Telemetry)
+### SDK-Owned Events (Execution Telemetry)
 
 | Event | Description |
 |-------|-------------|
@@ -237,16 +224,16 @@ Host → Core
 
 ### The Rule
 
-> **Results are World's; Process is Runtime's.**
+> **Results are World's; Process is SDK's.**
 
 ---
 
 ## Interface Contracts
 
-### HostExecutor (World → Runtime)
+### HostExecutor (World → SDK)
 
 ```typescript
-// Defined by World, implemented by Runtime
+// Defined by World, implemented by SDK
 interface HostExecutor {
   execute(
     key: ExecutionKey,
@@ -264,10 +251,10 @@ type HostExecutionResult = {
 };
 ```
 
-### TraceEvent (Host → Runtime)
+### TraceEvent (Host → SDK)
 
 ```typescript
-// Defined by Host, consumed by Runtime
+// Defined by Host, consumed by SDK
 type TraceEvent =
   | { type: 'compute:start'; ... }
   | { type: 'compute:end'; ... }
@@ -283,8 +270,7 @@ type TraceEvent =
 
 ```
 packages/
-  sdk/         # SDK: Public entrypoint
-  runtime/     # Runtime: Composition layer
+  sdk/         # SDK: Public entrypoint & composition layer
   core/        # Core: Semantic computation
   host/        # Host: Execution engine
   world/       # World: Governance protocol
@@ -311,20 +297,20 @@ packages/
 
 ### When Host Changes
 
-1. Runtime module absorbs the change
+1. SDK absorbs the change
 2. HostExecutor implementation adapts
 3. World remains unchanged
 
 ### When World Constitution Changes
 
 1. World SPEC/FDR updated
-2. Runtime may need to adjust HostExecutor implementation
+2. SDK may need to adjust HostExecutor implementation
 3. Host remains unchanged
 
 ### When Core Changes
 
 1. Both Host and World may need updates
-2. Runtime/SDK adapts as needed
+2. SDK adapts as needed
 3. This is rare (Core is stable)
 
 ### Adding New Features
@@ -333,7 +319,7 @@ packages/
 |--------------|--------------|
 | New effect type | Host |
 | New governance policy | World |
-| New execution strategy | Runtime |
+| New execution strategy | SDK |
 | New semantic capability | Core |
 
 ---
@@ -346,9 +332,9 @@ An implementation is compliant with this architecture if:
 - [ ] Host has no World/Proposal/Authority awareness
 - [ ] World has no Host internal API usage (only HostExecutor interface)
 - [ ] World does not emit telemetry events (only governance events)
-- [ ] Runtime implements HostExecutor for World
-- [ ] Runtime transforms TraceEvent to telemetry events
-- [ ] Runtime is the only layer that imports both Host and World
+- [ ] SDK implements HostExecutor for World
+- [ ] SDK transforms TraceEvent to telemetry events
+- [ ] SDK is the only layer that imports both Host and World
 
 ---
 
@@ -359,13 +345,14 @@ An implementation is compliant with this architecture if:
 | Core | Truth | Semantics | Execution |
 | Host | Engine | Execution | Governance |
 | World | History | Governance | Host internals |
-| Runtime/SDK | Assembly | Integration | Constitutions |
+| SDK | Assembly | Integration | Constitutions |
 
 ---
 
 ## Related Documents
 
 - [ADR-001: Layer Separation](./adr/001-layer-separation) - Design decision rationale
+- [ADR-010: Protocol-First SDK Reconstruction](./adr/010-major-hard-cut) - App/Runtime retirement
 - [Specifications](./spec/) - Package specifications (Core, Host, World, etc.)
 
 ---

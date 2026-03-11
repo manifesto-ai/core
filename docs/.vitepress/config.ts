@@ -32,15 +32,15 @@ function addMermaidRenderer(md: MarkdownRenderer) {
 
 export default defineConfig({
   title: 'Manifesto',
-  description: 'Deterministic state protocol for humans and AI — with built-in history, approval, and traceability',
+  description: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections',
   head: [
     ['meta', { property: 'og:title', content: 'Manifesto' }],
-    ['meta', { property: 'og:description', content: 'Deterministic state protocol for humans and AI — with built-in history, approval, and traceability' }],
+    ['meta', { property: 'og:description', content: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:url', content: 'https://docs.manifesto-ai.dev' }],
     ['meta', { name: 'twitter:card', content: 'summary' }],
     ['meta', { name: 'twitter:title', content: 'Manifesto' }],
-    ['meta', { name: 'twitter:description', content: 'Deterministic state protocol for humans and AI — with built-in history, approval, and traceability' }],
+    ['meta', { name: 'twitter:description', content: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections' }],
   ],
   markdown: {
     languages: markdownLanguages,
@@ -135,13 +135,13 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
-            { text: 'App Facade (Removed Legacy)', link: '/api/app' },
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
             { text: '@manifesto-ai/intent-ir', link: '/api/intent-ir' },
+            { text: 'App Facade (Retired per ADR-008)', link: '/api/app' },
           ]
         }
       ],
@@ -205,6 +205,10 @@ export default defineConfig({
             { text: 'ADR-006: Runtime Reframing', link: '/internals/adr/006-runtime-reframing' },
             { text: 'ADR-007: SDK/Runtime Split', link: '/internals/adr/007-sdk-runtime-split-kickoff' },
             { text: 'ADR-008: SDK-First + App Retirement', link: '/internals/adr/008-sdk-first-transition-and-app-retirement' },
+            { text: 'ADR-009: Structured PatchPath', link: '/internals/adr/009-structured-patch-path' },
+            { text: 'ADR-010: Protocol-First SDK Reconstruction', link: '/internals/adr/010-major-hard-cut' },
+            { text: 'ADR-011: Host Boundary Reset', link: '/internals/adr/011-host-boundary-reset-and-executionkey-serialization' },
+            { text: 'ADR-012: Remove Computed Prefix', link: '/internals/adr/012-remove-computed-prefix' },
           ]
         },
         {

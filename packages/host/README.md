@@ -306,7 +306,7 @@ Use Host directly when:
 - Building CLI tools or scripts
 - Implementing custom execution policies
 
-For typical usage with governance, see [`@manifesto-ai/world`](../world/).
+For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit governance workflows, see [`@manifesto-ai/world`](../world/).
 
 ---
 

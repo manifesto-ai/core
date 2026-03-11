@@ -132,6 +132,6 @@ Stay with the default SDK path when you only need direct domain execution.
 
 ## Documentation
 
-- [World API](/api/world)
-- [World Concept](/concepts/world)
-- [Specifications](/internals/spec/)
+- [World API](../../docs/api/world.md)
+- [World Concept](../../docs/concepts/world.md)
+- [Specifications](../../docs/internals/spec/)
