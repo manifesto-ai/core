@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/world",
   "version": "2.4.1",
-  "description": "Manifesto World Protocol - Governance, Authority, and Lineage layer",
+  "description": "Manifesto World - Optional governance, authority, and lineage layer",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -19,8 +19,7 @@
     "authority",
     "lineage",
     "audit-trail",
-    "traceability",
-    "ai"
+    "traceability"
   ],
   "type": "module",
   "main": "./dist/index.js",

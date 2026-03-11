@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: Manifesto
-  text: Deterministic State Protocol
+  text: Semantic Layer for Deterministic Domain State
   tagline: Define meaning once — derive UI, backend, AI, and full history as projections.
   actions:
     - theme: brand
@@ -23,9 +23,9 @@ features:
   - icon: 🔍
     title: Accountable
     details: Every change traceable to Actor + Authority + Intent.
-  - icon: 👥
-    title: Actor-Agnostic
-    details: Humans, AI agents, and automated processes share the same interface.
+  - icon: 📐
+    title: Schema-First
+    details: All domain semantics expressed as JSON-serializable data.
   - icon: ⚡
     title: Effect Isolation
     details: Pure computation separated from IO.

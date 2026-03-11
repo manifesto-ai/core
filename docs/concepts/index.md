@@ -2,7 +2,7 @@
 
 > Quick reference for Manifesto's core building blocks.
 
-Manifesto models applications as semantic spaces where state transitions are computed, not executed. Understanding these six concepts provides the foundation for building with Manifesto.
+Manifesto is a semantic layer for deterministic domain state. You declare what your domain means once; every surface — UI, API, agent, automation — reads from the same Snapshot. Understanding these concepts provides the foundation for building with Manifesto.
 
 ---
 
@@ -46,11 +46,11 @@ Manifesto models applications as semantic spaces where state transitions are com
 
 Manifesto excels when you need:
 
-- **AI as First-Class Actor**: AI agents participate as equals with humans in a governed system
-- **Determinism**: Identical inputs must produce identical outputs (testing, replay)
-- **Verifiable AI Behavior**: LLM decisions need audit trails and authority controls
-- **Compliance**: Every state change must be traceable and explainable
-- **Multi-actor systems**: Different users/AI agents with different permissions
+- **Determinism**: Identical inputs must produce identical outputs (testing, replay, debugging)
+- **Traceability**: Every state change must be explainable — who requested it, why, and what changed
+- **Semantic clarity**: Domain meaning defined once, consumed by every surface
+- **Compute/execute separation**: Pure domain logic separated from IO and effects
+- **Multi-surface consistency**: UI, API, agents, and automation reading the same Snapshot
 
 ### Not Redux/Zustand
 
@@ -58,7 +58,7 @@ Manifesto excels when you need:
 |----------|----------|
 | Simple UI state sync | Redux, Zustand |
 | Global state with DevTools | Redux |
-| AI-human collaboration with governance | **Manifesto** |
+| Deterministic domain semantics across surfaces | **Manifesto** |
 
 ### Not LangChain/AutoGen
 
@@ -66,7 +66,7 @@ Manifesto excels when you need:
 |----------|----------|
 | LLM orchestration | LangChain |
 | Multi-agent conversations | AutoGen |
-| Deterministic state with AI actors | **Manifesto** |
+| Deterministic state layer that agents operate on | **Manifesto** |
 
 ### Good Fit
 
@@ -91,7 +91,7 @@ Simpler alternatives exist for:
 
 | Concept | Definition | Key Principle |
 |---------|------------|---------------|
-| [AI Native OS Layer](./ai-native-os-layer.md) | Manifesto's core identity | Not state management, not AI framework |
+| [Shared Semantic Model](./shared-semantic-model.md) | One domain, many surfaces | Define once, project everywhere |
 | [Snapshot](./snapshot.md) | Complete state at a point in time | If it's not in Snapshot, it doesn't exist |
 | [Intent](./intent.md) | Request to perform a domain action | Intents are proposals, not commands |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they don't execute |
