@@ -43,7 +43,7 @@
   "devDependencies": {
     "@vercel/analytics": "^1.6.1",
     "@vitest/coverage-v8": "^4.0.18",
-    "mermaid": "^11.12.3",
+    "mermaid": "^11.13.0",
     "tsx": "^4.21.0",
     "turbo": "^2.8.14",
     "typedoc": "^0.28.17",
