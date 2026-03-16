@@ -41,7 +41,7 @@
     "docs:api:clean": "rm -rf docs/api"
   },
   "devDependencies": {
-    "@vercel/analytics": "^1.6.1",
+    "@vercel/analytics": "^2.0.1",
     "@vitest/coverage-v8": "^4.0.18",
     "mermaid": "^11.12.3",
     "tsx": "^4.21.0",
