@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@manifesto-ai/translator": "workspace:*",
-    "openai": "^6.25.0"
+    "openai": "^6.29.0"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
