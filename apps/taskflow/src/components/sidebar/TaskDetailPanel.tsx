@@ -11,6 +11,7 @@ import type { Task } from '@/types/taskflow';
 interface TaskDetailPanelProps {
   task: Task | null;
   onClose: () => void;
+  onDelete?: (id: string) => void;
 }
 
 const statusColors = {
@@ -26,7 +27,7 @@ const priorityColors = {
   high: 'bg-red-500/10 text-red-600 dark:text-red-400',
 };
 
-export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, onClose, onDelete }: TaskDetailPanelProps) {
   if (!task) {
     return (
       <div className="flex h-full flex-col bg-background">
@@ -52,7 +53,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
-            disabled
+            onClick={() => {
+              if (task) {
+                onDelete?.(task.id);
+                onClose();
+              }
+            }}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -65,13 +71,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       <div className="flex-1 space-y-5 overflow-auto p-4">
         <div className="space-y-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Shell mode
-            </p>
-            <h2 className="mt-2 text-xl font-semibold">{task.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Editing is disabled. This panel is preserved only as a visual contract for the rebuild.
-            </p>
+            <h2 className="text-xl font-semibold">{task.title}</h2>
+            {task.description && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {task.description}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -132,15 +137,6 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             </div>
           </div>
         </div>
-
-        <section className="rounded-lg border bg-card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Description
-          </p>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">
-            {task.description ?? 'No description for this shell task.'}
-          </p>
-        </section>
 
         <section className="rounded-lg border bg-card p-4 text-xs text-muted-foreground">
           <p>Created: {format(parseISO(task.createdAt), 'MMM d, yyyy h:mm a')}</p>

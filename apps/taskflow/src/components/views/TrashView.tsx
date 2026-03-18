@@ -26,9 +26,12 @@ const priorityColors = {
 
 interface TrashViewProps {
   tasks: Task[];
+  onRestore?: (id: string) => void;
+  onPermanentlyDelete?: (id: string) => void;
+  onEmptyTrash?: () => void;
 }
 
-export function TrashView({ tasks }: TrashViewProps) {
+export function TrashView({ tasks, onRestore, onPermanentlyDelete, onEmptyTrash }: TrashViewProps) {
   const deletedTasks = tasks.filter((task) => task.deletedAt !== null);
 
   if (deletedTasks.length === 0) {
@@ -70,7 +73,7 @@ export function TrashView({ tasks }: TrashViewProps) {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                disabled
+                onClick={() => onEmptyTrash?.()}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete All
@@ -104,7 +107,7 @@ export function TrashView({ tasks }: TrashViewProps) {
               <Button
                 variant="outline"
                 size="sm"
-                disabled
+                onClick={() => onRestore?.(task.id)}
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Restore
@@ -126,7 +129,7 @@ export function TrashView({ tasks }: TrashViewProps) {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                      disabled
+                      onClick={() => onPermanentlyDelete?.(task.id)}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
                       Delete

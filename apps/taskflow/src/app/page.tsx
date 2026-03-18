@@ -22,11 +22,9 @@ import { TableView } from '@/components/views/TableView';
 import { TodoView } from '@/components/views/TodoView';
 import { TrashView } from '@/components/views/TrashView';
 import { useIsDesktop, useIsMobile } from '@/hooks/useMediaQuery';
+import { useTaskFlow } from '@/hooks/useTaskFlow';
 import { filterTasksByDate } from '@/lib/date-filter';
-import {
-  ASSISTANT_SHELL_MESSAGES,
-  TASK_FIXTURES,
-} from '@/lib/taskflow-fixtures';
+import { ASSISTANT_SHELL_MESSAGES } from '@/lib/taskflow-fixtures';
 import type { AssistantMessage, DateFilter, ViewMode } from '@/types/taskflow';
 
 function TasksHeader({
@@ -56,7 +54,7 @@ function TasksHeader({
         <div className="flex items-center gap-2 sm:gap-4">
           <div>
             <h1 className="text-base font-semibold sm:text-lg">TaskFlow</h1>
-            <p className="text-xs text-muted-foreground">UI shell for the upcoming rebuild</p>
+            <p className="text-xs text-muted-foreground">Powered by Manifesto SDK</p>
           </div>
           <div className="hidden items-center gap-2 text-sm text-muted-foreground lg:flex">
             <Badge variant="secondary" className="font-normal">
@@ -83,7 +81,7 @@ function TasksHeader({
             <DateRangePicker
               value={dateFilter}
               onChange={onDateFilterChange}
-              placeholder="Filter shell tasks"
+              placeholder="Filter by date"
             />
           )}
           <div className="hidden sm:block">
@@ -125,9 +123,7 @@ function AssistantToggle({
 }
 
 export default function Home() {
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>('task-2');
-  const [assistantOpen, setAssistantOpen] = useState(true);
+  const { state, ready, actions } = useTaskFlow();
   const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
   const [assistantMessages, setAssistantMessages] =
     useState<AssistantMessage[]>(ASSISTANT_SHELL_MESSAGES);
@@ -135,19 +131,28 @@ export default function Home() {
   const isMobile = useIsMobile();
   const isDesktop = useIsDesktop();
 
-  const activeTasks = filterTasksByDate(
-    TASK_FIXTURES.filter((task) => task.deletedAt === null),
-    dateFilter,
-  );
-  const deletedTasks = TASK_FIXTURES.filter((task) => task.deletedAt !== null);
-  const selectedTask =
-    TASK_FIXTURES.find((task) => task.id === selectedTaskId) ?? null;
-  const inProgressCount = TASK_FIXTURES.filter(
-    (task) => task.deletedAt === null && task.status === 'in-progress',
-  ).length;
-  const doneCount = TASK_FIXTURES.filter(
-    (task) => task.deletedAt === null && task.status === 'done',
-  ).length;
+  if (!ready || !state) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  const {
+    activeTasks,
+    deletedTasks,
+    selectedTaskId,
+    viewMode,
+    assistantOpen,
+    totalCount,
+    inProgressCount,
+    doneCount,
+    deletedCount,
+  } = state;
+
+  const filteredActiveTasks = filterTasksByDate(activeTasks, dateFilter);
+  const selectedTask = state.tasks.find((t) => t.id === selectedTaskId) ?? null;
 
   const handleAssistantSubmit = (message: string) => {
     setAssistantMessages((current) => [
@@ -162,7 +167,7 @@ export default function Home() {
         role: 'assistant',
         tone: 'muted',
         content:
-          'TaskFlow shell only preserves the panel contract. Reconnect real intent handling during the rebuild.',
+          'Assistant automation is not yet connected. Intent handling will be wired in a future phase.',
       },
     ]);
   };
@@ -180,7 +185,11 @@ export default function Home() {
               className="flex-shrink-0 overflow-hidden border-r"
             >
               <div className="h-full w-[400px]">
-                <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTaskId(null)} />
+                <TaskDetailPanel
+                  task={selectedTask}
+                  onClose={() => actions.selectTask(null)}
+                  onDelete={actions.softDeleteTask}
+                />
               </div>
             </motion.aside>
           ) : null}
@@ -190,7 +199,7 @@ export default function Home() {
           open={selectedTask !== null}
           onOpenChange={(open) => {
             if (!open) {
-              setSelectedTaskId(null);
+              actions.selectTask(null);
             }
           }}
         >
@@ -201,23 +210,27 @@ export default function Home() {
           >
             <span className="sr-only">
               <SheetTitle>Task details</SheetTitle>
-              <SheetDescription>Inspect the preserved TaskFlow shell details.</SheetDescription>
+              <SheetDescription>View and manage task details.</SheetDescription>
             </span>
-            <TaskDetailPanel task={selectedTask} onClose={() => setSelectedTaskId(null)} />
+            <TaskDetailPanel
+              task={selectedTask}
+              onClose={() => actions.selectTask(null)}
+              onDelete={actions.softDeleteTask}
+            />
           </SheetContent>
         </Sheet>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TasksHeader
-          activeCount={TASK_FIXTURES.filter((task) => task.deletedAt === null).length}
+          activeCount={totalCount}
           inProgressCount={inProgressCount}
           doneCount={doneCount}
           dateFilter={dateFilter}
-          deletedCount={deletedTasks.length}
+          deletedCount={deletedCount}
           viewMode={viewMode}
           onDateFilterChange={setDateFilter}
-          onViewModeChange={setViewMode}
+          onViewModeChange={actions.changeView}
         />
 
         <AnimatePresence mode="wait">
@@ -231,9 +244,10 @@ export default function Home() {
               className="flex-1 overflow-hidden px-4 py-4 sm:px-6 sm:py-6"
             >
               <KanbanView
-                tasks={activeTasks}
+                tasks={filteredActiveTasks}
                 selectedTaskId={selectedTaskId}
-                onSelectTask={setSelectedTaskId}
+                onSelectTask={actions.selectTask}
+                onMoveTask={actions.moveTask}
               />
             </motion.main>
           ) : null}
@@ -250,9 +264,9 @@ export default function Home() {
               <ScrollArea className="h-full">
                 <main className="px-4 py-4 sm:px-6 sm:py-6">
                   <TodoView
-                    tasks={activeTasks}
+                    tasks={filteredActiveTasks}
                     selectedTaskId={selectedTaskId}
-                    onSelectTask={setSelectedTaskId}
+                    onSelectTask={actions.selectTask}
                   />
                 </main>
               </ScrollArea>
@@ -271,9 +285,9 @@ export default function Home() {
               <ScrollArea className="h-full">
                 <main className="px-4 py-4 sm:px-6 sm:py-6">
                   <TableView
-                    tasks={activeTasks}
+                    tasks={filteredActiveTasks}
                     selectedTaskId={selectedTaskId}
-                    onSelectTask={setSelectedTaskId}
+                    onSelectTask={actions.selectTask}
                   />
                 </main>
               </ScrollArea>
@@ -291,7 +305,12 @@ export default function Home() {
             >
               <ScrollArea className="h-full">
                 <main className="px-4 py-4 sm:px-6 sm:py-6">
-                  <TrashView tasks={deletedTasks} />
+                  <TrashView
+                    tasks={deletedTasks}
+                    onRestore={actions.restoreTask}
+                    onPermanentlyDelete={actions.permanentlyDeleteTask}
+                    onEmptyTrash={actions.emptyTrash}
+                  />
                 </main>
               </ScrollArea>
             </motion.div>
@@ -311,7 +330,7 @@ export default function Home() {
             >
               <div className="h-full w-[360px] overflow-hidden">
                 <AssistantPanel
-                  onClose={() => setAssistantOpen(false)}
+                  onClose={() => actions.toggleAssistant(false)}
                   messages={assistantMessages}
                   onSubmit={handleAssistantSubmit}
                 />
@@ -320,18 +339,18 @@ export default function Home() {
           ) : null}
         </AnimatePresence>
       ) : (
-        <Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
+        <Sheet open={assistantOpen} onOpenChange={(open) => actions.toggleAssistant(open)}>
           <SheetContent
             side={isMobile ? 'bottom' : 'right'}
             className={isMobile ? 'h-[85vh] rounded-t-xl p-0' : 'w-[360px] max-w-full p-0'}
             hideCloseButton
           >
             <span className="sr-only">
-              <SheetTitle>Assistant shell</SheetTitle>
-              <SheetDescription>Local-only assistant placeholder for the rebuild.</SheetDescription>
+              <SheetTitle>Assistant</SheetTitle>
+              <SheetDescription>AI assistant panel.</SheetDescription>
             </span>
             <AssistantPanel
-              onClose={() => setAssistantOpen(false)}
+              onClose={() => actions.toggleAssistant(false)}
               messages={assistantMessages}
               onSubmit={handleAssistantSubmit}
             />
@@ -341,14 +360,14 @@ export default function Home() {
 
       <MobileNavigation
         viewMode={viewMode}
-        deletedCount={deletedTasks.length}
-        onChange={setViewMode}
+        deletedCount={deletedCount}
+        onChange={actions.changeView}
       />
 
       <AnimatePresence>
         <AssistantToggle
           assistantOpen={assistantOpen}
-          onOpen={() => setAssistantOpen(true)}
+          onOpen={() => actions.toggleAssistant(true)}
         />
       </AnimatePresence>
     </div>
