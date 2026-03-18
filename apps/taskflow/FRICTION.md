@@ -299,6 +299,142 @@ subscribe(listener): Unsubscribe  // selector 생략 시 전체 구독
 
 ---
 
+## F-009: MEL 문법 레퍼런스 문서 부재 — 학습 곡선이 불필요하게 가파름
+
+- **카테고리**: 문서
+- **심각도**: major
+- **발견 시점**: Phase 1~2, MEL 작성 전반
+- **재현 경로**: `$item`, `cond`, `coalesce`, `filter`, `map`, `isNull`, `append` 등의 시그니처와 동작을 파악하려 할 때
+
+### 기대한 것
+MEL 함수 목록, 각 함수의 시그니처(인자 타입, 반환 타입), 간단한 사용 예제가 포함된 레퍼런스 문서가 있을 것으로 기대. 최소한 "MEL Cheatsheet" 한 장이라도.
+
+### 실제 동작
+공식 MEL 레퍼런스 문서가 없음. 함수 동작을 이해하려면:
+1. 컴파일러 소스(`packages/compiler/src/`)를 직접 읽거나
+2. todo-react 예제의 `.mel` 파일을 역추적하거나
+3. 시행착오로 컴파일해보며 확인
+
+### Workaround
+컴파일러 소스와 기존 예제를 참조하여 패턴을 학습. Phase 1에서 MEL 작성에 예상보다 많은 시간 소요.
+
+### 근본 원인 추정
+MEL이 아직 초기 단계라 문서화보다 구현에 집중한 것으로 보임.
+
+### Manifesto에 대한 제안
+MEL Cheatsheet 또는 Quick Reference 제공:
+- 모든 빌트인 함수 목록 + 시그니처
+- 각 함수별 1~2줄 예제
+- `$item`의 스코프 규칙 설명
+- 타입 시스템(union, nullable, Array) 설명
+이 한 장이면 Phase 1 소요 시간이 절반으로 줄었을 것.
+
+---
+
+## F-010: SDK 이벤트 목록과 콜백 파라미터 타입이 문서화되지 않음
+
+- **카테고리**: 문서
+- **심각도**: minor
+- **발견 시점**: Phase 1, dispatchAsync 구현
+- **재현 경로**: `instance.on('dispatch:completed', callback)` 작성 시 이벤트명과 콜백 파라미터 타입을 알아야 함
+
+### 기대한 것
+SDK가 발행하는 이벤트 목록(`dispatch:completed`, `dispatch:failed`, `snapshot:changed` 등)과 각 콜백의 파라미터 타입이 API 문서 또는 JSDoc에 명시되어 있을 것.
+
+### 실제 동작
+이벤트명과 콜백 시그니처를 알려면 SDK 소스를 직접 읽어야 함. TypeScript 타입 정의에서도 이벤트 맵이 명확하지 않아 자동완성이 도움이 되지 않음.
+
+### Workaround
+SDK 소스에서 `emit(` 패턴을 검색하여 이벤트명을 역추적. `dispatchAsync` 헬퍼 작성 시 이 과정에 시간 소요.
+
+### 근본 원인 추정
+SDK 이벤트가 타입이 있는 EventEmitter가 아닌 일반적인 이벤트 패턴으로 구현되어 있어, 타입 레벨에서 이벤트 목록이 드러나지 않음.
+
+### Manifesto에 대한 제안
+1. 타입이 있는 이벤트 맵 제공:
+```typescript
+interface ManifestoEvents {
+  'dispatch:completed': (snapshot: Snapshot) => void;
+  'dispatch:failed': (error: { actionId: string; error: ErrorValue }) => void;
+  'snapshot:changed': (snapshot: Snapshot) => void;
+}
+```
+2. 이렇게 하면 `instance.on('d` 타이핑 시 자동완성으로 이벤트 목록이 표시됨
+
+---
+
+## F-011: 중간 복잡도 예제 앱 부재 — todo와 실제 앱 사이의 갭이 큼
+
+- **카테고리**: 문서
+- **심각도**: minor
+- **발견 시점**: Phase 1~2 전반
+- **재현 경로**: todo-react 예제를 참고하여 TaskFlow(칸반 보드) 수준의 앱을 구축하려 할 때
+
+### 기대한 것
+todo-react(단일 엔티티, 3~4 action) 외에 중간 복잡도 예제(복합 엔티티, 10+ action, computed 체인, 다중 뷰)가 있을 것.
+
+### 실제 동작
+유일한 예제가 todo-react. 이 예제에서 다루지 않는 패턴이 많음:
+- 복합 엔티티 간 관계 (Task에 assignee, tags 등)
+- 10개 이상의 action에서의 MEL 구조화 패턴
+- computed 체인 (activeTasks → todoCount, inProgressCount 등)
+- 다중 뷰(kanban, table, list)에서 동일 상태 소비
+
+### Workaround
+todo-react에서 패턴을 추출하고, 나머지는 시행착오로 해결. TaskFlow 자체가 중간 복잡도 예제 역할을 하게 됨.
+
+### 근본 원인 추정
+프레임워크 초기 단계에서 예제가 아직 하나뿐인 것은 자연스러움.
+
+### Manifesto에 대한 제안
+TaskFlow 리빌드가 완료되면 이를 공식 중간 복잡도 예제로 포함. 칸반 보드는 개발자에게 친숙한 도메인이라 학습 효과가 높음.
+
+---
+
+## F-012: createManifesto에서 effects를 선언적으로 등록할 수 없음
+
+- **카테고리**: SDK API
+- **심각도**: papercut
+- **발견 시점**: Phase 2, useTaskFlow 훅 작성
+- **재현 경로**: Manifesto 인스턴스 생성 후 effects를 별도로 등록해야 함
+
+### 기대한 것
+```typescript
+const instance = createManifesto({
+  schema: melString,
+  effects: {
+    'ai.assist': handleAiAssist,
+    'storage.save': handleSave,
+  },
+});
+```
+생성 시점에 effects를 선언적으로 등록할 수 있을 것.
+
+### 실제 동작
+```typescript
+const instance = createManifesto({ schema: melString });
+instance.registerEffect('ai.assist', handleAiAssist);
+instance.registerEffect('storage.save', handleSave);
+```
+인스턴스 생성과 effect 등록이 분리되어 있어, 초기화 코드가 길어지고 인스턴스가 "불완전한 상태"로 존재하는 구간이 생김.
+
+### Workaround
+생성 직후 `registerEffect`를 연속 호출. 기능적 문제는 없으나 보일러플레이트.
+
+### 근본 원인 추정
+SDK가 인스턴스 생성과 설정을 분리하는 빌더 패턴을 채택한 것으로 보임. 유연성은 높지만 가장 흔한 사용 패턴(생성+즉시 설정)에서는 불편.
+
+### Manifesto에 대한 제안
+`createManifesto` 옵션에 `effects` 필드 추가. 기존 `registerEffect`는 유지하되, 선언적 등록도 지원:
+```typescript
+createManifesto({
+  schema,
+  effects: { 'ai.assist': handler },  // 옵션
+});
+```
+
+---
+
 ## Phase Summaries
 
 ### Phase 1 Summary
