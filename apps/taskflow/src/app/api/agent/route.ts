@@ -97,6 +97,7 @@ function validateTaskFields(fields: unknown): fields is Record<string, unknown> 
   if (f.status !== undefined && !VALID_STATUSES.includes(f.status as string)) return false;
   if (f.priority !== undefined && !VALID_PRIORITIES.includes(f.priority as string)) return false;
   if (f.title !== undefined && !isString(f.title)) return false;
+  if (f.description !== undefined && !isStringOrNull(f.description)) return false;
   if (f.assignee !== undefined && !isStringOrNull(f.assignee)) return false;
   if (f.dueDate !== undefined && !isStringOrNull(f.dueDate)) return false;
   if (!isOptionalStringArray(f.tags)) return false;
@@ -124,13 +125,13 @@ function validateIntent(parsed: Record<string, unknown>): IntentResult | null {
       return parsed as unknown as IntentResult;
     }
     case 'moveTask': {
-      if (!isString(parsed.taskTitle)) return null;
+      if (!isString(parsed.taskTitle) || parsed.taskTitle.length === 0) return null;
       if (!isString(parsed.newStatus) || !VALID_STATUSES.includes(parsed.newStatus)) return null;
       return parsed as unknown as IntentResult;
     }
     case 'deleteTask':
     case 'restoreTask': {
-      if (!isString(parsed.taskTitle)) return null;
+      if (!isString(parsed.taskTitle) || parsed.taskTitle.length === 0) return null;
       return parsed as unknown as IntentResult;
     }
     case 'emptyTrash': {
@@ -221,11 +222,11 @@ export async function POST(request: Request): Promise<NextResponse<AgentResponse
       });
     }
 
-    const message = intent.kind === 'query' && 'answer' in intent && typeof intent.answer === 'string'
+    const responseMessage = intent.kind === 'query' && 'answer' in intent && typeof intent.answer === 'string'
       ? intent.answer
       : '';
 
-    return NextResponse.json({ intent, message, executed: false });
+    return NextResponse.json({ intent, message: responseMessage, executed: false });
   } catch (error) {
     const errMessage =
       error instanceof Error ? error.message : 'Unknown error';
