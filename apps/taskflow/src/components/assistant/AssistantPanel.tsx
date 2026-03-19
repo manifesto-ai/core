@@ -9,25 +9,23 @@ interface AssistantPanelProps {
   onClose: () => void;
   messages: AssistantMessage[];
   onSubmit: (message: string) => void;
+  isLoading?: boolean;
 }
 
 export function AssistantPanel({
   onClose,
   messages,
   onSubmit,
+  isLoading = false,
 }: AssistantPanelProps) {
   return (
     <div className="flex h-full flex-col bg-background">
       <AssistantHeader onClose={onClose} />
       <AssistantMessages messages={messages} />
-      <div className="border-t bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-        Natural-language execution is removed from this shell. Inputs stay local and are meant only
-        to preserve the rebuilt panel contract.
-      </div>
       <AssistantInput
         onSubmit={onSubmit}
-        isLoading={false}
-        placeholder="Message the TaskFlow shell..."
+        isLoading={isLoading}
+        placeholder="Ask the assistant to manage tasks..."
       />
     </div>
   );

@@ -11,9 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.72.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@manifesto-ai/sdk": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -41,10 +43,10 @@
     "react-day-picker": "^9.12.0",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0",
-    "use-stick-to-bottom": "^1.1.1",
-    "@manifesto-ai/sdk": "workspace:*"
+    "use-stick-to-bottom": "^1.1.1"
   },
   "devDependencies": {
+    "@manifesto-ai/compiler": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^25",
     "@types/react": "^19",
@@ -53,7 +55,6 @@
     "eslint-config-next": "16.0.10",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",
-    "@manifesto-ai/compiler": "workspace:*",
     "typescript": "^5",
     "vitest": "^3.2.4"
   }

@@ -23,10 +23,10 @@ export function AssistantMessages({ messages }: AssistantMessagesProps) {
               <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
             </div>
             <p className="text-sm font-medium text-muted-foreground">
-              Assistant shell is empty.
+              TaskFlow Assistant
             </p>
             <p className="mt-1 text-xs text-muted-foreground/70">
-              Submit a prompt to append local placeholder messages only.
+              Ask me to create, update, move, or delete tasks using natural language.
             </p>
           </div>
         ) : null}

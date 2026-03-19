@@ -45,6 +45,7 @@ export type UseTaskFlowResult = {
   state: TaskFlowState | null;
   ready: boolean;
   actions: TaskFlowActions;
+  dispatch: (type: string, input?: Record<string, unknown>) => void;
 };
 
 function extractState(snapshot: Snapshot): TaskFlowState {
@@ -167,5 +168,5 @@ export function useTaskFlow(): UseTaskFlowResult {
     }, [dispatch]),
   };
 
-  return { state, ready: state !== null, actions };
+  return { state, ready: state !== null, actions, dispatch };
 }
