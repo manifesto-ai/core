@@ -81,6 +81,7 @@ export interface ChangeViewIntent {
 export interface QueryIntent {
   kind: 'query';
   question: string;
+  answer?: string;
 }
 
 /** API request body */

@@ -18,6 +18,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
 import { TaskCard } from '@/components/shared/TaskCard';
@@ -86,6 +87,15 @@ function SortableTask({ task, isSelected, onSelect }: SortableTaskProps) {
   );
 }
 
+function DroppableColumn({ status, children }: { status: TaskStatus; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: `column:${status}` });
+  return (
+    <div ref={setNodeRef} className="flex-1 space-y-2 rounded-b-lg bg-muted/50 p-2 min-h-[80px]">
+      {children}
+    </div>
+  );
+}
+
 export function KanbanView({
   tasks,
   selectedTaskId,
@@ -119,9 +129,22 @@ export function KanbanView({
     }
 
     const draggedTask = tasks.find((task) => task.id === event.active.id);
-    const targetTask = tasks.find((task) => task.id === event.over?.id);
+    if (!draggedTask) return;
 
-    if (draggedTask && targetTask && draggedTask.status !== targetTask.status) {
+    const overId = String(event.over.id);
+
+    // Check if dropped on a column droppable (id = "column:<status>")
+    if (overId.startsWith('column:')) {
+      const targetStatus = overId.replace('column:', '') as TaskStatus;
+      if (draggedTask.status !== targetStatus) {
+        onMoveTask(draggedTask.id, targetStatus);
+      }
+      return;
+    }
+
+    // Dropped on another task — use that task's status
+    const targetTask = tasks.find((task) => task.id === overId);
+    if (targetTask && draggedTask.status !== targetTask.status) {
       onMoveTask(draggedTask.id, targetTask.status);
     }
   };
@@ -145,7 +168,7 @@ export function KanbanView({
                 <Badge variant="secondary">{column.tasks.length}</Badge>
               </div>
             </div>
-            <div className="flex-1 space-y-2 rounded-b-lg bg-muted/50 p-2">
+            <DroppableColumn status={column.status}>
               <SortableContext
                 items={column.tasks.map((task) => task.id)}
                 strategy={verticalListSortingStrategy}
@@ -161,10 +184,10 @@ export function KanbanView({
               </SortableContext>
               {column.tasks.length === 0 && (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  Shell mode: no cards in this column.
+                  Drop tasks here
                 </div>
               )}
-            </div>
+            </DroppableColumn>
           </section>
         ))}
       </div>
