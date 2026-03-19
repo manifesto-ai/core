@@ -1,55 +1,91 @@
-# TaskFlow UI Shell
+# TaskFlow — Manifesto SDK Demo
 
-`apps/taskflow` is no longer the old Intent-Native demo app.
-It is now a cleaned shell prepared for a fresh rebuild on top of `@manifesto-ai/sdk`.
+A task management app rebuilt on `@manifesto-ai/sdk`, demonstrating the Intent-Native Deterministic Runtime architecture.
 
-## Current Status
+## Architecture
 
-- Preserved:
-  - `src/components/views/*`
-  - `src/components/shared/*`
-  - `src/components/sidebar/*`
-  - `src/components/assistant/*`
-  - `src/components/ui/*`
-  - theme, motion, layout, global styles, responsive hooks
-- Removed:
-  - Zustand store and provider
-  - legacy domain/runtime bridge
-  - storage layer
-  - agent runtimes and agent API routes
-  - old assistant execution flow
+```
+User Input (UI)                  User Input (Natural Language)
+      |                                    |
+      v                                    v
+  dispatch()                     LLM Intent Compiler (Claude API)
+      |                                    |
+      v                                    v
+                  Manifesto Runtime
+                  (deterministic)
+                        |
+                        v
+                    Snapshot
+                   (immutable)
+                        |
+                        v
+                    React UI
+```
 
-The app currently renders from local fixture data only. This is intentional.
+- **Core computes. Host executes. UI reads.**
+- **Snapshot is the sole source of truth.** All state lives in Manifesto snapshot.
+- **No LLM in the execution path.** LLM compiles natural language to Intent JSON. Runtime executes.
+- **AI tasks and UI tasks share the same snapshot.** One `dispatch()` path for both.
 
-## Source Of Truth For The Rebuild
+## Stack
 
-- [FRICTION.md](./FRICTION.md)
-- [docs/SDK-REBUILD-WORKING.md](./docs/SDK-REBUILD-WORKING.md)
-- [docs/UI-CONTRACT.md](./docs/UI-CONTRACT.md)
+- **Runtime**: `@manifesto-ai/sdk` + `@manifesto-ai/compiler` (workspace packages)
+- **Domain**: MEL (Manifesto Expression Language) — `src/domain/taskflow.mel`
+- **UI**: Next.js 16, React 19, Tailwind CSS 4, Radix UI, Framer Motion
+- **AI**: Anthropic Claude API via `@anthropic-ai/sdk`
 
-Historical files under `docs/` that describe the previous architecture should be treated as archive material, not current implementation guidance.
-
-## Local Commands
+## Setup
 
 ```bash
+# Install dependencies (from monorepo root)
+pnpm install
+
+# Start development server
 pnpm -C apps/taskflow dev
-pnpm -C apps/taskflow typecheck
-pnpm -C apps/taskflow lint
 ```
 
-## Rebuild Direction
+### AI Assistant (Optional)
 
-Target architecture:
+To enable the AI assistant, set your Anthropic API key:
 
-```text
-taskflow.mel
-  -> @manifesto-ai/compiler
-  -> createManifesto({ schema, effects })
-  -> React UI + AI agent on the same Intent protocol
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Practical baseline decisions for this repo:
+Without the key, the assistant panel will show a configuration message. All other features (task CRUD, views, drag-and-drop) work without it.
 
-- Keep the current Next.js / React baseline already in the workspace.
-- Reintroduce `@manifesto-ai/sdk` and `@manifesto-ai/compiler` as workspace dependencies during Phase 1.
-- Record friction as it happens. Do not postpone it.
+## Commands
+
+```bash
+pnpm -C apps/taskflow dev        # Start dev server
+pnpm -C apps/taskflow typecheck  # Run TypeScript checks
+pnpm -C apps/taskflow lint       # Run ESLint
+pnpm -C apps/taskflow test       # Run Vitest tests (9 scenarios)
+```
+
+## Domain Model
+
+Defined in `src/domain/taskflow.mel`:
+
+- **State**: `tasks[]`, `selectedTaskId`, `viewMode`, `assistantOpen`
+- **Computed** (12): `activeTasks`, `deletedTasks`, status-grouped tasks, counts
+- **Actions** (10): `createTask`, `updateTask`, `moveTask`, `softDeleteTask`, `restoreTask`, `permanentlyDeleteTask`, `emptyTrash`, `selectTask`, `changeView`, `toggleAssistant`
+
+## Key Files
+
+| File | Role |
+|------|------|
+| `src/domain/taskflow.mel` | MEL domain definition (canonical) |
+| `src/domain/taskflow-schema.ts` | MEL as TS string (Turbopack workaround, F-005) |
+| `src/manifesto/instance.ts` | SDK instance + `dispatchAsync` helper |
+| `src/hooks/useTaskFlow.ts` | React hook: snapshot → state + actions |
+| `src/app/api/agent/route.ts` | LLM Intent Compiler endpoint |
+| `src/types/intent.ts` | Intent type definitions |
+| `src/app/page.tsx` | Main page: intent execution + UI wiring |
+
+## Documentation
+
+- [FRICTION.md](./FRICTION.md) — Implementation friction log (12 issues, prioritized)
+- [docs/SDK-REBUILD-WORKING.md](./docs/SDK-REBUILD-WORKING.md) — Phase execution checklist
+- [docs/UI-CONTRACT.md](./docs/UI-CONTRACT.md) — State/computed/action contract
+- [docs/ADR.md](./docs/ADR.md) — LLM-as-Intent-Compiler architecture decision

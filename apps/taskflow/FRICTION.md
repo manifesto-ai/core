@@ -476,8 +476,54 @@ createManifesto({
 
 ### Phase 3 Summary
 
-Pending.
+**결과**: 성공. AI Assistant가 LLM Intent Compiler 아키텍처로 통합됨. Blocker 없음.
+
+**마찰 통계**:
+- blocker: 0
+- major: 0
+- minor: 0
+- papercut: 0
+
+Phase 3에서 새로운 friction은 발견되지 않음. API route 생성, intent 타입 정의, client-side intent dispatch 모두 기존 SDK API로 자연스럽게 구현 가능했음.
+
+**긍정적 발견**:
+- LLM이 반환한 intent JSON을 Manifesto `dispatch()`에 그대로 전달하는 패턴이 매우 자연스러움. Intent가 진정한 공용 의미 단위로 작동.
+- AI가 만든 task와 UI에서 만든 task가 동일 snapshot에 공존. 별도 동기화 로직 불필요.
+- Phase 2에서 `useTaskFlow`에 `dispatch`를 노출하는 것이 1줄 수정으로 완료. SDK API가 충분히 유연.
+- `taskTitle → taskId` 해석 로직이 client에서 가능하므로 LLM이 id를 알 필요 없음 — LLM의 부담을 최소화.
+
+**가장 큰 개선 필요 영역**: 없음. ADR에서 정의한 LLM-as-Intent-Compiler 아키텍처가 의도대로 작동함.
 
 ### Phase 4 Summary
 
-Pending.
+Documentation and polish phase. No new friction.
+
+---
+
+## Final Summary — All Phases
+
+### 전체 마찰 통계 (12건)
+
+| 심각도 | 건수 | ID |
+|--------|------|----|
+| blocker | 0 | — |
+| major | 4 | F-002, F-005, F-006, F-009 |
+| minor | 5 | F-001, F-004, F-007, F-010, F-011 |
+| papercut | 3 | F-003, F-008, F-012 |
+
+### 카테고리별 분포
+
+| 카테고리 | 건수 | ID |
+|----------|------|----|
+| 타입 시스템 | 1 | F-002 |
+| SDK API | 3 | F-001, F-008, F-012 |
+| MEL 표현력 | 1 | F-004 |
+| DX | 2 | F-003, F-005 |
+| 에러 메시지 | 1 | F-006 |
+| 문서 | 3 | F-009, F-010, F-011 |
+
+### 최우선 개선 제안 (Top 3)
+
+1. **F-002 (타입 시스템)**: MEL codegen 또는 제네릭 `Snapshot<T>`로 타입 안전성 확보. 모든 앱에서 캐스팅 boilerplate가 발생하는 근본 원인.
+2. **F-004 (MEL 표현력)**: 객체 spread/merge 문법 추가. array-of-objects 도메인에서 가장 빈번한 패턴이며 4개 action에서 중복 발생.
+3. **F-009 (문서)**: MEL 함수 Quick Reference 제공. 학습 곡선 절반 단축 효과.

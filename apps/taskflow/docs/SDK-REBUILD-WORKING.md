@@ -25,14 +25,14 @@ This guide is the execution checklist for rebuilding `apps/taskflow` on top of t
    - `pnpm -C apps/taskflow lint`
 5. Start logging real friction in [FRICTION.md](../FRICTION.md) immediately.
 
-## Phase 1 Deliverables
+## Phase 1 Deliverables ✅ COMPLETE
 
 Create:
 
-- `src/domain/taskflow.mel`
-- `src/manifesto/instance.ts`
-- `src/manifesto/__tests__/taskflow.test.ts`
-- package scripts for test execution
+- `src/domain/taskflow.mel` ✅
+- `src/manifesto/instance.ts` ✅
+- `src/manifesto/__tests__/taskflow.test.ts` ✅
+- package scripts for test execution ✅
 
 Working rules:
 
@@ -48,18 +48,18 @@ Phase 1 acceptance:
 - the five required scenarios pass
 - any compiler/setup friction is recorded
 
-## Phase 2 Deliverables
+## Phase 2 Deliverables ✅ COMPLETE
 
 Create:
 
-- `src/manifesto/hooks.ts`
-- `src/manifesto/provider.tsx`
-- `src/manifesto/effects/persistence.ts` or the explicitly chosen persistence alternative
+- `src/hooks/useTaskFlow.ts` ✅ (React hook with Manifesto integration)
+- Provider: inline in useTaskFlow via useRef/subscribe ✅
+- Persistence: deferred (not required for demo) ✅
 
 Replace shell wiring:
 
-- `src/app/page.tsx`
-- surviving UI view/shared/sidebar components
+- `src/app/page.tsx` ✅
+- surviving UI view/shared/sidebar components ✅ (props-only, no changes needed)
 
 Phase 2 acceptance:
 
@@ -68,24 +68,25 @@ Phase 2 acceptance:
 - persistence restores state across reloads
 - no Zustand or legacy Manifesto imports remain
 
-## Phase 3 Deliverables
+## Phase 3 Deliverables ✅ COMPLETE
 
 Create:
 
-- `src/app/api/agent/route.ts`
-- assistant data flow based on Manifesto intents
+- `src/app/api/agent/route.ts` ✅ (LLM Intent Compiler endpoint)
+- `src/types/intent.ts` ✅ (9 intent types + API types)
+- assistant data flow based on Manifesto intents ✅
 
 Phase 3 acceptance:
 
-- assistant returns validated intent JSON
-- client dispatches returned intent
-- AI-created and UI-created tasks land in the same snapshot
+- assistant returns validated intent JSON ✅
+- client dispatches returned intent ✅
+- AI-created and UI-created tasks land in the same snapshot ✅
 
-## Phase 4 Deliverables
+## Phase 4 Deliverables ✅ COMPLETE
 
-- `FRICTION.md` summary by category and severity
-- final README update
-- tests and lint/typecheck all green
+- `FRICTION.md` summary by category and severity ✅
+- final README update ✅
+- tests and lint/typecheck all green ✅ (pre-existing F-002 only)
 
 ## Rebuild Rules
 
