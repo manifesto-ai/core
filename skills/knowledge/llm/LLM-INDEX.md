@@ -32,12 +32,6 @@ Application layer:
 - Compiler (MEL) v0.5.0 (full)
   - `packages/compiler/docs/SPEC-v0.5.0.md`
 
-Intent + translation:
-- Intent IR v0.2.0 (full)
-  - `packages/intent-ir/docs/SPEC-v0.2.0.md`
-- Translator v1.0.3 (full)
-  - `packages/translator/core/docs/translator-SPEC-v1.0.3.md`
-
 ## ADRs (authoritative decisions)
 Global ADRs:
 - ADR-006: Runtime reframing
@@ -46,14 +40,6 @@ Global ADRs:
   - `docs/internals/adr/007-sdk-runtime-split-kickoff.md`
 - ADR-008: SDK-first entry + app retirement
   - `docs/internals/adr/008-sdk-first-transition-and-app-retirement.md`
-
-Translator ADRs:
-- ADR-001 v1.0.8
-  - `packages/translator/core/docs/translator-ADR-001-v1.0.8.md`
-- ADR-002 v0.11
-  - `packages/translator/core/docs/translator-ADR-002-v0.11.md`
-- ADR-003 v0.11
-  - `packages/translator/core/docs/translator-ADR-003-v0.11.md`
 
 ## FDRs (design rationale)
 Core:
@@ -69,12 +55,6 @@ World:
 Compiler:
 - `packages/compiler/docs/FDR-v0.5.0.md`
 
-Intent IR:
-- `packages/intent-ir/docs/FDR-v0.1.0.md`
-
-Translator:
-- `packages/translator/core/docs/translator-FDR-v0.11.md`
-
 ## Supporting indexes
 - Global spec index: `docs/internals/spec/index.md`
 - Package version indexes:
@@ -84,7 +64,6 @@ Translator:
   - `packages/sdk/docs/VERSION-INDEX.md`
   - `packages/runtime/docs/VERSION-INDEX.md`
   - `packages/compiler/docs/VERSION-INDEX.md`
-  - `packages/intent-ir/docs/VERSION-INDEX.md`
 
 ## Legacy note
 The former app compatibility facade was removed in R2. Retirement record:

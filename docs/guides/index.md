@@ -10,6 +10,7 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 
 | Guide | When to Read It |
 |-------|-----------------|
+| [Bundler Setup](./bundler-setup) | You need to configure Vite, Next.js, Webpack, or another bundler for `.mel` files |
 | [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
 | [Debugging](./debugging) | A dispatch does not do what you expected |
 | [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |

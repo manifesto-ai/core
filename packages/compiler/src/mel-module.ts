@@ -7,7 +7,7 @@
 import type { Diagnostic } from "./diagnostics/types.js";
 import { compileMelDomain } from "./api/index.js";
 
-function formatDiagnostic(diagnostic: Diagnostic): string {
+export function formatDiagnostic(diagnostic: Diagnostic): string {
   const location = diagnostic.location;
 
   if (!location) {

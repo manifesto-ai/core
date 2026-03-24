@@ -79,10 +79,16 @@ renderPatchOp(op, options?): string
 renderAsDomain(domainName, fragments, options?): string
 ```
 
-### Loader Integrations
+### Bundler Integration (unplugin)
 
-- `@manifesto-ai/compiler/vite` — Vite plugin for `.mel` imports
-- `@manifesto-ai/compiler/loader` — Universal ESM + CJS loader
+All bundler plugins are powered by [unplugin](https://github.com/unjs/unplugin) — one implementation, every bundler:
+
+- `@manifesto-ai/compiler/vite` — Vite
+- `@manifesto-ai/compiler/webpack` — Webpack / Next.js
+- `@manifesto-ai/compiler/rollup` — Rollup
+- `@manifesto-ai/compiler/esbuild` — esbuild
+- `@manifesto-ai/compiler/rspack` — Rspack
+- `@manifesto-ai/compiler/node-loader` — Node ESM loader hooks
 
 ## Core IR Types
 

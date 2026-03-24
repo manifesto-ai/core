@@ -109,15 +109,6 @@
       "lastSynced": "2026-02-09"
     },
     {
-      "skill": "knowledge/packages/intent-ir.md",
-      "sources": [
-        { "path": "packages/intent-ir/package.json", "version": "0.3.1" },
-        { "path": "packages/intent-ir/src/index.ts", "version": "0.3.1" },
-        { "path": "packages/intent-ir/docs/SPEC-v0.2.0.md", "version": "0.2.0" }
-      ],
-      "lastSynced": "2026-02-09"
-    },
-    {
       "skill": "knowledge/packages/codegen.md",
       "sources": [
         { "path": "packages/codegen/package.json", "version": "0.1.0" },

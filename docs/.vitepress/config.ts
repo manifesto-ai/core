@@ -140,7 +140,6 @@ export default defineConfig({
             { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
-            { text: '@manifesto-ai/intent-ir', link: '/api/intent-ir' },
             { text: 'App Facade (Retired per ADR-008)', link: '/api/app' },
           ]
         }
@@ -151,6 +150,7 @@ export default defineConfig({
           text: 'How-to Guides',
           items: [
             { text: 'Overview', link: '/guides/' },
+            { text: 'Bundler Setup', link: '/guides/bundler-setup' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'Debugging', link: '/guides/debugging' },
@@ -216,10 +216,6 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Overview', link: '/internals/research/' },
-            { text: 'Intent IR Research', link: '/internals/research/intent-ir/' },
-            { text: 'Theory', link: '/internals/research/intent-ir/theory' },
-            { text: 'Comparison', link: '/internals/research/intent-ir/comparison' },
-            { text: 'Formal Definitions', link: '/internals/research/intent-ir/formal' },
           ]
         }
       ],

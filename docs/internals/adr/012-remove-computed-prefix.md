@@ -43,7 +43,6 @@ The expression evaluator (`evaluateGet`) switches from prefix-based routing (`pa
 
 ### 2.4 Scope Exclusions
 
-- **`packages/intent-ir/`** — deprecated package, not updated.
 - **Archive documents** (`docs/archive/`, frozen SPEC versions) — not updated.
 
 ## 3. Consequences

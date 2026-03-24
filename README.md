@@ -310,7 +310,6 @@ Manifesto is designed for domains where determinism, traceability, and semantic 
 | [@manifesto-ai/world](./packages/world) | Governance and lineage layer |
 | [@manifesto-ai/compiler](./packages/compiler) | MEL → DomainSchema compiler and bundler adapters |
 | [@manifesto-ai/codegen](./packages/codegen) | TypeScript / Zod code generation from DomainSchema |
-| [@manifesto-ai/intent-ir](./packages/intent-ir) | Intent intermediate representation |
 
 ---
 

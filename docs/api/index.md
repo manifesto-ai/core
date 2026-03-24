@@ -28,7 +28,6 @@
 |---------|-------------|
 | [@manifesto-ai/compiler](./compiler) | MEL compiler and patch IR lowering |
 | [@manifesto-ai/codegen](./codegen) | DomainSchema to TypeScript + Zod codegen |
-| [@manifesto-ai/intent-ir](./intent-ir) | Intent intermediate representation |
 
 See [Specifications](/internals/spec/) for normative contracts.
 

@@ -116,10 +116,16 @@ importers:
       react:
         specifier: ^19.2.4
         version: 19.2.4
+      unplugin:
+        specifier: ^3.0.0
+        version: 3.0.0
     devDependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.72.1
         version: 0.72.1(zod@4.3.6)
+      '@manifesto-ai/codegen':
+        specifier: workspace:*
+        version: link:../codegen
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
@@ -175,19 +181,6 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/intent-ir:
-    dependencies:
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-
   packages/sdk:
     dependencies:
       '@manifesto-ai/compiler':
@@ -206,120 +199,6 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-
-  packages/translator/adapters/translator-adapter-claude:
-    dependencies:
-      '@anthropic-ai/sdk':
-        specifier: ^0.72.1
-        version: 0.72.1(zod@4.3.6)
-      '@manifesto-ai/translator':
-        specifier: workspace:*
-        version: link:../../core
-    devDependencies:
-      '@types/node':
-        specifier: ^25.3.3
-        version: 25.3.5
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator/adapters/translator-adapter-ollama:
-    dependencies:
-      '@manifesto-ai/translator':
-        specifier: workspace:*
-        version: link:../../core
-      ollama:
-        specifier: ^0.6.3
-        version: 0.6.3
-    devDependencies:
-      '@types/node':
-        specifier: ^25.3.3
-        version: 25.3.5
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator/adapters/translator-adapter-openai:
-    dependencies:
-      '@manifesto-ai/translator':
-        specifier: workspace:*
-        version: link:../../core
-      openai:
-        specifier: ^6.25.0
-        version: 6.27.0(ws@8.18.3)(zod@4.3.6)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.3.3
-        version: 25.3.5
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator/core:
-    devDependencies:
-      '@manifesto-ai/intent-ir':
-        specifier: workspace:*
-        version: link:../../intent-ir
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator/targets/translator-target-json:
-    dependencies:
-      '@manifesto-ai/translator':
-        specifier: workspace:*
-        version: link:../../core
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator/targets/translator-target-manifesto:
-    dependencies:
-      '@manifesto-ai/intent-ir':
-        specifier: workspace:*
-        version: link:../../../intent-ir
-      '@manifesto-ai/translator':
-        specifier: workspace:*
-        version: link:../../core
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/translator/targets/translator-target-openapi:
-    dependencies:
-      '@manifesto-ai/translator':
-        specifier: workspace:*
-        version: link:../../core
-      openapi-types:
-        specifier: ^12.1.0
-        version: 12.1.3
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@25.3.5)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/world:
     dependencies:
@@ -2456,9 +2335,6 @@ packages:
   obug@2.1.1:
     resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
 
-  ollama@0.6.3:
-    resolution: {integrity: sha512-KEWEhIqE5wtfzEIZbDCLH51VFZ6Z3ZSa6sIOg/E/tBV8S51flyqBOXi+bRxlOYKDf8i327zG9eSTb8IJxvm3Zg==}
-
   onetime@5.1.2:
     resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
     engines: {node: '>=6'}
@@ -2477,9 +2353,6 @@ packages:
         optional: true
       zod:
         optional: true
-
-  openapi-types@12.1.3:
-    resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
   package-manager-detector@1.6.0:
     resolution: {integrity: sha512-61A5ThoTiDG/C8s8UMZwSorAGwMJ0ERVGj2OjoW5pAalsNOg15+iQiPzrLJ4jhZ1HJzmC2PIHT2oEiH3R5fzNA==}
@@ -2885,6 +2758,10 @@ packages:
   unist-util-visit@5.0.0:
     resolution: {integrity: sha512-MR04uvD+07cwl/yhVuVWAtw+3GOR/knlL55Nd/wAdblk27GCVt3lqpTivy/tkJcZoNPzTwS1Y+KMojlLDhoTzg==}
 
+  unplugin@3.0.0:
+    resolution: {integrity: sha512-0Mqk3AT2TZCXWKdcoaufeXNukv2mTrEZExeXlHIOZXdqYoHHr4n51pymnwV8x2BOVxwXbK2HLlI7usrqMpycdg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
   update-browserslist-db@1.2.3:
     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
     hasBin: true
@@ -3066,6 +2943,9 @@ packages:
     resolution: {integrity: sha512-7tP1PdV4vF+lYPnkMR0jMY5/la2ub5Fc/8VQrrU+lXkiM6C4TjVfGw7iKfyhnTQOsD+6Q/iKw0eFciziRgD58Q==}
     engines: {node: '>=10.13.0'}
 
+  webpack-virtual-modules@0.6.2:
+    resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
+
   webpack@5.105.4:
     resolution: {integrity: sha512-jTywjboN9aHxFlToqb0K0Zs9SbBoW4zRUlGzI2tYNxVYcEi/IPpn+Xi4ye5jTLvX2YeLuic/IvxNot+Q1jMoOw==}
     engines: {node: '>=10.13.0'}
@@ -3075,9 +2955,6 @@ packages:
     peerDependenciesMeta:
       webpack-cli:
         optional: true
-
-  whatwg-fetch@3.6.20:
-    resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
 
   whatwg-mimetype@4.0.0:
     resolution: {integrity: sha512-QaKxh0eNIi2mE9p2vEdzfagOKHCcj1pJ56EEHGQOVxp8r9/iszLUUV7v89x9O1p/T+NlTM5W7jW6+cz4Fq1YVg==}
@@ -5288,10 +5165,6 @@ snapshots:
 
   obug@2.1.1: {}
 
-  ollama@0.6.3:
-    dependencies:
-      whatwg-fetch: 3.6.20
-
   onetime@5.1.2:
     dependencies:
       mimic-fn: 2.1.0
@@ -5306,8 +5179,6 @@ snapshots:
     optionalDependencies:
       ws: 8.18.3
       zod: 4.3.6
-
-  openapi-types@12.1.3: {}
 
   package-manager-detector@1.6.0: {}
 
@@ -5733,6 +5604,12 @@ snapshots:
       unist-util-is: 6.0.1
       unist-util-visit-parents: 6.0.2
 
+  unplugin@3.0.0:
+    dependencies:
+      '@jridgewell/remapping': 2.3.5
+      picomatch: 4.0.3
+      webpack-virtual-modules: 0.6.2
+
   update-browserslist-db@1.2.3(browserslist@4.28.1):
     dependencies:
       browserslist: 4.28.1
@@ -5910,6 +5787,8 @@ snapshots:
 
   webpack-sources@3.3.4: {}
 
+  webpack-virtual-modules@0.6.2: {}
+
   webpack@5.105.4:
     dependencies:
       '@types/eslint-scope': 3.7.7
@@ -5941,8 +5820,6 @@ snapshots:
       - '@swc/core'
       - esbuild
       - uglify-js
-
-  whatwg-fetch@3.6.20: {}
 
   whatwg-mimetype@4.0.0:
     optional: true

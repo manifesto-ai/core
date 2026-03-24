@@ -4,15 +4,7 @@ This section contains research-oriented documentation for Manifesto components, 
 
 ## Available Research Documents
 
-### Intent IR
-
-The Intent IR package has comprehensive research documentation covering theoretical foundations, comparative analysis with related formalisms, and formal definitions with proofs.
-
-<div class="tip custom-block" style="padding-top: 8px">
-
-**[Intent IR Research](/internals/research/intent-ir/)** - Theoretical foundations, comparative analysis, and formal specifications for the Intent Intermediate Representation.
-
-</div>
+No active research documents at this time. Previous Intent IR research has been moved out of the core monorepo.
 
 ## Document Types
 
@@ -39,11 +31,3 @@ README (Informative - quick reference)
 ```
 
 When research documents and SPEC documents conflict, SPEC takes precedence.
-
-## Contributing
-
-Research documentation follows academic standards:
-- BibTeX citations via `BIBLIOGRAPHY.bib`
-- RFC 2119 keywords where applicable
-- Cross-references to normative SPEC sections
-- Peer-reviewable formal proofs

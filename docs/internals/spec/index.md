@@ -27,13 +27,6 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
 | **@manifesto-ai/compiler** | v0.6.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
-### Intent & Translation
-
-| Package | Latest SPEC | Status | Package Docs |
-|---------|-------------|--------|--------------|
-| **@manifesto-ai/intent-ir** | v0.2.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/translator** | v1.0.3 | Normative | [Docs](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/) |
-
 ### SDK v1.0.0 (ADR-010 Hard Cut)
 
 ADR-010 reconstructed the SDK as a **thin composition layer** over the Manifesto protocol. The canonical public entrypoint is `createManifesto()` returning `ManifestoInstance` with 5 methods: `dispatch`, `subscribe`, `on`, `getSnapshot`, `dispose`.
@@ -79,18 +72,6 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
   - [SPEC-v0.6.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.6.0.md)
   - Adds: ADR-009 path model alignment (`IRPatchPath`, `resolveIRPath()`)
 
-### Intent IR
-
-- **Intent IR SPEC v0.2.0** (Draft)
-  - [SPEC-v0.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/intent-ir/docs/SPEC-v0.2.0.md)
-  - Research docs: [Research](/internals/research/intent-ir/)
-
-### Translator
-
-- **Translator SPEC v1.0.3** (Normative)
-  - [translator-SPEC-v1.0.3.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v1.0.3.md)
-  - Previous (v0.1.1): [translator-SPEC-v0.11.md](https://github.com/manifesto-ai/core/blob/main/packages/translator/core/docs/translator-SPEC-v0.11.md)
-
 ---
 
 ## Version History Summary
@@ -115,7 +96,6 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 01-30 | Translator | v1.0.3 | Intent IR v0.2 alignment and spec refinements |
 | 01-27 | World | v2.0.3-patch | ADR-002 DX improvements |
 | 01-27 | App | v2.1.0-patch | Platform namespace injection |
 | 01-27 | Compiler | v0.5.0 | `$mel` namespace, `onceIntent` |

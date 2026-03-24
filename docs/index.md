@@ -73,7 +73,6 @@ manifesto.dispatch(createIntent("increment", "intent-1"));
 | `@manifesto-ai/host` | Effect execution runtime |
 | `@manifesto-ai/world` | World Protocol governance |
 | `@manifesto-ai/codegen` | TypeScript / Zod code generation from DomainSchema |
-| `@manifesto-ai/intent-ir` | Intent intermediate representation |
 
 See [API Reference](/api/) for full documentation.
 

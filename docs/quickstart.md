@@ -19,18 +19,9 @@ bun add @manifesto-ai/sdk @manifesto-ai/compiler
 
 ---
 
-## Configure MEL Loader
+## Configure MEL Plugin
 
-MEL files (`.mel`) need a loader to be imported in your code. Choose the option that fits your setup:
-
-### Using tsx (Simplest)
-
-```bash
-# Run tsx with MEL loader
-npx tsx --loader @manifesto-ai/compiler/loader main.ts
-```
-
-### Using Vite
+MEL files (`.mel`) need a bundler plugin. Here's the Vite setup (most common):
 
 ```typescript
 // vite.config.ts
@@ -42,36 +33,8 @@ export default defineConfig({
 });
 ```
 
-### Using Webpack
-
-```javascript
-// webpack.config.js
-module.exports = {
-  module: {
-    rules: [
-      {
-        test: /\.mel$/,
-        use: '@manifesto-ai/compiler/loader'
-      }
-    ]
-  }
-};
-```
-
-### Troubleshooting
-
-::: details Cannot find module './counter.mel'?
-MEL files require a loader. If you see this error:
-1. Make sure you're using `tsx`, Vite with plugin, or Webpack with loader
-2. Check that `@manifesto-ai/compiler` is installed
-3. For TypeScript: create a `mel.d.ts` file with:
-```typescript
-declare module '*.mel' {
-  import { DomainModule } from '@manifesto-ai/compiler';
-  const module: DomainModule;
-  export default module;
-}
-```
+::: tip Other bundlers?
+Next.js, Webpack, Rollup, esbuild, Rspack are all supported. See the [Bundler Setup](/guides/bundler-setup) guide.
 :::
 
 ---

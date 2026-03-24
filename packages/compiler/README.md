@@ -46,13 +46,14 @@ pnpm add -D @manifesto-ai/compiler
 
 ---
 
-## Bundler Integrations (Subpath Exports)
+## Bundler Integration (unplugin)
 
-Use subpath exports to load `.mel` files directly.
+The compiler uses [unplugin](https://github.com/unjs/unplugin) to provide a unified MEL plugin for all major bundlers. One implementation, every bundler.
 
 ### Vite
 
 ```typescript
+// vite.config.ts
 import { defineConfig } from "vite";
 import { melPlugin } from "@manifesto-ai/compiler/vite";
 
@@ -61,28 +62,75 @@ export default defineConfig({
 });
 ```
 
-### Node / tsx Loader
-
-```bash
-npx tsx --loader @manifesto-ai/compiler/loader main.ts
-```
-
-### Webpack
+### Next.js / Webpack
 
 ```javascript
+// next.config.js
+const mel = require("@manifesto-ai/compiler/webpack");
+
 module.exports = {
-  module: {
-    rules: [
-      {
-        test: /\.mel$/,
-        use: "@manifesto-ai/compiler/loader",
-      },
-    ],
+  webpack: (config) => {
+    config.plugins.push(mel());
+    return config;
   },
 };
 ```
 
-`vite` and `webpack` are managed as optional peer dependencies for adapter compatibility.
+### Rollup
+
+```javascript
+// rollup.config.js
+import { melPlugin } from "@manifesto-ai/compiler/rollup";
+
+export default { plugins: [melPlugin()] };
+```
+
+### esbuild
+
+```javascript
+import { melPlugin } from "@manifesto-ai/compiler/esbuild";
+
+await esbuild.build({ plugins: [melPlugin()] });
+```
+
+### Rspack
+
+```javascript
+const mel = require("@manifesto-ai/compiler/rspack");
+
+module.exports = { plugins: [mel()] };
+```
+
+### Node / tsx (ESM Loader)
+
+```bash
+npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
+```
+
+### Plugin Options
+
+```typescript
+melPlugin({
+  include: /\.mel$/,           // File filter (default: /\.mel$/)
+  codegen: {                    // Optional: auto-generate types
+    outDir: "src/generated",   // Output directory
+    plugins: [/* custom */],   // Defaults to TS + Zod plugins
+  },
+});
+```
+
+The `codegen` option requires `@manifesto-ai/codegen` as a peer dependency. When enabled, TypeScript types and Zod schemas are generated automatically at build time.
+
+### Subpath Exports
+
+| Export | Bundler |
+| --- | --- |
+| `@manifesto-ai/compiler/vite` | Vite |
+| `@manifesto-ai/compiler/webpack` | Webpack / Next.js |
+| `@manifesto-ai/compiler/rollup` | Rollup |
+| `@manifesto-ai/compiler/esbuild` | esbuild |
+| `@manifesto-ai/compiler/rspack` | Rspack |
+| `@manifesto-ai/compiler/node-loader` | Node ESM loader hooks |
 
 ---
 

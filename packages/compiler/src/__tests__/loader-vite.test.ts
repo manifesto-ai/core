@@ -1,11 +1,12 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import melWebpackLoader, { load, resolve } from "../loader.js";
+import { unpluginMel } from "../unplugin.js";
 import { melPlugin } from "../vite.js";
+import { melPlugin as webpackPlugin } from "../webpack.js";
+import { load, resolve } from "../node-loader.js";
 
 const VALID_MEL = `
 domain Counter {
@@ -21,88 +22,63 @@ async function importFromModuleCode(code: string): Promise<{ default: unknown }>
   return import(`data:text/javascript;base64,${encoded}`);
 }
 
-describe("melPlugin()", () => {
+describe("unplugin core", () => {
   it("transforms .mel source into an ESM module", async () => {
-    const plugin = melPlugin();
-    const transformed = plugin.transform(VALID_MEL, "/tmp/counter.mel");
+    const plugin = unpluginMel.raw({});
+    const result = plugin.transform(VALID_MEL, "/tmp/counter.mel");
+    expect(result).toBeDefined();
 
-    expect(transformed).not.toBeNull();
-    if (!transformed) return;
+    const code = typeof result === "string" ? result : result?.code;
+    expect(code).toBeDefined();
 
-    const module = await importFromModuleCode(transformed.code);
+    const module = await importFromModuleCode(code!);
     const schema = module.default as { actions?: Record<string, unknown> };
-
     expect(schema.actions).toHaveProperty("increment");
   });
 
-  it("returns null for non-.mel modules", () => {
-    const plugin = melPlugin();
-    const transformed = plugin.transform("export const x = 1;", "/tmp/main.ts");
-    expect(transformed).toBeNull();
+  it("filters out non-.mel files via transformInclude", () => {
+    const plugin = unpluginMel.raw({});
+    expect(plugin.transformInclude("/tmp/counter.mel")).toBe(true);
+    expect(plugin.transformInclude("/tmp/main.ts")).toBe(false);
   });
 
   it("throws when MEL compilation fails", () => {
-    const plugin = melPlugin();
+    const plugin = unpluginMel.raw({});
     expect(() => plugin.transform("domain Broken {", "/tmp/broken.mel")).toThrow(
       "MEL compilation failed"
     );
   });
-});
 
-describe("loader default export (webpack)", () => {
-  it("compiles MEL source through webpack loader contract", async () => {
-    const cacheable = vi.fn();
-    const output = melWebpackLoader.call(
-      { resourcePath: "/tmp/counter.mel", cacheable },
-      VALID_MEL
-    );
+  it("strips query params from id", () => {
+    const plugin = unpluginMel.raw({});
+    expect(plugin.transformInclude("/tmp/counter.mel?v=123")).toBe(true);
+  });
 
-    expect(cacheable).toHaveBeenCalledWith(true);
-
-    const module = await importFromModuleCode(output);
-    const schema = module.default as { actions?: Record<string, unknown> };
-    expect(schema.actions).toHaveProperty("increment");
+  it("supports custom include regex", () => {
+    const plugin = unpluginMel.raw({ include: /\.manifesto$/ });
+    expect(plugin.transformInclude("/tmp/counter.manifesto")).toBe(true);
+    expect(plugin.transformInclude("/tmp/counter.mel")).toBe(false);
   });
 });
 
-describe("loader.cjs wrapper", () => {
-  it("supports CJS require for webpack loader resolution", async () => {
-    const require = createRequire(import.meta.url);
-    const cjsLoader = require("../../loader.cjs") as (
-      this: {
-        resourcePath?: string;
-        cacheable?: (cacheable?: boolean) => void;
-        async: () => (error: unknown, output?: string) => void;
-      },
-      source: string
-    ) => void;
-
-    const cacheable = vi.fn();
-    const output = await new Promise<string>((resolve, reject) => {
-      const context = {
-        resourcePath: "/tmp/counter.mel",
-        cacheable,
-        async: () => (error: unknown, result?: string) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve(result ?? "");
-        },
-      };
-
-      cjsLoader.call(context, VALID_MEL);
-    });
-
-    expect(cacheable).toHaveBeenCalledWith(true);
-
-    const module = await importFromModuleCode(output);
-    const schema = module.default as { actions?: Record<string, unknown> };
-    expect(schema.actions).toHaveProperty("increment");
+describe("vite export", () => {
+  it("exports a function that returns a Vite plugin", () => {
+    expect(typeof melPlugin).toBe("function");
+    const plugin = melPlugin();
+    expect(plugin).toBeDefined();
+    expect(plugin.name).toBe("manifesto:mel");
   });
 });
 
-describe("loader resolve/load hooks (node --loader)", () => {
+describe("webpack export", () => {
+  it("exports a function that returns a Webpack plugin", () => {
+    expect(typeof webpackPlugin).toBe("function");
+    const plugin = webpackPlugin();
+    expect(plugin).toBeDefined();
+  });
+});
+
+describe("node-loader resolve/load hooks", () => {
   it("short-circuits .mel resolution", async () => {
     const nextResolve = vi.fn(async () => ({
       url: "file:///tmp/counter.mel",

@@ -276,7 +276,6 @@ packages/
   world/       # World: Governance protocol
   compiler/    # MEL → DomainSchema
   codegen/     # DomainSchema → TypeScript/Zod
-  intent-ir/   # Intent intermediate representation
 ```
 
 ### Dependency Graph

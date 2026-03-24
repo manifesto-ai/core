@@ -65,18 +65,6 @@ Key sections: §5 createManifesto() Factory, §6 ManifestoInstance Interface, §
 
 Key sections: §2 Design Principles, §4 Syntax, §6 Semantic Rules, §8 Forbidden Constructs, §14 Examples, §21 $mel Namespace, Appendix (LLM 34-rule checklist)
 
-## Intent + Translation
-
-### Intent IR v0.2.0
-
-- `packages/intent-ir/docs/SPEC-v0.2.0.md`
-- FDR: `packages/intent-ir/docs/FDR-v0.1.0.md`
-
-### Translator v1.0.3
-
-- `packages/translator/core/docs/translator-SPEC-v1.0.3.md`
-- FDR: `packages/translator/core/docs/translator-FDR-v0.11.md`
-
 ## Global ADRs
 
 - ADR-002: onceIntent + $mel namespace → `docs/internals/adr/002-dx-improvement-mel-namespace-onceIntent.md`

@@ -2,11 +2,9 @@
   "packages/codegen": "0.1.1",
   "packages/compiler": "1.6.3",
   "packages/core": "2.6.0",
-  "packages/intent-ir": "0.3.1",
   "packages/host": "2.3.3",
   "packages/runtime": "0.1.4",
   "packages/sdk": "1.2.2",
-  "packages/translator/core": "0.2.1",
   "packages/world": "2.4.1",
   "skills": "0.1.1"
 }

@@ -81,16 +81,8 @@
       "package-name": "@manifesto-ai/host",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/intent-ir": {
-      "package-name": "@manifesto-ai/intent-ir",
-      "changelog-path": "CHANGELOG.md"
-    },
     "packages/sdk": {
       "package-name": "@manifesto-ai/sdk",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/translator/core": {
-      "package-name": "@manifesto-ai/translator",
       "changelog-path": "CHANGELOG.md"
     },
     "packages/world": {

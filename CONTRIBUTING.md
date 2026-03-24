@@ -59,9 +59,7 @@ Use the package name as scope:
 - `world` - @manifesto-ai/world
 - `sdk` - @manifesto-ai/sdk
 - `compiler` - @manifesto-ai/compiler
-- `intent-ir` - @manifesto-ai/intent-ir
 - `codegen` - @manifesto-ai/codegen
-- `translator` - @manifesto-ai/translator
 - `skills` - @manifesto-ai/skills
 
 If a change spans multiple packages, use a comma-separated list without spaces (e.g. `core,host`). If the change is repo-wide (docs, tooling), omit the scope or use `chore`/`docs` without scope.

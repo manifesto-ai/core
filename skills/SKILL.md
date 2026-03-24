@@ -40,7 +40,6 @@ Load when working with a specific package API:
 | @manifesto-ai/host | `@knowledge/packages/host.md` |
 | @manifesto-ai/world | `@knowledge/packages/world.md` |
 | @manifesto-ai/compiler | `@knowledge/packages/compiler.md` |
-| @manifesto-ai/intent-ir | `@knowledge/packages/intent-ir.md` |
 | @manifesto-ai/codegen | `@knowledge/packages/codegen.md` |
 
 ## Self-Check
