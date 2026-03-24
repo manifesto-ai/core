@@ -98,7 +98,7 @@
     "unplugin": "^3.0.0"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.72.1",
+    "@anthropic-ai/sdk": "^0.80.0",
     "@manifesto-ai/codegen": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/world": "workspace:*",
