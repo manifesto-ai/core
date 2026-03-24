@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["__tests__/**/*.test.ts", "src/**/*.test.ts"],
+    include: ["__tests__/**/*.{test,spec}.ts", "src/**/*.{test,spec}.ts"],
     exclude: ["src/__tests__/e2e-integration.test.ts", "src/__tests__/saas-modeling.test.ts"],
     coverage: {
       all: true,
