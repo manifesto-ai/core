@@ -83,6 +83,7 @@ pnpm exec mel compile path/to/domain.mel --stdout
 
 ## Read Next
 
+- [MEL Reference](/mel/REFERENCE) - **Complete function reference, patterns, and examples** (start here)
 - [MEL Syntax](/mel/SYNTAX)
 - [MEL Examples](/mel/EXAMPLES)
 - [MEL Error Guide](/mel/ERROR-GUIDE)
