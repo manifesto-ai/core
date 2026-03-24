@@ -46,11 +46,11 @@
     "mermaid": "^11.12.3",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "turbo": "^2.8.14",
+    "turbo": "^2.8.20",
     "typedoc": "^0.28.17",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
-    "vitest": "^4.0.18",
+    "vitest": "^4.1.1",
     "vue": "^3.5.29"
   },
   "dependencies": {
