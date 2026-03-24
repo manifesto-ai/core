@@ -604,6 +604,47 @@ describe("evaluateCondition", () => {
       evaluateCondition({ kind: "lit", value: "true" }, ctx)
     ).toBe(false);
   });
+
+  describe("object functions", () => {
+    it("should evaluate merge expression", () => {
+      const ctx = createTestContext({
+        snapshot: {
+          data: {
+            base: { a: 1, b: 2 },
+            count: 10,
+            name: "Alice",
+            items: [1, 2, 3],
+          },
+          computed: { total: 100 },
+        },
+      });
+      const expr: ExprNode = {
+        kind: "merge",
+        objects: [
+          { kind: "get", path: "base" },
+          { kind: "object", fields: { b: { kind: "lit", value: 3 }, c: { kind: "lit", value: 4 } } },
+        ],
+      };
+      expect(evaluateExpr(expr, ctx)).toEqual({ a: 1, b: 3, c: 4 });
+    });
+
+    it("should evaluate keys/values/entries expressions", () => {
+      const ctx = createTestContext({
+        snapshot: {
+          data: {
+            obj: { x: 1, y: 2 },
+            count: 10,
+            name: "Alice",
+            items: [1, 2, 3],
+          },
+          computed: { total: 100 },
+        },
+      });
+      expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual(["x", "y"]);
+      expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([1, 2]);
+      expect(evaluateExpr({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([["x", 1], ["y", 2]]);
+    });
+  });
 });
 
 describe("evaluateConditionalPatchOps", () => {

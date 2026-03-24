@@ -166,6 +166,31 @@ computed label = gt(count, 0) ? "Positive" : "Non-positive"
 computed display = eq(status, "loading") ? "Please wait..." : result
 ```
 
+### Object Functions
+
+Object expression functions operate on objects and return new values — they do NOT modify state.
+
+```mel
+// Merge: combine objects (later wins)
+computed withDefaults = merge(config, { theme: "light", lang: "en" })
+computed fullProfile = merge(baseProfile, userOverrides, { lastSeen: $meta.timestamp })
+
+// Decompose objects
+computed taskIds = keys(tasks)
+computed taskList = values(tasks)
+computed taskPairs = entries(tasks)
+
+// Key use case: merge inside map to override fields without enumerating all
+// Without merge — must list EVERY field:
+//   effect array.map({ source: items, select: { id: $item.id, name: $item.name, ... }, into: result })
+// With merge — only specify overrides:
+effect array.map({
+  source: items,
+  select: merge($item, { status: "active" }),
+  into: processedItems
+})
+```
+
 ### Aggregation Functions (v0.3.2)
 
 MEL supports primitive aggregation over arrays:
@@ -324,10 +349,12 @@ patch items[$input.id] = newItem
 // Unset: Remove key from Record
 patch tasks[completedId] unset
 
-// Merge: Shallow merge objects
+// Merge: Shallow merge into state at path
 patch user merge { name: "Bob" }
 patch settings merge $input.partialSettings
 ```
+
+> **`patch merge` vs `merge()` expression:** `patch path merge expr` is a flow-level state operation that shallow-merges into state at `path`. `merge(a, b)` is a pure expression function that returns a new merged object without modifying state. See [Object Functions](#object-functions) below.
 
 ### System Values (v0.3.0+)
 
@@ -700,6 +727,10 @@ action process() {
 | `upper(s)` | `string → string` | Uppercase |
 | `strlen(s)` | `string → number` | String length |
 | `concat(...)` | `(...string) → string` | Join strings |
+| `merge(a, b, ...)` | `(...Object) → Object` | Shallow merge objects (later wins) |
+| `keys(obj)` | `Object → Array<string>` | Object keys |
+| `values(obj)` | `Object → Array<unknown>` | Object values |
+| `entries(obj)` | `Object → Array<[string, unknown]>` | Key-value pairs |
 
 **Property Access vs. Dynamic Lookup:**
 

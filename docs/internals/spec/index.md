@@ -68,9 +68,9 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v0.6.0** (Full)
-  - [SPEC-v0.6.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.6.0.md)
-  - Adds: ADR-009 path model alignment (`IRPatchPath`, `resolveIRPath()`)
+- **Compiler SPEC v0.7.0** (Full)
+  - [SPEC-v0.7.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.7.0.md)
+  - Adds: §9.1.10 Object Functions — `merge()`, `keys()`, `values()`, `entries()` expression documentation (#241)
 
 ---
 

@@ -1,0 +1,55 @@
+// ============================================
+// Title: Object Functions
+// Description: merge, keys, values, entries
+// Prerequisites: basic.mel
+// ============================================
+
+domain ObjectFunctions {
+  // --- Types ---
+  type Config = { theme: string, lang: string, fontSize: number }
+  type Item = { id: string, name: string, status: string }
+
+  // --- State ---
+  state {
+    config: Config = { theme: "dark", lang: "en", fontSize: 14 }
+    defaults: Config = { theme: "light", lang: "en", fontSize: 16 }
+    items: Array<Item> = []
+    tasks: Record<string, Item> = {}
+  }
+
+  // --- merge: Shallow merge objects (later wins) ---
+
+  // Merge two objects — later overrides earlier
+  computed merged = merge(defaults, config)
+  // If config = { theme: "dark", lang: "en", fontSize: 14 }
+  // Result: { theme: "dark", lang: "en", fontSize: 14 }
+
+  // Merge with literal override
+  computed withOverride = merge(config, { theme: "light" })
+  // Result: { theme: "light", lang: "en", fontSize: 14 }
+
+  // Variadic: merge 3+ objects
+  computed full = merge(defaults, config, { fontSize: 20 })
+
+  // --- keys, values, entries ---
+
+  // Extract object keys
+  computed taskIds = keys(tasks)
+  // If tasks = { "a": ..., "b": ... } → ["a", "b"]
+
+  // Extract object values
+  computed taskList = values(tasks)
+
+  // Extract key-value pairs
+  computed taskPairs = entries(tasks)
+
+  // --- merge in actions (key use case: enrich without enumerating all fields) ---
+
+  action markActive(id: string) {
+    when isNotNull(at(tasks, $input.id)) {
+      // Instead of: patch tasks[$input.id] = { id: ..., name: ..., status: "active" }
+      // Use merge to only override status:
+      patch tasks[$input.id] = merge(at(tasks, $input.id), { status: "active" })
+    }
+  }
+}

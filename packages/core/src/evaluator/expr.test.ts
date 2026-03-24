@@ -460,6 +460,54 @@ describe("Expression Evaluator", () => {
       })).toEqual({ a: 1, b: 3, c: 4 });
     });
 
+    it("merge - should handle variadic (3+ objects)", () => {
+      expect(evaluate({
+        kind: "merge",
+        objects: [
+          { kind: "lit", value: { a: 1 } },
+          { kind: "lit", value: { b: 2 } },
+          { kind: "lit", value: { a: 3, c: 3 } },
+        ],
+      })).toEqual({ a: 3, b: 2, c: 3 });
+    });
+
+    it("merge - should skip non-object arguments", () => {
+      expect(evaluate({
+        kind: "merge",
+        objects: [
+          { kind: "lit", value: { a: 1 } },
+          { kind: "lit", value: null },
+          { kind: "lit", value: 42 },
+          { kind: "lit", value: { b: 2 } },
+        ],
+      })).toEqual({ a: 1, b: 2 });
+    });
+
+    it("merge - should skip array arguments", () => {
+      expect(evaluate({
+        kind: "merge",
+        objects: [
+          { kind: "lit", value: { a: 1 } },
+          { kind: "lit", value: [1, 2, 3] },
+        ],
+      })).toEqual({ a: 1 });
+    });
+
+    it("merge - should return empty object for no valid args", () => {
+      expect(evaluate({
+        kind: "merge",
+        objects: [],
+      })).toEqual({});
+
+      expect(evaluate({
+        kind: "merge",
+        objects: [
+          { kind: "lit", value: null },
+          { kind: "lit", value: "string" },
+        ],
+      })).toEqual({});
+    });
+
     it("object ops - should handle non-objects", () => {
       expect(evaluate({ kind: "keys", obj: { kind: "lit", value: null } })).toEqual([]);
       expect(evaluate({ kind: "values", obj: { kind: "lit", value: 42 } })).toEqual([]);

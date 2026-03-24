@@ -58,12 +58,12 @@ Key sections: §5 createManifesto() Factory, §6 ManifestoInstance Interface, §
 - `@manifesto-ai/runtime` is retired per ADR-010. Responsibilities absorbed into `createManifesto()`.
 - Historical SPEC: `packages/runtime/docs/runtime-SPEC-v0.2.0.md` (Superseded, no successor)
 
-### Compiler (MEL) v0.6.0
+### Compiler (MEL) v0.7.0
 
-- `packages/compiler/docs/SPEC-v0.6.0.md`
+- `packages/compiler/docs/SPEC-v0.7.0.md`
 - FDR: `packages/compiler/docs/FDR-v0.5.0-patch.md`
 
-Key sections: §2 Design Principles, §4 Syntax, §6 Semantic Rules, §8 Forbidden Constructs, §14 Examples, §21 $mel Namespace, Appendix (LLM 34-rule checklist)
+Key sections: §2 Design Principles, §4 Syntax, §6 Semantic Rules, §8 Forbidden Constructs, §9.1.10 Object Functions, §14 Examples, §21 $mel Namespace, Appendix (LLM 34-rule checklist)
 
 ## Global ADRs
 

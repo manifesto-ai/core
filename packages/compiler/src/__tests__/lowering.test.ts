@@ -255,6 +255,90 @@ describe("lowerExprNode", () => {
       });
     });
 
+    it("should lower merge() expression call", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "merge",
+        args: [
+          { kind: "get", path: [{ kind: "prop", name: "base" }] },
+          {
+            kind: "obj",
+            fields: [
+              { key: "status", value: { kind: "lit", value: "active" } },
+            ],
+          },
+        ],
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "merge",
+        objects: [
+          { kind: "get", path: "base" },
+          { kind: "object", fields: { status: { kind: "lit", value: "active" } } },
+        ],
+      });
+    });
+
+    it("should lower variadic merge() with 3+ objects", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "merge",
+        args: [
+          { kind: "get", path: [{ kind: "prop", name: "defaults" }] },
+          { kind: "get", path: [{ kind: "prop", name: "overrides" }] },
+          { kind: "obj", fields: [{ key: "extra", value: { kind: "lit", value: true } }] },
+        ],
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "merge",
+        objects: [
+          { kind: "get", path: "defaults" },
+          { kind: "get", path: "overrides" },
+          { kind: "object", fields: { extra: { kind: "lit", value: true } } },
+        ],
+      });
+    });
+
+    it("should lower keys() expression call", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "keys",
+        args: [{ kind: "get", path: [{ kind: "prop", name: "tasks" }] }],
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "keys",
+        obj: { kind: "get", path: "tasks" },
+      });
+    });
+
+    it("should lower values() expression call", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "values",
+        args: [{ kind: "get", path: [{ kind: "prop", name: "tasks" }] }],
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "values",
+        obj: { kind: "get", path: "tasks" },
+      });
+    });
+
+    it("should lower entries() expression call", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "entries",
+        args: [{ kind: "get", path: [{ kind: "prop", name: "tasks" }] }],
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "entries",
+        obj: { kind: "get", path: "tasks" },
+      });
+    });
+
     it("should throw for unknown function", () => {
       const input: MelExprNode = {
         kind: "call",

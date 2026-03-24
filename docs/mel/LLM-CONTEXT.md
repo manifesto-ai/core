@@ -49,7 +49,7 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 1. `when` condition must be boolean — no truthy/falsy
 2. `eq`/`neq` only compare primitives (null, boolean, number, string)
 3. `len()` only works on arrays, not records
-4. Record iteration uses `record.*` effects (no `keys()` / `values()` builtins)
+4. `keys()`/`values()`/`entries()` work as expression builtins for object decomposition. `record.*` effects are for writing results to state in action flows.
 5. `sum()`/`min()`/`max()` with single arg = array aggregation
 6. `min(a,b)`/`max(a,b)` with multiple args = value comparison
 7. Complex object types in state must be named (`type X = { ... }`)
@@ -132,7 +132,15 @@ computed sum = sum(prices)           // Array<number> → number
 computed min = min(values)           // Array<T> → T | null
 computed max = max(values)           // Array<T> → T | null
 computed length = len(items)         // Array<T> → number
+
+// Object functions
+computed withDefaults = merge(config, { theme: "light" })  // Shallow merge (later wins)
+computed taskIds = keys(tasks)                              // Object keys
+computed taskList = values(tasks)                           // Object values
+computed taskPairs = entries(tasks)                         // Key-value pairs
 ```
+
+> **`merge()` vs `patch merge`:** `merge(a, b)` is a pure expression returning a new object. `patch path merge expr` is a state operation. They are different constructs.
 
 **Forbidden in computed:**
 ```mel
@@ -409,6 +417,14 @@ stop "skipped_no_action_needed"
 | `upper(s)` | Uppercase |
 | `concat(...)` | Join strings |
 
+### Object
+| Function | Description |
+|----------|-------------|
+| `merge(a, b, ...)` | Shallow merge objects (later wins) |
+| `keys(obj)` | Object keys as array |
+| `values(obj)` | Object values as array |
+| `entries(obj)` | Object entries as [key, value] array |
+
 ### Value Comparison
 | Function | Description |
 |----------|-------------|
@@ -442,6 +458,20 @@ action loadData() {
     patch status = "done"
   }
 }
+```
+
+### Merge to Enrich/Override Fields
+
+```mel
+// In computed — combine with defaults
+computed enriched = merge(item, { status: "active", source: "api" })
+
+// In map — override fields without enumerating all
+effect array.map({
+  source: items,
+  select: merge($item, { processed: true }),
+  into: processedItems
+})
 ```
 
 ### System Values (v0.3.0+)

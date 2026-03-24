@@ -12,7 +12,8 @@ examples/
 │   ├── basic.mel          # Basic computed expressions
 │   ├── aggregation.mel    # sum, min, max, len
 │   ├── boolean.mel        # Boolean conditions
-│   └── null-handling.mel  # coalesce, isNull patterns
+│   ├── null-handling.mel  # coalesce, isNull patterns
+│   └── object.mel         # merge, keys, values, entries
 │
 ├── action/
 │   ├── basic.mel          # Simple actions with when

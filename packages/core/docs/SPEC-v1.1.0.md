@@ -1,8 +1,12 @@
-# Manifesto Schema Specification v1.0
+# Manifesto Schema Specification v1.1.0
 
+> **Version:** 1.1.0
 > **Status:** Draft
 > **Authors:** eggplantiny
 > **License:** MIT
+> **Changelog:**
+> - v1.0.0: Initial specification
+> - v1.1.0: Object Expression Semantics — §7.2 `field` ExprNode added, §7.6 Object Expression Semantics (#241)
 
 ---
 
@@ -472,6 +476,7 @@ type ExprNode =
   
   // Object
   | { kind: 'object'; fields: Record<string, ExprNode> }
+  | { kind: 'field'; object: ExprNode; property: string }
   | { kind: 'keys'; obj: ExprNode }
   | { kind: 'values'; obj: ExprNode }
   | { kind: 'entries'; obj: ExprNode }
@@ -522,6 +527,27 @@ Within collection operations (`filter`, `map`, `find`, `every`, `some`):
 - Division by zero MUST return `null`, not throw.
 - Out-of-bounds array access MUST return `null`, not throw.
 - `null` in boolean context MUST be treated as `false`.
+
+### 7.6 Object Expression Semantics
+
+Object expressions operate on objects (records) and MUST be pure and total.
+
+| Kind | Signature | Description |
+|------|-----------|-------------|
+| `object` | `Record<string, ExprNode> → Object` | Construct object from field expressions |
+| `field` | `(Object, string) → unknown` | Static property access on computed result |
+| `keys` | `Object → Array<string>` | Object keys |
+| `values` | `Object → Array<unknown>` | Object values (in key order) |
+| `entries` | `Object → Array<[string, unknown]>` | Key-value pairs (in key order) |
+| `merge` | `(...Object) → Object` | Shallow merge; later objects override earlier keys |
+
+**Totality rules:**
+
+- `keys`, `values`, `entries` MUST return `[]` for non-object or null input.
+- `merge` MUST skip non-object arguments silently. MUST return `{}` if no valid objects given.
+- `field` MUST return `null` if the object is null or the property does not exist.
+
+**Disambiguation:** `field` is for static property access on computed expression results (e.g., `at(items, id).status`). It is distinct from `get` (path access into Snapshot) and `at` (dynamic key lookup).
 
 ---
 
