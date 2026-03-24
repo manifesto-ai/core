@@ -21,6 +21,7 @@ import {
   type Snapshot,
   type Intent,
   semanticPathToPatchPath,
+  extractDefaults,
 } from "@manifesto-ai/core";
 import { compileMelDomain } from "@manifesto-ai/compiler";
 
@@ -33,7 +34,7 @@ import type {
   Selector,
   Unsubscribe,
 } from "./types.js";
-import { ReservedEffectError, DisposedError, ManifestoError } from "./errors.js";
+import { ReservedEffectError, DisposedError, ManifestoError, CompileError } from "./errors.js";
 
 // =============================================================================
 // Constants
@@ -313,12 +314,30 @@ function resolveSchema(schema: DomainSchema | string): DomainSchema {
     const result = compileMelDomain(schema, { mode: "domain" });
 
     if (result.errors.length > 0) {
-      const errorMessages = result.errors
-        .map((e: { code: string; message: string }) => `[${e.code}] ${e.message}`)
-        .join("; ");
-      throw new ManifestoError(
-        "COMPILE_ERROR",
-        `MEL compilation failed: ${errorMessages}`,
+      const formatted = result.errors.map((d) => {
+        const loc = d.location;
+        const header = loc && (loc.start.line > 0 || loc.start.column > 0)
+          ? `[${d.code}] ${d.message} (${loc.start.line}:${loc.start.column})`
+          : `[${d.code}] ${d.message}`;
+
+        if (!loc || loc.start.line === 0) return header;
+
+        const sourceLines = schema.split("\n");
+        const lineContent = sourceLines[loc.start.line - 1];
+        if (!lineContent) return header;
+
+        const lineNumStr = String(loc.start.line).padStart(4, " ");
+        const underlineLen = Math.max(1,
+          loc.end.line === loc.start.line
+            ? Math.min(loc.end.column - loc.start.column, lineContent.length - loc.start.column + 1)
+            : 1);
+        const padding = " ".repeat(lineNumStr.length + 3 + loc.start.column - 1);
+        return `${header}\n${lineNumStr} | ${lineContent}\n${padding}${"^".repeat(underlineLen)}`;
+      }).join("\n\n");
+
+      throw new CompileError(
+        result.errors,
+        `MEL compilation failed:\n${formatted}`,
       );
     }
 
@@ -523,7 +542,7 @@ function createInternalHost(
   initialSnapshot?: Snapshot,
 ): ManifestoHost {
   const host = createHost(schema, {
-    initialData: initialSnapshot?.data ?? {},
+    initialData: initialSnapshot?.data ?? extractDefaults(schema.state),
   });
 
   // P1-1: When restoring from a persisted snapshot, use host.reset() to
