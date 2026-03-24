@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.0](https://github.com/manifesto-ai/core/compare/world-v2.4.2...world-v2.5.0) (2026-03-24)
+
+
+### Features
+
+* Phase2 R1 SDK-first transition (Track A) ([#159](https://github.com/manifesto-ai/core/issues/159)) ([57d7e66](https://github.com/manifesto-ai/core/commit/57d7e667fde2450c2a4608e5e0e5a76b0d0a3cee))
+* **sdk,docs,release:** execute phase2 r1 sdk-first transition ([01bf29e](https://github.com/manifesto-ai/core/commit/01bf29e03c4b079838bacca35c9e948d4af06590))
+
+
+### Bug Fixes
+
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+
 ## [2.4.1](https://github.com/manifesto-ai/core/compare/world-v2.4.0...world-v2.4.1) (2026-02-25)
 
 
