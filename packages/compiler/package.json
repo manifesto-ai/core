@@ -60,7 +60,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
     "example": "npx tsx examples/simple-compile.ts",
