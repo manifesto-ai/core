@@ -832,6 +832,12 @@ export class Parser {
       });
     }
 
+    // Keywords that can also be expression function calls (e.g., merge(...))
+    if (this.check("MERGE") && this.peekNext()?.kind === "LPAREN") {
+      const token = this.advance();
+      return this.parseFunctionCall(token);
+    }
+
     // Identifier or function call
     if (this.check("IDENTIFIER")) {
       const token = this.advance();
