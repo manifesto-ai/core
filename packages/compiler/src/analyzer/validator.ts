@@ -103,7 +103,18 @@ export class SemanticValidator {
    * v0.3.3: Validate state fields for W012 (anonymous object types)
    */
   private validateState(state: StateNode): void {
+    const seen = new Map<string, SourceLocation>();
     for (const field of state.fields) {
+      const prev = seen.get(field.name);
+      if (prev) {
+        this.error(
+          `Duplicate state field '${field.name}'. First declared at line ${prev.start.line}`,
+          field.location,
+          "E_DUPLICATE_FIELD"
+        );
+      } else {
+        seen.set(field.name, field.location);
+      }
       this.validateStateField(field);
     }
   }
@@ -518,16 +529,26 @@ export class SemanticValidator {
       case "floor":
       case "ceil":
       case "round":
+      case "sqrt":
       case "isNull":
       case "isNotNull":
       case "trim":
       case "lower":
       case "upper":
+      case "strlen":
       case "keys":
       case "values":
       case "entries":
       case "first":
       case "last":
+      case "typeof":
+      case "toString":
+      case "toNumber":
+      case "toBoolean":
+      case "reverse":
+      case "unique":
+      case "flat":
+      case "fromEntries":
         if (args.length !== 1) {
           this.error(
             `Function '${name}' expects 1 argument, got ${args.length}`,
@@ -537,7 +558,8 @@ export class SemanticValidator {
         }
         break;
 
-      // Collection predicates need exactly 2 args
+      // Binary functions need exactly 2 args
+      case "pow":
       case "filter":
       case "map":
       case "find":
@@ -545,6 +567,39 @@ export class SemanticValidator {
       case "some":
       case "at":
       case "includes":
+      case "field":
+      case "hasKey":
+      case "pick":
+      case "omit":
+      case "startsWith":
+      case "endsWith":
+      case "strIncludes":
+      case "indexOf":
+        if (args.length !== 2) {
+          this.error(
+            `Function '${name}' expects 2 arguments, got ${args.length}`,
+            location,
+            "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      // 2-3 arg functions
+      case "slice":
+      case "substring":
+      case "substr":
+      case "replace":
+        if (args.length < 2 || args.length > 3) {
+          this.error(
+            `Function '${name}' expects 2-3 arguments, got ${args.length}`,
+            location,
+            "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      // split(str, delimiter)
+      case "split":
         if (args.length !== 2) {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
@@ -562,6 +617,7 @@ export class SemanticValidator {
       case "max":
       case "merge":
       case "coalesce":
+      case "append":
         if (args.length < 1) {
           this.error(
             `Function '${name}' expects at least 1 argument`,
@@ -584,8 +640,11 @@ export class SemanticValidator {
         break;
 
       default:
-        // Unknown function - this might be caught by scope analysis
-        // or could be a user-defined function we don't know about
+        this.error(
+          `Unknown function '${name}'. Check spelling or see MEL builtin function reference`,
+          location,
+          "E_UNKNOWN_FN"
+        );
         break;
     }
 

@@ -300,9 +300,46 @@ export class Parser {
     if (this.check("ONCE")) return this.parseOnceStmt();
     if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'when', 'once', or 'onceIntent'.`);
+    // Detect common mistake: patch/effect/fail/stop without when block
+    const token = this.peek();
+    if (token.kind === "PATCH" || token.lexeme === "patch" ||
+        token.kind === "EFFECT" || token.lexeme === "effect" ||
+        token.kind === "FAIL" || token.lexeme === "fail" ||
+        token.kind === "STOP" || token.lexeme === "stop") {
+      this.error(
+        `'${token.lexeme}' must be inside a guard block (when, once, or onceIntent). ` +
+        `Wrap it: when true { ${token.lexeme} ... }`
+      );
+      // Skip to end of statement or next guard keyword to prevent error cascade
+      this.skipToRecoveryPoint();
+      return null;
+    }
+
+    this.error(`Unexpected token '${token.lexeme}'. Expected 'when', 'once', or 'onceIntent'.`);
     this.advance();
     return null;
+  }
+
+  /**
+   * Skip tokens until we reach a recovery point (closing brace, guard keyword, or EOF).
+   */
+  private skipToRecoveryPoint(): void {
+    let braceDepth = 0;
+    while (!this.isAtEnd()) {
+      const t = this.peek();
+      if (t.kind === "LBRACE") { braceDepth++; this.advance(); continue; }
+      if (t.kind === "RBRACE") {
+        if (braceDepth === 0) return; // Don't consume the closing brace
+        braceDepth--;
+        this.advance();
+        continue;
+      }
+      // Stop before guard keywords at depth 0 (next valid statement)
+      if (braceDepth === 0 && (t.kind === "WHEN" || t.kind === "ONCE" || t.lexeme === "onceIntent")) {
+        return;
+      }
+      this.advance();
+    }
   }
 
   private parseWhenStmt(): WhenStmtNode {

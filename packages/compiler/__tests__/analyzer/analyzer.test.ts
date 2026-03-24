@@ -189,6 +189,92 @@ describe("Semantic Analyzer", () => {
     });
   });
 
+  describe("unknown function detection (#251)", () => {
+    it("reports error for unknown function in computed", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { count: number = 0 }
+          computed bad = unknownFn(count)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some(d => d.code === "E_UNKNOWN_FN")).toBe(true);
+      }
+    });
+
+    it("reports error for typo in function name", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { a: number = 0 }
+          computed b = ad(a, 1)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some(d => d.code === "E_UNKNOWN_FN")).toBe(true);
+        expect(diagnostics.some(d => d.message.includes("'ad'"))).toBe(true);
+      }
+    });
+
+    it("accepts all known builtin functions", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { x: number = 0, items: Array<number> = [], obj: object = {} }
+          computed a = add(x, 1)
+          computed b = mul(x, 2)
+          computed c = isNull(x)
+          computed d = merge(obj, { y: 1 })
+          computed e = keys(obj)
+          computed f = len(items)
+          computed g = coalesce(x, 0)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.filter(d => d.code === "E_UNKNOWN_FN")).toHaveLength(0);
+      }
+    });
+  });
+
+  describe("duplicate state field detection (#252)", () => {
+    it("reports error for duplicate state field", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            count: number = 0
+            count: string = ""
+          }
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some(d => d.code === "E_DUPLICATE_FIELD")).toBe(true);
+        expect(diagnostics.some(d => d.message.includes("'count'"))).toBe(true);
+      }
+    });
+
+    it("accepts unique field names", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            count: number = 0
+            name: string = ""
+          }
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.filter(d => d.code === "E_DUPLICATE_FIELD")).toHaveLength(0);
+      }
+    });
+  });
+
   describe("compile with analysis", () => {
     it("fails on undefined identifiers", () => {
       const result = compile(`
