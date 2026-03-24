@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.5.0](https://github.com/manifesto-ai/core/compare/world-v2.4.2...world-v2.5.0) (2026-03-24)
+
+
+### Features
+
+* Phase2 R1 SDK-first transition (Track A) ([#159](https://github.com/manifesto-ai/core/issues/159)) ([57d7e66](https://github.com/manifesto-ai/core/commit/57d7e667fde2450c2a4608e5e0e5a76b0d0a3cee))
+* **platform:** add  namespace and semantic schema hashing ([b7038a5](https://github.com/manifesto-ai/core/commit/b7038a57c4f4989ebda80589af57f08ec50c7fc7))
+* **sdk,docs,release:** execute phase2 r1 sdk-first transition ([01bf29e](https://github.com/manifesto-ai/core/commit/01bf29e03c4b079838bacca35c9e948d4af06590))
+* **world:** improve event handling and schema integration ([35bb078](https://github.com/manifesto-ai/core/commit/35bb078e73986aad3e3930e96ee8b3ef385d366e))
+
+
+### Bug Fixes
+
+* **app:** align WorldStore delta scope with World SPEC v2.0.3 ([#83](https://github.com/manifesto-ai/core/issues/83)) ([02636ef](https://github.com/manifesto-ai/core/commit/02636efa7880edc9df87df00d83834b32730ecb3))
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+
 ## [2.4.1](https://github.com/manifesto-ai/core/compare/world-v2.4.0...world-v2.4.1) (2026-02-25)
 
 
