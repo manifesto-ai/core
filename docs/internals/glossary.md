@@ -385,13 +385,12 @@
 |------|-----------|
 | Actor | Entity that proposes changes |
 | Authority | Entity that judges proposals |
-| Bridge | Two-way binding between UI and domain |
 | Computed | Derived values from state |
 | **Coordinate** | A point in semantic space (Snapshot) |
 | **Coordinate Calculation** | Finding the next valid position in semantic space |
 | Core | Pure computation layer |
 | Decision Record | Immutable audit of judgment |
-| DomainModule | Output of defineDomain() |
+| DomainModule | Output of MEL compilation |
 | DomainSchema | Complete domain specification IR |
 | Effect | Declaration of external operation |
 | ExprNode | Pure expression node |
@@ -402,12 +401,10 @@
 | Intent | Command requesting action |
 | Lineage | DAG of World ancestry |
 | Patch | Atomic state mutation |
-| Projection | Routes SourceEvent to IntentBody |
 | Proposal | Accountability envelope for Intent |
 | Requirement | Pending Effect to execute |
 | **Semantic Space** | Mathematical space defined by DomainSchema |
 | Snapshot | Complete state at a point in time (a coordinate) |
-| SourceEvent | External event from UI/API/Agent |
 | World | Immutable committed Snapshot |
 
 ---

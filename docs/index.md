@@ -31,7 +31,13 @@ features:
     details: Pure computation separated from IO.
 ---
 
-# Quick Example
+## What is Manifesto?
+
+Manifesto is a **semantic layer for deterministic domain state**. You define _what your domain means_ — state, transitions, derived values — and Manifesto guarantees deterministic computation, full traceability, and clean separation between logic and IO.
+
+**Manifesto is NOT** a state manager (Redux), a workflow engine (Temporal), or an AI framework (LangChain). It is the layer that sits between your domain logic and your execution environment.
+
+## Quick Example
 
 ```mel
 domain Counter {
@@ -43,46 +49,37 @@ domain Counter {
 ```
 
 ```typescript
-import { createManifesto, createIntent } from "@manifesto-ai/sdk";
-import CounterMel from "./counter.mel";
+import { createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import CounterSchema from "./counter.mel";
 
-const manifesto = createManifesto({ schema: CounterMel, effects: {} });
-
-manifesto.on("dispatch:completed", ({ snapshot }) => {
-  console.log(snapshot?.data.count); // 1
-});
-
-manifesto.dispatch(createIntent("increment", "intent-1"));
+const app = createManifesto({ schema: CounterSchema, effects: {} });
+const snapshot = await dispatchAsync(app, { type: "increment", intentId: "1" });
+console.log(snapshot.data.count); // 1
 ```
 
-## Learn
+## Start Here
 
-- [Quickstart](/quickstart) - 5 minutes to running code
-- [Tutorial](/tutorial/) - Step-by-step learning path
-- [Concepts](/concepts/) - Core concepts explained
-- [Architecture](/architecture/) - System design overview
-- [MEL Language](/mel/SYNTAX) - Domain definition syntax
-
-## Packages
-
-| Package | Description |
-|---------|-------------|
-| `@manifesto-ai/sdk` | Thin public composition layer (recommended starting point) |
-| `@manifesto-ai/compiler` | MEL compiler |
-| `@manifesto-ai/core` | Pure computation engine |
-| `@manifesto-ai/host` | Effect execution runtime |
-| `@manifesto-ai/world` | World Protocol governance |
-| `@manifesto-ai/codegen` | TypeScript / Zod code generation from DomainSchema |
-
-See [API Reference](/api/) for full documentation.
-
-> Note: `@manifesto-ai/runtime` is retired per ADR-010. The recommended production entry point remains `@manifesto-ai/sdk`.
+| Step | Link | Time |
+|------|------|------|
+| **Install and run** | [Quickstart](/quickstart) | 5 min |
+| **Learn step-by-step** | [Tutorial](/tutorial/) | 30 min |
+| **Understand the model** | [Concepts](/concepts/) | 15 min |
+| **MEL language reference** | [MEL Reference](/mel/REFERENCE) | Browse |
 
 ## Installation
 
 ```bash
 npm install @manifesto-ai/sdk @manifesto-ai/compiler
 ```
+
+`@manifesto-ai/sdk` is the only package you need. It re-exports everything from Core, Host, World, and Compiler.
+
+## Go Deeper
+
+- [Architecture](/architecture/) — System design: Core/Host/World separation
+- [Guides](/guides/) — Effect handlers, debugging, bundler setup
+- [API Reference](/api/) — Package-level API docs
+- [Internals](/internals/) — ADRs, SPECs, FDRs
 
 ## Community
 

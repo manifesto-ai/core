@@ -4,10 +4,12 @@
 
 This section contains detailed technical documentation for those who want to understand or contribute to Manifesto's implementation.
 
-## Architecture
+## Resources
 
-- [Architecture Overview](./architecture) - Layer structure and boundaries (v2.0)
 - [Glossary](./glossary) - Term definitions
+- [Test Conventions](./test-conventions) - Test naming and discovery
+- [Documentation Governance](./documentation-governance) - Docs maintenance rules
+- [Layer Boundaries](/architecture/layers) - Normative layer spec (in Architecture section)
 
 ## Architecture Decision Records (ADRs)
 
@@ -26,6 +28,7 @@ Records of significant architectural decisions:
 | [ADR-009](./adr/009-structured-patch-path) | Structured PatchPath (Segments) | Accepted |
 | [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted |
 | [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted |
+| [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

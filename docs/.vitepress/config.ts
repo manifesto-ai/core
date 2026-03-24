@@ -53,16 +53,16 @@ export default defineConfig({
     nav: [
       { text: 'Quickstart', link: '/quickstart' },
       { text: 'Tutorial', link: '/tutorial/' },
-      { text: 'Guides', link: '/guides/' },
-      { text: 'Integration', link: '/integration/' },
-      { text: 'Architecture', link: '/architecture/' },
-      { text: 'API', link: '/api/' },
+      { text: 'Concepts', link: '/concepts/' },
       { text: 'MEL', link: '/mel/' },
+      { text: 'Guides', link: '/guides/' },
+      { text: 'API', link: '/api/' },
+      { text: 'Architecture', link: '/architecture/' },
       { text: 'Internals', link: '/internals/' },
     ],
 
     sidebar: {
-      '/quickstart': [],  // Single page, no sidebar
+      '/quickstart': [],
 
       '/tutorial/': [
         {
@@ -90,19 +90,6 @@ export default defineConfig({
         },
       ],
 
-      '/architecture/': [
-        {
-          text: 'Architecture',
-          items: [
-            { text: 'Overview', link: '/architecture/' },
-            { text: 'Layers', link: '/internals/architecture' },
-            { text: 'Data Flow', link: '/architecture/data-flow' },
-            { text: 'Determinism', link: '/architecture/determinism' },
-            { text: 'Failure Model', link: '/architecture/failure-model' },
-          ]
-        }
-      ],
-
       '/concepts/': [
         {
           text: 'Core Concepts',
@@ -116,6 +103,34 @@ export default defineConfig({
             { text: 'World', link: '/concepts/world' },
           ]
         }
+      ],
+
+      '/mel/': [
+        {
+          text: 'MEL Language',
+          items: [
+            { text: 'Overview', link: '/mel/' },
+            { text: 'Reference', link: '/mel/REFERENCE' },
+            { text: 'Syntax Cookbook', link: '/mel/SYNTAX' },
+            { text: 'Examples', link: '/mel/EXAMPLES' },
+            { text: 'Error Guide', link: '/mel/ERROR-GUIDE' },
+          ]
+        }
+      ],
+
+      '/guides/': [
+        {
+          text: 'How-to Guides',
+          items: [
+            { text: 'Overview', link: '/guides/' },
+            { text: 'Bundler Setup', link: '/guides/bundler-setup' },
+            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
+            { text: 'Debugging', link: '/guides/debugging' },
+            { text: 'Typed Patch Ops', link: '/guides/typed-patch-ops' },
+            { text: 'Code Generation', link: '/guides/code-generation' },
+          ]
+        },
       ],
 
       '/integration/': [
@@ -140,37 +155,19 @@ export default defineConfig({
             { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
-            { text: 'App Facade (Retired per ADR-008)', link: '/api/app' },
           ]
         }
       ],
 
-      '/guides/': [
+      '/architecture/': [
         {
-          text: 'How-to Guides',
+          text: 'Architecture',
           items: [
-            { text: 'Overview', link: '/guides/' },
-            { text: 'Bundler Setup', link: '/guides/bundler-setup' },
-            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
-            { text: 'Debugging', link: '/guides/debugging' },
-            { text: 'Migrate App to SDK', link: '/guides/migrate-app-to-sdk' },
-            { text: 'Performance Report', link: '/guides/performance-report' },
-            { text: 'Code Generation', link: '/guides/code-generation' },
-            { text: 'Typed Patch Ops', link: '/guides/typed-patch-ops' },
-          ]
-        },
-      ],
-
-      '/mel/': [
-        {
-          text: 'MEL',
-          items: [
-            { text: 'Overview', link: '/mel/' },
-            { text: 'Syntax', link: '/mel/SYNTAX' },
-            { text: 'Examples', link: '/mel/EXAMPLES' },
-            { text: 'Error Guide', link: '/mel/ERROR-GUIDE' },
-            { text: 'LLM Context', link: '/mel/LLM-CONTEXT' },
+            { text: 'Overview', link: '/architecture/' },
+            { text: 'Layer Boundaries', link: '/architecture/layers' },
+            { text: 'Data Flow', link: '/architecture/data-flow' },
+            { text: 'Determinism', link: '/architecture/determinism' },
+            { text: 'Failure Model', link: '/architecture/failure-model' },
           ]
         }
       ],
@@ -180,8 +177,9 @@ export default defineConfig({
           text: 'Internals',
           items: [
             { text: 'Overview', link: '/internals/' },
-            { text: 'Architecture', link: '/internals/architecture' },
             { text: 'Glossary', link: '/internals/glossary' },
+            { text: 'Test Conventions', link: '/internals/test-conventions' },
+            { text: 'Documentation Governance', link: '/internals/documentation-governance' },
           ]
         },
         {
@@ -200,11 +198,7 @@ export default defineConfig({
             { text: 'ADR-001: Layer Separation', link: '/internals/adr/001-layer-separation' },
             { text: 'ADR-002: DX Improvements', link: '/internals/adr/002-dx-improvement-mel-namespace-onceIntent' },
             { text: 'ADR-003: World Owns Persistence', link: '/internals/adr/003-world-owns-persistence' },
-            { text: 'ADR-004: App Internal Decomposition', link: '/internals/adr/004-app-package-internal-decomposition' },
             { text: 'ADR-005: Snapshot Path DSL (Withdrawn)', link: '/internals/adr/005-dx-improvement-snapshot-path-dsl' },
-            { text: 'ADR-006: Runtime Reframing', link: '/internals/adr/006-runtime-reframing' },
-            { text: 'ADR-007: SDK/Runtime Split', link: '/internals/adr/007-sdk-runtime-split-kickoff' },
-            { text: 'ADR-008: SDK-First + App Retirement', link: '/internals/adr/008-sdk-first-transition-and-app-retirement' },
             { text: 'ADR-009: Structured PatchPath', link: '/internals/adr/009-structured-patch-path' },
             { text: 'ADR-010: Protocol-First SDK Reconstruction', link: '/internals/adr/010-major-hard-cut' },
             { text: 'ADR-011: Host Boundary Reset', link: '/internals/adr/011-host-boundary-reset-and-executionkey-serialization' },
@@ -212,12 +206,15 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Research',
+          text: 'Retired',
           collapsed: true,
           items: [
-            { text: 'Overview', link: '/internals/research/' },
+            { text: 'App Facade', link: '/internals/retired/app' },
+            { text: 'Runtime', link: '/internals/retired/runtime' },
+            { text: 'Migration: App → SDK', link: '/guides/migrate-app-to-sdk' },
+            { text: 'Performance Report', link: '/guides/performance-report' },
           ]
-        }
+        },
       ],
     },
 
