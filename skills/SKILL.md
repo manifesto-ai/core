@@ -24,6 +24,7 @@ Load these BEFORE writing code in each area:
 |------|---------------|
 | Understanding Core/Host/World boundaries | `@knowledge/architecture.md` |
 | Writing MEL domain code | `@knowledge/mel-patterns.md` |
+| MEL complete function reference | `@knowledge/mel-reference.md` |
 | Implementing effect handlers | `@knowledge/effect-patterns.md` |
 | Working with state/patches | `@knowledge/patch-rules.md` |
 | Reviewing or debugging | `@knowledge/antipatterns.md` |
