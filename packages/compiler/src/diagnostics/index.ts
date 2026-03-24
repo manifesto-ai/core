@@ -4,3 +4,4 @@
 
 export * from "./types.js";
 export * from "./codes.js";
+export { formatDiagnostic, formatDiagnostics } from "./format.js";

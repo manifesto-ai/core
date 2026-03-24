@@ -13,6 +13,8 @@ import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.
 import { tokenize, type Token } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
 import { generate } from "../generator/ir.js";
+import { analyzeScope } from "../analyzer/scope.js";
+import { validateSemantics } from "../analyzer/validator.js";
 import { compileMelPatchText } from "./compile-mel-patch.js";
 
 // ============ Types ============
@@ -140,6 +142,16 @@ export function compileMelDomain(
   try {
     const lexResult = tokenize(melText);
     tokens = lexResult.tokens;
+
+    // Collect lexer diagnostics (unterminated strings, invalid characters, etc.)
+    const lexErrors = lexResult.diagnostics.filter(d => d.severity === "error");
+    if (lexErrors.length > 0) {
+      errors.push(...lexErrors);
+      trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
+      return { schema: null, trace, warnings, errors };
+    }
+    const lexWarnings = lexResult.diagnostics.filter(d => d.severity === "warning");
+    warnings.push(...lexWarnings);
   } catch (e) {
     const error = e as Error;
     errors.push({
@@ -162,7 +174,7 @@ export function compileMelDomain(
     if (parseErrors.length > 0) {
       errors.push(...parseErrors);
       trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-      return { schema: null, trace, warnings, errors };
+      return { schema: null, trace, warnings, errors: capDiagnostics(errors) };
     }
     ast = parseResult.program as ProgramNode;
   } catch (e) {
@@ -177,6 +189,26 @@ export function compileMelDomain(
     return { schema: null, trace, warnings, errors };
   }
   trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
+
+  // Phase 2.5: Semantic Analysis (scope + validation)
+  const analyzeStart = performance.now();
+  const scopeResult = analyzeScope(ast);
+  const validateResult = validateSemantics(ast);
+  const analyzeErrors = [
+    ...scopeResult.diagnostics.filter(d => d.severity === "error"),
+    ...validateResult.diagnostics.filter(d => d.severity === "error"),
+  ];
+  const analyzeWarnings = [
+    ...scopeResult.diagnostics.filter(d => d.severity === "warning"),
+    ...validateResult.diagnostics.filter(d => d.severity === "warning"),
+  ];
+  warnings.push(...analyzeWarnings);
+  trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart });
+
+  if (analyzeErrors.length > 0) {
+    errors.push(...analyzeErrors);
+    return { schema: null, trace, warnings, errors };
+  }
 
   // Phase 3: Generate IR
   const genStart = performance.now();
@@ -196,8 +228,22 @@ export function compileMelDomain(
     schema: genResult.schema,
     trace,
     warnings,
-    errors,
+    errors: capDiagnostics(errors),
   };
+}
+
+/** Cap diagnostics to prevent error flooding in output. */
+const MAX_ERRORS = 10;
+function capDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
+  if (diagnostics.length <= MAX_ERRORS) return diagnostics;
+  const capped = diagnostics.slice(0, MAX_ERRORS);
+  capped.push({
+    severity: "error",
+    code: "E_TOO_MANY",
+    message: `... and ${diagnostics.length - MAX_ERRORS} more error(s). Fix the errors above first.`,
+    location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
+  });
+  return capped;
 }
 
 /**

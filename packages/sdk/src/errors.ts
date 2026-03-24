@@ -51,6 +51,45 @@ export class ReservedEffectError extends ManifestoError {
 // Disposed Error
 // =============================================================================
 
+// =============================================================================
+// Compile Error
+// =============================================================================
+
+/**
+ * Thrown when MEL compilation fails. Exposes full diagnostic info.
+ *
+ * @see SDK-ERR-4
+ */
+export class CompileError extends ManifestoError {
+  readonly diagnostics: readonly CompileDiagnostic[];
+
+  constructor(diagnostics: readonly CompileDiagnostic[], formattedMessage: string) {
+    super("COMPILE_ERROR", formattedMessage);
+    this.name = "CompileError";
+    this.diagnostics = diagnostics;
+  }
+}
+
+/**
+ * Minimal diagnostic shape exposed by SDK.
+ * Matches @manifesto-ai/compiler Diagnostic but avoids hard dependency.
+ */
+export interface CompileDiagnostic {
+  readonly severity: "error" | "warning" | "info";
+  readonly code: string;
+  readonly message: string;
+  readonly location: {
+    readonly start: { readonly line: number; readonly column: number; readonly offset: number };
+    readonly end: { readonly line: number; readonly column: number; readonly offset: number };
+  };
+  readonly source?: string;
+  readonly suggestion?: string;
+}
+
+// =============================================================================
+// Disposed Error
+// =============================================================================
+
 /**
  * Thrown when dispatch is called on a disposed instance.
  *
