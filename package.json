@@ -50,8 +50,7 @@
     "typedoc": "^0.28.18",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.0",
-    "vue": "^3.5.30"
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "zod": "^4.3.6"
