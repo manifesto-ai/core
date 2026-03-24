@@ -9,9 +9,12 @@ describe("sdk public exports contract", () => {
     const expectedKeys = [
       // SDK-owned
       "createManifesto",
+      "dispatchAsync",
       "ManifestoError",
       "ReservedEffectError",
       "DisposedError",
+      "CompileError",
+      "DispatchRejectedError",
       "defineOps",
       // Core re-exports
       "createIntent",

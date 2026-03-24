@@ -16,6 +16,7 @@ export type { SdkManifest } from "./manifest.js";
 // =============================================================================
 
 export { createManifesto } from "./create-manifesto.js";
+export { dispatchAsync, DispatchRejectedError } from "./dispatch-async.js";
 
 export type {
   ManifestoInstance,
@@ -32,7 +33,10 @@ export {
   ManifestoError,
   ReservedEffectError,
   DisposedError,
+  CompileError,
 } from "./errors.js";
+
+export type { CompileDiagnostic } from "./errors.js";
 
 // =============================================================================
 // Typed Patch Operations (SDK-owned utility)
