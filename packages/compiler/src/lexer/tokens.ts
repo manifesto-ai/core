@@ -123,7 +123,8 @@ export const RESERVED_KEYWORDS = new Set([
   "function", "var", "let", "const", "if", "else",
   "for", "while", "do", "switch", "case", "break",
   "continue", "return", "throw", "try", "catch", "finally",
-  "new", "delete", "typeof", "instanceof", "void",
+  "new", "delete", "instanceof", "void",
+  // NOTE: "typeof" removed - now a MEL builtin function
   // NOTE: "with" removed - now a MEL keyword in v0.3.2
   "debugger", "this", "super", "arguments", "eval",
   // Reserved for future

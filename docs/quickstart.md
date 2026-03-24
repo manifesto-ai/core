@@ -64,36 +64,8 @@ domain Counter {
 Create `main.ts`:
 
 ```typescript
-import {
-  createManifesto,
-  createIntent,
-  type ManifestoInstance,
-  type Intent,
-  type Snapshot,
-} from "@manifesto-ai/sdk";
+import { createManifesto, createIntent, dispatchAsync } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
-
-function dispatchAsync(
-  manifesto: ManifestoInstance,
-  intent: Intent,
-): Promise<Snapshot> {
-  return new Promise((resolve, reject) => {
-    const offCompleted = manifesto.on("dispatch:completed", (event) => {
-      if (event.intentId !== intent.intentId) return;
-      offCompleted();
-      offFailed();
-      resolve(event.snapshot!);
-    });
-    const offFailed = manifesto.on("dispatch:failed", (event) => {
-      if (event.intentId !== intent.intentId) return;
-      offCompleted();
-      offFailed();
-      reject(event.error ?? new Error("Dispatch failed"));
-    });
-
-    manifesto.dispatch(intent);
-  });
-}
 
 const manifesto = createManifesto({ schema: CounterMel, effects: {} });
 
@@ -116,10 +88,9 @@ npx tsx main.ts
 
 - **MEL domain** defined your state schema and actions declaratively
 - **`onceIntent` guard** ensured the action runs exactly once per intent (re-entry safe)
-- **No guard fields** needed — `onceIntent` stores guard state in the platform `$mel` namespace
-- **`createManifesto()`** compiled or accepted your schema and assembled the protocol stack
+- **`createManifesto()`** compiled your schema and assembled the protocol stack
 - **`dispatch()`** enqueued intents for serial processing
-- **`dispatchAsync()`** is a tiny convenience built on top of `dispatch()` + `on()`
+- **`dispatchAsync()`** is an SDK utility that wraps `dispatch()` + `on()` into a Promise
 - **`getSnapshot()`** returned the current terminal snapshot
 
 ---
@@ -153,36 +124,8 @@ domain Counter {
 Update `main.ts`:
 
 ```typescript
-import {
-  createManifesto,
-  createIntent,
-  type ManifestoInstance,
-  type Intent,
-  type Snapshot,
-} from "@manifesto-ai/sdk";
+import { createManifesto, createIntent, dispatchAsync } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
-
-function dispatchAsync(
-  manifesto: ManifestoInstance,
-  intent: Intent,
-): Promise<Snapshot> {
-  return new Promise((resolve, reject) => {
-    const offCompleted = manifesto.on("dispatch:completed", (event) => {
-      if (event.intentId !== intent.intentId) return;
-      offCompleted();
-      offFailed();
-      resolve(event.snapshot!);
-    });
-    const offFailed = manifesto.on("dispatch:failed", (event) => {
-      if (event.intentId !== intent.intentId) return;
-      offCompleted();
-      offFailed();
-      reject(event.error ?? new Error("Dispatch failed"));
-    });
-
-    manifesto.dispatch(intent);
-  });
-}
 
 const manifesto = createManifesto({ schema: CounterMel, effects: {} });
 
@@ -212,7 +155,7 @@ console.log(manifesto.getSnapshot().computed["doubled"]); // 2
 | Topic | Description |
 |-------|-------------|
 | [Tutorial](/tutorial/) | Step-by-step learning path |
-| [MEL Syntax](/mel/SYNTAX) | Complete language reference |
+| [MEL Reference](/mel/REFERENCE) | Complete function and pattern reference |
 | [Core Concepts](/concepts/) | Snapshot, Intent, Effect, Flow |
 | [Integration](/integration/) | React and AI agents |
 

@@ -432,14 +432,8 @@ export class SemanticValidator {
         break;
 
       case "systemIdent":
-        // E001: $system.* in computed
-        if (context === "computed" && expr.path[0] === "system") {
-          this.error(
-            "Cannot use $system.* in computed expressions (non-deterministic)",
-            expr.location,
-            "E001"
-          );
-        }
+        // E001: $system.* in computed — handled by scope analysis (analyzeScope)
+        // No duplicate check here to avoid double-reporting
         break;
     }
   }

@@ -56,70 +56,13 @@ This domain already shows the basic Manifesto shape:
 
 ---
 
-## 2. Create a Small Async Helper
-
-Create `dispatch-async.ts`:
-
-```typescript
-import {
-  createIntent,
-  type ManifestoInstance,
-  type Snapshot,
-} from "@manifesto-ai/sdk";
-
-export function dispatchAsync(
-  manifesto: ManifestoInstance,
-  type: string,
-  input?: unknown,
-): Promise<Snapshot> {
-  const intentId = crypto.randomUUID();
-  const intent =
-    input === undefined
-      ? createIntent(type, intentId)
-      : createIntent(type, input, intentId);
-
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      offCompleted();
-      offRejected();
-      offFailed();
-    };
-
-    const offCompleted = manifesto.on("dispatch:completed", (event) => {
-      if (event.intentId !== intentId) return;
-      cleanup();
-      resolve(event.snapshot!);
-    });
-
-    const offRejected = manifesto.on("dispatch:rejected", (event) => {
-      if (event.intentId !== intentId) return;
-      cleanup();
-      reject(new Error(event.reason ?? "Dispatch rejected"));
-    });
-
-    const offFailed = manifesto.on("dispatch:failed", (event) => {
-      if (event.intentId !== intentId) return;
-      cleanup();
-      reject(event.error ?? new Error("Dispatch failed"));
-    });
-
-    manifesto.dispatch(intent);
-  });
-}
-```
-
-`dispatchAsync()` is not a built-in SDK API. It is a small convenience wrapper built from the current public contract.
-
----
-
-## 3. Create the Instance
+## 2. Create the Instance
 
 Create `main.ts`:
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
+import { createManifesto, createIntent, dispatchAsync } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
-import { dispatchAsync } from "./dispatch-async";
 
 const manifesto = createManifesto({
   schema: CounterMel,
@@ -136,9 +79,9 @@ manifesto.subscribe(
 async function run() {
   console.log("Initial count:", manifesto.getSnapshot().data.count);
 
-  await dispatchAsync(manifesto, "increment");
-  await dispatchAsync(manifesto, "increment");
-  await dispatchAsync(manifesto, "decrement");
+  await dispatchAsync(manifesto, createIntent("increment", "i1"));
+  await dispatchAsync(manifesto, createIntent("increment", "i2"));
+  await dispatchAsync(manifesto, createIntent("decrement", "i3"));
 
   const snapshot = manifesto.getSnapshot();
   console.log("Final count:", snapshot.data.count);
@@ -164,7 +107,7 @@ npx tsx main.ts
 ## What Just Happened
 
 - `createManifesto()` created a ready-to-use instance. There is no `ready()` phase.
-- `dispatchAsync()` created a real `Intent` with `createIntent()` and a stable `intentId`.
+- `dispatchAsync()` is an SDK utility that wraps `dispatch()` + `on()` into a Promise.
 - `dispatch()` enqueued that intent for processing.
 - `subscribe()` fired after each terminal snapshot.
 - `getSnapshot()` returned the latest snapshot whenever you wanted to read it directly.
