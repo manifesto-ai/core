@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.7.0](https://github.com/manifesto-ai/core/compare/core-v2.6.1...core-v2.7.0) (2026-03-24)
+
+
+### Features
+
+* **app:** add Snapshot DX aliases (App SPEC v2.3.2) ([#142](https://github.com/manifesto-ai/core/issues/142)) ([9bde2eb](https://github.com/manifesto-ai/core/commit/9bde2eb008d151574ac48e440d2fa6c93bac2e7b))
+* **core:** add type-safe defineOps&lt;T&gt;() for typed PatchOps creation ([f4dc2cf](https://github.com/manifesto-ai/core/commit/f4dc2cfc024a2695c5c215a82c32ea008e160c0e))
+* implement 27 new expression kinds in Core evaluator ([b67f96b](https://github.com/manifesto-ai/core/commit/b67f96b54f099dbc999eb6830ad1e64b2aa90515))
+
+
+### Bug Fixes
+
+* add field IR kind for static property access and fix at() record lookup ([#135](https://github.com/manifesto-ai/core/issues/135)) ([#140](https://github.com/manifesto-ai/core/issues/140)) ([2f88a17](https://github.com/manifesto-ai/core/commit/2f88a17ed6d2541ab00102d134bb77324b51b023))
+* address PR [#193](https://github.com/manifesto-ai/core/issues/193) review — path collection for new ExprNode kinds and split edge case ([2cb0808](https://github.com/manifesto-ai/core/commit/2cb08084074dfeb2e4f7a168efce8e1cc4a5b276))
+* **core:** skip availability check on re-entry to prevent self-invalidation ([#134](https://github.com/manifesto-ai/core/issues/134)) ([#137](https://github.com/manifesto-ai/core/issues/137)) ([591edae](https://github.com/manifesto-ai/core/commit/591edaea6e8d2b61c31a225256b8c38e0bec2314))
+* preserve empty segments when computing parent path ([aaed5be](https://github.com/manifesto-ai/core/commit/aaed5bef3d81aa80b7555e352d6d412c2820a1b5))
+
 ## [2.6.0](https://github.com/manifesto-ai/core/compare/core-v2.5.0...core-v2.6.0) (2026-02-24)
 
 
