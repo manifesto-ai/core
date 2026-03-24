@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { Snapshot, Intent } from "@manifesto-ai/core";
-import type { ManifestoInstance } from "./types.js";
+import type { Intent } from "@manifesto-ai/core";
+import type { Snapshot, ManifestoInstance } from "./types.js";
 
 /**
  * Error thrown when an intent is rejected by a guard.
@@ -37,10 +37,10 @@ export class DispatchRejectedError extends Error {
  *
  * @see SDK SPEC v1.0.0 §14.3
  */
-export function dispatchAsync(
-  instance: ManifestoInstance,
+export function dispatchAsync<T = unknown>(
+  instance: ManifestoInstance<T>,
   intent: Intent,
-): Promise<Snapshot> {
+): Promise<Snapshot<T>> {
   const intentId = intent.intentId ?? generateId();
   const enriched: Intent = intent.intentId ? intent : { ...intent, intentId };
 
@@ -54,7 +54,7 @@ export function dispatchAsync(
     const unsubCompleted = instance.on("dispatch:completed", (e) => {
       if (e.intentId === intentId) {
         cleanup();
-        resolve(e.snapshot!);
+        resolve(e.snapshot);
       }
     });
 

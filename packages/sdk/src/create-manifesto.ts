@@ -18,7 +18,7 @@ import {
 import {
   type DomainSchema,
   type Patch,
-  type Snapshot,
+  type Snapshot as CoreSnapshot,
   type Intent,
   semanticPathToPatchPath,
   extractDefaults,
@@ -26,10 +26,11 @@ import {
 import { compileMelDomain } from "@manifesto-ai/compiler";
 
 import type {
+  Snapshot,
   ManifestoConfig,
   ManifestoInstance,
   ManifestoEvent,
-  ManifestoEventPayload,
+  ManifestoEventMap,
   EffectHandler,
   Selector,
   Unsubscribe,
@@ -60,9 +61,9 @@ const RESERVED_NAMESPACE_PREFIX = "system.";
  * @see SDK-FACTORY-1 through SDK-FACTORY-5
  * @see SDK-INV-1 through SDK-INV-6
  */
-export function createManifesto(
-  config: ManifestoConfig,
-): ManifestoInstance {
+export function createManifesto<T = unknown>(
+  config: ManifestoConfig<T>,
+): ManifestoInstance<T> {
   // ─── INV-3: Schema resolution ──────────────────────────────────────────
   const schema = resolveSchema(config.schema);
 
@@ -79,13 +80,13 @@ export function createManifesto(
 
   // ─── State holder (closure-captured) ───────────────────────────────────
   // Host always initializes with a snapshot (initialData defaults to {})
-  let currentSnapshot: Snapshot = host.getSnapshot()!;
+  let currentSnapshot: CoreSnapshot = host.getSnapshot()!;
 
   // ─── Subscription store ────────────────────────────────────────────────
   const subscribers = new Set<Subscriber<unknown>>();
 
   // ─── Event channel (telemetry) ─────────────────────────────────────────
-  const eventListeners = new Map<ManifestoEvent, Set<(payload: ManifestoEventPayload) => void>>();
+  const eventListeners = new Map<ManifestoEvent, Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>>();
 
   // ─── Serial dispatch queue (SDK-INV-5) ─────────────────────────────────
   let dispatchQueue: Promise<void> = Promise.resolve();
@@ -131,7 +132,7 @@ export function createManifesto(
     if (guard) {
       try {
         // SDK-SNAP-IMMUTABLE: Prevent guard from mutating internal state
-        const allowed = guard(intent, Object.freeze(structuredClone(currentSnapshot)));
+        const allowed = guard(intent, Object.freeze(structuredClone(currentSnapshot)) as Snapshot<T>);
         if (!allowed) {
           emitEvent("dispatch:rejected", {
             intentId: intent.intentId,
@@ -173,7 +174,7 @@ export function createManifesto(
       emitEvent("dispatch:completed", {
         intentId: intent.intentId,
         intent,
-        snapshot: result.snapshot,
+        snapshot: result.snapshot as Snapshot<T>,
       });
     } catch (error) {
       emitEvent("dispatch:failed", {
@@ -189,15 +190,15 @@ export function createManifesto(
   // =========================================================================
 
   function subscribe<R>(
-    selector: Selector<R>,
+    selector: Selector<T, R>,
     listener: (value: R) => void,
   ): Unsubscribe {
     if (disposed) return () => {};
 
     const sub: Subscriber<R> = {
-      selector,
+      selector: selector as Selector<unknown, R>,
       listener,
-      lastValue: selector(currentSnapshot),
+      lastValue: selector(currentSnapshot as Snapshot<T>),
       initialized: true,
     };
 
@@ -212,21 +213,21 @@ export function createManifesto(
   // on() — SDK-EVENT-1~3, SDK-INV-2
   // =========================================================================
 
-  function on(
-    event: ManifestoEvent,
-    handler: (payload: ManifestoEventPayload) => void,
+  function on<K extends ManifestoEvent>(
+    event: K,
+    handler: (payload: ManifestoEventMap<T>[K]) => void,
   ): Unsubscribe {
     if (disposed) return () => {};
 
     let listeners = eventListeners.get(event);
     if (!listeners) {
       listeners = new Set();
-      eventListeners.set(event, listeners);
+      eventListeners.set(event, listeners as Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>);
     }
-    listeners.add(handler);
+    listeners.add(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
 
     return () => {
-      listeners!.delete(handler);
+      listeners!.delete(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
     };
   }
 
@@ -234,10 +235,10 @@ export function createManifesto(
   // getSnapshot() — SDK-SNAP-1
   // =========================================================================
 
-  function getSnapshot(): Snapshot {
+  function getSnapshot(): Snapshot<T> {
     // SDK-SNAP-IMMUTABLE: Return a frozen copy to prevent external mutation
     // that would bypass the patch/apply pipeline.
-    return Object.freeze(structuredClone(currentSnapshot));
+    return Object.freeze(structuredClone(currentSnapshot)) as Snapshot<T>;
   }
 
   // =========================================================================
@@ -261,9 +262,9 @@ export function createManifesto(
   function notifySubscribers(): void {
     // SDK-SNAP-IMMUTABLE: Pass a frozen clone to selectors so that neither
     // selector nor listener can mutate internal state.
-    const frozenSnap = Object.freeze(structuredClone(currentSnapshot));
+    const frozenSnap = Object.freeze(structuredClone(currentSnapshot)) as Snapshot<T>;
     for (const sub of subscribers) {
-      const selected = sub.selector(frozenSnap);
+      const selected = (sub.selector as Selector<T, unknown>)(frozenSnap);
 
       // Selector-based change detection (SDK-SUB-4)
       if (sub.initialized && Object.is(sub.lastValue, selected)) {
@@ -277,9 +278,9 @@ export function createManifesto(
   }
 
   /** Emit an event to the telemetry channel. */
-  function emitEvent(
-    event: ManifestoEvent,
-    payload: ManifestoEventPayload,
+  function emitEvent<K extends ManifestoEvent>(
+    event: K,
+    payload: ManifestoEventMap<T>[K],
   ): void {
     const listeners = eventListeners.get(event);
     if (!listeners) return;
@@ -728,7 +729,7 @@ function resolvePathValue(
 // =============================================================================
 
 interface Subscriber<R> {
-  selector: Selector<R>;
+  selector: Selector<unknown, R>;
   listener: (value: R) => void;
   lastValue: R | undefined;
   initialized: boolean;

@@ -19,9 +19,11 @@ export { createManifesto } from "./create-manifesto.js";
 export { dispatchAsync, DispatchRejectedError } from "./dispatch-async.js";
 
 export type {
+  Snapshot,
   ManifestoInstance,
   ManifestoConfig,
   ManifestoEvent,
+  ManifestoEventMap,
   ManifestoEventPayload,
   EffectContext,
   EffectHandler,
@@ -51,7 +53,7 @@ export type { TypedOps, DataPaths, ValueAt, ObjectPaths } from "./typed-ops.js";
 
 export type {
   DomainSchema,
-  Snapshot,
+  Snapshot as CoreSnapshot,
   Patch,
   SetPatch,
   UnsetPatch,

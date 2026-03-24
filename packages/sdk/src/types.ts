@@ -7,7 +7,21 @@
  * @module
  */
 
-import type { DomainSchema, Snapshot, Patch, Intent } from "@manifesto-ai/core";
+import type { DomainSchema, Snapshot as CoreSnapshot, Patch, Intent } from "@manifesto-ai/core";
+
+// =============================================================================
+// Snapshot<T> — Generic overlay on Core Snapshot
+// =============================================================================
+
+/**
+ * Typed Snapshot with generic data shape.
+ *
+ * Core's Snapshot uses `data: unknown`. This overlay provides type-safe
+ * access to domain data via the generic parameter T.
+ *
+ * @see SDK SPEC v1.0.0 §6.1
+ */
+export type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
 
 // =============================================================================
 // Effect Handler Types (SDK-owned, simplified from Host 3-param contract)
@@ -18,9 +32,9 @@ import type { DomainSchema, Snapshot, Patch, Intent } from "@manifesto-ai/core";
  *
  * Simplified from Host's EffectContext (2-param contract).
  */
-export type EffectContext = {
+export type EffectContext<T = unknown> = {
   /** Current snapshot (read-only). */
-  readonly snapshot: Readonly<Snapshot>;
+  readonly snapshot: Readonly<Snapshot<T>>;
 };
 
 /**
@@ -43,7 +57,7 @@ export type EffectHandler = (
  *
  * @see SDK SPEC v1.0.0 §7
  */
-export interface ManifestoConfig {
+export interface ManifestoConfig<T = unknown> {
   /**
    * Required: Domain schema defining state, computed, actions.
    * Accepts either a compiled DomainSchema or MEL text string.
@@ -62,12 +76,12 @@ export interface ManifestoConfig {
   /**
    * Optional: Guard function for intent validation.
    */
-  guard?: (intent: Intent, snapshot: Snapshot) => boolean;
+  guard?: (intent: Intent, snapshot: Snapshot<T>) => boolean;
 
   /**
    * Optional: Restore from persisted snapshot.
    */
-  snapshot?: Snapshot;
+  snapshot?: Snapshot<T>;
 }
 
 // =============================================================================
@@ -75,9 +89,9 @@ export interface ManifestoConfig {
 // =============================================================================
 
 /**
- * Selector function — projects a value from the snapshot.
+ * Selector function — projects a value from the typed snapshot.
  */
-export type Selector<R> = (snapshot: Snapshot) => R;
+export type Selector<T, R> = (snapshot: Snapshot<T>) => R;
 
 /**
  * Unsubscribe function returned by subscribe() and on().
@@ -91,7 +105,7 @@ export type Unsubscribe = () => void;
  *
  * @see SDK SPEC v1.0.0 §6
  */
-export interface ManifestoInstance {
+export interface ManifestoInstance<T = unknown> {
   /**
    * Fire-and-forget intent dispatch.
    *
@@ -110,18 +124,20 @@ export interface ManifestoInstance {
    * @see SDK-SUB-1, SDK-SUB-2, SDK-SUB-3, SDK-SUB-4
    */
   subscribe<R>(
-    selector: Selector<R>,
+    selector: Selector<T, R>,
     listener: (value: R) => void,
   ): Unsubscribe;
 
   /**
    * Listen to intent lifecycle events (telemetry channel).
    *
+   * Payload type is narrowed by event name.
+   *
    * @see SDK-EVENT-1, SDK-EVENT-2, SDK-EVENT-3
    */
-  on(
-    event: ManifestoEvent,
-    handler: (payload: ManifestoEventPayload) => void,
+  on<K extends ManifestoEvent>(
+    event: K,
+    handler: (payload: ManifestoEventMap<T>[K]) => void,
   ): Unsubscribe;
 
   /**
@@ -129,7 +145,7 @@ export interface ManifestoInstance {
    *
    * @see SDK-SNAP-1
    */
-  getSnapshot(): Snapshot;
+  getSnapshot(): Snapshot<T>;
 
   /**
    * Dispose the instance and release resources.
@@ -144,33 +160,40 @@ export interface ManifestoInstance {
 // =============================================================================
 
 /**
+ * Typed event map — payload narrowed by event name.
+ *
+ * @see SDK SPEC v1.0.0 §8
+ */
+export interface ManifestoEventMap<T = unknown> {
+  "dispatch:completed": {
+    intentId: string;
+    intent: Intent;
+    snapshot: Snapshot<T>;
+  };
+  "dispatch:rejected": {
+    intentId: string;
+    intent: Intent;
+    reason: string;
+  };
+  "dispatch:failed": {
+    intentId: string;
+    intent: Intent;
+    error: Error;
+  };
+}
+
+/**
  * Telemetry event types for the `on()` channel.
  *
  * @see SDK SPEC v1.0.0 §8
  */
-export type ManifestoEvent =
-  | "dispatch:completed"
-  | "dispatch:rejected"
-  | "dispatch:failed";
+export type ManifestoEvent = keyof ManifestoEventMap;
 
 /**
- * Payload emitted through the event channel.
+ * Union of all event payloads (for backward compatibility).
+ *
+ * Prefer using `ManifestoEventMap<T>[K]` with typed `on()` instead.
  *
  * @see SDK-INV-6 — intentId is always present
  */
-export type ManifestoEventPayload = {
-  /** Always present for correlation (SDK-INV-6). */
-  intentId: string;
-
-  /** The original intent. */
-  intent: Intent;
-
-  /** Present on 'dispatch:completed'. */
-  snapshot?: Snapshot;
-
-  /** Present on 'dispatch:rejected'. */
-  reason?: string;
-
-  /** Present on 'dispatch:failed'. */
-  error?: Error;
-};
+export type ManifestoEventPayload<T = unknown> = ManifestoEventMap<T>[ManifestoEvent];
