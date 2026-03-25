@@ -873,3 +873,173 @@ describe("validation-utils path lookup", () => {
     expect(getFieldSpecAtPath(spec, "items.foo.title")).toBeNull();
   });
 });
+
+describe("V-009: default type validation", () => {
+  it("should fail when string field has number default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          name: { type: "string", required: false, default: 42 },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should fail when number field has string default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          age: { type: "number", required: false, default: "hello" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should fail when boolean field has string default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          flag: { type: "boolean", required: false, default: "yes" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should fail when required string field has null default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          name: { type: "string", required: true, default: null },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should pass when optional string field has null default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          name: { type: "string", required: false, default: null },
+        },
+      },
+    });
+    const result = validate(schema);
+    const v009Errors = result.errors.filter((e) => e.code === "V-009");
+    expect(v009Errors).toHaveLength(0);
+  });
+
+  it("should fail when nested object field has wrong nested default type", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          profile: {
+            type: "object",
+            required: false,
+            default: { age: "not-a-number" },
+            fields: {
+              age: { type: "number", required: true },
+            },
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should fail when array field has wrong item types in default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          tags: {
+            type: "array",
+            required: false,
+            default: [1, 2, 3],
+            items: { type: "string", required: true },
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should fail when enum field has out-of-range default", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          color: {
+            type: { enum: ["red", "green", "blue"] },
+            required: false,
+            default: "yellow",
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009" })
+    );
+  });
+
+  it("should pass with valid defaults for each type", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          name: { type: "string", required: false, default: "hello" },
+          age: { type: "number", required: false, default: 42 },
+          active: { type: "boolean", required: false, default: true },
+          color: {
+            type: { enum: ["red", "green", "blue"] },
+            required: false,
+            default: "red",
+          },
+          tags: {
+            type: "array",
+            required: false,
+            default: ["a", "b"],
+            items: { type: "string", required: true },
+          },
+          profile: {
+            type: "object",
+            required: false,
+            default: { age: 25 },
+            fields: {
+              age: { type: "number", required: true },
+            },
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    const v009Errors = result.errors.filter((e) => e.code === "V-009");
+    expect(v009Errors).toHaveLength(0);
+  });
+});

@@ -12,6 +12,7 @@ import {
   pathExistsInStateSpec,
   pathExistsInComputedSpec,
   pathExistsInFieldSpec,
+  validateValueAgainstFieldSpec,
 } from "./validation-utils.js";
 
 /**
@@ -266,6 +267,27 @@ function validateStateDefaults(
         message: "Optional fields must define a default value",
         path,
       });
+    }
+
+    if (spec.default !== undefined) {
+      // Null on required (non-nullable) field
+      if (spec.default === null && spec.required !== false) {
+        errors.push({
+          code: "V-009",
+          message: `Default value 'null' is not compatible with required field type '${typeof spec.type === "string" ? spec.type : "enum"}'`,
+          path,
+        });
+      } else if (spec.default !== null) {
+        // Type check non-null defaults
+        const typeCheck = validateValueAgainstFieldSpec(spec.default, spec);
+        if (!typeCheck.ok) {
+          errors.push({
+            code: "V-009",
+            message: `Default value type mismatch: ${typeCheck.message}`,
+            path,
+          });
+        }
+      }
     }
 
     if (spec.type === "object" && spec.fields) {
