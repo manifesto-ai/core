@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/manifesto-ai/core/compare/compiler-v1.8.1...compiler-v1.8.2) (2026-03-25)
+
+
+### Bug Fixes
+
+* align vitest coverage with vite peer ([#299](https://github.com/manifesto-ai/core/issues/299)) ([57fd2e4](https://github.com/manifesto-ai/core/commit/57fd2e41d04aa1ff099ceca1a129a471285ec624))
+
 ## [1.8.1](https://github.com/manifesto-ai/core/compare/compiler-v1.8.0...compiler-v1.8.1) (2026-03-25)
 
 
