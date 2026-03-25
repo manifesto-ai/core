@@ -1,15 +1,9 @@
 # Changelog
 
-## [2.0.0](https://github.com/manifesto-ai/core/compare/compiler-v1.7.0...compiler-v2.0.0) (2026-03-25)
-
-
-### ⚠ BREAKING CHANGES
-
-* **compiler,monorepo:** @manifesto-ai/intent-ir and @manifesto-ai/translator are removed from the monorepo. The compiler's Webpack loader export path `@manifesto-ai/compiler/loader` now points to Node ESM loader hooks only; Webpack users should migrate to `@manifesto-ai/compiler/webpack`.
+## [1.8.0](https://github.com/manifesto-ai/core/compare/compiler-v1.7.0...compiler-v1.8.0) (2026-03-25)
 
 ### Features
 
-* **compiler,monorepo:** remove intent-ir/translator packages and migrate to unplugin ([76eadac](https://github.com/manifesto-ai/core/commit/76eadac9047308563793cf2a2d1299b1830f7f22))
 * **compiler:** implement SPEC v0.7.0 compiler baseline ([#289](https://github.com/manifesto-ai/core/issues/289)) ([35f1f00](https://github.com/manifesto-ai/core/commit/35f1f00550af700dfafe0283d777f71f68aa0dc5))
 
 
