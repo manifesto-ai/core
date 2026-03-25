@@ -15,6 +15,7 @@ import {
   unknownNodeKind,
   unsupportedBase,
 } from "./errors.js";
+import { stableSortByUnicodeObjectKey } from "../utils/unicode-order.js";
 
 // ============ MEL IR Types (Input) ============
 
@@ -516,7 +517,7 @@ function lowerObj(
   ctx: ExprLoweringContext
 ): CoreExprNode {
   const fields: Record<string, CoreExprNode> = {};
-  for (const field of input.fields) {
+  for (const field of stableSortByUnicodeObjectKey(input.fields)) {
     fields[field.key] = lowerExprNode(field.value, ctx);
   }
   return { kind: "object", fields };

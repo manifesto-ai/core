@@ -108,7 +108,7 @@ function serializeJcsObject(obj: Record<string, unknown>): string {
   return `{${parts.join(",")}}`;
 }
 
-function compareUnicodeCodePoints(a: string, b: string): number {
+export function compareUnicodeCodePoints(a: string, b: string): number {
   const aPoints = Array.from(a);
   const bPoints = Array.from(b);
   const length = Math.min(aPoints.length, bPoints.length);

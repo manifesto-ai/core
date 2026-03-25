@@ -4,6 +4,7 @@ import type { Result } from "../schema/common.js";
 import { ok, err } from "../schema/common.js";
 import { createError } from "../errors.js";
 import { getByPath } from "../utils/path.js";
+import { compareUnicodeCodePoints } from "../utils/canonical.js";
 import { type EvalContext, withCollectionContext } from "./context.js";
 
 export type ExprResult = Result<unknown, ErrorValue>;
@@ -708,7 +709,8 @@ function evaluateAppend(array: ExprNode, items: ExprNode[], ctx: EvalContext): E
 function evaluateObject(fields: Record<string, ExprNode>, ctx: EvalContext): ExprResult {
   const result: Record<string, unknown> = {};
 
-  for (const [key, valueExpr] of Object.entries(fields)) {
+  for (const key of Object.keys(fields).sort(compareUnicodeCodePoints)) {
+    const valueExpr = fields[key];
     const valueResult = evaluateExpr(valueExpr, ctx);
     if (!valueResult.ok) return valueResult;
     result[key] = valueResult.value;
@@ -733,7 +735,7 @@ function evaluateKeys(obj: ExprNode, ctx: EvalContext): ExprResult {
 
   const value = result.value;
   if (typeof value !== "object" || value === null) return ok([]);
-  return ok(Object.keys(value));
+  return ok(Object.keys(value).sort(compareUnicodeCodePoints));
 }
 
 function evaluateValues(obj: ExprNode, ctx: EvalContext): ExprResult {
@@ -742,7 +744,11 @@ function evaluateValues(obj: ExprNode, ctx: EvalContext): ExprResult {
 
   const value = result.value;
   if (typeof value !== "object" || value === null) return ok([]);
-  return ok(Object.values(value));
+  return ok(
+    Object.keys(value)
+      .sort(compareUnicodeCodePoints)
+      .map((key) => (value as Record<string, unknown>)[key])
+  );
 }
 
 function evaluateEntries(obj: ExprNode, ctx: EvalContext): ExprResult {
@@ -751,7 +757,11 @@ function evaluateEntries(obj: ExprNode, ctx: EvalContext): ExprResult {
 
   const value = result.value;
   if (typeof value !== "object" || value === null) return ok([]);
-  return ok(Object.entries(value));
+  return ok(
+    Object.keys(value)
+      .sort(compareUnicodeCodePoints)
+      .map((key) => [key, (value as Record<string, unknown>)[key]])
+  );
 }
 
 function evaluateMerge(objects: ExprNode[], ctx: EvalContext): ExprResult {

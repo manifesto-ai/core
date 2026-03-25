@@ -4,11 +4,16 @@ import type { Diagnostic } from "../diagnostics/types.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
 import type { MelIRPatchPath } from "../lowering/lower-runtime-patch.js";
 import type {
+  ExprNode,
   GuardedStmtNode,
   InnerStmtNode,
   PathNode,
   PatchStmtNode,
 } from "../parser/ast.js";
+import {
+  classifyComparableExpr,
+  type DomainTypeSymbols,
+} from "../analyzer/expr-type-surface.js";
 import { toMelExpr } from "./compile-mel-patch-expr.js";
 
 export interface PatchCollectContext {
@@ -30,8 +35,11 @@ export interface PatchCollectorDeps {
 
 export class PatchStatementCollector {
   private readonly conditionComposer = new ConditionComposer();
+  private readonly exprValidator: PatchExprValidator;
 
-  constructor(private readonly deps: PatchCollectorDeps) {}
+  constructor(private readonly deps: PatchCollectorDeps) {
+    this.exprValidator = new PatchExprValidator(deps.mapLocation);
+  }
 
   collect(
     stmts: GuardedStmtNode[] | InnerStmtNode[],
@@ -52,6 +60,10 @@ export class PatchStatementCollector {
 
     for (const stmt of stmts) {
       if (stmt.kind === "patch") {
+        this.exprValidator.validatePath(stmt.path, errors);
+        if (stmt.value) {
+          this.exprValidator.validateExpr(stmt.value, errors);
+        }
         patchStatements.push({
           patch: stmt,
           condition: parentCondition,
@@ -60,6 +72,7 @@ export class PatchStatementCollector {
       }
 
       if (stmt.kind === "when") {
+        this.exprValidator.validateExpr(stmt.condition, errors);
         let condition = parentCondition;
         try {
           condition = this.conditionComposer.and(
@@ -143,6 +156,7 @@ export class PatchStatementCollector {
       }
 
       if (stmt.kind === "once") {
+        this.exprValidator.validatePath(stmt.marker, errors);
         let condition = parentCondition;
         const markerExpr = pathToMelExpr(stmt.marker);
         const markerPath = stmt.marker;
@@ -154,6 +168,7 @@ export class PatchStatementCollector {
         };
 
         if (stmt.condition) {
+          this.exprValidator.validateExpr(stmt.condition, errors);
           try {
             onceCondition = this.conditionComposer.and(
               onceCondition,
@@ -316,6 +331,7 @@ export class PatchStatementCollector {
         };
 
         if (stmt.condition) {
+          this.exprValidator.validateExpr(stmt.condition, errors);
           try {
             onceIntentCondition = this.conditionComposer.and(
               onceIntentCondition,
@@ -504,5 +520,103 @@ class ConditionComposer {
       fn: "and",
       args: [lhs, rhs],
     };
+  }
+}
+
+class PatchExprValidator {
+  private readonly symbols: DomainTypeSymbols = {
+    stateTypes: new Map(),
+    computedDecls: new Map(),
+    typeDefs: new Map(),
+    computedTypeCache: new Map(),
+    computedTypeInFlight: new Set(),
+  };
+
+  constructor(private readonly mapLocation: (location: Diagnostic["location"]) => Diagnostic["location"]) {}
+
+  validatePath(path: PathNode, errors: Diagnostic[]): void {
+    for (const segment of path.segments) {
+      if (segment.kind === "indexSegment") {
+        this.validateExpr(segment.index, errors);
+      }
+    }
+  }
+
+  validateExpr(expr: ExprNode, errors: Diagnostic[]): void {
+    switch (expr.kind) {
+      case "functionCall":
+        if ((expr.name === "eq" || expr.name === "neq") && expr.args.length >= 2) {
+          this.validatePrimitiveEquality(expr.args[0], expr.args[1], expr.location, errors);
+        }
+        for (const arg of expr.args) {
+          this.validateExpr(arg, errors);
+        }
+        return;
+
+      case "binary":
+        if (expr.operator === "==" || expr.operator === "!=") {
+          this.validatePrimitiveEquality(expr.left, expr.right, expr.location, errors);
+        }
+        this.validateExpr(expr.left, errors);
+        this.validateExpr(expr.right, errors);
+        return;
+
+      case "unary":
+        this.validateExpr(expr.operand, errors);
+        return;
+
+      case "ternary":
+        this.validateExpr(expr.condition, errors);
+        this.validateExpr(expr.consequent, errors);
+        this.validateExpr(expr.alternate, errors);
+        return;
+
+      case "propertyAccess":
+        this.validateExpr(expr.object, errors);
+        return;
+
+      case "indexAccess":
+        this.validateExpr(expr.object, errors);
+        this.validateExpr(expr.index, errors);
+        return;
+
+      case "objectLiteral":
+        for (const property of expr.properties) {
+          this.validateExpr(property.value, errors);
+        }
+        return;
+
+      case "arrayLiteral":
+        for (const element of expr.elements) {
+          this.validateExpr(element, errors);
+        }
+        return;
+
+      case "literal":
+      case "identifier":
+      case "systemIdent":
+      case "iterationVar":
+        return;
+    }
+  }
+
+  private validatePrimitiveEquality(
+    left: ExprNode,
+    right: ExprNode,
+    location: Diagnostic["location"],
+    errors: Diagnostic[]
+  ): void {
+    const leftClass = classifyComparableExpr(left, new Map(), this.symbols);
+    const rightClass = classifyComparableExpr(right, new Map(), this.symbols);
+    if (leftClass !== "nonprimitive" && rightClass !== "nonprimitive") {
+      return;
+    }
+
+    errors.push({
+      severity: "error",
+      code: "E_TYPE_MISMATCH",
+      message: "eq/neq operands must be primitive types (null, boolean, number, string)",
+      location: this.mapLocation(location),
+    });
   }
 }

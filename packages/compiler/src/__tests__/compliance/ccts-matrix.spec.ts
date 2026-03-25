@@ -53,9 +53,9 @@ describe("CCTS Rule Matrix", () => {
     }
   });
 
-  it("CCTS-MATRIX-006: staged blocking keeps blocking and pending rules visible", () => {
+  it("CCTS-MATRIX-006: staged rule modes remain visible even when pending is empty", () => {
     const modes = new Set(COMPILER_COMPLIANCE_RULES.map((rule) => rule.mode));
     expect(modes.has("blocking")).toBe(true);
-    expect(modes.has("pending")).toBe(true);
+    expect(modes.has("pending") || modes.has("informational")).toBe(true);
   });
 });

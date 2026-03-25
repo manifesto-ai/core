@@ -54,6 +54,24 @@ function createTestContext(
   });
 }
 
+function createRecordingObject(
+  entries: ReadonlyArray<readonly [string, unknown]>,
+  accessLog: string[]
+): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+  for (const [key, value] of entries) {
+    Object.defineProperty(obj, key, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        accessLog.push(key);
+        return value;
+      },
+    });
+  }
+  return obj;
+}
+
 describe("evaluateExpr", () => {
   describe("lit", () => {
     it("should return literal values", () => {
@@ -286,6 +304,87 @@ describe("evaluateExpr", () => {
       expect(
         evaluateExpr({ kind: "not", arg: { kind: "lit", value: "true" } }, ctx)
       ).toBe(null);
+    });
+
+    it("should short-circuit in left-to-right order", () => {
+      const accesses: string[] = [];
+      const ctx = createTestContext({
+        snapshot: {
+          data: {
+            flags: createRecordingObject(
+              [
+                ["left", false],
+                ["right", true],
+              ],
+              accesses
+            ),
+          },
+          computed: {},
+        },
+      });
+
+      expect(
+        evaluateExpr(
+          {
+            kind: "and",
+            args: [
+              { kind: "get", path: "flags.left" },
+              { kind: "get", path: "flags.right" },
+            ],
+          },
+          ctx
+        )
+      ).toBe(false);
+      expect(accesses).toEqual(["left"]);
+
+      accesses.length = 0;
+
+      expect(
+        evaluateExpr(
+          {
+            kind: "or",
+            args: [
+              { kind: "get", path: "flags.right" },
+              { kind: "get", path: "flags.left" },
+            ],
+          },
+          ctx
+        )
+      ).toBe(true);
+      expect(accesses).toEqual(["right"]);
+    });
+  });
+
+  describe("conditional operators", () => {
+    it("should evaluate only the selected branch", () => {
+      const accesses: string[] = [];
+      const ctx = createTestContext({
+        snapshot: {
+          data: {
+            branches: createRecordingObject(
+              [
+                ["then", "accepted"],
+                ["else", "rejected"],
+              ],
+              accesses
+            ),
+          },
+          computed: {},
+        },
+      });
+
+      expect(
+        evaluateExpr(
+          {
+            kind: "if",
+            cond: { kind: "lit", value: true },
+            then: { kind: "get", path: "branches.then" },
+            else: { kind: "get", path: "branches.else" },
+          },
+          ctx
+        )
+      ).toBe("accepted");
+      expect(accesses).toEqual(["then"]);
     });
   });
 
@@ -580,6 +679,39 @@ describe("evaluateExpr", () => {
         null
       );
     });
+
+    it("should remain total across malformed runtime operations", () => {
+      const ctx = createTestContext();
+      const malformedExpressions: ExprNode[] = [
+        { kind: "field", object: { kind: "lit", value: 42 }, property: "name" },
+        { kind: "keys", obj: { kind: "lit", value: 42 } },
+        { kind: "values", obj: { kind: "lit", value: null } },
+        { kind: "entries", obj: { kind: "lit", value: [] } },
+        {
+          kind: "filter",
+          array: { kind: "lit", value: [1, 2, 3] },
+          predicate: { kind: "lit", value: "bad" },
+        },
+        {
+          kind: "map",
+          array: { kind: "lit", value: null },
+          mapper: { kind: "lit", value: 1 },
+        },
+      ];
+
+      for (const expr of malformedExpressions) {
+        expect(() => evaluateExpr(expr, ctx)).not.toThrow();
+      }
+
+      expect(malformedExpressions.map((expr) => evaluateExpr(expr, ctx))).toEqual([
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      ]);
+    });
   });
 });
 
@@ -643,6 +775,48 @@ describe("evaluateCondition", () => {
       expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual(["x", "y"]);
       expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([1, 2]);
       expect(evaluateExpr({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([["x", 1], ["y", 2]]);
+    });
+
+    it("should evaluate object fields and traversals in Unicode code-point order", () => {
+      const accesses: string[] = [];
+      const ctx = createTestContext({
+        snapshot: {
+          data: {
+            source: createRecordingObject(
+              [
+                ["b", 1],
+                ["ä", 2],
+                ["a", 3],
+              ],
+              accesses
+            ),
+            obj: { "ä": 2, b: 1, a: 3 },
+          },
+          computed: {},
+        },
+      });
+
+      expect(
+        evaluateExpr(
+          {
+            kind: "object",
+            fields: {
+              b: { kind: "get", path: "source.b" },
+              ä: { kind: "get", path: "source.ä" },
+              a: { kind: "get", path: "source.a" },
+            },
+          },
+          ctx
+        )
+      ).toEqual({ a: 3, b: 1, ä: 2 });
+      expect(accesses).toEqual(["a", "b", "ä"]);
+      expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual(["a", "b", "ä"]);
+      expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([3, 1, 2]);
+      expect(evaluateExpr({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        ["a", 3],
+        ["b", 1],
+        ["ä", 2],
+      ]);
     });
   });
 });

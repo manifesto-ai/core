@@ -95,6 +95,8 @@ Blocking rules reflect currently implemented compiler behavior:
 - exact unguarded `fail` / `stop` / stop-message diagnostics (`E006`, `E007`, `E008`)
 - `at()` lowering
 - system-value lowering baseline
+- broad expression axioms (`A1`, `A3`, `A4`, `A8`, `A18`) with direct proof cases
+- primitive-only equality enforcement (`A15`) with direct compile-time probes
 - `flow` / `include` composition and diagnostics (ADR-013a, `FLOW-*`, `E013`-`E024`)
 - entity primitives and placement/type diagnostics (ADR-013b, `ENTITY-*`, `TRANSFORM-*`, `E030`-`E035`)
 - schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E046`)
@@ -102,12 +104,7 @@ Blocking rules reflect currently implemented compiler behavior:
 
 ### Pending
 
-Pending rules now represent the residual architectural gaps rather than the main v0.7.0 feature families:
-
-- broad axioms that still rely on aggregate probes (`A1`, `A3`, `A4`, `A8`, `A18`)
-- primitive-only equality enforcement remains coarse in compiler diagnostics (`A15`)
-
-Pending rules still appear in the registry and still get probes. They must not disappear from CCTS just because the implementation is incomplete.
+There are currently no active `pending` rules. New residual gaps should only remain `pending` while the implementation is genuinely incomplete.
 
 Superseded rules remain in the inventory and registry for auditability, but matrix completeness does not require them to keep active probes.
 
@@ -125,7 +122,7 @@ Current acceptance shape:
 
 - inventory/registry/coverage matrix checks pass
 - blocking rules pass
-- pending probes remain visible for the residual backlog and do not regress into silent coverage gaps
+- any newly introduced pending probes remain visible for the residual backlog and do not regress into silent coverage gaps
 - existing compiler tests continue to run alongside CCTS
 
 ---
@@ -137,7 +134,6 @@ CCTS still does **not**:
 - emit `compliance.json`
 - emit `trace.ndjson`
 - parse the SPEC document automatically
-- treat broad architectural axioms as fully decomposed per-rule implementation proofs
 
 Those are valid follow-up steps once the registry and suite skeleton are stable.
 
@@ -148,10 +144,10 @@ Those are valid follow-up steps once the registry and suite skeleton are stable.
 As of the current Phase 4 baseline:
 
 - `blocking`: concrete v0.7.0 feature families already enforced in compiler + CCTS
-- `pending`: `A1`, `A3`, `A4`, `A8`, `A15`, `A18`
+- `pending`: none
 - `informational`: `A16`, `COMPILER-MEL-2a`
 
-This means the remaining implementation backlog is no longer `flow/include`, entity primitives, or schema hardening. The next meaningful implementation phase is residual type-checking and architectural cleanup behind those pending axioms.
+This means the active compliance backlog is closed for the current SPEC baseline. Remaining tracked items are informational only.
 
 ---
 

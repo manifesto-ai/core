@@ -26,6 +26,12 @@ import type { Diagnostic } from "../diagnostics/types.js";
 import { createWarning } from "../diagnostics/types.js";
 import type { SourceLocation } from "../lexer/source-location.js";
 import { validateEntityPrimitives } from "./entity-primitives.js";
+import {
+  classifyComparableExpr,
+  collectDomainTypeSymbols,
+  createActionTypeEnv,
+  type DomainTypeSymbols,
+} from "./expr-type-surface.js";
 
 // ============ Validation Context ============
 
@@ -34,7 +40,7 @@ interface ValidationContext {
   inGuard: boolean;
   guardDepth: number;
   hasMarkerPatch: boolean; // For once() validation
-  currentActionParams: Set<string>;
+  currentActionParamTypes: Map<string, TypeExprNode>;
   diagnostics: Diagnostic[];
 }
 
@@ -44,7 +50,7 @@ function createContext(): ValidationContext {
     inGuard: false,
     guardDepth: 0,
     hasMarkerPatch: false,
-    currentActionParams: new Set(),
+    currentActionParamTypes: new Map(),
     diagnostics: [],
   };
 }
@@ -66,13 +72,16 @@ export interface ValidationResult {
  */
 export class SemanticValidator {
   private ctx: ValidationContext = createContext();
+  private symbols: DomainTypeSymbols | null = null;
 
   /**
    * Validate a MEL program
    */
   validate(program: ProgramNode): ValidationResult {
     this.ctx = createContext();
+    this.symbols = collectDomainTypeSymbols(program.domain);
     this.validateDomain(program.domain);
+    this.symbols = null;
 
     return {
       valid: !this.ctx.diagnostics.some(d => d.severity === "error"),
@@ -311,7 +320,7 @@ export class SemanticValidator {
 
   private validateAction(action: ActionNode): void {
     this.ctx.inAction = true;
-    this.ctx.currentActionParams = new Set(action.params.map((param) => param.name));
+    this.ctx.currentActionParamTypes = createActionTypeEnv(action.params);
 
     // v0.3.3: E005 - available expression must be pure
     if (action.available) {
@@ -325,7 +334,7 @@ export class SemanticValidator {
     }
 
     this.ctx.inAction = false;
-    this.ctx.currentActionParams = new Set();
+    this.ctx.currentActionParamTypes = new Map();
   }
 
   /**
@@ -335,7 +344,7 @@ export class SemanticValidator {
   private validateAvailableExpr(expr: ExprNode): void {
     switch (expr.kind) {
       case "identifier":
-        if (this.ctx.currentActionParams.has(expr.name)) {
+        if (this.ctx.currentActionParamTypes.has(expr.name)) {
           this.error(
             "Action parameters cannot be used in available condition",
             expr.location,
@@ -597,6 +606,9 @@ export class SemanticValidator {
       case "binary":
         this.validateExpr(expr.left, context);
         this.validateExpr(expr.right, context);
+        if (expr.operator === "==" || expr.operator === "!=") {
+          this.validatePrimitiveEquality(expr.left, expr.right, expr.location);
+        }
         break;
 
       case "unary":
@@ -680,7 +692,9 @@ export class SemanticValidator {
       // FDR-MEL-042: eq/neq on primitives only
       case "eq":
       case "neq":
-        // We can't fully type-check at compile time, but we can note the requirement
+        if (args.length === 2) {
+          this.validatePrimitiveEquality(args[0], args[1], location);
+        }
         break;
 
       // FDR-MEL-026: len() on Array only
@@ -866,6 +880,35 @@ export class SemanticValidator {
     // Recursively validate arguments
     for (const arg of args) {
       this.validateExpr(arg, context);
+    }
+  }
+
+  private validatePrimitiveEquality(
+    left: ExprNode,
+    right: ExprNode,
+    location: SourceLocation
+  ): void {
+    if (!this.symbols) {
+      return;
+    }
+
+    const leftClass = classifyComparableExpr(
+      left,
+      this.ctx.currentActionParamTypes,
+      this.symbols
+    );
+    const rightClass = classifyComparableExpr(
+      right,
+      this.ctx.currentActionParamTypes,
+      this.symbols
+    );
+
+    if (leftClass === "nonprimitive" || rightClass === "nonprimitive") {
+      this.error(
+        "eq/neq operands must be primitive types (null, boolean, number, string)",
+        location,
+        "E_TYPE_MISMATCH"
+      );
     }
   }
 

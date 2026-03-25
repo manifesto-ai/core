@@ -245,6 +245,47 @@ describe("compileMelPatch", () => {
     ]);
   });
 
+  it("rejects definitely nonprimitive equality in patch compiler expressions", () => {
+    const melText = `
+      when eq({ a: 1 }, { a: 1 }) {
+        patch guarded = true
+      }
+      patch sameArray = eq([], [])
+      patch sameKeys = eq(keys({ a: 1 }), [])
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-a15-invalid",
+    });
+
+    expect(result.errors.filter((error) => error.code === "E_TYPE_MISMATCH")).toHaveLength(3);
+    expect(
+      result.errors.every(
+        (error) =>
+          error.code !== "E_LOWER" &&
+          error.code !== "E_PARSE"
+      )
+    ).toBe(true);
+  });
+
+  it("allows primitive and unknown-surface equality in patch compiler expressions", () => {
+    const melText = `
+      when neq(trim(title), "") {
+        patch sameNull = eq(null, marker)
+        patch empty = eq(len(items), 0)
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-a15-valid",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops.length).toBeGreaterThan(0);
+  });
+
   it("evaluates when guard condition once for every nested patch in the block", () => {
     const melText = `
       when eq(count, 0) {

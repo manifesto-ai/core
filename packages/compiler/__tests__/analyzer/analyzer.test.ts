@@ -188,6 +188,99 @@ describe("Semantic Analyzer", () => {
       }
     });
 
+    it("reports E_TYPE_MISMATCH for object literal equality", () => {
+      const { program } = parseSource(`
+        domain Test {
+          computed same = eq({ a: 1 }, { a: 1 })
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
+      }
+    });
+
+    it("reports E_TYPE_MISMATCH for array/object-typed equality", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            items: Array<number> = []
+            user: { name: string } = { name: "Ada" }
+          }
+          computed sameItems = eq(items, [])
+          computed sameUser = eq(user, { name: "Ada" })
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.filter((d) => d.code === "E_TYPE_MISMATCH")).toHaveLength(2);
+      }
+    });
+
+    it("reports E_TYPE_MISMATCH for computed object aliases and infix equality", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { user: { name: string } = { name: "Ada" } }
+          computed selected = user
+          computed sameFn = eq(selected, { name: "Ada" })
+          computed sameInfix = selected == { name: "Ada" }
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.filter((d) => d.code === "E_TYPE_MISMATCH")).toHaveLength(2);
+      }
+    });
+
+    it("reports E_TYPE_MISMATCH for entity object equality", () => {
+      const { program } = parseSource(`
+        domain Test {
+          type Task = { id: string, title: string }
+          state {
+            tasks: Array<Task> = []
+            selectedId: string = ""
+          }
+          computed selectedTask = findById(tasks, selectedId)
+          computed same = eq(selectedTask, null)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
+      }
+    });
+
+    it("allows primitive-only equality across primitive kinds", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            count: number = 0
+            marker: string = ""
+            title: string = ""
+            items: Array<number> = []
+          }
+          computed sameCount = eq(count, 0)
+          computed sameNull = eq(null, marker)
+          computed trimmed = neq(trim(title), "")
+          computed empty = eq(len(items), 0)
+          action check() {
+            when neq(marker, $meta.intentId) {
+              stop "Already processed"
+            }
+          }
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.filter((d) => d.code === "E_TYPE_MISMATCH")).toHaveLength(0);
+      }
+    });
+
     it("reports E006 for fail outside a guard", () => {
       const { program, diagnostics: parseDiagnostics } = parseSource(`
         domain Test {

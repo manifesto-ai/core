@@ -5,12 +5,20 @@ import type {
   ExprNode,
   GuardedStmtNode,
   InnerStmtNode,
-  ParamNode,
   ProgramNode,
   StateFieldNode,
-  TypeDeclNode,
   TypeExprNode,
 } from "../parser/ast.js";
+import {
+  collectDomainTypeSymbols,
+  createActionTypeEnv,
+  getArrayElementType,
+  getPropertyType,
+  inferExprType,
+  isPrimitiveEntityIdType,
+  type DomainTypeSymbols,
+  type TypeEnv,
+} from "./expr-type-surface.js";
 
 const ENTITY_LOOKUP_FNS = new Set(["findById", "existsById"]);
 const ENTITY_TRANSFORM_FNS = new Set(["updateById", "removeById"]);
@@ -19,14 +27,7 @@ const ENTITY_PRIMITIVE_FNS = new Set([
   ...ENTITY_TRANSFORM_FNS,
 ]);
 
-interface EntitySymbols {
-  stateTypes: Map<string, TypeExprNode>;
-  computedNames: Set<string>;
-  typeDefs: Map<string, TypeDeclNode>;
-}
-
 type ExprContext = "computed" | "action" | "guard" | "available" | "patch";
-type TypeEnv = Map<string, TypeExprNode>;
 
 function addDiagnostic(
   diagnostics: Diagnostic[],
@@ -43,40 +44,10 @@ function addDiagnostic(
   diagnostics.push(createError(code, message, location));
 }
 
-function collectSymbols(domain: DomainNode): EntitySymbols {
-  const stateTypes = new Map<string, TypeExprNode>();
-  const computedNames = new Set<string>();
-  const typeDefs = new Map<string, TypeDeclNode>();
-
-  for (const typeDecl of domain.types) {
-    typeDefs.set(typeDecl.name, typeDecl);
-  }
-
-  for (const member of domain.members) {
-    if (member.kind === "state") {
-      for (const field of member.fields) {
-        stateTypes.set(field.name, field.typeExpr);
-      }
-    } else if (member.kind === "computed") {
-      computedNames.add(member.name);
-    }
-  }
-
-  return { stateTypes, computedNames, typeDefs };
-}
-
-function createActionParamEnv(params: readonly ParamNode[]): TypeEnv {
-  const env = new Map<string, TypeExprNode>();
-  for (const param of params) {
-    env.set(param.name, param.typeExpr);
-  }
-  return env;
-}
-
 export function validateEntityPrimitives(program: ProgramNode): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const dedupe = new Set<string>();
-  const symbols = collectSymbols(program.domain);
+  const symbols = collectDomainTypeSymbols(program.domain);
 
   validateInitializerUniqueness(program.domain, symbols, diagnostics, dedupe);
 
@@ -87,7 +58,7 @@ export function validateEntityPrimitives(program: ProgramNode): Diagnostic[] {
         break;
 
       case "action": {
-        const params = createActionParamEnv(member.params);
+        const params = createActionTypeEnv(member.params);
         validateAction(member, params, symbols, diagnostics, dedupe);
         break;
       }
@@ -104,7 +75,7 @@ export function validateEntityPrimitives(program: ProgramNode): Diagnostic[] {
 function validateAction(
   action: ActionNode,
   params: TypeEnv,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>
 ): void {
@@ -120,7 +91,7 @@ function validateAction(
 function validateGuardedStmt(
   stmt: GuardedStmtNode,
   params: TypeEnv,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>
 ): void {
@@ -158,7 +129,7 @@ function validateGuardedStmt(
 function validateInnerStmt(
   stmt: InnerStmtNode,
   params: TypeEnv,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>
 ): void {
@@ -218,7 +189,7 @@ function validateExpr(
   expr: ExprNode,
   context: ExprContext,
   env: TypeEnv,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>,
   transformDepth: number
@@ -282,7 +253,7 @@ function validateEntityCall(
   expr: { kind: "functionCall"; name: string; args: ExprNode[]; location: Diagnostic["location"] },
   context: ExprContext,
   env: TypeEnv,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>,
   transformDepth: number
@@ -369,7 +340,7 @@ function validateEntityCall(
 
 function validateInitializerUniqueness(
   domain: DomainNode,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>
 ): void {
@@ -386,7 +357,7 @@ function validateInitializerUniqueness(
 
 function validateFieldInitializerUniqueness(
   field: StateFieldNode,
-  symbols: EntitySymbols,
+  symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>
 ): void {
@@ -441,251 +412,19 @@ function validateFieldInitializerUniqueness(
 function getCollectionElementType(
   expr: ExprNode,
   env: TypeEnv,
-  symbols: EntitySymbols
+  symbols: DomainTypeSymbols
 ): TypeExprNode | null {
   return getArrayElementType(inferExprType(expr, env, symbols), symbols);
 }
 
-function getArrayElementType(
-  typeExpr: TypeExprNode | null,
-  symbols: EntitySymbols
-): TypeExprNode | null {
-  const resolved = resolveType(typeExpr, symbols);
-  if (!resolved) {
-    return null;
-  }
-
-  if (resolved.kind === "arrayType") {
-    return resolved.elementType;
-  }
-
-  if (resolved.kind === "unionType") {
-    const candidates = resolved.types
-      .filter((member) => !isNullType(member))
-      .map((member) => getArrayElementType(member, symbols))
-      .filter((member): member is TypeExprNode => member !== null);
-    return candidates[0] ?? null;
-  }
-
-  return null;
-}
-
-function inferExprType(
-  expr: ExprNode,
-  env: TypeEnv,
-  symbols: EntitySymbols
-): TypeExprNode | null {
-  switch (expr.kind) {
-    case "literal":
-      return {
-        kind: "literalType",
-        value: expr.value as string | number | boolean | null,
-        location: expr.location,
-      };
-
-    case "identifier":
-      return env.get(expr.name) ?? symbols.stateTypes.get(expr.name) ?? null;
-
-    case "propertyAccess":
-      return getPropertyType(inferExprType(expr.object, env, symbols), expr.property, symbols);
-
-    case "indexAccess":
-      return getIndexType(inferExprType(expr.object, env, symbols), symbols);
-
-    case "objectLiteral":
-      return {
-        kind: "objectType",
-        fields: expr.properties
-          .map((property) => {
-            const propertyType = inferExprType(property.value, env, symbols);
-            if (!propertyType) {
-              return null;
-            }
-            return {
-              kind: "typeField" as const,
-              name: property.key,
-              typeExpr: propertyType,
-              optional: false,
-              location: property.location,
-            };
-          })
-          .filter((field): field is NonNullable<typeof field> => field !== null),
-        location: expr.location,
-      };
-
-    case "arrayLiteral": {
-      if (expr.elements.length === 0) {
-        return null;
-      }
-      const firstElementType = inferExprType(expr.elements[0], env, symbols);
-      if (!firstElementType) {
-        return null;
-      }
-      return {
-        kind: "arrayType",
-        elementType: firstElementType,
-        location: expr.location,
-      };
-    }
-
-    case "functionCall":
-      if (expr.name === "findById" && expr.args.length >= 1) {
-        const elementType = getCollectionElementType(expr.args[0], env, symbols);
-        if (!elementType) {
-          return null;
-        }
-        return {
-          kind: "unionType",
-          types: [
-            elementType,
-            {
-              kind: "simpleType",
-              name: "null",
-              location: expr.location,
-            },
-          ],
-          location: expr.location,
-        };
-      }
-
-      if (expr.name === "existsById") {
-        return {
-          kind: "simpleType",
-          name: "boolean",
-          location: expr.location,
-        };
-      }
-
-      if (ENTITY_TRANSFORM_FNS.has(expr.name) && expr.args.length >= 1) {
-        return inferExprType(expr.args[0], env, symbols);
-      }
-
-      return null;
-
-    case "systemIdent":
-    case "binary":
-    case "unary":
-    case "ternary":
-    case "iterationVar":
-      return null;
-  }
-}
-
-function resolveType(
-  typeExpr: TypeExprNode | null,
-  symbols: EntitySymbols,
-  seen = new Set<string>()
-): TypeExprNode | null {
-  if (!typeExpr) {
-    return null;
-  }
-
-  if (typeExpr.kind === "simpleType" && symbols.typeDefs.has(typeExpr.name)) {
-    if (seen.has(typeExpr.name)) {
-      return null;
-    }
-    seen.add(typeExpr.name);
-    return resolveType(symbols.typeDefs.get(typeExpr.name)!.typeExpr, symbols, seen);
-  }
-
-  return typeExpr;
-}
-
-function getPropertyType(
-  typeExpr: TypeExprNode | null,
-  property: string,
-  symbols: EntitySymbols
-): TypeExprNode | null {
-  const resolved = resolveType(typeExpr, symbols);
-  if (!resolved) {
-    return null;
-  }
-
-  if (resolved.kind === "objectType") {
-    const field = resolved.fields.find((candidate) => candidate.name === property);
-    return field?.typeExpr ?? null;
-  }
-
-  if (resolved.kind === "unionType") {
-    for (const member of resolved.types) {
-      if (isNullType(member)) {
-        continue;
-      }
-      const memberType = getPropertyType(member, property, symbols);
-      if (memberType) {
-        return memberType;
-      }
-    }
-  }
-
-  return null;
-}
-
-function getIndexType(typeExpr: TypeExprNode | null, symbols: EntitySymbols): TypeExprNode | null {
-  const resolved = resolveType(typeExpr, symbols);
-  if (!resolved) {
-    return null;
-  }
-
-  if (resolved.kind === "arrayType") {
-    return resolved.elementType;
-  }
-
-  if (resolved.kind === "recordType") {
-    return resolved.valueType;
-  }
-
-  if (resolved.kind === "unionType") {
-    for (const member of resolved.types) {
-      if (isNullType(member)) {
-        continue;
-      }
-      const memberType = getIndexType(member, symbols);
-      if (memberType) {
-        return memberType;
-      }
-    }
-  }
-
-  return null;
-}
-
 function getEntityIdType(
   elementType: TypeExprNode,
-  symbols: EntitySymbols
+  symbols: DomainTypeSymbols
 ): TypeExprNode | null {
   return getPropertyType(elementType, "id", symbols);
 }
 
-function isPrimitiveEntityIdType(typeExpr: TypeExprNode, symbols: EntitySymbols): boolean {
-  const resolved = resolveType(typeExpr, symbols);
-  if (!resolved) {
-    return false;
-  }
-
-  switch (resolved.kind) {
-    case "simpleType":
-      return resolved.name === "string" || resolved.name === "number";
-
-    case "literalType":
-      return typeof resolved.value === "string" || typeof resolved.value === "number";
-
-    case "unionType":
-      return resolved.types.length > 0 && resolved.types.every((member) => isPrimitiveEntityIdType(member, symbols));
-
-    default:
-      return false;
-  }
-}
-
-function isNullType(typeExpr: TypeExprNode): boolean {
-  return (
-    (typeExpr.kind === "simpleType" && typeExpr.name === "null") ||
-    (typeExpr.kind === "literalType" && typeExpr.value === null)
-  );
-}
-
-function isStatePathExpr(expr: ExprNode, symbols: EntitySymbols): boolean {
+function isStatePathExpr(expr: ExprNode, symbols: DomainTypeSymbols): boolean {
   switch (expr.kind) {
     case "identifier":
       return symbols.stateTypes.has(expr.name);

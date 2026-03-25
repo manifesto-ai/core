@@ -23,7 +23,8 @@ function registryMany(
 }
 
 export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
-  ...registryMany(["A1", "A3", "A4", "A8", "A15", "A18"], "pending", "Broad or newly clarified axioms are tracked with aggregate probes."),
+  ...registryMany(["A1", "A3", "A4", "A8", "A18"], "blocking"),
+  registry("A15", "blocking"),
   ...registryMany(["A2", "A5", "A6", "A7", "A9", "A10", "A11", "A14", "A17"], "blocking"),
   ...registryMany(["A12", "A13"], "blocking"),
   registry("A16", "informational"),
