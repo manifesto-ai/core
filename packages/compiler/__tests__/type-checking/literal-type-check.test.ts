@@ -84,7 +84,7 @@ describe("Literal type checking", () => {
       expect(result.errors.some(d => d.code === "E_TYPE_MISMATCH")).toBe(true);
     });
 
-    it("accepts null on nullable field", () => {
+    it("rejects nullable field types in schema positions", () => {
       const result = compileSource(`
         domain Test {
           state { name: string | null = null }
@@ -92,7 +92,8 @@ describe("Literal type checking", () => {
           action a() { when true { patch name = "ok" } }
         }
       `);
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
+      expect(result.errors.some(d => d.code === "E045")).toBe(true);
     });
   });
 

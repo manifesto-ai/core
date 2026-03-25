@@ -7,7 +7,7 @@ describe("E2E Compilation", () => {
       domain Counter {
         state {
           count: number = 0
-          lastIntent: string | null = null
+          lastIntent: string = ""
         }
 
         computed doubled = mul(count, 2)
@@ -28,7 +28,7 @@ describe("E2E Compilation", () => {
         action reset() {
           when isPositive {
             patch count = 0
-            patch lastIntent = null
+            patch lastIntent = ""
           }
         }
       }
@@ -75,9 +75,9 @@ describe("E2E Compilation", () => {
     const taskManagerSource = `
       domain TaskManager {
         state {
-          tasks: Record<string, Task> = {}
+          tasks: object = {}
           filter: "all" | "active" | "completed" = "all"
-          lastAdded: string | null = null
+          lastAdded: string = ""
         }
 
         computed taskCount = len(keys(tasks))
@@ -107,7 +107,7 @@ describe("E2E Compilation", () => {
       expect(result.success).toBe(true);
     });
 
-    it("handles Record types", () => {
+    it("handles object-backed map state", () => {
       const result = compile(taskManagerSource);
       expect(result.success).toBe(true);
       if (result.success) {
@@ -227,7 +227,7 @@ describe("E2E Compilation", () => {
         `
         domain IdGenerator {
           state {
-            id: string | null = null
+            id: string = ""
             createdAt: number = 0
           }
 
@@ -245,10 +245,14 @@ describe("E2E Compilation", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         // Should have the system value slots
-        expect(result.schema.state.fields).toHaveProperty("__sys__generate_uuid_value");
-        expect(result.schema.state.fields).toHaveProperty("__sys__generate_uuid_intent");
-        expect(result.schema.state.fields).toHaveProperty("__sys__generate_timestamp_value");
-        expect(result.schema.state.fields).toHaveProperty("__sys__generate_timestamp_intent");
+        expect(result.schema.state.fields["$mel"]?.fields?.["sys"]?.fields?.["generate"]?.fields?.["uuid"]?.fields).toMatchObject({
+          value: expect.objectContaining({ default: null }),
+          intent: expect.objectContaining({ default: null }),
+        });
+        expect(result.schema.state.fields["$mel"]?.fields?.["sys"]?.fields?.["generate"]?.fields?.["timestamp"]?.fields).toMatchObject({
+          value: expect.objectContaining({ default: null }),
+          intent: expect.objectContaining({ default: null }),
+        });
 
         // Flow should not contain $system anymore
         const flowStr = JSON.stringify(result.schema.actions.generate.flow);

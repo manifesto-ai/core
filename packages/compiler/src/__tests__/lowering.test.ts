@@ -130,6 +130,50 @@ describe("lowerExprNode", () => {
     });
   });
 
+  describe("field", () => {
+    it("should flatten simple get(field) access to a longer get path", () => {
+      const input: MelExprNode = {
+        kind: "field",
+        object: {
+          kind: "get",
+          path: [{ kind: "prop", name: "user" }],
+        },
+        property: "name",
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({ kind: "get", path: "user.name" });
+    });
+  });
+
+  describe("obj", () => {
+    it("should lower object fields in Unicode code-point order with stable duplicate handling", () => {
+      const input: MelExprNode = {
+        kind: "obj",
+        fields: [
+          { key: "b", value: { kind: "lit", value: 1 } },
+          { key: "ä", value: { kind: "lit", value: 2 } },
+          { key: "a", value: { kind: "lit", value: 3 } },
+          { key: "b", value: { kind: "lit", value: 4 } },
+        ],
+      };
+
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({
+        kind: "object",
+        fields: {
+          a: { kind: "lit", value: 3 },
+          b: { kind: "lit", value: 4 },
+          ä: { kind: "lit", value: 2 },
+        },
+      });
+      expect(Object.keys((result as { kind: "object"; fields: Record<string, unknown> }).fields)).toEqual([
+        "a",
+        "b",
+        "ä",
+      ]);
+    });
+  });
+
   describe("call", () => {
     it("should lower binary operators", () => {
       const input: MelExprNode = {
@@ -183,7 +227,7 @@ describe("lowerExprNode", () => {
     it("should lower if expression", () => {
       const input: MelExprNode = {
         kind: "call",
-        fn: "if",
+        fn: "cond",
         args: [
           { kind: "lit", value: true },
           { kind: "lit", value: 1 },

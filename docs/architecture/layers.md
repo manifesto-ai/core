@@ -350,9 +350,9 @@ An implementation is compliant with this architecture if:
 
 ## Related Documents
 
-- [ADR-001: Layer Separation](./adr/001-layer-separation) - Design decision rationale
-- [ADR-010: Protocol-First SDK Reconstruction](./adr/010-major-hard-cut) - App/Runtime retirement
-- [Specifications](./spec/) - Package specifications (Core, Host, World, etc.)
+- [ADR-001: Layer Separation](/internals/adr/001-layer-separation) - Design decision rationale
+- [ADR-010: Protocol-First SDK Reconstruction](/internals/adr/010-major-hard-cut) - App/Runtime retirement
+- [Specifications](/internals/spec/) - Package specifications (Core, Host, World, etc.)
 
 ---
 

@@ -26,8 +26,8 @@ const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
 const DEFAULT_STATE = `
   state {
     count: number = 0
-    status: string | null = null
-    flag: boolean | null = null
+    status: string = ""
+    flag: boolean = false
     x: number = 0
     y: number = 0
   }
@@ -36,11 +36,11 @@ const DEFAULT_STATE = `
 const DEFAULT_STATE_WITH_ONCE_MARKER = `
   state {
     count: number = 0
-    status: string | null = null
-    flag: boolean | null = null
+    status: string = ""
+    flag: boolean = false
     x: number = 0
     y: number = 0
-    onceMarker: string | null = null
+    onceMarker: string = ""
   }
 `;
 
@@ -239,13 +239,13 @@ describe("compileMelPatch legacy lowering parity", () => {
     const trueCase = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-when-true",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-true" }],
     });
     expect(trueCase.history[0].mel.data).toEqual({
       count: 1,
       status: "updated",
-      flag: null,
+      flag: false,
       x: 0,
       y: 0,
     });
@@ -253,13 +253,13 @@ describe("compileMelPatch legacy lowering parity", () => {
     const falseCase = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-when-false",
-      initial: { count: 5, status: "ready", flag: null, x: 0, y: 0 },
+      initial: { count: 5, status: "ready", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-false" }],
     });
     expect(falseCase.history[0].mel.data).toEqual({
       count: 5,
       status: "ready",
-      flag: null,
+      flag: false,
       x: 0,
       y: 0,
     });
@@ -276,13 +276,13 @@ describe("compileMelPatch legacy lowering parity", () => {
     const positive = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-when-entry-snapshot",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-entry-snapshot" }],
       assert: ({ melData }) => {
         expect(melData).toMatchObject({
           count: 1,
           flag: true,
-          status: null,
+          status: "",
           x: 0,
           y: 0,
         });
@@ -292,13 +292,13 @@ describe("compileMelPatch legacy lowering parity", () => {
     const negative = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-when-entry-snapshot-false",
-      initial: { count: 5, status: "ready", flag: null, x: 0, y: 0 },
+      initial: { count: 5, status: "ready", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-entry-snapshot-false" }],
     });
     expect(negative.history[0].mel.data).toEqual({
       count: 5,
       status: "ready",
-      flag: null,
+      flag: false,
       x: 0,
       y: 0,
     });
@@ -318,7 +318,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     const nestedResult = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-nested-when",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "nested-when" }],
     });
 
@@ -342,7 +342,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     const onceResult = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-once-marker",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       stateSource: DEFAULT_STATE_WITH_ONCE_MARKER,
       cycles: [{ intent: "once-A" }, { intent: "once-A" }, { intent: "once-B" }],
     });
@@ -350,7 +350,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     expect(onceResult.history[0].mel.data).toMatchObject({
       count: 1,
       status: "once",
-      flag: null,
+      flag: false,
       onceMarker: "once-A",
       x: 0,
       y: 0,
@@ -359,7 +359,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     expect(onceResult.history[2].mel.data).toMatchObject({
       count: 2,
       status: "once",
-      flag: null,
+      flag: false,
       onceMarker: "once-B",
       x: 0,
       y: 0,
@@ -377,13 +377,13 @@ describe("compileMelPatch legacy lowering parity", () => {
     const onceIntentResult = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-once-intent",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "onceIntent-A" }, { intent: "onceIntent-A" }, { intent: "onceIntent-B" }],
       assert: ({ melData, cycleIndex }) => {
         if (cycleIndex === 0) {
           expect(melData).toMatchObject({
             count: 1,
-            status: null,
+            status: "",
             flag: true,
             x: 0,
             y: 0,
@@ -393,7 +393,7 @@ describe("compileMelPatch legacy lowering parity", () => {
         if (cycleIndex === 1) {
           expect(melData).toMatchObject({
             count: 1,
-            status: null,
+            status: "",
             flag: true,
             x: 0,
             y: 0,
@@ -403,7 +403,7 @@ describe("compileMelPatch legacy lowering parity", () => {
         if (cycleIndex === 2) {
           expect(melData).toMatchObject({
             count: 2,
-            status: null,
+            status: "",
             flag: false,
             x: 0,
             y: 0,
@@ -424,7 +424,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     const onceWhenResult = await runParityCycleBatch({
       actionBody: onceWhenBody,
       actionName: "compat-once-when",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       stateSource: DEFAULT_STATE_WITH_ONCE_MARKER,
       cycles: [{ intent: "once-when-A" }, { intent: "once-when-A" }],
     });
@@ -445,7 +445,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     const onceIntentWhenResult = await runParityCycleBatch({
       actionBody: onceIntentWhenBody,
       actionName: "compat-once-intent-when",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "once-intent-when-A" }, { intent: "once-intent-when-B" }],
       assert: ({ melData, cycleIndex }) => {
         if (cycleIndex === 0) {
@@ -480,7 +480,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     const issueResult = await runParityCycleBatch({
       actionBody: body,
       actionName: "compat-issue-107",
-      initial: { count: 0, status: null, flag: null, x: 0, y: 0 },
+      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "issue-107" }, { intent: "issue-107" }],
       assert: ({ melData, cycleIndex }) => {
         expect(melData).toMatchObject({

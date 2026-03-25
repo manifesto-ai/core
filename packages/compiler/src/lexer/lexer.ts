@@ -278,7 +278,7 @@ export class Lexer {
       // Check for $ in middle of identifier (forbidden by A17)
       if (this.peek() === "$") {
         this.advance();
-        this.error("'$' is forbidden in identifiers (MEL A17)");
+        this.error("'$' is forbidden in identifiers (MEL A17)", "E004");
         continue;
       }
       this.advance();
@@ -288,7 +288,7 @@ export class Lexer {
 
     // Check for __sys__ prefix (reserved for compiler, A26)
     if (lexeme.startsWith("__sys__")) {
-      this.error("'__sys__' prefix is reserved for compiler-generated identifiers (MEL A26)");
+      this.error("'__sys__' prefix is reserved for compiler-generated identifiers (MEL A26)", "E004");
       this.addToken("ERROR");
       return;
     }
@@ -427,11 +427,11 @@ export class Lexer {
     this.tokens.push(createToken(kind, lexeme, this.currentLocation(), value));
   }
 
-  private error(message: string): void {
+  private error(message: string, code = "MEL_LEXER"): void {
     const location = this.currentLocation();
     this.diagnostics.push({
       severity: "error",
-      code: "MEL_LEXER",
+      code,
       message,
       location,
       source: this.getSourceLine(location.start.line),

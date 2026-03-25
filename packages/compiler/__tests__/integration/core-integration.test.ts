@@ -270,7 +270,7 @@ describe("Core Integration", () => {
         domain Counter {
           state {
             count: number = 0
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
           computed lastIntentValue = lastIntent
           action increment() {
@@ -289,7 +289,7 @@ describe("Core Integration", () => {
 
       // First call should increment
       // Note: Core exposes intentId via meta for once() guards
-      const snapshot1 = createTestSnapshot({ count: 0, lastIntent: null }, schema.hash);
+      const snapshot1 = createTestSnapshot({ count: 0, lastIntent: "" }, schema.hash);
       const intent1 = createIntent("increment", "intent-1");
       const result1 = await computeWithContext(core, schema, snapshot1, intent1);
       expect(result1.snapshot.data.count).toBe(1);

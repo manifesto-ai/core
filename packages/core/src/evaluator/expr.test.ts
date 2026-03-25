@@ -60,6 +60,24 @@ function evaluate(expr: ExprNode, ctx = createTestContext()): unknown {
   return result.value;
 }
 
+function createRecordingObject(
+  entries: ReadonlyArray<readonly [string, unknown]>,
+  accessLog: string[]
+): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+  for (const [key, value] of entries) {
+    Object.defineProperty(obj, key, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        accessLog.push(key);
+        return value;
+      },
+    });
+  }
+  return obj;
+}
+
 describe("Expression Evaluator", () => {
   describe("Literals", () => {
     it("lit - should return literal values", () => {
@@ -172,6 +190,39 @@ describe("Expression Evaluator", () => {
         args: [{ kind: "lit", value: true }, { kind: "lit", value: false }]
       })).toBe(true);
     });
+
+    it("and/or - should preserve observable left-to-right evaluation order", () => {
+      const accesses: string[] = [];
+      const ctx = createTestContext({
+        flags: createRecordingObject(
+          [
+            ["left", false],
+            ["right", true],
+          ],
+          accesses
+        ),
+      });
+
+      expect(evaluate({
+        kind: "and",
+        args: [
+          { kind: "get", path: "flags.left" },
+          { kind: "get", path: "flags.right" },
+        ],
+      }, ctx)).toBe(false);
+      expect(accesses).toEqual(["left"]);
+
+      accesses.length = 0;
+
+      expect(evaluate({
+        kind: "or",
+        args: [
+          { kind: "get", path: "flags.right" },
+          { kind: "get", path: "flags.left" },
+        ],
+      }, ctx)).toBe(true);
+      expect(accesses).toEqual(["right"]);
+    });
   });
 
   describe("Conditional", () => {
@@ -207,6 +258,27 @@ describe("Expression Evaluator", () => {
         then: { kind: "lit", value: "truthy" },
         else: { kind: "lit", value: "falsy" },
       })).toBe("falsy");
+    });
+
+    it("if - should evaluate only the selected branch", () => {
+      const accesses: string[] = [];
+      const ctx = createTestContext({
+        branches: createRecordingObject(
+          [
+            ["then", "yes"],
+            ["else", "no"],
+          ],
+          accesses
+        ),
+      });
+
+      expect(evaluate({
+        kind: "if",
+        cond: { kind: "lit", value: true },
+        then: { kind: "get", path: "branches.then" },
+        else: { kind: "get", path: "branches.else" },
+      }, ctx)).toBe("yes");
+      expect(accesses).toEqual(["then"]);
     });
   });
 
@@ -448,6 +520,39 @@ describe("Expression Evaluator", () => {
 
     it("entries - should return object entries", () => {
       expect(evaluate({ kind: "entries", obj: { kind: "lit", value: { a: 1, b: 2 } } })).toEqual([["a", 1], ["b", 2]]);
+    });
+
+    it("object evaluation and traversal - should use Unicode code-point order", () => {
+      const accesses: string[] = [];
+      const ctx = createTestContext({
+        source: createRecordingObject(
+          [
+            ["b", 1],
+            ["ä", 2],
+            ["a", 3],
+          ],
+          accesses
+        ),
+        obj: { "ä": 2, b: 1, a: 3 },
+      });
+
+      expect(evaluate({
+        kind: "object",
+        fields: {
+          b: { kind: "get", path: "source.b" },
+          ä: { kind: "get", path: "source.ä" },
+          a: { kind: "get", path: "source.a" },
+        },
+      }, ctx)).toEqual({ a: 3, b: 1, ä: 2 });
+      expect(accesses).toEqual(["a", "b", "ä"]);
+
+      expect(evaluate({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual(["a", "b", "ä"]);
+      expect(evaluate({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([3, 1, 2]);
+      expect(evaluate({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        ["a", 3],
+        ["b", 1],
+        ["ä", 2],
+      ]);
     });
 
     it("merge - should merge objects", () => {

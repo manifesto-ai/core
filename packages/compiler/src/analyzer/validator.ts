@@ -18,11 +18,20 @@ import type {
   OnceIntentStmtNode,
   PatchStmtNode,
   EffectStmtNode,
+  FailStmtNode,
+  StopStmtNode,
   TypeExprNode,
 } from "../parser/ast.js";
 import type { Diagnostic } from "../diagnostics/types.js";
 import { createWarning } from "../diagnostics/types.js";
 import type { SourceLocation } from "../lexer/source-location.js";
+import { validateEntityPrimitives } from "./entity-primitives.js";
+import {
+  classifyComparableExpr,
+  collectDomainTypeSymbols,
+  createActionTypeEnv,
+  type DomainTypeSymbols,
+} from "./expr-type-surface.js";
 
 // ============ Validation Context ============
 
@@ -31,6 +40,7 @@ interface ValidationContext {
   inGuard: boolean;
   guardDepth: number;
   hasMarkerPatch: boolean; // For once() validation
+  currentActionParamTypes: Map<string, TypeExprNode>;
   diagnostics: Diagnostic[];
 }
 
@@ -40,9 +50,12 @@ function createContext(): ValidationContext {
     inGuard: false,
     guardDepth: 0,
     hasMarkerPatch: false,
+    currentActionParamTypes: new Map(),
     diagnostics: [],
   };
 }
+
+const STOP_WAITING_REASON_PATTERN = /\b(await(?:ing)?|wait(?:ing)?|pending)\b/i;
 
 // ============ Semantic Validator ============
 
@@ -59,13 +72,16 @@ export interface ValidationResult {
  */
 export class SemanticValidator {
   private ctx: ValidationContext = createContext();
+  private symbols: DomainTypeSymbols | null = null;
 
   /**
    * Validate a MEL program
    */
   validate(program: ProgramNode): ValidationResult {
     this.ctx = createContext();
+    this.symbols = collectDomainTypeSymbols(program.domain);
     this.validateDomain(program.domain);
+    this.symbols = null;
 
     return {
       valid: !this.ctx.diagnostics.some(d => d.severity === "error"),
@@ -94,6 +110,8 @@ export class SemanticValidator {
           break;
         case "action":
           this.validateAction(member);
+          break;
+        case "flow":
           break;
       }
     }
@@ -124,6 +142,137 @@ export class SemanticValidator {
    */
   private validateStateField(field: StateFieldNode): void {
     this.checkAnonymousObjectType(field.typeExpr, field.location);
+    if (field.initializer) {
+      this.validateStateInitializer(field.initializer);
+    }
+  }
+
+  private validateStateInitializer(expr: ExprNode): void {
+    switch (expr.kind) {
+      case "literal":
+        return;
+
+      case "identifier":
+      case "iterationVar":
+        this.error(
+          "State initializers must be compile-time constants",
+          expr.location,
+          "E042"
+        );
+        return;
+
+      case "systemIdent":
+        if (expr.path[0] === "system") {
+          this.error(
+            "$system.* cannot be used in state initializers",
+            expr.location,
+            "E002"
+          );
+        } else {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+
+      case "objectLiteral":
+        for (const prop of expr.properties) {
+          this.validateStateInitializer(prop.value);
+        }
+        return;
+
+      case "arrayLiteral":
+        for (const elem of expr.elements) {
+          this.validateStateInitializer(elem);
+        }
+        return;
+
+      case "functionCall": {
+        const before = this.ctx.diagnostics.length;
+        for (const arg of expr.args) {
+          this.validateStateInitializer(arg);
+        }
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "binary": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.left);
+        this.validateStateInitializer(expr.right);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "unary": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.operand);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "ternary": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.condition);
+        this.validateStateInitializer(expr.consequent);
+        this.validateStateInitializer(expr.alternate);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "propertyAccess": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.object);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "indexAccess": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.object);
+        this.validateStateInitializer(expr.index);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+    }
   }
 
   /**
@@ -171,19 +320,21 @@ export class SemanticValidator {
 
   private validateAction(action: ActionNode): void {
     this.ctx.inAction = true;
+    this.ctx.currentActionParamTypes = createActionTypeEnv(action.params);
 
     // v0.3.3: E005 - available expression must be pure
     if (action.available) {
       this.validateAvailableExpr(action.available);
     }
 
-    // FDR-MEL-020: All patch/effect must be inside guards
-    // Action body should only contain when/once statements
+    // FDR-MEL-020: All patch/effect must be inside guards.
+    // fail/stop are parsed permissively at top-level and narrowed here.
     for (const stmt of action.body) {
       this.validateGuardedStmt(stmt);
     }
 
     this.ctx.inAction = false;
+    this.ctx.currentActionParamTypes = new Map();
   }
 
   /**
@@ -192,6 +343,16 @@ export class SemanticValidator {
    */
   private validateAvailableExpr(expr: ExprNode): void {
     switch (expr.kind) {
+      case "identifier":
+        if (this.ctx.currentActionParamTypes.has(expr.name)) {
+          this.error(
+            "Action parameters cannot be used in available condition",
+            expr.location,
+            "E005"
+          );
+        }
+        break;
+
       case "systemIdent":
         // E005: $system.* not allowed in available
         if (expr.path[0] === "system") {
@@ -205,6 +366,13 @@ export class SemanticValidator {
         if (expr.path[0] === "input") {
           this.error(
             "$input.* cannot be used in available condition (parameters not available at availability check)",
+            expr.location,
+            "E005"
+          );
+        }
+        if (expr.path[0] === "meta") {
+          this.error(
+            "$meta.* cannot be used in available condition (availability is schema-context only)",
             expr.location,
             "E005"
           );
@@ -276,6 +444,14 @@ export class SemanticValidator {
         break;
       case "effect":
         this.validateEffect(stmt);
+        break;
+      case "include":
+        break;
+      case "fail":
+        this.validateFail(stmt);
+        break;
+      case "stop":
+        this.validateStop(stmt);
         break;
     }
   }
@@ -374,6 +550,38 @@ export class SemanticValidator {
     }
   }
 
+  private validateFail(stmt: FailStmtNode): void {
+    if (!this.ctx.inGuard) {
+      this.error(
+        "fail must be inside a guard (when, once, or onceIntent)",
+        stmt.location,
+        "E006"
+      );
+    }
+
+    if (stmt.message) {
+      this.validateExpr(stmt.message, "action");
+    }
+  }
+
+  private validateStop(stmt: StopStmtNode): void {
+    if (!this.ctx.inGuard) {
+      this.error(
+        "stop must be inside a guard (when, once, or onceIntent)",
+        stmt.location,
+        "E007"
+      );
+    }
+
+    if (STOP_WAITING_REASON_PATTERN.test(stmt.reason)) {
+      this.error(
+        "stop message suggests waiting/pending - use 'Already processed' style instead",
+        stmt.location,
+        "E008"
+      );
+    }
+  }
+
   private validateCondition(expr: ExprNode, guardType: "when" | "once" | "onceIntent"): void {
     // FDR-MEL-025: Condition must return boolean
     // We can do basic static analysis for obvious non-boolean expressions
@@ -398,6 +606,9 @@ export class SemanticValidator {
       case "binary":
         this.validateExpr(expr.left, context);
         this.validateExpr(expr.right, context);
+        if (expr.operator === "==" || expr.operator === "!=") {
+          this.validatePrimitiveEquality(expr.left, expr.right, expr.location);
+        }
         break;
 
       case "unary":
@@ -481,7 +692,9 @@ export class SemanticValidator {
       // FDR-MEL-042: eq/neq on primitives only
       case "eq":
       case "neq":
-        // We can't fully type-check at compile time, but we can note the requirement
+        if (args.length === 2) {
+          this.validatePrimitiveEquality(args[0], args[1], location);
+        }
         break;
 
       // FDR-MEL-026: len() on Array only
@@ -554,6 +767,8 @@ export class SemanticValidator {
 
       // Binary functions need exactly 2 args
       case "pow":
+      case "findById":
+      case "existsById":
       case "filter":
       case "map":
       case "find":
@@ -569,6 +784,26 @@ export class SemanticValidator {
       case "endsWith":
       case "strIncludes":
       case "indexOf":
+        if (args.length !== 2) {
+          this.error(
+            `Function '${name}' expects 2 arguments, got ${args.length}`,
+            location,
+            "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      case "updateById":
+        if (args.length !== 3) {
+          this.error(
+            `Function '${name}' expects 3 arguments, got ${args.length}`,
+            location,
+            "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      case "removeById":
         if (args.length !== 2) {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
@@ -648,6 +883,35 @@ export class SemanticValidator {
     }
   }
 
+  private validatePrimitiveEquality(
+    left: ExprNode,
+    right: ExprNode,
+    location: SourceLocation
+  ): void {
+    if (!this.symbols) {
+      return;
+    }
+
+    const leftClass = classifyComparableExpr(
+      left,
+      this.ctx.currentActionParamTypes,
+      this.symbols
+    );
+    const rightClass = classifyComparableExpr(
+      right,
+      this.ctx.currentActionParamTypes,
+      this.symbols
+    );
+
+    if (leftClass === "nonprimitive" || rightClass === "nonprimitive") {
+      this.error(
+        "eq/neq operands must be primitive types (null, boolean, number, string)",
+        location,
+        "E_TYPE_MISMATCH"
+      );
+    }
+  }
+
   private error(message: string, location: SourceLocation, code: string): void {
     this.ctx.diagnostics.push({
       severity: "error",
@@ -672,5 +936,12 @@ export class SemanticValidator {
  */
 export function validateSemantics(program: ProgramNode): ValidationResult {
   const validator = new SemanticValidator();
-  return validator.validate(program);
+  const result = validator.validate(program);
+  const entityDiagnostics = validateEntityPrimitives(program);
+  const diagnostics = [...result.diagnostics, ...entityDiagnostics];
+
+  return {
+    valid: !diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    diagnostics,
+  };
 }

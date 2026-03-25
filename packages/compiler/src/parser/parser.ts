@@ -6,7 +6,7 @@
 
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { Token, TokenKind } from "../lexer/tokens.js";
-import { createLocation, mergeLocations, type SourceLocation } from "../lexer/source-location.js";
+import { mergeLocations, type SourceLocation } from "../lexer/source-location.js";
 import {
   type ProgramNode,
   type DomainNode,
@@ -16,12 +16,15 @@ import {
   type StateFieldNode,
   type ComputedNode,
   type ActionNode,
+  type FlowDeclNode,
   type ParamNode,
   type GuardedStmtNode,
+  type FlowStmtNode,
   type InnerStmtNode,
   type WhenStmtNode,
   type OnceStmtNode,
   type OnceIntentStmtNode,
+  type IncludeStmtNode,
   type PatchStmtNode,
   type EffectStmtNode,
   type EffectArgNode,
@@ -173,8 +176,9 @@ export class Parser {
     if (this.check("STATE")) return this.parseState();
     if (this.check("COMPUTED")) return this.parseComputed();
     if (this.check("ACTION")) return this.parseAction();
+    if (this.isFlowDeclContext()) return this.parseFlowDecl();
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'state', 'computed', or 'action'.`);
+    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'state', 'computed', 'action', or 'flow'.`);
     this.advance(); // Skip the bad token
     return null;
   }
@@ -280,6 +284,38 @@ export class Parser {
     };
   }
 
+  private parseFlowDecl(): FlowDeclNode {
+    const startToken = this.consume("IDENTIFIER", "Expected 'flow'");
+    const name = this.consume("IDENTIFIER", "Expected flow name").lexeme;
+    this.consume("LPAREN", "Expected '(' after flow name");
+
+    const params: ParamNode[] = [];
+    if (!this.check("RPAREN")) {
+      do {
+        params.push(this.parseParam());
+      } while (this.match("COMMA"));
+    }
+
+    this.consume("RPAREN", "Expected ')' after parameters");
+    this.consume("LBRACE", "Expected '{' to start flow body");
+
+    const body: FlowStmtNode[] = [];
+    while (!this.check("RBRACE") && !this.isAtEnd()) {
+      const stmt = this.parseFlowStmt();
+      if (stmt) body.push(stmt);
+    }
+
+    const end = this.consume("RBRACE", "Expected '}' to close flow").location;
+
+    return {
+      kind: "flow",
+      name,
+      params,
+      body,
+      location: mergeLocations(startToken.location, end),
+    };
+  }
+
   private parseParam(): ParamNode {
     const nameToken = this.consume("IDENTIFIER", "Expected parameter name");
     this.consume("COLON", "Expected ':' after parameter name");
@@ -299,13 +335,14 @@ export class Parser {
     if (this.check("WHEN")) return this.parseWhenStmt();
     if (this.check("ONCE")) return this.parseOnceStmt();
     if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
+    if (this.isIncludeContext()) return this.parseIncludeStmt();
+    if (this.check("FAIL")) return this.parseFailStmt();
+    if (this.check("STOP")) return this.parseStopStmt();
 
-    // Detect common mistake: patch/effect/fail/stop without when block
+    // Detect common mistake: patch/effect without when block
     const token = this.peek();
     if (token.kind === "PATCH" || token.lexeme === "patch" ||
-        token.kind === "EFFECT" || token.lexeme === "effect" ||
-        token.kind === "FAIL" || token.lexeme === "fail" ||
-        token.kind === "STOP" || token.lexeme === "stop") {
+        token.kind === "EFFECT" || token.lexeme === "effect") {
       this.error(
         `'${token.lexeme}' must be inside a guard block (when, once, or onceIntent). ` +
         `Wrap it: when true { ${token.lexeme} ... }`
@@ -315,7 +352,20 @@ export class Parser {
       return null;
     }
 
-    this.error(`Unexpected token '${token.lexeme}'. Expected 'when', 'once', or 'onceIntent'.`);
+    this.error(`Unexpected token '${token.lexeme}'. Expected 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`);
+    this.advance();
+    return null;
+  }
+
+  private parseFlowStmt(): FlowStmtNode | null {
+    if (this.check("WHEN")) return this.parseWhenStmt();
+    if (this.isIncludeContext()) return this.parseIncludeStmt();
+    if (this.check("ONCE")) return this.parseOnceStmt();
+    if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
+    if (this.check("PATCH")) return this.parsePatchStmt();
+    if (this.check("EFFECT")) return this.parseEffectStmt();
+
+    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'when', 'include', 'once', 'onceIntent', 'patch', or 'effect'.`);
     this.advance();
     return null;
   }
@@ -334,8 +384,18 @@ export class Parser {
         this.advance();
         continue;
       }
-      // Stop before guard keywords at depth 0 (next valid statement)
-      if (braceDepth === 0 && (t.kind === "WHEN" || t.kind === "ONCE" || t.lexeme === "onceIntent")) {
+      // Stop before valid action-body statements at depth 0.
+      if (
+        braceDepth === 0 &&
+        (
+          t.kind === "WHEN" ||
+          t.kind === "ONCE" ||
+          t.lexeme === "onceIntent" ||
+          this.isIncludeContext() ||
+          t.kind === "FAIL" ||
+          t.kind === "STOP"
+        )
+      ) {
         return;
       }
       this.advance();
@@ -425,12 +485,35 @@ export class Parser {
     if (this.check("WHEN")) return this.parseWhenStmt();
     if (this.check("ONCE")) return this.parseOnceStmt();
     if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
+    if (this.isIncludeContext()) return this.parseIncludeStmt();
     if (this.check("FAIL")) return this.parseFailStmt();     // v0.3.2
     if (this.check("STOP")) return this.parseStopStmt();     // v0.3.2
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'patch', 'effect', 'when', 'once', 'onceIntent', 'fail', or 'stop'.`);
+    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'patch', 'effect', 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`);
     this.advance();
     return null;
+  }
+
+  private parseIncludeStmt(): IncludeStmtNode {
+    const startToken = this.consume("IDENTIFIER", "Expected 'include'");
+    const flowNameToken = this.consume("IDENTIFIER", "Expected flow name after 'include'");
+    this.consume("LPAREN", "Expected '(' after flow name");
+
+    const args: ExprNode[] = [];
+    if (!this.check("RPAREN")) {
+      do {
+        args.push(this.parseExpression());
+      } while (this.match("COMMA"));
+    }
+
+    const end = this.consume("RPAREN", "Expected ')' after include arguments").location;
+
+    return {
+      kind: "include",
+      flowName: flowNameToken.lexeme,
+      args,
+      location: mergeLocations(startToken.location, end),
+    };
   }
 
   private parsePatchStmt(): PatchStmtNode {
@@ -1024,10 +1107,14 @@ export class Parser {
   }
 
   private peekNext(): Token {
-    if (this.current + 1 >= this.tokens.length) {
+    return this.peekAt(1);
+  }
+
+  private peekAt(offset: number): Token {
+    if (this.current + offset >= this.tokens.length) {
       return this.tokens[this.tokens.length - 1];
     }
-    return this.tokens[this.current + 1];
+    return this.tokens[this.current + offset];
   }
 
   private previous(): Token {
@@ -1054,6 +1141,20 @@ export class Parser {
     if (token.lexeme !== "onceIntent") return false;
     const next = this.peekNext();
     return next.kind === "LBRACE" || next.kind === "WHEN";
+  }
+
+  private isFlowDeclContext(): boolean {
+    if (!this.check("IDENTIFIER")) return false;
+    const keyword = this.peek();
+    if (keyword.lexeme !== "flow") return false;
+    return this.peekNext().kind === "IDENTIFIER" && this.peekAt(2).kind === "LPAREN";
+  }
+
+  private isIncludeContext(): boolean {
+    if (!this.check("IDENTIFIER")) return false;
+    const keyword = this.peek();
+    if (keyword.lexeme !== "include") return false;
+    return this.peekNext().kind === "IDENTIFIER" && this.peekAt(2).kind === "LPAREN";
   }
 
   private match(...kinds: TokenKind[]): boolean {

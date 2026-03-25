@@ -46,12 +46,12 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
   },
   E006: {
     code: "E006",
-    message: "fail must be inside a guard (when or once)",
+    message: "fail must be inside a guard (when, once, or onceIntent)",
     category: "semantic",
   },
   E007: {
     code: "E007",
-    message: "stop must be inside a guard (when or once)",
+    message: "stop must be inside a guard (when, once, or onceIntent)",
     category: "semantic",
   },
   E008: {
@@ -73,6 +73,141 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     code: "E011",
     message: "reduce/fold/scan is forbidden - use sum, min, max for aggregation",
     category: "semantic",
+  },
+  E013: {
+    code: "E013",
+    message: "Circular include detected",
+    category: "semantic",
+  },
+  E014: {
+    code: "E014",
+    message: "Include expansion depth exceeds limit",
+    category: "semantic",
+  },
+  E015: {
+    code: "E015",
+    message: "Include target is not a declared flow",
+    category: "semantic",
+  },
+  E016: {
+    code: "E016",
+    message: "Include not allowed in InnerStmt position",
+    category: "semantic",
+  },
+  E017: {
+    code: "E017",
+    message: "once() not allowed in flow",
+    category: "semantic",
+  },
+  E018: {
+    code: "E018",
+    message: "onceIntent not allowed in flow",
+    category: "semantic",
+  },
+  E019: {
+    code: "E019",
+    message: "patch not allowed in flow",
+    category: "semantic",
+  },
+  E020: {
+    code: "E020",
+    message: "effect not allowed in flow",
+    category: "semantic",
+  },
+  E021: {
+    code: "E021",
+    message: "Flow parameter name conflicts with top-level identifier",
+    category: "semantic",
+  },
+  E022: {
+    code: "E022",
+    message: "Flow and action share the same name",
+    category: "semantic",
+  },
+  E023: {
+    code: "E023",
+    message: "Wrong number of arguments for included flow",
+    category: "semantic",
+  },
+  E024: {
+    code: "E024",
+    message: "Include argument type mismatch",
+    category: "type",
+  },
+  E030: {
+    code: "E030",
+    message: "Collection element type does not have an 'id' field",
+    category: "type",
+  },
+  E030a: {
+    code: "E030a",
+    message: "Collection element 'id' field is not a primitive type",
+    category: "type",
+  },
+  E030b: {
+    code: "E030b",
+    message: "Duplicate '.id' values detected in state initializer",
+    category: "type",
+  },
+  E031: {
+    code: "E031",
+    message: "updateById/removeById not allowed in this context",
+    category: "semantic",
+  },
+  E032: {
+    code: "E032",
+    message: "Nested transform primitive",
+    category: "semantic",
+  },
+  E033: {
+    code: "E033",
+    message: "Transform primitive collection argument is not a state path",
+    category: "semantic",
+  },
+  E034: {
+    code: "E034",
+    message: "Transform primitive in guard condition",
+    category: "semantic",
+  },
+  E035: {
+    code: "E035",
+    message: "Transform primitive in available condition",
+    category: "semantic",
+  },
+  E040: {
+    code: "E040",
+    message: "Circular computed dependency",
+    category: "semantic",
+  },
+  E041: {
+    code: "E041",
+    message: "Computed references undeclared identifier",
+    category: "semantic",
+  },
+  E042: {
+    code: "E042",
+    message: "State initializer references non-constant value",
+    category: "semantic",
+  },
+  E043: {
+    code: "E043",
+    message: "Non-trivial union type cannot be lowered to FieldSpec",
+    category: "type",
+  },
+  E044: {
+    code: "E044",
+    message: "Recursive named type cannot be lowered to FieldSpec",
+    category: "type",
+  },
+  E045: {
+    code: "E045",
+    message: "Nullable type cannot be lowered to FieldSpec",
+    category: "type",
+  },
+  E046: {
+    code: "E046",
+    message: "Record type cannot be lowered to FieldSpec",
+    category: "type",
   },
 
   // ============ Scope Errors (E1xx) ============

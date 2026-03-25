@@ -11,6 +11,7 @@
 import type { ExprNode } from "@manifesto-ai/core";
 import type { EvaluationContext } from "./context.js";
 import { parsePath } from "@manifesto-ai/core";
+import { compareUnicodeCodePoints } from "../utils/unicode-order.js";
 
 // ============ Main Evaluation Function ============
 
@@ -94,6 +95,9 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
 
     case "mod":
       return evaluateMod(expr.left, expr.right, ctx);
+
+    case "neg":
+      return evaluateNeg(expr.arg, ctx);
 
     // String
     case "concat":
@@ -415,6 +419,11 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvaluationContext): n
   return l % r;
 }
 
+function evaluateNeg(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  return typeof value === "number" ? -value : null;
+}
+
 // ============ String Operators ============
 
 function evaluateConcat(args: ExprNode[], ctx: EvaluationContext): string | null {
@@ -705,7 +714,8 @@ function evaluateObject(
   ctx: EvaluationContext
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(fields)) {
+  for (const key of Object.keys(fields).sort(compareUnicodeCodePoints)) {
+    const value = fields[key];
     result[key] = evaluateNode(value, ctx);
   }
   return result;
@@ -732,7 +742,7 @@ function evaluateKeys(obj: ExprNode, ctx: EvaluationContext): string[] | null {
     return null;
   }
 
-  return Object.keys(o);
+  return Object.keys(o).sort(compareUnicodeCodePoints);
 }
 
 function evaluateValues(obj: ExprNode, ctx: EvaluationContext): unknown[] | null {
@@ -742,7 +752,9 @@ function evaluateValues(obj: ExprNode, ctx: EvaluationContext): unknown[] | null
     return null;
   }
 
-  return Object.values(o);
+  return Object.keys(o)
+    .sort(compareUnicodeCodePoints)
+    .map((key) => (o as Record<string, unknown>)[key]);
 }
 
 function evaluateEntries(obj: ExprNode, ctx: EvaluationContext): [string, unknown][] | null {
@@ -752,7 +764,9 @@ function evaluateEntries(obj: ExprNode, ctx: EvaluationContext): [string, unknow
     return null;
   }
 
-  return Object.entries(o);
+  return Object.keys(o)
+    .sort(compareUnicodeCodePoints)
+    .map((key) => [key, (o as Record<string, unknown>)[key]]);
 }
 
 function evaluateMerge(

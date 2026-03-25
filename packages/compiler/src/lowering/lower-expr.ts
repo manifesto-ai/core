@@ -1,7 +1,7 @@
 /**
  * Expression Lowering
  *
- * Transforms MEL Canonical IR (7 kinds) to Core Runtime IR (30+ kinds).
+ * Transforms MEL Canonical IR (8 kinds) to Core Runtime IR (30+ kinds).
  *
  * @see SPEC v0.4.0 §17
  */
@@ -15,6 +15,7 @@ import {
   unknownNodeKind,
   unsupportedBase,
 } from "./errors.js";
+import { stableSortByUnicodeObjectKey } from "../utils/unicode-order.js";
 
 // ============ MEL IR Types (Input) ============
 
@@ -44,7 +45,7 @@ export type MelSystemPath = string[];
 export type MelObjField = { key: string; value: MelExprNode };
 
 /**
- * MEL Canonical IR (7 kinds).
+ * MEL Canonical IR (8 kinds).
  *
  * @see SPEC v0.4.0 §17.1.1
  */
@@ -53,6 +54,7 @@ export type MelExprNode =
   | { kind: "var"; name: "item" }
   | { kind: "sys"; path: MelSystemPath }
   | { kind: "get"; base?: MelExprNode; path: MelPathNode }
+  | { kind: "field"; object: MelExprNode; property: string }
   | { kind: "call"; fn: string; args: MelExprNode[] }
   | { kind: "obj"; fields: MelObjField[] }
   | { kind: "arr"; elements: MelExprNode[] };
@@ -85,6 +87,9 @@ export function lowerExprNode(
 
     case "get":
       return lowerGet(input, ctx);
+
+    case "field":
+      return lowerField(input, ctx);
 
     case "call":
       return lowerCall(input, ctx);
@@ -188,6 +193,31 @@ function lowerGet(
 }
 
 /**
+ * Lower field node.
+ *
+ * Rule 1: field(get(path), "prop") -> get("path.prop")
+ * Rule 2: all other cases -> field(lowered object, property)
+ */
+function lowerField(
+  input: { kind: "field"; object: MelExprNode; property: string },
+  ctx: ExprLoweringContext
+): CoreExprNode {
+  if (input.object.kind === "get" && input.object.base === undefined) {
+    const objectPath = input.object.path.map((segment) => segment.name).join(".");
+    return {
+      kind: "get",
+      path: objectPath ? `${objectPath}.${input.property}` : input.property,
+    };
+  }
+
+  return {
+    kind: "field",
+    object: lowerExprNode(input.object, ctx),
+    property: input.property,
+  };
+}
+
+/**
  * Lower call node.
  *
  * call(fn, args) → specialized Core node
@@ -213,18 +243,31 @@ function lowerCall(
     } as CoreExprNode;
   }
 
+  if (fn === "isNotNull") {
+    if (args.length !== 1) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "not",
+      arg: {
+        kind: "isNull",
+        arg: lowerExprNode(args[0], ctx),
+      },
+    };
+  }
+
   // Unary operators: arg
   if (isUnaryArgOp(fn)) {
     if (args.length !== 1) {
       throw unknownCallFn(fn);
     }
+    const normalizedFn = normalizeUnaryArgOp(fn);
     return {
-      kind: fn,
+      kind: normalizedFn,
       arg: lowerExprNode(args[0], ctx),
     } as CoreExprNode;
   }
 
-  // Unary operators: str
   if (fn === "trim") {
     if (args.length !== 1) {
       throw unknownCallFn(fn);
@@ -232,6 +275,70 @@ function lowerCall(
     return {
       kind: "trim",
       str: lowerExprNode(args[0], ctx),
+    };
+  }
+
+  if (fn === "lower" || fn === "toLowerCase") {
+    if (args.length !== 1) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "toLowerCase",
+      str: lowerExprNode(args[0], ctx),
+    };
+  }
+
+  if (fn === "upper" || fn === "toUpperCase") {
+    if (args.length !== 1) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "toUpperCase",
+      str: lowerExprNode(args[0], ctx),
+    };
+  }
+
+  if (fn === "strlen" || fn === "strLen") {
+    if (args.length !== 1) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "strLen",
+      str: lowerExprNode(args[0], ctx),
+    };
+  }
+
+  if (isScalarMinMaxOp(fn)) {
+    if (args.length === 1) {
+      return {
+        kind: fn === "min" ? "minArray" : "maxArray",
+        array: lowerExprNode(args[0], ctx),
+      };
+    }
+    return {
+      kind: fn,
+      args: args.map((arg) => lowerExprNode(arg, ctx)),
+    } as CoreExprNode;
+  }
+
+  if (fn === "sum") {
+    if (args.length !== 1) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "sumArray",
+      array: lowerExprNode(args[0], ctx),
+    };
+  }
+
+  if (fn === "pow") {
+    if (args.length !== 2) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "pow",
+      base: lowerExprNode(args[0], ctx),
+      exponent: lowerExprNode(args[1], ctx),
     };
   }
 
@@ -243,8 +350,8 @@ function lowerCall(
     } as CoreExprNode;
   }
 
-  // Conditional: if(cond, then, else)
-  if (fn === "if") {
+  // Conditional: cond(cond, then, else)
+  if (fn === "if" || fn === "cond") {
     if (args.length !== 3) {
       throw unknownCallFn(fn);
     }
@@ -267,11 +374,14 @@ function lowerCall(
       throw unknownCallFn(fn);
     }
 
-    return {
-      kind: "field",
-      object,
-      property: property.value,
-    };
+    return lowerField(
+      {
+        kind: "field",
+        object: args[0],
+        property: property.value,
+      },
+      ctx
+    );
   }
 
   // Array operators: array
@@ -357,7 +467,7 @@ function lowerCall(
   }
 
   // substring(str, start, end?)
-  if (fn === "substring") {
+  if (fn === "substring" || fn === "substr") {
     if (args.length < 2 || args.length > 3) {
       throw unknownCallFn(fn);
     }
@@ -407,7 +517,7 @@ function lowerObj(
   ctx: ExprLoweringContext
 ): CoreExprNode {
   const fields: Record<string, CoreExprNode> = {};
-  for (const field of input.fields) {
+  for (const field of stableSortByUnicodeObjectKey(input.fields)) {
     fields[field.key] = lowerExprNode(field.value, ctx);
   }
   return { kind: "object", fields };
@@ -463,9 +573,32 @@ function isBinaryOp(fn: string): boolean {
   ].includes(fn);
 }
 
-/** Unary operators with 'arg' field: not, len, typeof, isNull */
+/** Unary operators with 'arg' field */
 function isUnaryArgOp(fn: string): boolean {
-  return ["not", "len", "typeof", "isNull"].includes(fn);
+  return [
+    "not",
+    "neg",
+    "abs",
+    "floor",
+    "ceil",
+    "round",
+    "sqrt",
+    "len",
+    "typeof",
+    "isNull",
+    "toString",
+  ].includes(fn);
+}
+
+function normalizeUnaryArgOp(fn: string): "not" | "neg" | "abs" | "floor" | "ceil" | "round" | "sqrt" | "len" | "typeof" | "isNull" | "toString" {
+  if (fn === "isNotNull") {
+    throw unknownCallFn(fn);
+  }
+  return fn;
+}
+
+function isScalarMinMaxOp(fn: string): boolean {
+  return fn === "min" || fn === "max";
 }
 
 /** Variadic operators with 'args' field: and, or, concat, coalesce */

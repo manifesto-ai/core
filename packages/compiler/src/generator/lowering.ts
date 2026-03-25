@@ -18,8 +18,9 @@ import type { DomainSchema, ActionSpec, CoreFlowNode, CoreExprNode, FieldSpec } 
  */
 interface SystemSlot {
   key: string; // e.g., "uuid", "time.now"
-  valueSlot: string; // e.g., "__sys__addTask_uuid_value"
-  intentSlot: string; // e.g., "__sys__addTask_uuid_intent"
+  normalizedKey: string;
+  valuePath: string; // e.g., "$mel.sys.addTask.uuid.value"
+  intentPath: string; // e.g., "$mel.sys.addTask.uuid.intent"
 }
 
 /**
@@ -54,16 +55,7 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
 
     // Add state slots
     for (const slot of ctx.slots.values()) {
-      result.state.fields[slot.valueSlot] = {
-        type: systemValueType(slot.key),
-        required: true,
-        default: null,
-      };
-      result.state.fields[slot.intentSlot] = {
-        type: "string",
-        required: true,
-        default: null,
-      };
+      ensureSystemSlotFields(result.state.fields, actionName, slot);
     }
 
     // Transform the flow
@@ -104,6 +96,48 @@ function systemValueType(key: string): FieldSpec["type"] {
 
 function normalizeSystemKeyForSlot(key: string): string {
   return key.replaceAll(".", "_");
+}
+
+function ensureObjectField(fields: Record<string, FieldSpec>, name: string): FieldSpec {
+  const existing = fields[name];
+  if (existing && existing.type === "object") {
+    existing.required = false;
+    existing.default ??= {};
+    existing.fields ??= {};
+    return existing;
+  }
+
+  const created: FieldSpec = {
+    type: "object",
+    required: false,
+    default: {},
+    fields: {},
+  };
+  fields[name] = created;
+  return created;
+}
+
+function ensureSystemSlotFields(
+  rootFields: Record<string, FieldSpec>,
+  actionName: string,
+  slot: SystemSlot
+): void {
+  const melField = ensureObjectField(rootFields, "$mel");
+  const sysField = ensureObjectField(melField.fields ?? (melField.fields = {}), "sys");
+  const actionField = ensureObjectField(sysField.fields ?? (sysField.fields = {}), actionName);
+  const keyField = ensureObjectField(actionField.fields ?? (actionField.fields = {}), slot.normalizedKey);
+  const keyFields = keyField.fields ?? (keyField.fields = {});
+
+  keyFields.intent = {
+    type: "string",
+    required: false,
+    default: null,
+  };
+  keyFields.value = {
+    type: systemValueType(slot.key),
+    required: false,
+    default: null,
+  };
 }
 
 function toPatchPath(path: string) {
@@ -161,8 +195,9 @@ function collectSystemRefsFromExpr(expr: CoreExprNode, ctx: LoweringContext): vo
       const normalizedKey = normalizeSystemKeyForSlot(key);
       ctx.slots.set(key, {
         key,
-        valueSlot: `__sys__${ctx.actionName}_${normalizedKey}_value`,
-        intentSlot: `__sys__${ctx.actionName}_${normalizedKey}_intent`,
+        normalizedKey,
+        valuePath: `$mel.sys.${ctx.actionName}.${normalizedKey}.value`,
+        intentPath: `$mel.sys.${ctx.actionName}.${normalizedKey}.intent`,
       });
     }
     return;
@@ -208,15 +243,15 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
   const acquisitionSteps: CoreFlowNode[] = [];
 
   for (const slot of ctx.slots.values()) {
-    // once(__sys__action_key_intent) {
-    //   patch __sys__action_key_intent = $meta.intentId
-    //   effect system.get({ key: "uuid", into: __sys__action_key_value })
+    // once($mel.sys.action.key.intent) {
+    //   patch $mel.sys.action.key.intent = $meta.intentId
+    //   effect system.get({ key: "uuid", into: $mel.sys.action.key.value })
     // }
     const acquisitionFlow: CoreFlowNode = {
       kind: "if",
       cond: {
         kind: "neq",
-        left: { kind: "get", path: slot.intentSlot },
+        left: { kind: "get", path: slot.intentPath },
         right: { kind: "get", path: "meta.intentId" },
       },
       then: {
@@ -225,7 +260,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
           {
             kind: "patch",
             op: "set",
-            path: toPatchPath(slot.intentSlot),
+            path: toPatchPath(slot.intentPath),
             value: { kind: "get", path: "meta.intentId" },
           },
           {
@@ -233,7 +268,7 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
             type: "system.get",
             params: {
               key: { kind: "lit", value: slot.key },
-              into: { kind: "lit", value: slot.valueSlot },
+              into: { kind: "lit", value: slot.valuePath },
             },
           },
         ],
@@ -243,12 +278,12 @@ function lowerFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
   }
 
   // Generate readiness condition
-  // eq(__sys__action_key_intent, $meta.intentId) for all slots
+  // eq($mel.sys.action.key.intent, $meta.intentId) for all slots
   const readinessConditions: CoreExprNode[] = [];
   for (const slot of ctx.slots.values()) {
     readinessConditions.push({
       kind: "eq",
-      left: { kind: "get", path: slot.intentSlot },
+      left: { kind: "get", path: slot.intentPath },
       right: { kind: "get", path: "meta.intentId" },
     });
   }
@@ -333,7 +368,7 @@ function transformExpr(expr: CoreExprNode, ctx: LoweringContext): CoreExprNode {
     const key = expr.path.slice("$system.".length);
     const slot = ctx.slots.get(key);
     if (slot) {
-      return { kind: "get", path: slot.valueSlot };
+      return { kind: "get", path: slot.valuePath };
     }
   }
 

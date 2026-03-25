@@ -1,5 +1,53 @@
 import { describe, it, expect } from "vitest";
-import { compile, type DomainSchema, type CoreExprNode, type CoreFlowNode } from "../../src/index.js";
+import {
+  analyzeScope,
+  compile,
+  generateCanonical,
+  parse,
+  tokenize,
+  validateSemantics,
+  type DomainSchema,
+  type CoreExprNode,
+  type CoreFlowNode,
+} from "../../src/index.js";
+import { validateAndExpandFlows } from "../../src/analyzer/flow-composition.js";
+
+function compileCanonicalExpr(exprSource: string) {
+  const lexed = tokenize(`
+    domain Demo {
+      state {
+        a: number = 1
+        b: number = 2
+        user: { name: string } = { name: "Ada" }
+        records: Array<{ status: string }> = []
+        items: Array<number> = []
+      }
+      computed value = ${exprSource}
+    }
+  `);
+  expect(lexed.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toHaveLength(0);
+
+  const parsed = parse(lexed.tokens);
+  expect(parsed.program).not.toBeNull();
+  expect(parsed.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toHaveLength(0);
+  if (!parsed.program) {
+    return null;
+  }
+
+  const flowResult = validateAndExpandFlows(parsed.program);
+  const scopeResult = analyzeScope(flowResult.program);
+  const semanticResult = validateSemantics(flowResult.program);
+  const errors = [
+    ...flowResult.diagnostics,
+    ...scopeResult.diagnostics,
+    ...semanticResult.diagnostics,
+  ].filter((diagnostic) => diagnostic.severity === "error");
+  expect(errors).toHaveLength(0);
+
+  const generated = generateCanonical(flowResult.program);
+  expect(generated.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toHaveLength(0);
+  return generated.schema?.computed.fields["value"]?.expr ?? null;
+}
 
 describe("IR Generator", () => {
   describe("basic compilation", () => {
@@ -111,6 +159,36 @@ describe("IR Generator", () => {
         expect(doubled.deps).toContain("count");
       }
     });
+
+    it("emits computed fields in topological order", () => {
+      const result = compile(`
+        domain Demo {
+          state { count: number = 0 }
+          computed final = add(total, 1)
+          computed total = add(count, 1)
+        }
+      `);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(Object.keys(result.schema.computed.fields)).toEqual(["total", "final"]);
+      }
+    });
+
+    it("rejects circular computed dependencies with E040", () => {
+      const result = compile(`
+        domain Demo {
+          state { count: number = 0 }
+          computed a = add(b, 1)
+          computed b = add(a, 1)
+        }
+      `);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.errors.some((error) => error.code === "E040")).toBe(true);
+      }
+    });
   });
 
   describe("action generation", () => {
@@ -159,7 +237,7 @@ describe("IR Generator", () => {
       const result = compile(`
         domain Counter {
           state {
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
           action increment() {
             once(lastIntent) {
@@ -255,6 +333,70 @@ describe("IR Generator", () => {
     });
   });
 
+  describe("canonical generation", () => {
+    it("normalizes operations to MEL call nodes", () => {
+      const expr = compileCanonicalExpr("add(a, b)");
+      expect(expr).toEqual({
+        kind: "call",
+        fn: "add",
+        args: [
+          { kind: "get", path: [{ kind: "prop", name: "a" }] },
+          { kind: "get", path: [{ kind: "prop", name: "b" }] },
+        ],
+      });
+    });
+
+    it("keeps direct property access as get paths", () => {
+      const expr = compileCanonicalExpr("user.name");
+      expect(expr).toEqual({
+        kind: "get",
+        path: [
+          { kind: "prop", name: "user" },
+          { kind: "prop", name: "name" },
+        ],
+      });
+    });
+
+    it("uses field() only for property access on computed expressions", () => {
+      const expr = compileCanonicalExpr("at(records, 0).status");
+      expect(expr).toEqual({
+        kind: "field",
+        object: {
+          kind: "call",
+          fn: "at",
+          args: [
+            { kind: "get", path: [{ kind: "prop", name: "records" }] },
+            { kind: "lit", value: 0 },
+          ],
+        },
+        property: "status",
+      });
+    });
+
+    it("uses get(base=item, path) for $item property access", () => {
+      const expr = compileCanonicalExpr("find(items, eq($item.id, 1))");
+      expect(expr).toEqual({
+        kind: "call",
+        fn: "find",
+        args: [
+          { kind: "get", path: [{ kind: "prop", name: "items" }] },
+          {
+            kind: "call",
+            fn: "eq",
+            args: [
+              {
+                kind: "get",
+                base: { kind: "var", name: "item" },
+                path: [{ kind: "prop", name: "id" }],
+              },
+              { kind: "lit", value: 1 },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
   describe("path resolution", () => {
     it("resolves state paths", () => {
       const result = compile(`
@@ -307,7 +449,7 @@ describe("IR Generator", () => {
       const result = compile(`
         domain Counter {
           state {
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
           action increment() {
             when true {
@@ -333,7 +475,7 @@ describe("IR Generator", () => {
         domain Counter {
           state {
             count: number = 0
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
 
           computed doubled = mul(count, 2)
@@ -349,7 +491,7 @@ describe("IR Generator", () => {
           action reset() {
             when gt(count, 0) {
               patch count = 0
-              patch lastIntent = null
+              patch lastIntent = ""
             }
           }
         }
@@ -368,8 +510,9 @@ describe("IR Generator", () => {
       const result = compile(`
         domain TaskManager {
           state {
-            tasks: Record<string, Task> = {}
+            tasks: object = {}
             filter: "all" | "active" | "completed" = "all"
+            lastAdded: string = ""
           }
 
           computed taskCount = len(keys(tasks))
