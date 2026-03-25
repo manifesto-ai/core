@@ -104,9 +104,6 @@ importers:
 
   packages/compiler:
     dependencies:
-      '@manifesto-ai/host':
-        specifier: ^2.0.0
-        version: 2.0.1(@manifesto-ai/core@packages+core)
       ink:
         specifier: ^6.7.0
         version: 6.7.0(@types/react@19.2.14)(react@19.2.4)
@@ -850,11 +847,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
-
-  '@manifesto-ai/host@2.0.1':
-    resolution: {integrity: sha512-9icgBidREsXy4fDNSjpZ08DBBrThgSO2Lx5IKEWvi4TQG5Qw60Vw/10J5qcxxhDQXWH9Wlak18hZ3d9ti7mtzg==}
-    peerDependencies:
-      '@manifesto-ai/core': ^2.0.0
 
   '@mermaid-js/parser@1.0.0':
     resolution: {integrity: sha512-vvK0Hi/VWndxoh03Mmz6wa1KDriSPjS2XMZL/1l19HFwygiObEEoEwSDxOqyLzzAI6J2PU3261JjTMTO7x+BPw==}
@@ -3727,10 +3719,6 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
-
-  '@manifesto-ai/host@2.0.1(@manifesto-ai/core@packages+core)':
-    dependencies:
-      '@manifesto-ai/core': link:packages/core
 
   '@mermaid-js/parser@1.0.0':
     dependencies:
