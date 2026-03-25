@@ -573,8 +573,21 @@ function isBinaryOp(fn: string): boolean {
   ].includes(fn);
 }
 
+type UnaryArgOp =
+  | "not"
+  | "neg"
+  | "abs"
+  | "floor"
+  | "ceil"
+  | "round"
+  | "sqrt"
+  | "len"
+  | "typeof"
+  | "isNull"
+  | "toString";
+
 /** Unary operators with 'arg' field */
-function isUnaryArgOp(fn: string): boolean {
+function isUnaryArgOp(fn: string): fn is UnaryArgOp {
   return [
     "not",
     "neg",
@@ -590,8 +603,11 @@ function isUnaryArgOp(fn: string): boolean {
   ].includes(fn);
 }
 
-function normalizeUnaryArgOp(fn: string): "not" | "neg" | "abs" | "floor" | "ceil" | "round" | "sqrt" | "len" | "typeof" | "isNull" | "toString" {
+function normalizeUnaryArgOp(fn: string): UnaryArgOp {
   if (fn === "isNotNull") {
+    throw unknownCallFn(fn);
+  }
+  if (!isUnaryArgOp(fn)) {
     throw unknownCallFn(fn);
   }
   return fn;

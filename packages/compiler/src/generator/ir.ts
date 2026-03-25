@@ -353,7 +353,10 @@ export function generateCanonical(program: ProgramNode): GenerateCanonicalResult
 export function generate(program: ProgramNode): GenerateResult {
   const canonical = generateCanonical(program);
   if (!canonical.schema) {
-    return canonical;
+    return {
+      schema: null,
+      diagnostics: canonical.diagnostics,
+    };
   }
 
   return {
