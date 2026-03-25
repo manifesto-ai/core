@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.3.5](https://github.com/manifesto-ai/core/compare/host-v2.3.4...host-v2.3.5) (2026-03-25)
+
+
+### Bug Fixes
+
+* address PR [#204](https://github.com/manifesto-ai/core/issues/204) review feedback (P1/P2 issues) ([f4b0fa6](https://github.com/manifesto-ai/core/commit/f4b0fa6d973ce32f8c4488c5ac0ac4fe0ba91b7b))
+* **core:** skip availability check on re-entry to prevent self-invalidation ([#134](https://github.com/manifesto-ai/core/issues/134)) ([#137](https://github.com/manifesto-ai/core/issues/137)) ([591edae](https://github.com/manifesto-ai/core/commit/591edaea6e8d2b61c31a225256b8c38e0bec2314))
+* **host-executor:** detect Host fatal errors in drain loop ([02b57f5](https://github.com/manifesto-ai/core/commit/02b57f5f7e9b740581f2e06ead765b2931bf9e5c))
+* **host-executor:** drain loop premature exit & lock leak on setup throw ([a2c18c7](https://github.com/manifesto-ai/core/commit/a2c18c763ca2881e703c81cf9e12378f7be107f8))
+* **host-executor:** stamp failure into terminal snapshot & harden reset guard ([97aef8a](https://github.com/manifesto-ai/core/commit/97aef8a2cfdecd5cabdd2335f06c9db94a0df7d0))
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+* **review:** hold lock until dispatch settles & harden isSnapshotLike guard ([ee4a4f2](https://github.com/manifesto-ai/core/commit/ee4a4f264fcf6366bcc555efcf6d6e3efd5b130c))
+* **runtime:** decouple intentId uniqueness from executionKey routing ([ce77026](https://github.com/manifesto-ai/core/commit/ce770266a26d90a3a06880959c6df51d449372ad))
+* **test:** pin local vite runtimes for package vitest ([2da24f8](https://github.com/manifesto-ai/core/commit/2da24f89da7f618da3bd58f13a5c3d565b29251c))
+
 ## [2.3.3](https://github.com/manifesto-ai/core/compare/host-v2.3.2...host-v2.3.3) (2026-02-25)
 
 
