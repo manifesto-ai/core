@@ -187,6 +187,93 @@ describe("Semantic Analyzer", () => {
         expect(diagnostics.filter(d => d.severity === "error")).toHaveLength(0);
       }
     });
+
+    it("reports E006 for fail outside a guard", () => {
+      const { program, diagnostics: parseDiagnostics } = parseSource(`
+        domain Test {
+          action reject() {
+            fail "REJECTED"
+          }
+        }
+      `);
+
+      expect(parseDiagnostics).toHaveLength(0);
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E006")).toBe(true);
+      }
+    });
+
+    it("reports E007 for stop outside a guard without E008 for processed wording", () => {
+      const { program, diagnostics: parseDiagnostics } = parseSource(`
+        domain Test {
+          action noop() {
+            stop "Already processed"
+          }
+        }
+      `);
+
+      expect(parseDiagnostics).toHaveLength(0);
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E007")).toBe(true);
+        expect(diagnostics.some((d) => d.code === "E008")).toBe(false);
+      }
+    });
+
+    it("reports E007 and E008 for waiting-style stop outside a guard", () => {
+      const { program, diagnostics: parseDiagnostics } = parseSource(`
+        domain Test {
+          action noop() {
+            stop "Waiting for approval"
+          }
+        }
+      `);
+
+      expect(parseDiagnostics).toHaveLength(0);
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E007")).toBe(true);
+        expect(diagnostics.some((d) => d.code === "E008")).toBe(true);
+      }
+    });
+
+    it("reports only E008 for waiting-style stop inside a guard", () => {
+      const { program, diagnostics: parseDiagnostics } = parseSource(`
+        domain Test {
+          action noop() {
+            when true {
+              stop "Waiting for approval"
+            }
+          }
+        }
+      `);
+
+      expect(parseDiagnostics).toHaveLength(0);
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E007")).toBe(false);
+        expect(diagnostics.some((d) => d.code === "E008")).toBe(true);
+      }
+    });
+
+    it("accepts processed stop wording inside a guard", () => {
+      const { program, diagnostics: parseDiagnostics } = parseSource(`
+        domain Test {
+          action noop() {
+            when true {
+              stop "Already processed"
+            }
+          }
+        }
+      `);
+
+      expect(parseDiagnostics).toHaveLength(0);
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+      }
+    });
   });
 
   describe("unknown function detection (#251)", () => {

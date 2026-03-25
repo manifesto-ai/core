@@ -25,11 +25,16 @@ import type {
   PathNode,
   TypeExprNode,
   ObjectTypeNode, // v0.3.3
-  BinaryOperator,
 } from "../parser/ast.js";
-import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
+import type { MelExprNode } from "../lowering/lower-expr.js";
+import {
+  getPathExpr,
+  objExpr,
+  sysPathExpr,
+  toMelExpr,
+} from "../lowering/to-mel-expr.js";
 import { hashSchemaSync, semanticPathToPatchPath, sha256Sync, type PatchPath } from "@manifesto-ai/core";
-import { lowerEntityPrimitivesInSchema } from "./entity-primitives.js";
+import { lowerCanonicalSchema } from "./runtime-lowering.js";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -96,19 +101,7 @@ export type CoreExprNode =
   | { kind: "coalesce"; args: CoreExprNode[] }
   | { kind: "toString"; arg: CoreExprNode };
 
-export type EntityPrimitiveName =
-  | "findById"
-  | "existsById"
-  | "updateById"
-  | "removeById";
-
-export interface EntityCallExprNode {
-  kind: "call";
-  fn: EntityPrimitiveName;
-  args: CompilerExprNode[];
-}
-
-export type CompilerExprNode = CoreExprNode | EntityCallExprNode;
+export type CompilerExprNode = MelExprNode;
 
 /**
  * Core FlowNode types (matching core/schema/flow.ts)
@@ -267,6 +260,14 @@ interface GeneratorContext {
   typeDefs: Map<string, TypeDeclNode>;
 }
 
+interface ComputedEntry {
+  name: string;
+  deps: string[];
+  expr: CompilerExprNode;
+  location: ComputedNode["location"];
+  order: number;
+}
+
 function createContext(domainName: string): GeneratorContext {
   return {
     domainName,
@@ -352,7 +353,7 @@ export function generate(program: ProgramNode): GenerateResult {
   }
 
   return {
-    schema: lowerEntityPrimitivesInSchema(canonical.schema),
+    schema: lowerCanonicalSchema(canonical.schema),
     diagnostics: canonical.diagnostics,
   };
 }
@@ -672,48 +673,186 @@ function generateComputed(
   domain: DomainNode,
   ctx: GeneratorContext
 ): { fields: Record<string, CompilerComputedFieldSpec> } {
-  const fields: Record<string, CompilerComputedFieldSpec> = {};
+  const entries: ComputedEntry[] = [];
+  let order = 0;
 
   for (const member of domain.members) {
     if (member.kind === "computed") {
       const expr = generateExpr(member.expression, ctx);
       const deps = extractDeps(expr);
 
-      fields[member.name] = {
+      entries.push({
+        name: member.name,
         deps,
         expr,
-      };
+        location: member.location,
+        order,
+      });
+      order += 1;
     }
   }
 
+  const fields: Record<string, CompilerComputedFieldSpec> = {};
+  for (const entry of topologicallyOrderComputedEntries(entries, ctx)) {
+    fields[entry.name] = {
+      deps: entry.deps,
+      expr: entry.expr,
+    };
+  }
+
   return { fields };
+}
+
+function topologicallyOrderComputedEntries(entries: readonly ComputedEntry[], ctx: GeneratorContext): ComputedEntry[] {
+  if (entries.length <= 1) {
+    return [...entries];
+  }
+
+  const entryByName = new Map(entries.map((entry) => [entry.name, entry]));
+  const computedDeps = new Map<string, string[]>();
+  const dependents = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+
+  for (const entry of entries) {
+    dependents.set(entry.name, []);
+    inDegree.set(entry.name, 0);
+  }
+
+  for (const entry of entries) {
+    const deps = Array.from(new Set(entry.deps.filter((dep) => entryByName.has(dep))));
+    computedDeps.set(entry.name, deps);
+    inDegree.set(entry.name, deps.length);
+
+    for (const dep of deps) {
+      dependents.get(dep)!.push(entry.name);
+    }
+  }
+
+  const queue = entries
+    .filter((entry) => (inDegree.get(entry.name) ?? 0) === 0)
+    .map((entry) => entry.name);
+  const sorted: ComputedEntry[] = [];
+
+  while (queue.length > 0) {
+    const name = queue.shift()!;
+    sorted.push(entryByName.get(name)!);
+
+    for (const dependent of dependents.get(name) ?? []) {
+      const nextDegree = (inDegree.get(dependent) ?? 0) - 1;
+      inDegree.set(dependent, nextDegree);
+      if (nextDegree === 0) {
+        insertComputedQueue(queue, dependent, entryByName);
+      }
+    }
+  }
+
+  if (sorted.length !== entries.length) {
+    const sortedNames = new Set(sorted.map((entry) => entry.name));
+    const remaining = entries.filter((entry) => !sortedNames.has(entry.name));
+    const cyclePath = findComputedCyclePath(remaining[0]!.name, computedDeps);
+    const renderedCycle = cyclePath ? cyclePath.join(" -> ") : remaining.map((entry) => entry.name).join(", ");
+
+    pushSchemaTypeError(
+      ctx,
+      "E040",
+      `Circular computed dependency: ${renderedCycle}`,
+      (cyclePath ? entryByName.get(cyclePath[0]) : remaining[0])!.location
+    );
+
+    return [...entries];
+  }
+
+  return sorted;
+}
+
+function insertComputedQueue(
+  queue: string[],
+  candidate: string,
+  entryByName: Map<string, ComputedEntry>
+): void {
+  const candidateOrder = entryByName.get(candidate)?.order ?? Number.MAX_SAFE_INTEGER;
+  let insertAt = queue.length;
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const queuedOrder = entryByName.get(queue[index])?.order ?? Number.MAX_SAFE_INTEGER;
+    if (candidateOrder < queuedOrder) {
+      insertAt = index;
+      break;
+    }
+  }
+
+  queue.splice(insertAt, 0, candidate);
+}
+
+function findComputedCyclePath(start: string, graph: Map<string, string[]>): string[] | null {
+  const visited = new Set<string>();
+  const stack: string[] = [];
+  const stackSet = new Set<string>();
+
+  function visit(node: string): string[] | null {
+    visited.add(node);
+    stack.push(node);
+    stackSet.add(node);
+
+    for (const dep of graph.get(node) ?? []) {
+      if (!visited.has(dep)) {
+        const cycle = visit(dep);
+        if (cycle) {
+          return cycle;
+        }
+      } else if (stackSet.has(dep)) {
+        const cycleStart = stack.indexOf(dep);
+        return [...stack.slice(cycleStart), dep];
+      }
+    }
+
+    stack.pop();
+    stackSet.delete(node);
+    return null;
+  }
+
+  return visit(start);
 }
 
 function extractDeps(expr: CompilerExprNode): string[] {
   const deps = new Set<string>();
 
   function visit(node: CompilerExprNode): void {
-    if (node.kind === "get") {
-      deps.add(node.path);
-    } else if (node.kind === "call") {
-      for (const arg of node.args) {
-        visit(arg);
-      }
-    } else {
-      // Visit all nested expressions
-      for (const value of Object.values(node)) {
-        if (typeof value === "object" && value !== null) {
-          if (Array.isArray(value)) {
-            for (const item of value) {
-              if (typeof item === "object" && item !== null && "kind" in item) {
-                visit(item as CompilerExprNode);
-              }
-            }
-          } else if ("kind" in value) {
-            visit(value as CompilerExprNode);
-          }
+    switch (node.kind) {
+      case "lit":
+      case "sys":
+      case "var":
+        return;
+
+      case "get":
+        if (node.base === undefined) {
+          deps.add(node.path.map((segment) => segment.name).join("."));
+        } else {
+          visit(node.base);
         }
-      }
+        return;
+
+      case "field":
+        visit(node.object);
+        return;
+
+      case "call":
+        for (const arg of node.args) {
+          visit(arg);
+        }
+        return;
+
+      case "obj":
+        for (const field of node.fields) {
+          visit(field.value);
+        }
+        return;
+
+      case "arr":
+        for (const element of node.elements) {
+          visit(element);
+        }
+        return;
     }
   }
 
@@ -843,22 +982,15 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNo
   // Note: Core accesses $meta intent values via meta.*
 
   const markerPath = generatePath(stmt.marker, ctx);
-  const intentIdExpr: CompilerExprNode = { kind: "get", path: "meta.intentId" };
+  const intentIdExpr: CompilerExprNode = sysPathExpr("meta", "intentId");
 
   // Condition: marker != $meta.intentId
-  let cond: CompilerExprNode = {
-    kind: "neq",
-    left: { kind: "get", path: markerPath },
-    right: intentIdExpr,
-  };
+  let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(markerPath)), intentIdExpr]);
 
   // Add extra condition if present
   if (stmt.condition) {
     const extraCond = generateExpr(stmt.condition, ctx);
-    cond = {
-      kind: "and",
-      args: [cond, extraCond],
-    };
+    cond = callExpr("and", [cond, extraCond]);
   }
 
   // Body: patch marker = $meta.intentId, then rest
@@ -888,20 +1020,13 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
 
   const guardId = sha256Sync(`${actionName}:${nextIndex}:intent`);
   const guardPath = `$mel.guards.intent.${guardId}`;
-  const intentIdExpr: CompilerExprNode = { kind: "get", path: "meta.intentId" };
+  const intentIdExpr: CompilerExprNode = sysPathExpr("meta", "intentId");
 
-  let cond: CompilerExprNode = {
-    kind: "neq",
-    left: { kind: "get", path: guardPath },
-    right: intentIdExpr,
-  };
+  let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(guardPath)), intentIdExpr]);
 
   if (stmt.condition) {
     const extraCond = generateExpr(stmt.condition, ctx);
-    cond = {
-      kind: "and",
-      args: [cond, extraCond],
-    };
+    cond = callExpr("and", [cond, extraCond]);
   }
 
   // Guard write: semantic target is guardPath, lowered as map-level merge.
@@ -909,10 +1034,7 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
     kind: "patch",
     op: "merge",
     path: toPatchPath("$mel.guards.intent"),
-    value: {
-      kind: "object",
-      fields: { [guardId]: intentIdExpr },
-    },
+    value: objExpr({ [guardId]: intentIdExpr }),
   };
 
   const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
@@ -1040,110 +1162,32 @@ function toPatchPath(path: string): PatchPath {
   return semanticPathToPatchPath(path);
 }
 
+function callExpr(fn: string, args: CompilerExprNode[]): CompilerExprNode {
+  return { kind: "call", fn, args };
+}
+
+function pathToSegments(path: string): string[] {
+  return path.split(/(?<!\\)\./g).map((segment) => segment.replaceAll("\\.", ".").replaceAll("\\\\", "\\"));
+}
+
 // ============ Expression Generation ============
 
 function generateExpr(expr: ExprNode, ctx: GeneratorContext): CompilerExprNode {
-  switch (expr.kind) {
-    case "literal":
-      return { kind: "lit", value: expr.value };
-
-    case "identifier":
-      return generateIdentifier(expr.name, ctx);
-
-    case "systemIdent":
-      return generateSystemIdent(expr.path, ctx);
-
-    case "iterationVar":
-      // v0.3.2: $item only (reduce pattern deprecated, $acc removed)
-      // $item is used in filter/map expressions
-      return { kind: "get", path: `$${expr.name}` };
-
-    case "propertyAccess":
-      return generatePropertyAccess(expr, ctx);
-
-    case "indexAccess":
-      return {
-        kind: "at",
-        array: generateExpr(expr.object, ctx) as CoreExprNode,
-        index: generateExpr(expr.index, ctx) as CoreExprNode,
-      };
-
-    case "functionCall":
-      if (isEntityPrimitiveName(expr.name)) {
-        return {
-          kind: "call",
-          fn: expr.name,
-          args: expr.args.map((arg) => generateExpr(arg, ctx)),
-        };
-      }
-      return normalizeFunctionCall(
-        expr.name,
-        expr.args.map((a) => generateExpr(a, ctx) as CoreExprNode)
-      );
-
-    case "binary":
-      return normalizeExpr(
-        expr.operator,
-        generateExpr(expr.left, ctx) as CoreExprNode,
-        generateExpr(expr.right, ctx) as CoreExprNode
-      );
-
-    case "unary":
-      if (expr.operator === "!") {
-        return { kind: "not", arg: generateExpr(expr.operand, ctx) as CoreExprNode };
-      } else {
-        return { kind: "neg", arg: generateExpr(expr.operand, ctx) as CoreExprNode };
-      }
-
-    case "ternary":
-      return {
-        kind: "if",
-        cond: generateExpr(expr.condition, ctx) as CoreExprNode,
-        then: generateExpr(expr.consequent, ctx) as CoreExprNode,
-        else: generateExpr(expr.alternate, ctx) as CoreExprNode,
-      };
-
-    case "objectLiteral": {
-      const fields: Record<string, CoreExprNode> = {};
-      for (const prop of expr.properties) {
-        fields[prop.key] = generateExpr(prop.value, ctx) as CoreExprNode;
-      }
-      return { kind: "object", fields };
-    }
-
-    case "arrayLiteral":
-      // For array literals, we build using append
-      if (expr.elements.length === 0) {
-        return { kind: "lit", value: [] };
-      }
-      // Check if all elements are literals
-      const allLiterals = expr.elements.every(e => e.kind === "literal");
-      if (allLiterals) {
-        return { kind: "lit", value: expr.elements.map(e => (e as { kind: "literal"; value: unknown }).value) };
-      }
-      // Otherwise use append
-      return {
-        kind: "append",
-        array: { kind: "lit", value: [] },
-        items: expr.elements.map((e) => generateExpr(e, ctx) as CoreExprNode),
-      };
-  }
+  return toMelExpr(expr, {
+    resolveIdentifier: (name) => resolveIdentifier(name, ctx),
+    resolveSystemIdent: (path) => resolveSystemIdent(path, ctx),
+  });
 }
 
-function generateIdentifier(name: string, ctx: GeneratorContext): CompilerExprNode {
-  // Resolve identifier to path
-  if (ctx.stateFields.has(name)) {
-    // Core expects state paths without prefix (e.g., "count" not "data.count")
-    return { kind: "get", path: name };
-  }
-  if (ctx.computedFields.has(name)) {
-    return { kind: "get", path: name };
-  }
-  if (ctx.currentAction && ctx.actionParams.get(ctx.currentAction)?.has(name)) {
-    return { kind: "get", path: `input.${name}` };
+function resolveIdentifier(name: string, ctx: GeneratorContext): CompilerExprNode {
+  if (ctx.stateFields.has(name) || ctx.computedFields.has(name)) {
+    return getPathExpr(name);
   }
 
-  // Unknown identifier - report error and default to plain path
+  if (ctx.currentAction && ctx.actionParams.get(ctx.currentAction)?.has(name)) {
+    return getPathExpr("input", name);
+  }
+
   ctx.diagnostics.push({
     severity: "error",
     code: "E_UNKNOWN_IDENT",
@@ -1151,26 +1195,17 @@ function generateIdentifier(name: string, ctx: GeneratorContext): CompilerExprNo
     location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
   });
 
-  return { kind: "get", path: name };
+  return getPathExpr(name);
 }
 
-function generateSystemIdent(path: string[], ctx: GeneratorContext): CompilerExprNode {
-  // $system.uuid -> will be lowered later
-  // $meta.intentId -> meta.intentId
-  // $input.* -> input.*
-
+function resolveSystemIdent(path: string[], ctx: GeneratorContext): CompilerExprNode {
   const [namespace, ...rest] = path;
 
   switch (namespace) {
     case "system":
-      // $system values are placeholders - will be lowered in the lowering pass
-      return { kind: "get", path: `$system.${rest.join(".")}` };
-
     case "meta":
-      return { kind: "get", path: `meta.${rest.join(".")}` };
-
     case "input":
-      return { kind: "get", path: `input.${rest.join(".")}` };
+      return sysPathExpr(namespace, ...rest);
 
     default:
       ctx.diagnostics.push({
@@ -1181,36 +1216,6 @@ function generateSystemIdent(path: string[], ctx: GeneratorContext): CompilerExp
       });
       return { kind: "lit", value: null };
   }
-}
-
-function generatePropertyAccess(
-  expr: { kind: "propertyAccess"; object: ExprNode; property: string },
-  ctx: GeneratorContext
-): CompilerExprNode {
-  // Handle chained property access
-  const objectExpr = generateExpr(expr.object, ctx);
-
-  // If the object is a get expression, we can extend the path
-  if (objectExpr.kind === "get") {
-    return { kind: "get", path: `${objectExpr.path}.${expr.property}` };
-  }
-
-  // Static member access: use field() to access a known property on a computed object.
-  // This is semantically distinct from at() (array indexing) and get() (snapshot path lookup).
-  return {
-    kind: "field",
-    object: objectExpr as CoreExprNode,
-    property: expr.property,
-  };
-}
-
-function isEntityPrimitiveName(name: string): name is EntityPrimitiveName {
-  return (
-    name === "findById" ||
-    name === "existsById" ||
-    name === "updateById" ||
-    name === "removeById"
-  );
 }
 
 // ============ Hash Computation ============

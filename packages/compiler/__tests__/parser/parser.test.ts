@@ -631,6 +631,38 @@ describe("Parser", () => {
       expect(stopStmt.kind).toBe("stop");
       expect(stopStmt.reason).toBe("already_done");
     });
+
+    it("parses top-level fail and stop for semantic validation", () => {
+      const { program, diagnostics } = parseSource(`
+        domain Test {
+          action reject() {
+            fail "REJECTED"
+          }
+
+          action noop() {
+            stop "Waiting for approval"
+          }
+        }
+      `);
+
+      expect(diagnostics).toHaveLength(0);
+
+      const reject = program?.domain.members.find(
+        (member) => member.kind === "action" && member.name === "reject"
+      );
+      expect(reject?.kind).toBe("action");
+      if (reject?.kind === "action") {
+        expect(reject.body[0]?.kind).toBe("fail");
+      }
+
+      const noop = program?.domain.members.find(
+        (member) => member.kind === "action" && member.name === "noop"
+      );
+      expect(noop?.kind).toBe("action");
+      if (noop?.kind === "action") {
+        expect(noop.body[0]?.kind).toBe("stop");
+      }
+    });
   });
 
   describe("contextual keywords", () => {

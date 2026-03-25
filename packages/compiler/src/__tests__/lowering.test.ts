@@ -130,6 +130,21 @@ describe("lowerExprNode", () => {
     });
   });
 
+  describe("field", () => {
+    it("should flatten simple get(field) access to a longer get path", () => {
+      const input: MelExprNode = {
+        kind: "field",
+        object: {
+          kind: "get",
+          path: [{ kind: "prop", name: "user" }],
+        },
+        property: "name",
+      };
+      const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
+      expect(result).toEqual({ kind: "get", path: "user.name" });
+    });
+  });
+
   describe("call", () => {
     it("should lower binary operators", () => {
       const input: MelExprNode = {
@@ -183,7 +198,7 @@ describe("lowerExprNode", () => {
     it("should lower if expression", () => {
       const input: MelExprNode = {
         kind: "call",
-        fn: "if",
+        fn: "cond",
         args: [
           { kind: "lit", value: true },
           { kind: "lit", value: 1 },

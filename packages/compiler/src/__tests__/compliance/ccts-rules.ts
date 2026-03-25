@@ -23,9 +23,9 @@ function registryMany(
 }
 
 export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
-  ...registryMany(["A1", "A3", "A4", "A8", "A12", "A15", "A18"], "pending", "Broad or newly clarified axioms are tracked with aggregate probes."),
+  ...registryMany(["A1", "A3", "A4", "A8", "A15", "A18"], "pending", "Broad or newly clarified axioms are tracked with aggregate probes."),
   ...registryMany(["A2", "A5", "A6", "A7", "A9", "A10", "A11", "A14", "A17"], "blocking"),
-  registry("A13", "pending", "Current generated schema still uses specialized node kinds."),
+  ...registryMany(["A12", "A13"], "blocking"),
   registry("A16", "informational"),
   ...registryMany(["A19", "A20", "A21", "A22", "A23", "A24", "A25", "A27", "A29", "A30", "A32", "A34", "A35"], "blocking"),
   ...registryMany(["A26", "A28", "A31", "A33"], "blocking"),
@@ -38,7 +38,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   ...registryMany(["STATE-INIT-1", "STATE-INIT-2", "STATE-INIT-3", "STATE-INIT-4", "STATE-INIT-5"], "blocking"),
   ...registryMany(["COMP-DEP-1", "COMP-DEP-2", "COMP-DEP-3"], "blocking"),
   registry("COMP-DEP-4", "blocking"),
-  ...registryMany(["COMP-DEP-5", "COMP-DEP-6"], "pending"),
+  ...registryMany(["COMP-DEP-5", "COMP-DEP-6"], "blocking"),
   ...registryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5"], "blocking"),
   ...registryMany(["TYPE-LOWER-6", "TYPE-LOWER-7", "TYPE-LOWER-8", "TYPE-LOWER-9"], "blocking"),
 
@@ -55,9 +55,9 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   registry("SCHEMA-RESERVED-1", "blocking"),
 
   ...registryMany(["E001", "E002", "E003", "E004", "E005", "E009", "E010", "E011"], "blocking"),
-  ...registryMany(["E006", "E007", "E008"], "pending"),
+  ...registryMany(["E006", "E007", "E008"], "blocking"),
   ...registryMany(["E012", "E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024", "E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035", "E041", "E042", "E043", "E044", "E045", "E046"], "blocking"),
-  registry("E040", "pending"),
+  registry("E040", "blocking"),
 ] as const;
 
 export function getRuleOrThrow(ruleId: string): CompilerComplianceRule {

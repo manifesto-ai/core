@@ -134,7 +134,9 @@ export type GuardedStmtNode =
   | WhenStmtNode
   | OnceStmtNode
   | OnceIntentStmtNode
-  | IncludeStmtNode;
+  | IncludeStmtNode
+  | FailStmtNode
+  | StopStmtNode;
 
 /**
  * Raw flow statement types (top-level in flow body).

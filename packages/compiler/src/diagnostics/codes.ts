@@ -46,12 +46,12 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
   },
   E006: {
     code: "E006",
-    message: "fail must be inside a guard (when or once)",
+    message: "fail must be inside a guard (when, once, or onceIntent)",
     category: "semantic",
   },
   E007: {
     code: "E007",
-    message: "stop must be inside a guard (when or once)",
+    message: "stop must be inside a guard (when, once, or onceIntent)",
     category: "semantic",
   },
   E008: {

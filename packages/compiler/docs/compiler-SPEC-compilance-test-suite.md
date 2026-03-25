@@ -92,6 +92,7 @@ Blocking rules reflect currently implemented compiler behavior:
 - existing semantic diagnostics (`E001`, `E002`, `E003`, `E005`, `E009`, `E010`, `E011`)
 - guarded patch/effect behavior
 - fail/stop lowering baseline
+- exact unguarded `fail` / `stop` / stop-message diagnostics (`E006`, `E007`, `E008`)
 - `at()` lowering
 - system-value lowering baseline
 - `flow` / `include` composition and diagnostics (ADR-013a, `FLOW-*`, `E013`-`E024`)
@@ -103,11 +104,8 @@ Blocking rules reflect currently implemented compiler behavior:
 
 Pending rules now represent the residual architectural gaps rather than the main v0.7.0 feature families:
 
-- call-only IR (A13)
-- broad axioms that still rely on aggregate probes (`A1`, `A3`, `A4`, `A8`, `A12`, `A18`)
+- broad axioms that still rely on aggregate probes (`A1`, `A3`, `A4`, `A8`, `A18`)
 - primitive-only equality enforcement remains coarse in compiler diagnostics (`A15`)
-- exact unguarded `fail` / `stop` / stop-message diagnostic emission (`E006`, `E007`, `E008`)
-- computed cycle diagnosis and topological-order guarantees (`COMP-DEP-5`, `COMP-DEP-6`, `E040`)
 
 Pending rules still appear in the registry and still get probes. They must not disappear from CCTS just because the implementation is incomplete.
 
@@ -150,7 +148,7 @@ Those are valid follow-up steps once the registry and suite skeleton are stable.
 As of the current Phase 4 baseline:
 
 - `blocking`: concrete v0.7.0 feature families already enforced in compiler + CCTS
-- `pending`: `A1`, `A3`, `A4`, `A8`, `A12`, `A13`, `A15`, `A18`, `COMP-DEP-5`, `COMP-DEP-6`, `E006`, `E007`, `E008`, `E040`
+- `pending`: `A1`, `A3`, `A4`, `A8`, `A15`, `A18`
 - `informational`: `A16`, `COMPILER-MEL-2a`
 
 This means the remaining implementation backlog is no longer `flow/include`, entity primitives, or schema hardening. The next meaningful implementation phase is residual type-checking and architectural cleanup behind those pending axioms.

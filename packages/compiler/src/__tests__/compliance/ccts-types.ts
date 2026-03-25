@@ -2,7 +2,7 @@ import type { CompileTrace } from "../../api/compile-mel.js";
 import type { Diagnostic } from "../../diagnostics/types.js";
 import type { Token } from "../../lexer/index.js";
 import type { ProgramNode } from "../../parser/index.js";
-import type { DomainSchema } from "../../generator/ir.js";
+import type { CanonicalDomainSchema, DomainSchema } from "../../generator/ir.js";
 
 export const CCTS_SUITES = [
   "grammar",
@@ -26,7 +26,7 @@ export type RuleLevel = "MUST" | "SHOULD" | "MUST_NOT" | "MAY" | "CRITICAL";
 
 export type RuleLifecycle = "active" | "superseded";
 
-export type CompilerPhase = "lex" | "parse" | "analyze" | "generate" | "compile" | "lower";
+export type CompilerPhase = "lex" | "parse" | "analyze" | "canonical" | "generate" | "compile" | "lower";
 
 export interface CompilerEvidence {
   kind: "diagnostic" | "ast" | "schema" | "trace" | "note";
@@ -86,6 +86,7 @@ export interface CompilerComplianceAdapter {
   lex(source: string): CompilerPhaseSnapshot<Token[]>;
   parse(source: string): CompilerPhaseSnapshot<ProgramNode>;
   analyze(source: string): CompilerAnalyzeSnapshot;
+  canonical(source: string): CompilerPhaseSnapshot<CanonicalDomainSchema>;
   generate(source: string): CompilerPhaseSnapshot<DomainSchema>;
   compile(source: string): CompilerPhaseSnapshot<DomainSchema>;
   lower(source: string): CompilerPhaseSnapshot<DomainSchema>;

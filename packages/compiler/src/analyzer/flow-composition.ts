@@ -205,6 +205,10 @@ function validateActionStmt(
         validateActionInnerStmt(inner, typeEnv, symbols, diagnostics, dedupe);
       }
       break;
+
+    case "fail":
+    case "stop":
+      break;
   }
 }
 
@@ -655,6 +659,10 @@ function expandActionStmt(
         ...cloneNode(stmt),
         body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
       }];
+
+    case "fail":
+    case "stop":
+      return [cloneNode(stmt)];
   }
 }
 

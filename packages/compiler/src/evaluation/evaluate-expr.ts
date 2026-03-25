@@ -95,6 +95,9 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
     case "mod":
       return evaluateMod(expr.left, expr.right, ctx);
 
+    case "neg":
+      return evaluateNeg(expr.arg, ctx);
+
     // String
     case "concat":
       return evaluateConcat(expr.args, ctx);
@@ -413,6 +416,11 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvaluationContext): n
   }
 
   return l % r;
+}
+
+function evaluateNeg(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  return typeof value === "number" ? -value : null;
 }
 
 // ============ String Operators ============

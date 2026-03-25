@@ -336,13 +336,13 @@ export class Parser {
     if (this.check("ONCE")) return this.parseOnceStmt();
     if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
     if (this.isIncludeContext()) return this.parseIncludeStmt();
+    if (this.check("FAIL")) return this.parseFailStmt();
+    if (this.check("STOP")) return this.parseStopStmt();
 
-    // Detect common mistake: patch/effect/fail/stop without when block
+    // Detect common mistake: patch/effect without when block
     const token = this.peek();
     if (token.kind === "PATCH" || token.lexeme === "patch" ||
-        token.kind === "EFFECT" || token.lexeme === "effect" ||
-        token.kind === "FAIL" || token.lexeme === "fail" ||
-        token.kind === "STOP" || token.lexeme === "stop") {
+        token.kind === "EFFECT" || token.lexeme === "effect") {
       this.error(
         `'${token.lexeme}' must be inside a guard block (when, once, or onceIntent). ` +
         `Wrap it: when true { ${token.lexeme} ... }`
@@ -352,7 +352,7 @@ export class Parser {
       return null;
     }
 
-    this.error(`Unexpected token '${token.lexeme}'. Expected 'when', 'once', 'onceIntent', or 'include'.`);
+    this.error(`Unexpected token '${token.lexeme}'. Expected 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`);
     this.advance();
     return null;
   }
@@ -384,14 +384,16 @@ export class Parser {
         this.advance();
         continue;
       }
-      // Stop before guard keywords at depth 0 (next valid statement)
+      // Stop before valid action-body statements at depth 0.
       if (
         braceDepth === 0 &&
         (
           t.kind === "WHEN" ||
           t.kind === "ONCE" ||
           t.lexeme === "onceIntent" ||
-          this.isIncludeContext()
+          this.isIncludeContext() ||
+          t.kind === "FAIL" ||
+          t.kind === "STOP"
         )
       ) {
         return;

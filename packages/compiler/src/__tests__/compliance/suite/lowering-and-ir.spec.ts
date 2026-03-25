@@ -38,8 +38,8 @@ function collectEffectTypes(flow: CoreFlowNode | undefined, types: string[] = []
 }
 
 describe("CCTS Lowering and IR Suite", () => {
-  it(caseTitle(CCTS_CASES.IR_CALL_ONLY, "(A13) call-only IR remains a tracked delta"), () => {
-    const result = adapter.compile(`
+  it(caseTitle(CCTS_CASES.IR_CALL_ONLY, "(A13) canonical operations normalize to call nodes"), () => {
+    const result = adapter.canonical(`
       domain Demo {
         state {
           a: number = 1
@@ -49,29 +49,43 @@ describe("CCTS Lowering and IR Suite", () => {
       }
     `);
 
-    const expr = result.value?.computed.fields["total"]?.expr as { kind?: string } | undefined;
+    const expr = result.value?.computed.fields["total"]?.expr as
+      | { kind?: string; fn?: string; args?: unknown[] }
+      | undefined;
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A13"), result.success && expr?.kind === "call", {
-        passMessage: "All operations use call-only IR nodes.",
-        failMessage: "Generated IR still exposes specialized node kinds.",
-        evidence: [noteEvidence("Observed expression kind", expr?.kind)],
+      evaluateRule(getRuleOrThrow("A13"), result.success && expr?.kind === "call" && expr?.fn === "add", {
+        passMessage: "Canonical operations lower to call(fn, args) nodes.",
+        failMessage: "Canonical generation still exposes specialized runtime node kinds.",
+        evidence: [noteEvidence("Observed canonical expression", expr)],
       }),
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.IR_INDEX_AND_NEQ, "(A11/A19) index access and neq semantics stay normalized"), () => {
-    const result = adapter.compile(`
+  it(caseTitle(CCTS_CASES.IR_INDEX_AND_NEQ, "(A11/A12/A19) canonical access shape and neq semantics stay normalized"), () => {
+    const canonical = adapter.canonical(`
       domain Demo {
         state {
+          records: Array<{ status: string }> = []
           count: number = 1
           items: Array<number> = [1]
+          user: { name: string } = { name: "Ada" }
         }
         computed firstItem = items[0]
+        computed status = at(records, 0).status
+        computed userName = user.name
       }
     `);
 
-    const expr = result.value?.computed.fields["firstItem"]?.expr as { kind?: string } | undefined;
+    const indexExpr = canonical.value?.computed.fields["firstItem"]?.expr as
+      | { kind?: string; fn?: string; args?: unknown[] }
+      | undefined;
+    const statusExpr = canonical.value?.computed.fields["status"]?.expr as
+      | { kind?: string; fn?: string; object?: unknown; property?: string }
+      | undefined;
+    const userExpr = canonical.value?.computed.fields["userName"]?.expr as
+      | { kind?: string; path?: Array<{ kind: string; name: string }> }
+      | undefined;
     const ctx = createEvaluationContext({ meta: { intentId: "i1" } });
     const neqResult = evaluateExpr(
       { kind: "neq", left: { kind: "lit", value: 1 }, right: { kind: "lit", value: 2 } },
@@ -90,10 +104,29 @@ describe("CCTS Lowering and IR Suite", () => {
     );
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A19"), result.success && expr?.kind === "at", {
-        passMessage: "Index syntax lowers through at().",
-        failMessage: "Index syntax did not lower through at().",
-        evidence: [noteEvidence("Observed expression", expr)],
+      evaluateRule(
+        getRuleOrThrow("A12"),
+        canonical.success &&
+          indexExpr?.kind === "call" &&
+          indexExpr.fn === "at" &&
+          statusExpr?.kind === "field" &&
+          statusExpr.property === "status" &&
+          userExpr?.kind === "get" &&
+          userExpr.path?.map((segment) => segment.name).join(".") === "user.name",
+        {
+          passMessage: "Canonical generation assigns one stable IR shape per surface construct.",
+          failMessage: "Canonical generation still emits divergent IR shapes for equivalent surface constructs.",
+          evidence: [
+            noteEvidence("Observed index expression", indexExpr),
+            noteEvidence("Observed status expression", statusExpr),
+            noteEvidence("Observed user path expression", userExpr),
+          ],
+        }
+      ),
+      evaluateRule(getRuleOrThrow("A19"), canonical.success && indexExpr?.kind === "call" && indexExpr.fn === "at", {
+        passMessage: "Index syntax lowers through call(\"at\", ...).",
+        failMessage: "Index syntax did not canonicalize through at().",
+        evidence: [noteEvidence("Observed canonical index expression", indexExpr)],
       }),
       evaluateRule(getRuleOrThrow("A11"), neqResult === notEqResult, {
         passMessage: "neq(a, b) remains semantically equivalent to not(eq(a, b)).",

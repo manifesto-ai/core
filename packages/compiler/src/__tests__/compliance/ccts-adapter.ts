@@ -2,16 +2,18 @@ import {
   analyzeScope,
   compile,
   compileMelDomain,
+  generateCanonical,
   generate,
   lowerSystemValues,
   parse,
   tokenize,
   validateSemantics,
 } from "../../index.js";
-import type { DomainSchema } from "../../generator/ir.js";
+import type { CanonicalDomainSchema, DomainSchema } from "../../generator/ir.js";
 import type { Token } from "../../lexer/index.js";
 import type { ProgramNode } from "../../parser/index.js";
 import type { Diagnostic } from "../../diagnostics/types.js";
+import { validateAndExpandFlows } from "../../analyzer/flow-composition.js";
 import type {
   CompilerAnalyzeSnapshot,
   CompilerComplianceAdapter,
@@ -73,6 +75,28 @@ export class DefaultCompilerComplianceAdapter implements CompilerComplianceAdapt
       scopeDiagnostics: scopeResult.diagnostics,
       semanticDiagnostics: semanticResult.diagnostics,
     };
+  }
+
+  canonical(source: string): CompilerPhaseSnapshot<CanonicalDomainSchema> {
+    const parsed = this.parse(source);
+    if (!parsed.success || !parsed.value) {
+      return phaseSnapshot("canonical", null, parsed.diagnostics);
+    }
+
+    const flowResult = validateAndExpandFlows(parsed.value);
+    const scopeResult = analyzeScope(flowResult.program);
+    const semanticResult = validateSemantics(flowResult.program);
+    const diagnostics = [
+      ...flowResult.diagnostics,
+      ...scopeResult.diagnostics,
+      ...semanticResult.diagnostics,
+    ];
+    if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      return phaseSnapshot("canonical", null, diagnostics);
+    }
+
+    const generated = generateCanonical(flowResult.program);
+    return phaseSnapshot("canonical", generated.schema, generated.diagnostics);
   }
 
   generate(source: string): CompilerPhaseSnapshot<DomainSchema> {

@@ -18,6 +18,8 @@ import type {
   OnceIntentStmtNode,
   PatchStmtNode,
   EffectStmtNode,
+  FailStmtNode,
+  StopStmtNode,
   TypeExprNode,
 } from "../parser/ast.js";
 import type { Diagnostic } from "../diagnostics/types.js";
@@ -46,6 +48,8 @@ function createContext(): ValidationContext {
     diagnostics: [],
   };
 }
+
+const STOP_WAITING_REASON_PATTERN = /\b(await(?:ing)?|wait(?:ing)?|pending)\b/i;
 
 // ============ Semantic Validator ============
 
@@ -314,8 +318,8 @@ export class SemanticValidator {
       this.validateAvailableExpr(action.available);
     }
 
-    // FDR-MEL-020: All patch/effect must be inside guards
-    // Action body should only contain when/once statements
+    // FDR-MEL-020: All patch/effect must be inside guards.
+    // fail/stop are parsed permissively at top-level and narrowed here.
     for (const stmt of action.body) {
       this.validateGuardedStmt(stmt);
     }
@@ -433,8 +437,12 @@ export class SemanticValidator {
         this.validateEffect(stmt);
         break;
       case "include":
+        break;
       case "fail":
+        this.validateFail(stmt);
+        break;
       case "stop":
+        this.validateStop(stmt);
         break;
     }
   }
@@ -530,6 +538,38 @@ export class SemanticValidator {
       if (!arg.isPath) {
         this.validateExpr(arg.value as ExprNode, "action");
       }
+    }
+  }
+
+  private validateFail(stmt: FailStmtNode): void {
+    if (!this.ctx.inGuard) {
+      this.error(
+        "fail must be inside a guard (when, once, or onceIntent)",
+        stmt.location,
+        "E006"
+      );
+    }
+
+    if (stmt.message) {
+      this.validateExpr(stmt.message, "action");
+    }
+  }
+
+  private validateStop(stmt: StopStmtNode): void {
+    if (!this.ctx.inGuard) {
+      this.error(
+        "stop must be inside a guard (when, once, or onceIntent)",
+        stmt.location,
+        "E007"
+      );
+    }
+
+    if (STOP_WAITING_REASON_PATTERN.test(stmt.reason)) {
+      this.error(
+        "stop message suggests waiting/pending - use 'Already processed' style instead",
+        stmt.location,
+        "E008"
+      );
     }
   }
 
