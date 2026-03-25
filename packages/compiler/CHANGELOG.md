@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.3](https://github.com/manifesto-ai/core/compare/compiler-v1.8.2...compiler-v1.8.3) (2026-03-25)
+
+
+### Bug Fixes
+
+* remove unused compiler host peer ([#303](https://github.com/manifesto-ai/core/issues/303)) ([567471b](https://github.com/manifesto-ai/core/commit/567471b1323dd2a9f7ae8caa06b431f7af5f5df5))
+
 ## [1.8.2](https://github.com/manifesto-ai/core/compare/compiler-v1.8.1...compiler-v1.8.2) (2026-03-25)
 
 
