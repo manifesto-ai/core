@@ -1,5 +1,38 @@
 # Changelog
 
+## [2.0.0](https://github.com/manifesto-ai/core/compare/compiler-v1.7.0...compiler-v2.0.0) (2026-03-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compiler,monorepo:** @manifesto-ai/intent-ir and @manifesto-ai/translator are removed from the monorepo. The compiler's Webpack loader export path `@manifesto-ai/compiler/loader` now points to Node ESM loader hooks only; Webpack users should migrate to `@manifesto-ai/compiler/webpack`.
+
+### Features
+
+* **compiler,monorepo:** remove intent-ir/translator packages and migrate to unplugin ([76eadac](https://github.com/manifesto-ai/core/commit/76eadac9047308563793cf2a2d1299b1830f7f22))
+* **compiler:** implement SPEC v0.7.0 compiler baseline ([#289](https://github.com/manifesto-ai/core/issues/289)) ([35f1f00](https://github.com/manifesto-ai/core/commit/35f1f00550af700dfafe0283d777f71f68aa0dc5))
+
+
+### Bug Fixes
+
+* add field IR kind for static property access and fix at() record lookup ([#135](https://github.com/manifesto-ai/core/issues/135)) ([#140](https://github.com/manifesto-ai/core/issues/140)) ([2f88a17](https://github.com/manifesto-ai/core/commit/2f88a17ed6d2541ab00102d134bb77324b51b023))
+* clamp synthetic parse diagnostics into patch text range ([44397fb](https://github.com/manifesto-ai/core/commit/44397fb06023189a7810faf89fb407d1c4d72071))
+* **compiler,core:** add literal type validation for MEL state initializers and patches ([#282](https://github.com/manifesto-ai/core/issues/282)) ([fc4d2da](https://github.com/manifesto-ai/core/commit/fc4d2dad734bd02d5388b95cd0de1755bd992478))
+* **compiler:** allow merge() as expression in patch value context ([#253](https://github.com/manifesto-ai/core/issues/253)) ([d71cbe5](https://github.com/manifesto-ai/core/commit/d71cbe505c4be5e03119a2827b30f946c3bee174))
+* **compiler:** fix compileMelPatch remap function name and patch location scoping ([cca7db6](https://github.com/manifesto-ai/core/commit/cca7db6d1297d71576d3ba20eca5d16ea36a43f2))
+* **compiler:** implement compileMelPatch and add regression tests ([bf2bba7](https://github.com/manifesto-ai/core/commit/bf2bba73cb035061ce645b14da983148d48c698c))
+* **compiler:** restore declaration build for canonical ir ([01254b1](https://github.com/manifesto-ai/core/commit/01254b10e069c30f03d27339f29831a7ac592ad5))
+* **compiler:** support dynamic patch property access and remap parse diagnostics ([91a75ae](https://github.com/manifesto-ai/core/commit/91a75ae82a7ff7e218b1f6b901635a0736c3007c))
+* **compiler:** validate unknown functions and duplicate state fields ([#251](https://github.com/manifesto-ai/core/issues/251), [#252](https://github.com/manifesto-ai/core/issues/252)) ([f2e6539](https://github.com/manifesto-ai/core/commit/f2e65395fd37dd979f32e7cacae21a4995258b78))
+* normalize system slot names and support time.now in system lowering ([ace3788](https://github.com/manifesto-ai/core/commit/ace3788bbbacdd1c5937dcdbd9daca92014ae3af))
+* normalize system slot names and support time.now in system lowering ([e5ec213](https://github.com/manifesto-ai/core/commit/e5ec21372db60d924750d06b73854f9ab62b4c71))
+* preserve empty path segments in compiler path generation ([1c8ed0e](https://github.com/manifesto-ai/core/commit/1c8ed0e9c28829d5fb364487350273f3a1d1a671))
+* reject escaped synthetic wrapper escape hatch statements ([9edde7b](https://github.com/manifesto-ai/core/commit/9edde7b47125f3119e4c0d45ac292d5c1fdd00bb))
+* **review:** restore missing type re-exports and guard abort during lock queue ([ec7e7a0](https://github.com/manifesto-ai/core/commit/ec7e7a076e58e096c5b706adcccebb139b955955))
+* **sdk,compiler:** expose MEL compile diagnostics with source locations ([#187](https://github.com/manifesto-ai/core/issues/187)) ([c4e08b5](https://github.com/manifesto-ai/core/commit/c4e08b56a63687dc4adc74c4adfa1e4d9da0156a))
+* update docs to use SDK dispatchAsync, unblock typeof, deduplicate E001 ([c492ef4](https://github.com/manifesto-ai/core/commit/c492ef4c9d65434b38584e91dfd653a552586a74))
+* validate patch wrapper integrity and reject dynamic patch-path indexes ([f674ee6](https://github.com/manifesto-ai/core/commit/f674ee658e6fb53cb818c31c8a6fccd7f9163cb1))
+
 ## [1.6.3](https://github.com/manifesto-ai/core/compare/compiler-v1.6.2...compiler-v1.6.3) (2026-02-25)
 
 
