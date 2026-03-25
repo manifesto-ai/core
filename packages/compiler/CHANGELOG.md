@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/manifesto-ai/core/compare/compiler-v1.8.0...compiler-v1.8.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* tighten MEL expression type checking ([#292](https://github.com/manifesto-ai/core/issues/292)) ([e02602a](https://github.com/manifesto-ai/core/commit/e02602a7c21e912c2d8f1ff07e8da62d3c09c831))
+
 ## [1.8.0](https://github.com/manifesto-ai/core/compare/compiler-v1.7.0...compiler-v1.8.0) (2026-03-25)
 
 ### Features
