@@ -169,16 +169,16 @@ export function inferExprType(
       };
 
     case "arrayLiteral": {
-      if (expr.elements.length === 0) {
-        return null;
-      }
-      const firstElementType = inferExprType(expr.elements[0], env, symbols);
-      if (!firstElementType) {
+      const elementType = joinTypeCandidates(
+        expr.elements.map((element) => inferExprType(element, env, symbols)),
+        expr.location
+      );
+      if (!elementType) {
         return null;
       }
       return {
         kind: "arrayType",
-        elementType: firstElementType,
+        elementType,
         location: expr.location,
       };
     }
@@ -202,8 +202,10 @@ export function inferExprType(
       return inferFunctionCallType(expr, env, symbols);
 
     case "systemIdent":
-    case "iterationVar":
       return null;
+
+    case "iterationVar":
+      return env.get("$item") ?? null;
   }
 }
 
@@ -561,6 +563,33 @@ function inferFunctionCallType(
     return joinTypeCandidates([elementType, simpleType("null", expr.location)], expr.location);
   }
 
+  if (expr.name === "filter" && expr.args.length >= 1) {
+    return inferExprType(expr.args[0], env, symbols);
+  }
+
+  if (expr.name === "map" && expr.args.length >= 2) {
+    const arrayType = inferExprType(expr.args[0], env, symbols);
+    const elementType = getArrayElementType(arrayType, symbols);
+    if (!elementType) {
+      return null;
+    }
+
+    const mapperType = inferExprType(
+      expr.args[1],
+      extendCollectionEnv(env, elementType),
+      symbols
+    );
+    if (!mapperType) {
+      return null;
+    }
+
+    return {
+      kind: "arrayType",
+      elementType: mapperType,
+      location: expr.location,
+    };
+  }
+
   if ((expr.name === "first" || expr.name === "last") && expr.args.length >= 1) {
     return getArrayElementType(inferExprType(expr.args[0], env, symbols), symbols);
   }
@@ -600,6 +629,22 @@ function inferFunctionCallType(
 
   if (expr.name === "slice" && expr.args.length >= 1) {
     return inferExprType(expr.args[0], env, symbols);
+  }
+
+  if (expr.name === "split") {
+    return {
+      kind: "arrayType",
+      elementType: simpleType("string", expr.location),
+      location: expr.location,
+    };
+  }
+
+  if (expr.name === "keys") {
+    return {
+      kind: "arrayType",
+      elementType: simpleType("string", expr.location),
+      location: expr.location,
+    };
   }
 
   return null;
@@ -679,4 +724,10 @@ function getStaticPropertyName(expr: ExprNode): string | null {
   }
 
   return null;
+}
+
+function extendCollectionEnv(env: TypeEnv, itemType: TypeExprNode): TypeEnv {
+  const next = new Map(env);
+  next.set("$item", itemType);
+  return next;
 }

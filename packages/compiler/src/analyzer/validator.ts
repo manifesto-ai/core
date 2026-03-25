@@ -21,16 +21,23 @@ import type {
   FailStmtNode,
   StopStmtNode,
   TypeExprNode,
+  PathNode,
 } from "../parser/ast.js";
 import type { Diagnostic } from "../diagnostics/types.js";
 import { createWarning } from "../diagnostics/types.js";
 import type { SourceLocation } from "../lexer/source-location.js";
 import { validateEntityPrimitives } from "./entity-primitives.js";
 import {
-  classifyComparableExpr,
   collectDomainTypeSymbols,
   createActionTypeEnv,
+  getArrayElementType,
+  getIndexType,
+  getPropertyType,
+  inferExprType,
+  isNullType,
+  resolveType,
   type DomainTypeSymbols,
+  type TypeEnv,
 } from "./expr-type-surface.js";
 
 // ============ Validation Context ============
@@ -56,6 +63,372 @@ function createContext(): ValidationContext {
 }
 
 const STOP_WAITING_REASON_PATTERN = /\b(await(?:ing)?|wait(?:ing)?|pending)\b/i;
+
+type PrimitiveKind = "null" | "boolean" | "number" | "string";
+
+function simpleTypeNode(name: PrimitiveKind, location: SourceLocation): TypeExprNode {
+  return {
+    kind: "simpleType",
+    name,
+    location,
+  };
+}
+
+function isAssignableType(
+  sourceType: TypeExprNode,
+  targetType: TypeExprNode,
+  symbols: DomainTypeSymbols
+): boolean | null {
+  const resolvedSource = resolveType(sourceType, symbols);
+  const resolvedTarget = resolveType(targetType, symbols);
+  if (!resolvedSource || !resolvedTarget) {
+    return null;
+  }
+
+  if (resolvedTarget.kind === "unionType") {
+    const sourceMembers = resolvedSource.kind === "unionType"
+      ? resolvedSource.types
+      : [resolvedSource];
+    let sawUnknown = false;
+
+    for (const member of sourceMembers) {
+      const outcomes = resolvedTarget.types.map((candidate) =>
+        isAssignableType(member, candidate, symbols)
+      );
+      if (outcomes.includes(true)) {
+        continue;
+      }
+      if (outcomes.every((outcome) => outcome === false)) {
+        return false;
+      }
+      sawUnknown = true;
+    }
+
+    return sawUnknown ? null : true;
+  }
+
+  if (resolvedSource.kind === "unionType") {
+    let sawUnknown = false;
+    for (const member of resolvedSource.types) {
+      const outcome = isAssignableType(member, resolvedTarget, symbols);
+      if (outcome === false) {
+        return false;
+      }
+      if (outcome === null) {
+        sawUnknown = true;
+      }
+    }
+    return sawUnknown ? null : true;
+  }
+
+  if (resolvedTarget.kind === "simpleType") {
+    if (resolvedSource.kind === "simpleType") {
+      return resolvedSource.name === resolvedTarget.name;
+    }
+    if (resolvedSource.kind === "literalType") {
+      if (resolvedTarget.name === "null") {
+        return resolvedSource.value === null;
+      }
+      return typeof resolvedSource.value === resolvedTarget.name;
+    }
+  }
+
+  if (resolvedTarget.kind === "literalType") {
+    if (resolvedSource.kind !== "literalType") {
+      return false;
+    }
+    return resolvedSource.value === resolvedTarget.value;
+  }
+
+  if (resolvedTarget.kind === "arrayType") {
+    if (resolvedSource.kind !== "arrayType") {
+      return false;
+    }
+    return isAssignableType(resolvedSource.elementType, resolvedTarget.elementType, symbols);
+  }
+
+  if (resolvedTarget.kind === "objectType") {
+    if (resolvedSource.kind !== "objectType") {
+      return false;
+    }
+
+    for (const targetField of resolvedTarget.fields) {
+      const sourceField = resolvedSource.fields.find((candidate) => candidate.name === targetField.name);
+      if (!sourceField) {
+        if (targetField.optional) {
+          continue;
+        }
+        return false;
+      }
+      const fieldAssignable = isAssignableType(sourceField.typeExpr, targetField.typeExpr, symbols);
+      if (fieldAssignable !== true) {
+        return fieldAssignable;
+      }
+    }
+
+    return true;
+  }
+
+  if (resolvedTarget.kind === "recordType") {
+    if (resolvedSource.kind !== "recordType") {
+      return null;
+    }
+    return isAssignableType(resolvedSource.valueType, resolvedTarget.valueType, symbols);
+  }
+
+  return null;
+}
+
+function describeTypeExpr(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols): string {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved) {
+    return "unknown";
+  }
+
+  switch (resolved.kind) {
+    case "simpleType":
+      return resolved.name;
+    case "literalType":
+      return JSON.stringify(resolved.value);
+    case "arrayType":
+      return `Array<${describeTypeExpr(resolved.elementType, symbols)}>`;
+    case "recordType":
+      return `Record<${describeTypeExpr(resolved.keyType, symbols)}, ${describeTypeExpr(resolved.valueType, symbols)}>`;
+    case "objectType":
+      return `{ ${resolved.fields.map((field) => `${field.name}${field.optional ? "?" : ""}: ${describeTypeExpr(field.typeExpr, symbols)}`).join("; ")} }`;
+    case "unionType":
+      return resolved.types.map((member) => describeTypeExpr(member, symbols)).join(" | ");
+  }
+}
+
+function collectPrimitiveKinds(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): Set<PrimitiveKind> | "nonprimitive" | null {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved) {
+    return null;
+  }
+
+  switch (resolved.kind) {
+    case "simpleType":
+      if (
+        resolved.name === "string" ||
+        resolved.name === "number" ||
+        resolved.name === "boolean" ||
+        resolved.name === "null"
+      ) {
+        return new Set([resolved.name]);
+      }
+      return resolved.name === "object" ? "nonprimitive" : null;
+
+    case "literalType":
+      return new Set([
+        resolved.value === null ? "null" : (typeof resolved.value as Exclude<PrimitiveKind, "null">),
+      ]);
+
+    case "arrayType":
+    case "recordType":
+    case "objectType":
+      return "nonprimitive";
+
+    case "unionType": {
+      const kinds = new Set<PrimitiveKind>();
+      for (const member of resolved.types) {
+        const memberKinds = collectPrimitiveKinds(member, symbols);
+        if (memberKinds === null) {
+          return null;
+        }
+        if (memberKinds === "nonprimitive") {
+          return "nonprimitive";
+        }
+        for (const kind of memberKinds) {
+          kinds.add(kind);
+        }
+      }
+      return kinds;
+    }
+  }
+}
+
+function areComparableTypesCompatible(
+  leftType: TypeExprNode | null,
+  rightType: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): boolean | null {
+  const leftKinds = collectPrimitiveKinds(leftType, symbols);
+  const rightKinds = collectPrimitiveKinds(rightType, symbols);
+
+  if (leftKinds === null || rightKinds === null) {
+    return null;
+  }
+  if (leftKinds === "nonprimitive" || rightKinds === "nonprimitive") {
+    return false;
+  }
+  if (!(leftKinds instanceof Set) || !(rightKinds instanceof Set)) {
+    return null;
+  }
+
+  const leftNonNull = [...leftKinds].filter((kind) => kind !== "null");
+  const rightNonNull = [...rightKinds].filter((kind) => kind !== "null");
+  if (leftNonNull.length === 0 || rightNonNull.length === 0) {
+    return true;
+  }
+
+  return leftNonNull.some((kind) => rightNonNull.includes(kind));
+}
+
+function stripNullType(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols): TypeExprNode | null {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved || isNullType(resolved)) {
+    return null;
+  }
+
+  if (resolved.kind !== "unionType") {
+    return resolved;
+  }
+
+  const members = resolved.types.filter((member) => !isNullType(member));
+  if (members.length === 0) {
+    return null;
+  }
+  if (members.length === 1) {
+    return members[0];
+  }
+
+  return {
+    kind: "unionType",
+    types: members,
+    location: resolved.location,
+  };
+}
+
+function areTypesCompatible(
+  leftType: TypeExprNode | null,
+  rightType: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): boolean | null {
+  if (!leftType || !rightType) {
+    return null;
+  }
+
+  const leftToRight = isAssignableType(leftType, rightType, symbols);
+  if (leftToRight === true) {
+    return true;
+  }
+
+  const rightToLeft = isAssignableType(rightType, leftType, symbols);
+  if (rightToLeft === true) {
+    return true;
+  }
+
+  const comparable = areComparableTypesCompatible(leftType, rightType, symbols);
+  if (comparable !== null) {
+    return comparable;
+  }
+
+  if (leftToRight === false && rightToLeft === false) {
+    return false;
+  }
+
+  return null;
+}
+
+function classifyArrayOperand(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): boolean | null {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved) {
+    return null;
+  }
+
+  if (resolved.kind === "unionType") {
+    const outcomes = resolved.types.map((member) => classifyArrayOperand(member, symbols));
+    if (outcomes.every((outcome) => outcome === true)) {
+      return true;
+    }
+    return outcomes.some((outcome) => outcome === false) ? false : null;
+  }
+
+  return resolved.kind === "arrayType";
+}
+
+function classifyLenOperand(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): boolean | null {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved) {
+    return null;
+  }
+
+  if (resolved.kind === "unionType") {
+    const outcomes = resolved.types.map((member) => classifyLenOperand(member, symbols));
+    if (outcomes.every((outcome) => outcome === true)) {
+      return true;
+    }
+    return outcomes.some((outcome) => outcome === false) ? false : null;
+  }
+
+  if (resolved.kind === "arrayType" || resolved.kind === "recordType" || resolved.kind === "objectType") {
+    return true;
+  }
+
+  if (resolved.kind === "literalType") {
+    return typeof resolved.value === "string";
+  }
+
+  if (resolved.kind === "simpleType") {
+    return resolved.name === "string" || resolved.name === "object";
+  }
+
+  return false;
+}
+
+function extendCollectionTypeEnv(baseEnv: TypeEnv, itemType: TypeExprNode): TypeEnv {
+  const next = new Map(baseEnv);
+  next.set("$item", itemType);
+  return next;
+}
+
+function resolvePathType(path: PathNode, symbols: DomainTypeSymbols): TypeExprNode | null {
+  const [first, ...rest] = path.segments;
+  if (!first || first.kind !== "propertySegment") {
+    return null;
+  }
+
+  let current = symbols.stateTypes.get(first.name) ?? null;
+  for (const segment of rest) {
+    if (!current) {
+      return null;
+    }
+    current = segment.kind === "propertySegment"
+      ? getPropertyType(current, segment.name, symbols)
+      : getIndexType(current, symbols);
+  }
+
+  return current;
+}
+
+function renderPath(path: PathNode): string {
+  let result = "";
+
+  for (const [index, segment] of path.segments.entries()) {
+    if (segment.kind === "propertySegment") {
+      result += index === 0 ? segment.name : `.${segment.name}`;
+      continue;
+    }
+
+    if (segment.index.kind === "literal") {
+      result += `[${JSON.stringify(segment.index.value)}]`;
+    } else {
+      result += "[*]";
+    }
+  }
+
+  return result;
+}
 
 // ============ Semantic Validator ============
 
@@ -525,7 +898,25 @@ export class SemanticValidator {
 
     // Validate value expression
     if (stmt.value) {
-      this.validateExpr(stmt.value, "action");
+      const before = this.ctx.diagnostics.length;
+      const valueType = this.validateExpr(stmt.value, "action");
+      if (!this.symbols || before !== this.ctx.diagnostics.length) {
+        return;
+      }
+
+      const targetType = resolvePathType(stmt.path, this.symbols);
+      if (!targetType || !valueType) {
+        return;
+      }
+
+      const assignable = isAssignableType(valueType, targetType, this.symbols);
+      if (assignable === false) {
+        this.error(
+          `Patch value for '${renderPath(stmt.path)}' must be assignable to ${describeTypeExpr(targetType, this.symbols)}, got ${describeTypeExpr(valueType, this.symbols)}`,
+          stmt.value.location,
+          "E_TYPE_MISMATCH"
+        );
+      }
     }
   }
 
@@ -583,75 +974,171 @@ export class SemanticValidator {
   }
 
   private validateCondition(expr: ExprNode, guardType: "when" | "once" | "onceIntent"): void {
-    // FDR-MEL-025: Condition must return boolean
-    // We can do basic static analysis for obvious non-boolean expressions
-    this.validateExpr(expr, "action");
-
-    // Warn about literals that aren't boolean
-    if (expr.kind === "literal" && typeof expr.value !== "boolean") {
-      this.warn(
-        `Condition in ${guardType} is a non-boolean literal. Consider using a boolean expression`,
+    const before = this.ctx.diagnostics.length;
+    const conditionType = this.validateExpr(expr, "action");
+    if (before === this.ctx.diagnostics.length) {
+      this.requireAssignable(
+        conditionType,
+        simpleTypeNode("boolean", expr.location),
         expr.location,
-        "W_NON_BOOL_COND"
+        `Condition in ${guardType} must evaluate to boolean`
       );
     }
   }
 
-  private validateExpr(expr: ExprNode, context: "computed" | "action"): void {
+  private validateExpr(
+    expr: ExprNode,
+    context: "computed" | "action",
+    env: TypeEnv = this.ctx.currentActionParamTypes
+  ): TypeExprNode | null {
     switch (expr.kind) {
       case "functionCall":
-        this.validateFunctionCall(expr, context);
-        break;
+        this.validateFunctionCall(expr, context, env);
+        return this.inferType(expr, env);
 
       case "binary":
-        this.validateExpr(expr.left, context);
-        this.validateExpr(expr.right, context);
-        if (expr.operator === "==" || expr.operator === "!=") {
-          this.validatePrimitiveEquality(expr.left, expr.right, expr.location);
+        {
+          const before = this.ctx.diagnostics.length;
+          const leftType = this.validateExpr(expr.left, context, env);
+          const rightType = this.validateExpr(expr.right, context, env);
+          const hadInnerErrors = before !== this.ctx.diagnostics.length;
+
+          if (!hadInnerErrors) {
+            switch (expr.operator) {
+              case "==":
+              case "!=":
+                this.validatePrimitiveEquality(expr.left, expr.right, leftType, rightType, expr.location);
+                break;
+              case "<":
+              case "<=":
+              case ">":
+              case ">=":
+                this.requireAssignable(
+                  leftType,
+                  simpleTypeNode("number", expr.left.location),
+                  expr.left.location,
+                  `Operator '${expr.operator}' requires a numeric left operand`
+                );
+                this.requireAssignable(
+                  rightType,
+                  simpleTypeNode("number", expr.right.location),
+                  expr.right.location,
+                  `Operator '${expr.operator}' requires a numeric right operand`
+                );
+                break;
+              case "&&":
+              case "||":
+                this.requireAssignable(
+                  leftType,
+                  simpleTypeNode("boolean", expr.left.location),
+                  expr.left.location,
+                  `Operator '${expr.operator}' requires a boolean left operand`
+                );
+                this.requireAssignable(
+                  rightType,
+                  simpleTypeNode("boolean", expr.right.location),
+                  expr.right.location,
+                  `Operator '${expr.operator}' requires a boolean right operand`
+                );
+                break;
+              case "+":
+              case "-":
+              case "*":
+              case "/":
+              case "%":
+                this.requireAssignable(
+                  leftType,
+                  simpleTypeNode("number", expr.left.location),
+                  expr.left.location,
+                  `Operator '${expr.operator}' requires a numeric left operand`
+                );
+                this.requireAssignable(
+                  rightType,
+                  simpleTypeNode("number", expr.right.location),
+                  expr.right.location,
+                  `Operator '${expr.operator}' requires a numeric right operand`
+                );
+                break;
+              case "??":
+                this.validateCoalesceTypes([leftType, rightType], expr.location);
+                break;
+            }
+          }
+
+          return this.inferType(expr, env);
         }
-        break;
 
       case "unary":
-        this.validateExpr(expr.operand, context);
-        break;
+        {
+          const before = this.ctx.diagnostics.length;
+          const operandType = this.validateExpr(expr.operand, context, env);
+          if (before === this.ctx.diagnostics.length) {
+            this.requireAssignable(
+              operandType,
+              simpleTypeNode(expr.operator === "!" ? "boolean" : "number", expr.operand.location),
+              expr.operand.location,
+              expr.operator === "!"
+                ? "Unary '!' requires a boolean operand"
+                : "Unary '-' requires a numeric operand"
+            );
+          }
+          return this.inferType(expr, env);
+        }
 
       case "ternary":
-        this.validateExpr(expr.condition, context);
-        this.validateExpr(expr.consequent, context);
-        this.validateExpr(expr.alternate, context);
-        break;
+        {
+          const before = this.ctx.diagnostics.length;
+          const conditionType = this.validateExpr(expr.condition, context, env);
+          this.validateExpr(expr.consequent, context, env);
+          this.validateExpr(expr.alternate, context, env);
+          if (before === this.ctx.diagnostics.length) {
+            this.requireAssignable(
+              conditionType,
+              simpleTypeNode("boolean", expr.condition.location),
+              expr.condition.location,
+              "Ternary condition must evaluate to boolean"
+            );
+          }
+          return this.inferType(expr, env);
+        }
 
       case "propertyAccess":
-        this.validateExpr(expr.object, context);
-        break;
+        this.validateExpr(expr.object, context, env);
+        return this.inferType(expr, env);
 
       case "indexAccess":
-        this.validateExpr(expr.object, context);
-        this.validateExpr(expr.index, context);
-        break;
+        this.validateExpr(expr.object, context, env);
+        this.validateExpr(expr.index, context, env);
+        return this.inferType(expr, env);
 
       case "objectLiteral":
         for (const prop of expr.properties) {
-          this.validateExpr(prop.value, context);
+          this.validateExpr(prop.value, context, env);
         }
-        break;
+        return this.inferType(expr, env);
 
       case "arrayLiteral":
         for (const elem of expr.elements) {
-          this.validateExpr(elem, context);
+          this.validateExpr(elem, context, env);
         }
-        break;
+        return this.inferType(expr, env);
 
       case "systemIdent":
         // E001: $system.* in computed — handled by scope analysis (analyzeScope)
         // No duplicate check here to avoid double-reporting
-        break;
+        return this.inferType(expr, env);
+
+      case "literal":
+      case "identifier":
+      case "iterationVar":
+        return this.inferType(expr, env);
     }
   }
 
   private validateFunctionCall(
     expr: { kind: "functionCall"; name: string; args: ExprNode[]; location: SourceLocation },
-    context: "computed" | "action"
+    context: "computed" | "action",
+    env: TypeEnv
   ): void {
     const { name, args, location } = expr;
 
@@ -692,9 +1179,6 @@ export class SemanticValidator {
       // FDR-MEL-042: eq/neq on primitives only
       case "eq":
       case "neq":
-        if (args.length === 2) {
-          this.validatePrimitiveEquality(args[0], args[1], location);
-        }
         break;
 
       // FDR-MEL-026: len() on Array only
@@ -877,38 +1361,370 @@ export class SemanticValidator {
         break;
     }
 
-    // Recursively validate arguments
-    for (const arg of args) {
-      this.validateExpr(arg, context);
+    const argTypes: Array<TypeExprNode | null> = [];
+    if (["filter", "map", "find", "every", "some"].includes(name) && args.length > 0) {
+      const sourceType = this.validateExpr(args[0], context, env);
+      argTypes.push(sourceType);
+
+      let callbackEnv = env;
+      if (this.symbols) {
+        const itemType = getArrayElementType(sourceType, this.symbols);
+        if (itemType) {
+          callbackEnv = extendCollectionTypeEnv(env, itemType);
+        }
+      }
+
+      for (let index = 1; index < args.length; index += 1) {
+        argTypes.push(this.validateExpr(args[index], context, index === 1 ? callbackEnv : env));
+      }
+    } else {
+      for (const arg of args) {
+        argTypes.push(this.validateExpr(arg, context, env));
+      }
+    }
+
+    if (!this.symbols) {
+      return;
+    }
+
+    switch (name) {
+      case "eq":
+      case "neq":
+        if (args.length === 2) {
+          this.validatePrimitiveEquality(args[0], args[1], argTypes[0], argTypes[1], location);
+        }
+        break;
+
+      case "add":
+      case "sub":
+      case "mul":
+      case "div":
+      case "mod":
+      case "pow":
+        if (args.length === 2) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("number", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a numeric first argument`
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("number", args[1].location),
+            args[1].location,
+            `Function '${name}' expects a numeric second argument`
+          );
+        }
+        break;
+
+      case "gt":
+      case "gte":
+      case "lt":
+      case "lte":
+        if (args.length === 2) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("number", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a numeric first argument`
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("number", args[1].location),
+            args[1].location,
+            `Function '${name}' expects a numeric second argument`
+          );
+        }
+        break;
+
+      case "and":
+      case "or":
+        for (const [index, arg] of args.entries()) {
+          this.requireAssignable(
+            argTypes[index],
+            simpleTypeNode("boolean", arg.location),
+            arg.location,
+            `Function '${name}' expects boolean arguments`
+          );
+        }
+        break;
+
+      case "not":
+        if (args.length === 1) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("boolean", args[0].location),
+            args[0].location,
+            "Function 'not' expects a boolean argument"
+          );
+        }
+        break;
+
+      case "neg":
+      case "abs":
+      case "floor":
+      case "ceil":
+      case "round":
+      case "sqrt":
+        if (args.length === 1) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("number", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a numeric argument`
+          );
+        }
+        break;
+
+      case "trim":
+      case "lower":
+      case "upper":
+      case "strlen":
+        if (args.length === 1) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("string", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a string argument`
+          );
+        }
+        break;
+
+      case "startsWith":
+      case "endsWith":
+      case "strIncludes":
+      case "indexOf":
+      case "split":
+        if (args.length === 2) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("string", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a string first argument`
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("string", args[1].location),
+            args[1].location,
+            `Function '${name}' expects a string second argument`
+          );
+        }
+        break;
+
+      case "replace":
+        if (args.length >= 2) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("string", args[0].location),
+            args[0].location,
+            "Function 'replace' expects a string first argument"
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("string", args[1].location),
+            args[1].location,
+            "Function 'replace' expects a string second argument"
+          );
+        }
+        if (args.length === 3) {
+          this.requireAssignable(
+            argTypes[2],
+            simpleTypeNode("string", args[2].location),
+            args[2].location,
+            "Function 'replace' expects a string replacement argument"
+          );
+        }
+        break;
+
+      case "substring":
+      case "substr":
+        if (args.length >= 2) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("string", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a string first argument`
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("number", args[1].location),
+            args[1].location,
+            `Function '${name}' expects a numeric second argument`
+          );
+        }
+        if (args.length === 3) {
+          this.requireAssignable(
+            argTypes[2],
+            simpleTypeNode("number", args[2].location),
+            args[2].location,
+            `Function '${name}' expects a numeric third argument`
+          );
+        }
+        break;
+
+      case "len":
+        if (args.length === 1) {
+          this.requireLenCompatible(argTypes[0], args[0].location);
+        }
+        break;
+
+      case "filter":
+      case "find":
+      case "every":
+      case "some":
+        if (args.length === 2) {
+          this.requireArrayCompatible(argTypes[0], args[0].location, name);
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("boolean", args[1].location),
+            args[1].location,
+            `Function '${name}' requires a boolean-valued callback`
+          );
+        }
+        break;
+
+      case "map":
+        if (args.length === 2) {
+          this.requireArrayCompatible(argTypes[0], args[0].location, name);
+        }
+        break;
+
+      case "coalesce":
+        this.validateCoalesceTypes(argTypes, location);
+        break;
+
+      case "if":
+      case "cond":
+        if (args.length === 3) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("boolean", args[0].location),
+            args[0].location,
+            `Function '${name}' expects a boolean condition`
+          );
+        }
+        break;
     }
   }
 
   private validatePrimitiveEquality(
-    left: ExprNode,
-    right: ExprNode,
+    leftExpr: ExprNode,
+    rightExpr: ExprNode,
+    leftType: TypeExprNode | null,
+    rightType: TypeExprNode | null,
     location: SourceLocation
   ): void {
     if (!this.symbols) {
       return;
     }
 
-    const leftClass = classifyComparableExpr(
-      left,
-      this.ctx.currentActionParamTypes,
-      this.symbols
-    );
-    const rightClass = classifyComparableExpr(
-      right,
-      this.ctx.currentActionParamTypes,
-      this.symbols
-    );
-
-    if (leftClass === "nonprimitive" || rightClass === "nonprimitive") {
+    if (
+      leftExpr.kind === "objectLiteral" ||
+      leftExpr.kind === "arrayLiteral" ||
+      rightExpr.kind === "objectLiteral" ||
+      rightExpr.kind === "arrayLiteral"
+    ) {
       this.error(
-        "eq/neq operands must be primitive types (null, boolean, number, string)",
+        "eq/neq operands must be compatible primitive types, not object or array literals",
         location,
         "E_TYPE_MISMATCH"
       );
+      return;
+    }
+
+    const compatible = areComparableTypesCompatible(leftType, rightType, this.symbols);
+    if (compatible === false) {
+      this.error(
+        `eq/neq operands must be compatible primitive types, got ${describeTypeExpr(leftType, this.symbols)} and ${describeTypeExpr(rightType, this.symbols)}`,
+        location,
+        "E_TYPE_MISMATCH"
+      );
+    }
+  }
+
+  private inferType(expr: ExprNode, env: TypeEnv): TypeExprNode | null {
+    if (!this.symbols) {
+      return null;
+    }
+
+    return inferExprType(expr, env, this.symbols);
+  }
+
+  private requireAssignable(
+    actualType: TypeExprNode | null,
+    expectedType: TypeExprNode,
+    location: SourceLocation,
+    message: string
+  ): void {
+    if (!this.symbols || !actualType) {
+      return;
+    }
+
+    const assignable = isAssignableType(actualType, expectedType, this.symbols);
+    if (assignable === false) {
+      this.error(
+        `${message}, got ${describeTypeExpr(actualType, this.symbols)}`,
+        location,
+        "E_TYPE_MISMATCH"
+      );
+    }
+  }
+
+  private requireArrayCompatible(
+    actualType: TypeExprNode | null,
+    location: SourceLocation,
+    fnName: string
+  ): void {
+    if (!this.symbols || !actualType) {
+      return;
+    }
+
+    const outcome = classifyArrayOperand(actualType, this.symbols);
+    if (outcome === false) {
+      this.error(
+        `Function '${fnName}' expects an array first argument, got ${describeTypeExpr(actualType, this.symbols)}`,
+        location,
+        "E_TYPE_MISMATCH"
+      );
+    }
+  }
+
+  private requireLenCompatible(actualType: TypeExprNode | null, location: SourceLocation): void {
+    if (!this.symbols || !actualType) {
+      return;
+    }
+
+    const outcome = classifyLenOperand(actualType, this.symbols);
+    if (outcome === false) {
+      this.error(
+        `Function 'len' expects a string, array, object, or record argument, got ${describeTypeExpr(actualType, this.symbols)}`,
+        location,
+        "E_TYPE_MISMATCH"
+      );
+    }
+  }
+
+  private validateCoalesceTypes(types: Array<TypeExprNode | null>, location: SourceLocation): void {
+    if (!this.symbols) {
+      return;
+    }
+
+    const concreteTypes = types
+      .map((typeExpr) => stripNullType(typeExpr, this.symbols!))
+      .filter((typeExpr): typeExpr is TypeExprNode => typeExpr !== null);
+
+    for (let i = 0; i < concreteTypes.length; i += 1) {
+      for (let j = i + 1; j < concreteTypes.length; j += 1) {
+        const compatible = areTypesCompatible(concreteTypes[i], concreteTypes[j], this.symbols);
+        if (compatible === false) {
+          this.error(
+            `coalesce arguments must have compatible non-null types, got ${describeTypeExpr(concreteTypes[i], this.symbols)} and ${describeTypeExpr(concreteTypes[j], this.symbols)}`,
+            location,
+            "E_TYPE_MISMATCH"
+          );
+          return;
+        }
+      }
     }
   }
 
