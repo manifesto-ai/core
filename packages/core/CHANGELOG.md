@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.1](https://github.com/manifesto-ai/core/compare/core-v2.7.0...core-v2.7.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* **core,sdk:** pin local vitest runtime dependencies ([f67885d](https://github.com/manifesto-ai/core/commit/f67885d44699281c816367ae71451c8bfdd708f1))
+
 ## [2.7.0](https://github.com/manifesto-ai/core/compare/core-v2.6.1...core-v2.7.0) (2026-03-25)
 
 
