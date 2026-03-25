@@ -49,6 +49,7 @@
     "turbo": "^2.8.20",
     "typedoc": "^0.28.18",
     "typescript": "^5.9.3",
+    "vite": "^7.3.1",
     "vitepress": "^1.6.4",
     "vitest": "^4.1.0"
   },
