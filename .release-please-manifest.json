@@ -5,5 +5,5 @@
   "packages/host": "2.3.4",
   "packages/sdk": "2.0.0",
   "packages/world": "2.4.2",
-  "skills": "0.1.1"
+  "skills": "0.2.0"
 }
