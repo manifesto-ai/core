@@ -24,8 +24,8 @@ If you want the governing documentation rules, see [Documentation Governance](..
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/sdk** | v1.0.0 | Normative (ADR-010) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
-| **App facade (retired)** | Removed (R2) | Legacy reference only | [API Page](/api/app) |
-| **@manifesto-ai/compiler** | v0.6.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **App facade (retired)** | Removed (R2) | Legacy reference only | [Retired Page](/internals/retired/app) |
+| **@manifesto-ai/compiler** | v0.7.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 ### SDK v1.0.0 (ADR-010 Hard Cut)
 
@@ -70,7 +70,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 - **Compiler SPEC v0.7.0** (Full)
   - [SPEC-v0.7.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.7.0.md)
-  - Adds: §9.1.10 Object Functions — `merge()`, `keys()`, `values()`, `entries()` expression documentation (#241)
+  - Adds: statement composition via `flow`/`include` (ADR-013a) and entity collection primitives `findById()` / `existsById()` / `updateById()` / `removeById()` (ADR-013b)
 
 ---
 
@@ -80,6 +80,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
 | 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
 ### Recent Changes (2026-02)

@@ -18,7 +18,7 @@ ADRs are:
 ADRs are NOT:
 - Specifications (see [Specifications](../spec/))
 - Design rationale (see [FDR](../fdr/))
-- Current architecture description (see [Architecture](../architecture))
+- Current architecture description (see [Architecture](/architecture/))
 
 ---
 
@@ -40,6 +40,8 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted | 2026-02-27 | Core, Runtime, Host, World, SDK |
 | [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted | 2026-02-25 | Host, Runtime, World, SDK |
 | [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
+| [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed | 2026-03-24 | Compiler |
+| [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -77,6 +79,11 @@ These ADRs affect multiple packages across the monorepo:
 - It is the host-runtime contract companion to #198, scoped to full-canonical snapshot continuity at boundary entry.
 - executionKey serialization and timeout-slot release remain Host SPEC v2.0.3 enforcement work, not architecture decisions in this ADR.
 - 011 is accepted with the understanding that #2 (§2.2/§2.3) is implemented as a Host SPEC patch, not as additional ADR text.
+
+### ADR-013 Split Notes
+
+- There is no standalone `ADR-013` file in the repository.
+- The original mixed ADR-013 draft was withdrawn and split into `ADR-013a` (`flow`/`include`) and `ADR-013b` (entity collection primitives) for separate review and approval.
 
 ---
 
@@ -192,6 +199,6 @@ Write an ADR when:
 
 ## Related Documents
 
-- [Architecture](../architecture) - Current architecture overview
+- [Architecture](/architecture/) - Current architecture overview
 - [Specifications](../spec/) - Normative contracts
 - [Design Rationale](../fdr/) - Why decisions were made

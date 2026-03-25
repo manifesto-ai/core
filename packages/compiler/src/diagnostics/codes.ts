@@ -134,6 +134,81 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     message: "Include argument type mismatch",
     category: "type",
   },
+  E030: {
+    code: "E030",
+    message: "Collection element type does not have an 'id' field",
+    category: "type",
+  },
+  E030a: {
+    code: "E030a",
+    message: "Collection element 'id' field is not a primitive type",
+    category: "type",
+  },
+  E030b: {
+    code: "E030b",
+    message: "Duplicate '.id' values detected in state initializer",
+    category: "type",
+  },
+  E031: {
+    code: "E031",
+    message: "updateById/removeById not allowed in this context",
+    category: "semantic",
+  },
+  E032: {
+    code: "E032",
+    message: "Nested transform primitive",
+    category: "semantic",
+  },
+  E033: {
+    code: "E033",
+    message: "Transform primitive collection argument is not a state path",
+    category: "semantic",
+  },
+  E034: {
+    code: "E034",
+    message: "Transform primitive in guard condition",
+    category: "semantic",
+  },
+  E035: {
+    code: "E035",
+    message: "Transform primitive in available condition",
+    category: "semantic",
+  },
+  E040: {
+    code: "E040",
+    message: "Circular computed dependency",
+    category: "semantic",
+  },
+  E041: {
+    code: "E041",
+    message: "Computed references undeclared identifier",
+    category: "semantic",
+  },
+  E042: {
+    code: "E042",
+    message: "State initializer references non-constant value",
+    category: "semantic",
+  },
+  E043: {
+    code: "E043",
+    message: "Non-trivial union type cannot be lowered to FieldSpec",
+    category: "type",
+  },
+  E044: {
+    code: "E044",
+    message: "Recursive named type cannot be lowered to FieldSpec",
+    category: "type",
+  },
+  E045: {
+    code: "E045",
+    message: "Nullable type cannot be lowered to FieldSpec",
+    category: "type",
+  },
+  E046: {
+    code: "E046",
+    message: "Record type cannot be lowered to FieldSpec",
+    category: "type",
+  },
 
   // ============ Scope Errors (E1xx) ============
   E_UNDEFINED: {

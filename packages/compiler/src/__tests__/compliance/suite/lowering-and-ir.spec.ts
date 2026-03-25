@@ -128,8 +128,11 @@ describe("CCTS Lowering and IR Suite", () => {
     const loweredRendered = JSON.stringify(lowered.value);
     const flow = lowered.value?.actions["create"]?.flow as CoreFlowNode | undefined;
     const effectTypes = collectEffectTypes(flow);
-    const slotFields = lowered.value
-      ? Object.keys(lowered.value.state.fields).filter((key) => key.startsWith("__sys__create_uuid"))
+    const melField = lowered.value?.state.fields["$mel"];
+    const slotFields = melField?.type === "object"
+      ? Object.keys(
+          melField.fields?.["sys"]?.fields?.["create"]?.fields?.["uuid"]?.fields ?? {}
+        )
       : [];
     const guardedFlow = flow?.kind === "seq"
       ? flow.steps[flow.steps.length - 1]
@@ -138,7 +141,7 @@ describe("CCTS Lowering and IR Suite", () => {
       guardedFlow?.kind === "if" &&
       guardedFlow.cond.kind === "eq" &&
       guardedFlow.cond.left.kind === "get" &&
-      guardedFlow.cond.left.path === "__sys__create_uuid_intent" &&
+      guardedFlow.cond.left.path === "$mel.sys.create.uuid.intent" &&
       guardedFlow.cond.right.kind === "get" &&
       guardedFlow.cond.right.path === "meta.intentId";
 

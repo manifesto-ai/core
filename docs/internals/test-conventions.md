@@ -23,7 +23,7 @@ Both `.test.ts` and `.spec.ts` are valid test files. vitest discovers both.
 | `src/__tests__/*.test.ts` | Default — tests for internal modules |
 | `src/<module>/<module>.test.ts` | Co-located — test tightly coupled to one module |
 | `__tests__/` (outside src) | Integration / E2E tests that span multiple modules |
-| `src/__tests__/compliance/` | Host/World compliance suite |
+| `src/__tests__/compliance/` | Host/World/Compiler compliance suite |
 | `src/__tests__/golden/` | Golden trace replay tests |
 
 ## Discovery Rules
@@ -58,5 +58,6 @@ pnpm -r test
 pnpm test --filter @manifesto-ai/core
 
 # Specific file
-pnpm --filter @manifesto-ai/host vitest run src/__tests__/compliance/
+pnpm --filter @manifesto-ai/host exec vitest run src/__tests__/compliance/
+pnpm --filter @manifesto-ai/compiler exec vitest run src/__tests__/compliance/
 ```

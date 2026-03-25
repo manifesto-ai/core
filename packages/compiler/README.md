@@ -190,8 +190,9 @@ type CompileOptions = {
 | [MEL Syntax](../../docs/mel/SYNTAX.md) | Grammar and syntax |
 | [MEL Examples](../../docs/mel/EXAMPLES.md) | Example library |
 | [MEL Error Guide](../../docs/mel/ERROR-GUIDE.md) | Error codes and fixes |
-| [Compiler Spec](docs/SPEC.md) | Full compiler and MEL spec |
-| [Compiler FDR](docs/FDR-0.3.3v.md) | Design rationale |
+| [Compiler Spec](docs/SPEC-v0.7.0.md) | Full compiler and MEL spec |
+| [Compiler FDR](docs/FDR-v0.5.0.md) | Design rationale |
+| [Compiler Compliance Suite](docs/compiler-SPEC-compilance-test-suite.md) | CCTS structure, rule modes, and execution guide |
 
 ---
 

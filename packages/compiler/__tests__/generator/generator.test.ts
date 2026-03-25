@@ -159,7 +159,7 @@ describe("IR Generator", () => {
       const result = compile(`
         domain Counter {
           state {
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
           action increment() {
             once(lastIntent) {
@@ -307,7 +307,7 @@ describe("IR Generator", () => {
       const result = compile(`
         domain Counter {
           state {
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
           action increment() {
             when true {
@@ -333,7 +333,7 @@ describe("IR Generator", () => {
         domain Counter {
           state {
             count: number = 0
-            lastIntent: string | null = null
+            lastIntent: string = ""
           }
 
           computed doubled = mul(count, 2)
@@ -349,7 +349,7 @@ describe("IR Generator", () => {
           action reset() {
             when gt(count, 0) {
               patch count = 0
-              patch lastIntent = null
+              patch lastIntent = ""
             }
           }
         }
@@ -368,8 +368,9 @@ describe("IR Generator", () => {
       const result = compile(`
         domain TaskManager {
           state {
-            tasks: Record<string, Task> = {}
+            tasks: object = {}
             filter: "all" | "active" | "completed" = "all"
+            lastAdded: string = ""
           }
 
           computed taskCount = len(keys(tasks))

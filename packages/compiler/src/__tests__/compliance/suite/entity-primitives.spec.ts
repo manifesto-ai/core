@@ -6,15 +6,54 @@ import {
   expectAllCompliance,
   hasDiagnosticCode,
   noteEvidence,
-  skipRule,
 } from "../ccts-assertions.js";
 import { CCTS_CASES, caseTitle } from "../ccts-coverage.js";
 import { getRuleOrThrow } from "../ccts-rules.js";
+import { tokenize } from "../../../lexer/index.js";
+import { parse } from "../../../parser/index.js";
+import { analyzeScope } from "../../../analyzer/scope.js";
+import { validateSemantics } from "../../../analyzer/validator.js";
+import { validateAndExpandFlows } from "../../../analyzer/flow-composition.js";
+import { generateCanonical } from "../../../generator/ir.js";
 
 const adapter = createCompilerComplianceAdapter();
 
-function entitySupportMissing(errors: readonly { code: string }[]): boolean {
-  return hasDiagnosticCode(errors as { code: string }[], ["E_UNKNOWN_FN", "E_ARG_COUNT"]);
+function compileCanonical(source: string) {
+  const lexed = tokenize(source);
+  const lexErrors = lexed.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (lexErrors.length > 0) {
+    return { success: false, value: null, errors: lexErrors };
+  }
+
+  const parsed = parse(lexed.tokens);
+  const parseErrors = parsed.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (parseErrors.length > 0 || !parsed.program) {
+    return { success: false, value: null, errors: parseErrors };
+  }
+
+  const flowResult = validateAndExpandFlows(parsed.program);
+  const scopeResult = analyzeScope(flowResult.program);
+  const semanticResult = validateSemantics(flowResult.program);
+  const diagnostics = [
+    ...flowResult.diagnostics,
+    ...scopeResult.diagnostics,
+    ...semanticResult.diagnostics,
+  ];
+  const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (errors.length > 0) {
+    return { success: false, value: null, errors };
+  }
+
+  const generated = generateCanonical(flowResult.program);
+  const generationErrors = generated.diagnostics.filter(
+    (diagnostic) => diagnostic.severity === "error"
+  );
+
+  return {
+    success: generationErrors.length === 0 && generated.schema !== null,
+    value: generated.schema,
+    errors: generationErrors,
+  };
 }
 
 describe("CCTS Entity Primitive Suite", () => {
@@ -40,57 +79,11 @@ describe("CCTS Entity Primitive Suite", () => {
         }
       }
     `;
+    const canonical = compileCanonical(source);
     const compiled = adapter.compile(source);
-    const rendered = JSON.stringify(compiled.value);
-
-    if (entitySupportMissing(compiled.errors)) {
-      expectAllCompliance([
-        skipRule(
-          getRuleOrThrow("ADR-013b"),
-          "Entity primitive surface is not implemented yet; canonical surface coverage remains pending.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-1"),
-          "Fixed .id semantics cannot be exercised until entity primitives are implemented.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-3"),
-          "$item-hiding semantics cannot be exercised until entity primitives are implemented.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-4"),
-          "Core-IR kind preservation cannot be exercised until entity primitives are implemented.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-5"),
-          "Lowering to existing Core nodes cannot be exercised until entity primitives are implemented.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-7"),
-          "Entity-primitives-vs-effect-boundary remains pending until the surface exists.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-8"),
-          "null-id semantics cannot be exercised until entity primitives are implemented.",
-          diagnosticEvidence(compiled.errors)
-        ),
-        skipRule(
-          getRuleOrThrow("ENTITY-9"),
-          "Canonical call-node preservation cannot be exercised until entity primitives are implemented.",
-          diagnosticEvidence(compiled.errors)
-        ),
-      ]);
-      return;
-    }
-
+    const rendered = JSON.stringify(canonical.value);
     const canonicalCallsSatisfied =
-      compiled.success &&
+      canonical.success &&
       rendered.includes("\"fn\":\"findById\"") &&
       rendered.includes("\"fn\":\"existsById\"") &&
       rendered.includes("\"fn\":\"updateById\"") &&
@@ -110,7 +103,7 @@ describe("CCTS Entity Primitive Suite", () => {
         failMessage: "Entity primitives are not preserved as explicit MEL surface forms.",
         evidence: [
           noteEvidence("Compiled schema excerpt", rendered.slice(0, 400)),
-          ...diagnosticEvidence(compiled.errors),
+          ...diagnosticEvidence(canonical.errors),
         ],
       }),
       evaluateRule(getRuleOrThrow("ENTITY-1"), canonicalCallsSatisfied, {
@@ -141,7 +134,10 @@ describe("CCTS Entity Primitive Suite", () => {
       evaluateRule(getRuleOrThrow("ENTITY-8"), compiled.success, {
         passMessage: "null id arguments are accepted by the compiler surface.",
         failMessage: "null id arguments are not accepted by the compiler surface.",
-        evidence: [noteEvidence("Compiled schema excerpt", rendered.slice(0, 400))],
+        evidence: [
+          noteEvidence("Canonical schema excerpt", rendered.slice(0, 400)),
+          ...diagnosticEvidence(compiled.errors),
+        ],
       }),
       evaluateRule(getRuleOrThrow("ENTITY-9"), canonicalCallsSatisfied, {
         passMessage: "Entity primitives remain as MEL call nodes until the lowering boundary.",
@@ -152,34 +148,6 @@ describe("CCTS Entity Primitive Suite", () => {
   });
 
   it(caseTitle(CCTS_CASES.ENTITY_TRANSFORM_PLACEMENT, "(TRANSFORM-1..5, E031..E035) transform primitives stay placement-constrained"), () => {
-    const supportProbe = adapter.compile(`
-      domain Demo {
-        type Task = { id: string, title: string }
-        state { tasks: Array<Task> = [] }
-        action remove(id: string) {
-          when true {
-            patch tasks = removeById(tasks, id)
-          }
-        }
-      }
-    `);
-
-    if (entitySupportMissing(supportProbe.errors)) {
-      expectAllCompliance([
-        skipRule(getRuleOrThrow("TRANSFORM-1"), "Transform primitive placement remains pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("TRANSFORM-2"), "Transform primitive nesting checks remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("TRANSFORM-3"), "Transform primitive state-path checks remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("TRANSFORM-4"), "Transform-in-guard checks remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("TRANSFORM-5"), "Transform-in-available checks remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E031"), "Transform primitive diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E032"), "Transform primitive diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E033"), "Transform primitive diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E034"), "Transform primitive diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E035"), "Transform primitive diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-      ]);
-      return;
-    }
-
     const computedMisuse = adapter.compile(`
       domain Demo {
         type Task = { id: string, title: string }
@@ -288,26 +256,6 @@ describe("CCTS Entity Primitive Suite", () => {
   });
 
   it(caseTitle(CCTS_CASES.ENTITY_TYPING, "(ENTITY-2/2a/2b, E030/E030a/E030b) entity typing and uniqueness remain explicit"), () => {
-    const supportProbe = adapter.compile(`
-      domain Demo {
-        type Task = { id: string, title: string }
-        state { tasks: Array<Task> = [] }
-        computed selected = findById(tasks, "task-1")
-      }
-    `);
-
-    if (entitySupportMissing(supportProbe.errors)) {
-      expectAllCompliance([
-        skipRule(getRuleOrThrow("ENTITY-2"), "Entity typing constraints remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("ENTITY-2a"), "Entity typing constraints remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("ENTITY-2b"), "Entity uniqueness constraints remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E030"), "Entity typing diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E030a"), "Entity typing diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-        skipRule(getRuleOrThrow("E030b"), "Entity uniqueness diagnostics remain pending until primitives are implemented.", diagnosticEvidence(supportProbe.errors)),
-      ]);
-      return;
-    }
-
     const missingId = adapter.compile(`
       domain Demo {
         type Task = { title: string }

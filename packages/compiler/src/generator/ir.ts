@@ -29,6 +29,7 @@ import type {
 } from "../parser/ast.js";
 import { normalizeExpr, normalizeFunctionCall } from "./normalizer.js";
 import { hashSchemaSync, semanticPathToPatchPath, sha256Sync, type PatchPath } from "@manifesto-ai/core";
+import { lowerEntityPrimitivesInSchema } from "./entity-primitives.js";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
 
@@ -95,6 +96,20 @@ export type CoreExprNode =
   | { kind: "coalesce"; args: CoreExprNode[] }
   | { kind: "toString"; arg: CoreExprNode };
 
+export type EntityPrimitiveName =
+  | "findById"
+  | "existsById"
+  | "updateById"
+  | "removeById";
+
+export interface EntityCallExprNode {
+  kind: "call";
+  fn: EntityPrimitiveName;
+  args: CompilerExprNode[];
+}
+
+export type CompilerExprNode = CoreExprNode | EntityCallExprNode;
+
 /**
  * Core FlowNode types (matching core/schema/flow.ts)
  */
@@ -106,6 +121,15 @@ export type CoreFlowNode =
   | { kind: "call"; flow: string }
   | { kind: "halt"; reason?: string }
   | { kind: "fail"; code: string; message?: CoreExprNode };
+
+export type CompilerFlowNode =
+  | { kind: "seq"; steps: CompilerFlowNode[] }
+  | { kind: "if"; cond: CompilerExprNode; then: CompilerFlowNode; else?: CompilerFlowNode }
+  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
+  | { kind: "effect"; type: string; params: Record<string, CompilerExprNode> }
+  | { kind: "call"; flow: string }
+  | { kind: "halt"; reason?: string }
+  | { kind: "fail"; code: string; message?: CompilerExprNode };
 
 /**
  * Field type definition
@@ -142,6 +166,12 @@ export interface ComputedFieldSpec {
   description?: string;
 }
 
+export interface CompilerComputedFieldSpec {
+  deps: string[];
+  expr: CompilerExprNode;
+  description?: string;
+}
+
 /**
  * Computed specification
  */
@@ -156,6 +186,13 @@ export interface ActionSpec {
   flow: CoreFlowNode;
   input?: FieldSpec;
   available?: CoreExprNode;
+  description?: string;
+}
+
+export interface CompilerActionSpec {
+  flow: CompilerFlowNode;
+  input?: FieldSpec;
+  available?: CompilerExprNode;
   description?: string;
 }
 
@@ -191,6 +228,21 @@ export interface DomainSchema {
   state: StateSpec;
   computed: ComputedSpec;
   actions: Record<string, ActionSpec>;
+  meta?: {
+    name?: string;
+    description?: string;
+    authors?: string[];
+  };
+}
+
+export interface CanonicalDomainSchema {
+  id: string;
+  version: string;
+  hash: string;
+  types: Record<string, TypeSpec>;
+  state: StateSpec;
+  computed: { fields: Record<string, CompilerComputedFieldSpec> };
+  actions: Record<string, CompilerActionSpec>;
   meta?: {
     name?: string;
     description?: string;
@@ -235,12 +287,14 @@ export interface GenerateResult {
   diagnostics: Diagnostic[];
 }
 
+export interface GenerateCanonicalResult {
+  schema: CanonicalDomainSchema | null;
+  diagnostics: Diagnostic[];
+}
+
 // ============ Main Generator ============
 
-/**
- * Generate Core DomainSchema from MEL AST
- */
-export function generate(program: ProgramNode): GenerateResult {
+export function generateCanonical(program: ProgramNode): GenerateCanonicalResult {
   const ctx = createContext(program.domain.name);
 
   // First pass: collect state and computed field names
@@ -262,7 +316,7 @@ export function generate(program: ProgramNode): GenerateResult {
   }
 
   // Create schema
-  const schemaWithoutHash: Omit<DomainSchema, "hash"> = {
+  const schemaWithoutHash: Omit<CanonicalDomainSchema, "hash"> = {
     id: `mel:${program.domain.name.toLowerCase()}`,
     version: "1.0.0",
     types,
@@ -275,9 +329,9 @@ export function generate(program: ProgramNode): GenerateResult {
   };
 
   // Compute hash
-  const hash = computeHash(schemaWithoutHash);
+  const hash = computeCanonicalHash(schemaWithoutHash);
 
-  const schema: DomainSchema = {
+  const schema: CanonicalDomainSchema = {
     ...schemaWithoutHash,
     hash,
   };
@@ -285,6 +339,21 @@ export function generate(program: ProgramNode): GenerateResult {
   return {
     schema,
     diagnostics: ctx.diagnostics,
+  };
+}
+
+/**
+ * Generate runtime-ready DomainSchema from MEL AST.
+ */
+export function generate(program: ProgramNode): GenerateResult {
+  const canonical = generateCanonical(program);
+  if (!canonical.schema) {
+    return canonical;
+  }
+
+  return {
+    schema: lowerEntityPrimitivesInSchema(canonical.schema),
+    diagnostics: canonical.diagnostics,
   };
 }
 
@@ -381,7 +450,10 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
   for (const member of domain.members) {
     if (member.kind === "state") {
       for (const field of member.fields) {
-        fields[field.name] = generateFieldSpec(field, ctx);
+        const fieldSpec = generateFieldSpec(field, ctx);
+        if (fieldSpec) {
+          fields[field.name] = fieldSpec;
+        }
       }
     }
   }
@@ -389,8 +461,11 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
   return { fields };
 }
 
-function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldSpec {
+function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldSpec | null {
   const spec = typeExprToFieldSpec(field.typeExpr, ctx);
+  if (!spec) {
+    return null;
+  }
   const defaultValue = field.initializer
     ? evaluateInitializer(field.initializer, ctx)
     : undefined;
@@ -406,7 +481,11 @@ function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldS
  * Convert TypeExprNode to complete FieldSpec (including nested fields)
  * This is the full conversion that includes `fields` for object types
  */
-function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldSpec {
+function typeExprToFieldSpec(
+  typeExpr: TypeExprNode,
+  ctx: GeneratorContext,
+  seenTypeRefs: readonly string[] = []
+): FieldSpec | null {
   switch (typeExpr.kind) {
     case "simpleType":
       switch (typeExpr.name) {
@@ -418,7 +497,16 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
           // User-defined type - look up and expand
           const typeDef = ctx.typeDefs.get(typeExpr.name);
           if (typeDef) {
-            return typeExprToFieldSpec(typeDef.typeExpr, ctx);
+            if (seenTypeRefs.includes(typeExpr.name)) {
+              pushSchemaTypeError(
+                ctx,
+                "E044",
+                `Recursive type '${typeExpr.name}' cannot be lowered to FieldSpec in a schema position`,
+                typeExpr.location
+              );
+              return null;
+            }
+            return typeExprToFieldSpec(typeDef.typeExpr, ctx, [...seenTypeRefs, typeExpr.name]);
           }
           // Unknown type - treat as opaque object
           return { type: "object", required: true };
@@ -426,54 +514,51 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
       }
 
     case "unionType": {
-      // Check if it's a literal union (enum)
-      const literals: unknown[] = [];
-      let isLiteralUnion = true;
-      let hasNull = false;
+      const nonNullTypes = typeExpr.types.filter(
+        (candidate) =>
+          !(candidate.kind === "simpleType" && candidate.name === "null") &&
+          !(candidate.kind === "literalType" && candidate.value === null)
+      );
+      const hasNull = nonNullTypes.length !== typeExpr.types.length;
+      const enumValues: unknown[] = [];
+      let isLiteralEnum = !hasNull;
 
-      for (const t of typeExpr.types) {
-        if (t.kind === "literalType") {
-          if (t.value === null) {
-            hasNull = true;
-          }
-          literals.push(t.value);
-          continue;
+      for (const candidate of nonNullTypes) {
+        if (candidate.kind !== "literalType") {
+          isLiteralEnum = false;
+          break;
         }
-
-        if (t.kind === "simpleType" && t.name === "null") {
-          hasNull = true;
-          literals.push(null);
-          continue;
-        }
-
-        isLiteralUnion = false;
+        enumValues.push(candidate.value);
       }
 
-      if (isLiteralUnion && literals.length > 0) {
-        return { type: { enum: literals }, required: !hasNull };
+      if (isLiteralEnum && enumValues.length > 0) {
+        return { type: { enum: enumValues }, required: true };
       }
 
-      // Nullable type: T | null -> get spec of T
-      if (hasNull) {
-        for (const t of typeExpr.types) {
-          if (t.kind !== "simpleType" || t.name !== "null") {
-            const innerSpec = typeExprToFieldSpec(t, ctx);
-            return { ...innerSpec, required: false };
-          }
-        }
+      if (hasNull && nonNullTypes.length === 1) {
+        pushSchemaTypeError(
+          ctx,
+          "E045",
+          `Nullable type '${describeTypeExpr(typeExpr)}' cannot be lowered to FieldSpec`,
+          typeExpr.location
+        );
+        return null;
       }
 
-      // Mixed union - default to first non-null type
-      for (const t of typeExpr.types) {
-        if (t.kind !== "simpleType" || t.name !== "null") {
-          return typeExprToFieldSpec(t, ctx);
-        }
-      }
-      return { type: "null", required: true };
+      pushSchemaTypeError(
+        ctx,
+        "E043",
+        `Union type '${describeTypeExpr(typeExpr)}' cannot be soundly lowered to FieldSpec`,
+        typeExpr.location
+      );
+      return null;
     }
 
     case "arrayType": {
-      const itemSpec = typeExprToFieldSpec(typeExpr.elementType, ctx);
+      const itemSpec = typeExprToFieldSpec(typeExpr.elementType, ctx, seenTypeRefs);
+      if (!itemSpec) {
+        return null;
+      }
       return {
         type: "array",
         required: true,
@@ -482,7 +567,13 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
     }
 
     case "recordType":
-      return { type: "object", required: true };
+      pushSchemaTypeError(
+        ctx,
+        "E046",
+        `Record type '${describeTypeExpr(typeExpr)}' cannot be lowered to FieldSpec`,
+        typeExpr.location
+      );
+      return null;
 
     case "literalType":
       // Single literal type - use its base type
@@ -495,7 +586,10 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
       // v0.3.3: Inline object type - expand to fields
       const objectFields: Record<string, FieldSpec> = {};
       for (const field of typeExpr.fields) {
-        const fieldSpec = typeExprToFieldSpec(field.typeExpr, ctx);
+        const fieldSpec = typeExprToFieldSpec(field.typeExpr, ctx, seenTypeRefs);
+        if (!fieldSpec) {
+          return null;
+        }
         objectFields[field.name] = {
           ...fieldSpec,
           required: !field.optional,
@@ -515,7 +609,38 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
  */
 function typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldType {
   const spec = typeExprToFieldSpec(typeExpr, ctx);
-  return spec.type;
+  return spec?.type ?? "object";
+}
+
+function pushSchemaTypeError(
+  ctx: GeneratorContext,
+  code: string,
+  message: string,
+  location: TypeExprNode["location"]
+): void {
+  ctx.diagnostics.push({
+    severity: "error",
+    code,
+    message,
+    location,
+  });
+}
+
+function describeTypeExpr(typeExpr: TypeExprNode): string {
+  switch (typeExpr.kind) {
+    case "simpleType":
+      return typeExpr.name;
+    case "unionType":
+      return typeExpr.types.map((member) => describeTypeExpr(member)).join(" | ");
+    case "arrayType":
+      return `Array<${describeTypeExpr(typeExpr.elementType)}>`;
+    case "recordType":
+      return `Record<${describeTypeExpr(typeExpr.keyType)}, ${describeTypeExpr(typeExpr.valueType)}>`;
+    case "literalType":
+      return JSON.stringify(typeExpr.value);
+    case "objectType":
+      return `{ ${typeExpr.fields.map((field) => `${field.name}${field.optional ? "?" : ""}: ${describeTypeExpr(field.typeExpr)}`).join("; ")} }`;
+  }
 }
 
 function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
@@ -543,8 +668,11 @@ function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
 
 // ============ Computed Generation ============
 
-function generateComputed(domain: DomainNode, ctx: GeneratorContext): ComputedSpec {
-  const fields: Record<string, ComputedFieldSpec> = {};
+function generateComputed(
+  domain: DomainNode,
+  ctx: GeneratorContext
+): { fields: Record<string, CompilerComputedFieldSpec> } {
+  const fields: Record<string, CompilerComputedFieldSpec> = {};
 
   for (const member of domain.members) {
     if (member.kind === "computed") {
@@ -561,12 +689,16 @@ function generateComputed(domain: DomainNode, ctx: GeneratorContext): ComputedSp
   return { fields };
 }
 
-function extractDeps(expr: CoreExprNode): string[] {
+function extractDeps(expr: CompilerExprNode): string[] {
   const deps = new Set<string>();
 
-  function visit(node: CoreExprNode): void {
+  function visit(node: CompilerExprNode): void {
     if (node.kind === "get") {
       deps.add(node.path);
+    } else if (node.kind === "call") {
+      for (const arg of node.args) {
+        visit(arg);
+      }
     } else {
       // Visit all nested expressions
       for (const value of Object.values(node)) {
@@ -574,11 +706,11 @@ function extractDeps(expr: CoreExprNode): string[] {
           if (Array.isArray(value)) {
             for (const item of value) {
               if (typeof item === "object" && item !== null && "kind" in item) {
-                visit(item as CoreExprNode);
+                visit(item as CompilerExprNode);
               }
             }
           } else if ("kind" in value) {
-            visit(value as CoreExprNode);
+            visit(value as CompilerExprNode);
           }
         }
       }
@@ -591,8 +723,8 @@ function extractDeps(expr: CoreExprNode): string[] {
 
 // ============ Action Generation ============
 
-function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<string, ActionSpec> {
-  const actions: Record<string, ActionSpec> = {};
+function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<string, CompilerActionSpec> {
+  const actions: Record<string, CompilerActionSpec> = {};
 
   for (const member of domain.members) {
     if (member.kind === "action") {
@@ -614,20 +746,10 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
         const inputFields: Record<string, FieldSpec> = {};
         for (const param of member.params) {
           const fieldSpec = typeExprToFieldSpec(param.typeExpr, ctx);
-          const inputField: FieldSpec = {
-            type: fieldSpec.type,
-            required: fieldSpec.required ?? true,
-          };
-
-          if (fieldSpec.type === "object" && fieldSpec.fields) {
-            inputField.fields = fieldSpec.fields;
+          if (!fieldSpec) {
+            continue;
           }
-
-          if (fieldSpec.type === "array" && fieldSpec.items) {
-            inputField.items = fieldSpec.items;
-          }
-
-          inputFields[param.name] = inputField;
+          inputFields[param.name] = structuredClone(fieldSpec);
         }
         input = {
           type: "object",
@@ -637,7 +759,7 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
       }
 
       // v0.3.2: Generate available condition if present
-      let available: CoreExprNode | undefined;
+      let available: CompilerExprNode | undefined;
       if (member.available) {
         available = generateExpr(member.available, ctx);
       }
@@ -655,7 +777,10 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
   return actions;
 }
 
-function generateFlow(stmts: (GuardedStmtNode | InnerStmtNode)[], ctx: GeneratorContext): CoreFlowNode {
+function generateFlow(
+  stmts: (GuardedStmtNode | InnerStmtNode)[],
+  ctx: GeneratorContext
+): CompilerFlowNode {
   if (stmts.length === 0) {
     return { kind: "seq", steps: [] };
   }
@@ -670,7 +795,10 @@ function generateFlow(stmts: (GuardedStmtNode | InnerStmtNode)[], ctx: Generator
   };
 }
 
-function generateStmt(stmt: GuardedStmtNode | InnerStmtNode, ctx: GeneratorContext): CoreFlowNode {
+function generateStmt(
+  stmt: GuardedStmtNode | InnerStmtNode,
+  ctx: GeneratorContext
+): CompilerFlowNode {
   switch (stmt.kind) {
     case "when":
       return generateWhen(stmt, ctx);
@@ -698,7 +826,7 @@ function generateStmt(stmt: GuardedStmtNode | InnerStmtNode, ctx: GeneratorConte
   }
 }
 
-function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CoreFlowNode {
+function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CompilerFlowNode {
   const cond = generateExpr(stmt.condition, ctx);
   const thenFlow = generateFlow(stmt.body, ctx);
 
@@ -709,16 +837,16 @@ function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CoreFlowNode {
   };
 }
 
-function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CoreFlowNode {
+function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNode {
   // Desugar once(marker) { ... } to:
   // when neq(marker, $meta.intentId) { patch marker = $meta.intentId; ... }
   // Note: Core accesses $meta intent values via meta.*
 
   const markerPath = generatePath(stmt.marker, ctx);
-  const intentIdExpr: CoreExprNode = { kind: "get", path: "meta.intentId" };
+  const intentIdExpr: CompilerExprNode = { kind: "get", path: "meta.intentId" };
 
   // Condition: marker != $meta.intentId
-  let cond: CoreExprNode = {
+  let cond: CompilerExprNode = {
     kind: "neq",
     left: { kind: "get", path: markerPath },
     right: intentIdExpr,
@@ -734,7 +862,7 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CoreFlowNode {
   }
 
   // Body: patch marker = $meta.intentId, then rest
-  const markerPatch: CoreFlowNode = {
+  const markerPatch: CompilerFlowNode = {
     kind: "patch",
     op: "set",
     path: toPatchPath(markerPath),
@@ -753,16 +881,16 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CoreFlowNode {
   };
 }
 
-function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): CoreFlowNode {
+function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): CompilerFlowNode {
   const actionName = ctx.currentAction ?? "unknown";
   const nextIndex = ctx.onceIntentCounters.get(actionName) ?? 0;
   ctx.onceIntentCounters.set(actionName, nextIndex + 1);
 
   const guardId = sha256Sync(`${actionName}:${nextIndex}:intent`);
   const guardPath = `$mel.guards.intent.${guardId}`;
-  const intentIdExpr: CoreExprNode = { kind: "get", path: "meta.intentId" };
+  const intentIdExpr: CompilerExprNode = { kind: "get", path: "meta.intentId" };
 
-  let cond: CoreExprNode = {
+  let cond: CompilerExprNode = {
     kind: "neq",
     left: { kind: "get", path: guardPath },
     right: intentIdExpr,
@@ -777,7 +905,7 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
   }
 
   // Guard write: semantic target is guardPath, lowered as map-level merge.
-  const markerPatch: CoreFlowNode = {
+  const markerPatch: CompilerFlowNode = {
     kind: "patch",
     op: "merge",
     path: toPatchPath("$mel.guards.intent"),
@@ -799,24 +927,24 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
   };
 }
 
-function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CoreFlowNode {
+function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlowNode {
   const path = generatePath(stmt.path, ctx);
 
-  const result: CoreFlowNode = {
+  const result: CompilerFlowNode = {
     kind: "patch",
     op: stmt.op,
     path: toPatchPath(path),
   };
 
   if (stmt.value) {
-    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }).value = generateExpr(stmt.value, ctx);
+    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }).value = generateExpr(stmt.value, ctx);
   }
 
   return result;
 }
 
-function generateEffect(stmt: EffectStmtNode, ctx: GeneratorContext): CoreFlowNode {
-  const params: Record<string, CoreExprNode> = {};
+function generateEffect(stmt: EffectStmtNode, ctx: GeneratorContext): CompilerFlowNode {
+  const params: Record<string, CompilerExprNode> = {};
 
   for (const arg of stmt.args) {
     if (arg.isPath) {
@@ -838,14 +966,14 @@ function generateEffect(stmt: EffectStmtNode, ctx: GeneratorContext): CoreFlowNo
  * v0.3.2: Generate fail statement
  * fail "CODE" with expr → { kind: "fail", code, message? }
  */
-function generateFail(stmt: FailStmtNode, ctx: GeneratorContext): CoreFlowNode {
-  const result: CoreFlowNode = {
+function generateFail(stmt: FailStmtNode, ctx: GeneratorContext): CompilerFlowNode {
+  const result: CompilerFlowNode = {
     kind: "fail",
     code: stmt.code,
   };
 
   if (stmt.message) {
-    (result as { kind: "fail"; code: string; message?: CoreExprNode }).message = generateExpr(stmt.message, ctx);
+    (result as { kind: "fail"; code: string; message?: CompilerExprNode }).message = generateExpr(stmt.message, ctx);
   }
 
   return result;
@@ -855,7 +983,7 @@ function generateFail(stmt: FailStmtNode, ctx: GeneratorContext): CoreFlowNode {
  * v0.3.2: Generate stop statement
  * stop "reason" → { kind: "halt", reason }
  */
-function generateStop(stmt: StopStmtNode, ctx: GeneratorContext): CoreFlowNode {
+function generateStop(stmt: StopStmtNode, ctx: GeneratorContext): CompilerFlowNode {
   return {
     kind: "halt",
     reason: stmt.reason,
@@ -914,7 +1042,7 @@ function toPatchPath(path: string): PatchPath {
 
 // ============ Expression Generation ============
 
-function generateExpr(expr: ExprNode, ctx: GeneratorContext): CoreExprNode {
+function generateExpr(expr: ExprNode, ctx: GeneratorContext): CompilerExprNode {
   switch (expr.kind) {
     case "literal":
       return { kind: "lit", value: expr.value };
@@ -936,42 +1064,49 @@ function generateExpr(expr: ExprNode, ctx: GeneratorContext): CoreExprNode {
     case "indexAccess":
       return {
         kind: "at",
-        array: generateExpr(expr.object, ctx),
-        index: generateExpr(expr.index, ctx),
+        array: generateExpr(expr.object, ctx) as CoreExprNode,
+        index: generateExpr(expr.index, ctx) as CoreExprNode,
       };
 
     case "functionCall":
+      if (isEntityPrimitiveName(expr.name)) {
+        return {
+          kind: "call",
+          fn: expr.name,
+          args: expr.args.map((arg) => generateExpr(arg, ctx)),
+        };
+      }
       return normalizeFunctionCall(
         expr.name,
-        expr.args.map(a => generateExpr(a, ctx))
+        expr.args.map((a) => generateExpr(a, ctx) as CoreExprNode)
       );
 
     case "binary":
       return normalizeExpr(
         expr.operator,
-        generateExpr(expr.left, ctx),
-        generateExpr(expr.right, ctx)
+        generateExpr(expr.left, ctx) as CoreExprNode,
+        generateExpr(expr.right, ctx) as CoreExprNode
       );
 
     case "unary":
       if (expr.operator === "!") {
-        return { kind: "not", arg: generateExpr(expr.operand, ctx) };
+        return { kind: "not", arg: generateExpr(expr.operand, ctx) as CoreExprNode };
       } else {
-        return { kind: "neg", arg: generateExpr(expr.operand, ctx) };
+        return { kind: "neg", arg: generateExpr(expr.operand, ctx) as CoreExprNode };
       }
 
     case "ternary":
       return {
         kind: "if",
-        cond: generateExpr(expr.condition, ctx),
-        then: generateExpr(expr.consequent, ctx),
-        else: generateExpr(expr.alternate, ctx),
+        cond: generateExpr(expr.condition, ctx) as CoreExprNode,
+        then: generateExpr(expr.consequent, ctx) as CoreExprNode,
+        else: generateExpr(expr.alternate, ctx) as CoreExprNode,
       };
 
     case "objectLiteral": {
       const fields: Record<string, CoreExprNode> = {};
       for (const prop of expr.properties) {
-        fields[prop.key] = generateExpr(prop.value, ctx);
+        fields[prop.key] = generateExpr(prop.value, ctx) as CoreExprNode;
       }
       return { kind: "object", fields };
     }
@@ -990,12 +1125,12 @@ function generateExpr(expr: ExprNode, ctx: GeneratorContext): CoreExprNode {
       return {
         kind: "append",
         array: { kind: "lit", value: [] },
-        items: expr.elements.map(e => generateExpr(e, ctx)),
+        items: expr.elements.map((e) => generateExpr(e, ctx) as CoreExprNode),
       };
   }
 }
 
-function generateIdentifier(name: string, ctx: GeneratorContext): CoreExprNode {
+function generateIdentifier(name: string, ctx: GeneratorContext): CompilerExprNode {
   // Resolve identifier to path
   if (ctx.stateFields.has(name)) {
     // Core expects state paths without prefix (e.g., "count" not "data.count")
@@ -1019,7 +1154,7 @@ function generateIdentifier(name: string, ctx: GeneratorContext): CoreExprNode {
   return { kind: "get", path: name };
 }
 
-function generateSystemIdent(path: string[], ctx: GeneratorContext): CoreExprNode {
+function generateSystemIdent(path: string[], ctx: GeneratorContext): CompilerExprNode {
   // $system.uuid -> will be lowered later
   // $meta.intentId -> meta.intentId
   // $input.* -> input.*
@@ -1048,7 +1183,10 @@ function generateSystemIdent(path: string[], ctx: GeneratorContext): CoreExprNod
   }
 }
 
-function generatePropertyAccess(expr: { kind: "propertyAccess"; object: ExprNode; property: string }, ctx: GeneratorContext): CoreExprNode {
+function generatePropertyAccess(
+  expr: { kind: "propertyAccess"; object: ExprNode; property: string },
+  ctx: GeneratorContext
+): CompilerExprNode {
   // Handle chained property access
   const objectExpr = generateExpr(expr.object, ctx);
 
@@ -1061,9 +1199,18 @@ function generatePropertyAccess(expr: { kind: "propertyAccess"; object: ExprNode
   // This is semantically distinct from at() (array indexing) and get() (snapshot path lookup).
   return {
     kind: "field",
-    object: objectExpr,
+    object: objectExpr as CoreExprNode,
     property: expr.property,
   };
+}
+
+function isEntityPrimitiveName(name: string): name is EntityPrimitiveName {
+  return (
+    name === "findById" ||
+    name === "existsById" ||
+    name === "updateById" ||
+    name === "removeById"
+  );
 }
 
 // ============ Hash Computation ============
@@ -1072,6 +1219,10 @@ function generatePropertyAccess(expr: { kind: "propertyAccess"; object: ExprNode
  * Compute schema hash using browser-compatible SHA-256.
  * Uses @manifesto-ai/core's sha256Sync for universal compatibility.
  */
+function computeCanonicalHash(schema: Omit<CanonicalDomainSchema, "hash">): string {
+  return hashSchemaSync(schema as unknown as Omit<DomainSchema, "hash">);
+}
+
 function computeHash(schema: Omit<DomainSchema, "hash">): string {
   return hashSchemaSync(schema);
 }

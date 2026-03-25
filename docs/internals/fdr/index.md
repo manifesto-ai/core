@@ -20,7 +20,7 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 
 | Package | Latest FDR | Scope | Package Docs |
 |---------|------------|-------|--------------|
-| **App facade (retired)** | Removed (R2) | Legacy compatibility rationale | [API Page](/api/app) |
+| **App facade (retired)** | Removed (R2) | Legacy compatibility rationale | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0-patch.md) |
 
 > Core/Host/World rationale is available in each package SPEC `Rationale` block, and patch documents are only referenced from archive paths.

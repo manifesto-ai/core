@@ -130,7 +130,10 @@ describe("CCTS Flow Composition Suite", () => {
     `);
     const invalidBody = adapter.compile(`
       domain Demo {
-        state { count: number = 0, marker: string = "" }
+        state {
+          count: number = 0
+          marker: string = ""
+        }
         flow invalid() {
           once(marker) {
             fail "NOPE"

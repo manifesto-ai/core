@@ -6,7 +6,6 @@ import {
   expectAllCompliance,
   hasDiagnosticCode,
   noteEvidence,
-  skipRule,
 } from "../ccts-assertions.js";
 import { CCTS_CASES, caseTitle } from "../ccts-coverage.js";
 import { getRuleOrThrow } from "../ccts-rules.js";
@@ -324,7 +323,7 @@ describe("CCTS State and Computed Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.STATE_UNSUPPORTED_TYPES, "(TYPE-LOWER-6..9, E043..E046) unsupported FieldSpec shapes stay tracked"), () => {
+  it(caseTitle(CCTS_CASES.STATE_UNSUPPORTED_TYPES, "(TYPE-LOWER-6..9, E043..E046) unsupported FieldSpec shapes remain rejected"), () => {
     const nullableResult = adapter.compile(`
       domain Demo {
         state { value: string | null = null }
@@ -345,18 +344,12 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const recursiveResult = adapter.parse(`
+    const recursiveResult = adapter.compile(`
       domain Demo {
         type Tree = { children: Array<Tree> }
         state { root: Tree = { children: [] } }
       }
     `);
-
-    const recursiveEvidence = [
-      noteEvidence("Recursive type parse succeeded", recursiveResult.success),
-      noteEvidence("Recursive type compile probe intentionally omitted", "Current generator lacks safe cycle handling for this pending rule."),
-      ...diagnosticEvidence(recursiveResult.errors),
-    ];
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("TYPE-LOWER-6"), hasDiagnosticCode(nullableResult.errors, "E045"), {
@@ -398,11 +391,16 @@ describe("CCTS State and Computed Suite", () => {
         failMessage: "Non-trivial unions do not yet emit E043.",
         evidence: diagnosticEvidence(unionResult.errors),
       }),
-    ]);
-
-    expectAllCompliance([
-      skipRule(getRuleOrThrow("TYPE-LOWER-9"), "Recursive named-type lowering remains pending until cycle-safe lowering exists.", recursiveEvidence),
-      skipRule(getRuleOrThrow("E044"), "Recursive named-type diagnostics remain pending until cycle-safe lowering exists.", recursiveEvidence),
+      evaluateRule(getRuleOrThrow("TYPE-LOWER-9"), hasDiagnosticCode(recursiveResult.errors, "E044"), {
+        passMessage: "Recursive named types in schema positions are rejected.",
+        failMessage: "Recursive named types are not yet rejected in schema positions.",
+        evidence: diagnosticEvidence(recursiveResult.errors),
+      }),
+      evaluateRule(getRuleOrThrow("E044"), hasDiagnosticCode(recursiveResult.errors, "E044"), {
+        passMessage: "Recursive named types emit E044.",
+        failMessage: "Recursive named types do not yet emit E044.",
+        evidence: diagnosticEvidence(recursiveResult.errors),
+      }),
     ]);
   });
 });

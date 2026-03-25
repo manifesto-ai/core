@@ -23,6 +23,7 @@ import type {
 import type { Diagnostic } from "../diagnostics/types.js";
 import { createWarning } from "../diagnostics/types.js";
 import type { SourceLocation } from "../lexer/source-location.js";
+import { validateEntityPrimitives } from "./entity-primitives.js";
 
 // ============ Validation Context ============
 
@@ -31,6 +32,7 @@ interface ValidationContext {
   inGuard: boolean;
   guardDepth: number;
   hasMarkerPatch: boolean; // For once() validation
+  currentActionParams: Set<string>;
   diagnostics: Diagnostic[];
 }
 
@@ -40,6 +42,7 @@ function createContext(): ValidationContext {
     inGuard: false,
     guardDepth: 0,
     hasMarkerPatch: false,
+    currentActionParams: new Set(),
     diagnostics: [],
   };
 }
@@ -133,6 +136,18 @@ export class SemanticValidator {
 
   private validateStateInitializer(expr: ExprNode): void {
     switch (expr.kind) {
+      case "literal":
+        return;
+
+      case "identifier":
+      case "iterationVar":
+        this.error(
+          "State initializers must be compile-time constants",
+          expr.location,
+          "E042"
+        );
+        return;
+
       case "systemIdent":
         if (expr.path[0] === "system") {
           this.error(
@@ -140,50 +155,110 @@ export class SemanticValidator {
             expr.location,
             "E002"
           );
+        } else {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
         }
-        break;
-
-      case "functionCall":
-        for (const arg of expr.args) {
-          this.validateStateInitializer(arg);
-        }
-        break;
-
-      case "binary":
-        this.validateStateInitializer(expr.left);
-        this.validateStateInitializer(expr.right);
-        break;
-
-      case "unary":
-        this.validateStateInitializer(expr.operand);
-        break;
-
-      case "ternary":
-        this.validateStateInitializer(expr.condition);
-        this.validateStateInitializer(expr.consequent);
-        this.validateStateInitializer(expr.alternate);
-        break;
-
-      case "propertyAccess":
-        this.validateStateInitializer(expr.object);
-        break;
-
-      case "indexAccess":
-        this.validateStateInitializer(expr.object);
-        this.validateStateInitializer(expr.index);
-        break;
+        return;
 
       case "objectLiteral":
         for (const prop of expr.properties) {
           this.validateStateInitializer(prop.value);
         }
-        break;
+        return;
 
       case "arrayLiteral":
         for (const elem of expr.elements) {
           this.validateStateInitializer(elem);
         }
-        break;
+        return;
+
+      case "functionCall": {
+        const before = this.ctx.diagnostics.length;
+        for (const arg of expr.args) {
+          this.validateStateInitializer(arg);
+        }
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "binary": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.left);
+        this.validateStateInitializer(expr.right);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "unary": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.operand);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "ternary": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.condition);
+        this.validateStateInitializer(expr.consequent);
+        this.validateStateInitializer(expr.alternate);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "propertyAccess": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.object);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
+
+      case "indexAccess": {
+        const before = this.ctx.diagnostics.length;
+        this.validateStateInitializer(expr.object);
+        this.validateStateInitializer(expr.index);
+        if (this.ctx.diagnostics.length === before) {
+          this.error(
+            "State initializers must be compile-time constants",
+            expr.location,
+            "E042"
+          );
+        }
+        return;
+      }
     }
   }
 
@@ -232,6 +307,7 @@ export class SemanticValidator {
 
   private validateAction(action: ActionNode): void {
     this.ctx.inAction = true;
+    this.ctx.currentActionParams = new Set(action.params.map((param) => param.name));
 
     // v0.3.3: E005 - available expression must be pure
     if (action.available) {
@@ -245,6 +321,7 @@ export class SemanticValidator {
     }
 
     this.ctx.inAction = false;
+    this.ctx.currentActionParams = new Set();
   }
 
   /**
@@ -253,6 +330,16 @@ export class SemanticValidator {
    */
   private validateAvailableExpr(expr: ExprNode): void {
     switch (expr.kind) {
+      case "identifier":
+        if (this.ctx.currentActionParams.has(expr.name)) {
+          this.error(
+            "Action parameters cannot be used in available condition",
+            expr.location,
+            "E005"
+          );
+        }
+        break;
+
       case "systemIdent":
         // E005: $system.* not allowed in available
         if (expr.path[0] === "system") {
@@ -266,6 +353,13 @@ export class SemanticValidator {
         if (expr.path[0] === "input") {
           this.error(
             "$input.* cannot be used in available condition (parameters not available at availability check)",
+            expr.location,
+            "E005"
+          );
+        }
+        if (expr.path[0] === "meta") {
+          this.error(
+            "$meta.* cannot be used in available condition (availability is schema-context only)",
             expr.location,
             "E005"
           );
@@ -619,6 +713,8 @@ export class SemanticValidator {
 
       // Binary functions need exactly 2 args
       case "pow":
+      case "findById":
+      case "existsById":
       case "filter":
       case "map":
       case "find":
@@ -634,6 +730,26 @@ export class SemanticValidator {
       case "endsWith":
       case "strIncludes":
       case "indexOf":
+        if (args.length !== 2) {
+          this.error(
+            `Function '${name}' expects 2 arguments, got ${args.length}`,
+            location,
+            "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      case "updateById":
+        if (args.length !== 3) {
+          this.error(
+            `Function '${name}' expects 3 arguments, got ${args.length}`,
+            location,
+            "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      case "removeById":
         if (args.length !== 2) {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
@@ -737,5 +853,12 @@ export class SemanticValidator {
  */
 export function validateSemantics(program: ProgramNode): ValidationResult {
   const validator = new SemanticValidator();
-  return validator.validate(program);
+  const result = validator.validate(program);
+  const entityDiagnostics = validateEntityPrimitives(program);
+  const diagnostics = [...result.diagnostics, ...entityDiagnostics];
+
+  return {
+    valid: !diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    diagnostics,
+  };
 }

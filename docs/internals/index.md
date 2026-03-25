@@ -29,8 +29,12 @@ Records of significant architectural decisions:
 | [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted |
 | [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted |
 | [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted |
+| [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed |
+| [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
+
+There is no standalone `ADR-013` page. The mixed proposal was split into [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) and [ADR-013b](./adr/013b-entity-collection-primitives).
 
 ### Documentation Governance
 

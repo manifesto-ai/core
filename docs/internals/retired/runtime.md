@@ -17,4 +17,4 @@ const instance = createManifesto({
 });
 ```
 
-See [@manifesto-ai/sdk](./sdk) for the current API.
+See [@manifesto-ai/sdk](/api/sdk) for the current API.

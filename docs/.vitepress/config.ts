@@ -203,6 +203,8 @@ export default defineConfig({
             { text: 'ADR-010: Protocol-First SDK Reconstruction', link: '/internals/adr/010-major-hard-cut' },
             { text: 'ADR-011: Host Boundary Reset', link: '/internals/adr/011-host-boundary-reset-and-executionkey-serialization' },
             { text: 'ADR-012: Remove Computed Prefix', link: '/internals/adr/012-remove-computed-prefix' },
+            { text: 'ADR-013a: flow/include', link: '/internals/adr/013a-mel-statement-composition-flow-and-include' },
+            { text: 'ADR-013b: Entity Primitives', link: '/internals/adr/013b-entity-collection-primitives' },
           ]
         },
         {

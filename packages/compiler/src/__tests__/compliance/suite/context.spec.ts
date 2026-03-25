@@ -5,7 +5,6 @@ import {
   evaluateRule,
   expectAllCompliance,
   hasDiagnosticCode,
-  noteEvidence,
 } from "../ccts-assertions.js";
 import { CCTS_CASES, caseTitle } from "../ccts-coverage.js";
 import { getRuleOrThrow } from "../ccts-rules.js";
@@ -113,7 +112,6 @@ describe("CCTS Context Suite", () => {
         evidence: [
           ...diagnosticEvidence(metaResult.errors),
           ...diagnosticEvidence(paramResult.errors),
-          noteEvidence("Pending rule probes are non-blocking by design."),
         ],
       }),
     ]);

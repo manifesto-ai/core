@@ -1,9 +1,9 @@
 # MEL Compiler Specification v0.7.0
 
-> **Version:** 0.7.0
-> **Status:** Draft
-> **Authors:** Manifesto Team
-> **License:** MIT
+> **Version:** 0.7.0  
+> **Status:** Draft  
+> **Authors:** Manifesto Team  
+> **License:** MIT  
 > **Changelog:**
 > - v0.2: AI-Native design principles (FDR-MEL-012 ~ 019)
 > - v0.2.1: Host Contract alignment (FDR-MEL-020 ~ 026)
@@ -17,7 +17,7 @@
 > - v0.4.0: Translator Lowering, Expression Evaluation, Host Integration
 > - v0.5.0: $mel Namespace, onceIntent Syntax, Guard Compilation
 > - v0.6.0: ADR-009 alignment — `IRPatchPath`, `IRPathSegment`, `resolveIRPath()` TOTAL semantics
-> - v0.7.0: Object Functions — §9.1.10 `merge()`, `keys()`, `values()`, `entries()` expression documentation (#241)
+> - v0.7.0: Statement composition (`flow`/`include` — ADR-013a), Entity collection primitives (`findById`/`existsById`/`updateById`/`removeById` — ADR-013b)
 
 ---
 
@@ -152,13 +152,13 @@ A22. Compiler inserts system effects automatically. [v0.3.0]
 A23. Same $system.<key> in same action = same value (per intent). [v0.3.0]
 A24. System value replay uses Snapshot only, no separate trace. [v0.3.0]
 A25. $system.* is forbidden in computed and state init. [v0.3.0]
-A26. __sys__ prefix is reserved for compiler-generated identifiers. [v0.3.1]
+A26. Compiler-generated system value state lives under $mel.sys.* (platform namespace). [v0.3.1, unified v0.7.0]
 A27. Readiness check uses eq(intent_marker, $meta.intentId), not isNotNull(value). [v0.3.1]
-A28. available conditions must be pure expressions (no Effects, no $system.*). [v0.3.3]
+A28. available conditions must be pure, state/computed-only expressions (no Effects, no $system.*, no $meta.*, no $input.*, no action parameters). [v0.3.3, clarified v0.7.0]
 A29. fail is a FlowNode — errors are Core decisions, not Host effects. [v0.3.3]
 A30. stop means "early exit" only — "waiting/pending" semantics forbidden. [v0.3.3]
 A31. call FlowNode exists in Core but is not exposed in MEL. [v0.3.3]
-A32. Primitive aggregation (sum, min, max, len) expresses facts; user-defined accumulation is forbidden. [v0.3.3]
+A32. Primitive aggregation (sum, min, max) expresses facts; user-defined accumulation is forbidden. len() is a general builtin, not an aggregation. [v0.3.3, clarified v0.7.0]
 A33. Complex types must be named; anonymous object types in state are forbidden. [v0.3.3]
 A34. Compiler is the single boundary between MEL IR and Core IR. [v0.4.0]
 A35. Expression evaluation is total; invalid operations return null, never throw. [v0.4.0]
@@ -216,7 +216,7 @@ MEL v0.2.3 completes the specification with **no ambiguity**:
 |--------|-------------|-----|
 | Equality | `neq(a,b) := not(eq(a,b))` | FDR-MEL-034 |
 | Index access | `at()` works on Array AND Record | FDR-MEL-035 |
-| Scope | Params > Computed > State > System | FDR-MEL-036 |
+| Scope | Params > Computed > State > System (within permitted contexts — §6.1) | FDR-MEL-036 |
 | System values | Defined stability per value | FDR-MEL-037 |
 | Sort | null last, NaN handling, stable | FDR-MEL-038 |
 | IR | Complete node specification | FDR-MEL-039 |
@@ -317,16 +317,18 @@ computed x = 5 /* inline comment */ + 3
 ```
 domain    state     computed  action    effect
 when      once      patch     unset     merge
+type      available fail      stop
 true      false     null
 as        import    from      export
 ```
 
 **v0.2.2 additions:** `once`, `unset`, `merge` promoted to keywords.
+**v0.3.3 additions:** `type`, `available`, `fail`, `stop` promoted to keywords.
 
 **Reserved for future use:**
 ```
 async     await     yield     class     extends
-interface type      enum      namespace module
+interface enum      namespace module
 ```
 
 **Reserved (JS — never to be implemented):**
@@ -432,9 +434,11 @@ IterationVar    = "$item"
 | Category | Syntax | Nature | Allowed In |
 |----------|--------|--------|------------|
 | **System IO** | `$system.*` | IO (effect) | Action body only |
-| **Meta** | `$meta.*` | Pure (from Intent) | Anywhere |
-| **Input** | `$input.*` | Pure (from Intent) | Anywhere |
+| **Meta** | `$meta.*` | Pure (from Intent) | Action body only (requires Intent context) |
+| **Input** | `$input.*` | Pure (from Intent) | Action body only (requires Intent context) |
 | **Iteration** | `$item` | Pure (from Effect context) | Effect sub-expressions |
+
+> **v0.7.0 clarification:** `$meta.*` and `$input.*` require an Intent context. They are forbidden in `computed` (no Intent), `state` initializers (no Intent), and `available` (evaluated pre-Intent by UI/Agent). "Action body" means guards, patch values, and effect args.
 
 ##### $system.* — IO Values (v0.3.0 CRITICAL)
 
@@ -480,7 +484,7 @@ $meta.actor           // Current actor (stable per intent)
 $meta.authority       // Current authority (stable per intent)
 ```
 
-These are pure values from the Intent context, available anywhere.
+These are pure values from the Intent context, available in action body only (guards, patch values, effect args). Not allowed in computed, state initializers, or `available` conditions — no Intent exists in those contexts.
 
 ##### $input.* — Intent Input (Pure)
 
@@ -488,7 +492,7 @@ These are pure values from the Intent context, available anywhere.
 $input.fieldName      // Intent input parameter value
 ```
 
-These are pure values from the Intent input, available anywhere.
+These are pure values from the Intent input, available in action body only. Same restriction as `$meta.*`.
 
 ##### $item — Iteration Variable (Pure)
 
@@ -517,6 +521,7 @@ DomainMember    = TypeDecl
                 | StateDecl
                 | ComputedDecl
                 | ActionDecl
+                | FlowDecl                  (* v0.7.0: ADR-013a *)
 ```
 
 ### 4.2 Type Declaration (v0.3.3)
@@ -573,25 +578,78 @@ StateTypeRef    = Identifier                              (* named type referenc
 ```mel
 // ❌ FORBIDDEN: Anonymous object type in state
 state {
-  tracking: { shipments: Record<string, Shipment> } = { ... }
+  user: { name: string, age: number } = { name: "", age: 0 }
 }
 
 // ✅ REQUIRED: Named type reference
-type Tracking = { shipments: Record<string, Shipment> }
+type User = { name: string, age: number }
 state {
-  tracking: Tracking = { shipments: {} }
+  user: User = { name: "", age: 0 }
 }
 ```
+
+> **v0.7.0 note:** Named types used in state fields must also be FieldSpec-compatible (§5.6.2). Types containing `Record<string, T>`, `T | null`, non-trivial unions, or recursive refs cannot be used as state field types even when named.
 
 **Example:**
 ```mel
 state {
   count: number = 0
-  items: Record<string, Item> = {}
+  items: Array<Item> = []
   status: "idle" | "loading" | "done" = "idle"
-  tracking: Tracking = { shipments: {}, signals: null }
 }
 ```
+
+#### 4.3.1 State Initializer Evaluation (v0.7.0)
+
+Core's `FieldSpec.default` is a **concrete value** (`unknown`), not an expression. "StateSpec MUST NOT contain any expressions or logic" (Core SPEC §5.4). The compiler MUST therefore evaluate state initializer expressions to concrete values at compile time.
+
+**Evaluation Rules (Normative):**
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| STATE-INIT-1 | MUST | State initializers MUST be **compile-time constant expressions**: literals, object/array literals composed of literals, or calls to pure builtin functions with constant arguments |
+| STATE-INIT-2 | MUST | State initializers MUST NOT reference other state fields. Forward and backward references are both forbidden |
+| STATE-INIT-3 | MUST | State initializers MUST NOT reference computed values, `$system.*`, `$meta.*`, `$input.*`, or any runtime-dependent value |
+| STATE-INIT-4 | MUST | The compiler MUST evaluate each state initializer expression independently and emit a concrete JSON value for `FieldSpec.default` |
+| STATE-INIT-5 | MUST | If a state field has an initializer (`= Expression`), the evaluated value is emitted as `FieldSpec.default`. The `required` flag is independent: a field MAY be both `required: true` and have a `default`. The compiler MUST set `required: false` only when the field is explicitly marked optional. If no initializer is present and the field is not optional, it is `required: true` with no default |
+
+**Examples:**
+
+```mel
+// ✅ Constant expressions — compile to concrete values
+state {
+  count: number = 0                          // default: 0
+  name: string = "untitled"                  // default: "untitled"
+  tags: Array<string> = []                   // default: []
+  config: Config = { theme: "dark", fontSize: 14 }  // default: {"theme":"dark","fontSize":14}
+}
+
+// ❌ COMPILE ERROR: References another state field
+state {
+  a: number = 1
+  b: number = add(a, 1)     // E042: State initializer cannot reference state field 'a'
+}
+
+// ❌ COMPILE ERROR: References computed
+state {
+  x: number = total          // E042: State initializer cannot reference computed 'total'
+}
+
+// ❌ COMPILE ERROR: Uses runtime value
+state {
+  id: string = $system.uuid  // E002: System values cannot be used in state initializers
+}
+```
+
+**Compile Errors:**
+
+```
+E042: State initializer references non-constant value.
+      State defaults must be compile-time constants.
+      Cannot reference state fields, computed values, or runtime values.
+```
+
+> **Rationale:** Each state field's default is evaluated in isolation — there is no cross-field evaluation order, no topological sort, no cycle possibility. This is intentionally simpler than computed (which does form a DAG). The initial Snapshot's `data` is deterministic: every conforming compiler produces the same concrete defaults.
 
 ### 4.4 Computed Declaration
 
@@ -599,7 +657,7 @@ state {
 ComputedDecl    = "computed" Identifier "=" Expression
 ```
 
-Computed expressions MUST use only pure expressions (no Effects).
+Computed expressions MUST use only pure expressions (no Effects, no `$system.*`, no `$meta.*`, no `$input.*` — see §6.1).
 
 **Example:**
 ```mel
@@ -608,10 +666,65 @@ computed isComplete = and(eq(done, total), gt(total, 0))
 computed displayName = coalesce(user.name, "Anonymous")
 ```
 
+#### 4.4.1 ComputedSpec Emission (v0.7.0)
+
+The compiler MUST emit a `ComputedFieldSpec` for each `computed` declaration, containing both `deps` and `expr` as required by Core SPEC §6.
+
+**Dependency Extraction Rules (Normative):**
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| COMP-DEP-1 | MUST | The compiler MUST extract `deps` by collecting all state and computed paths referenced in `expr` via `get` nodes |
+| COMP-DEP-2 | MUST | `deps` MUST include the **root segment** of each referenced path. E.g., `user.name` → dep on `"user"` for state fields, `"total"` for computed |
+| COMP-DEP-3 | MUST | `deps` MUST accurately reflect all paths referenced in `expr` (Core SPEC §6.4 V-001) |
+| COMP-DEP-4 | MUST | Computed-to-computed references are permitted (e.g., `computed isComplete` references `computed total`). The resulting dependency graph MUST be acyclic (Core SPEC §6.4 V-002) |
+| COMP-DEP-5 | MUST | Cycle detection MUST be performed on the full computed dependency graph. Cycles MUST be rejected with compile error E040 |
+| COMP-DEP-6 | MUST | `deps` MUST be topologically sortable. The compiler SHOULD emit `ComputedSpec.fields` in topological order |
+
+**Example:**
+
+```mel
+computed total = len(items)
+computed isComplete = and(eq(done, total), gt(total, 0))
+```
+
+Emits:
+```json
+{
+  "fields": {
+    "total": {
+      "deps": ["items"],
+      "expr": { "kind": "len", "arg": { "kind": "get", "path": "items" } }
+    },
+    "isComplete": {
+      "deps": ["done", "total"],
+      "expr": { "kind": "and", "args": [
+        { "kind": "eq", "left": { "kind": "get", "path": "done" }, "right": { "kind": "get", "path": "total" } },
+        { "kind": "gt", "left": { "kind": "get", "path": "total" }, "right": { "kind": "lit", "value": 0 } }
+      ] }
+    }
+  }
+}
+```
+
+Note: `isComplete.deps` includes `"total"` (a computed) and `"done"` (a state field). Core evaluates `total` first because topological order requires it.
+
+**Compile Errors:**
+
+```
+E040: Circular computed dependency.
+      computed a depends on computed b, which depends on computed a.
+
+E041: Computed references undeclared identifier.
+      computed x = add(y, 1) — 'y' is not a state field or computed.
+```
+
 ### 4.5 Action Declaration
 
 ```ebnf
-ActionDecl      = "action" Identifier "(" ParamList? ")" ActionBody
+ActionDecl      = "action" Identifier "(" ParamList? ")" AvailableClause? ActionBody
+
+AvailableClause = "available" "when" Expression    (* v0.3.3: A28 — state/computed only *)
 
 ParamList       = Param { "," Param }
 Param           = Identifier ":" TypeExpr
@@ -622,6 +735,7 @@ ActionBody      = "{" { GuardedStmt } "}"
 GuardedStmt     = WhenStmt
                 | OnceStmt
                 | OnceIntentStmt
+                | IncludeStmt               (* v0.7.0: ADR-013a *)
 
 (* Patch and Effect are ONLY allowed inside guards *)
 WhenStmt        = "when" Expression "{" { InnerStmt } "}"
@@ -636,9 +750,13 @@ InnerStmt       = PatchStmt
                 | WhenStmt      (* Nested guards allowed *)
                 | OnceStmt
                 | OnceIntentStmt
+                | FailStmt      (* v0.3.3: Flow control *)
+                | StopStmt      (* v0.3.3: Flow control *)
 ```
 
 **Critical (v0.2.1):** All `patch` and `effect` statements MUST be inside a `when`, `once`, or `onceIntent` guard. This ensures re-entry safety and Host Contract compliance. See FDR-MEL-020.
+
+**v0.3.3:** `FailStmt` and `StopStmt` are flow control statements defined in §13.2 and §13.3. They MUST also appear inside guards.
 
 **Critical (v0.2.4):** `once(marker)` blocks MUST have `patch marker = $meta.intentId` as their FIRST statement. This is enforced at compile time. See FDR-MEL-044.
 
@@ -668,6 +786,43 @@ action bad2() {
   }
 }
 ```
+
+#### 4.5.1 Action Input Lowering (v0.7.0)
+
+Core's `ActionSpec.input` is a single `FieldSpec` (Core SPEC §9.2), not an array. The compiler MUST emit action parameters as a `FieldSpec` of type `"object"` whose `fields` correspond to the declared parameters.
+
+**Lowering Rules (Normative):**
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| ACTION-INPUT-1 | MUST | Action parameters MUST be lowered to `ActionSpec.input: FieldSpec` with `type: "object"` |
+| ACTION-INPUT-2 | MUST | Each MEL parameter becomes a field in `input.fields`, with `required: true` |
+| ACTION-INPUT-3 | MUST | If the action has no parameters, `ActionSpec.input` MUST be omitted (not an empty object) |
+
+**Example:**
+
+```mel
+action addTask(title: string, priority: number) { ... }
+```
+
+Compiles to:
+```json
+{
+  "addTask": {
+    "input": {
+      "type": "object",
+      "required": true,
+      "fields": {
+        "title": { "type": "string", "required": true },
+        "priority": { "type": "number", "required": true }
+      }
+    },
+    "flow": { ... }
+  }
+}
+```
+
+Within the action body, parameters are accessed as `$input.<paramName>` after lowering (e.g., `title` → Core `get` path `"input.title"`). See §17.3.1.
 
 ### 4.6 Guard Statement (`when`)
 
@@ -848,6 +1003,140 @@ patch onceIntent = "value"
 ```
 
 See FDR-MEL-077 for rationale.
+
+#### 4.7.3 Flow Declaration (v0.7.0 — ADR-013a)
+
+```ebnf
+FlowDecl        = "flow" Identifier "(" ParamList? ")" FlowBody
+
+FlowBody        = "{" { FlowGuardedStmt } "}"
+
+FlowGuardedStmt = FlowWhenStmt | IncludeStmt
+FlowWhenStmt    = "when" Expression "{" { FlowInnerStmt } "}"
+FlowInnerStmt   = FailStmt | StopStmt | FlowWhenStmt
+```
+
+A `flow` is a **reusable guard statement sequence** — a compile-time composition unit for validation/fail/stop patterns. Flows are declared at domain block top-level and inlined at `include` sites during compilation. Core IR never contains `flow` or `include`; they are fully resolved before lowering.
+
+> **Rationale (ADR-013a):** FDR-MEL-061 hid Core's `call` FlowNode from MEL and identified compile-time inlining as the future path. `flow` + `include` realizes this path. The composition direction follows Core `call` semantics — "continue reading and writing on the same Snapshot" (FDR-008) — but as a compiler-only form that produces no FlowNode `call` in the output IR.
+
+**v1 Restrictions (Normative):** In v0.7.0, `flow` bodies are restricted to guard+fail/stop patterns only. The following constructs are forbidden inside `flow`:
+
+| Construct | Allowed in flow? | Error | Rationale |
+|-----------|-----------------|-------|-----------|
+| `when` | ✅ | — | Primary content of a flow |
+| `fail` (inside when) | ✅ | — | Core of validation |
+| `stop` (inside when) | ✅ | — | Early exit reuse |
+| `include` | ✅ | — | Flow-to-flow composition (acyclic) |
+| `once()` | ❌ | E017 | Requires domain schema marker — conflicts with reuse unit |
+| `onceIntent` | ❌ | E018 | Idempotency boundary must be owned by the action |
+| `patch` | ❌ | E019 | v1 flows are guard+fail/stop only |
+| `effect` | ❌ | E020 | v1 flows are guard+fail/stop only |
+
+**Parameter Semantics — Name Substitution:**
+
+Flow parameters are resolved via **AST-level identifier substitution** at the `include` call site. This is not C-style textual substitution; the compiler replaces each occurrence of the parameter name with the corresponding argument expression, preserving type-checkability.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| FLOW-PARAM-1 | MUST | Parameter names MUST NOT collide with domain top-level identifiers (state root keys, computed names, type names) |
+| FLOW-PARAM-2 | MUST NOT | Nested field paths (e.g., `Task.id`) are NOT collision targets |
+| FLOW-CALL-1 | MUST | `include` argument count MUST exactly match target flow parameter count |
+| FLOW-CALL-2 | MUST | Each `include` argument type MUST be assignable to the corresponding parameter type |
+
+**All flow declarations — including unused ones — are subject to type checking.** The compiler SHOULD emit a warning for unused flow declarations.
+
+**Example:**
+```mel
+flow requirePresent(value: string | null, fieldName: string) {
+  when isNull(value) {
+    fail "REQUIRED" with concat(fieldName, " is required")
+  }
+}
+
+flow requireTask(taskId: string) {
+  when isNull(at(taskIndex, taskId)) {
+    fail "NOT_FOUND" with concat("Task not found: ", taskId)
+  }
+}
+
+action softDeleteTask(id: string) {
+  include requireTask(id)
+  onceIntent {
+    patch tasks = updateById(tasks, id, { deletedAt: $system.time.now })
+  }
+}
+
+// After expansion (compiler internal):
+action softDeleteTask(id: string) {
+  when isNull(at(taskIndex, id)) {        // 'taskId' → 'id'
+    fail "NOT_FOUND" with concat("Task not found: ", id)
+  }
+  onceIntent {
+    patch tasks = updateById(tasks, id, { deletedAt: $system.time.now })
+  }
+}
+```
+
+#### 4.7.4 Include Statement (v0.7.0 — ADR-013a)
+
+```ebnf
+IncludeStmt     = "include" Identifier "(" ArgList? ")"
+```
+
+`include` inlines a flow body at the call site during compilation. It is permitted **only in GuardedStmt position** — at the top level of an action body or a flow body.
+
+| Position | Allowed? | Rationale |
+|----------|----------|-----------|
+| Action body top-level (GuardedStmt) | ✅ | Validation/fail/stop reuse |
+| Flow body top-level (FlowGuardedStmt) | ✅ | Flow-to-flow composition |
+| Inside a guard (InnerStmt) | ❌ (E016) | Prevents statement category mixing |
+| Computed expression | ❌ | flow is not an expression |
+
+**Compilation Pipeline:**
+
+```
+[1] Parse → AST (FlowDecl, IncludeStmt present)
+[2] Flow Declaration Validation
+    - All flow declarations collected and validated (including unused)
+    - Parameter type, guard condition type, include target resolution
+    - Include call-site signature validation (FLOW-CALL-1, FLOW-CALL-2)
+    - Cycle detection across ALL declared flows
+    - Forbidden construct detection (E017–E020)
+[3] Flow Expansion
+    - Inline flow bodies at include sites
+    - Parameter name substitution
+    - Expansion depth check (ceiling: 16)
+    - Remove FlowDecl and IncludeStmt from AST
+[4] Expanded AST (no trace of flow/include)
+    → continues to Type Check → System Lowering → IR Generation
+```
+
+#### 4.7.5 `flow` and `include` as Contextual Keywords (v0.7.0)
+
+`flow` and `include` are **contextual keywords**, following the same strategy as `onceIntent` (FDR-MEL-077). They are NOT reserved keywords.
+
+| Keyword | Recognition position | Lookahead | Interpretation |
+|---------|---------------------|-----------|----------------|
+| `flow` | Domain member start | `Identifier` `(` | FlowDecl |
+| `include` | GuardedStmt / FlowGuardedStmt start | `Identifier` `(` | IncludeStmt |
+| Either | All other contexts | — | Identifier |
+
+```mel
+// ✅ Parsed as FlowDecl
+flow requireTask(taskId: string) { /* ... */ }
+
+// ✅ Parsed as identifier (existing code compatible)
+state { flow: string = "default" }
+computed flow = "value"
+
+// ✅ Parsed as IncludeStmt
+action test() { include requireTask(id) }
+
+// ✅ Parsed as identifier (existing code compatible)
+state { include: boolean = false }
+when eq(include, true) { /* ... */ }
+```
 
 ### 4.8 Patch Statement
 
@@ -1145,7 +1434,7 @@ when eq(len(a), len(b)) { ... }
 
 **This is critical for `once()` to work correctly:**
 ```mel
-state { marker: string | null = null }
+state { marker: string = "" }  // v0.7.0: empty string sentinel (nullable banned from state)
 
 action test() {
   once(marker) {  // → when neq(marker, $meta.intentId)
@@ -1153,10 +1442,17 @@ action test() {
   }
 }
 
-// First call: marker = null, $meta.intentId = "intent-A"
-// eq(null, "intent-A") = false (different types → not equal)
-// neq(null, "intent-A") = not(false) = true ✓
-// → once() fires correctly!
+// First call: marker = "", $meta.intentId = "intent-A"
+// neq("", "intent-A") = true ✓ → once() fires
+// After: marker = "intent-A"
+// Re-entry: neq("intent-A", "intent-A") = false → skips ✓
+
+// Preferred: use onceIntent (no manual marker needed)
+action test() {
+  onceIntent {
+    // guard stored in $mel namespace (platform-owned, not subject to type restrictions)
+  }
+}
 ```
 
 **Equality Table (Primitives Only):**
@@ -1209,6 +1505,165 @@ Expressions do NOT throw. Invalid operations return `null`:
 | `a.b` | `a == null` | `null` |
 | `sqrt(x)` | `x < 0` | `null` |
 
+### 5.6 Type Lowering Boundary (v0.7.0)
+
+MEL's `TypeExpr` is richer than Core's runtime validation carrier (`FieldSpec`). The compiler bridges this gap by emitting types into **two distinct slots** in `DomainSchema`:
+
+| Slot | Type carrier | Fidelity | Purpose |
+|------|-------------|----------|---------|
+| `DomainSchema.types` | `TypeDefinition` | Full — ref, record, union, literal, nullable | Schema metadata, AI reasoning, codegen |
+| `StateSpec.fields` / `ActionSpec.input` | `FieldSpec` | Degraded — string, number, boolean, null, object, array, enum | Runtime validation by Core |
+
+> **Rationale:** Core's `FieldSpec` is intentionally simple — its concern is structural validation, not type precision. Full type information is preserved in `DomainSchema.types` (Core SPEC §4.3). Codegen and AI consumers use `types` as the primary source of type truth; `StateSpec`/`ActionSpec.input` are structural validation helpers (Codegen SPEC §10.2–10.3).
+
+#### 5.6.1 TypeExpr → TypeDefinition (Full Fidelity)
+
+The compiler MUST emit all named type declarations into `DomainSchema.types` as `TypeDefinition` nodes. This mapping is 1:1 with no information loss.
+
+| MEL TypeExpr | TypeDefinition |
+|-------------|---------------|
+| `string` | `{ kind: "primitive", type: "string" }` |
+| `number` | `{ kind: "primitive", type: "number" }` |
+| `boolean` | `{ kind: "primitive", type: "boolean" }` |
+| `null` | `{ kind: "primitive", type: "null" }` |
+| `"pending" \| "done"` | `{ kind: "union", types: [{ kind: "literal", value: "pending" }, { kind: "literal", value: "done" }] }` |
+| `Array<T>` | `{ kind: "array", element: <lower T> }` |
+| `Record<string, T>` | `{ kind: "record", key: { kind: "primitive", type: "string" }, value: <lower T> }` |
+| `{ x: T, y?: U }` | `{ kind: "object", fields: { x: { type: <lower T>, optional: false }, y: { type: <lower U>, optional: true } } }` |
+| `Task` (named ref) | `{ kind: "ref", name: "Task" }` |
+| `T \| null` | `{ kind: "union", types: [<lower T>, { kind: "primitive", type: "null" }] }` |
+
+#### 5.6.2 TypeExpr → FieldSpec (Sound Runtime Boundary)
+
+The compiler MUST lower state field types and action input types to `FieldSpec` for Core's runtime validation. Core's `FieldType` vocabulary is: `string | number | boolean | null | object | array | { enum: [...] }`. FieldSpec has no union, no nullable wrapper, no typed record values, and no ref.
+
+**The soundness principle is absolute:** Every type that appears in a state field or action input position MUST be expressible as a `FieldSpec` that Core can validate without reject-valid or accept-invalid errors. Types that cannot meet this bar are compile errors — not lossy degrades, not warnings.
+
+Full type information is always preserved losslessly in `DomainSchema.types` (§5.6.1) for codegen, AI, and schema consumers.
+
+##### FieldSpec-Compatible Subset (Normative)
+
+| Type pattern | FieldSpec result | Sound? |
+|-------------|-----------------|--------|
+| `string`, `number`, `boolean` | `{ type: "<primitive>" }` | ✅ |
+| `null` | `{ type: "null" }` | ✅ |
+| Literal enum: `"a" \| "b" \| "c"` | `{ type: { enum: ["a", "b", "c"] } }` | ✅ |
+| `Array<T>` (T in subset) | `{ type: "array", items: <lower T> }` | ✅ |
+| Named object type (non-recursive) | `{ type: "object", fields: { ... } }` (inlined) | ✅ |
+| `{ x: T, y: U }` (inline object) | `{ type: "object", fields: { ... } }` | ✅ |
+
+##### Forbidden Types in State/Action-Input (Compile Error)
+
+| Type pattern | Error | Rationale |
+|-------------|-------|-----------|
+| `T \| null` (nullable) | E045 | FieldSpec has no nullable wrapper. `required: true` rejects null; `required: false` means "field may be absent" — neither correctly represents "required but nullable." Core validation (R-001, R-004) would reject valid null values |
+| `Record<string, T>` | E046 | FieldSpec loses value type → `{ type: "object" }`. Core validation would accept `{ "a": "not-a-Task" }` for `Record<string, Task>` — accept-invalid. The "structural best-effort" rationalization conflicts with the spec's own soundness claim |
+| `string \| number` | E043 | FieldType has no union. Any degrade (e.g., `{ type: "object" }`) rejects valid primitives |
+| `Task \| Project` | E043 | Same — non-literal, non-null union |
+| Recursive ref (e.g., `Tree`) | E044 | Infinite inline; Core §5.4 forbids circular field references |
+
+> **Why not "lossy with warning"?** Because Core's runtime validation is normative — R-001 ("input MUST match ActionSpec.input"), R-004 ("patch values MUST match field types") are MUST-level rules. A FieldSpec that misrepresents the acceptance set makes Core's validator unsound. A compile error is honest; a broken validator is dangerous. The full type is always available in `DomainSchema.types` for consumers that need it.
+
+##### Workarounds and Migration
+
+**`T | null` → separate fields or separate actions:**
+
+```mel
+// ❌ E045: state { selectedTaskId: string | null = null }
+
+// ✅ Workaround 1: Use empty string as sentinel
+state { selectedTaskId: string = "" }
+computed hasSelection = neq(selectedTaskId, "")
+
+// ✅ Workaround 2: Separate flag + value
+state {
+  hasSelectedTask: boolean = false
+  selectedTaskId: string = ""
+}
+
+// ❌ E045: action assign(userId: string | null)
+// ✅ Workaround: Separate actions
+action assign(userId: string) { ... }
+action unassign() { ... }
+```
+
+**`Record<string, T>` → `Array<T>` with `.id`:**
+
+```mel
+// ❌ E046: state { tasks: Record<string, Task> = {} }
+
+// ✅ Workaround: Array with id field (aligns with entity primitives)
+type Task = { id: string, title: string, done: boolean }
+state { tasks: Array<Task> = [] }
+
+// Entity primitives (ADR-013b) work directly on Array<T>:
+computed task = findById(tasks, selectedTaskId)
+action update(id: string) {
+  onceIntent {
+    patch tasks = updateById(tasks, id, { done: true })
+  }
+}
+
+// ❌ E046: action import(entries: Record<string, Entry>)
+// ✅ Workaround: Array
+action import(entries: Array<Entry>) { ... }
+```
+
+> **Why Array over Record?** ADR-013b's entity primitives (`findById`, `updateById`, `removeById`) operate on `Array<T>`. The `Array<T>` + `.id` pattern is the recommended model for entity collections in MEL. `Record<string, T>` remains valid in `type` declarations (preserved in `DomainSchema.types`) but cannot be used where Core needs a sound FieldSpec.
+
+**Lowering Rules (Normative):**
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| TYPE-LOWER-1 | MUST | Primitives lower directly: `string` → `{ type: "string" }` etc. |
+| TYPE-LOWER-2 | MUST | Literal unions lower to enum: `"a" \| "b"` → `{ type: { enum: ["a", "b"] } }` |
+| TYPE-LOWER-3 | MUST | `Array<T>` → `{ type: "array", items: <lower T> }`. `T` must be in the FieldSpec-compatible subset |
+| TYPE-LOWER-4 | MUST | Non-recursive named object types are inlined. Compiler MUST detect cycles before inlining |
+| TYPE-LOWER-5 | MUST | Inline object types → `{ type: "object", fields: {...} }` |
+| TYPE-LOWER-6 | MUST | `T \| null` → compile error E045 |
+| TYPE-LOWER-7 | MUST | `Record<string, T>` → compile error E046 |
+| TYPE-LOWER-8 | MUST | Non-trivial unions (not literal enum) → compile error E043 |
+| TYPE-LOWER-9 | MUST | Recursive named types → compile error E044 |
+
+**Examples:**
+
+```
+MEL: state { count: number = 0 }
+FieldSpec: { type: "number", required: true, default: 0 }
+
+MEL: state { status: "pending" | "active" | "done" = "pending" }
+FieldSpec: { type: { enum: ["pending", "active", "done"] }, required: true, default: "pending" }
+
+MEL: state { tasks: Array<Task> = [] }
+  where type Task = { id: string, title: string, done: boolean }
+FieldSpec: { type: "array", required: true, default: [],
+             items: { type: "object", required: true,
+                      fields: { id: { type: "string", required: true },
+                                title: { type: "string", required: true },
+                                done: { type: "boolean", required: true } } } }
+
+MEL: action addTask(title: string, priority: number)
+ActionSpec.input: { type: "object", required: true,
+                    fields: { title: { type: "string", required: true },
+                              priority: { type: "number", required: true } } }
+
+// ❌ E045: Nullable
+state { selectedTaskId: string | null = null } → compile error
+action assign(user: User | null) → compile error
+
+// ❌ E046: Record
+state { tasks: Record<string, Task> = {} } → compile error
+action import(entries: Record<string, Entry>) → compile error
+
+// ❌ E043: Non-trivial union
+action process(value: string | number) → compile error
+
+// ❌ E044: Recursive type
+state { root: Tree = ... } → compile error (where type Tree = { children: Array<Tree> })
+```
+
+> **Key principle:** The state/action-input type surface is exactly the FieldSpec-compatible subset. Spec promise = runtime guarantee. Full type richness lives in `DomainSchema.types`.
+
 ---
 
 ## 6. Semantic Rules
@@ -1219,27 +1674,37 @@ MEL has a **strict scope resolution order**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Priority 1 (highest): Action Parameters                     │
+│  Priority 1 (highest): Action Parameters ($input.*)          │
 │  ─────────────────────────────────────────────────────────  │
 │  Priority 2: Computed Values                                 │
 │  ─────────────────────────────────────────────────────────  │
 │  Priority 3: Domain State (declared in state { })            │
 │  ─────────────────────────────────────────────────────────  │
-│  Priority 4 (lowest): System ($system, $meta, $item)         │
+│  Priority 4 (lowest): System ($system.*, $meta.*)            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Resolution order:** Parameters > Computed > State > System
+**Resolution order (within allowed contexts):** Parameters > Computed > State > System
 
-**Context-specific rules:**
+> **v0.7.0 clarification:** This is a *name resolution* order, not an *availability* order. Each context restricts which categories are accessible (see §9.3.2). The resolution order applies only to the categories that are permitted in that context.
+
+**Context-specific visibility:**
 
 ```
 In Action body:
-  Parameters > Computed > State > System
+  Parameters > Computed > State > System ($system.*, $meta.*, $input.*)
 
 In Computed expression:
-  Computed > State > System
-  (No parameters — computed is not inside action)
+  Computed > State
+  ($system.*, $meta.*, $input.* are FORBIDDEN — no Intent context)
+
+In Available condition:
+  Computed > State
+  ($system.*, $meta.*, $input.*, action parameters are FORBIDDEN — A28)
+
+In State initializer:
+  Compile-time constants only (literals, object/array literals of literals)
+  (No state field references, no computed, no $system.*, $meta.*, $input.* — §4.3.1)
 
 In Effect sub-expression (where, select, etc.):
   $item > Parameters > Computed > State > System
@@ -1260,9 +1725,9 @@ The following paths are reserved for platform use:
 |-------------|-------|---------|
 | `$host.*` | Host | Execution context, intent slots |
 | `$mel.*` | Compiler | Guard state, compiler internals |
-| `$meta.*` | Runtime | Intent metadata (read-only) |
-| `$input.*` | Runtime | Action parameters (read-only) |
-| `$system.*` | Core | System values (read-only in computed) |
+| `$meta.*` | Runtime | Intent metadata (action body only) |
+| `$input.*` | Runtime | Action parameters (action body only) |
+| `$system.*` | Core | System IO values (action body only — lowered to effects) |
 
 **Rule:** Domain identifiers starting with `$` are forbidden (compile error E004).
 
@@ -1405,6 +1870,8 @@ computed x = add(a, mul(b, c))
 
 ### 7.2 Expression Node Types (v0.2.4)
 
+> **Cross-reference:** The authoritative type definition for MEL Canonical IR is §17.1.1 `MelExprNode`. This section provides the same type with examples and rationale.
+
 **ONLY 8 node kinds for expressions:**
 
 ```typescript
@@ -1415,7 +1882,7 @@ type ExprNode =
   | { kind: 'lit'; value: null | boolean | number | string }
 
   // Variable (iteration context only)
-  | { kind: 'var'; name: 'item' | 'acc' }
+  | { kind: 'var'; name: 'item' }            // v0.3.3: 'acc' removed (reduce forbidden)
 
   // System value access
   | { kind: 'sys'; path: readonly SysPathSegment[] }
@@ -1725,13 +2192,15 @@ Computed expressions MUST NOT contain Effects:
 computed filtered = effect array.filter(...)
 // SemanticError: Effects are not allowed in computed expressions.
 
-// ✅ Effect in action
+// ✅ Effect in action (inside guard — required by FDR-MEL-020)
 action filterTasks() {
-  effect array.filter({
-    source: tasks,
-    where: eq($item.completed, false),
-    into: filteredTasks
-  })
+  onceIntent {
+    effect array.filter({
+      source: tasks,
+      where: eq($item.completed, false),
+      into: filteredTasks
+    })
+  }
 }
 ```
 
@@ -1753,19 +2222,25 @@ effect array.map({
 })
 // SyntaxError: Effect cannot appear in expression position
 
-// ✅ REQUIRED: Sequential composition
+// ✅ REQUIRED: Sequential composition (inside guards)
 action getActiveMembers() {
-  effect array.flatMap({
-    source: teams,
-    select: $item.members,
-    into: allMembers
-  })
+  once(step1) {
+    patch step1 = $meta.intentId
+    effect array.flatMap({
+      source: teams,
+      select: $item.members,
+      into: allMembers
+    })
+  }
   
-  effect array.filter({
-    source: allMembers,
-    where: eq($item.active, true),
-    into: activeMembers
-  })
+  once(step2) when isNotNull(allMembers) {
+    patch step2 = $meta.intentId
+    effect array.filter({
+      source: allMembers,
+      where: eq($item.active, true),
+      into: activeMembers
+    })
+  }
 }
 ```
 
@@ -1843,10 +2318,36 @@ at(items, 0)         // Array access
 at(tasks, id)        // Record access
 
 // ❌ Forbidden
-len(tasks)           // Error: tasks is Record<string, Task>
-                     // Use: effect record.keys({ source: tasks, into: keys })
-                     //      then: len(keys)
+len(records)         // Error: records is Record<string, Task>
+                     // Record is only valid in type declarations, not state fields (E046)
 ```
+
+#### 9.1.2a Array Append Function (v0.7.0)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `append(arr, item)` | `(Array<T>, T) → Array<T>` | Returns new array with item appended |
+
+This is a **pure function** — it returns a new array, not mutates in place. It is the primary way to add items to `Array<T>` collections.
+
+```mel
+// Append a single item
+patch tasks = append(tasks, {
+  id: $system.uuid,
+  title: title,
+  done: false
+})
+```
+
+**Lowering:**
+```
+// MEL: append(arr, item)
+// Core: { kind: "append", array: <lowered arr>, items: [<lowered item>] }
+```
+
+The MEL `append(arr, item)` always appends exactly one item. Core's `append` node takes an `items` array; the compiler wraps the single argument in a one-element array.
+
+> **Note:** `concat` is a **string** function (`(...string) → string`). For array append, use `append`.
 
 #### 9.1.3 String Functions
 
@@ -1926,12 +2427,11 @@ Primitive Aggregation functions express **known facts** about collections, not u
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `len(arr)` | `Array<T> → number` | Array length |
 | `sum(arr)` | `Array<number> → number` | Sum of numeric array |
 | `min(arr)` | `Array<T> → T \| null` | Minimum value (null if empty) |
 | `max(arr)` | `Array<T> → T \| null` | Maximum value (null if empty) |
 
-**Note:** `min(a, b, ...)` and `max(a, b, ...)` (scalar variadic, §9.1.4) remain separate functions for comparing individual values.
+**Note:** `len(arr)` is NOT a primitive aggregation function. It is a general-purpose builtin (§9.1.2) with no context restrictions — usable in computed, guards, action flow, available, and anywhere else expressions are permitted. `min(a, b, ...)` and `max(a, b, ...)` (scalar variadic, §9.1.4) remain separate functions for comparing individual values.
 
 ##### Constitutional Constraints (MUST)
 
@@ -1985,66 +2485,125 @@ sum(prices)
 > **Any construct that implies hidden state progression is forbidden.**
 > See FDR-MEL-062.
 
-#### 9.1.10 Object Functions
+#### 9.1.10 Entity Collection Functions (v0.7.0 — ADR-013b)
 
-Object functions are **pure expression functions** that operate on objects (records). They return new values and do NOT modify state.
+Entity collection functions express **fixed-semantics, id-based single-item operations** on `Array<Entity>` collections. They are intention-revealing vocabulary — not general collection transforms.
 
-| Function | Signature | Core IR | Description |
-|----------|-----------|---------|-------------|
-| `merge(a, b, ...)` | `(...Object) → Object` | `{ kind: "merge", objects }` | Shallow merge; later wins |
-| `keys(obj)` | `Object → Array<string>` | `{ kind: "keys", obj }` | Object keys |
-| `values(obj)` | `Object → Array<unknown>` | `{ kind: "values", obj }` | Object values (in key order) |
-| `entries(obj)` | `Object → Array<[string, unknown]>` | `{ kind: "entries", obj }` | Key-value pairs (in key order) |
+> **Rationale (ADR-013b):** `findById(tasks, id)` is a **fact** ("the task with this id"), not a **procedure** ("how to find that task"). This follows the same principle as FDR-MEL-062: `sum(prices)` is permitted because it expresses a known fact, while `reduce(prices, fn, init)` is forbidden because it expresses a procedure. Entity primitives are NOT replacements for `effect array.map/filter/find`; they handle only `.id`-based single-item operations. Arbitrary predicates, multi-item operations, sorting, and grouping remain in effect pipelines.
 
-**Semantics:**
+##### Query Primitives (013b-1)
 
-- `merge(a, b, ...)`: Shallow merge of N objects. Later objects override earlier keys. Non-object arguments are silently skipped. Returns `{}` if all arguments are non-objects or no arguments given.
-- `keys(obj)`: Returns `[]` for non-objects or null.
-- `values(obj)`: Returns `[]` for non-objects or null.
-- `entries(obj)`: Returns `[]` for non-objects or null.
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `findById(coll, id)` | `(Array<T>, T.id \| null) → T \| null` | Returns item where `.id == id`, or `null` |
+| `existsById(coll, id)` | `(Array<T>, T.id \| null) → boolean` | Returns `true` if item with `.id == id` exists |
 
-**Disambiguation: `merge()` expression vs `patch merge` operation**
-
-These are distinct concepts operating at different levels:
-
-| Construct | Level | Semantics | Example |
-|-----------|-------|-----------|---------|
-| `merge(a, b)` | Expression | Returns a new merged object; does NOT modify state | `computed c = merge(a, b)` |
-| `patch path merge expr` | Flow (patch op) | Shallow-merges `expr` into state at `path` | `patch user merge { age: 30 }` |
-
-Both perform shallow merge, but `merge()` is a pure computation while `patch merge` is a state transition declaration.
-
-**Examples:**
+Query primitives are permitted in **all expression contexts**: computed, guard condition, patch RHS, available (with state/computed arguments only — action parameters are not available at availability check time; see §13.1).
 
 ```mel
-// Computed: merge with defaults
-computed withDefaults = merge(config, { theme: "light", lang: "en" })
+computed selectedTask = findById(tasks, selectedId)
 
-// Computed: decompose objects
-computed taskIds = keys(tasks)
-computed taskList = values(tasks)
+// available with state-only argument
+action editAnyTask()
+  available when gt(len(tasks), 0) {
+  // ...
+}
 
-// Key use case: merge inside map to enrich/override fields
-// Without merge — must enumerate ALL fields:
-//   effect array.map({ source: items, select: { id: $item.id, name: $item.name, status: "active" }, into: result })
-// With merge — only specify overrides:
-effect array.map({
-  source: items,
-  select: merge($item, { status: "active" }),
-  into: processedItems
-})
-
-// Merge multiple sources (variadic)
-computed fullProfile = merge(defaults, userPrefs, { lastSeen: $meta.timestamp })
+// Input-dependent validation goes in the action body, not available
+action editTask(taskId: string, title: string) {
+  when not(existsById(tasks, taskId)) {
+    fail "NOT_FOUND" with concat("Task not found: ", taskId)
+  }
+  // ...
+}
 ```
 
-**Note:** `field(obj, "prop")` is not a user-callable function — it is generated by the compiler for `.prop` access on computed expression results (e.g., `at(items, id).status` compiles to `field(at(items, id), "status")`). See §9.1.2 and FDR-MEL-078.
+##### Transform Primitives (013b-2)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `updateById(coll, id, updates)` | `(Array<T>, T.id \| null, Partial<T>) → Array<T>` | Shallow-merges `updates` into the matching item |
+| `removeById(coll, id)` | `(Array<T>, T.id \| null) → Array<T>` | Removes the matching item |
+
+Transform primitives are restricted to **patch RHS only**.
+
+```mel
+action softDeleteTask(id: string) {
+  onceIntent {
+    patch tasks = updateById(tasks, id, {
+      deletedAt: $system.time.now,
+      updatedAt: $system.time.now
+    })
+  }
+}
+
+action deleteTask(id: string) {
+  onceIntent {
+    patch tasks = removeById(tasks, id)
+  }
+}
+```
+
+`T.id` is constrained to `string | number` by FDR-MEL-042 (primitive-only equality). `null` id is always accepted (semantics: "no match" — ENTITY-8).
+
+##### Entity Constraints (Normative)
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| ENTITY-1 | MUST | Key field is fixed to `.id` |
+| ENTITY-2 | MUST | Element type MUST have an `.id` field — compile error E030 otherwise |
+| ENTITY-2a | MUST | `.id` field MUST be primitive (`string` or `number`) — compile error E030a otherwise |
+| ENTITY-2b | MUST | `.id` values MUST be unique within the collection (domain invariant). Compiler MUST reject statically detectable violations in state initializers (E030b). Behavior under duplicate ids is defined but degraded: `findById` returns first match; `updateById`/`removeById` affect all matches |
+| ENTITY-3 | MUST | `$item` is NOT exposed to the caller. `.id` matching is fixed semantics |
+| ENTITY-4 | MUST | No new ExprNode kinds added to Core IR |
+| ENTITY-5 | MUST | Lowering uses existing Core ExprNode kinds (`find`, `filter`, `map`, `if`, `eq`, `merge`, `not`, `isNull`, `get`, `field`) |
+| ENTITY-7 | MUST | NOT a general replacement for `effect array.*` |
+| ENTITY-8 | MUST | `null` id argument behaves as "no match" |
+| ENTITY-9 | MUST | Primitives remain as MEL Canonical IR `call` nodes until the MEL → Core lowering boundary (FDR-MEL-064, A34) |
+
+##### Transform Context Restrictions (Normative)
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| TRANSFORM-1 | MUST | Patch RHS only: `computed x = updateById(...)` is forbidden (E031) |
+| TRANSFORM-2 | MUST | No nesting: `updateById(removeById(...), ...)` is forbidden (E032) |
+| TRANSFORM-3 | MUST | State-path collection only: first argument must resolve to a state-declared path. Computed names are forbidden because they can hide arbitrary sub-expressions (E033). Concretely: the path's root segment must exist in `StateSpec.fields`, not `ComputedSpec.fields` |
+| TRANSFORM-4 | MUST | Forbidden in guard conditions (E034) |
+| TRANSFORM-5 | MUST | Forbidden in available conditions (E035) |
+
+##### Lowering (at MEL → Core Boundary)
+
+Entity primitives remain as MEL `call` nodes through validation and type checking. Lowering to Core IR occurs only at the existing MEL → Core lowering boundary (FDR-MEL-064).
+
+```
+// findById(tasks, id)
+MEL IR:  { kind: "call", fn: "findById", args: [get("tasks"), get("id")] }
+Core IR: { kind: "find", array: get("tasks"),
+           predicate: { kind: "eq", left: get("$item.id"), right: get("id") } }
+
+// existsById(tasks, id)
+Core IR: { kind: "not", arg: { kind: "isNull", arg: <find as above> } }
+
+// updateById(tasks, id, { status: newStatus })
+Core IR: { kind: "map", array: get("tasks"), mapper:
+           { kind: "if", cond: eq(get("$item.id"), get("id")),
+             then: merge([get("$item"), { status: get("newStatus") }]),
+             else: get("$item") } }
+
+// removeById(tasks, id)
+Core IR: { kind: "filter", array: get("tasks"),
+           predicate: { kind: "not", arg: eq(get("$item.id"), get("id")) } }
+```
+
+Note: `$item` is generated only in Core IR — never visible at MEL surface. This preserves FDR-MEL-068.
 
 ### 9.2 Standard Effects
 
 #### 9.2.1 Array Effects
 
-**Note:** Array effects work on `Array<T>` types only. For `Record<K,V>`, use Record effects (§9.2.2).
+**Note:** Array effects work on `Array<T>` types only.
+
+> **v0.7.0 note:** `Record<string, T>` is forbidden in state fields (E046) and action input (E046). The primary entity collection pattern is `Array<T>` with entity primitives (§9.1.10). `record.*` effects are retained for platform-owned namespaces (`$host.*`, `$mel.*`) and for Host-level operations, but domain code should prefer `Array<T>` + `append`/`updateById`/`removeById`.
 
 ```mel
 effect array.filter({
@@ -2314,10 +2873,10 @@ See §10 for complete system value semantics.
 | `$system.uuid` | `string` | **IO (effect)** | Action body only |
 | `$system.random` | `number` | **IO (effect)** | Action body only |
 | `$system.env.<name>` | `string \| null` | **IO (effect)** | Action body only |
-| `$input.<field>` | `any` | Pure | Anywhere |
-| `$meta.actor` | `string` | Pure | Anywhere |
-| `$meta.authority` | `string` | Pure | Anywhere |
-| `$meta.intentId` | `string` | Pure | Anywhere |
+| `$input.<field>` | `any` | Pure | Action body only |
+| `$meta.actor` | `string` | Pure | Action body only |
+| `$meta.authority` | `string` | Pure | Action body only |
+| `$meta.intentId` | `string` | Pure | Action body only |
 | `$item` | `T` | Pure (in effect) | Effect sub-expressions |
 
 **v0.3.3:** `$acc` is removed. `reduce` is forbidden. See FDR-MEL-062.
@@ -2367,9 +2926,12 @@ action create(title: string) {
 | Context | `$system.*` | `$meta.*` | `$input.*` | `$item` |
 |---------|-------------|-----------|------------|---------|
 | Action body | ✅ | ✅ | ✅ | ❌ |
-| Computed | ❌ **ERROR** | ✅ | ✅ | ❌ |
-| State init | ❌ **ERROR** | ❌ | ❌ | ❌ |
+| Computed | ❌ **ERROR** | ❌ **ERROR** | ❌ **ERROR** | ❌ |
+| State init | ❌ **ERROR** | ❌ **ERROR** | ❌ **ERROR** | ❌ |
+| Available | ❌ **ERROR** | ❌ **ERROR** | ❌ **ERROR** | ❌ |
 | Effect sub-expr | ✅ | ✅ | ✅ | ✅ |
+
+> **v0.7.0 clarification:** `$meta.*` and `$input.*` require an active Intent context. Computed expressions, state initializers, and `available` conditions are evaluated without an Intent (e.g., at UI render time). Only state and computed references are permitted in those contexts.
 
 ```mel
 // ❌ COMPILE ERROR: $system.* in computed
@@ -2381,12 +2943,11 @@ state { id: string = $system.uuid }
 // Error E002: System values cannot be used in state initializers
 
 // ✅ CORRECT: Acquire in action, use elsewhere
-state { lastUpdated: number | null = null }
-computed hasBeenUpdated = isNotNull(lastUpdated)
+state { lastUpdated: number = 0 }       // 0 = not yet updated
+computed hasBeenUpdated = gt(lastUpdated, 0)
 
 action update() {
-  once(updating) {
-    patch updating = $meta.intentId
+  onceIntent {
     patch lastUpdated = $system.time.now  // Acquired in action
   }
 }
@@ -2415,25 +2976,38 @@ patch tasks[$system.uuid] = {
 | Intermediate state needed? | Yes (workaround) | No |
 | Mental model | "Fresh per access" | "Acquired once, reused" |
 
-#### 9.3.4 Replay Semantics (v0.3.0)
+#### 9.3.4 Replay Semantics (v0.3.0, corrected v0.7.0)
 
 **System values are in Snapshot. Replay = same Snapshot.**
 
-```
-First Execution:
-  1. once guard: isNull(_slot) = true
-  2. effect system.get({ key: "uuid", into: _slot })
-  3. Host executes, Snapshot._slot = "abc-123"
-  4. Original logic uses _slot = "abc-123"
+The gating mechanism for replay is the **intent marker**, not `isNull(value_slot)`. This is critical — using `isNull` creates a stale value bug where a previous intent's non-null slot prevents fresh acquisition on a new intent (see §11.4, FDR-MEL-056).
 
-Replay:
-  1. Load Snapshot (contains _slot = "abc-123")
-  2. once guard: isNull(_slot) = false → SKIP effect
+```
+First Execution (Intent "intent-A"):
+  1. once guard: neq(marker, $meta.intentId)
+     → neq(null, "intent-A") = true → ENTER
+  2. patch marker = $meta.intentId  // marker = "intent-A"
+  3. effect system.get({ key: "uuid", into: _slot })
+  4. Host executes, Snapshot._slot = "abc-123"
+  5. Original logic uses _slot = "abc-123"
+
+Replay (same Intent "intent-A"):
+  1. Load Snapshot (marker = "intent-A", _slot = "abc-123")
+  2. once guard: neq(marker, $meta.intentId)
+     → neq("intent-A", "intent-A") = false → SKIP
   3. Original logic uses _slot = "abc-123"
   4. IDENTICAL output ✓
+
+New Intent "intent-B":
+  1. Load Snapshot (marker = "intent-A", _slot = "abc-123")
+  2. once guard: neq(marker, $meta.intentId)
+     → neq("intent-A", "intent-B") = true → ENTER (fresh acquisition!)
+  3. patch marker = $meta.intentId  // marker = "intent-B"
+  4. effect system.get({ key: "uuid", into: _slot })
+  5. Host executes, Snapshot._slot = "xyz-789" (NEW value)
 ```
 
-**No separate trace mechanism.** System values live in Snapshot.
+**No separate trace mechanism.** System values live in Snapshot. Readiness is always `eq(intent_marker, $meta.intentId)`, never `isNotNull(value_slot)`.
 
 ---
 
@@ -2587,7 +3161,19 @@ This section specifies how the compiler transforms `$system.*` references into `
 
 **Architecture Review Status: GO** — This transformation is certified safe to implement (FDR-MEL-057).
 
-### 11.1 Lowering Algorithm (v0.3.1)
+### 11.1 Lowering Algorithm (v0.3.1, unified v0.7.0)
+
+All compiler-generated system value state lives under the `$mel` platform namespace. This namespace is platform-owned, opaque to Core (SCHEMA-RESERVED-1), excluded from World hash, and automatically managed by the SDK/App layer.
+
+**Canonical path structure:**
+
+```
+$mel.guards.intent.<guardId>         — onceIntent guard markers (§4.7.1)
+$mel.sys.<action>.<key>.value        — system value slots
+$mel.sys.<action>.<key>.intent       — system acquisition intent markers
+```
+
+**Algorithm:**
 
 ```
 FOR each action A in domain:
@@ -2595,34 +3181,30 @@ FOR each action A in domain:
   1. SCAN action body for $system.<key> references
   
   2. FOR each unique key K found:
-     a. ALLOCATE value slot: __sys__<A>_<K-normalized>_value
-     b. ALLOCATE intent marker: __sys__<A>_<K-normalized>_intent
+     a. ALLOCATE value slot:     $mel.sys.<A>.<K-normalized>.value
+     b. ALLOCATE intent marker:  $mel.sys.<A>.<K-normalized>.intent
      c. GENERATE acquisition effect (per-intent fresh):
-        once(__sys__<A>_<K>_intent) {
-          patch __sys__<A>_<K>_intent = $meta.intentId
-          effect system.get({ key: "<K>", into: __sys__<A>_<K>_value })
+        once($mel.sys.<A>.<K>.intent) {
+          patch $mel.sys.<A>.<K>.intent = $meta.intentId
+          effect system.get({ key: "<K>", into: $mel.sys.<A>.<K>.value })
         }
   
-  3. REWRITE all $system.<K> references → __sys__<A>_<K>_value
+  3. REWRITE all $system.<K> references → $mel.sys.<A>.<K>.value
   
   4. ADD readiness conditions to original guards:
      - For each $system.<K> used in guard body:
-       - Add: eq(__sys__<A>_<K>_intent, $meta.intentId)
+       - Add: eq($mel.sys.<A>.<K>.intent, $meta.intentId)
 ```
 
-### 11.2 State Slot Naming (v0.3.1)
+### 11.2 Slot Naming Convention (v0.3.1, unified v0.7.0)
 
-**CRITICAL: Compiler-generated identifiers MUST NOT contain `$`** (violates A17).
+All compiler-generated system slots live under `$mel.sys`. No `__sys__` prefix is used at domain state top-level.
 
 ```
-NAMING CONVENTION:
+CANONICAL PATHS:
 
-Value slot: __sys__<action>_<key-normalized>_value
-Intent marker: __sys__<action>_<key-normalized>_intent
-
-Reserved prefix: __sys__
-  - User code CANNOT use identifiers starting with __sys__
-  - Compile error E004 if user attempts this
+Value slot:     $mel.sys.<action>.<key-normalized>.value
+Intent marker:  $mel.sys.<action>.<key-normalized>.intent
 
 Key normalization:
   - Dots → underscores
@@ -2632,32 +3214,34 @@ Key normalization:
 
 Examples:
   $system.uuid in addTask:
-    - Value: __sys__addTask_uuid_value
-    - Intent: __sys__addTask_uuid_intent
+    - Value:  $mel.sys.addTask.uuid.value
+    - Intent: $mel.sys.addTask.uuid.intent
   $system.time.now in addTask:
-    - Value: __sys__addTask_time_now_value
-    - Intent: __sys__addTask_time_now_intent
+    - Value:  $mel.sys.addTask.time_now.value
+    - Intent: $mel.sys.addTask.time_now.intent
 ```
 
-### 11.3 Complete Lowering Example (v0.3.1)
+> **v0.7.0 note:** The `__sys__` prefix (A26) is superseded. All compiler-generated state now lives under `$mel.*`. E004 is retained for backward compatibility but its scope is expanded: user identifiers MUST NOT start with `$` (existing rule) or `__sys__` (legacy compatibility).
+
+### 11.3 Complete Lowering Example (v0.7.0)
 
 **Source (what developer writes):**
 
 ```mel
 domain TaskManager {
+  type Task = { id: string, title: string, createdAt: number }
+
   state {
-    tasks: Record<string, Task> = {}
-    creating: string | null = null
+    tasks: Array<Task> = []
   }
   
   action addTask(title: string) {
-    once(creating) when neq(trim(title), "") {
-      patch creating = $meta.intentId
-      patch tasks[$system.uuid] = {
+    onceIntent when neq(trim(title), "") {
+      patch tasks = append(tasks, {
         id: $system.uuid,
         title: title,
         createdAt: $system.time.now
-      }
+      })
     }
   }
 }
@@ -2667,48 +3251,64 @@ domain TaskManager {
 
 ```mel
 domain TaskManager {
+  type Task = { id: string, title: string, createdAt: number }
+
   state {
-    tasks: Record<string, Task> = {}
-    creating: string | null = null
-    
-    // Compiler-generated system value slots (no $ in names!)
-    __sys__addTask_uuid_value: string | null = null
-    __sys__addTask_uuid_intent: string | null = null
-    __sys__addTask_time_now_value: number | null = null
-    __sys__addTask_time_now_intent: string | null = null
+    tasks: Array<Task> = []
+    // Domain state only. All compiler-generated slots are in $mel.* (platform-owned).
   }
   
   action addTask(title: string) {
     // Phase 1: Acquire $system.uuid (per-intent fresh)
-    once(__sys__addTask_uuid_intent) {
-      patch __sys__addTask_uuid_intent = $meta.intentId
-      effect system.get({ key: "uuid", into: __sys__addTask_uuid_value })
+    // System acquisition slots: $mel.sys.<action>.<key>.*
+    once($mel.sys.addTask.uuid.intent) {
+      patch $mel.sys.addTask.uuid.intent = $meta.intentId
+      effect system.get({ key: "uuid", into: $mel.sys.addTask.uuid.value })
     }
     
     // Phase 2: Acquire $system.time.now (per-intent fresh)
-    once(__sys__addTask_time_now_intent) {
-      patch __sys__addTask_time_now_intent = $meta.intentId
-      effect system.get({ key: "time.now", into: __sys__addTask_time_now_value })
+    once($mel.sys.addTask.time_now.intent) {
+      patch $mel.sys.addTask.time_now.intent = $meta.intentId
+      effect system.get({ key: "time.now", into: $mel.sys.addTask.time_now.value })
     }
     
     // Phase 3: Original logic with READINESS conditions
-    // Note: eq(intent, $meta.intentId) ensures fresh values for THIS intent
-    once(creating) 
+    // onceIntent guard marker: $mel.guards.intent.<guardId>
+    once($mel.guards.intent.addTask_0_intent) 
       when and(
-        eq(__sys__addTask_uuid_intent, $meta.intentId),
-        eq(__sys__addTask_time_now_intent, $meta.intentId),
+        eq($mel.sys.addTask.uuid.intent, $meta.intentId),
+        eq($mel.sys.addTask.time_now.intent, $meta.intentId),
         neq(trim(title), "")
       ) {
-      patch creating = $meta.intentId
-      patch tasks[__sys__addTask_uuid_value] = {
-        id: __sys__addTask_uuid_value,
+      patch $mel.guards.intent.addTask_0_intent = $meta.intentId
+      patch tasks = append(tasks, {
+        id: $mel.sys.addTask.uuid.value,
         title: title,
-        createdAt: __sys__addTask_time_now_value
-      }
+        createdAt: $mel.sys.addTask.time_now.value
+      })
     }
   }
 }
 ```
+
+**Canonical `$mel` structure after lowering:**
+
+```
+$mel
+├── guards
+│   └── intent
+│       └── addTask_0_intent: <intentId>    ← onceIntent guard marker
+└── sys
+    └── addTask
+        ├── uuid
+        │   ├── value: "abc-123"             ← acquired system value
+        │   └── intent: <intentId>           ← acquisition marker
+        └── time_now
+            ├── value: 1711234567890
+            └── intent: <intentId>
+```
+
+> **Note:** All `$mel.*` slots are platform-owned. They are exempt from domain FieldSpec type restrictions (§5.6.2) because Core treats `$`-prefixed namespaces as opaque (SCHEMA-RESERVED-1). Nullable values in `$mel.*` are permitted. Guard markers (`$mel.guards`) and system values (`$mel.sys`) are deliberately separated into distinct subtrees.
 
 ### 11.4 Guard Insertion Rules (v0.3.1)
 
@@ -2753,19 +3353,19 @@ System effects are independent; they don't depend on each other:
 ORDER: By first occurrence in source (left-to-right, top-to-bottom)
 
 Example:
-  patch tasks[$system.uuid] = { createdAt: $system.time.now }
+  patch tasks = append(tasks, { id: $system.uuid, createdAt: $system.time.now })
   
-  First: $system.uuid → __sys__addTask_uuid_intent/value
-  Second: $system.time.now → __sys__addTask_time_now_intent/value
+  First:  $system.uuid     → $mel.sys.addTask.uuid.intent/value
+  Second: $system.time.now → $mel.sys.addTask.time_now.intent/value
   
   Generated effects (independent, no inter-dependency):
-    once(__sys__addTask_uuid_intent) { ... }
-    once(__sys__addTask_time_now_intent) { ... }
+    once($mel.sys.addTask.uuid.intent) { ... }
+    once($mel.sys.addTask.time_now.intent) { ... }
   
   Original guard readiness:
     when and(
-      eq(__sys__addTask_uuid_intent, $meta.intentId),
-      eq(__sys__addTask_time_now_intent, $meta.intentId),
+      eq($mel.sys.addTask.uuid.intent, $meta.intentId),
+      eq($mel.sys.addTask.time_now.intent, $meta.intentId),
       <original conditions>
     )
 ```
@@ -2777,21 +3377,29 @@ Example:
 | **E001** | `$system.*` in computed | `System values cannot be used in computed expressions. System values are IO operations that must be acquired in actions.` |
 | **E002** | `$system.*` in state init | `System values cannot be used in state initializers. State defaults must be pure, deterministic values.` |
 | **E003** | `$system` without path | `Invalid system value reference. Use $system.<key> format.` |
-| **E004** | User identifier starts with `__sys__` | `Identifiers starting with __sys__ are reserved for compiler-generated system value slots.` |
+| **E004** | User identifier starts with `$` or `__sys__` | `Identifiers starting with $ are reserved for platform namespaces. __sys__ is reserved for backward compatibility.` |
 
 ### 11.7 IR Representation
 
-**System values in lowered IR use `sys` nodes before lowering, `get` nodes after:**
+**System values in IR transition through two stages:**
 
 ```typescript
-// Source AST (before lowering)
+// Stage 1: MEL Canonical IR (before system lowering)
+// sys node — triggers lowering
 { kind: 'sys', path: ['system', 'uuid'] }
 
-// Lowered IR (after lowering)
-{ kind: 'get', path: [{ kind: 'prop', name: '__sys__addTask_uuid_value' }] }
+// Stage 2: MEL Canonical IR (after system lowering, before MEL→Core boundary)
+// Rewritten to get with MEL PathNode segments — still MEL IR
+{ kind: 'get', path: [{ kind: 'prop', name: '$mel' }, { kind: 'prop', name: 'sys' },
+  { kind: 'prop', name: 'addTask' }, { kind: 'prop', name: 'uuid' },
+  { kind: 'prop', name: 'value' }] }
+
+// Stage 3: Core Runtime IR (after MEL→Core lowering boundary — §17.3)
+// Core get uses string path (FDR-MEL-064)
+{ kind: 'get', path: '$mel.sys.addTask.uuid.value' }
 ```
 
-The `sys` node with `path: ['system', ...]` triggers lowering. After lowering, all `$system.*` become regular state access.
+The `sys` node with `path: ['system', ...]` triggers system lowering (Stage 1→2). The MEL→Core lowering boundary (§17.3.3) then converts MEL PathNode segments to Core's dot-joined string path (Stage 2→3).
 
 ---
 
@@ -2814,8 +3422,8 @@ The Language & Runtime Architect verified the following:
 
 **All execution scenarios:**
 
-| Scenario | `__sys__intent` | `$meta.intentId` | Acquisition | Readiness | Result |
-|----------|-----------------|------------------|-------------|-----------|--------|
+| Scenario | `$mel.sys.*.intent` | `$meta.intentId` | Acquisition | Readiness | Result |
+|----------|---------------------|------------------|-------------|-----------|--------|
 | First compute (i1) | `null` | `"i1"` | fires | N/A | Effect executes |
 | Second compute (i1) | `"i1"` | `"i1"` | skip | ✅ true | User logic runs |
 | New intent (i2) | `"i1"` | `"i2"` | fires | ❌ false | Fresh acquisition |
@@ -2834,8 +3442,8 @@ The Language & Runtime Architect verified the following:
 | `$system.*` in action | ✅ Safe | Lowered to effect → Snapshot |
 | `$system.*` in computed | ✅ Blocked | Compile error E001 |
 | `$system.*` in state init | ✅ Blocked | Compile error E002 |
-| User defines `__sys__*` | ✅ Blocked | Compile error E004 |
-| `$meta.*` / `$input.*` | ✅ Safe | Pure values from Intent |
+| User defines `$`-prefixed or `__sys__*` | ✅ Blocked | Compile error E004 |
+| `$meta.*` / `$input.*` | ✅ Safe | Pure values from Intent (action body only — forbidden in computed/available/state init) |
 
 ### 12.4 Host Contract Verification
 
@@ -2928,9 +3536,13 @@ action withdraw(amount: number) available when gt(balance, 0) {
   }
 }
 
-// Complex availability condition
+// Complex availability condition (state/computed only — no action parameters)
 action transfer(to: string, amount: number) 
-  available when and(gt(balance, amount), not(frozen)) {
+  available when and(gt(balance, 0), not(frozen)) {
+  // Input-dependent validation belongs in the action body:
+  when gt(amount, balance) {
+    fail "INSUFFICIENT" with "Transfer amount exceeds balance"
+  }
   // ...
 }
 
@@ -2942,7 +3554,7 @@ action deposit(amount: number) {
 
 #### Constraints (A28)
 
-The `available when` expression MUST be pure:
+The `available when` expression MUST be pure and MUST reference **state/computed only**:
 
 ```mel
 // ❌ COMPILE ERROR: Effects not allowed in available
@@ -2951,12 +3563,17 @@ action process() available when effect.check() { ... }
 // ❌ COMPILE ERROR: $system.* not allowed in available
 action process() available when gt($system.time.now, deadline) { ... }
 
-// ❌ COMPILE ERROR: $input not allowed in available (no input at availability check)
+// ❌ COMPILE ERROR: $input / action parameters not allowed in available
+//    (availability is checked BEFORE input is known — e.g., UI button enable/disable)
 action process(x: number) available when gt($input.x, 0) { ... }
+action transfer(amount: number) available when gt(balance, amount) { ... }
+//    'amount' is an action parameter, which compiles to $input.amount
 
 // ✅ CORRECT: Pure expression referencing state/computed only
 action process() available when and(isReady, not(processing)) { ... }
 ```
+
+**Why no parameters?** `available` is evaluated **synchronously** by Core/UI/Agent to answer "can this action be invoked right now?" At that point, no specific intent input exists yet. The expression can only reference the current Snapshot (state + computed). Input-dependent validation belongs in the action body via `when`/`fail`.
 
 #### Compilation
 
@@ -2964,16 +3581,15 @@ action process() available when and(isReady, not(processing)) { ... }
 // MEL Source
 action withdraw() available when gt(balance, 0) { ... }
 
-// Compiles to ActionSpec
+// Compiles to ActionSpec (Core SPEC §9)
 {
-  "name": "withdraw",
   "available": {
     "kind": "gt",
-    "left": { "kind": "get", "path": [{ "kind": "prop", "name": "balance" }] },
+    "left": { "kind": "get", "path": "balance" },
     "right": { "kind": "lit", "value": 0 }
   },
-  "input": [],
-  "flow": { ... }
+  "flow": { "kind": "seq", "steps": [ ... ] }
+  // No "input" field — withdraw() has no parameters
 }
 ```
 
@@ -3121,20 +3737,20 @@ action processPayment(orderId: string) {
 | Example | "Already processed" | "Invalid input" |
 
 ```mel
-action toggleTask(id: string) {
+action setTaskCompleted(id: string, completed: boolean) {
   // fail: Task doesn't exist (error)
   when isNull(tasks[id]) {
     fail "NOT_FOUND" with concat("Task not found: ", id)
   }
   
   // stop: Already in desired state (success, no-op)
-  when eq(tasks[id].completed, $input.completed) {
+  when eq(tasks[id].completed, completed) {
     stop "Already in desired state"
   }
   
-  once(toggling) {
-    patch toggling = $meta.intentId
-    patch tasks[id].completed = $input.completed
+  once(updating) {
+    patch updating = $meta.intentId
+    patch tasks[id].completed = completed
   }
 }
 ```
@@ -3235,21 +3851,25 @@ action createPost() {
 }
 ```
 
-#### Future Consideration
+#### Realized: `flow` + `include` (v0.7.0 — ADR-013a)
+
+The future path described above is now realized in v0.7.0. See §4.7.3–4.7.5 for the full specification.
 
 ```mel
-// POTENTIAL v0.4+ syntax (NOT in v0.3.3)
-flow validateUser() {
-  when isNull(userId) {
-    fail "MISSING_USER"
+// v0.7.0: This is now normative syntax
+flow requireTask(taskId: string) {
+  when isNull(at(taskIndex, taskId)) {
+    fail "NOT_FOUND" with concat("Task not found: ", taskId)
   }
 }
 
-action createPost() {
-  include validateUser()  // Compile-time inline, no call node
-  // ...
+action softDeleteTask(id: string) {
+  include requireTask(id)   // Compile-time inline, no FlowNode call
+  onceIntent { /* ... */ }
 }
 ```
+
+`include` follows the same Snapshot composition direction as Core `call` but produces no FlowNode `{ kind: 'call' }` in the output IR. It is a compiler-only form.
 
 ---
 
@@ -3260,13 +3880,16 @@ action createPost() {
 | `available when <Expr>` | Action precondition | N/A (ActionSpec) | N/A |
 | `fail "CODE" with "msg"` | Error termination | `{ kind: 'fail' }` | Required |
 | `stop "reason"` | Early exit (success) | `{ kind: 'halt' }` | Required |
-| `call` | Flow invocation | `{ kind: 'call' }` | **Hidden** |
+| `call` | Flow invocation | `{ kind: 'call' }` | **Hidden** (Core only) |
+| `flow` / `include` | Statement composition | None (compile-time) | N/A (v0.7.0) |
 
 ### 13.6 Compile Errors
 
 ```
-E005: available expression must be pure.
-      Effects and $system.* are not allowed in available conditions.
+E005: available expression must be pure (state/computed only).
+      Effects, $system.*, $meta.*, $input.*, and action parameters are
+      not allowed in available conditions. Available is evaluated pre-Intent
+      by UI/Agent — only Snapshot-derived values (state, computed) are accessible.
 
 E006: fail must be inside a guard (when, once, or onceIntent).
       Unconditional fail is likely a mistake.
@@ -3293,6 +3916,104 @@ E012: Anonymous object type in state field.
       ❌ state { x: { a: number } = { a: 0 } }
       ✅ type X = { a: number }
          state { x: X = { a: 0 } }
+
+// ─── v0.7.0: flow/include (ADR-013a) ───
+
+E013: Circular include detected.
+      flow A includes flow B which includes flow A.
+
+E014: Include expansion depth exceeds limit (16).
+      Simplify flow composition.
+
+E015: Include target is not a declared flow.
+      'include nonExistent()' — 'nonExistent' is not a flow.
+
+E016: Include not allowed in InnerStmt position.
+      'include' can only appear at action or flow body top-level (GuardedStmt position).
+
+E017: once() not allowed in flow (v1).
+      Flows are guard+fail/stop only. Use once()/onceIntent in the action body.
+
+E018: onceIntent not allowed in flow (v1).
+      Same rationale as E017.
+
+E019: patch not allowed in flow (v1).
+      Flows are guard+fail/stop only.
+
+E020: effect not allowed in flow (v1).
+      Flows are guard+fail/stop only.
+
+E021: Flow parameter name conflicts with top-level identifier.
+      Parameter 'tasks' conflicts with state field 'tasks'.
+
+E022: Flow and action share the same name.
+      flow 'softDeleteTask' conflicts with action 'softDeleteTask'.
+
+E023: Wrong number of arguments for included flow.
+      'include requireTask()' — expected 1 argument, got 0.
+
+E024: Include argument type mismatch.
+      'include requireTask(123)' — argument 1: expected string, got number.
+
+// ─── v0.7.0: Entity collection primitives (ADR-013b) ───
+
+E030: Collection element type does not have an 'id' field.
+      findById(items, key) — type 'Item' has no field 'id'.
+
+E030a: Collection element 'id' field is not a primitive type.
+       findById(items, key) — 'id' is type '{ value: string }', expected string or number.
+
+E030b: Duplicate '.id' values detected in state initializer.
+       Entity primitives require unique '.id' values (ENTITY-2b).
+
+E031: updateById/removeById not allowed in this context.
+      Transform primitives can only be used in patch RHS.
+
+E032: Nested transform primitive.
+      updateById(removeById(tasks, id1), id2, ...) — nesting is forbidden.
+
+E033: Transform primitive collection argument is not a state path.
+      updateById(activeTasks, ...) — 'activeTasks' is a computed, not a state field.
+      First argument must be a state-declared path (no computed names, function calls,
+      index access, or sub-expressions).
+
+E034: Transform primitive in guard condition.
+      when eq(updateById(...), ...) — not allowed in guard.
+
+E035: Transform primitive in available condition.
+      available when updateById(...) — not allowed in available.
+
+// ─── v0.7.0: Computed deps / State init (Core alignment) ───
+
+E040: Circular computed dependency.
+      computed a depends on computed b, which depends on computed a.
+      The computed dependency graph must be acyclic (DAG).
+
+E041: Computed references undeclared identifier.
+      computed x = add(y, 1) — 'y' is not a state field, computed, or action parameter.
+
+E042: State initializer references non-constant value.
+      State defaults must be compile-time constants.
+      Cannot reference state fields, computed values, $system.*, $meta.*, or $input.*.
+
+E043: Non-trivial union type in state/action-input position.
+      'string | number' cannot be soundly lowered to FieldSpec.
+      Only literal enum unions ('a' | 'b') and T | null are supported.
+      Use a named wrapper type, separate actions, or restructure the type.
+
+E044: Recursive type in state/action-input position.
+      Type 'Tree' contains a circular reference and cannot be lowered to FieldSpec.
+      Recursive types are valid in 'type' declarations (preserved in DomainSchema.types)
+      but cannot be used as state field types or action input types.
+
+E045: Nullable type in state field or action input parameter.
+      'string | null' cannot be soundly represented in FieldSpec.
+      FieldSpec has no nullable wrapper — required:true rejects null, required:false means absent.
+      Use sentinel values, separate fields, or separate actions.
+
+E046: Record type in state field or action input parameter.
+      'Record<string, Task>' loses value type when lowered to FieldSpec.
+      Use Array<T> with .id field instead (aligns with entity primitives).
 ```
 
 ---
@@ -3303,60 +4024,60 @@ E012: Anonymous object type in state field.
 
 ```mel
 domain TaskManager {
+  type Task = {
+    id: string,
+    title: string,
+    completed: boolean,
+    createdAt: number
+  }
+
   state {
-    tasks: Record<string, Task> = {}
-    taskIds: Array<string> | null = null
+    tasks: Array<Task> = []
     filter: "all" | "active" | "completed" = "all"
-    editingId: string | null = null
-    
-    // Markers for per-intent idempotency (store intentId, not timestamp)
-    addingTask: string | null = null
-    togglingTask: string | null = null
-    deletingTask: string | null = null
-    clearingCompleted: string | null = null
-    loadingTaskIds: string | null = null
+    editingId: string = ""
   }
 
   // Computed values (pure expressions only)
-  // Note: len() only works on Array, not Record (FDR-MEL-026)
-  // Note: cond() instead of if() (FDR-MEL v0.2.2)
-  computed taskCount = cond(isNotNull(taskIds), len(taskIds), 0)
+  computed taskCount = len(tasks)
   computed hasAnyTasks = gt(taskCount, 0)
+  computed selectedTask = findById(tasks, editingId)
 
-  // Actions (all patch/effect must be inside guards)
+  // Actions — using onceIntent (no manual markers) and entity primitives
   action addTask(title: string) {
-    // Per-intent idempotency: can add multiple tasks across different intents
-    // v0.3.0: $system.uuid is deduplicated - both uses get same value
-    once(addingTask) when neq(trim(title), "") {
-      patch addingTask = $meta.intentId  // v0.2.2: use intentId, not timestamp
-      patch tasks[$system.uuid] = {
-        id: $system.uuid,        // v0.3.0: Same value as key (deduplicated)
+    onceIntent when neq(trim(title), "") {
+      patch tasks = append(tasks, {
+        id: $system.uuid,
         title: trim(title),
         completed: false,
         createdAt: $system.time.now
-      }
+      })
     }
   }
 
   action toggleTask(id: string) {
-    once(togglingTask) when isNotNull(tasks[id]) {
-      patch togglingTask = $meta.intentId
-      patch tasks[id].completed = not(tasks[id].completed)
+    when not(existsById(tasks, id)) {
+      fail "NOT_FOUND" with concat("Task not found: ", id)
+    }
+    onceIntent {
+      // Note: findById reads current value, updateById writes new value
+      patch tasks = updateById(tasks, id, {
+        completed: not(findById(tasks, id).completed)
+      })
     }
   }
 
   action deleteTask(id: string) {
-    once(deletingTask) when isNotNull(tasks[id]) {
-      patch deletingTask = $meta.intentId
-      patch tasks[id] unset    // v0.2.1: unset removes key entirely
+    when not(existsById(tasks, id)) {
+      fail "NOT_FOUND" with concat("Task not found: ", id)
+    }
+    onceIntent {
+      patch tasks = removeById(tasks, id)
     }
   }
 
   action clearCompleted() {
-    // v0.2.2: Use record.filter for Record types
-    once(clearingCompleted) {
-      patch clearingCompleted = $meta.intentId
-      effect record.filter({
+    onceIntent {
+      effect array.filter({
         source: tasks,
         where: eq($item.completed, false),
         into: tasks
@@ -3369,66 +4090,6 @@ domain TaskManager {
       patch filter = newFilter
     }
   }
-  
-  action loadTaskIds() {
-    once(loadingTaskIds) {
-      patch loadingTaskIds = $meta.intentId
-      effect record.keys({
-        source: tasks,
-        into: taskIds
-      })
-    }
-  }
-}
-```
-      patch tasks[$system.uuid] = {
-        id: $system.uuid,
-        title: trim(title),
-        completed: false,
-        createdAt: $system.time.now
-      }
-    }
-}
-
-action toggleTask(id: string) {
-once(togglingTask) when isNotNull(tasks[id]) {
-patch togglingTask = id
-patch tasks[id].completed = not(tasks[id].completed)
-}
-}
-
-action deleteTask(id: string) {
-once(deletingTask) when isNotNull(tasks[id]) {
-patch deletingTask = id
-patch tasks[id] unset    // v0.2.1: unset removes key entirely
-}
-}
-
-action clearCompleted() {
-once(clearingCompleted) {
-patch clearingCompleted = $meta.intentId
-effect array.filter({
-source: tasks,
-where: eq($item.completed, false),
-into: tasks
-})
-}
-}
-
-action setFilter(newFilter: "all" | "active" | "completed") {
-when neq(filter, newFilter) {
-patch filter = newFilter
-}
-}
-
-action refreshTaskIds() {
-once(taskIds) {
-effect object.keys({
-source: tasks,
-into: taskIds
-})
-}
-}
 }
 ```
 
@@ -3471,12 +4132,15 @@ computed normalized = lower(trim(input))
 ```mel
 // Simple state update
 action setName(newName: string) {
-  patch user.name = trim(newName)
+  onceIntent {
+    patch user.name = trim(newName)
+  }
 }
 
 // Using once() sugar
 action submit() {
   once(submission.startedAt) when form.isValid {
+    patch submission.startedAt = $meta.intentId  // MUST be first (FDR-MEL-044)
     patch submission.status = "pending"
     effect api.post({
       url: "/api/submit",
@@ -3490,6 +4154,7 @@ action submit() {
 action checkout() {
   // Step 1: Validate cart
   once(cart.validatedAt) {
+    patch cart.validatedAt = $meta.intentId     // MUST be first
     effect validate.cart({
       items: cart.items,
       into: cart.validation
@@ -3498,6 +4163,7 @@ action checkout() {
 
   // Step 2: Process payment (only after validation)
   once(payment.processedAt) when cart.validation.success {
+    patch payment.processedAt = $meta.intentId  // MUST be first
     effect payment.process({
       amount: cart.total,
       method: payment.method,
@@ -3507,6 +4173,7 @@ action checkout() {
 
   // Step 3: Create order (only after payment)
   once(order.createdAt) when payment.result.success {
+    patch order.createdAt = $meta.intentId      // MUST be first
     effect order.create({
       items: cart.items,
       payment: payment.result.id,
@@ -3571,7 +4238,7 @@ type LineItem = {
 
 state {
   lineItems: Array<LineItem> = []
-  itemTotals: Array<number> | null = null
+  itemTotals: Array<number> = []
 }
 
 // ✅ Use map + sum for total calculation
@@ -3768,7 +4435,7 @@ action withdraw() available when gt(balance, 0) {
 **New Compile Errors:**
 
 ```
-E005: available expression must be pure.
+E005: available expression must be pure (state/computed only).
 E006: fail must be inside a guard (when, once, or onceIntent).
 E007: stop must be inside a guard (when, once, or onceIntent).
 E008: stop message suggests waiting/pending.
@@ -3809,12 +4476,11 @@ stop "No action needed"
 computed now = $system.time.now
 
 // ✅ v0.3.0: Move to action
-state { lastUpdated: number | null = null }
-computed hasBeenUpdated = isNotNull(lastUpdated)
+state { lastUpdated: number = 0 }
+computed hasBeenUpdated = gt(lastUpdated, 0)
 
 action update() {
-  once(updating) {
-    patch updating = $meta.intentId
+  onceIntent {
     patch lastUpdated = $system.time.now
   }
 }
@@ -3823,29 +4489,22 @@ action update() {
 **Simplification (no longer needed):**
 
 ```mel
-// v0.2.x: Intermediate state required for UUID reuse
-state { pendingId: string | null = null }
+// ⚠ HISTORICAL (v0.2.x): Intermediate state required for UUID reuse
+// This pattern used nullable state and Record — both now forbidden (E045, E046).
+// state { pendingId: string | null = null }
+// action addTask(title: string) {
+//   once(step1) when isNull(pendingId) { ... }
+//   once(step2) when isNotNull(pendingId) { ... }
+// }
 
+// ✅ v0.7.0 current: Array + append + onceIntent
 action addTask(title: string) {
-  once(step1) when isNull(pendingId) {
-    patch step1 = $meta.intentId
-    patch pendingId = $system.uuid  // Capture first
-  }
-  once(step2) when isNotNull(pendingId) {
-    patch step2 = $meta.intentId
-    patch tasks[pendingId] = { id: pendingId, ... }  // Reuse
-    patch pendingId = null
-  }
-}
-
-// v0.3.0: Just works
-action addTask(title: string) {
-  once(creating) {
-    patch creating = $meta.intentId
-    patch tasks[$system.uuid] = {
-      id: $system.uuid,  // Same value as key!
-      ...
-    }
+  onceIntent when neq(trim(title), "") {
+    patch tasks = append(tasks, {
+      id: $system.uuid,      // Deduplicated per action (v0.3.0)
+      title: trim(title),
+      createdAt: $system.time.now
+    })
   }
 }
 ```
@@ -3904,17 +4563,19 @@ count++;
 ```
 
 ```mel
-// MEL v0.2.1
-state {
-  count: number = 0
-  incrementedAt: number | null = null
-}
+// ⚠ HISTORICAL (v0.2.1): manual once() marker + nullable state
+// state { count: number = 0, incrementedAt: string | null = null }
+// action increment() {
+//   once(incrementedAt) { patch incrementedAt = $meta.intentId; patch count = add(count, 1) }
+// }
+
+// ✅ MEL v0.7.0: onceIntent (no manual marker, no nullable)
+state { count: number = 0 }
 
 computed doubled = mul(count, 2)
 
 action increment() {
-  once(incrementedAt) {
-    patch incrementedAt = $meta.intentId  // Explicit marker patch!
+  onceIntent {
     patch count = add(count, 1)
   }
 }
@@ -3967,17 +4628,19 @@ action computeActiveNames() {
 
 **Decision:** Compiler MUST determine schema/action context per PatchOp field.
 
-**Context Rules (CRIT-08 + R2-3 Fix):**
+**Context Rules (CRIT-08 + R2-3 Fix, clarified v0.7.0):**
 
 | Op Field | Context | sys.system | sys.meta/input | var($item) |
 |----------|---------|------------|----------------|------------|
-| `addComputed.expr` | schema | ❌ | ✅ | ❌ |
-| `addConstraint.rule` | schema | ❌ | ✅ | ❌ |
-| `addActionAvailable.expr` | schema | ❌ | ✅ | ❌ |
+| `addComputed.expr` | schema | ❌ | ❌ | ❌ |
+| `addConstraint.rule` | schema | ❌ | ❌ | ❌ |
+| `addActionAvailable.expr` | schema | ❌ | ❌ | ❌ |
 | `stateDefault` | schema | ❌ | ❌ | ❌ |
 | `ActionGuard.condition` | action | ❌* | ✅ | ❌ |
 | `ActionStmt.patch.value` | action | ❌* | ✅ | ❌ |
 | `ActionStmt.effect.args.*` | action | ❌* | ✅ | **✅** |
+
+> **v0.7.0 clarification:** `sys.meta/input` is forbidden in all schema-context fields (`addComputed`, `addConstraint`, `addActionAvailable`, `stateDefault`). `$meta.*` and `$input.*` require an active Intent context, which does not exist at schema evaluation time. See A28 and §9.3.2.
 
 **$item Scope (R2-3 Fix):**
 > `$item` is ONLY allowed in `effect.args.*` (iteration variable for effect parameters).
@@ -3993,12 +4656,12 @@ action computeActiveNames() {
 
 **Rationale (A35):**
 > MEL SPEC §6.5: "Expressions do NOT throw. Invalid operations return null."
-> Core expects computed values to always resolve. 
+> Core expects computed values to always resolve.
 > Evaluation follows the same principle.
 
 **Semantic Rules:**
 - Division by zero → null
-- Path not found → null  
+- Path not found → null
 - Type mismatch (add string to number) → null
 - Null property access → null
 
@@ -4012,6 +4675,8 @@ action computeActiveNames() {
 
 #### 17.1.1 MEL Canonical IR (Input)
 
+> **Normative:** This is the single authoritative definition of MEL Canonical IR expression nodes. §7.2 provides the same type with examples and rationale; in case of conflict, this definition prevails.
+
 ```typescript
 type MelPrimitive = null | boolean | number | string;
 type MelPathSegment = { kind: "prop"; name: string };
@@ -4024,10 +4689,17 @@ type MelExprNode =
   | { kind: "var"; name: "item" }
   | { kind: "sys"; path: MelSystemPath }
   | { kind: "get"; base?: MelExprNode; path: MelPathNode }
+  | { kind: "field"; object: MelExprNode; property: string }
   | { kind: "call"; fn: string; args: MelExprNode[] }
   | { kind: "obj"; fields: MelObjField[] }
   | { kind: "arr"; elements: MelExprNode[] };
 ```
+
+**Node count:** 8 kinds — `lit`, `var`, `sys`, `get`, `field`, `call`, `obj`, `arr`.
+
+**v0.7.0 alignment notes:**
+- `field` is required for `.prop` access on non-path expressions (e.g., `at(items, id).status`). See §7.2.2 and §9.1.2 for examples.
+- `var` supports only `"item"`. `"acc"` was removed in v0.3.3 when reduce/fold was forbidden (FDR-MEL-062).
 
 #### 17.1.2 Core Runtime IR (Output)
 
@@ -4042,22 +4714,25 @@ import type { ExprNode as CoreExprNode } from "@manifesto-ai/core";
 ```typescript
 type ExprLoweringContext = {
   mode: "schema" | "action";
-  /** Only meta/input allowed (system forbidden in Translator path) */
+  /** meta/input allowed in action mode only. MUST be undefined or empty in schema mode. */
   allowSysPaths?: { prefixes: Array<"meta" | "input"> };
   fnTableVersion: string;
   actionName?: string;
 };
 
 type PatchLoweringContext = {
-  // NO mode — Compiler determines per op-field
-  /** Only meta/input allowed (system forbidden) */
+  // NO mode — Compiler determines per op-field (AD-COMP-LOW-002)
+  /** meta/input allowed per op-field context. Schema fields: empty. Action fields: ["meta","input"]. */
   allowSysPaths?: { prefixes: Array<"meta" | "input"> };
   fnTableVersion: string;
   actionName?: string;
 };
 ```
 
-**NORMATIVE: `system` prefix is NOT allowed in Translator path.**
+**NORMATIVE:**
+- `system` prefix is NEVER allowed in Translator path.
+- In schema mode (`addComputed.expr`, `addConstraint.rule`, `addActionAvailable.expr`, `stateDefault`): `allowSysPaths` MUST be `undefined` or `{ prefixes: [] }`. Any `sys` node is a lowering error.
+- In action mode (`ActionGuard.condition`, `ActionStmt.patch.value`, `ActionStmt.effect.args.*`): `allowSysPaths = { prefixes: ["meta", "input"] }`.
 
 ### 17.3 Lowering Semantics
 
@@ -4075,7 +4750,7 @@ type PatchLoweringContext = {
 
 // MEL: { kind: 'sys', path: ['system', 'uuid'] }
 // Translator path: LoweringError(INVALID_SYS_PATH)
-// Flow path only: lowered per §11 → __sys__ slot
+// Flow path only: lowered per §11 → $mel.sys.* slot
 ```
 
 **Normative:**
@@ -4130,10 +4805,134 @@ type PatchLoweringContext = {
 
 #### 17.3.5 call Lowering
 
+MEL's call-based IR uses `{ kind: 'call', fn: '<name>', args: [...] }`. Core IR uses named-head nodes with specific field names. The compiler MUST map each MEL function name to its Core ExprNode kind using the table below.
+
+**MEL Public Builtin → Core Node Lowering Table (Normative):**
+
+Only functions listed in §9.1 Standard Library are available on the MEL surface. This table maps each public builtin to its Core ExprNode kind.
+
+| MEL `fn` (§9.1) | Core `kind` | Core fields | Notes |
+|----------|-------------|-------------|-------|
+| **Comparison** | | | |
+| `eq` | `eq` | `left, right` | |
+| `neq` | `neq` | `left, right` | |
+| `gt` | `gt` | `left, right` | |
+| `gte` | `gte` | `left, right` | |
+| `lt` | `lt` | `left, right` | |
+| `lte` | `lte` | `left, right` | |
+| **Logical** | | | |
+| `and` | `and` | `args: [...]` | Variadic |
+| `or` | `or` | `args: [...]` | Variadic |
+| `not` | `not` | `arg` | |
+| **Conditional** | | | |
+| `cond` | `if` | `cond, then, else` | **Name differs** |
+| **Arithmetic** | | | |
+| `add` | `add` | `left, right` | |
+| `sub` | `sub` | `left, right` | |
+| `mul` | `mul` | `left, right` | |
+| `div` | `div` | `left, right` | |
+| `mod` | `mod` | `left, right` | |
+| `neg` | `neg` | `arg` | |
+| `abs` | `abs` | `arg` | |
+| `min` (scalar) | `min` | `args: [...]` | Variadic |
+| `max` (scalar) | `max` | `args: [...]` | Variadic |
+| `floor` | `floor` | `arg` | |
+| `ceil` | `ceil` | `arg` | |
+| `round` | `round` | `arg` | |
+| `sqrt` | `sqrt` | `arg` | |
+| `pow` | `pow` | `base, exponent` | |
+| **String** | | | |
+| `concat` | `concat` | `args: [...]` | Variadic |
+| `substr` | `substring` | `str, start, end?` | **Name differs** |
+| `trim` | `trim` | `str` | |
+| `lower` | `toLowerCase` | `str` | **Name differs** |
+| `upper` | `toUpperCase` | `str` | **Name differs** |
+| `strlen` | `strLen` | `str` | **Name differs** |
+| **Collection** | | | |
+| `len` | `len` | `arg` | |
+| `at` | `at` | `array, index` | |
+| `first` | `first` | `array` | |
+| `last` | `last` | `array` | |
+| `append` | `append` | `array, items: [item]` | Single item wrapped in items array |
+| `isNull` | `isNull` | `arg` | |
+| `isNotNull` | `isNotNull` | `arg` | |
+| `coalesce` | `coalesce` | `args: [...]` | Variadic |
+| `toString` | `toString` | `arg` | |
+| **Aggregation (computed only, §9.1.9)** | | | |
+| `sum` | `sumArray` | `array` | **Name differs** |
+| `min` (array) | `minArray` | `array` | **Name differs**; dispatch by arg type |
+| `max` (array) | `maxArray` | `array` | **Name differs**; dispatch by arg type |
+| **Entity Primitives (§9.1.10)** | | | |
+| `findById` | see §9.1.10 | Lowered at MEL→Core boundary | Multi-node expansion |
+| `existsById` | see §9.1.10 | Lowered at MEL→Core boundary | Multi-node expansion |
+| `updateById` | see §9.1.10 | Lowered at MEL→Core boundary | Multi-node expansion |
+| `removeById` | see §9.1.10 | Lowered at MEL→Core boundary | Multi-node expansion |
+
+**Core ExprNode Kinds Used by Compiler Internally (NOT MEL public builtins):**
+
+The following Core ExprNode kinds exist in Core SPEC §7.2 but are NOT exposed as MEL surface functions. They are generated only by compiler lowering (entity primitives, effect lowering, etc.). MEL source code MUST NOT use these as function names — they are semantic errors per §8.2.
+
+| Core `kind` | Generated by | Notes |
+|-------------|-------------|-------|
+| `find` | Entity primitive lowering (`findById`) | |
+| `filter` | Entity/effect lowering (`removeById`, `effect array.filter`) | |
+| `map` | Entity/effect lowering (`updateById`, `effect array.map`) | |
+| `merge` | Entity lowering (`updateById` → merge item with updates) | |
+| `field` | Property access lowering (§17.3.6) | |
+| `startsWith` | Reserved for future MEL builtin | Core node exists |
+| `endsWith` | Reserved for future MEL builtin | Core node exists |
+| `strIncludes` | Reserved for future MEL builtin | Core node exists |
+| `indexOf` | Reserved for future MEL builtin | Core node exists |
+| `replace` | Reserved for future MEL builtin | Core node exists |
+| `split` | Reserved for future MEL builtin | Core node exists |
+| `slice` | Reserved for future MEL builtin | Core node exists |
+| `includes` | Reserved for future MEL builtin | Core node exists |
+| `join` | Reserved for future MEL builtin | Core node exists |
+| `flat` | Reserved for future MEL builtin | Core node exists |
+| `toNumber` | Reserved for future MEL builtin | Core node exists |
+| `toBoolean` | Reserved for future MEL builtin | Core node exists |
+
+**Name-differs entries are the most common source of implementation bugs.** The compiler MUST use the Core name, not the MEL name.
+
 ```typescript
-// MEL: { kind: 'call', fn: 'eq', args: [A, B] }
-// Core: { kind: 'eq', left: <lowered A>, right: <lowered B> }
+// Example: cond → if
+// MEL: { kind: 'call', fn: 'cond', args: [COND, THEN, ELSE] }
+// Core: { kind: 'if', cond: <lowered COND>, then: <lowered THEN>, else: <lowered ELSE> }
+
+// Example: lower → toLowerCase
+// MEL: { kind: 'call', fn: 'lower', args: [STR] }
+// Core: { kind: 'toLowerCase', str: <lowered STR> }
+
+// Example: sum(arr) → sumArray
+// MEL: { kind: 'call', fn: 'sum', args: [ARR] }
+// Core: { kind: 'sumArray', array: <lowered ARR> }
 ```
+
+#### 17.3.6 field Lowering (v0.7.0)
+
+**`field` represents static property access on a computed expression result** (e.g., `at(items, id).status`). Core IR has a corresponding `field` node (Core SPEC §7.2, FDR-MEL-078). The lowering is a direct 1:1 mapping.
+
+**Rule 1 — Simple get flattening:** If `field.object` is a `get` without `base`, the property is appended to the path string.
+
+```typescript
+// MEL: { kind: 'field', object: { kind: 'get', path: [{prop:'user'}] }, property: 'name' }
+// Core: { kind: 'get', path: 'user.name' }
+```
+
+**Rule 2 — All other cases:** If `field.object` is any expression other than a simple `get` (i.e., `call`, `var`+`get`, nested `field`, etc.), the lowering produces a Core `field` node.
+
+```typescript
+// MEL: { kind: 'field', object: { kind: 'call', fn: 'at', args: [ITEMS, ID] }, property: 'status' }
+// Core: { kind: 'field', object: { kind: 'at', array: <lowered ITEMS>, index: <lowered ID> }, property: 'status' }
+
+// MEL: { kind: 'field', object: { kind: 'get', base: {kind:'var',name:'item'}, path: [{prop:'address'}] }, property: 'city' }
+// Core: { kind: 'field', object: { kind: 'get', path: '$item.address' }, property: 'city' }
+```
+
+**Normative:**
+> - `field.property` is always a compile-time string constant.
+> - Rule 1 (flattening) is an optimization; Rule 2 is the general case. Both produce semantically identical results.
+> - There is no ambiguity: the compiler checks whether `field.object.kind === 'get' && field.object.base === undefined`. If yes, Rule 1. Otherwise, Rule 2.
 
 ### 17.4 Lowering API
 
@@ -4381,7 +5180,6 @@ function shouldApplyPatch(condition: CoreExprNode | undefined, ctx: EvaluationCo
 // get(path: "$item.name") → ctx.item?.name
 // get(path: "total") → ctx.snapshot.computed?.total
 // get(path: "user.name") → ctx.snapshot.data.user?.name
-// get(path: "user.name") → ctx.snapshot.state.user?.name
 ```
 
 ### 18.8 Operator Semantics (Total)
@@ -4486,7 +5284,7 @@ function compileMelPatch(
 
 ---
 
-## 21. Compiler Rules for $mel Namespace (v0.5.0)
+## 21. Compiler Rules for $mel Namespace (v0.5.0, extended v0.7.0)
 
 | Rule ID | Description |
 |---------|-------------|
@@ -4494,6 +5292,7 @@ function compileMelPatch(
 | COMPILER-MEL-2 | Desugared `once(X)` MUST perform its first guard write to the same **semantic guard path** `X`. |
 | COMPILER-MEL-2a | Lowering MAY implement the guard write as `merge` at `$mel.guards.intent` (map-level) and treat it as semantically equivalent to writing `X`. |
 | COMPILER-MEL-3 | `onceIntent` MUST be parsed as a **contextual keyword** (statement start + `{`/`when` only). |
+| COMPILER-MEL-4 | System value patches MUST use **deep `set`** at individual leaf paths (e.g., `{ op: "set", path: "$mel.sys.addTask.uuid.intent", value: "i1" }`). Map-level `merge` at `$mel.sys.<action>.<key>` is NOT required — unlike guards, `intent` and `value` have different lifecycles (intent is written immediately, value arrives after Host fulfills the effect). Root `$mel` merge is FORBIDDEN (COMPILER-MEL-1 applies). |
 
 **COMPILER-MEL-1 Rationale:**
 
@@ -4513,20 +5312,71 @@ Correct approach:
 // Result: { guards: { intent: { a: "i1", b: "i1" } } }
 ```
 
+**COMPILER-MEL-4 Rationale:**
+
+Guards use map-level `merge` because multiple guards coexist as siblings under `$mel.guards.intent` and are all written in the same lifecycle phase (guard evaluation). System value slots are different: `.intent` is written immediately when the acquisition guard fires, but `.value` is written later by Host after fulfilling the `system.get` effect. These are **different lifecycle phases**, so a single merge at `$mel.sys.<action>.<key>` would risk overwriting one with the other. Deep `set` at individual leaf paths avoids this:
+
+```typescript
+// ✅ CORRECT: Deep set — intent and value written at different times
+// Phase 1 (guard fires): compiler writes intent marker
+{ op: "set", path: "$mel.sys.addTask.uuid.intent", value: "intent-1" }
+
+// Phase 2 (Host fulfills effect): Host writes acquired value
+{ op: "set", path: "$mel.sys.addTask.uuid.value", value: "abc-123" }
+```
+
+---
+
+## 22. Cross-Spec Alignment: `$mel` Namespace (v0.7.0 Companion Patch)
+
+This section documents the canonical `$mel` namespace shape as it relates to Core, Host, World, and SDK contracts. It serves as a normative bridge between this Compiler SPEC and the surrounding specs.
+
+**Canonical `$mel` shape:**
+
+```
+snapshot.data.$mel
+├── guards
+│   └── intent
+│       └── <guardId>: string              // intentId or null
+└── sys
+    └── <actionName>
+        └── <normalizedKey>
+            ├── intent: string | null       // intentId of last acquisition
+            └── value: <varies> | null      // acquired system value
+```
+
+**Cross-spec contract summary:**
+
+| Layer | Contract | Reference |
+|-------|----------|-----------|
+| **Core** | `data.$*` namespaces are platform-owned and opaque. Core MUST NOT require them in `StateSpec`. Core validates only namespace roots as objects, no nested validation under `$*`. Platform layers MAY add or patch `data.$*` via `core.apply()`. | Core SPEC §5.5, SCHEMA-RESERVED-1/2 |
+| **World** | `data.$mel` is excluded from the semantic snapshot hash. Changes to `$mel.*` do not alter the domain's identity. | World SPEC §hash-exclusion |
+| **SDK** | `withPlatformNamespaces()` injects `$host` and `$mel` into initial snapshot. `normalizeSnapshot()` ensures `$mel` structure is present. | SDK SPEC §withPlatformNamespaces, ADR-002 |
+| **Compiler** | `$mel.guards.intent.*` stores onceIntent guard markers. `$mel.sys.*` stores compiler-generated system value acquisition slots. Both are created by compiler-generated patches/effects. | This spec §4.7.1, §11, §21 |
+
+**Normative statements:**
+
+1. `$mel` is a compiler-owned opaque platform namespace.
+2. `$mel.guards.intent.*` is eagerly normalized by SDK at snapshot creation.
+3. `$mel.sys.*` is lazily created by compiler-generated patches and Host-fulfilled effects.
+4. All `$mel.*` values are exempt from domain FieldSpec type restrictions (§5.6.2).
+5. Surrounding specs (SDK, World, Host) SHOULD recognize `$mel.sys.*` as a valid subtree under the existing `$mel` platform namespace policy. No new ADR is required — `$mel.sys.*` is a specialization of the already-approved `$mel` namespace.
+
 ## Appendix A: Grammar Summary (EBNF)
 
 ```ebnf
 (* ═══════════════════════════════════════════════════════════ *)
-(* MEL Grammar - Manifesto Expression Language v0.5.0          *)
+(* MEL Grammar - Manifesto Expression Language v0.7.0          *)
 (* AI-Native + Host Contract + System Values as Effects        *)
 (* + Core Alignment + Primitive Aggregation + Named Types      *)
 (* + onceIntent + $mel Namespace                               *)
+(* + flow/include (ADR-013a) + Entity Primitives (ADR-013b)    *)
 (* ═══════════════════════════════════════════════════════════ *)
 
 Program         = { ImportDecl } DomainDecl ;
 ImportDecl      = "import" "{" IdentifierList "}" "from" StringLiteral ;
 DomainDecl      = "domain" Identifier "{" { DomainMember } "}" ;
-DomainMember    = TypeDecl | StateDecl | ComputedDecl | ActionDecl ;
+DomainMember    = TypeDecl | StateDecl | ComputedDecl | ActionDecl | FlowDecl ;
 
 (* ─── Type Declaration (v0.3.3) ─── *)
 TypeDecl        = "type" Identifier "=" TypeExpr ;
@@ -4548,7 +5398,7 @@ StateTypeRef    = Identifier                              (* named type referenc
 (* ─── Computed ─── *)
 ComputedDecl    = "computed" Identifier "=" Expression ;
 
-(* ─── Action (v0.3.3: available, fail, stop) ─── *)
+(* ─── Action (v0.3.3: available, fail, stop; v0.7.0: include) ─── *)
 ActionDecl      = "action" Identifier "(" [ ParamList ] ")" [ AvailableClause ] ActionBody ;
 AvailableClause = "available" "when" Expression ;
 ParamList       = Param { "," Param } ;
@@ -4556,7 +5406,7 @@ Param           = Identifier ":" TypeExpr ;
 
 (* v0.2.1: ActionBody contains ONLY guards, no top-level patch/effect *)
 ActionBody      = "{" { GuardedStmt } "}" ;
-GuardedStmt     = WhenStmt | OnceStmt | OnceIntentStmt ;
+GuardedStmt     = WhenStmt | OnceStmt | OnceIntentStmt | IncludeStmt ;
 
 (* Guards contain inner statements *)
 WhenStmt        = "when" Expression "{" { InnerStmt } "}" ;
@@ -4567,6 +5417,16 @@ OnceIntentStmt  = "onceIntent" [ "when" Expression ] "{" { InnerStmt } "}" ;
 
 (* Inner statements (only allowed inside guards) *)
 InnerStmt       = PatchStmt | EffectStmt | WhenStmt | OnceStmt | OnceIntentStmt | FailStmt | StopStmt ;
+
+(* ─── Flow (v0.7.0: ADR-013a) — contextual keyword ─── *)
+FlowDecl        = "flow" Identifier "(" [ ParamList ] ")" FlowBody ;
+FlowBody        = "{" { FlowGuardedStmt } "}" ;
+FlowGuardedStmt = FlowWhenStmt | IncludeStmt ;
+FlowWhenStmt    = "when" Expression "{" { FlowInnerStmt } "}" ;
+FlowInnerStmt   = FailStmt | StopStmt | FlowWhenStmt ;
+
+(* ─── Include (v0.7.0: ADR-013a) — contextual keyword ─── *)
+IncludeStmt     = "include" Identifier "(" [ ArgList ] ")" ;
 
 (* v0.3.3: Flow control statements *)
 FailStmt        = "fail" StringLiteral [ "with" Expression ] ;
@@ -4632,7 +5492,7 @@ ArgList         = Expression { "," Expression } ;
 ## Appendix B: Reserved Words
 
 ```
-// Keywords (MEL v0.5.0)
+// Keywords (MEL v0.7.0)
 domain state computed action effect when once patch
 unset merge type available fail stop
 true false null as import from export
@@ -4653,11 +5513,13 @@ this super arguments eval
 
 **Note (v0.5.0):** `onceIntent` is a contextual keyword, not a reserved word. It is recognized only at statement start when followed by `{` or `when`.
 
+**Note (v0.7.0):** `flow` and `include` are contextual keywords, not reserved words. `flow` is recognized only at domain member start when followed by `Identifier` `(`. `include` is recognized only at GuardedStmt/FlowGuardedStmt start when followed by `Identifier` `(`. In all other contexts, both are treated as normal identifiers. See §4.7.5 and ADR-013a.
+
 ---
 
 ## Appendix C: AI-Native Design Summary
 
-MEL v0.5.0 is designed with the following AI-Native principles:
+MEL v0.7.0 is designed with the following AI-Native principles:
 
 | Principle | Implementation |
 |-----------|----------------|
@@ -4678,7 +5540,7 @@ MEL v0.5.0 is designed with the following AI-Native principles:
 | **No template literals** | Use `concat()` for string building (v0.2.2) |
 | **Strict equality** | `neq(a,b) := not(eq(a,b))` always (v0.2.3) |
 | **Universal index access** | `at()` works on Array AND Record (v0.2.3) |
-| **Explicit scopes** | Params > Computed > State > System (v0.2.3) |
+| **Explicit scopes** | Params > Computed > State > System, within permitted contexts (v0.2.3, v0.7.0) |
 | **Complete IR** | Every construct has one IR representation (v0.2.3) |
 | **Call-only IR** | All operations use `{kind:'call'}` nodes (v0.2.4) |
 | **Primitive-only eq/neq** | Collection comparison is compile error (v0.2.4) |
@@ -4691,7 +5553,7 @@ MEL v0.5.0 is designed with the following AI-Native principles:
 | **System value deduplication** | Same key in same action = same value (v0.3.0) |
 | **Snapshot-based replay** | System values in Snapshot, no separate trace (v0.3.0) |
 | **Pure Core guarantee** | No IO in Core, all via Effects (v0.3.0) |
-| **__sys__ prefix reserved** | Compiler-generated slots use `__sys__`, users cannot (v0.3.1) |
+| **$mel.sys namespace** | Compiler-generated system slots live under `$mel.sys.*`, platform-owned (v0.3.1, v0.7.0) |
 | **Intent-based readiness** | `eq(intent_marker, $meta.intentId)` not `isNotNull(value)` (v0.3.1) |
 | **Architecture reviewed** | System value semantics certified safe to implement (v0.3.1) |
 | **Action availability** | `available when <Expr>` for declarative preconditions (v0.3.3) |
@@ -4700,6 +5562,9 @@ MEL v0.5.0 is designed with the following AI-Native principles:
 | **call hidden** | Core retains call, MEL hides it for simplicity (v0.3.3) |
 | **Named types required** | Anonymous object types in state forbidden (v0.3.3) |
 | **Schema-as-metadata** | Type declarations are AI-readable domain concepts (v0.3.3) |
+| **Compile-time statement reuse** | `flow`/`include` for guard/fail/stop patterns; no runtime FlowNode `call` (v0.7.0) |
+| **Intention-revealing primitives** | `findById`/`updateById` express entity identity semantics; `$item` stays hidden (v0.7.0) |
+| **Contextual keywords** | `onceIntent`, `flow`, `include` — keyword only in specific positions, identifier elsewhere (v0.5.0, v0.7.0) |
 
 **For LLM implementers**: MEL code can be generated by following these patterns:
 
@@ -4717,7 +5582,7 @@ MEL v0.5.0 is designed with the following AI-Native principles:
 12. **Use correct effect family** — `array.*` for `Array<T>`, `record.*` for `Record<K,V>` (v0.2.2)
 13. **Use concat() for strings** — no template literals, use `concat("Hello ", name)` (v0.2.2)
 14. **Use cond() not if()** — `cond(condition, thenValue, elseValue)` (v0.2.2)
-15. **Computed can reference computed** — scope is Params > Computed > State > System (v0.2.3)
+15. **Computed can reference computed** — scope is Computed > State (no $system.*, $meta.*, $input.* — v0.2.3, clarified v0.7.0)
 16. **$system.* is deduplicated per action** — same key = same value, no intermediate state needed (v0.3.0)
 17. **neq(null, string) = true** — different types are never equal (v0.2.3)
 18. **eq/neq are primitive-only** — cannot compare Array/Object/Record (v0.2.4)
@@ -4728,16 +5593,20 @@ MEL v0.5.0 is designed with the following AI-Native principles:
 23. **partition uses pass/fail** — not `into: { pass, fail }`, use top-level `pass:` and `fail:` (v0.2.5)
 24. **$system.* only in actions** — forbidden in computed and state initializers (v0.3.0)
 25. **System values are IO** — compiler handles lowering, developer writes surface syntax (v0.3.0)
-26. **__sys__ prefix reserved** — user identifiers cannot start with `__sys__` (compile error E004) (v0.3.1)
+26. **$mel.sys namespace** — compiler-generated system value slots live under `$mel.sys.*`, not domain state (v0.3.1, v0.7.0)
 27. **Readiness uses eq(intent, intentId)** — NOT `isNotNull(value)`, prevents stale value bugs (v0.3.1)
 28. **Architecture reviewed** — system value semantics certified safe to implement (v0.3.1)
-29. **available is pure** — no Effects, no $system.* in availability conditions (v0.3.3)
+29. **available is state/computed only** — no Effects, no $system.*, no $meta.*, no $input.*, no action parameters (v0.3.3, v0.7.0)
 30. **fail must be guarded** — unconditional fail is compile error (v0.3.3)
 31. **stop must be guarded** — unconditional stop is compile error (v0.3.3)
 32. **stop ≠ waiting** — "Waiting for..." messages are lint errors (v0.3.3)
 33. **Named types required** — anonymous object types in state are forbidden (v0.3.3)
 34. **Types are metadata** — type declarations are AI-readable domain concepts (v0.3.3)
+35. **`flow` for guard reuse** — `flow requireX(...) { when ... { fail } }` + `include requireX(...)` for validation DRY (v0.7.0)
+36. **Entity primitives for id-based ops** — `findById`/`existsById` in any expression; `updateById`/`removeById` in patch RHS only (v0.7.0)
+37. **Transform primitives are restricted** — patch RHS only, no nesting, state-path collection only, no computed names (v0.7.0)
+38. **`flow`/`include` are contextual** — keyword only at specific positions, identifier elsewhere (v0.7.0)
 
 ---
 
-*End of MEL SPEC v0.6.0*
+*End of MEL SPEC v0.7.0*

@@ -198,11 +198,11 @@ describe("Compiler -> World -> Host -> Core", () => {
       `
       domain SystemExample {
         state {
-          lastId: string | null = null
-          payload: Json | null = null
-          fetchIntent: string | null = null
+          lastId: string = ""
+          payload: object = {}
+          fetchIntent: string = ""
         }
-        computed payloadLoaded = isNotNull(payload)
+        computed payloadLoaded = gt(len(keys(payload)), 0)
         action fetch(id: string) {
           once(fetchIntent) {
             effect api.get({ id: id, into: payload })
@@ -223,9 +223,9 @@ describe("Compiler -> World -> Host -> Core", () => {
     expect(validation.valid).toBe(true);
 
     const host = createHostWithContext(schema, {
-      lastId: null,
-      payload: null,
-      fetchIntent: null,
+      lastId: "",
+      payload: {},
+      fetchIntent: "",
     });
     registerIntoHandler(host, "system.get", (params) => {
       const key = String(params.key ?? "");
@@ -321,12 +321,12 @@ describe("Compiler -> World -> Host -> Core", () => {
       `
       domain ShipmentDashboard {
         state {
-          trackingCustomerId: string | null = null
-          trackingStatus: string | null = null
+          trackingCustomerId: string = ""
+          trackingStatus: string = ""
           trackingShipments: object = {}
           refreshCount: number = 0
         }
-        computed isTrackingActive = isNotNull(trackingCustomerId)
+        computed isTrackingActive = neq(trackingCustomerId, "")
 
         action refreshDashboard(customerId: string) {
           when true {
