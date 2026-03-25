@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/manifesto-ai/core/compare/codegen-v0.1.2...codegen-v0.1.3) (2026-03-25)
+
+
+### Bug Fixes
+
+* **test:** pin local vite runtimes for package vitest ([2da24f8](https://github.com/manifesto-ai/core/commit/2da24f89da7f618da3bd58f13a5c3d565b29251c))
+
 ## [0.1.1](https://github.com/manifesto-ai/core/compare/codegen-v0.1.0...codegen-v0.1.1) (2026-02-17)
 
 
