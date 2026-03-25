@@ -1,6 +1,6 @@
 {
   "packages/codegen": "0.1.2",
-  "packages/compiler": "1.7.0",
+  "packages/compiler": "1.8.0",
   "packages/core": "2.7.0",
   "packages/host": "2.3.4",
   "packages/sdk": "2.0.0",
