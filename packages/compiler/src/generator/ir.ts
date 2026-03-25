@@ -4,6 +4,7 @@
  */
 
 import type { Diagnostic } from "../diagnostics/types.js";
+import type { SourceLocation } from "../lexer/source-location.js";
 import type {
   ProgramNode,
   DomainNode,
@@ -213,6 +214,8 @@ interface GeneratorContext {
   diagnostics: Diagnostic[];
   /** v0.3.3: Type declarations for expanding user-defined types */
   typeDefs: Map<string, TypeDeclNode>;
+  /** Track 2: State field specs for literal type validation in patches */
+  stateFieldSpecs: Map<string, FieldSpec>;
 }
 
 function createContext(domainName: string): GeneratorContext {
@@ -225,6 +228,7 @@ function createContext(domainName: string): GeneratorContext {
     currentAction: null,
     diagnostics: [],
     typeDefs: new Map(),
+    stateFieldSpecs: new Map(),
   };
 }
 
@@ -379,6 +383,11 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
   for (const member of domain.members) {
     if (member.kind === "state") {
       for (const field of member.fields) {
+        // Track 2: store the type-level spec (before required:true override)
+        // so patch validation uses nullability from the declared type
+        const typeSpec = typeExprToFieldSpec(field.typeExpr, ctx);
+        ctx.stateFieldSpecs.set(field.name, typeSpec);
+
         fields[field.name] = generateFieldSpec(field, ctx);
       }
     }
@@ -392,6 +401,13 @@ function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldS
   const defaultValue = field.initializer
     ? evaluateInitializer(field.initializer, ctx)
     : undefined;
+
+  // Track 2: validate literal default against the type-level spec
+  // (before `required: true` override, which means "field must exist in state",
+  //  not "field is non-nullable")
+  if (defaultValue !== undefined) {
+    validateLiteralAgainstSpec(defaultValue, spec, field.name, field.location, ctx);
+  }
 
   return {
     ...spec,
@@ -514,6 +530,97 @@ function typeExprToFieldSpec(typeExpr: TypeExprNode, ctx: GeneratorContext): Fie
 function typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldType {
   const spec = typeExprToFieldSpec(typeExpr, ctx);
   return spec.type;
+}
+
+// ============ Literal Type Validation (Track 2) ============
+
+/**
+ * Validate a literal value against a FieldSpec, emitting E_TYPE_MISMATCH diagnostics.
+ * Only checks statically-known literal values; complex expressions (undefined) are skipped.
+ */
+function validateLiteralAgainstSpec(
+  value: unknown,
+  spec: FieldSpec,
+  fieldName: string,
+  location: SourceLocation,
+  ctx: GeneratorContext,
+): void {
+  if (value === undefined) return; // Complex expression, can't check statically
+
+  // Null on required (non-nullable) field
+  if (value === null) {
+    if (spec.required !== false && !(typeof spec.type === "object" && "enum" in spec.type && (spec.type as {enum: unknown[]}).enum.includes(null))) {
+      ctx.diagnostics.push({
+        severity: "error",
+        code: "E_TYPE_MISMATCH",
+        message: `Type mismatch: field '${fieldName}' is not nullable, but initializer is null`,
+        location,
+      });
+    }
+    return;
+  }
+
+  const specType = spec.type;
+
+  // Enum check
+  if (typeof specType === "object" && "enum" in specType) {
+    if (!specType.enum.some((e: unknown) => Object.is(e, value))) {
+      ctx.diagnostics.push({
+        severity: "error",
+        code: "E_TYPE_MISMATCH",
+        message: `Type mismatch: field '${fieldName}' expects one of [${specType.enum.join(", ")}], got ${JSON.stringify(value)}`,
+        location,
+      });
+    }
+    return;
+  }
+
+  // Primitive type check
+  const actualType = Array.isArray(value) ? "array" : (typeof value === "object" ? "object" : typeof value);
+
+  if (specType === "string" && typeof value !== "string") {
+    emitTypeMismatch(ctx, fieldName, "string", actualType, location);
+  } else if (specType === "number" && typeof value !== "number") {
+    emitTypeMismatch(ctx, fieldName, "number", actualType, location);
+  } else if (specType === "boolean" && typeof value !== "boolean") {
+    emitTypeMismatch(ctx, fieldName, "boolean", actualType, location);
+  } else if (specType === "array" && !Array.isArray(value)) {
+    emitTypeMismatch(ctx, fieldName, "array", actualType, location);
+  } else if (specType === "object" && (typeof value !== "object" || Array.isArray(value))) {
+    emitTypeMismatch(ctx, fieldName, "object", actualType, location);
+  }
+
+  // Recursive object field validation
+  if (specType === "object" && spec.fields && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    for (const [key, fieldSpec] of Object.entries(spec.fields)) {
+      if (key in obj) {
+        validateLiteralAgainstSpec(obj[key], fieldSpec, `${fieldName}.${key}`, location, ctx);
+      }
+    }
+  }
+
+  // Recursive array item validation
+  if (specType === "array" && spec.items && Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      validateLiteralAgainstSpec(value[i], spec.items, `${fieldName}[${i}]`, location, ctx);
+    }
+  }
+}
+
+function emitTypeMismatch(
+  ctx: GeneratorContext,
+  fieldName: string,
+  expected: string,
+  actual: string,
+  location: SourceLocation,
+): void {
+  ctx.diagnostics.push({
+    severity: "error",
+    code: "E_TYPE_MISMATCH",
+    message: `Type mismatch: field '${fieldName}' expects ${expected}, got ${actual}`,
+    location,
+  });
 }
 
 function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
@@ -804,10 +911,53 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CoreFlowNode
   };
 
   if (stmt.value) {
-    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }).value = generateExpr(stmt.value, ctx);
+    const valueExpr = generateExpr(stmt.value, ctx);
+    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }).value = valueExpr;
+
+    // Track 2: validate literal patch values against the target field's declared type
+    if (stmt.op === "set") {
+      const rootField = stmt.path.segments[0];
+      if (rootField.kind === "propertySegment") {
+        const fieldSpec = ctx.stateFieldSpecs.get(rootField.name);
+        if (fieldSpec) {
+          // Resolve the target spec for nested paths
+          let targetSpec = fieldSpec;
+          const segments = stmt.path.segments;
+          for (let i = 1; i < segments.length; i++) {
+            const seg = segments[i];
+            if (seg.kind === "propertySegment" && targetSpec.fields?.[seg.name]) {
+              targetSpec = targetSpec.fields[seg.name];
+            } else if (seg.kind === "indexSegment" && targetSpec.items) {
+              targetSpec = targetSpec.items;
+            } else {
+              // Can't resolve further — skip validation
+              targetSpec = undefined as unknown as FieldSpec;
+              break;
+            }
+          }
+          if (targetSpec) {
+            const literalValue = evaluatePatchLiteral(stmt.value, ctx);
+            if (literalValue !== undefined) {
+              const fieldName = stmt.path.segments.map(s =>
+                s.kind === "propertySegment" ? s.name : "[*]"
+              ).join(".");
+              validateLiteralAgainstSpec(literalValue, targetSpec, fieldName, stmt.location, ctx);
+            }
+          }
+        }
+      }
+    }
   }
 
   return result;
+}
+
+/**
+ * Try to evaluate a patch value expression as a literal.
+ * Returns undefined for non-literal (dynamic) expressions.
+ */
+function evaluatePatchLiteral(expr: ExprNode, ctx: GeneratorContext): unknown {
+  return evaluateInitializer(expr, ctx);
 }
 
 function generateEffect(stmt: EffectStmtNode, ctx: GeneratorContext): CoreFlowNode {
