@@ -88,7 +88,7 @@ describe("E2E Compilation", () => {
           }
         }
 
-        action setFilter(newFilter: string) {
+        action setFilter(newFilter: "all" | "active" | "completed") {
           when true {
             patch filter = newFilter
           }
