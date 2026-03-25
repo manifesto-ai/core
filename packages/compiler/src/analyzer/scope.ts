@@ -137,6 +137,8 @@ export class ScopeAnalyzer {
           kind: "action",
           location: member.location,
         });
+      } else if (member.kind === "flow") {
+        // Flow declarations are compiler-only and removed before canonical analysis.
       }
     }
 
@@ -222,6 +224,11 @@ export class ScopeAnalyzer {
             this.analyzeExpr(arg.value as ExprNode, "action");
           }
         }
+        break;
+
+      case "include":
+      case "fail":
+      case "stop":
         break;
     }
   }

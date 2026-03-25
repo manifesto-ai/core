@@ -48,7 +48,7 @@ export interface DomainNode extends ASTNode {
 /**
  * Domain member types
  */
-export type DomainMember = StateNode | ComputedNode | ActionNode;
+export type DomainMember = StateNode | ComputedNode | ActionNode | FlowDeclNode;
 
 /**
  * Type declaration (v0.3.3)
@@ -106,6 +106,17 @@ export interface ActionNode extends ASTNode {
 }
 
 /**
+ * Flow declaration (v0.7.0 / ADR-013a)
+ * Raw AST preserves flow declarations until the expansion pass removes them.
+ */
+export interface FlowDeclNode extends ASTNode {
+  kind: "flow";
+  name: string;
+  params: ParamNode[];
+  body: FlowStmtNode[];
+}
+
+/**
  * Parameter declaration
  */
 export interface ParamNode extends ASTNode {
@@ -119,7 +130,23 @@ export interface ParamNode extends ASTNode {
 /**
  * Guarded statement types (top-level in action body)
  */
-export type GuardedStmtNode = WhenStmtNode | OnceStmtNode | OnceIntentStmtNode;
+export type GuardedStmtNode =
+  | WhenStmtNode
+  | OnceStmtNode
+  | OnceIntentStmtNode
+  | IncludeStmtNode;
+
+/**
+ * Raw flow statement types (top-level in flow body).
+ * Parser stays permissive; validation narrows the allowed subset.
+ */
+export type FlowStmtNode =
+  | WhenStmtNode
+  | IncludeStmtNode
+  | OnceStmtNode
+  | OnceIntentStmtNode
+  | PatchStmtNode
+  | EffectStmtNode;
 
 /**
  * Inner statement types (inside guards)
@@ -130,6 +157,7 @@ export type InnerStmtNode =
   | WhenStmtNode
   | OnceStmtNode
   | OnceIntentStmtNode
+  | IncludeStmtNode
   | FailStmtNode
   | StopStmtNode;
 
@@ -159,6 +187,16 @@ export interface OnceIntentStmtNode extends ASTNode {
   kind: "onceIntent";
   condition?: ExprNode;
   body: InnerStmtNode[];
+}
+
+/**
+ * Include statement (v0.7.0 / ADR-013a)
+ * Raw AST preserves include sites until the expansion pass inlines them.
+ */
+export interface IncludeStmtNode extends ASTNode {
+  kind: "include";
+  flowName: string;
+  args: ExprNode[];
 }
 
 /**

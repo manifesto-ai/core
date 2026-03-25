@@ -94,6 +94,7 @@ export type { DomainSchema as DomainModule } from "./generator/ir.js";
 
 import type { ParseResult } from "./parser/index.js";
 import { analyzeScope, validateSemantics } from "./analyzer/index.js";
+import { validateAndExpandFlows } from "./analyzer/flow-composition.js";
 import { generate, type GenerateResult } from "./generator/ir.js";
 import { lowerSystemValues, type DomainSchema } from "./generator/index.js";
 import type { CompileTrace } from "./api/index.js";
@@ -163,15 +164,29 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
   }
 
   const diagnostics: Diagnostic[] = [];
+  const analyzeStart = performance.now();
+  const flowResult = validateAndExpandFlows(parseResult.program!);
+  diagnostics.push(...flowResult.diagnostics);
 
-  if (!options.skipSemanticAnalysis && parseResult.program) {
-    const scopeResult = analyzeScope(parseResult.program);
-    const validateResult = validateSemantics(parseResult.program);
+  if (!options.skipSemanticAnalysis) {
+    const scopeResult = analyzeScope(flowResult.program);
+    const validateResult = validateSemantics(flowResult.program);
     diagnostics.push(...scopeResult.diagnostics, ...validateResult.diagnostics);
+  }
+  trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart });
+
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return {
+      schema: null,
+      trace,
+      warnings: diagnostics.filter((diagnostic) => diagnostic.severity === "warning"),
+      errors: diagnostics.filter((diagnostic) => diagnostic.severity === "error"),
+      success: false,
+    };
   }
 
   const generateStart = performance.now();
-  const genResult: GenerateResult = generate(parseResult.program!);
+  const genResult: GenerateResult = generate(flowResult.program);
   diagnostics.push(...genResult.diagnostics);
   trace.push({ phase: "generate", durationMs: performance.now() - generateStart });
 

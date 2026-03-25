@@ -62,6 +62,39 @@ describe("Parser", () => {
         expect(action.body).toHaveLength(1);
       }
     });
+
+    it("parses flow declarations as contextual domain members", () => {
+      const { program, diagnostics } = parseSource(`
+        domain Demo {
+          flow requireTask(taskId: string) {
+            when true {
+              fail "MISSING"
+            }
+          }
+          action ensure(id: string) {
+            include requireTask(id)
+            when true {
+              stop "ok"
+            }
+          }
+        }
+      `);
+
+      expect(diagnostics).toHaveLength(0);
+      expect(program?.domain.members).toHaveLength(2);
+      expect(program?.domain.members[0]?.kind).toBe("flow");
+      expect(program?.domain.members[1]?.kind).toBe("action");
+
+      const flow = program?.domain.members[0];
+      if (flow?.kind === "flow") {
+        expect(flow.body[0]?.kind).toBe("when");
+      }
+
+      const action = program?.domain.members[1];
+      if (action?.kind === "action") {
+        expect(action.body[0]?.kind).toBe("include");
+      }
+    });
   });
 
   describe("state fields", () => {
@@ -597,6 +630,78 @@ describe("Parser", () => {
       const stopStmt = whenStmt.body[0];
       expect(stopStmt.kind).toBe("stop");
       expect(stopStmt.reason).toBe("already_done");
+    });
+  });
+
+  describe("contextual keywords", () => {
+    it("treats flow and include as identifiers outside contextual positions", () => {
+      const { program, diagnostics } = parseSource(`
+        domain Demo {
+          state {
+            flow: string = ""
+            include: boolean = false
+          }
+          computed flowValue = flow
+          action test() {
+            when eq(include, false) {
+              stop "ok"
+            }
+          }
+        }
+      `);
+
+      expect(diagnostics).toHaveLength(0);
+      expect(program?.domain.members[1]?.kind).toBe("computed");
+    });
+
+    it("parses include permissively in inner statement position", () => {
+      const { program, diagnostics } = parseSource(`
+        domain Demo {
+          flow helper(id: string) {
+            when true {
+              fail "NOPE"
+            }
+          }
+          action test(id: string) {
+            when true {
+              include helper(id)
+            }
+          }
+        }
+      `);
+
+      expect(diagnostics).toHaveLength(0);
+      const action = program?.domain.members[1];
+      expect(action?.kind).toBe("action");
+      if (action?.kind === "action") {
+        const guard = action.body[0];
+        expect(guard?.kind).toBe("when");
+        if (guard?.kind === "when") {
+          expect(guard.body[0]?.kind).toBe("include");
+        }
+      }
+    });
+
+    it("parses flow body permissively for forbidden constructs", () => {
+      const { program, diagnostics } = parseSource(`
+        domain Demo {
+          state {
+            marker: string = ""
+          }
+          flow invalid(marker: string) {
+            once(marker) {
+              fail "NOPE"
+            }
+          }
+        }
+      `);
+
+      expect(diagnostics).toHaveLength(0);
+      const flow = program?.domain.members[1];
+      expect(flow?.kind).toBe("flow");
+      if (flow?.kind === "flow") {
+        expect(flow.body[0]?.kind).toBe("once");
+      }
     });
   });
 });

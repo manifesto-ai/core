@@ -303,6 +303,8 @@ function collectFieldNames(domain: DomainNode, ctx: GeneratorContext): void {
       }
     } else if (member.kind === "computed") {
       ctx.computedFields.add(member.name);
+    } else if (member.kind === "flow") {
+      // flow/include are removed before canonical IR generation
     }
   }
 }
@@ -690,6 +692,9 @@ function generateStmt(stmt: GuardedStmtNode | InnerStmtNode, ctx: GeneratorConte
 
     case "stop":
       return generateStop(stmt, ctx);
+
+    case "include":
+      return { kind: "seq", steps: [] };
   }
 }
 

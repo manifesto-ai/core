@@ -15,6 +15,7 @@ import { parse, type ProgramNode } from "../parser/index.js";
 import { generate } from "../generator/ir.js";
 import { analyzeScope } from "../analyzer/scope.js";
 import { validateSemantics } from "../analyzer/validator.js";
+import { validateAndExpandFlows } from "../analyzer/flow-composition.js";
 import { compileMelPatchText } from "./compile-mel-patch.js";
 
 // ============ Types ============
@@ -192,13 +193,19 @@ export function compileMelDomain(
 
   // Phase 2.5: Semantic Analysis (scope + validation)
   const analyzeStart = performance.now();
-  const scopeResult = analyzeScope(ast);
-  const validateResult = validateSemantics(ast);
+  const flowResult = validateAndExpandFlows(ast);
+  const flowErrors = flowResult.diagnostics.filter((d) => d.severity === "error");
+  const flowWarnings = flowResult.diagnostics.filter((d) => d.severity === "warning");
+
+  const scopeResult = analyzeScope(flowResult.program);
+  const validateResult = validateSemantics(flowResult.program);
   const analyzeErrors = [
+    ...flowErrors,
     ...scopeResult.diagnostics.filter(d => d.severity === "error"),
     ...validateResult.diagnostics.filter(d => d.severity === "error"),
   ];
   const analyzeWarnings = [
+    ...flowWarnings,
     ...scopeResult.diagnostics.filter(d => d.severity === "warning"),
     ...validateResult.diagnostics.filter(d => d.severity === "warning"),
   ];
@@ -212,7 +219,7 @@ export function compileMelDomain(
 
   // Phase 3: Generate IR
   const genStart = performance.now();
-  const genResult = generate(ast);
+  const genResult = generate(flowResult.program);
   trace.push({ phase: "generate", durationMs: performance.now() - genStart });
 
   // Separate warnings and errors from generation

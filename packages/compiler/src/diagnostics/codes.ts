@@ -74,6 +74,66 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     message: "reduce/fold/scan is forbidden - use sum, min, max for aggregation",
     category: "semantic",
   },
+  E013: {
+    code: "E013",
+    message: "Circular include detected",
+    category: "semantic",
+  },
+  E014: {
+    code: "E014",
+    message: "Include expansion depth exceeds limit",
+    category: "semantic",
+  },
+  E015: {
+    code: "E015",
+    message: "Include target is not a declared flow",
+    category: "semantic",
+  },
+  E016: {
+    code: "E016",
+    message: "Include not allowed in InnerStmt position",
+    category: "semantic",
+  },
+  E017: {
+    code: "E017",
+    message: "once() not allowed in flow",
+    category: "semantic",
+  },
+  E018: {
+    code: "E018",
+    message: "onceIntent not allowed in flow",
+    category: "semantic",
+  },
+  E019: {
+    code: "E019",
+    message: "patch not allowed in flow",
+    category: "semantic",
+  },
+  E020: {
+    code: "E020",
+    message: "effect not allowed in flow",
+    category: "semantic",
+  },
+  E021: {
+    code: "E021",
+    message: "Flow parameter name conflicts with top-level identifier",
+    category: "semantic",
+  },
+  E022: {
+    code: "E022",
+    message: "Flow and action share the same name",
+    category: "semantic",
+  },
+  E023: {
+    code: "E023",
+    message: "Wrong number of arguments for included flow",
+    category: "semantic",
+  },
+  E024: {
+    code: "E024",
+    message: "Include argument type mismatch",
+    category: "type",
+  },
 
   // ============ Scope Errors (E1xx) ============
   E_UNDEFINED: {

@@ -95,6 +95,8 @@ export class SemanticValidator {
         case "action":
           this.validateAction(member);
           break;
+        case "flow":
+          break;
       }
     }
   }
@@ -124,6 +126,65 @@ export class SemanticValidator {
    */
   private validateStateField(field: StateFieldNode): void {
     this.checkAnonymousObjectType(field.typeExpr, field.location);
+    if (field.initializer) {
+      this.validateStateInitializer(field.initializer);
+    }
+  }
+
+  private validateStateInitializer(expr: ExprNode): void {
+    switch (expr.kind) {
+      case "systemIdent":
+        if (expr.path[0] === "system") {
+          this.error(
+            "$system.* cannot be used in state initializers",
+            expr.location,
+            "E002"
+          );
+        }
+        break;
+
+      case "functionCall":
+        for (const arg of expr.args) {
+          this.validateStateInitializer(arg);
+        }
+        break;
+
+      case "binary":
+        this.validateStateInitializer(expr.left);
+        this.validateStateInitializer(expr.right);
+        break;
+
+      case "unary":
+        this.validateStateInitializer(expr.operand);
+        break;
+
+      case "ternary":
+        this.validateStateInitializer(expr.condition);
+        this.validateStateInitializer(expr.consequent);
+        this.validateStateInitializer(expr.alternate);
+        break;
+
+      case "propertyAccess":
+        this.validateStateInitializer(expr.object);
+        break;
+
+      case "indexAccess":
+        this.validateStateInitializer(expr.object);
+        this.validateStateInitializer(expr.index);
+        break;
+
+      case "objectLiteral":
+        for (const prop of expr.properties) {
+          this.validateStateInitializer(prop.value);
+        }
+        break;
+
+      case "arrayLiteral":
+        for (const elem of expr.elements) {
+          this.validateStateInitializer(elem);
+        }
+        break;
+    }
   }
 
   /**
@@ -276,6 +337,10 @@ export class SemanticValidator {
         break;
       case "effect":
         this.validateEffect(stmt);
+        break;
+      case "include":
+      case "fail":
+      case "stop":
         break;
     }
   }

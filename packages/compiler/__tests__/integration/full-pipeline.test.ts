@@ -134,6 +134,32 @@ function registerIntoHandler(
 }
 
 describe("Compiler -> World -> Host -> Core", () => {
+  it("inlines flow/include before IR generation", () => {
+    const result = compile(`
+      domain FlowExample {
+        state {
+          count: number = 0
+        }
+
+        flow requireCount() {
+          when eq(count, 0) {
+            fail "EMPTY"
+          }
+        }
+
+        action test() {
+          include requireCount()
+          when true {
+            stop "ok"
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+    expect(JSON.stringify(result.schema?.actions["test"]?.flow)).not.toContain("\"kind\":\"call\"");
+  });
+
   it("executes a simple action end-to-end", async () => {
     const result = compile(`
       domain Counter {
