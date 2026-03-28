@@ -1,7 +1,7 @@
 import * as lineage from "../../index.js";
 import type { LineageComplianceAdapter } from "./lcts-types.js";
 
-export class LegacyWorldBackedLineageComplianceAdapter implements LineageComplianceAdapter {
+export class SplitNativeLineageComplianceAdapter implements LineageComplianceAdapter {
   async computeSnapshotHash(snapshot: Parameters<typeof lineage.computeSnapshotHash>[0]): Promise<string> {
     return lineage.computeSnapshotHash(snapshot);
   }
@@ -10,8 +10,12 @@ export class LegacyWorldBackedLineageComplianceAdapter implements LineageComplia
     return lineage.computeWorldId(schemaHash, snapshotHash);
   }
 
-  createMemoryStore(): unknown {
-    return lineage.createMemoryWorldStore();
+  createMemoryStore() {
+    return lineage.createInMemoryLineageStore();
+  }
+
+  createService(store: ReturnType<typeof lineage.createInMemoryLineageStore>) {
+    return lineage.createLineageService(store);
   }
 
   exports(): Record<string, unknown> {
@@ -20,5 +24,5 @@ export class LegacyWorldBackedLineageComplianceAdapter implements LineageComplia
 }
 
 export function createLineageComplianceAdapter(): LineageComplianceAdapter {
-  return new LegacyWorldBackedLineageComplianceAdapter();
+  return new SplitNativeLineageComplianceAdapter();
 }

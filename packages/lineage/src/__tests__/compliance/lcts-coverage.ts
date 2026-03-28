@@ -42,7 +42,7 @@ export const LINEAGE_COMPLIANCE_CASES: readonly LineageComplianceCase[] = [
   complianceCase(
     LCTS_CASES.STAGED_RULES,
     "seams",
-    "Split-only lineage prepare/store rules remain visible as pending CTS entries."
+    "Split-native lineage prepare/store rules are directly enforced by the package implementation."
   ),
 ] as const;
 

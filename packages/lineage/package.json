@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/lineage",
   "version": "0.1.0",
-  "description": "Manifesto Lineage - ADR-014 compliance scaffold backed by the legacy world implementation",
+  "description": "Manifesto Lineage - split-native lineage identity, branch, and seal protocol",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -35,10 +35,11 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "@manifesto-ai/world": "workspace:*"
+  "peerDependencies": {
+    "@manifesto-ai/core": "^2.0.0"
   },
   "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.1.0"

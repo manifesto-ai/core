@@ -1,4 +1,4 @@
-import type { Snapshot } from "../../index.js";
+import type { LineageService, LineageStore, Snapshot } from "../../index.js";
 
 export const LCTS_SUITES = [
   "identity",
@@ -58,6 +58,7 @@ export interface LineageComplianceResult {
 export interface LineageComplianceAdapter {
   computeSnapshotHash(snapshot: Snapshot): Promise<string>;
   computeWorldId(schemaHash: string, snapshotHash: string): Promise<string>;
-  createMemoryStore(): unknown;
+  createMemoryStore(): LineageStore;
+  createService(store: LineageStore): LineageService;
   exports(): Record<string, unknown>;
 }

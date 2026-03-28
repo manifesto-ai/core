@@ -48,20 +48,22 @@ export const LINEAGE_SPEC_INVENTORY: readonly LineageComplianceInventoryItem[] =
   ),
   inventory("LIN-HASH-9", "§6.3.3", "SHOULD", "identity"),
   inventory("LIN-SEAL-PURE-1", "§8.1", "MUST", "identity", {
-    notes: "Tracked for split extraction; legacy world helpers do not expose prepare-only lineage services yet.",
+    notes: "Wave 1 requires pure prepare helpers on the extracted LineageService.",
   }),
   inventory("LIN-COLLISION-1", "§8.5", "MUST", "identity", {
-    notes: "WorldId collision handling remains inside the monolithic world implementation.",
+    notes: "WorldId collision handling is enforced by prepareSealNext() before commit.",
   }),
   inventory("LIN-HEAD-ADV-1", "§15.3", "MUST", "identity", {
-    notes: "Head advance rules remain CTS-tracked until branch management is extracted.",
+    notes: "Completed-only head advance is part of the extracted LineageService contract.",
   }),
   inventory("LIN-BOUNDARY-1", "§4.1", "MUST_NOT", "seams", {
-    notes: "Runtime seam check only; actual import isolation lands with the package split.",
+    notes: "Source-level import scan verifies lineage stays isolated from governance.",
   }),
-  inventory("LIN-BOUNDARY-4", "§4.1", "MUST_NOT", "seams"),
+  inventory("LIN-BOUNDARY-4", "§4.1", "MUST_NOT", "seams", {
+    notes: "Source-level event scan verifies lineage does not emit events.",
+  }),
   inventory("LIN-STORE-3", "§16.2", "MUST", "seams", {
-    notes: "In-memory LineageStore is staged behind the legacy world-backed adapter.",
+    notes: "Wave 1 includes a native in-memory LineageStore implementation.",
   }),
 ] as const;
 

@@ -32,10 +32,10 @@ export const LINEAGE_COMPLIANCE_RULES: readonly LineageComplianceRule[] = [
     "blocking"
   ),
   registry("LIN-HASH-9", "informational"),
-  ...registryMany(["LIN-SEAL-PURE-1", "LIN-COLLISION-1", "LIN-HEAD-ADV-1"], "pending"),
+  ...registryMany(["LIN-SEAL-PURE-1", "LIN-COLLISION-1", "LIN-HEAD-ADV-1"], "blocking"),
   registry("LIN-BOUNDARY-1", "blocking"),
-  registry("LIN-BOUNDARY-4", "pending"),
-  registry("LIN-STORE-3", "pending"),
+  registry("LIN-BOUNDARY-4", "blocking"),
+  registry("LIN-STORE-3", "blocking"),
 ] as const;
 
 export function getRuleOrThrow(ruleId: string): LineageComplianceRule {
