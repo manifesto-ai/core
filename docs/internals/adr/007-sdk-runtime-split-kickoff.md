@@ -2,11 +2,12 @@
 
 # ADR-007: SDK/Runtime Split Kickoff Gate and Staged Locking
 
-> **Status:** Accepted
+> **Status:** Superseded
 > **Date:** 2026-02-14
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Global (App, Runtime, SDK, World, docs governance)
 > **Supersedes (partial):** ADR-004 §7.4, ADR-006 §5
+> **Superseded-by:** [ADR-010](./010-major-hard-cut)
 > **Related:** ADR-001 (Layer Separation), ADR-004 (App Internal Decomposition), ADR-006 (PUB/CHAN/CAN rules)
 
 ---

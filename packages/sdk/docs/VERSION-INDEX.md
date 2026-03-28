@@ -1,7 +1,7 @@
 # Manifesto SDK Documentation Index
 
 > **Package:** `@manifesto-ai/sdk`
-> **Last Updated:** 2026-03-02
+> **Last Updated:** 2026-03-28
 
 ---
 
@@ -11,6 +11,8 @@
 - **SPEC:** [v1.0.0](sdk-SPEC-v1.0.0.md) (Normative)
 
 **Note:** SDK is reconstructed as a thin composition layer. `createManifesto()` is the sole SDK-owned concept. Runtime is retired and absorbed.
+
+**Transition Note:** SDK SPEC v1.0.0 still references `WorldStore`. [World Facade SPEC v1.0.0](../../world/docs/world-facade-spec-v1.0.0.md) introduces `CommitCapableWorldStore`, so an SDK SPEC patch is still pending for full ADR-014 facade alignment.
 
 ---
 

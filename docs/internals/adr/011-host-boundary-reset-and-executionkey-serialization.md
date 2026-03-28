@@ -1,6 +1,6 @@
 # ADR-011: Host Boundary Reset Completeness Policy
 
-> **Status:** Accepted
+> **Status:** Implemented
 > **Date:** 2026-02-25
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Host, Runtime, World, SDK

@@ -18,19 +18,20 @@ Records of significant architectural decisions:
 | ID | Title | Status |
 |----|-------|--------|
 | [ADR-001](./adr/001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted |
-| [ADR-002](./adr/002-dx-improvement-mel-namespace-onceIntent) | DX improvement — automatic `$mel` injection + `onceIntent` | Proposed |
+| [ADR-002](./adr/002-dx-improvement-mel-namespace-onceIntent) | DX improvement — automatic `$mel` injection + `onceIntent` | Implemented |
 | [ADR-003](./adr/003-world-owns-persistence) | World Owns Persistence | Proposed |
 | [ADR-004](./adr/004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed |
 | [ADR-005](./adr/005-dx-improvement-snapshot-path-dsl) | DX improvement — Snapshot Path DSL (`${...}`) introduction | Withdrawn |
 | [ADR-006](./adr/006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed |
-| [ADR-007](./adr/007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted |
+| [ADR-007](./adr/007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Superseded |
 | [ADR-008](./adr/008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Deprecated |
-| [ADR-009](./adr/009-structured-patch-path) | Structured PatchPath (Segments) | Accepted |
-| [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted |
-| [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted |
-| [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted |
+| [ADR-009](./adr/009-structured-patch-path) | Structured PatchPath (Segments) | Implemented |
+| [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Implemented |
+| [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Implemented |
+| [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented |
 | [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed |
 | [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed |
+| [ADR-014](./adr/014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 
