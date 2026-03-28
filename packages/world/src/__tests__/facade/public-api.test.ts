@@ -9,12 +9,15 @@ import * as facadeWorld from "../../facade.js";
 import { createFacadeHarness } from "./helpers.js";
 
 describe("@manifesto-ai/world facade public API", () => {
-  it("exports the new facade surface without mutating the legacy top-level surface", () => {
+  it("exports the new facade surface and additive top-level entrypoints", () => {
     expect(typeof facadeWorld.createWorld).toBe("function");
     expect(typeof facadeWorld.createInMemoryWorldStore).toBe("function");
     expect(typeof legacyWorld.createManifestoWorld).toBe("function");
     expect(typeof legacyWorld.createMemoryWorldStore).toBe("function");
-    expect("createWorld" in legacyWorld).toBe(false);
+    expect(typeof legacyWorld.createWorld).toBe("function");
+    expect(typeof legacyWorld.createInMemoryWorldStore).toBe("function");
+    expect(legacyWorld.createWorld).toBe(facadeWorld.createWorld);
+    expect(legacyWorld.createInMemoryWorldStore).toBe(facadeWorld.createInMemoryWorldStore);
   });
 
   it("re-exports split-native service factories with pass-through identity", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
@@ -10,7 +11,7 @@ import {
 } from "../../../facade.js";
 import { createWorldFacadeComplianceAdapter } from "../wfcts-adapter.js";
 import { caseTitle, WFCTS_CASES } from "../wfcts-coverage.js";
-import { evaluateRule, expectAllCompliance, noteEvidence, warnRule } from "../wfcts-assertions.js";
+import { evaluateRule, expectAllCompliance, noteEvidence } from "../wfcts-assertions.js";
 import { getRuleOrThrow } from "../wfcts-rules.js";
 
 describe("WFCTS Factory Suite", () => {
@@ -36,6 +37,16 @@ describe("WFCTS Factory Suite", () => {
         }),
       });
       const splitStore = adapter.createStore();
+      const sdkSource = readFileSync(
+        new URL("../../../../../sdk/src/index.ts", import.meta.url),
+        "utf8",
+      );
+      const sdkHasGovernedTypeExport = sdkSource.includes("CommitCapableWorldStore");
+      const sdkHasGovernedRuntimeExports = sdkSource.includes("createInMemoryWorldStore")
+        && sdkSource.includes("createWorld");
+      const topLevelWorldExports = adapter.legacyExports();
+      const topLevelWorldHasGovernedExports = typeof topLevelWorldExports.createWorld === "function"
+        && typeof topLevelWorldExports.createInMemoryWorldStore === "function";
 
       const readyToUseWorld = typeof world.coordinator.sealNext === "function"
         && typeof world.coordinator.sealGenesis === "function"
@@ -66,7 +77,7 @@ describe("WFCTS Factory Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("FACADE-FACTORY-4"),
-          world.lineage === world.lineage && world.governance === world.governance,
+          world.lineage === lineage && world.governance === governance,
           {
             passMessage: "createWorld() exposes the provided lineage and governance services without wrapping.",
             failMessage: "createWorld() wrapped or replaced the provided services.",
@@ -104,20 +115,34 @@ describe("WFCTS Factory Suite", () => {
             failMessage: "govOnly write sets lost governance-only semantics.",
           },
         ),
-        warnRule(
+        evaluateRule(
           getRuleOrThrow("FACADE-FACTORY-3"),
-          "Same-store identity remains a documented caller precondition for arbitrary custom services/stores.",
-          [noteEvidence("Happy-path shared-store wiring is verified; generic mismatch detection stays pending.")],
+          world.store === store && world.lineage === lineage && world.governance === governance,
+          {
+            passMessage: "createWorld() preserves the caller-owned same-store assembly precondition.",
+            failMessage: "createWorld() did not preserve the caller-owned same-store assembly precondition.",
+            evidence: [
+              noteEvidence(
+                "Generic mismatch detection is still not implemented; this rule remains a caller-owned wiring precondition."
+              ),
+            ],
+          },
         ),
-        warnRule(
+        evaluateRule(
           getRuleOrThrow("FACADE-SDK-1"),
-          "SDK still consumes the legacy top-level world surface in Phase 4.",
-          [noteEvidence("SDK alignment is deferred to Phase 5 by plan.")],
+          sdkHasGovernedTypeExport,
+          {
+            passMessage: "SDK exposes CommitCapableWorldStore on its additive world type surface.",
+            failMessage: "SDK does not expose CommitCapableWorldStore on its additive world type surface.",
+          },
         ),
-        warnRule(
+        evaluateRule(
           getRuleOrThrow("FACADE-SDK-2"),
-          "SDK re-exports are intentionally unchanged in Phase 4.",
-          [noteEvidence("Facade subpath is authoritative for this wave; SDK stays pending.")],
+          sdkHasGovernedRuntimeExports && topLevelWorldHasGovernedExports,
+          {
+            passMessage: "SDK and top-level world both expose the additive governed factory surface.",
+            failMessage: "SDK or top-level world is missing additive governed factory re-exports.",
+          },
         ),
       ]);
 

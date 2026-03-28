@@ -6,7 +6,12 @@
 
 ## Overview
 
-`@manifesto-ai/world` governs proposal legitimacy and records immutable lineage.
+`@manifesto-ai/world` now has two surfaces:
+
+- the legacy top-level orchestrator, kept for compatibility
+- the additive governed composition surface, centered on `createWorld()` and `createInMemoryWorldStore()`
+
+The full split-native facade remains available at `@manifesto-ai/world/facade`.
 
 - Actor registration + authority policy binding
 - Proposal evaluation + decision recording
@@ -35,7 +40,7 @@ Rules:
 
 ## Main Exports
 
-### createManifestoWorld()
+### Legacy Orchestrator: createManifestoWorld()
 
 ```typescript
 import { createManifestoWorld } from "@manifesto-ai/world";
@@ -46,6 +51,27 @@ const world = createManifestoWorld({
   store,
 });
 ```
+
+`createManifestoWorld()` remains supported, but it is deprecated for new integrations. Use the additive facade path for new governed composition.
+
+### Canonical Governed Composition: createWorld()
+
+```typescript
+import {
+  createInMemoryWorldStore,
+  createWorld,
+} from "@manifesto-ai/world";
+
+const store = createInMemoryWorldStore();
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher,
+});
+```
+
+Use this path when you want the world facade to compose governance and lineage explicitly.
 
 ### Key Types
 
@@ -75,4 +101,4 @@ type WorldHead = {
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure computation |
 | [@manifesto-ai/host](./host) | Executes approved intents |
-| [@manifesto-ai/sdk](./sdk) | Public facade using World |
+| [@manifesto-ai/sdk](./sdk) | Public facade that re-exports additive world integration points |

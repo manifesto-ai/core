@@ -13,16 +13,24 @@ import {
 import {
   createCore,
   semanticPathToPatchPath,
+  type Snapshot,
   type DomainSchema as CoreDomainSchema,
 } from "@manifesto-ai/core";
 import { createHost, type ManifestoHost } from "../../../host/src/index.js";
 import {
   createManifestoWorld,
+  createInMemoryWorldStore,
+  createWorld,
   createIntentInstance,
   type HostExecutor,
   type ActorRef,
   type AuthorityPolicy,
 } from "@manifesto-ai/world";
+import { createLineageService } from "@manifesto-ai/lineage";
+import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
+} from "@manifesto-ai/governance";
 import type { ErrorValue } from "@manifesto-ai/core";
 
 const HOST_CONTEXT = {
@@ -117,6 +125,65 @@ async function createWorldWithGenesis(schema: CoreDomainSchema, host: ManifestoH
   }
   const genesis = await world.createGenesis(snapshot);
   return { world, genesis };
+}
+
+function createTerminalSnapshot(
+  data: Record<string, unknown>,
+  schemaHash: string
+): Snapshot {
+  return {
+    data,
+    computed: {},
+    system: {
+      status: "idle",
+      lastError: null,
+      pendingRequirements: [],
+      errors: [],
+      currentAction: null,
+    },
+    input: {},
+    meta: {
+      version: 1,
+      timestamp: 0,
+      randomSeed: "seed",
+      schemaHash,
+    },
+  };
+}
+
+function createFacadeWorldWithGenesis(schema: CoreDomainSchema) {
+  const store = createInMemoryWorldStore();
+  const lineage = createLineageService(store);
+  const governance = createGovernanceService(store, {
+    lineageService: lineage,
+  });
+  const eventDispatcher = createGovernanceEventDispatcher({
+    service: governance,
+    now: () => 1000,
+  });
+  const world = createWorld({
+    store,
+    lineage,
+    governance,
+    eventDispatcher,
+  });
+  const genesis = world.coordinator.sealGenesis({
+    kind: "standalone",
+    sealInput: {
+      schemaHash: schema.hash,
+      terminalSnapshot: createTerminalSnapshot({ count: 0 }, schema.hash),
+      createdAt: 0,
+    },
+  });
+
+  return {
+    store,
+    lineage,
+    governance,
+    eventDispatcher,
+    world,
+    genesis,
+  };
 }
 
 function registerIntoHandler(
@@ -375,5 +442,99 @@ describe("Compiler -> World -> Host -> Core", () => {
         },
       },
     });
+  });
+
+  it("assembles the same compiled schema through the additive facade world surface", async () => {
+    const result = compile(`
+      domain CounterFacade {
+        state { count: number = 0 }
+        action increment() {
+          when true { patch count = add(count, 1) }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const schema = adaptSchema(result.schema);
+    const host = createHostWithContext(schema, { count: 0 });
+    const facade = createFacadeWorldWithGenesis(schema);
+
+    expect(facade.genesis.kind).toBe("sealed");
+    expect(facade.world.lineage).toBe(facade.lineage);
+    expect(facade.world.governance).toBe(facade.governance);
+    expect(facade.world.store).toBe(facade.store);
+
+    const branch = facade.world.lineage.getActiveBranch();
+    const proposal = facade.governance.createProposal({
+      baseWorld: facade.genesis.worldId,
+      branchId: branch.id,
+      actorId: ACTOR.actorId,
+      authorityId: "auth-1",
+      intent: {
+        type: "increment",
+        intentId: "intent-facade-1",
+      },
+      executionKey: "exec-facade-1",
+      submittedAt: 1,
+      epoch: branch.epoch,
+    });
+    const evaluatingProposal = {
+      ...proposal,
+      status: "evaluating" as const,
+    };
+    const approved = facade.governance.prepareAuthorityResult(
+      evaluatingProposal,
+      { kind: "approved", approvedScope: null },
+      {
+        currentEpoch: branch.epoch,
+        currentBranchHead: facade.genesis.worldId,
+        decidedAt: 2,
+      }
+    );
+
+    expect(approved.discarded).toBe(false);
+    if (approved.discarded) return;
+
+    const executingProposal = {
+      ...approved.proposal,
+      status: "executing",
+      decisionId: approved.decisionRecord.decisionId,
+    } as const;
+    facade.store.putProposal(executingProposal);
+    facade.store.putDecisionRecord(approved.decisionRecord);
+
+    host.reset(createTerminalSnapshot({ count: 0 }, schema.hash));
+    const hostResult = await host.dispatch(
+      await createIntentInstance({
+        body: { type: "increment" },
+        schemaHash: schema.hash,
+        projectionId: "test:projection",
+        source: { kind: "ui", eventId: "event-facade-1" },
+        actor: ACTOR,
+        intentId: "intent-facade-1",
+      }),
+      { key: "exec-facade-1" }
+    );
+
+    const sealed = facade.world.coordinator.sealNext({
+      executingProposal,
+      completedAt: 3,
+      sealInput: {
+        schemaHash: schema.hash,
+        baseWorldId: facade.genesis.worldId,
+        branchId: branch.id,
+        terminalSnapshot: hostResult.snapshot as Snapshot,
+        createdAt: 2,
+        proposalRef: approved.proposal.proposalId,
+        decisionRef: approved.decisionRecord.decisionId,
+      },
+    });
+
+    expect(sealed.kind).toBe("sealed");
+    if (sealed.kind === "sealed") {
+      expect(sealed.worldId).toBeDefined();
+    }
   });
 });

@@ -13,7 +13,7 @@ describe("WFCTS Re-export Suite", () => {
   it(
     caseTitle(
       WFCTS_CASES.REEXPORTS_FACADE,
-      "Facade subpath re-exports split-native services with pass-through identity while leaving legacy top-level exports unchanged."
+      "Facade subpath re-exports split-native services with pass-through identity while top-level world adds non-conflicting governed entrypoints."
     ),
     () => {
       const adapter = createWorldFacadeComplianceAdapter();
@@ -29,7 +29,8 @@ describe("WFCTS Re-export Suite", () => {
         && facadeExports.createGovernanceEventDispatcher === createGovernanceEventDispatcher
         && typeof legacyExports.createManifestoWorld === "function"
         && typeof legacyExports.createMemoryWorldStore === "function"
-        && !("createWorld" in legacyExports);
+        && typeof legacyExports.createWorld === "function"
+        && typeof legacyExports.createInMemoryWorldStore === "function";
 
       expectAllCompliance([
         evaluateRule(
@@ -44,8 +45,8 @@ describe("WFCTS Re-export Suite", () => {
           getRuleOrThrow("FACADE-REEXPORT-3"),
           passThroughIdentity,
           {
-            passMessage: "Facade subpath preserves pass-through identity for split-native factories and leaves legacy top-level exports unchanged.",
-            failMessage: "Facade subpath wraps or collides with existing split-native export identity.",
+            passMessage: "Facade subpath preserves pass-through identity for split-native factories while top-level world exposes additive governed entrypoints.",
+            failMessage: "Facade subpath wraps split-native identity or top-level world lost additive governed entrypoints.",
           },
         ),
       ]);

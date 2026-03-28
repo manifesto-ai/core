@@ -20,7 +20,28 @@ Compiler / Host / Core
 optional World integration
 ```
 
-The SDK owns exactly one concept: `createManifesto()`. Everything else is either a small SDK utility (`defineOps`) or a re-export from protocol packages. Legacy app-package facade APIs are retired in v1.0.0. Governance and lineage remain explicit integrations through `@manifesto-ai/world`.
+The SDK owns exactly one concept: `createManifesto()`. Everything else is either a small SDK utility (`defineOps`) or a re-export from protocol packages. Legacy app-package facade APIs are retired in v1.0.0. Governance and lineage now have an additive governed-composition path through `@manifesto-ai/world`, while the direct `createManifesto()` path remains unchanged.
+
+### Governed Integration
+
+If you need explicit governance + lineage assembly, use the additive World surface:
+
+```typescript
+import {
+  createInMemoryWorldStore,
+  createWorld,
+} from "@manifesto-ai/world";
+
+const store = createInMemoryWorldStore();
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher,
+});
+```
+
+The SDK still does not implicitly compose governed World inside `createManifesto()`. That path remains a direct-dispatch SDK entry point.
 
 ---
 
@@ -99,7 +120,7 @@ SDK re-exports selected protocol types and factories from:
 |--------------|---------|-----|
 | Uses | `@manifesto-ai/core` | Schema and expression types |
 | Uses | `@manifesto-ai/host` | Effect execution and compute loop |
-| Re-exports | `@manifesto-ai/world` | World protocol types and store factory for explicit governance integration |
+| Re-exports | `@manifesto-ai/world` | Additive governed composition surface (`createWorld()`, `createInMemoryWorldStore()`, store/coordinator types) |
 | Uses | `@manifesto-ai/compiler` | MEL → DomainSchema compilation |
 | Retired predecessor | `@manifesto-ai/runtime` | Absorbed into `createManifesto()` per ADR-010 |
 
@@ -115,16 +136,18 @@ Older app-package code usually maps to three current patterns:
 
 For migration details, see:
 - [Migrate App to SDK](../../docs/guides/migrate-app-to-sdk.md)
-- [sdk-SPEC-v1.0.0.md](docs/sdk-SPEC-v1.0.0.md)
+- [sdk-SPEC-v1.0.1.md](docs/sdk-SPEC-v1.0.1.md)
 - [ADR-010](../../docs/internals/adr/010-major-hard-cut.md)
+- [ADR-014](../../docs/internals/adr/014-split-world-protocol.md)
 
 ---
 
 ## Documentation
 
-- [sdk-SPEC-v1.0.0.md](docs/sdk-SPEC-v1.0.0.md)
+- [sdk-SPEC-v1.0.1.md](docs/sdk-SPEC-v1.0.1.md)
 - [VERSION-INDEX.md](docs/VERSION-INDEX.md)
 - [ADR-010](../../docs/internals/adr/010-major-hard-cut.md)
+- [ADR-014](../../docs/internals/adr/014-split-world-protocol.md)
 
 ---
 

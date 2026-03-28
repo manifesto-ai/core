@@ -1,6 +1,6 @@
 # World Guide
 
-> **Purpose:** Practical guide for using @manifesto-ai/world
+> **Purpose:** Practical guide for the legacy `@manifesto-ai/world` orchestrator
 > **Prerequisites:** Basic understanding of Core and Host
 > **Time to complete:** ~20 minutes
 
@@ -44,6 +44,8 @@ const genesis = await world.createGenesis(initialSnapshot);
 console.log(genesis.worldId);
 // → "w_abc123..."
 ```
+
+> **Compatibility note:** `createManifestoWorld()` is deprecated-but-supported during the compatibility window. New governed composition should use `createInMemoryWorldStore()` + `createWorld()` or the full `@manifesto-ai/world/facade` path.
 
 ---
 
@@ -228,6 +230,19 @@ const decision = await world.getDecisionByProposal("prop_abc123");
 
 > **Note:** Direct store access via `getStore()` has been removed per ADR-003.
 > Use the public query APIs above for governance data access.
+
+### Facade Migration Note
+
+If you are moving a new integration to the facade path, keep the legacy orchestrator only as a compatibility reference. The canonical governed composition flow is:
+
+```typescript
+import {
+  createInMemoryWorldStore,
+  createWorld,
+} from "@manifesto-ai/world";
+```
+
+The `@manifesto-ai/world/facade` subpath exposes the full split-native surface, including the facade-owned store and coordinator types.
 
 ### Traversing World Lineage
 

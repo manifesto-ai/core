@@ -15,6 +15,8 @@ Use `@manifesto-ai/world` when you need to answer questions like:
 
 If you only need the default `createManifesto()` runtime, you do not need this package on day one.
 
+`createManifestoWorld()` remains supported for compatibility, but it is now the legacy orchestration path. New governed composition should use `createInMemoryWorldStore()` + `createWorld()` or the full `@manifesto-ai/world/facade` surface when you need split-native types.
+
 ---
 
 ## How World Fits
@@ -24,10 +26,10 @@ default path
 SDK -> Host -> Core
 
 governed path
-participant -> World -> Host -> Core
+participant -> World Facade -> Governance + Lineage -> Host -> Core
 ```
 
-World is an explicit integration layer. The current SDK does not wire it implicitly.
+World is an explicit integration layer. The current SDK does not wire it implicitly. The facade path is canonical for new governed composition; the legacy orchestrator remains available during the compatibility window.
 
 ---
 
@@ -84,6 +86,33 @@ console.log(result.proposal.status);
 console.log(result.resultWorld?.worldId);
 ```
 
+## Legacy API vs Facade API
+
+### Legacy API
+
+`createManifestoWorld()` and `createMemoryWorldStore()` remain supported for existing integrations. They preserve the top-level world orchestration shape until the compatibility window ends.
+
+### Facade API
+
+For new governed composition, prefer the additive top-level facade surface:
+
+```typescript
+import {
+  createInMemoryWorldStore,
+  createWorld,
+} from "@manifesto-ai/world";
+
+const store = createInMemoryWorldStore();
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher,
+});
+```
+
+If you need the full split-native surface, import from `@manifesto-ai/world/facade`.
+
 ---
 
 ## Important Types
@@ -113,7 +142,7 @@ Actor kinds are currently:
 
 ## Relationship With SDK
 
-`@manifesto-ai/sdk` re-exports a small part of World for explicit integrations, such as the `WorldStore` type and `createMemoryWorldStore()`. The default `createManifesto()` path still focuses on direct intent dispatch rather than proposal orchestration.
+`@manifesto-ai/sdk` re-exports a small part of World for explicit integrations. The default `createManifesto()` path still focuses on direct intent dispatch rather than proposal orchestration, and it does not implicitly assemble governed World.
 
 ---
 

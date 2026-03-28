@@ -23,7 +23,7 @@ export const WFCTS_CASES = {
   COORDINATOR_REJECTION: "WFCTS-COORD-002",
   COORDINATOR_GENESIS: "WFCTS-COORD-003",
   COORDINATOR_RETRY: "WFCTS-COORD-004",
-  DEFERRED_RULES_VISIBLE: "WFCTS-MATRIX-001",
+  SDK_ALIGNMENT: "WFCTS-MATRIX-001",
 } as const;
 
 export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[] = [
@@ -58,9 +58,9 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
     "Coordinator retries from prepare on CAS mismatch."
   ),
   complianceCase(
-    WFCTS_CASES.DEFERRED_RULES_VISIBLE,
+    WFCTS_CASES.SDK_ALIGNMENT,
     "matrix",
-    "Deferred rules remain present as pending entries rather than silently disappearing."
+    "Factory caller preconditions and SDK additive alignment are enforced as blocking facade rules."
   ),
 ] as const;
 
@@ -71,7 +71,7 @@ export const WORLD_FACADE_RULE_COVERAGE: readonly WorldFacadeComplianceCoverageE
   ...coverMany(["FACADE-COORD-4"], [WFCTS_CASES.COORDINATOR_REJECTION]),
   ...coverMany(["FACADE-COORD-6", "FACADE-COORD-7", "FACADE-COORD-8"], [WFCTS_CASES.COORDINATOR_GENESIS]),
   ...coverMany(["FACADE-COORD-9"], [WFCTS_CASES.COORDINATOR_RETRY]),
-  ...coverMany(["FACADE-FACTORY-3", "FACADE-SDK-1", "FACADE-SDK-2"], [WFCTS_CASES.DEFERRED_RULES_VISIBLE]),
+  ...coverMany(["FACADE-FACTORY-3", "FACADE-SDK-1", "FACADE-SDK-2"], [WFCTS_CASES.SDK_ALIGNMENT]),
 ] as const;
 
 export function caseTitle(caseId: string, description: string): string {

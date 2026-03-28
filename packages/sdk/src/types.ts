@@ -1,9 +1,9 @@
 /**
- * SDK v1.0.0 Public Types
+ * SDK v1.0.1 Public Types
  *
  * Defines ManifestoInstance, ManifestoConfig, event types, and supporting types.
  *
- * @see SDK SPEC v1.0.0 §6–8
+ * @see SDK SPEC v1.0.1 §6–8
  * @module
  */
 
@@ -19,7 +19,7 @@ import type { DomainSchema, Snapshot as CoreSnapshot, Patch, Intent } from "@man
  * Core's Snapshot uses `data: unknown`. This overlay provides type-safe
  * access to domain data via the generic parameter T.
  *
- * @see SDK SPEC v1.0.0 §6.1
+ * @see SDK SPEC v1.0.1 §6.1
  */
 export type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
 
@@ -55,7 +55,7 @@ export type EffectHandler = (
 /**
  * Configuration for createManifesto().
  *
- * @see SDK SPEC v1.0.0 §7
+ * @see SDK SPEC v1.0.1 §7
  */
 export interface ManifestoConfig<T = unknown> {
   /**
@@ -103,7 +103,7 @@ export type Unsubscribe = () => void;
  *
  * 5 methods, no more.
  *
- * @see SDK SPEC v1.0.0 §6
+ * @see SDK SPEC v1.0.1 §6
  */
 export interface ManifestoInstance<T = unknown> {
   /**

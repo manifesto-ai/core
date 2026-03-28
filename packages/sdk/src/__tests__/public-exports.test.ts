@@ -22,6 +22,8 @@ describe("sdk public exports contract", () => {
       "createCore",
       // World re-exports
       "createMemoryWorldStore",
+      "createInMemoryWorldStore",
+      "createWorld",
     ].sort();
 
     expect(exportedKeys).toEqual(expectedKeys);
@@ -69,7 +71,6 @@ describe("sdk public exports contract", () => {
       "createSilentPolicyService",
       "createStrictPolicyService",
       "createDefaultPolicyService",
-      "createInMemoryWorldStore",
       "withDxAliases",
       "validateSchemaCompatibility",
       "withPlatformNamespaces",

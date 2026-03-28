@@ -1,17 +1,20 @@
 import { describe, it, expect } from "vitest";
 import * as sdk from "../index.js";
-import type { SdkManifest } from "../index.js";
+import type {
+  CommitCapableWorldStore,
+  SdkManifest,
+} from "../index.js";
 
 describe("@manifesto-ai/sdk bootstrap", () => {
   it("SdkManifest type is importable and structurally correct", () => {
     const manifest: SdkManifest = {
       name: "@manifesto-ai/sdk",
-      specVersion: "1.0.0",
+      specVersion: "1.0.1",
       phase: "released",
     };
 
     expect(manifest.name).toBe("@manifesto-ai/sdk");
-    expect(manifest.specVersion).toBe("1.0.0");
+    expect(manifest.specVersion).toBe("1.0.1");
     expect(manifest.phase).toBe("released");
   });
 
@@ -19,7 +22,7 @@ describe("@manifesto-ai/sdk bootstrap", () => {
     expect(sdk).toBeDefined();
   });
 
-  it("exports createManifesto as the sole factory", () => {
+  it("exports createManifesto as the SDK-owned factory", () => {
     expect(sdk.createManifesto).toBeDefined();
     expect(typeof sdk.createManifesto).toBe("function");
   });
@@ -40,8 +43,14 @@ describe("@manifesto-ai/sdk bootstrap", () => {
     expect(sdk.createCore).toBeDefined();
   });
 
-  it("re-exports world store factory", () => {
+  it("re-exports legacy and governed world store factories", () => {
+    const governedStore: CommitCapableWorldStore = sdk.createInMemoryWorldStore();
+
     expect(sdk.createMemoryWorldStore).toBeDefined();
+    expect(sdk.createInMemoryWorldStore).toBeDefined();
+    expect(sdk.createWorld).toBeDefined();
+    expect(typeof sdk.createWorld).toBe("function");
+    expect(typeof governedStore.commitSeal).toBe("function");
   });
 
   it("does NOT export removed v0.x concepts", () => {

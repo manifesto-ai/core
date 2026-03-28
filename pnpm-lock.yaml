@@ -132,6 +132,12 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/governance':
+        specifier: workspace:*
+        version: link:../governance
+      '@manifesto-ai/lineage':
+        specifier: workspace:*
+        version: link:../lineage
       '@manifesto-ai/world':
         specifier: workspace:*
         version: link:../world

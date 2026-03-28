@@ -91,6 +91,23 @@ export type {
   StoreEventListener,
 } from "./persistence/index.js";
 
+// Split-native facade exports (additive, non-conflicting)
+export {
+  createWorld,
+  createInMemoryWorldStore,
+} from "./facade.js";
+export type {
+  CommitCapableWorldStore,
+  CoordinatorSealGenesisParams,
+  CoordinatorSealNextParams,
+  GovernanceEventDispatcher,
+  SealResult,
+  WorldConfig,
+  WorldCoordinator,
+  WorldInstance,
+  WriteSet,
+} from "./facade.js";
+
 // World Orchestrator exports
 export { ManifestoWorld, createManifestoWorld } from "./world.js";
 export type {

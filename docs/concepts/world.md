@@ -1,10 +1,17 @@
 # World
 
-> The governance layer managing authority, proposals, and lineage.
+> The governance layer managing authority, proposals, lineage, and facade composition.
 
 ## What is World?
 
 World is Manifesto's governance layer. It manages who can do what, tracks proposals through their lifecycle, and maintains an immutable lineage of all state changes.
+
+At the package boundary level, there are now two related entry points:
+
+- `createManifestoWorld()` for the legacy orchestrator path
+- `createWorld()` + `createInMemoryWorldStore()` for the additive governed composition path
+
+The full split-native surface remains available at `@manifesto-ai/world/facade`.
 
 Every Intent passes through World Protocol before execution. World evaluates authority (can this actor perform this action?), creates decision records, and only then delegates to Host for execution.
 
@@ -95,6 +102,27 @@ const result = await world.submitProposal({
 console.log(result.status);        // 'completed'
 console.log(result.world.worldId); // 'w_abc123...'
 ```
+
+## Facade Path
+
+New integrations should prefer the facade composition API when they need explicit governance + lineage wiring:
+
+```typescript
+import {
+  createInMemoryWorldStore,
+  createWorld,
+} from "@manifesto-ai/world";
+
+const store = createInMemoryWorldStore();
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher,
+});
+```
+
+This path preserves the same governance semantics while making the composition explicit and additive.
 
 ## Common Patterns
 

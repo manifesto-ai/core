@@ -13,6 +13,7 @@
 - `createManifesto()` is the sole SDK-owned factory
 - `defineOps()` provides typed data-path patch helpers
 - Selected protocol types are re-exported from Core, Host, and World
+- World re-exports are additive in Phase 5: `createMemoryWorldStore()` remains, and `createWorld()` / `createInMemoryWorldStore()` are available for explicit governed composition
 - `@manifesto-ai/runtime` is retired; its responsibilities are absorbed into `createManifesto()`
 
 ---
@@ -39,6 +40,8 @@ const manifesto = createManifesto({
 ```
 
 `schema` accepts either a compiled `DomainSchema` or MEL source text. The returned instance is immediately ready; there is no `ready()` phase.
+
+`createManifesto()` does not implicitly assemble a governed World. If you need explicit governance + lineage wiring, use `@manifesto-ai/world` or `@manifesto-ai/world/facade` directly.
 
 ### ManifestoInstance
 
@@ -111,7 +114,7 @@ return [
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure computation |
 | [@manifesto-ai/host](./host) | Effect execution |
-| [@manifesto-ai/world](./world) | Governance and lineage |
+| [@manifesto-ai/world](./world) | Governance and lineage, including additive governed composition helpers |
 
 ---
 
@@ -122,5 +125,5 @@ App-era factory, readiness, handle, and plugin abstractions are retired in ADR-0
 For migration details, see:
 
 - [Migrate App to SDK](/guides/migrate-app-to-sdk)
-- [SDK SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v1.0.0.md)
+- [SDK SPEC v1.0.1](../../packages/sdk/docs/sdk-SPEC-v1.0.1.md)
 - [ADR-010](/internals/adr/010-major-hard-cut)

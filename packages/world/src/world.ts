@@ -132,6 +132,10 @@ export interface ManifestoWorldConfig {
 /**
  * ManifestoWorld - The World Protocol Orchestrator
  *
+ * @deprecated New governed composition uses `createWorld()` +
+ * `createInMemoryWorldStore()` / split services; legacy orchestrator remains
+ * supported during the compatibility window.
+ *
  * Coordinates all World Protocol components to provide a unified API for:
  * - Registering actors and setting up authority bindings
  * - Submitting proposals and managing their lifecycle
@@ -1110,6 +1114,10 @@ export class ManifestoWorld {
 
 /**
  * Create a new ManifestoWorld instance
+ *
+ * @deprecated New governed composition uses `createWorld()` +
+ * `createInMemoryWorldStore()` / split services; legacy orchestrator remains
+ * supported during the compatibility window.
  */
 export function createManifestoWorld(config: ManifestoWorldConfig): ManifestoWorld {
   return new ManifestoWorld(config);
