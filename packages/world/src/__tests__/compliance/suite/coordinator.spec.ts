@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGovernanceEventDispatcher } from "@manifesto-ai/governance";
+import { createGovernanceEventDispatcher, createWorld } from "../../../index.js";
 import { FacadeCasMismatchError } from "../../../facade/internal/errors.js";
-import { createWorld } from "../../../facade.js";
 import {
   createFacadeHarness,
   createExecutingProposal,

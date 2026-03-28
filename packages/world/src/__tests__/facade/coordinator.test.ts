@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGovernanceEventDispatcher, type GovernanceEventDispatcher } from "@manifesto-ai/governance";
+import {
+  createGovernanceEventDispatcher,
+  createWorld,
+  type GovernanceEventDispatcher as FacadeDispatcher,
+} from "../../index.js";
 import { FacadeCasMismatchError } from "../../facade/internal/errors.js";
-import { createWorld, type CommitCapableWorldStore, type GovernanceEventDispatcher as FacadeDispatcher } from "../../facade.js";
 import { createFacadeHarness, createExecutingProposal, createSnapshot, sealStandaloneGenesis } from "./helpers.js";
 
 describe("@manifesto-ai/world facade coordinator", () => {

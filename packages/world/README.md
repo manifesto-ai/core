@@ -1,166 +1,86 @@
 # @manifesto-ai/world
 
-> Explicit governance, proposal flow, and lineage for Manifesto deployments that need more than the default SDK path.
+> Canonical governed composition surface for Manifesto.
 
----
+`@manifesto-ai/world` is now the exact facade surface for governed composition. It re-exports split-native governance and lineage APIs plus the facade-owned store and coordinator used to seal worlds.
 
-## What This Package Is For
+`@manifesto-ai/world/facade` remains available as a temporary alias, but the canonical import path is the top-level package.
 
-Use `@manifesto-ai/world` when you need to answer questions like:
+## What This Package Owns
 
-- Who proposed this change?
-- Who approved it?
-- What world did this transition come from?
-- How do I require human review for agent actions?
+- governed composition through `createWorld()`
+- in-memory composite storage through `createInMemoryWorldStore()`
+- lineage services and types
+- governance services, authority handlers, proposal lifecycle types, and intent-instance helpers
+- coordinator-based sealing and post-commit event dispatch
 
-If you only need the default `createManifesto()` runtime, you do not need this package on day one.
-
-`createManifestoWorld()` remains supported for compatibility, but it is now the legacy orchestration path. New governed composition should use `createInMemoryWorldStore()` + `createWorld()` or the full `@manifesto-ai/world/facade` surface when you need split-native types.
-
----
-
-## How World Fits
-
-```text
-default path
-SDK -> Host -> Core
-
-governed path
-participant -> World Facade -> Governance + Lineage -> Host -> Core
-```
-
-World is an explicit integration layer. The current SDK does not wire it implicitly. The facade path is canonical for new governed composition; the legacy orchestrator remains available during the compatibility window.
-
----
-
-## Main Responsibilities
-
-| Responsibility | Description |
-|----------------|-------------|
-| Actor registry | Track human, agent, and system participants |
-| Proposal flow | Accept, evaluate, and resolve proposed transitions |
-| Authority policies | Auto-approve, rule-check, or require review |
-| Lineage | Track immutable world ancestry |
-| Audit records | Preserve approval and execution history |
-
----
-
-## Quick Example
-
-```typescript
-import { createManifestoWorld, createIntentInstance } from "@manifesto-ai/world";
-
-const world = createManifestoWorld({
-  schemaHash: "todo-v1",
-  executor: hostExecutor,
-});
-
-const actor = {
-  actorId: "user-1",
-  kind: "human",
-  name: "Alice",
-};
-
-world.registerActor(actor, { mode: "auto_approve" });
-
-const genesis = await world.createGenesis(initialSnapshot);
-
-const intent = await createIntentInstance({
-  body: {
-    type: "todo.add",
-    input: { title: "Review the governance model" },
-  },
-  schemaHash: world.schemaHash,
-  projectionId: "todo-ui",
-  source: { kind: "ui", eventId: "evt-1" },
-  actor,
-});
-
-const result = await world.submitProposal(
-  actor.actorId,
-  intent,
-  genesis.worldId,
-);
-
-console.log(result.proposal.status);
-console.log(result.resultWorld?.worldId);
-```
-
-## Legacy API vs Facade API
-
-### Legacy API
-
-`createManifestoWorld()` and `createMemoryWorldStore()` remain supported for existing integrations. They preserve the top-level world orchestration shape until the compatibility window ends.
-
-### Facade API
-
-For new governed composition, prefer the additive top-level facade surface:
+## Quick Start
 
 ```typescript
 import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
   createInMemoryWorldStore,
+  createIntentInstance,
+  createLineageService,
   createWorld,
 } from "@manifesto-ai/world";
 
 const store = createInMemoryWorldStore();
+const lineage = createLineageService(store);
+const governance = createGovernanceService(store, {
+  lineageService: lineage,
+});
+const eventDispatcher = createGovernanceEventDispatcher({
+  service: governance,
+});
+
 const world = createWorld({
   store,
   lineage,
   governance,
   eventDispatcher,
 });
+
+const intent = await createIntentInstance({
+  body: {
+    type: "todo.add",
+    input: { title: "Ship the hard cut" },
+  },
+  schemaHash: "todo-v1",
+  projectionId: "todo-ui",
+  source: { kind: "ui", eventId: "evt-1" },
+  actor: { actorId: "user-1", kind: "human" },
+});
 ```
 
-If you need the full split-native surface, import from `@manifesto-ai/world/facade`.
+## Composition Model
 
----
-
-## Important Types
-
-```typescript
-function createManifestoWorld(config: ManifestoWorldConfig): ManifestoWorld;
-
-class ManifestoWorld {
-  createGenesis(initialSnapshot: Snapshot): Promise<World>;
-  registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
-  submitProposal(
-    actorId: string,
-    intent: IntentInstance,
-    baseWorld: WorldId,
-    trace?: ProposalTrace,
-  ): Promise<ProposalResult>;
-}
+```text
+participant -> @manifesto-ai/world -> Governance + Lineage -> Host -> Core
 ```
 
-Actor kinds are currently:
+`createWorld()` is a thin assembler. Proposal creation, authority evaluation, lineage preparation, and sealing remain explicit protocol steps.
 
-- `human`
-- `agent`
-- `system`
+## Main Facade Exports
 
----
-
-## Relationship With SDK
-
-`@manifesto-ai/sdk` re-exports a small part of World for explicit integrations. The default `createManifesto()` path still focuses on direct intent dispatch rather than proposal orchestration, and it does not implicitly assemble governed World.
-
----
-
-## When to Adopt World
-
-Bring in World when you need:
-
-- human-in-the-loop approval
-- explicit actor policies
-- lineage across worlds
-- governed multi-agent systems
-
-Stay with the default SDK path when you only need direct domain execution.
-
----
+- `createWorld()`
+- `createInMemoryWorldStore()`
+- `createLineageService()`
+- `createGovernanceService()`
+- `createGovernanceEventDispatcher()`
+- `createIntentInstance()`
+- `createIntentInstanceSync()`
+- `computeIntentKey()`
+- `CommitCapableWorldStore`
+- `WorldCoordinator`
+- `WorldInstance`
+- full governance and lineage type surface
 
 ## Documentation
 
+- [World Guide](docs/GUIDE.md)
+- [World Package Docs](docs/README.md)
 - [World API](../../docs/api/world.md)
 - [World Concept](../../docs/concepts/world.md)
-- [Specifications](../../docs/internals/spec/)
+- [World Facade Spec](docs/world-facade-spec-v1.0.0.md)

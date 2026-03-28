@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import type { IntentBody } from "../schema/intent.js";
-import { computeIntentKey } from "../schema/intent.js";
+import { describe, expect, it } from "vitest";
 import { sha256 } from "@manifesto-ai/core";
+import type { IntentBody } from "./types.js";
+import { computeIntentKey } from "./intent-instance.js";
 
 async function expectedKey(
   schemaHash: string,
@@ -13,7 +13,7 @@ async function expectedKey(
 }
 
 describe("computeIntentKey", () => {
-  it("should use JCS for input and scopeProposal", async () => {
+  it("uses JCS for input and scopeProposal", async () => {
     const schemaHash = "schema-hash";
     const body: IntentBody = {
       type: "todo.create",
@@ -28,22 +28,18 @@ describe("computeIntentKey", () => {
     const scopeJcs = "{\"allowedPaths\":[\"data.todos.*\"],\"note\":\"create todo\"}";
     const expected = await expectedKey(schemaHash, body.type, inputJcs, scopeJcs);
 
-    const result = await computeIntentKey(schemaHash, body);
-
-    expect(result).toBe(expected);
+    await expect(computeIntentKey(schemaHash, body)).resolves.toBe(expected);
   });
 
-  it("should treat missing input and scopeProposal as null", async () => {
+  it("treats missing input and scopeProposal as null", async () => {
     const schemaHash = "schema-hash";
     const body: IntentBody = { type: "todo.clear" };
 
     const expected = await expectedKey(schemaHash, body.type, "null", "null");
-    const result = await computeIntentKey(schemaHash, body);
-
-    expect(result).toBe(expected);
+    await expect(computeIntentKey(schemaHash, body)).resolves.toBe(expected);
   });
 
-  it("should normalize non-finite numbers to null", async () => {
+  it("normalizes non-finite numbers to null", async () => {
     const schemaHash = "schema-hash";
     const body: IntentBody = {
       type: "stats.update",
@@ -52,8 +48,6 @@ describe("computeIntentKey", () => {
 
     const inputJcs = "{\"values\":[1,null,null,null]}";
     const expected = await expectedKey(schemaHash, body.type, inputJcs, "null");
-    const result = await computeIntentKey(schemaHash, body);
-
-    expect(result).toBe(expected);
+    await expect(computeIntentKey(schemaHash, body)).resolves.toBe(expected);
   });
 });

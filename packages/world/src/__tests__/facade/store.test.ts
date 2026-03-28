@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Proposal } from "@manifesto-ai/governance";
+import { type Proposal } from "../../index.js";
 import { FacadeCasMismatchError } from "../../facade/internal/errors.js";
 import { createFacadeHarness, createExecutingProposal, createSnapshot, sealStandaloneGenesis } from "./helpers.js";
 

@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-} from "@manifesto-ai/governance";
-import { createLineageService } from "@manifesto-ai/lineage";
+  createLineageService,
+} from "../../../index.js";
 import {
   createInMemoryWorldStore,
   createWorld,
-} from "../../../facade.js";
+} from "../../../index.js";
 import { createWorldFacadeComplianceAdapter } from "../wfcts-adapter.js";
 import { caseTitle, WFCTS_CASES } from "../wfcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../wfcts-assertions.js";
@@ -41,12 +41,17 @@ describe("WFCTS Factory Suite", () => {
         new URL("../../../../../sdk/src/index.ts", import.meta.url),
         "utf8",
       );
-      const sdkHasGovernedTypeExport = sdkSource.includes("CommitCapableWorldStore");
+      const removedLegacyStoreContract = /export type \{[^}]*\bWorldStore\b[^}]*\}/m;
+      const sdkHasGovernedTypeExport = sdkSource.includes("CommitCapableWorldStore")
+        && sdkSource.includes("WorldCoordinator")
+        && !removedLegacyStoreContract.test(sdkSource);
       const sdkHasGovernedRuntimeExports = sdkSource.includes("createInMemoryWorldStore")
         && sdkSource.includes("createWorld");
-      const topLevelWorldExports = adapter.legacyExports();
+      const topLevelWorldExports = adapter.topLevelExports();
       const topLevelWorldHasGovernedExports = typeof topLevelWorldExports.createWorld === "function"
-        && typeof topLevelWorldExports.createInMemoryWorldStore === "function";
+        && typeof topLevelWorldExports.createInMemoryWorldStore === "function"
+        && typeof topLevelWorldExports.createGovernanceService === "function"
+        && typeof topLevelWorldExports.createLineageService === "function";
 
       const readyToUseWorld = typeof world.coordinator.sealNext === "function"
         && typeof world.coordinator.sealGenesis === "function"
@@ -132,16 +137,16 @@ describe("WFCTS Factory Suite", () => {
           getRuleOrThrow("FACADE-SDK-1"),
           sdkHasGovernedTypeExport,
           {
-            passMessage: "SDK exposes CommitCapableWorldStore on its additive world type surface.",
-            failMessage: "SDK does not expose CommitCapableWorldStore on its additive world type surface.",
+            passMessage: "SDK exposes the hard-cut governed world type surface without the legacy store contract.",
+            failMessage: "SDK is still exposing the wrong world type surface after the hard cut.",
           },
         ),
         evaluateRule(
           getRuleOrThrow("FACADE-SDK-2"),
           sdkHasGovernedRuntimeExports && topLevelWorldHasGovernedExports,
           {
-            passMessage: "SDK and top-level world both expose the additive governed factory surface.",
-            failMessage: "SDK or top-level world is missing additive governed factory re-exports.",
+            passMessage: "SDK and top-level world both expose the canonical governed factory surface.",
+            failMessage: "SDK or top-level world is missing the hard-cut governed factory surface.",
           },
         ),
       ]);

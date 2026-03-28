@@ -56,7 +56,7 @@ describe("WFCTS Rule Matrix", () => {
     }
   });
 
-  it("WFCTS-MATRIX-006: Phase 5 alignment leaves no pending facade rules", () => {
+  it("WFCTS-MATRIX-006: Phase 6 hard cut leaves no pending facade rules", () => {
     const modes = new Set(WORLD_FACADE_COMPLIANCE_RULES.map((rule) => rule.mode));
     expect(modes.size).toBe(1);
     expect(modes.has("blocking")).toBe(true);

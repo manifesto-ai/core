@@ -9,12 +9,12 @@ describe("@manifesto-ai/sdk bootstrap", () => {
   it("SdkManifest type is importable and structurally correct", () => {
     const manifest: SdkManifest = {
       name: "@manifesto-ai/sdk",
-      specVersion: "1.0.1",
+      specVersion: "2.0.0",
       phase: "released",
     };
 
     expect(manifest.name).toBe("@manifesto-ai/sdk");
-    expect(manifest.specVersion).toBe("1.0.1");
+    expect(manifest.specVersion).toBe("2.0.0");
     expect(manifest.phase).toBe("released");
   });
 
@@ -43,14 +43,15 @@ describe("@manifesto-ai/sdk bootstrap", () => {
     expect(sdk.createCore).toBeDefined();
   });
 
-  it("re-exports legacy and governed world store factories", () => {
+  it("re-exports the hard-cut governed world store factories", () => {
+    const removedLegacyStoreFactory = ["create", "Memory", "World", "Store"].join("");
     const governedStore: CommitCapableWorldStore = sdk.createInMemoryWorldStore();
 
-    expect(sdk.createMemoryWorldStore).toBeDefined();
     expect(sdk.createInMemoryWorldStore).toBeDefined();
     expect(sdk.createWorld).toBeDefined();
     expect(typeof sdk.createWorld).toBe("function");
     expect(typeof governedStore.commitSeal).toBe("function");
+    expect((sdk as Record<string, unknown>)[removedLegacyStoreFactory]).toBeUndefined();
   });
 
   it("does NOT export removed v0.x concepts", () => {

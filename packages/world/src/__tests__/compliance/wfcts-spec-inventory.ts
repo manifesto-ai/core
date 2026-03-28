@@ -50,10 +50,10 @@ export const WORLD_FACADE_SPEC_INVENTORY: readonly WorldFacadeComplianceInventor
   ...inventoryMany(["FACADE-WS-1", "FACADE-WS-2", "FACADE-WS-3"], "§7", "MUST", "factory"),
   ...inventoryMany(["FACADE-COORD-1", "FACADE-COORD-2", "FACADE-COORD-3", "FACADE-COORD-4", "FACADE-COORD-6", "FACADE-COORD-7", "FACADE-COORD-8", "FACADE-COORD-9", "FACADE-COORD-11"], "§8", "MUST", "coordinator"),
   inventory("FACADE-FACTORY-3", "§9", "MUST", "factory", {
-    notes: "Same-store instance identity remains a caller precondition and is enforced in Phase 5 through identity-preserving assembly coverage.",
+    notes: "Same-store instance identity remains a caller precondition and is enforced through identity-preserving exact-facade assembly coverage.",
   }),
   ...inventoryMany(["FACADE-SDK-1", "FACADE-SDK-2"], "§12", "MUST", "matrix", {
-    notes: "SDK alignment is active in Phase 5 through additive top-level re-exports and governed factory coverage.",
+    notes: "SDK alignment is active in Phase 6 through thin top-level world re-exports and exact-facade factory coverage.",
   }),
 ] as const;
 

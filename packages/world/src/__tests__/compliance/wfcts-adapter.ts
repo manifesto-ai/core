@@ -1,11 +1,11 @@
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
+  createLineageService,
   type GovernanceEvent,
-} from "@manifesto-ai/governance";
-import { createLineageService } from "@manifesto-ai/lineage";
+} from "../../index.js";
 import * as facadeWorld from "../../facade.js";
-import * as legacyWorld from "../../index.js";
+import * as topLevelWorld from "../../index.js";
 import type { WorldFacadeComplianceAdapter } from "./wfcts-types.js";
 
 export class SplitWorldFacadeComplianceAdapter implements WorldFacadeComplianceAdapter {
@@ -27,7 +27,7 @@ export class SplitWorldFacadeComplianceAdapter implements WorldFacadeComplianceA
       now: () => 1000,
     });
 
-    return facadeWorld.createWorld({
+    return topLevelWorld.createWorld({
       store,
       lineage,
       governance,
@@ -36,15 +36,15 @@ export class SplitWorldFacadeComplianceAdapter implements WorldFacadeComplianceA
   }
 
   createStore() {
-    return facadeWorld.createInMemoryWorldStore();
+    return topLevelWorld.createInMemoryWorldStore();
   }
 
   facadeExports(): Record<string, unknown> {
     return facadeWorld;
   }
 
-  legacyExports(): Record<string, unknown> {
-    return legacyWorld;
+  topLevelExports(): Record<string, unknown> {
+    return topLevelWorld;
   }
 
   eventLog(): GovernanceEvent[] {

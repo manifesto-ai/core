@@ -2,17 +2,15 @@ import type { Snapshot } from "@manifesto-ai/core";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
+  createInMemoryWorldStore,
+  createLineageService,
+  createWorld,
+  type CommitCapableWorldStore,
   type DecisionRecord,
   type GovernanceEvent,
   type Proposal,
-} from "@manifesto-ai/governance";
-import { createLineageService } from "@manifesto-ai/lineage";
-import {
-  createInMemoryWorldStore,
-  createWorld,
-  type CommitCapableWorldStore,
   type WorldInstance,
-} from "../../facade.js";
+} from "../../index.js";
 
 export function createSnapshot(
   data: Record<string, unknown>,

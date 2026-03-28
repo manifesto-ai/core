@@ -30,7 +30,7 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
   complianceCase(
     WFCTS_CASES.REEXPORTS_FACADE,
     "reexports",
-    "Facade subpath re-exports split-native services with pass-through identity while leaving legacy top-level exports unchanged."
+    "Top-level world is the canonical facade surface and /facade is an exact alias."
   ),
   complianceCase(
     WFCTS_CASES.FACTORY_ASSEMBLY,
@@ -60,7 +60,7 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
   complianceCase(
     WFCTS_CASES.SDK_ALIGNMENT,
     "matrix",
-    "Factory caller preconditions and SDK additive alignment are enforced as blocking facade rules."
+    "Factory caller preconditions and SDK hard-cut alignment are enforced as blocking facade rules."
   ),
 ] as const;
 

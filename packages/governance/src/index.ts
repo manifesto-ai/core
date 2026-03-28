@@ -1,6 +1,15 @@
 export type * from "./types.js";
 
 export {
+  computeIntentKey,
+  createIntentInstance,
+  createIntentInstanceSync,
+} from "./intent-instance.js";
+export type {
+  CreateIntentInstanceOptions,
+} from "./intent-instance.js";
+
+export {
   INGRESS_STATUSES,
   EXECUTION_STAGE_STATUSES,
   TERMINAL_STATUSES,

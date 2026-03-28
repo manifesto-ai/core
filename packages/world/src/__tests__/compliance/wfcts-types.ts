@@ -64,6 +64,6 @@ export interface WorldFacadeComplianceAdapter {
   createWorld(): WorldInstance;
   createStore(): CommitCapableWorldStore;
   facadeExports(): Record<string, unknown>;
-  legacyExports(): Record<string, unknown>;
+  topLevelExports(): Record<string, unknown>;
   eventLog(): GovernanceEvent[];
 }

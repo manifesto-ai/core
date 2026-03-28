@@ -21,7 +21,6 @@ describe("sdk public exports contract", () => {
       "createSnapshot",
       "createCore",
       // World re-exports
-      "createMemoryWorldStore",
       "createInMemoryWorldStore",
       "createWorld",
     ].sort();

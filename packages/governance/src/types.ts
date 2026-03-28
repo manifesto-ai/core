@@ -51,6 +51,35 @@ export interface IntentScope {
   readonly note?: string;
 }
 
+export type SourceKind = "ui" | "api" | "agent" | "system";
+
+export interface SourceRef {
+  readonly kind: SourceKind;
+  readonly eventId: string;
+}
+
+export interface IntentOrigin {
+  readonly projectionId: string;
+  readonly source: SourceRef;
+  readonly actor: ActorRef;
+  readonly note?: string;
+}
+
+export interface IntentBody {
+  readonly type: string;
+  readonly input?: unknown;
+  readonly scopeProposal?: IntentScope;
+}
+
+export interface IntentInstance {
+  readonly body: IntentBody;
+  readonly intentId: string;
+  readonly intentKey: string;
+  readonly meta: {
+    readonly origin: IntentOrigin;
+  };
+}
+
 export interface Intent {
   readonly type: string;
   readonly intentId: string;
@@ -446,7 +475,15 @@ export function createNoopGovernanceEventSink(): GovernanceEventSink {
   };
 }
 
-export function toHostIntent(intent: Intent): HostIntent {
+export function toHostIntent(intent: Intent | IntentInstance): HostIntent {
+  if ("body" in intent) {
+    return {
+      type: intent.body.type,
+      input: intent.body.input,
+      intentId: intent.intentId,
+    };
+  }
+
   return {
     type: intent.type,
     input: intent.input,

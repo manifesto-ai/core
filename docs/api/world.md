@@ -1,104 +1,74 @@
 # @manifesto-ai/world
 
-> Governance, authority, and lineage layer for Manifesto
-
----
+> Exact facade for governed Manifesto composition.
 
 ## Overview
 
-`@manifesto-ai/world` now has two surfaces:
+Top-level `@manifesto-ai/world` is the canonical governed composition surface.
 
-- the legacy top-level orchestrator, kept for compatibility
-- the additive governed composition surface, centered on `createWorld()` and `createInMemoryWorldStore()`
+It exposes:
 
-The full split-native facade remains available at `@manifesto-ai/world/facade`.
+- lineage types and services
+- governance types and services
+- facade-owned store and coordinator types
+- `createWorld()`
+- `createInMemoryWorldStore()`
+- intent-instance helpers
 
-- Actor registration + authority policy binding
-- Proposal evaluation + decision recording
-- World creation + lineage edges
-- Branch/head query and resume support
+`@manifesto-ai/world/facade` currently exists as an exact alias for the same surface.
 
----
-
-## ADR-009 Persistence Notes
-
-World-integrated stores handling deltas must enforce serialized patch versioning.
-
-```typescript
-type PersistedPatchDeltaV2 = {
-  _patchFormat: 2;
-  patches: readonly Patch[];
-};
-```
-
-Rules:
-- Accept only `_patchFormat: 2` at restore boundary.
-- Reject `_patchFormat: 1` or missing tag.
-- On rejection, runtime/app must re-initialize from genesis (epoch reset policy).
-
----
-
-## Main Exports
-
-### Legacy Orchestrator: createManifestoWorld()
-
-```typescript
-import { createManifestoWorld } from "@manifesto-ai/world";
-
-const world = createManifestoWorld({
-  schemaHash: "schema-hash-v1",
-  executor,
-  store,
-});
-```
-
-`createManifestoWorld()` remains supported, but it is deprecated for new integrations. Use the additive facade path for new governed composition.
-
-### Canonical Governed Composition: createWorld()
+## Canonical Composition
 
 ```typescript
 import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
   createInMemoryWorldStore,
+  createLineageService,
   createWorld,
 } from "@manifesto-ai/world";
 
 const store = createInMemoryWorldStore();
+const lineage = createLineageService(store);
+const governance = createGovernanceService(store, {
+  lineageService: lineage,
+});
 const world = createWorld({
   store,
   lineage,
   governance,
-  eventDispatcher,
+  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
 });
 ```
 
-Use this path when you want the world facade to compose governance and lineage explicitly.
-
-### Key Types
+## Facade-Owned Types
 
 ```typescript
-interface World {
-  worldId: WorldId;
-  schemaHash: string;
-  snapshotHash: string;
-  createdAt: number;
-  createdBy: string | null;
-}
-
-type WorldHead = {
-  worldId: WorldId;
-  branchId: string;
-  branchName: string;
-  createdAt: number;
-  schemaHash: string;
-};
+type CommitCapableWorldStore
+type WriteSet
+type GovernanceEventDispatcher
+type WorldCoordinator
+type WorldConfig
+type WorldInstance
+type CoordinatorSealNextParams
+type CoordinatorSealGenesisParams
+type SealResult
 ```
 
----
+## Split-Native Re-exports
+
+Top-level `@manifesto-ai/world` also re-exports:
+
+- governance proposal and authority types
+- lineage world/head/branch types
+- `createIntentInstance()`, `createIntentInstanceSync()`, `computeIntentKey()`
+- `createGovernanceService()`, `createGovernanceEventDispatcher()`
+- `createLineageService()`
 
 ## Related Packages
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/core](./core) | Pure computation |
-| [@manifesto-ai/host](./host) | Executes approved intents |
-| [@manifesto-ai/sdk](./sdk) | Public facade that re-exports additive world integration points |
+| [@manifesto-ai/core](./core.md) | Pure computation |
+| [@manifesto-ai/host](./host.md) | Effect execution |
+| [@manifesto-ai/sdk](./sdk.md) | Thin public SDK that re-exports selected world facade types and factories |

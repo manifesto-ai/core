@@ -5,7 +5,7 @@
 > **Package:** `@manifesto-ai/world`
 > **Scope:** `@manifesto-ai/world` — Composition Facade for Governance + Lineage
 > **Compatible with:** Lineage SPEC v1.0.1, Governance SPEC v1.0.0
-> **Requires SDK SPEC patch:** SDK SPEC v1.0.0 references `WorldStore`; a patch (v1.0.1+) is required to align with `CommitCapableWorldStore` (see §12.3)
+> **SDK alignment:** top-level `@manifesto-ai/world` and SDK SPEC v2.0.0 are aligned with this facade contract.
 > **Implements:** ADR-014 D7 (Facade), D11.3 (Storage Seam — Composite), D14 (Commit Coordinator)
 > **Authors:** Manifesto Team
 > **License:** MIT
@@ -599,27 +599,21 @@ If the facade is deprecated, the following signals MUST be provided:
 
 ### 12.1 SDK Consumption Path
 
-SDK SPEC v1.0.0 defines `ManifestoConfig.store?: WorldStore`. After ADR-014, `WorldStore` is effectively `CommitCapableWorldStore` when governance is active.
+SDK SPEC v2.0.0 treats top-level `@manifesto-ai/world` as the canonical governed composition surface and re-exports only the thin facade-owned types and factories.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| FACADE-SDK-1 | MUST | The facade MUST export `CommitCapableWorldStore` as the type that SDK's `ManifestoConfig.store` accepts in governed environments |
-| FACADE-SDK-2 | MUST | SDK's re-export from `@manifesto-ai/world` (SDK SPEC §10.1) MUST include `CommitCapableWorldStore`, `createWorld()`, and `createInMemoryWorldStore()` |
+| FACADE-SDK-1 | MUST | The facade MUST export `CommitCapableWorldStore` as the canonical governed store type surfaced through SDK |
+| FACADE-SDK-2 | MUST | SDK's re-export from `@manifesto-ai/world` MUST include `CommitCapableWorldStore`, `createWorld()`, and `createInMemoryWorldStore()` |
 | FACADE-SDK-3 | MUST NOT | SDK MUST NOT depend on facade internals — only on facade's public exports |
 
-### 12.2 Backward Compatibility
+### 12.2 Hard-Cut Outcome
 
-The existing `createManifesto()` code path that calls into World continues to work through the facade. SDK SPEC v1.0.0's surface is not changed by this specification.
+The SDK alignment step is complete:
 
-### 12.3 SDK SPEC Patch (Forward Reference)
-
-SDK SPEC v1.0.0 references `WorldStore` and `createWorldStore` in its re-export hub (§10.1) and config interface (§7.1). After ADR-014, these names map to `CommitCapableWorldStore` and `createInMemoryWorldStore()` respectively. A **SDK SPEC patch** (v1.0.1 or v1.1.0) is REQUIRED to:
-
-1. Update `ManifestoConfig.store?: WorldStore` type reference to acknowledge `CommitCapableWorldStore`
-2. Update re-export list to include facade-owned exports (`CommitCapableWorldStore`, `createWorld`, `createInMemoryWorldStore`, `GovernanceEventDispatcher`, `WriteSet`, `WorldCoordinator`)
-3. Document that `createManifesto()` internal wiring now delegates to the facade's coordinator for seal operations
-
-This facade SPEC does not define the SDK patch — it only records that one is needed. The SDK patch MUST NOT change SDK's public API surface (`createManifesto`, `ManifestoInstance`, 5 methods).
+1. top-level `@manifesto-ai/world` is the exact facade surface
+2. SDK re-exports the thin governed facade-owned types and factories
+3. `createManifesto()` remains a direct-dispatch SDK entry point and does not implicitly assemble governed world composition
 
 ---
 

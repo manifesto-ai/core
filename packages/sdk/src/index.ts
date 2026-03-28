@@ -1,10 +1,10 @@
 /**
- * @manifesto-ai/sdk v1.0.1
+ * @manifesto-ai/sdk v2.0.0
  *
  * Protocol-first SDK — thin composition layer over the Manifesto protocol stack.
  * The SDK owns one concept: createManifesto().
  *
- * @see sdk-SPEC-v1.0.1.md
+ * @see sdk-SPEC-v2.0.0.md
  * @see ADR-010
  * @packageDocumentation
  */
@@ -79,13 +79,16 @@ export type { HostResult, HostOptions } from "@manifesto-ai/host";
 
 export type {
   CommitCapableWorldStore,
+  CoordinatorSealGenesisParams,
+  CoordinatorSealNextParams,
   GovernanceEventDispatcher,
+  SealResult,
+  WorldConfig,
   WorldCoordinator,
-  WorldStore,
+  WorldInstance,
   WriteSet,
 } from "@manifesto-ai/world";
 export {
-  createMemoryWorldStore,
   createInMemoryWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
