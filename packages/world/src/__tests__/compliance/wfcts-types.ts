@@ -1,4 +1,8 @@
-import type { ManifestoWorld } from "../../index.js";
+import type { GovernanceEvent } from "@manifesto-ai/governance";
+import type {
+  CommitCapableWorldStore,
+  WorldInstance,
+} from "../../facade.js";
 
 export const WFCTS_SUITES = [
   "reexports",
@@ -57,7 +61,9 @@ export interface WorldFacadeComplianceResult {
 }
 
 export interface WorldFacadeComplianceAdapter {
-  createWorld(schemaHash?: string): ManifestoWorld;
-  createStore(): unknown;
-  exports(): Record<string, unknown>;
+  createWorld(): WorldInstance;
+  createStore(): CommitCapableWorldStore;
+  facadeExports(): Record<string, unknown>;
+  legacyExports(): Record<string, unknown>;
+  eventLog(): GovernanceEvent[];
 }

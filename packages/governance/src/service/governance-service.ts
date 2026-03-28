@@ -1,4 +1,4 @@
-import type { BranchInfo, LineageService, PreparedLineageCommit, WorldId } from "@manifesto-ai/lineage";
+import type { BranchInfo, LineageService, PreparedLineageCommit, World, WorldId } from "@manifesto-ai/lineage";
 import {
   getValidTransitions,
   isExecutionStageStatus,
@@ -10,22 +10,29 @@ import {
   createDecisionId,
   createProposalId,
   type AuthorityResponse,
+  type BranchId,
   type CreateProposalInput,
   type DecisionRecord,
   type GovernanceService,
   type GovernanceStore,
   type ExecutionSealRejectedEvent,
+  type ExecutionCompletedEvent,
+  type ExecutionFailedEvent,
   type PreparedAuthorityResult,
   type PrepareAuthorityResultOptions,
   type PreparedGovernanceCommit,
   type Proposal,
   type ProposalDecidedEvent,
   type ProposalEvaluatingEvent,
+  type ProposalId,
   type ProposalSubmittedEvent,
   type ProposalSupersededEvent,
+  type WorldCreatedEvent,
+  type WorldForkedEvent,
   type SealRejectionReason,
   type Snapshot,
   type SupersedeReason,
+  type ErrorInfo,
 } from "../types.js";
 
 function freeze<T>(value: T): T {
@@ -320,6 +327,82 @@ export class DefaultGovernanceService implements GovernanceService {
       proposalId: proposal.proposalId,
       executionKey: proposal.executionKey,
       rejection,
+    });
+  }
+
+  createExecutionCompletedEvent(
+    proposal: Proposal,
+    timestamp = Date.now()
+  ): ExecutionCompletedEvent {
+    if (!proposal.resultWorld) {
+      throw new Error(
+        "GOV-EVT-6 violation: execution:completed requires proposal.resultWorld"
+      );
+    }
+
+    return freeze({
+      type: "execution:completed",
+      timestamp,
+      proposalId: proposal.proposalId,
+      executionKey: proposal.executionKey,
+      resultWorld: proposal.resultWorld,
+    });
+  }
+
+  createExecutionFailedEvent(
+    proposal: Proposal,
+    error: ErrorInfo,
+    timestamp = Date.now()
+  ): ExecutionFailedEvent {
+    if (!proposal.resultWorld) {
+      throw new Error(
+        "GOV-EVT-7 violation: execution:failed requires proposal.resultWorld"
+      );
+    }
+
+    return freeze({
+      type: "execution:failed",
+      timestamp,
+      proposalId: proposal.proposalId,
+      executionKey: proposal.executionKey,
+      resultWorld: proposal.resultWorld,
+      error: freeze({
+        summary: error.summary,
+        ...(error.details !== undefined ? { details: error.details } : {}),
+        ...(error.pendingRequirements !== undefined
+          ? { pendingRequirements: error.pendingRequirements }
+          : {}),
+      }),
+    });
+  }
+
+  createWorldCreatedEvent(
+    world: World,
+    proposalId: ProposalId,
+    from: WorldId,
+    outcome: "completed" | "failed",
+    timestamp = Date.now()
+  ): WorldCreatedEvent {
+    return freeze({
+      type: "world:created",
+      timestamp,
+      world,
+      from,
+      proposalId,
+      outcome,
+    });
+  }
+
+  createWorldForkedEvent(
+    branchId: BranchId,
+    forkPoint: WorldId,
+    timestamp = Date.now()
+  ): WorldForkedEvent {
+    return freeze({
+      type: "world:forked",
+      timestamp,
+      branchId,
+      forkPoint,
     });
   }
 

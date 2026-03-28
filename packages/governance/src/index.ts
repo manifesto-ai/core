@@ -23,6 +23,13 @@ export {
   createGovernanceService,
 } from "./service/governance-service.js";
 
+export {
+  createGovernanceEventDispatcher,
+} from "./event-dispatcher.js";
+export type {
+  CreateGovernanceEventDispatcherOptions,
+} from "./event-dispatcher.js";
+
 export type {
   AuthorityHandler,
   HITLDecisionCallback,

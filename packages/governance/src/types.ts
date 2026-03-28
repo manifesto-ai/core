@@ -299,6 +299,18 @@ export interface GovernanceEventSink {
   emit(event: GovernanceEvent): void;
 }
 
+export interface GovernanceEventDispatcher {
+  emitSealCompleted(
+    governanceCommit: PreparedGovernanceCommit,
+    lineageCommit: PreparedLineageCommit
+  ): void;
+
+  emitSealRejected(
+    governanceCommit: PreparedGovernanceCommit,
+    rejection: SealRejectionReason
+  ): void;
+}
+
 export interface PreparedGovernanceCommit {
   readonly proposal: Proposal;
   readonly decisionRecord: DecisionRecord;
@@ -386,6 +398,27 @@ export interface GovernanceService {
     rejection: SealRejectionReason,
     timestamp?: number
   ): ExecutionSealRejectedEvent;
+  createExecutionCompletedEvent(
+    proposal: Proposal,
+    timestamp?: number
+  ): ExecutionCompletedEvent;
+  createExecutionFailedEvent(
+    proposal: Proposal,
+    error: ErrorInfo,
+    timestamp?: number
+  ): ExecutionFailedEvent;
+  createWorldCreatedEvent(
+    world: World,
+    proposalId: ProposalId,
+    from: WorldId,
+    outcome: "completed" | "failed",
+    timestamp?: number
+  ): WorldCreatedEvent;
+  createWorldForkedEvent(
+    branchId: BranchId,
+    forkPoint: WorldId,
+    timestamp?: number
+  ): WorldForkedEvent;
 }
 
 export function createProposalId(value?: string): ProposalId {

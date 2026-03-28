@@ -1,40 +1,52 @@
 import { describe, expect, it } from "vitest";
 import {
-  createExecutionKey,
-  createManifestoWorld,
-  createMemoryWorldStore,
-} from "../../../index.js";
+  createGovernanceEventDispatcher,
+  createGovernanceService,
+} from "@manifesto-ai/governance";
+import { createLineageService } from "@manifesto-ai/lineage";
 import { createWorldFacadeComplianceAdapter } from "../wfcts-adapter.js";
 import { caseTitle, WFCTS_CASES } from "../wfcts-coverage.js";
-import { expectAllCompliance, noteEvidence, warnRule } from "../wfcts-assertions.js";
+import { evaluateRule, expectAllCompliance } from "../wfcts-assertions.js";
 import { getRuleOrThrow } from "../wfcts-rules.js";
 
 describe("WFCTS Re-export Suite", () => {
   it(
     caseTitle(
-      WFCTS_CASES.REEXPORTS_SMOKE,
-      "Legacy world package keeps the current facade-compatible export surface stable."
+      WFCTS_CASES.REEXPORTS_FACADE,
+      "Facade subpath re-exports split-native services with pass-through identity while leaving legacy top-level exports unchanged."
     ),
     () => {
       const adapter = createWorldFacadeComplianceAdapter();
-      const exported = adapter.exports();
-      const hasExpectedSurface = typeof exported.createManifestoWorld === "function"
-        && typeof exported.createMemoryWorldStore === "function"
-        && typeof exported.createExecutionKey === "function";
-      const passThroughIdentity = exported.createManifestoWorld === createManifestoWorld
-        && exported.createMemoryWorldStore === createMemoryWorldStore
-        && exported.createExecutionKey === createExecutionKey;
+      const facadeExports = adapter.facadeExports();
+      const legacyExports = adapter.legacyExports();
+      const hasExpectedSurface = typeof facadeExports.createWorld === "function"
+        && typeof facadeExports.createInMemoryWorldStore === "function"
+        && typeof facadeExports.createLineageService === "function"
+        && typeof facadeExports.createGovernanceService === "function"
+        && typeof facadeExports.createGovernanceEventDispatcher === "function";
+      const passThroughIdentity = facadeExports.createLineageService === createLineageService
+        && facadeExports.createGovernanceService === createGovernanceService
+        && facadeExports.createGovernanceEventDispatcher === createGovernanceEventDispatcher
+        && typeof legacyExports.createManifestoWorld === "function"
+        && typeof legacyExports.createMemoryWorldStore === "function"
+        && !("createWorld" in legacyExports);
 
       expectAllCompliance([
-        warnRule(
+        evaluateRule(
           getRuleOrThrow("FACADE-REEXPORT-1"),
-          "Current smoke test checks only a small legacy compatibility subset, not the full §5.1 facade re-export contract.",
-          [noteEvidence("Kept visible as pending until the split facade exists.")],
+          hasExpectedSurface,
+          {
+            passMessage: "Facade subpath exposes split-native world, governance, and lineage assembly entrypoints.",
+            failMessage: "Facade subpath is missing required re-exported services or factories.",
+          },
         ),
-        warnRule(
+        evaluateRule(
           getRuleOrThrow("FACADE-REEXPORT-3"),
-          "Current pass-through check covers a few legacy exports, not the future governance/lineage facade re-export surface.",
-          [noteEvidence("Kept visible as pending until re-exports come from split packages.")],
+          passThroughIdentity,
+          {
+            passMessage: "Facade subpath preserves pass-through identity for split-native factories and leaves legacy top-level exports unchanged.",
+            failMessage: "Facade subpath wraps or collides with existing split-native export identity.",
+          },
         ),
       ]);
 

@@ -26,12 +26,19 @@ function registryMany(
 }
 
 export const WORLD_FACADE_COMPLIANCE_RULES: readonly WorldFacadeComplianceRule[] = [
-  registry("FACADE-REEXPORT-1", "pending"),
-  registry("FACADE-REEXPORT-3", "pending"),
-  registry("FACADE-FACTORY-1", "pending"),
-  registry("FACADE-FACTORY-4", "pending"),
-  registry("FACADE-STORE-7", "pending"),
-  ...registryMany(["FACADE-COORD-1", "FACADE-COORD-2", "FACADE-COORD-3", "FACADE-COORD-4", "FACADE-COORD-9"], "pending"),
+  registry("FACADE-REEXPORT-1", "blocking"),
+  registry("FACADE-REEXPORT-3", "blocking"),
+  registry("FACADE-FACTORY-1", "blocking"),
+  registry("FACADE-FACTORY-2", "blocking"),
+  registry("FACADE-FACTORY-4", "blocking"),
+  registry("FACADE-STORE-7", "blocking"),
+  registry("FACADE-WS-1", "blocking"),
+  registry("FACADE-WS-2", "blocking"),
+  registry("FACADE-WS-3", "blocking"),
+  ...registryMany(["FACADE-COORD-1", "FACADE-COORD-2", "FACADE-COORD-3", "FACADE-COORD-4", "FACADE-COORD-6", "FACADE-COORD-7", "FACADE-COORD-8", "FACADE-COORD-9", "FACADE-COORD-11"], "blocking"),
+  registry("FACADE-FACTORY-3", "pending"),
+  registry("FACADE-SDK-1", "pending"),
+  registry("FACADE-SDK-2", "pending"),
 ] as const;
 
 export function getRuleOrThrow(ruleId: string): WorldFacadeComplianceRule {
