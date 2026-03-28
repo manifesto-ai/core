@@ -22,6 +22,9 @@
  * - L-7: Reverse transitions MUST NOT occur
  * - L-8: DecisionRecord MUST exist before executing
  */
+import {
+  getValidTransitions as getGovernanceValidTransitions,
+} from "@manifesto-ai/governance";
 import type { ProposalStatus } from "../schema/proposal.js";
 
 /**
@@ -29,15 +32,24 @@ import type { ProposalStatus } from "../schema/proposal.js";
  *
  * Per EPOCH-3~5: ingress-stage proposals may be dropped on epoch change
  */
-const VALID_TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = {
-  submitted: ["evaluating", "rejected"],
-  evaluating: ["approved", "rejected"],
-  approved: ["executing"],
-  executing: ["completed", "failed"],
-  rejected: [], // terminal
-  completed: [], // terminal
-  failed: [], // terminal
-};
+const LEGACY_WORLD_STATUSES: readonly ProposalStatus[] = [
+  "submitted",
+  "evaluating",
+  "approved",
+  "executing",
+  "rejected",
+  "completed",
+  "failed",
+];
+
+const VALID_TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = Object.fromEntries(
+  LEGACY_WORLD_STATUSES.map((status) => [
+    status,
+    getGovernanceValidTransitions(status).filter(
+      (target): target is ProposalStatus => target !== "superseded"
+    ),
+  ])
+) as Record<ProposalStatus, ProposalStatus[]>;
 
 /**
  * Terminal statuses - no further transitions allowed

@@ -1,4 +1,5 @@
 import type { ProposalStatus } from "../../index.js";
+import type { DefaultGovernanceService, InMemoryGovernanceStore } from "../../index.js";
 
 export const GCTS_SUITES = [
   "lifecycle",
@@ -58,5 +59,10 @@ export interface GovernanceComplianceResult {
 export interface GovernanceComplianceAdapter {
   isValidTransition(from: ProposalStatus, to: ProposalStatus): boolean;
   getValidTransitions(status: ProposalStatus): ProposalStatus[];
+  createStore(): InMemoryGovernanceStore;
+  createService(
+    store: InMemoryGovernanceStore,
+    options?: ConstructorParameters<typeof DefaultGovernanceService>[1]
+  ): DefaultGovernanceService;
   exports(): Record<string, unknown>;
 }

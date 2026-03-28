@@ -180,10 +180,13 @@ importers:
 
   packages/governance:
     dependencies:
-      '@manifesto-ai/world':
+      '@manifesto-ai/lineage':
         specifier: workspace:*
-        version: link:../world
+        version: link:../lineage
     devDependencies:
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -251,6 +254,9 @@ importers:
 
   packages/world:
     dependencies:
+      '@manifesto-ai/governance':
+        specifier: workspace:*
+        version: link:../governance
       '@manifesto-ai/lineage':
         specifier: workspace:*
         version: link:../lineage

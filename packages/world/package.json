@@ -40,6 +40,7 @@
     "@manifesto-ai/core": "^2.0.0"
   },
   "dependencies": {
+    "@manifesto-ai/governance": "workspace:*",
     "@manifesto-ai/lineage": "workspace:*",
     "uuid": "^13.0.0"
   },

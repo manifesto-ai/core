@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/governance",
   "version": "0.1.0",
-  "description": "Manifesto Governance - ADR-014 compliance scaffold backed by the legacy world implementation",
+  "description": "Manifesto Governance - split-native governance lifecycle, authority, and audit protocol",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -35,10 +35,14 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
+  "peerDependencies": {
+    "@manifesto-ai/core": "^2.0.0"
+  },
   "dependencies": {
-    "@manifesto-ai/world": "workspace:*"
+    "@manifesto-ai/lineage": "workspace:*"
   },
   "devDependencies": {
+    "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.1.0"

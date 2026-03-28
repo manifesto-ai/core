@@ -17,36 +17,46 @@ function coverMany(ruleIds: readonly string[], caseIds: readonly string[]): Gove
 }
 
 export const GCTS_CASES = {
-  LIFECYCLE_MONOTONIC: "GCTS-LIFE-001",
-  LIFECYCLE_SPLIT_TRACKING: "GCTS-LIFE-002",
-  SEAMS_SMOKE: "GCTS-SEAM-001",
+  LIFECYCLE_STATE_MACHINE: "GCTS-LIFE-001",
+  LIFECYCLE_BRANCH_GATES: "GCTS-LIFE-002",
+  LIFECYCLE_FINALIZE_PURITY: "GCTS-LIFE-003",
+  SEAMS_NATIVE_SURFACE: "GCTS-SEAM-001",
 } as const;
 
 export const GOVERNANCE_COMPLIANCE_CASES: readonly GovernanceComplianceCase[] = [
   complianceCase(
-    GCTS_CASES.LIFECYCLE_MONOTONIC,
+    GCTS_CASES.LIFECYCLE_STATE_MACHINE,
     "lifecycle",
-    "Legacy world-backed governance preserves the current monotonic proposal state machine."
+    "Native governance implements monotonic transitions including ingress-terminal superseded."
   ),
   complianceCase(
-    GCTS_CASES.LIFECYCLE_SPLIT_TRACKING,
+    GCTS_CASES.LIFECYCLE_BRANCH_GATES,
     "lifecycle",
-    "Split-only governance rules remain visible as pending CTS entries."
+    "Native governance enforces branch identity, gate occupancy, stale head invalidation, and stale-result discard."
   ),
   complianceCase(
-    GCTS_CASES.SEAMS_SMOKE,
+    GCTS_CASES.LIFECYCLE_FINALIZE_PURITY,
+    "lifecycle",
+    "Seal finalization stays pure for both normal and seal-rejection paths."
+  ),
+  complianceCase(
+    GCTS_CASES.SEAMS_NATIVE_SURFACE,
     "seams",
-    "Governance package exposes a narrow compatibility surface without lineage hash helpers."
+    "Governance package exposes native store/service exports without world or host internals."
   ),
 ] as const;
 
 export const GOVERNANCE_RULE_COVERAGE: readonly GovernanceComplianceCoverageEntry[] = [
-  ...coverMany(["GOV-TRANS-1"], [GCTS_CASES.LIFECYCLE_MONOTONIC]),
   ...coverMany(
-    ["GOV-STAGE-7", "GOV-TRANS-3", "GOV-TRANS-4", "GOV-BRANCH-1", "GOV-BRANCH-GATE-1", "GOV-SEAL-2"],
-    [GCTS_CASES.LIFECYCLE_SPLIT_TRACKING]
+    ["GOV-TRANS-1", "GOV-STAGE-7", "GOV-TRANS-3", "GOV-TRANS-4", "GOV-BRANCH-1"],
+    [GCTS_CASES.LIFECYCLE_STATE_MACHINE]
   ),
-  ...coverMany(["GOV-BOUNDARY-5", "GOV-DEP-1", "GOV-STORE-3"], [GCTS_CASES.SEAMS_SMOKE]),
+  ...coverMany(
+    ["GOV-BRANCH-GATE-1", "GOV-BRANCH-GATE-5", "GOV-BRANCH-GATE-6", "GOV-BRANCH-GATE-7"],
+    [GCTS_CASES.LIFECYCLE_BRANCH_GATES]
+  ),
+  ...coverMany(["GOV-SEAL-2"], [GCTS_CASES.LIFECYCLE_FINALIZE_PURITY]),
+  ...coverMany(["GOV-BOUNDARY-5", "GOV-DEP-1", "GOV-STORE-3", "GOV-STORE-4"], [GCTS_CASES.SEAMS_NATIVE_SURFACE]),
 ] as const;
 
 export function caseTitle(caseId: string, description: string): string {

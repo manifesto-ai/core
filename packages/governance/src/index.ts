@@ -1,68 +1,58 @@
-/**
- * @manifesto-ai/governance
- *
- * ADR-014 governance compatibility surface.
- *
- * The current repository still implements governance behavior inside
- * `@manifesto-ai/world`. This package exposes a narrow, governance-oriented
- * surface so CTS can be built before the real split lands.
- */
+export type * from "./types.js";
 
 export {
-  ActorRegistry,
-  createActorRegistry,
-  ProposalQueue,
-  createProposalQueue,
+  INGRESS_STATUSES,
+  EXECUTION_STAGE_STATUSES,
+  TERMINAL_STATUSES,
+  DECISION_TRANSITION_TARGETS,
   isValidTransition,
   getValidTransitions,
-  isTerminalProposalStatus,
-  createProposal,
-  createDecisionRecord,
-  createExecutionKey,
-  defaultExecutionKeyPolicy,
-  createNoopWorldEventSink,
-  AutoApproveHandler,
-  createAutoApproveHandler,
-  PolicyRulesHandler,
-  createPolicyRulesHandler,
-  HITLHandler,
-  createHITLHandler,
-  TribunalHandler,
-  createTribunalHandler,
-  AuthorityEvaluator,
-  createAuthorityEvaluator,
-} from "@manifesto-ai/world";
+  isIngressStatus,
+  isExecutionStageStatus,
+  isTerminalStatus,
+  transitionCreatesDecisionRecord,
+} from "./state-machine.js";
+
+export {
+  InMemoryGovernanceStore,
+  createInMemoryGovernanceStore,
+} from "./store/in-memory-governance-store.js";
+
+export {
+  DefaultGovernanceService,
+  createGovernanceService,
+} from "./service/governance-service.js";
 
 export type {
-  ActorRef,
-  AuthorityRef,
-  AuthorityPolicy,
-  ActorAuthorityBinding,
-  Proposal,
-  ProposalId,
-  ProposalStatus,
-  ProposalTrace,
-  DecisionRecord,
-  DecisionId,
-  FinalDecision,
-  IntentInstance,
-  IntentScope,
-  WorldId,
-  ExecutionKey,
-  ExecutionKeyContext,
-  ExecutionKeyPolicy,
-  HostExecutionOptions,
-  HostExecutionResult,
-  HostExecutor,
-  WorldEventType,
-  WorldEvent,
-  WorldEventSink,
-  ProposalSubmittedEvent,
-  ProposalEvaluatingEvent,
-  ProposalDecidedEvent,
-  ProposalSupersededEvent,
-  ExecutionCompletedEvent,
-  ExecutionFailedEvent,
-  WorldCreatedEvent,
-  WorldForkedEvent,
-} from "@manifesto-ai/world";
+  AuthorityHandler,
+  HITLDecisionCallback,
+  HITLPendingState,
+} from "./authority/types.js";
+
+export {
+  AutoApproveHandler,
+  createAutoApproveHandler,
+} from "./authority/auto.js";
+
+export {
+  PolicyRulesHandler,
+  createPolicyRulesHandler,
+  type CustomConditionEvaluator,
+} from "./authority/policy.js";
+
+export {
+  HITLHandler,
+  createHITLHandler,
+  type HITLNotificationCallback,
+} from "./authority/hitl.js";
+
+export {
+  TribunalHandler,
+  createTribunalHandler,
+  type TribunalNotificationCallback,
+} from "./authority/tribunal.js";
+
+export {
+  AuthorityEvaluator,
+  createAuthorityEvaluator,
+} from "./authority/evaluator.js";

@@ -28,12 +28,23 @@ function registryMany(
 export const GOVERNANCE_COMPLIANCE_RULES: readonly GovernanceComplianceRule[] = [
   registry("GOV-TRANS-1", "blocking"),
   ...registryMany(
-    ["GOV-STAGE-7", "GOV-TRANS-3", "GOV-TRANS-4", "GOV-BRANCH-1", "GOV-BRANCH-GATE-1", "GOV-SEAL-2"],
-    "pending"
+    [
+      "GOV-STAGE-7",
+      "GOV-TRANS-3",
+      "GOV-TRANS-4",
+      "GOV-BRANCH-1",
+      "GOV-BRANCH-GATE-1",
+      "GOV-BRANCH-GATE-5",
+      "GOV-BRANCH-GATE-6",
+      "GOV-BRANCH-GATE-7",
+      "GOV-SEAL-2",
+    ],
+    "blocking"
   ),
   registry("GOV-BOUNDARY-5", "blocking"),
   registry("GOV-DEP-1", "informational"),
-  registry("GOV-STORE-3", "pending"),
+  registry("GOV-STORE-3", "blocking"),
+  registry("GOV-STORE-4", "blocking"),
 ] as const;
 
 export function getRuleOrThrow(ruleId: string): GovernanceComplianceRule {
