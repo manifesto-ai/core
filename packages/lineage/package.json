@@ -1,0 +1,49 @@
+{
+  "name": "@manifesto-ai/lineage",
+  "version": "0.1.0",
+  "description": "Manifesto Lineage - ADR-014 compliance scaffold backed by the legacy world implementation",
+  "author": "eggplantiny <eggplantiny@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manifesto-ai/core.git",
+    "directory": "packages/lineage"
+  },
+  "bugs": {
+    "url": "https://github.com/manifesto-ai/core/issues"
+  },
+  "homepage": "https://github.com/manifesto-ai/core/tree/main/packages/lineage#readme",
+  "keywords": [
+    "manifesto",
+    "lineage",
+    "world-protocol",
+    "dag",
+    "compliance"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@manifesto-ai/world": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.0"
+  },
+  "files": [
+    "dist"
+  ]
+}
