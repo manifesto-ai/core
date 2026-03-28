@@ -1,94 +1,94 @@
 # Manifesto Architecture
 
-> Source: Core SPEC v2.0.1, Core FDR v2.0.0, Host SPEC v2.0.2, World SPEC v2.0.3, SDK SPEC v0.1.0
-> Last synced: 2026-02-22
+> Source: `packages/core/docs/core-SPEC.md`, `packages/host/docs/host-SPEC.md`, `packages/sdk/docs/sdk-SPEC-v1.0.0.md`, current `packages/world/src/*`
+> Last synced: 2026-03-28
 
 ## Rules
 
-> **R1**: Core computes, Host executes. These concerns never mix. [FDR-001]
-> **R2**: Snapshot is the only medium of communication. If it's not in Snapshot, it doesn't exist. [FDR-002]
-> **R3**: There is no suspended execution context. All continuity is expressed through Snapshot. [FDR-003]
-> **R4**: Effects are declarations, not executions. Core declares; Host fulfills. [FDR-004]
-> **R5**: If you need a value, read it from Snapshot. There is no other place. [FDR-007]
-
-## The Constitution (7 Principles)
-
-```
-1. Core is a calculator, not an executor.
-2. Schema is the single source of truth.
-3. Snapshot is the only medium of communication.
-4. Effects are declarations, not executions.
-5. Errors are values, not exceptions.
-6. Everything is explainable.
-7. There is no suspended execution context.
-```
+> **R1**: Core computes, Host executes. These concerns never mix.
+> **R2**: Snapshot is the only medium of communication. If it's not in Snapshot, it doesn't exist.
+> **R3**: There is no suspended execution context. All continuity is expressed through Snapshot.
+> **R4**: Effects are declarations, not executions. Core declares; Host fulfills.
+> **R5**: If you need a value, read it from Snapshot. There is no other place.
 
 ## The Fundamental Equation
 
-```
-compute(schema, snapshot, intent, context) → (snapshot', requirements[], trace)
-```
-
-- **Pure**: Same input MUST always produce same output
-- **Total**: MUST always return a result (never throws)
-- **Traceable**: Every step MUST be recorded
-- If `requirements` is empty → computation complete
-- If `requirements` is non-empty → Host fulfills them, then calls `compute()` again
-
-## Data Flow
-
-```
-Actor submits Intent
-      ↓
-World Protocol (Proposal + Authority)
-      ↓
-Host (compute loop + effect execution)
-      ↓
-Core (pure computation)
-      ↓
-New Snapshot (via patches)
-      ↓
-New World (immutable)
+```typescript
+compute(schema, snapshot, intent, context) -> {
+  patches,
+  systemDelta,
+  trace,
+  status,
+}
 ```
 
-Information flows ONLY through Snapshot. No other channels exist.
+- **Pure**: Same input must produce the same result.
+- **Total**: Business logic failures are reported as values, not thrown.
+- **Traceable**: Compute returns a trace graph for explainability.
+- **Resumable via Snapshot**: Host applies `patches` + `systemDelta`, then re-enters `compute()` with the new snapshot.
+
+## Runtime Paths
+
+Two practical paths exist in the current repo:
+
+```text
+SDK-style app
+  createManifesto()
+    -> Host
+    -> Core
+```
+
+```text
+Governed path
+  Actor submits IntentInstance
+    -> World
+    -> HostExecutor
+    -> Host
+    -> Core
+    -> new World state + lineage records
+```
+
+The separate `@manifesto-ai/governance` and `@manifesto-ai/lineage` packages are not implemented code targets in this repo yet. They currently exist as split-design documentation only.
 
 ## Package Sovereignty
 
 | Package | Responsibility | MUST NOT |
 |---------|---------------|----------|
-| **Core** | Pure computation, expression evaluation, flow interpretation, patch generation, trace | IO, time, execution, know about Host/World |
-| **Host** | Effect execution, patch application, compute loop, requirement fulfillment | Make decisions, interpret semantics, suppress effects |
-| **World** | Proposal management, authority evaluation, decision recording, lineage | Execute effects, apply patches, compute transitions |
-| **Runtime** | Internal orchestration — 5-stage action pipeline, policy, memory, branches | Public API design, domain logic |
-| **SDK** | Public developer API — `createApp()`, hooks, typed ops. Delegates to Runtime | Contain domain logic, orchestration internals |
+| **Core** | Pure computation, expression evaluation, flow interpretation, patch generation, validation, explanation | IO, wall-clock access, effect execution, Host/World policy |
+| **Host** | Effect execution, patch application, compute loop orchestration, requirement fulfillment | Compute semantic meaning, suppress declared effects, make governance decisions |
+| **World** | Proposal lifecycle, authority evaluation, lineage DAG, persistence, governance event emission | Import `@manifesto-ai/host` directly, compute semantic meaning, apply Core patches itself |
+| **SDK** | Public app entrypoint (`createManifesto`), typed effect registration, `dispatchAsync`, typed patch helpers, selected re-exports | Invent semantics outside Core/Host/World public contracts |
 
-## Forbidden Import Matrix
+## Current `world` Note
 
-| Package | MUST NOT Import |
-|---------|----------------|
-| core | host, world |
-| host | world governance |
-| world | host internals, core compute |
-| runtime | SDK public surface |
-| sdk | core internals, host internals, world internals |
+In this repo's implementation, `@manifesto-ai/world` is still the active monolithic package for:
+
+- actor registry
+- proposal queue and state machine
+- authority handlers and evaluation
+- lineage DAG helpers
+- persistence interfaces and in-memory store
+- governance event emission
+- `HostExecutor` boundary
+
+ADR-014 split docs are useful for future direction, but not the current implementation baseline for code changes.
 
 ## Snapshot Structure
 
 ```typescript
 type Snapshot = {
-  data: TData;                    // Domain state (+ platform namespaces $host, $mel)
-  computed: Record<string, unknown>; // Derived values (always recalculated)
+  data: unknown;
+  computed: Record<string, unknown>;
   system: {
-    status: 'idle' | 'computing' | 'pending' | 'error';
+    status: "idle" | "computing" | "pending" | "error";
     lastError: ErrorValue | null;
-    errors: readonly ErrorValue[];
-    pendingRequirements: readonly Requirement[];
+    errors: ErrorValue[];
+    pendingRequirements: Requirement[];
     currentAction: string | null;
   };
-  input: unknown;                 // Transient action input
+  input: unknown;
   meta: {
-    version: number;              // Monotonically increasing
+    version: number;
     timestamp: number;
     randomSeed: string;
     schemaHash: string;
@@ -96,63 +96,35 @@ type Snapshot = {
 };
 ```
 
+## Compute / Apply Cycle
+
+```text
+Host calls compute(schema, snapshot, intent, context)
+  -> Core returns patches + systemDelta + trace + status
+  -> Host applies patches
+  -> Host applies systemDelta
+  -> If status is pending, Host fulfills requirements and calls compute() again
+```
+
+Each `compute()` call is complete and independent. Continuity lives in the snapshot, not in hidden runtime state.
+
 ## Platform Namespaces
 
-- `$host` — Host-owned internal state (intent slots, execution context). Excluded from hash.
-- `$mel` — Compiler-owned guard state (`$mel.guards.*`). Excluded from hash.
-- `$system.*` — System values (uuid, time.now). Lowered to effects by compiler.
-- Domain schemas MUST NOT define `$`-prefixed fields.
-
-## Computation Cycle
-
-```
-Host calls compute(schema, snapshot, intent, context)
-  → Core evaluates Flow until:
-    - Flow completes (requirements=[]) → DONE
-    - Effect encountered (requirements=[...]) → Host executes effects, applies patches, calls compute() AGAIN
-    - Error occurs → error recorded in Snapshot
-```
-
-Each `compute()` is complete and independent. There is no "resume".
-
-## Antipatterns
-
-### Intelligent Host
-```typescript
-// FORBIDDEN — Host making decisions
-if (shouldSkipEffect(req)) { return []; }
-
-// Host MUST execute or report failure, never decide
-```
-
-### Value Passing Outside Snapshot
-```typescript
-// FORBIDDEN
-const result = await executeEffect();
-core.compute(schema, snapshot, { ...intent, result });
-
-// CORRECT — Effect returns patches → Host applies → Core reads from Snapshot
-```
-
-### Execution-Aware Core
-```typescript
-// FORBIDDEN — Core cannot know about execution
-if (effectExecutionSucceeded) { ... }
-
-// CORRECT — Core reads state
-if (snapshot.data.syncStatus === 'success') { ... }
-```
+- `$host` is Host-owned internal state.
+- `$mel` is compiler-owned guard state.
+- `$system.*` values are surfaced in MEL and lowered through platform mechanics.
+- Domain schemas must not define `$`-prefixed fields.
 
 ## Why
 
-Separation of concerns enables:
-- **Determinism**: Core testable without mocks (same input → same output)
-- **Auditability**: World tracks all governance decisions with lineage
-- **Portability**: Host swappable per environment (browser/server/edge/WASM)
-- **Reproducibility**: Snapshot serialization enables time-travel debugging
+- **Determinism**: Core can be tested without mocks.
+- **Auditability**: World records proposal and decision lineage.
+- **Portability**: Host remains the execution seam.
+- **Clarity**: SDK is the public app-facing layer, while World is optional governance/orchestration around Host.
 
 ## Cross-References
 
-- MEL syntax: @knowledge/mel-patterns.md
-- Effect handlers: @knowledge/effect-patterns.md
-- Patch operations: @knowledge/patch-rules.md
+- MEL syntax: `@knowledge/mel-patterns.md`
+- Effect handlers: `@knowledge/effect-patterns.md`
+- Patch operations: `@knowledge/patch-rules.md`
+- World package API: `@knowledge/packages/world.md`

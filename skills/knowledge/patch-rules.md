@@ -1,42 +1,85 @@
 # Patch Rules
 
-> Source: Core SPEC v2.0.1 §13.3-14, Core FDR v2.0.0 FDR-012
-> Last synced: 2026-02-09
+> Source: `packages/core/docs/core-SPEC.md`, `packages/core/src/schema/patch.ts`, `packages/core/src/core/apply.ts`
+> Last synced: 2026-03-28
 
 ## Rules
 
-> **R1**: Only three patch operations exist: `set`, `unset`, `merge`. [Core SPEC §8.4.3]
-> **R2**: All state changes MUST go through `apply(schema, snapshot, patches)`. [Core SPEC §13.3]
-> **R3**: Patches create a new Snapshot. The old Snapshot is unchanged (immutable). [Core SPEC §13.3]
-> **R4**: `version` MUST be incremented on every change. [Core SPEC §13.3]
-> **R5**: Patch paths MUST be statically resolvable. Dynamic paths require two-step pattern. [Core SPEC §8.4.3]
+> **R1**: Only three patch operations exist: `set`, `unset`, `merge`.
+> **R2**: Patch targets use structured `PatchPath` segments rooted at `snapshot.data`.
+> **R3**: All state changes go through `apply(schema, snapshot, patches, context)`.
+> **R4**: `apply()` returns a new snapshot, recomputes computed values, and increments `meta.version`.
+> **R5**: Dynamic keys are allowed only after they have been fixed into snapshot state or lowered by compiler/platform mechanics.
+
+## Current Core Shape
+
+```typescript
+type PatchSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "index"; index: number };
+
+type PatchPath = PatchSegment[];
+
+type Patch =
+  | { op: "set"; path: PatchPath; value: unknown }
+  | { op: "unset"; path: PatchPath }
+  | { op: "merge"; path: PatchPath; value: Record<string, unknown> };
+```
+
+Paths are not string literals in the current Core API.
 
 ## The Three Operations
 
-### `set` — Replace value at path (create if missing)
+### `set`
 
 ```typescript
-{ op: 'set', path: 'data.count', value: 5 }
-{ op: 'set', path: 'data.todos.abc123.completed', value: true }
-{ op: 'set', path: 'data.items', value: [1, 2, 3] }
+{
+  op: "set",
+  path: [{ kind: "prop", name: "count" }],
+  value: 5,
+}
+{
+  op: "set",
+  path: [
+    { kind: "prop", name: "todos" },
+    { kind: "prop", name: "abc123" },
+    { kind: "prop", name: "completed" },
+  ],
+  value: true,
+}
 ```
 
-### `unset` — Remove property at path
+### `unset`
 
 ```typescript
-{ op: 'unset', path: 'data.tempFlag' }
-{ op: 'unset', path: 'data.todos.abc123' }
+{
+  op: "unset",
+  path: [{ kind: "prop", name: "tempFlag" }],
+}
+{
+  op: "unset",
+  path: [
+    { kind: "prop", name: "todos" },
+    { kind: "prop", name: "abc123" },
+  ],
+}
 ```
 
-### `merge` — Shallow merge object at path
+### `merge`
 
 ```typescript
-{ op: 'merge', path: 'data.user', value: { lastSeen: '2026-02-09' } }
+{
+  op: "merge",
+  path: [
+    { kind: "prop", name: "user" },
+  ],
+  value: { lastSeen: "2026-03-28" },
+}
 ```
 
-**Warning: Shallow only.** Nested objects are replaced, not recursively merged. For nested updates, use multiple `set` patches.
+`merge` is shallow only. Nested objects are replaced, not recursively merged.
 
-If merge target is absent, treated as `{}`. If merge target is non-object, runtime validation failure.
+If merge target is absent, Core treats it as `{}`. If target is non-object, `apply()` records a validation error.
 
 ## MEL Patch Syntax
 
@@ -52,24 +95,26 @@ patch tasks[id] unset
 // merge (only via effect results or explicit merge op)
 ```
 
-## Dynamic Path Pattern
+MEL is lowered into structured `PatchPath` segments by the compiler/runtime pipeline.
 
-Patch paths must be static at apply-time. For dynamic keys:
+## Dynamic Key Pattern
+
+If a key is dynamic, fix it into snapshot state first and then patch through that stored value:
 
 ```mel
-// Step 1: Fix the dynamic value to Snapshot
+// Step 1: materialize the identifier
 once(creating) {
   patch creating = $meta.intentId
-  patch newItemId = $system.uuid    // UUID now in Snapshot
+  patch newItemId = $system.uuid
 }
 
-// Step 2: Use the fixed value
+// Step 2: patch through the stored key
 when isNotNull(newItemId) {
   patch items[newItemId] = { id: newItemId, title: title }
 }
 ```
 
-Compiler handles the lowering. `$system.uuid` becomes an effect that writes the value to a state slot.
+The important rule is that continuity lives in snapshot state, not in hidden runtime variables.
 
 ## Antipatterns
 
@@ -81,21 +126,46 @@ snapshot.data.count = 5;
 snapshot.meta.version++;
 
 // CORRECT
-const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'data.count', value: 5 }
-]);
+const newSnapshot = core.apply(
+  schema,
+  snapshot,
+  [
+    {
+      op: "set",
+      path: [{ kind: "prop", name: "count" }],
+      value: 5,
+    },
+  ],
+  context,
+);
 ```
 
 ### Deep Merge Assumption
 
 ```typescript
 // WRONG — merge is shallow, nested objects replaced entirely
-{ op: 'merge', path: 'data', value: { user: { name: 'X', settings: { theme: 'dark' } } } }
+{
+  op: "merge",
+  path: [{ kind: "prop", name: "user" }],
+  value: { name: "X", settings: { theme: "dark" } },
+}
 
 // CORRECT — multiple set patches for nested paths
 [
-  { op: 'set', path: 'data.user.name', value: 'X' },
-  { op: 'set', path: 'data.user.settings.theme', value: 'dark' }
+  {
+    op: "set",
+    path: [{ kind: "prop", name: "user" }, { kind: "prop", name: "name" }],
+    value: "X",
+  },
+  {
+    op: "set",
+    path: [
+      { kind: "prop", name: "user" },
+      { kind: "prop", name: "settings" },
+      { kind: "prop", name: "theme" },
+    ],
+    value: "dark",
+  },
 ]
 ```
 
@@ -107,7 +177,20 @@ snapshot.data.todos.push(newTodo);
 
 // CORRECT — set entire new array
 const newTodos = [...snapshot.data.todos, newTodo];
-[{ op: 'set', path: 'data.todos', value: newTodos }]
+[
+  {
+    op: "set",
+    path: [{ kind: "prop", name: "todos" }],
+    value: newTodos,
+  },
+]
+```
+
+### String paths in current Core-facing code
+
+```typescript
+// Avoid this in current Core APIs
+{ op: "set", path: "data.count", value: 1 }
 ```
 
 ### Unguarded Patch in MEL
@@ -128,14 +211,12 @@ action increment() {
 
 ## Why
 
-**Three operations are enough.** Complexity is composed, not built-in. [FDR-012]
-
-**Immutability.** Snapshots are time-travel points. Mutation breaks determinism and reproducibility.
-
-**Version tracking.** Monotonic version enables conflict detection and audit trails.
+- **Three operations are enough.** Complexity is composed, not built-in.
+- **Immutability matters.** Snapshots are durable time-travel points.
+- **Structured paths matter.** They preserve validation and typed lowering boundaries.
 
 ## Cross-References
 
-- Snapshot structure: @knowledge/architecture.md
-- Effect handlers return patches: @knowledge/effect-patterns.md
-- MEL patch syntax: @knowledge/mel-patterns.md
+- Snapshot structure: `@knowledge/architecture.md`
+- Effect handlers return patches: `@knowledge/effect-patterns.md`
+- MEL patch syntax: `@knowledge/mel-patterns.md`

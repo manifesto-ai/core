@@ -21,6 +21,18 @@ This guide is for developers using Claude Code agents to work with the Manifesto
 
 **When to read AGENTS.md:** If you are a developer using Claude Code agents to work with Manifesto.
 
+## Tooling Setup
+
+If you want Codex to load Manifesto-specific guidance in another project:
+
+1. Install `@manifesto-ai/skills` as a dev dependency
+2. Run `npm exec manifesto-skills install-codex` or `pnpm exec manifesto-skills install-codex`
+3. Restart Codex
+
+This setup is explicit. `@manifesto-ai/skills` does not auto-register itself from `postinstall`.
+
+For the full walkthrough, see [docs/guides/codex-skills.md](docs/guides/codex-skills.md).
+
 ---
 
 ## Quick Reference: Constitutional Constraints

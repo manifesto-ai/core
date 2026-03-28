@@ -1,15 +1,15 @@
-# @manifesto-ai/compiler v1.6.0
+# @manifesto-ai/compiler
 
-> MEL (Manifesto Expression Language) compiler. Lexer → Parser → Analyzer → Generator → Lowering.
+> MEL (Manifesto Expression Language) compiler. Lexer -> Parser -> Analyzer -> Generator -> Lowering.
 
 ## Role
 
-Compiles MEL source to DomainSchema. Provides evaluation engine for expressions and patches at runtime.
+Compiles MEL source to `DomainSchema`. Also exposes evaluation, lowering, rendering, and bundler integration helpers.
 
 ## Dependencies
 
-- Peer: `@manifesto-ai/core` ^2.0.0, `zod` ^4.3.6
-- Optional peers: `vite`, `webpack` (for loader integrations)
+- Peer: `@manifesto-ai/core`, `zod`
+- Optional peers and integrations: `vite`, `webpack`, `openai`, `@anthropic-ai/sdk`, `@manifesto-ai/codegen`
 
 ## Public API
 
@@ -18,93 +18,28 @@ Compiles MEL source to DomainSchema. Provides evaluation engine for expressions 
 ```typescript
 compileMelDomain(melText: string, options?): CompileMelDomainResult
 compileMelPatch(melText: string, options): CompileMelPatchResult
+compile(source: string, options?): CompileResult
+parseSource(source: string): ParseResult
+check(source: string): Diagnostic[]
 ```
 
-```typescript
-interface CompileMelDomainResult {
-  schema: DomainSchema | null;
-  trace: CompileTrace[];
-  warnings: Diagnostic[];
-  errors: Diagnostic[];
-}
+### Pipeline
+
+```text
+MEL text -> Lexer -> Parser -> Analyzer -> Generator -> Lowering
 ```
 
-### Pipeline Stages
+### Bundler integrations
 
-```
-MEL text → Lexer(tokens) → Parser(AST) → Analyzer(validated) → Generator(DomainSchema+IR) → Lowering(CoreIR)
-```
+- `@manifesto-ai/compiler/vite`
+- `@manifesto-ai/compiler/webpack`
+- `@manifesto-ai/compiler/rollup`
+- `@manifesto-ai/compiler/esbuild`
+- `@manifesto-ai/compiler/rspack`
+- `@manifesto-ai/compiler/node-loader`
+- `@manifesto-ai/compiler/loader` (Node loader compatibility path)
 
-### Lexer
+## Notes
 
-```typescript
-tokenize(source: string): LexResult
-// LexResult = { tokens: Token[]; diagnostics: Diagnostic[] }
-```
-
-### Parser
-
-```typescript
-parse(tokens: Token[]): ParseResult
-// ParseResult = { program: ProgramNode | null; diagnostics: Diagnostic[] }
-```
-
-### Generator
-
-```typescript
-generate(ast: ProgramNode): { schema: DomainSchema | null; diagnostics: Diagnostic[] }
-```
-
-### Lowering (MEL IR → Core IR)
-
-```typescript
-lowerExprNode(input: MelExprNode, ctx): CoreExprNode
-lowerPatchFragments(patches: MelPatchFragment[], ctx): LoweredPatchOp[]
-lowerRuntimePatches(patches: MelRuntimePatch[], ctx?): RuntimeConditionalPatchOp[]
-```
-
-### Evaluation (Runtime)
-
-```typescript
-evaluateExpr(expr: CoreExprNode, ctx: EvaluationContext): unknown
-evaluateCondition(cond: CoreExprNode, ctx): boolean
-evaluateRuntimePatches(patches, ctx): { applied: Patch[]; skipped: SkippedRuntimePatch[] }
-```
-
-### Renderer (IR → MEL text)
-
-```typescript
-renderExprNode(expr): string
-renderPatchOp(op, options?): string
-renderAsDomain(domainName, fragments, options?): string
-```
-
-### Bundler Integration (unplugin)
-
-All bundler plugins are powered by [unplugin](https://github.com/unjs/unplugin) — one implementation, every bundler:
-
-- `@manifesto-ai/compiler/vite` — Vite
-- `@manifesto-ai/compiler/webpack` — Webpack / Next.js
-- `@manifesto-ai/compiler/rollup` — Rollup
-- `@manifesto-ai/compiler/esbuild` — esbuild
-- `@manifesto-ai/compiler/rspack` — Rspack
-- `@manifesto-ai/compiler/node-loader` — Node ESM loader hooks
-
-## Core IR Types
-
-```typescript
-type CoreExprNode = { kind: 'lit' | 'get' | 'eq' | 'add' | ... ; ... }
-type CoreFlowNode = { kind: 'seq' | 'if' | 'patch' | 'effect' | 'call' | 'halt' | 'fail'; ... }
-```
-
-## Diagnostics
-
-```typescript
-type Diagnostic = {
-  severity: 'error' | 'warning' | 'info';
-  code: string;
-  message: string;
-  location: SourceLocation;
-  suggestion?: string;
-};
-```
+- Current spec baseline is `packages/compiler/docs/SPEC-v0.7.0.md`.
+- FDR baseline remains `packages/compiler/docs/FDR-v0.5.0.md`.

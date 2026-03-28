@@ -1,73 +1,73 @@
 # Manifesto LLM Knowledge Pack Index
 
-Purpose: Provide a stable map of authoritative sources (SPEC, FDR, ADR) for LLM consumption.
+Purpose: provide a stable map of sources that match the current repo layout.
 
 ## Normative hierarchy
-1) SPEC (highest authority)
-2) FDR (design rationale; must not contradict SPEC)
-3) ADR (architectural decisions; must not contradict SPEC/FDR)
-4) Guides/README (lowest authority)
+1) SPEC
+2) FDR
+3) ADR
+4) Guides / README
 
-## How to read patch documents
-If a SPEC/FDR is published as a patch:
-- Read the base document first
-- Apply the patch document in order
-- The composed document is the authoritative version
+When implementation and future-design docs diverge, use the implemented package surface for coding tasks.
 
-## Latest SPECs (authoritative)
-Core packages:
-- Core v2.0.1 (base + patch)
-  - `packages/core/docs/SPEC-v2.0.0.md`
-  - `packages/core/docs/SPEC-v2.0.1-patch.md`
-- Host v2.0.2 (full)
-  - `packages/host/docs/host-SPEC-v2.0.2.md`
-- World v2.0.3 (full)
-  - `packages/world/docs/world-SPEC-v2.0.3.md`
+## Current code-writing sources
 
-Application layer:
-- SDK v0.1.0 (kickoff-locked spec baseline)
-  - `packages/sdk/docs/sdk-SPEC-v0.1.0.md`
-- Runtime v0.1.0 (kickoff-locked spec baseline)
-  - `packages/runtime/docs/runtime-SPEC-v0.1.0.md`
-- Compiler (MEL) v0.5.0 (full)
-  - `packages/compiler/docs/SPEC-v0.5.0.md`
+### Core
+- `packages/core/docs/core-SPEC.md`
+- `packages/core/docs/VERSION-INDEX.md`
+- `packages/core/src/index.ts`
 
-## ADRs (authoritative decisions)
-Global ADRs:
-- ADR-006: Runtime reframing
-  - `docs/internals/adr/006-runtime-reframing.md`
-- ADR-007: SDK/Runtime split kickoff
-  - `docs/internals/adr/007-sdk-runtime-split-kickoff.md`
-- ADR-008: SDK-first entry + app retirement
-  - `docs/internals/adr/008-sdk-first-transition-and-app-retirement.md`
+### Host
+- `packages/host/docs/host-SPEC.md`
+- `packages/host/docs/VERSION-INDEX.md`
+- `packages/host/src/index.ts`
 
-## FDRs (design rationale)
-Core:
-- `packages/core/docs/FDR-v2.0.0.md`
+### World
+- `packages/world/src/index.ts`
+- `packages/world/src/world.ts`
+- `packages/world/docs/VERSION-INDEX.md`
+- `packages/world/docs/world-SPEC.md`
 
-Host:
-- `packages/host/docs/host-FDR-v2.0.2.md`
+Note: current repo code still implements world concerns in `@manifesto-ai/world`.
 
-World:
-- `packages/world/docs/world-FDR-v2.0.2.md`
-- `packages/world/docs/WORLD-EVENT-FDR-v1.0.0.md`
+### SDK
+- `packages/sdk/docs/sdk-SPEC-v1.0.0.md`
+- `packages/sdk/docs/VERSION-INDEX.md`
+- `packages/sdk/src/index.ts`
+- `packages/sdk/src/types.ts`
+- `packages/sdk/src/create-manifesto.ts`
 
-Compiler:
-- `packages/compiler/docs/FDR-v0.5.0.md`
+### Compiler
+- `packages/compiler/docs/SPEC-v0.7.0.md`
+- `packages/compiler/docs/VERSION-INDEX.md`
+- `packages/compiler/src/index.ts`
 
-## Supporting indexes
-- Global spec index: `docs/internals/spec/index.md`
-- Package version indexes:
-  - `packages/core/docs/VERSION-INDEX.md`
-  - `packages/host/docs/VERSION-INDEX.md`
-  - `packages/world/docs/VERSION-INDEX.md`
-  - `packages/sdk/docs/VERSION-INDEX.md`
-  - `packages/runtime/docs/VERSION-INDEX.md`
-  - `packages/compiler/docs/VERSION-INDEX.md`
+### Codegen
+- `packages/codegen/docs/SPEC-v0.1.1.md`
+- `packages/codegen/docs/VERSION-INDEX.md`
+
+## Future-split / design-only references
+
+These are useful design docs, but they are not backed by separate code packages in this repo yet:
+
+- `packages/governance/docs/governance-SPEC-1.0.0v.md`
+- `packages/governance/docs/VERSION-INDEX.md`
+- `packages/lineage/docs/lineage-SPEC-1.0.1v.md`
+- `packages/lineage/docs/VERSION-INDEX.md`
+- `packages/world/docs/world-facade-spec-v1.0.0.md`
+
+Use them for ADR-014 direction, not as the primary basis for current code changes.
+
+## ADRs
+
+- ADR-002: `onceIntent` + `$mel` namespace
+- ADR-010: protocol-first SDK reconstruction
+- ADR-014: split world protocol
 
 ## Legacy note
-The former app compatibility facade was removed in R2. Retirement record:
-- `docs/api/app.md`
+
+Older application-layer docs and migration notes may still exist for historical context. They are not part of the current routing baseline for new code changes.
 
 ## Archives
-Historical docs live under `archives/`. Treat these as non-authoritative unless explicitly requested.
+
+Historical docs under `archive/` remain useful for archaeology, but they are not the primary source for new code unless a task explicitly targets historical behavior.

@@ -15,6 +15,8 @@ An AI agent should not mutate state directly. It should produce intent candidate
 
 That keeps humans, agents, and automation on one state model.
 
+If you use Codex and want Manifesto-specific guidance loaded into the agent session, install [`@manifesto-ai/skills`](/guides/codex-skills) separately and run its explicit Codex setup command.
+
 ---
 
 ## A Small Pattern
@@ -133,5 +135,6 @@ The agent should reason from Snapshot, not from a private memory of what it thin
 
 ## Next
 
+- Read [Codex Skills Setup](/guides/codex-skills) if you want Codex to load Manifesto-specific guidance
 - Read [React](./react) to connect the same instance to a UI
 - Read [Architecture](/architecture/) when you want the bigger system model

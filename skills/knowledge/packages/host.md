@@ -1,14 +1,10 @@
-# @manifesto-ai/host v2.3.0
+# @manifesto-ai/host
 
 > Effect execution runtime. Implements Mailbox + Runner + Job architecture.
 
 ## Role
 
-Host executes effects, applies patches, orchestrates compute loop. MUST NOT make decisions or interpret semantics.
-
-## Dependencies
-
-- Peer: `@manifesto-ai/core` ^2.0.0
+Host executes effects, applies patches, orchestrates the compute loop, and fulfills requirements. It must not compute semantic meaning or make governance decisions.
 
 ## Public API
 
@@ -25,7 +21,7 @@ const host = createHost(schema, effectHandlers, {
 });
 ```
 
-### ManifestoHost (class)
+### `ManifestoHost`
 
 ```typescript
 class ManifestoHost {
@@ -42,102 +38,34 @@ class ManifestoHost {
 }
 ```
 
-### HostOptions
-
-```typescript
-interface HostOptions {
-  maxIterations?: number;      // Default: 100
-  initialData?: unknown;
-  runtime?: Runtime;
-  env?: Record<string, unknown>;
-  onTrace?: (event: TraceEvent) => void;
-  disableAutoEffect?: boolean; // HCTS testing
-}
-```
-
-### HostResult
-
-```typescript
-interface HostResult {
-  status: 'complete' | 'pending' | 'error';
-  snapshot: Snapshot;
-  traces: TraceGraph[];
-  error?: HostError;
-}
-```
-
-## Effect Handler (Host-level)
+## Effect handler contract
 
 ```typescript
 type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
-  context: EffectContext
+  context: EffectContext,
 ) => Promise<Patch[]>;
 ```
 
-Note: App wraps this into `(params, ctx)` signature for developer convenience.
-
-Handlers MUST return `Patch[]`, MUST NOT throw, MUST NOT contain domain logic.
+SDK wraps this Host-level contract into the simpler `(params, ctx)` developer-facing signature.
 
 ## Execution Model
 
-### Architecture
+- **Mailbox**: FIFO queue of jobs per execution key
+- **Runner**: single-writer execution loop
+- **Jobs**: `StartIntent`, `ContinueCompute`, `FulfillEffect`, `ApplyPatches`
 
-- **Mailbox** → FIFO queue of Jobs per ExecutionKey
-- **Runner** → Single-writer per key, lost-wakeup prevention
-- **Jobs** → `StartIntent` | `ContinueCompute` | `FulfillEffect` | `ApplyPatches`
+## Common exports
 
-### Mailbox & Runner Functions
+- mailbox helpers
+- runner helpers
+- context provider helpers
+- job handlers
+- effect registry and executor
+- Host error helpers
 
-```typescript
-createMailbox(): ExecutionMailbox
-createMailboxManager(): MailboxManager
-createRunnerState(): RunnerState
-processMailbox(mailbox, runner, handler): Promise<void>
-kickRunner(mailbox, runner, handler): void
-enqueueAndKick(mailbox, runner, job, handler): void
-isRunnerActive(runner): boolean
-```
+## Notes
 
-### Effect Registry & Executor
-
-```typescript
-createEffectRegistry(): EffectHandlerRegistry
-createEffectExecutor(registry, options?): EffectExecutor
-```
-
-### Job Handlers
-
-```typescript
-runJob(job, context): Promise<void>
-handleStartIntent(job, context): Promise<void>
-handleContinueCompute(job, context): Promise<void>
-handleFulfillEffect(job, context): Promise<void>
-handleApplyPatches(job, context): Promise<void>
-```
-
-### Host Context
-
-```typescript
-createHostContextProvider(options): HostContextProvider
-createTestHostContextProvider(): HostContextProvider    // For testing
-```
-
-## Execution Flow
-
-```
-dispatch(intent)
-  → enqueue StartIntentJob
-  → Runner processes: compute → requirements? → dispatch effects
-  → effect results → FulfillEffectJob → apply patches → ContinueComputeJob
-  → repeat until requirements=[] or maxIterations
-```
-
-## Trace Events
-
-`runner:kick`, `runner:start`, `runner:end`, `job:start`, `job:end`, `core:compute`, `core:apply`, `effect:dispatch`, `effect:fulfill:apply`, `effect:fulfill:drop`, `fatal:escalate`
-
-## Error Codes
-
-`UNKNOWN_EFFECT_TYPE`, `EFFECT_TIMEOUT`, `EFFECT_EXECUTION_FAILED`, `EFFECT_HANDLER_ERROR`, `STORE_ERROR`, `LOOP_MAX_ITERATIONS`, `INVALID_STATE`, `HOST_NOT_INITIALIZED`
+- Host is the execution seam between Core and the outside world.
+- `@manifesto-ai/world` defines a `HostExecutor` boundary so World does not import Host directly.
