@@ -6,7 +6,7 @@
 > **Scope:** `@manifesto-ai/world` — Composition Facade for Governance + Lineage
 > **Compatible with:** Lineage SPEC v1.0.1, Governance SPEC v1.0.0
 > **Requires SDK SPEC patch:** SDK SPEC v1.0.0 references `WorldStore`; a patch (v1.0.1+) is required to align with `CommitCapableWorldStore` (see §12.3)
-> **Implements:** ADR-014 D7 (Facade), D11 (Storage Seam — Composite), D14 (Commit Coordinator)
+> **Implements:** ADR-014 D7 (Facade), D11.3 (Storage Seam — Composite), D14 (Commit Coordinator)
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
@@ -689,7 +689,7 @@ An implementation claiming compliance with **Manifesto World Facade v1.0.0** MUS
 
 | ADR | Scope |
 |-----|-------|
-| ADR-014 | World split — D7 (facade), D11 (storage seam), D14 (commit coordinator) |
+| ADR-014 | World split — D7 (facade), D11.3 (storage seam), D14 (commit coordinator) |
 | ADR-010 | Protocol-First SDK Reconstruction |
 | ADR-001 | Layer Separation |
 
