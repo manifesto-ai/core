@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/manifesto-ai/core/compare/skills-v0.2.0...skills-v0.2.1) (2026-03-28)
+
+
+### Features
+
+* **skills:** add explicit codex setup flow ([#307](https://github.com/manifesto-ai/core/issues/307)) ([0f6f6eb](https://github.com/manifesto-ai/core/commit/0f6f6eb1b8ed826723c9c386c7dcaced8e3b32d4))
+
 ## [0.2.0](https://github.com/manifesto-ai/core/compare/skills-v0.1.1...skills-v0.2.0) (2026-03-25)
 
 ### Breaking Changes
