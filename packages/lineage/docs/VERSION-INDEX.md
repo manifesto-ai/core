@@ -7,10 +7,11 @@
 
 ## Current Specification
 
-- **SPEC (Living Document):** [lineage-SPEC-1.0.0v.md](lineage-SPEC-1.0.0v.md) — Normative, current through v1.0.0
+- **SPEC (Living Document):** [lineage-SPEC-1.0.1v.md](lineage-SPEC-1.0.1v.md) — Normative, current through v1.0.1
   - Initial continuity-engine extraction from World SPEC per ADR-014
+  - Patch clarifies public branch epoch reads and adds targeted branch lookup to `LineageService`
   - Defines deterministic identity, seal protocol, branch/head model, persistence, replay, and resume
-  - Governance split companion spec is still pending
+  - Governance companion spec now exists in `@manifesto-ai/governance`
 
 ---
 
@@ -18,13 +19,14 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
-| v1.0.0 | [SPEC](lineage-SPEC-1.0.0v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial protocol extraction | Current |
+| v1.0.1 | [SPEC](lineage-SPEC-1.0.1v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Patch release (`BranchInfo.epoch`, `getBranch()`, epoch-read contract) | Current |
+| v1.0.0 | [SPEC](lineage-SPEC-1.0.0v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial protocol extraction | Superseded by v1.0.1 |
 
 ---
 
 ## Reading Guide
 
-1. Read [lineage-SPEC-1.0.0v.md](lineage-SPEC-1.0.0v.md).
+1. Read [lineage-SPEC-1.0.1v.md](lineage-SPEC-1.0.1v.md).
 2. For split rationale and package-boundary rules, read [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md).
 3. For the staged compatibility-facade context during transition, see [World VERSION-INDEX](../../world/docs/VERSION-INDEX.md).
 
@@ -34,4 +36,4 @@
 
 - There are no archived Lineage SPEC or FDR documents yet.
 - During the staged ADR-014 transition, `@manifesto-ai/world` remains the active compatibility facade.
-- Governance rules remain anchored in World documentation until a separate Governance living SPEC is published.
+- Governance now has its own living SPEC in [../../governance/docs/VERSION-INDEX.md](../../governance/docs/VERSION-INDEX.md); World remains the facade anchor during transition.

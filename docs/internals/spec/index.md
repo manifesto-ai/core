@@ -22,9 +22,10 @@ If you want the governing documentation rules, see [Documentation Governance](..
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.0v.md) (v1.0.0) | Normative (ADR-014 continuity extraction) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.1v.md) (v1.0.1) | Normative (ADR-014 continuity extraction) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) (v1.0.0) | Normative (ADR-014 legitimacy extraction) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 
-> **ADR-014 Transition State:** `@manifesto-ai/lineage` now has its own living SPEC for the continuity engine. `@manifesto-ai/world` remains the canonical source for the active compatibility facade and for governance rules until the Governance SPEC lands and the split is fully implemented.
+> **ADR-014 Transition State:** `@manifesto-ai/lineage` and `@manifesto-ai/governance` now have their own living SPECs for the split protocol. `@manifesto-ai/world` remains the canonical source for the active compatibility facade while the split implementation is still in progress.
 
 ### Application Layer
 
@@ -71,9 +72,15 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ### Lineage
 
-- **Lineage SPEC** — [lineage-SPEC-1.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.0v.md) (Living Document, current through v1.0.0)
+- **Lineage SPEC** — [lineage-SPEC-1.0.1v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.1v.md) (Living Document, current through v1.0.1)
   - Initial continuity-engine extraction from World per ADR-014
   - Defines identity, seal, branch/head, persistence, replay, and resume rules
+
+### Governance
+
+- **Governance SPEC** — [governance-SPEC-1.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) (Living Document, current through v1.0.0)
+  - Initial legitimacy-engine extraction from World per ADR-014
+  - Defines actor/authority, proposal lifecycle, single-writer gate, seal coordination, events, and governance persistence
 
 ### SDK
 
@@ -95,8 +102,9 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 03-28 | Lineage | v1.0.0 | Initial Lineage living SPEC extracted from World per ADR-014; package version index created |
-| 03-28 | ADR/Docs | — | Living SPEC hub updated for staged ADR-014 transition: Lineage is split out, World remains canonical for governance and facade behavior |
+| 03-28 | Governance | v1.0.0 | Initial Governance living SPEC extracted from World per ADR-014; package version index created |
+| 03-28 | Lineage | v1.0.1 | Patch release of the Lineage living SPEC: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
+| 03-28 | ADR/Docs | — | Living SPEC hub updated for staged ADR-014 transition: Lineage and Governance are split out, World remains canonical for facade behavior |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
 | 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
@@ -124,7 +132,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ## Living Documents
 
-Core, Host, World, and Lineage SPECs are maintained as **Living Documents** when a package has entered the living-document model — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Previous versioned or patch documents are preserved in `archive/` subdirectories within each package's `docs/` folder where applicable.
+Core, Host, World, Lineage, and Governance SPECs are maintained as **Living Documents** when a package has entered the living-document model — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Previous versioned or patch documents are preserved in `archive/` subdirectories within each package's `docs/` folder where applicable.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history

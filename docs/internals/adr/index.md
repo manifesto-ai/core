@@ -89,9 +89,9 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-014 Companion Notes
 
 - ADR-014 is an accepted protocol split of `@manifesto-ai/world` into `@manifesto-ai/governance` and `@manifesto-ai/lineage`.
-- [Lineage SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.0v.md) now exists as the canonical continuity-engine document.
-- During the staged transition, [World SPEC](../spec/#world) remains the canonical source for governance rules and compatibility-facade behavior.
-- Governance should be added to the living SPEC hub when its own living document exists.
+- [Lineage SPEC v1.0.1](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.1v.md) now exists as the canonical continuity-engine document.
+- [Governance SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) now exists as the canonical legitimacy-engine document.
+- During the staged transition, [World SPEC](../spec/#world) remains the canonical source for compatibility-facade behavior.
 
 ---
 

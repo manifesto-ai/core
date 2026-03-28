@@ -12,7 +12,7 @@
   - Consolidated from v2.x living document + ADR-009 persistence hard-cut updates
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix B in the SPEC for FDR cross-reference tables
-  - During ADR-014 transition, read [Lineage SPEC v1.0.0](../../lineage/docs/lineage-SPEC-1.0.0v.md) for extracted continuity rules; World remains the compatibility facade and current governance anchor until Governance SPEC lands
+  - During ADR-014 transition, read [Lineage SPEC v1.0.1](../../lineage/docs/lineage-SPEC-1.0.1v.md) and [Governance SPEC v1.0.0](../../governance/docs/governance-SPEC-1.0.0v.md) for extracted protocol rules; World remains the compatibility facade while split implementation is still in progress
 
 ### World Event System (Extension)
 - **Status:** Deprecated (governance events in World SPEC v2.0.1+)
@@ -53,4 +53,4 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 - The Living Document replaces the patch-chain reading model. All content is in one file.
 - World Protocol v1.0.0 SPEC/FDR are archived and not included in this repo.
 - World Event System extension docs are deprecated; governance events are specified in the Living Document.
-- ADR-014 split work is staged: Lineage now has its own living SPEC, while World continues to document the active facade/runtime-adjacent contract during transition.
+- ADR-014 split work is staged: Lineage and Governance now have their own living SPECs, while World continues to document the active facade/runtime-adjacent contract during transition.
