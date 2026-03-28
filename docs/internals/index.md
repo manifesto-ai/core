@@ -31,6 +31,7 @@ Records of significant architectural decisions:
 | [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted |
 | [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed |
 | [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed |
+| [ADR-014](./adr/014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

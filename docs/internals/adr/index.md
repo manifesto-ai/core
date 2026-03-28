@@ -42,6 +42,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
 | [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed | 2026-03-24 | Compiler |
 | [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
+| [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Accepted | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -84,6 +85,12 @@ These ADRs affect multiple packages across the monorepo:
 
 - There is no standalone `ADR-013` file in the repository.
 - The original mixed ADR-013 draft was withdrawn and split into `ADR-013a` (`flow`/`include`) and `ADR-013b` (entity collection primitives) for separate review and approval.
+
+### ADR-014 Companion Notes
+
+- ADR-014 is an accepted protocol split of `@manifesto-ai/world` into `@manifesto-ai/governance` and `@manifesto-ai/lineage`.
+- Until that split is implemented and reflected in package SPECs, the current canonical normative source remains the [World SPEC](../spec/#world).
+- Separate Governance/Lineage entries should be added to the living SPEC hub only when those packages have their own living documents.
 
 ---
 

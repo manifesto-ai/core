@@ -18,6 +18,8 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/world** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
+> **ADR-014 Accepted, Not Yet Implemented:** `@manifesto-ai/world` remains the sole canonical normative source for governance + lineage until the accepted split into `@manifesto-ai/governance` and `@manifesto-ai/lineage` is implemented. Do not add separate package entries in this hub before those living SPECs exist.
+
 ### Application Layer
 
 | Package | Latest SPEC | Status | Package Docs |
@@ -59,6 +61,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 - **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v3.0.0)
   - Updated directly in the living document
   - FDR rationale inlined; Head, Resume, Branch Persistence sections added
+  - Remains the canonical governance + lineage spec while ADR-014 is accepted but not yet implemented
 
 ### SDK
 
@@ -80,6 +83,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 03-28 | ADR/Docs | — | ADR-014 accepted splitting World into Governance/Lineage; the living SPEC hub keeps World SPEC as the current canonical source until separate living docs exist |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
 | 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
