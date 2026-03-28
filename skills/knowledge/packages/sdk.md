@@ -1,94 +1,129 @@
-# @manifesto-ai/sdk v1.0.0
+# @manifesto-ai/sdk
 
-> Public developer API layer. Canonical entry point for Manifesto applications.
+> Public developer API layer. Canonical entry point for SDK-style Manifesto apps.
 
 ## Role
 
-SDK owns the public contract for creating and interacting with Manifesto instances.
-It provides `createManifesto()`, `ManifestoInstance`, and typed patch ops while directly orchestrating Host, World, and Compiler internally.
+SDK owns the public app-facing surface:
+
+- `createManifesto()`
+- `dispatchAsync()`
+- `defineOps()`
+- SDK error types
+- selected re-exports from Core, Host, and World
+
+In the current implementation, `createManifesto()` composes Core, Host, and Compiler directly. The package also depends on `@manifesto-ai/world` and re-exports `WorldStore` helpers, but `createManifesto()` itself is not a World orchestrator.
 
 ## Dependencies
 
-- `@manifesto-ai/core`, `@manifesto-ai/host`, `@manifesto-ai/world`, `@manifesto-ai/compiler`
+- `@manifesto-ai/core`
+- `@manifesto-ai/host`
+- `@manifesto-ai/world`
+- `@manifesto-ai/compiler`
 
 ## Public API
 
-### `createManifesto(config): ManifestoInstance`
+### `createManifesto(config): ManifestoInstance<T>`
 
 ```typescript
-import { createManifesto } from '@manifesto-ai/sdk';
+import { createManifesto } from "@manifesto-ai/sdk";
 
-const instance = createManifesto({
-  schema: domainSchema,   // DomainSchema or MEL source string
-  effects: {              // Effect handlers (required)
-    'api.fetchUser': async (params, ctx) => {
-      const data = await fetch(`/users/${params.id}`).then(r => r.json());
-      return [{ op: 'set', path: 'user', value: data }];
+const app = createManifesto({
+  schema: domainSchema,
+  effects: {
+    "api.fetchUser": async (params, ctx) => {
+      const p = params as { id: string };
+      const data = await fetch(`/users/${p.id}`).then((r) => r.json());
+      return [{ op: "set", path: "data.user", value: data }];
     },
   },
 });
 ```
 
-### ManifestoConfig
+### `ManifestoConfig<T>`
 
 ```typescript
-interface ManifestoConfig {
-  readonly schema: DomainSchema | string;
-  readonly effects: Record<string, EffectHandler>;
-  readonly store?: WorldStore;
-  readonly guard?: (intent: Intent, snapshot: Snapshot) => boolean;
-  readonly snapshot?: Snapshot;
+interface ManifestoConfig<T = unknown> {
+  schema: DomainSchema | string;
+  effects: Record<string, EffectHandler>;
+  guard?: (intent: Intent, snapshot: Snapshot<T>) => boolean;
+  snapshot?: Snapshot<T>;
 }
 ```
 
-### ManifestoInstance (5 methods)
+Note: current implementation does not accept a `store` option on `createManifesto()`.
+
+### `ManifestoInstance<T>`
 
 ```typescript
-interface ManifestoInstance {
+interface ManifestoInstance<T = unknown> {
   dispatch(intent: Intent): void;
-  subscribe<R>(selector: Selector<R>, listener: (value: R) => void): Unsubscribe;
-  on(event: ManifestoEvent, handler: (payload: ManifestoEventPayload) => void): Unsubscribe;
-  getSnapshot(): Snapshot;
+  subscribe<R>(selector: Selector<T, R>, listener: (value: R) => void): Unsubscribe;
+  on<K extends ManifestoEvent>(
+    event: K,
+    handler: (payload: ManifestoEventMap<T>[K]) => void,
+  ): Unsubscribe;
+  getSnapshot(): Snapshot<T>;
   dispose(): void;
 }
 ```
 
-### Effect Handler Signature (SDK-level)
+### Effect handler types
 
 ```typescript
+type EffectContext<T = unknown> = {
+  readonly snapshot: Readonly<Snapshot<T>>;
+};
+
 type EffectHandler = (
   params: unknown,
-  ctx: { readonly snapshot: Readonly<Snapshot> }
+  ctx: EffectContext,
 ) => Promise<readonly Patch[]>;
 ```
 
-Note: SDK wraps this into the Host-level `(type, params, ctx)` signature internally.
+SDK adapts this 2-argument handler to Host's internal 3-argument effect handler contract.
 
-### Typed Patch Operations (defineOps)
+### `dispatchAsync(instance, intent): Promise<Snapshot<T>>`
+
+Promise wrapper around `dispatch()` plus event subscriptions:
+
+- resolves on `dispatch:completed`
+- rejects on `dispatch:failed`
+- rejects with `DispatchRejectedError` on `dispatch:rejected`
+
+### `defineOps<TData>()`
 
 ```typescript
-import { defineOps } from '@manifesto-ai/sdk';
+import { defineOps } from "@manifesto-ai/sdk";
 
 type State = { count: number; user: { name: string; age: number } };
 const ops = defineOps<State>();
 
-ops.set('count', 5);            // OK — path autocompletes, value: number
-ops.set('user.name', 'Alice');  // OK — nested path, value: string
-ops.merge('user', { age: 30 }); // OK — partial object merge
-ops.unset('count');              // OK
-
-ops.set('count', 'wrong');      // TS Error — expected number
-ops.set('counnt', 5);           // TS Error — path does not exist
+ops.set("count", 5);
+ops.set("user.name", "Alice");
+ops.merge("user", { age: 30 });
+ops.unset("count");
+ops.raw.set("$host.custom", { ok: true });
 ```
 
-### Events
+### Event channel
 
 ```typescript
-type ManifestoEvent = 'dispatch:completed' | 'dispatch:rejected' | 'dispatch:failed';
+type ManifestoEvent = "dispatch:completed" | "dispatch:rejected" | "dispatch:failed";
 ```
+
+Payloads are event-specific through `ManifestoEventMap<T>`.
+
+## Selected Re-exports
+
+- From Core: `createIntent`, `createSnapshot`, `createCore`, core types
+- From Host: `HostResult`, `HostOptions`
+- From World: `WorldStore`, `createMemoryWorldStore`
 
 ## Errors
 
-- `ManifestoError` — base error class
-- `ReservedEffectError` — conflict with reserved effect types (e.g. `system.get`)
-- `DisposedError` — operation attempted after dispose()
+- `ManifestoError`
+- `ReservedEffectError`
+- `DisposedError`
+- `CompileError`
+- `DispatchRejectedError`

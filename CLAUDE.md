@@ -32,6 +32,11 @@ Changes that violate this constitution produce systems that are NOT Manifesto-co
 
 When documents conflict, prefer higher-ranked sources.
 
+**Operational note for external tool setup:**
+- `@manifesto-ai/skills` is a separate package for Codex/Claude-oriented guidance.
+- Codex setup is explicit, not `postinstall`-driven: install the package, then run `npm exec manifesto-skills install-codex` or `pnpm exec manifesto-skills install-codex`.
+- Claude Code users can reference `@node_modules/@manifesto-ai/skills/SKILL.md` from their local `CLAUDE.md`.
+
 ---
 
 ## 1. Core Engineering Axiom

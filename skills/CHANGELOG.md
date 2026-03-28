@@ -2,29 +2,17 @@
 
 ## [0.2.0](https://github.com/manifesto-ai/core/compare/skills-v0.1.1...skills-v0.2.0) (2026-03-25)
 
+### Breaking Changes
 
-### ⚠ BREAKING CHANGES
-
-* **compiler,monorepo:** @manifesto-ai/intent-ir and @manifesto-ai/translator are removed from the monorepo. The compiler's Webpack loader export path `@manifesto-ai/compiler/loader` now points to Node ESM loader hooks only; Webpack users should migrate to `@manifesto-ai/compiler/webpack`.
-
-### Features
-
-* **compiler,monorepo:** remove intent-ir/translator packages and migrate to unplugin ([76eadac](https://github.com/manifesto-ai/core/commit/76eadac9047308563793cf2a2d1299b1830f7f22))
-
-## [0.2.0](https://github.com/manifesto-ai/core/compare/skills-v0.1.1...skills-v0.2.0) (2026-03-25)
-
-
-### ⚠ BREAKING CHANGES
-
-* **compiler,monorepo:** @manifesto-ai/intent-ir and @manifesto-ai/translator are removed from the monorepo. The compiler's Webpack loader export path `@manifesto-ai/compiler/loader` now points to Node ESM loader hooks only; Webpack users should migrate to `@manifesto-ai/compiler/webpack`.
+- **compiler,monorepo:** `@manifesto-ai/intent-ir` and `@manifesto-ai/translator` are removed from the monorepo. `@manifesto-ai/compiler/loader` now points to Node ESM loader hooks; Webpack users should migrate to `@manifesto-ai/compiler/webpack`.
 
 ### Features
 
-* **compiler,monorepo:** remove intent-ir/translator packages and migrate to unplugin ([76eadac](https://github.com/manifesto-ai/core/commit/76eadac9047308563793cf2a2d1299b1830f7f22))
+- **compiler,monorepo:** remove intent-ir/translator packages and migrate compiler integrations to unplugin ([76eadac](https://github.com/manifesto-ai/core/commit/76eadac9047308563793cf2a2d1299b1830f7f22))
+- **skills:** add explicit `manifesto-skills install-codex` setup flow instead of relying on `postinstall`
 
 ## [0.1.1](https://github.com/manifesto-ai/core/compare/skills-v0.1.0...skills-v0.1.1) (2026-02-09)
 
-
 ### Features
 
-* add @manifesto-ai/skills v0.1 LLM knowledge package ([#130](https://github.com/manifesto-ai/core/issues/130)) ([0a387dd](https://github.com/manifesto-ai/core/commit/0a387dd683b521bfd91396e2d1b2a3c878c3b016))
+- add `@manifesto-ai/skills` v0.1 LLM knowledge package ([0a387dd](https://github.com/manifesto-ai/core/commit/0a387dd683b521bfd91396e2d1b2a3c878c3b016))

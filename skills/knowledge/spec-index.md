@@ -1,104 +1,99 @@
 # SPEC Index
 
-> Source: ./llm/LLM-INDEX.md
-> Last synced: 2026-03-02
+> Source: `./llm/LLM-INDEX.md`
+> Last synced: 2026-03-28
 
 ## Normative Hierarchy
 
-1. **SPEC** — highest authority
-2. **FDR** — design rationale; must not contradict SPEC
-3. **ADR** — architectural decisions; must not contradict SPEC/FDR
-4. **Code** — implementation
-5. **README** — lowest authority
+1. **SPEC**
+2. **FDR**
+3. **ADR**
+4. **Code**
+5. **README**
 
-When documents conflict, prefer higher-ranked sources.
+When documents conflict, prefer the higher-ranked source. When docs describe future package splits that are not implemented in code yet, use current package exports and source layout for coding tasks.
 
-## How to Read SPECs
+## Current Code-Writing Baseline
 
-Core, Host, and World SPECs are **Living Documents** — single consolidated files with inline changelogs and FDR rationale. Previous versioned files are archived.
-
-Other package SPECs use versioned files (e.g., `SPEC-v0.6.0.md`).
-
-## Core Packages
-
-### Core v3.0.0 (Living Document)
+### Core
 
 - `packages/core/docs/core-SPEC.md`
-- FDR: Inlined in the living document
+- `packages/core/docs/VERSION-INDEX.md`
 
-Key sections: §3 Constitution, §8 FlowSpec (structured PatchPath), §13 Snapshot, §14 Validation, §16 Host Interface
+Use for: constitution, snapshot structure, patch semantics, validation, `SystemDelta`.
 
-### Host v3.0.0 (Living Document)
+### Host
 
 - `packages/host/docs/host-SPEC.md`
-- FDR: Inlined in the living document (FDR-H018~H027)
+- `packages/host/docs/VERSION-INDEX.md`
 
-Key sections: §4 Core-Host Boundary, §7 Effect Handler Contract, §8 Requirement Lifecycle, §9 Execution Model, §10 Context Determinism
+Use for: effect handler contract, requirement lifecycle, execution model, Host/Core boundary.
 
-### World v3.0.0 (Living Document)
+### World
 
+- `packages/world/src/index.ts`
+- `packages/world/src/world.ts`
+- `packages/world/docs/VERSION-INDEX.md`
 - `packages/world/docs/world-SPEC.md`
-- FDR: Inlined in the living document (FDR-W001~W038)
 
-Key sections: §5 Core Entities, §6 Proposal Lifecycle, §7 Host Integration, §8 Event System, §9 Persistence
+Use for: actual implemented `@manifesto-ai/world` API, proposal flow, authority evaluation, persistence, event emission, lineage helpers.
 
-## Application Layer
+Important: current repo code still targets monolithic `@manifesto-ai/world`. Treat governance/lineage split docs as design context unless you are explicitly editing docs.
 
-### SDK v1.0.0 (ADR-010)
+### SDK
 
 - `packages/sdk/docs/sdk-SPEC-v1.0.0.md`
-- Implements: ADR-010 (Protocol-First SDK Reconstruction)
+- `packages/sdk/docs/VERSION-INDEX.md`
+- `packages/sdk/src/index.ts`
+- `packages/sdk/src/types.ts`
+- `packages/sdk/src/create-manifesto.ts`
 
-Key sections: §5 createManifesto() Factory, §6 ManifestoInstance Interface, §8 Event Channel, §11 Invariants (INV-1~6)
+Use for: `createManifesto()`, `ManifestoConfig`, `ManifestoInstance`, `dispatchAsync`, typed events, typed patch helpers.
 
-**Note:** SDK owns exactly one concept — `createManifesto()`. All other exports are re-exports from protocol packages.
-
-### Runtime (Retired)
-
-- `@manifesto-ai/runtime` is retired per ADR-010. Responsibilities absorbed into `createManifesto()`.
-- Historical SPEC: `packages/runtime/docs/runtime-SPEC-v0.2.0.md` (Superseded, no successor)
-
-### Compiler (MEL) v0.7.0
+### Compiler
 
 - `packages/compiler/docs/SPEC-v0.7.0.md`
-- FDR: `packages/compiler/docs/FDR-v0.5.0-patch.md`
+- `packages/compiler/docs/VERSION-INDEX.md`
+- `packages/compiler/src/index.ts`
 
-Key sections: §2 Design Principles, §4 Syntax, §6 Semantic Rules, §8 Forbidden Constructs, §9.1.10 Object Functions, §14 Examples, §21 $mel Namespace, Appendix (LLM 34-rule checklist)
+Use for: MEL syntax, compiler public API, bundler integrations, compile diagnostics, patch compilation.
 
-## Global ADRs
+### Codegen
 
-- ADR-002: onceIntent + $mel namespace → `docs/internals/adr/002-dx-improvement-mel-namespace-onceIntent.md`
-- ADR-010: Protocol-First SDK Reconstruction → `docs/internals/adr/010-major-hard-cut.md`
+- `packages/codegen/docs/SPEC-v0.1.1.md`
+- `packages/codegen/docs/VERSION-INDEX.md`
+
+Use for: code generation plugin contracts.
+
+## Design / Future-Split References
+
+These docs are real, but they are not the current code-writing target for implementation work in this repo:
+
+- `packages/governance/docs/VERSION-INDEX.md`
+- `packages/governance/docs/governance-SPEC-1.0.0v.md`
+- `packages/lineage/docs/VERSION-INDEX.md`
+- `packages/lineage/docs/lineage-SPEC-1.0.1v.md`
+- `packages/world/docs/world-facade-spec-v1.0.0.md`
+
+Use them to understand ADR-014 direction and package split intent. Do not treat them as proof that separate `@manifesto-ai/governance` or `@manifesto-ai/lineage` code packages are implemented here.
+
+## Global ADRs Worth Loading
+
+- ADR-002: `onceIntent` + `$mel` namespace
+- ADR-010: protocol-first SDK reconstruction
+- ADR-014: split world protocol design direction
 
 ## Quick Lookup
 
 | Need to understand... | Go to |
 |----------------------|-------|
-| Snapshot structure | Core SPEC §13 |
-| Patch operations (structured PatchPath) | Core SPEC §8.4.3, §14 |
-| Effect handler contract | Host SPEC §7, §9 |
-| MEL syntax | Compiler SPEC §4 |
-| Flow guards (when/once/onceIntent) | Compiler SPEC §21 |
-| Forbidden constructs | Compiler SPEC §8 |
-| World governance | World SPEC §5-8 |
-| SDK composition (createManifesto) | SDK SPEC v1.0.0 §5 |
-| ManifestoInstance API | SDK SPEC v1.0.0 §6 |
-| Event channel (dispatch lifecycle) | SDK SPEC v1.0.0 §8 |
-| SDK invariants (INV-1~6) | SDK SPEC v1.0.0 §11 |
-| LLM code generation rules | Compiler SPEC Appendix |
-
-## FDR Canonical Statements
-
-| Statement | Source |
-|-----------|--------|
-| "Core computes. Host executes. These concerns never mix." | FDR-001 |
-| "If it's not in Snapshot, it doesn't exist." | FDR-002 |
-| "There is no suspended execution context." | FDR-003 |
-| "Core declares requirements. Host fulfills them." | FDR-004 |
-| "Errors are values. They live in Snapshot. They never throw." | FDR-005 |
-| "Flows always terminate. Unbounded iteration is Host's responsibility." | FDR-006 |
-| "If you need a value, read it from Snapshot. There is no other place." | FDR-007 |
-| "Same meaning, same hash. Always." | FDR-010 |
-| "Computed values flow downward. They never cycle back." | FDR-011 |
-| "Three operations are enough. Complexity is composed, not built-in." | FDR-012 |
-| "Manifesto is a protocol. createManifesto() assembles it." | ADR-010 |
+| Snapshot structure | `packages/core/docs/core-SPEC.md` |
+| `patches` + `systemDelta` contract | `packages/core/docs/core-SPEC.md`, `packages/core/src/schema/result.ts` |
+| Effect handler contract | `packages/host/docs/host-SPEC.md`, `packages/sdk/src/types.ts` |
+| SDK instance API | `packages/sdk/src/types.ts`, `packages/sdk/src/create-manifesto.ts` |
+| `dispatchAsync` | `packages/sdk/src/dispatch-async.ts` |
+| Current World implementation surface | `packages/world/src/index.ts`, `packages/world/src/world.ts` |
+| World docs and transition context | `packages/world/docs/VERSION-INDEX.md` |
+| Governance / lineage split direction | `packages/governance/docs/VERSION-INDEX.md`, `packages/lineage/docs/VERSION-INDEX.md` |
+| MEL syntax | `packages/compiler/docs/SPEC-v0.7.0.md` |
+| Compiler public API | `packages/compiler/src/index.ts` |

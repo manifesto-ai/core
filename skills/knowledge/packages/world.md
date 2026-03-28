@@ -1,15 +1,25 @@
-# @manifesto-ai/world v2.3.0
+# @manifesto-ai/world
 
-> Governance, Authority, and Lineage layer. World Protocol.
+> Current monolithic World Protocol implementation in this repo.
 
 ## Role
 
-World governs: proposals, authority evaluation, decision recording, lineage DAG. MUST NOT execute effects, apply patches, or compute transitions.
+In the current codebase, `@manifesto-ai/world` is the active implementation target for:
+
+- actor registration and authority bindings
+- proposal submission and lifecycle
+- authority evaluation, including HITL and policy rules
+- lineage DAG helpers
+- world persistence interfaces and in-memory storage
+- governance event emission
+- `HostExecutor` boundary definition
+
+Future split docs for `@manifesto-ai/governance` and `@manifesto-ai/lineage` exist, but those packages are not implemented as code in this repo yet.
 
 ## Dependencies
 
-- `uuid` ^13.0.0
-- Peer: `@manifesto-ai/core` ^2.0.0
+- `uuid`
+- Peer: `@manifesto-ai/core`
 
 ## Public API
 
@@ -17,78 +27,56 @@ World governs: proposals, authority evaluation, decision recording, lineage DAG.
 
 ```typescript
 interface ManifestoWorldConfig {
-  schemaHash: string;                              // Required
-  executor?: HostExecutor;                         // Optional — set by App
-  store?: WorldStore;                              // Optional — default: in-memory
-  onHITLRequired?: HITLNotificationCallback;       // Optional
-  customEvaluators?: Record<string, CustomConditionEvaluator>; // Optional
-  eventSink?: WorldEventSink;                      // Optional
-  executionKeyPolicy?: ExecutionKeyPolicy;         // Optional
+  schemaHash: string;
+  executor?: HostExecutor;
+  store?: WorldStore;
+  onHITLRequired?: HITLNotificationCallback;
+  customEvaluators?: Record<string, CustomConditionEvaluator>;
+  eventSink?: WorldEventSink;
+  executionKeyPolicy?: ExecutionKeyPolicy;
 }
 ```
 
-### ManifestoWorld (class)
+### `ManifestoWorld`
 
 ```typescript
 class ManifestoWorld {
-  // Actor management
-  registerActor(actor, authority, policy): void;
-  getActorBinding(actorId): ActorBinding | null;
+  registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
+  updateActorBinding(actorId: string, policy: AuthorityPolicy): void;
+  getActorBinding(actorId: string): ActorAuthorityBinding | null;
+  getRegisteredActors(): ActorRef[];
+  onHITLRequired(handler: HITLNotificationCallback): () => void;
 
-  // Genesis
-  createGenesis(initialSnapshot): Promise<World>;
-
-  // Proposals (core governance flow)
-  submitProposal(actorId, intent, baseWorld, trace?): Promise<ProposalResult>;
-
-  // HITL (human-in-the-loop)
-  processHITLDecision(proposalId, decision, reasoning?, scope?): Promise<ProposalResult>;
-
-  // Queries
-  getWorld(): World | null;
-  getSnapshot(): Snapshot | null;
-  getProposal(id): Proposal | undefined;
-  getLineage(): WorldLineage;
-
-  // Branch switching
-  switchBranch(newBaseWorld): Promise<void>;
+  createGenesis(initialSnapshot: Snapshot): Promise<World>;
+  switchBranch(newBaseWorld: WorldId): Promise<void>;
   get epoch(): number;
+
+  submitProposal(
+    actorId: string,
+    intent: IntentInstance,
+    baseWorld: WorldId,
+    trace?: ProposalTrace,
+  ): Promise<ProposalResult>;
+
+  processHITLDecision(
+    proposalId: string,
+    decision: "approved" | "rejected",
+    reasoning?: string,
+    approvedScope?: IntentScope | null,
+  ): Promise<ProposalResult>;
+
+  getWorld(worldId: WorldId): Promise<World | null>;
+  getSnapshot(worldId: WorldId): Promise<Snapshot | null>;
+  getGenesis(): Promise<World | null>;
+  getProposal(proposalId: string): Promise<Proposal | null>;
+  getEvaluatingProposals(): Promise<Proposal[]>;
+  getDecision(decisionId: string): Promise<DecisionRecord | null>;
+  getDecisionByProposal(proposalId: string): Promise<DecisionRecord | null>;
+  getLineage(): WorldLineage;
 }
 ```
 
-## Key Types
-
-### World (Content-Addressable)
-
-```typescript
-type World = {
-  worldId: WorldId;          // hash(schemaHash, snapshotHash) — deterministic
-  schemaHash: string;
-  snapshotHash: string;
-  createdAt: number;
-  createdBy: ProposalId | null;  // null for genesis
-};
-```
-
-### Proposal Lifecycle
-
-```
-submitted → evaluating → approved → executing → completed
-                       → rejected
-                                                → failed
-```
-
-### Authority Modes & Handlers
-
-```typescript
-createAutoApproveHandler(): AutoApproveHandler         // Always approves
-createHITLHandler(callback): HITLHandler               // Blocks for human decision
-createPolicyRulesHandler(rules): PolicyRulesHandler     // Custom condition evaluators
-createTribunalHandler(config): TribunalHandler          // Multiple reviewers
-createAuthorityEvaluator(): AuthorityEvaluator          // Orchestrates above
-```
-
-### ProposalResult
+### `ProposalResult`
 
 ```typescript
 type ProposalResult = {
@@ -99,45 +87,52 @@ type ProposalResult = {
 };
 ```
 
-### Hexagonal Port
+### `HostExecutor`
 
-World uses `HostExecutor` interface (implemented by App) to execute approved intents. World never imports Host directly.
+World defines its own execution seam and does not import `@manifesto-ai/host` directly:
 
 ```typescript
 interface HostExecutor {
-  execute(executionKey, baseSnapshot, intent, options): Promise<HostExecutionResult>;
+  execute(
+    key: ExecutionKey,
+    baseSnapshot: Snapshot,
+    intent: Intent,
+    opts?: HostExecutionOptions,
+  ): Promise<HostExecutionResult>;
+
+  abort?(key: ExecutionKey): void;
 }
 ```
 
-## Factories
+## Stores, Helpers, and Re-exports
 
-```typescript
-createProposal(actorId, intent, baseWorldId): Proposal
-createDecisionRecord(proposalId, verdict, reasoning?): DecisionRecord
-createGenesisWorld(schemaHash, snapshotHash): World
-createWorldFromExecution(schemaHash, snapshotHash, proposalId): World
-createIntentInstance(type, input?, intentId?): Promise<IntentInstance>
-createIntentInstanceSync(type, input?, intentId?): IntentInstance
-computeSnapshotHash(snapshot): string
-computeWorldId(schemaHash, snapshotHash): WorldId
-```
+Key currently implemented exports include:
 
-## Lineage & Storage
+- `WorldStore`, `createMemoryWorldStore`
+- `createExecutionKey`, `defaultExecutionKeyPolicy`
+- actor registry helpers
+- proposal queue helpers
+- authority handlers and evaluator
+- lineage helpers
+- world event types and `createNoopWorldEventSink`
+- factories such as `createGenesisWorld`, `createWorldFromExecution`, `createIntentInstance`
 
-```typescript
-createWorldLineage(): WorldLineage
-createMemoryWorldStore(): MemoryWorldStore    // In-memory default
-createActorRegistry(): ActorRegistry
-createProposalQueue(): ProposalQueue
-```
+## Event Model
 
-## Events
+Current world implementation emits governance-oriented events such as:
 
-`ProposalSubmittedEvent`, `ProposalEvaluatingEvent`, `ProposalDecidedEvent`, `ProposalSupersededEvent`, `ExecutionCompletedEvent`, `ExecutionFailedEvent`, `WorldCreatedEvent`, `WorldForkedEvent`
+- `proposal:submitted`
+- `proposal:evaluating`
+- `proposal:decided`
+- `proposal:superseded`
+- `execution:completed`
+- `execution:failed`
+- `world:created`
+- `world:forked`
 
-## Design Principles
+## Current vs Future Structure
 
-- **Content-addressable**: WorldId = hash(schemaHash, snapshotHash)
-- **Immutable**: Worlds never mutate after creation
-- **Accountability**: Every change → Proposal → Decision → World lineage
-- **Epoch-based branching**: Ingress proposals dropped on branch switch
+- **Current code target**: `@manifesto-ai/world`
+- **Future design references**: `@manifesto-ai/governance`, `@manifesto-ai/lineage`, `world-facade-spec-v1.0.0`
+
+If you are changing code in this repo today, start from `packages/world/src/index.ts` and `packages/world/src/world.ts`.

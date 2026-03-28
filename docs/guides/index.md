@@ -11,6 +11,7 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 | Guide | When to Read It |
 |-------|-----------------|
 | [Bundler Setup](./bundler-setup) | You need to configure Vite, Next.js, Webpack, or another bundler for `.mel` files |
+| [Codex Skills Setup](./codex-skills) | You want Codex to load Manifesto-specific guidance from `@manifesto-ai/skills` |
 | [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
 | [Debugging](./debugging) | A dispatch does not do what you expected |
 | [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |
@@ -25,8 +26,9 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 
 1. Read [Effect Handlers](./effect-handlers)
 2. Read [Debugging](./debugging)
-3. Read [Re-entry Safety](./reentry-safe-flows)
-4. Read [Typed Patch Ops](./typed-patch-ops)
+3. Read [Codex Skills Setup](./codex-skills) if you work with Codex
+4. Read [Re-entry Safety](./reentry-safe-flows)
+5. Read [Typed Patch Ops](./typed-patch-ops)
 
 That sequence matches the problems most teams hit first.
 
