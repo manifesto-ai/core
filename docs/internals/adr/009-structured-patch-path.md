@@ -1,12 +1,12 @@
 # ADR-009: Structured PatchPath (Segments)
 
-> **Status:** Accepted
+> **Status:** Implemented
 > **Date:** 2026-02-25
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** Core, Compiler, Host, Runtime, World
 > **Resolves:** [#108](https://github.com/manifesto-ai/core/issues/108), [#189](https://github.com/manifesto-ai/core/issues/189)
 > **Supersedes:** None
-> **Implemented-by:** [/packages/core/src/schema/patch.ts](../../packages/core/src/schema/patch.ts), [/packages/core/src/core/apply.ts](../../packages/core/src/core/apply.ts), [/packages/compiler/src/lowering/lower-runtime-patch.ts](../../packages/compiler/src/lowering/lower-runtime-patch.ts) (planned in PR-B)
+> **Implemented-by:** [Core SPEC v3.0.0](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler SPEC v0.7.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.7.0.md), [Host SPEC v3.0.0](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md), [World SPEC v3.0.0](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md), and concrete code in `packages/core/src/schema/patch.ts`, `packages/core/src/core/apply.ts`, `packages/compiler/src/lowering/lower-runtime-patch.ts`, `packages/world/src/persistence/memory.ts`
 > **Strengthens:** FDR-015 (Static Patch Paths), FDR-MEL-032 (Dynamic Path Segments)
 > **Breaking:** Yes — Major version bump required for Core, Compiler
 

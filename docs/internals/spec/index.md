@@ -3,7 +3,7 @@
 This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory.
 
 ::: tip Single Source of Truth
-All specifications are maintained as one living document per package. This page provides navigation and version summaries.
+Specifications are maintained in canonical package docs with version indexes. Most stable packages use one living document; ADR-014 transition docs may publish versioned facade/protocol specs while ownership is being split.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -16,7 +16,7 @@ If you want the governing documentation rules, see [Documentation Governance](..
 |---------|------|--------|--------------|
 | **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/world** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/world** | [Facade SPEC](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v1.0.0.md) (v1.0.0) | Normative (ADR-014 facade composition) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
 ### Split Protocol Packages (ADR-014 Transition)
 
@@ -25,7 +25,7 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.1v.md) (v1.0.1) | Normative (ADR-014 continuity extraction) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) (v1.0.0) | Normative (ADR-014 legitimacy extraction) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 
-> **ADR-014 Transition State:** `@manifesto-ai/lineage` and `@manifesto-ai/governance` now have their own living SPECs for the split protocol. `@manifesto-ai/world` remains the canonical source for the active compatibility facade while the split implementation is still in progress.
+> **ADR-014 Transition State:** `@manifesto-ai/lineage` and `@manifesto-ai/governance` now own their extracted protocol specs. `@manifesto-ai/world` now has [World Facade SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v1.0.0.md) as its canonical compatibility-layer document, while [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) remains the legacy monolith reference during implementation transition.
 
 ### Application Layer
 
@@ -65,10 +65,12 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ### World
 
-- **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v3.0.0)
-  - Updated directly in the living document
-  - FDR rationale inlined; Head, Resume, Branch Persistence sections added
-  - Remains the canonical governance and compatibility-facade spec while ADR-014 transition is incomplete
+- **World Facade SPEC** — [world-facade-spec-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v1.0.0.md) (Normative, current facade contract through v1.0.0)
+  - Initial ADR-014 facade composition spec for `@manifesto-ai/world`
+  - Defines composite store, atomic commit coordinator, `createWorld()`, re-export policy, and facade lifecycle
+- **Legacy World Protocol SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, legacy monolith reference through v3.0.0)
+  - Historical monolith reference retained during split implementation
+  - Governance and lineage ownership now live in their package specs
 
 ### Lineage
 
@@ -102,9 +104,10 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 03-28 | World | Facade v1.0.0 | Initial World Facade SPEC added for ADR-014 composition: composite store, coordinator, `createWorld()`, and facade lifecycle |
 | 03-28 | Governance | v1.0.0 | Initial Governance living SPEC extracted from World per ADR-014; package version index created |
 | 03-28 | Lineage | v1.0.1 | Patch release of the Lineage living SPEC: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
-| 03-28 | ADR/Docs | — | Living SPEC hub updated for staged ADR-014 transition: Lineage and Governance are split out, World remains canonical for facade behavior |
+| 03-28 | ADR/Docs | — | Living SPEC hub updated for staged ADR-014 transition: Lineage and Governance own extracted protocol rules, World Facade is indexed as the canonical compatibility layer |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
 | 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
@@ -132,7 +135,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ## Living Documents
 
-Core, Host, World, Lineage, and Governance SPECs are maintained as **Living Documents** when a package has entered the living-document model — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Previous versioned or patch documents are preserved in `archive/` subdirectories within each package's `docs/` folder where applicable.
+Core, Host, and the legacy World monolith SPEC are maintained as **Living Documents** when a package has entered the living-document model — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Split-transition specs such as Lineage, Governance, and World Facade may remain versioned documents while still serving as the current canonical documents for their scope.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history

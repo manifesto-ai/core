@@ -29,17 +29,17 @@ These ADRs affect multiple packages across the monorepo:
 | ID | Title | Status | Date | Affected Packages |
 |----|-------|--------|------|-------------------|
 | [ADR-001](./001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted | 2025-01-17 | Core, Host, World |
-| [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX improvement — auto `$mel` namespace injection + `onceIntent` syntax | Proposed | 2026-01-27 | App, Compiler, World, Core, Host |
+| [ADR-002](./002-dx-improvement-mel-namespace-onceIntent) | DX improvement — auto `$mel` namespace injection + `onceIntent` syntax | Implemented | 2026-01-27 | App, Compiler, World, Core, Host |
 | [ADR-003](./003-world-owns-persistence) | World Owns Persistence | Proposed | 2026-02-03 | App, World |
 | [ADR-004](./004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed | 2026-02-07 | App |
 | [ADR-005](./005-dx-improvement-snapshot-path-dsl) | DX improvement — Snapshot Path DSL (`${...}`) introduction | Withdrawn | 2026-02-10 | Core, Host, World, App, Compiler |
 | [ADR-006](./006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed | 2026-02-10 | Core, Host, World, App |
-| [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Accepted | 2026-02-14 | App, Runtime, SDK, World |
+| [ADR-007](./007-sdk-runtime-split-kickoff) | SDK/Runtime Split Kickoff Gate and Staged Locking | Superseded | 2026-02-14 | App, Runtime, SDK, World |
 | [ADR-008](./008-sdk-first-transition-and-app-retirement) | SDK-First Public Entry and App Package Retirement | Deprecated | 2026-02-17 | SDK, Runtime, Docs, Release, CI |
-| [ADR-009](./009-structured-patch-path) | Structured PatchPath (Segments) | Accepted | 2026-02-25 | Core, Compiler, Host, Runtime, World |
-| [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Accepted | 2026-02-27 | Core, Runtime, Host, World, SDK |
-| [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Accepted | 2026-02-25 | Host, Runtime, World, SDK |
-| [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Accepted | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
+| [ADR-009](./009-structured-patch-path) | Structured PatchPath (Segments) | Implemented | 2026-02-25 | Core, Compiler, Host, Runtime, World |
+| [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Implemented | 2026-02-27 | Core, Runtime, Host, World, SDK |
+| [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Implemented | 2026-02-25 | Host, Runtime, World, SDK |
+| [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
 | [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed | 2026-03-24 | Compiler |
 | [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
 | [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Accepted | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
@@ -61,8 +61,8 @@ These ADRs affect multiple packages across the monorepo:
 
 ### ADR-009 Companion Notes
 
-- ADR-009 is an Accepted cross-cutting decision that targets a breaking path-representation rewrite for patching across Core/Compiler/Host/Runtime/World.
-- This ADR is closely coupled to issue triage (#108, #189) and depends on coordinated version alignment across affected packages before merge.
+- ADR-009 is an implemented cross-cutting decision that completed the path-representation rewrite for patching across Core/Compiler/Host/Runtime/World.
+- The rule set is now reflected in Core/Compiler/Host/World normative docs and runtime/store code paths.
 - [ADR-009 Week 1 Convergence Pack](./009-week1-convergence-pack) - Frozen gap matrix, decision-complete ticket set, and Week 2 PR wave plan.
 
 ### ADR-010 Companion Notes
@@ -73,13 +73,14 @@ These ADRs affect multiple packages across the monorepo:
 - Public migration contract for v1 is `createManifesto()` returning `ManifestoInstance` with `dispatch()` as the single action entrypoint.
 - ADR-010 supersedes SDK SPEC v0.1.0 and v0.2.0 via SDK SPEC v1.0.0.
 - ADR-010 retires Runtime SPEC v0.1.0 and v0.2.0 (no successor — responsibilities absorbed into `createManifesto`).
+- ADR-010 is now implemented in the current SDK/package layout; the remaining split-related work belongs to ADR-014 rather than this hard-cut.
 
 ### ADR-011 Companion Notes
 
 - ADR-011 defines Host boundary baseline-completeness policy for reset/Bootstrap entry.
 - It is the host-runtime contract companion to #198, scoped to full-canonical snapshot continuity at boundary entry.
 - executionKey serialization and timeout-slot release remain Host SPEC v2.0.3 enforcement work, not architecture decisions in this ADR.
-- 011 is accepted with the understanding that #2 (§2.2/§2.3) is implemented as a Host SPEC patch, not as additional ADR text.
+- 011 is implemented via Host SPEC v3.0.0 and boundary-entry hardening; §2.2/§2.3 remains enforced as Host SPEC behavior, not extra ADR text.
 
 ### ADR-013 Split Notes
 
@@ -91,7 +92,8 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-014 is an accepted protocol split of `@manifesto-ai/world` into `@manifesto-ai/governance` and `@manifesto-ai/lineage`.
 - [Lineage SPEC v1.0.1](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.1v.md) now exists as the canonical continuity-engine document.
 - [Governance SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) now exists as the canonical legitimacy-engine document.
-- During the staged transition, [World SPEC](../spec/#world) remains the canonical source for compatibility-facade behavior.
+- [World Facade SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v1.0.0.md) now exists as the canonical compatibility-facade document.
+- [World SPEC](../spec/#world) remains the legacy monolith reference during staged transition.
 
 ---
 

@@ -1,9 +1,10 @@
 # Manifesto World Protocol Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Legacy Monolith Reference (Living Document)
 > **Package:** `@manifesto-ai/world`
 > **Scope:** All Manifesto World Implementations
 > **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, ARCHITECTURE v2.0
+> **Superseded in active ownership by:** [Lineage SPEC v1.0.1](../../lineage/docs/lineage-SPEC-1.0.1v.md), [Governance SPEC v1.0.0](../../governance/docs/governance-SPEC-1.0.0v.md), [World Facade SPEC v1.0.0](world-facade-spec-v1.0.0.md)
 > **Implements:** ADR-001 (Layer Separation)
 > **Authors:** Manifesto Team
 > **License:** MIT

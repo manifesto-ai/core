@@ -1,10 +1,11 @@
 # ADR-012: Remove `computed.` Prefix from Computed Snapshot Keys
 
-> **Status:** Accepted
+> **Status:** Implemented
 > **Date:** 2026-03-05
 > **Deciders:** Manifesto Core/Compiler Design Group
 > **Scope:** Core, Compiler, Host, SDK, Docs
 > **Breaking:** Yes
+> **Implemented-by:** [Core SPEC v3.0.0](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler SPEC v0.7.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.7.0.md), and concrete code in `packages/core/src/evaluator/expr.ts`, `packages/core/src/core/explain.ts`
 > **Related:** ADR-001 (Layer Separation), ADR-006 (Canonical rules), ADR-009 (Structured PatchPath), ADR-011 (Boundary contract)
 > **Reason for change:** Developer Ergonomics / API consistency
 
