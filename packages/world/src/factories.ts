@@ -8,15 +8,16 @@
  * - createDecisionRecord includes approvedScope
  * - createIntentInstance is re-exported from schema/intent.ts
  *
- * Per World SPEC v2.0.2 (WORLD-HASH-*):
- * - computeSnapshotHash excludes $host namespace
- * - computeSnapshotHash normalizes terminalStatus
- * - computeSnapshotHash excludes error message/timestamp
- * - computeWorldId uses JCS object hash (not string concat)
+ * Phase 2 split note:
+ * - world keeps legacy async factory signatures for compatibility
+ * - snapshot/world identity is delegated to @manifesto-ai/lineage
  */
 import { v4 as uuidv4 } from "uuid";
-import type { Snapshot, ErrorValue, Requirement } from "@manifesto-ai/core";
-import { sha256, toJcs } from "@manifesto-ai/core";
+import type { Snapshot } from "@manifesto-ai/core";
+import {
+  computeSnapshotHash as computeLineageSnapshotHash,
+  computeWorldId as computeLineageWorldId,
+} from "@manifesto-ai/lineage";
 import {
   type World,
   type WorldId,
@@ -35,12 +36,6 @@ import type { AuthorityRef } from "./schema/authority.js";
 import type { WorldEdge } from "./schema/lineage.js";
 import type { IntentInstance, IntentScope } from "./schema/intent.js";
 import type { ExecutionKey } from "./types/index.js";
-import type {
-  ErrorSignature,
-  TerminalStatusForHash,
-  SnapshotHashInput,
-  WorldIdInput,
-} from "./types/index.js";
 
 // Re-export intent factory functions
 export {
@@ -76,226 +71,27 @@ export function generateEdgeId(): EdgeId {
   return createEdgeId(`edge-${uuidv4()}`);
 }
 
-// ============================================================================
-// Hash Computation (WORLD-HASH-*)
-// ============================================================================
-
-/**
- * Platform namespace prefix.
- *
- * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3 §7.9.1:
- * - All $-prefixed keys in snapshot.data are platform-reserved
- * - Domain schemas MUST NOT define $-prefixed keys
- *
- * Known platform namespaces:
- * - $host: Host-owned state (WORLD-HASH-4a)
- * - $mel: Compiler-owned guard state (WORLD-HASH-4b)
- * - Future: $app, $trace, etc. (automatically handled)
- */
-const PLATFORM_NAMESPACE_PREFIX = "$";
-
-/**
- * Check if a key is a platform namespace.
- *
- * @param key - Key to check
- * @returns True if key is a platform namespace ($-prefixed)
- */
-function isPlatformNamespace(key: string): boolean {
-  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
-}
-
-/**
- * Strip platform namespaces from data before hashing.
- *
- * Per Core SPEC SCHEMA-RESERVED-1 and World SPEC v2.0.3:
- * - All $-prefixed top-level keys are platform namespaces
- * - Platform namespaces MUST be excluded from snapshotHash
- * - This is future-proof for new platform namespaces ($app, $trace, etc.)
- *
- * @param data - Data object
- * @returns Data without platform namespaces
- */
-function stripPlatformNamespaces(
-  data: Record<string, unknown>
-): Record<string, unknown> {
-  if (data === undefined || data === null) {
-    return {};
-  }
-
-  const keys = Object.keys(data);
-  const hasPlatformNamespace = keys.some(isPlatformNamespace);
-
-  if (!hasPlatformNamespace) {
-    return data;
-  }
-
-  const result: Record<string, unknown> = {};
-  for (const key of keys) {
-    if (!isPlatformNamespace(key)) {
-      result[key] = data[key];
-    }
-  }
-  return result;
-}
-
-/**
- * Derive terminal status for hashing
- *
- * Per WORLD-HASH-2:
- * - Normalize to 'completed' or 'failed'
- * - 'failed' if lastError exists or pendingRequirements non-empty
- * - 'completed' otherwise
- */
-function deriveTerminalStatusForHash(snapshot: Snapshot): TerminalStatusForHash {
-  if (snapshot.system.lastError != null) {
-    return "failed";
-  }
-  if (snapshot.system.pendingRequirements.length > 0) {
-    return "failed";
-  }
-  return "completed";
-}
-
-/**
- * Convert ErrorValue to ErrorSignature
- *
- * Per WORLD-HASH-3:
- * - Include: code, source
- * - Exclude: message (non-deterministic wording), timestamp, context
- */
-function toErrorSignature(error: ErrorValue): ErrorSignature {
-  return {
-    code: error.code,
-    source: {
-      actionId: error.source.actionId,
-      nodePath: error.source.nodePath,
-    },
-  };
-}
-
-/**
- * Sort error signatures by their hash
- *
- * Per WORLD-HASH-4:
- * - Sort for deterministic ordering
- * - Use hash of signature as sort key
- */
-async function sortErrorSignatures(
-  signatures: ErrorSignature[]
-): Promise<ErrorSignature[]> {
-  if (signatures.length <= 1) {
-    return signatures;
-  }
-
-  // Compute hashes for all signatures
-  const withHashes = await Promise.all(
-    signatures.map(async (sig) => ({
-      sig,
-      hash: await sha256(toJcs(sig)),
-    }))
-  );
-
-  // Sort by hash (ASCII hex comparison)
-  withHashes.sort((a, b) => {
-    if (a.hash < b.hash) {
-      return -1;
-    }
-    if (a.hash > b.hash) {
-      return 1;
-    }
-    return 0;
-  });
-
-  return withHashes.map((item) => item.sig);
-}
-
-/**
- * Compute digest of pending requirements
- *
- * Per WORLD-HASH-5:
- * - JCS hash of sorted pending requirement IDs
- * - Constant digest if no pending requirements
- */
-async function computePendingDigest(
-  pendingRequirements: readonly Requirement[]
-): Promise<string> {
-  if (pendingRequirements.length === 0) {
-    return "empty";
-  }
-  const sortedIds = pendingRequirements.map((req) => req.id).sort();
-  return sha256(toJcs({ pendingIds: sortedIds }));
-}
-
-/**
- * Build normalized SnapshotHashInput
- *
- * This applies all WORLD-HASH-* transformations.
- */
-async function buildSnapshotHashInput(
-  snapshot: Snapshot
-): Promise<SnapshotHashInput> {
-  // WORLD-HASH-1: Strip $host namespace
-  const data = stripPlatformNamespaces(snapshot.data as Record<string, unknown>);
-
-  // WORLD-HASH-2: Derive terminal status
-  const terminalStatus = deriveTerminalStatusForHash(snapshot);
-
-  // WORLD-HASH-3 & WORLD-HASH-4: Convert and sort error signatures
-  const errorValues = snapshot.system.errors ?? [];
-  const rawSignatures = errorValues.map(toErrorSignature);
-  const errors = await sortErrorSignatures(rawSignatures);
-
-  // WORLD-HASH-5: Compute pending digest
-  const pendingDigest = await computePendingDigest(
-    snapshot.system.pendingRequirements ?? []
-  );
-
-  return {
-    data,
-    system: {
-      terminalStatus,
-      errors,
-      pendingDigest,
-    },
-  };
-}
-
 /**
  * Compute snapshotHash per WORLD-HASH-* rules
  *
- * Per World SPEC v2.0.2:
- * - WORLD-HASH-1: Exclude $host and $mel namespaces from data
- * - WORLD-HASH-2: Normalize terminalStatus to 'completed' | 'failed'
- * - WORLD-HASH-3: Error signatures exclude message and timestamp
- * - WORLD-HASH-4: Sort error signatures by their hash
- * - WORLD-HASH-5: Compute pendingDigest as JCS hash of pending requirement IDs
- *
- * Exclude (non-deterministic or derived):
- * - snapshot.meta.version (local counter)
- * - snapshot.meta.timestamp (non-deterministic)
- * - snapshot.meta.schemaHash (already in WorldId)
- * - snapshot.computed (derived, can be recomputed)
- * - snapshot.input (transient)
+ * world keeps the legacy async signature, but the canonical implementation
+ * now lives in @manifesto-ai/lineage.
  */
 export async function computeSnapshotHash(snapshot: Snapshot): Promise<string> {
-  const hashInput = await buildSnapshotHashInput(snapshot);
-  return sha256(toJcs(hashInput));
+  return computeLineageSnapshotHash(snapshot);
 }
 
 /**
  * Compute WorldId from schemaHash and snapshotHash
  *
- * Per WORLD-ID-*:
- * - worldId = computeHash(JCS({ schemaHash, snapshotHash }))
- * - Uses JCS object hash, NOT string concatenation
+ * world keeps the legacy async signature, but the canonical implementation
+ * now lives in @manifesto-ai/lineage.
  */
 export async function computeWorldId(
   schemaHash: string,
   snapshotHash: string
 ): Promise<WorldId> {
-  const input: WorldIdInput = { schemaHash, snapshotHash };
-  const hash = await sha256(toJcs(input));
-  return createWorldId(hash);
+  return createWorldId(computeLineageWorldId(schemaHash, snapshotHash));
 }
 
 // ============================================================================

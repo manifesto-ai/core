@@ -6,7 +6,14 @@
  * - Future-proof $-prefix pattern automatically handles new namespaces
  */
 import { describe, it, expect } from "vitest";
-import { computeSnapshotHash } from "../factories.js";
+import {
+  computeSnapshotHash,
+  computeWorldId,
+} from "../factories.js";
+import {
+  computeSnapshotHash as computeLineageSnapshotHash,
+  computeWorldId as computeLineageWorldId,
+} from "@manifesto-ai/lineage";
 import type { Snapshot } from "@manifesto-ai/core";
 
 /**
@@ -296,6 +303,24 @@ describe("World SPEC v2.0.4: $-prefix pattern", () => {
       const hash2 = await computeSnapshotHash(snapshot2);
 
       expect(hash1).toBe(hash2);
+    });
+  });
+
+  describe("split-native delegation", () => {
+    it("matches @manifesto-ai/lineage for snapshotHash and worldId", async () => {
+      const snapshot = createTestSnapshot({
+        count: 42,
+        nested: { enabled: true },
+        $host: { ignored: true },
+      });
+
+      const worldHash = await computeSnapshotHash(snapshot);
+      const lineageHash = computeLineageSnapshotHash(snapshot);
+
+      expect(worldHash).toBe(lineageHash);
+      expect(await computeWorldId("test-schema", worldHash)).toBe(
+        computeLineageWorldId("test-schema", lineageHash)
+      );
     });
   });
 });

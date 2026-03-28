@@ -251,6 +251,9 @@ importers:
 
   packages/world:
     dependencies:
+      '@manifesto-ai/lineage':
+        specifier: workspace:*
+        version: link:../lineage
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
