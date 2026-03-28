@@ -18,7 +18,13 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/world** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (v3.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
-> **ADR-014 Accepted, Not Yet Implemented:** `@manifesto-ai/world` remains the sole canonical normative source for governance + lineage until the accepted split into `@manifesto-ai/governance` and `@manifesto-ai/lineage` is implemented. Do not add separate package entries in this hub before those living SPECs exist.
+### Split Protocol Packages (ADR-014 Transition)
+
+| Package | SPEC | Status | Package Docs |
+|---------|------|--------|--------------|
+| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.0v.md) (v1.0.0) | Normative (ADR-014 continuity extraction) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+
+> **ADR-014 Transition State:** `@manifesto-ai/lineage` now has its own living SPEC for the continuity engine. `@manifesto-ai/world` remains the canonical source for the active compatibility facade and for governance rules until the Governance SPEC lands and the split is fully implemented.
 
 ### Application Layer
 
@@ -61,7 +67,13 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 - **World SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Living Document, current through v3.0.0)
   - Updated directly in the living document
   - FDR rationale inlined; Head, Resume, Branch Persistence sections added
-  - Remains the canonical governance + lineage spec while ADR-014 is accepted but not yet implemented
+  - Remains the canonical governance and compatibility-facade spec while ADR-014 transition is incomplete
+
+### Lineage
+
+- **Lineage SPEC** — [lineage-SPEC-1.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.0v.md) (Living Document, current through v1.0.0)
+  - Initial continuity-engine extraction from World per ADR-014
+  - Defines identity, seal, branch/head, persistence, replay, and resume rules
 
 ### SDK
 
@@ -83,7 +95,8 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 03-28 | ADR/Docs | — | ADR-014 accepted splitting World into Governance/Lineage; the living SPEC hub keeps World SPEC as the current canonical source until separate living docs exist |
+| 03-28 | Lineage | v1.0.0 | Initial Lineage living SPEC extracted from World per ADR-014; package version index created |
+| 03-28 | ADR/Docs | — | Living SPEC hub updated for staged ADR-014 transition: Lineage is split out, World remains canonical for governance and facade behavior |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
 | 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
@@ -111,7 +124,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ## Living Documents
 
-Core, Host, and World SPECs are maintained as **Living Documents** — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Previous versioned or patch documents are preserved in `archive/` subdirectories within each package's `docs/` folder.
+Core, Host, World, and Lineage SPECs are maintained as **Living Documents** when a package has entered the living-document model — single consolidated files that incorporate changes directly, with `Changelog` capturing history. Previous versioned or patch documents are preserved in `archive/` subdirectories within each package's `docs/` folder where applicable.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history
