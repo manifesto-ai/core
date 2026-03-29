@@ -1,7 +1,7 @@
 # Core Documentation Index
 
 > **Package:** `@manifesto-ai/core`
-> **Last Updated:** 2026-02-27
+> **Last Updated:** 2026-03-29
 
 ---
 
@@ -32,4 +32,5 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 - The Living Document replaces the patch-chain reading model. All content is in one file.
 - v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
+- ADR-015 was accepted on 2026-03-29 and reserves the next breaking Core update for Snapshot error-surface simplification: remove accumulated `system.errors`, keep `lastError` as the sole current error surface, and align the living SPEC in the next epoch.
 - v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.

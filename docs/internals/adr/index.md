@@ -45,6 +45,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed | 2026-03-24 | Compiler |
 | [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
 | [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
+| [ADR-015](./015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Accepted | 2026-03-29 | Core, Lineage, Host, World, SDK |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -96,6 +97,12 @@ These ADRs affect multiple packages across the monorepo:
 - [Governance SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) now exists as the canonical legitimacy-engine document.
 - [World Facade SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v1.0.0.md) now exists as the canonical compatibility-facade document.
 - [World SPEC](../spec/#world) remains the legacy monolith reference during staged transition.
+
+### ADR-015 Companion Notes
+
+- ADR-015 is accepted and removes accumulated `system.errors` history from Snapshot while keeping `lastError` as the sole current error surface.
+- The decision reserves the next breaking Core/Lineage epoch; current published specs remain Core v3.0.0 and Lineage v1.0.1 until the living docs are updated.
+- ADR-015 explicitly defers durable per-attempt domain failure chronology to ADR-016, which is referenced in the accepted text but is not yet indexed in this hub.
 
 ---
 
