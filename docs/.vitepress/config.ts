@@ -66,13 +66,20 @@ export default defineConfig({
 
       '/tutorial/': [
         {
-          text: 'Tutorial',
+          text: 'Direct-dispatch Track',
           items: [
             { text: 'Overview', link: '/tutorial/' },
             { text: '1. Your First App', link: '/tutorial/01-your-first-app' },
             { text: '2. Actions and State', link: '/tutorial/02-actions-and-state' },
             { text: '3. Working with Effects', link: '/tutorial/03-effects' },
             { text: '4. Building a Todo App', link: '/tutorial/04-todo-app' },
+          ]
+        },
+        {
+          text: 'Governed Track',
+          items: [
+            { text: '5. Governed Composition', link: '/tutorial/05-governed-composition' },
+            { text: '6. Governed Sealing and History', link: '/tutorial/06-governed-sealing-and-history' },
           ]
         },
         {
@@ -123,6 +130,7 @@ export default defineConfig({
           text: 'How-to Guides',
           items: [
             { text: 'Overview', link: '/guides/' },
+            { text: 'Governed Composition', link: '/guides/governed-composition' },
             { text: 'Bundler Setup', link: '/guides/bundler-setup' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
@@ -150,9 +158,11 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
+            { text: '@manifesto-ai/world', link: '/api/world' },
+            { text: '@manifesto-ai/governance', link: '/api/governance' },
+            { text: '@manifesto-ai/lineage', link: '/api/lineage' },
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
-            { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
           ]

@@ -1,126 +1,61 @@
 # @manifesto-ai/sdk
 
-> Public developer API layer for the Manifesto protocol stack
-
-> **Canonical Entry:** SDK is the official public package for new integrations.
-
----
+> Thin public API layer for the Manifesto protocol stack.
 
 ## Overview
 
-`@manifesto-ai/sdk` is the thin public composition layer introduced by ADR-010.
+`@manifesto-ai/sdk` owns one concept: `createManifesto()`.
 
-- `createManifesto()` is the sole SDK-owned factory
-- `defineOps()` provides typed data-path patch helpers
-- Selected protocol types are re-exported from Core, Host, and World
-- `@manifesto-ai/runtime` is retired; its responsibilities are absorbed into `createManifesto()`
+Everything else is either:
 
----
+- SDK utility (`defineOps`, `dispatchAsync`)
+- pass-through protocol re-export from Core, Host, or the thin world facade surface
 
-## Main Exports
+After the hard cut, SDK re-exports only the thin governed World surface:
 
-### createManifesto()
+- `createWorld()`
+- `createInMemoryWorldStore()`
+- `CommitCapableWorldStore`
+- `GovernanceEventDispatcher`
+- `WorldCoordinator`
+- `WorldConfig`
+- `WorldInstance`
+- `CoordinatorSealNextParams`
+- `CoordinatorSealGenesisParams`
+- `SealResult`
+- `WriteSet`
+
+SDK does not re-export the full split-native governance or lineage API. Use `@manifesto-ai/world` directly when you need the complete governed surface.
+
+## Main Factory
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto({
   schema: domainSchema,
-  effects: {
-    "api.save": async (params) => [
-      {
-        op: "set",
-        path: [{ kind: "prop", name: "savedAt" }],
-        value: (params as { timestamp: string }).timestamp,
-      },
-    ],
-  },
+  effects: {},
 });
 ```
 
-`schema` accepts either a compiled `DomainSchema` or MEL source text. The returned instance is immediately ready; there is no `ready()` phase.
+`createManifesto()` remains a direct-dispatch runtime and does not implicitly assemble governed World composition.
 
-### ManifestoInstance
-
-```typescript
-interface ManifestoInstance {
-  dispatch(intent: Intent): void;
-  subscribe(selector, listener): Unsubscribe;
-  on(event, handler): Unsubscribe;
-  getSnapshot(): Snapshot;
-  dispose(): void;
-}
-```
-
-`dispatch()` is fire-and-forget. Use `subscribe()` to observe terminal snapshot changes and `on()` to correlate lifecycle events per intent.
-
-### Lifecycle Events
+## Governed Composition
 
 ```typescript
-type ManifestoEvent =
-  | "dispatch:completed"
-  | "dispatch:rejected"
-  | "dispatch:failed";
+import {
+  createWorld,
+  createInMemoryWorldStore,
+} from "@manifesto-ai/sdk";
 ```
 
-All event payloads include `intentId`. `dispatch:completed` includes the terminal `snapshot`; `dispatch:rejected` includes `reason`; `dispatch:failed` includes `error`.
+These are thin pass-through re-exports from `@manifesto-ai/world`.
 
----
+If you need `createGovernanceService()`, `createLineageService()`, proposal lifecycle types, authority handlers, or lineage query APIs, import from top-level `@manifesto-ai/world`, `@manifesto-ai/governance`, or `@manifesto-ai/lineage` directly.
 
-## Effect Handler Guidance (ADR-009)
+## Related Docs
 
-```typescript
-type EffectHandler = (
-  params: unknown,
-  ctx: { readonly snapshot: Readonly<Snapshot> }
-) => Promise<readonly Patch[]>;
-```
-
-Rules:
-- Return `Patch[]` with structured `PatchPath` segments.
-- Patch root is `snapshot.data`.
-- Do not patch `system.*` directly.
-- Return error information through domain paths or `$host` namespace.
-
----
-
-## Typed Patch Operations
-
-`defineOps<TData>()` remains data-path focused.
-
-- `set(path, value)`
-- `unset(path)`
-- `merge(path, value)`
-
-`system.*` convenience mutation APIs are intentionally excluded from typed data patch ops (`ops.error()` is not provided).
-
-```typescript
-const ops = defineOps<MyState>();
-return [
-  ops.set("syncStatus", "error"),
-  ops.set("errorMessage", "API timeout"),
-  ops.raw.set("$host.lastError", { code: "SYNC_TIMEOUT" }),
-];
-```
-
----
-
-## Related Packages
-
-| Package | Relationship |
-|---------|--------------|
-| [@manifesto-ai/core](./core) | Pure computation |
-| [@manifesto-ai/host](./host) | Effect execution |
-| [@manifesto-ai/world](./world) | Governance and lineage |
-
----
-
-## Legacy App-Era Surface
-
-App-era factory, readiness, handle, and plugin abstractions are retired in ADR-010. New code should use `createManifesto()`, `createIntent()`, `dispatch()`, `subscribe()`, and `on()` directly.
-
-For migration details, see:
-
-- [Migrate App to SDK](/guides/migrate-app-to-sdk)
-- [SDK SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v1.0.0.md)
-- [ADR-010](/internals/adr/010-major-hard-cut)
+- [Quickstart](/quickstart)
+- [Tutorial](/tutorial/)
+- [World API](./world.md)
+- [Specifications](/internals/spec/)

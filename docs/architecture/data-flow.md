@@ -70,15 +70,17 @@ The effect handler does not bypass Snapshot. Its output still lands as patches.
 
 ## Optional Governed Flow
 
-When you need explicit authority and lineage, add World in front of execution:
+When you need explicit legitimacy and continuity, use top-level `@manifesto-ai/world`:
 
 ```text
 participant
-  -> proposal / approval flow in World
-  -> approved intent
+  -> governed composition in @manifesto-ai/world
+  -> governance proposal / authority flow
   -> Host
   -> Core
-  -> Snapshot + lineage records
+  -> terminal Snapshot
+  -> coordinator seal
+  -> lineage + post-commit governance events
 ```
 
 That is a deliberate deployment choice, not an implicit part of the basic SDK onboarding path.
@@ -90,6 +92,6 @@ That is a deliberate deployment choice, not an implicit part of the basic SDK on
 - `dispatch()` submits work
 - Snapshot is the visible result
 - Effects still resolve through patches
-- World is optional and explicit
+- governed World composition is optional and explicit
 
 If those four points are clear, the rest of the architecture follows naturally.

@@ -1,868 +1,158 @@
 # World Guide
 
-> **Purpose:** Practical guide for using @manifesto-ai/world
-> **Prerequisites:** Basic understanding of Core and Host
-> **Time to complete:** ~20 minutes
+> Practical guide for assembling the governed `@manifesto-ai/world` runtime.
 
----
-
-## Table of Contents
-
-1. [Getting Started](#getting-started)
-2. [Basic Usage](#basic-usage)
-3. [Common Patterns](#common-patterns)
-4. [Advanced Usage](#advanced-usage)
-5. [Common Mistakes](#common-mistakes)
-6. [Troubleshooting](#troubleshooting)
-
----
-
-## Getting Started
-
-### Installation
-
-```bash
-npm install @manifesto-ai/world @manifesto-ai/core
-```
-
-### Minimal Setup
+## 1. Assemble The Governed Runtime
 
 ```typescript
-import { createManifestoWorld } from "@manifesto-ai/world";
+import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
+  createInMemoryWorldStore,
+  createLineageService,
+  createWorld,
+} from "@manifesto-ai/world";
 
-// 1. Create world (executor is optional; App provides HostExecutor)
-const world = createManifestoWorld({
-  schemaHash: "my-app-v1",
-  executor: appHostExecutor, // App-provided HostExecutor (optional)
+const store = createInMemoryWorldStore();
+const lineage = createLineageService(store);
+const governance = createGovernanceService(store, {
+  lineageService: lineage,
 });
 
-// 2. Create genesis world
-const initialSnapshot = /* Snapshot from Core */;
-const genesis = await world.createGenesis(initialSnapshot);
-
-// 3. Verify
-console.log(genesis.worldId);
-// → "w_abc123..."
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher: createGovernanceEventDispatcher({
+    service: governance,
+  }),
+});
 ```
+
+`createWorld()` is a thin assembler. It wires together the coordinator, lineage service, governance service, and composite store without hiding any of those responsibilities.
 
 ---
 
-## Basic Usage
-
-### Use Case 1: Registering Actors
-
-**Goal:** Register actors that can submit proposals.
-
-```typescript
-// Register a human user (auto-approve)
-world.registerActor(
-  {
-    actorId: "user-alice",
-    kind: "human",
-    name: "Alice",
-    meta: { email: "alice@example.com" },
-  },
-  { mode: "auto_approve" }
-);
-
-// Register an AI agent (HITL approval)
-world.registerActor(
-  {
-    actorId: "agent-assistant",
-    kind: "agent",
-    name: "Assistant",
-    meta: { model: "gpt-4" },
-  },
-  { mode: "hitl", delegate: { actorId: "user-alice", kind: "human" } }
-);
-
-// Register a system actor (policy rules)
-world.registerActor(
-  {
-    actorId: "system-scheduler",
-    kind: "system",
-    name: "Scheduler",
-  },
-  {
-    mode: "policy_rules",
-    rules: [],
-    defaultDecision: "approve",
-  }
-);
-```
-
-### Use Case 2: Submitting Proposals
-
-**Goal:** Submit proposals for state changes.
+## 2. Create Intent Instances For Governed Requests
 
 ```typescript
 import { createIntentInstance } from "@manifesto-ai/world";
 
-const baseWorld = (await world.getGenesis())?.worldId;
-if (!baseWorld) throw new Error("Genesis not created");
-
 const intent = await createIntentInstance({
-  body: { type: "todo.add", input: { title: "Buy groceries" } },
-  schemaHash: world.schemaHash,
-  projectionId: "app:ui",
+  body: {
+    type: "todo.add",
+    input: { title: "Document the governed path" },
+  },
+  schemaHash: "todo-v1",
+  projectionId: "todo-ui",
   source: { kind: "ui", eventId: "evt-1" },
-  actor: { actorId: "user-alice", kind: "human" },
-});
-
-const result = await world.submitProposal("user-alice", intent, baseWorld);
-
-console.log(result.proposal.status);     // → "completed" | "failed" | "rejected" | "evaluating"
-console.log(result.proposal.proposalId); // → "p_xyz789..."
-console.log(result.resultWorld?.worldId);
-```
-
-### Use Case 3: Human-in-the-Loop Authority
-
-**Goal:** Require human approval for certain actions.
-
-```typescript
-// Bind HITL policy to AI agent
-world.registerActor(
-  { actorId: "agent-assistant", kind: "agent" },
-  { mode: "hitl", delegate: { actorId: "admin-1", kind: "human" } }
-);
-
-// Hook for pending HITL decisions
-world.onHITLRequired((proposalId, proposal) => {
-  // Send to approval queue (webhook, Slack, email, etc.)
-  sendToApprovalQueue({ proposalId, proposal });
-});
-
-// When agent submits, it will wait for approval
-// (reuse intent/baseWorld creation from previous example)
-const result = await world.submitProposal("agent-assistant", intent, baseWorld);
-
-// Later: process decision
-await world.processHITLDecision(result.proposal.proposalId, "approved", "Approved by admin");
-```
-
----
-
-## Common Patterns
-
-### Pattern 1: Policy-Based Authority
-
-**When to use:** Automatically approve/reject based on rules.
-
-```typescript
-const policy = {
-  mode: "policy_rules",
-  rules: [
-    // Allow reads
-    { condition: { kind: "intent_type", types: ["todo.read"] }, decision: "approve" },
-    // Reject deletes by default
-    {
-      condition: { kind: "scope_pattern", pattern: "todo.delete" },
-      decision: "reject",
-      reason: "Deletes require HITL approval",
-    },
-  ],
-  defaultDecision: "approve",
-};
-
-world.updateActorBinding("agent-assistant", policy);
-```
-
-### Pattern 2: Tribunal Authority (Multi-Agent Review)
-
-**When to use:** High-stakes decisions requiring consensus.
-
-```typescript
-const tribunalPolicy = {
-  mode: "tribunal",
-  members: [
-    { actorId: "agent-reviewer-1", kind: "agent" },
-    { actorId: "agent-reviewer-2", kind: "agent" },
-    { actorId: "agent-reviewer-3", kind: "agent" },
-  ],
-  quorum: { kind: "majority" },
-  timeout: 60000,
-  onTimeout: "reject",
-};
-
-world.updateActorBinding("agent-writer", tribunalPolicy);
-```
-
-### Pattern 3: Mixed Authority Strategy
-
-**When to use:** Different authority levels for different action types.
-
-```typescript
-// Mixed strategy via policy rules
-const mixedPolicy = {
-  mode: "policy_rules",
-  rules: [
-    { condition: { kind: "scope_pattern", pattern: "*.read" }, decision: "approve" },
-    { condition: { kind: "scope_pattern", pattern: "*.write" }, decision: "approve" },
-    { condition: { kind: "scope_pattern", pattern: "*.delete" }, decision: "reject" },
-  ],
-  defaultDecision: "approve",
-};
-
-world.updateActorBinding("agent-1", mixedPolicy);
-```
-
----
-
-## Advanced Usage
-
-### Querying Proposals
-
-**Prerequisites:** Multiple proposals submitted.
-
-```typescript
-// Query evaluating proposals (public API)
-const evaluatingProposals = await world.getEvaluatingProposals();
-
-// Get a specific proposal by ID
-const proposal = await world.getProposal("prop_abc123");
-
-// Get decision for a proposal
-const decision = await world.getDecisionByProposal("prop_abc123");
-```
-
-> **Note:** Direct store access via `getStore()` has been removed per ADR-003.
-> Use the public query APIs above for governance data access.
-
-### Traversing World Lineage
-
-```typescript
-const lineage = world.getLineage();
-
-// Get parent world
-const parent = lineage.getParent("w_abc123");
-
-// Get all ancestors
-const ancestors = lineage.getAncestors("w_abc123");
-
-// Get children (forks)
-const children = lineage.getChildren("w_abc123");
-```
-
-### Custom World Store
-
-```typescript
-import { createManifestoWorld, type WorldStore } from "@manifesto-ai/world";
-
-// Custom store (e.g., database)
-const dbWorldStore: WorldStore = {
-  async saveWorld(world) {
-    await db.worlds.insert(world);
-  },
-  async getWorld(worldId) {
-    return db.worlds.findOne({ worldId });
-  },
-  async saveProposal(proposal) {
-    await db.proposals.insert(proposal);
-  },
-  async getProposal(proposalId) {
-    return db.proposals.findOne({ proposalId });
-  },
-  // ... other methods
-};
-
-const world = createManifestoWorld({
-  schemaHash: "my-app-v1",
-  executor: appHostExecutor,
-  store: dbWorldStore,
-});
-```
-
-### Production HITL with Email Notifications
-
-**Goal:** Complete HITL setup with email notifications for approval requests.
-
-**Prerequisites:** Email service (SendGrid, AWS SES, etc.) or webhook endpoint.
-
-```typescript
-import { createManifestoWorld } from "@manifesto-ai/world";
-import type { Proposal } from "@manifesto-ai/world";
-
-// ============ Email Notification Service ============
-
-interface EmailService {
-  sendApprovalRequest(params: {
-    to: string;
-    proposal: Proposal;
-    approveUrl: string;
-    rejectUrl: string;
-  }): Promise<void>;
-}
-
-// Example with SendGrid
-const emailService: EmailService = {
-  async sendApprovalRequest({ to, proposal, approveUrl, rejectUrl }) {
-    const sg = require("@sendgrid/mail");
-    sg.setApiKey(process.env.SENDGRID_API_KEY);
-
-    const msg = {
-      to,
-      from: "approvals@myapp.com",
-      subject: `Approval Required: ${proposal.intent.body.type}`,
-      html: `
-        <h2>Approval Request</h2>
-        <p><strong>Actor:</strong> ${proposal.actor.actorId} (${proposal.actor.kind})</p>
-        <p><strong>Action:</strong> ${proposal.intent.body.type}</p>
-        <p><strong>Input:</strong></p>
-        <pre>${JSON.stringify(proposal.intent.body.input, null, 2)}</pre>
-        <p><strong>Submitted:</strong> ${new Date(proposal.submittedAt).toLocaleString()}</p>
-        <hr />
-        <p>
-          <a href="${approveUrl}" style="background: green; color: white; padding: 10px 20px; text-decoration: none;">
-            Approve
-          </a>
-          <a href="${rejectUrl}" style="background: red; color: white; padding: 10px 20px; text-decoration: none; margin-left: 10px;">
-            Reject
-          </a>
-        </p>
-      `,
-    };
-
-    await sg.send(msg);
-  },
-};
-
-// ============ HITL Approval Queue ============
-
-// Store pending proposals for webhook callback
-const pendingApprovals = new Map<string, Proposal>();
-
-// ============ World Setup ============
-
-const world = createManifestoWorld({
-  schemaHash: "my-app-v1",
-  executor: appHostExecutor,
-  onHITLRequired: async (proposalId, proposal) => {
-    // Store for later approval
-    pendingApprovals.set(proposalId, proposal);
-
-    // Generate approval URLs (signed tokens in production)
-    const approveUrl = `https://myapp.com/approve/${proposalId}?token=${generateToken(proposalId)}`;
-    const rejectUrl = `https://myapp.com/reject/${proposalId}?token=${generateToken(proposalId)}`;
-
-    // Send email notification
-    await emailService.sendApprovalRequest({
-      to: "admin@myapp.com",
-      proposal,
-      approveUrl,
-      rejectUrl,
-    });
-
-    console.log(`Approval email sent for proposal: ${proposalId}`);
-  },
-});
-
-// Register AI agent with HITL authority
-world.registerActor(
-  {
-    actorId: "agent-assistant",
-    kind: "agent",
-    name: "Assistant",
-    meta: { model: "gpt-4" },
-  },
-  {
-    mode: "hitl",
-    delegate: { actorId: "admin-1", kind: "human" },
-    timeout: 3600000,
-    onTimeout: "reject",
-  }
-);
-
-// ============ Webhook Endpoints (Express example) ============
-
-import express from "express";
-const app = express();
-
-// Approve endpoint
-app.get("/approve/:proposalId", async (req, res) => {
-  const { proposalId } = req.params;
-  const { token } = req.query;
-
-  // Verify token (omitted for brevity)
-  if (!verifyToken(proposalId, token as string)) {
-    return res.status(403).send("Invalid token");
-  }
-
-  const proposal = pendingApprovals.get(proposalId);
-  if (!proposal) {
-    return res.status(404).send("Proposal not found or already processed");
-  }
-
-  // Approve through World
-  await world.processHITLDecision(proposalId, "approved", "Approved via email link");
-
-  // Clean up
-  pendingApprovals.delete(proposalId);
-
-  res.send(`
-    <h2>Proposal Approved</h2>
-    <p>Proposal ${proposalId} has been approved.</p>
-    <p><a href="https://myapp.com/dashboard">Return to Dashboard</a></p>
-  `);
-});
-
-// Reject endpoint
-app.get("/reject/:proposalId", async (req, res) => {
-  const { proposalId } = req.params;
-  const { token } = req.query;
-
-  // Verify token
-  if (!verifyToken(proposalId, token as string)) {
-    return res.status(403).send("Invalid token");
-  }
-
-  const proposal = pendingApprovals.get(proposalId);
-  if (!proposal) {
-    return res.status(404).send("Proposal not found or already processed");
-  }
-
-  // Reject through World
-  await world.processHITLDecision(proposalId, "rejected", "Rejected via email link");
-
-  // Clean up
-  pendingApprovals.delete(proposalId);
-
-  res.send(`
-    <h2>Proposal Rejected</h2>
-    <p>Proposal ${proposalId} has been rejected.</p>
-    <p><a href="https://myapp.com/dashboard">Return to Dashboard</a></p>
-  `);
-});
-
-app.listen(3000, () => {
-  console.log("HITL approval server running on port 3000");
-});
-
-// ============ Helper Functions ============
-
-function generateToken(proposalId: string): string {
-  // In production, use proper JWT signing
-  const crypto = require("crypto");
-  const secret = process.env.APPROVAL_SECRET || "change-me";
-  return crypto
-    .createHmac("sha256", secret)
-    .update(proposalId)
-    .digest("hex");
-}
-
-function verifyToken(proposalId: string, token: string): boolean {
-  return token === generateToken(proposalId);
-}
-
-// ============ Usage Example ============
-
-// AI agent submits a proposal
-const intent = await createIntentInstance({
-  body: { type: "data.delete", input: { recordId: "rec_123" } },
-  schemaHash: world.schemaHash,
-  projectionId: "app:ui",
-  source: { kind: "ui", eventId: "evt-2" },
-  actor: { actorId: "agent-assistant", kind: "agent" },
-});
-const baseWorld = (await world.getGenesis())?.worldId;
-if (!baseWorld) throw new Error("Genesis not created");
-
-const result = await world.submitProposal("agent-assistant", intent, baseWorld);
-
-// Result will be evaluating
-console.log(result.proposal.status); // → "evaluating"
-console.log(result.proposal.proposalId); // → "p_abc123"
-
-// Email is sent automatically via the notify callback
-// Human clicks approve/reject link
-// World processes the decision and executes the intent
-```
-
-**Production considerations:**
-
-1. **Security:**
-   - Use proper JWT signing for approval tokens
-   - Set expiration on tokens
-   - Rate-limit approval endpoints
-   - Require authentication for approval UI
-
-2. **Persistence:**
-   - Store evaluating proposals in database, not in-memory Map
-   - Persist approval state to survive restarts
-
-3. **Monitoring:**
-   - Track approval latency
-   - Alert on timeout rejections
-   - Log all approval decisions
-
-4. **User Experience:**
-   - Provide web UI for bulk approvals
-   - Show proposal context and impact
-   - Support delegation to other approvers
-
----
-
-## Common Mistakes
-
-### Mistake 1: Bypassing World Governance (Direct Host Execution)
-
-**What people do:**
-
-```typescript
-// Wrong: Execute directly on Host, skipping World Protocol
-import { createHost } from "@manifesto-ai/host";
-
-const host = createHost(schema, {
-  initialData: {},
-  context: { now: () => Date.now() },
-});
-await host.dispatch(createIntent("someAction", {}, "intent-1")); // NO GOVERNANCE!
-```
-
-**Why it's wrong:** This violates the Manifesto sovereignty model. All intents MUST flow through World Protocol for Authority evaluation, lineage tracking, and accountability. Direct Host execution:
-- Skips Authority approval
-- Creates no DecisionRecord
-- Breaks lineage DAG
-- Cannot be audited or replayed
-
-**Constitutional reference:** Section 6 - Authority Bypass (FORBIDDEN)
-
-**Correct approach:**
-
-```typescript
-// Right: All intents through World Protocol
-import { createManifestoWorld, createIntentInstance } from "@manifesto-ai/world";
-
-const world = createManifestoWorld({
-  schemaHash: "my-app-v1",
-  executor: appHostExecutor,
-});
-
-world.registerActor(
-  { actorId: "user-1", kind: "human" },
-  { mode: "auto_approve" }
-);
-
-const intent = await createIntentInstance({
-  body: { type: "todo.add", input: {} },
-  schemaHash: world.schemaHash,
-  projectionId: "app:ui",
-  source: { kind: "ui", eventId: "evt-3" },
   actor: { actorId: "user-1", kind: "human" },
 });
-const baseWorld = (await world.getGenesis())?.worldId;
-if (!baseWorld) throw new Error("Genesis not created");
-
-// Submit through World (governance enforced)
-const result = await world.submitProposal("user-1", intent, baseWorld);
-
-// Now you have: DecisionRecord, lineage, auditability
 ```
 
-### Mistake 2: Not Handling Async HITL/Tribunal Approval
-
-**What people do:**
-
-```typescript
-// Wrong: Assuming HITL completes synchronously
-const result = await world.submitProposal({
-  actorId: "agent-1",
-  intent: { type: "dangerous.action", input: {} },
-});
-
-// Accessing result.resultWorld immediately
-updateUI(result.resultWorld?.snapshot); // May not exist yet!
-```
-
-**Why it's wrong:** HITL and Tribunal authorities are inherently async. The proposal enters "evaluating" state until a human approves/rejects. The `result.resultWorld` field will be undefined until approval completes.
-
-**Correct approach:**
-
-```typescript
-// Right: Check status and handle async flow
-const result = await world.submitProposal({
-  actorId: "agent-1",
-  intent: { type: "dangerous.action", input: {} },
-});
-
-if (result.proposal.status === "completed") {
-  // Immediate completion (auto-approve or synchronous authority)
-  if (result.resultWorld) {
-    const snapshot = await world.getSnapshot(result.resultWorld.worldId);
-    updateUI(snapshot);
-  }
-} else if (result.proposal.status === "evaluating") {
-  // HITL approval needed
-  console.log("Waiting for approval:", result.proposal.proposalId);
-
-  // Option 1: Subscribe via App-owned WorldEventSource
-  // (Assumes App provided an event sink when creating the world.)
-  const eventSource = /* App-owned WorldEventSource */;
-  const unsubscribe = eventSource.subscribe((event) => {
-    if (
-      event.type === "execution:completed" &&
-      event.proposalId === result.proposal.proposalId
-    ) {
-      world.getSnapshot(event.resultWorld).then((snapshot) => {
-        updateUI(snapshot);
-        unsubscribe();
-      });
-    }
-  });
-
-  // Option 2: Poll for completion
-  const interval = setInterval(async () => {
-    const proposal = await world.getProposal(result.proposal.proposalId);
-    if (proposal && proposal.status !== "evaluating") {
-      clearInterval(interval);
-      if (proposal.resultWorld) {
-        const snapshot = await world.getSnapshot(proposal.resultWorld);
-        updateUI(snapshot);
-      }
-    }
-  }, 1000);
-} else if (result.proposal.status === "rejected") {
-  showError(result.decision.reason);
-}
-```
-
-### Mistake 3: Not Persisting DecisionRecords
-
-**What people do:**
-
-```typescript
-// Wrong: Ignoring decision records
-const result = await world.submitProposal("agent-1", intent, baseWorld);
-
-// Continue without storing decision
-processResult(result);
-```
-
-**Why it's wrong:** DecisionRecords are the foundation of:
-- Compliance audits (SOC2, GDPR, HIPAA)
-- Debugging authority logic
-- Replay and time-travel
-- Accountability trails
-
-Without persisting decisions, you lose **why** a state change was allowed.
-
-**Correct approach:**
-
-```typescript
-// Right: Always persist DecisionRecords
-const result = await world.submitProposal("agent-1", intent, baseWorld);
-
-if (result.decision) {
-  // Store decision for audit trail
-  await decisionStore.save({
-    proposalId: result.proposal.proposalId,
-    actorId: result.proposal.actor.actorId,
-    authorityId: result.decision.authority.authorityId,
-    decision: result.decision.decision,
-    reasoning: result.decision.reasoning,
-    decidedAt: result.decision.decidedAt,
-    worldId: result.resultWorld?.worldId,
-  });
-
-  // Log for compliance
-  auditLog.info("Authority decision", {
-    proposal: result.proposal.proposalId,
-    authority: result.decision.authority.authorityId,
-    decision: result.decision.decision,
-  });
-}
-
-// Query decisions later for audit
-const agentDecisions = await decisionStore.query({
-  actorId: "agent-1",
-  dateRange: { start: "2026-01-01", end: "2026-01-31" },
-});
-```
-
-### Mistake 4: Submitting Without Registering Actor
-
-**What people do:**
-
-```typescript
-// Wrong: Actor not registered
-await world.submitProposal("unknown-user", intent, baseWorld);
-// → Error: Actor not found
-```
-
-**Why it's wrong:** All actors must be registered before submitting.
-
-**Correct approach:**
-
-```typescript
-// Right: Register first
-world.registerActor({ actorId: "unknown-user", kind: "human" });
-await world.submitProposal({
-  actorId: "unknown-user",
-  intent: { type: "todo.add", input: {} },
-});
-```
+The intent key is derived from the intent body and schema data only. Origin metadata does not affect it.
 
 ---
 
-## Troubleshooting
-
-### Error: "Actor not found"
-
-**Cause:** Actor not registered.
-
-**Solution:**
+## 3. Proposal -> Decision -> Seal
 
 ```typescript
-world.registerActor({
-  actorId: "the-actor",
-  kind: "human",
+const branch = lineage.getActiveBranch();
+const proposal = governance.createProposal({
+  baseWorld: branch.head,
+  branchId: branch.id,
+  actorId: intent.meta.origin.actor.actorId,
+  authorityId: "auth-auto",
+  intent: {
+    type: intent.body.type,
+    intentId: intent.intentId,
+    input: intent.body.input,
+    scopeProposal: intent.body.scopeProposal,
+  },
+  executionKey: intent.intentKey,
+  submittedAt: Date.now(),
+  epoch: branch.epoch,
 });
-```
 
-### Error: "No authority bound"
-
-**Cause:** No authority configured for actor.
-
-**Solution:**
-
-```typescript
-// Register actor with an explicit policy
-world.registerActor(
-  { actorId: "actor-id", kind: "human" },
-  { mode: "auto_approve" }
+const approved = governance.prepareAuthorityResult(
+  { ...proposal, status: "evaluating" },
+  { kind: "approved", approvedScope: null },
+  {
+    currentEpoch: branch.epoch,
+    currentBranchHead: branch.head,
+    decidedAt: Date.now(),
+  },
 );
-```
 
-### Proposal stuck in "evaluating"
+if (!approved.decisionRecord) {
+  throw new Error("expected decision record");
+}
 
-**Cause:** HITL approval not received, or timeout not configured.
+const executingProposal = {
+  ...approved.proposal,
+  status: "executing" as const,
+  decisionId: approved.decisionRecord.decisionId,
+  decidedAt: approved.decisionRecord.decidedAt,
+};
 
-**Diagnosis:**
+world.store.putProposal(executingProposal);
+world.store.putDecisionRecord(approved.decisionRecord);
 
-```typescript
-const proposals = await world.getEvaluatingProposals();
-console.log("Evaluating proposals:", proposals);
-```
-
-**Solution:**
-
-```typescript
-// Option 1: Approve manually
-await world.processHITLDecision(proposalId, "approved", "Approved by admin");
-
-// Option 2: Configure timeout with auto-reject via actor policy
-world.updateActorBinding("agent-assistant", {
-  mode: "hitl",
-  delegate: { actorId: "admin-1", kind: "human" },
-  timeout: 30000,
-  onTimeout: "reject",
+const sealed = world.coordinator.sealNext({
+  executingProposal,
+  completedAt: Date.now(),
+  sealInput: {
+    schemaHash: "todo-v1",
+    terminalSnapshot,
+    createdAt: Date.now(),
+    baseWorldId: branch.head,
+    branchId: branch.id,
+    proposalRef: executingProposal.proposalId,
+    decisionRef: approved.decisionRecord.decisionId,
+  },
 });
 ```
 
+World coordinates the commit sequence, governance finalization, and event emission. Lineage remains responsible for identity and history; governance remains responsible for legitimacy.
+
 ---
 
-## Testing
-
-### Unit Testing Authorities
+## 4. Standalone Genesis Versus Governed Sealing
 
 ```typescript
-import { createPolicyRulesHandler } from "@manifesto-ai/world";
-import { describe, it, expect } from "vitest";
-
-describe("Policy authority", () => {
-  it("approves read actions", async () => {
-    const handler = createPolicyRulesHandler();
-    const binding = {
-      actor: { actorId: "user-1", kind: "human" },
-      authority: { authorityId: "auth-user-1", kind: "policy" },
-      policy: {
-        mode: "policy_rules",
-        rules: [
-          { condition: { kind: "intent_type", types: ["user.read"] }, decision: "approve" },
-        ],
-        defaultDecision: "reject",
-      },
-    };
-    const proposal = {
-      proposalId: "p-1",
-      actor: binding.actor,
-      intent: {
-        body: { type: "user.read", input: {} },
-        intentId: "intent-1",
-        intentKey: "key-1",
-        meta: { origin: { projectionId: "test", source: { kind: "test", eventId: "e-1" }, actor: binding.actor } },
-      },
-      baseWorld: "w-1",
-      status: "submitted",
-      epoch: 0,
-      executionKey: "p-1:1",
-      submittedAt: Date.now(),
-    };
-
-    const result = await handler.evaluate(proposal, binding);
-    expect(result.kind).toBe("approved");
-  });
-
-  it("rejects delete actions", async () => {
-    const handler = createPolicyRulesHandler();
-    const binding = {
-      actor: { actorId: "user-1", kind: "human" },
-      authority: { authorityId: "auth-user-1", kind: "policy" },
-      policy: {
-        mode: "policy_rules",
-        rules: [
-          {
-            condition: { kind: "intent_type", types: ["user.delete"] },
-            decision: "reject",
-            reason: "Not allowed",
-          },
-        ],
-        defaultDecision: "approve",
-      },
-    };
-    const proposal = {
-      proposalId: "p-2",
-      actor: binding.actor,
-      intent: {
-        body: { type: "user.delete", input: {} },
-        intentId: "intent-2",
-        intentKey: "key-2",
-        meta: { origin: { projectionId: "test", source: { kind: "test", eventId: "e-2" }, actor: binding.actor } },
-      },
-      baseWorld: "w-1",
-      status: "submitted",
-      epoch: 0,
-      executionKey: "p-2:1",
-      submittedAt: Date.now(),
-    };
-
-    const result = await handler.evaluate(proposal, binding);
-    expect(result.kind).toBe("rejected");
-  });
+const genesis = world.coordinator.sealGenesis({
+  kind: "standalone",
+  sealInput: {
+    schemaHash: "todo-v1",
+    terminalSnapshot: initialSnapshot,
+    createdAt: Date.now(),
+  },
 });
 ```
 
----
-
-## Quick Reference
-
-### Key APIs
-
-| API | Purpose | Example |
-|-----|---------|---------|
-| `createManifestoWorld()` | Create world | `createManifestoWorld({ schemaHash, executor })` |
-| `world.registerActor()` | Register actor | `world.registerActor(actor, { mode: "auto_approve" })` |
-| `world.submitProposal()` | Submit proposal | `await world.submitProposal(actorId, intent, baseWorld)` |
-| `world.getEvaluatingProposals()` | Query proposals | `await world.getEvaluatingProposals()` |
-
-### Proposal Status Flow
-
-```
-submitted → evaluating → approved → executing → completed
-                 ↓                     ↓
-              rejected              failed
-```
+Use standalone genesis when you only need to bootstrap the first sealed world. Use governed sealing when the first seal should also go through legitimacy and event flow.
 
 ---
 
-*End of Guide*
+## 5. Read Resulting Worlds And Branches
+
+```typescript
+const activeBranch = world.lineage.getActiveBranch();
+const heads = world.lineage.getHeads();
+const latestHead = world.lineage.getLatestHead();
+const restored = latestHead
+  ? world.lineage.restore(latestHead.worldId)
+  : null;
+```
+
+The governed runtime does not hide history. It makes the current branch and its sealed ancestry queryable.
+
+---
+
+## 6. Related Docs
+
+- [World README](../README.md)
+- [World Specification](world-facade-spec-v1.0.0.md)
+- [World Version Index](VERSION-INDEX.md)
+- [Governed Composition](../../../docs/tutorial/05-governed-composition)
+- [Governed Sealing and History](../../../docs/tutorial/06-governed-sealing-and-history)

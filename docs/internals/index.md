@@ -4,12 +4,27 @@
 
 This section contains detailed technical documentation for those who want to understand or contribute to Manifesto's implementation.
 
-## Resources
+## Maintained Internals
+
+Use these pages when you need the current contributor-facing rules around documentation, testing, and glossary terms.
 
 - [Glossary](./glossary) - Term definitions
 - [Test Conventions](./test-conventions) - Test naming and discovery
 - [Documentation Governance](./documentation-governance) - Docs maintenance rules
 - [Layer Boundaries](/architecture/layers) - Normative layer spec (in Architecture section)
+
+---
+
+## Historical Collections
+
+These indexes are preserved for architectural history and normative traceability. They are not the fastest way to learn the current public surface.
+
+- [Architecture Decision Records](./adr/) - Historical decision record index
+- [Specifications](./spec/) - Current package specs plus historical references
+- [Design Rationale (FDR)](./fdr/) - Rationale index and archived rationale references
+- [Retired Runtime Pages](./retired/app) - Removed package retirement records
+
+---
 
 ## Architecture Decision Records (ADRs)
 
@@ -31,7 +46,7 @@ Records of significant architectural decisions:
 | [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented |
 | [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed |
 | [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed |
-| [ADR-014](./adr/014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Accepted |
+| [ADR-014](./adr/014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

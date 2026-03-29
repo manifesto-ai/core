@@ -2,6 +2,10 @@
 
 > **Status:** Retired per [ADR-010](/internals/adr/010-major-hard-cut).
 
+::: warning Historical Page
+This page is a retirement record only. Use [@manifesto-ai/sdk](/api/sdk) for the current runtime entry surface.
+:::
+
 The `@manifesto-ai/runtime` package has been retired. Its responsibilities have been absorbed into `@manifesto-ai/sdk` via `createManifesto()`.
 
 ## Migration

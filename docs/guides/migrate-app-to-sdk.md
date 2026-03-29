@@ -2,6 +2,10 @@
 
 > Historical guide for repositories that still depend on `@manifesto-ai/app`.
 
+::: warning Historical Guide
+This page is preserved for retired `@manifesto-ai/app` migrations only. New work should start from the current [Tutorial](/tutorial/) and [SDK API](/api/sdk).
+:::
+
 `@manifesto-ai/app` is retired. The current SDK surface is `createManifesto()` from `@manifesto-ai/sdk`.
 
 ---

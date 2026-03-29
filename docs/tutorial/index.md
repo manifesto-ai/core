@@ -1,13 +1,11 @@
 # Tutorial
 
-> Build up from one `ManifestoInstance` to a small app, one step at a time.
+> Learn Manifesto through two separate tracks: direct dispatch for the SDK path, and governed composition for explicit approval and lineage.
 
-These tutorials are for developers who know TypeScript but are new to Manifesto. They assume the current SDK surface:
+These tutorials are for developers who know TypeScript but are new to Manifesto. The learning path is split on purpose:
 
-- `createManifesto()` creates a ready-to-use instance
-- `dispatch()` enqueues an `Intent`
-- `subscribe()` and `on()` let you observe what happened
-- `getSnapshot()` gives you the latest terminal snapshot
+- Tutorials `01` through `04` stay focused on the SDK direct-dispatch path
+- Tutorials `05` and `06` introduce governed composition with top-level `@manifesto-ai/world`
 
 ---
 
@@ -21,24 +19,40 @@ These tutorials are for developers who know TypeScript but are new to Manifesto.
 
 ## The Mental Model
 
-Manifesto applications start with the same three pieces:
+Manifesto applications can start in two different ways:
 
-1. A MEL domain that defines state, computed values, actions, and effects
-2. A `ManifestoInstance` created with `createManifesto()`
-3. A small helper that turns `dispatch()` + telemetry events into an awaitable workflow when you need one
+1. Direct-dispatch apps use `createManifesto()` and submit `Intent` values through the SDK
+2. Governed apps assemble lineage, governance, and a coordinator explicitly through `@manifesto-ai/world`
 
-If you keep those three pieces clear, the rest of the learning path gets much easier.
+The domain model stays the same in both paths. The difference is where approval, branch history, and audit live.
 
 ---
 
-## Learning Path
+## Direct-Dispatch Track
+
+Use this path when you want the shortest route from a MEL domain to a running app.
 
 | Step | Tutorial | Time | Outcome |
 |------|----------|------|---------|
-| 1 | [Your First Manifesto Instance](./01-your-first-app) | 15 min | Create a counter and learn `dispatch`, `subscribe`, `getSnapshot` |
+| 1 | [Your First Manifesto Instance](./01-your-first-app) | 15 min | Create a counter and learn `dispatch()`, `subscribe()`, and `getSnapshot()` |
 | 2 | [Actions and State](./02-actions-and-state) | 20 min | Work with arrays, computed values, and selector-based subscriptions |
 | 3 | [Working with Effects](./03-effects) | 25 min | Connect effect declarations to real effect handlers |
 | 4 | [Building a Todo App](./04-todo-app) | 30 min | Organize a small app before adding any UI framework |
+
+If you only need a Snapshot-driven app, stop here. The SDK path is enough.
+
+---
+
+## Governed Track
+
+Use this path when you need branch history, explicit actor identity, approval, or post-commit lineage.
+
+| Step | Tutorial | Time | Outcome |
+|------|----------|------|---------|
+| 5 | [Governed Composition](./05-governed-composition) | 20 min | Assemble lineage, governance, and a coordinator with `@manifesto-ai/world` |
+| 6 | [Governed Sealing and History](./06-governed-sealing-and-history) | 25 min | Create proposals, prepare authority decisions, and read sealed branch history |
+
+This track builds on the same semantics as the SDK path, but it makes the governance seams explicit.
 
 ---
 
@@ -46,7 +60,7 @@ If you keep those three pieces clear, the rest of the learning path gets much ea
 
 ### Expecting `dispatch()` to return the result
 
-`dispatch()` only enqueues work. Read the next state through `subscribe()` or `getSnapshot()`, or use a small `dispatchAsync()` helper built on top of `on()`.
+`dispatch()` only enqueues work. Read the next state through `subscribe()` or `getSnapshot()`, or use `dispatchAsync()` when you need the terminal snapshot as a Promise.
 
 ### Forgetting `onceIntent`
 
@@ -66,9 +80,9 @@ Effect handlers do not feed values back through a hidden return channel. They re
 
 - Go to [How-to Guides](/guides/) when you need a concrete technique
 - Go to [Integration](/integration/) when you want React or AI-agent patterns
-- Go to [Core Concepts](/concepts/) when you want a deeper model of Snapshot, Intent, Flow, and Effect
+- Go to [Core Concepts](/concepts/) when you want a deeper model of Snapshot, Intent, Effect, and World
 - Go to [Architecture](/architecture/) when you want the system-level picture
 
 ---
 
-Start with [Your First Manifesto Instance](./01-your-first-app).
+Start with [Your First Manifesto Instance](./01-your-first-app) for the SDK path, or jump to [Governed Composition](./05-governed-composition) when you need explicit lineage and approval.

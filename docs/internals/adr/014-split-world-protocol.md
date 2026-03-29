@@ -143,9 +143,9 @@ After the split, the responsibility for creating a World from a terminal snapsho
 
 ### D7. `@manifesto-ai/world` becomes a compatibility facade
 
-`@manifesto-ai/world` is reduced from an independent constitutional owner to a composition facade that re-exports from `governance` and `lineage`, provides a convenience `createWorld()` entrypoint, and owns the commit coordinator role.
+`@manifesto-ai/world` is reduced from an independent constitutional owner to a composition facade that re-exports from `governance` and `lineage`, provides a convenience `createWorld()` entrypoint, and owns the commit coordinator role defined in D14.
 
-**Facade owns the commit coordinator.** When both governance and lineage are present, their state changes must be committed atomically. The facade assembles the write set from lineage's prepared result and governance's terminalization, then commits them in a single store transaction. This is Strategy A (single-store atomic commit) — the only strategy permitted by this ADR. Physically separated stores (Strategy B/C) require reconciliation boundaries (durable journal, watermark, etc.) that exceed this ADR's scope and are deferred to a future ADR.
+**Facade owns the commit coordinator.** When both governance and lineage are present, their state changes must be committed atomically. The facade assembles the write set from lineage's prepared result and governance's terminalization, then commits them in a single store transaction. This is Strategy A (single-store atomic commit) — the only strategy permitted by this ADR. Physically separated stores (Strategy B/C) require reconciliation boundaries (durable journal, watermark, etc.) that exceed this ADR's scope and are deferred to a future ADR. D11.3 defines the composite store seam; D14 defines the coordinator's cross-protocol responsibility.
 
 **SDK impact.** The existing `createManifesto()` code that calls `createWorld()` continues to work through the facade. SDK SPEC v1.0.0's `ManifestoConfig.store?: WorldStore` and re-export structure are not changed by this ADR. SDK surface changes are out of scope; if needed, they are addressed in a subsequent SDK SPEC patch.
 
@@ -174,11 +174,60 @@ The current World persistence model stores lineage data (Worlds, Snapshots, Patc
 
 This ADR separates them into `LineageStore` (owned by `@manifesto-ai/lineage`) and `GovernanceStore` (owned by `@manifesto-ai/governance`). Each store interface knows nothing about the other's types.
 
+#### D11.1. `LineageStore` owns continuity persistence and lineage-only atomic commit
+
 **`LineageStore` includes an atomic commit method** for durable lineage-only use. This ensures that lineage-only users get the same crash consistency guarantees as governed environments, without needing the facade's composite store.
+
+`LineageStore` owns only lineage records and branch CAS semantics. Governance concepts do not appear in this interface.
+
+#### D11.2. `GovernanceStore` owns governance audit persistence only
+
+`GovernanceStore` owns governance audit data (`Proposal`, `DecisionRecord`, `ActorAuthorityBinding`) as its own protocol-local persistence contract.
+
+`GovernanceStore` does not expose lineage records, branch CAS operations, or lineage storage internals. Governance persists its own audit trail through this separate interface.
+
+#### D11.3. Facade defines the composite store for Strategy A atomic commit
 
 **Facade provides a composite store.** The facade defines a transaction-aware store that extends both `LineageStore` and `GovernanceStore`, adding an atomic commit method that commits lineage records and governance records together. This is the Strategy A single-store atomic commit.
 
 Exact interface definitions are specified in the Lineage SPEC and Governance SPEC respectively.
+
+### D12. Branch identity is a first-class governance contract
+
+After the split, governance must persist and propagate target-branch identity explicitly. This makes branch-scoped sealing, observability, and execution policy traceable without requiring hidden coupling to lineage internals.
+
+#### D12.1. `Proposal.branchId` is persisted truth
+
+`Proposal` includes `branchId` as a persisted field. The target branch is recorded at proposal creation time and remains immutable for the proposal's lifetime.
+
+This branch identity is used when constructing lineage seal inputs and when applying branch-scoped governance policies.
+
+#### D12.2. `ProposalSubmittedEvent` includes `branchId`
+
+The proposal-submission event includes `branchId` so subscribers can observe which branch a proposal targets without re-querying the proposal record.
+
+#### D12.3. `ExecutionKeyContext` includes `branchId`
+
+`ExecutionKeyContext` includes `branchId` so execution-key policies can serialize or partition work at the branch scope when needed.
+
+### D13. Branch-scoped single-writer gate and stale ingress invalidation
+
+After the split, governance enforces **at most one execution-stage proposal per branch at a time**.
+
+This gate is branch-scoped, not global. Gate release must revalidate against the current branch head, and stale ingress-stage proposals are invalidated when the branch epoch advances due to head advance or branch switch. Late authority results for stale-epoch proposals are discarded.
+
+### D14. Facade commit coordinator owns atomic cross-protocol seal commit
+
+The facade's commit coordinator is the composition role that bridges governance finalization and lineage sealing without collapsing their boundaries.
+
+The coordinator:
+
+* calls lineage prepare APIs and governance finalize APIs in the required order
+* assembles the combined write set when both protocols produce records
+* commits lineage and governance records atomically through the composite store
+* handles seal rejection as a coordinator concern — if lineage cannot create a World, it commits the governance-only terminalization path without fabricating lineage records
+
+Lineage remains unaware of the coordinator. Governance remains responsible for judgment. The coordinator owns only orchestration and atomic commit at the composition boundary.
 
 ---
 
@@ -329,15 +378,13 @@ This ADR establishes the architectural decisions. The following items require no
 
 ### Governance SPEC v1.0.0
 
-* `GovernanceStore` interface
-* `Proposal` type extension (`branchId` field)
-* `ProposalSubmittedEvent` extension (`branchId` field)
-* `ExecutionKeyContext` extension (`branchId` field)
+* `GovernanceStore` interface and exact store method signatures
+* Exact type definitions for `Proposal.branchId`, `ProposalSubmittedEvent.branchId`, and `ExecutionKeyContext.branchId`
 * `PreparedGovernanceCommit` type definition
 * Single-writer gate rules (`GOV-BRANCH-GATE-*`)
 * Proposal branch identity rules (`GOV-BRANCH-*`)
 * Stale ingress invalidation semantics (gate-release revalidation, late authority discard)
-* Seal coordination protocol
+* Seal coordination protocol, including the coordinator-facing seal rejection path
 * Invariant migration matrix (`INV-G-*`)
 * Rule retagging mapping (old `WORLD-*` → new `GOV-*`)
 
@@ -345,7 +392,7 @@ This ADR establishes the architectural decisions. The following items require no
 
 * Composite store interface (`commitSeal()`)
 * Write-set type definition
-* Coordinator orchestration protocol
+* Exact coordinator orchestration protocol for normal and seal-rejection paths
 * Facade lifecycle and deprecation policy details
 
 ---

@@ -16,7 +16,7 @@
 ## Prerequisites
 
 - You finished [Your First Manifesto Instance](./01-your-first-app)
-- You have the `dispatchAsync()` helper from tutorial 1
+- You are using the SDK `dispatchAsync()` utility from tutorial 1
 
 ---
 
@@ -91,9 +91,8 @@ This domain keeps the rules close to the data:
 Create `main.ts`:
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
+import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
-import { dispatchAsync } from "./dispatch-async";
 
 const manifesto = createManifesto({
   schema: TodoMel,
@@ -108,27 +107,41 @@ manifesto.subscribe(
 );
 
 async function run() {
-  await dispatchAsync(manifesto, "addTodo", {
-    title: "Learn Manifesto",
-    id: crypto.randomUUID(),
-  });
+  await dispatchAsync(
+    manifesto,
+    createIntent(
+      "addTodo",
+      { title: "Learn Manifesto", id: crypto.randomUUID() },
+      crypto.randomUUID(),
+    ),
+  );
 
-  await dispatchAsync(manifesto, "addTodo", {
-    title: "Ship the first tutorial rewrite",
-    id: crypto.randomUUID(),
-  });
+  await dispatchAsync(
+    manifesto,
+    createIntent(
+      "addTodo",
+      { title: "Ship the first tutorial rewrite", id: crypto.randomUUID() },
+      crypto.randomUUID(),
+    ),
+  );
 
   let snapshot = manifesto.getSnapshot();
   console.log("Total todos:", snapshot.computed["totalCount"]);
   console.log("Has todos:", snapshot.computed["hasTodos"]);
 
   const firstTodoId = (snapshot.data.todos as Array<{ id: string }>)[0].id;
-  await dispatchAsync(manifesto, "toggleTodo", { id: firstTodoId });
+  await dispatchAsync(
+    manifesto,
+    createIntent("toggleTodo", { id: firstTodoId }, crypto.randomUUID()),
+  );
 
   snapshot = manifesto.getSnapshot();
   console.log("Completed state:", snapshot.data.todos);
 
-  await dispatchAsync(manifesto, "clearCompleted");
+  await dispatchAsync(
+    manifesto,
+    createIntent("clearCompleted", crypto.randomUUID()),
+  );
 
   snapshot = manifesto.getSnapshot();
   console.log("Todos after clearCompleted:", snapshot.data.todos);

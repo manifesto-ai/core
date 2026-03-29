@@ -1,137 +1,67 @@
 # @manifesto-ai/world
 
-> Explicit governance, proposal flow, and lineage for Manifesto deployments that need more than the default SDK path.
+> Canonical governed composition package for Manifesto.
 
----
+`@manifesto-ai/world` is the exact facade for governed composition. It combines lineage, governance, and the facade-owned coordinator/store types behind a single top-level package.
 
-## What This Package Is For
+## What This Package Owns
 
-Use `@manifesto-ai/world` when you need to answer questions like:
+- governed composition through `createWorld()`
+- in-memory composite storage through `createInMemoryWorldStore()`
+- lineage services and public lineage types
+- governance services, authority handlers, proposal lifecycle types, and intent-instance helpers
+- coordinator-based sealing and post-commit event dispatch
 
-- Who proposed this change?
-- Who approved it?
-- What world did this transition come from?
-- How do I require human review for agent actions?
+## When to Use It
 
-If you only need the default `createManifesto()` runtime, you do not need this package on day one.
+Use `@manifesto-ai/world` when you want:
 
----
+- explicit legitimacy and lineage semantics
+- a canonical package for proposal evaluation and sealing
+- direct access to split-native governance and lineage APIs
+- the facade-owned `CommitCapableWorldStore` / `WorldCoordinator` surface
 
-## How World Fits
-
-```text
-default path
-SDK -> Host -> Core
-
-governed path
-participant -> World -> Host -> Core
-```
-
-World is an explicit integration layer. The current SDK does not wire it implicitly.
-
----
-
-## Main Responsibilities
-
-| Responsibility | Description |
-|----------------|-------------|
-| Actor registry | Track human, agent, and system participants |
-| Proposal flow | Accept, evaluate, and resolve proposed transitions |
-| Authority policies | Auto-approve, rule-check, or require review |
-| Lineage | Track immutable world ancestry |
-| Audit records | Preserve approval and execution history |
-
----
-
-## Quick Example
+## Quick Start
 
 ```typescript
-import { createManifestoWorld, createIntentInstance } from "@manifesto-ai/world";
+import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
+  createInMemoryWorldStore,
+  createLineageService,
+  createWorld,
+} from "@manifesto-ai/world";
 
-const world = createManifestoWorld({
-  schemaHash: "todo-v1",
-  executor: hostExecutor,
+const store = createInMemoryWorldStore();
+const lineage = createLineageService(store);
+const governance = createGovernanceService(store, {
+  lineageService: lineage,
 });
-
-const actor = {
-  actorId: "user-1",
-  kind: "human",
-  name: "Alice",
-};
-
-world.registerActor(actor, { mode: "auto_approve" });
-
-const genesis = await world.createGenesis(initialSnapshot);
-
-const intent = await createIntentInstance({
-  body: {
-    type: "todo.add",
-    input: { title: "Review the governance model" },
-  },
-  schemaHash: world.schemaHash,
-  projectionId: "todo-ui",
-  source: { kind: "ui", eventId: "evt-1" },
-  actor,
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
 });
-
-const result = await world.submitProposal(
-  actor.actorId,
-  intent,
-  genesis.worldId,
-);
-
-console.log(result.proposal.status);
-console.log(result.resultWorld?.worldId);
 ```
 
----
+## Main Exports
 
-## Important Types
+- `createWorld()`
+- `createInMemoryWorldStore()`
+- `createLineageService()`
+- `createGovernanceService()`
+- `createGovernanceEventDispatcher()`
+- `createIntentInstance()`
+- `createIntentInstanceSync()`
+- `computeIntentKey()`
+- `CommitCapableWorldStore`
+- `WorldCoordinator`
+- `WorldInstance`
 
-```typescript
-function createManifestoWorld(config: ManifestoWorldConfig): ManifestoWorld;
+## Docs
 
-class ManifestoWorld {
-  createGenesis(initialSnapshot: Snapshot): Promise<World>;
-  registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
-  submitProposal(
-    actorId: string,
-    intent: IntentInstance,
-    baseWorld: WorldId,
-    trace?: ProposalTrace,
-  ): Promise<ProposalResult>;
-}
-```
-
-Actor kinds are currently:
-
-- `human`
-- `agent`
-- `system`
-
----
-
-## Relationship With SDK
-
-`@manifesto-ai/sdk` re-exports a small part of World for explicit integrations, such as the `WorldStore` type and `createMemoryWorldStore()`. The default `createManifesto()` path still focuses on direct intent dispatch rather than proposal orchestration.
-
----
-
-## When to Adopt World
-
-Bring in World when you need:
-
-- human-in-the-loop approval
-- explicit actor policies
-- lineage across worlds
-- governed multi-agent systems
-
-Stay with the default SDK path when you only need direct domain execution.
-
----
-
-## Documentation
-
-- [World API](../../docs/api/world.md)
-- [World Concept](../../docs/concepts/world.md)
-- [Specifications](../../docs/internals/spec/)
+- [Docs Landing](docs/README.md)
+- [World Guide](docs/GUIDE.md)
+- [World Facade Spec](docs/world-facade-spec-v1.0.0.md)
+- [VERSION-INDEX](docs/VERSION-INDEX.md)

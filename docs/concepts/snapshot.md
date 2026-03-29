@@ -2,7 +2,7 @@
 
 > The complete state of a system at a point in time.
 
-## What is Snapshot?
+## What Is Snapshot?
 
 Snapshot is the single source of truth in Manifesto. It captures everything about your application's state: domain data, derived values, runtime status, and metadata.
 
@@ -81,6 +81,21 @@ const snapshot: Snapshot = {
 };
 ```
 
+## Snapshot vs Sealed World History
+
+Snapshot is the current terminal state. World history is the record of sealed states and the lineage around them.
+
+| Snapshot | Sealed World History |
+|----------|----------------------|
+| The current read model | The ordered record of seals and branches |
+| Used by SDK direct-dispatch flows | Used by governed composition and audit flows |
+| Read as the latest terminal value | Replayed or restored through lineage |
+| Updated by the next dispatch result | Extended by explicit sealing |
+
+If you only need to render or derive the latest domain state, Snapshot is enough. If you need auditability, branch awareness, or replay, you need the sealed world record as well.
+
+---
+
 ## Common Patterns
 
 ### Reading State
@@ -106,7 +121,11 @@ snapshot.data.count = 5; // FORBIDDEN
 
 // Always use patches through Core
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'data.count', value: 5 }
+  {
+    op: "set",
+    path: [{ kind: "prop", name: "count" }],
+    value: 5,
+  },
 ], context);
 ```
 
@@ -124,4 +143,5 @@ const loaded = JSON.parse(json);
 
 - [Intent](./intent.md) - How changes are requested
 - [Effect](./effect.md) - How external operations work
+- [World](./world) - How sealed history and governance wrap Snapshot
 - [Flow](./flow.md) - How computations modify Snapshot

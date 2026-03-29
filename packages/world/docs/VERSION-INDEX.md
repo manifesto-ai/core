@@ -8,8 +8,7 @@
 ## Current Specifications
 
 ### World Facade
-- **SPEC:** [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) — Normative, current facade contract through v1.0.0
-  - Initial ADR-014 facade composition spec for `@manifesto-ai/world`
+- **SPEC:** [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) — Normative, canonical governed composition contract
   - Defines `CommitCapableWorldStore`, `WriteSet`, coordinator orchestration, `createWorld()`, and facade lifecycle
   - Depends on [Lineage SPEC v1.0.1](../../lineage/docs/lineage-SPEC-1.0.1v.md) and [Governance SPEC v1.0.0](../../governance/docs/governance-SPEC-1.0.0v.md)
 
@@ -18,7 +17,7 @@
   - Consolidated from v2.x living document + ADR-009 persistence hard-cut updates
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix B in the SPEC for FDR cross-reference tables
-  - Retained as the historical monolith reference while split implementation converges on facade + extracted protocol packages
+  - Retained as the historical monolith reference only; current authority is the facade spec above
 
 ### World Event System (Extension)
 - **Status:** Deprecated (governance events in World SPEC v2.0.1+)
@@ -51,8 +50,8 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Reading Guide
 
-- **Facade v1.0.0**: ADR-014 composition layer — composite store, atomic `commitSeal()`, coordinator protocol, `createWorld()`, re-export policy, and facade lifecycle.
-- **Legacy Protocol v3.0.0**: Historical monolith reference for pre-split World ownership and implementation baseline during transition.
+- **Facade v1.0.0**: current canonical world contract — composite store, atomic `commitSeal()`, coordinator protocol, `createWorld()`, and facade lifecycle.
+- **Legacy Protocol v3.0.0**: historical monolith reference only.
 - **v3.0.0**: ADR-009 persistence alignment — serialized patch envelopes require `_patchFormat: 2`; restore boundary hard-rejects legacy format and requires genesis reset on incompatibility.
 - **v2.0.5**: Head Query API — Formal head definition (branch pointer), resume contract, branch state persistence. `getHeads()`, `getLatestHead()` added to World public interface. HEAD-1~8, RESUME-1~6, BRANCH-PERSIST-1~5, INV-W16~W19.
 - **v2.0.4**: Platform namespace prefix — `stripPlatformNamespaces()` uses `$`-prefix pattern, `isPlatformNamespace()` API.
@@ -66,8 +65,8 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Notes
 
-- [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) is the canonical compatibility-facade spec for `@manifesto-ai/world`.
-- [world-SPEC.md](world-SPEC.md) remains available as the legacy monolith reference during ADR-014 transition.
-- Governance and Lineage own their extracted protocol rules in their own living SPECs.
+- [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) is the canonical spec for `@manifesto-ai/world`.
+- [world-SPEC.md](world-SPEC.md) is historical reference only.
+- Governance and Lineage are the official split protocol packages and own their current specs.
 - World Protocol v1.0.0 SPEC/FDR are archived and not included in this repo.
 - World Event System extension docs are deprecated; governance events are specified in the Living Document.

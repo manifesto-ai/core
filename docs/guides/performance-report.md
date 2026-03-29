@@ -4,6 +4,10 @@
 > **Last Updated:** 2026-01-03
 > **Scope:** Local benchmarks for Core, Host, and World
 
+::: warning Historical Report
+This page is an archived benchmark snapshot, not a maintained performance guide. Use the benchmark script directly if you need current measurements.
+:::
+
 ---
 
 ## Summary

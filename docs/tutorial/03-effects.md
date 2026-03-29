@@ -16,7 +16,7 @@
 ## Prerequisites
 
 - You finished [Actions and State](./02-actions-and-state)
-- You still have the `dispatchAsync()` helper from tutorial 1
+- You are still using the SDK `dispatchAsync()` utility from tutorial 1
 
 ---
 
@@ -122,9 +122,8 @@ It does not “return the fetched user to the action.” The next snapshot carri
 Create `main.ts`:
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
+import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
-import { dispatchAsync } from "./dispatch-async";
 import { effects } from "./effects";
 
 const manifesto = createManifesto({
@@ -144,7 +143,10 @@ manifesto.subscribe(
 );
 
 async function run() {
-  await dispatchAsync(manifesto, "fetchUser", { id: "123" });
+  await dispatchAsync(
+    manifesto,
+    createIntent("fetchUser", { id: "123" }, crypto.randomUUID()),
+  );
 
   const snapshot = manifesto.getSnapshot();
   console.log("Has user:", snapshot.computed["hasUser"]);

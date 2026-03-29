@@ -95,8 +95,8 @@ They are pure, but they are still part of the same action flow.
 Dispatch the same action more than once and inspect the resulting snapshot:
 
 ```typescript
-await dispatchAsync(manifesto, "submit");
-await dispatchAsync(manifesto, "submit");
+await dispatchAsync(manifesto, createIntent("submit", "intent-1"));
+await dispatchAsync(manifesto, createIntent("submit", "intent-2"));
 
 const snapshot = manifesto.getSnapshot();
 console.log(snapshot.data);

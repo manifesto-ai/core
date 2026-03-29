@@ -3,6 +3,10 @@
 > **Status:** Removed in R2.
 > **Decision:** [ADR-008](/internals/adr/008-sdk-first-transition-and-app-retirement)
 
+::: warning Historical Page
+This page is a retirement record only. Do not use it to infer current public APIs.
+:::
+
 ---
 
 ## Status

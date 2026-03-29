@@ -1,6 +1,6 @@
 # Shared Semantic Model
 
-> Manifesto is a semantic layer for deterministic domain state. Every surface — UI, API, agent, automation — reads from the same Snapshot.
+> Manifesto is a semantic layer for deterministic domain state. Every surface reads from the same Snapshot and speaks the same domain semantics.
 
 ---
 
@@ -9,22 +9,24 @@
 The important idea is not "multi-actor support" or "AI integration" as separate features. The important idea is that there is **one semantic model** for your domain, and every consumer works against it:
 
 - the same MEL domain declaration
-- the same Intent model for requesting changes
+- the same request model for asking for change
 - the same Snapshot as single source of truth
 - the same deterministic compute equation
 
-This is what makes Manifesto a **semantic layer** rather than a state management library or an AI framework.
+This is what makes Manifesto a semantic layer rather than a state management library or an AI framework.
 
 ---
 
-## One Contract, Many Surfaces
+## One Semantic Core, Two Runtime Surfaces
 
 ```text
-surface -> createIntent() -> dispatch()
-                           -> next Snapshot
+SDK surface -> createIntent() -> dispatch() -> next Snapshot
+World surface -> createIntentInstance() -> proposal -> seal -> next Snapshot
 ```
 
-The surface can be:
+The semantic core is shared. The runtime surface changes based on whether you need direct dispatch or governed composition.
+
+The surfaces can be:
 
 - a React UI
 - a REST/GraphQL API handler
@@ -56,7 +58,7 @@ manifesto.dispatch(
   ),
 );
 
-// Agent surface — same contract
+// Agent surface - same direct-dispatch contract
 manifesto.dispatch(
   createIntent(
     "addTask",
@@ -66,7 +68,7 @@ manifesto.dispatch(
 );
 ```
 
-Both transitions land in the same Snapshot model.
+The governed surface uses the same domain meaning, but it wraps the request in proposal and lineage metadata before sealing.
 
 ---
 
@@ -93,7 +95,7 @@ Sometimes the shared semantic model is enough. Sometimes you need stronger contr
 - proposal review
 - lineage and audit history
 
-That is where `@manifesto-ai/world` comes in. It is an explicit governance layer that composes on top of the same Snapshot/Intent model — not an implicit part of the default `createManifesto()` path.
+That is where [World](./world) comes in. It is an explicit governance layer that composes on top of the same Snapshot and request model.
 
 ---
 
@@ -101,5 +103,5 @@ That is where `@manifesto-ai/world` comes in. It is an explicit governance layer
 
 - [Snapshot](./snapshot) for the single source of truth
 - [Intent](./intent) for the unit of requested change
-- [Integration: AI Agents](/integration/ai-agents) for practical agent patterns
+- [Integration: AI Agents](../integration/ai-agents) for practical agent patterns
 - [World](./world) for explicit governance and lineage

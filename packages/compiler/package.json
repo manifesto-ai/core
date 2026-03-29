@@ -61,7 +61,9 @@
   },
   "scripts": {
     "build": "tsup",
+    "lint": "echo 'lint not configured'",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "example": "npx tsx examples/simple-compile.ts",
     "cli": "node ./dist/cli/index.js"

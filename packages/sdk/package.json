@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/sdk",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Manifesto SDK - Public API for the semantic layer",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -38,7 +38,9 @@
     "build": "tsup",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "lint": "echo 'lint not configured'",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@manifesto-ai/core": "workspace:*",

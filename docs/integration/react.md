@@ -1,16 +1,17 @@
 # React Integration
 
-> Build small hooks around `ManifestoInstance` and let React render snapshot slices.
+> Keep React on Snapshot reads and let the runtime assembly live outside the component tree.
 
 ---
 
-## What You'll Build
+## What You Build
 
-- One shared `ManifestoInstance`
-- A selector hook powered by `useSyncExternalStore`
-- A small dispatch helper for React event handlers
+- one shared `ManifestoInstance`
+- a selector hook powered by `useSyncExternalStore`
+- a small dispatch helper for event handlers
+- an optional governed runtime module that lives outside React
 
-This page shows the current SDK surface only. There is no App facade or built-in React package in this repo.
+This page stays SDK-first. If your app needs approval or lineage, React should still render snapshots rather than own the governed assembly.
 
 ---
 
@@ -21,7 +22,7 @@ This page shows the current SDK surface only. There is no App facade or built-in
 
 ---
 
-## 1. Create the Instance Outside React
+## 1. Create The SDK Instance Outside React
 
 Create `manifesto.ts`:
 
@@ -39,7 +40,7 @@ Create the instance once. Do not recreate it inside a component render.
 
 ---
 
-## 2. Build a Selector Hook
+## 2. Build A Selector Hook
 
 Create `hooks.ts`:
 
@@ -73,7 +74,7 @@ This keeps React focused on rendering. Manifesto still owns state transitions.
 
 ---
 
-## 3. Use It in a Component
+## 3. Use It In A Component
 
 ```tsx
 import { dispatchIntent, useManifestoSelector } from "./hooks";
@@ -100,51 +101,64 @@ export function CounterPanel() {
 
 ## 4. If You Need Awaitable UI Flows
 
-Keep `dispatch()` synchronous and wrap it outside the component when you need to await a completion:
+Keep `dispatch()` synchronous and use `dispatchAsync()` outside the component when you need to await a completion:
 
 ```typescript
-import { createIntent, type ManifestoInstance, type Snapshot } from "@manifesto-ai/sdk";
+import { createIntent, dispatchAsync } from "@manifesto-ai/sdk";
 
-export function dispatchAsync(
-  manifesto: ManifestoInstance,
-  type: string,
-  input?: unknown,
-): Promise<Snapshot> {
-  const intentId = crypto.randomUUID();
-  const intent =
-    input === undefined
-      ? createIntent(type, intentId)
-      : createIntent(type, input, intentId);
+const intent = createIntent(
+  "todo.add",
+  { title: "Review the UI flow" },
+  crypto.randomUUID(),
+);
 
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      offCompleted();
-      offRejected();
-      offFailed();
-    };
-
-    const offCompleted = manifesto.on("dispatch:completed", (event) => {
-      if (event.intentId !== intentId) return;
-      cleanup();
-      resolve(event.snapshot!);
-    });
-    const offRejected = manifesto.on("dispatch:rejected", (event) => {
-      if (event.intentId !== intentId) return;
-      cleanup();
-      reject(new Error(event.reason ?? "Dispatch rejected"));
-    });
-    const offFailed = manifesto.on("dispatch:failed", (event) => {
-      if (event.intentId !== intentId) return;
-      cleanup();
-      reject(event.error ?? new Error("Dispatch failed"));
-    });
-
-    manifesto.dispatch(intent);
-  });
-}
+const nextSnapshot = await dispatchAsync(manifesto, intent);
 ```
 
 Use that for form submissions or flows where the UI should wait for a terminal snapshot.
+
+---
+
+## 5. If The App Is Governed
+
+Keep the governed assembly in a separate runtime module and let React read snapshots from it.
+
+```typescript
+// world-runtime.ts
+import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
+  createInMemoryWorldStore,
+  createLineageService,
+  createWorld,
+} from "@manifesto-ai/world";
+
+const store = createInMemoryWorldStore();
+const lineage = createLineageService(store);
+const governance = createGovernanceService(store, { lineageService: lineage });
+
+export const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
+});
+```
+
+React should still render Snapshot slices. The governed runtime can sit beside React, in a bootstrap module or server-facing controller, while the component tree stays read-focused.
+
+---
+
+## When React Should Stay On Snapshot Reads Only
+
+Keep React read-only when:
+
+- proposals are created elsewhere
+- approvals need a separate workflow
+- branch and history state are managed by a controller, not the component tree
+- you want the UI to stay simple while governance remains explicit
+
+In that setup, React should receive the latest Snapshot and maybe a few derived selectors, but not the proposal or sealing APIs themselves.
 
 ---
 
@@ -156,7 +170,7 @@ That resets subscriptions and application state.
 
 ### Awaiting `dispatch()`
 
-`dispatch()` returns `void`. Use telemetry or a wrapper helper if you need an awaitable flow.
+`dispatch()` returns `void`. Use `dispatchAsync()` when you need an awaitable flow.
 
 ### Expecting `subscribe()` to emit immediately
 
@@ -171,4 +185,5 @@ React should render it, not edit it.
 ## Next
 
 - Read [AI Agents](./ai-agents) to drive the same instance from an agent workflow
+- Read [World](../concepts/world) if the UI participates in a governed runtime
 - Read [Debugging](/guides/debugging) if a UI update does not match the snapshot you expected

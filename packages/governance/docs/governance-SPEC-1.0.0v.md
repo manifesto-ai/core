@@ -1389,7 +1389,7 @@ An implementation claiming compliance with **Manifesto Governance Protocol v1.0.
 | GOV-TRANS-3~4 | §6.6 | `superseded` transition rules |
 | GOV-BRANCH-GATE-1~7 | §7.1, §7.2 | ADR-014 D13 |
 | GOV-BRANCH-1~3 | §7.3 | ADR-014 D12 |
-| GOV-SEAL-1~10 | §9.2, §9.3 | ADR-014 D6.6 + seal rejection path |
+| GOV-SEAL-1~10 | §9.2, §9.3 | ADR-014 D6 + D14 (seal rejection path included) |
 | GOV-STORE-1~4 | §11.2 | ADR-014 D11.2 |
 | INV-G7 | §12.1 | ADR-014 D12 (`branchId` immutability) |
 | INV-G8 | §12.1 | `superseded` Ingress-terminal invariant |

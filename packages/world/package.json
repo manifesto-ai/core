@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/world",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "description": "Manifesto World - Optional governance, authority, and lineage layer",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -32,6 +32,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "lint": "echo 'lint not configured'",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
@@ -40,11 +41,11 @@
     "@manifesto-ai/core": "^2.0.0"
   },
   "dependencies": {
-    "uuid": "^13.0.0"
+    "@manifesto-ai/governance": "workspace:*",
+    "@manifesto-ai/lineage": "workspace:*"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
-    "@types/uuid": "^11.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.1.0"

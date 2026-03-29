@@ -2,6 +2,8 @@
 
 This page serves as a hub linking to the authoritative FDR documents maintained in each package's `docs/` directory.
 
+> **Status:** Historical and rationale index
+
 ::: tip What is FDR?
 FDR documents explain **why** design decisions were made. They complement SPECs (which define **what**) by providing rationale, alternatives considered, and consequences.
 :::
@@ -85,5 +87,7 @@ What follows from this decision.
 1. **Start with SPEC** - Understand what the system does
 2. **Read FDR for "why"** - Understand design rationale
 3. **Check ADRs** - For cross-cutting architectural decisions
+
+Active product and package onboarding should start with maintained docs, not with the FDR hub.
 
 FDR versions typically align with SPEC versions. Prefer reading the SPEC first, then the relevant FDR rationale when needed.

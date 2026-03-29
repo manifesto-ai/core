@@ -4,14 +4,14 @@ layout: home
 hero:
   name: Manifesto
   text: Semantic Layer for Deterministic Domain State
-  tagline: Define meaning once — derive UI, backend, AI, and full history as projections.
+  tagline: Define meaning once - use the SDK for the shortest path or the World facade for governed composition.
   actions:
     - theme: brand
       text: Quickstart
       link: /quickstart
     - theme: alt
-      text: Tutorial
-      link: /tutorial/
+      text: Governed Composition
+      link: /tutorial/05-governed-composition
     - theme: alt
       text: GitHub
       link: https://github.com/manifesto-ai/core
@@ -19,23 +19,28 @@ hero:
 features:
   - icon: 🎯
     title: Deterministic
-    details: Same input → same output. Always.
+    details: Same input -> same output. Always.
   - icon: 🔍
     title: Accountable
-    details: Every change traceable to Actor + Authority + Intent.
+    details: Every change is traceable to Actor, Authority, and Intent.
   - icon: 📐
     title: Schema-First
-    details: All domain semantics expressed as JSON-serializable data.
+    details: All domain semantics are JSON-serializable data.
   - icon: ⚡
     title: Effect Isolation
-    details: Pure computation separated from IO.
+    details: Pure computation stays separate from IO.
 ---
 
-## What is Manifesto?
+## Choose Your Runtime
 
-Manifesto is a **semantic layer for deterministic domain state**. You define _what your domain means_ — state, transitions, derived values — and Manifesto guarantees deterministic computation, full traceability, and clean separation between logic and IO.
+Manifesto has two supported entry paths:
 
-**Manifesto is NOT** a state manager (Redux), a workflow engine (Temporal), or an AI framework (LangChain). It is the layer that sits between your domain logic and your execution environment.
+| Path | Package | When to use |
+|------|---------|-------------|
+| **Direct-dispatch** | `@manifesto-ai/sdk` | You want the shortest path to a working app |
+| **Governed composition** | `@manifesto-ai/world` | You need lineage, authority, and explicit sealing |
+
+The SDK is the fastest way to start. The World facade is the canonical governed surface.
 
 ## Quick Example
 
@@ -49,12 +54,12 @@ domain Counter {
 ```
 
 ```typescript
-import { createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
 import CounterSchema from "./counter.mel";
 
 const app = createManifesto({ schema: CounterSchema, effects: {} });
-const snapshot = await dispatchAsync(app, { type: "increment", intentId: "1" });
-console.log(snapshot.data.count); // 1
+await dispatchAsync(app, createIntent("increment", "intent-1"));
+console.log(app.getSnapshot().data.count); // 1
 ```
 
 ## Start Here
@@ -62,9 +67,9 @@ console.log(snapshot.data.count); // 1
 | Step | Link | Time |
 |------|------|------|
 | **Install and run** | [Quickstart](/quickstart) | 5 min |
-| **Learn step-by-step** | [Tutorial](/tutorial/) | 30 min |
-| **Understand the model** | [Concepts](/concepts/) | 15 min |
-| **MEL language reference** | [MEL Reference](/mel/REFERENCE) | Browse |
+| **Learn the model** | [Concepts](/concepts/) | 15 min |
+| **Use governed composition** | [Governed Composition](/tutorial/05-governed-composition) | 15 min |
+| **Read the API** | [API Reference](/api/) | Browse |
 
 ## Installation
 
@@ -72,21 +77,11 @@ console.log(snapshot.data.count); // 1
 npm install @manifesto-ai/sdk @manifesto-ai/compiler
 ```
 
-`@manifesto-ai/sdk` is the only package you need. It re-exports everything from Core, Host, World, and Compiler.
+Use `@manifesto-ai/sdk` for direct-dispatch apps. Use `@manifesto-ai/world` when you want governed composition as a first-class runtime surface.
 
 ## Go Deeper
 
-- [Architecture](/architecture/) — System design: Core/Host/World separation
-- [Guides](/guides/) — Effect handlers, debugging, bundler setup
-- [API Reference](/api/) — Package-level API docs
-- [Internals](/internals/) — ADRs, SPECs, FDRs
-
-## Community
-
-- [GitHub](https://github.com/manifesto-ai/core)
-- [Discord](https://discord.gg/manifesto-ai)
-- [Twitter](https://x.com/manifesto__ai)
-
----
-
-MIT © 2025 Manifesto AI
+- [Architecture](/architecture/) - system design and boundaries
+- [Guides](/guides/) - practical workflows
+- [API Reference](/api/) - package-level API docs
+- [Internals](/internals/) - ADRs, SPECs, FDRs

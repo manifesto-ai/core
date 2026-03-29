@@ -1,55 +1,59 @@
 # Integration
 
-> Connect a `ManifestoInstance` to the rest of your system.
+> Connect Manifesto to React apps, agent loops, or governed workflows.
 
 ---
 
-## What Integration Means Today
+## Two Integration Modes
 
-The current SDK gives you one runtime handle:
+Manifesto has two stable runtime shapes:
 
-- `dispatch()` to submit intents
-- `subscribe()` to react to snapshot changes
-- `on()` to observe per-intent lifecycle events
-- `getSnapshot()` to read the latest terminal snapshot
+- direct-dispatch on `@manifesto-ai/sdk`
+- governed composition on top-level `@manifesto-ai/world`
 
-Every integration pattern in this section builds on those same methods.
+Both operate on the same semantic core. The difference is how much legitimacy, lineage, and sealing you want around the transition.
 
 ---
 
-## Available Integration Paths
+## When To Choose Which Path
 
-| Path | Use It When |
-|------|-------------|
-| [React](./react) | You want UI components to render snapshot slices |
-| [AI Agents](./ai-agents) | You want an agent to propose or execute intents |
+| Need | Start Here |
+|------|------------|
+| Fast app wiring, rendering, and telemetry | [React](./react) |
+| Agent-driven transitions without approval gates | [AI Agents](./ai-agents) |
+| Explicit proposals, approvals, and branch history | [Governed tutorial track](/tutorial/05-governed-composition) |
+
+If you only need Snapshot reads and direct intent dispatch, stay on the SDK path.
 
 ---
 
 ## The Default Shape
 
 ```text
-External system -> createIntent() -> manifesto.dispatch()
+External system -> createIntent() -> dispatch()
                                      -> subscribe()/on()/getSnapshot()
 ```
 
-That shape stays the same whether the caller is:
-
-- a React component
-- a server route
-- a CLI command
-- an AI worker
+That shape stays the same whether the caller is a React component, a server route, a CLI command, or an AI worker.
 
 ---
 
-## Optional Governance
+## When Governance Enters The Picture
 
-If your integration needs explicit actor approval, audit lineage, or proposal review, add `@manifesto-ai/world` on top of the same Snapshot and Intent model. The default `createManifesto()` path does not wire World implicitly.
+If your integration needs explicit approval, lineage, or audit history, add the governed track on top of the same Snapshot model:
+
+```text
+intent instance -> proposal -> authority decision -> seal -> history
+```
+
+That flow is spelled out in the governed tutorial track and in the package guides for `world`, `governance`, and `lineage`.
 
 ---
 
 ## See Also
 
-- [Tutorial](/tutorial/) for the onboarding path
-- [Guides](/guides/) for effect handlers, debugging, and re-entry safety
+- [Tutorial](/tutorial/) for the learning paths
+- [World](../concepts/world) for governed composition
+- [React](./react) for UI wiring
+- [AI Agents](./ai-agents) for automation wiring
 - [Architecture](/architecture/) for the broader system model
