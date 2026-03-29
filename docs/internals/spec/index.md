@@ -54,6 +54,7 @@ These documents are repo-tracked drafts for the next shared epoch boundary. They
 | **@manifesto-ai/lineage** | [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) | Draft | ADR-015 + proposed ADR-016 projected Lineage rewrite |
 | **@manifesto-ai/governance** | [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) | Draft | ADR-015 + proposed ADR-016 projected Governance rewrite |
 | **@manifesto-ai/world** | [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) | Draft | ADR-015 + proposed ADR-016 projected facade rewrite |
+| **@manifesto-ai/sdk** | [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) | Draft | ADR-015 + proposed ADR-016 projected SDK rewrite |
 
 ## Historical and Retired References
 
@@ -130,7 +131,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 | 03-29 | Governance | Target v2.0.0 (draft) | Projected alignment with the co-deployed lineage epoch: remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap provenance to `SealAttempt` |
 | 03-29 | Host | Target v4.0.0 (draft) | Draft-only execution-side alignment: public Snapshot references lose `system.errors`, and `$host` boundary semantics align with restore normalization |
 | 03-29 | World | Facade target v2.0.0 (draft) | Draft-only facade-major aligned to Lineage v2.0.0 and Governance v2.0.0; `commitSeal()` / `WriteSet` absorb `SealAttempt` persistence while the legacy monolith remains historical only |
-| 03-29 | SDK | Target v3.0.0 | Planned SDK major driven by public `Snapshot<T>` surface changes (`ManifestoConfig.snapshot`, `getSnapshot()`, event payload snapshots), not by governed seal internals |
+| 03-29 | SDK | Target v3.0.0 (draft) | Draft-only SDK major driven by public `Snapshot<T>` surface changes (`ManifestoConfig.snapshot`, `getSnapshot()`, event payload snapshots), not by governed seal internals |
 | 03-28 | World | Facade v1.0.0 | World facade SPEC added for exact governed composition: composite store, coordinator, `createWorld()`, and facade lifecycle |
 | 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |

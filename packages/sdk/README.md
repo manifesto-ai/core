@@ -4,6 +4,8 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`. It stays thin and only re-exports the governed world assembly surface needed for explicit composition.
 
+> **Current Contract Note:** The current public package contract is documented in [docs/sdk-SPEC-v2.0.0.md](docs/sdk-SPEC-v2.0.0.md). The projected ADR-015 + ADR-016 rewrite lives in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md) as draft only.
+
 ## What This Package Owns
 
 - `createManifesto()`
@@ -50,4 +52,5 @@ For the full governed surface, including `createGovernanceService()`, `createLin
 
 - [SDK Guide](docs/GUIDE.md)
 - [SDK Specification](docs/sdk-SPEC-v2.0.0.md)
+- [SDK Specification v3 Draft](docs/sdk-SPEC-v3.0.0-draft.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

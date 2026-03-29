@@ -104,6 +104,7 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-015 is accepted and removes accumulated `system.errors` history from Snapshot while keeping `lastError` as the sole current error surface.
 - The decision reserves the next breaking Core/Lineage epoch; current published specs remain Core v3.0.0 and Lineage v1.0.1 until the shared epoch boundary lands.
 - The projected Core rewrite is tracked in [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) as draft only, not as the current package contract.
+- The projected SDK rewrite is tracked in [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) as draft only, not as the current package contract.
 - ADR-015 now pairs with [ADR-016](./016-merkle-tree-lineage), the proposed lineage-side companion for the same co-deployed epoch boundary.
 
 ### ADR-016 Companion Notes

@@ -5,7 +5,7 @@
 > **Package:** `@manifesto-ai/world`
 > **Scope:** `@manifesto-ai/world` — Composition Facade for Governance + Lineage
 > **Compatible with:** Lineage SPEC v2.0.0 draft, Governance SPEC v2.0.0 draft
-> **SDK alignment:** current SDK SPEC v2.0.0 remains aligned to facade v1.0.0; projected SDK v3.0.0 is expected to align to this draft when the shared epoch lands.
+> **SDK alignment:** current SDK SPEC v2.0.0 remains aligned to facade v1.0.0; [SDK SPEC v3.0.0 draft](../../sdk/docs/sdk-SPEC-v3.0.0-draft.md) is expected to align to this draft when the shared epoch lands.
 > **Implements:** ADR-014 D7 (Facade), D11.3 (Storage Seam — Composite), D14 (Commit Coordinator)
 > **Authors:** Manifesto Team
 > **License:** MIT
@@ -696,7 +696,7 @@ An implementation claiming compliance with **Manifesto World Facade v2.0.0 draft
 |----------|---------|-----------|
 | Lineage SPEC | v2.0.0 draft | Seal protocol, `PreparedLineageCommit`, `SealAttempt`, `LineageStore`, `LineageService` |
 | Governance SPEC | v2.0.0 draft | Seal coordination, `PreparedGovernanceCommit`, `GovernanceService`, `GovernanceStore`, event system |
-| SDK SPEC | v3.0.0 draft (projected) | ManifestoConfig, `createManifesto()`, re-export hub |
+| [SDK SPEC](../../sdk/docs/sdk-SPEC-v3.0.0-draft.md) | v3.0.0 draft | `ManifestoConfig`, `createManifesto()`, re-export hub |
 
 ### 15.2 Architecture Decision Records
 
