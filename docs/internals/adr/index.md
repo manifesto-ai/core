@@ -2,7 +2,7 @@
 
 > **Purpose:** Document significant architectural decisions
 > **Audience:** Contributors, maintainers, architects
-> **Status:** Normative
+> **Status:** Historical decision index
 
 ---
 
@@ -19,6 +19,8 @@ ADRs are NOT:
 - Specifications (see [Specifications](../spec/))
 - Design rationale (see [FDR](../fdr/))
 - Current architecture description (see [Architecture](/architecture/))
+
+Use ADRs to understand why the architecture changed. Use package READMEs, API docs, and current specs to understand how the current system works.
 
 ---
 
@@ -42,7 +44,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
 | [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed | 2026-03-24 | Compiler |
 | [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
-| [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Accepted | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
+| [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 

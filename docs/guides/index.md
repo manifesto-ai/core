@@ -18,8 +18,6 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 | [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |
 | [Typed Patch Ops](./typed-patch-ops) | You want safer patch creation in TypeScript |
 | [Code Generation](./code-generation) | You want generated TypeScript or Zod artifacts from a schema |
-| [Performance Report](./performance-report) | You want benchmark numbers and reproduction steps |
-| [Legacy App Migration](./migrate-app-to-sdk) | You still have old `@manifesto-ai/app` code |
 
 ---
 
@@ -33,6 +31,17 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 6. Read [Typed Patch Ops](./typed-patch-ops)
 
 That sequence matches the problems most teams hit first.
+
+---
+
+## Historical Guides
+
+These guides are preserved for project history or retired migration paths. They are not part of the maintained onboarding path.
+
+| Guide | Status | Use It Only When |
+|-------|--------|------------------|
+| [Legacy App Migration](./migrate-app-to-sdk) | Historical | You are reviewing an old `@manifesto-ai/app` migration |
+| [Performance Report](./performance-report) | Historical snapshot | You need the archived benchmark report from early 2026 |
 
 ---
 
@@ -50,4 +59,3 @@ That sequence matches the problems most teams hit first.
 - [Tutorial](/tutorial/) for the step-by-step learning path
 - [Integration](/integration/) for React and AI-agent patterns
 - [Architecture](/architecture/) for the system-level model
-

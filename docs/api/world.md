@@ -15,8 +15,6 @@ It exposes:
 - `createInMemoryWorldStore()`
 - intent-instance helpers
 
-`@manifesto-ai/world/facade` exists only as an exact alias for the same surface. New code should import from the top-level package.
-
 ## Canonical Composition
 
 ```typescript

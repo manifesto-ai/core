@@ -54,8 +54,6 @@ import {
 } from "@manifesto-ai/world";
 ```
 
-`@manifesto-ai/world/facade` is an exact alias, not the recommended import path.
-
 ## Package Structure
 
 ```text

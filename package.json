@@ -37,6 +37,8 @@
     "docs:preview": "vitepress preview docs",
     "docs:archive": "node scripts/archive-docs.mjs",
     "docs:mel-grammar": "node scripts/update-mel-grammar.mjs",
+    "docs:check:maintained": "node scripts/check-maintained-docs.mjs",
+    "docs:check": "pnpm docs:governance-check && pnpm docs:check:maintained",
     "docs:governance-check": "node scripts/check-doc-governance.mjs",
     "docs:api:clean": "rm -rf docs/api"
   },

@@ -34,6 +34,13 @@ This guide defines core documentation operations for Manifesto. These rules alig
 - Use historical ADR/SPEC/FDR material only after the current surface is understood.
 - Do not use archive documents to infer current public APIs or canonical import paths.
 
+### 1-5. Maintained vs Historical Scope
+
+- **Maintained docs** describe the current hard-cut surface only.
+- **Historical docs** preserve retired APIs, migration stories, benchmark snapshots, and architectural history.
+- Maintained docs must not recommend removed APIs, legacy import paths, or compatibility aliases.
+- Historical docs should be clearly labeled in their page header or in the index that links to them.
+
 ---
 
 ## 2. Document Lifecycle
@@ -73,6 +80,12 @@ Other statuses: `Deprecated`, `Superseded`, `Withdrawn`
 - Update package version indexes (e.g., `packages/*/docs/VERSION-INDEX.md`) when SPEC versions change.
 - Track history via SPEC `Changelog` and Git history.
 
+### Rule D: Maintained Doc Purity
+- Maintained docs must not reintroduce removed surfaces such as `createManifestoWorld`, `createMemoryWorldStore`, or `WorldStore`.
+- Maintained docs must use top-level `@manifesto-ai/world` as the canonical governed import path.
+- Site pages under `docs/` must not link directly to `packages/...` filesystem paths.
+- Direct-dispatch examples must use the current SDK calling convention: `dispatchAsync(instance, createIntent(...))`.
+
 ---
 
 ## 4. PR Documentation Checklist
@@ -87,11 +100,16 @@ Other statuses: `Deprecated`, `Superseded`, `Withdrawn`
 
 ## 5. Guardrail Recommendations (Automation)
 
-Recommended short-term automated guardrails:
+Operational checks for maintained docs:
 
-1. Label-based documentation gate: enforce ADR/SPEC link checks when docs are modified.
-2. ADR/index consistency check script (status missing, broken links).
-3. Consistency check between `docs/internals/spec/index.md` and `docs/internals/adr/index.md` during documentation build.
+1. `pnpm docs:governance-check`
+   - verifies the core governance/index documents exist and still contain required policy tokens.
+2. `pnpm docs:check:maintained`
+   - verifies maintained docs do not mention removed APIs, compatibility aliases, or stale example signatures.
+3. `pnpm docs:check`
+   - runs both governance and maintained-doc checks before a docs build.
+4. `pnpm docs:build`
+   - remains the rendering/link smoke test for the published site.
 
 ---
 

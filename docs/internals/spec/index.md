@@ -15,7 +15,7 @@ If you want the governing documentation rules, see [Documentation Governance](..
 3. Use the package SPECs for normative behavior.
 4. Use archived or historical ADR/SPEC/FDR material only for decision history.
 
-## Package Specifications
+## Current Normative Package Specifications
 
 ### Core Packages
 
@@ -40,8 +40,12 @@ If you want the governing documentation rules, see [Documentation Governance](..
 |---------|-------------|--------|--------------|
 | **@manifesto-ai/sdk** | v2.0.0 | Normative (direct-dispatch entry) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
-| **App facade (retired)** | Removed (R2) | Legacy reference only | [Retired Page](/internals/retired/app) |
+| **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.7.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+
+## Historical and Retired References
+
+These references remain available for traceability, but they are not maintained onboarding entry points.
 
 ### SDK v2.0.0
 

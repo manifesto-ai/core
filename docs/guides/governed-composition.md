@@ -76,8 +76,6 @@ Intent instances capture the actor, source, and projection metadata needed by th
 - `createGovernanceService()` owns proposals, decisions, and events.
 - `createWorld()` assembles the canonical facade without wrapping the provided services.
 
-`@manifesto-ai/world/facade` exists only as an alias of the same surface.
-
 ---
 
 ## See Also
@@ -85,4 +83,3 @@ Intent instances capture the actor, source, and projection metadata needed by th
 - [World API](/api/world)
 - [SDK API](/api/sdk)
 - [Concepts: World](/concepts/world)
-
