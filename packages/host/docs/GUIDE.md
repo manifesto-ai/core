@@ -1,9 +1,11 @@
 # Host Guide
 
-> **Version:** v2.0.1
+> **Version:** Current surface (Host v3.0.0)
 > **Purpose:** Practical guide for using @manifesto-ai/host
 > **Prerequisites:** Basic understanding of Core
 > **Time to complete:** ~20 minutes
+
+> **Current Contract Note:** This guide follows the current Host v3.0.0 surface. The projected ADR-015 + ADR-016 rewrite lives in [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) as draft only.
 
 ---
 

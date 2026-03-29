@@ -2,6 +2,8 @@
 
 > **Host** is the effect execution runtime of Manifesto. It executes effects, applies patches, and manages the compute-effect loop.
 
+> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through v3.0.0. The projected ADR-015 + ADR-016 rewrite lives in [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) as draft only.
+
 ---
 
 ## What is Host?
@@ -14,7 +16,7 @@ In the Manifesto architecture:
 World -> HOST -> Core
             |
    Executes effects, applies patches
-   Runs the compute-effect-resume cycle
+   Runs the mailbox-based compute-effect loop
 ```
 
 ---
@@ -104,7 +106,7 @@ type EffectHandler = (
 ) => Promise<Patch[]>;
 ```
 
-> See [SPEC.md](SPEC.md) for complete API reference.
+> See [host-SPEC.md](host-SPEC.md) for complete API reference.
 
 ---
 
@@ -171,8 +173,9 @@ For typical usage with governance, see [`@manifesto-ai/world`](../world/).
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](SPEC.md) | Complete specification |
-| [FDR.md](FDR.md) | Design rationale |
+| [host-SPEC.md](host-SPEC.md) | Current normative specification |
+| [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) | Projected next-major draft |
+| [VERSION-INDEX.md](VERSION-INDEX.md) | Current vs projected doc index |
 
 ---
 

@@ -2,11 +2,14 @@
 
 This directory documents the current governed composition facade for `@manifesto-ai/world`.
 
+> **Current Contract Note:** [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) remains the truthful current facade contract. [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) is the projected next-major draft only.
+
 ## Canonical Docs
 
 - [../README.md](../README.md) - package landing page
 - [GUIDE.md](GUIDE.md) - practical assembly and sealing flow
 - [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) - normative facade contract
+- [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) - projected next-major facade draft
 - [VERSION-INDEX.md](VERSION-INDEX.md) - version history and current spec pointer
 
 ## Historical Reference

@@ -2,6 +2,8 @@
 
 > Practical guide for assembling the governed `@manifesto-ai/world` runtime.
 
+> **Current Contract Note:** This guide follows the current World facade v1.0.0 surface. The projected ADR-015 + ADR-016 rewrite lives in [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) as draft only.
+
 ## 1. Assemble The Governed Runtime
 
 ```typescript
@@ -153,6 +155,7 @@ The governed runtime does not hide history. It makes the current branch and its 
 
 - [World README](../README.md)
 - [World Specification](world-facade-spec-v1.0.0.md)
+- [World Specification v2 Draft](world-facade-spec-v2.0.0.md)
 - [World Version Index](VERSION-INDEX.md)
 - [Governed Composition](../../../docs/tutorial/05-governed-composition)
 - [Governed Sealing and History](../../../docs/tutorial/06-governed-sealing-and-history)

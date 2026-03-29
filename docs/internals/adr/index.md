@@ -112,6 +112,8 @@ These ADRs affect multiple packages across the monorepo:
 - The draft introduces `tip` / `headAdvancedAt`, idempotent reuse for same-parent same-snapshot seals, and `SealAttempt` as the per-attempt chronology substrate.
 - The projected Lineage rewrite is tracked in [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) as draft only, not as the current package contract.
 - The projected legitimacy-side rewrite is tracked in [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) as draft only, not as the current package contract.
+- The projected execution-side rewrite is tracked in [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md) as draft only, not as the current package contract.
+- The projected facade rewrite is tracked in [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) as draft only, not as the current package contract.
 - If the draft is accepted as written, the projected version impact is Lineage v2.0.0, Governance v2.0.0, Host v4.0.0, World facade v2.0.0, and SDK v3.0.0 for the shared epoch boundary. Core v4.0.0 is already reserved by ADR-015.
 
 ---

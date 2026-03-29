@@ -1,8 +1,10 @@
 # @manifesto-ai/host
 
-> **v2.0.2** — Event-loop execution runtime for Manifesto with snapshot ownership and deterministic context
+> Event-loop execution runtime for Manifesto with snapshot ownership and deterministic context
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
+
+> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v3.0.0. The projected ADR-015 + ADR-016 rewrite lives in [docs/host-SPEC-v4.0.0-draft.md](docs/host-SPEC-v4.0.0-draft.md) as draft only.
 
 ---
 
@@ -21,7 +23,14 @@ World -> HOST -> Core
 
 ---
 
-## What's New in v2.0.2
+## Current Changelog Highlights
+
+### v3.0.0 New Features
+
+- **ADR-009 Interlock Alignment**
+  - Host applies `patches` before `systemDelta`
+  - Requirement clearing flows through `applySystemDelta({ removeRequirementIds })`
+  - `system.*` remains structurally non-patchable at the Core boundary
 
 ### v2.0.2 New Features
 
