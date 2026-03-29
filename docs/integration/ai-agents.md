@@ -1,6 +1,8 @@
 # AI Agent Integration
 
 > Let an agent choose the next change, then route that change through either direct dispatch or governed proposal flow.
+>
+> **Current Contract Note:** This page describes the current SDK v2.0.0 and World facade v1.0.0 integration surface. The projected ADR-015 + ADR-016 rewrites for SDK, Lineage, Governance, Host, and World remain draft-only until the shared epoch lands.
 
 ---
 
@@ -88,6 +90,8 @@ const proposal = world.governance.createProposal({
   epoch: branch.epoch,
 });
 ```
+
+This current governed path uses `branch.head` as the public branch pointer exposed by the facade. The projected v2 drafts split continuity `tip` from `head` and move seal provenance into attempt records, but those changes are not current yet.
 
 From there, the agent can submit the proposal for approval, wait for authority resolution, and let the governed runtime seal the result.
 

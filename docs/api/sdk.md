@@ -6,6 +6,8 @@
 
 `@manifesto-ai/sdk` owns one concept: `createManifesto()`.
 
+> **Current Contract Note:** This page describes the current SDK v2.0.0 surface. The projected v3.0.0 rewrite is draft-only in [packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md).
+
 Everything else is either:
 
 - SDK utility (`defineOps`, `dispatchAsync`)

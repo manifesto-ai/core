@@ -6,6 +6,8 @@
 
 `@manifesto-ai/lineage` owns deterministic world identity, branch/head state, seal preparation, replay, and continuity queries.
 
+> **Current Contract Note:** This page describes the current Lineage v1.0.1 surface. The projected v2.0.0 rewrite is draft-only in [packages/lineage/docs/lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md).
+
 Use this package directly when you want:
 
 - lineage-only tests or tooling
@@ -50,3 +52,4 @@ Use `@manifesto-ai/lineage` directly when continuity is your concern. Use `@mani
 - [World API](./world.md)
 - [Governance API](./governance.md)
 - [Specifications](/internals/spec/)
+- [Lineage v2 Draft SPEC](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md)

@@ -2,6 +2,8 @@
 
 > Practical guide for the direct-dispatch `@manifesto-ai/sdk` path.
 
+> **Current Contract Note:** This guide follows the current SDK v2.0.0 surface. The projected ADR-015 + ADR-016 rewrite lives in [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md) as draft only.
+
 ## 1. Build The Direct-Dispatch Lifecycle
 
 ```typescript
@@ -108,6 +110,7 @@ Move to `@manifesto-ai/world` when:
 
 - [SDK README](../README.md)
 - [SDK Specification](sdk-SPEC-v2.0.0.md)
+- [SDK Specification v3 Draft](sdk-SPEC-v3.0.0-draft.md)
 - [SDK Version Index](VERSION-INDEX.md)
 - [World](../../../docs/api/world.md)
 - [Tutorial](../../../docs/tutorial/)

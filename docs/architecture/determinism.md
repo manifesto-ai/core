@@ -1,9 +1,11 @@
 # Determinism: The Foundation of Manifesto
 
 > **Status:** Stable
-> **Last Updated:** 2026-01
+> **Last Updated:** 2026-03-29
 
 ---
+
+> **Current Contract Note:** This page reflects the current Core v3.0.0 Snapshot model, including accumulated `system.errors`. The ADR-015 removal of accumulated error history is draft-only until the next major epoch lands.
 
 ## What Is Determinism?
 
@@ -95,10 +97,10 @@ type Snapshot = {
   computed: Record<string, unknown>;  // Derived values (recalculated, never stored)
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
-    pendingRequirements: Requirement[];
+    pendingRequirements: readonly Requirement[];
     currentAction: string | null;
     lastError: ErrorValue | null;
-    errors: ErrorValue[];
+    errors: readonly ErrorValue[];
   };
   input: unknown;                     // Transient action input
   meta: {

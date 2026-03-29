@@ -82,19 +82,6 @@ export default defineConfig({
             { text: '6. Governed Sealing and History', link: '/tutorial/06-governed-sealing-and-history' },
           ]
         },
-        {
-          text: 'Concepts',
-          collapsed: false,
-          items: [
-            { text: 'Overview', link: '/concepts/' },
-            { text: 'Shared Semantic Model', link: '/concepts/shared-semantic-model' },
-            { text: 'Snapshot', link: '/concepts/snapshot' },
-            { text: 'Intent', link: '/concepts/intent' },
-            { text: 'Flow', link: '/concepts/flow' },
-            { text: 'Effect', link: '/concepts/effect' },
-            { text: 'World', link: '/concepts/world' },
-          ]
-        },
       ],
 
       '/concepts/': [
@@ -223,8 +210,6 @@ export default defineConfig({
           items: [
             { text: 'App Facade', link: '/internals/retired/app' },
             { text: 'Runtime', link: '/internals/retired/runtime' },
-            { text: 'Migration: App → SDK', link: '/guides/migrate-app-to-sdk' },
-            { text: 'Performance Report', link: '/guides/performance-report' },
           ]
         },
       ],

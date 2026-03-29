@@ -1,9 +1,11 @@
 # Failure Model: Errors as Values
 
 > **Status:** Stable
-> **Last Updated:** 2026-01
+> **Last Updated:** 2026-03-29
 
 ---
+
+> **Current Contract Note:** This page reflects the current Core v3.0.0 error model. Accumulated `system.errors` and `SystemDelta.appendErrors` remain current; the ADR-015 removal is draft-only until the shared next-major epoch lands.
 
 ## The Core Principle
 
@@ -152,14 +154,13 @@ In Flow, errors are declared using the `fail` node:
 **When Core encounters a `fail` node:**
 
 1. Core creates an ErrorValue
-2. Core patches Snapshot:
-   - `{ op: 'set', path: 'system.lastError', value: errorValue }`
-   - `{ op: 'set', path: 'system.errors', value: [...existing, errorValue] }`
-   - `{ op: 'set', path: 'system.status', value: 'error' }`
-3. Core terminates computation
-4. Core returns with `status: 'error'`
+2. Core emits a `SystemDelta`:
+   - `{ lastError: errorValue, appendErrors: [errorValue], status: 'error' }`
+3. The Host/Core boundary applies that transition with `applySystemDelta()`
+4. Core terminates computation
+5. Core returns with `status: 'error'`
 
-**There is no throw. There is no catch. Just patches.**
+**There is no throw. There is no catch. Just deterministic system transitions.**
 
 ### Effect-Level Errors
 
@@ -293,20 +294,14 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
 }
 ```
 
-### Pattern 3: Error Clearing
+### Pattern 3: Retry Scheduling
 
-**Explicitly clear errors when resolved:**
+**Track retry intent in domain state; system error fields are transitioned through `SystemDelta`, not patch paths:**
 
 ```json
 {
   "kind": "seq",
   "steps": [
-    {
-      "kind": "patch",
-      "op": "set",
-      "path": "system.lastError",
-      "value": { "kind": "lit", "value": null }
-    },
     {
       "kind": "patch",
       "op": "set",
@@ -316,6 +311,12 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
         "left": { "kind": "get", "path": "retryCount" },
         "right": { "kind": "lit", "value": 1 }
       }
+    },
+    {
+      "kind": "patch",
+      "op": "set",
+      "path": "ui.showRetryDialog",
+      "value": { "kind": "lit", "value": false }
     },
     {
       "kind": "effect",
@@ -558,15 +559,22 @@ try {
 } catch (error) {
   // System error - should be rare
   console.error('System error:', error);
-  // Apply error patch to snapshot
-  snapshot = core.apply(schema, snapshot, [
-    { op: 'set', path: 'system.lastError', value: {
+  // Apply system transition to snapshot
+  snapshot = core.applySystemDelta(snapshot, {
+    lastError: {
       code: 'SYSTEM_ERROR',
       message: error.message,
       source: { actionId: '', nodePath: '' },
       timestamp: context.now
-    }}
-  ], context);
+    },
+    appendErrors: [{
+      code: 'SYSTEM_ERROR',
+      message: error.message,
+      source: { actionId: '', nodePath: '' },
+      timestamp: context.now
+    }],
+    status: 'error'
+  });
 }
 ```
 
@@ -621,9 +629,12 @@ async function processIntentWithRetry(
       attempts++;
       await sleep(Math.pow(2, attempts) * 1000);  // Exponential backoff
       current = core.apply(schema, result, [
-        { op: 'set', path: 'system.lastError', value: null },
         { op: 'set', path: 'retryAttempt', value: attempts }
       ], context);
+      current = core.applySystemDelta(current, {
+        lastError: null,
+        status: 'idle'
+      });
     } else {
       return result;  // Non-retryable error
     }
@@ -790,14 +801,22 @@ Instead:
 async function executeEffect(req: Requirement): Promise<Patch[]> {
   const handler = effectHandlers[req.type];
   if (!handler) {
-    return [
-      { op: 'set', path: 'system.lastError', value: {
+    snapshot = core.applySystemDelta(snapshot, {
+      lastError: {
         code: 'UNKNOWN_EFFECT',
         message: `No handler for: ${req.type}`,
         source: { actionId: req.actionId, nodePath: '' },
         timestamp: req.createdAt
-      }}
-    ];
+      },
+      appendErrors: [{
+        code: 'UNKNOWN_EFFECT',
+        message: `No handler for: ${req.type}`,
+        source: { actionId: req.actionId, nodePath: '' },
+        timestamp: req.createdAt
+      }],
+      status: 'error'
+    });
+    return [];
   }
 
   try {
@@ -806,16 +825,25 @@ async function executeEffect(req: Requirement): Promise<Patch[]> {
       requirement: req,
     });
   } catch (error) {
-    // Handler threw unexpectedly - convert to error patch
-    return [
-      { op: 'set', path: 'system.lastError', value: {
+    // Handler threw unexpectedly - convert to system transition
+    snapshot = core.applySystemDelta(snapshot, {
+      lastError: {
         code: 'EFFECT_HANDLER_ERROR',
         message: error.message,
         source: { actionId: req.actionId, nodePath: '' },
         timestamp: req.createdAt,
         context: { effectType: req.type }
-      }}
-    ];
+      },
+      appendErrors: [{
+        code: 'EFFECT_HANDLER_ERROR',
+        message: error.message,
+        source: { actionId: req.actionId, nodePath: '' },
+        timestamp: req.createdAt,
+        context: { effectType: req.type }
+      }],
+      status: 'error'
+    });
+    return [];
   }
 }
 ```

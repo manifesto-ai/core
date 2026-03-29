@@ -1,6 +1,8 @@
 # Governed Composition
 
 > Assemble the governed runtime explicitly and keep UI code focused on reading snapshots.
+>
+> **Current Contract Note:** This tutorial follows the current World facade v1.0.0 surface, which composes Governance v1.0.0 and Lineage v1.0.1. The projected ADR-015 + ADR-016 rewrite remains draft-only in [packages/world/docs/world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
 
 ---
 
@@ -125,6 +127,8 @@ const proposal = world.governance.createProposal({
   epoch: branch.epoch,
 });
 ```
+
+In the current facade v1 surface, `branch.head` is the public branch pointer used for both governance proposal baselines and lineage advancement. The projected v2 drafts split public branch continuity into `head` and `tip`, but that split is not current yet.
 
 That proposal is the governed handoff point. It is still only a request at this stage. The next step is authority evaluation, then sealing.
 

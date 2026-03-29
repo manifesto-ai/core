@@ -13,6 +13,8 @@
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
 
+> **Current Contract Note:** This page describes the current Core v3.0.0 surface. The ADR-015 rewrite for Core v4.0.0 is tracked as draft in [packages/core/docs/core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md).
+
 ---
 
 ## Architecture Role

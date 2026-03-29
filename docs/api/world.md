@@ -6,6 +6,8 @@
 
 Top-level `@manifesto-ai/world` is the canonical governed composition package.
 
+> **Current Contract Note:** This page describes the current World facade v1.0.0 surface. The projected v2.0.0 rewrite is draft-only in [packages/world/docs/world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
+
 It exposes:
 
 - lineage types and services

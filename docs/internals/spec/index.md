@@ -32,7 +32,7 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-1.0.1v.md) (v1.0.1) | Normative (continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-1.0.0v.md) (v1.0.0) | Normative (legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 
-> **Current World Authority:** `@manifesto-ai/world` is the exact governed facade. `world-SPEC.md` is historical reference only.
+> **Current World Authority:** `@manifesto-ai/world` is the exact governed facade. The current facade contract composes Governance v1.0.0 with Lineage v1.0.1. `world-SPEC.md` is historical reference only.
 
 ### Application Layer
 
@@ -42,6 +42,19 @@ If you want the governing documentation rules, see [Documentation Governance](..
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.7.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+
+## Projected Next-Major Drafts
+
+These documents are repo-tracked drafts for the next shared epoch boundary. They are not current package contracts.
+
+| Package | Draft SPEC | Status | Notes |
+|---------|------------|--------|-------|
+| **@manifesto-ai/core** | [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) | Draft | ADR-015 projected Core rewrite |
+| **@manifesto-ai/host** | [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md) | Draft | ADR-015 + ADR-016 projected Host execution-side rewrite |
+| **@manifesto-ai/lineage** | [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) | Draft | ADR-015 + ADR-016 projected Lineage rewrite |
+| **@manifesto-ai/governance** | [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) | Draft | ADR-015 + ADR-016 projected Governance rewrite |
+| **@manifesto-ai/world** | [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) | Draft | ADR-015 + ADR-016 projected facade rewrite |
+| **@manifesto-ai/sdk** | [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) | Draft | ADR-015 + ADR-016 projected SDK rewrite |
 
 ## Historical and Retired References
 
@@ -113,6 +126,12 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 03-29 | Core | Target v4.0.0 (draft) | ADR-015 accepted: next major removes accumulated `system.errors` and `appendErrors`; the living Core SPEC remains v3.0.0 until the co-deployed epoch lands |
+| 03-29 | Lineage | Target v2.0.0 (draft) | Projected ADR-015 + ADR-016 epoch draft: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
+| 03-29 | Governance | Target v2.0.0 (draft) | Projected alignment with the co-deployed lineage epoch: remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap provenance to `SealAttempt` |
+| 03-29 | Host | Target v4.0.0 (draft) | Draft-only execution-side alignment: public Snapshot references lose `system.errors`, and `$host` boundary semantics align with restore normalization |
+| 03-29 | World | Facade target v2.0.0 (draft) | Draft-only facade-major aligned to Lineage v2.0.0 and Governance v2.0.0; `commitSeal()` / `WriteSet` absorb `SealAttempt` persistence while the legacy monolith remains historical only |
+| 03-29 | SDK | Target v3.0.0 (draft) | Draft-only SDK major driven by public `Snapshot<T>` surface changes (`ManifestoConfig.snapshot`, `getSnapshot()`, event payload snapshots), not by governed seal internals |
 | 03-28 | World | Facade v1.0.0 | World facade SPEC added for exact governed composition: composite store, coordinator, `createWorld()`, and facade lifecycle |
 | 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |

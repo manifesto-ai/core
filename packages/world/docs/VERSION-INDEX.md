@@ -1,7 +1,7 @@
 # World Package Documentation Index
 
 > **Package:** `@manifesto-ai/world`
-> **Last Updated:** 2026-03-28
+> **Last Updated:** 2026-03-29
 
 ---
 
@@ -11,6 +11,12 @@
 - **SPEC:** [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) — Normative, canonical governed composition contract
   - Defines `CommitCapableWorldStore`, `WriteSet`, coordinator orchestration, `createWorld()`, and facade lifecycle
   - Depends on [Lineage SPEC v1.0.1](../../lineage/docs/lineage-SPEC-1.0.1v.md) and [Governance SPEC v1.0.0](../../governance/docs/governance-SPEC-1.0.0v.md)
+
+## Projected Next Major
+
+- **Draft SPEC:** [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) — projected next-major facade rewrite
+  - Draft only until the shared epoch boundary lands
+  - Depends on the Governance v2 draft, the Lineage v2 draft, and the Host v4 draft; projected SDK v3 alignment follows this facade draft
 
 ### Legacy World Protocol
 - **SPEC (Living Document):** [world-SPEC.md](world-SPEC.md) — Legacy monolith reference, current through v3.0.0
@@ -29,6 +35,7 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
+| v2.0.0 | [SPEC](world-facade-spec-v2.0.0.md) | [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Projected next-major facade draft | Draft |
 | v1.0.0 | [SPEC](world-facade-spec-v1.0.0.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial facade composition spec | Current |
 
 ---
@@ -66,7 +73,9 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 ## Notes
 
 - [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) is the canonical spec for `@manifesto-ai/world`.
+- [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) is draft only until the shared epoch boundary lands.
 - [world-SPEC.md](world-SPEC.md) is historical reference only.
-- Governance and Lineage are the official split protocol packages and own their current specs.
+- Governance and Lineage are the official split protocol packages and own their current specs. The current facade contract composes Governance v1.0.0 and Lineage v1.0.1.
+- The co-deployed ADR-015 + ADR-016 epoch is currently projected to drive the next canonical facade major, `@manifesto-ai/world` v2.0.0. That facade-major remains draft/projection until the shared epoch boundary lands and depends on the Governance v2 draft plus the Lineage v2 draft, neither of which is current yet.
 - World Protocol v1.0.0 SPEC/FDR are archived and not included in this repo.
 - World Event System extension docs are deprecated; governance events are specified in the Living Document.
