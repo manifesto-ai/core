@@ -26,5 +26,5 @@
 
 - Lineage is a first-class public package in the hard-cut docs set.
 - Lineage is the lower substrate for Governance and World.
-- ADR-015 was accepted on 2026-03-29 and reserves the next breaking Lineage update for current-error snapshot hashing (`CurrentErrorSignature`) in place of accumulated error-history hashing; the current normative document remains v1.0.1 until that update lands.
+- The co-deployed ADR-015 + ADR-016 epoch is currently projected as Lineage v2.0.0. ADR-015 is accepted; ADR-016 is currently proposed. If accepted together, the next major will replace accumulated error-history hashing with current-error identity and move WorldId to parent-linked positional hashing with `tip` / `headAdvancedAt` branch semantics.
 - Use `@manifesto-ai/world` when you want the composed governed facade instead of the raw lineage package.

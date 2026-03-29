@@ -1,7 +1,7 @@
 # Host Documentation Index
 
 > **Package:** `@manifesto-ai/host`
-> **Last Updated:** 2026-02-27
+> **Last Updated:** 2026-03-29
 
 ---
 
@@ -38,4 +38,5 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Notes
 
+- ADR-015 reserves Host v3.1.0 as the projected doc-alignment release for the simplified Core Snapshot surface (`system.errors` removal). Host remains contractually tied to Core's imported Snapshot types; no new execution contract is introduced by the ADR set.
 - Host v1.0.0 and v1.1.0 SPEC/FDR documents predate the v2.0 rewrite and are not included in this repo.

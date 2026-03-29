@@ -46,6 +46,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
 | [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
 | [ADR-015](./015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Accepted | 2026-03-29 | Core, Lineage, Host, World, SDK |
+| [ADR-016](./016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Proposed | 2026-03-29 | Lineage, Governance |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -102,7 +103,13 @@ These ADRs affect multiple packages across the monorepo:
 
 - ADR-015 is accepted and removes accumulated `system.errors` history from Snapshot while keeping `lastError` as the sole current error surface.
 - The decision reserves the next breaking Core/Lineage epoch; current published specs remain Core v3.0.0 and Lineage v1.0.1 until the living docs are updated.
-- ADR-015 explicitly defers durable per-attempt domain failure chronology to ADR-016, which is referenced in the accepted text but is not yet indexed in this hub.
+- ADR-015 now pairs with [ADR-016](./016-merkle-tree-lineage), the proposed lineage-side companion for the same co-deployed epoch boundary.
+
+### ADR-016 Companion Notes
+
+- ADR-016 is currently proposed as the lineage identity rewrite companion to ADR-015: WorldId becomes parent-linked positional identity instead of content-only identity.
+- The draft introduces `tip` / `headAdvancedAt`, idempotent reuse for same-parent same-snapshot seals, and `SealAttempt` as the per-attempt chronology substrate.
+- If the draft is accepted as written, the projected version impact is Lineage v2.0.0, Governance v1.1.0, Host v3.1.0, and World v3.1.0 for the shared epoch boundary.
 
 ---
 

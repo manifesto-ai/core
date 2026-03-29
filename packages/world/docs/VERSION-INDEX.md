@@ -1,7 +1,7 @@
 # World Package Documentation Index
 
 > **Package:** `@manifesto-ai/world`
-> **Last Updated:** 2026-03-28
+> **Last Updated:** 2026-03-29
 
 ---
 
@@ -68,5 +68,6 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 - [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) is the canonical spec for `@manifesto-ai/world`.
 - [world-SPEC.md](world-SPEC.md) is historical reference only.
 - Governance and Lineage are the official split protocol packages and own their current specs.
+- The co-deployed ADR-015 + ADR-016 epoch is currently projected to drive a World v3.1.0 doc-alignment update for the historical monolith reference (`world-SPEC.md`): residual `system.errors` and content-addressable WorldId references would be refreshed for consistency only. The canonical facade remains v1.0.0.
 - World Protocol v1.0.0 SPEC/FDR are archived and not included in this repo.
 - World Event System extension docs are deprecated; governance events are specified in the Living Document.
