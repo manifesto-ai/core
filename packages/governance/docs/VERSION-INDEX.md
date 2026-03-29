@@ -9,6 +9,12 @@
 - **README:** [../README.md](../README.md) - package landing page
 - **Guide:** [GUIDE.md](GUIDE.md) - practical package usage
 
+## Projected Next Major
+
+- **Draft SPEC:** [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - projected next-major rewrite
+  - Draft only while ADR-016 remains Proposed
+  - Draft only until Host / World facade / SDK alignment lands
+
 ## Reading Order
 
 1. Start with [../README.md](../README.md).
@@ -19,11 +25,13 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
+| v2.0.0 | [SPEC](governance-SPEC-2.0.0v.md) | [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Projected next-major draft | Draft |
 | v1.0.0 | [SPEC](governance-SPEC-1.0.0v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial protocol extraction | Current |
 
 ## Notes
 
 - Governance is a first-class public package in the hard-cut docs set.
 - Governance depends on Lineage for identity and branch reads.
-- The ADR-015 + ADR-016 epoch is currently projected as Governance v2.0.0. The next major is expected to remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap governance provenance from `World` / `WorldEdge` to `SealAttempt`.
+- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) remains the truthful current contract.
+- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) is draft only while ADR-016 remains Proposed.
 - Use `@manifesto-ai/world` when you want the composed governed facade instead of the raw governance package.

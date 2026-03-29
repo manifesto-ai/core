@@ -6,6 +6,8 @@
 
 `@manifesto-ai/governance` owns the proposal, authority, decision, and post-commit event model used by governed deployments.
 
+> **Current Contract Note:** This page describes the current Governance v1.0.0 surface. The projected v2.0.0 rewrite is draft-only in [packages/governance/docs/governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md).
+
 Use this package directly when you want:
 
 - proposal lifecycle types and helpers
@@ -49,3 +51,4 @@ Use `@manifesto-ai/governance` directly when you need legitimacy rules by themse
 - [World API](./world.md)
 - [Lineage API](./lineage.md)
 - [Specifications](/internals/spec/)
+- [Governance v2 Draft SPEC](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md)

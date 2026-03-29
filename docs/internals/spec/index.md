@@ -51,6 +51,7 @@ These documents are repo-tracked drafts for the next shared epoch boundary. They
 |---------|------------|--------|-------|
 | **@manifesto-ai/core** | [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) | Draft | ADR-015 projected Core rewrite |
 | **@manifesto-ai/lineage** | [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) | Draft | ADR-015 + proposed ADR-016 projected Lineage rewrite |
+| **@manifesto-ai/governance** | [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) | Draft | ADR-015 + proposed ADR-016 projected Governance rewrite |
 
 ## Historical and Retired References
 
@@ -124,7 +125,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 |------|---------|---------|--------|
 | 03-29 | Core | Target v4.0.0 (draft) | ADR-015 accepted: next major removes accumulated `system.errors` and `appendErrors`; the living Core SPEC remains v3.0.0 until the co-deployed epoch lands |
 | 03-29 | Lineage | Target v2.0.0 (draft) | Projected ADR-015 + ADR-016 epoch draft: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
-| 03-29 | Governance | Target v2.0.0 | Planned alignment with the co-deployed lineage epoch: remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap provenance to `SealAttempt` |
+| 03-29 | Governance | Target v2.0.0 (draft) | Projected alignment with the co-deployed lineage epoch: remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap provenance to `SealAttempt` |
 | 03-29 | Host | Target v4.0.0 | Planned Core v4 alignment: public Snapshot references lose `system.errors`, and `$host` resume semantics align with restore normalization |
 | 03-29 | World | Facade target v2.0.0 | Planned facade-major aligned to Lineage v2.0.0 and Governance v2.0.0; `commitSeal()` / `WriteSet` absorb `SealAttempt` persistence while the legacy monolith remains historical only |
 | 03-29 | SDK | Target v3.0.0 | Planned SDK major driven by public `Snapshot<T>` surface changes (`ManifestoConfig.snapshot`, `getSnapshot()`, event payload snapshots), not by governed seal internals |
