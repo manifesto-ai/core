@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0](https://github.com/manifesto-ai/core/compare/sdk-v2.1.0...sdk-v2.2.0) (2026-03-29)
+
+
+### Features
+
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+* super hard cut world facade ([a5d33f9](https://github.com/manifesto-ai/core/commit/a5d33f98cfcfea914e445900fc2410766e0f1358))
+
 ## [2.1.0](https://github.com/manifesto-ai/core/compare/sdk-v2.0.0...sdk-v2.1.0) (2026-03-25)
 
 
