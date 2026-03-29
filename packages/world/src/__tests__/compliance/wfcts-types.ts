@@ -2,7 +2,7 @@ import type { GovernanceEvent } from "@manifesto-ai/governance";
 import type {
   CommitCapableWorldStore,
   WorldInstance,
-} from "../../facade.js";
+} from "../../index.js";
 
 export const WFCTS_SUITES = [
   "reexports",
@@ -63,7 +63,6 @@ export interface WorldFacadeComplianceResult {
 export interface WorldFacadeComplianceAdapter {
   createWorld(): WorldInstance;
   createStore(): CommitCapableWorldStore;
-  facadeExports(): Record<string, unknown>;
   topLevelExports(): Record<string, unknown>;
   eventLog(): GovernanceEvent[];
 }

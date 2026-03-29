@@ -1,1 +1,1 @@
-export * from "./facade.js";
+export * from "./facade/index.js";

@@ -28,10 +28,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./facade": {
-      "types": "./dist/facade.d.ts",
-      "import": "./dist/facade.js"
     }
   },
   "scripts": {

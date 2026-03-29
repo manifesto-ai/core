@@ -30,7 +30,7 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
   complianceCase(
     WFCTS_CASES.REEXPORTS_FACADE,
     "reexports",
-    "Top-level world is the canonical facade surface and /facade is an exact alias."
+    "Top-level world is the canonical facade surface and preserves split-native pass-through identity."
   ),
   complianceCase(
     WFCTS_CASES.FACTORY_ASSEMBLY,

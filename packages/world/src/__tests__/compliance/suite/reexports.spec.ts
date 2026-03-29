@@ -14,11 +14,10 @@ describe("WFCTS Re-export Suite", () => {
   it(
     caseTitle(
       WFCTS_CASES.REEXPORTS_FACADE,
-      "Top-level world is the canonical facade surface and /facade remains an exact alias."
+      "Top-level world is the canonical facade surface and preserves split-native pass-through identity."
     ),
     () => {
       const adapter = createWorldFacadeComplianceAdapter();
-      const facadeExports = adapter.facadeExports();
       const topLevelExports = adapter.topLevelExports();
       const hasExpectedSurface = typeof topLevelExports.createWorld === "function"
         && typeof topLevelExports.createInMemoryWorldStore === "function"
@@ -26,16 +25,10 @@ describe("WFCTS Re-export Suite", () => {
         && typeof topLevelExports.createGovernanceService === "function"
         && typeof topLevelExports.createGovernanceEventDispatcher === "function"
         && typeof topLevelExports.createIntentInstance === "function";
-      const passThroughIdentity = topLevelExports.createWorld === facadeExports.createWorld
-        && topLevelExports.createInMemoryWorldStore === facadeExports.createInMemoryWorldStore
-        && topLevelExports.createLineageService === createLineageService
+      const passThroughIdentity = topLevelExports.createLineageService === createLineageService
         && topLevelExports.createGovernanceService === createGovernanceService
         && topLevelExports.createGovernanceEventDispatcher === createGovernanceEventDispatcher
-        && topLevelExports.createIntentInstance === createIntentInstance
-        && facadeExports.createLineageService === topLevelExports.createLineageService
-        && facadeExports.createGovernanceService === topLevelExports.createGovernanceService
-        && facadeExports.createGovernanceEventDispatcher === topLevelExports.createGovernanceEventDispatcher
-        && facadeExports.createIntentInstance === topLevelExports.createIntentInstance;
+        && topLevelExports.createIntentInstance === createIntentInstance;
 
       expectAllCompliance([
         evaluateRule(
@@ -50,8 +43,8 @@ describe("WFCTS Re-export Suite", () => {
           getRuleOrThrow("FACADE-REEXPORT-3"),
           passThroughIdentity,
           {
-            passMessage: "Top-level world and /facade are exact aliases with pass-through split-native factory identity.",
-            failMessage: "Top-level world and /facade diverged or wrapped split-native exports.",
+            passMessage: "Top-level world preserves pass-through identity for split-native service factories and helpers.",
+            failMessage: "Top-level world wrapped or replaced split-native service factories or helpers.",
           },
         ),
       ]);
