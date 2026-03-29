@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/manifesto-ai/core/compare/codegen-v0.1.3...codegen-v0.1.4) (2026-03-29)
+
+
+### Features
+
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+
 ## [0.1.3](https://github.com/manifesto-ai/core/compare/codegen-v0.1.2...codegen-v0.1.3) (2026-03-25)
 
 
