@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/manifesto-ai/core/compare/compiler-v1.8.3...compiler-v1.9.0) (2026-03-29)
+
+
+### Features
+
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+* super hard cut world facade ([a5d33f9](https://github.com/manifesto-ai/core/commit/a5d33f98cfcfea914e445900fc2410766e0f1358))
+
 ## [1.8.3](https://github.com/manifesto-ai/core/compare/compiler-v1.8.2...compiler-v1.8.3) (2026-03-25)
 
 
