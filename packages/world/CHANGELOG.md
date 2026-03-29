@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.6.0](https://github.com/manifesto-ai/core/compare/world-v2.5.0...world-v2.6.0) (2026-03-29)
+
+
+### Features
+
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+* implement governance phase 3 split ([ba625b9](https://github.com/manifesto-ai/core/commit/ba625b982bf959d2d15de9762899e4f40cf4724b))
+* implement world facade phase 4 split ([b988dd7](https://github.com/manifesto-ai/core/commit/b988dd7458e4dfe867b9be7e24f74cc756d491c2))
+* super hard cut world facade ([a5d33f9](https://github.com/manifesto-ai/core/commit/a5d33f98cfcfea914e445900fc2410766e0f1358))
+
+
+### Bug Fixes
+
+* tighten governance post-commit events ([7a9404f](https://github.com/manifesto-ai/core/commit/7a9404f47d54dbaf8984cd1851c404a4743412a8))
+
 ## [2.5.0](https://github.com/manifesto-ai/core/compare/world-v2.4.2...world-v2.5.0) (2026-03-25)
 
 
