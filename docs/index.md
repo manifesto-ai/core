@@ -11,7 +11,7 @@ hero:
       link: /quickstart
     - theme: alt
       text: Governed Composition
-      link: /guides/governed-composition
+      link: /tutorial/05-governed-composition
     - theme: alt
       text: GitHub
       link: https://github.com/manifesto-ai/core
@@ -68,7 +68,7 @@ console.log(app.getSnapshot().data.count); // 1
 |------|------|------|
 | **Install and run** | [Quickstart](/quickstart) | 5 min |
 | **Learn the model** | [Concepts](/concepts/) | 15 min |
-| **Use governed composition** | [Governed Composition](/guides/governed-composition) | 15 min |
+| **Use governed composition** | [Governed Composition](/tutorial/05-governed-composition) | 15 min |
 | **Read the API** | [API Reference](/api/) | Browse |
 
 ## Installation

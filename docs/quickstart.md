@@ -86,7 +86,8 @@ console.log(app.getSnapshot().data.count); // 2
 
 ## Next Step
 
-If you need explicit lineage, authority, and sealing, read [Governed Composition](/guides/governed-composition).
+- Continue with the [Tutorial](/tutorial/) for the direct-dispatch learning path
+- Jump to [Governed Composition](/tutorial/05-governed-composition) when you need explicit lineage, authority, and sealing
 
 ---
 

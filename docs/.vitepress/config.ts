@@ -66,13 +66,20 @@ export default defineConfig({
 
       '/tutorial/': [
         {
-          text: 'Tutorial',
+          text: 'Direct-dispatch Track',
           items: [
             { text: 'Overview', link: '/tutorial/' },
             { text: '1. Your First App', link: '/tutorial/01-your-first-app' },
             { text: '2. Actions and State', link: '/tutorial/02-actions-and-state' },
             { text: '3. Working with Effects', link: '/tutorial/03-effects' },
             { text: '4. Building a Todo App', link: '/tutorial/04-todo-app' },
+          ]
+        },
+        {
+          text: 'Governed Track',
+          items: [
+            { text: '5. Governed Composition', link: '/tutorial/05-governed-composition' },
+            { text: '6. Governed Sealing and History', link: '/tutorial/06-governed-sealing-and-history' },
           ]
         },
         {

@@ -56,5 +56,6 @@ If you need `createGovernanceService()`, `createLineageService()`, proposal life
 ## Related Docs
 
 - [Quickstart](/quickstart)
+- [Tutorial](/tutorial/)
 - [World API](./world.md)
 - [Specifications](/internals/spec/)

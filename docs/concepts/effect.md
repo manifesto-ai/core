@@ -8,8 +8,8 @@
 
 Manifesto uses the word in two closely related ways:
 
-1. An effect declaration in MEL
-2. An effect handler in TypeScript
+1. an effect declaration in MEL
+2. an effect handler in TypeScript
 
 The declaration lives in the domain. The handler lives in runtime configuration.
 
@@ -26,7 +26,7 @@ action fetchUser(id: string) {
 }
 ```
 
-This says: “when this action runs, declare the `api.fetchUser` requirement.”
+This says: "when this action runs, declare the `api.fetchUser` requirement."
 
 It does not execute the fetch inline inside the domain.
 
@@ -55,14 +55,26 @@ The handler performs IO and returns patches that become part of the next snapsho
 
 ---
 
+## The Same Effect Model Across Both Paths
+
+The direct-dispatch runtime and the governed runtime use the same effect contract:
+
+- effect declarations still live in MEL
+- handlers still return patches
+- the next Snapshot still carries the visible result
+
+Governance changes who can reach the execution step and when it is sealed. It does not change what an effect handler looks like or how it reports its result.
+
+---
+
 ## Effects Update Snapshot Through Patches
 
 This is the key idea:
 
-- Effects do not return values to your action body
-- Effects do not mutate hidden runtime state
-- Effects return patches
-- The next snapshot carries the visible result
+- effects do not return values to your action body
+- effects do not mutate hidden runtime state
+- effects return patches
+- the next snapshot carries the visible result
 
 That keeps UI, tests, scripts, and AI agents on the same truth.
 
@@ -86,7 +98,7 @@ These are still declared in flow form, but they do not require a user-supplied n
 
 ## Common Mistakes
 
-### Expecting `await dispatch()` to give you the effect result
+### Expecting `dispatch()` to give you the effect result
 
 The result is visible in the next snapshot, not as a direct return value from `dispatch()`.
 
@@ -104,3 +116,4 @@ Handlers should still return a precise patch story. That is what makes the syste
 
 - [Effect Handlers](/guides/effect-handlers) for the implementation guide
 - [Debugging](/guides/debugging) for troubleshooting effect-driven flows
+- [World](./world) for the governed path that can approve and seal those effects

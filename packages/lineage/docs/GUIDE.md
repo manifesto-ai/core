@@ -16,6 +16,8 @@ const lineage = createLineageService(store);
 
 `LineageService` owns identity, branch, and seal operations. `LineageStore` owns persistence.
 
+---
+
 ## 2. Compute Identity
 
 Assume `terminalSnapshot` is the current `Snapshot` value from your runtime.
@@ -35,32 +37,69 @@ const worldId = computeWorldId({
 
 Identity is deterministic. The same inputs produce the same hash and world id.
 
-## 3. Seal a Genesis World
+---
+
+## 3. Prepare Genesis And Next Seals
 
 ```typescript
-const prepared = lineage.prepareSealGenesis({
+const genesis = lineage.prepareSealGenesis({
   schemaHash: "todo-v1",
   terminalSnapshot,
   createdAt: Date.now(),
 });
 
-lineage.commitPrepared(prepared);
+lineage.commitPrepared(genesis);
+
+const branch = lineage.getActiveBranch();
+
+const next = lineage.prepareSealNext({
+  baseWorldId: genesis.worldId,
+  branchId: branch.id,
+  schemaHash: "todo-v1",
+  terminalSnapshot: nextSnapshot,
+  createdAt: Date.now(),
+});
+
+lineage.commitPrepared(next);
 ```
 
 Genesis and branch advancement stay explicit. Lineage does not evaluate governance or authority.
 
-## 4. Query Branch State
+---
+
+## 4. Switch Branches And Inspect State
 
 ```typescript
+const activeBranch = lineage.getActiveBranch();
+const featureBranchId = lineage.createBranch("feature-a", activeBranch.head);
+lineage.switchActiveBranch(featureBranchId);
+
 const branch = lineage.getActiveBranch();
 const heads = lineage.getHeads();
-const restored = lineage.restoreSnapshot(branch.id);
+const restored = lineage.restore(branch.head);
 ```
+
+Branch switching should read like a deliberate change in continuity, not an invisible side effect.
+
+---
+
+## 5. Replay And Restore
 
 Use lineage directly when you need deterministic history, replay, or branch inspection without the full governed facade.
 
-## 5. Related Docs
+Typical queries are:
+
+- `getActiveBranch()` for the current branch
+- `getHeads()` for current heads
+- `restore(worldId)` for a world-based restore
+- `commitPrepared()` for writing a prepared seal
+
+---
+
+## 6. Related Docs
 
 - [Lineage README](../README.md)
 - [Lineage Specification](lineage-SPEC-1.0.1v.md)
 - [Lineage Version Index](VERSION-INDEX.md)
+- [World](../../../docs/concepts/world)
+- [Governed Composition](../../../docs/tutorial/05-governed-composition)

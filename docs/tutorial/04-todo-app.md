@@ -16,7 +16,7 @@
 ## Prerequisites
 
 - You finished [Working with Effects](./03-effects)
-- You still have the `dispatchAsync()` helper from tutorial 1
+- You are still using the SDK `dispatchAsync()` utility from tutorial 1
 
 ---
 
@@ -101,8 +101,8 @@ export const manifesto = createManifesto({
 Create `main.ts`:
 
 ```typescript
+import { createIntent, dispatchAsync } from "@manifesto-ai/sdk";
 import { manifesto } from "./manifesto";
-import { dispatchAsync } from "./dispatch-async";
 
 type Todo = {
   id: string;
@@ -146,21 +146,38 @@ manifesto.subscribe(
 async function run() {
   render();
 
-  await dispatchAsync(manifesto, "addTodo", {
-    id: crypto.randomUUID(),
-    title: "Write the tutorial",
-  });
+  await dispatchAsync(
+    manifesto,
+    createIntent(
+      "addTodo",
+      { id: crypto.randomUUID(), title: "Write the tutorial" },
+      crypto.randomUUID(),
+    ),
+  );
 
-  await dispatchAsync(manifesto, "addTodo", {
-    id: crypto.randomUUID(),
-    title: "Review the generated docs build",
-  });
+  await dispatchAsync(
+    manifesto,
+    createIntent(
+      "addTodo",
+      { id: crypto.randomUUID(), title: "Review the generated docs build" },
+      crypto.randomUUID(),
+    ),
+  );
 
   let firstTodoId = (manifesto.getSnapshot().data.todos as Todo[])[0].id;
-  await dispatchAsync(manifesto, "toggleTodo", { id: firstTodoId });
+  await dispatchAsync(
+    manifesto,
+    createIntent("toggleTodo", { id: firstTodoId }, crypto.randomUUID()),
+  );
 
-  await dispatchAsync(manifesto, "setFilter", { value: "completed" });
-  await dispatchAsync(manifesto, "clearCompleted");
+  await dispatchAsync(
+    manifesto,
+    createIntent("setFilter", { value: "completed" }, crypto.randomUUID()),
+  );
+  await dispatchAsync(
+    manifesto,
+    createIntent("clearCompleted", crypto.randomUUID()),
+  );
 
   render();
   manifesto.dispose();

@@ -2,7 +2,7 @@
 
 > Practical guide for using `@manifesto-ai/governance` directly.
 
-## 1. Assemble Governance on Top of Lineage
+## 1. Assemble Governance On Top Of Lineage
 
 ```typescript
 import {
@@ -11,7 +11,10 @@ import {
   createInMemoryGovernanceStore,
   createIntentInstance,
 } from "@manifesto-ai/governance";
-import { createInMemoryLineageStore, createLineageService } from "@manifesto-ai/lineage";
+import {
+  createInMemoryLineageStore,
+  createLineageService,
+} from "@manifesto-ai/lineage";
 
 const lineageStore = createInMemoryLineageStore();
 const lineage = createLineageService(lineageStore);
@@ -26,7 +29,9 @@ const eventDispatcher = createGovernanceEventDispatcher({
 
 Governance depends on lineage for branch and identity reads. It does not own lineage storage or world sealing.
 
-## 2. Create an Intent Instance
+---
+
+## 2. Create An Intent Instance
 
 ```typescript
 const intent = await createIntentInstance({
@@ -43,14 +48,16 @@ const intent = await createIntentInstance({
 
 `intentKey` is derived from the intent body and schema context. It remains stable for the same semantic input.
 
-## 3. Evaluate a Proposal
+---
+
+## 3. Proposal Lifecycle Recipe
 
 ```typescript
 const branch = lineage.getActiveBranch();
 const proposal = governance.createProposal({
-  baseWorld: "world-1",
+  baseWorld: branch.head,
   branchId: branch.id,
-  actorId: "user-1",
+  actorId: intent.meta.origin.actor.actorId,
   authorityId: "auth-auto",
   intent: {
     type: intent.body.type,
@@ -58,7 +65,7 @@ const proposal = governance.createProposal({
     input: intent.body.input,
     scopeProposal: intent.body.scopeProposal,
   },
-  executionKey: "exec:intent-1",
+  executionKey: intent.intentKey,
   submittedAt: Date.now(),
   epoch: branch.epoch,
 });
@@ -66,7 +73,27 @@ const proposal = governance.createProposal({
 
 The governance service keeps proposal lifecycle, branch gating, and decision records explicit.
 
-## 4. Finalize and Emit
+Typical statuses move through submitted, evaluating, approved or rejected, and then to a terminal outcome. If a proposal loses its branch race, it can become superseded instead of executing.
+
+---
+
+## 4. Branch Gate, Stale Ingress, And Superseded Cases
+
+```typescript
+if (governanceStore.getExecutionStageProposal(branch.id)) {
+  throw new Error("branch already has an execution-stage proposal");
+}
+```
+
+Use the branch gate to keep only one execution-stage proposal active for a branch at a time.
+
+When the branch head changes before the decision lands, stale ingress should be discarded or superseded rather than executed against the wrong base world.
+
+The important lesson is not the exact status label. The important lesson is that governance makes the race explicit and records the outcome.
+
+---
+
+## 5. Finalize And Emit
 
 ```typescript
 const prepared = governance.prepareAuthorityResult(
@@ -74,19 +101,85 @@ const prepared = governance.prepareAuthorityResult(
   { kind: "approved", approvedScope: null },
   {
     currentEpoch: branch.epoch,
-    currentBranchHead: "world-1",
+    currentBranchHead: branch.head,
     decidedAt: Date.now(),
   },
 );
 
-const finalized = governance.finalize(prepared.proposal, prepared.decisionRecord);
+if (!prepared.decisionRecord) {
+  throw new Error("expected decision record");
+}
+
+const executingProposal = {
+  ...prepared.proposal,
+  status: "executing" as const,
+  decisionId: prepared.decisionRecord.decisionId,
+  decidedAt: prepared.decisionRecord.decidedAt,
+};
+
+governanceStore.putProposal(executingProposal);
+governanceStore.putDecisionRecord(prepared.decisionRecord);
+
+const lineageCommit = lineage.prepareSealNext({
+  schemaHash: "todo-v1",
+  baseWorldId: branch.head,
+  branchId: branch.id,
+  terminalSnapshot,
+  createdAt: Date.now(),
+  proposalRef: executingProposal.proposalId,
+  decisionRef: prepared.decisionRecord.decisionId,
+});
+
+const finalized = governance.finalize(
+  executingProposal,
+  lineageCommit,
+  Date.now(),
+);
+
+const rejected = governance.finalizeOnSealRejection(
+  executingProposal,
+  {
+    kind: "self_loop",
+    computedWorldId: executingProposal.baseWorld,
+    message: "No-op transition",
+  },
+  Date.now(),
+);
 ```
 
-Use `createGovernanceEventDispatcher()` when you want post-commit event payloads for completion, failure, world creation, or branch fork events.
+Use `finalize()` for the normal success path. Use `finalizeOnSealRejection()` when the seal cannot be accepted and you still need a terminal governance record.
 
-## 5. Related Docs
+---
+
+## 6. Post-Commit Event Dispatcher
+
+```typescript
+const events: string[] = [];
+const eventDispatcher = createGovernanceEventDispatcher({
+  service: governance,
+  sink: {
+    emit(event): void {
+      events.push(event.type);
+    },
+  },
+});
+
+eventDispatcher.emitSealCompleted(finalized, lineageCommit);
+eventDispatcher.emitSealRejected(rejected, {
+  kind: "self_loop",
+  computedWorldId: executingProposal.baseWorld,
+  message: "No-op transition",
+});
+```
+
+Use `createGovernanceEventDispatcher()` when you want post-commit event emission for completion, failure, world creation, or branch fork events.
+
+---
+
+## 7. Related Docs
 
 - [Governance README](../README.md)
 - [Governance Specification](governance-SPEC-1.0.0v.md)
 - [Governance Version Index](VERSION-INDEX.md)
-
+- [World](../../../docs/concepts/world)
+- [Governed Composition](../../../docs/tutorial/05-governed-composition)

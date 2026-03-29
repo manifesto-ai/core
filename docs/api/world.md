@@ -84,3 +84,9 @@ Use top-level `@manifesto-ai/world` when you want the full governed runtime surf
 | [@manifesto-ai/sdk](./sdk.md) | Thin public SDK that re-exports selected world facade types and factories |
 | [@manifesto-ai/governance](./governance.md) | Direct governance protocol API |
 | [@manifesto-ai/lineage](./lineage.md) | Direct lineage protocol API |
+
+## Learn The Runtime
+
+- [Governed Composition](/tutorial/05-governed-composition)
+- [Governed Sealing and History](/tutorial/06-governed-sealing-and-history)
+- [World Concept](/concepts/world)

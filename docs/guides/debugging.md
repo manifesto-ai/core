@@ -47,7 +47,10 @@ This immediately tells you which class of failure you are dealing with:
 
 ```typescript
 const before = manifesto.getSnapshot();
-await dispatchAsync(manifesto, "fetchUser", { id: "123" });
+await dispatchAsync(
+  manifesto,
+  createIntent("fetchUser", { id: "123" }, crypto.randomUUID()),
+);
 const after = manifesto.getSnapshot();
 
 console.log("before", before.data);
@@ -123,7 +126,10 @@ async function debugDispatch(type: string, input?: unknown) {
   console.log("snapshot before", manifesto.getSnapshot().data);
 
   try {
-    const snapshot = await dispatchAsync(manifesto, type, input);
+    const snapshot = await dispatchAsync(
+      manifesto,
+      createIntent(type, input ?? {}, crypto.randomUUID()),
+    );
     console.log("snapshot after", snapshot.data);
   } catch (error) {
     console.error("dispatch failed", error);

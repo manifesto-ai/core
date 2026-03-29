@@ -1,14 +1,27 @@
 # Intent
 
-> An Intent is a request to move the domain from one snapshot to the next.
+> An Intent is a request to move the domain from one Snapshot to the next.
 
 ---
 
-## What an Intent Is
+## What An Intent Is
 
-In Manifesto, you do not call domain methods that mutate state directly. You submit an `Intent` and let the runtime compute the next terminal snapshot.
+In Manifesto, you do not call domain methods that mutate state directly. You submit an `Intent` and let the runtime compute the next terminal Snapshot.
 
 At the SDK level, an intent is the unit that goes into `dispatch()`.
+
+---
+
+## Intent vs IntentInstance
+
+The direct-dispatch path and the governed path use related but different inputs:
+
+| Type | Used By | Purpose |
+|------|---------|---------|
+| `Intent` | `@manifesto-ai/sdk` | Request a direct Snapshot transition |
+| `IntentInstance` | top-level `@manifesto-ai/world` | Carry the governed request, actor, source, and projection context |
+
+`Intent` is the smallest useful request object for direct dispatch. `IntentInstance` adds the metadata needed for proposal flow and branch-aware legitimacy.
 
 ---
 
@@ -36,6 +49,29 @@ That keeps the `intentId` explicit and stable for the lifetime of that intent.
 
 ---
 
+## The Governed Shape
+
+Use `createIntentInstance()` when you need actor identity, source metadata, or a governed proposal path:
+
+```typescript
+import { createIntentInstance } from "@manifesto-ai/world";
+
+const intentInstance = await createIntentInstance({
+  body: {
+    type: "addTodo",
+    input: { id: crypto.randomUUID(), title: "Review the docs" },
+  },
+  schemaHash: "todo-v1",
+  projectionId: "todo-ui",
+  source: { kind: "agent", eventId: "evt-1" },
+  actor: { actorId: "user-1", kind: "human" },
+});
+```
+
+The governed runtime uses that instance to create and track a proposal. The intent itself is still the request, but now it carries the metadata needed for explicit legitimacy.
+
+---
+
 ## Why `intentId` Matters
 
 The current SDK uses `intentId` to correlate lifecycle events:
@@ -48,9 +84,9 @@ If you build a `dispatchAsync()` helper on top of `on()`, it usually matches com
 
 ---
 
-## Intent vs Command
+## Intent Versus Command
 
-An Intent is not “do this imperative step right now.” It is “this is the requested transition.”
+An Intent is not "do this imperative step right now." It is "this is the requested transition."
 
 That difference matters because:
 
