@@ -13,6 +13,13 @@ In Manifesto, **errors are values, not exceptions**.
 
 This is not a stylistic choice—it is an architectural requirement that follows from determinism and explainability.
 
+That rule stays the same across both public runtime paths:
+
+- direct-dispatch through `@manifesto-ai/sdk`
+- governed composition through top-level `@manifesto-ai/world`
+
+The runtime entry differs, but failures still become state and protocol records rather than control-flow escapes.
+
 ---
 
 ## Why Errors as Values?

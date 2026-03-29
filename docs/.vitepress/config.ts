@@ -123,6 +123,7 @@ export default defineConfig({
           text: 'How-to Guides',
           items: [
             { text: 'Overview', link: '/guides/' },
+            { text: 'Governed Composition', link: '/guides/governed-composition' },
             { text: 'Bundler Setup', link: '/guides/bundler-setup' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
@@ -150,9 +151,11 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
+            { text: '@manifesto-ai/world', link: '/api/world' },
+            { text: '@manifesto-ai/governance', link: '/api/governance' },
+            { text: '@manifesto-ai/lineage', link: '/api/lineage' },
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
-            { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
           ]

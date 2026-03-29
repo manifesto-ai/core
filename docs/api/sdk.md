@@ -9,7 +9,7 @@
 Everything else is either:
 
 - SDK utility (`defineOps`, `dispatchAsync`)
-- pass-through protocol re-export from Core, Host, or World
+- pass-through protocol re-export from Core, Host, or the thin world facade surface
 
 After the hard cut, SDK re-exports only the thin governed World surface:
 
@@ -51,8 +51,10 @@ import {
 
 These are thin pass-through re-exports from `@manifesto-ai/world`.
 
+If you need `createGovernanceService()`, `createLineageService()`, proposal lifecycle types, authority handlers, or lineage query APIs, import from top-level `@manifesto-ai/world`, `@manifesto-ai/governance`, or `@manifesto-ai/lineage` directly.
+
 ## Related Docs
 
-- [SDK README](../../packages/sdk/README.md)
-- [SDK SPEC v2.0.0](../../packages/sdk/docs/sdk-SPEC-v2.0.0.md)
+- [Quickstart](/quickstart)
 - [World API](./world.md)
+- [Specifications](/internals/spec/)

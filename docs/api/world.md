@@ -4,7 +4,7 @@
 
 ## Overview
 
-Top-level `@manifesto-ai/world` is the canonical governed composition surface.
+Top-level `@manifesto-ai/world` is the canonical governed composition package.
 
 It exposes:
 
@@ -15,7 +15,7 @@ It exposes:
 - `createInMemoryWorldStore()`
 - intent-instance helpers
 
-`@manifesto-ai/world/facade` currently exists as an exact alias for the same surface.
+`@manifesto-ai/world/facade` exists only as an exact alias for the same surface. New code should import from the top-level package.
 
 ## Canonical Composition
 
@@ -41,6 +41,14 @@ const world = createWorld({
 });
 ```
 
+## Package Layers Inside the Facade
+
+`@manifesto-ai/world` combines three categories of exports:
+
+1. Re-exported lineage APIs from `@manifesto-ai/lineage`
+2. Re-exported governance APIs from `@manifesto-ai/governance`
+3. Facade-owned runtime assembly APIs
+
 ## Facade-Owned Types
 
 ```typescript
@@ -65,6 +73,8 @@ Top-level `@manifesto-ai/world` also re-exports:
 - `createGovernanceService()`, `createGovernanceEventDispatcher()`
 - `createLineageService()`
 
+Use top-level `@manifesto-ai/world` when you want the full governed runtime surface from one package. Use `@manifesto-ai/governance` or `@manifesto-ai/lineage` directly when you want only one protocol layer.
+
 ## Related Packages
 
 | Package | Relationship |
@@ -72,3 +82,5 @@ Top-level `@manifesto-ai/world` also re-exports:
 | [@manifesto-ai/core](./core.md) | Pure computation |
 | [@manifesto-ai/host](./host.md) | Effect execution |
 | [@manifesto-ai/sdk](./sdk.md) | Thin public SDK that re-exports selected world facade types and factories |
+| [@manifesto-ai/governance](./governance.md) | Direct governance protocol API |
+| [@manifesto-ai/lineage](./lineage.md) | Direct lineage protocol API |

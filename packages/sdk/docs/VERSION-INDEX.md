@@ -8,7 +8,7 @@
 - **Package:** v2.0.0 hard-cut alignment release
 - **SPEC:** [v2.0.0](sdk-SPEC-v2.0.0.md) (Normative)
 
-SDK remains a thin composition layer. `createManifesto()` is still the sole SDK-owned concept. Governed World alignment now follows the hard-cut top-level `@manifesto-ai/world` surface.
+SDK remains a thin composition layer. `createManifesto()` is the sole SDK-owned concept. Governed composition now lives on the hard-cut top-level `@manifesto-ai/world` surface.
 
 ## All Versions
 
@@ -23,5 +23,5 @@ SDK remains a thin composition layer. `createManifesto()` is still the sole SDK-
 ## Reading Guide
 
 1. Read [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md).
-2. For split rationale, read [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md).
+2. For the hard-cut rationale, read [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md).
 3. For the original SDK hard cut, read [ADR-010](../../../docs/internals/adr/010-major-hard-cut.md).

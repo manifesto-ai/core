@@ -13,6 +13,8 @@ This guide defines core documentation operations for Manifesto. These rules alig
 - For each layer/package, the `-SPEC` must be the canonical normative source.
 - Normative interpretation must not require navigating patch chains (e.g., `-patch.md` sequences).
 - Update the living SPEC immediately and append a `Changelog` entry whenever rules change.
+- After a hard cut, maintained docs should describe only the current canonical surface.
+- Historical documents stay historical by index and label, not by being mixed into active prose.
 
 ### 1-2. ADR = Immutable Record of Decisions
 
@@ -25,6 +27,12 @@ This guide defines core documentation operations for Manifesto. These rules alig
 - FDRs capture motivation and reasoning.
 - For Core/Host/World, keep key rationale inline in SPEC `Rationale` blocks whenever possible.
 - Standalone FDR files are for supplemental, academic, or historical context.
+
+### 1-4. Reading Order
+
+- Prefer maintained docs first: README, package landing pages, API docs, concept docs, and current package indexes.
+- Use historical ADR/SPEC/FDR material only after the current surface is understood.
+- Do not use archive documents to infer current public APIs or canonical import paths.
 
 ---
 

@@ -1,42 +1,47 @@
 # Concepts
 
-> Quick reference for Manifesto's core building blocks.
+> Quick reference for Manifesto's core building blocks and runtime choices.
 
-Manifesto is a semantic layer for deterministic domain state. You declare what your domain means once; every surface — UI, API, agent, automation — reads from the same Snapshot. Understanding these concepts provides the foundation for building with Manifesto.
+Manifesto is a semantic layer for deterministic domain state. You declare what your domain means once; every surface reads from the same Snapshot model. The main choice is not the semantics. It is the runtime shape you assemble around them.
 
 ---
 
-## Concept Map
+## Runtime Map
 
 ```
-                    Intent
-                      |
-                      v
-                    World  -----------> Authority
-                      |                    |
-                      v                    v
-                    Host  <---------- Decision
-                      |
-                      v
-     +----------------+----------------+
-     |                                 |
-     v                                 v
-   Core                             Effect
-     |                             Handler
-     v                                 |
-   Flow  ---> Effect Declaration ------+
-     |                                 |
-     v                                 v
-  Patches  ----------------------> Snapshot
+caller
+  -> choose runtime
+     -> SDK direct dispatch
+        -> Host
+        -> Core
+        -> Snapshot
+     -> Governed composition
+        -> World facade
+        -> Governance + Lineage
+        -> Host
+        -> Core
+        -> Snapshot + sealed world history
 ```
 
-**Data flows:**
-1. **Intent** enters through **World** for governance
-2. **World** evaluates **Authority** and produces **Decision**
-3. Approved intents go to **Host** for execution
-4. **Host** calls **Core** which interprets **Flow**
-5. **Flow** produces patches and declares **Effects**
-6. **Host** executes effects, applies patches to **Snapshot**
+## Two Public Paths
+
+### Direct Dispatch
+
+Use `@manifesto-ai/sdk` when you want the shortest path from typed intent to terminal snapshot.
+
+```text
+caller -> SDK -> Host -> Core -> Snapshot
+```
+
+### Governed Composition
+
+Use top-level `@manifesto-ai/world` when you need explicit legitimacy and continuity.
+
+```text
+actor -> Governance -> Host -> Core -> Snapshot
+                           \
+                            -> Lineage + sealed world history
+```
 
 ---
 
@@ -96,7 +101,7 @@ Simpler alternatives exist for:
 | [Intent](./intent.md) | Request to perform a domain action | Intents are proposals, not commands |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they don't execute |
 | [Effect](./effect.md) | Declaration of external operation | Core declares, Host fulfills |
-| [World](./world.md) | Governance layer for authority | World governs, Host executes |
+| [World](./world.md) | Governed composition over governance + lineage | World composes legitimacy, continuity, and sealing |
 
 ---
 
@@ -115,13 +120,14 @@ compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 
 ## Quick Reference
 
-| What You Want | Which Concept | Where Defined |
-|---------------|---------------|---------------|
+| What You Want | Which Concept | Where to Start |
+|---------------|---------------|----------------|
+| Run a domain quickly | Direct dispatch | `@manifesto-ai/sdk` |
+| Add governance and lineage | World | `@manifesto-ai/world` |
 | Store domain state | Snapshot | `snapshot.data` |
-| Request state change | Intent | `manifesto.dispatch(createIntent("action", input, intentId))` |
+| Request state change | Intent | `createIntent()` or `createIntentInstance()` |
 | Describe computation | Flow | MEL `action`, `when`, `once` |
 | Perform IO | Effect | MEL `effect type.name({ into: path })` |
-| Authorize actions | World | `world.registerActor(actor, policy)` |
 
 ---
 

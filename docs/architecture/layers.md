@@ -115,30 +115,26 @@ onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
 
 ### World
 
-> **One-liner:** Governance layer that determines what becomes history.
+> **One-liner:** Governed composition layer that determines what becomes legitimate history.
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Proposal lifecycle, decision records, World sealing, lineage |
-| **Primary API** | `submitProposal()`, `decide()`, `createWorld()` |
-| **Owns** | Actor/Authority/Proposal, WorldId computation, DecisionRecord, Lineage |
+| **Role** | Governed runtime assembly over governance + lineage + sealing coordination |
+| **Primary API** | `createWorld()`, `createInMemoryWorldStore()` |
+| **Owns** | Facade assembly, composite store, coordinator-owned commit flow |
 | **Does NOT Know** | Host internal API, TraceEvent structure, execution micro-steps |
 
 ```typescript
 // World's world view
-interface HostExecutor {
-  execute(key, baseSnapshot, intent, opts?): Promise<HostExecutionResult>;
-}
-
-// World defines interface, does NOT implement
-// World receives results, does NOT observe process
+// top-level @manifesto-ai/world is the exact governed facade
+// governance and lineage remain explicit protocol layers underneath it
 ```
 
 **Constitutional Rules:**
-1. World **declares** HostExecutor interface; SDK **implements** it
-2. World **seals results**; it does NOT interpret execution
-3. World owns **governance events** (`proposal:*`, `world:*`, `execution:completed/failed`)
-4. World does NOT own **telemetry events** (`execution:compute`, `execution:patches`, etc.)
+1. World composes governance and lineage; it does not replace their protocol boundaries
+2. World seals results; it does not interpret Host micro-steps
+3. World owns the governed composition surface and post-commit event coordination
+4. World does not own execution telemetry (`execution:compute`, `execution:patches`, etc.)
 
 ---
 
@@ -148,17 +144,13 @@ interface HostExecutor {
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Compose Host + World, implement policies, present public APIs |
+| **Role** | Compose the direct-dispatch runtime, implement policies, present public APIs |
 | **Primary API** | `createManifesto()`, `dispatch()`, `subscribe()` |
-| **Owns** | Host↔World integration, execution telemetry, UI/session |
-| **Does NOT Know** | Core computation internals, World constitution changes |
+| **Owns** | Host integration, execution telemetry, direct-dispatch application runtime |
+| **Does NOT Know** | Core computation internals, governed composition internals |
 
 ```typescript
 // SDK responsibilities
-class SdkHostExecutor implements HostExecutor {
-  execute(...) { /* integrate Host, transform results */ }
-}
-
 host.onTrace((trace) => {
   // Transform TraceEvent → SDK telemetry events
   sdkEmitter.emit('execution:compute', ...);
@@ -166,10 +158,10 @@ host.onTrace((trace) => {
 ```
 
 **Constitutional Rules:**
-1. SDK is the **only layer** that knows both Host and World
+1. SDK is the canonical direct-dispatch application entry
 2. SDK owns **execution telemetry events** (derived from Host's TraceEvent)
-3. SDK implements **HostExecutor** interface for World
-4. SDK is the **evolution absorption layer** for Host changes
+3. SDK may re-export selected governed world factories and types, but it is not the full governed protocol surface
+4. SDK is the **evolution absorption layer** for Host changes in the direct-dispatch path
 
 ---
 
@@ -182,18 +174,17 @@ host.onTrace((trace) => {
 | **Core** | IO, execution loops, approval, governance, World, Host |
 | **Host** | World, Proposal, Authority, governance, approval decisions |
 | **World** | Host internal API, TraceEvent, dispatch options, execution micro-steps |
-| **SDK** | Core computation internals, World constitutional rules |
+| **SDK** | Core computation internals, governed composition internals |
 
 ### Dependency Direction
 
 ```
-SDK → World → (HostExecutor interface)
+Application → SDK → Host
+Application → World → Governance + Lineage + Host
 SDK → Host
 World → Core
 Host → Core
 ```
-
-**Key Insight:** World depends on HostExecutor **interface**, not Host **implementation**.
 
 ---
 

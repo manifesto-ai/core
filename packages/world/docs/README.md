@@ -1,12 +1,16 @@
 # @manifesto-ai/world Docs
 
-This package now documents a single active surface: the exact facade exported from top-level `@manifesto-ai/world`.
+This directory documents the current governed composition facade for `@manifesto-ai/world`.
 
-## Current Canonical Docs
+## Canonical Docs
 
-- [GUIDE.md](GUIDE.md) — practical facade assembly and sealing flow
-- [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) — normative facade contract
+- [../README.md](../README.md) - package landing page
+- [GUIDE.md](GUIDE.md) - practical assembly and sealing flow
+- [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) - normative facade contract
+- [VERSION-INDEX.md](VERSION-INDEX.md) - version history and current spec pointer
 
-## Historical References
+## Historical Reference
 
-Legacy monolithic World documents remain in this directory for historical context, but they are not the active package story after the hard cut.
+- [world-SPEC.md](world-SPEC.md) - legacy monolith reference
+
+The historical world protocol is preserved for reference only. New package documentation should follow the facade surface described in the files above.

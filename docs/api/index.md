@@ -1,75 +1,96 @@
 # API Reference
 
-> Complete API documentation for Manifesto packages
+> Choose the package that matches the runtime you are actually building.
 
----
+## Start Here
 
-## Primary Package
+Manifesto now has two first-class public entry paths:
 
-| Package | Description |
-|---------|-------------|
-| [@manifesto-ai/sdk](./sdk) | Public developer API. **Start here.** |
+| Path | Package | Use When |
+|------|---------|----------|
+| **Direct dispatch** | [@manifesto-ai/sdk](./sdk) | You want the shortest application path with `createManifesto()` |
+| **Governed composition** | [@manifesto-ai/world](./world) | You need governance, lineage, sealing, and explicit world assembly |
 
----
+## Package Map
 
-## Core Packages
+### Application Entry Packages
 
-| Package | Description |
-|---------|-------------|
-| [@manifesto-ai/core](./core) | Pure computation engine |
-| [@manifesto-ai/host](./host) | Effect execution runtime |
-| [@manifesto-ai/world](./world) | Governance layer |
+| Package | Responsibility |
+|---------|----------------|
+| [@manifesto-ai/sdk](./sdk) | Direct-dispatch runtime, thin public API, selected world re-exports |
+| [@manifesto-ai/world](./world) | Canonical governed composition surface, plus full governance and lineage re-exports |
 
----
+### Split Protocol Packages
 
-## Additional Packages
+| Package | Responsibility |
+|---------|----------------|
+| [@manifesto-ai/governance](./governance) | Proposal lifecycle, authority evaluation, decision records, governance events |
+| [@manifesto-ai/lineage](./lineage) | World identity, branch/head state, sealing continuity, replay and queries |
 
-| Package | Description |
-|---------|-------------|
-| [@manifesto-ai/compiler](./compiler) | MEL compiler and patch IR lowering |
-| [@manifesto-ai/codegen](./codegen) | DomainSchema to TypeScript + Zod codegen |
+### Core Runtime Packages
 
-See [Specifications](/internals/spec/) for normative contracts.
+| Package | Responsibility |
+|---------|----------------|
+| [@manifesto-ai/core](./core) | Pure semantic computation |
+| [@manifesto-ai/host](./host) | Effect execution and compute/apply loop |
+| [@manifesto-ai/compiler](./compiler) | MEL compilation and lowering |
+| [@manifesto-ai/codegen](./codegen) | Schema-driven TypeScript and Zod generation |
 
----
-
-## Package Relationships
+## Runtime Choice
 
 ```mermaid
 flowchart TB
-  APP["Your Application"] --> SDK["@manifesto-ai/sdk"]
-  SDK --> H["@manifesto-ai/host"]
-  SDK --> COMP["@manifesto-ai/compiler"]
-  SDK -. optional .-> W["@manifesto-ai/world"]
-  H --> C["@manifesto-ai/core"]
-  W --> C
-  COMP --> C
+  APP["Your Application"] --> CHOICE{"Which runtime?"}
+  CHOICE --> SDK["@manifesto-ai/sdk"]
+  CHOICE --> WORLD["@manifesto-ai/world"]
+  SDK --> HOST["@manifesto-ai/host"]
+  WORLD --> GOV["@manifesto-ai/governance"]
+  WORLD --> LIN["@manifesto-ai/lineage"]
+  WORLD --> HOST
+  HOST --> CORE["@manifesto-ai/core"]
+  GOV --> LIN
+  COMP["@manifesto-ai/compiler"] --> CORE
 ```
 
----
+## Quick Orientation
 
-## Quick Start
+### Direct Dispatch
 
 ```typescript
 import { createIntent, createManifesto } from "@manifesto-ai/sdk";
 
-const instance = createManifesto({
+const manifesto = createManifesto({
   schema: domainSchema,
-  effects: {
-    "counter.save": async () => [
-      { op: "set", path: [{ kind: "prop", name: "saved" }], value: true },
-    ],
-  },
+  effects: {},
 });
 
-instance.dispatch(createIntent("increment", crypto.randomUUID()));
-console.log(instance.getSnapshot().data);
+manifesto.dispatch(createIntent("increment", "intent-1"));
 ```
 
----
+### Governed Composition
 
-## Related Documentation
+```typescript
+import {
+  createGovernanceEventDispatcher,
+  createGovernanceService,
+  createInMemoryWorldStore,
+  createLineageService,
+  createWorld,
+} from "@manifesto-ai/world";
 
-- **[Core Concepts](/concepts/)** - Manifesto fundamentals
-- **[Specifications](/internals/spec/)** - Normative contracts
-- **[Architecture](/architecture/)** - System design and boundaries
+const store = createInMemoryWorldStore();
+const lineage = createLineageService(store);
+const governance = createGovernanceService(store, { lineageService: lineage });
+const world = createWorld({
+  store,
+  lineage,
+  governance,
+  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
+});
+```
+
+## Related Docs
+
+- [Concepts](/concepts/)
+- [Governed Composition Guide](/guides/governed-composition)
+- [Specifications](/internals/spec/)

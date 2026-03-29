@@ -1,46 +1,39 @@
 # @manifesto-ai/sdk
 
-> Thin public API layer for the Manifesto protocol stack.
+> Thin direct-dispatch entry point for Manifesto applications.
 
-`@manifesto-ai/sdk` remains the canonical entry point for direct-dispatch applications through `createManifesto()`.
+`@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`. It stays thin and only re-exports the governed world assembly surface needed for explicit composition.
 
-## What SDK Owns
+## What This Package Owns
 
 - `createManifesto()`
 - `dispatchAsync()`
 - `defineOps()`
-- selected Core, Host, and World re-exports
+- typed operation helpers
+- thin world re-exports for `createWorld()` and `createInMemoryWorldStore()`
 
-## Governed World Re-exports
+## When to Use It
 
-SDK now exposes only the thin governed World surface:
+Use the SDK when you want:
 
-```typescript
-import {
-  createInMemoryWorldStore,
-  createManifesto,
-  createWorld,
-} from "@manifesto-ai/sdk";
-```
+- the shortest path to direct-dispatch execution
+- subscriptions and snapshot reads without manual governed wiring
+- thin access to the governed world assembler, while keeping full governance and lineage APIs in `@manifesto-ai/world`
 
-These are pass-through re-exports from top-level `@manifesto-ai/world`.
-
-SDK does not re-export the full governance or lineage API. If you need split-native services such as `createGovernanceService()` or `createLineageService()`, import them from `@manifesto-ai/world`.
-
-## Direct Dispatch Example
+## Direct Dispatch
 
 ```typescript
-import { createManifesto, createIntent } from "@manifesto-ai/sdk";
+import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto({
   schema: counterSchema,
   effects: {},
 });
 
-manifesto.dispatch(createIntent("increment", "intent-1"));
+await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
 ```
 
-## Governed Composition Example
+## Governed Composition
 
 ```typescript
 import {
@@ -49,10 +42,12 @@ import {
 } from "@manifesto-ai/sdk";
 ```
 
-Use the SDK re-exports when you only need the facade-owned world assembly types and factories. Use `@manifesto-ai/world` directly for the full governed surface.
+These are the thin re-exports from top-level `@manifesto-ai/world`.
 
-## Documentation
+For the full governed surface, including `createGovernanceService()`, `createLineageService()`, and `createGovernanceEventDispatcher()`, import `@manifesto-ai/world` directly.
 
-- [SDK SPEC v2.0.0](docs/sdk-SPEC-v2.0.0.md)
-- [VERSION-INDEX.md](docs/VERSION-INDEX.md)
-- [World API](../../docs/api/world.md)
+## Docs
+
+- [SDK Guide](docs/GUIDE.md)
+- [SDK Specification](docs/sdk-SPEC-v2.0.0.md)
+- [VERSION-INDEX](docs/VERSION-INDEX.md)
