@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/manifesto-ai/core/compare/host-v2.3.5...host-v2.4.0) (2026-03-29)
+
+
+### Features
+
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+
 ## [2.3.5](https://github.com/manifesto-ai/core/compare/host-v2.3.4...host-v2.3.5) (2026-03-25)
 
 
