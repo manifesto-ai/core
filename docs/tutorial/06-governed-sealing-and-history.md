@@ -1,6 +1,8 @@
 # Governed Sealing and History
 
 > See how a proposal becomes a sealed world, and how lineage records that result.
+>
+> **Current Contract Note:** This tutorial follows the current World facade v1.0.0 surface, which composes Governance v1.0.0 and Lineage v1.0.1. The projected ADR-015 + ADR-016 rewrite remains draft-only in [packages/world/docs/world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
 
 ---
 
@@ -112,6 +114,8 @@ const sealedNext = world.coordinator.sealNext({
 });
 ```
 
+In the current facade v1 surface, `sealInput` still carries `proposalRef` and `decisionRef`, and the branch baseline is read from `branch.head`. The projected v2 drafts move per-attempt provenance into `SealAttempt` and add `tip` / `headAdvancedAt`, but those semantics are not current yet.
+
 If you need the first seal to bypass governance entirely, use standalone genesis:
 
 ```typescript
@@ -140,6 +144,8 @@ const restored = latestHead
   : null;
 const graph = world.lineage.getLineage();
 ```
+
+Current head queries remain head-based in the public API. The projected `tip` and `headAdvancedAt` semantics live only in the Lineage v2 / World facade v2 drafts.
 
 Sealed history is what makes audit and replay useful. The current Snapshot tells you the state now. Lineage tells you how that state became the current one.
 
