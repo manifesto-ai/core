@@ -1,9 +1,12 @@
 # Manifesto Schema Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Draft (Projected next major)
 > **Package:** `@manifesto-ai/core`
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Related:** ADR-015
+
+> **Draft Note:** This file captures the projected Core v4.0.0 rewrite reserved by ADR-015. The current normative package contract remains [core-SPEC.md](core-SPEC.md) through v3.0.0 until the shared epoch boundary lands.
 
 ---
 
@@ -11,6 +14,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface, formalize Snapshot ontological classification | FDR-002, FDR-005 |
 | v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at `snapshot.data` | FDR-015 |
 | v2.0.0 | Initial release — DomainSchema, StateSpec, ComputedSpec, ExprSpec, FlowSpec, Snapshot | FDR-001 ~ FDR-016 |
 | v2.0.1 | Patch operation clarification (`merge` is shallow), platform-reserved namespace policy | — |
@@ -1126,7 +1130,6 @@ When a `fail` node is executed:
 // Core emits system transition (not Patch):
 {
   lastError: errorValue,
-  appendErrors: [errorValue],
   status: 'error'
 } satisfies SystemDelta;
 ```
@@ -1276,9 +1279,6 @@ type SystemState = {
   /** Last error (null if none) */
   readonly lastError: ErrorValue | null;
   
-  /** Error history */
-  readonly errors: readonly ErrorValue[];
-  
   /** Pending requirements waiting for Host */
   readonly pendingRequirements: readonly Requirement[];
   
@@ -1301,7 +1301,34 @@ type SnapshotMeta = {
 };
 ```
 
-### 13.3 Normative Note: `data` vs "state" terminology, and computed key access
+### 13.3 Ontological Classification (Normative)
+
+Snapshot fields are classified by what kind of thing they are. This classification is normative and constrains future Snapshot evolution.
+
+Process, Transient, Envelope, and Binding fields remain in Snapshot because Snapshot is still the sole communication medium at the Core/Host boundary. This classification records their role without changing the current API surface.
+
+| Field | Classification | Meaning |
+|-------|----------------|---------|
+| `data` | **Essence** | The domain state itself |
+| `computed` | **Projection** | Deterministically derivable from `data + schema` |
+| `system.lastError` | **Essence** | Current error state of this snapshot |
+| `system.status` | **Process** | Compute loop phase indicator |
+| `system.pendingRequirements` | **Process** | Compute loop intermediate state |
+| `system.currentAction` | **Process** | Compute loop intermediate state |
+| `input` | **Transient** | Intent input scoped to the current compute cycle |
+| `meta.version` | **Envelope** | Monotonic counter for change detection |
+| `meta.timestamp` | **Envelope** | Host-provided logical time |
+| `meta.randomSeed` | **Envelope** | Host-provided deterministic seed |
+| `meta.schemaHash` | **Binding** | Schema identity this snapshot conforms to |
+
+- **Essence** changes what the snapshot is.
+- **Projection** is derivable from Essence plus Schema.
+- **Process** reflects in-flight compute-loop state.
+- **Transient** is scoped to a single compute cycle.
+- **Envelope** describes how the snapshot was produced.
+- **Binding** links the snapshot to an external identity.
+
+### 13.4 Normative Note: `data` vs "state" terminology, and computed key access
 
 In this specification, domain-owned mutable state is stored under `snapshot.data`.
 Higher-level layers (e.g., MEL or App-level facades) may refer to this conceptually as "state".
@@ -1318,13 +1345,15 @@ This is terminology only.
 - Higher-level layers **MAY** provide derived read-only views or aliases (e.g., `snapshot.state` as an alias of `snapshot.data`,
   or ergonomic aliases for computed keys), but such views **MUST NOT** change the canonical Snapshot contract at the Core/Host boundary.
 
-### 13.4 Requirements
+### 13.5 Requirements
 
 - Snapshots MUST be immutable.
 - `version` MUST be incremented on every change.
 - `computed` MUST be consistent with `data` (no stale values).
 - All communication between Host and Core happens through Snapshot.
 - `data.$*` namespaces are platform-owned and opaque to Core.
+- Snapshot MUST NOT contain accumulated history. Each field MUST represent point-in-time state or a deterministic projection thereof.
+- New Snapshot fields MUST declare whether they are Essence, Projection, Process, Transient, Envelope, or Binding.
 
 ---
 
@@ -1527,7 +1556,6 @@ type SystemDelta = {
   readonly status?: SystemState['status'];
   readonly currentAction?: string | null;
   readonly lastError?: ErrorValue | null;
-  readonly appendErrors?: readonly ErrorValue[];
   readonly addRequirements?: readonly Requirement[];
   readonly removeRequirementIds?: readonly string[];
 };

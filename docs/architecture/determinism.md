@@ -5,6 +5,8 @@
 
 ---
 
+> **Current Contract Note:** This page reflects the current Core v3.0.0 Snapshot model, including accumulated `system.errors`. The ADR-015 removal of accumulated error history is draft-only until the next major epoch lands.
+
 ## What Is Determinism?
 
 In Manifesto, determinism means that **the same input always produces the same output, always**. This is not a convenience—it is the foundational constraint that makes every other guarantee possible.
@@ -95,9 +97,10 @@ type Snapshot = {
   computed: Record<string, unknown>;  // Derived values (recalculated, never stored)
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
-    lastError: ErrorValue | null;
     pendingRequirements: readonly Requirement[];
     currentAction: string | null;
+    lastError: ErrorValue | null;
+    errors: readonly ErrorValue[];
   };
   input: unknown;                     // Transient action input
   meta: {
@@ -113,7 +116,6 @@ type Snapshot = {
 - Snapshots are immutable after creation
 - All state changes happen via Patches
 - Computed values are recalculated, never stored
-- Snapshot carries current error state, not accumulated error history
 - There is no channel for value passing outside Snapshot
 
 ### 2. No Suspended Execution Context

@@ -5,6 +5,8 @@
 
 ---
 
+> **Current Contract Note:** This page reflects the current Core v3.0.0 error model. Accumulated `system.errors` and `SystemDelta.appendErrors` remain current; the ADR-015 removal is draft-only until the shared next-major epoch lands.
+
 ## The Core Principle
 
 In Manifesto, **errors are values, not exceptions**.
@@ -98,7 +100,7 @@ type ErrorValue = {
 
 ### System State
 
-Current error state is stored in the system portion of Snapshot:
+Errors are stored in the system portion of Snapshot:
 
 ```typescript
 type SystemState = {
@@ -107,6 +109,9 @@ type SystemState = {
 
   /** Last error (null if none) */
   readonly lastError: ErrorValue | null;
+
+  /** Error history */
+  readonly errors: readonly ErrorValue[];
 
   /** Pending requirements waiting for Host */
   readonly pendingRequirements: readonly Requirement[];
@@ -119,8 +124,8 @@ type SystemState = {
 **Key fields:**
 
 - **`status`**: Current computation state (includes 'error')
-- **`lastError`**: Current error state for this Snapshot
-- **Chronology**: If you need counts or per-attempt history, use telemetry events, trace artifacts, or application-level logging instead of `snapshot.system`
+- **`lastError`**: Most recent error (quick access)
+- **`errors`**: Full error history (audit trail)
 
 ---
 
@@ -150,12 +155,12 @@ In Flow, errors are declared using the `fail` node:
 
 1. Core creates an ErrorValue
 2. Core emits a `SystemDelta`:
-   - `{ lastError: errorValue, status: 'error' }`
+   - `{ lastError: errorValue, appendErrors: [errorValue], status: 'error' }`
 3. The Host/Core boundary applies that transition with `applySystemDelta()`
 4. Core terminates computation
 5. Core returns with `status: 'error'`
 
-**There is no throw. There is no catch. Just deterministic state transitions.**
+**There is no throw. There is no catch. Just deterministic system transitions.**
 
 ### Effect-Level Errors
 
@@ -289,20 +294,14 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
 }
 ```
 
-### Pattern 3: Error Clearing
+### Pattern 3: Retry Scheduling
 
-**Explicitly clear errors when resolved:**
+**Track retry intent in domain state; system error fields are transitioned through `SystemDelta`, not patch paths:**
 
 ```json
 {
   "kind": "seq",
   "steps": [
-    {
-      "kind": "patch",
-      "op": "set",
-      "path": "system.lastError",
-      "value": { "kind": "lit", "value": null }
-    },
     {
       "kind": "patch",
       "op": "set",
@@ -312,6 +311,12 @@ After Host fulfills the effect and calls `compute()` again, Flow can check for e
         "left": { "kind": "get", "path": "retryCount" },
         "right": { "kind": "lit", "value": 1 }
       }
+    },
+    {
+      "kind": "patch",
+      "op": "set",
+      "path": "ui.showRetryDialog",
+      "value": { "kind": "lit", "value": false }
     },
     {
       "kind": "effect",
@@ -554,15 +559,22 @@ try {
 } catch (error) {
   // System error - should be rare
   console.error('System error:', error);
-  // Apply error patch to snapshot
-  snapshot = core.apply(schema, snapshot, [
-    { op: 'set', path: 'system.lastError', value: {
+  // Apply system transition to snapshot
+  snapshot = core.applySystemDelta(snapshot, {
+    lastError: {
       code: 'SYSTEM_ERROR',
       message: error.message,
       source: { actionId: '', nodePath: '' },
       timestamp: context.now
-    }}
-  ], context);
+    },
+    appendErrors: [{
+      code: 'SYSTEM_ERROR',
+      message: error.message,
+      source: { actionId: '', nodePath: '' },
+      timestamp: context.now
+    }],
+    status: 'error'
+  });
 }
 ```
 
@@ -617,9 +629,12 @@ async function processIntentWithRetry(
       attempts++;
       await sleep(Math.pow(2, attempts) * 1000);  // Exponential backoff
       current = core.apply(schema, result, [
-        { op: 'set', path: 'system.lastError', value: null },
         { op: 'set', path: 'retryAttempt', value: attempts }
       ], context);
+      current = core.applySystemDelta(current, {
+        lastError: null,
+        status: 'idle'
+      });
     } else {
       return result;  // Non-retryable error
     }
@@ -661,9 +676,7 @@ async function fetchWithFallback(params: unknown): Promise<Patch[]> {
 }
 ```
 
-### Strategy 3: Domain-Owned Error Aggregation
-
-If you need to keep multiple failures, store them in domain-owned result data rather than in `snapshot.system`.
+### Strategy 3: Error Accumulation
 
 ```typescript
 // Collect multiple errors without stopping
@@ -788,14 +801,22 @@ Instead:
 async function executeEffect(req: Requirement): Promise<Patch[]> {
   const handler = effectHandlers[req.type];
   if (!handler) {
-    return [
-      { op: 'set', path: 'system.lastError', value: {
+    snapshot = core.applySystemDelta(snapshot, {
+      lastError: {
         code: 'UNKNOWN_EFFECT',
         message: `No handler for: ${req.type}`,
         source: { actionId: req.actionId, nodePath: '' },
         timestamp: req.createdAt
-      }}
-    ];
+      },
+      appendErrors: [{
+        code: 'UNKNOWN_EFFECT',
+        message: `No handler for: ${req.type}`,
+        source: { actionId: req.actionId, nodePath: '' },
+        timestamp: req.createdAt
+      }],
+      status: 'error'
+    });
+    return [];
   }
 
   try {
@@ -804,16 +825,25 @@ async function executeEffect(req: Requirement): Promise<Patch[]> {
       requirement: req,
     });
   } catch (error) {
-    // Handler threw unexpectedly - convert to error patch
-    return [
-      { op: 'set', path: 'system.lastError', value: {
+    // Handler threw unexpectedly - convert to system transition
+    snapshot = core.applySystemDelta(snapshot, {
+      lastError: {
         code: 'EFFECT_HANDLER_ERROR',
         message: error.message,
         source: { actionId: req.actionId, nodePath: '' },
         timestamp: req.createdAt,
         context: { effectType: req.type }
-      }}
-    ];
+      },
+      appendErrors: [{
+        code: 'EFFECT_HANDLER_ERROR',
+        message: error.message,
+        source: { actionId: req.actionId, nodePath: '' },
+        timestamp: req.createdAt,
+        context: { effectType: req.type }
+      }],
+      status: 'error'
+    });
+    return [];
   }
 }
 ```
@@ -857,12 +887,11 @@ Business errors should be handled in Flow logic. System errors typically trigger
 2. Effect handlers return patches, not exceptions
 3. Errors are serializable and traceable
 4. Error handling is just reading Snapshot state
-5. Chronology lives in telemetry, trace artifacts, or application logging, not in Snapshot history
 
 **What you get:**
 
 - Deterministic error behavior
-- Traceable current error state
+- Full error traceability
 - Serializable error state
 - Testable without mocks
 - Explicit error handling

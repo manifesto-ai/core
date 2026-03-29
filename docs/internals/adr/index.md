@@ -102,13 +102,15 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-015 Companion Notes
 
 - ADR-015 is accepted and removes accumulated `system.errors` history from Snapshot while keeping `lastError` as the sole current error surface.
-- The decision reserves the next breaking Core/Lineage epoch; current published specs remain Core v3.0.0 and Lineage v1.0.1 until the living docs are updated.
+- The decision reserves the next breaking Core/Lineage epoch; current published specs remain Core v3.0.0 and Lineage v1.0.1 until the shared epoch boundary lands.
+- The projected Core rewrite is tracked in [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) as draft only, not as the current package contract.
 - ADR-015 now pairs with [ADR-016](./016-merkle-tree-lineage), the proposed lineage-side companion for the same co-deployed epoch boundary.
 
 ### ADR-016 Companion Notes
 
 - ADR-016 is currently proposed as the lineage identity rewrite companion to ADR-015: WorldId becomes parent-linked positional identity instead of content-only identity.
 - The draft introduces `tip` / `headAdvancedAt`, idempotent reuse for same-parent same-snapshot seals, and `SealAttempt` as the per-attempt chronology substrate.
+- The projected Lineage rewrite is tracked in [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) as draft only, not as the current package contract.
 - If the draft is accepted as written, the projected version impact is Lineage v2.0.0, Governance v2.0.0, Host v4.0.0, World facade v2.0.0, and SDK v3.0.0 for the shared epoch boundary. Core v4.0.0 is already reserved by ADR-015.
 
 ---

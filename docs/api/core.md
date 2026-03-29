@@ -12,7 +12,8 @@
 - No IO or side effects
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
-- ADR-015 hard cut: `SystemState.errors` and `SystemDelta.appendErrors` removed; `lastError` is the sole current error surface
+
+> **Current Contract Note:** This page describes the current Core v3.0.0 surface. The ADR-015 rewrite for Core v4.0.0 is tracked as draft in [packages/core/docs/core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md).
 
 ---
 
@@ -116,12 +117,11 @@ type SystemDelta = {
   status?: SystemState["status"];
   currentAction?: string | null;
   lastError?: ErrorValue | null;
+  appendErrors?: readonly ErrorValue[];
   addRequirements?: readonly Requirement[];
   removeRequirementIds?: readonly string[];
 };
 ```
-
-`SystemDelta` is the only system transition channel. In Core v4, error state is represented only by `lastError`; accumulated error history is not part of Snapshot.
 
 ### ComputeResult
 

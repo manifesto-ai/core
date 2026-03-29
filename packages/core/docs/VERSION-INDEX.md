@@ -7,10 +7,16 @@
 
 ## Current Specification
 
-- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v4.0.0
-  - Consolidated from the v3.x living document with ADR-009 and ADR-015 hard-cut updates
+- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v3.0.0
+  - Consolidated from v2.x living document with ADR-009 hard-cut updates
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix D in the SPEC for FDR cross-reference table
+
+## Projected Next Major
+
+- **Draft SPEC:** [core-SPEC-v4.0.0-draft.md](core-SPEC-v4.0.0-draft.md) — Draft, projected next major
+  - Reserved by ADR-015 for the shared epoch boundary
+  - Not current until the wider Core/Lineage/Governance/Host/World/SDK alignment lands
 
 ---
 
@@ -31,6 +37,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 ## Notes
 
 - The Living Document replaces the patch-chain reading model. All content is in one file.
-- v4.0.0 aligns the living SPEC with ADR-015: remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface, and add normative Snapshot ontological classification.
 - v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
+- ADR-015 was accepted on 2026-03-29 and fixes the next Core target at v4.0.0: remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface, and align the living SPEC at the shared epoch boundary.
+- Until that epoch lands, [core-SPEC.md](core-SPEC.md) remains the truthful current contract and [core-SPEC-v4.0.0-draft.md](core-SPEC-v4.0.0-draft.md) remains draft only.
 - v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.

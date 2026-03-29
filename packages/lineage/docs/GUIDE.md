@@ -2,6 +2,8 @@
 
 > Practical guide for using `@manifesto-ai/lineage` directly.
 
+> **Current Contract Note:** This guide describes the current v1.0.1 lineage surface. The projected v2.0.0 rewrite is tracked in [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md) as draft only.
+
 ## 1. Assemble Lineage
 
 ```typescript
