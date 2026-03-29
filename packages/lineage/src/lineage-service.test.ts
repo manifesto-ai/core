@@ -190,6 +190,40 @@ describe("@manifesto-ai/lineage service", () => {
     expect(service.restore(genesis.worldId)).toEqual(createTestSnapshot({ count: 1 }));
   });
 
+  it("marks forkCreated only when sealing from a world that already has descendants", () => {
+    const store = createInMemoryLineageStore();
+    const service = createLineageService(store);
+    const genesis = service.prepareSealGenesis({
+      schemaHash: "schema-hash",
+      terminalSnapshot: createTestSnapshot({ count: 1 }),
+      createdAt: 1,
+    });
+    service.commitPrepared(genesis);
+
+    const linear = service.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: genesis.worldId,
+      branchId: genesis.branchId,
+      terminalSnapshot: createTestSnapshot({ count: 2 }),
+      createdAt: 2,
+    });
+    expect(linear.forkCreated).toBe(false);
+    service.commitPrepared(linear);
+
+    const forkBranchId = service.createBranch("fork", genesis.worldId);
+    service.switchActiveBranch(forkBranchId);
+
+    const fork = service.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: genesis.worldId,
+      branchId: forkBranchId,
+      terminalSnapshot: createTestSnapshot({ count: 3 }),
+      createdAt: 3,
+    });
+
+    expect(fork.forkCreated).toBe(true);
+  });
+
   it("createWorldRecord includes terminal status in the stored world", () => {
     const snapshot = createTestSnapshot({ count: 1 });
     const record = createWorldRecord("schema-hash", snapshot, 10, null);

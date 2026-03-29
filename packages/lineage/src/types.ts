@@ -162,6 +162,7 @@ export interface PreparedNextCommit extends PreparedLineageRecords {
   readonly terminalStatus: TerminalStatus;
   readonly edge: WorldEdge;
   readonly patchDelta: PersistedPatchDeltaV2 | null;
+  readonly forkCreated: boolean;
   readonly branchChange: PreparedBranchMutation;
 }
 

@@ -94,7 +94,9 @@ function bootstrap() {
   };
 
   return {
+    genesis,
     lineageCommit,
+    lineageService,
     governanceService,
     governanceCommit: {
       proposal: completedProposal,
@@ -184,7 +186,7 @@ describe("@manifesto-ai/governance event helpers", () => {
 });
 
 describe("@manifesto-ai/governance dispatcher", () => {
-  it("emits completion and rejection events in governance order", () => {
+  it("emits completion and rejection events in governance order without fork noise on linear seals", () => {
     const ctx = bootstrap();
     const events: unknown[] = [];
     const dispatcher = createGovernanceEventDispatcher({
@@ -214,12 +216,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
         outcome: "completed",
       },
       {
-        type: "world:forked",
-        timestamp: 100,
-        branchId: ctx.completedProposal.branchId,
-        forkPoint: ctx.completedProposal.baseWorld,
-      },
-      {
         type: "execution:completed",
         timestamp: 100,
         proposalId: ctx.completedProposal.proposalId,
@@ -235,6 +231,221 @@ describe("@manifesto-ai/governance dispatcher", () => {
           kind: "self_loop",
           computedWorldId: ctx.lineageCommit.worldId,
           message: "rejected",
+        },
+      },
+    ]);
+  });
+
+  it("emits world:forked only when a seal creates a true fork", () => {
+    const ctx = bootstrap();
+    const events: unknown[] = [];
+    ctx.lineageService.commitPrepared(ctx.lineageCommit);
+    const branchId = ctx.lineageService.createBranch("fork", ctx.genesis.worldId);
+    ctx.lineageService.switchActiveBranch(branchId);
+    const proposal = ctx.governanceService.createProposal({
+      baseWorld: ctx.genesis.worldId,
+      branchId,
+      actorId: "actor-2",
+      authorityId: "auth-1",
+      intent: { type: "demo.intent", intentId: "intent-2" },
+      executionKey: "prop-2:1",
+      submittedAt: 30,
+      epoch: ctx.lineageService.getActiveBranch().epoch,
+    });
+    const approved = ctx.governanceService.prepareAuthorityResult(
+      { ...proposal, status: "evaluating" },
+      { kind: "approved", approvedScope: null },
+      { decidedAt: 31 }
+    );
+
+    if (!approved.decisionRecord) {
+      throw new Error("expected decision record");
+    }
+
+    const lineageCommit = ctx.lineageService.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: ctx.genesis.worldId,
+      branchId,
+      terminalSnapshot: createSnapshot({ count: 3 }),
+      createdAt: 32,
+      proposalRef: approved.proposal.proposalId,
+      decisionRef: approved.decisionRecord.decisionId,
+    });
+    const dispatcher = createGovernanceEventDispatcher({
+      service: ctx.governanceService,
+      sink: {
+        emit(event) {
+          events.push(event);
+        },
+      },
+      now: () => 200,
+    });
+
+    dispatcher.emitSealCompleted(
+      {
+        proposal: {
+          ...approved.proposal,
+          status: "completed",
+          resultWorld: lineageCommit.worldId,
+          completedAt: 33,
+        },
+        decisionRecord: approved.decisionRecord,
+        hasLineageRecords: true,
+      },
+      lineageCommit
+    );
+
+    expect(events).toEqual([
+      {
+        type: "world:created",
+        timestamp: 200,
+        world: lineageCommit.world,
+        from: ctx.genesis.worldId,
+        proposalId: approved.proposal.proposalId,
+        outcome: "completed",
+      },
+      {
+        type: "world:forked",
+        timestamp: 200,
+        branchId,
+        forkPoint: ctx.genesis.worldId,
+      },
+      {
+        type: "execution:completed",
+        timestamp: 200,
+        proposalId: approved.proposal.proposalId,
+        executionKey: approved.proposal.executionKey,
+        resultWorld: lineageCommit.worldId,
+      },
+    ]);
+  });
+
+  it("preserves sealed failure diagnostics in execution:failed events", () => {
+    const ctx = bootstrap();
+    const events: unknown[] = [];
+    const proposal = ctx.governanceService.createProposal({
+      baseWorld: ctx.genesis.worldId,
+      branchId: ctx.genesis.branchId,
+      actorId: "actor-3",
+      authorityId: "auth-1",
+      intent: { type: "demo.intent", intentId: "intent-3" },
+      executionKey: "prop-3:1",
+      submittedAt: 40,
+      epoch: ctx.lineageService.getActiveBranch().epoch,
+    });
+    const approved = ctx.governanceService.prepareAuthorityResult(
+      { ...proposal, status: "evaluating" },
+      { kind: "approved", approvedScope: null },
+      { decidedAt: 41 }
+    );
+
+    if (!approved.decisionRecord) {
+      throw new Error("expected decision record");
+    }
+
+    const lineageCommit = ctx.lineageService.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: ctx.genesis.worldId,
+      branchId: ctx.genesis.branchId,
+      terminalSnapshot: createSnapshot(
+        { count: 99 },
+        {
+          system: {
+            status: "idle",
+            lastError: {
+              code: "ERR-PRIMARY",
+              message: "Primary failure",
+              source: { actionId: "action-1", nodePath: "root" },
+              timestamp: 50,
+            },
+            errors: [
+              {
+                code: "ERR-PRIMARY",
+                message: "Primary failure",
+                source: { actionId: "action-1", nodePath: "root" },
+                timestamp: 50,
+              },
+              {
+                code: "ERR-SECONDARY",
+                message: "Secondary failure",
+                source: { actionId: "action-2", nodePath: "root.secondary" },
+                timestamp: 51,
+              },
+            ],
+            pendingRequirements: [
+              {
+                id: "req-1",
+                type: "host.effect",
+                params: {},
+                actionId: "action-1",
+                flowPosition: { nodePath: "root", snapshotVersion: 1 },
+                createdAt: 52,
+              },
+            ],
+            currentAction: null,
+          },
+        }
+      ),
+      createdAt: 42,
+      proposalRef: approved.proposal.proposalId,
+      decisionRef: approved.decisionRecord.decisionId,
+    });
+    const dispatcher = createGovernanceEventDispatcher({
+      service: ctx.governanceService,
+      sink: {
+        emit(event) {
+          events.push(event);
+        },
+      },
+      now: () => 300,
+    });
+
+    dispatcher.emitSealCompleted(
+      {
+        proposal: {
+          ...approved.proposal,
+          status: "failed",
+          resultWorld: lineageCommit.worldId,
+          completedAt: 43,
+        },
+        decisionRecord: approved.decisionRecord,
+        hasLineageRecords: true,
+      },
+      lineageCommit
+    );
+
+    expect(events).toEqual([
+      {
+        type: "world:created",
+        timestamp: 300,
+        world: lineageCommit.world,
+        from: ctx.genesis.worldId,
+        proposalId: approved.proposal.proposalId,
+        outcome: "failed",
+      },
+      {
+        type: "execution:failed",
+        timestamp: 300,
+        proposalId: approved.proposal.proposalId,
+        executionKey: approved.proposal.executionKey,
+        resultWorld: lineageCommit.worldId,
+        error: {
+          summary: "Execution failed with 2 error(s) and 1 pending requirement(s)",
+          details: [
+            {
+              code: "ERR-PRIMARY",
+              message: "Primary failure",
+              source: { actionId: "action-1", nodePath: "root" },
+              timestamp: 50,
+            },
+            {
+              code: "ERR-SECONDARY",
+              message: "Secondary failure",
+              source: { actionId: "action-2", nodePath: "root.secondary" },
+              timestamp: 51,
+            },
+          ],
+          pendingRequirements: ["req-1"],
         },
       },
     ]);

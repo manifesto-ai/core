@@ -120,6 +120,9 @@ export class DefaultLineageService implements LineageService {
 
     const expectedEpoch = this.store.getBranchEpoch(input.branchId);
     const headAdvanced = record.world.terminalStatus === "completed";
+    const forkCreated = this.store
+      .getEdges(input.baseWorldId)
+      .some((candidate) => candidate.from === input.baseWorldId);
     const edge = createWorldEdge(
       input.baseWorldId,
       record.worldId,
@@ -138,6 +141,7 @@ export class DefaultLineageService implements LineageService {
       terminalStatus: record.world.terminalStatus,
       edge,
       patchDelta: input.patchDelta ?? null,
+      forkCreated,
       branchChange: {
         kind: "advance" as const,
         branchId: input.branchId,

@@ -74,7 +74,6 @@ describe("@manifesto-ai/world facade coordinator", () => {
     expect(order).toEqual(["prepare", "finalize", "commit", "dispatch"]);
     expect(harness.events.map((event) => event.type)).toEqual([
       "world:created",
-      "world:forked",
       "execution:completed",
     ]);
   });
@@ -229,7 +228,6 @@ describe("@manifesto-ai/world facade coordinator", () => {
     expect(commitSpy).toHaveBeenCalledTimes(2);
     expect(harness.events.map((event) => event.type)).toEqual([
       "world:created",
-      "world:forked",
       "execution:completed",
     ]);
   });
