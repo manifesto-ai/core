@@ -12,7 +12,7 @@
 ## Projected Next Major
 
 - **Draft SPEC:** [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md) - projected next-major rewrite
-  - Draft only while ADR-016 remains Proposed
+  - Draft only until the shared epoch boundary lands
   - Draft only until Governance / Host / World facade / SDK alignment lands
 
 ## Reading Order
@@ -34,5 +34,5 @@
 - Lineage is a first-class public package in the hard-cut docs set.
 - Lineage is the lower substrate for Governance and World.
 - [lineage-SPEC-1.0.1v.md](lineage-SPEC-1.0.1v.md) remains the truthful current contract.
-- [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md) is draft only while ADR-016 remains Proposed.
+- [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md) is draft only until the shared epoch boundary lands.
 - Use `@manifesto-ai/world` when you want the composed governed facade instead of the raw lineage package.

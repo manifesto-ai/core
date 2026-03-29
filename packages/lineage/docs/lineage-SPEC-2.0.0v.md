@@ -6,7 +6,7 @@
 > **License:** MIT
 > **Related:** ADR-014, ADR-015, ADR-016
 
-> **Draft Note:** This file captures the projected Lineage v2.0.0 rewrite aligned to ADR-015 and proposed ADR-016. The current normative package contract remains [lineage-SPEC-1.0.1v.md](lineage-SPEC-1.0.1v.md) until the shared epoch boundary lands and ADR-016 is accepted.
+> **Draft Note:** This file captures the projected Lineage v2.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [lineage-SPEC-1.0.1v.md](lineage-SPEC-1.0.1v.md) until the shared epoch boundary lands.
 
 ---
 

@@ -9,7 +9,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Draft Note:** This file captures the projected Governance v2.0.0 rewrite aligned to accepted ADR-015 and proposed ADR-016. The current normative package contract remains [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) until the shared epoch boundary lands.
+> **Draft Note:** This file captures the projected Governance v2.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) until the shared epoch boundary lands.
 
 ---
 

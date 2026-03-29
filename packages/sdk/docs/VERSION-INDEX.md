@@ -13,7 +13,7 @@ SDK remains a thin composition layer. `createManifesto()` is the sole SDK-owned 
 ## Projected Next Major
 
 - **Draft SPEC:** [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md) (Draft)
-  - Draft only while ADR-016 remains Proposed
+  - Draft only until the shared epoch boundary lands
   - Breaking surface is SDK-owned `Snapshot<T>` propagation, not direct participation in lineage/governance sealing
 
 ## All Versions
@@ -37,4 +37,4 @@ SDK remains a thin composition layer. `createManifesto()` is the sole SDK-owned 
 
 - The ADR-015 + ADR-016 epoch is currently projected to drive SDK v3.0.0. The breaking surface is the SDK's own public `Snapshot<T>` contract and every API that exposes it (`ManifestoConfig.snapshot`, `getSnapshot()`, and event payload snapshots), not direct participation in lineage/governance sealing.
 - [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) remains the truthful current contract.
-- [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md) is draft only while ADR-016 remains Proposed.
+- [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md) is draft only until the shared epoch boundary lands.

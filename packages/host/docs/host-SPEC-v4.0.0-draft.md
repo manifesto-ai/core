@@ -8,7 +8,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Draft Note:** This file captures the projected Host v4.0.0 rewrite aligned to accepted ADR-015 and proposed ADR-016. The current normative package contract remains [host-SPEC.md](host-SPEC.md) through v3.0.0 until the shared epoch boundary lands.
+> **Draft Note:** This file captures the projected Host v4.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [host-SPEC.md](host-SPEC.md) through v3.0.0 until the shared epoch boundary lands.
 
 ---
 

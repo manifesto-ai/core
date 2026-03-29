@@ -19,7 +19,7 @@
 ## Projected Next Major
 
 - **Draft SPEC:** [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) — projected next-major rewrite
-  - Draft only while ADR-016 remains Proposed
+  - Draft only until the shared epoch boundary lands
   - Draft only until Core / Lineage / Governance / World facade / SDK alignment lands
 
 ---
@@ -49,6 +49,6 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 ## Notes
 
 - [host-SPEC.md](host-SPEC.md) remains the truthful current contract.
-- [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) is draft only while ADR-016 remains Proposed.
+- [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) is draft only until the shared epoch boundary lands.
 - ADR-015 + ADR-016 currently project Host v4.0.0 as the next aligned release. The breaking surface is inherited from Core's public Snapshot shape (`system.errors` removal), with additional resume-contract clarification for `$host` under restore normalization.
 - Host v1.0.0 and v1.1.0 SPEC/FDR documents predate the v2.0 rewrite and are not included in this repo.

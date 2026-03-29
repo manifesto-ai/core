@@ -6,7 +6,7 @@
 > **Supersedes:** SDK SPEC v2.0.0
 > **Implements:** ADR-010, ADR-014, ADR-015, ADR-016 (projected epoch)
 
-> **Draft Note:** This file captures the projected SDK v3.0.0 rewrite aligned to accepted ADR-015 and proposed ADR-016. The current normative package contract remains [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) until the shared epoch boundary lands.
+> **Draft Note:** This file captures the projected SDK v3.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) until the shared epoch boundary lands.
 
 ## 1. Purpose
 

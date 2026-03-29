@@ -12,7 +12,7 @@
 ## Projected Next Major
 
 - **Draft SPEC:** [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - projected next-major rewrite
-  - Draft only while ADR-016 remains Proposed
+  - Draft only until the shared epoch boundary lands
   - Draft only until Host / World facade / SDK alignment lands
 
 ## Reading Order
@@ -33,5 +33,5 @@
 - Governance is a first-class public package in the hard-cut docs set.
 - Governance depends on Lineage for identity and branch reads.
 - [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) remains the truthful current contract.
-- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) is draft only while ADR-016 remains Proposed.
+- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) is draft only until the shared epoch boundary lands.
 - Use `@manifesto-ai/world` when you want the composed governed facade instead of the raw governance package.

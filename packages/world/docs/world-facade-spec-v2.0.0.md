@@ -10,7 +10,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
-> - **v2.0.0 (2026-03-29):** Projected facade-major aligned to ADR-015 + proposed ADR-016
+> - **v2.0.0 (2026-03-29):** Projected facade-major aligned to ADR-015 + ADR-016
 >   - Re-export policy updated for Lineage v2 / Governance v2 draft surfaces
 >   - `WriteSet` semantics now transitively include `SealAttempt` persistence through `PreparedLineageCommit`
 >   - `commitSeal()` aligns to `(head, tip, epoch)` CAS, idempotent reuse, and snapshot first-write-wins semantics
@@ -24,7 +24,7 @@
 >   - Re-export policy
 >   - Facade lifecycle policy
 
-> **Draft Note:** This file captures the projected World facade v2.0.0 rewrite aligned to accepted ADR-015 and proposed ADR-016. The current normative package contract remains [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) until the shared epoch boundary lands.
+> **Draft Note:** This file captures the projected World facade v2.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) until the shared epoch boundary lands.
 
 ---
 

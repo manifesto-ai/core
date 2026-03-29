@@ -50,11 +50,11 @@ These documents are repo-tracked drafts for the next shared epoch boundary. They
 | Package | Draft SPEC | Status | Notes |
 |---------|------------|--------|-------|
 | **@manifesto-ai/core** | [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) | Draft | ADR-015 projected Core rewrite |
-| **@manifesto-ai/host** | [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md) | Draft | ADR-015 + proposed ADR-016 projected Host execution-side rewrite |
-| **@manifesto-ai/lineage** | [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) | Draft | ADR-015 + proposed ADR-016 projected Lineage rewrite |
-| **@manifesto-ai/governance** | [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) | Draft | ADR-015 + proposed ADR-016 projected Governance rewrite |
-| **@manifesto-ai/world** | [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) | Draft | ADR-015 + proposed ADR-016 projected facade rewrite |
-| **@manifesto-ai/sdk** | [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) | Draft | ADR-015 + proposed ADR-016 projected SDK rewrite |
+| **@manifesto-ai/host** | [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md) | Draft | ADR-015 + ADR-016 projected Host execution-side rewrite |
+| **@manifesto-ai/lineage** | [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) | Draft | ADR-015 + ADR-016 projected Lineage rewrite |
+| **@manifesto-ai/governance** | [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) | Draft | ADR-015 + ADR-016 projected Governance rewrite |
+| **@manifesto-ai/world** | [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) | Draft | ADR-015 + ADR-016 projected facade rewrite |
+| **@manifesto-ai/sdk** | [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) | Draft | ADR-015 + ADR-016 projected SDK rewrite |
 
 ## Historical and Retired References
 
