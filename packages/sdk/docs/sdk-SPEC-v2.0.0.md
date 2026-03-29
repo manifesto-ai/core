@@ -2,7 +2,7 @@
 
 > **Status:** Normative
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, World Facade SPEC v1.0.0, Compiler SPEC v0.6.0
+> **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, World Facade SPEC v1.0.0, Compiler SPEC v0.7.0
 > **Supersedes:** SDK SPEC v1.0.1
 > **Implements:** ADR-010, ADR-014, Phase 6 hard cut
 
