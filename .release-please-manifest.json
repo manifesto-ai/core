@@ -4,6 +4,6 @@
   "packages/compiler": "1.8.3",
   "packages/host": "2.4.0",
   "packages/sdk": "2.2.0",
-  "packages/world": "2.5.0",
+  "packages/world": "2.6.0",
   "skills": "0.2.1"
 }
