@@ -25,5 +25,5 @@
 
 - Governance is a first-class public package in the hard-cut docs set.
 - Governance depends on Lineage for identity and branch reads.
-- ADR-016 is currently proposed as a Governance v1.1.0 minor alignment: collision and self-loop seal rejections become structurally eliminated upstream in Lineage while the Governance public contract stays stable.
+- The ADR-015 + ADR-016 epoch is currently projected as Governance v2.0.0. The next major is expected to remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap governance provenance from `World` / `WorldEdge` to `SealAttempt`.
 - Use `@manifesto-ai/world` when you want the composed governed facade instead of the raw governance package.

@@ -114,7 +114,11 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
 | 03-29 | Core | Target v4.0.0 | ADR-015 accepted: next major removes accumulated `system.errors` and `appendErrors`; the living Core SPEC remains v3.0.0 until the co-deployed epoch lands |
-| 03-29 | Lineage/Governance/Host/World | Draft next epoch | ADR-016 working draft indexed: parent-linked WorldId, head/tip split, idempotent reuse, and `SealAttempt`; projected targets are Lineage v2.0.0, Governance v1.1.0, Host v3.1.0, and World v3.1.0 if accepted with ADR-015 |
+| 03-29 | Lineage | Target v2.0.0 | ADR-015 + ADR-016 co-deployed epoch: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
+| 03-29 | Governance | Target v2.0.0 | Planned alignment with the co-deployed lineage epoch: remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap provenance to `SealAttempt` |
+| 03-29 | Host | Target v4.0.0 | Planned Core v4 alignment: public Snapshot references lose `system.errors`, and `$host` resume semantics align with restore normalization |
+| 03-29 | World | Facade target v2.0.0 | Planned facade-major aligned to Lineage v2.0.0 and Governance v2.0.0; `commitSeal()` / `WriteSet` absorb `SealAttempt` persistence while the legacy monolith remains historical only |
+| 03-29 | SDK | Target v3.0.0 | Planned SDK major driven by public `Snapshot<T>` surface changes (`ManifestoConfig.snapshot`, `getSnapshot()`, event payload snapshots), not by governed seal internals |
 | 03-28 | World | Facade v1.0.0 | World facade SPEC added for exact governed composition: composite store, coordinator, `createWorld()`, and facade lifecycle |
 | 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |

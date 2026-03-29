@@ -109,7 +109,7 @@ These ADRs affect multiple packages across the monorepo:
 
 - ADR-016 is currently proposed as the lineage identity rewrite companion to ADR-015: WorldId becomes parent-linked positional identity instead of content-only identity.
 - The draft introduces `tip` / `headAdvancedAt`, idempotent reuse for same-parent same-snapshot seals, and `SealAttempt` as the per-attempt chronology substrate.
-- If the draft is accepted as written, the projected version impact is Lineage v2.0.0, Governance v1.1.0, Host v3.1.0, and World v3.1.0 for the shared epoch boundary.
+- If the draft is accepted as written, the projected version impact is Lineage v2.0.0, Governance v2.0.0, Host v4.0.0, World facade v2.0.0, and SDK v3.0.0 for the shared epoch boundary. Core v4.0.0 is already reserved by ADR-015.
 
 ---
 

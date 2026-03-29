@@ -38,5 +38,5 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Notes
 
-- ADR-015 reserves Host v3.1.0 as the projected doc-alignment release for the simplified Core Snapshot surface (`system.errors` removal). Host remains contractually tied to Core's imported Snapshot types; no new execution contract is introduced by the ADR set.
+- ADR-015 + ADR-016 currently project Host v4.0.0 as the next aligned release. The breaking surface is inherited from Core's public Snapshot shape (`system.errors` removal), with additional resume-contract clarification for `$host` under restore normalization.
 - Host v1.0.0 and v1.1.0 SPEC/FDR documents predate the v2.0 rewrite and are not included in this repo.

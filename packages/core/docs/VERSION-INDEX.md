@@ -32,5 +32,5 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 - The Living Document replaces the patch-chain reading model. All content is in one file.
 - v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
-- ADR-015 was accepted on 2026-03-29 and sets the next Core target to v4.0.0: remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface, and align the living SPEC at the shared epoch boundary.
+- ADR-015 was accepted on 2026-03-29 and fixes the next Core target at v4.0.0: remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface, and align the living SPEC at the shared epoch boundary.
 - v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.
