@@ -12,6 +12,7 @@
 - No IO or side effects
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
+- ADR-015 hard cut: `SystemState.errors` and `SystemDelta.appendErrors` removed; `lastError` is the sole current error surface
 
 ---
 
@@ -115,11 +116,12 @@ type SystemDelta = {
   status?: SystemState["status"];
   currentAction?: string | null;
   lastError?: ErrorValue | null;
-  appendErrors?: readonly ErrorValue[];
   addRequirements?: readonly Requirement[];
   removeRequirementIds?: readonly string[];
 };
 ```
+
+`SystemDelta` is the only system transition channel. In Core v4, error state is represented only by `lastError`; accumulated error history is not part of Snapshot.
 
 ### ComputeResult
 

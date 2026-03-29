@@ -1,7 +1,7 @@
 # Determinism: The Foundation of Manifesto
 
 > **Status:** Stable
-> **Last Updated:** 2026-01
+> **Last Updated:** 2026-03-29
 
 ---
 
@@ -95,10 +95,9 @@ type Snapshot = {
   computed: Record<string, unknown>;  // Derived values (recalculated, never stored)
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
-    pendingRequirements: Requirement[];
-    currentAction: string | null;
     lastError: ErrorValue | null;
-    errors: ErrorValue[];
+    pendingRequirements: readonly Requirement[];
+    currentAction: string | null;
   };
   input: unknown;                     // Transient action input
   meta: {
@@ -114,6 +113,7 @@ type Snapshot = {
 - Snapshots are immutable after creation
 - All state changes happen via Patches
 - Computed values are recalculated, never stored
+- Snapshot carries current error state, not accumulated error history
 - There is no channel for value passing outside Snapshot
 
 ### 2. No Suspended Execution Context

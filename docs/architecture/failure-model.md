@@ -1,7 +1,7 @@
 # Failure Model: Errors as Values
 
 > **Status:** Stable
-> **Last Updated:** 2026-01
+> **Last Updated:** 2026-03-29
 
 ---
 
@@ -98,7 +98,7 @@ type ErrorValue = {
 
 ### System State
 
-Errors are stored in the system portion of Snapshot:
+Current error state is stored in the system portion of Snapshot:
 
 ```typescript
 type SystemState = {
@@ -107,9 +107,6 @@ type SystemState = {
 
   /** Last error (null if none) */
   readonly lastError: ErrorValue | null;
-
-  /** Error history */
-  readonly errors: readonly ErrorValue[];
 
   /** Pending requirements waiting for Host */
   readonly pendingRequirements: readonly Requirement[];
@@ -122,8 +119,8 @@ type SystemState = {
 **Key fields:**
 
 - **`status`**: Current computation state (includes 'error')
-- **`lastError`**: Most recent error (quick access)
-- **`errors`**: Full error history (audit trail)
+- **`lastError`**: Current error state for this Snapshot
+- **Chronology**: If you need counts or per-attempt history, use telemetry events, trace artifacts, or application-level logging instead of `snapshot.system`
 
 ---
 
@@ -152,14 +149,13 @@ In Flow, errors are declared using the `fail` node:
 **When Core encounters a `fail` node:**
 
 1. Core creates an ErrorValue
-2. Core patches Snapshot:
-   - `{ op: 'set', path: 'system.lastError', value: errorValue }`
-   - `{ op: 'set', path: 'system.errors', value: [...existing, errorValue] }`
-   - `{ op: 'set', path: 'system.status', value: 'error' }`
-3. Core terminates computation
-4. Core returns with `status: 'error'`
+2. Core emits a `SystemDelta`:
+   - `{ lastError: errorValue, status: 'error' }`
+3. The Host/Core boundary applies that transition with `applySystemDelta()`
+4. Core terminates computation
+5. Core returns with `status: 'error'`
 
-**There is no throw. There is no catch. Just patches.**
+**There is no throw. There is no catch. Just deterministic state transitions.**
 
 ### Effect-Level Errors
 
@@ -665,7 +661,9 @@ async function fetchWithFallback(params: unknown): Promise<Patch[]> {
 }
 ```
 
-### Strategy 3: Error Accumulation
+### Strategy 3: Domain-Owned Error Aggregation
+
+If you need to keep multiple failures, store them in domain-owned result data rather than in `snapshot.system`.
 
 ```typescript
 // Collect multiple errors without stopping
@@ -859,11 +857,12 @@ Business errors should be handled in Flow logic. System errors typically trigger
 2. Effect handlers return patches, not exceptions
 3. Errors are serializable and traceable
 4. Error handling is just reading Snapshot state
+5. Chronology lives in telemetry, trace artifacts, or application logging, not in Snapshot history
 
 **What you get:**
 
 - Deterministic error behavior
-- Full error traceability
+- Traceable current error state
 - Serializable error state
 - Testable without mocks
 - Explicit error handling

@@ -169,16 +169,17 @@ type Snapshot = {
   data: Record<string, unknown>;     // Domain state
   computed: Record<string, unknown>; // Derived values (recalculated, never stored)
   system: {
-    status: 'idle' | 'running' | 'completed' | 'failed';
-    pendingRequirements: Requirement[];
-    currentAction?: string;
-    errors: ErrorValue[];
+    status: 'idle' | 'computing' | 'pending' | 'error';
+    lastError: ErrorValue | null;
+    pendingRequirements: readonly Requirement[];
+    currentAction: string | null;
   };
-  input: Record<string, unknown>;    // Transient action input
+  input: unknown;                    // Transient action input
   meta: {
     version: number;                 // Monotonically increasing
-    timestamp: string;               // ISO 8601
-    hash: string;                    // Content-addressable
+    timestamp: number;               // Host-provided logical time
+    randomSeed: string;              // Host-provided deterministic seed
+    schemaHash: string;              // Schema hash this snapshot conforms to
   };
 };
 ```
@@ -260,7 +261,7 @@ type ErrorValue = {
 #### 5.3 REQUIRED Failure Patterns
 
 - Effect handlers MUST return `Patch[]`, never throw
-- Failures MUST be expressed as patches to `system.lastError` or domain state
+- Failures MUST be expressed in Snapshot through `system.lastError` or domain state
 - Flow failures use `{ kind: 'fail', code: string, message?: string }`
 - Host MUST report effect execution failures faithfully through Snapshot
 
