@@ -12,7 +12,7 @@ import type {
 } from "@manifesto-ai/cts-kit";
 import type { GovernanceEvent } from "@manifesto-ai/governance";
 import type {
-  CommitCapableWorldStore,
+  GovernedWorldStore,
   WorldInstance,
 } from "../../index.js";
 
@@ -20,6 +20,7 @@ export const WFCTS_SUITES = [
   "reexports",
   "factory",
   "coordinator",
+  "runtime",
   "matrix",
 ] as const;
 
@@ -46,7 +47,7 @@ export type WorldFacadeComplianceResult = ComplianceResult<WorldFacadeEvidence>;
 
 export interface WorldFacadeComplianceAdapter {
   createWorld(): WorldInstance;
-  createStore(): CommitCapableWorldStore;
+  createStore(): GovernedWorldStore;
   topLevelExports(): Record<string, unknown>;
   eventLog(): GovernanceEvent[];
 }

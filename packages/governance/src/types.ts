@@ -97,30 +97,6 @@ export interface ExecutionKeyContext {
 
 export type ExecutionKeyPolicy = (context: ExecutionKeyContext) => ExecutionKey;
 
-export interface HostExecutionOptions {
-  readonly approvedScope?: unknown;
-  readonly timeoutMs?: number;
-  readonly signal?: AbortSignal;
-}
-
-export interface HostExecutionResult {
-  readonly outcome: "completed" | "failed";
-  readonly terminalSnapshot: Snapshot;
-  readonly traceRef?: ArtifactRef;
-  readonly error?: ErrorValue;
-}
-
-export interface HostExecutor {
-  execute(
-    key: ExecutionKey,
-    baseSnapshot: Snapshot,
-    intent: HostIntent,
-    opts?: HostExecutionOptions
-  ): Promise<HostExecutionResult>;
-
-  abort?(key: ExecutionKey): void;
-}
-
 export interface Proposal {
   readonly proposalId: ProposalId;
   readonly baseWorld: WorldId;
@@ -326,15 +302,15 @@ export interface PreparedGovernanceCommit {
 }
 
 export interface GovernanceStore {
-  putProposal(proposal: Proposal): void;
-  getProposal(proposalId: ProposalId): Proposal | null;
-  getProposalsByBranch(branchId: BranchId): readonly Proposal[];
-  getExecutionStageProposal(branchId: BranchId): Proposal | null;
-  putDecisionRecord(record: DecisionRecord): void;
-  getDecisionRecord(decisionId: DecisionId): DecisionRecord | null;
-  putActorBinding(binding: ActorAuthorityBinding): void;
-  getActorBinding(actorId: ActorId): ActorAuthorityBinding | null;
-  getActorBindings(): readonly ActorAuthorityBinding[];
+  putProposal(proposal: Proposal): Promise<void>;
+  getProposal(proposalId: ProposalId): Promise<Proposal | null>;
+  getProposalsByBranch(branchId: BranchId): Promise<readonly Proposal[]>;
+  getExecutionStageProposal(branchId: BranchId): Promise<Proposal | null>;
+  putDecisionRecord(record: DecisionRecord): Promise<void>;
+  getDecisionRecord(decisionId: DecisionId): Promise<DecisionRecord | null>;
+  putActorBinding(binding: ActorAuthorityBinding): Promise<void>;
+  getActorBinding(actorId: ActorId): Promise<ActorAuthorityBinding | null>;
+  getActorBindings(): Promise<readonly ActorAuthorityBinding[]>;
 }
 
 export interface CreateProposalInput {
@@ -368,16 +344,19 @@ export interface GovernanceService {
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,
     options: PrepareAuthorityResultOptions
-  ): PreparedAuthorityResult;
+  ): Promise<PreparedAuthorityResult>;
   prepareSupersede(proposal: Proposal, reason: SupersedeReason): Proposal;
-  invalidateStaleIngress(branchId: BranchId, currentEpoch?: number): readonly Proposal[];
+  invalidateStaleIngress(
+    branchId: BranchId,
+    currentEpoch?: number
+  ): Promise<readonly Proposal[]>;
   shouldDiscardAuthorityResult(proposal: Proposal, currentEpoch: number): boolean;
   deriveOutcome(terminalSnapshot: Snapshot): "completed" | "failed";
   finalize(
     executingProposal: Proposal,
     lineageCommit: PreparedLineageCommit,
     completedAt: number
-  ): PreparedGovernanceCommit;
+  ): Promise<PreparedGovernanceCommit>;
   createProposalSubmittedEvent(
     proposal: Proposal,
     timestamp?: number

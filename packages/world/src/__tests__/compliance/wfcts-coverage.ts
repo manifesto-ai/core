@@ -24,6 +24,16 @@ export const WFCTS_CASES = {
   COORDINATOR_CURRENT_SURFACE: "WFCTS-COORD-002",
   COORDINATOR_GENESIS: "WFCTS-COORD-003",
   COORDINATOR_RETRY: "WFCTS-COORD-004",
+  RUNTIME_HAPPY_PATH: "WFCTS-RUNTIME-001",
+  RUNTIME_FAILED_PATH: "WFCTS-RUNTIME-002",
+  RUNTIME_EXECUTING_GUARD: "WFCTS-RUNTIME-003",
+  RUNTIME_OUTCOME_GUARD: "WFCTS-RUNTIME-004",
+  RUNTIME_TERMINAL_RESUME: "WFCTS-RUNTIME-005",
+  RUNTIME_REPLAY_RECOVERY: "WFCTS-RUNTIME-006",
+  RUNTIME_NON_TERMINAL_RESUME: "WFCTS-RUNTIME-007",
+  RUNTIME_STALE_GUARD: "WFCTS-RUNTIME-008",
+  RUNTIME_RACE_RECOVERY: "WFCTS-RUNTIME-009",
+  RUNTIME_ABORT_FORWARD: "WFCTS-RUNTIME-010",
   SDK_ALIGNMENT: "WFCTS-MATRIX-001",
 } as const;
 
@@ -36,22 +46,22 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
   complianceCase(
     WFCTS_CASES.FACTORY_ASSEMBLY,
     "factory",
-    "createWorld() and createInMemoryWorldStore() provide the split-native assembly surface."
+    "createWorld() and createInMemoryWorldStore() provide the split-native assembly surface, including the seal transaction seam."
   ),
   complianceCase(
     WFCTS_CASES.STORE_ATOMICITY,
     "factory",
-    "commitSeal() is all-or-nothing and does not leave partial lineage writes behind on governance write failure."
+    "runInSealTransaction() is all-or-nothing and does not leave partial lineage writes behind on governance write failure."
   ),
   complianceCase(
     WFCTS_CASES.COORDINATOR_NORMAL,
     "coordinator",
-    "Coordinator normal path preserves prepare -> finalize -> commit -> dispatch ordering."
+    "Coordinator normal path preserves prepare -> finalize -> transaction -> dispatch ordering."
   ),
   complianceCase(
     WFCTS_CASES.COORDINATOR_CURRENT_SURFACE,
     "coordinator",
-    "Coordinator current typed surface does not fall back to governance-only terminalization."
+    "Coordinator current typed surface persists both lineage and governance writes through the transaction seam."
   ),
   complianceCase(
     WFCTS_CASES.COORDINATOR_GENESIS,
@@ -64,6 +74,56 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
     "Coordinator retries from prepare on CAS mismatch."
   ),
   complianceCase(
+    WFCTS_CASES.RUNTIME_HAPPY_PATH,
+    "runtime",
+    "WorldRuntime loads the base snapshot from lineage, forwards execution inputs losslessly, and seals completed outcomes atomically."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_FAILED_PATH,
+    "runtime",
+    "WorldRuntime seals failed terminal snapshots through the same governed transaction path and preserves failure events."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_EXECUTING_GUARD,
+    "runtime",
+    "WorldRuntime rejects proposals that are not already executing before calling the executor."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_OUTCOME_GUARD,
+    "runtime",
+    "WorldRuntime rejects executor outcomes that disagree with the terminal snapshot outcome."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_TERMINAL_RESUME,
+    "runtime",
+    "WorldRuntime exposes explicit resume and seals already-terminal resume snapshots without re-invoking the executor."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_REPLAY_RECOVERY,
+    "runtime",
+    "WorldRuntime converges replayed terminal proposals to recovered completions without duplicate execution or duplicate events."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_NON_TERMINAL_RESUME,
+    "runtime",
+    "WorldRuntime resumes non-terminal snapshots from the supplied resumeSnapshot rather than proposal.baseWorld."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_STALE_GUARD,
+    "runtime",
+    "WorldRuntime rejects stale executing proposals whose branch head or epoch moved past proposal.baseWorld."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_RACE_RECOVERY,
+    "runtime",
+    "WorldRuntime converges seal races to recovered completions when another writer commits the proposal first."
+  ),
+  complianceCase(
+    WFCTS_CASES.RUNTIME_ABORT_FORWARD,
+    "runtime",
+    "WorldRuntime forwards abort signals to WorldExecutor.abort() while execution is in flight."
+  ),
+  complianceCase(
     WFCTS_CASES.SDK_ALIGNMENT,
     "matrix",
     "Factory caller preconditions and SDK hard-cut alignment are enforced as blocking facade rules."
@@ -72,12 +132,22 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
 
 export const WORLD_FACADE_RULE_COVERAGE: readonly WorldFacadeComplianceCoverageEntry[] = [
   ...coverMany(["FACADE-REEXPORT-1", "FACADE-REEXPORT-3", "FACADE-EVT-3"], [WFCTS_CASES.REEXPORTS_FACADE]),
-  ...coverMany(["FACADE-FACTORY-1", "FACADE-FACTORY-2", "FACADE-FACTORY-4", "FACADE-STORE-1", "FACADE-STORE-3", "FACADE-STORE-7", "FACADE-WS-1", "FACADE-WS-2", "FACADE-WS-3", "FACADE-WS-4"], [WFCTS_CASES.FACTORY_ASSEMBLY]),
+  ...coverMany(["FACADE-FACTORY-1", "FACADE-FACTORY-2", "FACADE-FACTORY-4", "FACADE-STORE-1", "FACADE-STORE-3", "FACADE-STORE-7"], [WFCTS_CASES.FACTORY_ASSEMBLY]),
   ...coverMany(["FACADE-STORE-2"], [WFCTS_CASES.STORE_ATOMICITY]),
   ...coverMany(["FACADE-COORD-1", "FACADE-COORD-2", "FACADE-COORD-3", "FACADE-COORD-5", "FACADE-COORD-11", "FACADE-EVT-1", "FACADE-EVT-2", "FACADE-EVT-5"], [WFCTS_CASES.COORDINATOR_NORMAL]),
-  ...coverMany(["FACADE-COORD-4", "FACADE-STORE-4"], [WFCTS_CASES.COORDINATOR_CURRENT_SURFACE]),
-  ...coverMany(["FACADE-COORD-6", "FACADE-COORD-7", "FACADE-COORD-8", "FACADE-STORE-6"], [WFCTS_CASES.COORDINATOR_GENESIS]),
+  ...coverMany(["FACADE-STORE-3"], [WFCTS_CASES.COORDINATOR_CURRENT_SURFACE]),
+  ...coverMany(["FACADE-COORD-6", "FACADE-COORD-7", "FACADE-COORD-8"], [WFCTS_CASES.COORDINATOR_GENESIS]),
   ...coverMany(["FACADE-COORD-9"], [WFCTS_CASES.COORDINATOR_RETRY]),
+  ...coverMany(["FACADE-RUNTIME-1", "FACADE-RUNTIME-2", "FACADE-RUNTIME-3"], [WFCTS_CASES.RUNTIME_HAPPY_PATH]),
+  ...coverMany(["FACADE-RUNTIME-3"], [WFCTS_CASES.RUNTIME_FAILED_PATH]),
+  ...coverMany(["FACADE-RUNTIME-4"], [WFCTS_CASES.RUNTIME_EXECUTING_GUARD]),
+  ...coverMany(["FACADE-RUNTIME-5"], [WFCTS_CASES.RUNTIME_OUTCOME_GUARD]),
+  ...coverMany(["FACADE-RUNTIME-6", "FACADE-RUNTIME-7"], [WFCTS_CASES.RUNTIME_TERMINAL_RESUME]),
+  ...coverMany(["FACADE-RUNTIME-8"], [WFCTS_CASES.RUNTIME_REPLAY_RECOVERY]),
+  ...coverMany(["FACADE-RUNTIME-9"], [WFCTS_CASES.RUNTIME_NON_TERMINAL_RESUME]),
+  ...coverMany(["FACADE-RUNTIME-10"], [WFCTS_CASES.RUNTIME_STALE_GUARD]),
+  ...coverMany(["FACADE-RUNTIME-11"], [WFCTS_CASES.RUNTIME_RACE_RECOVERY]),
+  ...coverMany(["FACADE-RUNTIME-12"], [WFCTS_CASES.RUNTIME_ABORT_FORWARD]),
   ...coverMany(["FACADE-FACTORY-3", "FACADE-SDK-1", "FACADE-SDK-2"], [WFCTS_CASES.SDK_ALIGNMENT]),
 ] as const;
 

@@ -10,25 +10,25 @@ describe("LCTS Branch Suite", () => {
       LCTS_CASES.PREPARE_PURITY,
       "prepareSealGenesis() and prepareSealNext() are deterministic read-only preparations."
     ),
-    () => {
-      const { store, service, genesis } = createBootstrappedLineage();
-      const before = snapshotStoreState(store);
+    async () => {
+      const { store, service, genesis } = await createBootstrappedLineage();
+      const before = await snapshotStoreState(store);
 
-      const preparedA = service.prepareSealNext({
+      const preparedA = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
-      const preparedB = service.prepareSealNext({
+      const preparedB = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
-      const after = snapshotStoreState(store);
+      const after = await snapshotStoreState(store);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("LIN-SEAL-PURE-1"), before === after && JSON.stringify(preparedA) === JSON.stringify(preparedB), {
@@ -48,16 +48,16 @@ describe("LCTS Branch Suite", () => {
       LCTS_CASES.BRANCH_CAS,
       "Branch CAS guards head, tip, and epoch together and rejects stale prepared commits atomically."
     ),
-    () => {
-      const { service, store, genesis } = createBootstrappedLineage();
-      const stale = service.prepareSealNext({
+    async () => {
+      const { service, store, genesis } = await createBootstrappedLineage();
+      const stale = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
-      const winner = service.prepareSealNext({
+      const winner = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
@@ -65,18 +65,18 @@ describe("LCTS Branch Suite", () => {
         createdAt: 3,
       });
 
-      service.commitPrepared(winner);
+      await service.commitPrepared(winner);
 
-      const beforeHead = store.getBranchHead(genesis.branchId);
-      const beforeTip = store.getBranchTip(genesis.branchId);
-      const beforeEpoch = store.getBranchEpoch(genesis.branchId);
+      const beforeHead = await store.getBranchHead(genesis.branchId);
+      const beforeTip = await store.getBranchTip(genesis.branchId);
+      const beforeEpoch = await store.getBranchEpoch(genesis.branchId);
 
-      expect(() => service.commitPrepared(stale)).toThrow(/CAS mismatch/);
+      await expect(service.commitPrepared(stale)).rejects.toThrow(/CAS mismatch/);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("LIN-STORE-4"), store.getBranchHead(genesis.branchId) === beforeHead
-          && store.getBranchTip(genesis.branchId) === beforeTip
-          && store.getBranchEpoch(genesis.branchId) === beforeEpoch, {
+        evaluateRule(getRuleOrThrow("LIN-STORE-4"), (await store.getBranchHead(genesis.branchId)) === beforeHead
+          && (await store.getBranchTip(genesis.branchId)) === beforeTip
+          && (await store.getBranchEpoch(genesis.branchId)) === beforeEpoch, {
           passMessage: "Stale prepared commits fail CAS without partially mutating branch state.",
           failMessage: "CAS mismatch mutated branch head, tip, or epoch.",
           evidence: [noteEvidence("Committed one prepared next seal, then attempted to commit a second stale prepared seal from the same branch state.")],
@@ -90,19 +90,19 @@ describe("LCTS Branch Suite", () => {
       LCTS_CASES.HEAD_TIP_SEMANTICS,
       "Completed seals advance head and tip; failed seals advance tip only."
     ),
-    () => {
-      const { service, genesis } = createBootstrappedLineage();
-      const success = service.prepareSealNext({
+    async () => {
+      const { service, genesis } = await createBootstrappedLineage();
+      const success = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
-      service.commitPrepared(success);
+      await service.commitPrepared(success);
 
-      const afterSuccess = service.getActiveBranch();
-      const failed = service.prepareSealNext({
+      const afterSuccess = await service.getActiveBranch();
+      const failed = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: success.worldId,
         branchId: success.branchId,
@@ -125,9 +125,9 @@ describe("LCTS Branch Suite", () => {
         ),
         createdAt: 3,
       });
-      service.commitPrepared(failed);
+      await service.commitPrepared(failed);
 
-      const afterFailure = service.getActiveBranch();
+      const afterFailure = await service.getActiveBranch();
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("LIN-HEAD-ADV-1"), afterSuccess.head === success.worldId && afterFailure.head === success.worldId, {
@@ -156,29 +156,29 @@ describe("LCTS Branch Suite", () => {
       LCTS_CASES.LATEST_HEAD_SELECTION,
       "Latest head selection follows branch headAdvancedAt chronology."
     ),
-    () => {
-      const { service, genesis } = createBootstrappedLineage();
-      const mainAdvance = service.prepareSealNext({
+    async () => {
+      const { service, genesis } = await createBootstrappedLineage();
+      const mainAdvance = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
-      service.commitPrepared(mainAdvance);
+      await service.commitPrepared(mainAdvance);
 
-      const forkBranchId = service.createBranch("fork", genesis.worldId);
-      service.switchActiveBranch(forkBranchId);
-      const forkAdvance = service.prepareSealNext({
+      const forkBranchId = await service.createBranch("fork", genesis.worldId);
+      await service.switchActiveBranch(forkBranchId);
+      const forkAdvance = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: forkBranchId,
         terminalSnapshot: createTestSnapshot({ count: 4 }),
         createdAt: 5,
       });
-      service.commitPrepared(forkAdvance);
+      await service.commitPrepared(forkAdvance);
 
-      const latestHead = service.getLatestHead();
+      const latestHead = await service.getLatestHead();
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("MRKL-HEAD-5"), latestHead?.worldId === forkAdvance.worldId && latestHead?.createdAt === 5, {

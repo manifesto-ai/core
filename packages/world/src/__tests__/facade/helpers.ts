@@ -5,10 +5,13 @@ import {
   createInMemoryWorldStore,
   createLineageService,
   createWorld,
-  type CommitCapableWorldStore,
   type DecisionRecord,
+  type GovernedWorldStore,
   type GovernanceEvent,
   type Proposal,
+  type WorldExecutionOptions,
+  type WorldExecutionResult,
+  type WorldExecutor,
   type WorldInstance,
 } from "../../index.js";
 
@@ -38,18 +41,43 @@ export function createSnapshot(
 }
 
 export interface FacadeHarness {
-  readonly store: CommitCapableWorldStore;
+  readonly store: GovernedWorldStore;
   readonly lineage: WorldInstance["lineage"];
   readonly governance: WorldInstance["governance"];
   readonly world: WorldInstance;
   readonly events: GovernanceEvent[];
+  readonly executor: WorldExecutor;
+  readonly executionCalls: readonly {
+    key: string;
+    baseSnapshot: Snapshot;
+    intent: Proposal["intent"];
+    opts?: WorldExecutionOptions;
+  }[];
 }
 
-export function createFacadeHarness(): FacadeHarness {
+export function createFacadeHarness(options?: {
+  executor?: WorldExecutor;
+  executorResult?: WorldExecutionResult;
+}): FacadeHarness {
   const store = createInMemoryWorldStore();
   const lineage = createLineageService(store);
   const governance = createGovernanceService(store, { lineageService: lineage });
   const events: GovernanceEvent[] = [];
+  const executionCalls: {
+    key: string;
+    baseSnapshot: Snapshot;
+    intent: Proposal["intent"];
+    opts?: WorldExecutionOptions;
+  }[] = [];
+  const executor: WorldExecutor = options?.executor ?? {
+    async execute(key, baseSnapshot, intent, opts) {
+      executionCalls.push({ key, baseSnapshot, intent, opts });
+      return options?.executorResult ?? {
+        outcome: "completed",
+        terminalSnapshot: createSnapshot({ executed: true }),
+      };
+    },
+  };
   const dispatcher = createGovernanceEventDispatcher({
     service: governance,
     sink: {
@@ -69,18 +97,21 @@ export function createFacadeHarness(): FacadeHarness {
       lineage,
       governance,
       eventDispatcher: dispatcher,
+      executor,
     }),
     events,
+    executor,
+    executionCalls,
   };
 }
 
-export function sealStandaloneGenesis(harness: FacadeHarness) {
+export async function sealStandaloneGenesis(harness: FacadeHarness) {
   const sealInput = {
     schemaHash: "wfcts-schema",
     terminalSnapshot: createSnapshot({ count: 1 }),
     createdAt: 1,
   } as const;
-  const result = harness.world.coordinator.sealGenesis({
+  const result = await harness.world.coordinator.sealGenesis({
     kind: "standalone",
     sealInput,
   });
@@ -88,12 +119,12 @@ export function sealStandaloneGenesis(harness: FacadeHarness) {
   return {
     result,
     sealInput,
-    branch: harness.lineage.getActiveBranch(),
-    world: harness.lineage.getLatestHead(),
+    branch: await harness.lineage.getActiveBranch(),
+    world: await harness.lineage.getLatestHead(),
   };
 }
 
-export function createExecutingProposal(
+export async function createExecutingProposal(
   harness: FacadeHarness,
   options?: {
     proposalId?: string;
@@ -101,8 +132,8 @@ export function createExecutingProposal(
     submittedAt?: number;
     decidedAt?: number;
   }
-): { proposal: Proposal; decisionRecord: DecisionRecord } {
-  const branch = harness.lineage.getActiveBranch();
+): Promise<{ proposal: Proposal; decisionRecord: DecisionRecord }> {
+  const branch = await harness.lineage.getActiveBranch();
   const baseWorld = branch.head;
   const proposal = harness.governance.createProposal({
     proposalId: options?.proposalId,
@@ -119,7 +150,7 @@ export function createExecutingProposal(
     submittedAt: options?.submittedAt ?? 10,
     epoch: branch.epoch,
   });
-  const prepared = harness.governance.prepareAuthorityResult(
+  const prepared = await harness.governance.prepareAuthorityResult(
     { ...proposal, status: "evaluating" },
     { kind: "approved", approvedScope: null },
     {
@@ -140,8 +171,8 @@ export function createExecutingProposal(
     decidedAt: prepared.decisionRecord.decidedAt,
   };
 
-  harness.store.putProposal(executing);
-  harness.store.putDecisionRecord(prepared.decisionRecord);
+  await harness.store.putProposal(executing);
+  await harness.store.putDecisionRecord(prepared.decisionRecord);
 
   return {
     proposal: executing,

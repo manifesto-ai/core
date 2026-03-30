@@ -72,7 +72,7 @@ export const GOVERNANCE_COMPLIANCE_CASES: readonly GovernanceComplianceCase[] = 
   complianceCase(
     GCTS_CASES.SEAMS_NATIVE_SURFACE,
     "seams",
-    "Governance package exposes native store/service exports without world or host internals."
+    "Governance package exposes native store/service exports without world or host internals, and does not own execution abstraction types."
   ),
 ] as const;
 

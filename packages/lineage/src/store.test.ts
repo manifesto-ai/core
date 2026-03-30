@@ -31,18 +31,18 @@ function createTestSnapshot(
 }
 
 describe("@manifesto-ai/lineage in-memory store", () => {
-  it("commitPrepared persists world, snapshot, edge, hash input, attempt, and branch advance together", () => {
+  it("commitPrepared persists world, snapshot, edge, hash input, attempt, and branch advance together", async () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
 
-    const genesis = service.prepareSealGenesis({
+    const genesis = await service.prepareSealGenesis({
       schemaHash: "schema-hash",
       terminalSnapshot: createTestSnapshot({ count: 1 }),
       createdAt: 1,
     });
-    service.commitPrepared(genesis);
+    await service.commitPrepared(genesis);
 
-    const next = service.prepareSealNext({
+    const next = await service.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
@@ -56,55 +56,55 @@ describe("@manifesto-ai/lineage in-memory store", () => {
       decisionRef: "decision-1",
     });
 
-    service.commitPrepared(next);
+    await service.commitPrepared(next);
 
-    expect(store.getWorld(next.worldId)).toEqual(next.world);
-    expect(store.getSnapshot(next.worldId)).toEqual(next.terminalSnapshot);
-    expect(store.getHashInput?.(next.world.snapshotHash)).toEqual(next.hashInput);
-    expect(store.getAttempts(next.worldId)).toEqual([
+    expect(await store.getWorld(next.worldId)).toEqual(next.world);
+    expect(await store.getSnapshot(next.worldId)).toEqual(next.terminalSnapshot);
+    expect(await store.getHashInput?.(next.world.snapshotHash)).toEqual(next.hashInput);
+    expect(await store.getAttempts(next.worldId)).toEqual([
       {
         ...next.attempt,
         reused: false,
       },
     ]);
-    expect(store.getBranchHead(next.branchId)).toBe(next.worldId);
-    expect(store.getBranchTip(next.branchId)).toBe(next.worldId);
-    expect(store.getBranchEpoch(next.branchId)).toBe(1);
+    expect(await store.getBranchHead(next.branchId)).toBe(next.worldId);
+    expect(await store.getBranchTip(next.branchId)).toBe(next.worldId);
+    expect(await store.getBranchEpoch(next.branchId)).toBe(1);
   });
 
-  it("commitPrepared rejects stale CAS without mutating branch state", () => {
+  it("commitPrepared rejects stale CAS without mutating branch state", async () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
 
-    const genesis = service.prepareSealGenesis({
+    const genesis = await service.prepareSealGenesis({
       schemaHash: "schema-hash",
       terminalSnapshot: createTestSnapshot({ count: 1 }),
       createdAt: 1,
     });
-    service.commitPrepared(genesis);
+    await service.commitPrepared(genesis);
 
-    const stale = service.prepareSealNext({
+    const stale = await service.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
     });
-    const winner = service.prepareSealNext({
+    const winner = await service.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
       terminalSnapshot: createTestSnapshot({ count: 3 }),
       createdAt: 3,
     });
-    service.commitPrepared(winner);
+    await service.commitPrepared(winner);
 
-    const beforeHead = store.getBranchHead(genesis.branchId);
-    const beforeTip = store.getBranchTip(genesis.branchId);
-    const beforeEpoch = store.getBranchEpoch(genesis.branchId);
-    expect(() => store.commitPrepared(stale)).toThrow();
-    expect(store.getBranchHead(genesis.branchId)).toBe(beforeHead);
-    expect(store.getBranchTip(genesis.branchId)).toBe(beforeTip);
-    expect(store.getBranchEpoch(genesis.branchId)).toBe(beforeEpoch);
+    const beforeHead = await store.getBranchHead(genesis.branchId);
+    const beforeTip = await store.getBranchTip(genesis.branchId);
+    const beforeEpoch = await store.getBranchEpoch(genesis.branchId);
+    await expect(store.commitPrepared(stale)).rejects.toThrow();
+    expect(await store.getBranchHead(genesis.branchId)).toBe(beforeHead);
+    expect(await store.getBranchTip(genesis.branchId)).toBe(beforeTip);
+    expect(await store.getBranchEpoch(genesis.branchId)).toBe(beforeEpoch);
   });
 });

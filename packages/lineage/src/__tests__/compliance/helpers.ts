@@ -27,27 +27,27 @@ export function createTestSnapshot(
 }
 
 export function snapshotStoreState(store: {
-  getBranches(): unknown;
-  getActiveBranchId(): unknown;
-  getWorld(worldId: string): unknown;
-}): string {
-  return JSON.stringify({
-    branches: store.getBranches(),
-    activeBranchId: store.getActiveBranchId(),
-    world: store.getWorld("missing"),
-  });
+  getBranches(): Promise<unknown>;
+  getActiveBranchId(): Promise<unknown>;
+  getWorld(worldId: string): Promise<unknown>;
+}): Promise<string> {
+  return (async () => JSON.stringify({
+    branches: await store.getBranches(),
+    activeBranchId: await store.getActiveBranchId(),
+    world: await store.getWorld("missing"),
+  }))();
 }
 
-export function createBootstrappedLineage() {
+export async function createBootstrappedLineage() {
   const adapter = createLineageComplianceAdapter();
   const store = adapter.createMemoryStore();
   const service = adapter.createService(store);
-  const genesis = service.prepareSealGenesis({
+  const genesis = await service.prepareSealGenesis({
     schemaHash: "schema-hash",
     terminalSnapshot: createTestSnapshot({ count: 1 }),
     createdAt: 1,
   });
-  service.commitPrepared(genesis);
+  await service.commitPrepared(genesis);
 
   return {
     adapter,

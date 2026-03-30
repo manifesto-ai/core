@@ -80,15 +80,24 @@ export type { HostResult, HostOptions } from "@manifesto-ai/host";
 // =============================================================================
 
 export type {
-  CommitCapableWorldStore,
   CoordinatorSealGenesisParams,
   CoordinatorSealNextParams,
+  ExecuteApprovedProposalInput,
+  GovernedWorldStore,
   GovernanceEventDispatcher,
+  RecoveredWorldRuntimeCompletion,
+  ResumeExecutingProposalInput,
   SealResult,
+  SealedWorldRuntimeCompletion,
+  WorldStoreTransaction,
   WorldConfig,
   WorldCoordinator,
+  WorldExecutionOptions,
+  WorldExecutionResult,
+  WorldExecutor,
   WorldInstance,
-  WriteSet,
+  WorldRuntimeCompletion,
+  WorldRuntime,
 } from "@manifesto-ai/world";
 export {
   createInMemoryWorldStore,

@@ -82,7 +82,7 @@ SDK MUST re-export exactly the thin governed World surface below:
 
 - `createWorld`
 - `createInMemoryWorldStore`
-- `CommitCapableWorldStore`
+- `GovernedWorldStore`
 - `GovernanceEventDispatcher`
 - `WorldCoordinator`
 - `WorldConfig`
@@ -90,12 +90,14 @@ SDK MUST re-export exactly the thin governed World surface below:
 - `CoordinatorSealNextParams`
 - `CoordinatorSealGenesisParams`
 - `SealResult`
-- `WriteSet`
+- `WorldStoreTransaction`
+
+These governed world types inherit the async persistence contract from `@manifesto-ai/world`; SDK does not wrap them in a synchronous compatibility layer.
 
 SDK MUST NOT re-export:
 
-- the legacy store contract
-- the legacy in-memory store factory
+- removed world compatibility aliases such as `CommitCapableWorldStore`
+- removed persistence wrappers such as `WriteSet`
 - the full split-native governance and lineage APIs
 
 ## 6. World Alignment Rules

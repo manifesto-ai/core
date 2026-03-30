@@ -10,9 +10,9 @@ describe("LCTS Restore Suite", () => {
       LCTS_CASES.RESTORE_NORMALIZATION,
       "restore() resets non-hash runtime fields while preserving semantic snapshot content."
     ),
-    () => {
-      const { service, genesis } = createBootstrappedLineage();
-      const failed = service.prepareSealNext({
+    async () => {
+      const { service, genesis } = await createBootstrappedLineage();
+      const failed = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
@@ -48,9 +48,9 @@ describe("LCTS Restore Suite", () => {
         ),
         createdAt: 2,
       });
-      service.commitPrepared(failed);
+      await service.commitPrepared(failed);
 
-      const restored = service.restore(failed.worldId);
+      const restored = await service.restore(failed.worldId);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("MRKL-RESTORE-1"), JSON.stringify(restored.data.$host) === "{}"

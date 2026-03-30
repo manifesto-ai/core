@@ -31,6 +31,15 @@ export class SplitWorldFacadeComplianceAdapter implements WorldFacadeComplianceA
       lineage,
       governance,
       eventDispatcher: dispatcher,
+      executor: {
+        async execute(key, baseSnapshot, intent, opts) {
+          void key;
+          void baseSnapshot;
+          void intent;
+          void opts;
+          throw new Error("WFCTS adapter executor should not run in assembly-only coverage");
+        },
+      },
     });
   }
 

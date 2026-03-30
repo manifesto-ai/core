@@ -65,7 +65,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 - **v2.0.3**: Platform namespace extension - `$mel` namespace hash exclusion (WORLD-HASH-4b), `stripPlatformNamespaces()` API, platform namespace policy rules (NS-PLAT-*).
 - **v2.0.2**: Host-World Data Contract (`$host` namespace convention formalized as HOST-DATA-* rules), terminology unification.
 - **v2.0.1**: ADR-001 Layer Separation - Event ownership clarification, "Does NOT Know" boundary definition.
-- **v2.0.0**: Host v2.0.1 Integration - ExecutionKey mapping, HostExecutor abstraction, ScheduleContext.
+- **v2.0.0**: projected hard-cut draft - `GovernedWorldStore`, transaction-only seal persistence seam, World-owned execution abstraction.
 - **v1.0.0**: Initial release defining core governance. (Archived docs)
 
 ---

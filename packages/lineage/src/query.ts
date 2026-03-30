@@ -47,18 +47,20 @@ export function getBranchById(
   return branches.find((branch) => branch.id === branchId) ?? null;
 }
 
-export function getHeadsFromStore(store: LineageStore): readonly WorldHead[] {
-  const branches = store.getBranches();
+export async function getHeadsFromStore(
+  store: LineageStore
+): Promise<readonly WorldHead[]> {
+  const branches = await store.getBranches();
 
-  return branches.map((branch) => {
-    const world = store.getWorld(branch.head);
+  return Promise.all(branches.map(async (branch) => {
+    const world = await store.getWorld(branch.head);
     assertLineage(world != null, `LIN-HEAD-6 violation: missing head world ${branch.head} for branch ${branch.id}`);
     assertLineage(
       world.terminalStatus === "completed",
       `LIN-HEAD-3 violation: head world ${branch.head} for branch ${branch.id} must be completed`
     );
     return toWorldHead(branch, world);
-  });
+  }));
 }
 
 export function selectLatestHead(heads: readonly WorldHead[]): WorldHead | null {
@@ -100,8 +102,11 @@ function normalizePlatformData(data: Record<string, unknown> | null | undefined)
   return normalized;
 }
 
-export function restoreSnapshot(store: LineageStore, worldId: WorldId): Snapshot {
-  const snapshot = store.getSnapshot(worldId);
+export async function restoreSnapshot(
+  store: LineageStore,
+  worldId: WorldId
+): Promise<Snapshot> {
+  const snapshot = await store.getSnapshot(worldId);
   assertLineage(snapshot != null, `LIN-RESUME-2 violation: missing snapshot for world ${worldId}`);
 
   return {
@@ -124,10 +129,10 @@ export function restoreSnapshot(store: LineageStore, worldId: WorldId): Snapshot
   };
 }
 
-export function buildWorldLineage(store: LineageStore): WorldLineage {
+export async function buildWorldLineage(store: LineageStore): Promise<WorldLineage> {
   const enumerable = store as EnumerableLineageStore;
-  const worlds = enumerable.listWorlds?.() ?? collectWorldsFromBranches(store);
-  const edges = enumerable.listEdges?.() ?? collectEdgesFromWorlds(store, worlds);
+  const worlds = enumerable.listWorlds?.() ?? await collectWorldsFromBranches(store);
+  const edges = enumerable.listEdges?.() ?? await collectEdgesFromWorlds(store, worlds);
 
   assertLineage(worlds.length > 0, "LIN-RESUME-1 violation: lineage is empty");
 
@@ -150,9 +155,9 @@ export function buildWorldLineage(store: LineageStore): WorldLineage {
   };
 }
 
-function collectWorldsFromBranches(store: LineageStore): readonly World[] {
+async function collectWorldsFromBranches(store: LineageStore): Promise<readonly World[]> {
   const worlds = new Map<WorldId, World>();
-  const queue = store.getBranches().flatMap((branch) => [branch.head, branch.tip]);
+  const queue = (await store.getBranches()).flatMap((branch) => [branch.head, branch.tip]);
 
   while (queue.length > 0) {
     const nextWorldId = queue.pop()!;
@@ -160,7 +165,7 @@ function collectWorldsFromBranches(store: LineageStore): readonly World[] {
       continue;
     }
 
-    const world = store.getWorld(nextWorldId);
+    const world = await store.getWorld(nextWorldId);
     if (world == null) {
       continue;
     }
@@ -174,11 +179,14 @@ function collectWorldsFromBranches(store: LineageStore): readonly World[] {
   return [...worlds.values()];
 }
 
-function collectEdgesFromWorlds(store: LineageStore, worlds: readonly World[]): readonly WorldEdge[] {
+async function collectEdgesFromWorlds(
+  store: LineageStore,
+  worlds: readonly World[]
+): Promise<readonly WorldEdge[]> {
   const edges = new Map<string, WorldEdge>();
 
   for (const world of worlds) {
-    for (const edge of store.getEdges(world.worldId)) {
+    for (const edge of await store.getEdges(world.worldId)) {
       edges.set(edge.edgeId, edge);
     }
   }

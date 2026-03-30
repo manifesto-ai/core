@@ -81,7 +81,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 | Ingress / Execution staging | Stage classification, cancellation semantics |
 | Single-writer gate | At most one execution-stage proposal per branch |
 | Epoch-based ingress control | Stale proposal invalidation, gate-release revalidation |
-| HostExecutor interface | Defined by governance, implemented by App |
+| Execution abstraction boundary | World-owned execution seam; governance consumes terminal snapshots, not execution adapters |
 | ExecutionKey contract | Key policy, serialization context |
 | Outcome derivation | `deriveOutcome()` — must agree with lineage's `deriveTerminalStatus()` |
 | Terminal snapshot validity | `pendingRequirements` checks |
@@ -478,78 +478,33 @@ const branchEpoch = branch!.epoch;
 
 ---
 
-## 8. Host Integration Contract
+## 8. Execution Boundary
 
-### 8.1 HostExecutor Interface
+### 8.1 World-Owned Execution Abstraction
 
-Per **ADR-001** and **FDR-W028**:
+In the super hard-cut draft, Governance no longer defines execution adapter interfaces. Execution abstraction ownership moves to `@manifesto-ai/world`.
 
-> **Governance defines the interface; App implements it.**
+Governance consumes:
 
-```typescript
-/**
- * HostExecutor: The contract through which Governance accesses execution.
- *
- * Ownership:
- * - DEFINED BY: Governance (this specification)
- * - IMPLEMENTED BY: App (Composition Root)
- *
- * Governance declares what it needs; App fulfills using Host.
- * Governance never sees Host internals.
- */
-interface HostExecutor {
-  /**
-   * Execute an intent against a base snapshot under an ExecutionKey.
-   *
-   * Contract:
-   * - ExecutionKey is opaque to Host (GOV-EXK-3)
-   * - Host serializes via mailbox per ExecutionKey
-   * - Returns terminal snapshot (completed or failed)
-   * - Governance receives ONLY the result, not process details
-   */
-  execute(
-    key: ExecutionKey,
-    baseSnapshot: Snapshot,
-    intent: Intent,
-    opts?: HostExecutionOptions
-  ): Promise<HostExecutionResult>;
+- terminal snapshots
+- lineage commits
+- proposal/decision state
 
-  /**
-   * Abort execution for a key (best-effort, optional).
-   *
-   * If implemented, cancellation MUST still converge to a terminal proposal status.
-   * For execution-stage proposals this means terminal `failed` (never dropped).
-   */
-  abort?(key: ExecutionKey): void;
-}
+Governance does **not** define or export:
 
-type HostExecutionOptions = {
-  readonly approvedScope?: unknown;
-  readonly timeoutMs?: number;
-  readonly signal?: AbortSignal;
-};
-
-type HostExecutionResult = {
-  /**
-   * Convenience hint from App. Governance MUST verify via deriveOutcome(terminalSnapshot).
-   * This field exists for fast-path optimization; Governance's deriveOutcome() is authoritative.
-   */
-  readonly outcome: 'completed' | 'failed';
-  readonly terminalSnapshot: Snapshot;
-  readonly traceRef?: ArtifactRef;
-  readonly error?: ErrorValue;
-};
-```
+- `HostExecutor`
+- `HostExecutionOptions`
+- `HostExecutionResult`
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| GOV-HEXEC-1 | MUST | Governance MUST define HostExecutor interface (this SPEC) |
-| GOV-HEXEC-2 | MUST NOT | Governance MUST NOT implement HostExecutor |
-| GOV-HEXEC-3 | MUST | App MUST implement HostExecutor using Host |
-| GOV-HEXEC-4 | MUST | Governance MUST receive HostExecutor via injection |
+| GOV-HEXEC-1 | MUST NOT | Governance MUST NOT define execution adapter interfaces in the hard-cut draft |
+| GOV-HEXEC-2 | MUST NOT | Governance MUST NOT implement execution adapters |
+| GOV-HEXEC-3 | MUST NOT | Governance MUST NOT own the execution abstraction contract; that contract belongs to World |
+| GOV-HEXEC-4 | MUST | Governance MUST consume only terminal snapshots/results supplied by the world-owned execution boundary |
 | GOV-HEXEC-5 | MUST NOT | Governance MUST NOT import Host internal types |
-| GOV-HEXEC-6 | MUST | Governance's `deriveOutcome(terminalSnapshot)` is authoritative; `result.outcome` is advisory |
-| GOV-HEXEC-7 | MUST | If `abort()` is used for execution-stage work, proposal MUST still reach terminal (`failed`), consistent with GOV-STAGE-4 |
+| GOV-HEXEC-6 | MUST | Governance's `deriveOutcome(terminalSnapshot)` remains authoritative even when an upstream execution seam supplies advisory outcome metadata |
+| GOV-HEXEC-7 | MUST | Execution-stage proposals MUST still converge to terminal lifecycle semantics consistent with GOV-STAGE-* regardless of how the world-owned executor handles abort/retry |
 
 ### 8.2 ExecutionKey Contract
 
@@ -714,7 +669,7 @@ interface GovernanceService {
     executingProposal: Proposal,
     lineageCommit: PreparedLineageCommit,
     completedAt: number,
-  ): PreparedGovernanceCommit;
+  ): Promise<PreparedGovernanceCommit>;
 }
 ```
 
@@ -743,7 +698,8 @@ This extends Lineage SPEC §7.5 with governance-specific detail:
 Governance                   Coordinator (facade)         Lineage             Store
     │                              │                        │                   │
     │  1. Proposal P₁ approved     │                        │                   │
-    │  2. Execute via HostExecutor │                        │                   │
+    │  2. Execute via World-owned  │                        │                   │
+    │     execution seam           │                        │                   │
     │     → terminalSnapshot       │                        │                   │
     │  3. Derive outcome           │                        │                   │
     │  4. Prepare attempt-scoped    │                        │                   │
@@ -770,11 +726,11 @@ Governance                   Coordinator (facade)         Lineage             St
     │                              │     (executingProposal, lineageCommit)     │
     │                              │     → PreparedGovernanceCommit             │
     │                              │                        │                   │
-    │                              │  10. Assemble write set:                   │
-    │                              │      lineage records +                     │
+    │                              │  10. Open seal transaction                 │
+    │                              │      lineage commit +                      │
     │                              │      governance records                    │
     │                              │                        │                   │
-    │                              │── store.commitSeal(writeSet) ─────────────>│
+    │                              │── store.runInSealTransaction() ───────────>│
     │                              │   (atomic: all or nothing)                 │
     │                              │                        │                   │
     │                              │  11. Emit governance events                │
@@ -1111,21 +1067,23 @@ Per ADR-014 D11.2, governance owns its own persistence via `GovernanceStore`. Go
 ```typescript
 interface GovernanceStore {
   // ─── Proposals ───
-  putProposal(proposal: Proposal): void;
-  getProposal(proposalId: ProposalId): Proposal | null;
-  getProposalsByBranch(branchId: BranchId): readonly Proposal[];
-  getExecutionStageProposal(branchId: BranchId): Proposal | null;
+  putProposal(proposal: Proposal): Promise<void>;
+  getProposal(proposalId: ProposalId): Promise<Proposal | null>;
+  getProposalsByBranch(branchId: BranchId): Promise<readonly Proposal[]>;
+  getExecutionStageProposal(branchId: BranchId): Promise<Proposal | null>;
 
   // ─── Decision Records ───
-  putDecisionRecord(record: DecisionRecord): void;
-  getDecisionRecord(decisionId: DecisionId): DecisionRecord | null;
+  putDecisionRecord(record: DecisionRecord): Promise<void>;
+  getDecisionRecord(decisionId: DecisionId): Promise<DecisionRecord | null>;
 
   // ─── Actor Bindings ───
-  putActorBinding(binding: ActorAuthorityBinding): void;
-  getActorBinding(actorId: ActorId): ActorAuthorityBinding | null;
-  getActorBindings(): readonly ActorAuthorityBinding[];
+  putActorBinding(binding: ActorAuthorityBinding): Promise<void>;
+  getActorBinding(actorId: ActorId): Promise<ActorAuthorityBinding | null>;
+  getActorBindings(): Promise<readonly ActorAuthorityBinding[]>;
 }
 ```
+
+Governance keeps pure proposal/decision derivation synchronous, but every persistence touchpoint is async in the projected v2 surface so browser-first adapters can participate without another breaking change.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -1136,7 +1094,7 @@ interface GovernanceStore {
 
 ### 11.3 Composite Store (Facade Concern)
 
-When both governance and lineage are present, the `@manifesto-ai/world` facade provides a composite store that extends both `LineageStore` and `GovernanceStore` and adds an atomic `commitSeal()` method. The composite store is NOT defined by this SPEC — it is a facade/coordinator concern.
+When both governance and lineage are present, the `@manifesto-ai/world` facade provides a `GovernedWorldStore` that extends both `LineageStore` and `GovernanceStore` and adds the atomic `runInSealTransaction()` seam. That transaction seam is NOT defined by this SPEC — it is a facade/coordinator concern.
 
 Governance's `finalize()` does not interact with any store. It is a pure computation. The coordinator uses `GovernanceStore` to persist the `PreparedGovernanceCommit` as part of the atomic commit.
 
@@ -1200,8 +1158,8 @@ Governance's `finalize()` does not interact with any store. It is a pure computa
 | INV-G23 | Governance does NOT subscribe to Host's onTrace |
 | INV-G24 | Governance does NOT define telemetry events |
 | INV-G25 | Governance only emits governance events |
-| INV-G26 | Governance defines HostExecutor interface, does NOT implement it |
-| INV-G27 | App implements HostExecutor and provides it to Governance |
+| INV-G26 | Governance does NOT own execution abstraction interfaces in the hard-cut draft |
+| INV-G27 | World owns the execution abstraction seam that app/runtime code implements |
 
 ### 12.7 Seal Invariants
 
@@ -1228,8 +1186,8 @@ An implementation claiming compliance with **Manifesto Governance Protocol v2.0.
 7. Enforce monotonic status transitions (GOV-TRANS-*)
 8. Enforce single-writer gate per branch — `approved` OR `executing` occupies the gate (GOV-BRANCH-GATE-*)
 9. Enforce epoch-based ingress control — stale proposals MUST transition to `superseded` (GOV-EPOCH-*, GOV-BRANCH-GATE-5~7)
-10. Define HostExecutor interface, NOT implement it (GOV-HEXEC-*)
-11. Derive outcome via `deriveOutcome()`, NOT `result.outcome` (GOV-HEXEC-6)
+10. Keep execution abstraction ownership out of Governance (GOV-HEXEC-*)
+11. Derive outcome via `deriveOutcome()`, NOT upstream advisory metadata (GOV-HEXEC-6)
 12. Cross-verify outcome with lineage's `terminalStatus` (GOV-SEAL-1)
 13. Implement side-effect-free `finalize()` (GOV-SEAL-2)
 14. Enforce event handler non-interference (GOV-EVT-C1~C6)
@@ -1345,7 +1303,7 @@ An implementation claiming compliance with **Manifesto Governance Protocol v2.0.
 | Branch Gate | GOV-BRANCH-GATE-1~7 |
 | Branch Identity | GOV-BRANCH-1~3 |
 | Epoch | GOV-EPOCH-1~5 |
-| HostExecutor | GOV-HEXEC-1~7 |
+| Execution Boundary | GOV-HEXEC-1~7 |
 | ExecutionKey | GOV-EXK-1~5 |
 | Outcome | GOV-OUTCOME-1~5 |
 | Terminal | GOV-TERM-1~4 |

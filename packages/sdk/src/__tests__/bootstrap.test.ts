@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as world from "@manifesto-ai/world";
 import * as sdk from "../index.js";
 import type {
-  CommitCapableWorldStore,
+  GovernedWorldStore,
   SdkManifest,
 } from "../index.js";
 
@@ -46,14 +46,14 @@ describe("@manifesto-ai/sdk bootstrap", () => {
 
   it("re-exports only the thin governed world value surface", () => {
     const removedLegacyStoreFactory = ["create", "Memory", "World", "Store"].join("");
-    const governedStore: CommitCapableWorldStore = sdk.createInMemoryWorldStore();
+    const governedStore: GovernedWorldStore = sdk.createInMemoryWorldStore();
 
     expect(sdk.createInMemoryWorldStore).toBeDefined();
     expect(sdk.createWorld).toBeDefined();
     expect(typeof sdk.createWorld).toBe("function");
     expect(sdk.createInMemoryWorldStore).toBe(world.createInMemoryWorldStore);
     expect(sdk.createWorld).toBe(world.createWorld);
-    expect(typeof governedStore.commitSeal).toBe("function");
+    expect(typeof governedStore.runInSealTransaction).toBe("function");
     expect((sdk as Record<string, unknown>)[removedLegacyStoreFactory]).toBeUndefined();
     expect((sdk as Record<string, unknown>).createGovernanceService).toBeUndefined();
     expect((sdk as Record<string, unknown>).createLineageService).toBeUndefined();

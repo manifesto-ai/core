@@ -62,18 +62,18 @@ export class DefaultGovernanceService implements GovernanceService {
     });
   }
 
-  prepareAuthorityResult(
+  async prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,
     options: PrepareAuthorityResultOptions
-  ): PreparedAuthorityResult {
+  ): Promise<PreparedAuthorityResult> {
     if (proposal.status !== "submitted" && proposal.status !== "evaluating") {
       throw new Error(
         `GOV-TRANS-1 violation: authority result requires ingress proposal, received ${proposal.status}`
       );
     }
 
-    const branchInfo = this.resolveBranchInfo(proposal.branchId);
+    const branchInfo = await this.resolveBranchInfo(proposal.branchId);
     const currentEpoch = options.currentEpoch ?? branchInfo?.epoch ?? proposal.epoch;
     const currentHead = options.currentBranchHead ?? branchInfo?.head ?? proposal.baseWorld;
 
@@ -85,7 +85,7 @@ export class DefaultGovernanceService implements GovernanceService {
     }
 
     if (response.kind === "approved") {
-      this.assertBranchGateAvailable(proposal);
+      await this.assertBranchGateAvailable(proposal);
       if (currentHead !== proposal.baseWorld) {
         return {
           proposal: this.prepareSupersede(proposal, "head_advance"),
@@ -139,18 +139,18 @@ export class DefaultGovernanceService implements GovernanceService {
     });
   }
 
-  invalidateStaleIngress(
+  async invalidateStaleIngress(
     branchId: string,
     currentEpoch?: number
-  ): readonly Proposal[] {
-    const branchInfo = this.resolveBranchInfo(branchId);
+  ): Promise<readonly Proposal[]> {
+    const branchInfo = await this.resolveBranchInfo(branchId);
     const nextEpoch = currentEpoch ?? branchInfo?.epoch;
     if (nextEpoch == null) {
       throw new Error(`Cannot invalidate stale ingress without branch epoch for ${branchId}`);
     }
 
-    return this.store
-      .getProposalsByBranch(branchId)
+    return (await this.store
+      .getProposalsByBranch(branchId))
       .filter((proposal) => isIngressStatus(proposal.status) && proposal.epoch < nextEpoch)
       .map((proposal) => this.prepareSupersede(proposal, "head_advance"));
   }
@@ -172,11 +172,11 @@ export class DefaultGovernanceService implements GovernanceService {
     return "completed";
   }
 
-  finalize(
+  async finalize(
     executingProposal: Proposal,
     lineageCommit: PreparedLineageCommit,
     completedAt: number
-  ): PreparedGovernanceCommit {
+  ): Promise<PreparedGovernanceCommit> {
     if (executingProposal.status !== "executing") {
       throw new Error(
         `GOV-SEAL-6 violation: finalize() requires executing proposal, received ${executingProposal.status}`
@@ -186,7 +186,7 @@ export class DefaultGovernanceService implements GovernanceService {
       throw new Error("GOV-SEAL-6 violation: executing proposal is missing decisionId");
     }
 
-    const decisionRecord = this.store.getDecisionRecord(executingProposal.decisionId);
+    const decisionRecord = await this.store.getDecisionRecord(executingProposal.decisionId);
     if (!decisionRecord) {
       throw new Error(
         `GOV-SEAL-6 violation: decision record ${executingProposal.decisionId} not found`
@@ -357,12 +357,12 @@ export class DefaultGovernanceService implements GovernanceService {
     });
   }
 
-  private resolveBranchInfo(branchId: string): BranchInfo | null {
+  private async resolveBranchInfo(branchId: string): Promise<BranchInfo | null> {
     return this.options.lineageService?.getBranch(branchId) ?? null;
   }
 
-  private assertBranchGateAvailable(proposal: Proposal): void {
-    const occupant = this.store.getExecutionStageProposal(proposal.branchId);
+  private async assertBranchGateAvailable(proposal: Proposal): Promise<void> {
+    const occupant = await this.store.getExecutionStageProposal(proposal.branchId);
     if (occupant && occupant.proposalId !== proposal.proposalId) {
       throw new Error(
         `GOV-BRANCH-GATE-1 violation: branch ${proposal.branchId} already occupied by ${occupant.proposalId}`

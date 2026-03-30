@@ -39,15 +39,15 @@ function createSnapshot(
   };
 }
 
-function bootstrapLineage() {
+async function bootstrapLineage() {
   const store = createInMemoryLineageStore();
   const service = createLineageService(store);
-  const genesis = service.prepareSealGenesis({
+  const genesis = await service.prepareSealGenesis({
     schemaHash: "schema-hash",
     terminalSnapshot: createSnapshot({ count: 1 }),
     createdAt: 1,
   });
-  service.commitPrepared(genesis);
+  await service.commitPrepared(genesis);
   return { store, service, genesis };
 }
 
@@ -133,8 +133,8 @@ describe("GCTS Lifecycle Suite", () => {
       GCTS_CASES.LIFECYCLE_BRANCH_GATES,
       "Native governance enforces branch identity, gate occupancy, stale head invalidation, and stale-result discard."
     ),
-    () => {
-      const lineage = bootstrapLineage();
+    async () => {
+      const lineage = await bootstrapLineage();
       const store = adapter.createStore();
       const service = adapter.createService(store, { lineageService: lineage.service });
 
@@ -146,9 +146,9 @@ describe("GCTS Lifecycle Suite", () => {
         intent: { type: "demo.one", intentId: "intent-1" },
         executionKey: "key-1",
         submittedAt: 10,
-        epoch: lineage.service.getActiveBranch().epoch,
+        epoch: (await lineage.service.getActiveBranch()).epoch,
       });
-      store.putProposal({
+      await store.putProposal({
         ...occupied,
         status: "approved",
         decisionId: "dec-occupied",
@@ -163,7 +163,7 @@ describe("GCTS Lifecycle Suite", () => {
         intent: { type: "demo.two", intentId: "intent-2" },
         executionKey: "key-2",
         submittedAt: 12,
-        epoch: lineage.service.getActiveBranch().epoch,
+        epoch: (await lineage.service.getActiveBranch()).epoch,
       });
 
       const gateThrows = () => service.prepareAuthorityResult(
@@ -171,14 +171,10 @@ describe("GCTS Lifecycle Suite", () => {
         { kind: "approved", approvedScope: null },
         { decidedAt: 13 }
       );
-      const gateBlocked = (() => {
-        try {
-          gateThrows();
-          return false;
-        } catch {
-          return true;
-        }
-      })();
+      const gateBlocked = await gateThrows().then(
+        () => false,
+        () => true
+      );
 
       const staleProposal = service.createProposal({
         baseWorld: lineage.genesis.worldId,
@@ -188,32 +184,32 @@ describe("GCTS Lifecycle Suite", () => {
         intent: { type: "demo.three", intentId: "intent-3" },
         executionKey: "key-3",
         submittedAt: 14,
-        epoch: lineage.service.getActiveBranch().epoch,
+        epoch: (await lineage.service.getActiveBranch()).epoch,
       });
-      store.putProposal({ ...staleProposal, status: "evaluating" });
+      await store.putProposal({ ...staleProposal, status: "evaluating" });
 
-      const preparedNext = lineage.service.prepareSealNext({
+      const preparedNext = await lineage.service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
         terminalSnapshot: createSnapshot({ count: 2 }),
         createdAt: 15,
       });
-      lineage.service.commitPrepared(preparedNext);
-      store.putProposal({
+      await lineage.service.commitPrepared(preparedNext);
+      await store.putProposal({
         ...occupied,
         status: "completed",
         resultWorld: preparedNext.worldId,
         completedAt: 16,
       });
 
-      const staleDecision = service.prepareAuthorityResult(
+      const staleDecision = await service.prepareAuthorityResult(
         { ...staleProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 17 }
       );
 
-      const invalidated = service.invalidateStaleIngress(lineage.genesis.branchId);
+      const invalidated = await service.invalidateStaleIngress(lineage.genesis.branchId);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("GOV-BRANCH-GATE-1"), (() => {
@@ -251,8 +247,8 @@ describe("GCTS Lifecycle Suite", () => {
       GCTS_CASES.LIFECYCLE_FINALIZE_PURITY,
       "Seal finalization stays pure on the current finalize() path."
     ),
-    () => {
-      const lineage = bootstrapLineage();
+    async () => {
+      const lineage = await bootstrapLineage();
       const store = adapter.createStore();
       const service = adapter.createService(store, { lineageService: lineage.service });
 
@@ -264,9 +260,9 @@ describe("GCTS Lifecycle Suite", () => {
         intent: { type: "demo.finalize", intentId: "intent-9" },
         executionKey: "key-9",
         submittedAt: 20,
-        epoch: lineage.service.getActiveBranch().epoch,
+        epoch: (await lineage.service.getActiveBranch()).epoch,
       });
-      const prepared = service.prepareAuthorityResult(
+      const prepared = await service.prepareAuthorityResult(
         { ...approved, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 21 }
@@ -276,14 +272,14 @@ describe("GCTS Lifecycle Suite", () => {
       }
 
       const executingProposal = { ...prepared.proposal, status: "executing" as const };
-      store.putProposal(executingProposal);
-      store.putDecisionRecord(prepared.decisionRecord);
+      await store.putProposal(executingProposal);
+      await store.putDecisionRecord(prepared.decisionRecord);
       const storedBefore = JSON.stringify({
-        proposal: store.getProposal(executingProposal.proposalId),
-        decision: store.getDecisionRecord(prepared.decisionRecord.decisionId),
+        proposal: await store.getProposal(executingProposal.proposalId),
+        decision: await store.getDecisionRecord(prepared.decisionRecord.decisionId),
       });
 
-      const lineageCommit = lineage.service.prepareSealNext({
+      const lineageCommit = await lineage.service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
@@ -292,10 +288,10 @@ describe("GCTS Lifecycle Suite", () => {
         proposalRef: executingProposal.proposalId,
         decisionRef: prepared.decisionRecord.decisionId,
       });
-      const finalized = service.finalize(executingProposal, lineageCommit, 23);
+      const finalized = await service.finalize(executingProposal, lineageCommit, 23);
       const storedAfter = JSON.stringify({
-        proposal: store.getProposal(executingProposal.proposalId),
-        decision: store.getDecisionRecord(prepared.decisionRecord.decisionId),
+        proposal: await store.getProposal(executingProposal.proposalId),
+        decision: await store.getDecisionRecord(prepared.decisionRecord.decisionId),
       });
 
       expectAllCompliance([
@@ -317,8 +313,8 @@ describe("GCTS Lifecycle Suite", () => {
       GCTS_CASES.LIFECYCLE_OUTCOME_CROSSCHECK,
       "finalize() cross-checks derived outcome against lineage terminalStatus before producing a governance commit."
     ),
-    () => {
-      const lineage = bootstrapLineage();
+    async () => {
+      const lineage = await bootstrapLineage();
       const store = adapter.createStore();
       const service = adapter.createService(store, { lineageService: lineage.service });
 
@@ -330,9 +326,9 @@ describe("GCTS Lifecycle Suite", () => {
         intent: { type: "demo.crosscheck", intentId: "intent-10" },
         executionKey: "key-10",
         submittedAt: 30,
-        epoch: lineage.service.getActiveBranch().epoch,
+        epoch: (await lineage.service.getActiveBranch()).epoch,
       });
-      const prepared = service.prepareAuthorityResult(
+      const prepared = await service.prepareAuthorityResult(
         { ...proposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 31 }
@@ -342,10 +338,10 @@ describe("GCTS Lifecycle Suite", () => {
       }
 
       const executingProposal = { ...prepared.proposal, status: "executing" as const };
-      store.putProposal(executingProposal);
-      store.putDecisionRecord(prepared.decisionRecord);
+      await store.putProposal(executingProposal);
+      await store.putDecisionRecord(prepared.decisionRecord);
 
-      const lineageCommit = lineage.service.prepareSealNext({
+      const lineageCommit = await lineage.service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
@@ -360,12 +356,14 @@ describe("GCTS Lifecycle Suite", () => {
         terminalStatus: "failed" as const,
       };
 
-      let threw = false;
-      try {
-        service.finalize(executingProposal, mismatchedCommit, 33);
-      } catch (error) {
-        threw = error instanceof Error && /GOV-SEAL-1/.test(error.message);
-      }
+      const threw = await service.finalize(
+        executingProposal,
+        mismatchedCommit,
+        33
+      ).then(
+        () => false,
+        (error) => error instanceof Error && /GOV-SEAL-1/.test(error.message)
+      );
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("GOV-SEAL-1"), threw, {
@@ -384,8 +382,8 @@ describe("GCTS Lifecycle Suite", () => {
       GCTS_CASES.LIFECYCLE_ATTEMPT_PROVENANCE,
       "Governance-active seals preserve proposal provenance through lineage SealAttempt records."
     ),
-    () => {
-      const lineage = bootstrapLineage();
+    async () => {
+      const lineage = await bootstrapLineage();
       const store = adapter.createStore();
       const service = adapter.createService(store, { lineageService: lineage.service });
 
@@ -397,9 +395,9 @@ describe("GCTS Lifecycle Suite", () => {
         intent: { type: "demo.provenance", intentId: "intent-11" },
         executionKey: "key-11",
         submittedAt: 40,
-        epoch: lineage.service.getActiveBranch().epoch,
+        epoch: (await lineage.service.getActiveBranch()).epoch,
       });
-      const prepared = service.prepareAuthorityResult(
+      const prepared = await service.prepareAuthorityResult(
         { ...proposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 41 }
@@ -409,10 +407,10 @@ describe("GCTS Lifecycle Suite", () => {
       }
 
       const executingProposal = { ...prepared.proposal, status: "executing" as const };
-      store.putProposal(executingProposal);
-      store.putDecisionRecord(prepared.decisionRecord);
+      await store.putProposal(executingProposal);
+      await store.putDecisionRecord(prepared.decisionRecord);
 
-      const lineageCommit = lineage.service.prepareSealNext({
+      const lineageCommit = await lineage.service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
@@ -421,13 +419,13 @@ describe("GCTS Lifecycle Suite", () => {
         proposalRef: executingProposal.proposalId,
         decisionRef: prepared.decisionRecord.decisionId,
       });
-      const governanceCommit = service.finalize(executingProposal, lineageCommit, 43);
+      const governanceCommit = await service.finalize(executingProposal, lineageCommit, 43);
 
-      lineage.service.commitPrepared(lineageCommit);
-      store.putProposal(governanceCommit.proposal);
-      store.putDecisionRecord(governanceCommit.decisionRecord);
+      await lineage.service.commitPrepared(lineageCommit);
+      await store.putProposal(governanceCommit.proposal);
+      await store.putDecisionRecord(governanceCommit.decisionRecord);
 
-      const attempts = lineage.store.getAttempts(lineageCommit.worldId);
+      const attempts = await lineage.store.getAttempts(lineageCommit.worldId);
       const latestAttempt = attempts.at(-1) ?? null;
       const provenanceOk = latestAttempt?.proposalRef === governanceCommit.proposal.proposalId
         && latestAttempt?.decisionRef === governanceCommit.decisionRecord.decisionId;

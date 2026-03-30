@@ -35,15 +35,15 @@ function createSnapshot(
   };
 }
 
-function bootstrap() {
+async function bootstrap() {
   const lineageStore = createInMemoryLineageStore();
   const lineageService = createLineageService(lineageStore);
-  const genesis = lineageService.prepareSealGenesis({
+  const genesis = await lineageService.prepareSealGenesis({
     schemaHash: "schema-hash",
     terminalSnapshot: createSnapshot({ count: 1 }),
     createdAt: 1,
   });
-  lineageService.commitPrepared(genesis);
+  await lineageService.commitPrepared(genesis);
 
   const governanceStore = createInMemoryGovernanceStore();
   const governanceService = createGovernanceService(governanceStore, {
@@ -58,10 +58,10 @@ function bootstrap() {
     intent: { type: "demo.intent", intentId: "intent-1" },
     executionKey: "prop-1:1",
     submittedAt: 10,
-    epoch: lineageService.getActiveBranch().epoch,
+    epoch: (await lineageService.getActiveBranch()).epoch,
   });
 
-  const approved = governanceService.prepareAuthorityResult(
+  const approved = await governanceService.prepareAuthorityResult(
     { ...proposal, status: "evaluating" },
     { kind: "approved", approvedScope: null },
     { decidedAt: 11 }
@@ -70,7 +70,7 @@ function bootstrap() {
     throw new Error("expected decision record");
   }
 
-  const lineageCommit = lineageService.prepareSealNext({
+  const lineageCommit = await lineageService.prepareSealNext({
     schemaHash: "schema-hash",
     baseWorldId: genesis.worldId,
     branchId: genesis.branchId,
@@ -108,8 +108,8 @@ function bootstrap() {
 }
 
 describe("@manifesto-ai/governance event helpers", () => {
-  it("creates governance-native post-commit event payloads", () => {
-    const ctx = bootstrap();
+  it("creates governance-native post-commit event payloads", async () => {
+    const ctx = await bootstrap();
     const completed = ctx.governanceService.createExecutionCompletedEvent(
       ctx.completedProposal,
       20
@@ -181,8 +181,8 @@ describe("@manifesto-ai/governance event helpers", () => {
 });
 
 describe("@manifesto-ai/governance dispatcher", () => {
-  it("emits completion events in governance order without fork noise on linear seals", () => {
-    const ctx = bootstrap();
+  it("emits completion events in governance order without fork noise on linear seals", async () => {
+    const ctx = await bootstrap();
     const events: unknown[] = [];
     const dispatcher = createGovernanceEventDispatcher({
       service: ctx.governanceService,
@@ -215,12 +215,12 @@ describe("@manifesto-ai/governance dispatcher", () => {
     ]);
   });
 
-  it("emits world:forked only when a seal creates a true fork", () => {
-    const ctx = bootstrap();
+  it("emits world:forked only when a seal creates a true fork", async () => {
+    const ctx = await bootstrap();
     const events: unknown[] = [];
-    ctx.lineageService.commitPrepared(ctx.lineageCommit);
-    const branchId = ctx.lineageService.createBranch("fork", ctx.genesis.worldId);
-    ctx.lineageService.switchActiveBranch(branchId);
+    await ctx.lineageService.commitPrepared(ctx.lineageCommit);
+    const branchId = await ctx.lineageService.createBranch("fork", ctx.genesis.worldId);
+    await ctx.lineageService.switchActiveBranch(branchId);
     const proposal = ctx.governanceService.createProposal({
       baseWorld: ctx.genesis.worldId,
       branchId,
@@ -229,9 +229,9 @@ describe("@manifesto-ai/governance dispatcher", () => {
       intent: { type: "demo.intent", intentId: "intent-2" },
       executionKey: "prop-2:1",
       submittedAt: 30,
-      epoch: ctx.lineageService.getActiveBranch().epoch,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
-    const approved = ctx.governanceService.prepareAuthorityResult(
+    const approved = await ctx.governanceService.prepareAuthorityResult(
       { ...proposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
       { decidedAt: 31 }
@@ -241,7 +241,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
       throw new Error("expected decision record");
     }
 
-    const lineageCommit = ctx.lineageService.prepareSealNext({
+    const lineageCommit = await ctx.lineageService.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId,
@@ -298,8 +298,8 @@ describe("@manifesto-ai/governance dispatcher", () => {
     ]);
   });
 
-  it("preserves sealed failure diagnostics in execution:failed events", () => {
-    const ctx = bootstrap();
+  it("preserves sealed failure diagnostics in execution:failed events", async () => {
+    const ctx = await bootstrap();
     const events: unknown[] = [];
     const proposal = ctx.governanceService.createProposal({
       baseWorld: ctx.genesis.worldId,
@@ -309,9 +309,9 @@ describe("@manifesto-ai/governance dispatcher", () => {
       intent: { type: "demo.intent", intentId: "intent-3" },
       executionKey: "prop-3:1",
       submittedAt: 40,
-      epoch: ctx.lineageService.getActiveBranch().epoch,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
-    const approved = ctx.governanceService.prepareAuthorityResult(
+    const approved = await ctx.governanceService.prepareAuthorityResult(
       { ...proposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
       { decidedAt: 41 }
@@ -321,7 +321,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
       throw new Error("expected decision record");
     }
 
-    const lineageCommit = ctx.lineageService.prepareSealNext({
+    const lineageCommit = await ctx.lineageService.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,

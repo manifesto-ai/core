@@ -10,19 +10,19 @@ describe("LCTS Attempts Suite", () => {
       LCTS_CASES.ATTEMPT_PERSISTENCE,
       "Every successful seal persists exactly one SealAttempt and exposes attempt chronology by world and branch."
     ),
-    () => {
-      const { service, genesis } = createBootstrappedLineage();
-      const next = service.prepareSealNext({
+    async () => {
+      const { service, genesis } = await createBootstrappedLineage();
+      const next = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
-      service.commitPrepared(next);
+      await service.commitPrepared(next);
 
-      const worldAttempts = service.getAttempts(next.worldId);
-      const branchAttempts = service.getAttemptsByBranch(next.branchId);
+      const worldAttempts = await service.getAttempts(next.worldId);
+      const branchAttempts = await service.getAttemptsByBranch(next.branchId);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("MRKL-ATTEMPT-2"), worldAttempts.length === 1 && branchAttempts.length === 2, {
@@ -43,8 +43,8 @@ describe("LCTS Attempts Suite", () => {
       LCTS_CASES.IDEMPOTENT_REUSE,
       "Same-parent same-snapshot seals reuse the existing world while preserving first-written substrate."
     ),
-    () => {
-      const { service } = createBootstrappedLineage();
+    async () => {
+      const { service } = await createBootstrappedLineage();
       const firstSnapshot = createTestSnapshot(
         {
           count: 2,
@@ -61,8 +61,8 @@ describe("LCTS Attempts Suite", () => {
           },
         }
       );
-      const mainBranch = service.getActiveBranch();
-      const firstCommit = service.prepareSealNext({
+      const mainBranch = await service.getActiveBranch();
+      const firstCommit = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: mainBranch.head,
         branchId: mainBranch.id,
@@ -70,10 +70,10 @@ describe("LCTS Attempts Suite", () => {
         createdAt: 2,
         patchDelta: { _patchFormat: 2, patches: [] },
       });
-      service.commitPrepared(firstCommit);
+      await service.commitPrepared(firstCommit);
 
-      const forkBranchId = service.createBranch("fork", mainBranch.head);
-      service.switchActiveBranch(forkBranchId);
+      const forkBranchId = await service.createBranch("fork", mainBranch.head);
+      await service.switchActiveBranch(forkBranchId);
       const reusedSnapshot = createTestSnapshot(
         {
           count: 2,
@@ -90,7 +90,7 @@ describe("LCTS Attempts Suite", () => {
           },
         }
       );
-      const reusedCommit = service.prepareSealNext({
+      const reusedCommit = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: mainBranch.head,
         branchId: forkBranchId,
@@ -98,12 +98,12 @@ describe("LCTS Attempts Suite", () => {
         createdAt: 3,
         patchDelta: { _patchFormat: 2, patches: [{ op: "set", path: "data.count", value: 2 }] },
       });
-      service.commitPrepared(reusedCommit);
+      await service.commitPrepared(reusedCommit);
 
-      const lineage = service.getLineage();
-      const attemptsForWorld = service.getAttempts(firstCommit.worldId);
-      const storedSnapshot = service.getSnapshot(firstCommit.worldId);
-      const forkBranch = service.getBranch(forkBranchId);
+      const lineage = await service.getLineage();
+      const attemptsForWorld = await service.getAttempts(firstCommit.worldId);
+      const storedSnapshot = await service.getSnapshot(firstCommit.worldId);
+      const forkBranch = await service.getBranch(forkBranchId);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("MRKL-REUSE-1"), reusedCommit.worldId === firstCommit.worldId && lineage.worlds.size === 2, {

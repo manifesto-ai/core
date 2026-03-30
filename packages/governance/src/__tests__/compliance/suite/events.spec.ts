@@ -44,15 +44,15 @@ function createSnapshot(
   };
 }
 
-function bootstrapGovernance() {
+async function bootstrapGovernance() {
   const lineageStore = createInMemoryLineageStore();
   const lineageService = createLineageService(lineageStore);
-  const genesis = lineageService.prepareSealGenesis({
+  const genesis = await lineageService.prepareSealGenesis({
     schemaHash: "schema-hash",
     terminalSnapshot: createSnapshot({ count: 1 }),
     createdAt: 1,
   });
-  lineageService.commitPrepared(genesis);
+  await lineageService.commitPrepared(genesis);
 
   const governanceStore = createInMemoryGovernanceStore();
   const governanceService = createGovernanceService(governanceStore, {
@@ -76,10 +76,10 @@ describe("GCTS Events Suite", () => {
       GCTS_CASES.EVENTS_DISPATCHER_SURFACE,
       "Governance exports a facade-compatible dispatcher factory whose public surface is emitSealCompleted() only."
     ),
-    () => {
+    async () => {
       const exported = adapter.exports();
       const createDispatcher = exported.createGovernanceEventDispatcher;
-      const ctx = bootstrapGovernance();
+      const ctx = await bootstrapGovernance();
       const dispatcher = createGovernanceEventDispatcher({
         service: ctx.governanceService,
       });
@@ -111,8 +111,8 @@ describe("GCTS Events Suite", () => {
       GCTS_CASES.EVENTS_POST_COMMIT_OUTCOMES,
       "Governance emits execution outcome events only through the explicit post-commit dispatcher path."
     ),
-    () => {
-      const successCtx = bootstrapGovernance();
+    async () => {
+      const successCtx = await bootstrapGovernance();
       const successEvents: GovernanceEvent[] = [];
       const successProposal = successCtx.governanceService.createProposal({
         baseWorld: successCtx.genesis.worldId,
@@ -122,9 +122,9 @@ describe("GCTS Events Suite", () => {
         intent: { type: "demo.events.success", intentId: "intent-20" },
         executionKey: "key-20",
         submittedAt: 20,
-        epoch: successCtx.lineageService.getActiveBranch().epoch,
+        epoch: (await successCtx.lineageService.getActiveBranch()).epoch,
       });
-      const successApproved = successCtx.governanceService.prepareAuthorityResult(
+      const successApproved = await successCtx.governanceService.prepareAuthorityResult(
         { ...successProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 21 }
@@ -134,9 +134,9 @@ describe("GCTS Events Suite", () => {
       }
 
       const successExecuting = { ...successApproved.proposal, status: "executing" as const };
-      successCtx.governanceStore.putProposal(successExecuting);
-      successCtx.governanceStore.putDecisionRecord(successApproved.decisionRecord);
-      const successCommit = successCtx.lineageService.prepareSealNext({
+      await successCtx.governanceStore.putProposal(successExecuting);
+      await successCtx.governanceStore.putDecisionRecord(successApproved.decisionRecord);
+      const successCommit = await successCtx.lineageService.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: successCtx.genesis.worldId,
         branchId: successCtx.genesis.branchId,
@@ -145,7 +145,7 @@ describe("GCTS Events Suite", () => {
         proposalRef: successExecuting.proposalId,
         decisionRef: successApproved.decisionRecord.decisionId,
       });
-      const successGovernanceCommit = successCtx.governanceService.finalize(successExecuting, successCommit, 23);
+      const successGovernanceCommit = await successCtx.governanceService.finalize(successExecuting, successCommit, 23);
       const successDispatcher = createGovernanceEventDispatcher({
         service: successCtx.governanceService,
         sink: {
@@ -156,7 +156,7 @@ describe("GCTS Events Suite", () => {
         now: () => 500,
       });
 
-      const failedCtx = bootstrapGovernance();
+      const failedCtx = await bootstrapGovernance();
       const failedEvents: GovernanceEvent[] = [];
       const failedProposal = failedCtx.governanceService.createProposal({
         baseWorld: failedCtx.genesis.worldId,
@@ -166,9 +166,9 @@ describe("GCTS Events Suite", () => {
         intent: { type: "demo.events.failed", intentId: "intent-21" },
         executionKey: "key-21",
         submittedAt: 30,
-        epoch: failedCtx.lineageService.getActiveBranch().epoch,
+        epoch: (await failedCtx.lineageService.getActiveBranch()).epoch,
       });
-      const failedApproved = failedCtx.governanceService.prepareAuthorityResult(
+      const failedApproved = await failedCtx.governanceService.prepareAuthorityResult(
         { ...failedProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 31 }
@@ -178,9 +178,9 @@ describe("GCTS Events Suite", () => {
       }
 
       const failedExecuting = { ...failedApproved.proposal, status: "executing" as const };
-      failedCtx.governanceStore.putProposal(failedExecuting);
-      failedCtx.governanceStore.putDecisionRecord(failedApproved.decisionRecord);
-      const failedCommit = failedCtx.lineageService.prepareSealNext({
+      await failedCtx.governanceStore.putProposal(failedExecuting);
+      await failedCtx.governanceStore.putDecisionRecord(failedApproved.decisionRecord);
+      const failedCommit = await failedCtx.lineageService.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: failedCtx.genesis.worldId,
         branchId: failedCtx.genesis.branchId,
@@ -205,7 +205,7 @@ describe("GCTS Events Suite", () => {
         proposalRef: failedExecuting.proposalId,
         decisionRef: failedApproved.decisionRecord.decisionId,
       });
-      const failedGovernanceCommit = failedCtx.governanceService.finalize(failedExecuting, failedCommit, 33);
+      const failedGovernanceCommit = await failedCtx.governanceService.finalize(failedExecuting, failedCommit, 33);
       const failedDispatcher = createGovernanceEventDispatcher({
         service: failedCtx.governanceService,
         sink: {
@@ -310,8 +310,8 @@ describe("GCTS Events Suite", () => {
       GCTS_CASES.EVENTS_FAILED_PAYLOAD,
       "execution:failed payloads expose currentError and pendingRequirements without accumulated error history."
     ),
-    () => {
-      const ctx = bootstrapGovernance();
+    async () => {
+      const ctx = await bootstrapGovernance();
       const events: GovernanceEvent[] = [];
       const proposal = ctx.governanceService.createProposal({
         baseWorld: ctx.genesis.worldId,
@@ -321,9 +321,9 @@ describe("GCTS Events Suite", () => {
         intent: { type: "demo.events.payload", intentId: "intent-22" },
         executionKey: "key-22",
         submittedAt: 40,
-        epoch: ctx.lineageService.getActiveBranch().epoch,
+        epoch: (await ctx.lineageService.getActiveBranch()).epoch,
       });
-      const approved = ctx.governanceService.prepareAuthorityResult(
+      const approved = await ctx.governanceService.prepareAuthorityResult(
         { ...proposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         { decidedAt: 41 }
@@ -333,9 +333,9 @@ describe("GCTS Events Suite", () => {
       }
 
       const executing = { ...approved.proposal, status: "executing" as const };
-      ctx.governanceStore.putProposal(executing);
-      ctx.governanceStore.putDecisionRecord(approved.decisionRecord);
-      const lineageCommit = ctx.lineageService.prepareSealNext({
+      await ctx.governanceStore.putProposal(executing);
+      await ctx.governanceStore.putDecisionRecord(approved.decisionRecord);
+      const lineageCommit = await ctx.lineageService.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: ctx.genesis.worldId,
         branchId: ctx.genesis.branchId,
@@ -382,7 +382,7 @@ describe("GCTS Events Suite", () => {
         proposalRef: executing.proposalId,
         decisionRef: approved.decisionRecord.decisionId,
       });
-      const governanceCommit = ctx.governanceService.finalize(executing, lineageCommit, 43);
+      const governanceCommit = await ctx.governanceService.finalize(executing, lineageCommit, 43);
       const dispatcher = createGovernanceEventDispatcher({
         service: ctx.governanceService,
         sink: {

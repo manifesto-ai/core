@@ -227,8 +227,8 @@ describe("LCTS Identity Suite", () => {
       LCTS_CASES.REPEATED_FAILURE_IDENTITY,
       "Repeated identical failures on the same branch produce distinct Worlds because tip changes."
     ),
-    () => {
-      const { service, genesis } = createBootstrappedLineage();
+    async () => {
+      const { service, genesis } = await createBootstrappedLineage();
       const failingSnapshot = createTestSnapshot(
         { count: 2 },
         {
@@ -247,16 +247,16 @@ describe("LCTS Identity Suite", () => {
         }
       );
 
-      const firstFailure = service.prepareSealNext({
+      const firstFailure = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
         terminalSnapshot: failingSnapshot,
         createdAt: 2,
       });
-      service.commitPrepared(firstFailure);
+      await service.commitPrepared(firstFailure);
 
-      const secondFailure = service.prepareSealNext({
+      const secondFailure = await service.prepareSealNext({
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,

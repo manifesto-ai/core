@@ -17,7 +17,7 @@ export function isFacadeCasMismatchError(error: unknown): error is FacadeCasMism
   return error instanceof FacadeCasMismatchError;
 }
 
-export function wrapCommitSealError(error: unknown): never {
+export function wrapSealTransactionError(error: unknown): never {
   if (error instanceof Error && error.message.includes("LIN-STORE-4 violation")) {
     throw new FacadeCasMismatchError(error.message, error);
   }
