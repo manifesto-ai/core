@@ -75,13 +75,12 @@ export class DefaultWorldRuntime implements WorldRuntime {
       return recovered;
     }
 
-    const proposal = input.proposal;
-    await this.assertProposalCurrent(proposal);
-    if (proposal.status !== "executing") {
+    if (input.proposal.status !== "executing") {
       throw new Error(
-        `FACADE-RUNTIME-4 violation: executeApprovedProposal() requires executing proposal, received ${proposal.status}`
+        `FACADE-RUNTIME-4 violation: executeApprovedProposal() requires executing proposal, received ${input.proposal.status}`
       );
     }
+    const proposal = await this.assertProposalCurrent(input.proposal);
 
     const baseSnapshot = await this.options.lineage.getSnapshot(proposal.baseWorld);
     if (!baseSnapshot) {
@@ -114,13 +113,12 @@ export class DefaultWorldRuntime implements WorldRuntime {
       return recovered;
     }
 
-    const proposal = input.proposal;
-    await this.assertProposalCurrent(proposal);
-    if (proposal.status !== "executing") {
+    if (input.proposal.status !== "executing") {
       throw new Error(
-        `FACADE-RUNTIME-4 violation: resumeExecutingProposal() requires executing proposal, received ${proposal.status}`
+        `FACADE-RUNTIME-4 violation: resumeExecutingProposal() requires executing proposal, received ${input.proposal.status}`
       );
     }
+    const proposal = await this.assertProposalCurrent(input.proposal);
 
     const execution = isTerminalResumeSnapshot(input.resumeSnapshot)
       ? this.createExecutionFromSnapshot(input.resumeSnapshot)
@@ -134,11 +132,9 @@ export class DefaultWorldRuntime implements WorldRuntime {
     return this.sealExecution(proposal, execution, input.completedAt);
   }
 
-  private async assertProposalCurrent(proposal: Proposal): Promise<void> {
-    if (proposal.status !== "executing") {
-      return;
-    }
-
+  private async assertProposalCurrent(
+    proposal: Proposal
+  ): Promise<Proposal & { readonly status: "executing" }> {
     const storedProposal = await this.options.store.getProposal(proposal.proposalId);
     if (!storedProposal) {
       throw new Error(
@@ -155,36 +151,41 @@ export class DefaultWorldRuntime implements WorldRuntime {
     let executionStageProposal: Proposal | null;
     try {
       executionStageProposal = await this.options.store.getExecutionStageProposal(
-        proposal.branchId
+        storedProposal.branchId
       );
     } catch (error) {
       throw new Error(
-        `FACADE-RUNTIME-11 violation: branch ${proposal.branchId} no longer has a unique execution-stage proposal`,
+        `FACADE-RUNTIME-11 violation: branch ${storedProposal.branchId} no longer has a unique execution-stage proposal`,
         { cause: error }
       );
     }
 
     if (
       executionStageProposal
-      && executionStageProposal.proposalId !== proposal.proposalId
+      && executionStageProposal.proposalId !== storedProposal.proposalId
     ) {
       throw new Error(
-        `FACADE-RUNTIME-11 violation: proposal ${proposal.proposalId} lost execution ownership for branch ${proposal.branchId}`
+        `FACADE-RUNTIME-11 violation: proposal ${storedProposal.proposalId} lost execution ownership for branch ${storedProposal.branchId}`
       );
     }
 
-    const branch = await this.options.lineage.getBranch(proposal.branchId);
+    const branch = await this.options.lineage.getBranch(storedProposal.branchId);
     if (!branch) {
       throw new Error(
-        `FACADE-RUNTIME-11 violation: branch ${proposal.branchId} no longer exists`
+        `FACADE-RUNTIME-11 violation: branch ${storedProposal.branchId} no longer exists`
       );
     }
 
-    if (branch.head !== proposal.baseWorld || branch.epoch !== proposal.epoch) {
+    if (
+      branch.head !== storedProposal.baseWorld
+      || branch.epoch !== storedProposal.epoch
+    ) {
       throw new Error(
-        `FACADE-RUNTIME-11 violation: proposal ${proposal.proposalId} is stale for branch ${proposal.branchId}`
+        `FACADE-RUNTIME-11 violation: proposal ${storedProposal.proposalId} is stale for branch ${storedProposal.branchId}`
       );
     }
+
+    return storedProposal;
   }
 
   private async tryRecoverCompletion(

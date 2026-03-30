@@ -77,9 +77,17 @@ describe("WFCTS Runtime Suite", () => {
       const { world } = await sealStandaloneGenesis(harness);
       const baseSnapshot = await harness.lineage.getSnapshot(world!.worldId);
       const { proposal } = await createExecutingProposal(harness);
+      const tamperedProposal: Proposal = {
+        ...proposal,
+        approvedScope: { unsafe: true },
+        intent: {
+          ...proposal.intent,
+          input: { count: 999 },
+        },
+      };
 
       const result = await harness.world.runtime.executeApprovedProposal({
-        proposal,
+        proposal: tamperedProposal,
         completedAt: 20,
         executionOptions: {
           approvedScope: { unsafe: true },
@@ -103,7 +111,10 @@ describe("WFCTS Runtime Suite", () => {
         evaluateRule(
           getRuleOrThrow("FACADE-RUNTIME-2"),
           harness.executionCalls[0]?.key === proposal.executionKey &&
-            harness.executionCalls[0]?.intent === proposal.intent &&
+            JSON.stringify(harness.executionCalls[0]?.intent) ===
+              JSON.stringify(proposal.intent) &&
+            JSON.stringify(harness.executionCalls[0]?.intent) !==
+              JSON.stringify(tamperedProposal.intent) &&
             harness.executionCalls[0]?.opts?.approvedScope === null &&
             harness.executionCalls[0]?.opts?.timeoutMs === 50,
           {
@@ -501,21 +512,16 @@ describe("WFCTS Runtime Suite", () => {
       });
       const { world } = await sealStandaloneGenesis(harness);
       const { proposal, decisionRecord } = await createExecutingProposal(harness);
-      const originalRunInSealTransaction =
-        harness.store.runInSealTransaction.bind(harness.store);
+      const originalPrepareSealNext = harness.lineage.prepareSealNext.bind(
+        harness.lineage
+      );
+      const originalRunInSealTransaction = harness.store.runInSealTransaction.bind(
+        harness.store
+      );
 
-      vi.spyOn(harness.store, "runInSealTransaction")
-        .mockImplementationOnce(async () => {
-          const activeBranch = await harness.lineage.getActiveBranch();
-          const lineageCommit = await harness.lineage.prepareSealNext({
-            schemaHash: "wfcts-schema",
-            baseWorldId: world!.worldId,
-            branchId: activeBranch.id,
-            terminalSnapshot,
-            createdAt: 20,
-            proposalRef: proposal.proposalId,
-            decisionRef: decisionRecord.decisionId,
-          });
+      vi.spyOn(harness.lineage, "prepareSealNext")
+        .mockImplementationOnce(async (sealInput) => {
+          const lineageCommit = await originalPrepareSealNext(sealInput);
           const governanceCommit = await harness.governance.finalize(
             proposal,
             lineageCommit,
@@ -526,11 +532,9 @@ describe("WFCTS Runtime Suite", () => {
             await tx.putProposal(governanceCommit.proposal);
             await tx.putDecisionRecord(governanceCommit.decisionRecord);
           });
-          throw new FacadeCasMismatchError(
-            "simulated CAS mismatch after competing seal"
-          );
+          return originalPrepareSealNext(sealInput);
         })
-        .mockImplementation(async (work) => originalRunInSealTransaction(work));
+        .mockImplementation(async (sealInput) => originalPrepareSealNext(sealInput));
 
       const result = await harness.world.runtime.executeApprovedProposal({
         proposal,

@@ -232,4 +232,49 @@ describe("@manifesto-ai/world facade coordinator", () => {
       "execution:completed",
     ]);
   });
+
+  it("wraps first-attempt lineage head mismatch as a facade CAS signal", async () => {
+    const harness = createFacadeHarness();
+    const { world } = await sealStandaloneGenesis(harness);
+    const { proposal, decisionRecord } = await createExecutingProposal(harness);
+    const branch = await harness.lineage.getActiveBranch();
+
+    vi.spyOn(harness.lineage, "prepareSealNext").mockImplementationOnce(async () => {
+      throw new Error(
+        "LIN-BRANCH-SEAL-2 violation: branch head advanced before commit"
+      );
+    });
+
+    const governedWorld = createWorld({
+      store: harness.store,
+      lineage: harness.lineage,
+      governance: harness.governance,
+      eventDispatcher: createGovernanceEventDispatcher({
+        service: harness.governance,
+        sink: {
+          emit(event: GovernanceEvent): void {
+            harness.events.push(event);
+          },
+        },
+        now: () => 1000,
+      }) as FacadeDispatcher,
+      executor: harness.executor,
+    });
+
+    await expect(
+      governedWorld.coordinator.sealNext({
+        executingProposal: proposal,
+        completedAt: 20,
+        sealInput: {
+          schemaHash: "wfcts-schema",
+          baseWorldId: world!.worldId,
+          branchId: branch.id,
+          terminalSnapshot: createSnapshot({ count: 2 }),
+          createdAt: 19,
+          proposalRef: proposal.proposalId,
+          decisionRef: decisionRecord.decisionId,
+        },
+      })
+    ).rejects.toThrow(FacadeCasMismatchError);
+  });
 });

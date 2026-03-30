@@ -49,8 +49,6 @@ async function sealGovernedNextAsync(
   options: DefaultWorldCoordinatorOptions,
   params: CoordinatorSealNextParams
 ): Promise<GovernedSealCompletion> {
-  let sawCasMismatch = false;
-
   for (let attempt = 0; attempt < MAX_CAS_RETRIES; attempt += 1) {
     try {
       const lineageCommit = await options.lineage.prepareSealNext(params.sealInput);
@@ -77,13 +75,12 @@ async function sealGovernedNextAsync(
       };
     } catch (error) {
       if (isFacadeCasMismatchError(error)) {
-        sawCasMismatch = true;
         if (attempt < MAX_CAS_RETRIES - 1) {
           continue;
         }
       }
 
-      if (sawCasMismatch && isLineageSealBaseMismatchError(error)) {
+      if (isLineageSealBaseMismatchError(error)) {
         throw new FacadeCasMismatchError(
           "FACADE-COORD-9 violation: branch head advanced after a competing seal won the CAS race",
           error
