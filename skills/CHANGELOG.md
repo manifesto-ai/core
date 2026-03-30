@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/manifesto-ai/core/compare/skills-v0.2.1...skills-v0.2.2) (2026-03-30)
+
+
+### Features
+
+* land core v4 cleanup and action availability queries ([#331](https://github.com/manifesto-ai/core/issues/331)) ([30ec2b4](https://github.com/manifesto-ai/core/commit/30ec2b481cebbf2a2640fe21fd7909d6b033a1b4))
+
 ## [0.2.1](https://github.com/manifesto-ai/core/compare/skills-v0.2.0...skills-v0.2.1) (2026-03-28)
 
 
