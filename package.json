@@ -21,7 +21,7 @@
   "type": "module",
   "packageManager": "pnpm@9.15.2",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
