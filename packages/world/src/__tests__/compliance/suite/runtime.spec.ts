@@ -564,4 +564,46 @@ describe("WFCTS Runtime Suite", () => {
       expect(result.proposal.status).toBe("completed");
     }
   );
+
+  it(
+    caseTitle(
+      WFCTS_CASES.RUNTIME_DISPATCH_FAILURE,
+      "WorldRuntime surfaces post-commit event dispatch failures instead of converting them to recovered completions."
+    ),
+    async () => {
+      const harness = createFacadeHarness({
+        executorResult: {
+          outcome: "completed",
+          terminalSnapshot: createSnapshot({ count: 2 }),
+        },
+      });
+      await sealStandaloneGenesis(harness);
+      const { proposal } = await createExecutingProposal(harness);
+
+      vi.spyOn(harness.eventDispatcher, "emitSealCompleted").mockImplementation(() => {
+        throw new Error("dispatch failed");
+      });
+
+      await expect(
+        harness.world.runtime.executeApprovedProposal({
+          proposal,
+          completedAt: 20,
+        })
+      ).rejects.toThrow("dispatch failed");
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("FACADE-RUNTIME-13"),
+          (await harness.store.getProposal(proposal.proposalId))?.status ===
+            "completed" && harness.executionCalls.length === 1,
+          {
+            passMessage:
+              "Runtime surfaced the post-commit dispatch failure instead of converting it into a recovered completion.",
+            failMessage:
+              "Runtime swallowed the post-commit dispatch failure or converted it into a recovered completion.",
+          }
+        ),
+      ]);
+    }
+  );
 });

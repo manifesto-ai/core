@@ -122,7 +122,7 @@ describe("SqliteGovernedWorldStore", () => {
         await tx.putProposal(governanceCommit.proposal);
         await tx.putDecisionRecord(governanceCommit.decisionRecord);
       });
-      first.store.close();
+      await first.store.close();
       first = undefined;
 
       second = await createSqliteHarness(filename);
@@ -137,8 +137,8 @@ describe("SqliteGovernedWorldStore", () => {
         lineageCommit.worldId
       );
     } finally {
-      second?.store.close();
-      first?.store.close();
+      await second?.store.close();
+      await first?.store.close();
       rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -182,7 +182,7 @@ describe("SqliteGovernedWorldStore", () => {
         "executing"
       );
     } finally {
-      harness?.store.close();
+      await harness?.store.close();
       rmSync(dir, { recursive: true, force: true });
     }
   });

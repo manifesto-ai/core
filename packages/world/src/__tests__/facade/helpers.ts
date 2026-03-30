@@ -7,6 +7,7 @@ import {
   createWorld,
   type DecisionRecord,
   type GovernedWorldStore,
+  type GovernanceEventDispatcher,
   type GovernanceEvent,
   type Proposal,
   type WorldExecutionOptions,
@@ -45,6 +46,7 @@ export interface FacadeHarness {
   readonly lineage: WorldInstance["lineage"];
   readonly governance: WorldInstance["governance"];
   readonly world: WorldInstance;
+  readonly eventDispatcher: GovernanceEventDispatcher;
   readonly events: GovernanceEvent[];
   readonly executor: WorldExecutor;
   readonly executionCalls: readonly {
@@ -99,6 +101,7 @@ export function createFacadeHarness(options?: {
       eventDispatcher: dispatcher,
       executor,
     }),
+    eventDispatcher: dispatcher,
     events,
     executor,
     executionCalls,

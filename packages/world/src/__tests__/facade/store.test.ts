@@ -203,12 +203,13 @@ describe("@manifesto-ai/world facade store", () => {
     );
 
     const internals = harness.store as unknown as {
-      driver: {
+      resolveDriver(): Promise<{
         governance: { putProposal: (proposal: unknown) => Promise<void> };
-      };
+      }>;
     };
+    const driver = await internals.resolveDriver();
     const failure = new Error("simulated governance write failure");
-    vi.spyOn(internals.driver.governance, "putProposal").mockImplementation(
+    vi.spyOn(driver.governance, "putProposal").mockImplementation(
       async () => {
         throw failure;
       }

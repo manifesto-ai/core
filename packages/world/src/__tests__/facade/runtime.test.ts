@@ -324,6 +324,33 @@ describe("@manifesto-ai/world facade runtime", () => {
     expect(harness.events).toHaveLength(0);
   });
 
+  it("surfaces post-commit event dispatch failures instead of converting them to recovered completions", async () => {
+    const harness = createFacadeHarness({
+      executorResult: {
+        outcome: "completed",
+        terminalSnapshot: createSnapshot({ count: 2 }),
+      },
+    });
+    await sealStandaloneGenesis(harness);
+    const { proposal } = await createExecutingProposal(harness);
+
+    vi.spyOn(harness.eventDispatcher, "emitSealCompleted").mockImplementation(() => {
+      throw new Error("dispatch failed");
+    });
+
+    await expect(
+      harness.world.runtime.executeApprovedProposal({
+        proposal,
+        completedAt: 20,
+      })
+    ).rejects.toThrow("dispatch failed");
+
+    expect(harness.executionCalls).toHaveLength(1);
+    expect((await harness.store.getProposal(proposal.proposalId))?.status).toBe(
+      "completed"
+    );
+  });
+
   it("forwards abort signals to the executor abort hook while waiting for execution", async () => {
     let resolveExecution!: (value: {
       outcome: "completed";

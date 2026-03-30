@@ -266,13 +266,14 @@ describe("WFCTS Factory Suite", () => {
       );
 
       const internals = harness.store as unknown as {
-        driver: {
+        resolveDriver(): Promise<{
           governance: { putProposal: (proposal: unknown) => Promise<void> };
-        };
+        }>;
       };
+      const driver = await internals.resolveDriver();
       const failure = new Error("simulated governance write failure");
       const proposalWriter = vi
-        .spyOn(internals.driver.governance, "putProposal")
+        .spyOn(driver.governance, "putProposal")
         .mockImplementation(async () => {
           throw failure;
         });

@@ -26,10 +26,6 @@ import {
   IndexedDbGovernedWorldPersistenceDriver,
   type IndexedDbGovernedWorldPersistenceDriverOptions,
 } from "../persistence/indexeddb-driver.js";
-import {
-  SqliteGovernedWorldPersistenceDriver,
-  type SqliteGovernedWorldPersistenceDriverOptions,
-} from "../persistence/sqlite-driver.js";
 import type {
   GovernedWorldPersistenceDriver,
 } from "../persistence/types.js";
@@ -39,137 +35,173 @@ import type {
 } from "./types.js";
 
 class DriverBackedGovernedWorldStore implements GovernedWorldStore {
-  protected readonly driver: GovernedWorldPersistenceDriver;
+  private readonly driverPromise: Promise<GovernedWorldPersistenceDriver>;
 
-  public constructor(driver: GovernedWorldPersistenceDriver) {
-    this.driver = driver;
+  public constructor(
+    driver: GovernedWorldPersistenceDriver | Promise<GovernedWorldPersistenceDriver>
+  ) {
+    this.driverPromise = Promise.resolve(driver);
+  }
+
+  protected async resolveDriver(): Promise<GovernedWorldPersistenceDriver> {
+    return this.driverPromise;
   }
 
   async putWorld(world: World): Promise<void> {
-    await this.driver.lineage.putWorld(world);
+    const driver = await this.resolveDriver();
+    await driver.lineage.putWorld(world);
   }
 
   async getWorld(worldId: WorldId): Promise<World | null> {
-    return this.driver.lineage.getWorld(worldId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getWorld(worldId);
   }
 
   async putSnapshot(worldId: WorldId, snapshot: Snapshot): Promise<void> {
-    await this.driver.lineage.putSnapshot(worldId, snapshot);
+    const driver = await this.resolveDriver();
+    await driver.lineage.putSnapshot(worldId, snapshot);
   }
 
   async getSnapshot(worldId: WorldId): Promise<Snapshot | null> {
-    return this.driver.lineage.getSnapshot(worldId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getSnapshot(worldId);
   }
 
   async putAttempt(attempt: SealAttempt): Promise<void> {
-    await this.driver.lineage.putAttempt(attempt);
+    const driver = await this.resolveDriver();
+    await driver.lineage.putAttempt(attempt);
   }
 
   async getAttempts(worldId: WorldId): Promise<readonly SealAttempt[]> {
-    return this.driver.lineage.getAttempts(worldId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getAttempts(worldId);
   }
 
   async getAttemptsByBranch(branchId: BranchId): Promise<readonly SealAttempt[]> {
-    return this.driver.lineage.getAttemptsByBranch(branchId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getAttemptsByBranch(branchId);
   }
 
   async putHashInput(snapshotHash: string, input: SnapshotHashInput): Promise<void> {
-    await this.driver.lineage.putHashInput?.(snapshotHash, input);
+    const driver = await this.resolveDriver();
+    await driver.lineage.putHashInput?.(snapshotHash, input);
   }
 
   async getHashInput(snapshotHash: string): Promise<SnapshotHashInput | null> {
-    return (await this.driver.lineage.getHashInput?.(snapshotHash)) ?? null;
+    const driver = await this.resolveDriver();
+    return (await driver.lineage.getHashInput?.(snapshotHash)) ?? null;
   }
 
   async putEdge(edge: WorldEdge): Promise<void> {
-    await this.driver.lineage.putEdge(edge);
+    const driver = await this.resolveDriver();
+    await driver.lineage.putEdge(edge);
   }
 
   async getEdges(worldId: WorldId): Promise<readonly WorldEdge[]> {
-    return this.driver.lineage.getEdges(worldId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getEdges(worldId);
   }
 
   async getBranchHead(branchId: BranchId): Promise<WorldId | null> {
-    return this.driver.lineage.getBranchHead(branchId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranchHead(branchId);
   }
 
   async getBranchTip(branchId: BranchId): Promise<WorldId | null> {
-    return this.driver.lineage.getBranchTip(branchId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranchTip(branchId);
   }
 
   async getBranchEpoch(branchId: BranchId): Promise<number> {
-    return this.driver.lineage.getBranchEpoch(branchId);
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranchEpoch(branchId);
   }
 
   async mutateBranch(mutation: PreparedBranchMutation): Promise<void> {
-    await this.driver.lineage.mutateBranch(mutation);
+    const driver = await this.resolveDriver();
+    await driver.lineage.mutateBranch(mutation);
   }
 
   async putBranch(branch: PersistedBranchEntry): Promise<void> {
-    await this.driver.lineage.putBranch(branch);
+    const driver = await this.resolveDriver();
+    await driver.lineage.putBranch(branch);
   }
 
   async getBranches(): Promise<readonly PersistedBranchEntry[]> {
-    return this.driver.lineage.getBranches();
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranches();
   }
 
   async getActiveBranchId(): Promise<BranchId | null> {
-    return this.driver.lineage.getActiveBranchId();
+    const driver = await this.resolveDriver();
+    return driver.lineage.getActiveBranchId();
   }
 
   async switchActiveBranch(
     sourceBranchId: BranchId,
     targetBranchId: BranchId
   ): Promise<void> {
-    await this.driver.lineage.switchActiveBranch(sourceBranchId, targetBranchId);
+    const driver = await this.resolveDriver();
+    await driver.lineage.switchActiveBranch(sourceBranchId, targetBranchId);
   }
 
   async commitPrepared(
     prepared: Parameters<LineageStore["commitPrepared"]>[0]
   ): Promise<void> {
-    await this.driver.lineage.commitPrepared(prepared);
+    const driver = await this.resolveDriver();
+    await driver.lineage.commitPrepared(prepared);
   }
 
   async putProposal(proposal: Proposal): Promise<void> {
-    await this.driver.governance.putProposal(proposal);
+    const driver = await this.resolveDriver();
+    await driver.governance.putProposal(proposal);
   }
 
   async getProposal(proposalId: ProposalId): Promise<Proposal | null> {
-    return this.driver.governance.getProposal(proposalId);
+    const driver = await this.resolveDriver();
+    return driver.governance.getProposal(proposalId);
   }
 
   async getProposalsByBranch(branchId: BranchId): Promise<readonly Proposal[]> {
-    return this.driver.governance.getProposalsByBranch(branchId);
+    const driver = await this.resolveDriver();
+    return driver.governance.getProposalsByBranch(branchId);
   }
 
   async getExecutionStageProposal(branchId: BranchId): Promise<Proposal | null> {
-    return this.driver.governance.getExecutionStageProposal(branchId);
+    const driver = await this.resolveDriver();
+    return driver.governance.getExecutionStageProposal(branchId);
   }
 
   async putDecisionRecord(record: DecisionRecord): Promise<void> {
-    await this.driver.governance.putDecisionRecord(record);
+    const driver = await this.resolveDriver();
+    await driver.governance.putDecisionRecord(record);
   }
 
   async getDecisionRecord(decisionId: DecisionId): Promise<DecisionRecord | null> {
-    return this.driver.governance.getDecisionRecord(decisionId);
+    const driver = await this.resolveDriver();
+    return driver.governance.getDecisionRecord(decisionId);
   }
 
   async putActorBinding(binding: ActorAuthorityBinding): Promise<void> {
-    await this.driver.governance.putActorBinding(binding);
+    const driver = await this.resolveDriver();
+    await driver.governance.putActorBinding(binding);
   }
 
   async getActorBinding(actorId: ActorId): Promise<ActorAuthorityBinding | null> {
-    return this.driver.governance.getActorBinding(actorId);
+    const driver = await this.resolveDriver();
+    return driver.governance.getActorBinding(actorId);
   }
 
   async getActorBindings(): Promise<readonly ActorAuthorityBinding[]> {
-    return this.driver.governance.getActorBindings();
+    const driver = await this.resolveDriver();
+    return driver.governance.getActorBindings();
   }
 
   async runInSealTransaction<T>(
     work: (tx: WorldStoreTransaction) => Promise<T>
   ): Promise<T> {
-    return this.driver.runInSealTransaction(work);
+    const driver = await this.resolveDriver();
+    return driver.runInSealTransaction(work);
   }
 }
 
@@ -196,20 +228,35 @@ export class IndexedDbGovernedWorldStore extends DriverBackedGovernedWorldStore 
   }
 }
 
-export interface SqliteWorldStoreOptions
-  extends SqliteGovernedWorldPersistenceDriverOptions {}
+export interface SqliteWorldStoreOptions {
+  readonly filename?: string;
+}
+
+type SqlitePersistenceDriver = GovernedWorldPersistenceDriver & {
+  close(): void | Promise<void>;
+};
+
+async function createSqlitePersistenceDriver(
+  options?: SqliteWorldStoreOptions
+): Promise<SqlitePersistenceDriver> {
+  const { SqliteGovernedWorldPersistenceDriver } = await import(
+    "../persistence/sqlite-driver.js"
+  );
+  return new SqliteGovernedWorldPersistenceDriver(options);
+}
 
 export class SqliteGovernedWorldStore extends DriverBackedGovernedWorldStore {
-  private readonly sqliteDriver: SqliteGovernedWorldPersistenceDriver;
+  private readonly sqliteDriverPromise: Promise<SqlitePersistenceDriver>;
 
   public constructor(options?: SqliteWorldStoreOptions) {
-    const sqliteDriver = new SqliteGovernedWorldPersistenceDriver(options);
-    super(sqliteDriver);
-    this.sqliteDriver = sqliteDriver;
+    const sqliteDriverPromise = createSqlitePersistenceDriver(options);
+    super(sqliteDriverPromise);
+    this.sqliteDriverPromise = sqliteDriverPromise;
   }
 
-  public close(): void {
-    this.sqliteDriver.close();
+  public async close(): Promise<void> {
+    const sqliteDriver = await this.sqliteDriverPromise;
+    await sqliteDriver.close();
   }
 }
 

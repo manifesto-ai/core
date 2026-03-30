@@ -56,7 +56,7 @@ export const WORLD_FACADE_SPEC_INVENTORY: readonly WorldFacadeComplianceInventor
   inventory("FACADE-STORE-3", "§6.2", "MUST", "factory"),
   inventory("FACADE-STORE-7", "§6.2", "MUST", "factory"),
   ...inventoryMany(["FACADE-COORD-1", "FACADE-COORD-2", "FACADE-COORD-3", "FACADE-COORD-5", "FACADE-COORD-6", "FACADE-COORD-7", "FACADE-COORD-8", "FACADE-COORD-9", "FACADE-COORD-11"], "§8", "MUST", "coordinator"),
-  ...inventoryMany(["FACADE-RUNTIME-1", "FACADE-RUNTIME-2", "FACADE-RUNTIME-3", "FACADE-RUNTIME-4", "FACADE-RUNTIME-5", "FACADE-RUNTIME-6", "FACADE-RUNTIME-7", "FACADE-RUNTIME-8", "FACADE-RUNTIME-9", "FACADE-RUNTIME-10", "FACADE-RUNTIME-11", "FACADE-RUNTIME-12"], "§9.4", "MUST", "runtime"),
+  ...inventoryMany(["FACADE-RUNTIME-1", "FACADE-RUNTIME-2", "FACADE-RUNTIME-3", "FACADE-RUNTIME-4", "FACADE-RUNTIME-5", "FACADE-RUNTIME-6", "FACADE-RUNTIME-7", "FACADE-RUNTIME-8", "FACADE-RUNTIME-9", "FACADE-RUNTIME-10", "FACADE-RUNTIME-11", "FACADE-RUNTIME-12", "FACADE-RUNTIME-13"], "§9.4", "MUST", "runtime"),
   inventory("FACADE-EVT-1", "§10", "MUST", "coordinator"),
   inventory("FACADE-EVT-2", "§10", "MUST", "coordinator"),
   inventory("FACADE-EVT-5", "§10", "MUST_NOT", "coordinator"),

@@ -34,6 +34,7 @@ export const WFCTS_CASES = {
   RUNTIME_STALE_GUARD: "WFCTS-RUNTIME-008",
   RUNTIME_RACE_RECOVERY: "WFCTS-RUNTIME-009",
   RUNTIME_ABORT_FORWARD: "WFCTS-RUNTIME-010",
+  RUNTIME_DISPATCH_FAILURE: "WFCTS-RUNTIME-011",
   SDK_ALIGNMENT: "WFCTS-MATRIX-001",
 } as const;
 
@@ -124,6 +125,11 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
     "WorldRuntime forwards abort signals to WorldExecutor.abort() while execution is in flight."
   ),
   complianceCase(
+    WFCTS_CASES.RUNTIME_DISPATCH_FAILURE,
+    "runtime",
+    "WorldRuntime surfaces post-commit event dispatch failures instead of converting them to recovered completions."
+  ),
+  complianceCase(
     WFCTS_CASES.SDK_ALIGNMENT,
     "matrix",
     "Factory caller preconditions and SDK hard-cut alignment are enforced as blocking facade rules."
@@ -148,6 +154,7 @@ export const WORLD_FACADE_RULE_COVERAGE: readonly WorldFacadeComplianceCoverageE
   ...coverMany(["FACADE-RUNTIME-10"], [WFCTS_CASES.RUNTIME_STALE_GUARD]),
   ...coverMany(["FACADE-RUNTIME-11"], [WFCTS_CASES.RUNTIME_RACE_RECOVERY]),
   ...coverMany(["FACADE-RUNTIME-12"], [WFCTS_CASES.RUNTIME_ABORT_FORWARD]),
+  ...coverMany(["FACADE-RUNTIME-13"], [WFCTS_CASES.RUNTIME_DISPATCH_FAILURE]),
   ...coverMany(["FACADE-FACTORY-3", "FACADE-SDK-1", "FACADE-SDK-2"], [WFCTS_CASES.SDK_ALIGNMENT]),
 ] as const;
 

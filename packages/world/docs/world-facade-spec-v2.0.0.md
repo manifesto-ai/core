@@ -367,6 +367,7 @@ interface WorldRuntime {
 | FACADE-RUNTIME-10 | MUST | Runtime MUST reject stale executing proposals whose branch head or epoch no longer matches `proposal.baseWorld` / `proposal.epoch` |
 | FACADE-RUNTIME-11 | MUST | When a seal race loses to another writer that already committed the same proposal, runtime MUST converge to a `recovered` completion rather than re-emitting or partially re-sealing |
 | FACADE-RUNTIME-12 | MUST | When an execution `AbortSignal` fires while `WorldExecutor.execute()` is in flight, runtime MUST forward it to `WorldExecutor.abort()` if that hook exists |
+| FACADE-RUNTIME-13 | MUST | Post-commit event dispatch failures MUST surface to the caller and MUST NOT be converted into `recovered` runtime completions |
 
 ---
 

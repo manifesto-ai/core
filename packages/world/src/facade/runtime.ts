@@ -20,6 +20,7 @@ import type {
   WorldRuntimeCompletion,
   WorldRuntime,
 } from "./types.js";
+import { isFacadeCasMismatchError } from "./internal/errors.js";
 
 export interface DefaultWorldRuntimeOptions {
   readonly store: GovernedWorldStore;
@@ -285,6 +286,10 @@ export class DefaultWorldRuntime implements WorldRuntime {
         sealResult: completed.sealResult,
       };
     } catch (error) {
+      if (!isFacadeCasMismatchError(error)) {
+        throw error;
+      }
+
       const recovered = await this.tryRecoverCompletion(
         await this.options.store.getProposal(proposal.proposalId)
       );
