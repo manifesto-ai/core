@@ -14,12 +14,12 @@
 >   - Re-export policy updated for Lineage v2 / Governance v2 draft surfaces
 >   - `WriteSet` semantics now transitively include `SealAttempt` persistence through `PreparedLineageCommit`
 >   - `commitSeal()` aligns to `(head, tip, epoch)` CAS, idempotent reuse, and snapshot first-write-wins semantics
->   - Reserved rejection path reframed as future-compatible only
+>   - Typed rejection path removed from the current v2 public contract and deferred to future ADR work
 >   - Event/fork semantics align to continuity-parent lineage model
 > - **v1.0.0 (2026-03-28):** Initial facade specification after ADR-014 split
 >   - Composite store interface (`CommitCapableWorldStore`)
 >   - WriteSet type definition
->   - Coordinator orchestration protocol (normal path + seal rejection path)
+>   - Coordinator orchestration protocol
 >   - `createWorld()` convenience entrypoint
 >   - Re-export policy
 >   - Facade lifecycle policy
@@ -76,7 +76,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 | Re-export policy | Which governance/lineage exports are re-exported |
 | Composite store | `CommitCapableWorldStore` interface |
 | WriteSet | Type that bundles lineage + governance records |
-| Coordinator protocol | Orchestration sequences for seal (normal + rejection) |
+| Coordinator protocol | Orchestration sequence for the current typed seal path |
 | `createWorld()` | Convenience factory assembling governance + lineage + store |
 | Event emission timing | When governance events are triggered relative to commit |
 | Facade lifecycle | Maintenance, deprecation, and removal policy |
@@ -127,7 +127,7 @@ All public types and services defined in Lineage SPEC v2.0.0 draft §7.1–§7.3
 
 **From `@manifesto-ai/governance`:**
 
-All public types and services defined in Governance SPEC v2.0.0 draft §5–§6, §9.2, §10, and §11.2, including but not limited to: `GovernanceService`, `GovernanceStore`, `Proposal`, `ProposalId`, `ProposalStatus`, `DecisionRecord`, `DecisionId`, `ActorId`, `AuthorityId`, `ActorAuthorityBinding`, `Intent`, `ExecutionKey`, `ExecutionKeyContext`, `PreparedGovernanceCommit`, `SealRejectionReason`, `SupersedeReason`, all governance event types (`ProposalSubmittedEvent`, `ExecutionCompletedEvent`, `ExecutionFailedEvent`, `ExecutionSealRejectedEvent`, `WorldCreatedEvent`, `WorldForkedEvent`).
+All public governance protocol types and services defined in Governance SPEC v2.0.0 draft §5–§6, §9.2, the event payload definitions in §10, and `GovernanceStore` in §11.2, including but not limited to: `GovernanceService`, `GovernanceStore`, `Proposal`, `ProposalId`, `ProposalStatus`, `DecisionRecord`, `DecisionId`, `ActorId`, `AuthorityId`, `ActorAuthorityBinding`, `Intent`, `ExecutionKey`, `ExecutionKeyContext`, `PreparedGovernanceCommit`, `SupersedeReason`, and governance event types (`ProposalSubmittedEvent`, `ExecutionCompletedEvent`, `ExecutionFailedEvent`, `WorldCreatedEvent`, `WorldForkedEvent`).
 
 ### 5.2 Facade-Owned Exports
 
@@ -164,11 +164,8 @@ interface CommitCapableWorldStore extends LineageStore, GovernanceStore {
   /**
    * Atomically commits lineage records and governance records together.
    *
-   * Two write set shapes:
-   * - Full (hasLineageRecords: true): lineage records + governance records
-   *   including `PreparedLineageCommit.attempt` persistence
-   * - Governance-only (hasLineageRecords: false): governance records only
-   *   (reserved future rejection path)
+   * The write set always contains lineage records + governance records,
+   * including `PreparedLineageCommit.attempt` persistence.
    *
    * Atomicity: all-or-nothing. On failure, no records are persisted.
    *
@@ -189,8 +186,8 @@ interface CommitCapableWorldStore extends LineageStore, GovernanceStore {
 |---------|-------|-------------|
 | FACADE-STORE-1 | MUST | `CommitCapableWorldStore` MUST extend both `LineageStore` and `GovernanceStore` |
 | FACADE-STORE-2 | MUST | `commitSeal()` MUST be atomic — all records or nothing |
-| FACADE-STORE-3 | MUST | When `writeSet.kind === 'full'`, `commitSeal()` MUST persist both lineage records (`writeSet.lineage`) and governance records (`writeSet.governance`) in a single transaction, including the lineage `SealAttempt` carried by `PreparedLineageCommit` |
-| FACADE-STORE-4 | MUST | When `writeSet.kind === 'govOnly'`, `commitSeal()` MUST persist only governance records. No lineage mutation occurs. This path is reserved for future lineage-side rejection, not a normal v2 outcome |
+| FACADE-STORE-3 | MUST | `commitSeal()` MUST persist both lineage records (`writeSet.lineage`) and governance records (`writeSet.governance`) in a single transaction, including the lineage `SealAttempt` carried by `PreparedLineageCommit` |
+| FACADE-STORE-4 | MUST NOT | `commitSeal()` MUST NOT define or accept a governance-only write path in the current v2 draft |
 | FACADE-STORE-5 | MUST | `commitSeal()` with lineage records MUST enforce the same semantics as `LineageStore.commitPrepared()`: joint `(head, tip, epoch)` CAS (LIN-STORE-4), branch-scoped mutation (LIN-STORE-5), and reuse detection + attempt persistence + snapshot first-write-wins safety (LIN-STORE-9, MRKL-STORE-1~4) |
 | FACADE-STORE-6 | MUST NOT | `commitSeal()` MUST NOT be used in lineage-only environments. Lineage standalone callers use `LineageService.commitPrepared()` directly (LIN-SEAL-5) |
 | FACADE-STORE-7 | MUST | Facade package MUST provide an in-memory `CommitCapableWorldStore` implementation via `createInMemoryWorldStore()` |
@@ -220,37 +217,26 @@ function createInMemoryWorldStore(): CommitCapableWorldStore;
 /**
  * WriteSet: bundles all records from a seal operation for atomic commit.
  *
- * Discriminated union on `kind`:
- * - 'full': lineage prepare succeeded → lineage + governance records
- *   (`lineage.attempt` transitively carries attempt-scoped provenance/trace/delta)
- * - 'govOnly': lineage surfaced a reserved future rejection → governance records only
- *
- * The `kind` is derived from PreparedGovernanceCommit.hasLineageRecords:
- *   hasLineageRecords === true  → kind: 'full'
- *   hasLineageRecords === false → kind: 'govOnly'
+ * In the current v2 draft there is a single shape:
+ * lineage prepare succeeded → lineage + governance records.
+ * `lineage.attempt` transitively carries attempt-scoped provenance/trace/delta.
  */
-type WriteSet =
-  | {
-      readonly kind: 'full';
-      readonly lineage: PreparedLineageCommit;
-      readonly governance: PreparedGovernanceCommit;
-    }
-  | {
-      readonly kind: 'govOnly';
-      readonly governance: PreparedGovernanceCommit;
-    };
+type WriteSet = {
+  readonly lineage: PreparedLineageCommit;
+  readonly governance: PreparedGovernanceCommit;
+};
 ```
 
 ### 7.2 WriteSet Rules
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| FACADE-WS-1 | MUST | `WriteSet` MUST be a discriminated union on `kind` (`'full'` or `'govOnly'`). Optional fields are not permitted — the shape difference is structural |
-| FACADE-WS-2 | MUST | When `kind === 'full'`, `governance.hasLineageRecords` MUST be `true` |
-| FACADE-WS-3 | MUST | When `kind === 'govOnly'`, `governance.hasLineageRecords` MUST be `false` |
-| FACADE-WS-4 | MUST NOT | Coordinator MUST NOT construct a `WriteSet` where `kind` disagrees with `governance.hasLineageRecords` |
+| FACADE-WS-1 | MUST | `WriteSet` MUST contain both `lineage` and `governance` records from the same seal operation |
+| FACADE-WS-2 | MUST NOT | `WriteSet` MUST NOT omit lineage records in the current v2 draft |
+| FACADE-WS-3 | MUST NOT | Coordinator MUST NOT invent alternate `WriteSet` variants outside this single typed surface |
+| FACADE-WS-4 | MUST | `lineage.attempt` remains part of the committed write set transitively through `PreparedLineageCommit` |
 
-**Why discriminated union, not optional `lineage`.** An optional field invites "forgot to check" bugs — the coordinator or store might assume lineage is present. A discriminated union forces every consumer to pattern-match and handle both shapes explicitly. This is the same design rationale as Lineage's `PreparedGenesisCommit` vs `PreparedNextCommit` — when the shape differs, the type must differ.
+**Why a single shape in v2.** The projected Lineage v2 public API does not expose a typed rejection channel from `prepareSealNext()`. Keeping a governance-only `WriteSet` variant in the facade would therefore document a branch that the current typed surface cannot produce.
 
 ---
 
@@ -262,7 +248,7 @@ The coordinator is the facade's primary behavioral responsibility. It orchestrat
 
 The coordinator is injected with (or internally holds references to):
 - `LineageService` — for `prepareSealNext()` / `prepareSealGenesis()`
-- `GovernanceService` — for `finalize()` / `finalizeOnSealRejection()`
+- `GovernanceService` — for `finalize()`
 - `CommitCapableWorldStore` — for `commitSeal()`
 - `GovernanceEventDispatcher` — for post-commit event emission (§10)
 
@@ -274,8 +260,6 @@ interface WorldCoordinator {
    * Seal a next World after governance-approved execution.
    *
    * Orchestrates: lineage prepare → governance finalize → atomic commit → events.
-   * If a future lineage-side structural rejection is surfaced, the reserved path is:
-   * governance finalizeOnSealRejection → commit govOnly → events.
    */
   sealNext(params: CoordinatorSealNextParams): SealResult;
 
@@ -308,9 +292,11 @@ type CoordinatorSealGenesisParams =
       readonly sealInput: SealGenesisInput;
     };
 
-type SealResult =
-  | { readonly kind: 'sealed'; readonly worldId: WorldId; readonly terminalStatus: TerminalStatus }
-  | { readonly kind: 'sealRejected'; readonly rejection: SealRejectionReason };
+type SealResult = {
+  readonly kind: 'sealed';
+  readonly worldId: WorldId;
+  readonly terminalStatus: TerminalStatus;
+};
 ```
 
 ### 8.3 Normal Path — `sealNext()` Sequence
@@ -336,12 +322,9 @@ Governance                   Coordinator                     Lineage            
     │                              │       lineageCommit,       │                   │
     │                              │       completedAt)         │                   │
     │                              │  → PreparedGovernanceCommit│                   │
-    │                              │    { hasLineageRecords:    │                   │
-    │                              │      true }               │                   │
     │                              │                            │                   │
     │                              │  3. Assemble WriteSet      │                   │
-    │                              │     { kind: 'full',        │                   │
-    │                              │       lineage, governance }│                   │
+    │                              │     { lineage, governance }│                   │
     │                              │                            │                   │
     │                              │  4. store.commitSeal(      │                   │
     │                              │       writeSet)            │                   │
@@ -362,57 +345,16 @@ Governance                   Coordinator                     Lineage            
 
 ### 8.4 Reserved Rejection Path — `sealNext()` Sequence
 
-This path exists only if a future lineage-side structural rejection is surfaced. Under the projected ADR-016 model, collision and self-loop are not expected rejection outcomes.
-
-```
-Governance                   Coordinator                     Lineage
-    │                              │                            │
-    │── sealNext(params) ─────────>│                            │
-    │                              │                            │
-    │                              │  1. lineage.               │
-    │                              │     prepareSealNext(       │
-    │                              │       sealInput)           │
-    │                              │──────────────────────────>│
-    │                              │                            │  future structural
-    │                              │                            │  rejection only
-    │                              │<── REJECTION ──────────────│
-    │                              │    (SealRejectionReason)   │
-    │                              │                            │
-    │                              │  2. governance.            │
-    │                              │     finalizeOnSeal-        │
-    │                              │     Rejection(             │
-    │                              │       executingProposal,   │
-    │                              │       rejection,           │
-    │                              │       completedAt)         │
-    │                              │  → PreparedGovernanceCommit│
-    │                              │    { hasLineageRecords:    │
-    │                              │      false }              │
-    │                              │                            │
-    │                              │  3. Assemble WriteSet      │
-    │                              │     { kind: 'govOnly',     │
-    │                              │       governance }         │
-    │                              │                            │
-    │                              │  4. store.commitSeal(      │
-    │                              │       writeSet)            │
-    │                              │                            │
-    │                              │  5. dispatcher.             │
-    │                              │     emitSealRejected(       │
-    │                              │       govCommit, rejection) │
-    │                              │     (GOV-EXEC-EVT-5)       │
-    │                              │                            │
-    │<── SealResult { kind:        │                            │
-    │     'sealRejected',          │                            │
-    │     rejection }              │                            │
-```
+This path is intentionally **not** part of the current normative v2 surface. The projected Lineage v2 public API returns `PreparedNextCommit` and does not expose a typed structural rejection result. If a future ADR adds such a channel, the facade may grow a second orchestration branch in a later revision.
 
 ### 8.5 Ordering Constraints
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | FACADE-COORD-1 | MUST | `lineage.prepareSealNext()` MUST be called before `governance.finalize()` — governance needs `lineageCommit.worldId` and `lineageCommit.terminalStatus` (GOV-SEAL-1, GOV-SEAL-3) |
-| FACADE-COORD-2 | MUST | `governance.finalize()` (or `finalizeOnSealRejection()`) MUST be called before `store.commitSeal()` — the coordinator needs both prepared results to assemble the WriteSet |
+| FACADE-COORD-2 | MUST | `governance.finalize()` MUST be called before `store.commitSeal()` — the coordinator needs both prepared results to assemble the WriteSet |
 | FACADE-COORD-3 | MUST | Events MUST be emitted only after `store.commitSeal()` succeeds (GOV-EXEC-EVT-3, INV-G30) |
-| FACADE-COORD-4 | MUST | If `prepareSealNext()` surfaces a future structural rejection instead of a prepared commit, the coordinator MUST call `governance.finalizeOnSealRejection()`, not `governance.finalize()` (GOV-SEAL-7) |
+| FACADE-COORD-4 | MUST NOT | The coordinator MUST NOT invent governance-only terminalization branches outside the current typed v2 surface |
 | FACADE-COORD-5 | MUST | The coordinator MUST NOT call `lineage.commitPrepared()` — that path is for lineage-only environments (LIN-SEAL-5). Governed environments use `store.commitSeal()` exclusively |
 
 ### 8.6 Genesis Coordination
@@ -495,19 +437,19 @@ function createWorld(config: WorldConfig): WorldInstance;
 
 **Why `store` is required, not optional.** Services are pre-built by the caller with a specific store instance. If `createWorld()` created a default store internally, that store would be unknown to the already-constructed services — lineage would read from store A while the coordinator commits to store B. This breaks single-store atomic commit (ADR-014 Strategy A) and CAS correctness. Making `store` required ensures the caller controls the single physical store and passes the same instance to all three: `LineageService`, `GovernanceService`, and `createWorld()`.
 
-**Typical wiring pattern (schematic — factory names are illustrative, not normative):**
+**Typical wiring pattern (schematic):**
 
 ```typescript
 // Step 1: Create the single shared store
 const store = createInMemoryWorldStore();           // facade export
 
 // Step 2: Create services with that store
-const lineage = createLineageService(store);         // lineage package — actual API TBD
-const governance = createGovernanceService(store, {  // governance package — actual API TBD
+const lineage = createLineageService(store);         // lineage package
+const governance = createGovernanceService(store, {  // governance package
   authority: myAuthority,
   hostExecutor: myExecutor,
 });
-const dispatcher = governanceEventDispatcher(governance); // governance package — actual API TBD
+const dispatcher = createGovernanceEventDispatcher({ service: governance }); // governance package
 
 // Step 3: Assemble
 const world = createWorld({ store, lineage, governance, eventDispatcher: dispatcher });
@@ -537,8 +479,8 @@ Per ADR-014 D8, all governance result events are **owned by governance**. The fa
  * GovernanceEventDispatcher: the seam between coordinator (commit timing)
  * and governance (event payload construction + subscriber notification).
  *
- * This interface is DEFINED by the facade (it is the coordinator's dependency)
- * and IMPLEMENTED by the governance package (it knows event types and subscribers).
+ * This interface is the facade coordinator's dependency shape.
+ * Governance MUST expose a public implementation that conforms to this seam.
  *
  * The coordinator calls these methods after commitSeal() succeeds.
  * The implementation constructs appropriate governance events (GOV-EXEC-EVT-*)
@@ -548,7 +490,7 @@ interface GovernanceEventDispatcher {
   /**
    * Emit events for a successful seal (normal path).
    *
-   * Called after commitSeal({ kind: 'full' }) succeeds.
+   * Called after commitSeal(writeSet) succeeds.
    * The implementation emits execution:completed or execution:failed
    * and world:created / world:forked events based on the governance commit's outcome.
    * `WorldCreatedEvent.world` transitively follows the Lineage v2 World shape,
@@ -558,17 +500,6 @@ interface GovernanceEventDispatcher {
     governanceCommit: PreparedGovernanceCommit,
     lineageCommit: PreparedLineageCommit,
   ): void;
-
-  /**
-   * Emit events for a reserved future seal rejection.
-   *
-   * Called after commitSeal({ kind: 'govOnly' }) succeeds.
-   * The implementation emits execution:seal_rejected (GOV-EXEC-EVT-5).
-   */
-  emitSealRejected(
-    governanceCommit: PreparedGovernanceCommit,
-    rejection: SealRejectionReason,
-  ): void;
 }
 ```
 
@@ -577,14 +508,14 @@ interface GovernanceEventDispatcher {
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | FACADE-EVT-1 | MUST | Events MUST be emitted only after `store.commitSeal()` succeeds. If `commitSeal()` throws, no events are emitted |
-| FACADE-EVT-2 | MUST | The coordinator MUST call `GovernanceEventDispatcher.emitSealCompleted()` after a successful full commit, or `emitSealRejected()` after a successful governance-only commit |
-| FACADE-EVT-3 | MUST | `GovernanceEventDispatcher` MUST be implemented by the governance package. The facade defines the interface; governance provides the implementation |
+| FACADE-EVT-2 | MUST | The coordinator MUST call `GovernanceEventDispatcher.emitSealCompleted()` after a successful commit |
+| FACADE-EVT-3 | MUST | `GovernanceEventDispatcher` MUST be implemented by the governance package. The facade fixes the seam shape and timing semantics; governance provides the concrete public implementation |
 | FACADE-EVT-4 | MUST NOT | The coordinator MUST NOT construct governance event payloads itself — payload construction is governance's responsibility inside the dispatcher implementation |
 | FACADE-EVT-5 | MUST NOT | The coordinator MUST NOT call dispatcher methods during prepare or finalize steps — only after successful commit |
 
-**Why the facade defines this interface.** The coordinator needs a concrete call target for "emit events now." Governance SPEC §10 defines event types, payloads, and subscription semantics, but does not expose a public method for externally-triggered emission — because in governance's own model, events are an internal concern. The facade introduces this seam because only the coordinator knows when the atomic commit succeeds. The interface is minimal (two methods, both synchronous) and does not introduce new event types — it only provides a call site for timing control.
+**Why the facade defines this interface.** The coordinator needs a concrete call target for "emit events now." Governance owns event types, payloads, and subscribers, but the facade owns the post-commit timing rule because only the coordinator knows when the atomic commit succeeds. The interface is minimal and synchronous, and it does not introduce new event types — it only fixes the call shape and timing semantics.
 
-**Why governance implements it.** Governance owns the subscriber registry (Governance SPEC §10.3), event type definitions (§10.8), and handler constraints (GOV-EVT-C1~C6). The dispatcher implementation wraps all of this. The facade never touches subscriber lists or event payloads.
+**Why governance implements it.** Governance owns the subscriber registry (Governance SPEC §10.3), the public dispatcher implementation and factory described in §10.4, event type definitions (§10.9), and handler constraints (GOV-EVT-C1~C6). The dispatcher implementation wraps all of this. The facade never touches subscriber lists or event payloads.
 
 ---
 
@@ -639,7 +570,7 @@ The SDK alignment step for this facade draft is pending:
 | ID | Invariant |
 |----|-----------|
 | INV-F1 | `commitSeal()` is atomic — all records or nothing (delegates LIN-STORE-6 + governance atomicity) |
-| INV-F2 | WriteSet `kind` agrees with `governance.hasLineageRecords` — no disagreement permitted |
+| INV-F2 | `WriteSet` always contains both lineage and governance records from the same seal |
 | INV-F3 | Events are emitted only after successful commit — coordinator calls `GovernanceEventDispatcher` methods only after `commitSeal()` returns (delegates INV-G30) |
 | INV-F4 | Coordinator calls `prepareSealNext()` before `governance.finalize()` — ordering is strict |
 | INV-F5 | Facade does not define new constitutional rules — all protocol invariants are delegated to governance or lineage |
@@ -658,7 +589,7 @@ An implementation claiming compliance with **Manifesto World Facade v2.0.0 draft
 1. Implement `CommitCapableWorldStore` extending both `LineageStore` and `GovernanceStore`
 2. Implement `commitSeal()` with all-or-nothing atomicity (FACADE-STORE-2~5)
 3. Provide `createInMemoryWorldStore()` (FACADE-STORE-7)
-4. Implement `WorldCoordinator` with the normal path and the reserved future rejection path
+4. Implement `WorldCoordinator` with the normal path defined by the current typed v2 surface
 5. Enforce ordering constraints (FACADE-COORD-1~5)
 6. Support governance-wrapped and governance-free genesis (FACADE-COORD-6~8)
 7. Retry from prepare on CAS failure (FACADE-COORD-9)
@@ -670,20 +601,18 @@ An implementation claiming compliance with **Manifesto World Facade v2.0.0 draft
 
 | Test Category | Description |
 |---------------|-------------|
-| Atomic commit (full) | `commitSeal({ kind: 'full' })` persists both lineage and governance records, including lineage `SealAttempt` |
-| Atomic commit (govOnly) | `commitSeal({ kind: 'govOnly' })` persists only governance records in the reserved rejection path |
+| Atomic commit | `commitSeal({ lineage, governance })` persists both lineage and governance records, including lineage `SealAttempt` |
 | Commit failure | `commitSeal()` failure → no records persisted, no events emitted |
 | Normal seal path | prepare → finalize → commit → events: all steps execute in order |
 | Idempotent reuse | Same-parent same-snapshot full commit reuses World/Edge/snapshot and still persists a new `SealAttempt` |
-| Reserved rejection path | Future lineage-side rejection → finalizeOnSealRejection → commit govOnly → seal_rejected event |
 | CAS retry | Simulate CAS failure → coordinator retries from prepare, not commit |
 | Governance-free genesis | `sealGenesis()` without proposal → lineage standalone path (commitPrepared, not commitSeal) |
 | Governance-wrapped genesis | `sealGenesis()` with proposal → full coordinator path |
 | Store identity | Services constructed with different store instance than `WorldConfig.store` → CAS mismatch on seal attempt |
-| WriteSet consistency | `kind` always agrees with `hasLineageRecords` |
+| WriteSet consistency | `WriteSet` always contains both lineage and governance records from the same seal |
 | Re-export identity | Types re-exported from facade are identical to source package types |
 | Event ordering | Events not emitted during prepare or finalize steps |
-| Event dispatcher seam | `GovernanceEventDispatcher.emitSealCompleted()` called after full commit; `emitSealRejected()` called only after reserved govOnly commit |
+| Event dispatcher seam | `GovernanceEventDispatcher.emitSealCompleted()` is called only after successful commit |
 | Fork event meaning | `WorldForkedEvent.forkPoint` equals continuity parent, not `proposal.baseWorld` |
 
 ---
@@ -713,11 +642,9 @@ An implementation claiming compliance with **Manifesto World Facade v2.0.0 draft
 | FACADE-STORE-5 | LIN-STORE-4, LIN-STORE-5, LIN-STORE-9 |
 | FACADE-COORD-1 | GOV-SEAL-1, GOV-SEAL-3 |
 | FACADE-COORD-3 | GOV-EXEC-EVT-3, INV-G30 |
-| FACADE-COORD-4 | GOV-SEAL-7 |
 | FACADE-COORD-5 | LIN-SEAL-5 |
 | FACADE-EVT-1 | INV-G30 |
-| FACADE-EVT-2 | GOV-EXEC-EVT-1~2, GOV-EXEC-EVT-5 |
-| FACADE-WS-2~3 | GOV-SEAL-10 |
+| FACADE-EVT-2 | GOV-EXEC-EVT-1~2 |
 
 ---
 
@@ -756,11 +683,11 @@ With extends, `createWorld()` passes the same store instance to both services. `
 
 **Why.** The coordinator exists to solve the "two protocols, one transaction" problem. If there's only one protocol (lineage), there's no coordination needed. Forcing governance-free callers through the coordinator would add complexity with no benefit. Lineage standalone callers use the lineage API directly; they don't need the facade at all.
 
-### B.3 WriteSet as discriminated union (not optional lineage)
+### B.3 WriteSet as a single full shape
 
-**Decision:** `{ kind: 'full', lineage, governance } | { kind: 'govOnly', governance }`.
+**Decision:** `{ lineage, governance }`.
 
-**Why not `{ lineage?: PreparedLineageCommit; governance: PreparedGovernanceCommit }`.** See §7.2 rationale. The optional pattern is a "forgot to check" footgun. Discriminated unions make both paths explicit at the type level.
+**Why not keep the old rejection-oriented variants.** The projected Lineage v2 public API does not expose a typed structural rejection channel from `prepareSealNext()`. Keeping a governance-only variant in the facade would therefore advertise a branch that the current typed surface cannot produce.
 
 ### B.4 CAS retry from prepare, not commit
 
@@ -772,9 +699,9 @@ With extends, `createWorld()` passes the same store instance to both services. `
 
 **Decision:** The facade defines `GovernanceEventDispatcher` interface; governance implements it; coordinator calls it after commit.
 
-**Why.** Governance owns event types and payloads (Governance SPEC §10). But the coordinator owns the commit — it's the only actor that knows when commit succeeded. Neither governance nor lineage can know the commit result because neither performs the commit. The dispatcher interface bridges this gap with two concrete methods (`emitSealCompleted`, `emitSealRejected`) instead of leaving implementors to guess what "delegate to governance's event dispatcher" means.
+**Why.** Governance owns event types and payloads (Governance SPEC §10). But the coordinator owns the commit — it's the only actor that knows when commit succeeded. Neither governance nor lineage can know the commit result because neither performs the commit. The dispatcher interface bridges this gap with one concrete post-commit method (`emitSealCompleted`) instead of leaving implementors to guess what "delegate to governance's event dispatcher" means.
 
-**Why not add emit to GovernanceService.** `GovernanceService` is defined by Governance SPEC and has a clear contract: `finalize()` and `finalizeOnSealRejection()` are side-effect-free preparations. Adding an emit method would break this purity principle (GOV-SEAL-2). The dispatcher is a separate concern — post-commit side effects — and deserves its own interface.
+**Why not add emit to GovernanceService.** `GovernanceService` is defined by Governance SPEC and has a clear contract: `finalize()` is a side-effect-free preparation. Adding an emit method would break this purity principle (GOV-SEAL-2). The dispatcher is a separate concern — post-commit side effects — and deserves its own interface.
 
 ### B.6 Pre-built services + required store (not config objects + optional store)
 

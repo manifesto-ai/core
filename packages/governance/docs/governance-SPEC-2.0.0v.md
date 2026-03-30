@@ -17,7 +17,7 @@
 
 | Version | Summary | Key Decisions |
 |---------|---------|---------------|
-| v2.0.0 | ADR-015 + ADR-016 epoch boundary draft — remove accumulated-error assumptions, move provenance to `SealAttempt`, keep seal rejection as future-compatible escape hatch | ADR-014, ADR-015, ADR-016 |
+| v2.0.0 | ADR-015 + ADR-016 epoch boundary draft — remove accumulated-error assumptions, move provenance to `SealAttempt`, and align the governance/world seam to the current typed v2 surface | ADR-014, ADR-015, ADR-016 |
 | v1.0.0 | Initial release — extracted from World SPEC v2.0.5 per ADR-014 | ADR-014 D3, D8, D9, D10, D12, D13 |
 
 ---
@@ -60,7 +60,7 @@ Governance **does not** govern:
 
 Governance requires lineage. Lineage does not require governance.
 
-This document is **normative**.
+This document is a **projected next-major draft**. It is not the current normative package contract.
 
 ---
 
@@ -439,7 +439,7 @@ Branch B at epoch E, head H₁
   │     → Decision discarded, P₂ already superseded
 ```
 
-**Why `head_advance` is a supersede reason.** When the head advances, the branch epoch increments (LIN-EPOCH-2, LIN-HEAD-ADV-4). Any ingress proposal captured at the old epoch was based on a world that is no longer the branch head. Even if the proposal were approved, its `baseWorld` would fail the `LIN-BRANCH-SEAL-2` check at seal time (`branchId`'s current head MUST equal `baseWorldId`). Superseding at the governance level (rather than waiting for a lineage seal rejection) gives clear diagnostic feedback and prevents wasted authority evaluation work.
+**Why `head_advance` is a supersede reason.** When the head advances, the branch epoch increments (LIN-EPOCH-2, LIN-HEAD-ADV-4). Any ingress proposal captured at the old epoch was based on a world that is no longer the branch head. Even if the proposal were approved, its `baseWorld` would fail the `LIN-BRANCH-SEAL-2` check at seal time (`branchId`'s current head MUST equal `baseWorldId`). Superseding at the governance level, rather than letting the proposal advance to a seal-time structural failure, gives clear diagnostic feedback and prevents wasted authority evaluation work.
 
 ### 7.3 Proposal Branch Identity
 
@@ -629,7 +629,7 @@ function deriveOutcome(terminalSnapshot: Snapshot): 'completed' | 'failed' {
 |---------|-------|-------------|
 | GOV-TERM-1 | MUST | Terminal snapshot MUST have empty `pendingRequirements` for `outcome: 'completed'` |
 | GOV-TERM-2 | MUST | Non-empty pendingRequirements MUST result in `outcome: 'failed'` |
-| GOV-TERM-3 | MUST | Failed execution creates World **when seal succeeds** (sealed via lineage). If a future lineage-side rejection path is surfaced to governance, no World is created and the proposal terminates as `failed` without `resultWorld` (GOV-SEAL-7~9) |
+| GOV-TERM-3 | MUST | Failed execution creates World **when seal succeeds** (sealed via lineage) |
 | GOV-TERM-4 | SHOULD | `execution:failed` event SHOULD include pending requirement IDs |
 
 ### 8.5 BaseWorld Policy
@@ -675,36 +675,15 @@ The full seal sequence involves three participants: **Governance** (terminalize 
  * PreparedGovernanceCommit: The result of governance finalization.
  *
  * Contains all governance records that must be atomically committed.
- * In the normal seal path, these are committed alongside lineage records.
- * In the seal rejection path, only governance records are committed (no lineage records).
+ * These are committed alongside lineage records in the seal path.
  */
 type PreparedGovernanceCommit = {
   /** The terminalized proposal — status set to 'completed' or 'failed'.
-   *  resultWorld is populated from lineage commit in normal path,
-   *  absent in seal rejection path (GOV-SEAL-9). */
+   *  resultWorld is populated from lineage commit in the seal path. */
   readonly proposal: Proposal;
 
   /** The DecisionRecord (already created at approval time). */
   readonly decisionRecord: DecisionRecord;
-
-  /** Whether this commit has accompanying lineage records.
-   *  false when produced by finalizeOnSealRejection(). */
-  readonly hasLineageRecords: boolean;
-};
-```
-
-```typescript
-/**
- * SealRejectionReason: Reserved future-compatible lineage-side rejection payload.
- *
- * In the projected Lineage v2 model, collision and self-loop are not expected
- * rejection paths. Governance keeps this open struct so `finalizeOnSealRejection()`
- * remains available if lineage later surfaces another structural rejection.
- */
-type SealRejectionReason = {
-  readonly kind: string;
-  readonly message: string;
-  readonly details?: Record<string, unknown>;
 };
 ```
 
@@ -712,50 +691,28 @@ type SealRejectionReason = {
 /**
  * Finalize governance state for seal.
  *
- * Two paths:
+ * Normal seal path. Called after prepareSealNext() succeeds.
  *
- * finalize() — normal seal path. Called after prepareSealNext() succeeds.
- *   Input: executing proposal + PreparedLineageCommit
- *   Output: PreparedGovernanceCommit with hasLineageRecords = true
+ * Input: executing proposal + PreparedLineageCommit
+ * Output: PreparedGovernanceCommit
  *
- * finalizeOnSealRejection() — reserved rejection path. Called only when
- *   lineage surfaces a future structural rejection instead of a prepared commit.
- *   Input: executing proposal + SealRejectionReason
- *   Output: PreparedGovernanceCommit with hasLineageRecords = false
- *
- * Both methods:
+ * This method:
  * - Side effects: NONE (read-only preparation)
  * - Input proposal.status MUST be 'executing'
  * - Return a PreparedGovernanceCommit for atomic commit
  */
 interface GovernanceService {
-  // ─── Normal seal path ───
-
   /**
    * 1. Derives outcome via deriveOutcome(terminalSnapshot)
    * 2. Cross-verifies outcome against lineageCommit.terminalStatus (GOV-SEAL-1)
    * 3. Sets proposal.resultWorld = lineageCommit.worldId
    * 4. Transitions proposal.status to terminal ('completed' or 'failed')
    * 5. Sets proposal.completedAt
-   * 6. Returns PreparedGovernanceCommit { hasLineageRecords: true }
+   * 6. Returns PreparedGovernanceCommit
    */
   finalize(
     executingProposal: Proposal,
     lineageCommit: PreparedLineageCommit,
-    completedAt: number,
-  ): PreparedGovernanceCommit;
-
-  // ─── Seal rejection path ───
-
-  /**
-   * 1. Transitions proposal.status to 'failed'
-   * 2. Does NOT set proposal.resultWorld (no World created)
-   * 3. Sets proposal.completedAt
-   * 4. Returns PreparedGovernanceCommit { hasLineageRecords: false }
-   */
-  finalizeOnSealRejection(
-    executingProposal: Proposal,
-    rejection: SealRejectionReason,
     completedAt: number,
   ): PreparedGovernanceCommit;
 }
@@ -764,58 +721,19 @@ interface GovernanceService {
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-SEAL-1 | MUST | Governance's `deriveOutcome()` result MUST agree with `lineageCommit.terminalStatus`. If they disagree, this is a bug — `finalize()` MUST throw |
-| GOV-SEAL-2 | MUST | `finalize()` and `finalizeOnSealRejection()` MUST NOT mutate any store. They are pure preparations |
+| GOV-SEAL-2 | MUST | `finalize()` MUST NOT mutate any store. It is a pure preparation |
 | GOV-SEAL-3 | MUST | `finalize()` MUST set `proposal.resultWorld` to `lineageCommit.worldId` |
 | GOV-SEAL-4 | MUST | `finalize()` MUST transition proposal status to `'completed'` or `'failed'` based on `deriveOutcome()` |
-| GOV-SEAL-5 | MUST | Both methods MUST set `proposal.completedAt` to the provided `completedAt` value |
+| GOV-SEAL-5 | MUST | `finalize()` MUST set `proposal.completedAt` to the provided `completedAt` value |
 | GOV-SEAL-6 | MUST | The input `executingProposal.status` MUST be `'executing'`. Any other status MUST be rejected |
-| GOV-SEAL-7 | MUST | When lineage surfaces a seal rejection instead of a prepared commit, the coordinator MUST call `finalizeOnSealRejection()` instead of `finalize()` |
-| GOV-SEAL-8 | MUST | `finalizeOnSealRejection()` MUST transition proposal status to `'failed'` |
-| GOV-SEAL-9 | MUST | `finalizeOnSealRejection()` MUST NOT set `proposal.resultWorld`. No World is created in this path |
-| GOV-SEAL-10 | MUST | `PreparedGovernanceCommit.hasLineageRecords` MUST be `true` from `finalize()` and `false` from `finalizeOnSealRejection()`. The coordinator uses this flag to determine whether lineage records are included in the atomic commit |
 
-**Why `finalize()` and `finalizeOnSealRejection()` are both side-effect-free.** The same principle as lineage's prepare/commit separation (LIN-SEAL-PURE-1). Governance's finalization is computation — derive outcome, cross-verify, populate fields. The actual persistence happens in the coordinator's single atomic commit. If either method had side effects (e.g., persisting the terminalized proposal), a coordinator crash between governance commit and lineage commit would leave inconsistent state.
+**Why `finalize()` is side-effect-free.** The same principle as lineage's prepare/commit separation (LIN-SEAL-PURE-1). Governance's finalization is computation — derive outcome, cross-verify, populate fields. The actual persistence happens in the coordinator's single atomic commit. If `finalize()` had side effects (e.g., persisting the terminalized proposal), a coordinator crash between governance commit and lineage commit would leave inconsistent state.
 
-### 9.3 Seal Rejection Handling
+### 9.3 Deferred Rejection Note
 
-In the projected Lineage v2 model, self-loop and worldId collision are structurally eliminated as normal outcomes. Governance therefore treats seal rejection as a reserved future-compatible escape hatch rather than an expected branch of the seal protocol.
+Under the projected Lineage v2 public API, `prepareSealNext()` returns `PreparedNextCommit` and no typed rejection payload is part of the current contract. The v1 collision/self-loop rejection path is therefore **not** part of the normative v2 governance surface.
 
-If lineage surfaces such a rejection, governance must still terminalize the proposal. Execution-stage proposals MUST reach terminal (GOV-STAGE-4), regardless of whether lineage can create a World.
-
-```
-Governance                   Coordinator (facade)         Lineage
-    │                              │                        │
-    │  1-4. (same as normal path)  │                        │
-    │                              │                        │
-    │── request seal ────────────>│                        │
-    │                              │── prepareSealNext() ──>│
-    │                              │                        │  Validate...
-    │                              │                        │  future lineage-side
-    │                              │                        │  rejection reason
-    │                              │<── REJECTION ──────────│
-    │                              │   (future-defined)     │
-    │                              │                        │
-    │                              │  5. governance.        │
-    │                              │     finalizeOnSealRejection()
-    │                              │     → PreparedGovernanceCommit
-    │                              │       { hasLineageRecords: false }
-    │                              │                        │
-    │                              │  6. Commit governance   │
-    │                              │     records ONLY        │
-    │                              │     (no lineage write set)
-    │                              │                        │
-    │                              │  7. Emit execution:seal_rejected
-    │                              │     event (GOV-EXEC-EVT-5)
-    │                              │                        │
-    │<── seal rejection result ────│                        │
-```
-
-**Key differences from normal path:**
-- No `PreparedLineageCommit` — lineage rejected the seal
-- `finalizeOnSealRejection()` instead of `finalize()`
-- Proposal terminates as `failed` with no `resultWorld`
-- Atomic commit contains governance records only (`hasLineageRecords: false`)
-- `execution:seal_rejected` event (not `execution:failed`) — structurally distinct, no `resultWorld` field
+If a future ADR reintroduces a typed lineage-side structural rejection channel, governance MAY regain a distinct terminalization path. Until then, `finalize()` is the only normative seal-finalization entrypoint in this draft.
 
 ### 9.4 Seal Sequence — Normal Path (Full)
 
@@ -901,7 +819,7 @@ After the split, lineage does not emit events. All governance result events are 
 |---------|-------|-------------|
 | GOV-EVT-OWN-1 | MUST | Governance MUST only define and emit governance events |
 | GOV-EVT-OWN-2 | MUST NOT | Governance MUST NOT define or emit execution telemetry events |
-| GOV-EVT-OWN-3 | MUST | `execution:completed`, `execution:failed`, and `execution:seal_rejected` are governance results (Governance-owned) |
+| GOV-EVT-OWN-3 | MUST | `execution:completed` and `execution:failed` are governance results (Governance-owned) |
 | GOV-EVT-OWN-4 | MUST | App MUST emit telemetry events by transforming Host's TraceEvent |
 
 ### 10.2 Event Types
@@ -917,7 +835,6 @@ type GovernanceEventType =
   // Execution results (governance outcome)
   | 'execution:completed'
   | 'execution:failed'
-  | 'execution:seal_rejected'
 
   // World lifecycle (governance)
   | 'world:created'
@@ -936,7 +853,43 @@ interface GovernanceEventSubscriber {
 }
 ```
 
-### 10.4 ScheduleContext
+### 10.4 Coordinator Emission Seam
+
+Governed composition needs a public post-commit emission seam. The facade coordinator owns **when** events may be emitted; governance owns **how** payloads are constructed and delivered to subscribers.
+
+```typescript
+/**
+ * Governance package MUST expose a public post-commit dispatcher factory whose
+ * returned object conforms to the facade-owned `GovernanceEventDispatcher` seam.
+ *
+ * The seam itself is owned by `@manifesto-ai/world`; governance owns the
+ * concrete implementation and the factory that builds it.
+ */
+function createGovernanceEventDispatcher(options: {
+  service: Pick<
+    GovernanceService,
+    | "createExecutionCompletedEvent"
+    | "createExecutionFailedEvent"
+    | "createWorldCreatedEvent"
+    | "createWorldForkedEvent"
+  >;
+  sink?: GovernanceEventSink;
+  now?: () => number;
+}): {
+  emitSealCompleted(
+    governanceCommit: PreparedGovernanceCommit,
+    lineageCommit: PreparedLineageCommit
+  ): void;
+};
+```
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| GOV-EVT-DISP-1 | MUST | Governance MUST expose a public dispatcher implementation that matches the facade-owned seam |
+| GOV-EVT-DISP-2 | MUST | Governance MUST provide a public factory or equivalent constructor for this dispatcher |
+| GOV-EVT-DISP-3 | MUST | Dispatcher methods MUST be called only after the atomic commit succeeds (the facade coordinator owns this timing) |
+
+### 10.5 ScheduleContext
 
 **ScheduleContext is provided by App, not Governance.**
 
@@ -965,7 +918,7 @@ type ScheduledAction =
   | { type: 'Custom'; tag: string; payload: unknown };
 ```
 
-### 10.5 Non-Interference Constraints
+### 10.6 Non-Interference Constraints
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -979,7 +932,7 @@ type ScheduledAction =
 **Enforcement Pattern (Recommended):**
 
 ```typescript
-class GovernanceEventDispatcher {
+class InternalGovernanceEventBus {
   private dispatching = false;
   private scheduledActions: ScheduledAction[] = [];
 
@@ -1015,7 +968,7 @@ class GovernanceEventDispatcher {
 }
 ```
 
-### 10.6 Scheduled Reaction Execution
+### 10.7 Scheduled Reaction Execution
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -1025,16 +978,16 @@ class GovernanceEventDispatcher {
 | GOV-SCHED-4 | MUST | Scheduled actions MUST go through App's unified scheduler |
 | GOV-SCHED-5 | MUST NOT | Scheduled actions MUST NOT be executed as microtask during event dispatch |
 
-### 10.7 Event Ordering
+### 10.8 Event Ordering
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-EVT-ORD-1 | MUST | Events MUST be delivered in causal order (synchronously) |
 | GOV-EVT-ORD-2 | MUST | Events for same executionKey MUST NOT violate Host mailbox serialization |
 
-### 10.8 Event Payloads
+### 10.9 Event Payloads
 
-#### 10.8.1 Base Event
+#### 10.9.1 Base Event
 
 ```typescript
 type BaseGovernanceEvent = {
@@ -1043,7 +996,7 @@ type BaseGovernanceEvent = {
 };
 ```
 
-#### 10.8.2 Proposal Events
+#### 10.9.2 Proposal Events
 
 ```typescript
 type ProposalSubmittedEvent = BaseGovernanceEvent & {
@@ -1081,11 +1034,11 @@ type ProposalSupersededEvent = BaseGovernanceEvent & {
 
 **`branchId` added to `ProposalSubmittedEvent` (ADR-014 D12.2).** Subscribers can observe which branch a proposal targets without querying the proposal record.
 
-#### 10.8.3 Execution Result Events
+#### 10.9.3 Execution Result Events
 
 Governance emits only governance result events, not telemetry events.
 
-Execution results come in three flavors, each with a distinct type. This union design ensures that the presence or absence of `resultWorld` is structurally enforced — subscribers never encounter an optional field they must guess about.
+Execution results come in two flavors. Both represent sealed terminal outcomes and therefore always carry `resultWorld`.
 
 ```typescript
 /**
@@ -1109,26 +1062,9 @@ type ExecutionFailedEvent = BaseGovernanceEvent & {
   readonly resultWorld: WorldId;         // always present — failed World was sealed
   readonly error: {
     readonly summary: string;
-    readonly details?: ErrorValue[];      // singleton current-error view, not accumulated history
+    readonly currentError?: ErrorValue;
     readonly pendingRequirements?: string[];  // GOV-TERM-4
   };
-};
-
-/**
- * Execution completed but seal was rejected by lineage. No World created.
- * This is "failure B": Host execution succeeded (or failed), but lineage
- * rejected the seal for a future lineage-defined structural reason.
- *
- * The proposal terminates as 'failed' with no resultWorld.
- * This event is structurally distinct from execution:failed because
- * there is no World to reference.
- */
-type ExecutionSealRejectedEvent = BaseGovernanceEvent & {
-  readonly type: 'execution:seal_rejected';
-  readonly proposalId: ProposalId;
-  readonly executionKey: ExecutionKey;
-  readonly rejection: SealRejectionReason;   // why lineage rejected
-  // NOTE: no resultWorld — structurally absent, not optional
 };
 ```
 
@@ -1136,14 +1072,13 @@ type ExecutionSealRejectedEvent = BaseGovernanceEvent & {
 |---------|-------|-------------|
 | GOV-EXEC-EVT-1 | MUST | Governance MUST emit `execution:completed` when execution succeeds and seal succeeds |
 | GOV-EXEC-EVT-2 | MUST | Governance MUST emit `execution:failed` when execution fails and seal succeeds (failed World is sealed) |
-| GOV-EXEC-EVT-3 | MUST | All three execution result events MUST be emitted after the atomic commit (not "after World creation" — seal rejection has no World) |
+| GOV-EXEC-EVT-3 | MUST | Execution result events MUST be emitted after the atomic commit |
 | GOV-EXEC-EVT-4 | MUST NOT | Governance MUST NOT emit events during execution (only after terminal commit) |
-| GOV-EXEC-EVT-5 | MUST | Governance MUST emit `execution:seal_rejected` when lineage surfaces a seal rejection instead of a prepared commit. This event has no `resultWorld` |
-| GOV-EXEC-EVT-6 | MUST | `ExecutionFailedEvent.error.details`, when present, MUST represent at most the current error view and MUST NOT be treated as accumulated history |
+| GOV-EXEC-EVT-5 | MUST | `ExecutionFailedEvent.error.currentError`, when present, MUST represent only the current error view and MUST NOT be treated as accumulated history |
 
-**Why a separate event type instead of optional `resultWorld`.** If `resultWorld` were optional on `ExecutionFailedEvent`, every subscriber would need to check "is this a real failure or a seal rejection?" — and the answer would depend on whether a field happens to be present. Making the distinction structural (different `type` tag) means subscribers can pattern-match at the type level. This is the same principle as lineage's `PreparedGenesisCommit` vs `PreparedNextCommit` — when the shape differs, the type should differ.
+**Why there is no separate seal-rejected event in the current v2 draft.** The projected Lineage v2 public API does not expose a typed rejection channel from `prepareSealNext()`. Until such a channel exists, governance's normative event surface tracks only sealed terminal outcomes.
 
-#### 10.8.4 World Events
+#### 10.9.4 World Events
 
 ```typescript
 type WorldCreatedEvent = BaseGovernanceEvent & {
@@ -1236,7 +1171,7 @@ Governance's `finalize()` does not interact with any store. It is a pure computa
 |----|-----------|
 | INV-G12 | **Conditional:** Every non-genesis World has exactly one creating Proposal — applies ONLY when governance is active |
 
-**INV-G12 conditionality (ADR-014 D10).** In governance-free environments (lineage-only), Worlds are created without Proposals. `World.createdBy` is `ProvenanceRef | null` at the lineage level — lineage does not enforce this invariant. When governance is present, governance enforces that every sealed World traces back to exactly one approved Proposal.
+**INV-G12 conditionality (ADR-014 D10).** In governance-free environments (lineage-only), Worlds are created without Proposals. In the projected Lineage v2 model, proposal provenance is attempt-scoped (`SealAttempt.proposalRef`), not stored on `World` itself. When governance is present, governance enforces that every sealed World traces back to exactly one approved Proposal through that attempt-scoped provenance chain.
 
 ### 12.4 Execution Invariants
 
@@ -1244,7 +1179,7 @@ Governance's `finalize()` does not interact with any store. It is a pure computa
 |----|-----------|
 | INV-G13 | ExecutionKey is opaque to Host |
 | INV-G14 | Terminal snapshot has empty pendingRequirements (or outcome=failed) |
-| INV-G15 | Failed execution creates World when seal succeeds. If lineage surfaces a seal rejection, proposal terminates as `failed` without `resultWorld` |
+| INV-G15 | Failed execution creates World when seal succeeds |
 | INV-G16 | Execution-stage proposals MUST reach Execution-terminal (`completed` or `failed`) |
 | INV-G17 | At most one execution-stage proposal (`approved` or `executing`) per branch at any time (single-writer gate) |
 
@@ -1273,10 +1208,8 @@ Governance's `finalize()` does not interact with any store. It is a pure computa
 | ID | Invariant |
 |----|-----------|
 | INV-G28 | Governance's `deriveOutcome()` and lineage's `deriveTerminalStatus()` agree for the same snapshot |
-| INV-G29 | `governance.finalize()` and `finalizeOnSealRejection()` are side-effect-free (no store mutation) |
+| INV-G29 | `governance.finalize()` is side-effect-free (no store mutation) |
 | INV-G30 | Events are emitted only after atomic commit succeeds |
-| INV-G31 | When lineage surfaces a seal rejection, governance MUST still terminalize the proposal as `failed` via `finalizeOnSealRejection()` |
-| INV-G32 | Seal-rejected proposal has no `resultWorld` — the `failed` status in this case means "execution completed but World could not be created" |
 
 ---
 
@@ -1284,7 +1217,7 @@ Governance's `finalize()` does not interact with any store. It is a pure computa
 
 ### 13.1 Compliance Requirements
 
-An implementation claiming compliance with **Manifesto Governance Protocol v1.0.0** MUST:
+An implementation claiming compliance with **Manifesto Governance Protocol v2.0.0 draft** MUST:
 
 1. Implement all types defined in this document (including `superseded` in `ProposalStatus` and `SupersedeReason`)
 2. Enforce all MUST rules (identified by Rule IDs)
@@ -1298,16 +1231,15 @@ An implementation claiming compliance with **Manifesto Governance Protocol v1.0.
 10. Define HostExecutor interface, NOT implement it (GOV-HEXEC-*)
 11. Derive outcome via `deriveOutcome()`, NOT `result.outcome` (GOV-HEXEC-6)
 12. Cross-verify outcome with lineage's `terminalStatus` (GOV-SEAL-1)
-13. Implement side-effect-free `finalize()` and `finalizeOnSealRejection()` (GOV-SEAL-2)
+13. Implement side-effect-free `finalize()` (GOV-SEAL-2)
 14. Enforce event handler non-interference (GOV-EVT-C1~C6)
 15. Process scheduled actions after event dispatch (GOV-SCHED-3~5)
 16. Include `branchId` in Proposal, `ProposalSubmittedEvent`, and `ExecutionKeyContext`
 17. Support all `SupersedeReason` values: `branch_switch`, `head_advance`, `manual_cancel`
 18. Emit `proposal:superseded` event when a proposal transitions to `superseded` (GOV-EPOCH-5)
 19. Read epoch from `LineageService` public contract, NOT `LineageStore` (GOV-EPOCH-2)
-20. Handle `prepareSealNext()` rejection via `finalizeOnSealRejection()` (GOV-SEAL-7~10)
-21. Import only from `@manifesto-ai/lineage` public contract (GOV-DEP-*)
-22. NOT import from Host (GOV-BOUNDARY-5)
+20. Import only from `@manifesto-ai/lineage` public contract (GOV-DEP-*)
+21. NOT import from Host (GOV-BOUNDARY-5)
 
 ### 13.2 Compliance Verification
 
@@ -1323,10 +1255,7 @@ An implementation claiming compliance with **Manifesto Governance Protocol v1.0.
 | Stale epoch invalidation | Head advance → ingress proposals with old epoch transition to `superseded` |
 | Late authority discard | Decision for stale-epoch proposal → discarded, proposal already `superseded` |
 | Outcome derivation | `deriveOutcome()` matches `deriveTerminalStatus()` for same snapshot |
-| Finalize purity | `finalize()` and `finalizeOnSealRejection()` do not mutate any store |
-| Seal rejection — reserved path | Future lineage-side rejection reason → `finalizeOnSealRejection()` → proposal `failed`, no `resultWorld` |
-| Seal rejection — event | Reserved seal rejection path → `execution:seal_rejected` event with opaque `SealRejectionReason`, no `resultWorld` field |
-| Seal rejection — gate release | Seal-rejected proposal releases single-writer gate → next proposal can proceed |
+| Finalize purity | `finalize()` does not mutate any store |
 | Event handler testing | GOV-EVT-C violations detected/prevented |
 | Schedule timing | Scheduled action → NOT executed as microtask |
 | Branch identity | Proposal carries `branchId`; events include `branchId` |
@@ -1372,10 +1301,10 @@ An implementation claiming compliance with **Manifesto Governance Protocol v1.0.
 | WORLD-RE-1~3 | GOV-RE-1~3 | §8.6 |
 | WORLD-CTX-1~3 | GOV-CTX-1~3 | §8.7 |
 | WORLD-EVT-OWN-1~4 | GOV-EVT-OWN-1~4 | §10.1 |
-| EVT-C1~C6 | GOV-EVT-C1~C6 | §10.5 |
-| SCHED-1~5 | GOV-SCHED-1~5 | §10.6 |
-| EVT-ORD-1~2 | GOV-EVT-ORD-1~2 | §10.7 |
-| WORLD-EXEC-EVT-1~4 | GOV-EXEC-EVT-1~5 | §10.8.3 |
+| EVT-C1~C6 | GOV-EVT-C1~C6 | §10.6 |
+| SCHED-1~5 | GOV-SCHED-1~5 | §10.7 |
+| EVT-ORD-1~2 | GOV-EVT-ORD-1~2 | §10.8 |
+| WORLD-EXEC-EVT-1~4 | GOV-EXEC-EVT-1~5 | §10.9.3 |
 | INV-P1~P6 | INV-G1~G6 | §12.1 |
 | INV-A1~A3 | INV-G9~G11 | §12.2 |
 | INV-W3 | INV-G12 (conditional) | §12.3 |
@@ -1393,12 +1322,12 @@ An implementation claiming compliance with **Manifesto Governance Protocol v1.0.
 | GOV-TRANS-3~4 | §6.6 | `superseded` transition rules |
 | GOV-BRANCH-GATE-1~7 | §7.1, §7.2 | ADR-014 D13 |
 | GOV-BRANCH-1~3 | §7.3 | ADR-014 D12 |
-| GOV-SEAL-1~10 | §9.2, §9.3 | ADR-014 D6 + D14 (seal rejection path included) |
+| GOV-SEAL-1~6 | §9.2, §9.3 | ADR-014 D6 + D14 |
 | GOV-STORE-1~4 | §11.2 | ADR-014 D11.2 |
 | INV-G7 | §12.1 | ADR-014 D12 (`branchId` immutability) |
 | INV-G8 | §12.1 | `superseded` Ingress-terminal invariant |
 | INV-G17 | §12.4 | Single-writer gate invariant (ADR-014 D13) |
-| INV-G28~G32 | §12.7 | Seal coordination invariants (ADR-014 D6 + seal rejection) |
+| INV-G28~G30 | §12.7 | Seal coordination invariants (ADR-014 D6) |
 
 ---
 
@@ -1423,7 +1352,7 @@ An implementation claiming compliance with **Manifesto Governance Protocol v1.0.
 | BaseWorld | GOV-BASE-1 |
 | Re-entry | GOV-RE-1~3 |
 | Context | GOV-CTX-1~3 |
-| Seal | GOV-SEAL-1~10 |
+| Seal | GOV-SEAL-1~6 |
 | Event Ownership | GOV-EVT-OWN-1~4 |
 | Event Constraints | GOV-EVT-C1~C6 |
 | Event Ordering | GOV-EVT-ORD-1~2 |
