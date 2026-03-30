@@ -14,6 +14,12 @@ function cloneValue<T>(value: T): T {
   return structuredClone(value);
 }
 
+type InMemoryGovernanceStoreState = {
+  proposals: Map<ProposalId, Proposal>;
+  decisions: Map<DecisionId, DecisionRecord>;
+  actorBindings: Map<ActorId, ActorAuthorityBinding>;
+};
+
 export class InMemoryGovernanceStore implements GovernanceStore {
   private readonly proposals = new Map<ProposalId, Proposal>();
   private readonly decisions = new Map<DecisionId, DecisionRecord>();
@@ -71,6 +77,31 @@ export class InMemoryGovernanceStore implements GovernanceStore {
     return [...this.actorBindings.values()]
       .sort((left, right) => left.actorId.localeCompare(right.actorId))
       .map((binding) => cloneValue(binding));
+  }
+
+  snapshotState(): InMemoryGovernanceStoreState {
+    return {
+      proposals: cloneValue(this.proposals),
+      decisions: cloneValue(this.decisions),
+      actorBindings: cloneValue(this.actorBindings),
+    };
+  }
+
+  restoreState(state: InMemoryGovernanceStoreState): void {
+    this.proposals.clear();
+    for (const [proposalId, proposal] of state.proposals) {
+      this.proposals.set(proposalId, cloneValue(proposal));
+    }
+
+    this.decisions.clear();
+    for (const [decisionId, record] of state.decisions) {
+      this.decisions.set(decisionId, cloneValue(record));
+    }
+
+    this.actorBindings.clear();
+    for (const [actorId, binding] of state.actorBindings) {
+      this.actorBindings.set(actorId, cloneValue(binding));
+    }
   }
 }
 

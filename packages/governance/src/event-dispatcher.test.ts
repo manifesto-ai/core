@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ErrorValue, Snapshot } from "@manifesto-ai/core";
+import type { Snapshot } from "@manifesto-ai/core";
 import {
   createInMemoryLineageStore,
   createLineageService,
@@ -101,7 +101,6 @@ function bootstrap() {
     governanceCommit: {
       proposal: completedProposal,
       decisionRecord: approved.decisionRecord,
-      hasLineageRecords: true,
     },
     completedProposal,
     failedProposal,
@@ -119,14 +118,12 @@ describe("@manifesto-ai/governance event helpers", () => {
       ctx.failedProposal,
       {
         summary: "Execution failed",
-        details: [
-          {
-            code: "ERR-1",
-            message: "boom",
-            source: { actionId: "action-1", nodePath: "root" },
-            timestamp: 19,
-          } satisfies ErrorValue,
-        ],
+        currentError: {
+          code: "ERR-1",
+          message: "boom",
+          source: { actionId: "action-1", nodePath: "root" },
+          timestamp: 19,
+        },
       },
       21
     );
@@ -158,14 +155,12 @@ describe("@manifesto-ai/governance event helpers", () => {
       resultWorld: ctx.failedProposal.resultWorld,
       error: {
         summary: "Execution failed",
-        details: [
-          {
-            code: "ERR-1",
-            message: "boom",
-            source: { actionId: "action-1", nodePath: "root" },
-            timestamp: 19,
-          },
-        ],
+        currentError: {
+          code: "ERR-1",
+          message: "boom",
+          source: { actionId: "action-1", nodePath: "root" },
+          timestamp: 19,
+        },
       },
     });
     expect(created).toEqual({
@@ -186,7 +181,7 @@ describe("@manifesto-ai/governance event helpers", () => {
 });
 
 describe("@manifesto-ai/governance dispatcher", () => {
-  it("emits completion and rejection events in governance order without fork noise on linear seals", () => {
+  it("emits completion events in governance order without fork noise on linear seals", () => {
     const ctx = bootstrap();
     const events: unknown[] = [];
     const dispatcher = createGovernanceEventDispatcher({
@@ -200,11 +195,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
     });
 
     dispatcher.emitSealCompleted(ctx.governanceCommit, ctx.lineageCommit);
-    dispatcher.emitSealRejected(ctx.governanceCommit, {
-      kind: "self_loop",
-      computedWorldId: ctx.lineageCommit.worldId,
-      message: "rejected",
-    });
 
     expect(events).toEqual([
       {
@@ -221,17 +211,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
         proposalId: ctx.completedProposal.proposalId,
         executionKey: ctx.completedProposal.executionKey,
         resultWorld: ctx.completedProposal.resultWorld,
-      },
-      {
-        type: "execution:seal_rejected",
-        timestamp: 100,
-        proposalId: ctx.completedProposal.proposalId,
-        executionKey: ctx.completedProposal.executionKey,
-        rejection: {
-          kind: "self_loop",
-          computedWorldId: ctx.lineageCommit.worldId,
-          message: "rejected",
-        },
       },
     ]);
   });
@@ -290,7 +269,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
           completedAt: 33,
         },
         decisionRecord: approved.decisionRecord,
-        hasLineageRecords: true,
       },
       lineageCommit
     );
@@ -409,7 +387,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
           completedAt: 43,
         },
         decisionRecord: approved.decisionRecord,
-        hasLineageRecords: true,
       },
       lineageCommit
     );
@@ -430,21 +407,13 @@ describe("@manifesto-ai/governance dispatcher", () => {
         executionKey: approved.proposal.executionKey,
         resultWorld: lineageCommit.worldId,
         error: {
-          summary: "Execution failed with 2 error(s) and 1 pending requirement(s)",
-          details: [
-            {
-              code: "ERR-PRIMARY",
-              message: "Primary failure",
-              source: { actionId: "action-1", nodePath: "root" },
-              timestamp: 50,
-            },
-            {
-              code: "ERR-SECONDARY",
-              message: "Secondary failure",
-              source: { actionId: "action-2", nodePath: "root.secondary" },
-              timestamp: 51,
-            },
-          ],
+          summary: "Execution failed with 1 error(s) and 1 pending requirement(s)",
+          currentError: {
+            code: "ERR-PRIMARY",
+            message: "Primary failure",
+            source: { actionId: "action-1", nodePath: "root" },
+            timestamp: 50,
+          },
           pendingRequirements: ["req-1"],
         },
       },

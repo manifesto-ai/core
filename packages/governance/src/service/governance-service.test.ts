@@ -154,7 +154,7 @@ describe("@manifesto-ai/governance service", () => {
     expect(ctx.governanceService.shouldDiscardAuthorityResult(stale, ctx.lineageService.getBranch(ctx.genesis.branchId)!.epoch)).toBe(true);
   });
 
-  it("finalize and finalizeOnSealRejection are read-only against GovernanceStore", () => {
+  it("finalize is read-only against GovernanceStore", () => {
     const ctx = bootstrap();
     const proposal = ctx.governanceService.createProposal({
       baseWorld: ctx.genesis.worldId,
@@ -196,15 +196,6 @@ describe("@manifesto-ai/governance service", () => {
     });
 
     const finalized = ctx.governanceService.finalize(executing, lineageCommit, 33);
-    const rejected = ctx.governanceService.finalizeOnSealRejection(
-      executing,
-      {
-        kind: "self_loop",
-        computedWorldId: ctx.genesis.worldId,
-        message: "no-op",
-      },
-      34
-    );
 
     const after = JSON.stringify({
       proposal: ctx.governanceStore.getProposal(executing.proposalId),
@@ -213,8 +204,6 @@ describe("@manifesto-ai/governance service", () => {
 
     expect(finalized.proposal.status).toBe("completed");
     expect(finalized.proposal.resultWorld).toBe(lineageCommit.worldId);
-    expect(rejected.proposal.status).toBe("failed");
-    expect(rejected.proposal.resultWorld).toBeUndefined();
     expect(before).toBe(after);
   });
 });

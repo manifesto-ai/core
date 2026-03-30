@@ -220,7 +220,6 @@ export type GovernanceEventType =
   | "proposal:superseded"
   | "execution:completed"
   | "execution:failed"
-  | "execution:seal_rejected"
   | "world:created"
   | "world:forked";
 
@@ -231,7 +230,7 @@ export interface BaseGovernanceEvent<T extends GovernanceEventType> {
 
 export interface ErrorInfo {
   readonly summary: string;
-  readonly details?: readonly ErrorValue[];
+  readonly currentError?: ErrorValue;
   readonly pendingRequirements?: readonly string[];
 }
 
@@ -286,19 +285,6 @@ export interface ExecutionFailedEvent
   readonly error: ErrorInfo;
 }
 
-export interface SealRejectionReason {
-  readonly kind: "worldId_collision" | "self_loop";
-  readonly computedWorldId: WorldId;
-  readonly message: string;
-}
-
-export interface ExecutionSealRejectedEvent
-  extends BaseGovernanceEvent<"execution:seal_rejected"> {
-  readonly proposalId: ProposalId;
-  readonly executionKey: ExecutionKey;
-  readonly rejection: SealRejectionReason;
-}
-
 export interface WorldCreatedEvent
   extends BaseGovernanceEvent<"world:created"> {
   readonly world: World;
@@ -320,7 +306,6 @@ export type GovernanceEvent =
   | ProposalSupersededEvent
   | ExecutionCompletedEvent
   | ExecutionFailedEvent
-  | ExecutionSealRejectedEvent
   | WorldCreatedEvent
   | WorldForkedEvent;
 
@@ -333,17 +318,11 @@ export interface GovernanceEventDispatcher {
     governanceCommit: PreparedGovernanceCommit,
     lineageCommit: PreparedLineageCommit
   ): void;
-
-  emitSealRejected(
-    governanceCommit: PreparedGovernanceCommit,
-    rejection: SealRejectionReason
-  ): void;
 }
 
 export interface PreparedGovernanceCommit {
   readonly proposal: Proposal;
   readonly decisionRecord: DecisionRecord;
-  readonly hasLineageRecords: boolean;
 }
 
 export interface GovernanceStore {
@@ -399,11 +378,6 @@ export interface GovernanceService {
     lineageCommit: PreparedLineageCommit,
     completedAt: number
   ): PreparedGovernanceCommit;
-  finalizeOnSealRejection(
-    executingProposal: Proposal,
-    rejection: SealRejectionReason,
-    completedAt: number
-  ): PreparedGovernanceCommit;
   createProposalSubmittedEvent(
     proposal: Proposal,
     timestamp?: number
@@ -422,11 +396,6 @@ export interface GovernanceService {
     currentEpoch: number,
     timestamp?: number
   ): ProposalSupersededEvent;
-  createExecutionSealRejectedEvent(
-    proposal: Proposal,
-    rejection: SealRejectionReason,
-    timestamp?: number
-  ): ExecutionSealRejectedEvent;
   createExecutionCompletedEvent(
     proposal: Proposal,
     timestamp?: number

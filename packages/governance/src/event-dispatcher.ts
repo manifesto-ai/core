@@ -2,7 +2,6 @@ import type {
   ErrorInfo,
   PreparedGovernanceCommit,
   PreparedLineageCommit,
-  SealRejectionReason,
 } from "./types.js";
 import { createNoopGovernanceEventSink, type GovernanceEventDispatcher, type GovernanceEventSink, type GovernanceService } from "./types.js";
 
@@ -11,7 +10,6 @@ export interface CreateGovernanceEventDispatcherOptions {
     GovernanceService,
     | "createExecutionCompletedEvent"
     | "createExecutionFailedEvent"
-    | "createExecutionSealRejectedEvent"
     | "createWorldCreatedEvent"
     | "createWorldForkedEvent"
   >;
@@ -67,36 +65,18 @@ export function createGovernanceEventDispatcher(
         )
       );
     },
-
-    emitSealRejected(
-      governanceCommit: PreparedGovernanceCommit,
-      rejection: SealRejectionReason
-    ): void {
-      const timestamp = now();
-      sink.emit(
-        options.service.createExecutionSealRejectedEvent(
-          governanceCommit.proposal,
-          rejection,
-          timestamp
-        )
-      );
-    },
   };
 }
 
 function deriveExecutionFailure(lineageCommit: PreparedLineageCommit): ErrorInfo {
-  const details = lineageCommit.terminalSnapshot.system.errors.length > 0
-    ? lineageCommit.terminalSnapshot.system.errors
-    : lineageCommit.terminalSnapshot.system.lastError
-      ? [lineageCommit.terminalSnapshot.system.lastError]
-      : [];
+  const currentError = lineageCommit.terminalSnapshot.system.lastError ?? undefined;
   const pendingRequirements = lineageCommit.terminalSnapshot.system.pendingRequirements.map(
     (requirement) => requirement.id
   );
 
   return {
-    summary: summarizeFailure(details.length, pendingRequirements.length),
-    ...(details.length > 0 ? { details } : {}),
+    summary: summarizeFailure(currentError ? 1 : 0, pendingRequirements.length),
+    ...(currentError ? { currentError } : {}),
     ...(pendingRequirements.length > 0 ? { pendingRequirements } : {}),
   };
 }

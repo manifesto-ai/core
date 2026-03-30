@@ -15,7 +15,6 @@ import {
   type DecisionRecord,
   type GovernanceService,
   type GovernanceStore,
-  type ExecutionSealRejectedEvent,
   type ExecutionCompletedEvent,
   type ExecutionFailedEvent,
   type PreparedAuthorityResult,
@@ -29,7 +28,6 @@ import {
   type ProposalSupersededEvent,
   type WorldCreatedEvent,
   type WorldForkedEvent,
-  type SealRejectionReason,
   type Snapshot,
   type SupersedeReason,
   type ErrorInfo,
@@ -210,39 +208,6 @@ export class DefaultGovernanceService implements GovernanceService {
     return freeze({
       proposal,
       decisionRecord,
-      hasLineageRecords: true,
-    });
-  }
-
-  finalizeOnSealRejection(
-    executingProposal: Proposal,
-    rejection: SealRejectionReason,
-    completedAt: number
-  ): PreparedGovernanceCommit {
-    if (executingProposal.status !== "executing") {
-      throw new Error(
-        `GOV-SEAL-6 violation: finalizeOnSealRejection() requires executing proposal, received ${executingProposal.status}`
-      );
-    }
-    if (!executingProposal.decisionId) {
-      throw new Error("GOV-SEAL-6 violation: executing proposal is missing decisionId");
-    }
-
-    const decisionRecord = this.store.getDecisionRecord(executingProposal.decisionId);
-    if (!decisionRecord) {
-      throw new Error(
-        `GOV-SEAL-6 violation: decision record ${executingProposal.decisionId} not found`
-      );
-    }
-
-    void rejection;
-
-    return freeze({
-      proposal: this.transitionProposal(executingProposal, "failed", {
-        completedAt,
-      }),
-      decisionRecord,
-      hasLineageRecords: false,
     });
   }
 
@@ -316,20 +281,6 @@ export class DefaultGovernanceService implements GovernanceService {
     });
   }
 
-  createExecutionSealRejectedEvent(
-    proposal: Proposal,
-    rejection: SealRejectionReason,
-    timestamp = Date.now()
-  ): ExecutionSealRejectedEvent {
-    return freeze({
-      type: "execution:seal_rejected",
-      timestamp,
-      proposalId: proposal.proposalId,
-      executionKey: proposal.executionKey,
-      rejection,
-    });
-  }
-
   createExecutionCompletedEvent(
     proposal: Proposal,
     timestamp = Date.now()
@@ -368,7 +319,7 @@ export class DefaultGovernanceService implements GovernanceService {
       resultWorld: proposal.resultWorld,
       error: freeze({
         summary: error.summary,
-        ...(error.details !== undefined ? { details: error.details } : {}),
+        ...(error.currentError !== undefined ? { currentError: error.currentError } : {}),
         ...(error.pendingRequirements !== undefined
           ? { pendingRequirements: error.pendingRequirements }
           : {}),
