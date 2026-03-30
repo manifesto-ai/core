@@ -130,7 +130,7 @@ describe("@manifesto-ai/governance event helpers", () => {
     const created = ctx.governanceService.createWorldCreatedEvent(
       ctx.lineageCommit.world,
       ctx.completedProposal.proposalId,
-      ctx.completedProposal.baseWorld,
+      ctx.lineageCommit.edge.from,
       "completed",
       22
     );
@@ -167,7 +167,7 @@ describe("@manifesto-ai/governance event helpers", () => {
       type: "world:created",
       timestamp: 22,
       world: ctx.lineageCommit.world,
-      from: ctx.completedProposal.baseWorld,
+      from: ctx.lineageCommit.edge.from,
       proposalId: ctx.completedProposal.proposalId,
       outcome: "completed",
     });
@@ -201,7 +201,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
         type: "world:created",
         timestamp: 100,
         world: ctx.lineageCommit.world,
-        from: ctx.completedProposal.baseWorld,
+        from: ctx.lineageCommit.edge.from,
         proposalId: ctx.completedProposal.proposalId,
         outcome: "completed",
       },
@@ -396,7 +396,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
         type: "world:created",
         timestamp: 300,
         world: lineageCommit.world,
-        from: ctx.genesis.worldId,
+        from: lineageCommit.edge.from,
         proposalId: approved.proposal.proposalId,
         outcome: "failed",
       },
@@ -418,5 +418,121 @@ describe("@manifesto-ai/governance dispatcher", () => {
         },
       },
     ]);
+  });
+
+  it("uses the committed lineage parent for world:created even when branch tip advanced past proposal.baseWorld", async () => {
+    const ctx = await bootstrap();
+    const events: unknown[] = [];
+    const failedProposal = ctx.governanceService.createProposal({
+      baseWorld: ctx.genesis.worldId,
+      branchId: ctx.genesis.branchId,
+      actorId: "actor-4",
+      authorityId: "auth-1",
+      intent: { type: "demo.intent.failed", intentId: "intent-4" },
+      executionKey: "prop-4:1",
+      submittedAt: 60,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
+    });
+    const failedApproved = await ctx.governanceService.prepareAuthorityResult(
+      { ...failedProposal, status: "evaluating" },
+      { kind: "approved", approvedScope: null },
+      { decidedAt: 61 }
+    );
+
+    if (!failedApproved.decisionRecord) {
+      throw new Error("expected decision record");
+    }
+
+    const failedCommit = await ctx.lineageService.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: ctx.genesis.worldId,
+      branchId: ctx.genesis.branchId,
+      terminalSnapshot: createSnapshot(
+        { count: 98 },
+        {
+          system: {
+            status: "error",
+            lastError: {
+              code: "ERR-TIP-ONLY",
+              message: "tip advanced without head advance",
+              source: { actionId: "action-4", nodePath: "root" },
+              timestamp: 61,
+            },
+            errors: [],
+            pendingRequirements: [],
+            currentAction: null,
+          },
+        }
+      ),
+      createdAt: 62,
+      proposalRef: failedApproved.proposal.proposalId,
+      decisionRef: failedApproved.decisionRecord.decisionId,
+    });
+    await ctx.lineageService.commitPrepared(failedCommit);
+
+    const branch = await ctx.lineageService.getActiveBranch();
+    const linearProposal = ctx.governanceService.createProposal({
+      baseWorld: branch.head,
+      branchId: branch.id,
+      actorId: "actor-5",
+      authorityId: "auth-1",
+      intent: { type: "demo.intent.recover", intentId: "intent-5" },
+      executionKey: "prop-5:1",
+      submittedAt: 63,
+      epoch: branch.epoch,
+    });
+    const linearApproved = await ctx.governanceService.prepareAuthorityResult(
+      { ...linearProposal, status: "evaluating" },
+      { kind: "approved", approvedScope: null },
+      { decidedAt: 64 }
+    );
+
+    if (!linearApproved.decisionRecord) {
+      throw new Error("expected decision record");
+    }
+
+    const lineageCommit = await ctx.lineageService.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: linearApproved.proposal.baseWorld,
+      branchId: linearApproved.proposal.branchId,
+      terminalSnapshot: createSnapshot({ count: 3 }),
+      createdAt: 65,
+      proposalRef: linearApproved.proposal.proposalId,
+      decisionRef: linearApproved.decisionRecord.decisionId,
+    });
+    const dispatcher = createGovernanceEventDispatcher({
+      service: ctx.governanceService,
+      sink: {
+        emit(event) {
+          events.push(event);
+        },
+      },
+      now: () => 400,
+    });
+
+    dispatcher.emitSealCompleted(
+      {
+        proposal: {
+          ...linearApproved.proposal,
+          status: "completed",
+          resultWorld: lineageCommit.worldId,
+          completedAt: 66,
+        },
+        decisionRecord: linearApproved.decisionRecord,
+      },
+      lineageCommit
+    );
+
+    expect(linearApproved.proposal.baseWorld).toBe(ctx.genesis.worldId);
+    expect(lineageCommit.edge.from).toBe(failedCommit.worldId);
+    expect(lineageCommit.edge.from).not.toBe(linearApproved.proposal.baseWorld);
+    expect(events[0]).toEqual({
+      type: "world:created",
+      timestamp: 400,
+      world: lineageCommit.world,
+      from: lineageCommit.edge.from,
+      proposalId: linearApproved.proposal.proposalId,
+      outcome: "completed",
+    });
   });
 });

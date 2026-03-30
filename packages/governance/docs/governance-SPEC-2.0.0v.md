@@ -1040,7 +1040,7 @@ type ExecutionFailedEvent = BaseGovernanceEvent & {
 type WorldCreatedEvent = BaseGovernanceEvent & {
   readonly type: 'world:created';
   readonly world: World;                 // transitively follows the projected Lineage v2 World shape
-  readonly from: WorldId;
+  readonly from: WorldId;                // continuity parent (`lineageCommit.edge.from` / `parentWorldId`)
   readonly proposalId: ProposalId;
   readonly outcome: 'completed' | 'failed';
 };
@@ -1052,7 +1052,11 @@ type WorldForkedEvent = BaseGovernanceEvent & {
 };
 ```
 
-`WorldCreatedEvent.world` transitively follows the projected Lineage v2 `World` shape. `WorldForkedEvent.forkPoint` identifies the continuity parent (`lineageCommit.edge.from` / `parentWorldId`), not the computation predecessor `proposal.baseWorld`.
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| GOV-EXEC-EVT-6 | MUST | `WorldCreatedEvent.from` MUST identify the committed lineage continuity parent (`lineageCommit.edge.from` / `parentWorldId`), not `proposal.baseWorld` |
+
+`WorldCreatedEvent.world` transitively follows the projected Lineage v2 `World` shape. `WorldCreatedEvent.from` and `WorldForkedEvent.forkPoint` both identify the continuity parent (`lineageCommit.edge.from` / `parentWorldId`), not the computation predecessor `proposal.baseWorld`.
 
 ---
 

@@ -25,6 +25,7 @@ export const GCTS_CASES = {
   EVENTS_DISPATCHER_SURFACE: "GCTS-EVT-001",
   EVENTS_POST_COMMIT_OUTCOMES: "GCTS-EVT-002",
   EVENTS_FAILED_PAYLOAD: "GCTS-EVT-003",
+  EVENTS_WORLD_PARENT_CONTINUITY: "GCTS-EVT-004",
   SEAMS_NATIVE_SURFACE: "GCTS-SEAM-001",
 } as const;
 
@@ -70,6 +71,11 @@ export const GOVERNANCE_COMPLIANCE_CASES: readonly GovernanceComplianceCase[] = 
     "execution:failed payloads expose currentError and pendingRequirements without accumulated error history."
   ),
   complianceCase(
+    GCTS_CASES.EVENTS_WORLD_PARENT_CONTINUITY,
+    "events",
+    "world:created.from follows the committed lineage continuity parent rather than proposal.baseWorld."
+  ),
+  complianceCase(
     GCTS_CASES.SEAMS_NATIVE_SURFACE,
     "seams",
     "Governance package exposes native store/service exports without world or host internals, and does not own execution abstraction types."
@@ -94,6 +100,7 @@ export const GOVERNANCE_RULE_COVERAGE: readonly GovernanceComplianceCoverageEntr
     [GCTS_CASES.EVENTS_POST_COMMIT_OUTCOMES]
   ),
   ...coverMany(["GOV-EXEC-EVT-5"], [GCTS_CASES.EVENTS_FAILED_PAYLOAD]),
+  ...coverMany(["GOV-EXEC-EVT-6"], [GCTS_CASES.EVENTS_WORLD_PARENT_CONTINUITY]),
   ...coverMany(["GOV-BOUNDARY-5", "GOV-DEP-1", "GOV-STORE-3", "GOV-STORE-4"], [GCTS_CASES.SEAMS_NATIVE_SURFACE]),
 ] as const;
 

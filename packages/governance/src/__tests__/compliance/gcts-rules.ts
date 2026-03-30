@@ -48,6 +48,7 @@ export const GOVERNANCE_COMPLIANCE_RULES: readonly GovernanceComplianceRule[] = 
       "GOV-EXEC-EVT-3",
       "GOV-EXEC-EVT-4",
       "GOV-EXEC-EVT-5",
+      "GOV-EXEC-EVT-6",
     ],
     "blocking"
   ),

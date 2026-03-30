@@ -36,7 +36,7 @@ export function createGovernanceEventDispatcher(
         options.service.createWorldCreatedEvent(
           lineageCommit.world,
           governanceCommit.proposal.proposalId,
-          governanceCommit.proposal.baseWorld,
+          deriveWorldCreatedFrom(governanceCommit, lineageCommit),
           outcome,
           timestamp
         )
@@ -66,6 +66,17 @@ export function createGovernanceEventDispatcher(
       );
     },
   };
+}
+
+function deriveWorldCreatedFrom(
+  governanceCommit: PreparedGovernanceCommit,
+  lineageCommit: PreparedLineageCommit
+): string {
+  if (lineageCommit.kind === "next") {
+    return lineageCommit.edge.from;
+  }
+
+  return lineageCommit.world.parentWorldId ?? governanceCommit.proposal.baseWorld;
 }
 
 function deriveExecutionFailure(lineageCommit: PreparedLineageCommit): ErrorInfo {

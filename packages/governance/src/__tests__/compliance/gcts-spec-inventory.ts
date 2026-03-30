@@ -54,6 +54,7 @@ export const GOVERNANCE_SPEC_INVENTORY: readonly GovernanceComplianceInventoryIt
   }),
   ...inventoryMany(["GOV-EVT-DISP-1", "GOV-EVT-DISP-2", "GOV-EVT-DISP-3"], "§10.4", "MUST", "events"),
   ...inventoryMany(["GOV-EXEC-EVT-1", "GOV-EXEC-EVT-2", "GOV-EXEC-EVT-3", "GOV-EXEC-EVT-5"], "§10.9.3", "MUST", "events"),
+  inventory("GOV-EXEC-EVT-6", "§10.9.4", "MUST", "events"),
   inventory("GOV-EXEC-EVT-4", "§10.9.3", "MUST_NOT", "events"),
   inventory("GOV-BOUNDARY-5", "§4.1", "MUST_NOT", "seams", {
     notes: "Governance must not import host internals.",
