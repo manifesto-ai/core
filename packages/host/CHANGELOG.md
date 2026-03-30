@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/manifesto-ai/core/compare/host-v2.4.0...host-v2.5.0) (2026-03-30)
+
+
+### Features
+
+* land core v4 cleanup and action availability queries ([#331](https://github.com/manifesto-ai/core/issues/331)) ([30ec2b4](https://github.com/manifesto-ai/core/commit/30ec2b481cebbf2a2640fe21fd7909d6b033a1b4))
+
 ## [2.4.0](https://github.com/manifesto-ai/core/compare/host-v2.3.5...host-v2.4.0) (2026-03-29)
 
 
