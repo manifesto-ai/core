@@ -365,7 +365,7 @@ interface WorldRuntime {
 | FACADE-RUNTIME-4 | MUST | `executeApprovedProposal()` MUST reject proposals that are not already in `executing` status |
 | FACADE-RUNTIME-5 | MUST | `WorldExecutor.outcome` MUST agree with the terminal snapshot outcome derived by Governance before sealing |
 | FACADE-RUNTIME-6 | MUST | `WorldRuntime` MUST expose an explicit `resumeExecutingProposal()` recovery entrypoint |
-| FACADE-RUNTIME-7 | MUST | When `resumeSnapshot` is already terminal, `resumeExecutingProposal()` MUST seal it directly without re-invoking `WorldExecutor` |
+| FACADE-RUNTIME-7 | MUST | Only truly terminal `resumeSnapshot` values (`system.status === 'idle'` or `'error'` with zero pending requirements) MAY be sealed directly; all other statuses MUST resume through `WorldExecutor` |
 | FACADE-RUNTIME-8 | MUST | When store state already contains a terminal proposal with `resultWorld`, runtime replay MUST converge to a `recovered` completion without duplicate execution or duplicate event emission |
 | FACADE-RUNTIME-9 | MUST | When `resumeSnapshot` is non-terminal, `resumeExecutingProposal()` MUST resume from `resumeSnapshot` rather than reloading `proposal.baseWorld` |
 | FACADE-RUNTIME-10 | MUST | Runtime MUST reject stale executing proposals whose branch head or epoch no longer matches `proposal.baseWorld` / `proposal.epoch` |

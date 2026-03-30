@@ -58,6 +58,21 @@ function createPendingSnapshot() {
   );
 }
 
+function createComputingSnapshot() {
+  return createSnapshot(
+    { count: 2 },
+    {
+      system: {
+        status: "computing",
+        lastError: null,
+        pendingRequirements: [],
+        errors: [],
+        currentAction: "demo.intent",
+      },
+    }
+  );
+}
+
 describe("@manifesto-ai/world facade runtime", () => {
   it("executes an executing proposal from lineage baseWorld and seals the completed terminal snapshot", async () => {
     const harness = createFacadeHarness({
@@ -470,5 +485,28 @@ describe("@manifesto-ai/world facade runtime", () => {
       approvedScope: null,
       timeoutMs: 75,
     });
+  });
+
+  it("does not treat computing snapshots as terminal resume checkpoints", async () => {
+    const resumeSnapshot = createComputingSnapshot();
+    const harness = createFacadeHarness({
+      executorResult: {
+        outcome: "completed",
+        terminalSnapshot: createSnapshot({ count: 4 }),
+      },
+    });
+    await sealStandaloneGenesis(harness);
+    const { proposal } = await createExecutingProposal(harness);
+
+    const result = await harness.world.runtime.resumeExecutingProposal({
+      proposal,
+      resumeSnapshot,
+      completedAt: 20,
+    });
+
+    expect(result.kind).toBe("sealed");
+    expect(harness.executionCalls).toHaveLength(1);
+    expect(harness.executionCalls[0]?.baseSnapshot).toEqual(resumeSnapshot);
+    expect(result.execution.terminalSnapshot).not.toEqual(resumeSnapshot);
   });
 });

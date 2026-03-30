@@ -61,6 +61,21 @@ function createPendingSnapshot() {
   );
 }
 
+function createComputingSnapshot() {
+  return createSnapshot(
+    { count: 2 },
+    {
+      system: {
+        status: "computing",
+        lastError: null,
+        pendingRequirements: [],
+        errors: [],
+        currentAction: "demo.intent",
+      },
+    }
+  );
+}
+
 describe("WFCTS Runtime Suite", () => {
   it(
     caseTitle(
@@ -442,6 +457,46 @@ describe("WFCTS Runtime Suite", () => {
               "Runtime resumed execution from the supplied resumeSnapshot rather than reloading proposal.baseWorld.",
             failMessage:
               "Runtime did not resume execution from the supplied resumeSnapshot.",
+          }
+        ),
+      ]);
+    }
+  );
+
+  it(
+    caseTitle(
+      WFCTS_CASES.RUNTIME_NON_TERMINAL_RESUME,
+      "WorldRuntime treats computing resume snapshots as non-terminal and re-invokes the executor from that checkpoint."
+    ),
+    async () => {
+      const resumeSnapshot = createComputingSnapshot();
+      const harness = createFacadeHarness({
+        executorResult: {
+          outcome: "completed",
+          terminalSnapshot: createSnapshot({ count: 4 }),
+        },
+      });
+      await sealStandaloneGenesis(harness);
+      const { proposal } = await createExecutingProposal(harness);
+
+      const result = await harness.world.runtime.resumeExecutingProposal({
+        proposal,
+        resumeSnapshot,
+        completedAt: 20,
+      });
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("FACADE-RUNTIME-9"),
+          result.kind === "sealed"
+            && harness.executionCalls.length === 1
+            && harness.executionCalls[0]?.baseSnapshot === resumeSnapshot
+            && JSON.stringify(result.execution.terminalSnapshot) !== JSON.stringify(resumeSnapshot),
+          {
+            passMessage:
+              "Runtime treated a computing resume snapshot as non-terminal and resumed execution from that checkpoint.",
+            failMessage:
+              "Runtime incorrectly treated a computing resume snapshot as terminal.",
           }
         ),
       ]);

@@ -45,7 +45,7 @@ function isRecoveredProposal(
 
 function isTerminalResumeSnapshot(snapshot: Snapshot): boolean {
   return (
-    snapshot.system.status !== "pending"
+    (snapshot.system.status === "idle" || snapshot.system.status === "error")
     && snapshot.system.pendingRequirements.length === 0
   );
 }
