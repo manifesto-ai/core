@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createInMemoryGovernanceStore } from "../index.js";
 
 describe("@manifesto-ai/governance in-memory store", () => {
-  it("returns the single approved or executing proposal for a branch", () => {
+  it("returns the single approved or executing proposal for a branch", async () => {
     const store = createInMemoryGovernanceStore();
 
-    store.putProposal({
+    await store.putProposal({
       proposalId: "proposal-approved",
       baseWorld: "world-1",
       branchId: "branch-a",
@@ -20,13 +20,15 @@ describe("@manifesto-ai/governance in-memory store", () => {
       epoch: 0,
     });
 
-    expect(store.getExecutionStageProposal("branch-a")?.proposalId).toBe("proposal-approved");
+    const proposal = await store.getExecutionStageProposal("branch-a");
+
+    expect(proposal?.proposalId).toBe("proposal-approved");
   });
 
-  it("rejects multiple execution-stage proposals on the same branch", () => {
+  it("rejects multiple execution-stage proposals on the same branch", async () => {
     const store = createInMemoryGovernanceStore();
 
-    store.putProposal({
+    await store.putProposal({
       proposalId: "proposal-1",
       baseWorld: "world-1",
       branchId: "branch-a",
@@ -40,7 +42,7 @@ describe("@manifesto-ai/governance in-memory store", () => {
       decidedAt: 2,
       epoch: 0,
     });
-    store.putProposal({
+    await store.putProposal({
       proposalId: "proposal-2",
       baseWorld: "world-1",
       branchId: "branch-a",
@@ -55,6 +57,6 @@ describe("@manifesto-ai/governance in-memory store", () => {
       epoch: 0,
     });
 
-    expect(() => store.getExecutionStageProposal("branch-a")).toThrow(/GOV-STORE-4/);
+    await expect(store.getExecutionStageProposal("branch-a")).rejects.toThrow(/GOV-STORE-4/);
   });
 });
