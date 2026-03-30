@@ -120,8 +120,8 @@ onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Governed runtime assembly over governance + lineage + sealing coordination |
-| **Primary API** | `createWorld()`, `createInMemoryWorldStore()` |
-| **Owns** | Facade assembly, composite store, coordinator-owned commit flow |
+| **Primary API** | `createWorld()` plus adapter subpaths such as `@manifesto-ai/world/in-memory` |
+| **Owns** | Facade assembly, governed store contract, coordinator-owned commit flow |
 | **Does NOT Know** | Host internal API, TraceEvent structure, execution micro-steps |
 
 ```typescript

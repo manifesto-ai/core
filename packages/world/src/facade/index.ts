@@ -167,18 +167,6 @@ export type {
 
 export { createWorld } from "./create-world.js";
 export {
-  IndexedDbGovernedWorldStore,
-  InMemoryGovernedWorldStore,
-  SqliteGovernedWorldStore,
-  createIndexedDbWorldStore,
-  createInMemoryWorldStore,
-  createSqliteWorldStore,
-} from "./store.js";
-export type {
-  IndexedDbWorldStoreOptions,
-  SqliteWorldStoreOptions,
-} from "./store.js";
-export {
   DefaultWorldCoordinator,
   createWorldCoordinator,
 } from "./coordinator.js";

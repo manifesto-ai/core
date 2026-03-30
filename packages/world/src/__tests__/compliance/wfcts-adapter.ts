@@ -4,6 +4,7 @@ import {
   createLineageService,
   type GovernanceEvent,
 } from "../../index.js";
+import { createInMemoryWorldStore } from "../../in-memory.js";
 import * as topLevelWorld from "../../index.js";
 import type { WorldFacadeComplianceAdapter } from "./wfcts-types.js";
 
@@ -44,7 +45,7 @@ export class SplitWorldFacadeComplianceAdapter implements WorldFacadeComplianceA
   }
 
   createStore() {
-    return topLevelWorld.createInMemoryWorldStore();
+    return createInMemoryWorldStore();
   }
 
   topLevelExports(): Record<string, unknown> {

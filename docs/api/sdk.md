@@ -26,9 +26,8 @@ If you need proposals, legitimacy, sealed lineage, or explicit runtime compositi
 SDK intentionally keeps only a narrow world escape hatch:
 
 - `createWorld()`
-- `createInMemoryWorldStore()`
 
-These are not the full governed surface. SDK does not expose durable world store factories or the split-native governance/lineage service factories needed for full governed bootstrap.
+This is not the full governed surface. SDK does not expose store adapter implementations or the split-native governance/lineage service factories needed for full governed bootstrap.
 
 ## Direct-Dispatch Example
 

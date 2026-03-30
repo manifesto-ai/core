@@ -8,7 +8,7 @@ Use governed composition when you need explicit proposal approval, lineage conti
 
 For the first governed consumer path, use:
 
-- `createSqliteWorldStore()` for local durability
+- `createSqliteWorldStore()` from `@manifesto-ai/world/sqlite` for local durability
 - `createLineageService()` for continuity
 - `createGovernanceService()` for proposal lifecycle
 - `createWorld()` for the assembled runtime
@@ -21,9 +21,9 @@ import {
   createGovernanceEventDispatcher,
   createGovernanceService,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
 const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);
@@ -51,9 +51,9 @@ const world = createWorld({
 
 ## Store Choices
 
-- `createSqliteWorldStore()` is the default Node-local durable path.
-- `createInMemoryWorldStore()` is the fast ephemeral path for tests.
-- `createIndexedDbWorldStore()` is the browser durable option.
+- `@manifesto-ai/world/sqlite` is the default Node-local durable path.
+- `@manifesto-ai/world/in-memory` is the fast ephemeral path for tests.
+- `@manifesto-ai/world/indexeddb` is the browser durable option.
 
 The runtime assembly stays the same; only the store factory changes.
 

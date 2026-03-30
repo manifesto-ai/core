@@ -74,9 +74,9 @@ import {
   createGovernanceEventDispatcher,
   createGovernanceService,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
 const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);

@@ -5,7 +5,10 @@ import {
   createGovernanceService,
   createLineageService,
 } from "../../../index.js";
-import { createInMemoryWorldStore, createWorld } from "../../../index.js";
+import { createWorld } from "../../../index.js";
+import * as indexedDbWorld from "../../../indexeddb.js";
+import { createInMemoryWorldStore } from "../../../in-memory.js";
+import * as sqliteWorld from "../../../sqlite.js";
 import {
   createExecutingProposal,
   createSnapshot,
@@ -25,7 +28,7 @@ describe("WFCTS Factory Suite", () => {
   it(
     caseTitle(
       WFCTS_CASES.FACTORY_ASSEMBLY,
-      "createWorld() and createInMemoryWorldStore() provide the split-native assembly surface."
+      "createWorld() and adapter subpaths provide the split-native assembly surface."
     ),
     async () => {
       const adapter = createWorldFacadeComplianceAdapter();
@@ -75,15 +78,22 @@ describe("WFCTS Factory Suite", () => {
         !sdkSource.includes("WriteSet") &&
         !removedLegacyStoreContract.test(sdkSource);
       const sdkHasGovernedRuntimeExports =
-        sdkSource.includes("createInMemoryWorldStore") &&
-        sdkSource.includes("createWorld");
+        sdkSource.includes("createWorld") &&
+        !sdkSource.includes("createInMemoryWorldStore") &&
+        !sdkSource.includes("createIndexedDbWorldStore") &&
+        !sdkSource.includes("createSqliteWorldStore");
       const topLevelWorldExports = adapter.topLevelExports();
       const topLevelWorldHasGovernedExports =
         typeof topLevelWorldExports.createWorld === "function" &&
-        typeof topLevelWorldExports.createInMemoryWorldStore === "function" &&
-        typeof topLevelWorldExports.createIndexedDbWorldStore === "function" &&
         typeof topLevelWorldExports.createGovernanceService === "function" &&
-        typeof topLevelWorldExports.createLineageService === "function";
+        typeof topLevelWorldExports.createLineageService === "function" &&
+        topLevelWorldExports.createInMemoryWorldStore === undefined &&
+        topLevelWorldExports.createIndexedDbWorldStore === undefined &&
+        topLevelWorldExports.createSqliteWorldStore === undefined;
+      const subpathAdaptersExposeFactories =
+        typeof createInMemoryWorldStore === "function" &&
+        typeof indexedDbWorld.createIndexedDbWorldStore === "function" &&
+        typeof sqliteWorld.createSqliteWorldStore === "function";
 
       const readyToUseWorld =
         typeof world.coordinator.sealNext === "function" &&
@@ -182,9 +192,9 @@ describe("WFCTS Factory Suite", () => {
         }),
         evaluateRule(getRuleOrThrow("FACADE-STORE-7"), hasSplitStoreFactory, {
           passMessage:
-            "createInMemoryWorldStore() returns a composite split-native store surface with runInSealTransaction() only.",
+            "@manifesto-ai/world/in-memory returns a composite split-native store surface with runInSealTransaction() only.",
           failMessage:
-            "createInMemoryWorldStore() is missing composite store methods.",
+            "Dedicated in-memory adapter subpath is missing composite store methods.",
         }),
         evaluateRule(
           getRuleOrThrow("FACADE-STORE-3"),
@@ -224,12 +234,14 @@ describe("WFCTS Factory Suite", () => {
         }),
         evaluateRule(
           getRuleOrThrow("FACADE-SDK-2"),
-          sdkHasGovernedRuntimeExports && topLevelWorldHasGovernedExports,
+          sdkHasGovernedRuntimeExports &&
+            topLevelWorldHasGovernedExports &&
+            subpathAdaptersExposeFactories,
           {
             passMessage:
-              "SDK and top-level world both expose the canonical governed factory surface.",
+              "SDK stays thin while top-level world owns orchestration and adapter factories live on dedicated subpaths.",
             failMessage:
-              "SDK or top-level world is missing the hard-cut governed factory surface.",
+              "SDK/world/subpath adapter hard-cut split is not aligned.",
           }
         ),
       ]);

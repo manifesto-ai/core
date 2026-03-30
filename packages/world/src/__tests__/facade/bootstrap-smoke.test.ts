@@ -7,7 +7,6 @@ import {
   createGovernanceService,
   createIntentInstance,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
   type GovernedWorldStore,
   type Proposal,
@@ -15,6 +14,7 @@ import {
   type WorldExecutor,
   type WorldInstance,
 } from "../../index.js";
+import { createSqliteWorldStore } from "../../sqlite.js";
 
 const SCHEMA_HASH = "counter-v1";
 

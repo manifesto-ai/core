@@ -64,7 +64,7 @@ export const WORLD_FACADE_SPEC_INVENTORY: readonly WorldFacadeComplianceInventor
     notes: "Same-store instance identity remains a caller precondition and is enforced through identity-preserving top-level assembly coverage.",
   }),
   ...inventoryMany(["FACADE-SDK-1", "FACADE-SDK-2"], "§12", "MUST", "matrix", {
-    notes: "SDK alignment is enforced through thin top-level world re-exports and canonical top-level factory coverage.",
+    notes: "SDK alignment is enforced through thin top-level world re-exports while concrete store adapters live on dedicated world subpaths.",
   }),
 ] as const;
 

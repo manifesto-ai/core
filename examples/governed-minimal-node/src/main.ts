@@ -6,12 +6,12 @@ import {
   createGovernanceService,
   createIntentInstance,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
   type Proposal,
   type Snapshot,
   type WorldExecutor,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
 const SCHEMA_HASH = "counter-v1";
 

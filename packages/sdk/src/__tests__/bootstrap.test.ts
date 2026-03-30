@@ -1,10 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as world from "@manifesto-ai/world";
 import * as sdk from "../index.js";
-import type {
-  GovernedWorldStore,
-  SdkManifest,
-} from "../index.js";
+import type { SdkManifest } from "../index.js";
 
 describe("@manifesto-ai/sdk bootstrap", () => {
   it("SdkManifest type is importable and structurally correct", () => {
@@ -44,16 +41,15 @@ describe("@manifesto-ai/sdk bootstrap", () => {
     expect(sdk.createCore).toBeDefined();
   });
 
-  it("re-exports only the thin governed world value surface", () => {
+  it("re-exports only the thin governed world orchestration surface", () => {
     const removedLegacyStoreFactory = ["create", "Memory", "World", "Store"].join("");
-    const governedStore: GovernedWorldStore = sdk.createInMemoryWorldStore();
 
-    expect(sdk.createInMemoryWorldStore).toBeDefined();
     expect(sdk.createWorld).toBeDefined();
     expect(typeof sdk.createWorld).toBe("function");
-    expect(sdk.createInMemoryWorldStore).toBe(world.createInMemoryWorldStore);
     expect(sdk.createWorld).toBe(world.createWorld);
-    expect(typeof governedStore.runInSealTransaction).toBe("function");
+    expect((sdk as Record<string, unknown>).createInMemoryWorldStore).toBeUndefined();
+    expect((sdk as Record<string, unknown>).createIndexedDbWorldStore).toBeUndefined();
+    expect((sdk as Record<string, unknown>).createSqliteWorldStore).toBeUndefined();
     expect((sdk as Record<string, unknown>)[removedLegacyStoreFactory]).toBeUndefined();
     expect((sdk as Record<string, unknown>).createGovernanceService).toBeUndefined();
     expect((sdk as Record<string, unknown>).createLineageService).toBeUndefined();

@@ -40,9 +40,9 @@ Current durable adapters on the async `GovernedWorldStore` seam:
 
 | Adapter | Status | Primary Use |
 | --- | --- | --- |
-| `createInMemoryWorldStore()` | Reference adapter | tests, ephemeral local composition |
-| `createSqliteWorldStore()` | Local reference durable adapter | Node-local apps, release smoke, developer workflows |
-| `createIndexedDbWorldStore()` | Browser-first durable adapter | browser persistence |
+| `@manifesto-ai/world/in-memory` | Reference adapter | tests, ephemeral local composition |
+| `@manifesto-ai/world/sqlite` | Local reference durable adapter | Node-local apps, release smoke, developer workflows |
+| `@manifesto-ai/world/indexeddb` | Browser-first durable adapter | browser persistence |
 
 The release gate uses SQLite for the canonical Node-local consumer story.
 

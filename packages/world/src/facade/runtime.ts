@@ -53,6 +53,18 @@ function isTerminalResumeSnapshot(snapshot: Snapshot): boolean {
 export class DefaultWorldRuntime implements WorldRuntime {
   public constructor(private readonly options: DefaultWorldRuntimeOptions) {}
 
+  private buildExecutionOptions(
+    proposal: Proposal,
+    inputOptions?: WorldExecutionOptions
+  ): WorldExecutionOptions {
+    return {
+      ...(inputOptions ?? {}),
+      ...(proposal.approvedScope !== undefined
+        ? { approvedScope: proposal.approvedScope }
+        : {}),
+    };
+  }
+
   async executeApprovedProposal(
     input: ExecuteApprovedProposalInput
   ): Promise<WorldRuntimeCompletion> {
@@ -78,12 +90,10 @@ export class DefaultWorldRuntime implements WorldRuntime {
       );
     }
 
-    const executionOptions: WorldExecutionOptions = {
-      ...(proposal.approvedScope !== undefined
-        ? { approvedScope: proposal.approvedScope }
-        : {}),
-      ...(input.executionOptions ?? {}),
-    };
+    const executionOptions = this.buildExecutionOptions(
+      proposal,
+      input.executionOptions
+    );
     const execution = await this.executeWithPolicy(
       proposal.executionKey,
       baseSnapshot,
@@ -118,12 +128,7 @@ export class DefaultWorldRuntime implements WorldRuntime {
           proposal.executionKey,
           input.resumeSnapshot,
           proposal.intent,
-          {
-            ...(proposal.approvedScope !== undefined
-              ? { approvedScope: proposal.approvedScope }
-              : {}),
-            ...(input.executionOptions ?? {}),
-          }
+          this.buildExecutionOptions(proposal, input.executionOptions)
         );
 
     return this.sealExecution(proposal, execution, input.completedAt);
@@ -135,6 +140,12 @@ export class DefaultWorldRuntime implements WorldRuntime {
     }
 
     const storedProposal = await this.options.store.getProposal(proposal.proposalId);
+    if (!storedProposal) {
+      throw new Error(
+        `FACADE-RUNTIME-11 violation: proposal ${proposal.proposalId} is missing from store`
+      );
+    }
+
     if (storedProposal && storedProposal.status !== "executing") {
       throw new Error(
         `FACADE-RUNTIME-11 violation: proposal ${proposal.proposalId} is no longer executing in store`

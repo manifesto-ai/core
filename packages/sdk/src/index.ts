@@ -99,7 +99,4 @@ export type {
   WorldRuntimeCompletion,
   WorldRuntime,
 } from "@manifesto-ai/world";
-export {
-  createInMemoryWorldStore,
-  createWorld,
-} from "@manifesto-ai/world";
+export { createWorld } from "@manifesto-ai/world";

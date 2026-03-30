@@ -28,6 +28,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./in-memory": {
+      "types": "./dist/in-memory.d.ts",
+      "import": "./dist/in-memory.js"
+    },
+    "./indexeddb": {
+      "types": "./dist/indexeddb.d.ts",
+      "import": "./dist/indexeddb.js"
+    },
+    "./sqlite": {
+      "types": "./dist/sqlite.d.ts",
+      "import": "./dist/sqlite.js"
     }
   },
   "scripts": {

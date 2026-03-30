@@ -2,7 +2,6 @@ import type { Snapshot } from "@manifesto-ai/core";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
   createWorld,
   type DecisionRecord,
@@ -15,6 +14,7 @@ import {
   type WorldExecutor,
   type WorldInstance,
 } from "../../index.js";
+import { createInMemoryWorldStore } from "../../in-memory.js";
 
 export function createSnapshot(
   data: Record<string, unknown>,

@@ -5,6 +5,9 @@ import {
   createIntentInstance,
 } from "@manifesto-ai/governance";
 import { createLineageService } from "@manifesto-ai/lineage";
+import * as indexedDbWorld from "../../../indexeddb.js";
+import * as inMemoryWorld from "../../../in-memory.js";
+import * as sqliteWorld from "../../../sqlite.js";
 import { createWorldFacadeComplianceAdapter } from "../wfcts-adapter.js";
 import { caseTitle, WFCTS_CASES } from "../wfcts-coverage.js";
 import { evaluateRule, expectAllCompliance } from "../wfcts-assertions.js";
@@ -20,24 +23,28 @@ describe("WFCTS Re-export Suite", () => {
       const adapter = createWorldFacadeComplianceAdapter();
       const topLevelExports = adapter.topLevelExports();
       const hasExpectedSurface = typeof topLevelExports.createWorld === "function"
-        && typeof topLevelExports.createInMemoryWorldStore === "function"
-        && typeof topLevelExports.createIndexedDbWorldStore === "function"
         && typeof topLevelExports.createLineageService === "function"
         && typeof topLevelExports.createGovernanceService === "function"
         && typeof topLevelExports.createGovernanceEventDispatcher === "function"
-        && typeof topLevelExports.createIntentInstance === "function";
+        && typeof topLevelExports.createIntentInstance === "function"
+        && (topLevelExports.createInMemoryWorldStore === undefined)
+        && (topLevelExports.createIndexedDbWorldStore === undefined)
+        && (topLevelExports.createSqliteWorldStore === undefined);
       const passThroughIdentity = topLevelExports.createLineageService === createLineageService
         && topLevelExports.createGovernanceService === createGovernanceService
         && topLevelExports.createGovernanceEventDispatcher === createGovernanceEventDispatcher
         && topLevelExports.createIntentInstance === createIntentInstance;
+      const hasSubpathAdapters = typeof inMemoryWorld.createInMemoryWorldStore === "function"
+        && typeof indexedDbWorld.createIndexedDbWorldStore === "function"
+        && typeof sqliteWorld.createSqliteWorldStore === "function";
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("FACADE-REEXPORT-1"),
-          hasExpectedSurface,
+          hasExpectedSurface && hasSubpathAdapters,
           {
-            passMessage: "Top-level world exposes the exact facade-governed composition surface.",
-            failMessage: "Top-level world is missing required facade exports.",
+            passMessage: "Top-level world exposes the canonical orchestration surface while store adapters live on dedicated subpaths.",
+            failMessage: "World package exports did not preserve the top-level/subpath split.",
           },
         ),
         evaluateRule(
@@ -59,6 +66,7 @@ describe("WFCTS Re-export Suite", () => {
       ]);
 
       expect(hasExpectedSurface).toBe(true);
+      expect(hasSubpathAdapters).toBe(true);
       expect(passThroughIdentity).toBe(true);
     }
   );

@@ -47,7 +47,7 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
   complianceCase(
     WFCTS_CASES.FACTORY_ASSEMBLY,
     "factory",
-    "createWorld() and createInMemoryWorldStore() provide the split-native assembly surface, including the seal transaction seam."
+    "createWorld() and dedicated adapter subpaths provide the split-native assembly surface, including the seal transaction seam."
   ),
   complianceCase(
     WFCTS_CASES.STORE_ATOMICITY,
@@ -132,7 +132,7 @@ export const WORLD_FACADE_COMPLIANCE_CASES: readonly WorldFacadeComplianceCase[]
   complianceCase(
     WFCTS_CASES.SDK_ALIGNMENT,
     "matrix",
-    "Factory caller preconditions and SDK hard-cut alignment are enforced as blocking facade rules."
+    "Factory caller preconditions, top-level orchestration exports, and adapter subpath hard-cut alignment are enforced as blocking facade rules."
   ),
 ] as const;
 

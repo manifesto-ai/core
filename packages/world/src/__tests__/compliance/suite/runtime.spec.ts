@@ -82,6 +82,7 @@ describe("WFCTS Runtime Suite", () => {
         proposal,
         completedAt: 20,
         executionOptions: {
+          approvedScope: { unsafe: true },
           timeoutMs: 50,
         },
       });
@@ -215,6 +216,47 @@ describe("WFCTS Runtime Suite", () => {
       ]);
     }
   );
+
+  it("rejects executing proposals that are missing from store before invoking the executor", async () => {
+      const executor: WorldExecutor = {
+        execute: vi.fn(async () => ({
+          outcome: "completed",
+          terminalSnapshot: createSnapshot({ count: 2 }),
+        })),
+      };
+      const harness = createFacadeHarness({ executor });
+      const { world } = await sealStandaloneGenesis(harness);
+      const branch = await harness.lineage.getActiveBranch();
+      const proposal = harness.governance.createProposal({
+        proposalId: "missing-proposal",
+        baseWorld: world!.worldId,
+        branchId: branch.id,
+        actorId: "actor-1",
+        authorityId: "auth-1",
+        intent: {
+          type: "demo.intent",
+          intentId: "intent-missing",
+          input: { count: 2 },
+        },
+        executionKey: "exec-missing",
+        submittedAt: 10,
+        epoch: branch.epoch,
+      });
+      const executingProposal: Proposal = {
+        ...proposal,
+        status: "executing",
+        decisionId: "dec-missing",
+        decidedAt: 11,
+      };
+
+      await expect(
+        harness.world.runtime.executeApprovedProposal({
+          proposal: executingProposal,
+          completedAt: 20,
+        })
+      ).rejects.toThrow(/FACADE-RUNTIME-11/);
+      expect(executor.execute.mock.calls.length).toBe(0);
+    });
 
   it(
     caseTitle(

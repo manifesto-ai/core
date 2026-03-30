@@ -21,7 +21,6 @@ describe("sdk public exports contract", () => {
       "createSnapshot",
       "createCore",
       // World re-exports
-      "createInMemoryWorldStore",
       "createWorld",
     ].sort();
 
@@ -79,6 +78,9 @@ describe("sdk public exports contract", () => {
       "createGovernanceEventDispatcher",
       "createLineageService",
       "createInMemoryLineageStore",
+      "createInMemoryWorldStore",
+      "createIndexedDbWorldStore",
+      "createSqliteWorldStore",
       "createWorldCoordinator",
       "DefaultGovernanceService",
       "DefaultLineageService",

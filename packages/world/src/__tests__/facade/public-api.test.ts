@@ -5,21 +5,30 @@ import {
 } from "@manifesto-ai/governance";
 import { createIntentInstance } from "@manifesto-ai/governance";
 import { createLineageService } from "@manifesto-ai/lineage";
+import * as indexedDbWorld from "../../indexeddb.js";
+import * as inMemoryWorld from "../../in-memory.js";
 import * as topLevelWorld from "../../index.js";
+import * as sqliteWorld from "../../sqlite.js";
 import { createFacadeHarness } from "./helpers.js";
 
 describe("@manifesto-ai/world facade public API", () => {
-  it("exposes top-level world as the canonical facade surface", () => {
+  it("exposes top-level world as the canonical orchestration surface only", () => {
     const removedOrchestratorKey = ["create", "Mani", "festo", "World"].join("");
     const removedStoreFactoryKey = ["create", "Memory", "World", "Store"].join("");
 
     expect(typeof topLevelWorld.createWorld).toBe("function");
-    expect(typeof topLevelWorld.createInMemoryWorldStore).toBe("function");
-    expect(typeof topLevelWorld.createIndexedDbWorldStore).toBe("function");
-    expect(typeof topLevelWorld.createSqliteWorldStore).toBe("function");
     expect(typeof topLevelWorld.createIntentInstance).toBe("function");
+    expect((topLevelWorld as Record<string, unknown>).createInMemoryWorldStore).toBeUndefined();
+    expect((topLevelWorld as Record<string, unknown>).createIndexedDbWorldStore).toBeUndefined();
+    expect((topLevelWorld as Record<string, unknown>).createSqliteWorldStore).toBeUndefined();
     expect((topLevelWorld as Record<string, unknown>)[removedOrchestratorKey]).toBeUndefined();
     expect((topLevelWorld as Record<string, unknown>)[removedStoreFactoryKey]).toBeUndefined();
+  });
+
+  it("exposes store adapters only through dedicated subpaths", () => {
+    expect(typeof inMemoryWorld.createInMemoryWorldStore).toBe("function");
+    expect(typeof indexedDbWorld.createIndexedDbWorldStore).toBe("function");
+    expect(typeof sqliteWorld.createSqliteWorldStore).toBe("function");
   });
 
   it("re-exports split-native service factories with pass-through identity", () => {

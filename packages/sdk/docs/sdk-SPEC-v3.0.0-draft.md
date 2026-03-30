@@ -54,7 +54,7 @@ The breaking change in this draft is not governed seal orchestration. It is the 
 | SDK-FACTORY-2 | MUST | SDK MUST inject reserved platform namespaces |
 | SDK-FACTORY-3 | MUST | SDK MUST normalize the initial snapshot without reintroducing removed Core fields |
 | SDK-FACTORY-4 | MUST NOT | SDK MUST NOT require governed world inputs in `ManifestoConfig` |
-| SDK-FACTORY-5 | MUST NOT | SDK MUST NOT call `createWorld()` or `createInMemoryWorldStore()` as part of default dispatch composition |
+| SDK-FACTORY-5 | MUST NOT | SDK MUST NOT call `createWorld()` or any world store adapter subpath as part of default dispatch composition |
 | SDK-FACTORY-6 | MUST | When given a restore-normalized snapshot, SDK MUST treat it as boundary-ready input and MUST NOT attempt to restore deprecated accumulated error-history fields |
 
 ### 4.1 Public Snapshot Surface
@@ -81,7 +81,6 @@ The following SDK surfaces transitively expose `Snapshot<T>` and therefore inher
 SDK MUST re-export exactly the thin governed World surface below:
 
 - `createWorld`
-- `createInMemoryWorldStore`
 - `GovernedWorldStore`
 - `GovernanceEventDispatcher`
 - `WorldCoordinator`
@@ -105,8 +104,8 @@ SDK MUST NOT re-export:
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-WORLD-1 | MUST | SDK MUST source governed world re-exports from top-level `@manifesto-ai/world` |
-| SDK-WORLD-2 | MUST | SDK MUST expose `createWorld()` and `createInMemoryWorldStore()` |
-| SDK-WORLD-3 | MUST NOT | SDK MUST NOT expose legacy World store factories after the hard cut |
+| SDK-WORLD-2 | MUST | SDK MUST expose `createWorld()` and omit concrete world store adapter implementations |
+| SDK-WORLD-3 | MUST NOT | SDK MUST NOT expose world adapter subpaths such as in-memory, IndexedDB, or SQLite factories |
 | SDK-WORLD-4 | MUST NOT | SDK MUST NOT expose the full split-native facade through SDK |
 
 ## 7. Invariants
@@ -121,9 +120,9 @@ SDK MUST NOT re-export:
 If you need governed composition:
 
 1. Keep using `createManifesto()` for direct dispatch.
-2. Use SDK thin world re-exports for `createWorld()` and `createInMemoryWorldStore()`.
+2. Use SDK thin world re-export only for `createWorld()`.
 3. Replace any `snapshot.system.errors` reads with `snapshot.system.lastError` or domain-owned history/telemetry.
-4. Import from `@manifesto-ai/world` directly when you need `createGovernanceService()`, `createLineageService()`, or proposal lifecycle types.
+4. Import from `@manifesto-ai/world` and its adapter subpaths directly when you need `createGovernanceService()`, `createLineageService()`, `@manifesto-ai/world/sqlite`, or proposal lifecycle types.
 
 ## 9. References
 

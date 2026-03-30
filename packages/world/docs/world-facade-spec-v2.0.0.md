@@ -49,7 +49,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 | Re-export policy | What the facade re-exports from Governance and Lineage |
 | Governed store | `GovernedWorldStore` and `WorldStoreTransaction` |
 | Coordinator | `WorldCoordinator` orchestration |
-| Factory | `createWorld()` and `createInMemoryWorldStore()` |
+| Factory | `createWorld()` plus adapter subpaths such as `@manifesto-ai/world/in-memory` |
 | Event timing | Post-commit dispatch policy |
 | Execution seam | `WorldExecutor`, `WorldExecutionOptions`, `WorldExecutionResult` ownership |
 | SDK alignment | Thin top-level surface consumed by SDK |
@@ -116,7 +116,6 @@ The facade owns and exports:
 - `WorldRuntimeCompletion`
 - `WorldRuntime`
 - `createWorld()`
-- `createInMemoryWorldStore()`
 
 ### 5.3 Re-export Rules
 
@@ -158,19 +157,24 @@ The hard-cut draft treats governed persistence as async so browser-first adapter
 | FACADE-STORE-1 | MUST | `GovernedWorldStore` MUST extend both `LineageStore` and `GovernanceStore` |
 | FACADE-STORE-2 | MUST | `runInSealTransaction()` MUST be atomic — all terminal writes or none |
 | FACADE-STORE-3 | MUST | The canonical governed seal path MUST persist lineage commit records, governance proposal/decision records, and lineage `SealAttempt` persistence inside one transaction |
-| FACADE-STORE-7 | MUST | Facade MUST provide an in-memory `GovernedWorldStore` via `createInMemoryWorldStore()` |
+| FACADE-STORE-7 | MUST | World package MUST provide an in-memory `GovernedWorldStore` through the dedicated `@manifesto-ai/world/in-memory` subpath |
 
 ### 6.4 Store Factories
 
 ```typescript
+// @manifesto-ai/world/in-memory
 function createInMemoryWorldStore(): GovernedWorldStore;
+
+// @manifesto-ai/world/indexeddb
 function createIndexedDbWorldStore(options?: IndexedDbWorldStoreOptions): IndexedDbGovernedWorldStore;
+
+// @manifesto-ai/world/sqlite
 function createSqliteWorldStore(options?: SqliteWorldStoreOptions): SqliteGovernedWorldStore;
 ```
 
 The in-memory implementation is a driver-backed reference adapter for tests and local composition. IndexedDB is the browser-first durable adapter. SQLite remains a local/server-side reference adapter that preserves the same async seam.
 
-All three factories preserve the same `GovernedWorldStore` contract and therefore remain swappable beneath `WorldRuntime` and `WorldCoordinator`.
+Concrete store adapters are intentionally not part of the top-level `@manifesto-ai/world` export surface. All three factories preserve the same `GovernedWorldStore` contract and therefore remain swappable beneath `WorldRuntime` and `WorldCoordinator`.
 
 ### 6.5 Durable Direction
 
@@ -408,7 +412,7 @@ The SDK remains thin and re-exports only the top-level façade surface needed fo
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | FACADE-SDK-1 | MUST | SDK MUST surface `GovernedWorldStore` as the canonical governed store type |
-| FACADE-SDK-2 | MUST | SDK MUST expose `createWorld()` and `createInMemoryWorldStore()` from top-level `@manifesto-ai/world` |
+| FACADE-SDK-2 | MUST | SDK MUST expose only `createWorld()` from top-level `@manifesto-ai/world` and MUST NOT re-export concrete store adapter implementations |
 
 SDK does **not** re-export the removed `CommitCapableWorldStore`, `WriteSet`, or any compatibility alias.
 

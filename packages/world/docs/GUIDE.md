@@ -13,9 +13,9 @@ import {
   createGovernanceEventDispatcher,
   createGovernanceService,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
 const filename = join(process.cwd(), ".manifesto", "world.sqlite");
 mkdirSync(dirname(filename), { recursive: true });
@@ -37,7 +37,7 @@ const world = createWorld({
 });
 ```
 
-For Node-local governed apps, `createSqliteWorldStore()` is the default path. Use `createInMemoryWorldStore()` only for tests or ephemeral flows.
+For Node-local governed apps, `createSqliteWorldStore()` from `@manifesto-ai/world/sqlite` is the default path. Use `@manifesto-ai/world/in-memory` only for tests or ephemeral flows.
 
 ## 2. Bootstrap The First Sealed World
 
@@ -137,9 +137,9 @@ The runtime does not hide history. It gives you the new sealed world id and keep
 
 ## 6. Swap Store Backends Deliberately
 
-- `createSqliteWorldStore()` for Node-local durable apps
-- `createInMemoryWorldStore()` for tests or ephemeral flows
-- `createIndexedDbWorldStore()` for browser durable apps
+- `@manifesto-ai/world/sqlite` for Node-local durable apps
+- `@manifesto-ai/world/in-memory` for tests or ephemeral flows
+- `@manifesto-ai/world/indexeddb` for browser durable apps
 
 The rest of the assembly stays the same because the store contract is `GovernedWorldStore`.
 

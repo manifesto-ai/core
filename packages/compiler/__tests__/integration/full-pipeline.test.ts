@@ -20,7 +20,6 @@ import { createHost, type ManifestoHost } from "../../../host/src/index.js";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
   createWorld,
   createIntentInstance,
@@ -30,6 +29,7 @@ import {
   type DecisionRecord,
   type WorldExecutor,
 } from "@manifesto-ai/world";
+import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
 import type { ErrorValue } from "@manifesto-ai/core";
 
 const HOST_CONTEXT = {

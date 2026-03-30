@@ -28,9 +28,9 @@ If you are moving old governed code forward, align to these surfaces:
 
 Pick the durable adapter that matches the runtime you are building:
 
-- Node-local app: `createSqliteWorldStore()`
-- Browser app: `createIndexedDbWorldStore()`
-- Tests or ephemeral local composition: `createInMemoryWorldStore()`
+- Node-local app: `@manifesto-ai/world/sqlite`
+- Browser app: `@manifesto-ai/world/indexeddb`
+- Tests or ephemeral local composition: `@manifesto-ai/world/in-memory`
 
 The assembly story stays the same. Only the store factory changes.
 

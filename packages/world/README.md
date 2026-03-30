@@ -2,14 +2,17 @@
 
 > Canonical governed composition package for Manifesto.
 
-`@manifesto-ai/world` is the exact facade for governed composition. It combines lineage, governance, and the facade-owned coordinator/store types behind a single top-level package.
+`@manifesto-ai/world` is the exact facade for governed composition. It combines lineage, governance, and the facade-owned coordinator/runtime types behind a single top-level package.
 
 > **Current Contract Note:** The current public package contract is documented in [docs/world-facade-spec-v1.0.0.md](docs/world-facade-spec-v1.0.0.md). The projected ADR-015 + ADR-016 rewrite lives in [docs/world-facade-spec-v2.0.0.md](docs/world-facade-spec-v2.0.0.md) as draft only.
 
 ## What This Package Owns
 
 - governed composition through `createWorld()`
-- composite storage through `createInMemoryWorldStore()`, `createIndexedDbWorldStore()`, and `createSqliteWorldStore()`
+- adapter subpaths for storage implementations:
+  - `@manifesto-ai/world/in-memory`
+  - `@manifesto-ai/world/indexeddb`
+  - `@manifesto-ai/world/sqlite`
 - lineage services and public lineage types
 - governance services, authority handlers, proposal lifecycle types, and intent-instance helpers
 - coordinator/runtime-based sealing and post-commit event dispatch
@@ -32,9 +35,9 @@ import {
   createGovernanceEventDispatcher,
   createGovernanceService,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
 const executor = {
   async execute(key, snapshot, intent) {
@@ -70,14 +73,11 @@ const intent = await createIntentInstance({
 
 For the smallest runnable governed bootstrap, see [examples/governed-minimal-node](../../examples/governed-minimal-node/README.md).
 
-`createSqliteWorldStore()` is the default Node-local durable path. `createInMemoryWorldStore()` is the driver-backed reference adapter used for tests and local composition. `createIndexedDbWorldStore()` remains the browser durable option on the same async `GovernedWorldStore` seam.
+`createSqliteWorldStore()` is the default Node-local durable path from `@manifesto-ai/world/sqlite`. `createInMemoryWorldStore()` lives in `@manifesto-ai/world/in-memory` for tests and local composition. `createIndexedDbWorldStore()` lives in `@manifesto-ai/world/indexeddb` for browser durability.
 
 ## Main Exports
 
 - `createWorld()`
-- `createInMemoryWorldStore()`
-- `createIndexedDbWorldStore()`
-- `createSqliteWorldStore()`
 - `createLineageService()`
 - `createGovernanceService()`
 - `createGovernanceEventDispatcher()`
@@ -89,6 +89,12 @@ For the smallest runnable governed bootstrap, see [examples/governed-minimal-nod
 - `WorldExecutor`
 - `WorldCoordinator`
 - `WorldInstance`
+
+## Adapter Subpaths
+
+- `@manifesto-ai/world/in-memory`
+- `@manifesto-ai/world/indexeddb`
+- `@manifesto-ai/world/sqlite`
 
 ## Docs
 

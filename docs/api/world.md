@@ -11,14 +11,11 @@ Top-level `@manifesto-ai/world` is the package you use when you want:
 - a facade-owned runtime assembly surface
 - explicit governed execution and sealing
 
-It is the full consumer-facing governed package. You do not need to mix direct imports from `@manifesto-ai/governance` and `@manifesto-ai/lineage` unless you intentionally want only one protocol layer.
+It is the full consumer-facing governed package. You do not need to mix direct imports from `@manifesto-ai/governance` and `@manifesto-ai/lineage` unless you intentionally want only one protocol layer. Concrete store adapters are imported from dedicated `@manifesto-ai/world/*` subpaths.
 
 ## Main Runtime Factories
 
 - `createWorld()`
-- `createSqliteWorldStore()`
-- `createInMemoryWorldStore()`
-- `createIndexedDbWorldStore()`
 
 ## Core Facade-Owned Types
 
@@ -43,9 +40,9 @@ import {
   createGovernanceEventDispatcher,
   createGovernanceService,
   createLineageService,
-  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
 const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);
@@ -66,9 +63,9 @@ The consumer-facing happy path is `world.runtime.executeApprovedProposal(...)`, 
 
 ## Store Guidance
 
-- `createSqliteWorldStore()` for Node-local durable apps
-- `createInMemoryWorldStore()` for tests and ephemeral flows
-- `createIndexedDbWorldStore()` for browser durable apps
+- `@manifesto-ai/world/sqlite` for Node-local durable apps
+- `@manifesto-ai/world/in-memory` for tests and ephemeral flows
+- `@manifesto-ai/world/indexeddb` for browser durable apps
 
 All of them satisfy the same `GovernedWorldStore` contract.
 

@@ -12,7 +12,7 @@
 - `dispatchAsync()`
 - `defineOps()`
 - typed operation helpers
-- thin world re-exports for `createWorld()` and `createInMemoryWorldStore()`
+- thin world re-export for `createWorld()`
 
 ## When to Use It
 
@@ -45,7 +45,7 @@ import {
 
 These are thin re-exports from top-level `@manifesto-ai/world`. The canonical governed bootstrap, including durable store selection and `WorldRuntime.executeApprovedProposal()`, lives on `@manifesto-ai/world` directly.
 
-For the full governed surface, including `createSqliteWorldStore()`, `createGovernanceService()`, `createLineageService()`, and `createGovernanceEventDispatcher()`, import `@manifesto-ai/world` directly.
+For the full governed surface, including store adapters such as `@manifesto-ai/world/sqlite`, plus `createGovernanceService()`, `createLineageService()`, and `createGovernanceEventDispatcher()`, import `@manifesto-ai/world` directly.
 
 ## Docs
 

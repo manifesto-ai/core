@@ -2,11 +2,11 @@ import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import {
   createGovernanceService,
-  createIndexedDbWorldStore,
   createLineageService,
   type DecisionRecord,
   type Proposal,
 } from "../../index.js";
+import { createIndexedDbWorldStore } from "../../indexeddb.js";
 import { FacadeCasMismatchError } from "../../facade/internal/errors.js";
 import { createSnapshot } from "../facade/helpers.js";
 

@@ -17,6 +17,7 @@
 - **Draft SPEC:** [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) — projected next-major facade rewrite
   - Draft only until the shared epoch boundary lands
   - Depends on the Governance v2 draft, the Lineage v2 draft, and the Host v4 draft; projected SDK v3 alignment follows this facade draft
+  - Hard-cut surface keeps top-level `@manifesto-ai/world` for orchestration and moves concrete store adapters to dedicated subpaths
 
 ### Legacy World Protocol
 - **SPEC (Living Document):** [world-SPEC.md](world-SPEC.md) — Legacy monolith reference, current through v3.0.0
@@ -65,7 +66,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 - **v2.0.3**: Platform namespace extension - `$mel` namespace hash exclusion (WORLD-HASH-4b), `stripPlatformNamespaces()` API, platform namespace policy rules (NS-PLAT-*).
 - **v2.0.2**: Host-World Data Contract (`$host` namespace convention formalized as HOST-DATA-* rules), terminology unification.
 - **v2.0.1**: ADR-001 Layer Separation - Event ownership clarification, "Does NOT Know" boundary definition.
-- **v2.0.0**: projected hard-cut draft - `GovernedWorldStore`, transaction-only seal persistence seam, World-owned execution abstraction.
+- **v2.0.0**: projected hard-cut draft - `GovernedWorldStore`, transaction-only seal persistence seam, World-owned execution abstraction, adapter subpaths for in-memory / IndexedDB / SQLite stores.
 - **v1.0.0**: Initial release defining core governance. (Archived docs)
 
 ---

@@ -5,10 +5,10 @@ import { describe, expect, it } from "vitest";
 import {
   createGovernanceService,
   createLineageService,
-  SqliteGovernedWorldStore,
   type DecisionRecord,
   type Proposal,
 } from "../../index.js";
+import { SqliteGovernedWorldStore } from "../../sqlite.js";
 import { createSnapshot } from "../facade/helpers.js";
 
 async function createSqliteHarness(filename: string) {
