@@ -2,7 +2,9 @@
  * @manifesto-ai/sdk v2.0.0
  *
  * Protocol-first SDK — thin composition layer over the Manifesto protocol stack.
- * The SDK owns one concept: createManifesto().
+ * The SDK owns one concept: createManifesto() and exposes only a narrow
+ * pass-through World surface for callers that opt into explicit governed
+ * composition.
  *
  * @see sdk-SPEC-v2.0.0.md
  * @see ADR-010

@@ -73,6 +73,16 @@ describe("sdk public exports contract", () => {
       "withDxAliases",
       "validateSchemaCompatibility",
       "withPlatformNamespaces",
+      // Split-native World / Governance / Lineage exports stay outside SDK
+      "createGovernanceService",
+      "createInMemoryGovernanceStore",
+      "createGovernanceEventDispatcher",
+      "createLineageService",
+      "createInMemoryLineageStore",
+      "createWorldCoordinator",
+      "DefaultGovernanceService",
+      "DefaultLineageService",
+      "DefaultWorldCoordinator",
     ];
 
     for (const key of forbidden) {

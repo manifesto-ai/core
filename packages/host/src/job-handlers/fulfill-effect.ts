@@ -211,7 +211,6 @@ function applyHostErrorPatch(
   const snapshot = ctx.getSnapshot();
   const frozenContext = ctx.getFrozenContext();
   const hostState = getHostState(snapshot.data);
-  const existingErrors = hostState?.errors ?? [];
 
   const errorValue = {
     code: error.code,
@@ -232,7 +231,10 @@ function applyHostErrorPatch(
     {
       op: "merge",
       path: [{ kind: "prop", name: "$host" }],
-      value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
+      value: {
+        ...(hostState ? hostState : {}),
+        lastError: errorValue,
+      },
     },
   ];
 

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as world from "@manifesto-ai/world";
 import * as sdk from "../index.js";
 import type {
   CommitCapableWorldStore,
@@ -43,15 +44,19 @@ describe("@manifesto-ai/sdk bootstrap", () => {
     expect(sdk.createCore).toBeDefined();
   });
 
-  it("re-exports the hard-cut governed world store factories", () => {
+  it("re-exports only the thin governed world value surface", () => {
     const removedLegacyStoreFactory = ["create", "Memory", "World", "Store"].join("");
     const governedStore: CommitCapableWorldStore = sdk.createInMemoryWorldStore();
 
     expect(sdk.createInMemoryWorldStore).toBeDefined();
     expect(sdk.createWorld).toBeDefined();
     expect(typeof sdk.createWorld).toBe("function");
+    expect(sdk.createInMemoryWorldStore).toBe(world.createInMemoryWorldStore);
+    expect(sdk.createWorld).toBe(world.createWorld);
     expect(typeof governedStore.commitSeal).toBe("function");
     expect((sdk as Record<string, unknown>)[removedLegacyStoreFactory]).toBeUndefined();
+    expect((sdk as Record<string, unknown>).createGovernanceService).toBeUndefined();
+    expect((sdk as Record<string, unknown>).createLineageService).toBeUndefined();
   });
 
   it("does NOT export removed v0.x concepts", () => {

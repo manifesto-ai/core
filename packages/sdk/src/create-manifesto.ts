@@ -1,8 +1,10 @@
 /**
  * createManifesto() Factory
  *
- * The sole SDK-owned concept. Creates a ManifestoInstance that composes
- * the four protocol axes (Core, Host, World, Compiler) into a single handle.
+ * The sole SDK-owned concept. Creates a ManifestoInstance for the default
+ * direct-dispatch path by composing schema compilation and Host execution into
+ * a single handle. Governed World composition remains explicit outside this
+ * factory.
  *
  * @see SDK SPEC v1.0.0 §5
  * @see ADR-010
@@ -55,7 +57,7 @@ const RESERVED_NAMESPACE_PREFIX = "system.";
  * Create a ManifestoInstance.
  *
  * This is the sole entry point for SDK consumers. It composes the protocol
- * axes (Core via Host, Host, World, Compiler) into a single handle with
+ * axes required for the default direct-dispatch runtime into a single handle with
  * 5 methods: dispatch, subscribe, on, getSnapshot, dispose.
  *
  * @see SDK-FACTORY-1 through SDK-FACTORY-5

@@ -571,7 +571,6 @@ export class ManifestoHost {
       try {
         const snapshot = ctx.getSnapshot();
         const hostState = getHostState(snapshot.data);
-        const existingErrors = hostState?.errors ?? [];
         const frozenContext = ctx.getFrozenContext();
         const errorValue = {
           code: "FATAL_ERROR",
@@ -583,7 +582,10 @@ export class ManifestoHost {
           {
             op: "merge",
             path: [{ kind: "prop", name: "$host" }],
-            value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
+            value: {
+              ...(hostState ? hostState : {}),
+              lastError: errorValue,
+            },
           },
         ];
         ctx.applyPatches(patches, "fatal-error");

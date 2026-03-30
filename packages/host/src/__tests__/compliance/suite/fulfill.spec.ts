@@ -232,15 +232,9 @@ describe("HCTS Fulfillment Tests", () => {
 
       const hostState = getHostState(finalSnapshot.data);
 
-      // The error should be recorded in the errors array
-      expect(hostState?.errors?.length ?? 0).toBeGreaterThan(0);
-
-      // Verify the error has the expected message
-      const effectError = hostState?.errors?.find(
-        (e) => e.code === "EFFECT_EXECUTION_FAILED"
-      );
-      expect(effectError).toBeDefined();
-      expect(effectError?.message).toContain("Effect handler failed");
+      expect(hostState?.lastError).toBeDefined();
+      expect(hostState?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
+      expect(hostState?.lastError?.message).toContain("Effect handler failed");
     });
 
     it("HCTS-FULFILL-002b: Unknown effect type clears requirement and records error", async () => {
@@ -281,8 +275,8 @@ describe("HCTS Fulfillment Tests", () => {
       // Verify: Requirement cleared even for unknown effect
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
       const hostState = getHostState(finalSnapshot.data);
-      expect(hostState?.errors?.length ?? 0).toBeGreaterThan(0);
-      expect(hostState?.errors?.[0]?.code).toBe("UNKNOWN_EFFECT");
+      expect(hostState?.lastError).toBeDefined();
+      expect(hostState?.lastError?.code).toBe("UNKNOWN_EFFECT");
     });
   });
 
