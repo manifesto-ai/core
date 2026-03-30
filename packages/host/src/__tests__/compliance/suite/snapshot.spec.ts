@@ -1,12 +1,12 @@
 /**
  * HCTS Snapshot Ownership Test Suite
  *
- * Tests for snapshot type alignment rules projected for Host v4:
+ * Tests for snapshot type alignment rules in the current Host v4 contract:
  * - HOST-SNAP-1~4: Core Snapshot type usage
  * - HOST-NS-1~5: Host-owned state namespace
  * - HOST-RESTORE-1~3: restore-normalized resume boundary
  *
- * @see host-SPEC-v4.0.0-draft.md §3.3
+ * @see host-SPEC.md §3.3
  */
 
 import { semanticPathToPatchPath } from "@manifesto-ai/core";

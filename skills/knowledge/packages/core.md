@@ -18,6 +18,8 @@ interface ManifestoCore {
   applySystemDelta(snapshot, delta): Snapshot;
   validate(schema): ValidationResult;
   explain(schema, snapshot, path): ExplainResult;
+  isActionAvailable(schema, snapshot, actionName): boolean;
+  getAvailableActions(schema, snapshot): readonly string[];
 }
 ```
 
@@ -41,7 +43,6 @@ type Snapshot = {
   system: {
     status: "idle" | "computing" | "pending" | "error";
     lastError: ErrorValue | null;
-    errors: ErrorValue[];
     pendingRequirements: Requirement[];
     currentAction: string | null;
   };
@@ -82,9 +83,8 @@ type SystemDelta = {
   status?: SystemState["status"];
   currentAction?: string | null;
   lastError?: ErrorValue | null;
-  appendErrors: ErrorValue[];
-  addRequirements: Requirement[];
-  removeRequirementIds: string[];
+  addRequirements?: readonly Requirement[];
+  removeRequirementIds?: readonly string[];
 };
 ```
 
@@ -93,6 +93,8 @@ type SystemDelta = {
 - `createSnapshot`
 - `createIntent`
 - `createCore`
+- `isActionAvailable`
+- `getAvailableActions`
 - schema and evaluator re-exports
 
 ## Notes
@@ -100,3 +102,4 @@ type SystemDelta = {
 - Core owns semantic meaning and validation.
 - Host owns execution.
 - World owns governance and proposal flow around execution.
+- Current Core v4 keeps `lastError` as the sole current error surface.

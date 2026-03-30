@@ -11,9 +11,9 @@ You are working on a Manifesto-based project. These rules are non-negotiable.
 
 This skills pack follows the current implementation in this repo.
 
-- `@manifesto-ai/world` is still the active code target for world/governance/lineage behavior.
-- `@manifesto-ai/governance` and `@manifesto-ai/lineage` are currently split-design docs, not code packages to target for implementation work here.
-- When docs describe future structure that is not implemented yet, prefer existing package exports and source files.
+- `@manifesto-ai/world` is the canonical governed composition package and exact consumer-facing facade.
+- `@manifesto-ai/governance` and `@manifesto-ai/lineage` are implemented code packages and own their protocol-layer behavior.
+- For governed work, prefer top-level `@manifesto-ai/world` for composition and import split-native packages directly only when the task is intentionally limited to governance or lineage.
 
 ## Absolute Rules
 

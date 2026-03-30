@@ -4,7 +4,7 @@
 
 `@manifesto-ai/world` is the exact facade for governed composition. It combines lineage, governance, and the facade-owned coordinator/runtime types behind a single top-level package.
 
-> **Current Contract Note:** The current public package contract is documented in [docs/world-facade-spec-v1.0.0.md](docs/world-facade-spec-v1.0.0.md). The projected ADR-015 + ADR-016 rewrite lives in [docs/world-facade-spec-v2.0.0.md](docs/world-facade-spec-v2.0.0.md) as draft only.
+> **Current Contract Note:** The current public package contract is documented in [docs/world-facade-spec-v2.0.0.md](docs/world-facade-spec-v2.0.0.md). The v1 facade spec remains available as the superseded pre-hard-cut baseline.
 
 ## What This Package Owns
 
@@ -100,6 +100,6 @@ For the smallest runnable governed bootstrap, see [examples/governed-minimal-nod
 
 - [Docs Landing](docs/README.md)
 - [World Guide](docs/GUIDE.md)
-- [World Facade Spec](docs/world-facade-spec-v1.0.0.md)
-- [World Facade Spec v2 Draft](docs/world-facade-spec-v2.0.0.md)
+- [World Facade Spec](docs/world-facade-spec-v2.0.0.md)
+- [Historical Facade v1 Baseline](docs/world-facade-spec-v1.0.0.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

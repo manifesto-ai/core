@@ -4,7 +4,7 @@
  * Defines the Host-owned state stored at `data.$host` in the Snapshot.
  * This namespace is exclusively managed by Host and should not be modified by Core.
  *
- * @see host-SPEC-v4.0.0-draft.md §3.3.1
+ * @see host-SPEC.md §3.3.1
  */
 
 import type { ErrorValue } from "@manifesto-ai/core";

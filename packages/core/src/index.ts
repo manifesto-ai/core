@@ -20,6 +20,7 @@ import { apply } from "./core/apply.js";
 import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
+import { getAvailableActions, isActionAvailable } from "./core/action-availability.js";
 
 /**
  * ManifestoCore interface
@@ -77,6 +78,23 @@ export interface ManifestoCore {
     snapshot: Snapshot,
     path: SemanticPath
   ): ExplainResult;
+
+  /**
+   * Check whether an action is currently dispatchable.
+   */
+  isActionAvailable(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    actionName: string
+  ): boolean;
+
+  /**
+   * Return all currently dispatchable action names.
+   */
+  getAvailableActions(
+    schema: DomainSchema,
+    snapshot: Snapshot
+  ): readonly string[];
 }
 
 /**
@@ -90,6 +108,8 @@ export function createCore(): ManifestoCore {
     applySystemDelta,
     validate,
     explain,
+    isActionAvailable,
+    getAvailableActions,
   };
 }
 
@@ -111,4 +131,13 @@ export * from "./errors.js";
 export * from "./factories.js";
 
 // Core functions (for direct usage)
-export { compute, computeSync, apply, applySystemDelta, validate, explain };
+export {
+  compute,
+  computeSync,
+  apply,
+  applySystemDelta,
+  validate,
+  explain,
+  isActionAvailable,
+  getAvailableActions,
+};

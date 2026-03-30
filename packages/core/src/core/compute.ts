@@ -7,11 +7,11 @@ import type { TraceGraph } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
 import { createContext } from "../evaluator/context.js";
-import { evaluateExpr } from "../evaluator/expr.js";
 import { evaluateFlowSync, createFlowState, type FlowStatus } from "../evaluator/flow.js";
 import { evaluateComputed } from "../evaluator/computed.js";
-import { isOk, isErr } from "../schema/common.js";
+import { isOk } from "../schema/common.js";
 import type { HostContext } from "../schema/host-context.js";
+import { evaluateActionAvailability } from "./action-availability.js";
 import { applySystemDelta } from "./system-delta.js";
 
 /**
@@ -72,30 +72,18 @@ export function computeSync(
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
 
   if (action.available && !isReEntry) {
-    const ctx = createContext(currentSnapshot, schema, intent.type, "available", intent.intentId, context.now);
-    const availResult = evaluateExpr(action.available, ctx);
-
-    if (isErr(availResult)) {
+    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type, context.now);
+    if (availability.kind === "error") {
       return createErrorResult(
         currentSnapshot,
         intent,
-        "INTERNAL_ERROR",
-        `Error evaluating availability: ${availResult.error.message}`,
+        availability.code,
+        availability.message,
         context
       );
     }
 
-    if (typeof availResult.value !== "boolean") {
-      return createErrorResult(
-        currentSnapshot,
-        intent,
-        "TYPE_MISMATCH",
-        `Availability condition must return boolean, got ${typeof availResult.value}`,
-        context
-      );
-    }
-
-    if (!availResult.value) {
+    if (!availability.available) {
       return createErrorResult(
         currentSnapshot,
         intent,
@@ -233,7 +221,6 @@ function createErrorResult(
     status: "error",
     currentAction: null,
     lastError: error,
-    appendErrors: [error],
     addRequirements: [],
     removeRequirementIds: [],
   };
@@ -282,7 +269,6 @@ function createSystemDeltaForFlow(
     status: systemStatus,
     currentAction: status === "pending" ? intent.type : null,
     lastError: flowError,
-    appendErrors: flowError && isError ? [flowError] : [],
     addRequirements: [...requirements],
     removeRequirementIds: snapshot.system.pendingRequirements.map((requirement) => requirement.id),
   };

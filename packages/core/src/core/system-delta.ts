@@ -13,7 +13,6 @@ export function applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapsh
   const hasLastError = hasOwn(delta, "lastError");
   const removeRequirementIds = new Set(delta.removeRequirementIds ?? []);
   const addRequirements = delta.addRequirements ?? [];
-  const appendErrors = delta.appendErrors ?? [];
 
   const nextPending = applyRequirementDelta(
     snapshot.system.pendingRequirements,
@@ -26,7 +25,6 @@ export function applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapsh
     status: hasStatus ? delta.status! : snapshot.system.status,
     currentAction: hasCurrentAction ? (delta.currentAction ?? null) : snapshot.system.currentAction,
     lastError: hasLastError ? (delta.lastError ?? null) : snapshot.system.lastError,
-    errors: appendErrors.length > 0 ? [...snapshot.system.errors, ...appendErrors] : snapshot.system.errors,
     pendingRequirements: nextPending,
   };
 
@@ -67,25 +65,10 @@ function hasSystemChanged(previous: SystemState, next: SystemState): boolean {
   if (!isErrorValueEqual(previous.lastError, next.lastError)) {
     return true;
   }
-  if (!areErrorArraysEqual(previous.errors, next.errors)) {
-    return true;
-  }
   if (!areRequirementArraysEqual(previous.pendingRequirements, next.pendingRequirements)) {
     return true;
   }
   return false;
-}
-
-function areErrorArraysEqual(a: readonly ErrorValue[], b: readonly ErrorValue[]): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  for (let i = 0; i < a.length; i++) {
-    if (!isErrorValueEqual(a[i], b[i])) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function areRequirementArraysEqual(a: readonly Requirement[], b: readonly Requirement[]): boolean {

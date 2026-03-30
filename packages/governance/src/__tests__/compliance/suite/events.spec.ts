@@ -30,7 +30,6 @@ function createSnapshot(
       status: "idle",
       lastError: null,
       pendingRequirements: [],
-      errors: [],
       currentAction: null,
     },
     input: {},
@@ -195,7 +194,6 @@ describe("GCTS Events Suite", () => {
                 source: { actionId: "action-21", nodePath: "root" },
                 timestamp: 32,
               },
-              errors: [],
               pendingRequirements: [],
               currentAction: null,
             },
@@ -347,7 +345,6 @@ describe("GCTS Events Suite", () => {
                 source: { actionId: "action-30", nodePath: "root" },
                 timestamp: 72,
               },
-              errors: [],
               pendingRequirements: [],
               currentAction: null,
             },
@@ -470,20 +467,6 @@ describe("GCTS Events Suite", () => {
                 source: { actionId: "action-22", nodePath: "root" },
                 timestamp: 50,
               },
-              errors: [
-                {
-                  code: "ERR-PRIMARY",
-                  message: "Primary failure",
-                  source: { actionId: "action-22", nodePath: "root" },
-                  timestamp: 50,
-                },
-                {
-                  code: "ERR-SECONDARY",
-                  message: "Secondary failure",
-                  source: { actionId: "action-22b", nodePath: "root.secondary" },
-                  timestamp: 51,
-                },
-              ],
               pendingRequirements: [
                 {
                   id: "req-22",
@@ -523,7 +506,7 @@ describe("GCTS Events Suite", () => {
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-5"), currentErrorOnly, {
           passMessage: "execution:failed payloads surface only the current error view through currentError.",
           failMessage: "execution:failed payloads leaked accumulated error history instead of the current error view.",
-          evidence: [noteEvidence("Built a terminal snapshot with lastError plus historical system.errors and verified the emitted payload only exposed currentError and pending requirement ids.")],
+          evidence: [noteEvidence("Built a terminal snapshot with lastError plus pending requirements and verified the emitted payload only exposed currentError and pending requirement ids.")],
         }),
       ]);
 

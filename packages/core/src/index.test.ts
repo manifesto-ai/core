@@ -11,5 +11,7 @@ describe("core", () => {
     expect(core.applySystemDelta).toBeInstanceOf(Function);
     expect(core.validate).toBeInstanceOf(Function);
     expect(core.explain).toBeInstanceOf(Function);
+    expect(core.isActionAvailable).toBeInstanceOf(Function);
+    expect(core.getAvailableActions).toBeInstanceOf(Function);
   });
 });

@@ -103,11 +103,6 @@ export const SystemState = z.object({
   lastError: ErrorValue.nullable(),
 
   /**
-   * Error history
-   */
-  errors: z.array(ErrorValue),
-
-  /**
    * Pending requirements waiting for Host
    */
   pendingRequirements: z.array(Requirement),
@@ -186,7 +181,6 @@ export function createInitialSystemState(): SystemState {
   return {
     status: "idle",
     lastError: null,
-    errors: [],
     pendingRequirements: [],
     currentAction: null,
   };

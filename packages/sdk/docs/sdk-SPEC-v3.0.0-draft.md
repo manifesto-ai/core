@@ -2,7 +2,7 @@
 
 > **Status:** Draft (Projected next major)
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v4.0.0 draft, Host Contract v4.0.0 draft, World Facade SPEC v2.0.0 draft, Compiler SPEC v0.7.0
+> **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, World Facade SPEC v2.0.0, Compiler SPEC v0.7.0
 > **Supersedes:** SDK SPEC v2.0.0
 > **Implements:** ADR-010, ADR-014, ADR-015, ADR-016 (projected epoch)
 
@@ -14,7 +14,7 @@ This document defines the projected SDK contract for the ADR-015 + ADR-016 epoch
 
 The SDK remains a thin composition layer. It owns exactly one concept, `createManifesto()`, and re-exports only a narrow governed World surface for callers that need explicit governance + lineage composition.
 
-The breaking change in this draft is not governed seal orchestration. It is the SDK's own public `Snapshot<T>` surface: the SDK transparently follows Core v4's removal of accumulated `system.errors` history.
+The remaining breaking changes in this draft are not the Core v4 Snapshot shape or the world hard-cut surface. Those are already current. The unresolved work is on the SDK's own remaining surface cleanup beyond v2.
 
 ## 2. Scope
 
@@ -127,9 +127,9 @@ If you need governed composition:
 ## 9. References
 
 - [SDK SPEC v2.0.0](sdk-SPEC-v2.0.0.md)
-- [Core SPEC v4.0.0 draft](../../core/docs/core-SPEC-v4.0.0-draft.md)
-- [Host Contract v4.0.0 draft](../../host/docs/host-SPEC-v4.0.0-draft.md)
-- [World Facade SPEC v2.0.0 draft](../../world/docs/world-facade-spec-v2.0.0.md)
+- [Core SPEC v4.0.0](../../core/docs/core-SPEC.md)
+- [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
+- [World Facade SPEC v2.0.0](../../world/docs/world-facade-spec-v2.0.0.md)
 - [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md)
 - [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md)
 - [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md)

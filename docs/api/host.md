@@ -12,7 +12,7 @@
 - Applies domain patches and system transitions in interlocked order
 - Produces terminal snapshot/status per dispatch
 
-> **Current Contract Note:** This page describes the current Host v3.0.0 surface. The projected v4.0.0 rewrite is draft-only in [packages/host/docs/host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md).
+> **Current Contract Note:** This page describes the current Host v4.0.0 surface. Host-facing Snapshot references now follow the current Core v4.0.0 contract and no longer include accumulated `system.errors`.
 
 ---
 

@@ -102,7 +102,7 @@ export type Unsubscribe = () => void;
 /**
  * ManifestoInstance — the sole runtime handle returned by createManifesto().
  *
- * 5 methods, no more.
+ * 7 methods, no more.
  *
  * @see SDK SPEC v2.0.0
  */
@@ -140,6 +140,16 @@ export interface ManifestoInstance<T = unknown> {
     event: K,
     handler: (payload: ManifestoEventMap<T>[K]) => void,
   ): Unsubscribe;
+
+  /**
+   * Check whether an action is currently dispatchable against the current snapshot.
+   */
+  isActionAvailable(actionName: string): boolean;
+
+  /**
+   * Return all action names that are currently dispatchable.
+   */
+  getAvailableActions(): readonly string[];
 
   /**
    * Get the current snapshot synchronously.

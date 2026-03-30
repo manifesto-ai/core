@@ -5,7 +5,7 @@
 
 ---
 
-> **Current Contract Note:** This page reflects the current Core v3.0.0 error model. Accumulated `system.errors` and `SystemDelta.appendErrors` remain current; the ADR-015 removal is draft-only until the shared next-major epoch lands.
+> **Current Contract Note:** This page reflects the current Core v4.0.0 error model. `lastError` remains the sole current error surface; accumulated `system.errors` and `SystemDelta.appendErrors` are removed.
 
 ## The Core Principle
 
@@ -110,9 +110,6 @@ type SystemState = {
   /** Last error (null if none) */
   readonly lastError: ErrorValue | null;
 
-  /** Error history */
-  readonly errors: readonly ErrorValue[];
-
   /** Pending requirements waiting for Host */
   readonly pendingRequirements: readonly Requirement[];
 
@@ -124,8 +121,7 @@ type SystemState = {
 **Key fields:**
 
 - **`status`**: Current computation state (includes 'error')
-- **`lastError`**: Most recent error (quick access)
-- **`errors`**: Full error history (audit trail)
+- **`lastError`**: Current error state
 
 ---
 
@@ -155,7 +151,7 @@ In Flow, errors are declared using the `fail` node:
 
 1. Core creates an ErrorValue
 2. Core emits a `SystemDelta`:
-   - `{ lastError: errorValue, appendErrors: [errorValue], status: 'error' }`
+   - `{ lastError: errorValue, status: 'error' }`
 3. The Host/Core boundary applies that transition with `applySystemDelta()`
 4. Core terminates computation
 5. Core returns with `status: 'error'`
@@ -567,12 +563,6 @@ try {
       source: { actionId: '', nodePath: '' },
       timestamp: context.now
     },
-    appendErrors: [{
-      code: 'SYSTEM_ERROR',
-      message: error.message,
-      source: { actionId: '', nodePath: '' },
-      timestamp: context.now
-    }],
     status: 'error'
   });
 }
@@ -808,12 +798,6 @@ async function executeEffect(req: Requirement): Promise<Patch[]> {
         source: { actionId: req.actionId, nodePath: '' },
         timestamp: req.createdAt
       },
-      appendErrors: [{
-        code: 'UNKNOWN_EFFECT',
-        message: `No handler for: ${req.type}`,
-        source: { actionId: req.actionId, nodePath: '' },
-        timestamp: req.createdAt
-      }],
       status: 'error'
     });
     return [];
@@ -834,13 +818,6 @@ async function executeEffect(req: Requirement): Promise<Patch[]> {
         timestamp: req.createdAt,
         context: { effectType: req.type }
       },
-      appendErrors: [{
-        code: 'EFFECT_HANDLER_ERROR',
-        message: error.message,
-        source: { actionId: req.actionId, nodePath: '' },
-        timestamp: req.createdAt,
-        context: { effectType: req.type }
-      }],
       status: 'error'
     });
     return [];

@@ -3,8 +3,8 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
-> **Compatible with:** Core SPEC v3.0.0, ARCHITECTURE v2.0
-> **Hard-cut Alignment:** ADR-011
+> **Compatible with:** Core SPEC v4.0.0, ARCHITECTURE v2.0
+> **Hard-cut Alignment:** ADR-011, ADR-015
 > **Authors:** Manifesto Team
 > **License:** MIT
 
@@ -14,6 +14,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v4.0.0 | ADR-015 hard cut — Host-facing Snapshot references remove accumulated `system.errors` and follow Core current contract | FDR-H025 |
 | v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()` interlock | FDR-H025 |
 | v1.0 | Initial release — Core-Host boundary, Snapshot communication, Effect handlers | FDR-H001 ~ H010 |
 | v1.x | Compiler Integration — Translator pipeline, Expression evaluation | FDR-H011 ~ H017 |
@@ -110,7 +111,7 @@ The complete state of a domain at a point in time.
 import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } from '@manifesto-ai/core';
 
 // ============================================================
-// AUTHORITATIVE DEFINITION - Core SPEC v3.0.0
+// AUTHORITATIVE DEFINITION - Core SPEC v4.0.0
 // ============================================================
 // type Snapshot<TData = unknown> = {
 //   readonly data: TData;
@@ -123,7 +124,6 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } fro
 // type SystemState = {
 //   readonly status: 'idle' | 'computing' | 'pending' | 'error';
 //   readonly lastError: ErrorValue | null;
-//   readonly errors: readonly ErrorValue[];  // History (accumulated)
 //   readonly pendingRequirements: readonly Requirement[];
 //   readonly currentAction: string | null;
 // };
@@ -153,7 +153,6 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } fro
 | `computed.*` | Core | Yes | No | Derived values |
 | `system.status` | Core | Yes | No | Core sets via compute() |
 | `system.lastError` | Core | Yes | No | Current error state |
-| `system.errors` | Core | Yes | No | Error history (accumulated) |
 | `system.pendingRequirements` | Core | Yes | via `core.applySystemDelta()` | Requirement lifecycle |
 | `system.currentAction` | Core | Yes | No | Core sets during compute |
 | `meta.schemaHash` | Core | Yes | No | Domain schema identity |

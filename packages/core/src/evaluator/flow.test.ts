@@ -58,7 +58,6 @@ function createTestContext(
     system: {
       status: "idle",
       lastError: null,
-      errors: [],
       pendingRequirements: [],
       currentAction: null,
     },
@@ -91,7 +90,6 @@ function createTestFlowState(data: unknown = {}): FlowState {
     system: {
       status: "idle",
       lastError: null,
-      errors: [],
       pendingRequirements: [],
       currentAction: null,
     },
@@ -337,7 +335,6 @@ describe("Flow Evaluator", () => {
         system: {
           status: "idle",
           lastError: null,
-          errors: [],
           pendingRequirements: [],
           currentAction: null,
         },

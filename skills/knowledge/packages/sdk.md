@@ -7,12 +7,13 @@
 SDK owns the public app-facing surface:
 
 - `createManifesto()`
+- availability query convenience methods on `ManifestoInstance`
 - `dispatchAsync()`
 - `defineOps()`
 - SDK error types
 - selected re-exports from Core, Host, and World
 
-In the current implementation, `createManifesto()` composes Core, Host, and Compiler directly. The package also depends on `@manifesto-ai/world` and re-exports `WorldStore` helpers, but `createManifesto()` itself is not a World orchestrator.
+In the current implementation, `createManifesto()` composes Core, Host, and Compiler directly. The package also depends on `@manifesto-ai/world` and re-exports only a thin governed surface, but `createManifesto()` itself is not a World orchestrator.
 
 ## Dependencies
 
@@ -63,6 +64,8 @@ interface ManifestoInstance<T = unknown> {
     event: K,
     handler: (payload: ManifestoEventMap<T>[K]) => void,
   ): Unsubscribe;
+  isActionAvailable(actionName: string): boolean;
+  getAvailableActions(): readonly string[];
   getSnapshot(): Snapshot<T>;
   dispose(): void;
 }
@@ -118,7 +121,7 @@ Payloads are event-specific through `ManifestoEventMap<T>`.
 
 - From Core: `createIntent`, `createSnapshot`, `createCore`, core types
 - From Host: `HostResult`, `HostOptions`
-- From World: `WorldStore`, `createMemoryWorldStore`
+- From World: `createWorld` plus the thin governed type surface needed for explicit composition
 
 ## Errors
 
@@ -127,3 +130,9 @@ Payloads are event-specific through `ManifestoEventMap<T>`.
 - `DisposedError`
 - `CompileError`
 - `DispatchRejectedError`
+
+## Notes
+
+- SDK `Snapshot<T>` transparently follows the current Core Snapshot shape.
+- `getSnapshot()` no longer exposes accumulated `system.errors`.
+- `isActionAvailable()` and `getAvailableActions()` delegate to Core against the current snapshot.

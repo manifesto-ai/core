@@ -24,7 +24,6 @@ type Snapshot<TData = unknown> = {
   readonly system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
     lastError: ErrorValue | null;
-    errors: readonly ErrorValue[];
     pendingRequirements: readonly Requirement[];
     currentAction: string | null;
   };
@@ -67,7 +66,6 @@ const snapshot: Snapshot = {
   system: {
     status: 'idle',
     lastError: null,
-    errors: [],
     pendingRequirements: [],
     currentAction: null
   },

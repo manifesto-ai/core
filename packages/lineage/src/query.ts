@@ -116,7 +116,6 @@ export async function restoreSnapshot(
       status: snapshot.system.status,
       lastError: cloneValue(snapshot.system.lastError),
       pendingRequirements: cloneValue(snapshot.system.pendingRequirements),
-      errors: cloneValue(snapshot.system.errors),
       currentAction: null,
     },
     input: null,

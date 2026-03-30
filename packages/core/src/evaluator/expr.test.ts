@@ -18,7 +18,6 @@ function createTestContext(
     system: {
       status: "idle",
       lastError: null,
-      errors: [],
       pendingRequirements: [],
       currentAction: null,
     },

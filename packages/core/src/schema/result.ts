@@ -22,7 +22,6 @@ export const SystemDelta = z.object({
   status: SystemState.shape.status.optional(),
   currentAction: z.string().nullable().optional(),
   lastError: ErrorValue.nullable().optional(),
-  appendErrors: z.array(ErrorValue),
   addRequirements: z.array(Requirement),
   removeRequirementIds: z.array(z.string()),
 });

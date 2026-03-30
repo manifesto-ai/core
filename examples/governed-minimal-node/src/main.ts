@@ -36,7 +36,6 @@ function createCounterSnapshot(count: number, version: number): Snapshot {
       status: "idle",
       lastError: null,
       pendingRequirements: [],
-      errors: [],
       currentAction: null,
     },
     input: null,

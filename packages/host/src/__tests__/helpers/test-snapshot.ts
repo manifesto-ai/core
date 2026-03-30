@@ -33,7 +33,6 @@ export function createMinimalSnapshot(data: unknown = {}): Snapshot {
       status: "idle",
       pendingRequirements: [],
       lastError: null,
-      errors: [],
       currentAction: null,
     },
     meta: {

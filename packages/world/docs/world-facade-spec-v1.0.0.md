@@ -1,6 +1,6 @@
 # Manifesto World Facade Specification
 
-> **Status:** Normative
+> **Status:** Superseded Historical Contract
 > **Version:** v1.0.0
 > **Package:** `@manifesto-ai/world`
 > **Scope:** `@manifesto-ai/world` — Composition Facade for Governance + Lineage
@@ -9,6 +9,7 @@
 > **Implements:** ADR-014 D7 (Facade), D11.3 (Storage Seam — Composite), D14 (Commit Coordinator)
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This document is retained as the initial split-facade baseline before the current hard-cut world facade landed in [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md).
 > **Changelog:**
 > - **v1.0.0 (2026-03-28):** Initial facade specification after ADR-014 split
 >   - Composite store interface (`CommitCapableWorldStore`)

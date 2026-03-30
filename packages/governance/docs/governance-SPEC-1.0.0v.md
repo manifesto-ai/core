@@ -1,6 +1,6 @@
 # Manifesto Governance Protocol Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Superseded Historical Contract
 > **Version:** v1.0.0
 > **Package:** `@manifesto-ai/governance`
 > **Scope:** All Manifesto Governance Implementations
@@ -8,6 +8,7 @@
 > **Extracted from:** World SPEC v2.0.5 (§5.6–5.7, §6, §7.1–7.7, §8, §10.1–10.2, §10.5–10.7)
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This document is retained as the initial split-native governance baseline. The current normative governance contract now lives in [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md).
 
 ---
 
@@ -594,7 +595,7 @@ const branchSerialPolicy = ({ branchId, attempt }: ExecutionKeyContext) =>
 
 Governance derives `outcome` from Host's terminal snapshot. Governance does NOT match specific `system.status` values (Core-owned vocabulary).
 
-**CRITICAL:** Core's `system.errors` is accumulated history, NOT current error state. Use `system.lastError` for current error determination.
+**CRITICAL:** Current Core Snapshot no longer exposes accumulated `system.errors`. Governance uses `system.lastError` as the current error surface and `pendingRequirements` as the incomplete-work surface.
 
 ```typescript
 function deriveOutcome(terminalSnapshot: Snapshot): 'completed' | 'failed' {
@@ -618,7 +619,7 @@ function deriveOutcome(terminalSnapshot: Snapshot): 'completed' | 'failed' {
 | GOV-OUTCOME-2 | MUST | `system.lastError != null` implies `outcome: 'failed'` |
 | GOV-OUTCOME-3 | MUST | Non-empty `pendingRequirements` implies `outcome: 'failed'` |
 | GOV-OUTCOME-4 | MUST NOT | Governance MUST NOT match specific `system.status` string values |
-| GOV-OUTCOME-5 | MUST NOT | Governance MUST NOT use `system.errors.length` for failure determination (it's history) |
+| GOV-OUTCOME-5 | MUST NOT | Governance MUST NOT depend on removed accumulated error-history fields; failure determination uses `system.lastError` and `pendingRequirements` only |
 
 ### 8.4 Terminal Snapshot Validity
 

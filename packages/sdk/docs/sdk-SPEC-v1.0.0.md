@@ -1,12 +1,13 @@
 # Manifesto SDK Specification v1.0.0
 
-> **Status:** Normative
+> **Status:** Superseded Historical Contract
 > **Scope:** Manifesto SDK Layer — Public Developer API
 > **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, World Protocol v3.0.0, Compiler SPEC v0.6.0
 > **Supersedes:** SDK SPEC v0.2.0, SDK SPEC v0.1.0, Runtime SPEC v0.2.0, Runtime SPEC v0.1.0
 > **Implements:** ADR-010 (Protocol-First SDK Reconstruction)
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This initial SDK hard-cut contract is retained as the first `createManifesto()` baseline. The current normative SDK contract now lives in [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md).
 > **Changelog:**
 > - **v1.0.0 (2026-03-02):** ADR-010 hard cut — Protocol-first reconstruction
 >   - `createApp()` → `createManifesto()`

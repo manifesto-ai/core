@@ -1,6 +1,6 @@
 # ADR-015: Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State
 
-> **Status:** Accepted
+> **Status:** Implemented
 > **Date:** 2026-03-29
 > **Deciders:** 정성우, Manifesto Architecture Team
 > **Scope:** Core, Lineage, Host, World, SDK

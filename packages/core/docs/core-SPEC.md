@@ -11,6 +11,8 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
+| v3.1.0 | Additive availability query API — `isActionAvailable()`, `getAvailableActions()` | — |
 | v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at `snapshot.data` | FDR-015 |
 | v2.0.0 | Initial release — DomainSchema, StateSpec, ComputedSpec, ExprSpec, FlowSpec, Snapshot | FDR-001 ~ FDR-016 |
 | v2.0.1 | Patch operation clarification (`merge` is shallow), platform-reserved namespace policy | — |
@@ -1126,7 +1128,6 @@ When a `fail` node is executed:
 // Core emits system transition (not Patch):
 {
   lastError: errorValue,
-  appendErrors: [errorValue],
   status: 'error'
 } satisfies SystemDelta;
 ```
@@ -1275,9 +1276,6 @@ type SystemState = {
   
   /** Last error (null if none) */
   readonly lastError: ErrorValue | null;
-  
-  /** Error history */
-  readonly errors: readonly ErrorValue[];
   
   /** Pending requirements waiting for Host */
   readonly pendingRequirements: readonly Requirement[];
@@ -1490,6 +1488,29 @@ interface ManifestoCore {
     snapshot: Snapshot,
     path: SemanticPath
   ): ExplainResult;
+
+  /**
+   * Check whether an action is currently dispatchable.
+   *
+   * Evaluates ActionSpec.available against the current snapshot.
+   * This is a pure, synchronous, side-effect-free query.
+   */
+  isActionAvailable(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    actionName: string
+  ): boolean;
+
+  /**
+   * Return all action names that are currently dispatchable.
+   *
+   * Equivalent to filtering schema.actions by isActionAvailable().
+   * This is a pure, synchronous, side-effect-free query.
+   */
+  getAvailableActions(
+    schema: DomainSchema,
+    snapshot: Snapshot
+  ): readonly string[];
 }
 
 type Intent = {
@@ -1527,7 +1548,6 @@ type SystemDelta = {
   readonly status?: SystemState['status'];
   readonly currentAction?: string | null;
   readonly lastError?: ErrorValue | null;
-  readonly appendErrors?: readonly ErrorValue[];
   readonly addRequirements?: readonly Requirement[];
   readonly removeRequirementIds?: readonly string[];
 };
@@ -1666,6 +1686,23 @@ The Flow will naturally proceed because:
 - The Flow checks Snapshot state to decide what to do next.
 
 **All continuity is expressed exclusively through Snapshot.**
+
+### 16.6 Availability Query
+
+`isActionAvailable()` and `getAvailableActions()` are read-only projections of the
+same availability check that `compute()` performs for initial invocation under
+R-002. They do not replace `compute()` validation; they expose the same check as
+an explicit query path for host control flow.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| AVAIL-Q-1 | MUST | `isActionAvailable()` MUST evaluate the same `ActionSpec.available` expression logic that `compute()` uses for initial invocation. The evaluation logic MUST be shared, not duplicated. |
+| AVAIL-Q-2 | MUST | `isActionAvailable()` MUST be pure and side-effect-free. It MUST NOT modify Snapshot, emit `SystemDelta`, create Patches, or generate trace entries. |
+| AVAIL-Q-3 | MUST | If `ActionSpec.available` is undefined, `isActionAvailable()` MUST return `true`. |
+| AVAIL-Q-4 | MUST | If `actionName` does not exist in `schema.actions`, `isActionAvailable()` MUST throw. This is a schema contract violation, not a runtime availability question. |
+| AVAIL-Q-5 | MUST | `getAvailableActions()` MUST return the same result as filtering action names through `isActionAvailable()`. Order SHOULD follow `schema.actions` key order. |
+| AVAIL-Q-6 | MUST NOT | Availability query MUST NOT treat `snapshot.system.currentAction` as re-entry state. It answers whether the action is dispatchable for a new invocation attempt against the current Snapshot. |
+| AVAIL-Q-7 | MUST NOT | Availability query MUST NOT require `HostContext`. It is pure over schema + snapshot. |
 
 ---
 

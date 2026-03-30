@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
 
-> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v3.0.0. The projected ADR-015 + ADR-016 rewrite lives in [docs/host-SPEC-v4.0.0-draft.md](docs/host-SPEC-v4.0.0-draft.md) as draft only.
+> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v4.0.0. Host-facing Snapshot references now follow the current Core v4 contract and no longer include accumulated `system.errors`. The broader co-deployed lineage/governance/world epoch remains tracked in their package drafts.
 
 ---
 
@@ -24,6 +24,13 @@ World -> HOST -> Core
 ---
 
 ## Current Changelog Highlights
+
+### v4.0.0 New Features
+
+- **ADR-015 Current Hard Cut**
+  - Host-facing Snapshot references now follow Core v4
+  - accumulated `system.errors` is removed from the current Host contract
+  - `lastError` remains the sole current error surface
 
 ### v3.0.0 New Features
 
@@ -301,7 +308,7 @@ Runtime -> HOST (v2.0.2) -> Core
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
 | Used by | `@manifesto-ai/sdk` | SDK creates Host internally via createManifesto() |
-| Used by | `@manifesto-ai/world` | World uses Host to execute via HostExecutor |
+| Used by | `@manifesto-ai/world` | World uses Host to execute via WorldExecutor |
 
 ---
 

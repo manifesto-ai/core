@@ -2,7 +2,7 @@
 
 > Let an agent choose the next change, then route that change through either direct dispatch or governed proposal flow.
 >
-> **Current Contract Note:** This page describes the current SDK v2.0.0 and World facade v1.0.0 integration surface. The projected ADR-015 + ADR-016 rewrites for SDK, Lineage, Governance, Host, and World remain draft-only until the shared epoch lands.
+> **Current Contract Note:** This page describes the current SDK direct-dispatch and current World runtime integration surface. SDK snapshots now follow the current Core v4.0.0 contract and no longer expose accumulated `system.errors`.
 
 ---
 
