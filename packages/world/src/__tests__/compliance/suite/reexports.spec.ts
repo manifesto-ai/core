@@ -21,6 +21,7 @@ describe("WFCTS Re-export Suite", () => {
       const topLevelExports = adapter.topLevelExports();
       const hasExpectedSurface = typeof topLevelExports.createWorld === "function"
         && typeof topLevelExports.createInMemoryWorldStore === "function"
+        && typeof topLevelExports.createIndexedDbWorldStore === "function"
         && typeof topLevelExports.createLineageService === "function"
         && typeof topLevelExports.createGovernanceService === "function"
         && typeof topLevelExports.createGovernanceEventDispatcher === "function"

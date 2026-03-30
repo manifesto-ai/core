@@ -15,6 +15,8 @@ describe("@manifesto-ai/world facade public API", () => {
 
     expect(typeof topLevelWorld.createWorld).toBe("function");
     expect(typeof topLevelWorld.createInMemoryWorldStore).toBe("function");
+    expect(typeof topLevelWorld.createIndexedDbWorldStore).toBe("function");
+    expect(typeof topLevelWorld.createSqliteWorldStore).toBe("function");
     expect(typeof topLevelWorld.createIntentInstance).toBe("function");
     expect((topLevelWorld as Record<string, unknown>)[removedOrchestratorKey]).toBeUndefined();
     expect((topLevelWorld as Record<string, unknown>)[removedStoreFactoryKey]).toBeUndefined();
@@ -33,7 +35,11 @@ describe("@manifesto-ai/world facade public API", () => {
     expect(harness.world.store).toBe(harness.store);
     expect(harness.world.lineage).toBe(harness.lineage);
     expect(harness.world.governance).toBe(harness.governance);
+    expect(typeof harness.world.store.runInSealTransaction).toBe("function");
+    expect((harness.world.store as Record<string, unknown>).commitSeal).toBeUndefined();
     expect(typeof harness.world.coordinator.sealNext).toBe("function");
     expect(typeof harness.world.coordinator.sealGenesis).toBe("function");
+    expect(typeof harness.world.runtime.executeApprovedProposal).toBe("function");
+    expect(typeof harness.world.runtime.resumeExecutingProposal).toBe("function");
   });
 });

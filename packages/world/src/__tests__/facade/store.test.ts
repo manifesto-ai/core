@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { type Proposal } from "../../index.js";
 import { FacadeCasMismatchError } from "../../facade/internal/errors.js";
-import { createFacadeHarness, createExecutingProposal, createSnapshot, sealStandaloneGenesis } from "./helpers.js";
+import {
+  createFacadeHarness,
+  createExecutingProposal,
+  createSnapshot,
+  sealStandaloneGenesis,
+} from "./helpers.js";
 
 function createGovernedGenesisProposal(): Proposal {
   return {
@@ -24,94 +29,120 @@ function createGovernedGenesisProposal(): Proposal {
 }
 
 describe("@manifesto-ai/world facade store", () => {
-  it("commits a full write set and advances lineage plus governance together", () => {
+  it("commits a governed seal transaction and advances lineage plus governance together", async () => {
     const harness = createFacadeHarness();
-    const { world } = sealStandaloneGenesis(harness);
-    const { proposal, decisionRecord } = createExecutingProposal(harness);
+    const { world } = await sealStandaloneGenesis(harness);
+    const { proposal, decisionRecord } = await createExecutingProposal(harness);
+    const activeBranch = await harness.lineage.getActiveBranch();
 
-    const lineageCommit = harness.lineage.prepareSealNext({
+    const lineageCommit = await harness.lineage.prepareSealNext({
       schemaHash: "wfcts-schema",
       baseWorldId: world!.worldId,
-      branchId: harness.lineage.getActiveBranch().id,
+      branchId: activeBranch.id,
       terminalSnapshot: createSnapshot({ count: 2 }),
       createdAt: 20,
       proposalRef: proposal.proposalId,
       decisionRef: decisionRecord.decisionId,
     });
-    const governanceCommit = harness.governance.finalize(proposal, lineageCommit, 21);
+    const governanceCommit = await harness.governance.finalize(
+      proposal,
+      lineageCommit,
+      21
+    );
 
-    harness.store.commitSeal({
-      kind: "full",
-      lineage: lineageCommit,
-      governance: governanceCommit,
+    await harness.store.runInSealTransaction(async (tx) => {
+      await tx.commitPrepared(lineageCommit);
+      await tx.putProposal(governanceCommit.proposal);
+      await tx.putDecisionRecord(governanceCommit.decisionRecord);
     });
 
-    expect(harness.store.getWorld(lineageCommit.worldId)?.worldId).toBe(lineageCommit.worldId);
-    expect(harness.store.getBranchHead(harness.lineage.getActiveBranch().id)).toBe(lineageCommit.worldId);
-    expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("completed");
-    expect(harness.store.getDecisionRecord(decisionRecord.decisionId)?.decisionId).toBe(decisionRecord.decisionId);
+    expect((await harness.store.getWorld(lineageCommit.worldId))?.worldId).toBe(
+      lineageCommit.worldId
+    );
+    expect(await harness.store.getBranchHead(activeBranch.id)).toBe(
+      lineageCommit.worldId
+    );
+    expect((await harness.store.getProposal(proposal.proposalId))?.status).toBe(
+      "completed"
+    );
+    expect(
+      (await harness.store.getDecisionRecord(decisionRecord.decisionId))
+        ?.decisionId
+    ).toBe(decisionRecord.decisionId);
   });
 
-  it("wraps lineage CAS mismatch as a facade retry signal", () => {
+  it("wraps lineage CAS mismatch as a facade retry signal", async () => {
     const harness = createFacadeHarness();
-    const { world } = sealStandaloneGenesis(harness);
+    const { world } = await sealStandaloneGenesis(harness);
 
-    const contenderA = createExecutingProposal(harness, {
+    const contenderA = await createExecutingProposal(harness, {
       proposalId: "prop-a",
       executionKey: "key-a",
       submittedAt: 10,
       decidedAt: 11,
     });
-    const staleLineageCommit = harness.lineage.prepareSealNext({
+    const staleBranch = await harness.lineage.getActiveBranch();
+    const staleLineageCommit = await harness.lineage.prepareSealNext({
       schemaHash: "wfcts-schema",
       baseWorldId: world!.worldId,
-      branchId: harness.lineage.getActiveBranch().id,
+      branchId: staleBranch.id,
       terminalSnapshot: createSnapshot({ count: 2 }),
       createdAt: 12,
       proposalRef: contenderA.proposal.proposalId,
       decisionRef: contenderA.decisionRecord.decisionId,
     });
-    const staleGovernanceCommit = harness.governance.finalize(contenderA.proposal, staleLineageCommit, 13);
-    harness.store.putProposal({
+    const staleGovernanceCommit = await harness.governance.finalize(
+      contenderA.proposal,
+      staleLineageCommit,
+      13
+    );
+    await harness.store.putProposal({
       ...contenderA.proposal,
       status: "completed",
       completedAt: 13,
       resultWorld: staleLineageCommit.worldId,
     });
 
-    const contenderB = createExecutingProposal(harness, {
+    const contenderB = await createExecutingProposal(harness, {
       proposalId: "prop-b",
       executionKey: "key-b",
       submittedAt: 14,
       decidedAt: 15,
     });
-    const winningLineageCommit = harness.lineage.prepareSealNext({
+    const winningBranch = await harness.lineage.getActiveBranch();
+    const winningLineageCommit = await harness.lineage.prepareSealNext({
       schemaHash: "wfcts-schema",
       baseWorldId: world!.worldId,
-      branchId: harness.lineage.getActiveBranch().id,
+      branchId: winningBranch.id,
       terminalSnapshot: createSnapshot({ count: 3 }),
       createdAt: 16,
       proposalRef: contenderB.proposal.proposalId,
       decisionRef: contenderB.decisionRecord.decisionId,
     });
-    const winningGovernanceCommit = harness.governance.finalize(contenderB.proposal, winningLineageCommit, 17);
+    const winningGovernanceCommit = await harness.governance.finalize(
+      contenderB.proposal,
+      winningLineageCommit,
+      17
+    );
 
-    harness.store.commitSeal({
-      kind: "full",
-      lineage: winningLineageCommit,
-      governance: winningGovernanceCommit,
+    await harness.store.runInSealTransaction(async (tx) => {
+      await tx.commitPrepared(winningLineageCommit);
+      await tx.putProposal(winningGovernanceCommit.proposal);
+      await tx.putDecisionRecord(winningGovernanceCommit.decisionRecord);
     });
 
-    expect(() => harness.store.commitSeal({
-      kind: "full",
-      lineage: staleLineageCommit,
-      governance: staleGovernanceCommit,
-    })).toThrow(FacadeCasMismatchError);
+    await expect(
+      harness.store.runInSealTransaction(async (tx) => {
+        await tx.commitPrepared(staleLineageCommit);
+        await tx.putProposal(staleGovernanceCommit.proposal);
+        await tx.putDecisionRecord(staleGovernanceCommit.decisionRecord);
+      })
+    ).rejects.toThrow(FacadeCasMismatchError);
   });
 
-  it("bootstraps genesis via a full write set", () => {
+  it("bootstraps governed genesis via the transaction seam", async () => {
     const harness = createFacadeHarness();
-    const lineageCommit = harness.lineage.prepareSealGenesis({
+    const lineageCommit = await harness.lineage.prepareSealGenesis({
       schemaHash: "wfcts-schema",
       terminalSnapshot: createSnapshot({ count: 1 }),
       createdAt: 1,
@@ -125,53 +156,160 @@ describe("@manifesto-ai/world facade store", () => {
       decidedAt: 2,
     };
 
-    harness.store.putProposal(proposal);
-    harness.store.putDecisionRecord(decisionRecord);
+    await harness.store.putProposal(proposal);
+    await harness.store.putDecisionRecord(decisionRecord);
 
-    const governanceCommit = harness.governance.finalize(proposal, lineageCommit, 3);
-    harness.store.commitSeal({
-      kind: "full",
-      lineage: lineageCommit,
-      governance: governanceCommit,
+    const governanceCommit = await harness.governance.finalize(
+      proposal,
+      lineageCommit,
+      3
+    );
+    await harness.store.runInSealTransaction(async (tx) => {
+      await tx.commitPrepared(lineageCommit);
+      await tx.putProposal(governanceCommit.proposal);
+      await tx.putDecisionRecord(governanceCommit.decisionRecord);
     });
 
-    expect(harness.store.getWorld(lineageCommit.worldId)?.worldId).toBe(lineageCommit.worldId);
-    expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("completed");
-    expect(harness.lineage.getActiveBranch().head).toBe(lineageCommit.worldId);
+    expect((await harness.store.getWorld(lineageCommit.worldId))?.worldId).toBe(
+      lineageCommit.worldId
+    );
+    expect((await harness.store.getProposal(proposal.proposalId))?.status).toBe(
+      "completed"
+    );
+    expect((await harness.lineage.getActiveBranch()).head).toBe(
+      lineageCommit.worldId
+    );
   });
 
-  it("rolls back lineage writes when governance persistence fails mid-commit", () => {
+  it("rolls back lineage writes when governance persistence fails mid-commit", async () => {
     const harness = createFacadeHarness();
-    const { world } = sealStandaloneGenesis(harness);
-    const { proposal, decisionRecord } = createExecutingProposal(harness);
+    const { world } = await sealStandaloneGenesis(harness);
+    const { proposal, decisionRecord } = await createExecutingProposal(harness);
+    const activeBranch = await harness.lineage.getActiveBranch();
 
-    const lineageCommit = harness.lineage.prepareSealNext({
+    const lineageCommit = await harness.lineage.prepareSealNext({
       schemaHash: "wfcts-schema",
       baseWorldId: world!.worldId,
-      branchId: harness.lineage.getActiveBranch().id,
+      branchId: activeBranch.id,
       terminalSnapshot: createSnapshot({ count: 2 }),
       createdAt: 20,
       proposalRef: proposal.proposalId,
       decisionRef: decisionRecord.decisionId,
     });
-    const governanceCommit = harness.governance.finalize(proposal, lineageCommit, 21);
+    const governanceCommit = await harness.governance.finalize(
+      proposal,
+      lineageCommit,
+      21
+    );
 
     const internals = harness.store as unknown as {
-      governanceStore: { putProposal: (proposal: unknown) => void };
+      driver: {
+        governance: { putProposal: (proposal: unknown) => Promise<void> };
+      };
     };
     const failure = new Error("simulated governance write failure");
-    vi.spyOn(internals.governanceStore, "putProposal").mockImplementation(() => {
-      throw failure;
+    vi.spyOn(internals.driver.governance, "putProposal").mockImplementation(
+      async () => {
+        throw failure;
+      }
+    );
+
+    await expect(
+      harness.store.runInSealTransaction(async (tx) => {
+        await tx.commitPrepared(lineageCommit);
+        await tx.putProposal(governanceCommit.proposal);
+        await tx.putDecisionRecord(governanceCommit.decisionRecord);
+      })
+    ).rejects.toThrow(failure);
+
+    expect(await harness.store.getWorld(lineageCommit.worldId)).toBeNull();
+    expect(await harness.store.getAttempts(lineageCommit.worldId)).toHaveLength(
+      0
+    );
+    expect((await harness.store.getProposal(proposal.proposalId))?.status).toBe(
+      "executing"
+    );
+    expect((await harness.lineage.getActiveBranch()).head).toBe(world!.worldId);
+  });
+
+  it("exposes runInSealTransaction as the atomic write seam", async () => {
+    const harness = createFacadeHarness();
+    const { world } = await sealStandaloneGenesis(harness);
+    const { proposal, decisionRecord } = await createExecutingProposal(harness);
+    const activeBranch = await harness.lineage.getActiveBranch();
+
+    const lineageCommit = await harness.lineage.prepareSealNext({
+      schemaHash: "wfcts-schema",
+      baseWorldId: world!.worldId,
+      branchId: activeBranch.id,
+      terminalSnapshot: createSnapshot({ count: 2 }),
+      createdAt: 20,
+      proposalRef: proposal.proposalId,
+      decisionRef: decisionRecord.decisionId,
+    });
+    const governanceCommit = await harness.governance.finalize(
+      proposal,
+      lineageCommit,
+      21
+    );
+
+    const result = await harness.store.runInSealTransaction(async (tx) => {
+      await tx.commitPrepared(lineageCommit);
+      await tx.putProposal(governanceCommit.proposal);
+      await tx.putDecisionRecord(governanceCommit.decisionRecord);
+      return lineageCommit.worldId;
     });
 
-    expect(() => harness.store.commitSeal({
-      lineage: lineageCommit,
-      governance: governanceCommit,
-    })).toThrow(failure);
+    expect(result).toBe(lineageCommit.worldId);
+    expect((await harness.store.getWorld(lineageCommit.worldId))?.worldId).toBe(
+      lineageCommit.worldId
+    );
+    expect((await harness.store.getProposal(proposal.proposalId))?.status).toBe(
+      "completed"
+    );
+  });
 
-    expect(harness.store.getWorld(lineageCommit.worldId)).toBeNull();
-    expect(harness.store.getAttempts(lineageCommit.worldId)).toHaveLength(0);
-    expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("executing");
-    expect(harness.lineage.getActiveBranch().head).toBe(world!.worldId);
+  it("rolls back runInSealTransaction when the transaction callback fails", async () => {
+    const harness = createFacadeHarness();
+    const { world } = await sealStandaloneGenesis(harness);
+    const { proposal, decisionRecord } = await createExecutingProposal(harness);
+    const activeBranch = await harness.lineage.getActiveBranch();
+
+    const lineageCommit = await harness.lineage.prepareSealNext({
+      schemaHash: "wfcts-schema",
+      baseWorldId: world!.worldId,
+      branchId: activeBranch.id,
+      terminalSnapshot: createSnapshot({ count: 2 }),
+      createdAt: 20,
+      proposalRef: proposal.proposalId,
+      decisionRef: decisionRecord.decisionId,
+    });
+    const governanceCommit = await harness.governance.finalize(
+      proposal,
+      lineageCommit,
+      21
+    );
+    const failure = new Error("simulated transaction failure");
+
+    await expect(
+      harness.store.runInSealTransaction(async (tx) => {
+        await tx.commitPrepared(lineageCommit);
+        await tx.putProposal(governanceCommit.proposal);
+        throw failure;
+      })
+    ).rejects.toThrow(failure);
+
+    expect(await harness.store.getWorld(lineageCommit.worldId)).toBeNull();
+    expect(await harness.store.getAttempts(lineageCommit.worldId)).toHaveLength(
+      0
+    );
+    expect((await harness.store.getProposal(proposal.proposalId))?.status).toBe(
+      "executing"
+    );
+  });
+
+  it("does not expose the removed commitSeal convenience method", () => {
+    const harness = createFacadeHarness();
+    expect((harness.store as Record<string, unknown>).commitSeal).toBeUndefined();
   });
 });

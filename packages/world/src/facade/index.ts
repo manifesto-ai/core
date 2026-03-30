@@ -83,9 +83,6 @@ export type {
   HITLDecisionCallback,
   HITLNotificationCallback,
   HITLPendingState,
-  HostExecutionOptions,
-  HostExecutionResult,
-  HostExecutor,
   IntentBody,
   IntentInstance,
   IntentOrigin,
@@ -148,21 +145,38 @@ export {
 } from "@manifesto-ai/governance";
 
 export type {
-  CommitCapableWorldStore,
   CoordinatorSealGenesisParams,
   CoordinatorSealNextParams,
+  ExecuteApprovedProposalInput,
+  GovernedWorldStore,
   GovernanceEventDispatcher,
+  RecoveredWorldRuntimeCompletion,
+  ResumeExecutingProposalInput,
   SealResult,
+  SealedWorldRuntimeCompletion,
+  WorldExecutionOptions,
+  WorldRuntimeCompletion,
+  WorldExecutionResult,
+  WorldExecutor,
+  WorldStoreTransaction,
   WorldConfig,
   WorldCoordinator,
   WorldInstance,
-  WriteSet,
+  WorldRuntime,
 } from "./types.js";
 
 export { createWorld } from "./create-world.js";
 export {
-  InMemoryCommitCapableWorldStore,
+  IndexedDbGovernedWorldStore,
+  InMemoryGovernedWorldStore,
+  SqliteGovernedWorldStore,
+  createIndexedDbWorldStore,
   createInMemoryWorldStore,
+  createSqliteWorldStore,
+} from "./store.js";
+export type {
+  IndexedDbWorldStoreOptions,
+  SqliteWorldStoreOptions,
 } from "./store.js";
 export {
   DefaultWorldCoordinator,

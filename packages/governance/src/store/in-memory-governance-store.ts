@@ -25,15 +25,15 @@ export class InMemoryGovernanceStore implements GovernanceStore {
   private readonly decisions = new Map<DecisionId, DecisionRecord>();
   private readonly actorBindings = new Map<ActorId, ActorAuthorityBinding>();
 
-  putProposal(proposal: Proposal): void {
+  async putProposal(proposal: Proposal): Promise<void> {
     this.proposals.set(proposal.proposalId, cloneValue(proposal));
   }
 
-  getProposal(proposalId: ProposalId): Proposal | null {
+  async getProposal(proposalId: ProposalId): Promise<Proposal | null> {
     return cloneValue(this.proposals.get(proposalId) ?? null);
   }
 
-  getProposalsByBranch(branchId: BranchId): readonly Proposal[] {
+  async getProposalsByBranch(branchId: BranchId): Promise<readonly Proposal[]> {
     return [...this.proposals.values()]
       .filter((proposal) => proposal.branchId === branchId)
       .sort((left, right) => {
@@ -45,8 +45,8 @@ export class InMemoryGovernanceStore implements GovernanceStore {
       .map((proposal) => cloneValue(proposal));
   }
 
-  getExecutionStageProposal(branchId: BranchId): Proposal | null {
-    const matches = this.getProposalsByBranch(branchId).filter((proposal) =>
+  async getExecutionStageProposal(branchId: BranchId): Promise<Proposal | null> {
+    const matches = (await this.getProposalsByBranch(branchId)).filter((proposal) =>
       isExecutionStageStatus(proposal.status)
     );
     if (matches.length > 1) {
@@ -57,23 +57,23 @@ export class InMemoryGovernanceStore implements GovernanceStore {
     return matches[0] ?? null;
   }
 
-  putDecisionRecord(record: DecisionRecord): void {
+  async putDecisionRecord(record: DecisionRecord): Promise<void> {
     this.decisions.set(record.decisionId, cloneValue(record));
   }
 
-  getDecisionRecord(decisionId: DecisionId): DecisionRecord | null {
+  async getDecisionRecord(decisionId: DecisionId): Promise<DecisionRecord | null> {
     return cloneValue(this.decisions.get(decisionId) ?? null);
   }
 
-  putActorBinding(binding: ActorAuthorityBinding): void {
+  async putActorBinding(binding: ActorAuthorityBinding): Promise<void> {
     this.actorBindings.set(binding.actorId, cloneValue(binding));
   }
 
-  getActorBinding(actorId: ActorId): ActorAuthorityBinding | null {
+  async getActorBinding(actorId: ActorId): Promise<ActorAuthorityBinding | null> {
     return cloneValue(this.actorBindings.get(actorId) ?? null);
   }
 
-  getActorBindings(): readonly ActorAuthorityBinding[] {
+  async getActorBindings(): Promise<readonly ActorAuthorityBinding[]> {
     return [...this.actorBindings.values()]
       .sort((left, right) => left.actorId.localeCompare(right.actorId))
       .map((binding) => cloneValue(binding));

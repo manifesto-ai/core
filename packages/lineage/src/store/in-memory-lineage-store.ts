@@ -57,29 +57,29 @@ export class InMemoryLineageStore implements LineageStore {
   private readonly branches = new Map<BranchId, PersistedBranchEntry>();
   private activeBranchId: BranchId | null = null;
 
-  putWorld(world: World): void {
+  async putWorld(world: World): Promise<void> {
     this.worlds.set(world.worldId, cloneValue(world));
   }
 
-  getWorld(worldId: WorldId): World | null {
+  async getWorld(worldId: WorldId): Promise<World | null> {
     return cloneValue(this.worlds.get(worldId) ?? null);
   }
 
-  putSnapshot(worldId: WorldId, snapshot: Snapshot): void {
+  async putSnapshot(worldId: WorldId, snapshot: Snapshot): Promise<void> {
     this.snapshots.set(worldId, cloneValue(snapshot));
   }
 
-  getSnapshot(worldId: WorldId): Snapshot | null {
+  async getSnapshot(worldId: WorldId): Promise<Snapshot | null> {
     return cloneValue(this.snapshots.get(worldId) ?? null);
   }
 
-  putAttempt(attempt: SealAttempt): void {
+  async putAttempt(attempt: SealAttempt): Promise<void> {
     this.attempts.set(attempt.attemptId, cloneValue(attempt));
     this.indexAttempt(this.attemptsByWorld, attempt.worldId, attempt.attemptId);
     this.indexAttempt(this.attemptsByBranch, attempt.branchId, attempt.attemptId);
   }
 
-  getAttempts(worldId: WorldId): readonly SealAttempt[] {
+  async getAttempts(worldId: WorldId): Promise<readonly SealAttempt[]> {
     const attemptIds = this.attemptsByWorld.get(worldId) ?? [];
     return sortAttempts(
       attemptIds
@@ -88,7 +88,7 @@ export class InMemoryLineageStore implements LineageStore {
     );
   }
 
-  getAttemptsByBranch(branchId: BranchId): readonly SealAttempt[] {
+  async getAttemptsByBranch(branchId: BranchId): Promise<readonly SealAttempt[]> {
     const attemptIds = this.attemptsByBranch.get(branchId) ?? [];
     return sortAttempts(
       attemptIds
@@ -97,21 +97,21 @@ export class InMemoryLineageStore implements LineageStore {
     );
   }
 
-  putHashInput(snapshotHash: string, input: SnapshotHashInput): void {
+  async putHashInput(snapshotHash: string, input: SnapshotHashInput): Promise<void> {
     this.hashInputs.set(snapshotHash, cloneValue(input));
   }
 
-  getHashInput(snapshotHash: string): SnapshotHashInput | null {
+  async getHashInput(snapshotHash: string): Promise<SnapshotHashInput | null> {
     return cloneValue(this.hashInputs.get(snapshotHash) ?? null);
   }
 
-  putEdge(edge: WorldEdge): void {
+  async putEdge(edge: WorldEdge): Promise<void> {
     this.edges.set(edge.edgeId, cloneValue(edge));
     this.indexEdge(edge.from, edge.edgeId);
     this.indexEdge(edge.to, edge.edgeId);
   }
 
-  getEdges(worldId: WorldId): readonly WorldEdge[] {
+  async getEdges(worldId: WorldId): Promise<readonly WorldEdge[]> {
     const edgeIds = [...(this.edgesByWorld.get(worldId) ?? new Set<string>())].sort();
     return edgeIds
       .map((edgeId) => this.edges.get(edgeId))
@@ -119,21 +119,21 @@ export class InMemoryLineageStore implements LineageStore {
       .map((edge) => cloneValue(edge));
   }
 
-  getBranchHead(branchId: BranchId): WorldId | null {
+  async getBranchHead(branchId: BranchId): Promise<WorldId | null> {
     return this.branches.get(branchId)?.head ?? null;
   }
 
-  getBranchTip(branchId: BranchId): WorldId | null {
+  async getBranchTip(branchId: BranchId): Promise<WorldId | null> {
     return this.branches.get(branchId)?.tip ?? null;
   }
 
-  getBranchEpoch(branchId: BranchId): number {
+  async getBranchEpoch(branchId: BranchId): Promise<number> {
     const branch = this.branches.get(branchId);
     assertLineage(branch != null, `LIN-EPOCH-6 violation: unknown branch ${branchId}`);
     return branch.epoch;
   }
 
-  mutateBranch(mutation: PreparedBranchMutation): void {
+  async mutateBranch(mutation: PreparedBranchMutation): Promise<void> {
     const branch = this.branches.get(mutation.branchId);
     assertLineage(branch != null, `LIN-STORE-4 violation: unknown branch ${mutation.branchId}`);
     assertLineage(
@@ -152,11 +152,11 @@ export class InMemoryLineageStore implements LineageStore {
     });
   }
 
-  putBranch(branch: PersistedBranchEntry): void {
+  async putBranch(branch: PersistedBranchEntry): Promise<void> {
     this.branches.set(branch.id, cloneBranch(branch));
   }
 
-  getBranches(): readonly PersistedBranchEntry[] {
+  async getBranches(): Promise<readonly PersistedBranchEntry[]> {
     return [...this.branches.values()]
       .sort((left, right) => {
         if (left.createdAt !== right.createdAt) {
@@ -170,11 +170,14 @@ export class InMemoryLineageStore implements LineageStore {
       .map((branch) => cloneBranch(branch));
   }
 
-  getActiveBranchId(): BranchId | null {
+  async getActiveBranchId(): Promise<BranchId | null> {
     return this.activeBranchId;
   }
 
-  switchActiveBranch(sourceBranchId: BranchId, targetBranchId: BranchId): void {
+  async switchActiveBranch(
+    sourceBranchId: BranchId,
+    targetBranchId: BranchId
+  ): Promise<void> {
     assertLineage(sourceBranchId !== targetBranchId, "LIN-SWITCH-5 violation: self-switch is not allowed");
     assertLineage(this.activeBranchId === sourceBranchId, "LIN-SWITCH-1 violation: source branch is not active");
 
@@ -190,7 +193,7 @@ export class InMemoryLineageStore implements LineageStore {
     this.activeBranchId = targetBranchId;
   }
 
-  commitPrepared(prepared: PreparedLineageCommit): void {
+  async commitPrepared(prepared: PreparedLineageCommit): Promise<void> {
     const nextBranches = new Map(this.branches);
     let nextActiveBranchId = this.activeBranchId;
 
@@ -242,16 +245,16 @@ export class InMemoryLineageStore implements LineageStore {
         );
       }
     } else {
-      this.putWorld(prepared.world);
-      this.putSnapshot(prepared.worldId, prepared.terminalSnapshot);
-      this.putHashInput?.(prepared.world.snapshotHash, prepared.hashInput);
+      await this.putWorld(prepared.world);
+      await this.putSnapshot(prepared.worldId, prepared.terminalSnapshot);
+      await this.putHashInput?.(prepared.world.snapshotHash, prepared.hashInput);
 
       if (prepared.kind === "next") {
-        this.putEdge(prepared.edge);
+        await this.putEdge(prepared.edge);
       }
     }
 
-    this.putAttempt({
+    await this.putAttempt({
       ...prepared.attempt,
       reused,
     });
