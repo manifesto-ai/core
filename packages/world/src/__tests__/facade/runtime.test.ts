@@ -272,6 +272,28 @@ describe("@manifesto-ai/world facade runtime", () => {
     expect(executor.execute).not.toHaveBeenCalled();
   });
 
+  it("rejects executing proposals when their execution-stage ownership disappears before dispatch", async () => {
+    const executor: WorldExecutor = {
+      execute: vi.fn(async () => ({
+        outcome: "completed",
+        terminalSnapshot: createSnapshot({ count: 2 }),
+      })),
+    };
+    const harness = createFacadeHarness({ executor });
+    await sealStandaloneGenesis(harness);
+    const { proposal } = await createExecutingProposal(harness);
+
+    vi.spyOn(harness.store, "getExecutionStageProposal").mockResolvedValue(null);
+
+    await expect(
+      harness.world.runtime.executeApprovedProposal({
+        proposal,
+        completedAt: 20,
+      })
+    ).rejects.toThrow(/FACADE-RUNTIME-11/);
+    expect(executor.execute).not.toHaveBeenCalled();
+  });
+
   it("resumes terminal snapshots without calling the executor and seals them directly", async () => {
     const executor: WorldExecutor = {
       execute: vi.fn(async () => ({

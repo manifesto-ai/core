@@ -284,6 +284,40 @@ describe("WFCTS Runtime Suite", () => {
       expect(executor.execute.mock.calls.length).toBe(0);
     });
 
+  it("rejects executing proposals when execution-stage ownership disappears before dispatch", async () => {
+      const executor: WorldExecutor = {
+        execute: vi.fn(async () => ({
+          outcome: "completed",
+          terminalSnapshot: createSnapshot({ count: 2 }),
+        })),
+      };
+      const harness = createFacadeHarness({ executor });
+      await sealStandaloneGenesis(harness);
+      const { proposal } = await createExecutingProposal(harness);
+
+      vi.spyOn(harness.store, "getExecutionStageProposal").mockResolvedValue(null);
+
+      await expect(
+        harness.world.runtime.executeApprovedProposal({
+          proposal,
+          completedAt: 20,
+        })
+      ).rejects.toThrow(/FACADE-RUNTIME-11/);
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("FACADE-RUNTIME-11"),
+          executor.execute.mock.calls.length === 0,
+          {
+            passMessage:
+              "Runtime treated missing execution-stage ownership as stale currentness and refused to dispatch.",
+            failMessage:
+              "Runtime accepted a proposal after its execution-stage ownership disappeared.",
+          }
+        ),
+      ]);
+    });
+
   it(
     caseTitle(
       WFCTS_CASES.RUNTIME_OUTCOME_GUARD,

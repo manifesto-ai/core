@@ -160,9 +160,14 @@ export class DefaultWorldRuntime implements WorldRuntime {
       );
     }
 
+    if (!executionStageProposal) {
+      throw new Error(
+        `FACADE-RUNTIME-11 violation: proposal ${storedProposal.proposalId} no longer owns an execution-stage slot for branch ${storedProposal.branchId}`
+      );
+    }
+
     if (
-      executionStageProposal
-      && executionStageProposal.proposalId !== storedProposal.proposalId
+      executionStageProposal.proposalId !== storedProposal.proposalId
     ) {
       throw new Error(
         `FACADE-RUNTIME-11 violation: proposal ${storedProposal.proposalId} lost execution ownership for branch ${storedProposal.branchId}`

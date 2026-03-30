@@ -369,7 +369,7 @@ interface WorldRuntime {
 | FACADE-RUNTIME-8 | MUST | When store state already contains a terminal proposal with `resultWorld`, runtime replay MUST converge to a `recovered` completion without duplicate execution or duplicate event emission |
 | FACADE-RUNTIME-9 | MUST | When `resumeSnapshot` is non-terminal, `resumeExecutingProposal()` MUST resume from `resumeSnapshot` rather than reloading `proposal.baseWorld` |
 | FACADE-RUNTIME-10 | MUST | Runtime MUST reject stale executing proposals whose branch head or epoch no longer matches `proposal.baseWorld` / `proposal.epoch` |
-| FACADE-RUNTIME-11 | MUST | When a seal race loses to another writer that already committed the same proposal, runtime MUST converge to a `recovered` completion rather than re-emitting or partially re-sealing |
+| FACADE-RUNTIME-11 | MUST | Runtime MUST reject proposals whose execution-stage ownership/currentness disappears before dispatch, and when a seal race loses to another writer that already committed the same proposal it MUST converge to a `recovered` completion rather than re-emitting or partially re-sealing |
 | FACADE-RUNTIME-12 | MUST | When an execution `AbortSignal` fires while `WorldExecutor.execute()` is in flight, runtime MUST forward it to `WorldExecutor.abort()` if that hook exists |
 | FACADE-RUNTIME-13 | MUST | Post-commit event dispatch failures MUST surface to the caller and MUST NOT be converted into `recovered` runtime completions |
 
