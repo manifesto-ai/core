@@ -42,12 +42,12 @@ This is a compact summary of high-salience rules. For exact wording, defer to th
 
 ## Current implementation note
 
-- In this repo, `@manifesto-ai/world` is still the active implementation target for world/governance/lineage behavior.
-- `@manifesto-ai/governance` and `@manifesto-ai/lineage` exist as split-design documentation, not implemented code packages.
-- For coding tasks, prefer the current exported surface in `packages/world/src/*` over future split docs.
+- In this repo, top-level `@manifesto-ai/world` is the exact consumer-facing governed facade.
+- `@manifesto-ai/governance` and `@manifesto-ai/lineage` are implemented code packages and own their protocol-layer behavior.
+- For consumer-facing governed work, prefer current `@manifesto-ai/world` exports and adapter subpaths. Import split-native packages directly only when the task is intentionally scoped to governance or lineage.
 
 ## Guidance for LLM use
 
 - Do not infer behavior not stated in SPEC, FDR, ADR, or current exported code.
-- When docs and code differ because a future split is not implemented yet, call that out explicitly.
+- When current and next-major docs differ, call that out explicitly and prefer the current exported surface unless the task targets a draft.
 - Prefer current package exports and source layout for implementation guidance.

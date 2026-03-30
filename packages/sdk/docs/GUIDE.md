@@ -2,7 +2,7 @@
 
 > Practical guide for the direct-dispatch `@manifesto-ai/sdk` path.
 
-> **Current Contract Note:** This guide follows the current SDK v2.0.0 surface. The projected ADR-015 + ADR-016 rewrite lives in [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md) as draft only.
+> **Current Contract Note:** This guide follows the current SDK v2.0.0 surface. The current SDK Snapshot surface transparently follows Core v4.0.0, so accumulated `system.errors` is not part of `getSnapshot()` or event payload snapshots.
 
 ## 1. Build The Direct-Dispatch Lifecycle
 
@@ -18,6 +18,8 @@ await dispatchAsync(
   manifesto,
   createIntent("counter.increment", { step: 1 }, "intent-1"),
 );
+const canIncrement = manifesto.isActionAvailable("counter.increment");
+const available = manifesto.getAvailableActions();
 const snapshot = manifesto.getSnapshot();
 ```
 
@@ -26,7 +28,8 @@ This is the normal SDK lifecycle:
 1. create one instance
 2. create a stable intent
 3. dispatch it
-4. read the next terminal Snapshot
+4. optionally query action availability
+5. read the next terminal Snapshot
 
 `createManifesto()` is the default application runtime. It assembles the direct-dispatch path without requiring governed world wiring.
 

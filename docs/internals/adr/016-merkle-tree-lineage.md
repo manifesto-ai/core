@@ -1,6 +1,6 @@
 # ADR-016: Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing
 
-> **Status:** Accepted
+> **Status:** Implemented
 > **Date:** 2026-03-29
 > **Deciders:** 정성우, Manifesto Architecture Team
 > **Scope:** Lineage, Governance (overlay only)

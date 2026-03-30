@@ -18,7 +18,6 @@ function createTestSnapshot(
       status: "idle",
       lastError: null,
       pendingRequirements: [],
-      errors: [],
       currentAction: null,
     },
     input: {},
@@ -95,7 +94,6 @@ describe("@manifesto-ai/lineage service", () => {
             timestamp: 0,
           },
           pendingRequirements: [],
-          errors: [],
           currentAction: null,
         },
       }
@@ -171,7 +169,6 @@ describe("@manifesto-ai/lineage service", () => {
               timestamp: 0,
             },
             pendingRequirements: [],
-            errors: [],
             currentAction: null,
           },
         }
@@ -264,7 +261,6 @@ describe("@manifesto-ai/lineage service", () => {
         status: "idle",
         lastError: null,
         pendingRequirements: [],
-        errors: [],
         currentAction: null,
       },
       input: null,

@@ -10,7 +10,7 @@ Use SDK when you want:
 
 - the shortest path to a running app
 - direct dispatch
-- subscriptions and snapshot reads without governed assembly
+- subscriptions, availability queries, and snapshot reads without governed assembly
 
 If you need proposals, legitimacy, sealed lineage, or explicit runtime composition, move to top-level `@manifesto-ai/world`.
 
@@ -40,6 +40,9 @@ const manifesto = createManifesto({
 });
 
 await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
+
+manifesto.isActionAvailable("increment");
+manifesto.getAvailableActions();
 ```
 
 ## When To Leave SDK

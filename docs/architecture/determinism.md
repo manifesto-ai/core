@@ -5,7 +5,7 @@
 
 ---
 
-> **Current Contract Note:** This page reflects the current Core v3.0.0 Snapshot model, including accumulated `system.errors`. The ADR-015 removal of accumulated error history is draft-only until the next major epoch lands.
+> **Current Contract Note:** This page reflects the current Core v4.0.0 Snapshot model. Accumulated `system.errors` is no longer part of the current Snapshot contract.
 
 ## What Is Determinism?
 
@@ -100,7 +100,6 @@ type Snapshot = {
     pendingRequirements: readonly Requirement[];
     currentAction: string | null;
     lastError: ErrorValue | null;
-    errors: readonly ErrorValue[];
   };
   input: unknown;                     // Transient action input
   meta: {

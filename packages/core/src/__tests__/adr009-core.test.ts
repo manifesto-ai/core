@@ -264,7 +264,6 @@ describe("ADR-009 core acceptance", () => {
       status: "idle",
       currentAction: null,
       lastError: null,
-      appendErrors: [],
       addRequirements: [],
       removeRequirementIds: [],
     });
@@ -309,7 +308,6 @@ describe("ADR-009 core acceptance", () => {
     };
 
     const delta = {
-      appendErrors: [],
       status: "pending" as const,
       currentAction: "act",
       lastError: null,
@@ -351,7 +349,6 @@ describe("ADR-009 core acceptance", () => {
       status: "idle",
       currentAction: null,
       lastError: null,
-      appendErrors: [],
       addRequirements: [],
       removeRequirementIds: [],
     });

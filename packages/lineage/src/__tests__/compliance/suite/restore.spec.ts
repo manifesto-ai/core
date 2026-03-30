@@ -34,7 +34,6 @@ describe("LCTS Restore Suite", () => {
                 timestamp: 11,
               },
               pendingRequirements: [],
-              errors: [],
               currentAction: "retrying",
             },
             input: { transient: true },

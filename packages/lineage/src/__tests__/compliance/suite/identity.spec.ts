@@ -111,14 +111,6 @@ describe("LCTS Identity Suite", () => {
             status: "idle",
             lastError: currentError,
             pendingRequirements: [],
-            errors: [
-              {
-                code: "OLD",
-                message: "old",
-                source: { actionId: "old", nodePath: "/old" },
-                timestamp: 0,
-              },
-            ],
             currentAction: "running",
           },
         }
@@ -135,7 +127,6 @@ describe("LCTS Identity Suite", () => {
               context: { other: true },
             },
             pendingRequirements: [],
-            errors: [],
             currentAction: null,
           },
         }
@@ -152,7 +143,6 @@ describe("LCTS Identity Suite", () => {
               timestamp: 1,
             },
             pendingRequirements: [],
-            errors: [],
             currentAction: null,
           },
         }
@@ -175,7 +165,7 @@ describe("LCTS Identity Suite", () => {
         evaluateRule(getRuleOrThrow("LIN-HASH-3d"), baseHash === sameCurrentHash, {
           passMessage: "Non-hash error fields and history do not affect snapshotHash.",
           failMessage: "Error message/timestamp/context or history leaked into snapshotHash identity.",
-          evidence: [noteEvidence("Changed error message/timestamp/context and system.errors history while keeping lastError.code/source fixed.")],
+          evidence: [noteEvidence("Changed only lastError message/timestamp/context while keeping lastError.code/source fixed.")],
         }),
       ]);
 
@@ -241,7 +231,6 @@ describe("LCTS Identity Suite", () => {
               timestamp: 0,
             },
             pendingRequirements: [],
-            errors: [],
             currentAction: null,
           },
         }

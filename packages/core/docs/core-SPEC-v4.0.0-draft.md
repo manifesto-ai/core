@@ -1,12 +1,12 @@
 # Manifesto Schema Specification
 
-> **Status:** Draft (Projected next major)
+> **Status:** Historical Draft
 > **Package:** `@manifesto-ai/core`
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Related:** ADR-015
 
-> **Draft Note:** This file captures the projected Core v4.0.0 rewrite reserved by ADR-015. The current normative package contract remains [core-SPEC.md](core-SPEC.md) through v3.0.0 until the shared epoch boundary lands.
+> **Historical Draft Note:** This file is retained as the pre-landing Core v4.0.0 draft that reserved ADR-015. The current normative package contract now lives in [core-SPEC.md](core-SPEC.md) at v4.0.0.
 
 ---
 

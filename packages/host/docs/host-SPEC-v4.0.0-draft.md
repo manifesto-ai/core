@@ -1,6 +1,6 @@
 # Host Contract Specification
 
-> **Status:** Draft (Projected next major)
+> **Status:** Historical Draft
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
 > **Compatible with:** Core SPEC v4.0.0 draft, Lineage SPEC v2.0.0 draft (restore boundary), ARCHITECTURE v2.0
@@ -8,7 +8,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Draft Note:** This file captures the projected Host v4.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [host-SPEC.md](host-SPEC.md) through v3.0.0 until the shared epoch boundary lands.
+> **Historical Draft Note:** This file is retained as the pre-landing Host v4.0.0 draft aligned to ADR-015 and ADR-016. The current normative package contract now lives in [host-SPEC.md](host-SPEC.md) at v4.0.0.
 
 ---
 

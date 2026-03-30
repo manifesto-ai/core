@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`. It stays thin and only re-exports the governed world assembly surface needed for explicit composition.
 
-> **Current Contract Note:** The current public package contract is documented in [docs/sdk-SPEC-v2.0.0.md](docs/sdk-SPEC-v2.0.0.md). The projected ADR-015 + ADR-016 rewrite lives in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md) as draft only.
+> **Current Contract Note:** The current public package contract is documented in [docs/sdk-SPEC-v2.0.0.md](docs/sdk-SPEC-v2.0.0.md). Current SDK v2 already follows the Core v4 Snapshot shape and includes availability query convenience methods. The broader next-major rewrite remains tracked in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md).
 
 ## What This Package Owns
 
@@ -19,7 +19,7 @@
 Use the SDK when you want:
 
 - the shortest path to direct-dispatch execution
-- subscriptions and snapshot reads without manual governed wiring
+- subscriptions, availability queries, and snapshot reads without manual governed wiring
 - thin access to the governed world assembler, while keeping full governance and lineage APIs in `@manifesto-ai/world`
 
 ## Direct Dispatch
@@ -33,6 +33,9 @@ const manifesto = createManifesto({
 });
 
 await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
+
+manifesto.isActionAvailable("increment");
+manifesto.getAvailableActions();
 ```
 
 ## Governed Composition

@@ -249,7 +249,6 @@ export function createGoldenSnapshot(
       status: "idle",
       pendingRequirements: [],
       lastError: null,
-      errors: [],
       currentAction: null,
     },
     meta: {

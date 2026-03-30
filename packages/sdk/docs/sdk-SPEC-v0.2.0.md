@@ -1,12 +1,13 @@
 # Manifesto SDK Specification v0.2.0
 
-> **Status:** Draft
+> **Status:** Superseded Historical Draft
 > **Scope:** Manifesto SDK Layer — Public Developer API
 > **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, World Protocol v3.0.0, APP-SPEC v2.3.0, Runtime SPEC v0.2.0
 > **Derived from:** APP-SPEC v2.3.0 §5–§7, §14, §16–§18; ADR-APP-002
 > **Hard-cut Alignment:** ADR-010
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This ADR-009 alignment draft is retained for traceability only. The current normative SDK contract now lives in [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md).
 > **Changelog:**
 > - **v0.2.0 (2026-02-27):** ADR-009 alignment — SDK patch-return guidance moved to structured `PatchPath` + `SystemDelta` boundary model
 > - **v0.1.0 (2026-02-11):** Initial draft — extracted from APP-SPEC v2.3.0

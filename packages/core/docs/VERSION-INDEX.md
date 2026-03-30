@@ -1,24 +1,18 @@
 # Core Documentation Index
 
 > **Package:** `@manifesto-ai/core`
-> **Last Updated:** 2026-03-29
+> **Last Updated:** 2026-03-31
 
 ---
 
 ## Current Specification
 
-- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v3.0.0
+- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v4.0.0
   - Consolidated from v2.x living document with ADR-009 hard-cut updates
+  - Includes additive availability query API: `isActionAvailable()` and `getAvailableActions()`
+  - ADR-015 hard cut landed: accumulated `system.errors` and `appendErrors` are removed
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix D in the SPEC for FDR cross-reference table
-
-## Projected Next Major
-
-- **Draft SPEC:** [core-SPEC-v4.0.0-draft.md](core-SPEC-v4.0.0-draft.md) — Draft, projected next major
-  - Reserved by ADR-015 for the shared epoch boundary
-  - Not current until the wider Core/Lineage/Governance/Host/World/SDK alignment lands
-
----
 
 ## Archived Versions
 
@@ -38,6 +32,6 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 - The Living Document replaces the patch-chain reading model. All content is in one file.
 - v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
-- ADR-015 was accepted on 2026-03-29 and fixes the next Core target at v4.0.0: remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface, and align the living SPEC at the shared epoch boundary.
-- Until that epoch lands, [core-SPEC.md](core-SPEC.md) remains the truthful current contract and [core-SPEC-v4.0.0-draft.md](core-SPEC-v4.0.0-draft.md) remains draft only.
+- v3.1.0 additively exposes the R-002 availability check as `isActionAvailable()` and `getAvailableActions()` without changing the compute/apply loop.
+- v4.0.0 lands ADR-015 in the current Core contract: `system.errors` and `appendErrors` are removed, and `lastError` is the sole current error surface.
 - v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.

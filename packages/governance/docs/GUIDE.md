@@ -2,7 +2,7 @@
 
 > Practical guide for using `@manifesto-ai/governance` directly.
 
-> **Current Contract Note:** This guide describes the current v1.0.0 governance surface. The projected v2.0.0 rewrite is tracked in [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) as draft only.
+> **Current Contract Note:** This guide describes the current v2.0.0 governance surface.
 
 ## 1. Assemble Governance On Top Of Lineage
 
@@ -181,8 +181,8 @@ Use `createGovernanceEventDispatcher()` when you want post-commit event emission
 ## 7. Related Docs
 
 - [Governance README](../README.md)
-- [Governance Specification](governance-SPEC-1.0.0v.md)
-- [Governance v2 Draft](governance-SPEC-2.0.0v.md)
+- [Governance Specification](governance-SPEC-2.0.0v.md)
+- [Historical v1 Baseline](governance-SPEC-1.0.0v.md)
 - [Governance Version Index](VERSION-INDEX.md)
 - [World](../../../docs/concepts/world)
 - [Governed Composition](../../../docs/tutorial/05-governed-composition)

@@ -2,19 +2,19 @@
 
 This directory documents the split-native `@manifesto-ai/governance` package.
 
-> **Current Contract Note:** The current public governance contract is [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md). The projected next-major rewrite lives in [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) as draft only.
+> **Current Contract Note:** The current public governance contract is [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md). The v1.0.0 governance spec remains available as the historical split-era baseline.
 
 ## Canonical Docs
 
 - [../README.md](../README.md) - package landing page
 - [GUIDE.md](GUIDE.md) - practical governance assembly and lifecycle flow
-- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) - normative governance protocol
-- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - projected next-major draft
+- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - normative governance protocol
+- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) - historical v1 baseline
 - [VERSION-INDEX.md](VERSION-INDEX.md) - version history and current spec pointer
 
 ## Reading Order
 
 1. Start with [README.md](../README.md).
 2. Read [GUIDE.md](GUIDE.md) for practical usage.
-3. Read [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) for normative behavior.
+3. Read [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) for normative behavior.
 4. Use [VERSION-INDEX.md](VERSION-INDEX.md) to follow current and historical versions.

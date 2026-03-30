@@ -4,7 +4,7 @@
 
 `@manifesto-ai/lineage` is the package to use when you need deterministic world identity, branch history, and snapshot sealing directly. It is the lower substrate that `@manifesto-ai/governance` and `@manifesto-ai/world` build on.
 
-> **Current Contract Note:** The current public package contract is documented in [docs/lineage-SPEC-1.0.1v.md](docs/lineage-SPEC-1.0.1v.md). The projected ADR-015 + ADR-016 rewrite lives in [docs/lineage-SPEC-2.0.0v.md](docs/lineage-SPEC-2.0.0v.md) as draft only.
+> **Current Contract Note:** The current public package contract is documented in [docs/lineage-SPEC-2.0.0v.md](docs/lineage-SPEC-2.0.0v.md). The v1.x lineage docs remain available as historical split-era baselines.
 
 ## What This Package Owns
 
@@ -39,6 +39,6 @@ const lineage = createLineageService(store);
 
 - [Docs Landing](docs/README.md)
 - [Lineage Guide](docs/GUIDE.md)
-- [Lineage Specification](docs/lineage-SPEC-1.0.1v.md)
-- [Projected Next-Major Draft](docs/lineage-SPEC-2.0.0v.md)
+- [Lineage Specification](docs/lineage-SPEC-2.0.0v.md)
+- [Historical v1 Baseline](docs/lineage-SPEC-1.0.1v.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

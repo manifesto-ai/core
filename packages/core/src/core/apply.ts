@@ -148,7 +148,6 @@ export function apply(
       ...newSystem,
       status: "error",
       lastError,
-      errors: [...newSystem.errors, ...validationErrors],
     };
   }
 
@@ -170,7 +169,6 @@ export function apply(
       ...newSystem,
       status: "error",
       lastError: error,
-      errors: [...newSystem.errors, error],
     };
   }
 

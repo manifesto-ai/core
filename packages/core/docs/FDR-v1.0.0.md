@@ -1,7 +1,7 @@
 # Manifesto Schema Specification — Foundational Design Rationale (FDR)
 
 > **Version:** 1.0
-> **Status:** Normative
+> **Status:** Historical Rationale
 > **Purpose:** Document the "why" behind every major design decision
 
 ---

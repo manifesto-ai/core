@@ -242,7 +242,6 @@ export class ExecutionContextImpl implements ExecutionContext {
   clearRequirement(requirementId: string): void {
     this.applySystemDelta(
       {
-        appendErrors: [],
         addRequirements: [],
         removeRequirementIds: [requirementId],
       },

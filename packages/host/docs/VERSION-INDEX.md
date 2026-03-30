@@ -1,26 +1,19 @@
 # Host Documentation Index
 
 > **Package:** `@manifesto-ai/host`
-> **Last Updated:** 2026-03-29
+> **Last Updated:** 2026-03-31
 
 ---
 
 ## Current Specification
 
-- **SPEC (Living Document):** [host-SPEC.md](host-SPEC.md) — Normative, current through v3.0.0
+- **SPEC (Living Document):** [host-SPEC.md](host-SPEC.md) — Normative, current through v4.0.0
   - Consolidated from v2.x living document + ADR-009 hard-cut updates
+  - ADR-015 hard cut landed: Host-facing Snapshot references no longer include accumulated `system.errors`
   - Deprecated Compiler Integration moved to Appendix D
   - See Appendix C in the SPEC for FDR cross-reference table
 - **README:** [../README.md](../README.md) — package landing page
 - **Guide:** [GUIDE.md](GUIDE.md) — practical package usage
-
----
-
-## Projected Next Major
-
-- **Draft SPEC:** [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) — projected next-major rewrite
-  - Draft only until the shared epoch boundary lands
-  - Draft only until Core / Lineage / Governance / World facade / SDK alignment lands
 
 ---
 
@@ -48,7 +41,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Notes
 
-- [host-SPEC.md](host-SPEC.md) remains the truthful current contract.
-- [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) is draft only until the shared epoch boundary lands.
-- ADR-015 + ADR-016 currently project Host v4.0.0 as the next aligned release. The breaking surface is inherited from Core's public Snapshot shape (`system.errors` removal), with additional resume-contract clarification for `$host` under restore normalization.
+- [host-SPEC.md](host-SPEC.md) is the truthful current contract.
+- Host current Snapshot references now follow Core v4 current shape: `lastError` remains, accumulated `system.errors` is removed.
+- The retained host v4 draft file is historical drafting context for the landed alignment and restore-boundary wording.
 - Host v1.0.0 and v1.1.0 SPEC/FDR documents predate the v2.0 rewrite and are not included in this repo.

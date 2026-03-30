@@ -21,7 +21,6 @@ function createSnapshot(
       status: "idle",
       lastError: null,
       pendingRequirements: [],
-      errors: [],
       currentAction: null,
     },
     input: {},
@@ -336,20 +335,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
               source: { actionId: "action-1", nodePath: "root" },
               timestamp: 50,
             },
-            errors: [
-              {
-                code: "ERR-PRIMARY",
-                message: "Primary failure",
-                source: { actionId: "action-1", nodePath: "root" },
-                timestamp: 50,
-              },
-              {
-                code: "ERR-SECONDARY",
-                message: "Secondary failure",
-                source: { actionId: "action-2", nodePath: "root.secondary" },
-                timestamp: 51,
-              },
-            ],
             pendingRequirements: [
               {
                 id: "req-1",
@@ -458,7 +443,6 @@ describe("@manifesto-ai/governance dispatcher", () => {
               source: { actionId: "action-4", nodePath: "root" },
               timestamp: 61,
             },
-            errors: [],
             pendingRequirements: [],
             currentAction: null,
           },

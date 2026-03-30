@@ -1,6 +1,6 @@
 # Manifesto Lineage Protocol Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Superseded Historical Contract
 > **Version:** v1.0.1
 > **Package:** `@manifesto-ai/lineage`
 > **Scope:** All Manifesto Lineage Implementations
@@ -8,6 +8,7 @@
 > **Extracted from:** World SPEC v2.0.5 (§5.2–5.5, §7.3, §7.5, §7.8–7.9, §9, §10.3–10.4)
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This document is retained as the pre-ADR-015/ADR-016 split-native baseline. The current normative lineage contract now lives in [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md).
 
 ---
 
@@ -243,7 +244,7 @@ import type { Snapshot, ErrorValue } from '@manifesto-ai/core';
 | LIN-SNAP-1 | MUST | Lineage MUST import Snapshot types from Core (not redefine) |
 | LIN-SNAP-2 | MUST NOT | Lineage MUST NOT assume specific `system.status` values (Core-owned vocabulary) |
 | LIN-SNAP-3 | MUST | Lineage determines terminal state via `lastError` and `pendingRequirements` |
-| LIN-SNAP-4 | MUST | `system.errors` is HISTORY (accumulated); `system.lastError` is CURRENT state |
+| LIN-SNAP-4 | MUST | Current Core Snapshot does not expose accumulated `system.errors`; Lineage uses `system.lastError` as the sole current error surface |
 
 ### 5.6 Platform Namespace Policy
 
@@ -335,7 +336,7 @@ function deriveTerminalStatus(snapshot: Snapshot): TerminalStatus {
 | LIN-OUTCOME-2 | MUST | `system.lastError != null` implies `terminalStatus: 'failed'` |
 | LIN-OUTCOME-3 | MUST | Otherwise `terminalStatus: 'completed'` |
 | LIN-OUTCOME-4 | MUST NOT | Lineage MUST NOT match specific `system.status` string values |
-| LIN-OUTCOME-5 | MUST NOT | Lineage MUST NOT use `system.errors.length` for failure determination (it's history) |
+| LIN-OUTCOME-5 | MUST NOT | Lineage MUST NOT depend on removed accumulated error-history fields for failure determination; it uses `system.lastError` and `pendingRequirements` only |
 
 **Why lineage must own this derivation.** `terminalStatus` is included in `snapshotHash` computation (INV-L9). If this value were caller-provided, the same snapshot could be sealed as `completed` by one caller and `failed` by another, producing different worldIds. WorldId determinism would depend on caller honesty, not on the snapshot's actual content. Lineage owning the derivation makes identity a function of content alone.
 
@@ -377,7 +378,7 @@ function computePendingDigest(pending: readonly Requirement[]): string {
 |-------|----------|---------|
 | `snapshot.data` (excluding `$`-prefixed) | ✅ MUST | LIN-HASH-1 |
 | `system.terminalStatus` (normalized) | ✅ MUST | LIN-HASH-2 |
-| `system.errors` (full history, as ErrorSignature[]) | ✅ MUST | LIN-HASH-3 |
+| `system.currentError` (normalized from `system.lastError`) | ✅ MUST | LIN-HASH-3 |
 | `system.pendingDigest` | ✅ MUST | LIN-HASH-11 |
 | Raw `system.status` | ❌ MUST NOT | LIN-HASH-2a |
 | `system.currentAction` | ❌ MUST NOT | LIN-HASH-4 |
@@ -390,14 +391,14 @@ function computePendingDigest(pending: readonly Requirement[]): string {
 | `computed` | ❌ SHOULD NOT | LIN-HASH-9 |
 | `input` | ❌ MUST NOT | LIN-HASH-10 |
 
-**Rationale for `system.errors` (full history) inclusion:** Two executions reaching the same final `data` but encountering different errors represent different lineages. This supports auditability: "this World experienced errors X, Y, Z during execution" is part of its identity. Trade-off acknowledged: same `data` + different error history = different WorldId.
+**Rationale for `system.currentError` inclusion:** Current Snapshot identity tracks the current terminal error state only. Durable chronology for repeated or historical failures belongs to `SealAttempt` records and branch/world history, not to an accumulated Snapshot array.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | LIN-HASH-1 | MUST | `snapshot.data` MUST be included, excluding `$`-prefixed namespaces |
 | LIN-HASH-2 | MUST | snapshotHash MUST include `terminalStatus` (normalized) |
 | LIN-HASH-2a | MUST NOT | snapshotHash MUST NOT include raw `system.status` |
-| LIN-HASH-3 | MUST | snapshotHash MUST include full error history as `ErrorSignature[]` |
+| LIN-HASH-3 | MUST | snapshotHash MUST include a normalized current error signature derived from `system.lastError` when present |
 | LIN-HASH-4 | MUST NOT | `system.currentAction` MUST NOT be included |
 | LIN-HASH-4a | MUST NOT | `data.$host` MUST NOT be included |
 | LIN-HASH-4b | MUST NOT | `data.$mel` MUST NOT be included |
@@ -410,63 +411,38 @@ function computePendingDigest(pending: readonly Requirement[]): string {
 | LIN-HASH-11 | MUST | `pendingDigest` MUST be included |
 | LIN-HASH-TERM-5 | MUST | `terminalStatus` for hash MUST be exactly `'completed'` or `'failed'` |
 
-### 6.4 Error Normalization
+### 6.4 Current Error Normalization
 
-Errors included in `snapshotHash` MUST be normalized to exclude non-deterministic fields.
+The current error included in `snapshotHash` MUST be normalized to exclude non-deterministic and non-identity fields.
 
 ```typescript
-type ErrorSignature = {
+type CurrentErrorSignature = {
   readonly code: string;
   readonly source: {
     readonly actionId: string;
     readonly nodePath: string;
   };
-  readonly context?: Record<string, unknown>;
-  // NOTE: `message` and `timestamp` are intentionally EXCLUDED
 };
 
-function toErrorSignature(error: ErrorValue): ErrorSignature {
+function toCurrentErrorSignature(error: ErrorValue): CurrentErrorSignature {
   return {
     code: error.code,
     source: {
       actionId: error.source.actionId,
       nodePath: error.source.nodePath,
     },
-    context: error.context ? normalizeContext(error.context) : undefined,
   };
-}
-
-function normalizeContext(
-  ctx: Record<string, unknown>
-): Record<string, unknown> | undefined {
-  const normalized = filterDeterministicValues(ctx);
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
-function errorSortKey(e: ErrorSignature): string {
-  return computeHash(e);  // 64-char lowercase hex string
-}
-
-function sortErrorSignatures(errors: ErrorSignature[]): ErrorSignature[] {
-  return [...errors].sort((a, b) => {
-    const keyA = errorSortKey(a);
-    const keyB = errorSortKey(b);
-    return keyA < keyB ? -1 : keyA > keyB ? 1 : 0;
-  });
 }
 ```
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| LIN-HASH-ERR-1 | MUST | Errors in snapshotHash MUST use ErrorSignature (normalized) |
-| LIN-HASH-ERR-2 | MUST NOT | ErrorSignature MUST NOT include timestamp |
-| LIN-HASH-ERR-3 | MUST NOT | ErrorSignature MUST NOT include stack traces |
-| LIN-HASH-ERR-4 | MUST | ErrorSignature[] MUST be sorted deterministically before hashing |
-| LIN-HASH-ERR-4a | MUST | Sort key MUST be `computeHash(ErrorSignature)` (64-char hex) |
-| LIN-HASH-ERR-4b | MUST | Sort key comparison is simple ASCII string comparison |
-| LIN-HASH-ERR-MSG-1 | MUST NOT | ErrorSignature MUST NOT include `message` field |
-| LIN-HASH-ERR-MSG-2 | MUST | Error identification relies on `code` + `source` + `context` only |
-| LIN-HASH-ERR-CTX-1 | MUST | `context` MUST only include deterministic values |
+| LIN-HASH-ERR-1 | MUST | Current error in snapshotHash MUST use `CurrentErrorSignature` (normalized) |
+| LIN-HASH-ERR-2 | MUST NOT | `CurrentErrorSignature` MUST NOT include `timestamp` |
+| LIN-HASH-ERR-3 | MUST NOT | `CurrentErrorSignature` MUST NOT include stack traces |
+| LIN-HASH-ERR-MSG-1 | MUST NOT | `CurrentErrorSignature` MUST NOT include `message` field |
+| LIN-HASH-ERR-CTX-1 | MUST NOT | `CurrentErrorSignature` MUST NOT include `context` |
+| LIN-HASH-ERR-ID-1 | MUST | Current error identification relies on `code` + `source` only |
 
 ### 6.5 Hash Algorithm
 
@@ -507,10 +483,10 @@ function createWorldRecord(
   // 1. Derive terminal status (LIN-SEAL-1)
   const terminalStatus = deriveTerminalStatus(terminalSnapshot);
 
-  // 2. Normalize errors (LIN-HASH-ERR-1, LIN-HASH-ERR-4)
-  const normalizedErrors = sortErrorSignatures(
-    terminalSnapshot.system.errors.map(toErrorSignature)
-  );
+  // 2. Normalize current error (LIN-HASH-ERR-1)
+  const currentError = terminalSnapshot.system.lastError == null
+    ? null
+    : toCurrentErrorSignature(terminalSnapshot.system.lastError);
 
   // 3. Compute pendingDigest (LIN-HASH-PENDING-1)
   const pendingDigest = computePendingDigest(
@@ -522,7 +498,7 @@ function createWorldRecord(
     data: stripPlatformNamespaces(terminalSnapshot.data as Record<string, unknown>),
     system: {
       terminalStatus,
-      errors: normalizedErrors,
+      currentError,
       pendingDigest,
     },
   };

@@ -13,7 +13,7 @@
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
 
-> **Current Contract Note:** This page describes the current Core v3.0.0 surface. The ADR-015 rewrite for Core v4.0.0 is tracked as draft in [packages/core/docs/core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md).
+> **Current Contract Note:** This page describes the current Core v4.0.0 surface. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract.
 
 ---
 
@@ -84,6 +84,17 @@ interface ManifestoCore {
     snapshot: Snapshot,
     path: SemanticPath
   ): ExplainResult;
+
+  isActionAvailable(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    actionName: string
+  ): boolean;
+
+  getAvailableActions(
+    schema: DomainSchema,
+    snapshot: Snapshot
+  ): readonly string[];
 }
 ```
 
@@ -117,7 +128,6 @@ type SystemDelta = {
   status?: SystemState["status"];
   currentAction?: string | null;
   lastError?: ErrorValue | null;
-  appendErrors?: readonly ErrorValue[];
   addRequirements?: readonly Requirement[];
   removeRequirementIds?: readonly string[];
 };
@@ -143,6 +153,7 @@ interface ComputeResult {
 - `system/input/computed/meta` are not patch targets.
 - Use `applySystemDelta()` for all system transitions.
 - `patchPathToDisplayString()` is display-only and must not be parsed for execution.
+- `isActionAvailable()` and `getAvailableActions()` are read-only availability queries over the current Snapshot.
 
 ---
 

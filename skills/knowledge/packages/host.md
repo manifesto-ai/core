@@ -8,7 +8,7 @@ Host executes effects, applies patches, orchestrates the compute loop, and fulfi
 
 ## Public API
 
-### `createHost(schema, effectHandlers, options?): ManifestoHost`
+### `createHost(schema, options?): ManifestoHost`
 
 ```typescript
 const host = createHost(schema, effectHandlers, {
@@ -68,4 +68,5 @@ SDK wraps this Host-level contract into the simpler `(params, ctx)` developer-fa
 ## Notes
 
 - Host is the execution seam between Core and the outside world.
-- `@manifesto-ai/world` defines a `HostExecutor` boundary so World does not import Host directly.
+- Host-facing Snapshot references follow the current Core v4 shape and no longer include accumulated `system.errors`.
+- `@manifesto-ai/world` defines a `WorldExecutor` boundary so World does not import Host directly.

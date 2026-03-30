@@ -1,11 +1,12 @@
 # Manifesto World Protocol Specification v2.0.2
 
-> **Status:** Active
+> **Status:** Historical Reference
 > **Scope:** All Manifesto World Implementations
 > **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, ARCHITECTURE v2.0
 > **Implements:** ADR-001 (Layer Separation)
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This pre-split world protocol document is retained for traceability only. Current active ownership lives in [lineage-SPEC-2.0.0v.md](../../lineage/docs/lineage-SPEC-2.0.0v.md), [governance-SPEC-2.0.0v.md](../../governance/docs/governance-SPEC-2.0.0v.md), and [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md).
 > **Changelog:**
 > - v1.0: Initial release
 > - v2.0: Host v2.0.1 Integration, Event-Loop Execution Model alignment

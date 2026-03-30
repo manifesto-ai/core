@@ -33,7 +33,7 @@ This setup is explicit. `@manifesto-ai/skills` does not auto-register itself fro
 
 For the full walkthrough, see [docs/guides/codex-skills.md](docs/guides/codex-skills.md).
 
-**Current contract note:** The canonical Snapshot block below reflects the current Core v3.0.0 contract. ADR-015's Core v4 removal of accumulated `system.errors` is draft-only until the shared next-major epoch lands.
+**Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
 
 ---
 
@@ -173,7 +173,6 @@ type Snapshot = {
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
     lastError: ErrorValue | null;
-    errors: readonly ErrorValue[];
     pendingRequirements: readonly Requirement[];
     currentAction: string | null;
   };
@@ -264,7 +263,7 @@ type ErrorValue = {
 #### 5.3 REQUIRED Failure Patterns
 
 - Effect handlers MUST return `Patch[]`, never throw
-- Failures MUST be expressed as `SystemDelta` transitions to `system.lastError` / `system.errors` or as patches to domain state
+- Failures MUST be expressed as `SystemDelta` transitions to `system.lastError` or as patches to domain state
 - Flow failures use `{ kind: 'fail', code: string, message?: string }`
 - Host MUST report effect execution failures faithfully through Snapshot
 

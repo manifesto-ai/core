@@ -1,21 +1,21 @@
 # Manifesto World Facade Specification
 
-> **Status:** Draft (Projected next major)
+> **Status:** Normative
 > **Version:** v2.0.0
 > **Package:** `@manifesto-ai/world`
 > **Scope:** `@manifesto-ai/world` facade surface for governed composition
-> **Compatible with:** Lineage SPEC v2.0.0 draft, Governance SPEC v2.0.0 draft
-> **SDK alignment:** [SDK SPEC v3.0.0 draft](../../sdk/docs/sdk-SPEC-v3.0.0-draft.md)
+> **Compatible with:** Lineage SPEC v2.0.0, Governance SPEC v2.0.0
+> **SDK alignment:** [SDK SPEC v2.0.0](../../sdk/docs/sdk-SPEC-v2.0.0.md)
 > **Implements:** ADR-014 D7/D11.3/D14, ADR-015, ADR-016
 > **Changelog:**
-> - **v2.0.0 (2026-03-30):** Super hard-cut draft
+> - **v2.0.0 (2026-03-30):** Super hard-cut current facade contract
 >   - `GovernedWorldStore` replaces `CommitCapableWorldStore`
 >   - `runInSealTransaction()` becomes the sole canonical seal persistence seam
->   - `WriteSet` and `commitSeal()` are removed from the draft public contract
+>   - `WriteSet` and `commitSeal()` are removed from the public contract
 >   - execution abstraction ownership moves from Governance to World
 >   - SDK/world CTS alignment follows the hard-cut surface
 
-> **Draft Note:** This file captures the projected facade v2.0.0 rewrite aligned to ADR-015/016 plus the super hard-cut API cleanup. The current normative package contract remains [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) until the shared epoch boundary lands.
+> **Historical Note:** [world-facade-spec-v1.0.0.md](world-facade-spec-v1.0.0.md) is retained as the superseded pre-hard-cut facade baseline.
 
 ---
 
@@ -62,7 +62,7 @@ Key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOU
 | Proposal lifecycle, authority evaluation, finalize semantics | Governance SPEC |
 | Effect execution, patch application, compute semantics | Host / Core |
 | Durable backend implementation | Future implementation phase |
-| Compatibility aliases for removed world store APIs | Not provided in this draft |
+| Compatibility aliases for removed world store APIs | Not provided in the current contract |
 
 ---
 
@@ -94,7 +94,7 @@ The facade re-exports the public split-native surfaces from:
 
 with one hard-cut exception:
 
-- execution abstraction ownership is **not** re-exported from Governance because it is World-owned in this draft
+- execution abstraction ownership is **not** re-exported from Governance because it is World-owned in the current contract
 
 ### 5.2 Facade-Owned Exports
 
@@ -148,7 +148,7 @@ interface GovernedWorldStore extends LineageStore, GovernanceStore {
 }
 ```
 
-The hard-cut draft treats governed persistence as async so browser-first adapters such as IndexedDB remain first-class targets without another API break.
+The hard-cut contract treats governed persistence as async so browser-first adapters such as IndexedDB remain first-class targets without another API break.
 
 ### 6.3 Store Rules
 
@@ -192,7 +192,7 @@ IndexedDB in the browser is the canonical durable target. A SQLite-backed adapte
 
 ### 7.1 Ownership
 
-World owns the execution abstraction consumed by governed runtimes. Governance does not define these interfaces in the hard-cut draft.
+World owns the execution abstraction consumed by governed runtimes. Governance does not define these interfaces in the hard-cut contract.
 
 ### 7.2 Types
 
@@ -401,7 +401,7 @@ interface GovernanceEventDispatcher {
 
 ## 11. Facade Lifecycle
 
-The façade remains the canonical top-level governed composition package in the split-protocol era. Deprecated compatibility names are intentionally not preserved in this draft.
+The façade remains the canonical top-level governed composition package in the split-protocol era. Deprecated compatibility names are intentionally not preserved in the current contract.
 
 ---
 
@@ -433,7 +433,7 @@ SDK does **not** re-export the removed `CommitCapableWorldStore`, `WriteSet`, or
 
 ## 14. Compliance
 
-An implementation claiming compliance with this draft MUST:
+An implementation claiming compliance with this contract MUST:
 
 1. implement the façade-owned types in §5.2, §6.2, §7.2, §8.2, §9.1, §9.3, and §10.1
 2. satisfy all `FACADE-STORE-*`, `FACADE-COORD-*`, `FACADE-EVT-*`, `FACADE-FACTORY-*`, `FACADE-RUNTIME-*`, and `FACADE-SDK-*` MUST rules listed above
@@ -447,6 +447,6 @@ An implementation claiming compliance with this draft MUST:
 - [ADR-014: Split World Protocol](../../../docs/internals/adr/014-split-world-protocol.md)
 - [ADR-015: Snapshot Ontological Purification](../../../docs/internals/adr/015-snapshot-ontological-purification.md)
 - [ADR-016: Merkle Tree Lineage](../../../docs/internals/adr/016-merkle-tree-lineage.md)
-- [Governance SPEC v2.0.0 draft](../../governance/docs/governance-SPEC-2.0.0v.md)
-- [Lineage SPEC v2.0.0 draft](../../lineage/docs/lineage-SPEC-2.0.0v.md)
-- [SDK SPEC v3.0.0 draft](../../sdk/docs/sdk-SPEC-v3.0.0-draft.md)
+- [Governance SPEC v2.0.0](../../governance/docs/governance-SPEC-2.0.0v.md)
+- [Lineage SPEC v2.0.0](../../lineage/docs/lineage-SPEC-2.0.0v.md)
+- [SDK SPEC v2.0.0](../../sdk/docs/sdk-SPEC-v2.0.0.md)

@@ -23,15 +23,25 @@ When implementation and future-design docs diverge, use the implemented package 
 - `packages/host/src/index.ts`
 
 ### World
-- `packages/world/src/index.ts`
-- `packages/world/src/world.ts`
+- `packages/world/docs/world-facade-spec-v1.0.0.md`
 - `packages/world/docs/VERSION-INDEX.md`
-- `packages/world/docs/world-SPEC.md`
+- `packages/world/src/index.ts`
+- `packages/world/src/facade/index.ts`
 
-Note: current repo code still implements world concerns in `@manifesto-ai/world`.
+Note: top-level `@manifesto-ai/world` is the exact governed facade in the current repo.
+
+### Governance
+- `packages/governance/docs/governance-SPEC-1.0.0v.md`
+- `packages/governance/docs/VERSION-INDEX.md`
+- `packages/governance/src/index.ts`
+
+### Lineage
+- `packages/lineage/docs/lineage-SPEC-1.0.1v.md`
+- `packages/lineage/docs/VERSION-INDEX.md`
+- `packages/lineage/src/index.ts`
 
 ### SDK
-- `packages/sdk/docs/sdk-SPEC-v1.0.0.md`
+- `packages/sdk/docs/sdk-SPEC-v2.0.0.md`
 - `packages/sdk/docs/VERSION-INDEX.md`
 - `packages/sdk/src/index.ts`
 - `packages/sdk/src/types.ts`
@@ -48,15 +58,14 @@ Note: current repo code still implements world concerns in `@manifesto-ai/world`
 
 ## Future-split / design-only references
 
-These are useful design docs, but they are not backed by separate code packages in this repo yet:
+These are useful next-major drafts, but they are not the default coding target unless a task explicitly targets them:
 
-- `packages/governance/docs/governance-SPEC-1.0.0v.md`
-- `packages/governance/docs/VERSION-INDEX.md`
-- `packages/lineage/docs/lineage-SPEC-1.0.1v.md`
-- `packages/lineage/docs/VERSION-INDEX.md`
-- `packages/world/docs/world-facade-spec-v1.0.0.md`
+- `packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md`
+- `packages/governance/docs/governance-SPEC-2.0.0v.md`
+- `packages/lineage/docs/lineage-SPEC-2.0.0v.md`
+- `packages/world/docs/world-facade-spec-v2.0.0.md`
 
-Use them for ADR-014 direction, not as the primary basis for current code changes.
+Use them for next-major direction, not as the primary basis for current code changes.
 
 ## ADRs
 

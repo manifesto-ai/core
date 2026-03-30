@@ -4,7 +4,7 @@
 
 `@manifesto-ai/governance` is the package to use when you need to reason about proposal legitimacy directly. It owns the governance lifecycle and composes with `@manifesto-ai/lineage` when you need branch-aware sealing.
 
-> **Current Contract Note:** The current public package contract is documented in [docs/governance-SPEC-1.0.0v.md](docs/governance-SPEC-1.0.0v.md). The projected ADR-015 + ADR-016 rewrite lives in [docs/governance-SPEC-2.0.0v.md](docs/governance-SPEC-2.0.0v.md) as draft only.
+> **Current Contract Note:** The current public package contract is documented in [docs/governance-SPEC-2.0.0v.md](docs/governance-SPEC-2.0.0v.md). The v1.0.0 governance spec remains available as the historical split-era baseline.
 
 ## What This Package Owns
 
@@ -47,6 +47,6 @@ const eventDispatcher = createGovernanceEventDispatcher({ service: governance })
 
 - [Docs Landing](docs/README.md)
 - [Governance Guide](docs/GUIDE.md)
-- [Governance Specification](docs/governance-SPEC-1.0.0v.md)
-- [Projected Next-Major Draft](docs/governance-SPEC-2.0.0v.md)
+- [Governance Specification](docs/governance-SPEC-2.0.0v.md)
+- [Historical v1 Baseline](docs/governance-SPEC-1.0.0v.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

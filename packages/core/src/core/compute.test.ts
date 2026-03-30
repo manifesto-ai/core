@@ -720,7 +720,7 @@ describe("compute", () => {
   });
 
   describe("System State", () => {
-    it("should track errors in system.errors", async () => {
+    it("should keep lastError as the sole current error surface", async () => {
       const schema = createTestSchema({
         actions: {
           fail: {
@@ -732,12 +732,11 @@ describe("compute", () => {
       const snapshot = createTestSnapshot({}, schema.hash);
       const result1 = await computeWithContext(schema, snapshot, createTestIntent("fail"));
 
-      expect(result1.snapshot.system.errors).toHaveLength(1);
       expect(result1.snapshot.system.lastError?.code).toBe("VALIDATION_ERROR");
 
-      // Run again to accumulate errors
       const result2 = await computeWithContext(schema, result1.snapshot, createTestIntent("fail"));
-      expect(result2.snapshot.system.errors).toHaveLength(2);
+      expect(result2.snapshot.system.lastError?.code).toBe("VALIDATION_ERROR");
+      expect("errors" in result2.snapshot.system).toBe(false);
     });
 
     it("should reset currentAction after completion", async () => {

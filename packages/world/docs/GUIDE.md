@@ -146,6 +146,6 @@ The rest of the assembly stays the same because the store contract is `GovernedW
 ## 7. Related Docs
 
 - [World README](../README.md)
-- [World Spec v2 Draft](world-facade-spec-v2.0.0.md)
+- [World Facade Spec](world-facade-spec-v2.0.0.md)
 - [Governed Composition Guide](../../../docs/guides/governed-composition.md)
 - [World API](../../../docs/api/world.md)

@@ -1,12 +1,13 @@
 # Manifesto SDK Specification v1.0.1
 
-> **Status:** Normative
+> **Status:** Superseded Historical Contract
 > **Scope:** Manifesto SDK Layer - Public Developer API
 > **Compatible with:** Core SPEC v3.0.0, Host Contract v3.0.0, World Protocol v3.0.0, World Facade SPEC v1.0.0, Compiler SPEC v0.6.0
 > **Supersedes:** SDK SPEC v1.0.0
 > **Implements:** ADR-010, ADR-014 Phase 5
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This additive world-alignment contract is retained for migration history only. The current normative SDK contract now lives in [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md).
 > **Changelog:**
 > - **v1.0.1 (2026-03-29):** Additive world/facade alignment
 >   - Retains `createManifesto()` as the sole SDK-owned concept
@@ -232,4 +233,3 @@ If you need governed composition:
 - [SDK SPEC v1.0.0](sdk-SPEC-v1.0.0.md)
 - [World Facade SPEC v1.0.0](../../world/docs/world-facade-spec-v1.0.0.md)
 - [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md)
-

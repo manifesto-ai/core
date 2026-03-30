@@ -121,7 +121,6 @@ describe("genesis snapshot defaults (SDK-CONFIG-3)", () => {
       system: {
         status: "idle",
         lastError: null,
-        errors: [],
         pendingRequirements: [],
         currentAction: null,
       },

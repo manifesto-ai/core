@@ -118,7 +118,6 @@ describe("LCTS Branch Suite", () => {
                 timestamp: 0,
               },
               pendingRequirements: [],
-              errors: [],
               currentAction: null,
             },
           }

@@ -1,15 +1,15 @@
 # Manifesto Governance Protocol Specification
 
-> **Status:** Draft (Projected next major)
+> **Status:** Normative (Living Document)
 > **Version:** v2.0.0
 > **Package:** `@manifesto-ai/governance`
 > **Scope:** All Manifesto Governance Implementations
-> **Compatible with:** Core SPEC v4.0.0 draft, Lineage SPEC v2.0.0 draft, ADR-014, ADR-015, ADR-016
+> **Compatible with:** Core SPEC v4.0.0, Lineage SPEC v2.0.0, ADR-014, ADR-015, ADR-016
 > **Extracted from:** World SPEC v2.0.5 (§5.6–5.7, §6, §7.1–7.7, §8, §10.1–10.2, §10.5–10.7)
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Draft Note:** This file captures the projected Governance v2.0.0 rewrite aligned to ADR-015 and ADR-016. The current normative package contract remains [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) until the shared epoch boundary lands.
+> **Historical Note:** [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) is retained as the superseded split-era baseline before ADR-015/ADR-016 landed in the current package contract.
 
 ---
 
@@ -60,7 +60,7 @@ Governance **does not** govern:
 
 Governance requires lineage. Lineage does not require governance.
 
-This document is a **projected next-major draft**. It is not the current normative package contract.
+This document is the **current normative package contract** for `@manifesto-ai/governance`.
 
 ---
 

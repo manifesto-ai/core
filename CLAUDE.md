@@ -37,7 +37,7 @@ When documents conflict, prefer higher-ranked sources.
 - Codex setup is explicit, not `postinstall`-driven: install the package, then run `npm exec manifesto-skills install-codex` or `pnpm exec manifesto-skills install-codex`.
 - Claude Code users can reference `@node_modules/@manifesto-ai/skills/SKILL.md` from their local `CLAUDE.md`.
 
-**Current contract note:** The canonical Snapshot block below reflects the current Core v3.0.0 contract. ADR-015's Core v4 removal of accumulated `system.errors` is draft-only until the shared next-major epoch lands.
+**Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
 
 ---
 
@@ -145,7 +145,6 @@ type Snapshot = {
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
     lastError: ErrorValue | null;
-    errors: readonly ErrorValue[];
     pendingRequirements: readonly Requirement[];
     currentAction: string | null;
   };
@@ -236,7 +235,7 @@ type ErrorValue = {
 ### 5.3 REQUIRED Failure Patterns
 
 - Effect handlers MUST return `Patch[]`, never throw
-- Failures MUST be expressed as `SystemDelta` transitions to `system.lastError` / `system.errors` or as patches to domain state
+- Failures MUST be expressed as `SystemDelta` transitions to `system.lastError` or as patches to domain state
 - Flow failures use `{ kind: 'fail', code: string, message?: string }`
 - Host MUST report effect execution failures faithfully through Snapshot
 

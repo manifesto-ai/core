@@ -1,7 +1,7 @@
 # Manifesto Architecture
 
-> Source: `packages/core/docs/core-SPEC.md`, `packages/host/docs/host-SPEC.md`, `packages/sdk/docs/sdk-SPEC-v1.0.0.md`, current `packages/world/src/*`
-> Last synced: 2026-03-28
+> Source: `packages/core/docs/core-SPEC.md`, `packages/host/docs/host-SPEC.md`, `packages/sdk/docs/sdk-SPEC-v2.0.0.md`, current `packages/world/src/*`
+> Last synced: 2026-03-31
 
 ## Rules
 
@@ -42,13 +42,11 @@ SDK-style app
 Governed path
   Actor submits IntentInstance
     -> World
-    -> HostExecutor
+    -> WorldExecutor
     -> Host
     -> Core
     -> new World state + lineage records
 ```
-
-The separate `@manifesto-ai/governance` and `@manifesto-ai/lineage` packages are not implemented code targets in this repo yet. They currently exist as split-design documentation only.
 
 ## Package Sovereignty
 
@@ -59,19 +57,14 @@ The separate `@manifesto-ai/governance` and `@manifesto-ai/lineage` packages are
 | **World** | Proposal lifecycle, authority evaluation, lineage DAG, persistence, governance event emission | Import `@manifesto-ai/host` directly, compute semantic meaning, apply Core patches itself |
 | **SDK** | Public app entrypoint (`createManifesto`), typed effect registration, `dispatchAsync`, typed patch helpers, selected re-exports | Invent semantics outside Core/Host/World public contracts |
 
-## Current `world` Note
+## Current Governed Structure
 
-In this repo's implementation, `@manifesto-ai/world` is still the active monolithic package for:
+In this repo's implementation:
 
-- actor registry
-- proposal queue and state machine
-- authority handlers and evaluation
-- lineage DAG helpers
-- persistence interfaces and in-memory store
-- governance event emission
-- `HostExecutor` boundary
-
-ADR-014 split docs are useful for future direction, but not the current implementation baseline for code changes.
+- `@manifesto-ai/world` is the exact consumer-facing governed facade
+- `@manifesto-ai/governance` is the current governance protocol package
+- `@manifesto-ai/lineage` is the current continuity protocol package
+- top-level `@manifesto-ai/world` re-exports the split-native surfaces needed for explicit composition
 
 ## Snapshot Structure
 
@@ -82,7 +75,6 @@ type Snapshot = {
   system: {
     status: "idle" | "computing" | "pending" | "error";
     lastError: ErrorValue | null;
-    errors: ErrorValue[];
     pendingRequirements: Requirement[];
     currentAction: string | null;
   };
@@ -120,7 +112,7 @@ Each `compute()` call is complete and independent. Continuity lives in the snaps
 - **Determinism**: Core can be tested without mocks.
 - **Auditability**: World records proposal and decision lineage.
 - **Portability**: Host remains the execution seam.
-- **Clarity**: SDK is the public app-facing layer, while World is optional governance/orchestration around Host.
+- **Clarity**: SDK is the public app-facing direct-dispatch layer, while World is the explicit governed composition layer around Host.
 
 ## Cross-References
 

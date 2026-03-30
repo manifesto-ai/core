@@ -17,7 +17,6 @@ function createTestSnapshot(
       status: "idle",
       lastError: null,
       pendingRequirements: [],
-      errors: [],
       currentAction: null,
     },
     input: {},
@@ -83,7 +82,6 @@ describe("@manifesto-ai/lineage hash", () => {
           },
           createdAt: 0,
         }],
-        errors: [],
         currentAction: null,
       },
     }))).toBe("failed");
@@ -97,7 +95,6 @@ describe("@manifesto-ai/lineage hash", () => {
           timestamp: 0,
         },
         pendingRequirements: [],
-        errors: [],
         currentAction: null,
       },
     }))).toBe("failed");

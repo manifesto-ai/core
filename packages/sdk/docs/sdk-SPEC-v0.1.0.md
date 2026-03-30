@@ -1,12 +1,13 @@
 # Manifesto SDK Specification v0.1.0
 
-> **Status:** Draft
+> **Status:** Superseded Historical Draft
 > **Scope:** Manifesto SDK Layer — Public Developer API
 > **Compatible with:** Core SPEC v2.0.0, Host Contract v2.0.2, World Protocol v2.0.3, APP-SPEC v2.3.0, Runtime SPEC v0.1.0
 > **Derived from:** APP-SPEC v2.3.0 §5–§7, §14, §16–§18; ADR-APP-002
 > **Hard-cut Alignment:** ADR-010
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This kickoff draft is retained for traceability only. The current normative SDK contract now lives in [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md).
 > **Changelog:**
 > - **v0.1.0 (2026-02-11):** Initial draft — extracted from APP-SPEC v2.3.0
 >   - **Fix:** `AppState.meta` aligned with Core SPEC SnapshotMeta (`timestamp: number`, `randomSeed` not `hash`)

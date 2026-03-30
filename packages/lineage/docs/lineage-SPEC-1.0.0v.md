@@ -1,6 +1,6 @@
 # Manifesto Lineage Protocol Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Superseded Historical Baseline
 > **Version:** v1.0.0
 > **Package:** `@manifesto-ai/lineage`
 > **Scope:** All Manifesto Lineage Implementations
@@ -8,6 +8,7 @@
 > **Extracted from:** World SPEC v2.0.5 (§5.2–5.5, §7.3, §7.5, §7.8–7.9, §9, §10.3–10.4)
 > **Authors:** Manifesto Team
 > **License:** MIT
+> **Historical Note:** This initial split-native extraction is retained for migration history only. The current normative lineage contract now lives in [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md).
 
 ---
 

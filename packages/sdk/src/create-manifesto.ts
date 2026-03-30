@@ -22,6 +22,8 @@ import {
   type Patch,
   type Snapshot as CoreSnapshot,
   type Intent,
+  getAvailableActions as queryAvailableActions,
+  isActionAvailable as queryActionAvailable,
   semanticPathToPatchPath,
   extractDefaults,
 } from "@manifesto-ai/core";
@@ -58,7 +60,8 @@ const RESERVED_NAMESPACE_PREFIX = "system.";
  *
  * This is the sole entry point for SDK consumers. It composes the protocol
  * axes required for the default direct-dispatch runtime into a single handle with
- * 5 methods: dispatch, subscribe, on, getSnapshot, dispose.
+ * 7 methods: dispatch, subscribe, on, isActionAvailable,
+ * getAvailableActions, getSnapshot, dispose.
  *
  * @see SDK-FACTORY-1 through SDK-FACTORY-5
  * @see SDK-INV-1 through SDK-INV-6
@@ -234,6 +237,18 @@ export function createManifesto<T = unknown>(
   }
 
   // =========================================================================
+  // Availability Queries
+  // =========================================================================
+
+  function isActionAvailable(actionName: string): boolean {
+    return queryActionAvailable(schema, currentSnapshot, actionName);
+  }
+
+  function getAvailableActions(): readonly string[] {
+    return queryAvailableActions(schema, currentSnapshot);
+  }
+
+  // =========================================================================
   // getSnapshot() — SDK-SNAP-1
   // =========================================================================
 
@@ -299,7 +314,15 @@ export function createManifesto<T = unknown>(
   // Return ManifestoInstance
   // =========================================================================
 
-  return { dispatch, subscribe, on, getSnapshot, dispose };
+  return {
+    dispatch,
+    subscribe,
+    on,
+    isActionAvailable,
+    getAvailableActions,
+    getSnapshot,
+    dispose,
+  };
 }
 
 // =============================================================================

@@ -1,20 +1,16 @@
 # @manifesto-ai/world
 
-> Current monolithic World Protocol implementation in this repo.
+> Canonical governed composition surface for Manifesto.
 
 ## Role
 
-In the current codebase, `@manifesto-ai/world` is the active implementation target for:
+Top-level `@manifesto-ai/world` is the exact consumer-facing facade for:
 
-- actor registration and authority bindings
-- proposal submission and lifecycle
-- authority evaluation, including HITL and policy rules
-- lineage DAG helpers
-- world persistence interfaces and in-memory storage
-- governance event emission
-- `HostExecutor` boundary definition
-
-Future split docs for `@manifesto-ai/governance` and `@manifesto-ai/lineage` exist, but those packages are not implemented as code in this repo yet.
+- `createWorld()` and `WorldRuntime`
+- the `GovernedWorldStore` contract and seal transaction seam
+- the world-owned execution boundary (`WorldExecutor`)
+- split-native lineage and governance service re-exports
+- intent-instance helpers and governed bootstrap wiring
 
 ## Dependencies
 
@@ -23,82 +19,51 @@ Future split docs for `@manifesto-ai/governance` and `@manifesto-ai/lineage` exi
 
 ## Public API
 
-### `createManifestoWorld(config): ManifestoWorld`
+### `createWorld(config): WorldInstance`
 
 ```typescript
-interface ManifestoWorldConfig {
-  schemaHash: string;
-  executor?: HostExecutor;
-  store?: WorldStore;
-  onHITLRequired?: HITLNotificationCallback;
-  customEvaluators?: Record<string, CustomConditionEvaluator>;
-  eventSink?: WorldEventSink;
-  executionKeyPolicy?: ExecutionKeyPolicy;
+interface WorldConfig {
+  store: GovernedWorldStore;
+  lineage: LineageService;
+  governance: GovernanceService;
+  eventDispatcher: GovernanceEventDispatcher;
+  executor: WorldExecutor;
 }
 ```
 
-### `ManifestoWorld`
+### `WorldInstance`
 
 ```typescript
-class ManifestoWorld {
-  registerActor(actor: ActorRef, policy: AuthorityPolicy): void;
-  updateActorBinding(actorId: string, policy: AuthorityPolicy): void;
-  getActorBinding(actorId: string): ActorAuthorityBinding | null;
-  getRegisteredActors(): ActorRef[];
-  onHITLRequired(handler: HITLNotificationCallback): () => void;
-
-  createGenesis(initialSnapshot: Snapshot): Promise<World>;
-  switchBranch(newBaseWorld: WorldId): Promise<void>;
-  get epoch(): number;
-
-  submitProposal(
-    actorId: string,
-    intent: IntentInstance,
-    baseWorld: WorldId,
-    trace?: ProposalTrace,
-  ): Promise<ProposalResult>;
-
-  processHITLDecision(
-    proposalId: string,
-    decision: "approved" | "rejected",
-    reasoning?: string,
-    approvedScope?: IntentScope | null,
-  ): Promise<ProposalResult>;
-
-  getWorld(worldId: WorldId): Promise<World | null>;
-  getSnapshot(worldId: WorldId): Promise<Snapshot | null>;
-  getGenesis(): Promise<World | null>;
-  getProposal(proposalId: string): Promise<Proposal | null>;
-  getEvaluatingProposals(): Promise<Proposal[]>;
-  getDecision(decisionId: string): Promise<DecisionRecord | null>;
-  getDecisionByProposal(proposalId: string): Promise<DecisionRecord | null>;
-  getLineage(): WorldLineage;
+interface WorldInstance {
+  store: GovernedWorldStore;
+  lineage: LineageService;
+  governance: GovernanceService;
+  coordinator: WorldCoordinator;
+  runtime: WorldRuntime;
 }
 ```
 
-### `ProposalResult`
+### `WorldRuntime`
 
 ```typescript
-type ProposalResult = {
-  proposal: Proposal;
-  decision?: DecisionRecord;
-  resultWorld?: World;
-  error?: WorldError;
-};
+interface WorldRuntime {
+  executeApprovedProposal(input: ExecuteApprovedProposalInput): Promise<WorldRuntimeCompletion>;
+  resumeExecutingProposal(input: ResumeExecutingProposalInput): Promise<WorldRuntimeCompletion>;
+}
 ```
 
-### `HostExecutor`
+### `WorldExecutor`
 
 World defines its own execution seam and does not import `@manifesto-ai/host` directly:
 
 ```typescript
-interface HostExecutor {
+interface WorldExecutor {
   execute(
     key: ExecutionKey,
-    baseSnapshot: Snapshot,
+    snapshot: Snapshot,
     intent: Intent,
-    opts?: HostExecutionOptions,
-  ): Promise<HostExecutionResult>;
+    opts?: WorldExecutionOptions,
+  ): Promise<WorldExecutionResult>;
 
   abort?(key: ExecutionKey): void;
 }
@@ -106,16 +71,21 @@ interface HostExecutor {
 
 ## Stores, Helpers, and Re-exports
 
-Key currently implemented exports include:
+Top-level exports include:
 
-- `WorldStore`, `createMemoryWorldStore`
-- `createExecutionKey`, `defaultExecutionKeyPolicy`
-- actor registry helpers
-- proposal queue helpers
-- authority handlers and evaluator
-- lineage helpers
-- world event types and `createNoopWorldEventSink`
-- factories such as `createGenesisWorld`, `createWorldFromExecution`, `createIntentInstance`
+- `createWorld`
+- `createLineageService`
+- `createGovernanceService`
+- `createGovernanceEventDispatcher`
+- `createIntentInstance`, `createIntentInstanceSync`
+- split-native lineage and governance types
+- the facade-owned `GovernedWorldStore`, `WorldCoordinator`, and `WorldRuntime` types
+
+Concrete store adapters live on subpaths:
+
+- `@manifesto-ai/world/in-memory`
+- `@manifesto-ai/world/indexeddb`
+- `@manifesto-ai/world/sqlite`
 
 ## Event Model
 
@@ -130,9 +100,8 @@ Current world implementation emits governance-oriented events such as:
 - `world:created`
 - `world:forked`
 
-## Current vs Future Structure
+## Current Structure
 
-- **Current code target**: `@manifesto-ai/world`
-- **Future design references**: `@manifesto-ai/governance`, `@manifesto-ai/lineage`, `world-facade-spec-v1.0.0`
-
-If you are changing code in this repo today, start from `packages/world/src/index.ts` and `packages/world/src/world.ts`.
+- Use top-level `@manifesto-ai/world` for consumer-facing governed composition.
+- Use `@manifesto-ai/governance` or `@manifesto-ai/lineage` directly only when the task is intentionally scoped to one protocol layer.
+- Use adapter subpaths only when you need a concrete store implementation.
