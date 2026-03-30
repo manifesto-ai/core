@@ -13,8 +13,8 @@ import {
   InMemoryLineageStore,
   type LineageStore,
   type PersistedBranchEntry,
-  type PersistedPatchDeltaV2,
   type PreparedBranchMutation,
+  type SealAttempt,
   type Snapshot,
   type SnapshotHashInput,
   type World,
@@ -25,8 +25,8 @@ import { wrapCommitSealError } from "./internal/errors.js";
 import type { CommitCapableWorldStore, WriteSet } from "./types.js";
 
 export class InMemoryCommitCapableWorldStore implements CommitCapableWorldStore {
-  private readonly lineageStore: LineageStore;
-  private readonly governanceStore: GovernanceStore;
+  private readonly lineageStore: InMemoryLineageStore;
+  private readonly governanceStore: InMemoryGovernanceStore;
 
   public constructor() {
     this.lineageStore = new InMemoryLineageStore();
@@ -49,12 +49,16 @@ export class InMemoryCommitCapableWorldStore implements CommitCapableWorldStore 
     return this.lineageStore.getSnapshot(worldId);
   }
 
-  putPatchDelta(from: WorldId, to: WorldId, delta: PersistedPatchDeltaV2): void {
-    this.lineageStore.putPatchDelta(from, to, delta);
+  putAttempt(attempt: SealAttempt): void {
+    this.lineageStore.putAttempt(attempt);
   }
 
-  getPatchDelta(from: WorldId, to: WorldId): PersistedPatchDeltaV2 | null {
-    return this.lineageStore.getPatchDelta(from, to);
+  getAttempts(worldId: WorldId): readonly SealAttempt[] {
+    return this.lineageStore.getAttempts(worldId);
+  }
+
+  getAttemptsByBranch(branchId: BranchId): readonly SealAttempt[] {
+    return this.lineageStore.getAttemptsByBranch(branchId);
   }
 
   putHashInput(snapshotHash: string, input: SnapshotHashInput): void {
@@ -75,6 +79,10 @@ export class InMemoryCommitCapableWorldStore implements CommitCapableWorldStore 
 
   getBranchHead(branchId: BranchId): WorldId | null {
     return this.lineageStore.getBranchHead(branchId);
+  }
+
+  getBranchTip(branchId: BranchId): WorldId | null {
+    return this.lineageStore.getBranchTip(branchId);
   }
 
   getBranchEpoch(branchId: BranchId): number {
@@ -142,22 +150,18 @@ export class InMemoryCommitCapableWorldStore implements CommitCapableWorldStore 
   }
 
   commitSeal(writeSet: WriteSet): void {
-    if (writeSet.kind === "full") {
-      if (!writeSet.governance.hasLineageRecords) {
-        throw new Error("FACADE-WS-2 violation: full write set requires governance.hasLineageRecords=true");
-      }
+    const lineageState = this.lineageStore.snapshotState();
+    const governanceState = this.governanceStore.snapshotState();
 
-      try {
-        this.lineageStore.commitPrepared(writeSet.lineage);
-      } catch (error) {
-        wrapCommitSealError(error);
-      }
-    } else if (writeSet.governance.hasLineageRecords) {
-      throw new Error("FACADE-WS-3 violation: govOnly write set requires governance.hasLineageRecords=false");
+    try {
+      this.lineageStore.commitPrepared(writeSet.lineage);
+      this.governanceStore.putProposal(writeSet.governance.proposal);
+      this.governanceStore.putDecisionRecord(writeSet.governance.decisionRecord);
+    } catch (error) {
+      this.lineageStore.restoreState(lineageState);
+      this.governanceStore.restoreState(governanceState);
+      wrapCommitSealError(error);
     }
-
-    this.governanceStore.putProposal(writeSet.governance.proposal);
-    this.governanceStore.putDecisionRecord(writeSet.governance.decisionRecord);
   }
 }
 

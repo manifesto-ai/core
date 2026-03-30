@@ -3,7 +3,6 @@ import type {
   GovernanceStore,
   PreparedGovernanceCommit,
   Proposal,
-  SealRejectionReason,
 } from "@manifesto-ai/governance";
 import type {
   LineageService,
@@ -19,26 +18,15 @@ export interface CommitCapableWorldStore extends LineageStore, GovernanceStore {
   commitSeal(writeSet: WriteSet): void;
 }
 
-export type WriteSet =
-  | {
-      readonly kind: "full";
-      readonly lineage: PreparedLineageCommit;
-      readonly governance: PreparedGovernanceCommit;
-    }
-  | {
-      readonly kind: "govOnly";
-      readonly governance: PreparedGovernanceCommit;
-    };
+export interface WriteSet {
+  readonly lineage: PreparedLineageCommit;
+  readonly governance: PreparedGovernanceCommit;
+}
 
 export interface GovernanceEventDispatcher {
   emitSealCompleted(
     governanceCommit: PreparedGovernanceCommit,
     lineageCommit: PreparedLineageCommit
-  ): void;
-
-  emitSealRejected(
-    governanceCommit: PreparedGovernanceCommit,
-    rejection: SealRejectionReason
   ): void;
 }
 
@@ -60,16 +48,11 @@ export type CoordinatorSealGenesisParams =
       readonly sealInput: SealGenesisInput;
     };
 
-export type SealResult =
-  | {
-      readonly kind: "sealed";
-      readonly worldId: WorldId;
-      readonly terminalStatus: TerminalStatus;
-    }
-  | {
-      readonly kind: "sealRejected";
-      readonly rejection: SealRejectionReason;
-    };
+export interface SealResult {
+  readonly kind: "sealed";
+  readonly worldId: WorldId;
+  readonly terminalStatus: TerminalStatus;
+}
 
 export interface WorldCoordinator {
   sealNext(params: CoordinatorSealNextParams): SealResult;

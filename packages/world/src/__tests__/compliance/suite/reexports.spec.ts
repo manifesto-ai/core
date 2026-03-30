@@ -47,6 +47,14 @@ describe("WFCTS Re-export Suite", () => {
             failMessage: "Top-level world wrapped or replaced split-native service factories or helpers.",
           },
         ),
+        evaluateRule(
+          getRuleOrThrow("FACADE-EVT-3"),
+          topLevelExports.createGovernanceEventDispatcher === createGovernanceEventDispatcher,
+          {
+            passMessage: "Governance provides the concrete dispatcher implementation through the facade surface.",
+            failMessage: "Facade did not preserve governance-owned dispatcher implementation identity.",
+          },
+        ),
       ]);
 
       expect(hasExpectedSurface).toBe(true);

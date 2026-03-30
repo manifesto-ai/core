@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type Proposal } from "../../index.js";
 import { FacadeCasMismatchError } from "../../facade/internal/errors.js";
 import { createFacadeHarness, createExecutingProposal, createSnapshot, sealStandaloneGenesis } from "./helpers.js";
@@ -49,28 +49,6 @@ describe("@manifesto-ai/world facade store", () => {
     expect(harness.store.getWorld(lineageCommit.worldId)?.worldId).toBe(lineageCommit.worldId);
     expect(harness.store.getBranchHead(harness.lineage.getActiveBranch().id)).toBe(lineageCommit.worldId);
     expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("completed");
-    expect(harness.store.getDecisionRecord(decisionRecord.decisionId)?.decisionId).toBe(decisionRecord.decisionId);
-  });
-
-  it("commits governance-only write sets without mutating lineage", () => {
-    const harness = createFacadeHarness();
-    const { world } = sealStandaloneGenesis(harness);
-    const { proposal, decisionRecord } = createExecutingProposal(harness);
-    const rejection = {
-      kind: "self_loop" as const,
-      computedWorldId: world!.worldId,
-      message: "simulated self-loop",
-    };
-    const governanceCommit = harness.governance.finalizeOnSealRejection(proposal, rejection, 30);
-
-    harness.store.commitSeal({
-      kind: "govOnly",
-      governance: governanceCommit,
-    });
-
-    expect(harness.store.getWorld(world!.worldId)?.worldId).toBe(world!.worldId);
-    expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("failed");
-    expect(harness.store.getProposal(proposal.proposalId)?.resultWorld).toBeUndefined();
     expect(harness.store.getDecisionRecord(decisionRecord.decisionId)?.decisionId).toBe(decisionRecord.decisionId);
   });
 
@@ -160,5 +138,40 @@ describe("@manifesto-ai/world facade store", () => {
     expect(harness.store.getWorld(lineageCommit.worldId)?.worldId).toBe(lineageCommit.worldId);
     expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("completed");
     expect(harness.lineage.getActiveBranch().head).toBe(lineageCommit.worldId);
+  });
+
+  it("rolls back lineage writes when governance persistence fails mid-commit", () => {
+    const harness = createFacadeHarness();
+    const { world } = sealStandaloneGenesis(harness);
+    const { proposal, decisionRecord } = createExecutingProposal(harness);
+
+    const lineageCommit = harness.lineage.prepareSealNext({
+      schemaHash: "wfcts-schema",
+      baseWorldId: world!.worldId,
+      branchId: harness.lineage.getActiveBranch().id,
+      terminalSnapshot: createSnapshot({ count: 2 }),
+      createdAt: 20,
+      proposalRef: proposal.proposalId,
+      decisionRef: decisionRecord.decisionId,
+    });
+    const governanceCommit = harness.governance.finalize(proposal, lineageCommit, 21);
+
+    const internals = harness.store as unknown as {
+      governanceStore: { putProposal: (proposal: unknown) => void };
+    };
+    const failure = new Error("simulated governance write failure");
+    vi.spyOn(internals.governanceStore, "putProposal").mockImplementation(() => {
+      throw failure;
+    });
+
+    expect(() => harness.store.commitSeal({
+      lineage: lineageCommit,
+      governance: governanceCommit,
+    })).toThrow(failure);
+
+    expect(harness.store.getWorld(lineageCommit.worldId)).toBeNull();
+    expect(harness.store.getAttempts(lineageCommit.worldId)).toHaveLength(0);
+    expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("executing");
+    expect(harness.lineage.getActiveBranch().head).toBe(world!.worldId);
   });
 });

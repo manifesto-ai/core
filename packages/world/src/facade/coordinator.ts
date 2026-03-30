@@ -6,7 +6,6 @@ import type {
 import type { LineageService } from "@manifesto-ai/lineage";
 import {
   isFacadeCasMismatchError,
-  toSealRejectionReason,
 } from "./internal/errors.js";
 import type {
   CommitCapableWorldStore,
@@ -31,24 +30,8 @@ function toWriteSet(
   lineageCommit: PreparedLineageCommit,
   governanceCommit: PreparedGovernanceCommit
 ): WriteSet {
-  if (!governanceCommit.hasLineageRecords) {
-    throw new Error("FACADE-WS-2 violation: full write set requires governance.hasLineageRecords=true");
-  }
-
   return {
-    kind: "full",
     lineage: lineageCommit,
-    governance: governanceCommit,
-  };
-}
-
-function toGovOnlyWriteSet(governanceCommit: PreparedGovernanceCommit): WriteSet {
-  if (governanceCommit.hasLineageRecords) {
-    throw new Error("FACADE-WS-3 violation: govOnly write set requires governance.hasLineageRecords=false");
-  }
-
-  return {
-    kind: "govOnly",
     governance: governanceCommit,
   };
 }
@@ -74,21 +57,6 @@ export class DefaultWorldCoordinator implements WorldCoordinator {
           terminalStatus: lineageCommit.terminalStatus,
         };
       } catch (error) {
-        const rejection = toSealRejectionReason(error);
-        if (rejection) {
-          const governanceCommit = this.options.governance.finalizeOnSealRejection(
-            params.executingProposal,
-            rejection,
-            params.completedAt
-          );
-          this.options.store.commitSeal(toGovOnlyWriteSet(governanceCommit));
-          this.options.eventDispatcher.emitSealRejected(governanceCommit, rejection);
-          return {
-            kind: "sealRejected",
-            rejection,
-          };
-        }
-
         if (isFacadeCasMismatchError(error) && attempt < MAX_CAS_RETRIES - 1) {
           continue;
         }
