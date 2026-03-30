@@ -249,7 +249,7 @@ describe("GCTS Lifecycle Suite", () => {
   it(
     caseTitle(
       GCTS_CASES.LIFECYCLE_FINALIZE_PURITY,
-      "Seal finalization stays pure for both normal and seal-rejection paths."
+      "Seal finalization stays pure on the current finalize() path."
     ),
     () => {
       const lineage = bootstrapLineage();
@@ -293,15 +293,6 @@ describe("GCTS Lifecycle Suite", () => {
         decisionRef: prepared.decisionRecord.decisionId,
       });
       const finalized = service.finalize(executingProposal, lineageCommit, 23);
-      const rejected = service.finalizeOnSealRejection(
-        executingProposal,
-        {
-          kind: "self_loop",
-          computedWorldId: lineage.genesis.worldId,
-          message: "no-op",
-        },
-        24
-      );
       const storedAfter = JSON.stringify({
         proposal: store.getProposal(executingProposal.proposalId),
         decision: store.getDecisionRecord(prepared.decisionRecord.decisionId),
@@ -309,17 +300,149 @@ describe("GCTS Lifecycle Suite", () => {
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("GOV-SEAL-2"), storedBefore === storedAfter, {
-          passMessage: "finalize() and finalizeOnSealRejection() leave GovernanceStore untouched.",
+          passMessage: "finalize() leaves GovernanceStore untouched.",
           failMessage: "Governance finalization mutated GovernanceStore state.",
-          evidence: [noteEvidence("Compared stored proposal/decision before and after finalize paths.")],
+          evidence: [noteEvidence("Compared stored proposal/decision before and after finalize().")],
         }),
       ]);
 
       expect(finalized.proposal.status).toBe("completed");
       expect(finalized.proposal.resultWorld).toBe(lineageCommit.worldId);
-      expect(rejected.proposal.status).toBe("failed");
-      expect(rejected.proposal.resultWorld).toBeUndefined();
       expect(storedBefore).toBe(storedAfter);
+    }
+  );
+
+  it(
+    caseTitle(
+      GCTS_CASES.LIFECYCLE_OUTCOME_CROSSCHECK,
+      "finalize() cross-checks derived outcome against lineage terminalStatus before producing a governance commit."
+    ),
+    () => {
+      const lineage = bootstrapLineage();
+      const store = adapter.createStore();
+      const service = adapter.createService(store, { lineageService: lineage.service });
+
+      const proposal = service.createProposal({
+        baseWorld: lineage.genesis.worldId,
+        branchId: lineage.genesis.branchId,
+        actorId: "actor-10",
+        authorityId: "auth-10",
+        intent: { type: "demo.crosscheck", intentId: "intent-10" },
+        executionKey: "key-10",
+        submittedAt: 30,
+        epoch: lineage.service.getActiveBranch().epoch,
+      });
+      const prepared = service.prepareAuthorityResult(
+        { ...proposal, status: "evaluating" },
+        { kind: "approved", approvedScope: null },
+        { decidedAt: 31 }
+      );
+      if (!prepared.decisionRecord) {
+        throw new Error("expected decisionRecord");
+      }
+
+      const executingProposal = { ...prepared.proposal, status: "executing" as const };
+      store.putProposal(executingProposal);
+      store.putDecisionRecord(prepared.decisionRecord);
+
+      const lineageCommit = lineage.service.prepareSealNext({
+        schemaHash: "schema-hash",
+        baseWorldId: lineage.genesis.worldId,
+        branchId: lineage.genesis.branchId,
+        terminalSnapshot: createSnapshot({ count: 11 }),
+        createdAt: 32,
+        proposalRef: executingProposal.proposalId,
+        decisionRef: prepared.decisionRecord.decisionId,
+      });
+
+      const mismatchedCommit = {
+        ...lineageCommit,
+        terminalStatus: "failed" as const,
+      };
+
+      let threw = false;
+      try {
+        service.finalize(executingProposal, mismatchedCommit, 33);
+      } catch (error) {
+        threw = error instanceof Error && /GOV-SEAL-1/.test(error.message);
+      }
+
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("GOV-SEAL-1"), threw, {
+          passMessage: "finalize() rejects prepared lineage commits whose terminalStatus disagrees with deriveOutcome().",
+          failMessage: "finalize() accepted a lineage terminalStatus mismatch.",
+          evidence: [noteEvidence("Prepared a completed terminal snapshot, then overrode terminalStatus to failed and verified finalize() threw GOV-SEAL-1.")],
+        }),
+      ]);
+
+      expect(threw).toBe(true);
+    }
+  );
+
+  it(
+    caseTitle(
+      GCTS_CASES.LIFECYCLE_ATTEMPT_PROVENANCE,
+      "Governance-active seals preserve proposal provenance through lineage SealAttempt records."
+    ),
+    () => {
+      const lineage = bootstrapLineage();
+      const store = adapter.createStore();
+      const service = adapter.createService(store, { lineageService: lineage.service });
+
+      const proposal = service.createProposal({
+        baseWorld: lineage.genesis.worldId,
+        branchId: lineage.genesis.branchId,
+        actorId: "actor-11",
+        authorityId: "auth-11",
+        intent: { type: "demo.provenance", intentId: "intent-11" },
+        executionKey: "key-11",
+        submittedAt: 40,
+        epoch: lineage.service.getActiveBranch().epoch,
+      });
+      const prepared = service.prepareAuthorityResult(
+        { ...proposal, status: "evaluating" },
+        { kind: "approved", approvedScope: null },
+        { decidedAt: 41 }
+      );
+      if (!prepared.decisionRecord) {
+        throw new Error("expected decisionRecord");
+      }
+
+      const executingProposal = { ...prepared.proposal, status: "executing" as const };
+      store.putProposal(executingProposal);
+      store.putDecisionRecord(prepared.decisionRecord);
+
+      const lineageCommit = lineage.service.prepareSealNext({
+        schemaHash: "schema-hash",
+        baseWorldId: lineage.genesis.worldId,
+        branchId: lineage.genesis.branchId,
+        terminalSnapshot: createSnapshot({ count: 12 }),
+        createdAt: 42,
+        proposalRef: executingProposal.proposalId,
+        decisionRef: prepared.decisionRecord.decisionId,
+      });
+      const governanceCommit = service.finalize(executingProposal, lineageCommit, 43);
+
+      lineage.service.commitPrepared(lineageCommit);
+      store.putProposal(governanceCommit.proposal);
+      store.putDecisionRecord(governanceCommit.decisionRecord);
+
+      const attempts = lineage.store.getAttempts(lineageCommit.worldId);
+      const latestAttempt = attempts.at(-1) ?? null;
+      const provenanceOk = latestAttempt?.proposalRef === governanceCommit.proposal.proposalId
+        && latestAttempt?.decisionRef === governanceCommit.decisionRecord.decisionId;
+
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("INV-G12"), provenanceOk, {
+          passMessage: "Governance-active seals carry proposal provenance through SealAttempt.proposalRef/decisionRef.",
+          failMessage: "Governance seal path lost proposal provenance before persistence in lineage attempts.",
+          evidence: [noteEvidence("Prepared a governed seal with proposalRef and decisionRef, committed lineage, and read the persisted SealAttempt.")],
+        }),
+      ]);
+
+      expect(attempts).toHaveLength(1);
+      expect(latestAttempt?.proposalRef).toBe(governanceCommit.proposal.proposalId);
+      expect(latestAttempt?.decisionRef).toBe(governanceCommit.decisionRecord.decisionId);
     }
   );
 });

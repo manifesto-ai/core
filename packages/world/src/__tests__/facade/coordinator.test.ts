@@ -3,6 +3,7 @@ import {
   createGovernanceEventDispatcher,
   createWorld,
   type GovernanceEventDispatcher as FacadeDispatcher,
+  type GovernanceEvent,
 } from "../../index.js";
 import { FacadeCasMismatchError } from "../../facade/internal/errors.js";
 import { createFacadeHarness, createExecutingProposal, createSnapshot, sealStandaloneGenesis } from "./helpers.js";
@@ -20,7 +21,7 @@ describe("@manifesto-ai/world facade coordinator", () => {
     const baseDispatcher = createGovernanceEventDispatcher({
       service: harness.governance,
       sink: {
-        emit(event): void {
+        emit(event: GovernanceEvent): void {
           harness.events.push(event);
         },
       },
@@ -31,20 +32,17 @@ describe("@manifesto-ai/world facade coordinator", () => {
         order.push("dispatch");
         baseDispatcher.emitSealCompleted(governanceCommit, lineageCommit);
       },
-      emitSealRejected(): void {
-        order.push("dispatchRejected");
-      },
     };
 
-    vi.spyOn(harness.lineage, "prepareSealNext").mockImplementation((input) => {
+    vi.spyOn(harness.lineage, "prepareSealNext").mockImplementation((input: Parameters<typeof originalPrepare>[0]) => {
       order.push("prepare");
       return originalPrepare(input);
     });
-    vi.spyOn(harness.governance, "finalize").mockImplementation((...args) => {
+    vi.spyOn(harness.governance, "finalize").mockImplementation((...args: Parameters<typeof originalFinalize>) => {
       order.push("finalize");
       return originalFinalize(...args);
     });
-    vi.spyOn(harness.store, "commitSeal").mockImplementation((writeSet) => {
+    vi.spyOn(harness.store, "commitSeal").mockImplementation((writeSet: Parameters<typeof originalCommit>[0]) => {
       order.push("commit");
       return originalCommit(writeSet);
     });
@@ -78,44 +76,26 @@ describe("@manifesto-ai/world facade coordinator", () => {
     ]);
   });
 
-  it("routes seal rejection through finalizeOnSealRejection and emits only after commit", () => {
+  it("does not use governance-only fallback during the current typed sealNext path", () => {
     const harness = createFacadeHarness();
     const { world } = sealStandaloneGenesis(harness);
-    const { proposal } = createExecutingProposal(harness);
-    const order: string[] = [];
-
-    const originalPrepare = harness.lineage.prepareSealNext.bind(harness.lineage);
-    const originalFinalizeOnSealRejection = harness.governance.finalizeOnSealRejection.bind(harness.governance);
+    const { proposal, decisionRecord } = createExecutingProposal(harness);
     const originalCommit = harness.store.commitSeal.bind(harness.store);
-    const baseDispatcher = createGovernanceEventDispatcher({
-      service: harness.governance,
-      sink: {
-        emit(event): void {
-          harness.events.push(event);
-        },
-      },
-      now: () => 1000,
-    });
+    let committedWriteSet: {
+      kind?: string;
+      lineage?: unknown;
+      governance?: unknown;
+    } | null = null;
     const dispatcher: FacadeDispatcher = {
-      emitSealCompleted(): void {
-        order.push("dispatchCompleted");
-      },
-      emitSealRejected(governanceCommit, rejection): void {
-        order.push("dispatchRejected");
-        baseDispatcher.emitSealRejected(governanceCommit, rejection);
-      },
+      emitSealCompleted(): void {},
     };
 
-    vi.spyOn(harness.lineage, "prepareSealNext").mockImplementation((input) => {
-      order.push("prepare");
-      return originalPrepare(input);
-    });
-    vi.spyOn(harness.governance, "finalizeOnSealRejection").mockImplementation((...args) => {
-      order.push("finalizeRejected");
-      return originalFinalizeOnSealRejection(...args);
-    });
     vi.spyOn(harness.store, "commitSeal").mockImplementation((writeSet) => {
-      order.push("commit");
+      committedWriteSet = writeSet as {
+        kind?: string;
+        lineage?: unknown;
+        governance?: unknown;
+      };
       return originalCommit(writeSet);
     });
 
@@ -133,18 +113,25 @@ describe("@manifesto-ai/world facade coordinator", () => {
         schemaHash: "wfcts-schema",
         baseWorldId: world!.worldId,
         branchId: harness.lineage.getActiveBranch().id,
-        terminalSnapshot: createSnapshot({ count: 1 }),
+        terminalSnapshot: createSnapshot({ count: 3 }),
         createdAt: 19,
         proposalRef: proposal.proposalId,
-        decisionRef: proposal.decisionId,
+        decisionRef: decisionRecord.decisionId,
       },
     });
+    const hasLineagePayload = committedWriteSet != null
+      && typeof committedWriteSet === "object"
+      && "lineage" in committedWriteSet
+      && (committedWriteSet as { lineage?: unknown }).lineage !== undefined;
+    const usesGovOnlyVariant = committedWriteSet != null
+      && typeof committedWriteSet === "object"
+      && "kind" in committedWriteSet
+      && (committedWriteSet as { kind?: string }).kind === "govOnly";
 
-    expect(result.kind).toBe("sealRejected");
-    expect(result.rejection.kind).toBe("worldId_collision");
-    expect(order).toEqual(["prepare", "finalizeRejected", "commit", "dispatchRejected"]);
-    expect(harness.events.map((event) => event.type)).toEqual(["execution:seal_rejected"]);
-    expect(harness.store.getProposal(proposal.proposalId)?.status).toBe("failed");
+    expect(result.kind).toBe("sealed");
+    expect(committedWriteSet).not.toBeNull();
+    expect(hasLineagePayload).toBe(true);
+    expect(usesGovOnlyVariant).toBe(false);
   });
 
   it("bypasses commitSeal and event dispatch during standalone genesis", () => {
@@ -153,9 +140,6 @@ describe("@manifesto-ai/world facade coordinator", () => {
     const dispatcher: FacadeDispatcher = {
       emitSealCompleted(): void {
         harness.events.push({ type: "execution:completed" } as never);
-      },
-      emitSealRejected(): void {
-        harness.events.push({ type: "execution:seal_rejected" } as never);
       },
     };
     const governedWorld = createWorld({
@@ -177,6 +161,9 @@ describe("@manifesto-ai/world facade coordinator", () => {
     expect(result.kind).toBe("sealed");
     expect(commitSpy).not.toHaveBeenCalled();
     expect(harness.events).toHaveLength(0);
+    if (result.kind !== "sealed") {
+      throw new Error("expected sealed genesis result");
+    }
     expect(harness.lineage.getLatestHead()?.worldId).toBe(result.worldId);
   });
 
@@ -201,7 +188,7 @@ describe("@manifesto-ai/world facade coordinator", () => {
       eventDispatcher: createGovernanceEventDispatcher({
         service: harness.governance,
         sink: {
-          emit(event): void {
+          emit(event: GovernanceEvent): void {
             harness.events.push(event);
           },
         },
