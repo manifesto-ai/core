@@ -44,13 +44,13 @@ console.log(app.getSnapshot().data.count); // 1
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createIntentInstance,
   createLineageService,
+  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
 
-const store = createInMemoryWorldStore();
+const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);
 const governance = createGovernanceService(store, { lineageService: lineage });
 const world = createWorld({
@@ -58,6 +58,7 @@ const world = createWorld({
   lineage,
   governance,
   eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
+  executor,
 });
 
 const intent = await createIntentInstance({
@@ -69,6 +70,8 @@ const intent = await createIntentInstance({
   intentId: "intent-1",
 });
 ```
+
+For the full Node-local bootstrap path, see [examples/governed-minimal-node](./examples/governed-minimal-node/README.md).
 
 ---
 

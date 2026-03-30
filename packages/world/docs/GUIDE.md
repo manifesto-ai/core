@@ -1,21 +1,26 @@
 # World Guide
 
-> Practical guide for assembling the governed `@manifesto-ai/world` runtime.
+> Practical guide for the current governed `@manifesto-ai/world` runtime.
 
-> **Current Contract Note:** This guide follows the current World facade v1.0.0 surface. The projected ADR-015 + ADR-016 rewrite lives in [world-facade-spec-v2.0.0.md](world-facade-spec-v2.0.0.md) as draft only.
+`@manifesto-ai/world` is the canonical package when you want explicit lineage, proposal flow, legitimacy, and sealed history in one runtime.
 
-## 1. Assemble The Governed Runtime
+## 1. Assemble A Local Governed Runtime
 
 ```typescript
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
+  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
 
-const store = createInMemoryWorldStore();
+const filename = join(process.cwd(), ".manifesto", "world.sqlite");
+mkdirSync(dirname(filename), { recursive: true });
+
+const store = createSqliteWorldStore({ filename });
 const lineage = createLineageService(store);
 const governance = createGovernanceService(store, {
   lineageService: lineage,
@@ -28,43 +33,48 @@ const world = createWorld({
   eventDispatcher: createGovernanceEventDispatcher({
     service: governance,
   }),
+  executor,
 });
 ```
 
-`createWorld()` is a thin assembler. It wires together the coordinator, lineage service, governance service, and composite store without hiding any of those responsibilities.
+For Node-local governed apps, `createSqliteWorldStore()` is the default path. Use `createInMemoryWorldStore()` only for tests or ephemeral flows.
 
----
-
-## 2. Create Intent Instances For Governed Requests
+## 2. Bootstrap The First Sealed World
 
 ```typescript
-import { createIntentInstance } from "@manifesto-ai/world";
+await world.coordinator.sealGenesis({
+  kind: "standalone",
+  sealInput: {
+    schemaHash: "counter-v1",
+    terminalSnapshot: createCounterSnapshot(0, 1),
+    createdAt: 1,
+  },
+});
+```
 
+This gives the active branch a real base world before proposals start executing.
+
+## 3. Create And Approve A Governed Request
+
+```typescript
 const intent = await createIntentInstance({
   body: {
-    type: "todo.add",
-    input: { title: "Document the governed path" },
+    type: "counter.increment",
+    input: { amount: 1 },
   },
-  schemaHash: "todo-v1",
-  projectionId: "todo-ui",
-  source: { kind: "ui", eventId: "evt-1" },
-  actor: { actorId: "user-1", kind: "human" },
+  schemaHash: "counter-v1",
+  projectionId: "counter-cli",
+  source: { kind: "script", eventId: "evt-1" },
+  actor: { actorId: "local-user", kind: "human" },
+  intentId: "intent-1",
 });
-```
 
-The intent key is derived from the intent body and schema data only. Origin metadata does not affect it.
-
----
-
-## 3. Proposal -> Decision -> Seal
-
-```typescript
-const branch = lineage.getActiveBranch();
+const branch = await world.lineage.getActiveBranch();
 const proposal = governance.createProposal({
   baseWorld: branch.head,
   branchId: branch.id,
   actorId: intent.meta.origin.actor.actorId,
-  authorityId: "auth-auto",
+  authorityId: "auth-local",
   intent: {
     type: intent.body.type,
     intentId: intent.intentId,
@@ -72,90 +82,70 @@ const proposal = governance.createProposal({
     scopeProposal: intent.body.scopeProposal,
   },
   executionKey: intent.intentKey,
-  submittedAt: Date.now(),
+  submittedAt: 2,
   epoch: branch.epoch,
 });
 
-const approved = governance.prepareAuthorityResult(
+const approved = await governance.prepareAuthorityResult(
   { ...proposal, status: "evaluating" },
   { kind: "approved", approvedScope: null },
   {
     currentEpoch: branch.epoch,
     currentBranchHead: branch.head,
-    decidedAt: Date.now(),
+    decidedAt: 3,
   },
 );
+```
 
-if (!approved.decisionRecord) {
-  throw new Error("expected decision record");
-}
+`createIntentInstance()` carries actor/source metadata. Governance turns that into a proposal and explicit approval result.
 
+## 4. Execute Through WorldRuntime
+
+```typescript
 const executingProposal = {
   ...approved.proposal,
   status: "executing" as const,
-  decisionId: approved.decisionRecord.decisionId,
-  decidedAt: approved.decisionRecord.decidedAt,
+  decisionId: approved.decisionRecord!.decisionId,
+  decidedAt: approved.decisionRecord!.decidedAt,
 };
 
-world.store.putProposal(executingProposal);
-world.store.putDecisionRecord(approved.decisionRecord);
+await world.store.putProposal(executingProposal);
+await world.store.putDecisionRecord(approved.decisionRecord!);
 
-const sealed = world.coordinator.sealNext({
-  executingProposal,
-  completedAt: Date.now(),
-  sealInput: {
-    schemaHash: "todo-v1",
-    terminalSnapshot,
-    createdAt: Date.now(),
-    baseWorldId: branch.head,
-    branchId: branch.id,
-    proposalRef: executingProposal.proposalId,
-    decisionRef: approved.decisionRecord.decisionId,
-  },
+const completion = await world.runtime.executeApprovedProposal({
+  proposal: executingProposal,
+  completedAt: 4,
 });
 ```
 
-World coordinates the commit sequence, governance finalization, and event emission. Lineage remains responsible for identity and history; governance remains responsible for legitimacy.
+`WorldRuntime` is the consumer-facing happy-path entrypoint. It owns:
 
----
+- executor invocation
+- lineage sealing
+- governance finalization
+- atomic persistence
+- post-commit event dispatch
 
-## 4. Standalone Genesis Versus Governed Sealing
-
-```typescript
-const genesis = world.coordinator.sealGenesis({
-  kind: "standalone",
-  sealInput: {
-    schemaHash: "todo-v1",
-    terminalSnapshot: initialSnapshot,
-    createdAt: Date.now(),
-  },
-});
-```
-
-Use standalone genesis when you only need to bootstrap the first sealed world. Use governed sealing when the first seal should also go through legitimacy and event flow.
-
----
-
-## 5. Read Resulting Worlds And Branches
+## 5. Read The Resulting World
 
 ```typescript
-const activeBranch = world.lineage.getActiveBranch();
-const heads = world.lineage.getHeads();
-const latestHead = world.lineage.getLatestHead();
-const restored = latestHead
-  ? world.lineage.restore(latestHead.worldId)
-  : null;
+const restored = await world.lineage.restore(completion.resultWorld);
+console.log(restored.data.count);
 ```
 
-The governed runtime does not hide history. It makes the current branch and its sealed ancestry queryable.
+The runtime does not hide history. It gives you the new sealed world id and keeps lineage queryable.
 
----
+## 6. Swap Store Backends Deliberately
 
-## 6. Related Docs
+- `createSqliteWorldStore()` for Node-local durable apps
+- `createInMemoryWorldStore()` for tests or ephemeral flows
+- `createIndexedDbWorldStore()` for browser durable apps
+
+The rest of the assembly stays the same because the store contract is `GovernedWorldStore`.
+
+## 7. Related Docs
 
 - [World README](../README.md)
-- [World Specification](world-facade-spec-v1.0.0.md)
-- [World Specification v2 Draft](world-facade-spec-v2.0.0.md)
-- [World Version Index](VERSION-INDEX.md)
-- [Governed Composition](../../../docs/tutorial/05-governed-composition)
-- [Governed Sealing and History](../../../docs/tutorial/06-governed-sealing-and-history)
+- [World Spec v2 Draft](world-facade-spec-v2.0.0.md)
+- [Governed Composition Guide](../../../docs/guides/governed-composition.md)
+- [World API](../../../docs/api/world.md)

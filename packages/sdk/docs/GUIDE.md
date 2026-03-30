@@ -78,12 +78,11 @@ If you need effect-level instrumentation, keep the effect handlers small and let
 
 ```typescript
 import {
-  createInMemoryWorldStore,
   createWorld,
 } from "@manifesto-ai/sdk";
 ```
 
-These exports are intentionally thin. If you need the full governed surface, including `createGovernanceService()` and `createLineageService()`, import top-level `@manifesto-ai/world` directly.
+These exports are intentionally thin. If you need the full governed surface, including durable store selection, `createGovernanceService()`, `createLineageService()`, or `WorldRuntime.executeApprovedProposal()`, import top-level `@manifesto-ai/world` directly.
 
 Move to the governed path when you need proposals, actor identity, branch history, or explicit sealing.
 
@@ -103,6 +102,7 @@ Move to `@manifesto-ai/world` when:
 - you need actor and authority tracking
 - you need sealed history or branch inspection
 - the runtime should coordinate governance and lineage explicitly
+- the app should choose a durable governed store such as SQLite or IndexedDB
 
 ---
 

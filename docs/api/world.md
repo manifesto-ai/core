@@ -1,92 +1,97 @@
 # @manifesto-ai/world
 
-> Exact facade for governed Manifesto composition.
+> Canonical governed composition surface for Manifesto.
 
 ## Overview
 
-Top-level `@manifesto-ai/world` is the canonical governed composition package.
+Top-level `@manifesto-ai/world` is the package you use when you want:
 
-> **Current Contract Note:** This page describes the current World facade v1.0.0 surface. The projected v2.0.0 rewrite is draft-only in [packages/world/docs/world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
+- lineage services and query APIs
+- governance services and proposal lifecycle APIs
+- a facade-owned runtime assembly surface
+- explicit governed execution and sealing
 
-It exposes:
+It is the full consumer-facing governed package. You do not need to mix direct imports from `@manifesto-ai/governance` and `@manifesto-ai/lineage` unless you intentionally want only one protocol layer.
 
-- lineage types and services
-- governance types and services
-- facade-owned store and coordinator types
+## Main Runtime Factories
+
 - `createWorld()`
+- `createSqliteWorldStore()`
 - `createInMemoryWorldStore()`
-- intent-instance helpers
+- `createIndexedDbWorldStore()`
 
-## Canonical Composition
+## Core Facade-Owned Types
+
+```typescript
+type GovernedWorldStore
+type WorldStoreTransaction
+type GovernanceEventDispatcher
+type WorldExecutor
+type WorldExecutionOptions
+type WorldExecutionResult
+type WorldRuntime
+type WorldRuntimeCompletion
+type WorldCoordinator
+type WorldConfig
+type WorldInstance
+```
+
+## Canonical Node-Local Composition
 
 ```typescript
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
+  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
 
-const store = createInMemoryWorldStore();
+const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);
 const governance = createGovernanceService(store, {
   lineageService: lineage,
 });
+
 const world = createWorld({
   store,
   lineage,
   governance,
   eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
+  executor,
 });
 ```
 
-## Package Layers Inside the Facade
+The consumer-facing happy path is `world.runtime.executeApprovedProposal(...)`, not manual sealing orchestration.
 
-`@manifesto-ai/world` combines three categories of exports:
+## Store Guidance
 
-1. Re-exported lineage APIs from `@manifesto-ai/lineage`
-2. Re-exported governance APIs from `@manifesto-ai/governance`
-3. Facade-owned runtime assembly APIs
+- `createSqliteWorldStore()` for Node-local durable apps
+- `createInMemoryWorldStore()` for tests and ephemeral flows
+- `createIndexedDbWorldStore()` for browser durable apps
 
-## Facade-Owned Types
-
-```typescript
-type CommitCapableWorldStore
-type WriteSet
-type GovernanceEventDispatcher
-type WorldCoordinator
-type WorldConfig
-type WorldInstance
-type CoordinatorSealNextParams
-type CoordinatorSealGenesisParams
-type SealResult
-```
+All of them satisfy the same `GovernedWorldStore` contract.
 
 ## Split-Native Re-exports
 
 Top-level `@manifesto-ai/world` also re-exports:
 
-- governance proposal and authority types
-- lineage world/head/branch types
-- `createIntentInstance()`, `createIntentInstanceSync()`, `computeIntentKey()`
-- `createGovernanceService()`, `createGovernanceEventDispatcher()`
-- `createLineageService()`
+- lineage types and services
+- governance types and services
+- intent-instance helpers such as `createIntentInstance()`
 
-Use top-level `@manifesto-ai/world` when you want the full governed runtime surface from one package. Use `@manifesto-ai/governance` or `@manifesto-ai/lineage` directly when you want only one protocol layer.
+That is why `@manifesto-ai/world` is the canonical governed import path.
 
 ## Related Packages
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/core](./core.md) | Pure computation |
-| [@manifesto-ai/host](./host.md) | Effect execution |
-| [@manifesto-ai/sdk](./sdk.md) | Thin public SDK that re-exports selected world facade types and factories |
-| [@manifesto-ai/governance](./governance.md) | Direct governance protocol API |
-| [@manifesto-ai/lineage](./lineage.md) | Direct lineage protocol API |
+| [@manifesto-ai/sdk](./sdk.md) | Direct-dispatch entry point |
+| [@manifesto-ai/governance](./governance.md) | Governance protocol by itself |
+| [@manifesto-ai/lineage](./lineage.md) | Lineage protocol by itself |
 
 ## Learn The Runtime
 
-- [Governed Composition](/tutorial/05-governed-composition)
-- [Governed Sealing and History](/tutorial/06-governed-sealing-and-history)
-- [World Concept](/concepts/world)
+- [Governed Composition Guide](/guides/governed-composition)
+- `packages/world/docs/GUIDE.md`
+- [Concepts: World](/concepts/world)

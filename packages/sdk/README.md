@@ -39,14 +39,13 @@ await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
 
 ```typescript
 import {
-  createInMemoryWorldStore,
   createWorld,
 } from "@manifesto-ai/sdk";
 ```
 
-These are the thin re-exports from top-level `@manifesto-ai/world`.
+These are thin re-exports from top-level `@manifesto-ai/world`. The canonical governed bootstrap, including durable store selection and `WorldRuntime.executeApprovedProposal()`, lives on `@manifesto-ai/world` directly.
 
-For the full governed surface, including `createGovernanceService()`, `createLineageService()`, and `createGovernanceEventDispatcher()`, import `@manifesto-ai/world` directly.
+For the full governed surface, including `createSqliteWorldStore()`, `createGovernanceService()`, `createLineageService()`, and `createGovernanceEventDispatcher()`, import `@manifesto-ai/world` directly.
 
 ## Docs
 
