@@ -506,7 +506,7 @@ type PreparedBranchMutation = {
   readonly headAdvanced: boolean;
   readonly expectedTip: WorldId;
   readonly nextTip: WorldId;
-  readonly headAdvancedAt: number | null;
+  readonly headAdvancedAt: number | null; // updated atomically with the CAS-guarded branch mutation
   readonly expectedEpoch: number;
   readonly nextEpoch: number;
 };
@@ -745,7 +745,7 @@ type WorldHead = {
 | MRKL-HEAD-3 | MUST | Failed seals MUST NOT change `headAdvancedAt` |
 | MRKL-HEAD-4 | MUST | Genesis bootstrap MUST set `headAdvancedAt` to the genesis seal's `createdAt` |
 | MRKL-HEAD-5 | MUST | `WorldHead.createdAt` MUST be sourced from `BranchInfo.headAdvancedAt` |
-| MRKL-HEAD-6 | MUST | `headAdvancedAt` MUST be CAS'd atomically with `head`, `tip`, and `epoch` |
+| MRKL-HEAD-6 | MUST | `headAdvancedAt` MUST be updated atomically in the same branch mutation guarded by CAS on `head`, `tip`, and `epoch` |
 
 ### 10.3 Head Advance Policy
 
@@ -953,7 +953,7 @@ Restart Flow:
 | Domain `data` (non-`$`) | Preserve |
 | `data.$host` | Reset to `{}` |
 | `data.$mel` | Reset to `{ guards: { intent: {} } }` |
-| Future `data.$*` | Reset to structural defaults |
+| Future `data.$*` roots present in the stored snapshot | Reset to `{}` |
 | `computed` | Preserve |
 | `system.status` | Preserve |
 | `system.lastError` | Preserve |
@@ -973,7 +973,7 @@ Restart Flow:
 | LIN-RESUME-4 | SHOULD | Default resume SHOULD use the active branch's head |
 | LIN-RESUME-5 | MAY | Callers MAY choose alternative restore strategies |
 | LIN-RESUME-6 | MUST | Schema mismatch on resume MUST be detected and handled by the caller |
-| MRKL-RESTORE-1 | MUST | `restore()` MUST reset all `$`-prefixed platform namespaces to clean structural defaults |
+| MRKL-RESTORE-1 | MUST | `restore()` MUST reset platform namespaces to clean defaults: `data.$host = {}`, `data.$mel = { guards: { intent: {} } }`, and any other stored `data.$*` root to `{}` |
 | MRKL-RESTORE-2 | MUST | `restore()` MUST reset `input` to `null` |
 | MRKL-RESTORE-3 | MUST | `restore()` MUST reset `meta.timestamp` to `0` and `meta.randomSeed` to `""` |
 | MRKL-RESTORE-3a | MUST | `restore()` MUST reset `system.currentAction` to `null` |
@@ -1004,7 +1004,7 @@ Epoch is a monotonically increasing branch-local staleness detector.
 | LIN-EPOCH-2 | MUST | Head advance MUST increment epoch |
 | LIN-EPOCH-3 | MUST | Branch switch MUST increment the source branch epoch |
 | LIN-EPOCH-4 | MUST NOT | Branch switch MUST NOT change the target branch epoch |
-| LIN-EPOCH-5 | MUST | `head`, `tip`, `headAdvancedAt`, and `epoch` MUST be CAS'd together |
+| LIN-EPOCH-5 | MUST | `head`, `tip`, and `epoch` MUST be CAS-verified together, and `headAdvancedAt` MUST be updated atomically in the same branch mutation |
 | LIN-EPOCH-6 | MUST | Epoch MUST be readable through the Lineage public contract |
 
 ---
@@ -1046,7 +1046,7 @@ Epoch is a monotonically increasing branch-local staleness detector.
 
 | ID | Invariant |
 |----|-----------|
-| INV-L22 | `head`, `tip`, `headAdvancedAt`, and `epoch` are CAS'd atomically |
+| INV-L22 | `head`, `tip`, and `epoch` are the branch CAS compare-set; `headAdvancedAt` is updated atomically in the same mutation |
 | INV-L23 | Epoch is monotonically non-decreasing per branch |
 | INV-L24 | Head advance increments epoch |
 | INV-L25 | `tip` advances on every seal |
@@ -1078,7 +1078,7 @@ An implementation claiming compliance with **Manifesto Lineage Protocol v2.0.0**
 5. Enforce prepare read-only semantics.
 6. Enforce prepare/commit separation.
 7. Enforce base-world admissibility rules.
-8. Enforce branch CAS on `(head, tip, epoch)` and update `headAdvancedAt` atomically.
+8. Enforce branch CAS on `(head, tip, epoch)` and update `headAdvancedAt` atomically in the same branch mutation.
 9. Persist `SealAttempt` for every successful seal.
 10. Treat same-parent same-snapshot as idempotent reuse, not rejection.
 11. Preserve first-written snapshot substrate on reuse.

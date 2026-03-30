@@ -147,11 +147,13 @@ RIGHT:  effect('api:call')             // Declares requirement
 Each `compute()` call is **complete and independent**:
 
 ```
-compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
+compute(snapshot₀, intent, context) → ComputeResult
+  { patches, systemDelta, trace, status }
 ```
 
-- If `requirements` is empty: computation is **complete**.
-- If `requirements` is non-empty: Host MUST fulfill them, then call `compute()` **again**.
+- Core does **not** mutate Snapshot directly during `compute()`.
+- Host applies `result.patches` via `apply()` and `result.systemDelta` via `applySystemDelta()`.
+- If the updated Snapshot has pending requirements, Host MUST fulfill them, then call `compute()` **again**.
 - There is no "resume". Each `compute()` is a fresh calculation.
 
 ```
@@ -164,25 +166,21 @@ compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 │                     ▼                                       │
 │  ┌─────────────────────────────────────┐                   │
 │  │ Core evaluates Flow until:          │                   │
-│  │   - Flow completes (requirements=[])│                   │
-│  │   - Effect encountered (req=[...])  │                   │
+│  │   - Flow completes                  │                   │
+│  │   - Effect encountered              │                   │
 │  │   - Error occurs                    │                   │
 │  └─────────────────────────────────────┘                   │
 │                     │                                       │
 │                     ▼                                       │
-│  Returns: (snapshot', requirements, trace)                  │
+│  Returns: ComputeResult {                                    │
+│    patches, systemDelta, trace, status                      │
+│  }                                                          │
 │                     │                                       │
-│         ┌──────────┴──────────┐                            │
-│         ▼                     ▼                            │
-│   requirements=[]       requirements=[r1,r2]               │
-│   (DONE)                      │                            │
-│                               ▼                            │
-│                    Host executes effects                   │
-│                    Host applies patches                    │
-│                               │                            │
-│                               ▼                            │
-│                    Host calls compute() AGAIN              │
-│                    with same intent + context              │
+│  Host applies patches + systemDelta to Snapshot            │
+│                     │                                       │
+│                     ▼                                       │
+│  If pendingRequirements remain, Host fulfills them         │
+│  and calls compute() again with same intent + context      │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -659,8 +657,8 @@ Executes steps in order. Each step sees the Snapshot as modified by previous ste
 {
   "kind": "seq",
   "steps": [
-    { "kind": "patch", "op": "set", "path": "a", "value": { "kind": "lit", "value": 1 } },
-    { "kind": "patch", "op": "set", "path": "b", "value": { "kind": "get", "path": "a" } }
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "a" }], "value": { "kind": "lit", "value": 1 } },
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "b" }], "value": { "kind": "get", "path": "a" } }
   ]
 }
 // Result: a = 1, b = 1
@@ -674,8 +672,8 @@ Evaluates condition against current Snapshot. Executes `then` or `else` branch.
 {
   "kind": "if",
   "cond": { "kind": "get", "path": "user.isAdmin" },
-  "then": { "kind": "patch", "op": "set", "path": "access", "value": { "kind": "lit", "value": "full" } },
-  "else": { "kind": "patch", "op": "set", "path": "access", "value": { "kind": "lit", "value": "limited" } }
+  "then": { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "access" }], "value": { "kind": "lit", "value": "full" } },
+  "else": { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "access" }], "value": { "kind": "lit", "value": "limited" } }
 }
 ```
 
@@ -755,7 +753,7 @@ When MEL source contains a dynamic path like `patch items[$system.uuid] = value`
 - `PatchPath` is always rooted at `snapshot.data`.
 - Patches MUST NOT target `snapshot.system`, `snapshot.input`, `snapshot.computed`, or `snapshot.meta`.
 - System transitions are represented by `SystemDelta` (see §16.2), not by patches.
-- `$host` and `$mel` are platform-reserved data namespaces. If the first segment is `$host` or `$mel`, Core MUST treat subpaths as owner-managed and bypass state schema path checks.
+- Any `$`-prefixed first segment denotes a platform-reserved data namespace. `$host` and `$mel` are canonical examples. Core MUST treat subpaths under such roots as owner-managed and bypass state schema path checks.
 
 ```typescript
 function patchPathToDisplayString(path: PatchPath): string;
@@ -819,7 +817,7 @@ If you need to pass context to a called Flow, write it to Snapshot first:
 {
   "kind": "seq",
   "steps": [
-    { "kind": "patch", "op": "set", "path": "callContext", "value": { "kind": "get", "path": "input" } },
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "callContext" }], "value": { "kind": "get", "path": "input" } },
     { "kind": "call", "flow": "shared.processWithContext" }
   ]
 }
@@ -870,7 +868,7 @@ Stops Flow execution with an error. The error is recorded in Snapshot.
     {
       "kind": "patch",
       "op": "set",
-      "path": "todos",
+      "path": [{ "kind": "prop", "name": "todos" }],
       "value": {
         "kind": "concat",
         "args": [
@@ -1020,26 +1018,25 @@ type FlowPosition = {
 │  1. Host calls compute(snapshot, intent, context)           │
 │                                                             │
 │  2. Core evaluates Flow                                     │
-│     - Applies patches to snapshot                           │
-│     - Encounters effect node                                │
-│     - Records Requirement in snapshot.system                │
-│     - Terminates computation                                │
+│     - Produces domain patches                               │
+│     - Produces systemDelta with addRequirements             │
+│     - Terminates with status: 'pending'                     │
 │                                                             │
-│  3. Core returns:                                           │
-│     {                                                       │
-│       snapshot: snapshot',    // With pendingRequirements   │
-│       status: 'pending',                                    │
-│       trace: ...                                            │
-│     }                                                       │
+│  3. Host applies compute result:                            │
+│     snapshot'  = apply(schema, snapshot,                    │
+│                       result.patches, context)              │
+│     snapshot'' = applySystemDelta(snapshot',                │
+│                       result.systemDelta)                   │
 │                                                             │
-│  4. Host reads pendingRequirements from snapshot            │
+│  4. Host reads pendingRequirements from snapshot''          │
 │                                                             │
 │  5. Host executes effect (IO, network, etc.)                │
 │                                                             │
-│  6. Host applies result patches to snapshot:                │
-│     snapshot'' = apply(snapshot', resultPatches, context)   │
+│  6. Host applies result patches and clears fulfilled        │
+│     requirement IDs via applySystemDelta()                  │
 │                                                             │
-│  7. Host calls compute(snapshot'', intent, context) AGAIN   │
+│  7. Host calls compute(updatedSnapshot, intent, context)    │
+│     AGAIN                                                   │
 │     - This is a NEW computation, not a resume               │
 │     - Flow will check snapshot state and proceed            │
 │                                                             │
@@ -1071,16 +1068,49 @@ type EffectHandler = (
 const handlers: Record<string, EffectHandler> = {
   'api:createTodo': async (type, params, context) => {
     const { snapshot } = context;
+    const todoKey = String(params.localId);
     try {
       const result = await api.createTodo(params.title);
       return [
-        { op: 'set', path: `todos.${params.localId}.serverId`, value: result.id },
-        { op: 'set', path: `todos.${params.localId}.syncStatus`, value: 'synced' },
+        {
+          op: 'set',
+          path: [
+            { kind: 'prop', name: 'todos' },
+            { kind: 'prop', name: todoKey },
+            { kind: 'prop', name: 'serverId' },
+          ],
+          value: result.id,
+        },
+        {
+          op: 'set',
+          path: [
+            { kind: 'prop', name: 'todos' },
+            { kind: 'prop', name: todoKey },
+            { kind: 'prop', name: 'syncStatus' },
+          ],
+          value: 'synced',
+        },
       ];
     } catch (error) {
       return [
-        { op: 'set', path: `todos.${params.localId}.syncStatus`, value: 'error' },
-        { op: 'set', path: `todos.${params.localId}.errorMessage`, value: error.message },
+        {
+          op: 'set',
+          path: [
+            { kind: 'prop', name: 'todos' },
+            { kind: 'prop', name: todoKey },
+            { kind: 'prop', name: 'syncStatus' },
+          ],
+          value: 'error',
+        },
+        {
+          op: 'set',
+          path: [
+            { kind: 'prop', name: 'todos' },
+            { kind: 'prop', name: todoKey },
+            { kind: 'prop', name: 'errorMessage' },
+          ],
+          value: error.message,
+        },
       ];
     }
   },
@@ -1158,12 +1188,12 @@ After Host fulfills the effect and calls `compute()` again:
   "then": {
     "kind": "seq",
     "steps": [
-      { "kind": "patch", "op": "set", "path": "ui.showErrorModal", "value": { "kind": "lit", "value": true } },
-      { "kind": "patch", "op": "set", "path": "ui.errorAcknowledged", "value": { "kind": "lit", "value": true } }
+      { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "ui" }, { "kind": "prop", "name": "showErrorModal" }], "value": { "kind": "lit", "value": true } },
+      { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "ui" }, { "kind": "prop", "name": "errorAcknowledged" }], "value": { "kind": "lit", "value": true } }
     ]
   },
   "else": {
-    "kind": "patch", "op": "set", "path": "ui.showSuccess", "value": { "kind": "lit", "value": true }
+    "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "ui" }, { "kind": "prop", "name": "showSuccess" }], "value": { "kind": "lit", "value": true }
   }
 }
 ```
@@ -1352,7 +1382,8 @@ This is terminology only.
 - `computed` MUST be consistent with `data` (no stale values).
 - All communication between Host and Core happens through Snapshot.
 - `data.$*` namespaces are platform-owned and opaque to Core.
-- Snapshot MUST NOT contain accumulated history. Each field MUST represent point-in-time state or a deterministic projection thereof.
+- Snapshot MUST NOT contain accumulated history. History belongs in lineage, telemetry, or other append-only records, not in per-snapshot state.
+- Snapshot MAY contain Essence, Projection, Process, Transient, Envelope, and Binding fields as classified in §13.3.
 - New Snapshot fields MUST declare whether they are Essence, Projection, Process, Transient, Envelope, or Binding.
 
 ---
@@ -1447,7 +1478,7 @@ The hashing implementation MUST be browser-compatible.
 
 **Rationale:**
 
-Core and its dependent packages (Host, Compiler, App) must work in browsers for client-side React applications. Using Node.js `crypto` would cause runtime errors in browser environments. See [FDR-014](#fdr-014-browser-compatibility) for the design decision.
+Core and its dependent packages (Host, Compiler, App) must work in browsers for client-side React applications. Using Node.js `crypto` would cause runtime errors in browser environments. This section inlines the `FDR-014` rationale; see Appendix D for the cross-reference table.
 
 ---
 
@@ -1799,7 +1830,7 @@ The Flow will naturally proceed because:
           {
             "kind": "patch",
             "op": "set",
-            "path": "todos",
+            "path": [{ "kind": "prop", "name": "todos" }],
             "value": {
               "kind": "concat",
               "args": [
@@ -1843,7 +1874,7 @@ The Flow will naturally proceed because:
           {
             "kind": "patch",
             "op": "set",
-            "path": "todos",
+            "path": [{ "kind": "prop", "name": "todos" }],
             "value": {
               "kind": "filter",
               "array": { "kind": "get", "path": "todos" },
@@ -1954,7 +1985,7 @@ For unbounded iteration, Host controls the loop by repeatedly calling `compute()
 | FDR-011 | Computed as DAG | §6.1 |
 | FDR-012 | Patch Operations Limited to Three | §8.4.3 |
 | FDR-013 | Host Responsibility Boundary | §16 |
-| FDR-014 | Browser Compatibility | §4 |
+| FDR-014 | Browser Compatibility | §15.5 |
 | FDR-015 | Static Patch Paths | §8.4.3 |
 | FDR-016 | Expression Semantic Heads | §7 |
 

@@ -496,7 +496,7 @@ The current `normalizeSnapshot` behavior (ADR-002, SDK-FACTORY-3) **ensures stru
 | `data` (domain, non-`$`) | Preserved | **Preserved** | Hash-relevant, semantically meaningful |
 | `data.$host` | Previous execution's artifacts | **Reset to `{}`** | Host re-initializes on next `processIntent()`. Stale intentSlots from a completed execution are meaningless |
 | `data.$mel` | Previous execution's guard state | **Reset to `{ guards: { intent: {} } }`** | Guard entries map to old intentIds. New intents get new intentIds (INV-6), so old entries never match. Clearing removes stale data without behavioral impact |
-| All `data.$*` (future) | Previous execution's artifacts | **Reset to respective defaults** | Same principle as `$host`/`$mel` |
+| All `data.$*` (future, if present) | Previous execution's artifacts | **Reset to `{}`** | Deterministic generic fallback for unknown future platform namespaces |
 | `computed` | Derived values from last computation | **Preserved** | Deterministically derived from `data` — not in `SnapshotHashInput`, but preserving avoids unnecessary recomputation on resume. Will be recomputed on next `compute()` if data changes |
 | `system.status` | Terminal status | **Preserved** | Not directly in `SnapshotHashInput` — `terminalStatus` is derived by `deriveTerminalStatus()` from `lastError` and `pendingRequirements`. However, `status` reflects the being's semantic state at seal time and is preserved for continuity |
 | `system.lastError` | Last error from terminal snapshot | **Preserved** | Part of `SnapshotHashInput` (as `currentError`). Semantically meaningful |
@@ -534,6 +534,8 @@ function resetPlatformNamespaces(data: Record<string, unknown>): Record<string, 
   for (const [key, value] of Object.entries(data)) {
     if (!key.startsWith('$')) {
       result[key] = value;                       // domain data preserved
+    } else if (key !== '$host' && key !== '$mel') {
+      result[key] = {};                          // unknown future platform namespace → deterministic empty object
     }
   }
   // Re-inject clean platform namespace structure
@@ -578,7 +580,7 @@ After ADR-016, step 2 becomes a no-op for restored snapshots (step 1 already gua
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| MRKL-RESTORE-1 | MUST | `restore(worldId)` MUST apply normalization before returning: reset all `$`-prefixed platform namespaces in `data` to their structural defaults (`$host: {}`, `$mel: { guards: { intent: {} } }`) |
+| MRKL-RESTORE-1 | MUST | `restore(worldId)` MUST apply normalization before returning: reset `data.$host` to `{}`, `data.$mel` to `{ guards: { intent: {} } }`, and any other stored `data.$*` root to `{}` |
 | MRKL-RESTORE-2 | MUST | `restore(worldId)` MUST reset `input` to `null` |
 | MRKL-RESTORE-3 | MUST | `restore(worldId)` MUST reset `meta.timestamp` to `0` and `meta.randomSeed` to `''` |
 | MRKL-RESTORE-3a | MUST | `restore(worldId)` MUST reset `system.currentAction` to `null`. `currentAction` is not in `SnapshotHashInput` and is execution-scoped — preserving it causes re-entry false positives (Core SPEC §9.4, Host SPEC §6.3) |
@@ -625,7 +627,7 @@ type WorldHead = {
 | MRKL-HEAD-3 | MUST | `headAdvancedAt` MUST NOT change on failed seals |
 | MRKL-HEAD-4 | MUST | For genesis, `headAdvancedAt` MUST be the genesis seal's `createdAt` |
 | MRKL-HEAD-5 | MUST | `WorldHead.createdAt` MUST be sourced from `BranchInfo.headAdvancedAt` |
-| MRKL-HEAD-6 | MUST | `headAdvancedAt` MUST be CAS'd atomically with `head`, `tip`, and `epoch` |
+| MRKL-HEAD-6 | MUST | `headAdvancedAt` MUST be updated atomically in the same branch mutation guarded by CAS on `head`, `tip`, and `epoch` |
 
 ---
 
@@ -672,7 +674,7 @@ type WorldHead = {
 | LIN-GENESIS-1, LIN-GENESIS-3 | **Preserved** |
 | LIN-PERSIST-SNAP-2 (snapshot keyed by WorldId) | **Preserved** — first-write-wins under reuse |
 | LIN-RESUME-* | **Extended** — restore now normalizes non-hash fields |
-| Branch CAS | **Extended** — includes tip + headAdvancedAt |
+| Branch CAS | **Extended** — includes tip in the compare-set and carries `headAdvancedAt` as part of the same atomic branch mutation |
 | Prepare/commit separation | **Preserved** |
 
 ### 3.4 Governance Impact
@@ -738,7 +740,7 @@ New Merkle tree root with `parentWorldId: null`. See ADR-015 §8.2.
 
 ### 5.3 Branch CAS Protocol Extension
 
-`PreparedBranchMutation` gains `expectedTip`, `nextTip`, `headAdvancedAt`. All CAS'd atomically.
+`PreparedBranchMutation` gains `expectedTip`, `nextTip`, `headAdvancedAt`. The CAS compare-set is `(expectedHead, expectedTip, expectedEpoch)`; `headAdvancedAt` is updated atomically in that same branch mutation.
 
 ### 5.4 DAG Edge Semantics
 
@@ -795,7 +797,7 @@ interface LineageStore {
 | INV-016-3 | MUST | Next `parentWorldId` is branch's `tip` at prepare time |
 | INV-016-4 | MUST | `tip` advances on every seal |
 | INV-016-5 | MUST | `head` advances only on completed seals |
-| INV-016-6 | MUST | `head`, `tip`, `headAdvancedAt`, `epoch` CAS'd atomically |
+| INV-016-6 | MUST | `head`, `tip`, and `epoch` are CAS-verified together; `headAdvancedAt` is updated atomically in the same mutation |
 | INV-016-7 | MUST NOT | `baseWorldId` and `parentWorldId` MUST NOT be conflated |
 | INV-016-8 | MUST | Same `worldId` + same `parentWorldId` = idempotent reuse |
 | INV-016-9 | MUST | Same `(schemaHash, snapshotHash, parentWorldId)` = same `worldId` |
