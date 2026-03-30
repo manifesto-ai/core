@@ -1,63 +1,50 @@
+import type {
+  ComplianceCase,
+  ComplianceCoverageEntry,
+  ComplianceEvidence,
+  ComplianceInventoryItem,
+  ComplianceResult,
+  ComplianceRule,
+  ComplianceStatus,
+  RuleLevel,
+  RuleLifecycle,
+  RuleMode,
+} from "@manifesto-ai/cts-kit";
 import type { LineageService, LineageStore, Snapshot } from "../../index.js";
 
 export const LCTS_SUITES = [
   "identity",
+  "branch",
+  "restore",
+  "attempts",
   "seams",
   "matrix",
 ] as const;
 
 export type LineageComplianceSuite = (typeof LCTS_SUITES)[number];
 
-export type ComplianceStatus = "PASS" | "FAIL" | "SKIP" | "WARN";
+export type {
+  ComplianceStatus,
+  RuleLevel,
+  RuleLifecycle,
+  RuleMode,
+};
 
-export type RuleMode = "blocking" | "pending" | "informational";
+export type LineageEvidence = ComplianceEvidence;
 
-export type RuleLevel = "MUST" | "SHOULD" | "MUST_NOT" | "MAY" | "CRITICAL";
+export type LineageComplianceInventoryItem = ComplianceInventoryItem<LineageComplianceSuite>;
 
-export type RuleLifecycle = "active" | "superseded";
+export type LineageComplianceRule = ComplianceRule<LineageComplianceSuite>;
 
-export interface LineageEvidence {
-  kind: "note";
-  summary: string;
-  details?: unknown;
-}
+export type LineageComplianceCase = ComplianceCase<LineageComplianceSuite>;
 
-export interface LineageComplianceInventoryItem {
-  ruleId: string;
-  specSection: string;
-  level: RuleLevel;
-  suite: LineageComplianceSuite;
-  lifecycle: RuleLifecycle;
-  notes?: string;
-}
+export type LineageComplianceCoverageEntry = ComplianceCoverageEntry;
 
-export interface LineageComplianceRule extends LineageComplianceInventoryItem {
-  mode: RuleMode;
-}
-
-export interface LineageComplianceCase {
-  caseId: string;
-  suite: LineageComplianceSuite;
-  description: string;
-}
-
-export interface LineageComplianceCoverageEntry {
-  ruleId: string;
-  caseIds: string[];
-}
-
-export interface LineageComplianceResult {
-  ruleId: string;
-  specSection: string;
-  mode: RuleMode;
-  status: ComplianceStatus;
-  message?: string;
-  evidence?: LineageEvidence[];
-}
+export type LineageComplianceResult = ComplianceResult<LineageEvidence>;
 
 export interface LineageComplianceAdapter {
   computeSnapshotHash(snapshot: Snapshot): Promise<string>;
-  computeWorldId(schemaHash: string, snapshotHash: string): Promise<string>;
+  computeWorldId(schemaHash: string, snapshotHash: string, parentWorldId: string | null): Promise<string>;
   createMemoryStore(): LineageStore;
   createService(store: LineageStore): LineageService;
   exports(): Record<string, unknown>;

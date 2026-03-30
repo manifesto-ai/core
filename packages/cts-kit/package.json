@@ -1,0 +1,29 @@
+{
+  "name": "@manifesto-ai/cts-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal compliance test kit shared by LGW CTS suites",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "lint": "echo 'lint not configured'",
+    "test": "echo 'no tests for @manifesto-ai/cts-kit'",
+    "test:coverage": "echo 'no coverage for @manifesto-ai/cts-kit'"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.0"
+  }
+}
