@@ -53,6 +53,22 @@ importers:
         specifier: ^4.1.0
         version: 4.1.1(@types/node@25.5.0)(jsdom@27.4.0)(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
 
+  examples/governed-minimal-node:
+    dependencies:
+      '@manifesto-ai/world':
+        specifier: workspace:*
+        version: link:../../packages/world
+    devDependencies:
+      '@types/node':
+        specifier: ^24.5.2
+        version: 24.12.0
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   examples/todo-react:
     dependencies:
       '@manifesto-ai/sdk':
@@ -178,6 +194,18 @@ importers:
         specifier: ^4.1.0
         version: 4.1.1(@types/node@25.5.0)(jsdom@27.4.0)(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
 
+  packages/cts-kit:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.1(@types/node@25.5.0)(jsdom@27.4.0)(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+
   packages/governance:
     dependencies:
       '@manifesto-ai/lineage':
@@ -187,6 +215,9 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../cts-kit
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -217,6 +248,9 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../cts-kit
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -264,6 +298,12 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../cts-kit
+      fake-indexeddb:
+        specifier: ^6.2.3
+        version: 6.2.5
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1262,6 +1302,9 @@ packages:
   '@types/mdurl@2.0.0':
     resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
 
+  '@types/node@24.12.0':
+    resolution: {integrity: sha512-GYDxsZi3ChgmckRT9HPU0WEhKLP08ev/Yfcq2AstjrDASOYCSXeyjDsHg4v5t4jOj7cyDX3vmprafKlWIG9MXQ==}
+
   '@types/node@25.5.0':
     resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
 
@@ -2000,6 +2043,10 @@ packages:
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
+
+  fake-indexeddb@6.2.5:
+    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
+    engines: {node: '>=18'}
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -2904,6 +2951,9 @@ packages:
 
   ufo@1.6.1:
     resolution: {integrity: sha512-9a4/uxlTWJ4+a5i0ooc1rU7C7YOw3wT+UGqdeNNHWnOF9qcMBgLRS+4IYUqbczewFx4mLEig6gawh7X6mFlEkA==}
+
+  undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
@@ -4106,6 +4156,10 @@ snapshots:
 
   '@types/mdurl@2.0.0': {}
 
+  '@types/node@24.12.0':
+    dependencies:
+      undici-types: 7.16.0
+
   '@types/node@25.5.0':
     dependencies:
       undici-types: 7.18.2
@@ -4888,6 +4942,8 @@ snapshots:
   events@3.3.0: {}
 
   expect-type@1.3.0: {}
+
+  fake-indexeddb@6.2.5: {}
 
   fast-deep-equal@3.1.3: {}
 
@@ -5839,6 +5895,8 @@ snapshots:
   uc.micro@2.1.0: {}
 
   ufo@1.6.1: {}
+
+  undici-types@7.16.0: {}
 
   undici-types@7.18.2: {}
 

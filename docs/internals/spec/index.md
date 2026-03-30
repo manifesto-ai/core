@@ -130,7 +130,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 | 03-29 | Lineage | Target v2.0.0 (draft) | Projected ADR-015 + ADR-016 epoch draft: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
 | 03-29 | Governance | Target v2.0.0 (draft) | Projected alignment with the co-deployed lineage epoch: remove `system.errors` assumptions, narrow `SealRejectionReason`, and remap provenance to `SealAttempt` |
 | 03-29 | Host | Target v4.0.0 (draft) | Draft-only execution-side alignment: public Snapshot references lose `system.errors`, and `$host` boundary semantics align with restore normalization |
-| 03-29 | World | Facade target v2.0.0 (draft) | Draft-only facade-major aligned to Lineage v2.0.0 and Governance v2.0.0; `commitSeal()` / `WriteSet` absorb `SealAttempt` persistence while the legacy monolith remains historical only |
+| 03-29 | World | Facade target v2.0.0 (draft) | Draft-only facade-major aligned to Lineage v2.0.0 and Governance v2.0.0; top-level world keeps orchestration/types while concrete store adapters move to dedicated subpaths and `runInSealTransaction()` remains the sole seal persistence seam |
 | 03-29 | SDK | Target v3.0.0 (draft) | Draft-only SDK major driven by public `Snapshot<T>` surface changes (`ManifestoConfig.snapshot`, `getSnapshot()`, event payload snapshots), not by governed seal internals |
 | 03-28 | World | Facade v1.0.0 | World facade SPEC added for exact governed composition: composite store, coordinator, `createWorld()`, and facade lifecycle |
 | 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |

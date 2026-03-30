@@ -2,7 +2,9 @@
  * @manifesto-ai/sdk v2.0.0
  *
  * Protocol-first SDK — thin composition layer over the Manifesto protocol stack.
- * The SDK owns one concept: createManifesto().
+ * The SDK owns one concept: createManifesto() and exposes only a narrow
+ * pass-through World surface for callers that opt into explicit governed
+ * composition.
  *
  * @see sdk-SPEC-v2.0.0.md
  * @see ADR-010
@@ -78,17 +80,23 @@ export type { HostResult, HostOptions } from "@manifesto-ai/host";
 // =============================================================================
 
 export type {
-  CommitCapableWorldStore,
   CoordinatorSealGenesisParams,
   CoordinatorSealNextParams,
+  ExecuteApprovedProposalInput,
+  GovernedWorldStore,
   GovernanceEventDispatcher,
+  RecoveredWorldRuntimeCompletion,
+  ResumeExecutingProposalInput,
   SealResult,
+  SealedWorldRuntimeCompletion,
+  WorldStoreTransaction,
   WorldConfig,
   WorldCoordinator,
+  WorldExecutionOptions,
+  WorldExecutionResult,
+  WorldExecutor,
   WorldInstance,
-  WriteSet,
+  WorldRuntimeCompletion,
+  WorldRuntime,
 } from "@manifesto-ai/world";
-export {
-  createInMemoryWorldStore,
-  createWorld,
-} from "@manifesto-ai/world";
+export { createWorld } from "@manifesto-ai/world";

@@ -1,37 +1,31 @@
 # Governed Composition
 
-> Assemble lineage, governance, and the World facade explicitly.
+> Assemble a local governed runtime with top-level `@manifesto-ai/world`.
 
-Use governed composition when you need explicit proposal flow, authority evaluation, sealing, or lineage records. The canonical entrypoint is top-level `@manifesto-ai/world`.
+Use governed composition when you need explicit proposal approval, lineage continuity, sealed worlds, or auditable runtime events. If you only need direct dispatch, stay on `@manifesto-ai/sdk` and `createManifesto()`.
 
----
+## The Node-Local Path
 
-## When To Use It
+For the first governed consumer path, use:
 
-Choose governed composition when you need:
+- `createSqliteWorldStore()` from `@manifesto-ai/world/sqlite` for local durability
+- `createLineageService()` for continuity
+- `createGovernanceService()` for proposal lifecycle
+- `createWorld()` for the assembled runtime
+- `world.runtime.executeApprovedProposal()` for the canonical happy path
 
-- explicit authority decisions before execution
-- lineage records for sealing and replay
-- a shared governed runtime surface across multiple callers
-- direct access to lineage and governance services
-
-If you only need direct dispatch, start with `@manifesto-ai/sdk` and `createManifesto()`.
-
----
-
-## Assemble The Runtime
+## Minimal Assembly
 
 ```typescript
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
-  createIntentInstance,
   createLineageService,
   createWorld,
 } from "@manifesto-ai/world";
+import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
 
-const store = createInMemoryWorldStore();
+const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);
 const governance = createGovernanceService(store, {
   lineageService: lineage,
@@ -41,45 +35,34 @@ const world = createWorld({
   store,
   lineage,
   governance,
-  eventDispatcher: createGovernanceEventDispatcher({
-    service: governance,
-  }),
+  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
+  executor,
 });
 ```
 
----
+## Canonical Flow
 
-## Create An Intent Instance
+1. Bootstrap the first sealed world with `world.coordinator.sealGenesis(...)`.
+2. Build an `IntentInstance` with actor/source metadata.
+3. Create a proposal and prepare an approval result.
+4. Persist the `executing` proposal and decision record.
+5. Call `world.runtime.executeApprovedProposal(...)`.
+6. Read the sealed result through `world.lineage.restore(...)`.
 
-```typescript
-const intent = await createIntentInstance({
-  body: {
-    type: "counter.increment",
-    input: { amount: 1 },
-  },
-  schemaHash: "counter-v1",
-  projectionId: "counter-ui",
-  source: { kind: "ui", eventId: "evt-1" },
-  actor: { actorId: "user-1", kind: "human" },
-  intentId: "intent-1",
-});
-```
+## Store Choices
 
-Intent instances capture the actor, source, and projection metadata needed by the governance layer.
+- `@manifesto-ai/world/sqlite` is the default Node-local durable path.
+- `@manifesto-ai/world/in-memory` is the fast ephemeral path for tests.
+- `@manifesto-ai/world/indexeddb` is the browser durable option.
 
----
+The runtime assembly stays the same; only the store factory changes.
 
-## Composition Rules
+## Runnable Reference
 
-- `createInMemoryWorldStore()` gives you the composite in-memory store.
-- `createLineageService()` owns continuity and sealing state.
-- `createGovernanceService()` owns proposals, decisions, and events.
-- `createWorld()` assembles the canonical facade without wrapping the provided services.
-
----
+See `examples/governed-minimal-node` in the repository for the smallest end-to-end governed bootstrap in this repo.
 
 ## See Also
 
 - [World API](/api/world)
 - [SDK API](/api/sdk)
-- [Concepts: World](/concepts/world)
+- `packages/world/docs/GUIDE.md`

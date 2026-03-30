@@ -21,14 +21,16 @@
   "type": "module",
   "packageManager": "pnpm@9.15.2",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
+    "build": "turbo run build --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
     "dev": "turbo run dev",
-    "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
-    "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
-    "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
+    "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
+    "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
+    "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/host --filter=@manifesto-ai/world --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
+    "test:e2e:world": "pnpm --filter @manifesto-ai/world exec vitest run src/__tests__/facade/bootstrap-smoke.test.ts src/__tests__/facade/runtime.test.ts src/__tests__/compliance/suite/runtime.spec.ts src/__tests__/persistence/sqlite-store.test.ts src/__tests__/persistence/indexeddb-store.test.ts && pnpm --filter @manifesto-ai/compiler exec vitest run __tests__/integration/full-pipeline.test.ts && pnpm --filter @manifesto-ai/sdk exec vitest run src/__tests__/public-exports.test.ts src/__tests__/bootstrap.test.ts src/__tests__/snapshot-surface.test.ts && pnpm --filter @manifesto-ai/example-governed-minimal-node build && pnpm --filter @manifesto-ai/example-governed-minimal-node demo",
+    "test:hardening": "pnpm build && pnpm test:e2e:world && pnpm docs:release:check",
     "check:no-app-imports": "node scripts/check-no-app-imports.mjs",
     "bench:core-host-world": "node scripts/bench-core-host-world.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
@@ -39,6 +41,7 @@
     "docs:mel-grammar": "node scripts/update-mel-grammar.mjs",
     "docs:check:maintained": "node scripts/check-maintained-docs.mjs",
     "docs:check": "pnpm docs:governance-check && pnpm docs:check:maintained",
+    "docs:release:check": "pnpm docs:check && pnpm docs:build",
     "docs:governance-check": "node scripts/check-doc-governance.mjs",
     "docs:api:clean": "rm -rf docs/api"
   },

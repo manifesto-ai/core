@@ -1,11 +1,12 @@
 /**
  * HCTS Snapshot Ownership Test Suite
  *
- * Tests for snapshot type alignment rules (v2.0.2):
+ * Tests for snapshot type alignment rules projected for Host v4:
  * - HOST-SNAP-1~4: Core Snapshot type usage
  * - HOST-NS-1~5: Host-owned state namespace
+ * - HOST-RESTORE-1~3: restore-normalized resume boundary
  *
- * @see host-SPEC-v2.0.2.md §3.3
+ * @see host-SPEC-v4.0.0-draft.md §3.3
  */
 
 import { semanticPathToPatchPath } from "@manifesto-ai/core";
@@ -16,8 +17,11 @@ import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js
 import { createV1Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
+  DEFAULT_HOST_CONTEXT,
   createTestSchema,
   createTestIntent,
+  createTestIntentWithId,
+  createRestoreNormalizedSnapshot,
   createTestSnapshot,
 } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
@@ -71,11 +75,14 @@ describe("HCTS Snapshot Ownership Tests", () => {
 
       // Verify SystemState structure
       expect(finalSnapshot.system).toHaveProperty("status");
+      expect(finalSnapshot.system).toHaveProperty("lastError");
       expect(finalSnapshot.system).toHaveProperty("pendingRequirements");
+      expect(finalSnapshot.system).toHaveProperty("currentAction");
 
       // Verify SnapshotMeta structure
       expect(finalSnapshot.meta).toHaveProperty("version");
       expect(finalSnapshot.meta).toHaveProperty("timestamp");
+      expect(finalSnapshot.meta).toHaveProperty("randomSeed");
       expect(finalSnapshot.meta).toHaveProperty("schemaHash");
     });
   });
@@ -171,10 +178,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
       expect(hostState).toBeDefined();
 
       // Error should be recorded in $host, not system.*
-      if (hostState?.errors && hostState.errors.length > 0) {
-        expect(hostState.errors[0]).toHaveProperty("code");
-        expect(hostState.errors[0]).toHaveProperty("message");
-      }
+      expect(hostState?.lastError).toHaveProperty("code");
+      expect(hostState?.lastError).toHaveProperty("message");
     });
 
     it("HCTS-NS-002: Host state accessible via getHostState helper", async () => {
@@ -242,23 +247,27 @@ describe("HCTS Snapshot Ownership Tests", () => {
 
       // Core SystemState fields only
       const systemKeys = Object.keys(finalSnapshot.system);
-      const coreSystemFields = [
+      const requiredCoreSystemFields = [
         "status",
         "lastError",
-        "errors",
         "pendingRequirements",
         "currentAction",
       ];
+      const allowedLegacyFields = ["errors"];
 
-      // All system fields should be from Core's definition
+      // Host must not introduce custom system fields. Legacy Core v3 `errors`
+      // is tolerated during the shared epoch, but HCTS no longer treats it as required.
+      for (const key of requiredCoreSystemFields) {
+        expect(systemKeys).toContain(key);
+      }
       for (const key of systemKeys) {
-        expect(coreSystemFields).toContain(key);
+        expect([...requiredCoreSystemFields, ...allowedLegacyFields]).toContain(key);
       }
     });
   });
 
   describe("HOST-NS-5: Host error reporting uses $host namespace", () => {
-    it("HCTS-NS-004: Effect execution errors recorded in $host.errors", async () => {
+    it("HCTS-NS-004: Effect execution errors recorded in $host.lastError", async () => {
       const schema = createTestSchema({
         actions: {
           failingEffect: {
@@ -291,13 +300,9 @@ describe("HCTS Snapshot Ownership Tests", () => {
       const finalSnapshot = adapter.getSnapshot(executionKey);
       const hostState = getHostState(finalSnapshot.data);
 
-      // Error should be in $host.errors
-      expect(hostState?.errors).toBeDefined();
-      expect(hostState?.errors?.length).toBeGreaterThan(0);
-
-      const error = hostState?.errors?.[0];
-      expect(error?.code).toBe("EFFECT_EXECUTION_FAILED");
-      expect(error?.message).toContain("Effect execution failed");
+      expect(hostState?.lastError).toBeDefined();
+      expect(hostState?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
+      expect(hostState?.lastError?.message).toContain("Effect execution failed");
     });
 
     it("HCTS-NS-005: Unknown effect type error recorded in $host", async () => {
@@ -331,9 +336,56 @@ describe("HCTS Snapshot Ownership Tests", () => {
       const finalSnapshot = adapter.getSnapshot(executionKey);
       const hostState = getHostState(finalSnapshot.data);
 
-      expect(hostState?.errors).toBeDefined();
-      expect(hostState?.errors?.length).toBeGreaterThan(0);
-      expect(hostState?.errors?.[0]?.code).toBe("UNKNOWN_EFFECT");
+      expect(hostState?.lastError).toBeDefined();
+      expect(hostState?.lastError?.code).toBe("UNKNOWN_EFFECT");
+    });
+  });
+
+  describe("HOST-RESTORE-1~3: Restore-normalized snapshots resume as fresh execution boundaries", () => {
+    it("HCTS-RESTORE-001: Resume from a restore-normalized snapshot uses fresh per-job context and fresh $host bookkeeping", async () => {
+      const schema = createTestSchema({
+        actions: {
+          resume: {
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("processed"),
+              value: { kind: "lit", value: true },
+            },
+          },
+        },
+      });
+
+      const effectRunner = createTestEffectRunner();
+      await adapter.create({ schema, effectRunner, runtime });
+
+      const restoredSnapshot = createRestoreNormalizedSnapshot(
+        { count: 5, $host: { currentIntentId: "stale-intent" } },
+        schema.hash,
+        {
+          ...DEFAULT_HOST_CONTEXT,
+          now: 5,
+          randomSeed: "restored-seed",
+        }
+      );
+
+      runtime.advanceTime(100);
+      adapter.seedSnapshot(executionKey, restoredSnapshot);
+      adapter.submitIntent(executionKey, createTestIntentWithId("resume", "intent-restore"));
+      await adapter.drain(executionKey);
+
+      const finalSnapshot = adapter.getSnapshot(executionKey);
+      const hostState = getHostState(finalSnapshot.data);
+
+      expect((finalSnapshot.data as Record<string, unknown>).processed).toBe(true);
+      expect(finalSnapshot.input).toBeNull();
+      expect(finalSnapshot.system.currentAction).toBeNull();
+      expect(finalSnapshot.meta.timestamp).toBe(100);
+      expect(finalSnapshot.meta.randomSeed).toBe("intent-restore");
+      expect(hostState?.intentSlots?.["intent-restore"]).toEqual({
+        type: "resume",
+        input: undefined,
+      });
+      expect(hostState?.intentSlots?.["stale-intent"]).toBeUndefined();
     });
   });
 

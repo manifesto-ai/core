@@ -43,7 +43,39 @@ export function createMinimalSnapshot(data: unknown = {}): Snapshot {
       schemaHash: "test-hash",
     },
     computed: {},
-    input: undefined,
+    input: null,
+  };
+}
+
+/**
+ * Create a snapshot that mimics the Lineage v2 restore-normalized boundary.
+ *
+ * `$host` is cleared, `input` is reset to null, and `system.currentAction`
+ * is reset to null before Host resumes a fresh job.
+ */
+export function createRestoreNormalizedSnapshot(
+  data: unknown,
+  schemaHash: string,
+  context: HostContext = DEFAULT_HOST_CONTEXT
+): Snapshot {
+  const snapshot = createSnapshot(data, schemaHash, context);
+  const normalizedData = typeof snapshot.data === "object"
+    && snapshot.data !== null
+    && !Array.isArray(snapshot.data)
+    ? (() => {
+        const { $host: _host, ...rest } = snapshot.data as Record<string, unknown>;
+        return rest;
+      })()
+    : snapshot.data;
+
+  return {
+    ...snapshot,
+    data: normalizedData,
+    input: null,
+    system: {
+      ...snapshot.system,
+      currentAction: null,
+    },
   };
 }
 

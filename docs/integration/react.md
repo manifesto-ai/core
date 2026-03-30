@@ -128,10 +128,10 @@ Keep the governed assembly in a separate runtime module and let React read snaps
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
   createWorld,
 } from "@manifesto-ai/world";
+import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
 
 const store = createInMemoryWorldStore();
 const lineage = createLineageService(store);

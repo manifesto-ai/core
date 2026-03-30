@@ -5,7 +5,7 @@ export type {
   BranchId,
   BranchInfo,
   BranchSwitchResult,
-  ErrorSignature,
+  CurrentErrorSignature,
   LineageService,
   LineageStore,
   PersistedBranchEntry,
@@ -20,6 +20,7 @@ export type {
   PreparedNextCommit,
   ProvenanceRef,
   SchemaHash,
+  SealAttempt,
   SealGenesisInput,
   SealNextInput,
   SnapshotHashInput,
@@ -45,10 +46,9 @@ export {
   normalizeContext,
   restoreSnapshot,
   selectLatestHead,
-  sortErrorSignatures,
   stripPlatformNamespaces,
   toBranchInfo,
-  toErrorSignature,
+  toCurrentErrorSignature,
   toWorldHead,
 } from "@manifesto-ai/lineage";
 
@@ -74,7 +74,6 @@ export type {
   ExecutionKey,
   ExecutionKeyContext,
   ExecutionKeyPolicy,
-  ExecutionSealRejectedEvent,
   FinalDecision,
   GovernanceEvent,
   GovernanceEventSink,
@@ -84,9 +83,6 @@ export type {
   HITLDecisionCallback,
   HITLNotificationCallback,
   HITLPendingState,
-  HostExecutionOptions,
-  HostExecutionResult,
-  HostExecutor,
   IntentBody,
   IntentInstance,
   IntentOrigin,
@@ -105,7 +101,6 @@ export type {
   ProposalSubmittedEvent,
   ProposalSupersededEvent,
   QuorumRule,
-  SealRejectionReason,
   SourceKind,
   SourceRef,
   SupersedeReason,
@@ -150,22 +145,27 @@ export {
 } from "@manifesto-ai/governance";
 
 export type {
-  CommitCapableWorldStore,
   CoordinatorSealGenesisParams,
   CoordinatorSealNextParams,
+  ExecuteApprovedProposalInput,
+  GovernedWorldStore,
   GovernanceEventDispatcher,
+  RecoveredWorldRuntimeCompletion,
+  ResumeExecutingProposalInput,
   SealResult,
+  SealedWorldRuntimeCompletion,
+  WorldExecutionOptions,
+  WorldRuntimeCompletion,
+  WorldExecutionResult,
+  WorldExecutor,
+  WorldStoreTransaction,
   WorldConfig,
   WorldCoordinator,
   WorldInstance,
-  WriteSet,
+  WorldRuntime,
 } from "./types.js";
 
 export { createWorld } from "./create-world.js";
-export {
-  InMemoryCommitCapableWorldStore,
-  createInMemoryWorldStore,
-} from "./store.js";
 export {
   DefaultWorldCoordinator,
   createWorldCoordinator,

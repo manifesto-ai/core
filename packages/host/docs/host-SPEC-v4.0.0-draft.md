@@ -159,8 +159,10 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } fro
 | `system.currentAction` | Core | Yes | No | Core sets during compute |
 | `meta.schemaHash` | Core | Yes | No | Domain schema identity |
 | `meta.version` | Core | Yes | No | Core-owned versioning |
-| `meta.timestamp` | Host | Yes | Yes | Host provides per execution; restore normalization resets boundary-carryover timestamps |
-| `meta.randomSeed` | Host | Yes | Yes | Host provides, frozen per job; restore normalization resets boundary-carryover seeds |
+| `meta.timestamp` | Host | Yes | via `core.apply()` context | Host provides per execution; Core materializes the value when applying patches |
+| `meta.randomSeed` | Host | Yes | via `core.apply()` context | Host provides, frozen per job; Core materializes the value when applying patches |
+
+Host supplies `meta.timestamp` and `meta.randomSeed` through `HostContext`. Snapshot mutation still happens through Core APIs, not by Host directly mutating `snapshot.meta`.
 
 ### 3.3.1 Host-Owned State Namespace
 
@@ -231,13 +233,19 @@ type Intent = {
 ### 3.5 Requirement
 
 An effect declaration from Core that Host must execute.
+Host consumes Core's canonical `Requirement` shape; it does not define a Host-specific variant.
 
 ```typescript
 type Requirement = {
-  readonly id: string;           // Deterministic ID (H007)
-  readonly intentId: string;     // Associated intent
-  readonly type: string;         // Effect type
-  readonly params: unknown;      // Effect parameters
+  readonly id: string;
+  readonly type: string;
+  readonly params: Record<string, unknown>;
+  readonly actionId: string;
+  readonly flowPosition: {
+    readonly nodePath: string;
+    readonly snapshotVersion: number;
+  };
+  readonly createdAt: number;
 };
 ```
 
@@ -408,19 +416,43 @@ async function fetchUserHandler(type: string, params: any): Promise<Patch[]> {
     const response = await fetch(`/users/${params.id}`);
     if (!response.ok) {
       return [
-        { op: 'set', path: 'user.error', value: { code: response.status } },
-        { op: 'set', path: 'user.data', value: null }
+        {
+          op: 'set',
+          path: [{ kind: 'prop', name: 'user' }, { kind: 'prop', name: 'error' }],
+          value: { code: response.status },
+        },
+        {
+          op: 'set',
+          path: [{ kind: 'prop', name: 'user' }, { kind: 'prop', name: 'data' }],
+          value: null,
+        }
       ];
     }
     const data = await response.json();
     return [
-      { op: 'set', path: 'user.data', value: data },
-      { op: 'set', path: 'user.error', value: null }
+      {
+        op: 'set',
+        path: [{ kind: 'prop', name: 'user' }, { kind: 'prop', name: 'data' }],
+        value: data,
+      },
+      {
+        op: 'set',
+        path: [{ kind: 'prop', name: 'user' }, { kind: 'prop', name: 'error' }],
+        value: null,
+      }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'user.error', value: { message: error.message } },
-      { op: 'set', path: 'user.data', value: null }
+      {
+        op: 'set',
+        path: [{ kind: 'prop', name: 'user' }, { kind: 'prop', name: 'error' }],
+        value: { message: error.message },
+      },
+      {
+        op: 'set',
+        path: [{ kind: 'prop', name: 'user' }, { kind: 'prop', name: 'data' }],
+        value: null,
+      }
     ];
   }
 }
@@ -434,14 +466,22 @@ All domain decisions belong in Flow or Computed, not in handlers.
 // WRONG: Domain logic in handler
 async function purchaseHandler(type, params) {
   if (params.amount > 1000) {  // Business rule in handler!
-    return [{ op: 'set', path: 'approval.required', value: true }];
+    return [{
+      op: 'set',
+      path: [{ kind: 'prop', name: 'approval' }, { kind: 'prop', name: 'required' }],
+      value: true,
+    }];
   }
 }
 
 // CORRECT: Handler does IO only
 async function paymentHandler(type, params) {
   const result = await paymentGateway.charge(params.amount);
-  return [{ op: 'set', path: 'payment.status', value: result.status }];
+  return [{
+    op: 'set',
+    path: [{ kind: 'prop', name: 'payment' }, { kind: 'prop', name: 'status' }],
+    value: result.status,
+  }];
 }
 ```
 
@@ -603,14 +643,21 @@ async function handleStartIntent(job) {
 
 // CORRECT: request effect, terminate job
 function handleStartIntent(job) {
-  const snapshot = context.getCanonicalHead();  // Fresh read
-  const computed = Core.compute(schema, snapshot, job.intent);
-  
-  if (computed.pendingRequirements.length > 0) {
-    requestEffectExecution(job.intentId, computed.pendingRequirements);
+  const frozenContext = getFrozenContext(job);   // Captured once for this job
+  const snapshot = context.getCanonicalHead();   // Fresh read
+  const result = Core.compute(schema, snapshot, job.intent, frozenContext);
+
+  applyPatches(result.patches, frozenContext);
+  applySystemDelta(result.systemDelta);
+
+  const updatedSnapshot = context.getCanonicalHead();
+  if (updatedSnapshot.system.pendingRequirements.length > 0) {
+    for (const req of updatedSnapshot.system.pendingRequirements) {
+      requestEffectExecution(job.intentId, req);
+    }
     // Job terminates here. No continuation state.
   } else {
-    enqueue({ type: 'ApplyPatches', patches: computed.patches });
+    enqueue({ type: 'ContinueCompute', intentId: job.intentId });
   }
 }
 ```
@@ -655,12 +702,13 @@ Reading effect dispatch list from `snapshot.system.pendingRequirements` after ap
 
 ```typescript
 function handleStartIntent(job: StartIntent) {
+  const frozenContext = getFrozenContext(job);
   const snapshot = ctx.getCanonicalHead();
-  const result = Core.compute(schema, snapshot, job.intent);
+  const result = Core.compute(schema, snapshot, job.intent, frozenContext);
   
   // STEP 1: Apply domain patches first
   if (result.patches.length > 0) {
-    applyPatches(result.patches);
+    applyPatches(result.patches, frozenContext);
   }
 
   // STEP 2: Apply system transitions second
@@ -683,35 +731,24 @@ function handleStartIntent(job: StartIntent) {
 }
 ```
 
-**Alternative (Simpler but less safe):**
-
-If implementation guarantees compute return value matches snapshot update:
-
-```typescript
-// Acceptable if Core guarantees requirements mirror applied systemDelta
-const result = Core.compute(schema, snapshot, job.intent);
-applyPatches(result.patches);
-applySystemDelta(result.systemDelta);
-
-if (result.requirements.length > 0) {
-  for (const req of result.requirements) {
-    requestEffectExecution(job.intentId, req);
-  }
-}
-```
+There is no alternate v4 dispatch contract based on a separate `requirements` return field.
+The effect dispatch source of truth is the updated Snapshot after `patches + systemDelta` are applied.
 
 **Wrong Pattern (violates COMP-REQ-INTERLOCK-1):**
 
 ```typescript
-// WRONG: Effect request before patch apply
+// WRONG: Effect request derived before patch apply
 function handleStartIntent(job: StartIntent) {
-  const result = Core.compute(schema, snapshot, job.intent);
-  
-  // Effect requested BEFORE pendingRequirements is materialized in snapshot
-  requestEffectExecution(job.intentId, result.requirements[0]);
-  
+  const frozenContext = getFrozenContext(job);
+  const snapshot = ctx.getCanonicalHead();
+  const result = Core.compute(schema, snapshot, job.intent, frozenContext);
+
+  // Effect requests are dispatched BEFORE pendingRequirements is materialized
+  // in the canonical snapshot. This breaks FULFILL-0 stale checks.
+  dispatchEffectRequestsFromComputeResult(result);  // VIOLATION
+
   // Now apply patches - too late!
-  applyPatches(result.patches);
+  applyPatches(result.patches, frozenContext);
   applySystemDelta(result.systemDelta);
 }
 ```

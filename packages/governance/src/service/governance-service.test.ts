@@ -34,15 +34,15 @@ function createSnapshot(
   };
 }
 
-function bootstrap() {
+async function bootstrap() {
   const lineageStore = createInMemoryLineageStore();
   const lineageService = createLineageService(lineageStore);
-  const genesis = lineageService.prepareSealGenesis({
+  const genesis = await lineageService.prepareSealGenesis({
     schemaHash: "schema-hash",
     terminalSnapshot: createSnapshot({ count: 1 }),
     createdAt: 1,
   });
-  lineageService.commitPrepared(genesis);
+  await lineageService.commitPrepared(genesis);
 
   const governanceStore = createInMemoryGovernanceStore();
   const governanceService = createGovernanceService(governanceStore, {
@@ -59,8 +59,8 @@ function bootstrap() {
 }
 
 describe("@manifesto-ai/governance service", () => {
-  it("enforces single-writer branch gates and stale-head supersede", () => {
-    const ctx = bootstrap();
+  it("enforces single-writer branch gates and stale-head supersede", async () => {
+    const ctx = await bootstrap();
     const occupied = ctx.governanceService.createProposal({
       baseWorld: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
@@ -69,10 +69,10 @@ describe("@manifesto-ai/governance service", () => {
       intent: { type: "demo.occupied", intentId: "intent-1" },
       executionKey: "key-1",
       submittedAt: 10,
-      epoch: ctx.lineageService.getActiveBranch().epoch,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
 
-    ctx.governanceStore.putProposal({
+    await ctx.governanceStore.putProposal({
       ...occupied,
       status: "approved",
       decisionId: "dec-occupied",
@@ -87,32 +87,32 @@ describe("@manifesto-ai/governance service", () => {
       intent: { type: "demo.contender", intentId: "intent-2" },
       executionKey: "key-2",
       submittedAt: 12,
-      epoch: ctx.lineageService.getActiveBranch().epoch,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
 
-    expect(() => ctx.governanceService.prepareAuthorityResult(
+    await expect(ctx.governanceService.prepareAuthorityResult(
       { ...contender, status: "evaluating" },
       { kind: "approved", approvedScope: null },
       { decidedAt: 13 }
-    )).toThrow(/GOV-BRANCH-GATE-1/);
+    )).rejects.toThrow(/GOV-BRANCH-GATE-1/);
 
-    ctx.governanceStore.putProposal({
+    await ctx.governanceStore.putProposal({
       ...occupied,
       status: "completed",
       completedAt: 14,
       resultWorld: ctx.genesis.worldId,
     });
 
-    const next = ctx.lineageService.prepareSealNext({
+    const next = await ctx.lineageService.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
       terminalSnapshot: createSnapshot({ count: 2 }),
       createdAt: 15,
     });
-    ctx.lineageService.commitPrepared(next);
+    await ctx.lineageService.commitPrepared(next);
 
-    const stale = ctx.governanceService.prepareAuthorityResult(
+    const stale = await ctx.governanceService.prepareAuthorityResult(
       { ...contender, status: "evaluating" },
       { kind: "approved", approvedScope: null },
       { decidedAt: 16 }
@@ -124,8 +124,8 @@ describe("@manifesto-ai/governance service", () => {
     expect(stale.decisionRecord).toBeUndefined();
   });
 
-  it("invalidates stale ingress proposals after head advance and discards stale authority results", () => {
-    const ctx = bootstrap();
+  it("invalidates stale ingress proposals after head advance and discards stale authority results", async () => {
+    const ctx = await bootstrap();
     const stale = ctx.governanceService.createProposal({
       baseWorld: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
@@ -134,28 +134,33 @@ describe("@manifesto-ai/governance service", () => {
       intent: { type: "demo.stale", intentId: "intent-3" },
       executionKey: "key-3",
       submittedAt: 20,
-      epoch: ctx.lineageService.getActiveBranch().epoch,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
-    ctx.governanceStore.putProposal({ ...stale, status: "evaluating" });
+    await ctx.governanceStore.putProposal({ ...stale, status: "evaluating" });
 
-    const next = ctx.lineageService.prepareSealNext({
+    const next = await ctx.lineageService.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
       terminalSnapshot: createSnapshot({ count: 3 }),
       createdAt: 21,
     });
-    ctx.lineageService.commitPrepared(next);
+    await ctx.lineageService.commitPrepared(next);
 
-    const invalidated = ctx.governanceService.invalidateStaleIngress(ctx.genesis.branchId);
+    const invalidated = await ctx.governanceService.invalidateStaleIngress(ctx.genesis.branchId);
     expect(invalidated).toHaveLength(1);
     expect(invalidated[0]?.proposalId).toBe(stale.proposalId);
     expect(invalidated[0]?.supersededReason).toBe("head_advance");
-    expect(ctx.governanceService.shouldDiscardAuthorityResult(stale, ctx.lineageService.getBranch(ctx.genesis.branchId)!.epoch)).toBe(true);
+    expect(
+      ctx.governanceService.shouldDiscardAuthorityResult(
+        stale,
+        (await ctx.lineageService.getBranch(ctx.genesis.branchId))!.epoch
+      )
+    ).toBe(true);
   });
 
-  it("finalize and finalizeOnSealRejection are read-only against GovernanceStore", () => {
-    const ctx = bootstrap();
+  it("finalize is read-only against GovernanceStore", async () => {
+    const ctx = await bootstrap();
     const proposal = ctx.governanceService.createProposal({
       baseWorld: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
@@ -164,10 +169,10 @@ describe("@manifesto-ai/governance service", () => {
       intent: { type: "demo.finalize", intentId: "intent-4" },
       executionKey: "key-4",
       submittedAt: 30,
-      epoch: ctx.lineageService.getActiveBranch().epoch,
+      epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
 
-    const prepared = ctx.governanceService.prepareAuthorityResult(
+    const prepared = await ctx.governanceService.prepareAuthorityResult(
       { ...proposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
       { decidedAt: 31 }
@@ -177,15 +182,15 @@ describe("@manifesto-ai/governance service", () => {
     }
 
     const executing = { ...prepared.proposal, status: "executing" as const };
-    ctx.governanceStore.putProposal(executing);
-    ctx.governanceStore.putDecisionRecord(prepared.decisionRecord);
+    await ctx.governanceStore.putProposal(executing);
+    await ctx.governanceStore.putDecisionRecord(prepared.decisionRecord);
 
     const before = JSON.stringify({
-      proposal: ctx.governanceStore.getProposal(executing.proposalId),
-      decision: ctx.governanceStore.getDecisionRecord(prepared.decisionRecord.decisionId),
+      proposal: await ctx.governanceStore.getProposal(executing.proposalId),
+      decision: await ctx.governanceStore.getDecisionRecord(prepared.decisionRecord.decisionId),
     });
 
-    const lineageCommit = ctx.lineageService.prepareSealNext({
+    const lineageCommit = await ctx.lineageService.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
@@ -195,26 +200,15 @@ describe("@manifesto-ai/governance service", () => {
       decisionRef: prepared.decisionRecord.decisionId,
     });
 
-    const finalized = ctx.governanceService.finalize(executing, lineageCommit, 33);
-    const rejected = ctx.governanceService.finalizeOnSealRejection(
-      executing,
-      {
-        kind: "self_loop",
-        computedWorldId: ctx.genesis.worldId,
-        message: "no-op",
-      },
-      34
-    );
+    const finalized = await ctx.governanceService.finalize(executing, lineageCommit, 33);
 
     const after = JSON.stringify({
-      proposal: ctx.governanceStore.getProposal(executing.proposalId),
-      decision: ctx.governanceStore.getDecisionRecord(prepared.decisionRecord.decisionId),
+      proposal: await ctx.governanceStore.getProposal(executing.proposalId),
+      decision: await ctx.governanceStore.getDecisionRecord(prepared.decisionRecord.decisionId),
     });
 
     expect(finalized.proposal.status).toBe("completed");
     expect(finalized.proposal.resultWorld).toBe(lineageCommit.worldId);
-    expect(rejected.proposal.status).toBe("failed");
-    expect(rejected.proposal.resultWorld).toBeUndefined();
     expect(before).toBe(after);
   });
 });

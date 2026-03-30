@@ -207,12 +207,14 @@ export class V2HostAdapter implements HostTestAdapter {
     };
 
     const hostState = getHostState(snapshot.data);
-    const existingErrors = hostState?.errors ?? [];
 
     return [
       {
         op: "merge", path: pp("$host"),
-        value: { lastError: errorValue, errors: [...existingErrors, errorValue] },
+        value: {
+          ...(hostState ? hostState : {}),
+          lastError: errorValue,
+        },
       },
     ];
   }

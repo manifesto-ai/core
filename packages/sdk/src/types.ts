@@ -1,9 +1,9 @@
 /**
- * SDK v2.0.0 Public Types
+ * SDK Public Types
  *
  * Defines ManifestoInstance, ManifestoConfig, event types, and supporting types.
  *
- * @see SDK SPEC v2.0.0
+ * @see SDK SPEC
  * @module
  */
 
@@ -19,7 +19,8 @@ import type { DomainSchema, Snapshot as CoreSnapshot, Patch, Intent } from "@man
  * Core's Snapshot uses `data: unknown`. This overlay provides type-safe
  * access to domain data via the generic parameter T.
  *
- * @see SDK SPEC v2.0.0
+ * The SDK does not add compatibility fields here; it transparently follows the
+ * current Core Snapshot surface.
  */
 export type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
 

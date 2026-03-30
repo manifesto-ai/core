@@ -47,11 +47,11 @@ More concretely:
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createIntentInstance,
   createLineageService,
   createWorld,
 } from "@manifesto-ai/world";
+import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
 ```
 
 ## Package Structure
@@ -60,7 +60,8 @@ import {
 @manifesto-ai/world
   -> re-exports @manifesto-ai/governance
   -> re-exports @manifesto-ai/lineage
-  -> owns createWorld(), createInMemoryWorldStore(), WorldCoordinator, WriteSet
+  -> owns createWorld(), WorldCoordinator, WorldRuntime
+  -> exposes store adapters through /in-memory, /indexeddb, /sqlite subpaths
 ```
 
 That split matters:

@@ -33,10 +33,10 @@ Create `world-runtime.ts`:
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
   createWorld,
 } from "@manifesto-ai/world";
+import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
 
 const store = createInMemoryWorldStore();
 const lineage = createLineageService(store);

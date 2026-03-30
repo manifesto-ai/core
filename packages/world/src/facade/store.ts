@@ -1,5 +1,4 @@
 import {
-  InMemoryGovernanceStore,
   type ActorAuthorityBinding,
   type ActorId,
   type BranchId,
@@ -10,157 +9,269 @@ import {
   type ProposalId,
 } from "@manifesto-ai/governance";
 import {
-  InMemoryLineageStore,
   type LineageStore,
   type PersistedBranchEntry,
-  type PersistedPatchDeltaV2,
   type PreparedBranchMutation,
+  type SealAttempt,
   type Snapshot,
   type SnapshotHashInput,
   type World,
   type WorldEdge,
   type WorldId,
 } from "@manifesto-ai/lineage";
-import { wrapCommitSealError } from "./internal/errors.js";
-import type { CommitCapableWorldStore, WriteSet } from "./types.js";
+import {
+  InMemoryGovernedWorldPersistenceDriver,
+} from "../persistence/in-memory-driver.js";
+import {
+  IndexedDbGovernedWorldPersistenceDriver,
+  type IndexedDbGovernedWorldPersistenceDriverOptions,
+} from "../persistence/indexeddb-driver.js";
+import type {
+  GovernedWorldPersistenceDriver,
+} from "../persistence/types.js";
+import type {
+  GovernedWorldStore,
+  WorldStoreTransaction,
+} from "./types.js";
 
-export class InMemoryCommitCapableWorldStore implements CommitCapableWorldStore {
-  private readonly lineageStore: LineageStore;
-  private readonly governanceStore: GovernanceStore;
+class DriverBackedGovernedWorldStore implements GovernedWorldStore {
+  private readonly driverPromise: Promise<GovernedWorldPersistenceDriver>;
 
-  public constructor() {
-    this.lineageStore = new InMemoryLineageStore();
-    this.governanceStore = new InMemoryGovernanceStore();
+  public constructor(
+    driver: GovernedWorldPersistenceDriver | Promise<GovernedWorldPersistenceDriver>
+  ) {
+    this.driverPromise = Promise.resolve(driver);
   }
 
-  putWorld(world: World): void {
-    this.lineageStore.putWorld(world);
+  protected async resolveDriver(): Promise<GovernedWorldPersistenceDriver> {
+    return this.driverPromise;
   }
 
-  getWorld(worldId: WorldId): World | null {
-    return this.lineageStore.getWorld(worldId);
+  async putWorld(world: World): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.putWorld(world);
   }
 
-  putSnapshot(worldId: WorldId, snapshot: Snapshot): void {
-    this.lineageStore.putSnapshot(worldId, snapshot);
+  async getWorld(worldId: WorldId): Promise<World | null> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getWorld(worldId);
   }
 
-  getSnapshot(worldId: WorldId): Snapshot | null {
-    return this.lineageStore.getSnapshot(worldId);
+  async putSnapshot(worldId: WorldId, snapshot: Snapshot): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.putSnapshot(worldId, snapshot);
   }
 
-  putPatchDelta(from: WorldId, to: WorldId, delta: PersistedPatchDeltaV2): void {
-    this.lineageStore.putPatchDelta(from, to, delta);
+  async getSnapshot(worldId: WorldId): Promise<Snapshot | null> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getSnapshot(worldId);
   }
 
-  getPatchDelta(from: WorldId, to: WorldId): PersistedPatchDeltaV2 | null {
-    return this.lineageStore.getPatchDelta(from, to);
+  async putAttempt(attempt: SealAttempt): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.putAttempt(attempt);
   }
 
-  putHashInput(snapshotHash: string, input: SnapshotHashInput): void {
-    this.lineageStore.putHashInput?.(snapshotHash, input);
+  async getAttempts(worldId: WorldId): Promise<readonly SealAttempt[]> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getAttempts(worldId);
   }
 
-  getHashInput(snapshotHash: string): SnapshotHashInput | null {
-    return this.lineageStore.getHashInput?.(snapshotHash) ?? null;
+  async getAttemptsByBranch(branchId: BranchId): Promise<readonly SealAttempt[]> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getAttemptsByBranch(branchId);
   }
 
-  putEdge(edge: WorldEdge): void {
-    this.lineageStore.putEdge(edge);
+  async putHashInput(snapshotHash: string, input: SnapshotHashInput): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.putHashInput?.(snapshotHash, input);
   }
 
-  getEdges(worldId: WorldId): readonly WorldEdge[] {
-    return this.lineageStore.getEdges(worldId);
+  async getHashInput(snapshotHash: string): Promise<SnapshotHashInput | null> {
+    const driver = await this.resolveDriver();
+    return (await driver.lineage.getHashInput?.(snapshotHash)) ?? null;
   }
 
-  getBranchHead(branchId: BranchId): WorldId | null {
-    return this.lineageStore.getBranchHead(branchId);
+  async putEdge(edge: WorldEdge): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.putEdge(edge);
   }
 
-  getBranchEpoch(branchId: BranchId): number {
-    return this.lineageStore.getBranchEpoch(branchId);
+  async getEdges(worldId: WorldId): Promise<readonly WorldEdge[]> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getEdges(worldId);
   }
 
-  mutateBranch(mutation: PreparedBranchMutation): void {
-    this.lineageStore.mutateBranch(mutation);
+  async getBranchHead(branchId: BranchId): Promise<WorldId | null> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranchHead(branchId);
   }
 
-  putBranch(branch: PersistedBranchEntry): void {
-    this.lineageStore.putBranch(branch);
+  async getBranchTip(branchId: BranchId): Promise<WorldId | null> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranchTip(branchId);
   }
 
-  getBranches(): readonly PersistedBranchEntry[] {
-    return this.lineageStore.getBranches();
+  async getBranchEpoch(branchId: BranchId): Promise<number> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranchEpoch(branchId);
   }
 
-  getActiveBranchId(): BranchId | null {
-    return this.lineageStore.getActiveBranchId();
+  async mutateBranch(mutation: PreparedBranchMutation): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.mutateBranch(mutation);
   }
 
-  switchActiveBranch(sourceBranchId: BranchId, targetBranchId: BranchId): void {
-    this.lineageStore.switchActiveBranch(sourceBranchId, targetBranchId);
+  async putBranch(branch: PersistedBranchEntry): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.putBranch(branch);
   }
 
-  commitPrepared(prepared: Parameters<LineageStore["commitPrepared"]>[0]): void {
-    this.lineageStore.commitPrepared(prepared);
+  async getBranches(): Promise<readonly PersistedBranchEntry[]> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getBranches();
   }
 
-  putProposal(proposal: Proposal): void {
-    this.governanceStore.putProposal(proposal);
+  async getActiveBranchId(): Promise<BranchId | null> {
+    const driver = await this.resolveDriver();
+    return driver.lineage.getActiveBranchId();
   }
 
-  getProposal(proposalId: ProposalId): Proposal | null {
-    return this.governanceStore.getProposal(proposalId);
+  async switchActiveBranch(
+    sourceBranchId: BranchId,
+    targetBranchId: BranchId
+  ): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.switchActiveBranch(sourceBranchId, targetBranchId);
   }
 
-  getProposalsByBranch(branchId: BranchId): readonly Proposal[] {
-    return this.governanceStore.getProposalsByBranch(branchId);
+  async commitPrepared(
+    prepared: Parameters<LineageStore["commitPrepared"]>[0]
+  ): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.lineage.commitPrepared(prepared);
   }
 
-  getExecutionStageProposal(branchId: BranchId): Proposal | null {
-    return this.governanceStore.getExecutionStageProposal(branchId);
+  async putProposal(proposal: Proposal): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.governance.putProposal(proposal);
   }
 
-  putDecisionRecord(record: DecisionRecord): void {
-    this.governanceStore.putDecisionRecord(record);
+  async getProposal(proposalId: ProposalId): Promise<Proposal | null> {
+    const driver = await this.resolveDriver();
+    return driver.governance.getProposal(proposalId);
   }
 
-  getDecisionRecord(decisionId: DecisionId): DecisionRecord | null {
-    return this.governanceStore.getDecisionRecord(decisionId);
+  async getProposalsByBranch(branchId: BranchId): Promise<readonly Proposal[]> {
+    const driver = await this.resolveDriver();
+    return driver.governance.getProposalsByBranch(branchId);
   }
 
-  putActorBinding(binding: ActorAuthorityBinding): void {
-    this.governanceStore.putActorBinding(binding);
+  async getExecutionStageProposal(branchId: BranchId): Promise<Proposal | null> {
+    const driver = await this.resolveDriver();
+    return driver.governance.getExecutionStageProposal(branchId);
   }
 
-  getActorBinding(actorId: ActorId): ActorAuthorityBinding | null {
-    return this.governanceStore.getActorBinding(actorId);
+  async putDecisionRecord(record: DecisionRecord): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.governance.putDecisionRecord(record);
   }
 
-  getActorBindings(): readonly ActorAuthorityBinding[] {
-    return this.governanceStore.getActorBindings();
+  async getDecisionRecord(decisionId: DecisionId): Promise<DecisionRecord | null> {
+    const driver = await this.resolveDriver();
+    return driver.governance.getDecisionRecord(decisionId);
   }
 
-  commitSeal(writeSet: WriteSet): void {
-    if (writeSet.kind === "full") {
-      if (!writeSet.governance.hasLineageRecords) {
-        throw new Error("FACADE-WS-2 violation: full write set requires governance.hasLineageRecords=true");
-      }
+  async putActorBinding(binding: ActorAuthorityBinding): Promise<void> {
+    const driver = await this.resolveDriver();
+    await driver.governance.putActorBinding(binding);
+  }
 
-      try {
-        this.lineageStore.commitPrepared(writeSet.lineage);
-      } catch (error) {
-        wrapCommitSealError(error);
-      }
-    } else if (writeSet.governance.hasLineageRecords) {
-      throw new Error("FACADE-WS-3 violation: govOnly write set requires governance.hasLineageRecords=false");
-    }
+  async getActorBinding(actorId: ActorId): Promise<ActorAuthorityBinding | null> {
+    const driver = await this.resolveDriver();
+    return driver.governance.getActorBinding(actorId);
+  }
 
-    this.governanceStore.putProposal(writeSet.governance.proposal);
-    this.governanceStore.putDecisionRecord(writeSet.governance.decisionRecord);
+  async getActorBindings(): Promise<readonly ActorAuthorityBinding[]> {
+    const driver = await this.resolveDriver();
+    return driver.governance.getActorBindings();
+  }
+
+  async runInSealTransaction<T>(
+    work: (tx: WorldStoreTransaction) => Promise<T>
+  ): Promise<T> {
+    const driver = await this.resolveDriver();
+    return driver.runInSealTransaction(work);
   }
 }
 
-export function createInMemoryWorldStore(): CommitCapableWorldStore {
-  return new InMemoryCommitCapableWorldStore();
+export class InMemoryGovernedWorldStore extends DriverBackedGovernedWorldStore {
+  public constructor() {
+    super(new InMemoryGovernedWorldPersistenceDriver());
+  }
+}
+
+export interface IndexedDbWorldStoreOptions
+  extends IndexedDbGovernedWorldPersistenceDriverOptions {}
+
+export class IndexedDbGovernedWorldStore extends DriverBackedGovernedWorldStore {
+  private readonly indexedDbDriver: IndexedDbGovernedWorldPersistenceDriver;
+
+  public constructor(options?: IndexedDbWorldStoreOptions) {
+    const indexedDbDriver = new IndexedDbGovernedWorldPersistenceDriver(options);
+    super(indexedDbDriver);
+    this.indexedDbDriver = indexedDbDriver;
+  }
+
+  public async close(): Promise<void> {
+    await this.indexedDbDriver.close();
+  }
+}
+
+export interface SqliteWorldStoreOptions {
+  readonly filename?: string;
+}
+
+type SqlitePersistenceDriver = GovernedWorldPersistenceDriver & {
+  close(): void | Promise<void>;
+};
+
+async function createSqlitePersistenceDriver(
+  options?: SqliteWorldStoreOptions
+): Promise<SqlitePersistenceDriver> {
+  const { SqliteGovernedWorldPersistenceDriver } = await import(
+    "../persistence/sqlite-driver.js"
+  );
+  return new SqliteGovernedWorldPersistenceDriver(options);
+}
+
+export class SqliteGovernedWorldStore extends DriverBackedGovernedWorldStore {
+  private readonly sqliteDriverPromise: Promise<SqlitePersistenceDriver>;
+
+  public constructor(options?: SqliteWorldStoreOptions) {
+    const sqliteDriverPromise = createSqlitePersistenceDriver(options);
+    super(sqliteDriverPromise);
+    this.sqliteDriverPromise = sqliteDriverPromise;
+  }
+
+  public async close(): Promise<void> {
+    const sqliteDriver = await this.sqliteDriverPromise;
+    await sqliteDriver.close();
+  }
+}
+
+export function createInMemoryWorldStore(): GovernedWorldStore {
+  return new InMemoryGovernedWorldStore();
+}
+
+export function createIndexedDbWorldStore(
+  options?: IndexedDbWorldStoreOptions
+): IndexedDbGovernedWorldStore {
+  return new IndexedDbGovernedWorldStore(options);
+}
+
+export function createSqliteWorldStore(
+  options?: SqliteWorldStoreOptions
+): SqliteGovernedWorldStore {
+  return new SqliteGovernedWorldStore(options);
 }

@@ -8,8 +8,10 @@ import type { EffectHandler } from "../../effects/types.js";
 import {
   createTestSchema,
   createTestIntent,
+  createTestIntentWithId,
   stripHostState,
   DEFAULT_HOST_CONTEXT,
+  createRestoreNormalizedSnapshot,
   createTestSnapshot,
 } from "../helpers/index.js";
 
@@ -231,6 +233,37 @@ describe("ManifestoHost", () => {
       expect(snapshot?.system).toEqual(restored.system);
       expect(snapshot?.computed).toEqual(restored.computed);
       expect(snapshot?.input).toEqual(restored.input ?? null);
+    });
+
+    it("should resume from a restore-normalized snapshot with fresh per-job context", async () => {
+      let now = 5;
+      const runtime = {
+        now: () => now,
+        microtask: (fn: () => void) => queueMicrotask(fn),
+        yield: () => Promise.resolve(),
+      };
+      const host = createHost(schema, { initialData: { count: 100 }, runtime });
+
+      const restored = createRestoreNormalizedSnapshot(
+        { count: 7, $host: { currentIntentId: "stale-intent" } },
+        schema.hash,
+        {
+          ...DEFAULT_HOST_CONTEXT,
+          now,
+          randomSeed: "restored-seed",
+        }
+      );
+
+      host.reset(restored);
+      now = 100;
+
+      const result = await host.dispatch(createTestIntentWithId("increment", "intent-restore"));
+
+      expect(stripHostState(result.snapshot.data)).toEqual({ count: 8 });
+      expect(result.snapshot.meta.timestamp).toBe(100);
+      expect(result.snapshot.meta.randomSeed).toBe("intent-restore");
+      expect(result.snapshot.input).toBeNull();
+      expect(result.snapshot.system.currentAction).toBeNull();
     });
 
     it("should reject partial snapshot on reset", async () => {

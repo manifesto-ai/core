@@ -1,6 +1,18 @@
+import type {
+  ComplianceCase,
+  ComplianceCoverageEntry,
+  ComplianceEvidence,
+  ComplianceInventoryItem,
+  ComplianceResult,
+  ComplianceRule,
+  ComplianceStatus,
+  RuleLevel,
+  RuleLifecycle,
+  RuleMode,
+} from "@manifesto-ai/cts-kit";
 import type { GovernanceEvent } from "@manifesto-ai/governance";
 import type {
-  CommitCapableWorldStore,
+  GovernedWorldStore,
   WorldInstance,
 } from "../../index.js";
 
@@ -8,61 +20,34 @@ export const WFCTS_SUITES = [
   "reexports",
   "factory",
   "coordinator",
+  "runtime",
   "matrix",
 ] as const;
 
 export type WorldFacadeComplianceSuite = (typeof WFCTS_SUITES)[number];
 
-export type ComplianceStatus = "PASS" | "FAIL" | "SKIP" | "WARN";
+export type {
+  ComplianceStatus,
+  RuleLevel,
+  RuleLifecycle,
+  RuleMode,
+};
 
-export type RuleMode = "blocking" | "pending" | "informational";
+export type WorldFacadeEvidence = ComplianceEvidence;
 
-export type RuleLevel = "MUST" | "SHOULD" | "MUST_NOT" | "MAY" | "CRITICAL";
+export type WorldFacadeComplianceInventoryItem = ComplianceInventoryItem<WorldFacadeComplianceSuite>;
 
-export type RuleLifecycle = "active" | "superseded";
+export type WorldFacadeComplianceRule = ComplianceRule<WorldFacadeComplianceSuite>;
 
-export interface WorldFacadeEvidence {
-  kind: "note";
-  summary: string;
-  details?: unknown;
-}
+export type WorldFacadeComplianceCase = ComplianceCase<WorldFacadeComplianceSuite>;
 
-export interface WorldFacadeComplianceInventoryItem {
-  ruleId: string;
-  specSection: string;
-  level: RuleLevel;
-  suite: WorldFacadeComplianceSuite;
-  lifecycle: RuleLifecycle;
-  notes?: string;
-}
+export type WorldFacadeComplianceCoverageEntry = ComplianceCoverageEntry;
 
-export interface WorldFacadeComplianceRule extends WorldFacadeComplianceInventoryItem {
-  mode: RuleMode;
-}
-
-export interface WorldFacadeComplianceCase {
-  caseId: string;
-  suite: WorldFacadeComplianceSuite;
-  description: string;
-}
-
-export interface WorldFacadeComplianceCoverageEntry {
-  ruleId: string;
-  caseIds: string[];
-}
-
-export interface WorldFacadeComplianceResult {
-  ruleId: string;
-  specSection: string;
-  mode: RuleMode;
-  status: ComplianceStatus;
-  message?: string;
-  evidence?: WorldFacadeEvidence[];
-}
+export type WorldFacadeComplianceResult = ComplianceResult<WorldFacadeEvidence>;
 
 export interface WorldFacadeComplianceAdapter {
   createWorld(): WorldInstance;
-  createStore(): CommitCapableWorldStore;
+  createStore(): GovernedWorldStore;
   topLevelExports(): Record<string, unknown>;
   eventLog(): GovernanceEvent[];
 }

@@ -18,6 +18,7 @@ export {
 export {
   createTestSnapshot,
   createMinimalSnapshot,
+  createRestoreNormalizedSnapshot,
   createSnapshotWithRequirements,
   createTestRequirement,
   DEFAULT_HOST_CONTEXT,

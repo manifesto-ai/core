@@ -1,10 +1,10 @@
 /**
- * Host-Owned State Namespace (v2.0.2)
+ * Host-Owned State Namespace
  *
  * Defines the Host-owned state stored at `data.$host` in the Snapshot.
  * This namespace is exclusively managed by Host and should not be modified by Core.
  *
- * @see host-SPEC-v2.0.2.md §3.3.1
+ * @see host-SPEC-v4.0.0-draft.md §3.3.1
  */
 
 import type { ErrorValue } from "@manifesto-ai/core";
@@ -38,10 +38,6 @@ export interface HostOwnedState {
    */
   readonly lastError?: ErrorValue | null;
 
-  /**
-   * Host-recorded error history (optional)
-   */
-  readonly errors?: ErrorValue[];
 }
 
 /**

@@ -390,7 +390,7 @@ describe("HCTS Ordering Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      // Error should be recorded in system state (errors are values)
+      // Error should be recorded as a Host-owned value without leaving the requirement pending.
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
     });
   });

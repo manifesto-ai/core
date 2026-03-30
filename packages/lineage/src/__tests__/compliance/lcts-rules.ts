@@ -26,16 +26,44 @@ function registryMany(
 }
 
 export const LINEAGE_COMPLIANCE_RULES: readonly LineageComplianceRule[] = [
-  registry("LIN-ID-1", "blocking"),
   ...registryMany(
-    ["LIN-HASH-1", "LIN-HASH-4a", "LIN-HASH-4b", "LIN-HASH-5", "LIN-HASH-6", "LIN-HASH-7", "LIN-HASH-10"],
+    [
+      "LIN-ID-1",
+      "LIN-ID-2",
+      "LIN-ID-3",
+      "LIN-ID-4",
+      "LIN-HASH-1",
+      "LIN-HASH-3a",
+      "LIN-HASH-3c",
+      "LIN-HASH-3d",
+      "LIN-HASH-4a",
+      "LIN-HASH-4b",
+      "LIN-HASH-5",
+      "LIN-HASH-6",
+      "LIN-HASH-7",
+      "LIN-HASH-10",
+      "LIN-HASH-11",
+      "LIN-SEAL-PURE-1",
+      "LIN-STORE-4",
+      "LIN-HEAD-ADV-1",
+      "MRKL-TIP-1",
+      "MRKL-TIP-2",
+      "MRKL-HEAD-5",
+      "MRKL-ATTEMPT-2",
+      "MRKL-REUSE-1",
+      "MRKL-REUSE-2",
+      "MRKL-STORE-4",
+      "MRKL-RESTORE-1",
+      "MRKL-RESTORE-2",
+      "MRKL-RESTORE-3",
+      "MRKL-RESTORE-3a",
+      "MRKL-RESTORE-4",
+      "LIN-BOUNDARY-1",
+      "LIN-BOUNDARY-4",
+      "LIN-STORE-3",
+    ],
     "blocking"
   ),
-  registry("LIN-HASH-9", "informational"),
-  ...registryMany(["LIN-SEAL-PURE-1", "LIN-COLLISION-1", "LIN-HEAD-ADV-1"], "blocking"),
-  registry("LIN-BOUNDARY-1", "blocking"),
-  registry("LIN-BOUNDARY-4", "blocking"),
-  registry("LIN-STORE-3", "blocking"),
 ] as const;
 
 export function getRuleOrThrow(ruleId: string): LineageComplianceRule {

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGovernanceEventDispatcher, createWorld } from "../../../index.js";
+import {
+  createGovernanceEventDispatcher,
+  createWorld,
+  type GovernanceEvent,
+} from "../../../index.js";
 import { FacadeCasMismatchError } from "../../../facade/internal/errors.js";
 import {
   createFacadeHarness,
@@ -15,55 +19,69 @@ describe("WFCTS Coordinator Suite", () => {
   it(
     caseTitle(
       WFCTS_CASES.COORDINATOR_NORMAL,
-      "Coordinator normal path preserves prepare -> finalize -> commit -> dispatch ordering."
+      "Coordinator normal path preserves prepare -> finalize -> transaction -> dispatch ordering."
     ),
-    () => {
+    async () => {
       const harness = createFacadeHarness();
-      const { world } = sealStandaloneGenesis(harness);
-      const { proposal, decisionRecord } = createExecutingProposal(harness);
+      const { world } = await sealStandaloneGenesis(harness);
+      const { proposal, decisionRecord } = await createExecutingProposal(harness);
+      const branch = await harness.lineage.getActiveBranch();
       const order: string[] = [];
 
       const originalPrepare = harness.lineage.prepareSealNext.bind(harness.lineage);
       const originalFinalize = harness.governance.finalize.bind(harness.governance);
-      const originalCommit = harness.store.commitSeal.bind(harness.store);
+      const originalRunInSealTransaction =
+        harness.store.runInSealTransaction.bind(harness.store);
       const dispatcher = createGovernanceEventDispatcher({
         service: harness.governance,
         sink: {
-          emit(event): void {
+          emit(event: GovernanceEvent): void {
             order.push(`event:${event.type}`);
             harness.events.push(event);
           },
         },
         now: () => 1000,
       });
+      const originalEmitSealCompleted =
+        dispatcher.emitSealCompleted.bind(dispatcher);
 
-      vi.spyOn(harness.lineage, "prepareSealNext").mockImplementation((input) => {
+      vi.spyOn(harness.lineage, "prepareSealNext").mockImplementation(async (input) => {
         order.push("prepare");
-        return originalPrepare(input);
+        return await originalPrepare(input);
       });
-      vi.spyOn(harness.governance, "finalize").mockImplementation((...args) => {
+      vi.spyOn(harness.governance, "finalize").mockImplementation(async (...args) => {
         order.push("finalize");
-        return originalFinalize(...args);
+        return await originalFinalize(...args);
       });
-      vi.spyOn(harness.store, "commitSeal").mockImplementation((writeSet) => {
-        order.push("commit");
-        return originalCommit(writeSet);
-      });
+      const lineageOnlyCommitSpy = vi.spyOn(harness.lineage, "commitPrepared");
+      vi.spyOn(harness.store, "runInSealTransaction").mockImplementation(
+        async (work) => {
+          order.push("commit");
+          return await originalRunInSealTransaction(work);
+        }
+      );
+      const dispatcherSpy = vi
+        .spyOn(dispatcher, "emitSealCompleted")
+        .mockImplementation((...args) => {
+          order.push("dispatch");
+          return originalEmitSealCompleted(...args);
+        });
 
       const governedWorld = createWorld({
         store: harness.store,
         lineage: harness.lineage,
         governance: harness.governance,
         eventDispatcher: dispatcher,
+        executor: harness.executor,
       });
 
-      const result = governedWorld.coordinator.sealNext({
+      const result = await governedWorld.coordinator.sealNext({
         executingProposal: proposal,
         completedAt: 20,
         sealInput: {
           schemaHash: "wfcts-schema",
           baseWorldId: world!.worldId,
-          branchId: harness.lineage.getActiveBranch().id,
+          branchId: branch.id,
           terminalSnapshot: createSnapshot({ count: 2 }),
           createdAt: 19,
           proposalRef: proposal.proposalId,
@@ -76,33 +94,76 @@ describe("WFCTS Coordinator Suite", () => {
           getRuleOrThrow("FACADE-COORD-1"),
           order.indexOf("prepare") < order.indexOf("finalize"),
           {
-            passMessage: "Coordinator prepares lineage before governance finalization.",
+            passMessage:
+              "Coordinator prepares lineage before governance finalization.",
             failMessage: "Coordinator finalized governance before lineage prepare.",
-          },
+          }
         ),
         evaluateRule(
           getRuleOrThrow("FACADE-COORD-2"),
           order.indexOf("finalize") < order.indexOf("commit"),
           {
-            passMessage: "Coordinator finalized governance before commitSeal().",
+            passMessage:
+              "Coordinator finalized governance before the seal transaction.",
             failMessage: "Coordinator committed before governance finalization.",
-          },
+          }
         ),
         evaluateRule(
           getRuleOrThrow("FACADE-COORD-3"),
-          order.indexOf("commit") < order.findIndex((entry) => entry.startsWith("event:")),
+          order.indexOf("commit") <
+            order.findIndex((entry) => entry.startsWith("event:")),
           {
-            passMessage: "Coordinator emits events only after commitSeal() succeeds.",
-            failMessage: "Coordinator emitted events before commitSeal() completed.",
-          },
+            passMessage:
+              "Coordinator emits events only after the seal transaction succeeds.",
+            failMessage:
+              "Coordinator emitted events before the seal transaction completed.",
+          }
+        ),
+        evaluateRule(getRuleOrThrow("FACADE-COORD-11"), result.kind === "sealed", {
+          passMessage:
+            "Coordinator completed the full prepare -> finalize -> transaction path successfully.",
+          failMessage:
+            "Coordinator did not complete the expected full seal path.",
+        }),
+        evaluateRule(
+          getRuleOrThrow("FACADE-COORD-5"),
+          lineageOnlyCommitSpy.mock.calls.length === 0,
+          {
+            passMessage:
+              "Governed seal path does not fall back to lineage.commitPrepared().",
+            failMessage:
+              "Governed seal path unexpectedly called lineage.commitPrepared().",
+          }
         ),
         evaluateRule(
-          getRuleOrThrow("FACADE-COORD-11"),
-          result.kind === "sealed",
+          getRuleOrThrow("FACADE-EVT-1"),
+          order.indexOf("commit") < order.indexOf("dispatch"),
           {
-            passMessage: "Coordinator completed the full prepare -> finalize -> commit path successfully.",
-            failMessage: "Coordinator did not complete the expected full seal path.",
-          },
+            passMessage:
+              "Dispatcher activation occurs only after the seal transaction succeeds.",
+            failMessage:
+              "Dispatcher activation happened before the seal transaction succeeded.",
+          }
+        ),
+        evaluateRule(
+          getRuleOrThrow("FACADE-EVT-2"),
+          dispatcherSpy.mock.calls.length === 1,
+          {
+            passMessage:
+              "Coordinator called emitSealCompleted() exactly once after a successful commit.",
+            failMessage:
+              "Coordinator did not call emitSealCompleted() exactly once after a successful commit.",
+          }
+        ),
+        evaluateRule(
+          getRuleOrThrow("FACADE-EVT-5"),
+          order.indexOf("prepare") < order.indexOf("dispatch") &&
+            order.indexOf("finalize") < order.indexOf("dispatch"),
+          {
+            passMessage:
+              "Dispatcher was not called during prepare/finalize steps.",
+            failMessage: "Dispatcher was invoked before the post-commit phase.",
+          }
         ),
       ]);
 
@@ -112,78 +173,82 @@ describe("WFCTS Coordinator Suite", () => {
 
   it(
     caseTitle(
-      WFCTS_CASES.COORDINATOR_REJECTION,
-      "Coordinator rejection path routes through finalizeOnSealRejection and governance-only commit."
+      WFCTS_CASES.COORDINATOR_CURRENT_SURFACE,
+      "Coordinator current typed surface persists both lineage and governance writes through the transaction seam."
     ),
-    () => {
+    async () => {
       const harness = createFacadeHarness();
-      const { world } = sealStandaloneGenesis(harness);
-      const { proposal } = createExecutingProposal(harness);
-      const order: string[] = [];
-
-      const originalPrepare = harness.lineage.prepareSealNext.bind(harness.lineage);
-      const originalFinalizeOnSealRejection = harness.governance.finalizeOnSealRejection.bind(harness.governance);
-      const originalCommit = harness.store.commitSeal.bind(harness.store);
+      const { world } = await sealStandaloneGenesis(harness);
+      const { proposal, decisionRecord } = await createExecutingProposal(harness);
+      const branch = await harness.lineage.getActiveBranch();
+      const originalRunInSealTransaction =
+        harness.store.runInSealTransaction.bind(harness.store);
+      let lineageCommitted = false;
+      let governancePersisted = false;
       const dispatcher = createGovernanceEventDispatcher({
         service: harness.governance,
         sink: {
-          emit(event): void {
-            order.push(`event:${event.type}`);
+          emit(event: GovernanceEvent): void {
             harness.events.push(event);
           },
         },
         now: () => 1000,
       });
 
-      vi.spyOn(harness.lineage, "prepareSealNext").mockImplementation((input) => {
-        order.push("prepare");
-        return originalPrepare(input);
-      });
-      vi.spyOn(harness.governance, "finalizeOnSealRejection").mockImplementation((...args) => {
-        order.push("finalizeRejected");
-        return originalFinalizeOnSealRejection(...args);
-      });
-      vi.spyOn(harness.store, "commitSeal").mockImplementation((writeSet) => {
-        order.push("commit");
-        return originalCommit(writeSet);
-      });
+      vi.spyOn(harness.store, "runInSealTransaction").mockImplementation(
+        async (work) =>
+          originalRunInSealTransaction(async (tx) =>
+            work({
+              async commitPrepared(prepared) {
+                lineageCommitted = true;
+                await tx.commitPrepared(prepared);
+              },
+              async putProposal(proposalRecord) {
+                governancePersisted = true;
+                await tx.putProposal(proposalRecord);
+              },
+              async putDecisionRecord(record) {
+                await tx.putDecisionRecord(record);
+              },
+            })
+          )
+      );
 
       const governedWorld = createWorld({
         store: harness.store,
         lineage: harness.lineage,
         governance: harness.governance,
         eventDispatcher: dispatcher,
+        executor: harness.executor,
       });
 
-      const result = governedWorld.coordinator.sealNext({
+      const result = await governedWorld.coordinator.sealNext({
         executingProposal: proposal,
         completedAt: 20,
         sealInput: {
           schemaHash: "wfcts-schema",
           baseWorldId: world!.worldId,
-          branchId: harness.lineage.getActiveBranch().id,
-          terminalSnapshot: createSnapshot({ count: 1 }),
+          branchId: branch.id,
+          terminalSnapshot: createSnapshot({ count: 3 }),
           createdAt: 19,
           proposalRef: proposal.proposalId,
-          decisionRef: proposal.decisionId,
+          decisionRef: decisionRecord.decisionId,
         },
       });
-
       expectAllCompliance([
         evaluateRule(
-          getRuleOrThrow("FACADE-COORD-4"),
-          result.kind === "sealRejected"
-            && order.indexOf("prepare") < order.indexOf("finalizeRejected")
-            && order.indexOf("finalizeRejected") < order.indexOf("commit")
-            && order.indexOf("commit") < order.findIndex((entry) => entry === "event:execution:seal_rejected"),
+          getRuleOrThrow("FACADE-STORE-3"),
+          result.kind === "sealed" && lineageCommitted && governancePersisted,
           {
-            passMessage: "Coordinator routed seal rejection through finalizeOnSealRejection(), governance-only commit, then post-commit event emission.",
-            failMessage: "Coordinator rejection path did not follow prepare -> finalizeOnSealRejection -> commit -> event ordering.",
-          },
+            passMessage:
+              "Coordinator persisted both lineage and governance writes through the transaction seam.",
+            failMessage:
+              "Coordinator did not persist both lineage and governance writes through the transaction seam.",
+          }
         ),
       ]);
 
-      expect(result.kind).toBe("sealRejected");
+      expect(result.kind).toBe("sealed");
     }
   );
 
@@ -192,11 +257,14 @@ describe("WFCTS Coordinator Suite", () => {
       WFCTS_CASES.COORDINATOR_GENESIS,
       "Coordinator distinguishes standalone genesis from governed genesis."
     ),
-    () => {
+    async () => {
       const standaloneHarness = createFacadeHarness();
-      const standaloneCommit = vi.spyOn(standaloneHarness.store, "commitSeal");
+      const standaloneCommit = vi.spyOn(
+        standaloneHarness.store,
+        "runInSealTransaction"
+      );
 
-      const standalone = standaloneHarness.world.coordinator.sealGenesis({
+      const standalone = await standaloneHarness.world.coordinator.sealGenesis({
         kind: "standalone",
         sealInput: {
           schemaHash: "wfcts-schema",
@@ -223,19 +291,22 @@ describe("WFCTS Coordinator Suite", () => {
         decisionId: "dec-governed-genesis",
         epoch: 0,
       };
-      governedHarness.store.putProposal(governedProposal);
-      governedHarness.store.putDecisionRecord({
+      await governedHarness.store.putProposal(governedProposal);
+      await governedHarness.store.putDecisionRecord({
         decisionId: "dec-governed-genesis",
         proposalId: governedProposal.proposalId,
         authorityId: governedProposal.authorityId,
         decision: { kind: "approved" as const },
         decidedAt: 2,
       });
-      const governedCommit = vi.spyOn(governedHarness.store, "commitSeal");
+      const governedCommit = vi.spyOn(
+        governedHarness.store,
+        "runInSealTransaction"
+      );
       const governedDispatcher = createGovernanceEventDispatcher({
         service: governedHarness.governance,
         sink: {
-          emit(event): void {
+          emit(event: GovernanceEvent): void {
             governedHarness.events.push(event);
           },
         },
@@ -246,9 +317,10 @@ describe("WFCTS Coordinator Suite", () => {
         lineage: governedHarness.lineage,
         governance: governedHarness.governance,
         eventDispatcher: governedDispatcher,
+        executor: governedHarness.executor,
       });
 
-      const governed = governedWorld.coordinator.sealGenesis({
+      const governed = await governedWorld.coordinator.sealGenesis({
         kind: "governed",
         executingProposal: governedProposal,
         completedAt: 3,
@@ -264,25 +336,31 @@ describe("WFCTS Coordinator Suite", () => {
           getRuleOrThrow("FACADE-COORD-6"),
           governed.kind === "sealed" && governedCommit.mock.calls.length === 1,
           {
-            passMessage: "Governed genesis uses the full prepare -> finalize -> commitSeal path.",
-            failMessage: "Governed genesis did not use the full governed commit path.",
-          },
+            passMessage:
+              "Governed genesis uses the full prepare -> finalize -> transaction path.",
+            failMessage:
+              "Governed genesis did not use the full governed commit path.",
+          }
         ),
         evaluateRule(
           getRuleOrThrow("FACADE-COORD-7"),
           standalone.kind === "sealed" && standaloneCommit.mock.calls.length === 0,
           {
-            passMessage: "Standalone genesis delegates directly to lineage without commitSeal().",
-            failMessage: "Standalone genesis unexpectedly used commitSeal().",
-          },
+            passMessage:
+              "Standalone genesis delegates directly to lineage without a governed transaction.",
+            failMessage:
+              "Standalone genesis unexpectedly used a governed transaction.",
+          }
         ),
         evaluateRule(
           getRuleOrThrow("FACADE-COORD-8"),
           standaloneHarness.events.length === 0,
           {
-            passMessage: "Standalone genesis avoids governance records and event emission.",
-            failMessage: "Standalone genesis leaked governance commit behavior.",
-          },
+            passMessage:
+              "Standalone genesis avoids governance records and event emission.",
+            failMessage:
+              "Standalone genesis leaked governance commit behavior.",
+          }
         ),
       ]);
     }
@@ -293,19 +371,21 @@ describe("WFCTS Coordinator Suite", () => {
       WFCTS_CASES.COORDINATOR_RETRY,
       "Coordinator retries from prepare on CAS mismatch."
     ),
-    () => {
+    async () => {
       const harness = createFacadeHarness();
-      const { world } = sealStandaloneGenesis(harness);
-      const { proposal, decisionRecord } = createExecutingProposal(harness);
+      const { world } = await sealStandaloneGenesis(harness);
+      const { proposal, decisionRecord } = await createExecutingProposal(harness);
+      const branch = await harness.lineage.getActiveBranch();
       const prepareSpy = vi.spyOn(harness.lineage, "prepareSealNext");
-      const originalCommit = harness.store.commitSeal.bind(harness.store);
-      const commitSpy = vi.spyOn(harness.store, "commitSeal");
+      const originalRunInSealTransaction =
+        harness.store.runInSealTransaction.bind(harness.store);
+      const commitSpy = vi.spyOn(harness.store, "runInSealTransaction");
 
       commitSpy
-        .mockImplementationOnce(() => {
+        .mockImplementationOnce(async () => {
           throw new FacadeCasMismatchError("simulated CAS mismatch");
         })
-        .mockImplementation((writeSet) => originalCommit(writeSet));
+        .mockImplementation(async (work) => originalRunInSealTransaction(work));
 
       const governedWorld = createWorld({
         store: harness.store,
@@ -314,21 +394,22 @@ describe("WFCTS Coordinator Suite", () => {
         eventDispatcher: createGovernanceEventDispatcher({
           service: harness.governance,
           sink: {
-            emit(event): void {
+            emit(event: GovernanceEvent): void {
               harness.events.push(event);
             },
           },
           now: () => 1000,
         }),
+        executor: harness.executor,
       });
 
-      const result = governedWorld.coordinator.sealNext({
+      const result = await governedWorld.coordinator.sealNext({
         executingProposal: proposal,
         completedAt: 20,
         sealInput: {
           schemaHash: "wfcts-schema",
           baseWorldId: world!.worldId,
-          branchId: harness.lineage.getActiveBranch().id,
+          branchId: branch.id,
           terminalSnapshot: createSnapshot({ count: 2 }),
           createdAt: 19,
           proposalRef: proposal.proposalId,
@@ -339,11 +420,15 @@ describe("WFCTS Coordinator Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("FACADE-COORD-9"),
-          result.kind === "sealed" && prepareSpy.mock.calls.length === 2 && commitSpy.mock.calls.length === 2,
+          result.kind === "sealed" &&
+            prepareSpy.mock.calls.length === 2 &&
+            commitSpy.mock.calls.length === 2,
           {
-            passMessage: "Coordinator retries from prepare after CAS mismatch.",
-            failMessage: "Coordinator did not restart the seal loop from prepare after CAS mismatch.",
-          },
+            passMessage:
+              "Coordinator retries from prepare after CAS mismatch.",
+            failMessage:
+              "Coordinator did not restart the seal loop from prepare after CAS mismatch.",
+          }
         ),
       ]);
 

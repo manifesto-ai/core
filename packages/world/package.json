@@ -28,6 +28,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./in-memory": {
+      "types": "./dist/in-memory.d.ts",
+      "import": "./dist/in-memory.js"
+    },
+    "./indexeddb": {
+      "types": "./dist/indexeddb.d.ts",
+      "import": "./dist/indexeddb.js"
+    },
+    "./sqlite": {
+      "types": "./dist/sqlite.d.ts",
+      "import": "./dist/sqlite.js"
     }
   },
   "scripts": {
@@ -45,7 +57,9 @@
     "@manifesto-ai/lineage": "workspace:*"
   },
   "devDependencies": {
+    "@manifesto-ai/cts-kit": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
+    "fake-indexeddb": "^6.2.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.1.0"

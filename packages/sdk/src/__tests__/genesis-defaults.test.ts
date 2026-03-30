@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { compileMelDomain, lowerSystemValues } from "@manifesto-ai/compiler";
 import { createManifesto } from "../index.js";
-import type { Snapshot } from "@manifesto-ai/core";
+import type { Snapshot } from "../index.js";
 
 /**
  * SDK-CONFIG-3: If snapshot is omitted, createManifesto MUST derive
@@ -115,7 +115,7 @@ describe("genesis snapshot defaults (SDK-CONFIG-3)", () => {
     const lowered = lowerSystemValues(result.schema);
     if (!lowered) throw new Error("lowerSystemValues returned null");
 
-    const restoredSnapshot: Snapshot = {
+    const restoredSnapshot: Snapshot<Record<string, unknown>> = {
       data: { count: 42, $host: {}, $mel: { guards: { intent: {} } } },
       computed: {},
       system: {
@@ -125,7 +125,7 @@ describe("genesis snapshot defaults (SDK-CONFIG-3)", () => {
         pendingRequirements: [],
         currentAction: null,
       },
-      input: undefined,
+      input: null,
       meta: {
         version: 10,
         timestamp: 1000,

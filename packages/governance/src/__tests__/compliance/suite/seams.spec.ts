@@ -48,7 +48,7 @@ describe("GCTS Seam Suite", () => {
       GCTS_CASES.SEAMS_NATIVE_SURFACE,
       "Governance package exposes native store/service exports without world or host internals."
     ),
-    () => {
+    async () => {
       const adapter = createGovernanceComplianceAdapter();
       const exported = adapter.exports();
       const store = adapter.createStore();
@@ -59,8 +59,11 @@ describe("GCTS Seam Suite", () => {
       const hasNativeSurface = typeof exported.createInMemoryGovernanceStore === "function"
         && typeof exported.createGovernanceService === "function"
         && typeof exported.createAuthorityEvaluator === "function";
-      const executionStageStoreWorks = (() => {
-        store.putProposal({
+      const omitsExecutionOwnership = (exported as Record<string, unknown>).HostExecutor === undefined
+        && (exported as Record<string, unknown>).HostExecutionOptions === undefined
+        && (exported as Record<string, unknown>).HostExecutionResult === undefined;
+      const executionStageStoreWorks = await (async () => {
+        await store.putProposal({
           proposalId: "p-1",
           baseWorld: "world-1",
           branchId: "branch-1",
@@ -74,7 +77,7 @@ describe("GCTS Seam Suite", () => {
           decisionId: "dec-1",
           epoch: 0,
         });
-        return store.getExecutionStageProposal("branch-1")?.proposalId === "p-1";
+        return (await store.getExecutionStageProposal("branch-1"))?.proposalId === "p-1";
       })();
 
       expectAllCompliance([
@@ -102,6 +105,7 @@ describe("GCTS Seam Suite", () => {
 
       expect(hasNativeSurface).toBe(true);
       expect(executionStageStoreWorks).toBe(true);
+      expect(omitsExecutionOwnership).toBe(true);
       expect(hostImports).toHaveLength(0);
       expect(worldImports).toHaveLength(0);
     }

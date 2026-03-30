@@ -1,4 +1,12 @@
 export type * from "./types.js";
+export {
+  createDecisionId,
+  createExecutionKey,
+  createNoopGovernanceEventSink,
+  createProposalId,
+  defaultExecutionKeyPolicy,
+  toHostIntent,
+} from "./types.js";
 
 export {
   computeIntentKey,

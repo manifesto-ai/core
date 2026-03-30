@@ -49,15 +49,14 @@ The SDK remains a thin composition layer. It owns exactly one concept, `createMa
 | SDK-FACTORY-2 | MUST | SDK MUST inject reserved platform namespaces |
 | SDK-FACTORY-3 | MUST | SDK MUST normalize the initial snapshot |
 | SDK-FACTORY-4 | MUST NOT | SDK MUST NOT require governed world inputs in `ManifestoConfig` |
-| SDK-FACTORY-5 | MUST NOT | SDK MUST NOT call `createWorld()` or `createInMemoryWorldStore()` as part of default dispatch composition |
+| SDK-FACTORY-5 | MUST NOT | SDK MUST NOT call `createWorld()` or any world store adapter subpath as part of default dispatch composition |
 
 ## 5. World Re-export Surface
 
 SDK MUST re-export exactly the thin governed World surface below:
 
 - `createWorld`
-- `createInMemoryWorldStore`
-- `CommitCapableWorldStore`
+- `GovernedWorldStore`
 - `GovernanceEventDispatcher`
 - `WorldCoordinator`
 - `WorldConfig`
@@ -65,12 +64,11 @@ SDK MUST re-export exactly the thin governed World surface below:
 - `CoordinatorSealNextParams`
 - `CoordinatorSealGenesisParams`
 - `SealResult`
-- `WriteSet`
+- `WorldStoreTransaction`
 
 SDK MUST NOT re-export:
 
-- the legacy store contract
-- the legacy in-memory store factory
+- concrete world store adapter implementations
 - the full split-native governance and lineage APIs
 
 ## 6. World Alignment Rules
@@ -78,8 +76,8 @@ SDK MUST NOT re-export:
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-WORLD-1 | MUST | SDK MUST source governed world re-exports from top-level `@manifesto-ai/world` |
-| SDK-WORLD-2 | MUST | SDK MUST expose `createWorld()` and `createInMemoryWorldStore()` |
-| SDK-WORLD-3 | MUST NOT | SDK MUST NOT expose legacy World store factories after the hard cut |
+| SDK-WORLD-2 | MUST | SDK MUST expose `createWorld()` and omit concrete world store adapter implementations |
+| SDK-WORLD-3 | MUST NOT | SDK MUST NOT expose world adapter subpaths such as in-memory, IndexedDB, or SQLite factories |
 | SDK-WORLD-4 | MUST NOT | SDK MUST NOT expose the full split-native facade through SDK |
 
 ## 7. Invariants
@@ -93,8 +91,8 @@ SDK MUST NOT re-export:
 If you need governed composition:
 
 1. Keep using `createManifesto()` for direct dispatch.
-2. Use SDK thin world re-exports for `createWorld()` and `createInMemoryWorldStore()`.
-3. Import from `@manifesto-ai/world` directly when you need `createGovernanceService()`, `createLineageService()`, or proposal lifecycle types.
+2. Use SDK thin world re-export only for `createWorld()`.
+3. Import from `@manifesto-ai/world` and its adapter subpaths directly when you need `createGovernanceService()`, `createLineageService()`, or a concrete store implementation.
 
 ## 9. References
 

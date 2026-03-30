@@ -1,109 +1,110 @@
 import type {
-  GovernanceService,
   PreparedGovernanceCommit,
-  PreparedLineageCommit,
+  GovernanceService,
 } from "@manifesto-ai/governance";
-import type { LineageService } from "@manifesto-ai/lineage";
+import type {
+  LineageService,
+  PreparedLineageCommit,
+} from "@manifesto-ai/lineage";
 import {
+  FacadeCasMismatchError,
   isFacadeCasMismatchError,
-  toSealRejectionReason,
 } from "./internal/errors.js";
 import type {
-  CommitCapableWorldStore,
   CoordinatorSealGenesisParams,
   CoordinatorSealNextParams,
+  GovernedWorldStore,
   GovernanceEventDispatcher,
   SealResult,
   WorldCoordinator,
-  WriteSet,
 } from "./types.js";
 
 const MAX_CAS_RETRIES = 3;
 
+function isLineageSealBaseMismatchError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("LIN-BRANCH-SEAL-2 violation");
+}
+
 export interface DefaultWorldCoordinatorOptions {
-  readonly store: CommitCapableWorldStore;
+  readonly store: GovernedWorldStore;
   readonly lineage: LineageService;
   readonly governance: GovernanceService;
   readonly eventDispatcher: GovernanceEventDispatcher;
 }
 
-function toWriteSet(
-  lineageCommit: PreparedLineageCommit,
-  governanceCommit: PreparedGovernanceCommit
-): WriteSet {
-  if (!governanceCommit.hasLineageRecords) {
-    throw new Error("FACADE-WS-2 violation: full write set requires governance.hasLineageRecords=true");
-  }
-
-  return {
-    kind: "full",
-    lineage: lineageCommit,
-    governance: governanceCommit,
-  };
+export interface GovernedSealCompletion {
+  readonly lineageCommit: PreparedLineageCommit;
+  readonly governanceCommit: PreparedGovernanceCommit;
+  readonly sealResult: SealResult;
 }
 
-function toGovOnlyWriteSet(governanceCommit: PreparedGovernanceCommit): WriteSet {
-  if (governanceCommit.hasLineageRecords) {
-    throw new Error("FACADE-WS-3 violation: govOnly write set requires governance.hasLineageRecords=false");
+export function sealGovernedNext(
+  options: DefaultWorldCoordinatorOptions,
+  params: CoordinatorSealNextParams
+): Promise<GovernedSealCompletion> {
+  return sealGovernedNextAsync(options, params);
+}
+
+async function sealGovernedNextAsync(
+  options: DefaultWorldCoordinatorOptions,
+  params: CoordinatorSealNextParams
+): Promise<GovernedSealCompletion> {
+  for (let attempt = 0; attempt < MAX_CAS_RETRIES; attempt += 1) {
+    try {
+      const lineageCommit = await options.lineage.prepareSealNext(params.sealInput);
+      const governanceCommit = await options.governance.finalize(
+        params.executingProposal,
+        lineageCommit,
+        params.completedAt
+      );
+      await options.store.runInSealTransaction(async (tx) => {
+        await tx.commitPrepared(lineageCommit);
+        await tx.putProposal(governanceCommit.proposal);
+        await tx.putDecisionRecord(governanceCommit.decisionRecord);
+      });
+      options.eventDispatcher.emitSealCompleted(governanceCommit, lineageCommit);
+
+      return {
+        lineageCommit,
+        governanceCommit,
+        sealResult: {
+          kind: "sealed",
+          worldId: lineageCommit.worldId,
+          terminalStatus: lineageCommit.terminalStatus,
+        },
+      };
+    } catch (error) {
+      if (isFacadeCasMismatchError(error)) {
+        if (attempt < MAX_CAS_RETRIES - 1) {
+          continue;
+        }
+      }
+
+      if (isLineageSealBaseMismatchError(error)) {
+        throw new FacadeCasMismatchError(
+          "FACADE-COORD-9 violation: branch head advanced after a competing seal won the CAS race",
+          error
+        );
+      }
+
+      throw error;
+    }
   }
 
-  return {
-    kind: "govOnly",
-    governance: governanceCommit,
-  };
+  throw new Error("FACADE-COORD-10 violation: sealNext exceeded bounded retry limit");
 }
 
 export class DefaultWorldCoordinator implements WorldCoordinator {
   public constructor(private readonly options: DefaultWorldCoordinatorOptions) {}
 
-  sealNext(params: CoordinatorSealNextParams): SealResult {
-    for (let attempt = 0; attempt < MAX_CAS_RETRIES; attempt += 1) {
-      try {
-        const lineageCommit = this.options.lineage.prepareSealNext(params.sealInput);
-        const governanceCommit = this.options.governance.finalize(
-          params.executingProposal,
-          lineageCommit,
-          params.completedAt
-        );
-        this.options.store.commitSeal(toWriteSet(lineageCommit, governanceCommit));
-        this.options.eventDispatcher.emitSealCompleted(governanceCommit, lineageCommit);
-
-        return {
-          kind: "sealed",
-          worldId: lineageCommit.worldId,
-          terminalStatus: lineageCommit.terminalStatus,
-        };
-      } catch (error) {
-        const rejection = toSealRejectionReason(error);
-        if (rejection) {
-          const governanceCommit = this.options.governance.finalizeOnSealRejection(
-            params.executingProposal,
-            rejection,
-            params.completedAt
-          );
-          this.options.store.commitSeal(toGovOnlyWriteSet(governanceCommit));
-          this.options.eventDispatcher.emitSealRejected(governanceCommit, rejection);
-          return {
-            kind: "sealRejected",
-            rejection,
-          };
-        }
-
-        if (isFacadeCasMismatchError(error) && attempt < MAX_CAS_RETRIES - 1) {
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    throw new Error("FACADE-COORD-10 violation: sealNext exceeded bounded retry limit");
+  async sealNext(params: CoordinatorSealNextParams): Promise<SealResult> {
+    return (await sealGovernedNext(this.options, params)).sealResult;
   }
 
-  sealGenesis(params: CoordinatorSealGenesisParams): SealResult {
+  async sealGenesis(params: CoordinatorSealGenesisParams): Promise<SealResult> {
     if (params.kind === "standalone") {
-      const lineageCommit = this.options.lineage.prepareSealGenesis(params.sealInput);
-      this.options.lineage.commitPrepared(lineageCommit);
+      const lineageCommit = await this.options.lineage.prepareSealGenesis(params.sealInput);
+      await this.options.lineage.commitPrepared(lineageCommit);
       return {
         kind: "sealed",
         worldId: lineageCommit.worldId,
@@ -111,13 +112,17 @@ export class DefaultWorldCoordinator implements WorldCoordinator {
       };
     }
 
-    const lineageCommit = this.options.lineage.prepareSealGenesis(params.sealInput);
-    const governanceCommit = this.options.governance.finalize(
+    const lineageCommit = await this.options.lineage.prepareSealGenesis(params.sealInput);
+    const governanceCommit = await this.options.governance.finalize(
       params.executingProposal,
       lineageCommit,
       params.completedAt
     );
-    this.options.store.commitSeal(toWriteSet(lineageCommit, governanceCommit));
+    await this.options.store.runInSealTransaction(async (tx) => {
+      await tx.commitPrepared(lineageCommit);
+      await tx.putProposal(governanceCommit.proposal);
+      await tx.putDecisionRecord(governanceCommit.decisionRecord);
+    });
     this.options.eventDispatcher.emitSealCompleted(governanceCommit, lineageCommit);
 
     return {

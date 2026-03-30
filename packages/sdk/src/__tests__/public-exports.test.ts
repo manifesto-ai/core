@@ -21,7 +21,6 @@ describe("sdk public exports contract", () => {
       "createSnapshot",
       "createCore",
       // World re-exports
-      "createInMemoryWorldStore",
       "createWorld",
     ].sort();
 
@@ -73,6 +72,19 @@ describe("sdk public exports contract", () => {
       "withDxAliases",
       "validateSchemaCompatibility",
       "withPlatformNamespaces",
+      // Split-native World / Governance / Lineage exports stay outside SDK
+      "createGovernanceService",
+      "createInMemoryGovernanceStore",
+      "createGovernanceEventDispatcher",
+      "createLineageService",
+      "createInMemoryLineageStore",
+      "createInMemoryWorldStore",
+      "createIndexedDbWorldStore",
+      "createSqliteWorldStore",
+      "createWorldCoordinator",
+      "DefaultGovernanceService",
+      "DefaultLineageService",
+      "DefaultWorldCoordinator",
     ];
 
     for (const key of forbidden) {

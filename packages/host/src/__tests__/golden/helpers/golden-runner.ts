@@ -258,7 +258,7 @@ export function createGoldenSnapshot(
       randomSeed: "golden-seed",
       schemaHash,
     },
-    input: undefined,
+    input: null,
   };
 }
 

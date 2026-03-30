@@ -1,63 +1,58 @@
 # @manifesto-ai/sdk
 
-> Thin public API layer for the Manifesto protocol stack.
+> Thin direct-dispatch entry point for Manifesto.
 
 ## Overview
 
 `@manifesto-ai/sdk` owns one concept: `createManifesto()`.
 
-> **Current Contract Note:** This page describes the current SDK v2.0.0 surface. The projected v3.0.0 rewrite is draft-only in [packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md).
+Use SDK when you want:
 
-Everything else is either:
+- the shortest path to a running app
+- direct dispatch
+- subscriptions and snapshot reads without governed assembly
 
-- SDK utility (`defineOps`, `dispatchAsync`)
-- pass-through protocol re-export from Core, Host, or the thin world facade surface
+If you need proposals, legitimacy, sealed lineage, or explicit runtime composition, move to top-level `@manifesto-ai/world`.
 
-After the hard cut, SDK re-exports only the thin governed World surface:
+## SDK-Owned Surface
+
+- `createManifesto()`
+- `dispatchAsync()`
+- `defineOps()`
+- SDK error types
+
+## Thin World Re-exports
+
+SDK intentionally keeps only a narrow world escape hatch:
 
 - `createWorld()`
-- `createInMemoryWorldStore()`
-- `CommitCapableWorldStore`
-- `GovernanceEventDispatcher`
-- `WorldCoordinator`
-- `WorldConfig`
-- `WorldInstance`
-- `CoordinatorSealNextParams`
-- `CoordinatorSealGenesisParams`
-- `SealResult`
-- `WriteSet`
 
-SDK does not re-export the full split-native governance or lineage API. Use `@manifesto-ai/world` directly when you need the complete governed surface.
+This is not the full governed surface. SDK does not expose store adapter implementations or the split-native governance/lineage service factories needed for full governed bootstrap.
 
-## Main Factory
+## Direct-Dispatch Example
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
+import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto({
   schema: domainSchema,
   effects: {},
 });
+
+await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
 ```
 
-`createManifesto()` remains a direct-dispatch runtime and does not implicitly assemble governed World composition.
+## When To Leave SDK
 
-## Governed Composition
+Move to `@manifesto-ai/world` when:
 
-```typescript
-import {
-  createWorld,
-  createInMemoryWorldStore,
-} from "@manifesto-ai/sdk";
-```
-
-These are thin pass-through re-exports from `@manifesto-ai/world`.
-
-If you need `createGovernanceService()`, `createLineageService()`, proposal lifecycle types, authority handlers, or lineage query APIs, import from top-level `@manifesto-ai/world`, `@manifesto-ai/governance`, or `@manifesto-ai/lineage` directly.
+- you need proposal approval before execution
+- you need sealed world ids and lineage queries
+- you need a durable governed store
+- you need `WorldRuntime.executeApprovedProposal()`
 
 ## Related Docs
 
-- [Quickstart](/quickstart)
-- [Tutorial](/tutorial/)
 - [World API](./world.md)
-- [Specifications](/internals/spec/)
+- [Quickstart](/quickstart)
+- [Governed Composition Guide](/guides/governed-composition)

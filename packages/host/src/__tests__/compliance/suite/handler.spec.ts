@@ -115,7 +115,8 @@ describe("HCTS Effect Handler Tests", () => {
       const hostState = getHostState(finalSnapshot.data);
 
       // Error should be recorded in host state
-      expect(hostState?.errors?.length).toBeGreaterThan(0);
+      expect(hostState?.lastError).toBeDefined();
+      expect(hostState?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
     });
   });
 

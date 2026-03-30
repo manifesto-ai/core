@@ -20,7 +20,6 @@ import { createHost, type ManifestoHost } from "../../../host/src/index.js";
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
   createWorld,
   createIntentInstance,
@@ -28,7 +27,9 @@ import {
   type IntentInstance,
   type Proposal,
   type DecisionRecord,
+  type WorldExecutor,
 } from "@manifesto-ai/world";
+import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
 import type { ErrorValue } from "@manifesto-ai/core";
 
 const HOST_CONTEXT = {
@@ -109,19 +110,26 @@ interface CompilerWorldAdapter {
 async function executeHostIntent(
   host: ManifestoHost,
   baseSnapshot: Snapshot,
-  intent: IntentInstance,
+  intent:
+    | IntentInstance
+    | {
+        readonly type: string;
+        readonly intentId: string;
+        readonly input?: unknown;
+      },
   executionKey: string
 ) {
-  try {
-    host.reset(baseSnapshot);
-    const result = await host.dispatch(
-      {
+  const dispatchIntent = "body" in intent
+    ? {
         type: intent.body.type,
         input: intent.body.input,
         intentId: intent.intentId,
-      },
-      { key: executionKey },
-    );
+      }
+    : intent;
+
+  try {
+    host.reset(baseSnapshot);
+    const result = await host.dispatch(dispatchIntent, { key: executionKey });
     const error = result.error
       ? ({
           code: result.error.code,
@@ -160,7 +168,12 @@ async function executeHostIntent(
 
 async function createFacadeWorldWithGenesis(
   schema: CoreDomainSchema,
-  initialSnapshot = createTerminalSnapshot({ count: 0 }, schema.hash)
+  initialSnapshot = createTerminalSnapshot({ count: 0 }, schema.hash),
+  executor: WorldExecutor = {
+    async execute() {
+      throw new Error("Compiler integration harness did not provide a WorldExecutor");
+    },
+  }
 ) {
   const store = createInMemoryWorldStore();
   const lineage = createLineageService(store);
@@ -176,8 +189,9 @@ async function createFacadeWorldWithGenesis(
     lineage,
     governance,
     eventDispatcher,
+    executor,
   });
-  const genesis = world.coordinator.sealGenesis({
+  const genesis = await world.coordinator.sealGenesis({
     kind: "standalone",
     sealInput: {
       schemaHash: schema.hash,
@@ -206,10 +220,26 @@ async function createWorldWithGenesis(schema: CoreDomainSchema, host: ManifestoH
     throw new Error("Host snapshot missing");
   }
 
-  const harness = await createFacadeWorldWithGenesis(schema, snapshot);
+  const executor: WorldExecutor = {
+    async execute(key, baseSnapshot, intent) {
+      const hostResult = await executeHostIntent(host, baseSnapshot, intent, key);
+      const outcome = hostResult.snapshot.system.lastError != null
+        || hostResult.snapshot.system.pendingRequirements.length > 0
+        || hostResult.status === "error"
+        ? "failed"
+        : "completed";
+
+      return {
+        outcome,
+        terminalSnapshot: hostResult.snapshot,
+        ...(hostResult.error ? { error: hostResult.error } : {}),
+      };
+    },
+  };
+  const harness = await createFacadeWorldWithGenesis(schema, snapshot, executor);
   const world: CompilerWorldAdapter = {
     submitProposal: async (actorId, intent, baseWorld) => {
-      const branch = harness.lineage.getActiveBranch();
+      const branch = await harness.lineage.getActiveBranch();
       const proposal = harness.governance.createProposal({
         baseWorld,
         branchId: branch.id,
@@ -225,7 +255,7 @@ async function createWorldWithGenesis(schema: CoreDomainSchema, host: ManifestoH
         submittedAt: 1,
         epoch: branch.epoch,
       });
-      const prepared = harness.governance.prepareAuthorityResult(
+      const prepared = await harness.governance.prepareAuthorityResult(
         { ...proposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
         {
@@ -248,51 +278,31 @@ async function createWorldWithGenesis(schema: CoreDomainSchema, host: ManifestoH
         decidedAt: prepared.decisionRecord.decidedAt,
       };
 
-      harness.store.putProposal(executingProposal);
-      harness.store.putDecisionRecord(prepared.decisionRecord);
+      await harness.store.putProposal(executingProposal);
+      await harness.store.putDecisionRecord(prepared.decisionRecord);
 
-      const baseSnapshot = harness.lineage.getSnapshot(baseWorld);
-      if (!baseSnapshot) {
-        throw new Error(`Missing base snapshot for ${baseWorld}`);
-      }
-
-      const hostResult = await executeHostIntent(
-        host,
-        baseSnapshot,
-        intent,
-        executingProposal.executionKey
-      );
-
-      const sealed = harness.world.coordinator.sealNext({
-        executingProposal,
+      const completion = await harness.world.runtime.executeApprovedProposal({
+        proposal: executingProposal,
         completedAt: 3,
-        sealInput: {
-          schemaHash: schema.hash,
-          baseWorldId: baseWorld,
-          branchId: branch.id,
-          terminalSnapshot: hostResult.snapshot,
-          createdAt: 2,
-          proposalRef: executingProposal.proposalId,
-          decisionRef: prepared.decisionRecord.decisionId,
-        },
       });
 
-      const finalProposal = harness.store.getProposal(executingProposal.proposalId) ?? executingProposal;
+      const finalProposal =
+        (await harness.store.getProposal(executingProposal.proposalId)) ??
+        executingProposal;
       return {
         proposal: finalProposal,
         decision: prepared.decisionRecord,
-        resultWorld: sealed.kind === "sealed"
-          ? harness.lineage.getWorld(sealed.worldId)
-          : undefined,
-        error: hostResult.error,
+        resultWorld:
+          (await harness.lineage.getWorld(completion.resultWorld)) ?? undefined,
+        error: completion.execution.error,
       };
     },
-    getSnapshot: async (worldId) => harness.lineage.getSnapshot(worldId),
+    getSnapshot: async (worldId) => await harness.lineage.getSnapshot(worldId),
   };
 
   return {
     world,
-    genesis: harness.lineage.getWorld(harness.genesis.worldId)!,
+    genesis: (await harness.lineage.getWorld(harness.genesis.worldId))!,
   };
 }
 
@@ -367,6 +377,104 @@ describe("Compiler -> World -> Host -> Core", () => {
     const resultWorld = await world.submitProposal(ACTOR.actorId, intent, genesis.worldId);
     expect(resultWorld.resultWorld).toBeDefined();
     const snapshot = await world.getSnapshot(resultWorld.resultWorld!.worldId);
+    expect(snapshot?.data).toMatchObject({ count: 1 });
+  });
+
+  it("resumes a terminal host snapshot and seals it without re-executing", async () => {
+    const result = compile(`
+      domain Counter {
+        state { count: number = 0 }
+        action increment() {
+          when true { patch count = add(count, 1) }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const schema = adaptSchema(result.schema);
+    const host = createHostWithContext(schema, { count: 0 });
+    const initialSnapshot = await host.getSnapshot();
+    if (!initialSnapshot) {
+      throw new Error("Host snapshot missing");
+    }
+
+    const harness = await createFacadeWorldWithGenesis(schema, initialSnapshot, {
+      async execute() {
+        throw new Error("resumeExecutingProposal() should not re-execute terminal snapshots");
+      },
+    });
+
+    const intent = await createIntentInstance({
+      body: { type: "increment" },
+      schemaHash: schema.hash,
+      projectionId: "test:projection",
+      source: { kind: "ui", eventId: "event-resume-1" },
+      actor: ACTOR,
+      intentId: "intent-resume-1",
+    });
+
+    const branch = await harness.lineage.getActiveBranch();
+    const preparedProposal = harness.governance.createProposal({
+      baseWorld: harness.genesis.worldId,
+      branchId: branch.id,
+      actorId: ACTOR.actorId,
+      authorityId: "auth-auto-approve",
+      intent: {
+        type: intent.body.type,
+        intentId: intent.intentId,
+        input: intent.body.input,
+        scopeProposal: intent.body.scopeProposal,
+      },
+      executionKey: `exec:${intent.intentId}`,
+      submittedAt: 1,
+      epoch: branch.epoch,
+    });
+    const authorityResult = await harness.governance.prepareAuthorityResult(
+      { ...preparedProposal, status: "evaluating" },
+      { kind: "approved", approvedScope: null },
+      {
+        currentEpoch: branch.epoch,
+        currentBranchHead: harness.genesis.worldId,
+        decidedAt: 2,
+      }
+    );
+
+    if (authorityResult.discarded || !authorityResult.decisionRecord) {
+      throw new Error("Expected approved executing proposal");
+    }
+
+    const executingProposal: Proposal = {
+      ...authorityResult.proposal,
+      status: "executing",
+      decisionId: authorityResult.decisionRecord.decisionId,
+      decidedAt: authorityResult.decisionRecord.decidedAt,
+    };
+    await harness.store.putProposal(executingProposal);
+    await harness.store.putDecisionRecord(authorityResult.decisionRecord);
+
+    const baseSnapshot = await harness.lineage.getSnapshot(harness.genesis.worldId);
+    if (!baseSnapshot) {
+      throw new Error("Genesis snapshot missing");
+    }
+
+    const hostResult = await executeHostIntent(
+      host,
+      baseSnapshot,
+      intent,
+      executingProposal.executionKey
+    );
+
+    const completion = await harness.world.runtime.resumeExecutingProposal({
+      proposal: executingProposal,
+      resumeSnapshot: hostResult.snapshot,
+      completedAt: 3,
+    });
+
+    expect(completion.kind).toBe("sealed");
+    expect(completion.resultWorld).toBeDefined();
+    const snapshot = await harness.lineage.getSnapshot(completion.resultWorld);
     expect(snapshot?.data).toMatchObject({ count: 1 });
   });
 
@@ -576,7 +684,7 @@ describe("Compiler -> World -> Host -> Core", () => {
     expect(facade.world.governance).toBe(facade.governance);
     expect(facade.world.store).toBe(facade.store);
 
-    const branch = facade.world.lineage.getActiveBranch();
+    const branch = await facade.world.lineage.getActiveBranch();
     const proposal = facade.governance.createProposal({
       baseWorld: facade.genesis.worldId,
       branchId: branch.id,
@@ -594,7 +702,7 @@ describe("Compiler -> World -> Host -> Core", () => {
       ...proposal,
       status: "evaluating" as const,
     };
-    const approved = facade.governance.prepareAuthorityResult(
+    const approved = await facade.governance.prepareAuthorityResult(
       evaluatingProposal,
       { kind: "approved", approvedScope: null },
       {
@@ -612,8 +720,8 @@ describe("Compiler -> World -> Host -> Core", () => {
       status: "executing",
       decisionId: approved.decisionRecord.decisionId,
     } as const;
-    facade.store.putProposal(executingProposal);
-    facade.store.putDecisionRecord(approved.decisionRecord);
+    await facade.store.putProposal(executingProposal);
+    await facade.store.putDecisionRecord(approved.decisionRecord);
 
     host.reset(createTerminalSnapshot({ count: 0 }, schema.hash));
     const hostResult = await host.dispatch(
@@ -628,7 +736,7 @@ describe("Compiler -> World -> Host -> Core", () => {
       { key: "exec-facade-1" }
     );
 
-    const sealed = facade.world.coordinator.sealNext({
+    const sealed = await facade.world.coordinator.sealNext({
       executingProposal,
       completedAt: 3,
       sealInput: {

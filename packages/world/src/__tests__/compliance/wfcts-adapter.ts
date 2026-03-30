@@ -4,6 +4,7 @@ import {
   createLineageService,
   type GovernanceEvent,
 } from "../../index.js";
+import { createInMemoryWorldStore } from "../../in-memory.js";
 import * as topLevelWorld from "../../index.js";
 import type { WorldFacadeComplianceAdapter } from "./wfcts-types.js";
 
@@ -31,11 +32,20 @@ export class SplitWorldFacadeComplianceAdapter implements WorldFacadeComplianceA
       lineage,
       governance,
       eventDispatcher: dispatcher,
+      executor: {
+        async execute(key, baseSnapshot, intent, opts) {
+          void key;
+          void baseSnapshot;
+          void intent;
+          void opts;
+          throw new Error("WFCTS adapter executor should not run in assembly-only coverage");
+        },
+      },
     });
   }
 
   createStore() {
-    return topLevelWorld.createInMemoryWorldStore();
+    return createInMemoryWorldStore();
   }
 
   topLevelExports(): Record<string, unknown> {
