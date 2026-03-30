@@ -1,6 +1,6 @@
 {
   "packages/codegen": "0.1.4",
-  "packages/core": "2.7.1",
+  "packages/core": "2.8.0",
   "packages/host": "2.4.0",
   "packages/sdk": "2.2.0",
   "packages/world": "2.6.0",
