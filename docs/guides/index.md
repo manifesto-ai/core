@@ -15,6 +15,8 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 | [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
 | [Governed Composition](./governed-composition) | You want to assemble lineage, governance, and the World facade explicitly |
 | [Debugging](./debugging) | A dispatch does not do what you expected |
+| [Release Hardening](./release-hardening) | You need the current release gate, known limitations, or operator checks |
+| [Upgrade to Next Major](./upgrade-next-major) | You are moving app/runtime code onto the hard-cut next-major surface |
 | [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |
 | [Typed Patch Ops](./typed-patch-ops) | You want safer patch creation in TypeScript |
 | [Code Generation](./code-generation) | You want generated TypeScript or Zod artifacts from a schema |
@@ -26,9 +28,10 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 1. Read [Effect Handlers](./effect-handlers)
 2. Read [Governed Composition](./governed-composition) if you need explicit lineage or authority
 3. Read [Debugging](./debugging)
-4. Read [Codex Skills Setup](./codex-skills) if you work with Codex
-5. Read [Re-entry Safety](./reentry-safe-flows)
-6. Read [Typed Patch Ops](./typed-patch-ops)
+4. Read [Release Hardening](./release-hardening) when you are preparing a governed runtime for release
+5. Read [Codex Skills Setup](./codex-skills) if you work with Codex
+6. Read [Re-entry Safety](./reentry-safe-flows)
+7. Read [Typed Patch Ops](./typed-patch-ops)
 
 That sequence matches the problems most teams hit first.
 

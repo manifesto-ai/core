@@ -73,12 +73,12 @@ manifesto.dispatch(createIntent("increment", "intent-1"));
 import {
   createGovernanceEventDispatcher,
   createGovernanceService,
-  createInMemoryWorldStore,
   createLineageService,
+  createSqliteWorldStore,
   createWorld,
 } from "@manifesto-ai/world";
 
-const store = createInMemoryWorldStore();
+const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
 const lineage = createLineageService(store);
 const governance = createGovernanceService(store, { lineageService: lineage });
 const world = createWorld({
@@ -93,4 +93,6 @@ const world = createWorld({
 
 - [Concepts](/concepts/)
 - [Governed Composition Guide](/guides/governed-composition)
+- [Release Hardening Guide](/guides/release-hardening)
+- [Next-Major Upgrade Guide](/guides/upgrade-next-major)
 - [Specifications](/internals/spec/)

@@ -84,6 +84,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Hardening
+        run: pnpm test:hardening
+
       - name: Publish to npm
         run: node scripts/release/publish-packages.mjs '${{ needs.release-please.outputs.paths_released }}'
         env:
@@ -123,6 +126,9 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Hardening
+        run: pnpm test:hardening
 
       - name: Publish to npm
         run: node scripts/release/publish-packages.mjs '${{ github.event.inputs.publish }}'

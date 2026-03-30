@@ -47,6 +47,9 @@ jobs:
       - name: Test (Coverage)
         run: pnpm test:coverage
 
+      - name: Hardening
+        run: pnpm test:hardening
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
