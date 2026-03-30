@@ -22,6 +22,8 @@ export function toBranchInfo(entry: PersistedBranchEntry): BranchInfo {
     id: entry.id,
     name: entry.name,
     head: entry.head,
+    tip: entry.tip,
+    headAdvancedAt: entry.headAdvancedAt,
     epoch: entry.epoch,
     schemaHash: entry.schemaHash,
     createdAt: entry.createdAt,
@@ -33,7 +35,7 @@ export function toWorldHead(branch: PersistedBranchEntry, world: World): WorldHe
     worldId: world.worldId,
     branchId: branch.id,
     branchName: branch.name,
-    createdAt: world.createdAt,
+    createdAt: branch.headAdvancedAt,
     schemaHash: branch.schemaHash,
   };
 }
@@ -80,10 +82,46 @@ export function selectLatestHead(heads: readonly WorldHead[]): WorldHead | null 
   return sorted[0];
 }
 
+function normalizePlatformData(data: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+  const source = data ?? {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!key.startsWith("$")) {
+      normalized[key] = cloneValue(value);
+      continue;
+    }
+
+    normalized[key] = {};
+  }
+
+  normalized.$host = {};
+  normalized.$mel = { guards: { intent: {} } };
+  return normalized;
+}
+
 export function restoreSnapshot(store: LineageStore, worldId: WorldId): Snapshot {
   const snapshot = store.getSnapshot(worldId);
   assertLineage(snapshot != null, `LIN-RESUME-2 violation: missing snapshot for world ${worldId}`);
-  return cloneValue(snapshot);
+
+  return {
+    data: normalizePlatformData(snapshot.data as Record<string, unknown>),
+    computed: cloneValue(snapshot.computed),
+    system: {
+      status: snapshot.system.status,
+      lastError: cloneValue(snapshot.system.lastError),
+      pendingRequirements: cloneValue(snapshot.system.pendingRequirements),
+      errors: cloneValue(snapshot.system.errors),
+      currentAction: null,
+    },
+    input: null,
+    meta: {
+      version: snapshot.meta.version,
+      timestamp: 0,
+      randomSeed: "",
+      schemaHash: snapshot.meta.schemaHash,
+    },
+  };
 }
 
 export function buildWorldLineage(store: LineageStore): WorldLineage {
@@ -97,9 +135,6 @@ export function buildWorldLineage(store: LineageStore): WorldLineage {
   const genesisCandidates = worlds
     .filter((world) => !incoming.has(world.worldId))
     .sort((left, right) => {
-      if (left.createdAt !== right.createdAt) {
-        return left.createdAt - right.createdAt;
-      }
       if (left.worldId === right.worldId) {
         return 0;
       }
@@ -117,7 +152,7 @@ export function buildWorldLineage(store: LineageStore): WorldLineage {
 
 function collectWorldsFromBranches(store: LineageStore): readonly World[] {
   const worlds = new Map<WorldId, World>();
-  const queue = store.getBranches().map((branch) => branch.head);
+  const queue = store.getBranches().flatMap((branch) => [branch.head, branch.tip]);
 
   while (queue.length > 0) {
     const nextWorldId = queue.pop()!;
@@ -131,10 +166,8 @@ function collectWorldsFromBranches(store: LineageStore): readonly World[] {
     }
     worlds.set(nextWorldId, world);
 
-    for (const edge of store.getEdges(nextWorldId)) {
-      if (edge.to === nextWorldId && !worlds.has(edge.from)) {
-        queue.push(edge.from);
-      }
+    if (world.parentWorldId != null && !worlds.has(world.parentWorldId)) {
+      queue.push(world.parentWorldId);
     }
   }
 

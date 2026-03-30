@@ -4,9 +4,9 @@ import type {
   BranchId,
   LineageStore,
   PersistedBranchEntry,
-  PersistedPatchDeltaV2,
   PreparedBranchMutation,
   PreparedLineageCommit,
+  SealAttempt,
   Snapshot,
   SnapshotHashInput,
   World,
@@ -14,21 +14,46 @@ import type {
   WorldId,
 } from "../types.js";
 
-function patchDeltaKey(from: WorldId, to: WorldId): string {
-  return `${from}->${to}`;
-}
-
 function cloneBranch(branch: PersistedBranchEntry): PersistedBranchEntry {
   return cloneValue(branch);
 }
 
+function sortAttempts(attempts: readonly SealAttempt[]): readonly SealAttempt[] {
+  return [...attempts]
+    .sort((left, right) => {
+      if (left.createdAt !== right.createdAt) {
+        return left.createdAt - right.createdAt;
+      }
+      if (left.attemptId === right.attemptId) {
+        return 0;
+      }
+      return left.attemptId < right.attemptId ? -1 : 1;
+    })
+    .map((attempt) => cloneValue(attempt));
+}
+
+type InMemoryLineageStoreState = {
+  worlds: Map<WorldId, World>;
+  snapshots: Map<WorldId, Snapshot>;
+  hashInputs: Map<string, SnapshotHashInput>;
+  edges: Map<string, WorldEdge>;
+  edgesByWorld: Map<WorldId, Set<string>>;
+  attempts: Map<string, SealAttempt>;
+  attemptsByWorld: Map<WorldId, string[]>;
+  attemptsByBranch: Map<BranchId, string[]>;
+  branches: Map<BranchId, PersistedBranchEntry>;
+  activeBranchId: BranchId | null;
+};
+
 export class InMemoryLineageStore implements LineageStore {
   private readonly worlds = new Map<WorldId, World>();
   private readonly snapshots = new Map<WorldId, Snapshot>();
-  private readonly patchDeltas = new Map<string, PersistedPatchDeltaV2>();
   private readonly hashInputs = new Map<string, SnapshotHashInput>();
   private readonly edges = new Map<string, WorldEdge>();
   private readonly edgesByWorld = new Map<WorldId, Set<string>>();
+  private readonly attempts = new Map<string, SealAttempt>();
+  private readonly attemptsByWorld = new Map<WorldId, string[]>();
+  private readonly attemptsByBranch = new Map<BranchId, string[]>();
   private readonly branches = new Map<BranchId, PersistedBranchEntry>();
   private activeBranchId: BranchId | null = null;
 
@@ -48,13 +73,28 @@ export class InMemoryLineageStore implements LineageStore {
     return cloneValue(this.snapshots.get(worldId) ?? null);
   }
 
-  putPatchDelta(from: WorldId, to: WorldId, delta: PersistedPatchDeltaV2): void {
-    assertLineage(delta._patchFormat === 2, "LIN-PERSIST-PATCH-2 violation: only _patchFormat: 2 is supported");
-    this.patchDeltas.set(patchDeltaKey(from, to), cloneValue(delta));
+  putAttempt(attempt: SealAttempt): void {
+    this.attempts.set(attempt.attemptId, cloneValue(attempt));
+    this.indexAttempt(this.attemptsByWorld, attempt.worldId, attempt.attemptId);
+    this.indexAttempt(this.attemptsByBranch, attempt.branchId, attempt.attemptId);
   }
 
-  getPatchDelta(from: WorldId, to: WorldId): PersistedPatchDeltaV2 | null {
-    return cloneValue(this.patchDeltas.get(patchDeltaKey(from, to)) ?? null);
+  getAttempts(worldId: WorldId): readonly SealAttempt[] {
+    const attemptIds = this.attemptsByWorld.get(worldId) ?? [];
+    return sortAttempts(
+      attemptIds
+        .map((attemptId) => this.attempts.get(attemptId))
+        .filter((attempt): attempt is SealAttempt => attempt != null)
+    );
+  }
+
+  getAttemptsByBranch(branchId: BranchId): readonly SealAttempt[] {
+    const attemptIds = this.attemptsByBranch.get(branchId) ?? [];
+    return sortAttempts(
+      attemptIds
+        .map((attemptId) => this.attempts.get(attemptId))
+        .filter((attempt): attempt is SealAttempt => attempt != null)
+    );
   }
 
   putHashInput(snapshotHash: string, input: SnapshotHashInput): void {
@@ -83,6 +123,10 @@ export class InMemoryLineageStore implements LineageStore {
     return this.branches.get(branchId)?.head ?? null;
   }
 
+  getBranchTip(branchId: BranchId): WorldId | null {
+    return this.branches.get(branchId)?.tip ?? null;
+  }
+
   getBranchEpoch(branchId: BranchId): number {
     const branch = this.branches.get(branchId);
     assertLineage(branch != null, `LIN-EPOCH-6 violation: unknown branch ${branchId}`);
@@ -93,13 +137,17 @@ export class InMemoryLineageStore implements LineageStore {
     const branch = this.branches.get(mutation.branchId);
     assertLineage(branch != null, `LIN-STORE-4 violation: unknown branch ${mutation.branchId}`);
     assertLineage(
-      branch.head === mutation.expectedHead && branch.epoch === mutation.expectedEpoch,
+      branch.head === mutation.expectedHead
+        && branch.tip === mutation.expectedTip
+        && branch.epoch === mutation.expectedEpoch,
       `LIN-STORE-4 violation: branch ${mutation.branchId} CAS mismatch`
     );
 
     this.branches.set(mutation.branchId, {
       ...branch,
       head: mutation.nextHead,
+      tip: mutation.nextTip,
+      headAdvancedAt: mutation.headAdvancedAt ?? branch.headAdvancedAt,
       epoch: mutation.nextEpoch,
     });
   }
@@ -143,8 +191,6 @@ export class InMemoryLineageStore implements LineageStore {
   }
 
   commitPrepared(prepared: PreparedLineageCommit): void {
-    assertLineage(!this.worlds.has(prepared.worldId), `LIN-STORE-9 violation: world ${prepared.worldId} already exists`);
-
     const nextBranches = new Map(this.branches);
     let nextActiveBranchId = this.activeBranchId;
 
@@ -167,33 +213,48 @@ export class InMemoryLineageStore implements LineageStore {
         `LIN-STORE-7 violation: missing branch ${prepared.branchChange.branchId} for prepared commit`
       );
       assertLineage(
-        branch.head === prepared.branchChange.expectedHead && branch.epoch === prepared.branchChange.expectedEpoch,
+        branch.head === prepared.branchChange.expectedHead
+          && branch.tip === prepared.branchChange.expectedTip
+          && branch.epoch === prepared.branchChange.expectedEpoch,
         `LIN-STORE-4 violation: branch ${prepared.branchChange.branchId} CAS mismatch`
       );
       nextBranches.set(prepared.branchChange.branchId, {
         ...branch,
         head: prepared.branchChange.nextHead,
+        tip: prepared.branchChange.nextTip,
+        headAdvancedAt: prepared.branchChange.headAdvancedAt ?? branch.headAdvancedAt,
         epoch: prepared.branchChange.nextEpoch,
       });
     }
 
-    if (prepared.kind === "next" && prepared.patchDelta != null) {
+    const existingWorld = this.worlds.get(prepared.worldId) ?? null;
+    const reused = existingWorld != null;
+
+    if (reused) {
       assertLineage(
-        prepared.patchDelta._patchFormat === 2,
-        "LIN-PERSIST-PATCH-2 violation: only _patchFormat: 2 is supported"
+        existingWorld.parentWorldId === prepared.world.parentWorldId,
+        `LIN-STORE-9 violation: world ${prepared.worldId} exists with a different parent`
       );
-    }
+      if (prepared.kind === "next") {
+        assertLineage(
+          this.edges.has(prepared.edge.edgeId),
+          `LIN-STORE-9 violation: reuse world ${prepared.worldId} is missing edge ${prepared.edge.edgeId}`
+        );
+      }
+    } else {
+      this.putWorld(prepared.world);
+      this.putSnapshot(prepared.worldId, prepared.terminalSnapshot);
+      this.putHashInput?.(prepared.world.snapshotHash, prepared.hashInput);
 
-    this.putWorld(prepared.world);
-    this.putSnapshot(prepared.worldId, prepared.terminalSnapshot);
-    this.putHashInput?.(prepared.world.snapshotHash, prepared.hashInput);
-
-    if (prepared.kind === "next") {
-      this.putEdge(prepared.edge);
-      if (prepared.patchDelta != null) {
-        this.putPatchDelta(prepared.edge.from, prepared.edge.to, prepared.patchDelta);
+      if (prepared.kind === "next") {
+        this.putEdge(prepared.edge);
       }
     }
+
+    this.putAttempt({
+      ...prepared.attempt,
+      reused,
+    });
 
     this.branches.clear();
     for (const [branchId, branch] of nextBranches) {
@@ -210,10 +271,80 @@ export class InMemoryLineageStore implements LineageStore {
     return [...this.edges.values()].map((edge) => cloneValue(edge));
   }
 
+  snapshotState(): InMemoryLineageStoreState {
+    return {
+      worlds: cloneValue(this.worlds),
+      snapshots: cloneValue(this.snapshots),
+      hashInputs: cloneValue(this.hashInputs),
+      edges: cloneValue(this.edges),
+      edgesByWorld: cloneValue(this.edgesByWorld),
+      attempts: cloneValue(this.attempts),
+      attemptsByWorld: cloneValue(this.attemptsByWorld),
+      attemptsByBranch: cloneValue(this.attemptsByBranch),
+      branches: cloneValue(this.branches),
+      activeBranchId: this.activeBranchId,
+    };
+  }
+
+  restoreState(state: InMemoryLineageStoreState): void {
+    this.worlds.clear();
+    for (const [worldId, world] of state.worlds) {
+      this.worlds.set(worldId, cloneValue(world));
+    }
+
+    this.snapshots.clear();
+    for (const [worldId, snapshot] of state.snapshots) {
+      this.snapshots.set(worldId, cloneValue(snapshot));
+    }
+
+    this.hashInputs.clear();
+    for (const [snapshotHash, input] of state.hashInputs) {
+      this.hashInputs.set(snapshotHash, cloneValue(input));
+    }
+
+    this.edges.clear();
+    for (const [edgeId, edge] of state.edges) {
+      this.edges.set(edgeId, cloneValue(edge));
+    }
+
+    this.edgesByWorld.clear();
+    for (const [worldId, edgeIds] of state.edgesByWorld) {
+      this.edgesByWorld.set(worldId, new Set(edgeIds));
+    }
+
+    this.attempts.clear();
+    for (const [attemptId, attempt] of state.attempts) {
+      this.attempts.set(attemptId, cloneValue(attempt));
+    }
+
+    this.attemptsByWorld.clear();
+    for (const [worldId, attemptIds] of state.attemptsByWorld) {
+      this.attemptsByWorld.set(worldId, [...attemptIds]);
+    }
+
+    this.attemptsByBranch.clear();
+    for (const [branchId, attemptIds] of state.attemptsByBranch) {
+      this.attemptsByBranch.set(branchId, [...attemptIds]);
+    }
+
+    this.branches.clear();
+    for (const [branchId, branch] of state.branches) {
+      this.branches.set(branchId, cloneBranch(branch));
+    }
+
+    this.activeBranchId = state.activeBranchId;
+  }
+
   private indexEdge(worldId: WorldId, edgeId: string): void {
     const current = this.edgesByWorld.get(worldId) ?? new Set<string>();
     current.add(edgeId);
     this.edgesByWorld.set(worldId, current);
+  }
+
+  private indexAttempt(index: Map<string, string[]>, key: string, attemptId: string): void {
+    const current = index.get(key) ?? [];
+    current.push(attemptId);
+    index.set(key, current);
   }
 }
 

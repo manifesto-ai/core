@@ -6,6 +6,7 @@ export type WorldId = string;
 export type BranchId = string;
 export type SchemaHash = string;
 export type ProvenanceRef = string;
+export type AttemptId = string;
 
 export interface ArtifactRef {
   readonly uri: string;
@@ -14,20 +15,19 @@ export interface ArtifactRef {
 
 export type TerminalStatus = "completed" | "failed";
 
-export interface ErrorSignature {
+export interface CurrentErrorSignature {
   readonly code: string;
   readonly source: {
     readonly actionId: string;
     readonly nodePath: string;
   };
-  readonly context?: Record<string, unknown>;
 }
 
 export interface SnapshotHashInput {
   readonly data: Record<string, unknown>;
   readonly system: {
     readonly terminalStatus: TerminalStatus;
-    readonly errors: readonly ErrorSignature[];
+    readonly currentError: CurrentErrorSignature | null;
     readonly pendingDigest: string;
   };
 }
@@ -36,19 +36,14 @@ export interface World {
   readonly worldId: WorldId;
   readonly schemaHash: SchemaHash;
   readonly snapshotHash: string;
+  readonly parentWorldId: WorldId | null;
   readonly terminalStatus: TerminalStatus;
-  readonly createdAt: number;
-  readonly createdBy: ProvenanceRef | null;
-  readonly executionTraceRef?: ArtifactRef;
 }
 
 export interface WorldEdge {
   readonly edgeId: string;
   readonly from: WorldId;
   readonly to: WorldId;
-  readonly proposalRef?: ProvenanceRef;
-  readonly decisionRef?: ProvenanceRef;
-  readonly createdAt: number;
 }
 
 export interface WorldLineage {
@@ -87,6 +82,8 @@ export interface BranchInfo {
   readonly id: BranchId;
   readonly name: string;
   readonly head: WorldId;
+  readonly tip: WorldId;
+  readonly headAdvancedAt: number;
   readonly epoch: number;
   readonly schemaHash: SchemaHash;
   readonly createdAt: number;
@@ -96,11 +93,11 @@ export interface PersistedBranchEntry {
   readonly id: BranchId;
   readonly name: string;
   readonly head: WorldId;
+  readonly tip: WorldId;
+  readonly headAdvancedAt: number;
   readonly epoch: number;
   readonly schemaHash: SchemaHash;
   readonly createdAt: number;
-  readonly parentBranch?: BranchId;
-  readonly lineage: readonly string[];
 }
 
 export interface PersistedBranchState {
@@ -128,6 +125,9 @@ export interface PreparedBranchMutation {
   readonly expectedHead: WorldId;
   readonly nextHead: WorldId;
   readonly headAdvanced: boolean;
+  readonly expectedTip: WorldId;
+  readonly nextTip: WorldId;
+  readonly headAdvancedAt: number | null;
   readonly expectedEpoch: number;
   readonly nextEpoch: number;
 }
@@ -140,11 +140,26 @@ export interface PreparedBranchBootstrap {
 
 export type PreparedBranchChange = PreparedBranchMutation | PreparedBranchBootstrap;
 
+export interface SealAttempt {
+  readonly attemptId: AttemptId;
+  readonly worldId: WorldId;
+  readonly branchId: BranchId;
+  readonly baseWorldId: WorldId | null;
+  readonly parentWorldId: WorldId | null;
+  readonly proposalRef?: ProvenanceRef;
+  readonly decisionRef?: ProvenanceRef;
+  readonly createdAt: number;
+  readonly traceRef?: ArtifactRef;
+  readonly patchDelta?: PersistedPatchDeltaV2;
+  readonly reused: boolean;
+}
+
 export interface PreparedLineageRecords {
   readonly worldId: WorldId;
   readonly world: World;
   readonly terminalSnapshot: Snapshot;
   readonly hashInput: SnapshotHashInput;
+  readonly attempt: SealAttempt;
 }
 
 export interface PreparedGenesisCommit extends PreparedLineageRecords {
@@ -152,7 +167,6 @@ export interface PreparedGenesisCommit extends PreparedLineageRecords {
   readonly branchId: BranchId;
   readonly terminalStatus: "completed";
   readonly edge: null;
-  readonly patchDelta: null;
   readonly branchChange: PreparedBranchBootstrap;
 }
 
@@ -161,7 +175,6 @@ export interface PreparedNextCommit extends PreparedLineageRecords {
   readonly branchId: BranchId;
   readonly terminalStatus: TerminalStatus;
   readonly edge: WorldEdge;
-  readonly patchDelta: PersistedPatchDeltaV2 | null;
   readonly forkCreated: boolean;
   readonly branchChange: PreparedBranchMutation;
 }
@@ -173,13 +186,15 @@ export interface LineageStore {
   getWorld(worldId: WorldId): World | null;
   putSnapshot(worldId: WorldId, snapshot: Snapshot): void;
   getSnapshot(worldId: WorldId): Snapshot | null;
-  putPatchDelta(from: WorldId, to: WorldId, delta: PersistedPatchDeltaV2): void;
-  getPatchDelta(from: WorldId, to: WorldId): PersistedPatchDeltaV2 | null;
+  putAttempt(attempt: SealAttempt): void;
+  getAttempts(worldId: WorldId): readonly SealAttempt[];
+  getAttemptsByBranch(branchId: BranchId): readonly SealAttempt[];
   putHashInput?(snapshotHash: string, input: SnapshotHashInput): void;
   getHashInput?(snapshotHash: string): SnapshotHashInput | null;
   putEdge(edge: WorldEdge): void;
   getEdges(worldId: WorldId): readonly WorldEdge[];
   getBranchHead(branchId: BranchId): WorldId | null;
+  getBranchTip(branchId: BranchId): WorldId | null;
   getBranchEpoch(branchId: BranchId): number;
   mutateBranch(mutation: PreparedBranchMutation): void;
   putBranch(branch: PersistedBranchEntry): void;
@@ -200,6 +215,8 @@ export interface LineageService {
   switchActiveBranch(targetBranchId: BranchId): BranchSwitchResult;
   getWorld(worldId: WorldId): World | null;
   getSnapshot(worldId: WorldId): Snapshot | null;
+  getAttempts(worldId: WorldId): readonly SealAttempt[];
+  getAttemptsByBranch(branchId: BranchId): readonly SealAttempt[];
   getLineage(): WorldLineage;
   getHeads(): readonly WorldHead[];
   getLatestHead(): WorldHead | null;

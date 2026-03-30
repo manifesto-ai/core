@@ -7,7 +7,13 @@ import {
   selectLatestHead,
   toBranchInfo,
 } from "../query.js";
-import { createGenesisBranchEntry, createWorldEdge, createWorldRecord } from "../records.js";
+import {
+  createGenesisBranchEntry,
+  createSealGenesisAttempt,
+  createSealNextAttempt,
+  createWorldEdge,
+  createWorldRecord,
+} from "../records.js";
 import { computeHash } from "../hash.js";
 import type {
   BranchId,
@@ -34,9 +40,7 @@ export class DefaultLineageService implements LineageService {
     const record = createWorldRecord(
       input.schemaHash,
       input.terminalSnapshot,
-      input.createdAt,
-      input.proposalRef ?? null,
-      input.traceRef
+      null
     );
 
     assertLineage(
@@ -57,9 +61,9 @@ export class DefaultLineageService implements LineageService {
       world: record.world,
       terminalSnapshot: input.terminalSnapshot,
       hashInput: record.hashInput,
+      attempt: createSealGenesisAttempt(branch.id, record.worldId, input),
       terminalStatus: "completed" as const,
       edge: null,
-      patchDelta: null,
       branchChange: {
         kind: "bootstrap" as const,
         branch,
@@ -75,6 +79,9 @@ export class DefaultLineageService implements LineageService {
       branchHead === input.baseWorldId,
       `LIN-BRANCH-SEAL-2 violation: branch ${input.branchId} head ${branchHead} does not match baseWorldId ${input.baseWorldId}`
     );
+
+    const branchTip = this.store.getBranchTip(input.branchId);
+    assertLineage(branchTip != null, `LIN-EPOCH-5 violation: branch ${input.branchId} tip is not set`);
 
     const baseWorld = this.store.getWorld(input.baseWorldId);
     assertLineage(baseWorld != null, `LIN-BASE-1 violation: base world ${input.baseWorldId} does not exist`);
@@ -104,32 +111,15 @@ export class DefaultLineageService implements LineageService {
     const record = createWorldRecord(
       input.schemaHash,
       input.terminalSnapshot,
-      input.createdAt,
-      input.proposalRef ?? null,
-      input.traceRef
-    );
-
-    assertLineage(
-      this.store.getWorld(record.worldId) == null,
-      `LIN-COLLISION-1 violation: world ${record.worldId} already exists`
-    );
-    assertLineage(
-      record.worldId !== input.baseWorldId,
-      `LIN-COLLISION-2 violation: computed world ${record.worldId} equals base world ${input.baseWorldId}`
+      branchTip
     );
 
     const expectedEpoch = this.store.getBranchEpoch(input.branchId);
     const headAdvanced = record.world.terminalStatus === "completed";
     const forkCreated = this.store
-      .getEdges(input.baseWorldId)
-      .some((candidate) => candidate.from === input.baseWorldId);
-    const edge = createWorldEdge(
-      input.baseWorldId,
-      record.worldId,
-      input.createdAt,
-      input.proposalRef,
-      input.decisionRef
-    );
+      .getEdges(branchTip)
+      .some((candidate) => candidate.from === branchTip);
+    const edge = createWorldEdge(branchTip, record.worldId);
 
     return {
       kind: "next" as const,
@@ -138,9 +128,9 @@ export class DefaultLineageService implements LineageService {
       world: record.world,
       terminalSnapshot: input.terminalSnapshot,
       hashInput: record.hashInput,
+      attempt: createSealNextAttempt(input.branchId, record.worldId, branchTip, input),
       terminalStatus: record.world.terminalStatus,
       edge,
-      patchDelta: input.patchDelta ?? null,
       forkCreated,
       branchChange: {
         kind: "advance" as const,
@@ -148,6 +138,9 @@ export class DefaultLineageService implements LineageService {
         expectedHead: input.baseWorldId,
         nextHead: headAdvanced ? record.worldId : input.baseWorldId,
         headAdvanced,
+        expectedTip: branchTip,
+        nextTip: record.worldId,
+        headAdvancedAt: headAdvanced ? input.createdAt : null,
         expectedEpoch,
         nextEpoch: headAdvanced ? expectedEpoch + 1 : expectedEpoch,
       },
@@ -168,17 +161,19 @@ export class DefaultLineageService implements LineageService {
 
     const branches = this.store.getBranches();
     const branchId = computeHash({ kind: "branch", name, headWorldId, ordinal: branches.length });
+    const branchCreatedAt = branches.reduce((latest, branch) => {
+      return Math.max(latest, branch.createdAt, branch.headAdvancedAt);
+    }, 0) + 1;
 
-    const parentBranch = inferParentBranch(branches, headWorldId, this.store.getActiveBranchId());
     const branch: PersistedBranchEntry = {
       id: branchId,
       name,
       head: headWorldId,
+      tip: headWorldId,
+      headAdvancedAt: branchCreatedAt,
       epoch: 0,
       schemaHash: world.schemaHash,
-      createdAt: world.createdAt,
-      parentBranch: parentBranch?.id,
-      lineage: parentBranch ? [...parentBranch.lineage, branchId] : [branchId],
+      createdAt: branchCreatedAt,
     };
 
     this.store.putBranch(branch);
@@ -221,6 +216,14 @@ export class DefaultLineageService implements LineageService {
     return this.store.getSnapshot(worldId);
   }
 
+  getAttempts(worldId: WorldId) {
+    return this.store.getAttempts(worldId);
+  }
+
+  getAttemptsByBranch(branchId: BranchId) {
+    return this.store.getAttemptsByBranch(branchId);
+  }
+
   getLineage(): WorldLineage {
     return buildWorldLineage(this.store);
   }
@@ -236,21 +239,6 @@ export class DefaultLineageService implements LineageService {
   restore(worldId: WorldId): Snapshot {
     return restoreSnapshot(this.store, worldId);
   }
-}
-
-function inferParentBranch(
-  branches: readonly PersistedBranchEntry[],
-  headWorldId: WorldId,
-  activeBranchId: BranchId | null
-): PersistedBranchEntry | null {
-  if (activeBranchId != null) {
-    const activeBranch = branches.find((branch) => branch.id === activeBranchId);
-    if (activeBranch?.head === headWorldId) {
-      return activeBranch;
-    }
-  }
-
-  return branches.find((branch) => branch.head === headWorldId) ?? null;
 }
 
 export function createLineageService(store: LineageStore): LineageService {

@@ -6,8 +6,12 @@ export class SplitNativeLineageComplianceAdapter implements LineageComplianceAda
     return lineage.computeSnapshotHash(snapshot);
   }
 
-  async computeWorldId(schemaHash: string, snapshotHash: string): Promise<string> {
-    return lineage.computeWorldId(schemaHash, snapshotHash);
+  async computeWorldId(
+    schemaHash: string,
+    snapshotHash: string,
+    parentWorldId: string | null
+  ): Promise<string> {
+    return lineage.computeWorldId(schemaHash, snapshotHash, parentWorldId);
   }
 
   createMemoryStore() {

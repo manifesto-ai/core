@@ -8,8 +8,7 @@ export {
   isPlatformNamespace,
   stripPlatformNamespaces,
   normalizeContext,
-  toErrorSignature,
-  sortErrorSignatures,
+  toCurrentErrorSignature,
   computePendingDigest,
   createSnapshotHashInput,
 } from "./hash.js";
@@ -17,6 +16,8 @@ export {
 export {
   createWorldRecord,
   createWorldEdge,
+  createSealGenesisAttempt,
+  createSealNextAttempt,
   createGenesisBranchEntry,
   type WorldRecordResult,
 } from "./records.js";

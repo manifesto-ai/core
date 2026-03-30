@@ -5,7 +5,6 @@ import {
   createLineageService,
   createWorldRecord,
   type InMemoryLineageStore,
-  type PersistedPatchDeltaV2,
 } from "./index.js";
 
 function createTestSnapshot(
@@ -43,7 +42,7 @@ function snapshotStoreState(store: InMemoryLineageStore): string {
 }
 
 describe("@manifesto-ai/lineage service", () => {
-  it("prepareSealGenesis is pure and commitPrepared bootstraps the first branch", () => {
+  it("prepareSealGenesis is pure and commitPrepared bootstraps head, tip, and first attempt", () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const snapshot = createTestSnapshot({ count: 1 });
@@ -67,10 +66,13 @@ describe("@manifesto-ai/lineage service", () => {
 
     expect(store.getWorld(preparedA.worldId)).toEqual(preparedA.world);
     expect(service.getActiveBranch().head).toBe(preparedA.worldId);
+    expect(service.getActiveBranch().tip).toBe(preparedA.worldId);
+    expect(service.getActiveBranch().headAdvancedAt).toBe(100);
+    expect(service.getAttempts(preparedA.worldId)).toHaveLength(1);
     expect(service.getLatestHead()?.worldId).toBe(preparedA.worldId);
   });
 
-  it("prepareSealNext rejects self-loops and existing world collisions", () => {
+  it("repeated identical failed seals on the same branch produce different worlds because tip changes", () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const genesisSnapshot = createTestSnapshot({ count: 1 });
@@ -81,35 +83,46 @@ describe("@manifesto-ai/lineage service", () => {
     });
     service.commitPrepared(preparedGenesis);
 
-    expect(() => service.prepareSealNext({
-      schemaHash: "schema-hash",
-      baseWorldId: preparedGenesis.worldId,
-      branchId: preparedGenesis.branchId,
-      terminalSnapshot: genesisSnapshot,
-      createdAt: 11,
-    })).toThrow(/Prepared worldId equals baseWorldId|already exists/);
+    const failingSnapshot = createTestSnapshot(
+      { count: 2 },
+      {
+        system: {
+          status: "idle",
+          lastError: {
+            code: "ERR",
+            message: "boom",
+            source: { actionId: "a", nodePath: "/x" },
+            timestamp: 0,
+          },
+          pendingRequirements: [],
+          errors: [],
+          currentAction: null,
+        },
+      }
+    );
 
-    const collidingSnapshot = createTestSnapshot({ count: 2 });
-    const firstNext = service.prepareSealNext({
+    const firstFailure = service.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: preparedGenesis.worldId,
       branchId: preparedGenesis.branchId,
-      terminalSnapshot: collidingSnapshot,
+      terminalSnapshot: failingSnapshot,
+      createdAt: 11,
+    });
+    service.commitPrepared(firstFailure);
+
+    const secondFailure = service.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: preparedGenesis.worldId,
+      branchId: preparedGenesis.branchId,
+      terminalSnapshot: failingSnapshot,
       createdAt: 12,
     });
-    service.commitPrepared(firstNext);
 
-    const branch = service.getActiveBranch();
-    expect(() => service.prepareSealNext({
-      schemaHash: "schema-hash",
-      baseWorldId: branch.head,
-      branchId: branch.id,
-      terminalSnapshot: collidingSnapshot,
-      createdAt: 12,
-    })).toThrow();
+    expect(firstFailure.worldId).not.toBe(secondFailure.worldId);
+    expect(secondFailure.world.parentWorldId).toBe(firstFailure.worldId);
   });
 
-  it("head advances only for completed worlds and failed worlds remain queryable", () => {
+  it("head advances only for completed worlds, failed worlds remain queryable, and attempts are stored", () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const genesis = service.prepareSealGenesis({
@@ -119,25 +132,28 @@ describe("@manifesto-ai/lineage service", () => {
     });
     service.commitPrepared(genesis);
 
-    const patchDelta: PersistedPatchDeltaV2 = {
-      _patchFormat: 2,
-      patches: [],
-    };
     const success = service.prepareSealNext({
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
-      patchDelta,
+      patchDelta: {
+        _patchFormat: 2,
+        patches: [],
+      },
       proposalRef: "proposal-1",
       decisionRef: "decision-1",
     });
     service.commitPrepared(success);
 
     expect(service.getActiveBranch().head).toBe(success.worldId);
+    expect(service.getActiveBranch().tip).toBe(success.worldId);
     expect(service.getBranch(success.branchId)?.epoch).toBe(1);
-    expect(store.getPatchDelta(success.edge.from, success.edge.to)).toEqual(patchDelta);
+    expect(service.getAttempts(success.worldId)[0]?.patchDelta).toEqual({
+      _patchFormat: 2,
+      patches: [],
+    });
 
     const failed = service.prepareSealNext({
       schemaHash: "schema-hash",
@@ -166,12 +182,15 @@ describe("@manifesto-ai/lineage service", () => {
 
     expect(failed.branchChange.headAdvanced).toBe(false);
     expect(service.getActiveBranch().head).toBe(success.worldId);
+    expect(service.getActiveBranch().tip).toBe(failed.worldId);
+    expect(service.getActiveBranch().headAdvancedAt).toBe(2);
     expect(service.getBranch(success.branchId)?.epoch).toBe(1);
     expect(service.getWorld(failed.worldId)?.terminalStatus).toBe("failed");
     expect(service.getLineage().worlds.has(failed.worldId)).toBe(true);
+    expect(service.getAttempts(failed.worldId)).toHaveLength(1);
   });
 
-  it("supports branch creation, branch switching, and snapshot restore", () => {
+  it("supports branch creation, branch switching, idempotent reuse, and snapshot restore normalization", () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const genesis = service.prepareSealGenesis({
@@ -181,16 +200,84 @@ describe("@manifesto-ai/lineage service", () => {
     });
     service.commitPrepared(genesis);
 
+    const canonical = service.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: genesis.worldId,
+      branchId: genesis.branchId,
+      terminalSnapshot: createTestSnapshot(
+        { count: 2, $host: { trace: "first" } },
+        {
+          computed: { derived: 1 },
+          input: { transient: true },
+          meta: {
+            version: 3,
+            timestamp: 10,
+            randomSeed: "seed-a",
+            schemaHash: "schema-hash",
+          },
+        }
+      ),
+      createdAt: 2,
+    });
+    service.commitPrepared(canonical);
+
     const newBranchId = service.createBranch("experiment", genesis.worldId);
     const result = service.switchActiveBranch(newBranchId);
-
     expect(result.previousBranchId).toBe(genesis.branchId);
     expect(result.targetBranchId).toBe(newBranchId);
     expect(service.getActiveBranch().id).toBe(newBranchId);
-    expect(service.restore(genesis.worldId)).toEqual(createTestSnapshot({ count: 1 }));
+
+    const reused = service.prepareSealNext({
+      schemaHash: "schema-hash",
+      baseWorldId: genesis.worldId,
+      branchId: newBranchId,
+      terminalSnapshot: createTestSnapshot(
+        { count: 2, $host: { trace: "second" } },
+        {
+          computed: { derived: 999 },
+          input: { transient: "different" },
+          meta: {
+            version: 30,
+            timestamp: 99,
+            randomSeed: "seed-b",
+            schemaHash: "schema-hash",
+          },
+        }
+      ),
+      createdAt: 3,
+    });
+    service.commitPrepared(reused);
+
+    expect(reused.worldId).toBe(canonical.worldId);
+    expect(service.getAttempts(canonical.worldId)).toHaveLength(2);
+    expect(service.getAttempts(canonical.worldId)[1]?.reused).toBe(true);
+
+    const restored = service.restore(canonical.worldId);
+    expect(restored).toEqual({
+      data: {
+        count: 2,
+        $host: {},
+        $mel: { guards: { intent: {} } },
+      },
+      computed: { derived: 1 },
+      system: {
+        status: "idle",
+        lastError: null,
+        pendingRequirements: [],
+        errors: [],
+        currentAction: null,
+      },
+      input: null,
+      meta: {
+        version: 3,
+        timestamp: 0,
+        randomSeed: "",
+        schemaHash: "schema-hash",
+      },
+    });
   });
 
-  it("marks forkCreated only when sealing from a world that already has descendants", () => {
+  it("marks forkCreated only when sealing from a tip that already has descendants", () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const genesis = service.prepareSealGenesis({
@@ -224,12 +311,12 @@ describe("@manifesto-ai/lineage service", () => {
     expect(fork.forkCreated).toBe(true);
   });
 
-  it("createWorldRecord includes terminal status in the stored world", () => {
+  it("createWorldRecord stores positional identity and terminal status on the world record", () => {
     const snapshot = createTestSnapshot({ count: 1 });
-    const record = createWorldRecord("schema-hash", snapshot, 10, null);
+    const record = createWorldRecord("schema-hash", snapshot, null);
 
     expect(record.world.terminalStatus).toBe("completed");
-    expect(record.world.createdAt).toBe(10);
+    expect(record.world.parentWorldId).toBeNull();
   });
 
   it("prepareSealNext is read-only against existing store state", () => {

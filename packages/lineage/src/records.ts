@@ -2,17 +2,18 @@ import { assertLineage } from "./invariants.js";
 import {
   computeBranchId,
   computeEdgeId,
+  computeHash,
   computeSnapshotHash,
   computeWorldId,
   createSnapshotHashInput,
   deriveTerminalStatus,
 } from "./hash.js";
 import type {
-  ArtifactRef,
   BranchId,
   PersistedBranchEntry,
-  ProvenanceRef,
+  SealAttempt,
   SealGenesisInput,
+  SealNextInput,
   Snapshot,
   SnapshotHashInput,
   World,
@@ -29,9 +30,7 @@ export interface WorldRecordResult {
 export function createWorldRecord(
   schemaHash: string,
   terminalSnapshot: Snapshot,
-  createdAt: number,
-  createdBy: ProvenanceRef | null,
-  traceRef?: ArtifactRef
+  parentWorldId: WorldId | null
 ): WorldRecordResult {
   assertLineage(
     schemaHash === terminalSnapshot.meta.schemaHash,
@@ -41,7 +40,7 @@ export function createWorldRecord(
   const terminalStatus = deriveTerminalStatus(terminalSnapshot);
   const hashInput = createSnapshotHashInput(terminalSnapshot);
   const snapshotHash = computeSnapshotHash(terminalSnapshot);
-  const worldId = computeWorldId(schemaHash, snapshotHash);
+  const worldId = computeWorldId(schemaHash, snapshotHash, parentWorldId);
 
   return {
     worldId,
@@ -50,28 +49,17 @@ export function createWorldRecord(
       worldId,
       schemaHash,
       snapshotHash,
+      parentWorldId,
       terminalStatus,
-      createdAt,
-      createdBy,
-      executionTraceRef: traceRef,
     },
   };
 }
 
-export function createWorldEdge(
-  from: WorldId,
-  to: WorldId,
-  createdAt: number,
-  proposalRef?: ProvenanceRef,
-  decisionRef?: ProvenanceRef
-): WorldEdge {
+export function createWorldEdge(from: WorldId, to: WorldId): WorldEdge {
   return {
     edgeId: computeEdgeId(from, to),
     from,
     to,
-    proposalRef,
-    decisionRef,
-    createdAt,
   };
 }
 
@@ -83,10 +71,49 @@ export function createGenesisBranchEntry(input: SealGenesisInput, worldId: World
     id: branchId,
     name: branchName,
     head: worldId,
+    tip: worldId,
+    headAdvancedAt: input.createdAt,
     epoch: 0,
     schemaHash: input.schemaHash,
     createdAt: input.createdAt,
-    parentBranch: undefined,
-    lineage: [branchId],
+  };
+}
+
+export function createSealGenesisAttempt(
+  branchId: BranchId,
+  worldId: WorldId,
+  input: SealGenesisInput
+): SealAttempt {
+  return {
+    attemptId: computeHash({ worldId, branchId, createdAt: input.createdAt }),
+    worldId,
+    branchId,
+    baseWorldId: null,
+    parentWorldId: null,
+    proposalRef: input.proposalRef,
+    createdAt: input.createdAt,
+    traceRef: input.traceRef,
+    reused: false,
+  };
+}
+
+export function createSealNextAttempt(
+  branchId: BranchId,
+  worldId: WorldId,
+  parentWorldId: WorldId,
+  input: SealNextInput
+): SealAttempt {
+  return {
+    attemptId: computeHash({ worldId, branchId, createdAt: input.createdAt }),
+    worldId,
+    branchId,
+    baseWorldId: input.baseWorldId,
+    parentWorldId,
+    proposalRef: input.proposalRef,
+    decisionRef: input.decisionRef,
+    createdAt: input.createdAt,
+    traceRef: input.traceRef,
+    patchDelta: input.patchDelta,
+    reused: false,
   };
 }

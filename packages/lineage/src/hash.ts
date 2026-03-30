@@ -2,7 +2,7 @@ import type { ErrorValue, Requirement, Snapshot } from "@manifesto-ai/core";
 import { sha256Sync, toJcs } from "@manifesto-ai/core";
 import { assertLineage } from "./invariants.js";
 import type {
-  ErrorSignature,
+  CurrentErrorSignature,
   SnapshotHashInput,
   TerminalStatus,
   WorldId,
@@ -89,29 +89,14 @@ export function normalizeContext(ctx: Record<string, unknown>): Record<string, u
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
-export function toErrorSignature(error: ErrorValue): ErrorSignature {
+export function toCurrentErrorSignature(error: ErrorValue): CurrentErrorSignature {
   return {
     code: error.code,
     source: {
       actionId: error.source.actionId,
       nodePath: error.source.nodePath,
     },
-    context: error.context ? normalizeContext(error.context) : undefined,
   };
-}
-
-export function sortErrorSignatures(signatures: readonly ErrorSignature[]): readonly ErrorSignature[] {
-  return [...signatures].sort((left, right) => {
-    const leftHash = computeHash(left);
-    const rightHash = computeHash(right);
-    if (leftHash < rightHash) {
-      return -1;
-    }
-    if (leftHash > rightHash) {
-      return 1;
-    }
-    return 0;
-  });
 }
 
 export function computePendingDigest(pendingRequirements: readonly Requirement[]): string {
@@ -128,7 +113,9 @@ export function createSnapshotHashInput(snapshot: Snapshot): SnapshotHashInput {
     data: stripPlatformNamespaces(snapshot.data as Record<string, unknown>),
     system: {
       terminalStatus: deriveTerminalStatus(snapshot),
-      errors: sortErrorSignatures(snapshot.system.errors.map(toErrorSignature)),
+      currentError: snapshot.system.lastError == null
+        ? null
+        : toCurrentErrorSignature(snapshot.system.lastError),
       pendingDigest: computePendingDigest(snapshot.system.pendingRequirements),
     },
   };
@@ -138,8 +125,12 @@ export function computeSnapshotHash(snapshot: Snapshot): string {
   return computeHash(createSnapshotHashInput(snapshot));
 }
 
-export function computeWorldId(schemaHash: string, snapshotHash: string): WorldId {
-  return computeHash({ schemaHash, snapshotHash });
+export function computeWorldId(
+  schemaHash: string,
+  snapshotHash: string,
+  parentWorldId: WorldId | null
+): WorldId {
+  return computeHash({ schemaHash, snapshotHash, parentWorldId });
 }
 
 export function computeBranchId(branchName: string, worldId: WorldId): string {

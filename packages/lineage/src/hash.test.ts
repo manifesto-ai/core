@@ -105,8 +105,11 @@ describe("@manifesto-ai/lineage hash", () => {
 
   it("computes deterministic world ids", () => {
     const snapshotHash = computeSnapshotHash(createTestSnapshot({ count: 1 }));
-    expect(computeWorldId("schema-hash", snapshotHash)).toBe(
-      computeWorldId("schema-hash", snapshotHash)
+    expect(computeWorldId("schema-hash", snapshotHash, null)).toBe(
+      computeWorldId("schema-hash", snapshotHash, null)
+    );
+    expect(computeWorldId("schema-hash", snapshotHash, "parent-a")).not.toBe(
+      computeWorldId("schema-hash", snapshotHash, "parent-b")
     );
   });
 });
