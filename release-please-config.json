@@ -77,8 +77,16 @@
       "package-name": "@manifesto-ai/core",
       "changelog-path": "CHANGELOG.md"
     },
+    "packages/governance": {
+      "package-name": "@manifesto-ai/governance",
+      "changelog-path": "CHANGELOG.md"
+    },
     "packages/host": {
       "package-name": "@manifesto-ai/host",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/lineage": {
+      "package-name": "@manifesto-ai/lineage",
       "changelog-path": "CHANGELOG.md"
     },
     "packages/sdk": {
