@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/lineage",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Manifesto Lineage - split-native lineage identity, branch, and seal protocol",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
