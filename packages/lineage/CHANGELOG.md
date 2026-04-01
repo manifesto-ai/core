@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.1](https://github.com/manifesto-ai/core/compare/lineage-v3.1.0...lineage-v3.1.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* harden lineage config and finalize recovery ([1742398](https://github.com/manifesto-ai/core/commit/1742398121fefce13ff534d2ffaafd124f7e445a))
+* preserve governed seal outcomes and execution keys ([dc40be6](https://github.com/manifesto-ai/core/commit/dc40be6ebd1a5ed2dfdd194693e3efd240f54019))
+
 ## [3.1.0](https://github.com/manifesto-ai/core/compare/lineage-v3.0.0...lineage-v3.1.0) (2026-04-01)
 
 
