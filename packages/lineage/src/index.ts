@@ -1,4 +1,5 @@
 export type * from "./types.js";
+export type * from "./runtime-types.js";
 
 export {
   computeHash,
@@ -33,3 +34,4 @@ export {
 
 export { InMemoryLineageStore, createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 export { DefaultLineageService, createLineageService } from "./service/lineage-service.js";
+export { withLineage } from "./with-lineage.js";

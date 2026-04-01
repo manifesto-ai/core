@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/lineage",
-  "version": "0.1.1",
-  "description": "Manifesto Lineage - split-native lineage identity, branch, and seal protocol",
+  "version": "3.0.0",
+  "description": "Manifesto Lineage - decorator runtime for seal-aware continuity, history, and restore",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -27,6 +27,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js"
     }
   },
   "scripts": {
@@ -38,6 +42,9 @@
   },
   "peerDependencies": {
     "@manifesto-ai/core": "^2.0.0"
+  },
+  "dependencies": {
+    "@manifesto-ai/sdk": "workspace:*"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",

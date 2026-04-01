@@ -1,44 +1,48 @@
 # @manifesto-ai/lineage
 
-> Split-native lineage protocol for identity, history, and sealing.
+> Seal-aware continuity for the ADR-017 decorator runtime.
 
-`@manifesto-ai/lineage` is the package to use when you need deterministic world identity, branch history, and snapshot sealing directly. It is the lower substrate that `@manifesto-ai/governance` and `@manifesto-ai/world` build on.
+`@manifesto-ai/lineage` is the package that adds time, history, and restore to a composable manifesto.
 
-> **Current Contract Note:** The current public package contract is documented in [docs/lineage-SPEC-2.0.0v.md](docs/lineage-SPEC-2.0.0v.md). The v1.x lineage docs remain available as historical split-era baselines.
+> **Current Contract Note:** The truthful current package contract is [docs/lineage-SPEC-v3.0.0-draft.md](docs/lineage-SPEC-v3.0.0-draft.md). The v2 lineage spec remains as the historical service-first baseline.
 
 ## What This Package Owns
 
-- snapshot and world identity computation
-- branch, head, and epoch reads
-- seal protocol and prepared commits
-- lineage persistence and replay
-- in-memory lineage storage
+- `withLineage(createManifesto(...), config).activate()`
+- lineage-aware `dispatchAsync` that seals before publication
+- restore, head, branch, and world queries on the activated runtime
+- `LineageStore`, `LineageService`, and sealing substrate
+- deterministic world identity, branch semantics, and restore normalization
 
-## When to Use It
+## Canonical Path
 
-Use `@manifesto-ai/lineage` directly when you want:
+```ts
+import { createManifesto } from "@manifesto-ai/sdk";
+import { withLineage, createInMemoryLineageStore } from "@manifesto-ai/lineage";
 
-- world history without governance
-- deterministic identity and resume support
-- custom persistence or replay tooling
-- isolated tests for hashing, branch, and sealing behavior
+const manifesto = createManifesto<CounterDomain>(schema, effects);
+const world = withLineage(manifesto, {
+  store: createInMemoryLineageStore(),
+}).activate();
 
-## Quick Start
+await world.dispatchAsync(
+  world.createIntent(world.MEL.actions.increment),
+);
 
-```typescript
-import {
-  createInMemoryLineageStore,
-  createLineageService,
-} from "@manifesto-ai/lineage";
-
-const store = createInMemoryLineageStore();
-const lineage = createLineageService(store);
+const head = await world.getLatestHead();
+if (head) {
+  await world.restore(head.worldId);
+}
 ```
+
+## Low-Level Usage
+
+`LineageService` and `LineageStore` remain public. Use them directly when you need hashing, prepared commits, branch inspection, or custom persistence without the activated runtime wrapper.
 
 ## Docs
 
 - [Docs Landing](docs/README.md)
 - [Lineage Guide](docs/GUIDE.md)
-- [Lineage Specification](docs/lineage-SPEC-2.0.0v.md)
-- [Historical v1 Baseline](docs/lineage-SPEC-1.0.1v.md)
+- [Lineage Specification](docs/lineage-SPEC-v3.0.0-draft.md)
+- [Historical v2 Service-First SPEC](docs/lineage-SPEC-2.0.0v.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)
