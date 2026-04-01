@@ -1,19 +1,12 @@
 # Governed Sealing and History
 
-> See how a proposal becomes a sealed world, and how lineage records that result.
->
-> **Current Contract Note:** This tutorial follows the current World facade v2.0.0 surface, which composes Governance v2.0.0 and Lineage v2.0.0 on top of the current Core v4 Snapshot contract.
-
----
+> See how a governed proposal becomes sealed history under the decorator runtime.
 
 ## What You'll Learn
 
 - how a governed proposal moves toward execution
-- how `sealGenesis()` differs from `sealNext()`
-- how finalization and rejection fit into the sealing flow
-- how to read branch, head, and history state after commit
-
----
+- how approval and rejection fit into the sealing flow
+- how to read branch, head, and restored snapshot state after commit
 
 ## Prerequisites
 
@@ -21,145 +14,53 @@
 - You already know the governed runtime assembly
 - You want to understand the operational flow after a proposal is created
 
----
-
 ## 1. Create The Governed Request
 
 ```typescript
-import { createIntentInstance } from "@manifesto-ai/world";
-
-const intent = await createIntentInstance({
-  body: {
-    type: "todo.add",
-    input: { title: "Ship the history tutorial" },
-  },
-  schemaHash: "todo-v1",
-  projectionId: "todo-ui",
-  source: { kind: "agent", eventId: "evt-2" },
-  actor: { actorId: "agent-1", kind: "agent" },
-});
-```
-
-This is the governed input. It is not the same thing as a plain SDK `Intent`.
-
----
-
-## 2. Create And Evaluate The Proposal
-
-```typescript
-const branch = world.lineage.getActiveBranch();
-
-const proposal = world.governance.createProposal({
-  baseWorld: branch.head,
-  branchId: branch.id,
-  actorId: intent.meta.origin.actor.actorId,
-  authorityId: "auth-auto",
-  intent: {
-    type: intent.body.type,
-    intentId: intent.intentId,
-    input: intent.body.input,
-    scopeProposal: intent.body.scopeProposal,
-  },
-  executionKey: intent.intentKey,
-  submittedAt: Date.now(),
-  epoch: branch.epoch,
-});
-
-const approved = world.governance.prepareAuthorityResult(
-  { ...proposal, status: "evaluating" },
-  { kind: "approved", approvedScope: null },
-  {
-    currentEpoch: branch.epoch,
-    currentBranchHead: branch.head,
-    decidedAt: Date.now(),
-  },
+const intent = governed.createIntent(
+  governed.MEL.actions.addTodo,
+  "Ship the history tutorial",
 );
+```
 
-if (!approved.decisionRecord) {
-  throw new Error("expected decision record");
+This is still a typed runtime `Intent`. Governance adds legitimacy and proposal semantics when the runtime receives it.
+
+## 2. Submit And Inspect The Proposal
+
+```typescript
+const proposal = await governed.proposeAsync(intent);
+```
+
+At this point the proposal is either already terminal, or it is pending review.
+
+## 3. Resolve Pending Work
+
+```typescript
+if (proposal.status === "pending") {
+  await governed.approve(proposal.proposalId);
 }
-
-const executingProposal = {
-  ...approved.proposal,
-  status: "executing" as const,
-  decisionId: approved.decisionRecord.decisionId,
-  decidedAt: approved.decisionRecord.decidedAt,
-};
-
-world.store.putProposal(executingProposal);
-world.store.putDecisionRecord(approved.decisionRecord);
 ```
 
-The proposal and decision stay explicit. In a real app, a controller or approval workflow owns this handoff from `submitted` to `executing`.
+If the governing policy rejects instead, use `reject(proposalId, reason)` and no seal occurs.
 
----
-
-## 3. Seal The Result
-
-Use `sealGenesis()` when you are bootstrapping the first sealed world, and `sealNext()` when you are advancing an existing branch head.
+## 4. Read Sealed History
 
 ```typescript
-const sealedNext = world.coordinator.sealNext({
-  executingProposal,
-  completedAt: Date.now(),
-  sealInput: {
-    schemaHash: "todo-v1",
-    baseWorldId: branch.head,
-    branchId: branch.id,
-    terminalSnapshot,
-    createdAt: Date.now(),
-    proposalRef: executingProposal.proposalId,
-    decisionRef: approved.decisionRecord.decisionId,
-  },
-});
+const head = await governed.getLatestHead();
+const restored = head ? await governed.restore(head.worldId) : null;
 ```
 
-In the current facade surface, `sealInput` can still carry `proposalRef` and `decisionRef`, but durable per-attempt provenance lives on the persisted `SealAttempt` record. Branch continuity is also split across `head`, `tip`, and `headAdvancedAt`, so failed seals advance chronology without falsely advancing the completed head.
+Lineage only publishes the new visible snapshot after seal commit succeeds. That is the key difference from the base runtime.
 
-If you need the first seal to bypass governance entirely, use standalone genesis:
+## 5. Inspect Branch State
 
 ```typescript
-const sealedGenesis = world.coordinator.sealGenesis({
-  kind: "standalone",
-  sealInput: {
-    schemaHash: "todo-v1",
-    terminalSnapshot: initialSnapshot,
-    createdAt: Date.now(),
-  },
-});
+const branch = await governed.getActiveBranch();
+const heads = await governed.getHeads();
 ```
 
-If a seal is rejected, governance still finalizes the rejected outcome so the failure is visible in the record stream.
-
----
-
-## 4. Read Branch And History State
-
-```typescript
-const activeBranch = world.lineage.getActiveBranch();
-const heads = world.lineage.getHeads();
-const latestHead = world.lineage.getLatestHead();
-const restored = latestHead
-  ? world.lineage.restore(latestHead.worldId)
-  : null;
-const graph = world.lineage.getLineage();
-```
-
-Current head queries still answer the completed-head question, while `tip` and `headAdvancedAt` carry the broader branch chronology in the current Lineage / World facade contract.
-
-Sealed history is what makes audit and replay useful. The current Snapshot tells you the state now. Lineage tells you how that state became the current one.
-
----
-
-## 5. Standalone Genesis Versus Governed Genesis
-
-- Use standalone genesis when you only need to establish the first world state.
-- Use governed genesis when you want the first seal to go through the same legitimacy and event flow as later seals.
-
-The difference is policy, not data shape.
-
----
+These queries let you inspect the sealed continuity state after proposal execution.
 
 ## Next
 
-Return to [Governed Composition](./05-governed-composition) if you want the assembly details again, or jump back to [World](../concepts/world) for the conceptual model.
+Go back to [Guides](/guides/) when you need concrete production techniques, or to [Lineage API](/api/lineage) and [Governance API](/api/governance) for package-level details.

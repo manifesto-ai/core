@@ -308,7 +308,7 @@ Runtime -> HOST (v2.0.2) -> Core
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
 | Used by | `@manifesto-ai/sdk` | SDK creates Host internally via createManifesto() |
-| Used by | `@manifesto-ai/world` | World uses Host to execute via WorldExecutor |
+| Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Governed decorators execute through the SDK/Host runtime chain |
 
 ---
 
@@ -322,7 +322,7 @@ Use Host directly when:
 - Building CLI tools or scripts
 - Implementing custom execution policies
 
-For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit governance workflows, see [`@manifesto-ai/world`](../world/).
+For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit governance workflows, see [`@manifesto-ai/lineage`](../lineage/) and [`@manifesto-ai/governance`](../governance/).
 
 ---
 

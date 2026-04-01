@@ -2,7 +2,7 @@
 
 **Semantic Layer for Deterministic Domain State**
 
-Manifesto gives you one semantic model for deterministic domain state, traceable history, and explicit governance. Use the SDK when you want the shortest path to a running app. Use `@manifesto-ai/world` when you want the canonical governed composition surface.
+Manifesto gives you one semantic model for deterministic domain state, traceable history, and explicit governance. Use the SDK when you want the shortest path to a running app. Add Lineage and Governance decorators when you need sealing, history, and proposal legitimacy.
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/core.svg)](https://www.npmjs.com/package/@manifesto-ai/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -13,10 +13,10 @@ Manifesto gives you one semantic model for deterministic domain state, traceable
 
 | Path | Use it when | Start here |
 |------|-------------|------------|
-| **Direct-dispatch SDK** | You want the shortest onboarding path and do not need explicit governance composition | [`@manifesto-ai/sdk`](./docs/api/sdk.md) |
-| **Governed composition** | You want explicit lineage, authority, and sealing behavior | [`@manifesto-ai/world`](./docs/api/world.md) |
+| **Base runtime** | You want the shortest onboarding path and present-only execution | [`@manifesto-ai/sdk`](./docs/api/sdk.md) |
+| **Governed composition** | You want explicit lineage, authority, and sealing behavior | [`@manifesto-ai/lineage`](./docs/api/lineage.md) + [`@manifesto-ai/governance`](./docs/api/governance.md) |
 
-### 1. Direct-Dispatch SDK
+### 1. Base Runtime
 
 ```mel
 domain Counter {
@@ -29,49 +29,52 @@ domain Counter {
 ```
 
 ```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const app = createManifesto({ schema: CounterMel, effects: {} });
+const manifesto = createManifesto(CounterMel, {});
+const app = manifesto.activate();
 
-await dispatchAsync(app, createIntent("increment", "intent-1"));
+await app.dispatchAsync(
+  app.createIntent(app.MEL.actions.increment),
+);
 console.log(app.getSnapshot().data.count); // 1
 ```
 
 ### 2. Governed Composition
 
 ```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createIntentInstance,
-  createLineageService,
-  createSqliteWorldStore,
-  createWorld,
-} from "@manifesto-ai/world";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
 
-const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, { lineageService: lineage });
-const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-  executor,
-});
+const governed = withGovernance(
+  withLineage(createManifesto(CounterMel, {}), {
+    store: createInMemoryLineageStore(),
+  }),
+  {
+    governanceStore: createInMemoryGovernanceStore(),
+    bindings: [
+      {
+        actorId: "actor:auto",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "counter-ui",
+      deriveActor: () => ({ actorId: "actor:auto", kind: "agent" }),
+      deriveSource: () => ({ kind: "ui", eventId: crypto.randomUUID() }),
+    },
+  },
+).activate();
 
-const intent = await createIntentInstance({
-  body: { type: "counter.increment" },
-  schemaHash: "counter-v1",
-  projectionId: "counter-ui",
-  source: { kind: "ui", eventId: "evt-1" },
-  actor: { actorId: "user-1", kind: "human" },
-  intentId: "intent-1",
-});
+const proposal = await governed.proposeAsync(
+  governed.createIntent(governed.MEL.actions.increment),
+);
 ```
 
-For the full Node-local bootstrap path, see [examples/governed-minimal-node](./examples/governed-minimal-node/README.md).
+The old world facade and its adapter subpaths were removed. There is no Phase 4 drop-in replacement for the old `world/sqlite` style bootstrap.
 
 ---
 
@@ -79,8 +82,9 @@ For the full Node-local bootstrap path, see [examples/governed-minimal-node](./e
 
 Manifesto is a semantic layer for deterministic domain state. You declare the meaning of your domain once, and then choose the surface you want to use:
 
-- `@manifesto-ai/sdk` for direct-dispatch applications
-- `@manifesto-ai/world` for governed composition, lineage, and authority
+- `@manifesto-ai/sdk` for activation-first base runtime
+- `@manifesto-ai/lineage` for continuity, sealing, and history
+- `@manifesto-ai/governance` for legitimacy, proposal flow, and approval
 
 The core equation stays the same:
 
@@ -104,8 +108,9 @@ It is pure, total, and traceable.
 ## Where To Go Next
 
 - [Quickstart](./docs/quickstart.md)
-- [World API](./docs/api/world.md)
 - [SDK API](./docs/api/sdk.md)
+- [Lineage API](./docs/api/lineage.md)
+- [Governance API](./docs/api/governance.md)
 - [Guides](./docs/guides/index.md)
 - [Architecture](./docs/architecture/index.md)
 - [Internals](./docs/internals/index.md)

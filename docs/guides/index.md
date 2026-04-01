@@ -13,7 +13,7 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 | [Bundler Setup](./bundler-setup) | You need to configure Vite, Next.js, Webpack, or another bundler for `.mel` files |
 | [Codex Skills Setup](./codex-skills) | You want Codex to load Manifesto-specific guidance from `@manifesto-ai/skills` |
 | [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
-| [Governed Composition](./governed-composition) | You want to assemble lineage, governance, and the World facade explicitly |
+| [Governed Composition](./governed-composition) | You want to compose Lineage and Governance decorators explicitly |
 | [Debugging](./debugging) | A dispatch does not do what you expected |
 | [Release Hardening](./release-hardening) | You need the current release gate, known limitations, or operator checks |
 | [Upgrade to Next Major](./upgrade-next-major) | You are moving app/runtime code onto the hard-cut next-major surface |
@@ -50,9 +50,10 @@ These guides are preserved for project history or retired migration paths. They 
 
 ## What These Guides Assume
 
-- You use `createManifesto()` for direct-dispatch apps, or `createWorld()` for governed composition
-- You create intents with `createIntent()` or `createIntentInstance()`
-- You observe outcomes through `subscribe()`, `on()`, `dispatchAsync()`, or explicit World sealing APIs
+- You use `createManifesto()` and `activate()` for base runtime apps
+- You add `withLineage()` and `withGovernance()` only when the app needs governed composition
+- You create intents through an activated runtime or low-level governance helpers
+- You observe outcomes through subscriptions, runtime events, governed proposals, and lineage/governance query APIs
 - You treat Snapshot as the single source of truth
 
 ---

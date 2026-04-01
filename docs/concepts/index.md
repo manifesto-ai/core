@@ -11,12 +11,18 @@ Manifesto is a semantic layer for deterministic domain state. You declare what y
 ```
 caller
   -> choose runtime
-     -> SDK direct dispatch
+     -> SDK base runtime
+        -> activate()
+        -> createIntent(MEL.actions.*)
+        -> dispatchAsync()
         -> Host
         -> Core
         -> Snapshot
      -> Governed composition
-        -> World facade
+        -> withLineage()
+        -> withGovernance()
+        -> activate()
+        -> proposeAsync()
         -> Governance + Lineage
         -> Host
         -> Core
@@ -35,7 +41,7 @@ caller -> SDK -> Host -> Core -> Snapshot
 
 ### Governed Composition
 
-Use top-level `@manifesto-ai/world` when you need explicit legitimacy and continuity.
+Use Lineage and Governance decorators when you need explicit legitimacy and continuity.
 
 ```text
 actor -> Governance -> Host -> Core -> Snapshot
@@ -101,7 +107,7 @@ Simpler alternatives exist for:
 | [Intent](./intent.md) | Request to perform a domain action | Intents are proposals, not commands |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they don't execute |
 | [Effect](./effect.md) | Declaration of external operation | Core declares, Host fulfills |
-| [World](./world.md) | Governed composition over governance + lineage | World composes legitimacy, continuity, and sealing |
+| [World](./world.md) | Governed composition over governance + lineage | Governed composition makes legitimacy, continuity, and sealing explicit |
 
 ---
 
@@ -122,10 +128,10 @@ compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 
 | What You Want | Which Concept | Where to Start |
 |---------------|---------------|----------------|
-| Run a domain quickly | Direct dispatch | `@manifesto-ai/sdk` |
-| Add governance and lineage | World | `@manifesto-ai/world` |
+| Run a domain quickly | Base runtime | `@manifesto-ai/sdk` |
+| Add governance and lineage | World | `@manifesto-ai/lineage` + `@manifesto-ai/governance` |
 | Store domain state | Snapshot | `snapshot.data` |
-| Request state change | Intent | `createIntent()` or `createIntentInstance()` |
+| Request state change | Intent | `instance.createIntent(...)` or `createIntentInstance()` |
 | Describe computation | Flow | MEL `action`, `when`, `once` |
 | Perform IO | Effect | MEL `effect type.name({ into: path })` |
 

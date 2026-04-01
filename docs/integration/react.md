@@ -124,25 +124,31 @@ Use that for form submissions or flows where the UI should wait for a terminal s
 Keep the governed assembly in a separate runtime module and let React read snapshots from it.
 
 ```typescript
-// world-runtime.ts
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
+// governed-runtime.ts
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
 
-const store = createInMemoryWorldStore();
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, { lineageService: lineage });
-
-export const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-});
+export const governed = withGovernance(
+  withLineage(createManifesto(todoSchema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
+  {
+    governanceStore: createInMemoryGovernanceStore(),
+    bindings: [
+      {
+        actorId: "actor:auto",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "todo-ui",
+      deriveActor: () => ({ actorId: "actor:auto", kind: "human" }),
+      deriveSource: () => ({ kind: "ui", eventId: crypto.randomUUID() }),
+    },
+  },
+).activate();
 ```
 
 React should still render Snapshot slices. The governed runtime can sit beside React, in a bootstrap module or server-facing controller, while the component tree stays read-focused.

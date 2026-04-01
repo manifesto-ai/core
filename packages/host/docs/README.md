@@ -151,7 +151,7 @@ World -> HOST -> Core
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
-| Used by | `@manifesto-ai/world` | World uses Host to execute |
+| Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Governed decorators execute through the SDK/Host runtime chain |
 
 ---
 
@@ -164,7 +164,7 @@ Use Host directly when:
 - Testing effect handlers in isolation
 - Building CLI tools or scripts
 
-For typical usage with governance, see [`@manifesto-ai/world`](../world/).
+For typical usage with governance, see [`@manifesto-ai/lineage`](../lineage/) and [`@manifesto-ai/governance`](../governance/).
 
 ---
 

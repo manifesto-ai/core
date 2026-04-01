@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Manifesto
   text: Semantic Layer for Deterministic Domain State
-  tagline: Define meaning once - use the SDK for the shortest path or the World facade for governed composition.
+  tagline: Define meaning once - use the SDK for the shortest path, then add Lineage and Governance only when you need governed history.
   actions:
     - theme: brand
       text: Quickstart
@@ -33,14 +33,14 @@ features:
 
 ## Choose Your Runtime
 
-Manifesto has two supported entry paths:
+Manifesto has one base runtime and one governed composition direction:
 
 | Path | Package | When to use |
 |------|---------|-------------|
-| **Direct-dispatch** | `@manifesto-ai/sdk` | You want the shortest path to a working app |
-| **Governed composition** | `@manifesto-ai/world` | You need lineage, authority, and explicit sealing |
+| **Base runtime** | `@manifesto-ai/sdk` | You want the shortest path to a working app |
+| **Governed composition** | `@manifesto-ai/lineage` + `@manifesto-ai/governance` | You need lineage, authority, and explicit sealing |
 
-The SDK is the fastest way to start. The World facade is the canonical governed surface.
+The SDK is the fastest way to start. Governed composition now means decorating the same manifesto before activation.
 
 ## Quick Example
 
@@ -54,11 +54,11 @@ domain Counter {
 ```
 
 ```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import CounterSchema from "./counter.mel";
 
-const app = createManifesto({ schema: CounterSchema, effects: {} });
-await dispatchAsync(app, createIntent("increment", "intent-1"));
+const app = createManifesto(CounterSchema, {}).activate();
+await app.dispatchAsync(app.createIntent(app.MEL.actions.increment));
 console.log(app.getSnapshot().data.count); // 1
 ```
 
@@ -68,7 +68,7 @@ console.log(app.getSnapshot().data.count); // 1
 |------|------|------|
 | **Install and run** | [Quickstart](/quickstart) | 5 min |
 | **Learn the model** | [Concepts](/concepts/) | 15 min |
-| **Use governed composition** | [Governed Composition](/tutorial/05-governed-composition) | 15 min |
+| **Add governed composition** | [Governed Composition](/tutorial/05-governed-composition) | 15 min |
 | **Read the API** | [API Reference](/api/) | Browse |
 
 ## Installation
@@ -77,7 +77,7 @@ console.log(app.getSnapshot().data.count); // 1
 npm install @manifesto-ai/sdk @manifesto-ai/compiler
 ```
 
-Use `@manifesto-ai/sdk` for direct-dispatch apps. Use `@manifesto-ai/world` when you want governed composition as a first-class runtime surface.
+Add `@manifesto-ai/lineage` and `@manifesto-ai/governance` only if the app needs continuity and legitimacy on top of the same base runtime.
 
 ## Go Deeper
 

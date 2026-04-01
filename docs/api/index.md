@@ -4,12 +4,12 @@
 
 ## Start Here
 
-Manifesto now has two first-class public entry paths:
+Manifesto now has one landed application entry path and one governed composition direction under ADR-017:
 
 | Path | Package | Use When |
 |------|---------|----------|
-| **Direct dispatch** | [@manifesto-ai/sdk](./sdk) | You want the shortest application path with `createManifesto()` |
-| **Governed composition** | [@manifesto-ai/world](./world) | You need governance, lineage, sealing, and explicit world assembly |
+| **Base runtime** | [@manifesto-ai/sdk](./sdk) | You want the activation-first app path with `createManifesto()` and `activate()` |
+| **Governed composition direction** | [@manifesto-ai/lineage](./lineage) + [@manifesto-ai/governance](./governance) | You are following the decorator path that adds continuity and legitimacy before activation |
 
 ## Package Map
 
@@ -17,15 +17,14 @@ Manifesto now has two first-class public entry paths:
 
 | Package | Responsibility |
 |---------|----------------|
-| [@manifesto-ai/sdk](./sdk) | Direct-dispatch runtime, thin public API, selected world re-exports |
-| [@manifesto-ai/world](./world) | Canonical governed composition surface, plus full governance and lineage re-exports |
+| [@manifesto-ai/sdk](./sdk) | Activation-first base runtime entry, typed MEL surface, and present-only execution |
 
 ### Split Protocol Packages
 
 | Package | Responsibility |
 |---------|----------------|
-| [@manifesto-ai/governance](./governance) | Proposal lifecycle, authority evaluation, decision records, governance events |
-| [@manifesto-ai/lineage](./lineage) | World identity, branch/head state, sealing continuity, replay and queries |
+| [@manifesto-ai/governance](./governance) | `withGovernance()` decorator runtime, proposal lifecycle, approval flow, decision records, governance events |
+| [@manifesto-ai/lineage](./lineage) | `withLineage()` decorator runtime, world identity, branch/head state, sealing continuity, restore and queries |
 
 ### Core Runtime Packages
 
@@ -40,13 +39,13 @@ Manifesto now has two first-class public entry paths:
 
 ```mermaid
 flowchart TB
-  APP["Your Application"] --> CHOICE{"Which runtime?"}
-  CHOICE --> SDK["@manifesto-ai/sdk"]
-  CHOICE --> WORLD["@manifesto-ai/world"]
-  SDK --> HOST["@manifesto-ai/host"]
-  WORLD --> GOV["@manifesto-ai/governance"]
-  WORLD --> LIN["@manifesto-ai/lineage"]
-  WORLD --> HOST
+  APP["Your Application"] --> SDK["createManifesto()"]
+  SDK --> ACT["activate()"]
+  SDK --> LIN["withLineage()"]
+  LIN --> GOV["withGovernance()"]
+  LIN --> ACT
+  GOV --> ACT
+  ACT --> HOST["@manifesto-ai/host"]
   HOST --> CORE["@manifesto-ai/core"]
   GOV --> LIN
   COMP["@manifesto-ai/compiler"] --> CORE
@@ -54,39 +53,27 @@ flowchart TB
 
 ## Quick Orientation
 
-### Direct Dispatch
+### Base Runtime
 
 ```typescript
-import { createIntent, createManifesto } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 
-const manifesto = createManifesto({
-  schema: domainSchema,
-  effects: {},
-});
+const manifesto = createManifesto<CounterDomain>(domainSchema, {});
+const world = manifesto.activate();
 
-manifesto.dispatch(createIntent("increment", "intent-1"));
+await world.dispatchAsync(
+  world.createIntent(world.MEL.actions.increment),
+);
 ```
 
-### Governed Composition
+### Governed Composition Direction
 
 ```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
-
-const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, { lineageService: lineage });
-const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-});
+// ADR-017 direction
+// createManifesto(schema, effects)
+//   -> withLineage(...)
+//   -> withGovernance(...)
+//   -> activate()
 ```
 
 ## Related Docs
@@ -96,3 +83,5 @@ const world = createWorld({
 - [Release Hardening Guide](/guides/release-hardening)
 - [Next-Major Upgrade Guide](/guides/upgrade-next-major)
 - [Specifications](/internals/spec/)
+
+Historical note: the old world facade was removed from the active workspace; see [@manifesto-ai/world](./world) only for the tombstone page.

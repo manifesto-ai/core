@@ -1,68 +1,68 @@
 # Governed Composition
 
-> Assemble a local governed runtime with top-level `@manifesto-ai/world`.
+> Assemble governed composition directly from SDK, Lineage, and Governance.
 
 Use governed composition when you need explicit proposal approval, lineage continuity, sealed worlds, or auditable runtime events. If you only need direct dispatch, stay on `@manifesto-ai/sdk` and `createManifesto()`.
 
-## The Node-Local Path
+## The Current Path
 
-For the first governed consumer path, use:
+The current governed path is:
 
-- `createSqliteWorldStore()` from `@manifesto-ai/world/sqlite` for local durability
-- `createLineageService()` for continuity
-- `createGovernanceService()` for proposal lifecycle
-- `createWorld()` for the assembled runtime
-- `world.runtime.executeApprovedProposal()` for the canonical happy path
+1. create a composable manifesto with `createManifesto(schema, effects)`
+2. add continuity with `withLineage(...)`
+3. add legitimacy with `withGovernance(...)`
+4. call `activate()`
+5. submit governed work with `proposeAsync(...)`
 
 ## Minimal Assembly
 
 ```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
 
-const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, {
-  lineageService: lineage,
-});
-
-const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-  executor,
-});
+const governed = withGovernance(
+  withLineage(createManifesto(schema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
+  {
+    governanceStore: createInMemoryGovernanceStore(),
+    bindings: [
+      {
+        actorId: "actor:auto",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "counter-ui",
+      deriveActor: () => ({ actorId: "actor:auto", kind: "agent" }),
+      deriveSource: () => ({ kind: "ui", eventId: crypto.randomUUID() }),
+    },
+  },
+).activate();
 ```
 
 ## Canonical Flow
 
-1. Bootstrap the first sealed world with `world.coordinator.sealGenesis(...)`.
-2. Build an `IntentInstance` with actor/source metadata.
-3. Create a proposal and prepare an approval result.
-4. Persist the `executing` proposal and decision record.
-5. Call `world.runtime.executeApprovedProposal(...)`.
-6. Read the sealed result through `world.lineage.restore(...)`.
+1. Activate the decorated runtime.
+2. Create a typed intent from `governed.MEL.actions.*`.
+3. Call `proposeAsync(intent)`.
+4. Let Governance auto-approve or return a pending proposal.
+5. Read sealed history through Lineage queries such as `getLatestHead()` and `restore()`.
 
 ## Store Choices
 
-- `@manifesto-ai/world/sqlite` is the default Node-local durable path.
-- `@manifesto-ai/world/in-memory` is the fast ephemeral path for tests.
-- `@manifesto-ai/world/indexeddb` is the browser durable option.
+Use the store surfaces from the owning packages directly:
 
-The runtime assembly stays the same; only the store factory changes.
+- `createInMemoryLineageStore()` from `@manifesto-ai/lineage`
+- `createInMemoryGovernanceStore()` from `@manifesto-ai/governance`
 
-## Runnable Reference
-
-See `examples/governed-minimal-node` in the repository for the smallest end-to-end governed bootstrap in this repo.
+The old world-facade adapter story was removed. No direct replacement for `world/sqlite` or `world/indexeddb` was landed in this phase.
 
 ## See Also
 
 - [World API](/api/world)
 - [SDK API](/api/sdk)
-- `packages/world/docs/GUIDE.md`
+- [Lineage API](/api/lineage)
+- [Governance API](/api/governance)

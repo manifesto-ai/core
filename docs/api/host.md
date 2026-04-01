@@ -128,5 +128,6 @@ type EffectHandler = (
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure semantic computation |
-| [@manifesto-ai/world](./world) | Proposal governance and lineage |
-| [@manifesto-ai/sdk](./sdk) | High-level facade over Host |
+| [@manifesto-ai/sdk](./sdk) | Activation-first app runtime over Host |
+| [@manifesto-ai/lineage](./lineage) | Seal-aware continuity decorator layered over SDK + Host |
+| [@manifesto-ai/governance](./governance) | Proposal/approval decorator layered over Lineage + SDK + Host |

@@ -40,55 +40,37 @@ This path is appropriate when the agent is already trusted to act on the current
 
 ## 2. Governed Proposal Path
 
-When the agent needs explicit approval, create an intent instance and hand it to the governed runtime.
+When the agent needs explicit approval, compose Governance and Lineage first, then submit a proposal from the activated runtime.
 
 ```typescript
-import {
-  createIntentInstance,
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
 
-const store = createInMemoryWorldStore();
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, { lineageService: lineage });
-const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-});
-
-const intent = await createIntentInstance({
-  body: {
-    type: "todo.add",
-    input: { title: "Agent-authored task" },
+const agentRuntime = withGovernance(
+  withLineage(createManifesto(todoSchema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
+  {
+    governanceStore: createInMemoryGovernanceStore(),
+    bindings: [
+      {
+        actorId: "actor:agent",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "todo-agent",
+      deriveActor: () => ({ actorId: "actor:agent", kind: "agent" }),
+      deriveSource: () => ({ kind: "agent", eventId: crypto.randomUUID() }),
+    },
   },
-  schemaHash: "todo-v1",
-  projectionId: "todo-ui",
-  source: { kind: "agent", eventId: "evt-2" },
-  actor: { actorId: "agent-1", kind: "agent" },
-});
+).activate();
 
-const branch = world.lineage.getActiveBranch();
-const proposal = world.governance.createProposal({
-  baseWorld: branch.head,
-  branchId: branch.id,
-  actorId: intent.meta.origin.actor.actorId,
-  authorityId: "auth-auto",
-  intent: {
-    type: intent.body.type,
-    intentId: intent.intentId,
-    input: intent.body.input,
-    scopeProposal: intent.body.scopeProposal,
-  },
-  executionKey: intent.intentKey,
-  submittedAt: Date.now(),
-  epoch: branch.epoch,
-});
+const proposal = await agentRuntime.proposeAsync(
+  agentRuntime.createIntent(agentRuntime.MEL.actions.addTodo, "Agent-authored task"),
+);
 ```
 
 This current governed path uses `branch.head` as the public branch pointer exposed by the facade. The projected v2 drafts split continuity `tip` from `head` and move seal provenance into attempt records, but those changes are not current yet.

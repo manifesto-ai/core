@@ -102,7 +102,6 @@
     "@anthropic-ai/sdk": "^0.80.0",
     "@manifesto-ai/codegen": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/world": "workspace:*",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "dotenv": "^17.3.1",

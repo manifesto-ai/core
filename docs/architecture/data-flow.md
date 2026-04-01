@@ -10,8 +10,10 @@ In the default path, a caller submits an intent through the SDK:
 
 ```text
 caller
-  -> createIntent()
-  -> manifesto.dispatch()
+  -> createManifesto()
+  -> activate()
+  -> instance.createIntent(MEL.actions.*)
+  -> instance.dispatchAsync()
   -> Host
   -> Core
   -> terminal Snapshot
@@ -24,13 +26,13 @@ That is the core loop a new developer should keep in mind.
 
 ## Step by Step
 
-### 1. The caller creates an Intent
+### 1. The caller activates the runtime and creates an Intent
 
-Usually with `createIntent(type, input, intentId)`.
+Usually with `instance.createIntent(instance.MEL.actions.someAction, ...args)`.
 
 ### 2. SDK enqueues the work
 
-`dispatch()` is synchronous enqueue-only. It does not return the result of the action.
+`dispatchAsync()` is the canonical base execution path and resolves to the published terminal snapshot.
 
 ### 3. Host runs the compute/execution loop
 
@@ -70,17 +72,21 @@ The effect handler does not bypass Snapshot. Its output still lands as patches.
 
 ## Optional Governed Flow
 
-When you need explicit legitimacy and continuity, use top-level `@manifesto-ai/world`:
+When you need explicit legitimacy and continuity, decorate before activation:
 
 ```text
 participant
-  -> governed composition in @manifesto-ai/world
+  -> createManifesto()
+  -> withLineage()
+  -> withGovernance()
+  -> activate()
+  -> proposeAsync(intent)
   -> governance proposal / authority flow
   -> Host
   -> Core
   -> terminal Snapshot
-  -> coordinator seal
-  -> lineage + post-commit governance events
+  -> lineage seal
+  -> published snapshot + history
 ```
 
 That is a deliberate deployment choice, not an implicit part of the basic SDK onboarding path.
@@ -89,9 +95,9 @@ That is a deliberate deployment choice, not an implicit part of the basic SDK on
 
 ## What New Developers Should Remember
 
-- `dispatch()` submits work
+- `dispatchAsync()` submits and awaits base runtime work
 - Snapshot is the visible result
 - Effects still resolve through patches
-- governed World composition is optional and explicit
+- governed composition is optional and explicit
 
 If those four points are clear, the rest of the architecture follows naturally.
