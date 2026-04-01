@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.1](https://github.com/manifesto-ai/core/compare/sdk-v3.1.0...sdk-v3.1.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* preserve governed seal outcomes and execution keys ([dc40be6](https://github.com/manifesto-ai/core/commit/dc40be6ebd1a5ed2dfdd194693e3efd240f54019))
+* relax action shape upper bound ([c7204ea](https://github.com/manifesto-ai/core/commit/c7204eaa4a65e37d72ac70472d0c7a43e264a890))
+
 ## [3.1.0](https://github.com/manifesto-ai/core/compare/sdk-v3.0.0...sdk-v3.1.0) (2026-04-01)
 
 
