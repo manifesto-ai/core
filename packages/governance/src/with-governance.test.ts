@@ -534,6 +534,64 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 
+  it("falls back to a failed proposal when terminal proposal retries keep failing", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+
+    const policyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putProposal") {
+          return async (...args: Parameters<GovernanceStore["putProposal"]>) => {
+            const [proposal] = args;
+            if (proposal.status === "completed") {
+              throw new Error("completed proposals rejected");
+            }
+            return target.putProposal(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: policyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:terminal-fallback-failed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:terminal-fallback-failed",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("completed proposals rejected");
+
+    const activeBranch = await governed.getActiveBranch();
+    const latestHead = await governed.getLatestHead();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(stored[0]?.resultWorld).toBe(latestHead?.worldId);
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
   it("routes governed execution through the proposal execution key", async () => {
     lineageSealCalls.length = 0;
 

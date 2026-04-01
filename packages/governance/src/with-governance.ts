@@ -244,7 +244,16 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       if (!proposalPersisted) {
         try {
           if (terminalProposal) {
-            await governanceStore.putProposal(terminalProposal);
+            try {
+              await governanceStore.putProposal(terminalProposal);
+            } catch {
+              const failedProposal = governanceService.failExecution(
+                executingProposal,
+                getCurrentTimestamp(),
+                sealed?.preparedCommit.worldId,
+              );
+              await governanceStore.putProposal(failedProposal);
+            }
           } else {
             const failedProposal = governanceService.failExecution(
               executingProposal,
