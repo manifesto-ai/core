@@ -2,7 +2,7 @@
   "packages/codegen": "0.1.4",
   "packages/compiler": "1.9.0",
   "packages/core": "2.8.0",
-  "packages/governance": "3.1.0",
+  "packages/governance": "3.1.1",
   "packages/host": "2.5.0",
   "packages/lineage": "3.1.0",
   "packages/sdk": "3.1.0",
