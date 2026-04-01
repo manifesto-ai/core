@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.9.1](https://github.com/manifesto-ai/core/compare/compiler-v1.9.0...compiler-v1.9.1) (2026-04-01)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/codegen bumped to 0.1.5
+  * peerDependencies
+    * @manifesto-ai/codegen bumped from ^0.1.0 to ^0.1.5
+
 ## [1.9.0](https://github.com/manifesto-ai/core/compare/compiler-v1.8.3...compiler-v1.9.0) (2026-03-29)
 
 

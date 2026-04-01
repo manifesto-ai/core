@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/manifesto-ai/core/compare/codegen-v0.1.4...codegen-v0.1.5) (2026-04-01)
+
+
+### Features
+
+* add canonical domain codegen plugin ([b9017aa](https://github.com/manifesto-ai/core/commit/b9017aa17a6d014172249d352c1bf0354f6724c9))
+* add canonical domain codegen plugin ([dfb12fc](https://github.com/manifesto-ai/core/commit/dfb12fcd73416dd10767dff3c0aa40d484f9b384))
+
 ## [0.1.4](https://github.com/manifesto-ai/core/compare/codegen-v0.1.3...codegen-v0.1.4) (2026-03-29)
 
 
