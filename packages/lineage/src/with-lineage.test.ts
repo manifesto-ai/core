@@ -4,7 +4,7 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
 
 import {
   type LineageService,
@@ -243,6 +243,15 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
 
     expect(head).not.toBeNull();
     expect(reopened.getSnapshot().data.count).toBe(3);
+  });
+
+  it("rejects missing runtime config with a ManifestoError instead of a raw TypeError", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+
+    expect(() => withLineage(base, undefined as never)).toThrow(ManifestoError);
+    expect(() => withLineage(base, undefined as never)).toThrow(
+      "withLineage() requires a config object with either service or store",
+    );
   });
 
   it("supports restore, branch creation, and branch switching on the activated runtime", async () => {

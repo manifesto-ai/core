@@ -245,10 +245,11 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         try {
           if (terminalProposal) {
             await governanceStore.putProposal(terminalProposal);
-          } else if (!sealed) {
+          } else {
             const failedProposal = governanceService.failExecution(
               executingProposal,
               getCurrentTimestamp(),
+              sealed?.preparedCommit.worldId,
             );
             await governanceStore.putProposal(failedProposal);
           }

@@ -474,6 +474,66 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 
+  it("persists a failed proposal when finalize throws after the lineage seal succeeds", async () => {
+    const lineageStore = createInMemoryLineageStore();
+    const governanceStore = createInMemoryGovernanceStore();
+    let failDecisionLookup = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "getDecisionRecord") {
+          return async (...args: Parameters<GovernanceStore["getDecisionRecord"]>) => {
+            if (failDecisionLookup) {
+              failDecisionLookup = false;
+              throw new Error("decision lookup failed");
+            }
+            return target.getDecisionRecord(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: lineageStore },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:finalize-throws",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:finalize-throws",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("decision lookup failed");
+
+    const activeBranch = await governed.getActiveBranch();
+    const latestHead = await governed.getLatestHead();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(stored[0]?.resultWorld).toBe(latestHead?.worldId);
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
   it("routes governed execution through the proposal execution key", async () => {
     lineageSealCalls.length = 0;
 

@@ -39,13 +39,8 @@ export function withLineage<
 ): LineageComposableManifesto<T> {
   assertComposableNotActivated(manifesto);
 
-  const service = "service" in config
-    ? config.service
-    : createLineageService(config.store);
-  const resolvedConfig: ResolvedLineageConfig = Object.freeze({
-    ...config,
-    service,
-  });
+  const resolvedConfig = resolveLineageConfig(config);
+  const { service } = resolvedConfig;
   const createKernel = getRuntimeKernelFactory(manifesto);
   const activationState = getActivationState(manifesto);
 
@@ -76,6 +71,34 @@ export function withLineage<
       config: resolvedConfig,
     },
   ) as unknown as LineageComposableManifesto<T>;
+}
+
+function resolveLineageConfig(config: LineageConfig): ResolvedLineageConfig {
+  if (!config || typeof config !== "object") {
+    throw new ManifestoError(
+      "LINEAGE_CONFIG_REQUIRED",
+      "withLineage() requires a config object with either service or store",
+    );
+  }
+
+  if ("service" in config && config.service) {
+    return Object.freeze({
+      ...config,
+      service: config.service,
+    });
+  }
+
+  if ("store" in config && config.store) {
+    return Object.freeze({
+      ...config,
+      service: createLineageService(config.store),
+    });
+  }
+
+  throw new ManifestoError(
+    "LINEAGE_CONFIG_REQUIRED",
+    "withLineage() requires a config object with either service or store",
+  );
 }
 
 function activateLineageRuntime<T extends ManifestoDomainShape>(
