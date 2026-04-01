@@ -148,6 +148,17 @@ domain Todos {
         code: "INVALID_INTENT_ARGS",
       }),
     );
+    expect(() => (
+      world.createIntent as unknown as (...args: unknown[]) => ReturnType<typeof world.createIntent>
+    )(world.MEL.actions.addTodo, "Write docs")).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INTENT_ARGS",
+      }),
+    );
+    expect(world.createIntent(
+      world.MEL.actions.addTodo,
+      { id: "todo-1", title: "Write docs" },
+    ).input).toEqual({ id: "todo-1", title: "Write docs" });
 
     world.dispose();
   });

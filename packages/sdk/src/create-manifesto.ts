@@ -324,7 +324,9 @@ function buildTypedMel<T extends ManifestoDomainShape>(
         enumerable: false,
         configurable: false,
         writable: false,
-        value: actionParamMetadata[name] ?? [],
+        value: Object.hasOwn(actionParamMetadata, name)
+          ? actionParamMetadata[name]
+          : [],
       });
       return [name, Object.freeze(ref)];
     }),
@@ -420,7 +422,9 @@ function extractActionParamOrderFromMel(
 }
 
 function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): unknown {
-  const paramNames = action[ACTION_PARAM_NAMES] ?? [];
+  const paramNames = Object.hasOwn(action, ACTION_PARAM_NAMES)
+    ? action[ACTION_PARAM_NAMES]
+    : [];
   if (args.length === 0) {
     return undefined;
   }
