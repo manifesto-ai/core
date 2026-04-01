@@ -4,6 +4,15 @@
 
 This guide defines the minimum checks required before publishing the current hard-cut runtime surface. It is not a historical report. It is the tracked release gate for the current line.
 
+## Release PR Model
+
+Release Please runs in workspace mode for this monorepo. Active runtime packages are not released as unrelated per-package PRs.
+
+- `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, and `@manifesto-ai/governance` form the linked runtime stack.
+- Changes touching any package in that stack must be reviewed and merged as a single release train when Release Please proposes them together.
+- Internal workspace dependency updates are handled by the `node-workspace` and `linked-versions` plugins. Do not work around version skew in consumer apps with package-manager overrides unless you are diagnosing a broken publish.
+- Manual publish is for recovery only. Normal releases should flow through the grouped Release Please PR and the publish workflow.
+
 ## Release Gate
 
 Run these commands from the monorepo root:
