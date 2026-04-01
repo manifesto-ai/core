@@ -22,6 +22,34 @@ import {
   type GovernanceStore,
 } from "./index.js";
 
+const lineageSealCalls = vi.hoisted(() => [] as Array<{ executionKey?: string }>);
+
+vi.mock("@manifesto-ai/lineage/internal", async () => {
+  const actual = await vi.importActual<typeof import("@manifesto-ai/lineage/internal")>(
+    "@manifesto-ai/lineage/internal",
+  );
+
+  return {
+    ...actual,
+    createLineageRuntimeController(
+      ...args: Parameters<typeof actual.createLineageRuntimeController>
+    ) {
+      const controller = actual.createLineageRuntimeController(...args);
+      return {
+        ...controller,
+        async sealIntent(
+          ...sealArgs: Parameters<typeof controller.sealIntent>
+        ) {
+          lineageSealCalls.push({
+            executionKey: sealArgs[1]?.executionKey,
+          });
+          return controller.sealIntent(...sealArgs);
+        },
+      };
+    },
+  };
+});
+
 const pp = semanticPathToPatchPath;
 
 type CounterDomain = {
@@ -384,6 +412,99 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(stored).toHaveLength(1);
     expect(stored[0]?.status).toBe("failed");
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("preserves the sealed terminal proposal when terminal persistence retries fail", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    let failCompletedPersist = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putProposal") {
+          return async (...args: Parameters<GovernanceStore["putProposal"]>) => {
+            const [proposal] = args;
+            if (proposal.status === "completed" && failCompletedPersist) {
+              failCompletedPersist = false;
+              throw new Error("transient terminal persist failure");
+            }
+            return target.putProposal(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:terminal-persist-retry",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:terminal-persist-retry",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("transient terminal persist failure");
+
+    const activeBranch = await governed.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+    const latestHead = await governed.getLatestHead();
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("completed");
+    expect(stored[0]?.resultWorld).toBe(latestHead?.worldId);
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("routes governed execution through the proposal execution key", async () => {
+    lineageSealCalls.length = 0;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:execution-key",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:execution-key",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    expect(proposal.status).toBe("completed");
+    expect(lineageSealCalls).toHaveLength(1);
+    expect(lineageSealCalls[0]?.executionKey).toBe(proposal.executionKey);
   });
 
   it("serializes bindActor updates with proposal execution", async () => {

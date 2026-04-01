@@ -36,6 +36,8 @@ export type ActivationState = {
   activated: boolean;
 };
 
+export type HostDispatchOptions = NonNullable<Parameters<ManifestoHost["dispatch"]>[1]>;
+
 interface Subscriber<TState, R> {
   readonly selector: Selector<TState, R>;
   readonly listener: (value: R) => void;
@@ -66,7 +68,10 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
   readonly ensureIntentId: (intent: Intent) => Intent;
-  readonly executeHost: (intent: Intent) => Promise<HostResult>;
+  readonly executeHost: (
+    intent: Intent,
+    options?: HostDispatchOptions,
+  ) => Promise<HostResult>;
   readonly rejectUnavailable: (intent: Intent) => never;
 }
 
@@ -344,8 +349,11 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     };
   }
 
-  async function executeHost(intent: Intent): Promise<HostResult> {
-    return host.dispatch(intent);
+  async function executeHost(
+    intent: Intent,
+    options?: HostDispatchOptions,
+  ): Promise<HostResult> {
+    return host.dispatch(intent, options);
   }
 
   function rejectUnavailable(intent: Intent): never {

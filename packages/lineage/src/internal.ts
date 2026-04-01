@@ -7,7 +7,7 @@ import {
   type ManifestoDomainShape,
   type Snapshot,
 } from "@manifesto-ai/sdk";
-import type { RuntimeKernel } from "@manifesto-ai/sdk/internal";
+import type { HostDispatchOptions, RuntimeKernel } from "@manifesto-ai/sdk/internal";
 import type { Intent } from "@manifesto-ai/core";
 
 import type { LineageConfig } from "./runtime-types.js";
@@ -61,6 +61,7 @@ export type InternalLineageComposableManifesto<
 export type SealIntentOptions = {
   readonly proposalRef?: string;
   readonly decisionRef?: string;
+  readonly executionKey?: HostDispatchOptions["key"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
 };
@@ -213,7 +214,12 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       let result: Awaited<ReturnType<RuntimeKernel<T>["executeHost"]>>;
       try {
-        result = await kernel.executeHost(enrichedIntent);
+        result = await kernel.executeHost(
+          enrichedIntent,
+          options?.executionKey !== undefined
+            ? { key: options.executionKey }
+            : undefined,
+        );
       } catch (error) {
         kernel.restoreVisibleSnapshot();
         throw toError(error);
