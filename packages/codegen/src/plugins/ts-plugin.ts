@@ -14,6 +14,9 @@ import type {
 
 const PLUGIN_NAME = "codegen-plugin-ts";
 
+/**
+ * @deprecated Prefer `createDomainPlugin()` for canonical domain facade output.
+ */
 export interface TsPluginOptions {
   readonly typesFile?: string;
   readonly actionsFile?: string;
@@ -24,6 +27,9 @@ export interface TsPluginArtifacts {
   readonly typeImportPath: string;
 }
 
+/**
+ * @deprecated Prefer `createDomainPlugin()` for canonical domain facade output.
+ */
 export function createTsPlugin(options?: TsPluginOptions): CodegenPlugin {
   const typesFile = options?.typesFile ?? "types.ts";
   const actionsFile = options?.actionsFile ?? "actions.ts";

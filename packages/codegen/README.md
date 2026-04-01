@@ -1,6 +1,6 @@
 # @manifesto-ai/codegen
 
-> **Codegen** generates TypeScript types and Zod schemas from a Manifesto DomainSchema through a deterministic plugin pipeline.
+> **Codegen** generates canonical domain facade types from a Manifesto DomainSchema through a deterministic plugin pipeline.
 
 ---
 
@@ -23,7 +23,8 @@ DomainSchema -> CODEGEN -> Generated Files
 
 | Responsibility | Description |
 |----------------|-------------|
-| Generate TypeScript types | DomainSchema types -> `export interface` / `export type` |
+| Generate canonical domain facades | DomainSchema -> `<domain>.mel.ts` with `state` / `computed` / `actions` |
+| Generate legacy TS/Zod artifacts | Optional low-level `types.ts` / `base.ts` output |
 | Generate Zod schemas | DomainSchema types -> Zod validators with type annotations |
 | Plugin pipeline | Run plugins sequentially with shared artifacts |
 | Path safety | Validate and normalize output file paths |
@@ -58,7 +59,7 @@ npm install @manifesto-ai/codegen
 ## Quick Example
 
 ```typescript
-import { generate, createTsPlugin, createZodPlugin } from "@manifesto-ai/codegen";
+import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 const schema: DomainSchema = { /* your domain schema */ };
@@ -66,35 +67,35 @@ const schema: DomainSchema = { /* your domain schema */ };
 const result = await generate({
   schema,
   outDir: "./generated",
-  plugins: [createTsPlugin(), createZodPlugin()],
+  sourceId: "src/domain/hello.mel",
+  plugins: [createDomainPlugin()],
 });
 
-// result.files -> [{ path: "types.ts", content: "..." }, { path: "base.ts", content: "..." }]
+// result.files -> [{ path: "src/domain/hello.mel.ts", content: "..." }]
 // result.diagnostics -> [] (empty = no warnings or errors)
 ```
 
-This produces two files:
+This produces a canonical domain facade:
 
-**types.ts** -- TypeScript type definitions:
+**src/domain/hello.mel.ts**
 ```typescript
-export interface Todo {
-  completed: boolean;
-  id: string;
-  title: string;
+export interface HelloDomain {
+  readonly state: {
+    counter: number
+    hello: string
+  }
+  readonly computed: {
+    canDecrement: boolean
+    doubled: number
+  }
+  readonly actions: {
+    decrement: () => void
+    increment: () => void
+  }
 }
 ```
 
-**base.ts** -- Zod schemas with type annotations:
-```typescript
-import { z } from "zod";
-import type { Todo } from "./types";
-
-export const TodoSchema: z.ZodType<Todo> = z.object({
-  completed: z.boolean(),
-  id: z.string(),
-  title: z.string(),
-});
-```
+Legacy `createTsPlugin()` and `createZodPlugin()` remain available, but are deprecated in favor of `createDomainPlugin()`.
 
 > See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
@@ -109,7 +110,10 @@ export const TodoSchema: z.ZodType<Todo> = z.object({
 function generate(options: GenerateOptions): Promise<GenerateResult>;
 
 // Built-in plugins
+function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin;
+/** @deprecated */
 function createTsPlugin(options?: TsPluginOptions): CodegenPlugin;
+/** @deprecated */
 function createZodPlugin(options?: ZodPluginOptions): CodegenPlugin;
 
 // Key types
@@ -141,7 +145,7 @@ type CodegenPlugin = {
 
 ### Plugin Pipeline
 
-Plugins run in array order. Each plugin receives a context containing the schema and artifacts from all previous plugins. The TS plugin publishes type names; the Zod plugin reads them to generate type-annotated schemas.
+Plugins run in array order. Each plugin receives a context containing the schema and artifacts from all previous plugins. The canonical domain plugin is self-contained; the legacy TS plugin publishes type names and the legacy Zod plugin reads them to generate type-annotated schemas.
 
 ### Artifacts
 
@@ -169,6 +173,7 @@ Same DomainSchema always produces byte-identical output files. Fields and types 
 ## When to Use Codegen
 
 Use Codegen when:
+- You want a canonical `<domain>.mel.ts` facade for `createManifesto<T>()`
 - You want type-safe TypeScript interfaces from your DomainSchema
 - You want Zod runtime validators that match your schema types
 - You need deterministic, reproducible code generation in CI

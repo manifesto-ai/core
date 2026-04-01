@@ -21,7 +21,7 @@ import { generateHeader } from "./header.js";
  * - Sequential plugin execution (GEN-3, GEN-7)
  * - FilePatch composition with collision detection
  * - Error gating (GEN-5, GEN-8)
- * - outDir clean + file flush (GEN-1)
+ * - Optional outDir clean + file flush
  */
 export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
   const diagnostics: Diagnostic[] = [];
@@ -105,8 +105,9 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
     return { files, artifacts: allArtifacts, diagnostics };
   }
 
-  // GEN-1: Clean outDir before write
-  await fs.rm(opts.outDir, { recursive: true, force: true });
+  if (opts.cleanOutDir) {
+    await fs.rm(opts.outDir, { recursive: true, force: true });
+  }
 
   // Build header
   const header = generateHeader({
