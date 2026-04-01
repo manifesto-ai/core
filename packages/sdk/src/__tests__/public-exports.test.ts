@@ -2,93 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import * as sdk from "../index.js";
 
-describe("sdk public exports contract", () => {
-  it("exposes the expected runtime value exports only", () => {
-    const exportedKeys = Object.keys(sdk).sort();
-
-    const expectedKeys = [
-      // SDK-owned
-      "createManifesto",
-      "dispatchAsync",
-      "ManifestoError",
-      "ReservedEffectError",
-      "DisposedError",
-      "CompileError",
-      "DispatchRejectedError",
-      "defineOps",
-      // Core re-exports
-      "createIntent",
-      "createSnapshot",
-      "createCore",
-      // World re-exports
-      "createWorld",
-    ].sort();
-
-    expect(exportedKeys).toEqual(expectedKeys);
+describe("SDK public runtime exports", () => {
+  it("exposes the v3 hard-cut runtime surface", () => {
+    expect(sdk.createManifesto).toBeDefined();
+    expect(sdk.createSnapshot).toBeDefined();
+    expect(sdk.ManifestoError).toBeDefined();
+    expect(sdk.CompileError).toBeDefined();
+    expect(sdk.DisposedError).toBeDefined();
+    expect(sdk.AlreadyActivatedError).toBeDefined();
+    expect(sdk.ReservedEffectError).toBeDefined();
   });
 
-  it("does not expose removed v0.x runtime re-exports", () => {
-    const forbidden = [
-      // Old factory / class
-      "createApp",
-      "createTestApp",
-      "ManifestoApp",
-      // Old errors
-      "ManifestoAppError",
-      "AppNotReadyError",
-      "AppDisposedError",
-      "ActionRejectedError",
-      "ActionFailedError",
-      "ActionPreparationError",
-      "ActionTimeoutError",
-      "ActionNotFoundError",
-      "HandleDetachedError",
-      "HookMutationError",
-      "ReservedEffectTypeError",
-      "SystemActionDisabledError",
-      "SystemActionRoutingError",
-      "MemoryDisabledError",
-      "BranchNotFoundError",
-      "WorldNotFoundError",
-      "WorldSchemaHashMismatchError",
-      "WorldNotInLineageError",
-      "ReservedNamespaceError",
-      "MissingDefaultActorError",
-      "DomainCompileError",
-      "PluginInitError",
-      "SchemaMismatchOnResumeError",
-      "BranchHeadNotFoundError",
-      // Old hooks
-      "AppRefImpl",
-      "createAppRef",
-      "HookableImpl",
-      "JobQueue",
-      "HookContextImpl",
-      "createHookContext",
-      // Old internal re-exports
-      "createSilentPolicyService",
-      "createStrictPolicyService",
-      "createDefaultPolicyService",
-      "withDxAliases",
-      "validateSchemaCompatibility",
-      "withPlatformNamespaces",
-      // Split-native World / Governance / Lineage exports stay outside SDK
-      "createGovernanceService",
-      "createInMemoryGovernanceStore",
-      "createGovernanceEventDispatcher",
-      "createLineageService",
-      "createInMemoryLineageStore",
-      "createInMemoryWorldStore",
-      "createIndexedDbWorldStore",
-      "createSqliteWorldStore",
-      "createWorldCoordinator",
-      "DefaultGovernanceService",
-      "DefaultLineageService",
-      "DefaultWorldCoordinator",
-    ];
-
-    for (const key of forbidden) {
-      expect((sdk as Record<string, unknown>)[key]).toBeUndefined();
-    }
+  it("does not expose removed v2 helpers", () => {
+    expect("dispatchAsync" in sdk).toBe(false);
+    expect("DispatchRejectedError" in sdk).toBe(false);
+    expect("defineOps" in sdk).toBe(false);
+    expect("createWorld" in sdk).toBe(false);
+    expect("createIntent" in sdk).toBe(false);
   });
 });

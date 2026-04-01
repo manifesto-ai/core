@@ -1,210 +1,159 @@
-/**
- * SDK Public Types
- *
- * Defines ManifestoInstance, ManifestoConfig, event types, and supporting types.
- *
- * @see SDK SPEC
- * @module
- */
+import type {
+  DomainSchema,
+  Intent,
+  Patch,
+  Snapshot as CoreSnapshot,
+} from "@manifesto-ai/core";
 
-import type { DomainSchema, Snapshot as CoreSnapshot, Patch, Intent } from "@manifesto-ai/core";
+export type ManifestoDomainShape = {
+  readonly actions: Record<string, (...args: unknown[]) => unknown>;
+  readonly state: Record<string, unknown>;
+  readonly computed: Record<string, unknown>;
+};
 
-// =============================================================================
-// Snapshot<T> — Generic overlay on Core Snapshot
-// =============================================================================
+export type BaseLaws = { readonly __baseLaws: true };
+export type LineageLaws = { readonly __lineageLaws: true };
+export type GovernanceLaws = { readonly __governanceLaws: true };
 
-/**
- * Typed Snapshot with generic data shape.
- *
- * Core's Snapshot uses `data: unknown`. This overlay provides type-safe
- * access to domain data via the generic parameter T.
- *
- * The SDK does not add compatibility fields here; it transparently follows the
- * current Core Snapshot surface.
- */
 export type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
 
-// =============================================================================
-// Effect Handler Types (SDK-owned, simplified from Host 3-param contract)
-// =============================================================================
-
-/**
- * Context provided to effect handlers.
- *
- * Simplified from Host's EffectContext (2-param contract).
- */
 export type EffectContext<T = unknown> = {
-  /** Current snapshot (read-only). */
   readonly snapshot: Readonly<Snapshot<T>>;
 };
 
-/**
- * SDK-level effect handler.
- *
- * Users provide this simplified 2-param handler; SDK adapts it
- * to Host's 3-param EffectHandler internally.
- */
 export type EffectHandler = (
   params: unknown,
   ctx: EffectContext,
 ) => Promise<readonly Patch[]>;
 
-// =============================================================================
-// ManifestoConfig (§7)
-// =============================================================================
+export type TypedActionRef<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"] = keyof T["actions"],
+> = {
+  readonly __kind: "ActionRef";
+  readonly name: K;
+};
 
-/**
- * Configuration for createManifesto().
- *
- * @see SDK SPEC v2.0.0
- */
-export interface ManifestoConfig<T = unknown> {
-  /**
-   * Required: Domain schema defining state, computed, actions.
-   * Accepts either a compiled DomainSchema or MEL text string.
-   *
-   * @see SDK-CONFIG-1
-   */
-  schema: DomainSchema | string;
+export type FieldRef<TValue> = {
+  readonly __kind: "FieldRef";
+  readonly _type?: TValue;
+};
 
-  /**
-   * Required: Effect handlers keyed by effect type.
-   *
-   * @see SDK-CONFIG-2
-   */
-  effects: Record<string, EffectHandler>;
+export type ComputedRef<TValue> = {
+  readonly __kind: "ComputedRef";
+  readonly _type?: TValue;
+};
 
-  /**
-   * Optional: Guard function for intent validation.
-   */
-  guard?: (intent: Intent, snapshot: Snapshot<T>) => boolean;
+export type TypedMEL<T extends ManifestoDomainShape> = {
+  readonly actions: {
+    readonly [K in keyof T["actions"]]: TypedActionRef<T, K>;
+  };
+  readonly state: {
+    readonly [K in keyof T["state"]]: FieldRef<T["state"][K]>;
+  };
+  readonly computed: {
+    readonly [K in keyof T["computed"]]: ComputedRef<T["computed"][K]>;
+  };
+};
 
-  /**
-   * Optional: Restore from persisted snapshot.
-   */
-  snapshot?: Snapshot<T>;
-}
+export type ActionArgs<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"],
+> = T["actions"][K] extends (...args: infer P) => unknown ? P : never;
 
-// =============================================================================
-// ManifestoInstance (§6)
-// =============================================================================
-
-/**
- * Selector function — projects a value from the typed snapshot.
- */
 export type Selector<T, R> = (snapshot: Snapshot<T>) => R;
-
-/**
- * Unsubscribe function returned by subscribe() and on().
- */
 export type Unsubscribe = () => void;
 
-/**
- * ManifestoInstance — the sole runtime handle returned by createManifesto().
- *
- * 7 methods, no more.
- *
- * @see SDK SPEC v2.0.0
- */
-export interface ManifestoInstance<T = unknown> {
-  /**
-   * Fire-and-forget intent dispatch.
-   *
-   * Enqueues the intent for serial processing. Returns immediately.
-   *
-   * @throws DisposedError if instance is disposed (SDK-DISPATCH-4)
-   * @see SDK-DISPATCH-1, SDK-DISPATCH-2, SDK-DISPATCH-3
-   */
-  dispatch(intent: Intent): void;
+export type TypedCreateIntent<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  action: TypedActionRef<T, K>,
+  ...args: ActionArgs<T, K>
+) => Intent;
 
-  /**
-   * Subscribe to state changes via selector.
-   *
-   * Fires only at terminal snapshot, at most once per intent.
-   *
-   * @see SDK-SUB-1, SDK-SUB-2, SDK-SUB-3, SDK-SUB-4
-   */
-  subscribe<R>(
-    selector: Selector<T, R>,
-    listener: (value: R) => void,
-  ): Unsubscribe;
+export type TypedDispatchAsync<T extends ManifestoDomainShape> = (
+  intent: Intent,
+) => Promise<Snapshot<T["state"]>>;
 
-  /**
-   * Listen to intent lifecycle events (telemetry channel).
-   *
-   * Payload type is narrowed by event name.
-   *
-   * @see SDK-EVENT-1, SDK-EVENT-2, SDK-EVENT-3
-   */
-  on<K extends ManifestoEvent>(
-    event: K,
-    handler: (payload: ManifestoEventMap<T>[K]) => void,
-  ): Unsubscribe;
+export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
+  selector: Selector<T["state"], R>,
+  listener: (value: R) => void,
+) => Unsubscribe;
 
-  /**
-   * Check whether an action is currently dispatchable against the current snapshot.
-   */
-  isActionAvailable(actionName: string): boolean;
-
-  /**
-   * Return all action names that are currently dispatchable.
-   */
-  getAvailableActions(): readonly string[];
-
-  /**
-   * Get the current snapshot synchronously.
-   *
-   * @see SDK-SNAP-1
-   */
-  getSnapshot(): Snapshot<T>;
-
-  /**
-   * Dispose the instance and release resources.
-   *
-   * @see SDK-DISPOSE-1, SDK-DISPOSE-2, SDK-DISPOSE-3
-   */
-  dispose(): void;
-}
-
-// =============================================================================
-// Event Channel Types (§8)
-// =============================================================================
-
-/**
- * Typed event map — payload narrowed by event name.
- *
- * @see SDK SPEC v1.0.0 §8
- */
-export interface ManifestoEventMap<T = unknown> {
+export interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:completed": {
-    intentId: string;
-    intent: Intent;
-    snapshot: Snapshot<T>;
+    readonly intentId: string;
+    readonly intent: Intent;
+    readonly snapshot: Snapshot<T["state"]>;
   };
   "dispatch:rejected": {
-    intentId: string;
-    intent: Intent;
-    reason: string;
+    readonly intentId: string;
+    readonly intent: Intent;
+    readonly reason: string;
   };
   "dispatch:failed": {
-    intentId: string;
-    intent: Intent;
-    error: Error;
+    readonly intentId: string;
+    readonly intent: Intent;
+    readonly error: Error;
+    readonly snapshot?: Snapshot<T["state"]>;
   };
 }
 
-/**
- * Telemetry event types for the `on()` channel.
- *
- * @see SDK SPEC v1.0.0 §8
- */
-export type ManifestoEvent = keyof ManifestoEventMap;
+export type ManifestoEvent =
+  | "dispatch:completed"
+  | "dispatch:rejected"
+  | "dispatch:failed";
 
-/**
- * Union of all event payloads (for backward compatibility).
- *
- * Prefer using `ManifestoEventMap<T>[K]` with typed `on()` instead.
- *
- * @see SDK-INV-6 — intentId is always present
- */
-export type ManifestoEventPayload<T = unknown> = ManifestoEventMap<T>[ManifestoEvent];
+export type ManifestoEventPayload<T extends ManifestoDomainShape> =
+  ManifestoEventMap<T>[ManifestoEvent];
+
+export type TypedOn<T extends ManifestoDomainShape> = <
+  K extends ManifestoEvent,
+>(
+  event: K,
+  handler: (payload: ManifestoEventMap<T>[K]) => void,
+) => Unsubscribe;
+
+export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
+  readonly createIntent: TypedCreateIntent<T>;
+  readonly dispatchAsync: TypedDispatchAsync<T>;
+  readonly subscribe: TypedSubscribe<T>;
+  readonly on: TypedOn<T>;
+  readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getAvailableActions: () => readonly (keyof T["actions"])[];
+  readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
+  readonly MEL: TypedMEL<T>;
+  readonly schema: DomainSchema;
+  readonly dispose: () => void;
+};
+
+// Boundary-only placeholder names. Owning packages will later replace these
+// with their full runtime contracts.
+export type LineageInstance<T extends ManifestoDomainShape> =
+  ManifestoBaseInstance<T> & {
+    readonly __lineageBrand?: true;
+  };
+
+export type GovernanceInstance<T extends ManifestoDomainShape> =
+  Omit<LineageInstance<T>, "dispatchAsync"> & {
+    readonly __governanceBrand?: true;
+  };
+
+export type ActivatedInstance<
+  T extends ManifestoDomainShape,
+  Laws,
+> =
+  Laws extends GovernanceLaws
+    ? GovernanceInstance<T>
+    : Laws extends LineageLaws
+      ? LineageInstance<T>
+      : ManifestoBaseInstance<T>;
+
+export type ComposableManifesto<
+  T extends ManifestoDomainShape,
+  Laws extends BaseLaws = BaseLaws,
+> = {
+  readonly _laws: Laws;
+  readonly schema: DomainSchema;
+  activate(): ActivatedInstance<T, Laws>;
+};
