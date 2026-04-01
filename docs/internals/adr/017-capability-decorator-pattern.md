@@ -8,6 +8,10 @@
 > **Preserves:** All protocol packages (Core, Host, Lineage, Governance, Compiler) — zero changes
 > **Historical Draft:** [ADR-017 v2](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus.md) (cross-model review consensus, preserved for traceability)
 
+> **Current Contract Authority:** When this ADR differs from the current runtime surface, follow the package-level current specs and version indexes for `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, and `@manifesto-ai/governance`. This ADR is retained as the architectural decision record and activation-first rationale.
+>
+> **Known Current Divergences:** The current lineage contract promotes `dispatchAsync` to `commitAsync`, and the current governance contract requires explicit `withLineage()` composition rather than implicitly creating lineage from a base composable.
+
 ---
 
 ## Revision History

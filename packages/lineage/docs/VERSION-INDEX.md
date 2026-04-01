@@ -5,7 +5,9 @@
 
 ## Current Specification
 
-- **SPEC (Living Draft):** [lineage-SPEC-v3.0.0-draft.md](lineage-SPEC-v3.0.0-draft.md) - decorator runtime + continuity substrate
+- **Package Release:** v3.1.1
+- **Contract Surface:** v3.0 decorator runtime + continuity substrate
+- **SPEC (Living Draft):** [lineage-SPEC-v3.0.0-draft.md](lineage-SPEC-v3.0.0-draft.md) - truthful current contract, unchanged through package release v3.1.1
 - **README:** [../README.md](../README.md) - package landing page
 - **Guide:** [GUIDE.md](GUIDE.md) - practical activated runtime usage
 
@@ -26,6 +28,7 @@
 
 ## Notes
 
+- The current package release is `3.1.1`; the current contract surface remains the v3.0 lineage decorator model documented in [lineage-SPEC-v3.0.0-draft.md](lineage-SPEC-v3.0.0-draft.md).
 - `@manifesto-ai/lineage` is now part of the canonical decorator path, not just a raw substrate package.
 - [lineage-SPEC-v3.0.0-draft.md](lineage-SPEC-v3.0.0-draft.md) is the truthful current contract.
 - `@manifesto-ai/world` is no longer the recommended reason to avoid using Lineage directly.

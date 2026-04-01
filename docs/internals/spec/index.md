@@ -83,7 +83,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 ### Governance
 
 - **Governance SPEC** — [governance-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
-  - Defines `withGovernance()`, lineage guarantee, governed proposal flow, pending resolution, and post-seal governance visibility
+  - Defines `withGovernance()`, explicit lineage prerequisite, governed proposal flow, pending resolution, and post-seal governance visibility
 
 ### SDK
 
@@ -121,7 +121,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 |------|---------|---------|--------|
 | 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
-| 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with lineage auto-guarantee |
+| 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with an explicit lineage prerequisite |
 | 04-01 | World | Removed | `@manifesto-ai/world` removed from the active workspace and downgraded to historical tombstone status |
 
 ### Recent Changes (2026-02)
