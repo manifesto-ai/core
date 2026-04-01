@@ -9,14 +9,14 @@
 - How to model arrays and objects in MEL
 - How to derive UI-ready values in `computed`
 - How to observe only the slice of state you care about
-- How to think in terms of Snapshot updates instead of direct mutation
+- How typed action refs map positional arguments into the domain input shape
 
 ---
 
 ## Prerequisites
 
-- You finished [Your First Manifesto Instance](./01-your-first-app)
-- You are using the SDK `dispatchAsync()` utility from tutorial 1
+- You finished [Your First Activated Manifesto](./01-your-first-app)
+- You are using the activation-first SDK path from tutorial 1
 
 ---
 
@@ -91,15 +91,12 @@ This domain keeps the rules close to the data:
 Create `main.ts`:
 
 ```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
-const manifesto = createManifesto({
-  schema: TodoMel,
-  effects: {},
-});
+const world = createManifesto(TodoMel, {}).activate();
 
-manifesto.subscribe(
+world.subscribe(
   (snapshot) => snapshot.computed["totalCount"],
   (totalCount) => {
     console.log("Total todos:", totalCount);
@@ -107,51 +104,47 @@ manifesto.subscribe(
 );
 
 async function run() {
-  await dispatchAsync(
-    manifesto,
-    createIntent(
-      "addTodo",
-      { title: "Learn Manifesto", id: crypto.randomUUID() },
+  await world.dispatchAsync(
+    world.createIntent(
+      world.MEL.actions.addTodo,
+      "Learn Manifesto",
       crypto.randomUUID(),
     ),
   );
 
-  await dispatchAsync(
-    manifesto,
-    createIntent(
-      "addTodo",
-      { title: "Ship the first tutorial rewrite", id: crypto.randomUUID() },
+  await world.dispatchAsync(
+    world.createIntent(
+      world.MEL.actions.addTodo,
+      "Ship the first tutorial rewrite",
       crypto.randomUUID(),
     ),
   );
 
-  let snapshot = manifesto.getSnapshot();
+  let snapshot = world.getSnapshot();
   console.log("Total todos:", snapshot.computed["totalCount"]);
   console.log("Has todos:", snapshot.computed["hasTodos"]);
 
   const firstTodoId = (snapshot.data.todos as Array<{ id: string }>)[0].id;
-  await dispatchAsync(
-    manifesto,
-    createIntent("toggleTodo", { id: firstTodoId }, crypto.randomUUID()),
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.toggleTodo, firstTodoId),
   );
 
-  snapshot = manifesto.getSnapshot();
+  snapshot = world.getSnapshot();
   console.log("Completed state:", snapshot.data.todos);
 
-  await dispatchAsync(
-    manifesto,
-    createIntent("clearCompleted", crypto.randomUUID()),
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.clearCompleted),
   );
 
-  snapshot = manifesto.getSnapshot();
+  snapshot = world.getSnapshot();
   console.log("Todos after clearCompleted:", snapshot.data.todos);
 
-  manifesto.dispose();
+  world.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  manifesto.dispose();
+  world.dispose();
 });
 ```
 
@@ -166,6 +159,10 @@ Use `data` for stored domain state. Use `computed` for values you want to derive
 ### Selector-based subscriptions
 
 This tutorial subscribes to `totalCount`, not the full snapshot. That keeps the reaction focused on one meaningful value.
+
+### Action arguments stay positional in app code
+
+`world.createIntent(world.MEL.actions.addTodo, title, id)` is typed from the MEL action signature. The runtime packs those values into the canonical object input expected by the compiled action.
 
 ### Actions stay small
 
@@ -187,13 +184,13 @@ That makes the domain easier to test and easier to explain.
 Do not do this:
 
 ```typescript
-const snapshot = manifesto.getSnapshot();
+const snapshot = world.getSnapshot();
 (snapshot.data.todos as Array<{ completed: boolean }>)[0].completed = true;
 ```
 
-That changes your local copy, not the domain. Dispatch an intent instead.
+That changes your local copy, not the domain. Create and dispatch an intent instead.
 
-### Using `computed` as storage
+### Treating `computed` as storage
 
 If a value must be persisted in the domain, put it in `state`. If it can be derived from current state, keep it in `computed`.
 

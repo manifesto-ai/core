@@ -1,14 +1,14 @@
-# Your First Manifesto Instance
+# Your First Activated Manifesto
 
-> Create a small counter and learn the current SDK surface.
+> Create a small counter and learn the current SDK base-runtime surface.
 
 ---
 
 ## What You'll Learn
 
 - How to write a tiny MEL domain
-- How to create a `ManifestoInstance`
-- How to dispatch intents with `createIntent()`
+- How to activate a manifesto runtime
+- How to create typed intents from `MEL.actions.*`
 - How to observe state through `subscribe()` and `getSnapshot()`
 - Why `onceIntent` matters
 
@@ -56,20 +56,17 @@ This domain already shows the basic Manifesto shape:
 
 ---
 
-## 2. Create the Instance
+## 2. Create the Runtime
 
 Create `main.ts`:
 
 ```typescript
-import { createManifesto, createIntent, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const manifesto = createManifesto({
-  schema: CounterMel,
-  effects: {},
-});
+const world = createManifesto(CounterMel, {}).activate();
 
-manifesto.subscribe(
+world.subscribe(
   (snapshot) => snapshot.data.count,
   (count) => {
     console.log("Count changed:", count);
@@ -77,22 +74,28 @@ manifesto.subscribe(
 );
 
 async function run() {
-  console.log("Initial count:", manifesto.getSnapshot().data.count);
+  console.log("Initial count:", world.getSnapshot().data.count);
 
-  await dispatchAsync(manifesto, createIntent("increment", "i1"));
-  await dispatchAsync(manifesto, createIntent("increment", "i2"));
-  await dispatchAsync(manifesto, createIntent("decrement", "i3"));
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.increment),
+  );
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.increment),
+  );
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.decrement),
+  );
 
-  const snapshot = manifesto.getSnapshot();
+  const snapshot = world.getSnapshot();
   console.log("Final count:", snapshot.data.count);
   console.log("Doubled:", snapshot.computed["doubled"]);
 
-  manifesto.dispose();
+  world.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  manifesto.dispose();
+  world.dispose();
 });
 ```
 
@@ -106,13 +109,14 @@ npx tsx main.ts
 
 ## What Just Happened
 
-- `createManifesto()` created a ready-to-use instance. There is no `ready()` phase.
-- `dispatchAsync()` is an SDK utility that wraps `dispatch()` + `on()` into a Promise.
-- `dispatch()` enqueued that intent for processing.
-- `subscribe()` fired after each terminal snapshot.
-- `getSnapshot()` returned the latest snapshot whenever you wanted to read it directly.
+- `createManifesto()` built a composable manifesto from your domain
+- `activate()` opened the runtime surface
+- `createIntent(world.MEL.actions.*)` gave you a typed, app-facing intent path
+- `dispatchAsync()` resolved after each terminal snapshot was published
+- `subscribe()` fired after each published change
+- `getSnapshot()` let you read the latest terminal state directly
 
-The important shift is this: you do not call a method that “does the action and returns a result.” You submit an intent, then read the resulting snapshot.
+The important shift is this: you do not call a method that "does the action and returns a value." You create an intent, submit it to the runtime, and read the next snapshot.
 
 ---
 
@@ -132,17 +136,17 @@ That action is unsafe. It describes an unconditional state change with no marker
 
 ## Common Mistakes
 
-### Calling `dispatch()` and waiting for a return value
+### Calling runtime verbs before activation
 
-`dispatch()` returns `void`. Use `subscribe()`, `on()`, or a helper like `dispatchAsync()`.
+`createManifesto()` returns a composable manifesto. Runtime verbs appear only after `activate()`.
 
-### Reading state before the intent finishes
+### Reaching for raw string action names in app code
 
-If you call `getSnapshot()` immediately after `dispatch()`, you may still be looking at the previous terminal snapshot.
+The preferred app-facing path is `world.createIntent(world.MEL.actions.someAction, ...args)`, not stringly-typed action names.
 
-### Forgetting to provide an `intentId`
+### Reading stale state without awaiting execution
 
-The helper in this tutorial handles that for you. If you build intents manually, keep the `intentId` stable for the lifetime of that intent.
+`dispatchAsync()` resolves after publication. If you skip the `await`, your next read may still be the previous terminal snapshot.
 
 ### Mutating the snapshot object
 

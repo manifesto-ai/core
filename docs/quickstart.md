@@ -1,6 +1,6 @@
 # Quickstart
 
-> Get Manifesto running in 5 minutes
+> Get Manifesto running in 5 minutes.
 
 ---
 
@@ -57,19 +57,23 @@ domain Counter {
 }
 ```
 
-### 2. Create and run
+### 2. Activate and run
 
 ```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const app = createManifesto({ schema: CounterMel, effects: {} });
+const world = createManifesto(CounterMel, {}).activate();
 
-await dispatchAsync(app, createIntent("increment", "intent-1"));
-console.log(app.getSnapshot().data.count); // 1
+await world.dispatchAsync(
+  world.createIntent(world.MEL.actions.increment),
+);
+console.log(world.getSnapshot().data.count); // 1
 
-await dispatchAsync(app, createIntent("increment", "intent-2"));
-console.log(app.getSnapshot().data.count); // 2
+await world.dispatchAsync(
+  world.createIntent(world.MEL.actions.increment),
+);
+console.log(world.getSnapshot().data.count); // 2
 ```
 
 ---
@@ -77,16 +81,16 @@ console.log(app.getSnapshot().data.count); // 2
 ## What Just Happened?
 
 - MEL defined the state and action semantics
-- `onceIntent` kept the action re-entry safe
-- `createManifesto()` assembled the direct-dispatch runtime
-- `dispatch()` enqueued the intent
-- `getSnapshot()` returned the terminal result
+- `createManifesto()` created a composable manifesto
+- `activate()` opened the runtime surface
+- `world.createIntent(world.MEL.actions.increment)` built a typed intent from the MEL action
+- `dispatchAsync()` executed that intent and resolved after the next terminal snapshot was published
 
 ---
 
 ## Next Step
 
-- Continue with the [Tutorial](/tutorial/) for the direct-dispatch learning path
+- Continue with the [Tutorial](/tutorial/) for the base-runtime learning path
 - Jump to [Governed Composition](/tutorial/05-governed-composition) when you need explicit lineage, authority, and sealing
 
 ---
@@ -99,7 +103,7 @@ console.log(app.getSnapshot().data.count); // 2
 | **Intent** | Request to perform an action |
 | **Flow** | Declarative computation (pure, no side effects) |
 | **Effect** | External operation (API calls, etc.) |
-| **World** | Governance layer that decides what becomes history |
+| **World** | Governed composition model that adds legitimacy and continuity |
 
 ```text
 compute(schema, snapshot, intent) -> (snapshot', requirements, trace)

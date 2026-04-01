@@ -16,7 +16,7 @@
 ## Prerequisites
 
 - You finished [Actions and State](./02-actions-and-state)
-- You are still using the SDK `dispatchAsync()` utility from tutorial 1
+- You are still using the activation-first SDK path from tutorial 1
 
 ---
 
@@ -113,7 +113,7 @@ Two details matter here:
 - The handler receives `params` plus `{ snapshot }`
 - The handler returns patches that update the domain
 
-It does not “return the fetched user to the action.” The next snapshot carries that result.
+It does not "return the fetched user to the action." The next snapshot carries that result.
 
 ---
 
@@ -122,16 +122,13 @@ It does not “return the fetched user to the action.” The next snapshot carri
 Create `main.ts`:
 
 ```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
 import { effects } from "./effects";
 
-const manifesto = createManifesto({
-  schema: UserProfileMel,
-  effects,
-});
+const world = createManifesto(UserProfileMel, effects).activate();
 
-manifesto.subscribe(
+world.subscribe(
   (snapshot) => ({
     loading: snapshot.data.loading,
     error: snapshot.data.error,
@@ -143,21 +140,20 @@ manifesto.subscribe(
 );
 
 async function run() {
-  await dispatchAsync(
-    manifesto,
-    createIntent("fetchUser", { id: "123" }, crypto.randomUUID()),
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.fetchUser, "123"),
   );
 
-  const snapshot = manifesto.getSnapshot();
+  const snapshot = world.getSnapshot();
   console.log("Has user:", snapshot.computed["hasUser"]);
   console.log("User data:", snapshot.data.user);
 
-  manifesto.dispose();
+  world.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  manifesto.dispose();
+  world.dispose();
 });
 ```
 
