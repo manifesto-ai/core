@@ -5,8 +5,12 @@ import type {
   Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
+type ActionFn = {
+  bivarianceHack(...args: unknown[]): unknown;
+}["bivarianceHack"];
+
 export type ManifestoDomainShape = {
-  readonly actions: Record<string, (...args: unknown[]) => unknown>;
+  readonly actions: Record<string, ActionFn>;
   readonly state: Record<string, unknown>;
   readonly computed: Record<string, unknown>;
 };
