@@ -7,7 +7,7 @@ import {
   type ManifestoDomainShape,
   type Snapshot,
 } from "@manifesto-ai/sdk";
-import type { RuntimeKernel } from "@manifesto-ai/sdk/internal";
+import type { HostDispatchOptions, RuntimeKernel } from "@manifesto-ai/sdk/internal";
 import type { Intent } from "@manifesto-ai/core";
 
 import type { LineageConfig } from "./runtime-types.js";
@@ -20,7 +20,25 @@ import type {
   World,
   WorldHead,
   WorldId,
+  WorldLineage,
 } from "./types.js";
+
+export type {
+  ArtifactRef,
+  BranchId,
+  BranchInfo,
+  BranchSwitchResult,
+  LineageService,
+  LineageStore,
+  PreparedLineageCommit,
+  SealAttempt,
+  World,
+  WorldId,
+} from "./types.js";
+export {
+  DefaultLineageService,
+  createLineageService,
+} from "./service/lineage-service.js";
 
 export const LINEAGE_DECORATION = Symbol("manifesto-lineage.decoration");
 
@@ -43,6 +61,7 @@ export type InternalLineageComposableManifesto<
 export type SealIntentOptions = {
   readonly proposalRef?: string;
   readonly decisionRef?: string;
+  readonly executionKey?: HostDispatchOptions["key"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
 };
@@ -61,6 +80,7 @@ export interface LineageRuntimeController<T extends ManifestoDomainShape> {
     options?: SealIntentOptions,
   ): Promise<SealedIntentResult<T>>;
   getWorld(worldId: WorldId): Promise<World | null>;
+  getLineage(): Promise<WorldLineage>;
   getLatestHead(): Promise<WorldHead | null>;
   getHeads(): Promise<readonly WorldHead[]>;
   getBranches(): Promise<readonly BranchInfo[]>;
@@ -194,7 +214,12 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       let result: Awaited<ReturnType<RuntimeKernel<T>["executeHost"]>>;
       try {
-        result = await kernel.executeHost(enrichedIntent);
+        result = await kernel.executeHost(
+          enrichedIntent,
+          options?.executionKey !== undefined
+            ? { key: options.executionKey }
+            : undefined,
+        );
       } catch (error) {
         kernel.restoreVisibleSnapshot();
         throw toError(error);
@@ -256,6 +281,11 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
   async function getWorld(worldId: WorldId): Promise<World | null> {
     await ensureReady();
     return service.getWorld(worldId);
+  }
+
+  async function getLineage(): Promise<WorldLineage> {
+    await ensureReady();
+    return service.getLineage();
   }
 
   async function getLatestHead(): Promise<WorldHead | null> {
@@ -378,6 +408,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     ensureReady,
     sealIntent,
     getWorld,
+    getLineage,
     getLatestHead,
     getHeads,
     getBranches,

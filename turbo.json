@@ -5,6 +5,18 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@manifesto-ai/codegen#build": {
+      "dependsOn": ["@manifesto-ai/core#build"],
+      "outputs": ["dist/**"]
+    },
+    "@manifesto-ai/compiler#build": {
+      "dependsOn": ["@manifesto-ai/core#build", "@manifesto-ai/codegen#build"],
+      "outputs": ["dist/**"]
+    },
+    "@manifesto-ai/host#build": {
+      "dependsOn": ["@manifesto-ai/core#build"],
+      "outputs": ["dist/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

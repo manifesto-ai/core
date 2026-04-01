@@ -47,7 +47,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
 | [ADR-015](./015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Implemented | 2026-03-29 | Core, Lineage, Host, World, SDK |
 | [ADR-016](./016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Implemented | 2026-03-29 | Lineage, Governance, World |
-| [ADR-017](./017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Proposed | 2026-04-01 | SDK, Lineage, Governance |
+| [ADR-017](./017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented | 2026-04-01 | SDK, Lineage, Governance |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -103,20 +103,25 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-015 Companion Notes
 
 - ADR-015 is implemented and lands in the current Core contract: accumulated `system.errors` history and `appendErrors` are removed while `lastError` remains the sole current error surface.
-- Current published package contracts now include Core v4.0.0, Host v4.0.0, Lineage v2.0.0, Governance v2.0.0, and World facade v2.0.0. The current SDK v2 surface follows the same Core v4 Snapshot shape.
+- ADR-015 originally landed alongside Core v4.0.0, Host v4.0.0, Lineage v2.0.0, Governance v2.0.0, and World facade v2.0.0. The current decorator supersession is tracked separately by ADR-017 and the v3.0.0 package version indexes.
 - [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) is now historical draft context only; the current normative Core contract is [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md).
-- The projected wider SDK rewrite is still tracked in [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md), but the Snapshot-shape portion of ADR-015 is already current.
+- The wider SDK/decorator rewrite is now current in [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md), but the Snapshot-shape portion of ADR-015 remains its independent current contribution.
 - ADR-015 now pairs with [ADR-016](./016-merkle-tree-lineage), the implemented lineage-side companion for the same co-deployed epoch boundary.
 
 ### ADR-016 Companion Notes
 
 - ADR-016 is implemented as the lineage identity rewrite companion to ADR-015: WorldId becomes parent-linked positional identity instead of content-only identity.
 - The landed contract introduces `tip` / `headAdvancedAt`, idempotent reuse for same-parent same-snapshot seals, and `SealAttempt` as the per-attempt chronology substrate.
-- The current Lineage contract now lives in [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md).
-- The current legitimacy-side contract now lives in [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md).
+- The original service-first landing for this ADR is preserved in [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md).
+- The original legitimacy-side landing for this ADR is preserved in [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md).
 - The historical pre-landing Host execution-side draft remains available in [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md), but the current package contract is [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) at v4.0.0.
-- The current facade contract now lives in [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
-- The tracked version impact now lands as Lineage v2.0.0, Governance v2.0.0, Host v4.0.0, and World facade v2.0.0. The remaining projected SDK rewrite is tracked separately in `sdk-SPEC-v3.0.0-draft.md`.
+- The historical facade contract remains available in [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
+- The original version impact for ADR-016 landed as Lineage v2.0.0, Governance v2.0.0, Host v4.0.0, and World facade v2.0.0. The current decorator supersession is tracked separately by [ADR-017](./017-capability-decorator-pattern) and the v3.0.0 package version indexes.
+
+### ADR-017 Version Notes
+
+- The canonical implemented record is [ADR-017 v3.1](./017-capability-decorator-pattern), which lands the activation boundary, one-shot `activate()`, and Governance/Lineage config precedence rules.
+- The earlier [ADR-017 v2 archived draft](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus) is retained for traceability. It preserves the cross-model review consensus phase before the activation-boundary rewrite and before the final `dispatchAsync`/`proposeAsync` surface stabilized.
 
 ---
 

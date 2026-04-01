@@ -4,9 +4,8 @@ import type {
   LineageLaws,
   ManifestoBaseInstance,
   ManifestoDomainShape,
-  Snapshot,
+  TypedDispatchAsync,
 } from "@manifesto-ai/sdk";
-import type { Intent } from "@manifesto-ai/core";
 
 import type {
   BranchId,
@@ -17,19 +16,36 @@ import type {
   World,
   WorldHead,
   WorldId,
+  WorldLineage,
 } from "./types.js";
 
-export type LineageConfig = {
-  readonly service?: LineageService;
-  readonly store?: LineageStore;
-  readonly branchId?: BranchId;
+export type LineageConfig =
+  | {
+      readonly service: LineageService;
+      readonly branchId?: BranchId;
+    }
+  | {
+      readonly store: LineageStore;
+      readonly branchId?: BranchId;
+    };
+
+export type BaseComposableLaws = BaseLaws & {
+  readonly __lineageLaws?: never;
+  readonly __governanceLaws?: never;
 };
+
+export type LineageComposableLaws = BaseLaws & LineageLaws & {
+  readonly __governanceLaws?: never;
+};
+
+type TypedCommitAsync<T extends ManifestoDomainShape> = TypedDispatchAsync<T>;
 
 export type LineageInstance<T extends ManifestoDomainShape> =
   Omit<ManifestoBaseInstance<T>, "dispatchAsync"> & {
-    readonly dispatchAsync: (intent: Intent) => Promise<Snapshot<T["state"]>>;
+    readonly commitAsync: TypedCommitAsync<T>;
     readonly restore: (worldId: WorldId) => Promise<void>;
     readonly getWorld: (worldId: WorldId) => Promise<World | null>;
+    readonly getLineage: () => Promise<WorldLineage>;
     readonly getLatestHead: () => Promise<WorldHead | null>;
     readonly getHeads: () => Promise<readonly WorldHead[]>;
     readonly getBranches: () => Promise<readonly BranchInfo[]>;
@@ -40,7 +56,16 @@ export type LineageInstance<T extends ManifestoDomainShape> =
 
 export type LineageComposableManifesto<
   T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
-> = Omit<ComposableManifesto<T, Laws & LineageLaws>, "activate"> & {
+> = Omit<ComposableManifesto<T, LineageComposableLaws>, "activate"> & {
   activate(): LineageInstance<T>;
 };
+
+declare module "@manifesto-ai/sdk" {
+  interface ManifestoDecoratedRuntimeByLaws<T extends ManifestoDomainShape> {
+    readonly lineage: LineageInstance<T>;
+  }
+}
+
+export type BaseComposableManifesto<
+  T extends ManifestoDomainShape,
+> = ComposableManifesto<T, BaseComposableLaws>;

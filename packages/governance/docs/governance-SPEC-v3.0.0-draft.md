@@ -1,8 +1,8 @@
 # Governance SPEC v3.0.0 Draft
 
-> Status: current next-major draft
+> Status: normative draft, truthful current contract
 > Package: `@manifesto-ai/governance`
-> ADR Basis: [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md)
+> ADR Basis: [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md)
 
 ## 1. Scope
 
@@ -21,16 +21,16 @@ Governance v3 does not own base manifesto creation. That remains `@manifesto-ai/
 ## 2. Canonical Public API
 
 ```ts
-function withGovernance<T extends ManifestoDomainShape, L extends BaseLaws>(
-  manifesto: ComposableManifesto<T, L>,
-  config: GovernanceConfig<T, L>,
-): GovernanceComposableManifesto<T, L>;
+function withGovernance<T extends ManifestoDomainShape>(
+  manifesto: LineageComposableManifestoInput<T>,
+  config: GovernanceConfig,
+): GovernanceComposableManifesto<T>;
 ```
 
 ## 3. Config Contract
 
 ```ts
-type GovernanceConfig<T, L extends BaseLaws> = {
+type GovernanceConfig = {
   bindings: readonly ActorAuthorityBinding[];
   governanceStore?: GovernanceStore;
   evaluator?: AuthorityEvaluator;
@@ -41,26 +41,22 @@ type GovernanceConfig<T, L extends BaseLaws> = {
     deriveActor(intent: Intent): ActorRef;
     deriveSource(intent: Intent): SourceRef;
   };
-} & (L extends LineageLaws
-  ? { lineage?: GovernanceLineageConfig | LineageConfig }
-  : { lineage: GovernanceLineageConfig });
+};
 ```
-
-`GovernanceLineageConfig` MUST provide a `LineageService` or `LineageStore`.
 
 ## 4. Lineage Guarantee
 
 Governed runtimes MUST include lineage semantics.
 
-- If `withLineage()` was already explicitly composed, governance MUST use that explicit lineage configuration.
-- If lineage was not already composed, `config.lineage` is required.
-- Governance MUST NOT create a default in-memory lineage store on behalf of the caller.
+- `withGovernance()` MUST receive a manifesto already composed with `withLineage()`.
+- Governance MUST use that explicit lineage configuration.
+- Governance MUST NOT create lineage implicitly on behalf of the caller.
 
 ## 5. Activated Runtime
 
 ```ts
 type GovernanceInstance<T> =
-  Omit<LineageInstance<T>, "dispatchAsync"> & {
+  Omit<LineageInstance<T>, "commitAsync"> & {
     proposeAsync(intent: Intent): Promise<Proposal>;
     approve(proposalId: ProposalId, approvedScope?: IntentScope | null): Promise<Proposal>;
     reject(proposalId: ProposalId, reason?: string): Promise<Proposal>;
@@ -74,7 +70,7 @@ type GovernanceInstance<T> =
 
 ## 6. Verb Promotion
 
-Governed runtimes MUST NOT expose `dispatchAsync`.
+Governed runtimes MUST NOT expose `dispatchAsync` or `commitAsync`.
 
 The canonical state-change path is:
 
@@ -130,17 +126,17 @@ Governance v3 no longer teaches:
 
 - service-first assembly as the package’s primary entry path
 - `@manifesto-ai/world` as the canonical governed composition surface
-- any governed runtime that still exposes direct `dispatchAsync`
+- any governed runtime that still exposes direct `dispatchAsync` or `commitAsync`
 
 ## 11. Normative Rules
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-V3-1 | MUST | `withGovernance()` MUST accept composable manifestos, not live runtime instances |
-| GOV-V3-2 | MUST | governed activation MUST include lineage semantics |
-| GOV-V3-3 | MUST NOT | governed runtimes MUST NOT expose `dispatchAsync` |
-| GOV-V3-4 | MUST | explicit `withLineage()` composition MUST win over `config.lineage` |
-| GOV-V3-5 | MUST NOT | governance MUST NOT create a default in-memory lineage store when lineage was not explicitly composed |
+| GOV-V3-2 | MUST | governed activation MUST require explicit lineage semantics |
+| GOV-V3-3 | MUST NOT | governed runtimes MUST NOT expose `dispatchAsync` or `commitAsync` |
+| GOV-V3-4 | MUST | `withGovernance()` accept only manifestos already decorated by `withLineage()` |
+| GOV-V3-5 | MUST NOT | governance MUST NOT create lineage implicitly on behalf of the caller |
 | GOV-V3-6 | MUST | pending HITL or tribunal proposals MUST remain in `evaluating` until `approve()` or `reject()` resolves them |
 | GOV-V3-7 | MUST | approved execution MUST seal through lineage before visible snapshot publication |
 | GOV-V3-8 | MUST NOT | failed governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot |

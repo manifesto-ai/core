@@ -39,7 +39,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",

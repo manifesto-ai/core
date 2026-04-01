@@ -20,12 +20,12 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
-| v3.0.0 | [SPEC](governance-SPEC-v3.0.0-draft.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Decorator runtime + governed activation | Current |
+| v3.0.0 | [SPEC](governance-SPEC-v3.0.0-draft.md) | [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Decorator runtime + governed activation | Current |
 | v2.0.0 | [SPEC](governance-SPEC-2.0.0v.md) | [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Service-first split package contract | Superseded |
 | v1.0.0 | [SPEC](governance-SPEC-1.0.0v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial protocol extraction | Historical |
 
 ## Notes
 
 - The truthful current application-facing contract is `withGovernance(manifesto, config).activate()`.
-- Governance v3 guarantees lineage at runtime and removes direct `dispatchAsync` from governed instances.
+- Governance v3 requires explicit lineage composition and removes direct `dispatchAsync` / `commitAsync` from governed instances.
 - Low-level service/store exports remain public, but they are no longer the canonical package story.

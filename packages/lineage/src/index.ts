@@ -1,37 +1,16 @@
-export type * from "./types.js";
-export type * from "./runtime-types.js";
-
-export {
-  computeHash,
-  computeSnapshotHash,
-  computeWorldId,
-  deriveTerminalStatus,
-  isPlatformNamespace,
-  stripPlatformNamespaces,
-  normalizeContext,
-  toCurrentErrorSignature,
-  computePendingDigest,
-  createSnapshotHashInput,
-} from "./hash.js";
-
-export {
-  createWorldRecord,
-  createWorldEdge,
-  createSealGenesisAttempt,
-  createSealNextAttempt,
-  createGenesisBranchEntry,
-  type WorldRecordResult,
-} from "./records.js";
-
-export {
-  toBranchInfo,
-  toWorldHead,
-  getHeadsFromStore,
-  selectLatestHead,
-  restoreSnapshot,
-  buildWorldLineage,
-} from "./query.js";
-
+export type {
+  ArtifactRef,
+  BranchId,
+  BranchInfo,
+  BranchSwitchResult,
+  World,
+  WorldHead,
+  WorldId,
+  WorldLineage,
+} from "./types.js";
+export type {
+  LineageConfig,
+  LineageInstance,
+} from "./runtime-types.js";
 export { InMemoryLineageStore, createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
-export { DefaultLineageService, createLineageService } from "./service/lineage-service.js";
 export { withLineage } from "./with-lineage.js";

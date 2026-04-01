@@ -12,12 +12,14 @@
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
 
 const governed = withGovernance(
-  createManifesto<CounterDomain>(schema, effects),
+  withLineage(createManifesto<CounterDomain>(schema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
   {
-    lineage: { store },
     bindings,
     execution: {
       projectionId: "counter",
@@ -34,7 +36,7 @@ const governed = withGovernance(
 
 ## Activated Runtime
 
-Governed runtimes keep the lineage query surface, but remove direct dispatch:
+Governed runtimes keep the lineage query surface, but remove direct execution:
 
 - `proposeAsync(intent)`
 - `approve(proposalId, approvedScope?)`
@@ -45,13 +47,13 @@ Governed runtimes keep the lineage query surface, but remove direct dispatch:
 - `getActorBinding(actorId)`
 - `getDecisionRecord(decisionId)`
 
-`dispatchAsync` is intentionally absent.
+`dispatchAsync` and `commitAsync` are intentionally absent.
 
 ## Lineage Guarantee
 
-- If `withLineage()` was already composed, governance uses that explicit lineage setup.
-- If not, `config.lineage` is required.
-- Governance does not create a default in-memory lineage store for the caller.
+- `withLineage()` must already be composed.
+- Governance uses that explicit lineage setup.
+- Governance does not create lineage on behalf of the caller.
 
 ## Low-Level Protocol Surface
 

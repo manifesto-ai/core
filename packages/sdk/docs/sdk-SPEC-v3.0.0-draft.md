@@ -1,22 +1,22 @@
 # Manifesto SDK Specification v3.0.0 Draft
 
-> **Status:** Draft (Projected super hard cut)
+> **Status:** Normative Draft, truthful current contract
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, projected Lineage SPEC v2.1.0, projected Governance SPEC v2.1.0
+> **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
 > **Supersedes:** SDK SPEC v2.0.0
-> **Implements:** ADR-017
+> **Implements:** ADR-017 v3.1
 
-> **Draft Note:** This draft rewrites the SDK around the activation boundary defined by ADR-017. The current normative package contract remains [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) until the hard cut lands.
+> **Historical Note:** [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) is retained as the pre-ADR-017 hard-cut baseline.
 
 ## 1. Purpose
 
-This document defines the projected SDK v3 public contract.
+This document defines the current SDK v3 public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
 The SDK no longer presents top-level `@manifesto-ai/world` as part of its public story. Governed composition is expressed by decorating the composable manifesto with `withLineage()` and `withGovernance()` from their owning packages.
 
-This document is normative for SDK-owned behavior. It does not restate the full lineage or governance runtime contracts. Those remain the responsibility of their projected owning specs.
+This document is normative for SDK-owned behavior. It does not restate the full lineage or governance runtime contracts. Those remain the responsibility of their owning package specs.
 
 ## 2. Normative Language
 
@@ -97,7 +97,7 @@ type ActivatedInstance<
       : ManifestoBaseInstance<T>;
 ```
 
-`LineageInstance<T>` and `GovernanceInstance<T>` are projected boundary names owned by their packages. Their full runtime members are intentionally not restated in this SDK spec.
+`LineageInstance<T>` and `GovernanceInstance<T>` are boundary names owned by their packages. Their full runtime members are intentionally not restated in this SDK spec.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -285,7 +285,7 @@ type CompileDiagnostic = {
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-TYPE-1 | MUST | The public names in §5 are frozen for the projected SDK v3 surface |
+| SDK-TYPE-1 | MUST | The public names in §5 are frozen for the current SDK v3 surface |
 | SDK-TYPE-2 | MUST | `TypedMEL<T>` MUST preserve the key sets of `T["actions"]`, `T["state"]`, and `T["computed"]` exactly |
 | SDK-TYPE-3 | MUST | `TypedCreateIntent<T>` MUST derive its argument list from the TypeScript parameter list of the referenced action |
 | SDK-TYPE-4 | MUST | `TypedDispatchAsync<T>` MUST accept any Core `Intent`, including intents not created by `TypedCreateIntent<T>` |
@@ -505,7 +505,7 @@ This SDK spec does not restate:
 - governance proposal lifecycle
 - governance lineage auto-guarantee details
 
-Those are defined by ADR-017 and their owning projected specs.
+Those are defined by ADR-017 and their owning package specs.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|

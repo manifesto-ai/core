@@ -1,4 +1,4 @@
-import type { BinaryOperator, ExprNode, SystemIdentNode } from "../parser/ast.js";
+import type { BinaryOperator, ExprNode, SystemIdentExprNode } from "../parser/ast.js";
 import type { MelExprNode, MelPathNode } from "./lower-expr.js";
 
 export interface ToMelExprOptions {
@@ -116,7 +116,7 @@ export function toMelPath(...segments: string[]): MelPathNode {
 }
 
 function resolveSystemIdent(
-  input: SystemIdentNode,
+  input: SystemIdentExprNode,
   options: ToMelExprOptions
 ): MelExprNode {
   return options.resolveSystemIdent?.(input.path) ?? sysPathExpr(...input.path);

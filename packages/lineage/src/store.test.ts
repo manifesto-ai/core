@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
-import {
-  createInMemoryLineageStore,
-  createLineageService,
-} from "./index.js";
+import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
+import { createLineageService } from "./service/lineage-service.js";
 
 function createTestSnapshot(
   data: Record<string, unknown>,

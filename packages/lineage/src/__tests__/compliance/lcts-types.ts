@@ -10,7 +10,8 @@ import type {
   RuleLifecycle,
   RuleMode,
 } from "@manifesto-ai/cts-kit";
-import type { LineageService, LineageStore, Snapshot } from "../../index.js";
+import type { Snapshot } from "@manifesto-ai/core";
+import type { LineageService, LineageStore } from "../../types.js";
 
 export const LCTS_SUITES = [
   "identity",

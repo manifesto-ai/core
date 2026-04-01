@@ -79,10 +79,11 @@ describe("LCTS Seam Suite", () => {
       const sourceRoot = fileURLToPath(new URL("../../../", import.meta.url));
       const importSpecifiers = collectImportSpecifiers(sourceRoot);
       const sourceContents = collectSourceContents(sourceRoot);
-      const hasLineageSurface = typeof exported.computeSnapshotHash === "function"
-        && typeof exported.computeWorldId === "function"
+      const hasLineageSurface = typeof exported.withLineage === "function"
         && typeof exported.createInMemoryLineageStore === "function"
-        && typeof exported.createLineageService === "function";
+        && !("computeSnapshotHash" in exported)
+        && !("computeWorldId" in exported)
+        && !("createLineageService" in exported);
       const omitsGovernanceSurface = !("createProposal" in exported)
         && !("createDecisionRecord" in exported)
         && !("createNoopWorldEventSink" in exported)

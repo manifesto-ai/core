@@ -1,11 +1,11 @@
 import type { ErrorValue, Intent as HostIntent, Snapshot } from "@manifesto-ai/core";
-import type { ArtifactRef, BranchId, PreparedLineageCommit, World, WorldId } from "@manifesto-ai/lineage";
+import type { ArtifactRef, BranchId, World, WorldId } from "@manifesto-ai/lineage";
+import type { PreparedLineageCommit } from "@manifesto-ai/lineage/internal";
 
 export type { Snapshot } from "@manifesto-ai/core";
 export type {
   ArtifactRef,
   BranchId,
-  PreparedLineageCommit,
   World,
   WorldId,
 } from "@manifesto-ai/lineage";

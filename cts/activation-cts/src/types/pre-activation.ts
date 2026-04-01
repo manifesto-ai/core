@@ -26,7 +26,7 @@ base.subscribe;
 const lineage = withLineage(base, { store: createInMemoryLineageStore() });
 
 // @ts-expect-error lineage composable still has no runtime verbs before activation
-lineage.dispatchAsync;
+lineage.commitAsync;
 // @ts-expect-error lineage composable still has no snapshot reads before activation
 lineage.getSnapshot;
 // @ts-expect-error lineage composable still has no subscriptions before activation

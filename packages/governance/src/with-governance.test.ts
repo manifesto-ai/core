@@ -4,13 +4,15 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { createManifesto } from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import {
   createInMemoryLineageStore,
-  createLineageService,
-  type LineageService,
   withLineage,
 } from "@manifesto-ai/lineage";
+import {
+  createLineageService,
+  type LineageService,
+} from "@manifesto-ai/lineage/internal";
 
 import {
   createInMemoryGovernanceStore,
@@ -19,6 +21,34 @@ import {
   type GovernanceEvent,
   type GovernanceStore,
 } from "./index.js";
+
+const lineageSealCalls = vi.hoisted(() => [] as Array<{ executionKey?: string }>);
+
+vi.mock("@manifesto-ai/lineage/internal", async () => {
+  const actual = await vi.importActual<typeof import("@manifesto-ai/lineage/internal")>(
+    "@manifesto-ai/lineage/internal",
+  );
+
+  return {
+    ...actual,
+    createLineageRuntimeController(
+      ...args: Parameters<typeof actual.createLineageRuntimeController>
+    ) {
+      const controller = actual.createLineageRuntimeController(...args);
+      return {
+        ...controller,
+        async sealIntent(
+          ...sealArgs: Parameters<typeof controller.sealIntent>
+        ) {
+          lineageSealCalls.push({
+            executionKey: sealArgs[1]?.executionKey,
+          });
+          return controller.sealIntent(...sealArgs);
+        },
+      };
+    },
+  };
+});
 
 const pp = semanticPathToPatchPath;
 
@@ -165,11 +195,13 @@ function createDeferred() {
 }
 
 describe("@manifesto-ai/governance decorator runtime", () => {
-  it("auto-ensures lineage from config and removes the dispatchAsync backdoor", async () => {
+  it("requires explicit lineage composition and removes direct execution backdoors", async () => {
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         bindings: [createAutoBinding()],
         execution: {
           projectionId: "proj:auto",
@@ -186,6 +218,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).activate();
 
     expect("dispatchAsync" in governed).toBe(false);
+    expect("commitAsync" in governed).toBe(false);
 
     const proposal = await governed.proposeAsync(
       governed.createIntent(governed.MEL.actions.increment),
@@ -200,9 +233,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
         execution: {
@@ -239,9 +274,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(governed.getSnapshot().data.count).toBe(1);
   });
 
-  it("uses explicitly composed lineage instead of governance config lineage overrides", async () => {
+  it("uses the explicitly composed lineage service", async () => {
     const explicitStore = createInMemoryLineageStore();
-    const ignoredStore = createInMemoryLineageStore();
     const explicitService = createLineageService(explicitStore);
 
     const governed = withGovernance(
@@ -250,7 +284,6 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         { service: explicitService },
       ),
       {
-        lineage: { store: ignoredStore },
         bindings: [createAutoBinding()],
         execution: {
           projectionId: "proj:explicit",
@@ -271,19 +304,20 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     );
 
     expect((await explicitService.getBranches()).length).toBeGreaterThan(0);
-    expect((await ignoredStore.getBranches()).length).toBe(0);
   });
 
   it("records failed governed executions without publishing the failed snapshot", async () => {
     const events: GovernanceEvent[] = [];
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {
-        "api.fetch": async () => {
-          throw new Error("boom");
-        },
-      }),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {
+          "api.fetch": async () => {
+            throw new Error("boom");
+          },
+        }),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         bindings: [createAutoBinding()],
         eventSink: {
           emit(event) {
@@ -345,9 +379,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as LineageService;
 
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { service: failingService },
+      ),
       {
-        lineage: { service: failingService },
         governanceStore,
         bindings: [createAutoBinding()],
         execution: {
@@ -378,6 +414,217 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 
+  it("preserves the sealed terminal proposal when terminal persistence retries fail", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    let failCompletedPersist = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putProposal") {
+          return async (...args: Parameters<GovernanceStore["putProposal"]>) => {
+            const [proposal] = args;
+            if (proposal.status === "completed" && failCompletedPersist) {
+              failCompletedPersist = false;
+              throw new Error("transient terminal persist failure");
+            }
+            return target.putProposal(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:terminal-persist-retry",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:terminal-persist-retry",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("transient terminal persist failure");
+
+    const activeBranch = await governed.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+    const latestHead = await governed.getLatestHead();
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("completed");
+    expect(stored[0]?.resultWorld).toBe(latestHead?.worldId);
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("persists a failed proposal when finalize throws after the lineage seal succeeds", async () => {
+    const lineageStore = createInMemoryLineageStore();
+    const governanceStore = createInMemoryGovernanceStore();
+    let failDecisionLookup = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "getDecisionRecord") {
+          return async (...args: Parameters<GovernanceStore["getDecisionRecord"]>) => {
+            if (failDecisionLookup) {
+              failDecisionLookup = false;
+              throw new Error("decision lookup failed");
+            }
+            return target.getDecisionRecord(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: lineageStore },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:finalize-throws",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:finalize-throws",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("decision lookup failed");
+
+    const activeBranch = await governed.getActiveBranch();
+    const latestHead = await governed.getLatestHead();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(stored[0]?.resultWorld).toBe(latestHead?.worldId);
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("falls back to a failed proposal when terminal proposal retries keep failing", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+
+    const policyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putProposal") {
+          return async (...args: Parameters<GovernanceStore["putProposal"]>) => {
+            const [proposal] = args;
+            if (proposal.status === "completed") {
+              throw new Error("completed proposals rejected");
+            }
+            return target.putProposal(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: policyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:terminal-fallback-failed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:terminal-fallback-failed",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("completed proposals rejected");
+
+    const activeBranch = await governed.getActiveBranch();
+    const latestHead = await governed.getLatestHead();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(stored[0]?.resultWorld).toBe(latestHead?.worldId);
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("routes governed execution through the proposal execution key", async () => {
+    lineageSealCalls.length = 0;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:execution-key",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:execution-key",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    expect(proposal.status).toBe("completed");
+    expect(lineageSealCalls).toHaveLength(1);
+    expect(lineageSealCalls[0]?.executionKey).toBe(proposal.executionKey);
+  });
+
   it("serializes bindActor updates with proposal execution", async () => {
     const governanceStore = createInMemoryGovernanceStore();
     const gate = createDeferred();
@@ -399,9 +646,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         governanceStore: serializedStore,
         bindings: [createHitlBinding()],
         execution: {
@@ -437,5 +686,52 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     );
     expect(next.status).toBe("completed");
     expect(governed.getSnapshot().data.count).toBe(1);
+  });
+
+  it("shares activation ownership with the base and lineage composables", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const lineage = withLineage(base, { store: createInMemoryLineageStore() });
+    const governed = withGovernance(lineage, {
+      bindings: [createAutoBinding()],
+      execution: {
+        projectionId: "proj:activation-ownership",
+        deriveActor: () => ({
+          actorId: "actor:auto",
+          kind: "agent",
+        }),
+        deriveSource: () => ({
+          kind: "agent",
+          eventId: "evt:activation-ownership",
+        }),
+      },
+    });
+
+    const world = governed.activate();
+
+    expect(() => lineage.activate()).toThrow(AlreadyActivatedError);
+    expect(() => base.activate()).toThrow(AlreadyActivatedError);
+
+    world.dispose();
+  });
+
+  it("rejects governance composition without an explicit lineage decorator at runtime", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+
+    expect(() =>
+      withGovernance(base as never, {
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:missing-lineage",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:missing-lineage",
+          }),
+        },
+      })
+    ).toThrow("withGovernance() requires a manifesto already composed with withLineage()");
   });
 });

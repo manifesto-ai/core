@@ -19,15 +19,15 @@ const world = withLineage(manifesto, {
 
 Lineage does not decorate a running instance. It decorates the composable manifesto and participates in the activation pipeline.
 
-## 2. Dispatch Means Execute And Seal
+## 2. Commit Means Execute And Seal
 
 ```ts
-await world.dispatchAsync(
+await world.commitAsync(
   world.createIntent(world.MEL.actions.increment),
 );
 ```
 
-On a lineage runtime, `dispatchAsync()` means:
+On a lineage runtime, `commitAsync()` means:
 
 1. execute the intent
 2. prepare and commit a lineage seal
@@ -35,19 +35,20 @@ On a lineage runtime, `dispatchAsync()` means:
 
 If seal commit fails, the Promise rejects and the new snapshot does not become visible.
 
-## 3. Read Heads, Branches, And Worlds
+## 3. Read Heads, Branches, Worlds, And Lineage
 
 ```ts
 const latestHead = await world.getLatestHead();
 const branches = await world.getBranches();
 const activeBranch = await world.getActiveBranch();
+const lineage = await world.getLineage();
 
 if (latestHead) {
   const record = await world.getWorld(latestHead.worldId);
 }
 ```
 
-These APIs project the backing `LineageService` through the activated runtime.
+These APIs project the backing continuity truth through the activated runtime.
 
 ## 4. Restore A Sealed World
 
@@ -73,7 +74,7 @@ Switching branches also restores that branch head into the visible runtime state
 
 ## 6. Low-Level Lineage Still Exists
 
-Use `LineageService` and `LineageStore` directly when you need prepared commits, hashing utilities, or persistence tooling without the activated runtime wrapper.
+Use `@manifesto-ai/lineage/internal` when you need `LineageService`, `LineageStore`, prepared commits, or persistence tooling without the activated runtime wrapper.
 
 ## 7. Related Docs
 

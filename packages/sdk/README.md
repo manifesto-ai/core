@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The truthful current SDK contract is the ADR-017 activation model documented in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md). The filename still says `draft` because the wider ADR-017 landing across Lineage, Governance, and World is still in progress.
+> **Current Contract Note:** The truthful current SDK contract is the ADR-017 activation model documented in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md). The filename still says `draft`, but the activation-first decorator runtime is the current landed contract.
 
 ## What This Package Owns
 

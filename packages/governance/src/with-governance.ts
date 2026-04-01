@@ -1,25 +1,23 @@
 import type {
-  BaseLaws,
   ComposableManifesto,
   GovernanceLaws,
-  LineageLaws,
   ManifestoDomainShape,
 } from "@manifesto-ai/sdk";
 import {
-  AlreadyActivatedError,
   DisposedError,
   ManifestoError,
 } from "@manifesto-ai/sdk";
 import {
+  activateComposable,
+  assertComposableNotActivated,
   attachRuntimeKernelFactory,
+  getActivationState,
   getRuntimeKernelFactory,
   type RuntimeKernel,
 } from "@manifesto-ai/sdk/internal";
 import type { Intent as CoreIntent } from "@manifesto-ai/core";
 import {
-  createLineageService,
   type BranchId,
-  type LineageConfig,
 } from "@manifesto-ai/lineage";
 import {
   createLineageRuntimeController,
@@ -35,8 +33,9 @@ import { createInMemoryGovernanceStore } from "./store/in-memory-governance-stor
 import type {
   GovernanceComposableManifesto,
   GovernanceConfig,
+  GovernedComposableLaws,
   GovernanceInstance,
-  GovernanceLineageConfig,
+  LineageComposableManifestoInput,
 } from "./runtime-types.js";
 import type {
   ActorAuthorityBinding,
@@ -52,45 +51,48 @@ import {
   defaultExecutionKeyPolicy,
 } from "./types.js";
 
-const LINEAGE_LAWS: LineageLaws = Object.freeze({ __lineageLaws: true });
 const GOVERNANCE_LAWS: GovernanceLaws = Object.freeze({ __governanceLaws: true });
 
 export function withGovernance<
   T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
 >(
-  manifesto: ComposableManifesto<T, Laws>,
-  config: GovernanceConfig<T, Laws>,
-): GovernanceComposableManifesto<T, Laws> {
+  manifesto: LineageComposableManifestoInput<T>,
+  config: GovernanceConfig,
+): GovernanceComposableManifesto<T> {
+  assertComposableNotActivated(manifesto);
+
   const createKernel = getRuntimeKernelFactory(manifesto);
   const explicitLineage = getLineageDecoration(manifesto);
-  const lineageConfig = explicitLineage?.config
-    ?? resolveGovernanceLineageConfig(config.lineage);
-  let activated = false;
+  if (!explicitLineage) {
+    throw new ManifestoError(
+      "GOVERNANCE_LINEAGE_REQUIRED",
+      "withGovernance() requires a manifesto already composed with withLineage()",
+    );
+  }
+  const activationState = getActivationState(manifesto);
 
-  const decorated: GovernanceComposableManifesto<T, Laws> = {
+  const decorated: GovernanceComposableManifesto<T> = {
     _laws: Object.freeze({
       ...manifesto._laws,
-      ...LINEAGE_LAWS,
       ...GOVERNANCE_LAWS,
-    }) as Laws & LineageLaws & GovernanceLaws,
+    }) as GovernedComposableLaws,
     schema: manifesto.schema,
     activate() {
-      if (activated) {
-        throw new AlreadyActivatedError();
-      }
-      activated = true;
+      activateComposable(
+        decorated as unknown as ComposableManifesto<T, GovernedComposableLaws>,
+      );
       return activateGovernanceRuntime<T>(
         createKernel(),
-        explicitLineage?.config ?? lineageConfig,
+        explicitLineage.config,
         config,
       );
     },
   };
 
   attachRuntimeKernelFactory(
-    decorated as unknown as ComposableManifesto<T, Laws & LineageLaws & GovernanceLaws>,
+    decorated as unknown as ComposableManifesto<T, GovernedComposableLaws>,
     createKernel,
+    activationState,
   );
 
   return decorated;
@@ -99,7 +101,7 @@ export function withGovernance<
 function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   kernel: RuntimeKernel<T>,
   lineageConfig: ResolvedLineageConfig,
-  config: GovernanceConfig<T, BaseLaws>,
+  config: GovernanceConfig,
 ): GovernanceInstance<T> {
   const governanceStore = config.governanceStore ?? createInMemoryGovernanceStore();
   const governanceService = createGovernanceService(governanceStore, {
@@ -196,12 +198,14 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     intent: CoreIntent,
   ): Promise<Proposal> {
     let sealed: Awaited<ReturnType<typeof lineage.sealIntent>> | null = null;
+    let terminalProposal: Proposal | null = null;
     let proposalPersisted = false;
 
     try {
       sealed = await lineage.sealIntent(intent, {
         proposalRef: executingProposal.proposalId,
         decisionRef: executingProposal.decisionId,
+        executionKey: executingProposal.executionKey,
         publishOnCompleted: false,
         assumeEnqueued: true,
       });
@@ -211,6 +215,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         sealed.preparedCommit,
         getCurrentTimestamp(),
       );
+      terminalProposal = governanceCommit.proposal;
 
       await governanceStore.putProposal(governanceCommit.proposal);
       proposalPersisted = true;
@@ -238,12 +243,25 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       const failure = toGovernanceFailure(error);
       if (!proposalPersisted) {
         try {
-          const failedProposal = governanceService.failExecution(
-            executingProposal,
-            getCurrentTimestamp(),
-            sealed?.preparedCommit.worldId,
-          );
-          await governanceStore.putProposal(failedProposal);
+          if (terminalProposal) {
+            try {
+              await governanceStore.putProposal(terminalProposal);
+            } catch {
+              const failedProposal = governanceService.failExecution(
+                executingProposal,
+                getCurrentTimestamp(),
+                sealed?.preparedCommit.worldId,
+              );
+              await governanceStore.putProposal(failedProposal);
+            }
+          } else {
+            const failedProposal = governanceService.failExecution(
+              executingProposal,
+              getCurrentTimestamp(),
+              sealed?.preparedCommit.worldId,
+            );
+            await governanceStore.putProposal(failedProposal);
+          }
         } catch {
           // Preserve the original execution failure if compensating persistence also fails.
         }
@@ -478,6 +496,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     dispose: kernel.dispose,
     restore: lineage.restore,
     getWorld: lineage.getWorld,
+    getLineage: lineage.getLineage,
     getLatestHead: lineage.getLatestHead,
     getHeads: lineage.getHeads,
     getBranches: lineage.getBranches,
@@ -495,44 +514,6 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   };
 
   return governed satisfies GovernanceInstance<T>;
-}
-
-function resolveGovernanceLineageConfig(
-  lineage: GovernanceLineageConfig | LineageConfig | undefined,
-): ResolvedLineageConfig {
-  if (!lineage) {
-    throw new ManifestoError(
-      "GOVERNANCE_LINEAGE_REQUIRED",
-      "withGovernance() requires explicit lineage configuration when lineage is not already composed",
-    );
-  }
-
-  if (!lineage.service && !lineage.store) {
-    throw new ManifestoError(
-      "GOVERNANCE_LINEAGE_REQUIRED",
-      "Governance lineage configuration must provide a LineageService or LineageStore",
-    );
-  }
-
-  if (lineage.service) {
-    return Object.freeze({
-      ...lineage,
-      service: lineage.service,
-    });
-  }
-
-  const store = lineage.store;
-  if (!store) {
-    throw new ManifestoError(
-      "GOVERNANCE_LINEAGE_REQUIRED",
-      "Governance lineage configuration must provide a LineageService or LineageStore",
-    );
-  }
-
-  return Object.freeze({
-    ...lineage,
-    service: createLineageService(store),
-  });
 }
 
 function toCoreIntent(proposal: Proposal): CoreIntent {

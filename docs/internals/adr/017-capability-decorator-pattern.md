@@ -1,11 +1,22 @@
 # ADR-017: Capability Decorator Pattern — Semantic Transformation of SDK Surface
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Date:** 2026-04-01 (v3.1 — activate() one-shot + config precedence rules)
 > **Deciders:** 정성우 (Architect)
 > **Scope:** SDK, Lineage, Governance
 > **Supersedes:** SDK SPEC v1.0.0 `ManifestoInstance` interface shape (§6)
 > **Preserves:** All protocol packages (Core, Host, Lineage, Governance, Compiler) — zero changes
+> **Historical Draft:** [ADR-017 v2](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus.md) (cross-model review consensus, preserved for traceability)
+
+---
+
+## Revision History
+
+| Version | Date | Change | Document |
+|---------|------|--------|----------|
+| v2 | 2026-04-01 | Cross-model review consensus draft; lineage verb was still `commitAsync`; activation boundary not yet adopted | [Archived draft](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus.md) |
+| v3.0 | 2026-04-01 | Activation boundary introduced; `createManifesto()` returns a composable manifesto and runtime verbs appear only after `activate()` | This document |
+| v3.1 | 2026-04-01 | `activate()` one-shot enforcement and Governance/Lineage config precedence rules clarified | This document |
 
 ---
 
@@ -688,8 +699,8 @@ Rejected. If `activate()` were idempotent (returning the same instance), the con
 | Package | Current | Target | Change Type |
 |---------|---------|--------|-------------|
 | SDK | v2.0.0 | v3.0.0 | **Major** — `createManifesto` returns composable, activation required |
-| Lineage | v2.0.0 | v2.1.0 | **Minor** — additive `withLineage` export |
-| Governance | v2.0.0 | v2.1.0 | **Minor** — additive `withGovernance` export |
+| Lineage | v2.0.0 | v3.0.0 | **Major** — decorator runtime becomes the current package contract |
+| Governance | v2.0.0 | v3.0.0 | **Major** — governed activation becomes the current package contract |
 | Core | v4.0.0 | v4.0.0 | **None** |
 | Host | v4.0.0 | v4.0.0 | **None** |
 | Compiler | — | — | **None** |

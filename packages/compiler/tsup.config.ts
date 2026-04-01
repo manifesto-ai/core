@@ -12,7 +12,7 @@ export default defineConfig({
   },
   format: "esm",
   tsconfig: "tsconfig.build.json",
-  dts: true,
+  dts: false,
   clean: true,
   sourcemap: true,
 });

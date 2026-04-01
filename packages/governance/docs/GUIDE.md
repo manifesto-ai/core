@@ -4,12 +4,14 @@
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
 
 const governed = withGovernance(
-  createManifesto<CounterDomain>(schema, effects),
+  withLineage(createManifesto<CounterDomain>(schema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
   {
-    lineage: { store },
     bindings: [
       {
         actorId: "agent:demo",
@@ -30,7 +32,7 @@ const governed = withGovernance(
 ).activate();
 ```
 
-If lineage was not explicitly composed earlier, `config.lineage` is required. Governance does not create a default in-memory lineage store for you.
+Governance only accepts a manifesto that has already been composed with `withLineage()`.
 
 ## 2. Propose Instead Of Dispatch
 
@@ -40,7 +42,7 @@ const proposal = await governed.proposeAsync(
 );
 ```
 
-Governed runtimes do not expose `dispatchAsync`. That backdoor is removed by design.
+Governed runtimes do not expose `dispatchAsync` or `commitAsync`. Both backdoors are removed by design.
 
 ## 3. Auto-Approved Flow
 
@@ -85,7 +87,7 @@ Governed runtimes still carry the lineage query surface:
 - `switchActiveBranch(branchId)`
 - `createBranch(name, fromWorldId?)`
 
-The only removed verb is direct execution.
+The removed verbs are direct execution verbs. Governance keeps the lineage query surface, not lineage execution.
 
 ## 6. Low-Level Governance Substrate
 

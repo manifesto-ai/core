@@ -8,8 +8,8 @@ import {
 } from "../../../index.js";
 import {
   createInMemoryLineageStore,
-  createLineageService,
 } from "@manifesto-ai/lineage";
+import { createLineageService } from "@manifesto-ai/lineage/internal";
 import { createGovernanceComplianceAdapter } from "../gcts-adapter.js";
 import {
   evaluateRule,

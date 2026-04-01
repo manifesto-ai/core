@@ -9,9 +9,10 @@
 ## What This Package Owns
 
 - `withLineage(createManifesto(...), config).activate()`
-- lineage-aware `dispatchAsync` that seals before publication
+- lineage-aware `commitAsync` that seals before publication
 - restore, head, branch, and world queries on the activated runtime
-- `LineageStore`, `LineageService`, and sealing substrate
+- `getLineage()` for DAG inspection on the activated runtime
+- sealing substrate and the internal provider surface
 - deterministic world identity, branch semantics, and restore normalization
 
 ## Canonical Path
@@ -25,7 +26,7 @@ const world = withLineage(manifesto, {
   store: createInMemoryLineageStore(),
 }).activate();
 
-await world.dispatchAsync(
+await world.commitAsync(
   world.createIntent(world.MEL.actions.increment),
 );
 
@@ -37,7 +38,7 @@ if (head) {
 
 ## Low-Level Usage
 
-`LineageService` and `LineageStore` remain public. Use them directly when you need hashing, prepared commits, branch inspection, or custom persistence without the activated runtime wrapper.
+Use `@manifesto-ai/lineage/internal` when you need `LineageService`, `LineageStore`, prepared commits, or custom persistence without the activated runtime wrapper.
 
 ## Docs
 

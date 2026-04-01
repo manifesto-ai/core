@@ -8,6 +8,7 @@ import {
 import type { HostResult, ManifestoHost } from "@manifesto-ai/host";
 
 import {
+  AlreadyActivatedError,
   DisposedError,
   ManifestoError,
 } from "./errors.js";
@@ -29,6 +30,13 @@ import type {
 
 export const ACTION_PARAM_NAMES = Symbol("manifesto-sdk.action-param-names");
 export const RUNTIME_KERNEL_FACTORY = Symbol("manifesto-sdk.runtime-kernel-factory");
+export const ACTIVATION_STATE = Symbol("manifesto-sdk.activation-state");
+
+export type ActivationState = {
+  activated: boolean;
+};
+
+export type HostDispatchOptions = NonNullable<Parameters<ManifestoHost["dispatch"]>[1]>;
 
 interface Subscriber<TState, R> {
   readonly selector: Selector<TState, R>;
@@ -60,7 +68,10 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
   readonly ensureIntentId: (intent: Intent) => Intent;
-  readonly executeHost: (intent: Intent) => Promise<HostResult>;
+  readonly executeHost: (
+    intent: Intent,
+    options?: HostDispatchOptions,
+  ) => Promise<HostResult>;
   readonly rejectUnavailable: (intent: Intent) => never;
 }
 
@@ -71,6 +82,7 @@ export type InternalComposableManifesto<
   Laws extends BaseLaws,
 > = ComposableManifesto<T, Laws> & {
   readonly [RUNTIME_KERNEL_FACTORY]: RuntimeKernelFactory<T>;
+  readonly [ACTIVATION_STATE]: ActivationState;
 };
 
 type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
@@ -86,6 +98,7 @@ export function attachRuntimeKernelFactory<
 >(
   manifesto: ComposableManifesto<T, Laws>,
   factory: RuntimeKernelFactory<T>,
+  activationState?: ActivationState,
 ): InternalComposableManifesto<T, Laws> {
   Object.defineProperty(manifesto, RUNTIME_KERNEL_FACTORY, {
     enumerable: false,
@@ -93,6 +106,19 @@ export function attachRuntimeKernelFactory<
     writable: false,
     value: factory,
   });
+
+  const state = activationState ?? getExistingActivationState(manifesto) ?? {
+    activated: false,
+  };
+
+  if (!getExistingActivationState(manifesto)) {
+    Object.defineProperty(manifesto, ACTIVATION_STATE, {
+      enumerable: false,
+      configurable: false,
+      writable: false,
+      value: state,
+    });
+  }
 
   return manifesto as InternalComposableManifesto<T, Laws>;
 }
@@ -114,6 +140,59 @@ export function getRuntimeKernelFactory<
   }
 
   return factory;
+}
+
+export function getActivationState<
+  T extends ManifestoDomainShape,
+  Laws extends BaseLaws,
+>(
+  manifesto: ComposableManifesto<T, Laws>,
+): ActivationState {
+  const internal = manifesto as Partial<InternalComposableManifesto<T, Laws>>;
+  const state = internal[ACTIVATION_STATE];
+
+  if (!state) {
+    throw new ManifestoError(
+      "SCHEMA_ERROR",
+      "ComposableManifesto is missing its activation state",
+    );
+  }
+
+  return state;
+}
+
+export function assertComposableNotActivated<
+  T extends ManifestoDomainShape,
+  Laws extends BaseLaws,
+>(
+  manifesto: ComposableManifesto<T, Laws>,
+): void {
+  if (getActivationState(manifesto).activated) {
+    throw new AlreadyActivatedError();
+  }
+}
+
+export function activateComposable<
+  T extends ManifestoDomainShape,
+  Laws extends BaseLaws,
+>(
+  manifesto: ComposableManifesto<T, Laws>,
+): void {
+  const state = getActivationState(manifesto);
+  if (state.activated) {
+    throw new AlreadyActivatedError();
+  }
+  state.activated = true;
+}
+
+function getExistingActivationState<
+  T extends ManifestoDomainShape,
+  Laws extends BaseLaws,
+>(
+  manifesto: ComposableManifesto<T, Laws>,
+): ActivationState | null {
+  const internal = manifesto as Partial<InternalComposableManifesto<T, Laws>>;
+  return internal[ACTIVATION_STATE] ?? null;
 }
 
 export function createRuntimeKernel<T extends ManifestoDomainShape>({
@@ -270,8 +349,11 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     };
   }
 
-  async function executeHost(intent: Intent): Promise<HostResult> {
-    return host.dispatch(intent);
+  async function executeHost(
+    intent: Intent,
+    options?: HostDispatchOptions,
+  ): Promise<HostResult> {
+    return host.dispatch(intent, options);
   }
 
   function rejectUnavailable(intent: Intent): never {

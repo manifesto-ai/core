@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createInMemoryLineageStore,
-  createLineageService,
   withLineage,
-  type LineageService,
 } from "@manifesto-ai/lineage";
+import {
+  createLineageService,
+  type LineageService,
+} from "@manifesto-ai/lineage/internal";
 import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
@@ -22,8 +24,9 @@ describe("ACTS Lineage Suite", () => {
       "withLineage() stays pre-activation and one-shot until runtime opens.",
     ),
     () => {
+      const base = createManifesto<CounterDomain>(createCounterSchema(), {});
       const manifesto = withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        base,
         { store: createInMemoryLineageStore() },
       );
       const world = manifesto.activate();
@@ -49,17 +52,25 @@ describe("ACTS Lineage Suite", () => {
           (() => {
             try {
               manifesto.activate();
+            } catch (error) {
+              if (!(error instanceof AlreadyActivatedError)) {
+                return false;
+              }
+            }
+
+            try {
+              base.activate();
               return false;
             } catch (error) {
               return error instanceof AlreadyActivatedError;
             }
           })(),
           {
-            passMessage: "Lineage-decorated composable activation is one-shot.",
-            failMessage: "Lineage-decorated composable allowed second activation.",
+            passMessage: "Lineage-decorated composable shares one-shot activation with its base composable.",
+            failMessage: "Lineage activation still leaves a re-activation backdoor on the decorated or base composable.",
             evidence: [
               noteEvidence(
-                "Second activation attempt threw AlreadyActivatedError on the lineage-decorated composable.",
+                "Second activation attempt threw AlreadyActivatedError on both the lineage-decorated composable and its base composable.",
               ),
             ],
           },
@@ -73,7 +84,7 @@ describe("ACTS Lineage Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.LINEAGE_SEAL_PUBLICATION,
-      "Lineage dispatch publishes only after seal commit succeeds and does not publish on commit failure.",
+      "Lineage commit publishes only after seal commit succeeds and does not publish on commit failure.",
     ),
     async () => {
       const store = createInMemoryLineageStore();
@@ -119,7 +130,7 @@ describe("ACTS Lineage Suite", () => {
       world.subscribe((snapshot) => snapshot.data.count, subscriber);
       world.on("dispatch:completed", completed);
 
-      const snapshot = await world.dispatchAsync(
+      const snapshot = await world.commitAsync(
         world.createIntent(world.MEL.actions.increment),
       );
 
@@ -154,7 +165,7 @@ describe("ACTS Lineage Suite", () => {
       failingWorld.subscribe((next) => next.data.count, failingSubscriber);
 
       await expect(
-        failingWorld.dispatchAsync(
+        failingWorld.commitAsync(
           failingWorld.createIntent(failingWorld.MEL.actions.increment),
         ),
       ).rejects.toThrow("seal commit failed");

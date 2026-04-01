@@ -1,4 +1,10 @@
-import type { BranchInfo, LineageService, PreparedLineageCommit, World, WorldId } from "@manifesto-ai/lineage";
+import type {
+  BranchInfo,
+  LineageService,
+  PreparedLineageCommit,
+  World,
+  WorldId,
+} from "@manifesto-ai/lineage/internal";
 import {
   getValidTransitions,
   isExecutionStageStatus,

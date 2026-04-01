@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
 import {
   createInMemoryLineageStore,
-  createLineageService,
 } from "@manifesto-ai/lineage";
+import { createLineageService } from "@manifesto-ai/lineage/internal";
 import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
   createInMemoryGovernanceStore,
 } from "./index.js";
+import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
+import { createGovernanceService } from "./service/governance-service.js";
 
 function createSnapshot(
   data: Record<string, unknown>,

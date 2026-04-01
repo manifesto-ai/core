@@ -4,14 +4,14 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { createManifesto } from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
 
 import {
-  createInMemoryLineageStore,
-  createLineageService,
-  withLineage,
   type LineageService,
-} from "./index.js";
+} from "./types.js";
+import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
+import { createLineageService } from "./service/lineage-service.js";
+import { withLineage } from "./with-lineage.js";
 
 const pp = semanticPathToPatchPath;
 
@@ -115,7 +115,7 @@ function createCounterSchema(): DomainSchema {
 }
 
 describe("@manifesto-ai/lineage decorator runtime", () => {
-  it("seals successful dispatches before publishing the visible snapshot", async () => {
+  it("seals successful commits before publishing the visible snapshot", async () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const world = withLineage(
@@ -129,7 +129,7 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     world.subscribe((snapshot) => snapshot.data.count, subscriber);
     world.on("dispatch:completed", completed);
 
-    const snapshot = await world.dispatchAsync(
+    const snapshot = await world.commitAsync(
       world.createIntent(world.MEL.actions.increment),
     );
 
@@ -139,9 +139,11 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     expect(completed).toHaveBeenCalledTimes(1);
 
     const head = await world.getLatestHead();
+    const lineage = await world.getLineage();
     expect(head).not.toBeNull();
     expect(head?.worldId).toBe((await service.getActiveBranch()).head);
     expect((await service.restore(head!.worldId)).data.count).toBe(1);
+    expect(lineage.worlds.size).toBeGreaterThan(0);
   });
 
   it("rejects seal failures without publishing a new visible snapshot", async () => {
@@ -185,7 +187,7 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     world.on("dispatch:failed", failed);
 
     await expect(
-      world.dispatchAsync(world.createIntent(world.MEL.actions.increment)),
+      world.commitAsync(world.createIntent(world.MEL.actions.increment)),
     ).rejects.toThrow("seal commit failed");
 
     expect(world.getSnapshot().data.count).toBe(0);
@@ -206,7 +208,7 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     ).activate();
 
     await expect(
-      world.dispatchAsync(world.createIntent(world.MEL.actions.load)),
+      world.commitAsync(world.createIntent(world.MEL.actions.load)),
     ).rejects.toBeInstanceOf(Error);
 
     expect(world.getSnapshot().data.status).toBe("idle");
@@ -228,7 +230,7 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
       { service },
     ).activate();
 
-    await first.dispatchAsync(first.createIntent(first.MEL.actions.add, 3));
+    await first.commitAsync(first.createIntent(first.MEL.actions.add, 3));
     first.dispose();
 
     const reopened = withLineage(
@@ -243,6 +245,15 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     expect(reopened.getSnapshot().data.count).toBe(3);
   });
 
+  it("rejects missing runtime config with a ManifestoError instead of a raw TypeError", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+
+    expect(() => withLineage(base, undefined as never)).toThrow(ManifestoError);
+    expect(() => withLineage(base, undefined as never)).toThrow(
+      "withLineage() requires a config object with either service or store",
+    );
+  });
+
   it("supports restore, branch creation, and branch switching on the activated runtime", async () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
@@ -251,7 +262,7 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
       { service },
     ).activate();
 
-    await world.dispatchAsync(world.createIntent(world.MEL.actions.add, 2));
+    await world.commitAsync(world.createIntent(world.MEL.actions.add, 2));
     const mainHead = await world.getLatestHead();
 
     const featureBranchId = await world.createBranch("feature");
@@ -259,10 +270,21 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     expect(switchResult.targetBranchId).toBe(featureBranchId);
     expect((await world.getActiveBranch()).id).toBe(featureBranchId);
 
-    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+    await world.commitAsync(world.createIntent(world.MEL.actions.increment));
     expect(world.getSnapshot().data.count).toBe(3);
 
     await world.restore(mainHead!.worldId);
     expect(world.getSnapshot().data.count).toBe(2);
+  });
+
+  it("shares activation ownership with the base composable", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const lineage = withLineage(base, { store: createInMemoryLineageStore() });
+
+    const world = lineage.activate();
+
+    expect(() => base.activate()).toThrow(AlreadyActivatedError);
+
+    world.dispose();
   });
 });
