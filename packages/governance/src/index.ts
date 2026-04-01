@@ -1,4 +1,5 @@
 export type * from "./types.js";
+export type * from "./runtime-types.js";
 export {
   createDecisionId,
   createExecutionKey,
@@ -80,3 +81,5 @@ export {
   AuthorityEvaluator,
   createAuthorityEvaluator,
 } from "./authority/evaluator.js";
+
+export { withGovernance } from "./with-governance.js";

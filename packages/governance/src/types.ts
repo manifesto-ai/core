@@ -340,6 +340,8 @@ export interface PreparedAuthorityResult {
 
 export interface GovernanceService {
   createProposal(input: CreateProposalInput): Proposal;
+  beginEvaluating(proposal: Proposal): Proposal & { readonly status: "evaluating" };
+  beginExecution(proposal: Proposal): Proposal & { readonly status: "executing" };
   prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,

@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/governance",
-  "version": "0.1.1",
-  "description": "Manifesto Governance - split-native governance lifecycle, authority, and audit protocol",
+  "version": "3.0.0",
+  "description": "Manifesto Governance - decorator runtime for legitimacy, approval, and governed execution",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -40,7 +40,8 @@
     "@manifesto-ai/core": "^2.0.0"
   },
   "dependencies": {
-    "@manifesto-ai/lineage": "workspace:*"
+    "@manifesto-ai/lineage": "workspace:*",
+    "@manifesto-ai/sdk": "workspace:*"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
