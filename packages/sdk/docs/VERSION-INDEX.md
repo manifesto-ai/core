@@ -5,8 +5,9 @@
 
 ## Latest Version
 
-- **Package:** v3.0.0 activation hard-cut release
-- **SPEC:** [v3.0.0](sdk-SPEC-v3.0.0-draft.md) (Current truthful contract)
+- **Package Release:** v3.1.1
+- **Contract Surface:** v3.0 activation-first entry/runtime model
+- **SPEC:** [v3.0.0](sdk-SPEC-v3.0.0-draft.md) (Current truthful contract; unchanged through package release v3.1.1)
 - **ADR:** [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md)
 
 SDK now follows the activation boundary. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the governed direction is the Lineage/Governance decorator path.
@@ -31,6 +32,7 @@ SDK now follows the activation boundary. `createManifesto()` returns a composabl
 
 ## Notes
 
+- The current package release is `3.1.1`; the current contract surface remains the v3.0 activation-first model documented in [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md).
 - [sdk-SPEC-v3.0.0-draft.md](sdk-SPEC-v3.0.0-draft.md) is the truthful current SDK contract even though the filename still retains `draft`.
 - [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) is preserved as the superseded pre-activation contract.
 - The current SDK Snapshot surface now follows Core's current contract: accumulated `system.errors` is removed, `lastError` remains, and no compatibility field is reintroduced.

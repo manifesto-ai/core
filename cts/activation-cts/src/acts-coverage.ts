@@ -27,7 +27,7 @@ export const ACTS_CASES = {
   LINEAGE_COMPOSABLE_SURFACE: "ACTS-LIN-001",
   LINEAGE_SEAL_PUBLICATION: "ACTS-LIN-002",
   GOVERNANCE_COMPOSABLE_SURFACE: "ACTS-GOV-001",
-  GOVERNANCE_AUTO_LINEAGE: "ACTS-GOV-002",
+  GOVERNANCE_EXPLICIT_LINEAGE: "ACTS-GOV-002",
   GOVERNANCE_EXPLICIT_PRECEDENCE: "ACTS-GOV-003",
   TYPES_PRE_ACTIVATION: "ACTS-TYPE-001",
   TYPES_GOVERNED_RUNTIME: "ACTS-TYPE-002",
@@ -71,7 +71,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     "withGovernance() stays pre-activation and one-shot until runtime opens.",
   ),
   complianceCase(
-    ACTS_CASES.GOVERNANCE_AUTO_LINEAGE,
+    ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE,
     "governance",
     "Governance requires explicit lineage composition and removes direct dispatchAsync and commitAsync from the governed runtime.",
   ),
@@ -128,7 +128,7 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
   ),
   ...coverMany(
     ["ACTS-GOV-2", "ACTS-GOV-3"],
-    [ACTS_CASES.GOVERNANCE_AUTO_LINEAGE],
+    [ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE],
   ),
   ...coverMany(
     ["ACTS-GOV-4"],

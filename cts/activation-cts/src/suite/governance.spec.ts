@@ -106,7 +106,7 @@ describe("ACTS Governance Suite", () => {
 
   it(
     caseTitle(
-      ACTS_CASES.GOVERNANCE_AUTO_LINEAGE,
+      ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE,
       "Governance requires explicit lineage composition and removes direct dispatch and commit verbs from the governed runtime.",
     ),
     async () => {
