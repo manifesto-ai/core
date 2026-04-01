@@ -55,7 +55,7 @@ The forward public direction under ADR-017 is:
 
 `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
-Those governed runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are transitional, not the SDK's canonical current story.
+Those governed runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are historical tombstones, not the SDK's canonical current story.
 
 ## Related Docs
 

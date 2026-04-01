@@ -80,7 +80,7 @@ The current SDK uses `intentId` to correlate lifecycle events:
 - `dispatch:rejected`
 - `dispatch:failed`
 
-If you build a `dispatchAsync()` helper on top of `on()`, it usually matches completion or failure by `intentId`.
+If you build an awaitable helper on top of `on()`, it usually matches completion or failure by `intentId`.
 
 ---
 

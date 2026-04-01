@@ -49,7 +49,7 @@ For the historical tombstone page, see [API: @manifesto-ai/world](/api/world).
 
 ### SDK v2.0.0
 
-`@manifesto-ai/sdk` remains a **thin composition layer** over the Manifesto protocol. The canonical public entrypoint is `createManifesto()` returning `ManifestoInstance` with `dispatch`, `subscribe`, `on`, availability queries, `getSnapshot`, and `dispose`.
+`@manifesto-ai/sdk` v2 is a historical reference only. Before ADR-017, the canonical public entrypoint was `createManifesto()` returning `ManifestoInstance` with `dispatch`, `subscribe`, `on`, availability queries, `getSnapshot`, and `dispose`.
 
 The `@manifesto-ai/runtime` package is **retired** — its responsibilities are absorbed into `createManifesto()` internal wiring. Runtime SPEC v0.2.0 is superseded with no successor.
 
@@ -109,7 +109,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 | 03-31 | Lineage | v2.0.0 | ADR-015 + ADR-016 lineage contract landed: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
 | 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
 | 03-31 | Host | v4.0.0 | Current Host alignment follows the Core v4 Snapshot contract and removes `system.errors` from Host-facing Snapshot references |
-| 03-31 | SDK | v2 current surface | Current SDK Snapshot surface now follows Core v4 and no longer exposes `system.errors`; governed seal internals remain out of scope |
+| 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
 | 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
@@ -119,6 +119,9 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
+| 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
+| 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with lineage auto-guarantee |
 | 04-01 | World | Removed | `@manifesto-ai/world` removed from the active workspace and downgraded to historical tombstone status |
 
 ### Recent Changes (2026-02)

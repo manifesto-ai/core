@@ -63,13 +63,13 @@ The activated base runtime exposes:
 
 ## Governed Composition Direction
 
-SDK no longer re-exports `createWorld()` or a thin World facade.
+SDK no longer re-exports the old World facade or its bootstrap helpers.
 
 The public direction under ADR-017 is:
 
 `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
-Those governed runtime contracts land in the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Until that landing is complete, treat older world-facade docs as transitional rather than canonical.
+Those governed runtime contracts land in the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Older world-facade docs are historical tombstones rather than current guidance.
 
 ## Docs
 

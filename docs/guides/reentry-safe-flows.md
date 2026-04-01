@@ -95,10 +95,13 @@ They are pure, but they are still part of the same action flow.
 Dispatch the same action more than once and inspect the resulting snapshot:
 
 ```typescript
-await dispatchAsync(manifesto, createIntent("submit", "intent-1"));
-await dispatchAsync(manifesto, createIntent("submit", "intent-2"));
+const first = world.createIntent(world.MEL.actions.submit);
+const second = world.createIntent(world.MEL.actions.submit);
 
-const snapshot = manifesto.getSnapshot();
+await world.dispatchAsync(first);
+await world.dispatchAsync(second);
+
+const snapshot = world.getSnapshot();
 console.log(snapshot.data);
 ```
 

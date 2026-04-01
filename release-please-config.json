@@ -93,10 +93,6 @@
       "package-name": "@manifesto-ai/sdk",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/world": {
-      "package-name": "@manifesto-ai/world",
-      "changelog-path": "CHANGELOG.md"
-    },
     "skills": {
       "package-name": "@manifesto-ai/skills",
       "changelog-path": "CHANGELOG.md"
