@@ -1,58 +1,79 @@
 # @manifesto-ai/sdk
 
-> Thin direct-dispatch entry point for Manifesto applications.
+> Activation-first entry point for Manifesto applications.
 
-`@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`. It stays thin and only re-exports the governed world assembly surface needed for explicit composition.
+`@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current public package contract is documented in [docs/sdk-SPEC-v2.0.0.md](docs/sdk-SPEC-v2.0.0.md). Current SDK v2 already follows the Core v4 Snapshot shape and includes availability query convenience methods. The broader next-major rewrite remains tracked in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md).
+> **Current Contract Note:** The truthful current SDK contract is the ADR-017 activation model documented in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md). The filename still says `draft` because the wider ADR-017 landing across Lineage, Governance, and World is still in progress.
 
 ## What This Package Owns
 
 - `createManifesto()`
-- `dispatchAsync()`
-- `defineOps()`
-- typed operation helpers
-- thin world re-export for `createWorld()`
+- the activation boundary via `activate()`
+- the present-only base runtime returned after activation
+- SDK error types
+- selected Core pass-through types used by SDK signatures
 
 ## When to Use It
 
 Use the SDK when you want:
 
-- the shortest path to direct-dispatch execution
-- subscriptions, availability queries, and snapshot reads without manual governed wiring
-- thin access to the governed world assembler, while keeping full governance and lineage APIs in `@manifesto-ai/world`
+- the shortest path to a running base world
+- typed intent creation through `MEL.actions.*`
+- `dispatchAsync`, subscriptions, availability queries, and snapshot reads in one package
+- a clear boundary between law composition and runtime execution
 
-## Direct Dispatch
-
-```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
-
-const manifesto = createManifesto({
-  schema: counterSchema,
-  effects: {},
-});
-
-await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
-
-manifesto.isActionAvailable("increment");
-manifesto.getAvailableActions();
-```
-
-## Governed Composition
+## Activation Lifecycle
 
 ```typescript
-import {
-  createWorld,
-} from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
+
+const manifesto = createManifesto<CounterDomain>(counterSchema, {});
+const world = manifesto.activate();
+
+const intent = world.createIntent(world.MEL.actions.increment);
+await world.dispatchAsync(intent);
+
+world.isActionAvailable("increment");
+world.getAvailableActions();
+world.getSnapshot();
 ```
 
-These are thin re-exports from top-level `@manifesto-ai/world`. The canonical governed bootstrap, including durable store selection and `WorldRuntime.executeApprovedProposal()`, lives on `@manifesto-ai/world` directly.
+The canonical SDK lifecycle is:
 
-For the full governed surface, including store adapters such as `@manifesto-ai/world/sqlite`, plus `createGovernanceService()`, `createLineageService()`, and `createGovernanceEventDispatcher()`, import `@manifesto-ai/world` directly.
+1. build a composable manifesto with `createManifesto(schema, effects)`
+2. open it once with `activate()`
+3. create typed intents from `world.MEL.actions.*`
+4. execute with instance-owned `dispatchAsync()`
+5. observe through `subscribe()` / `on()` and read through `getSnapshot()`
+
+## Base Runtime Surface
+
+The activated base runtime exposes:
+
+- `createIntent`
+- `dispatchAsync`
+- `subscribe`
+- `on`
+- `getSnapshot`
+- `getAvailableActions`
+- `isActionAvailable`
+- `MEL`
+- `dispose`
+
+## Governed Composition Direction
+
+SDK no longer re-exports `createWorld()` or a thin World facade.
+
+The public direction under ADR-017 is:
+
+`createManifesto() -> withLineage() -> withGovernance() -> activate()`
+
+Those governed runtime contracts land in the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Until that landing is complete, treat older world-facade docs as transitional rather than canonical.
 
 ## Docs
 
 - [SDK Guide](docs/GUIDE.md)
-- [SDK Specification](docs/sdk-SPEC-v2.0.0.md)
-- [SDK Specification v3 Draft](docs/sdk-SPEC-v3.0.0-draft.md)
+- [SDK Specification v3](docs/sdk-SPEC-v3.0.0-draft.md)
+- [SDK Specification v2](docs/sdk-SPEC-v2.0.0.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

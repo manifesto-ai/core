@@ -1,7 +1,7 @@
 {
   "name": "@manifesto-ai/sdk",
-  "version": "2.3.0",
-  "description": "Manifesto SDK - Public API for the semantic layer",
+  "version": "3.0.0",
+  "description": "Manifesto SDK - Activation-first public API for the base runtime",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -29,6 +29,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js"
     }
   },
   "files": [
@@ -45,8 +49,7 @@
   "dependencies": {
     "@manifesto-ai/compiler": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/host": "workspace:*",
-    "@manifesto-ai/world": "workspace:*"
+    "@manifesto-ai/host": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
