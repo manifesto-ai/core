@@ -82,9 +82,9 @@ Other statuses: `Deprecated`, `Superseded`, `Withdrawn`
 
 ### Rule D: Maintained Doc Purity
 - Maintained docs must not reintroduce removed surfaces such as `createManifestoWorld`, `createMemoryWorldStore`, or `WorldStore`.
-- Maintained docs must use top-level `@manifesto-ai/world` as the canonical governed import path.
+- Maintained docs must use `createManifesto() -> withLineage() -> withGovernance() -> activate()` as the canonical governed composition path.
 - Site pages under `docs/` must not link directly to `packages/...` filesystem paths.
-- Direct-dispatch examples must use the current SDK calling convention: `dispatchAsync(instance, createIntent(...))`.
+- Direct-dispatch examples must use the current activation-first SDK calling convention: `const app = createManifesto(schema, effects).activate(); await app.dispatchAsync(app.createIntent(app.MEL.actions.someAction))`.
 
 ---
 

@@ -1,20 +1,17 @@
 # Governance Docs
 
-This directory documents the split-native `@manifesto-ai/governance` package.
+> Governance v3 is the decorator-runtime landing under ADR-017.
 
-> **Current Contract Note:** The current public governance contract is [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md). The v1.0.0 governance spec remains available as the historical split-era baseline.
+> **Current Contract Note:** The truthful current governance contract is [governance-SPEC-v3.0.0-draft.md](governance-SPEC-v3.0.0-draft.md). The v2.0.0 and v1.0.0 specs remain as historical references.
 
-## Canonical Docs
+## Read First
 
-- [../README.md](../README.md) - package landing page
-- [GUIDE.md](GUIDE.md) - practical governance assembly and lifecycle flow
-- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - normative governance protocol
-- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) - historical v1 baseline
-- [VERSION-INDEX.md](VERSION-INDEX.md) - version history and current spec pointer
+- [../README.md](../README.md) - package landing and canonical usage
+- [GUIDE.md](GUIDE.md) - practical `withGovernance()` composition guide
+- [governance-SPEC-v3.0.0-draft.md](governance-SPEC-v3.0.0-draft.md) - normative next-major contract
 
-## Reading Order
+## Historical References
 
-1. Start with [README.md](../README.md).
-2. Read [GUIDE.md](GUIDE.md) for practical usage.
-3. Read [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) for normative behavior.
-4. Use [VERSION-INDEX.md](VERSION-INDEX.md) to follow current and historical versions.
+- [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - service-first split package baseline
+- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) - original extracted protocol baseline
+- [VERSION-INDEX.md](VERSION-INDEX.md) - version map and reading order

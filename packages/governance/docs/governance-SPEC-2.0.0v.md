@@ -1,6 +1,6 @@
 # Manifesto Governance Protocol Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Historical Normative Baseline
 > **Version:** v2.0.0
 > **Package:** `@manifesto-ai/governance`
 > **Scope:** All Manifesto Governance Implementations
@@ -9,7 +9,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Historical Note:** [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) is retained as the superseded split-era baseline before ADR-015/ADR-016 landed in the current package contract.
+> **Historical Note:** Governance v3 moved the package’s truthful current contract to [governance-SPEC-v3.0.0-draft.md](governance-SPEC-v3.0.0-draft.md). This document is retained as the service-first baseline before ADR-017 decorator landing.
 
 ---
 

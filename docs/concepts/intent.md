@@ -8,7 +8,7 @@
 
 In Manifesto, you do not call domain methods that mutate state directly. You submit an `Intent` and let the runtime compute the next terminal Snapshot.
 
-At the SDK level, an intent is the unit that goes into `dispatch()`.
+At the runtime level, an intent is the unit that goes into `dispatchAsync()` or `proposeAsync()`.
 
 ---
 
@@ -18,43 +18,43 @@ The direct-dispatch path and the governed path use related but different inputs:
 
 | Type | Used By | Purpose |
 |------|---------|---------|
-| `Intent` | `@manifesto-ai/sdk` | Request a direct Snapshot transition |
-| `IntentInstance` | top-level `@manifesto-ai/world` | Carry the governed request, actor, source, and projection context |
+| `Intent` | `@manifesto-ai/sdk`, governed activated runtimes | Request a typed Snapshot transition |
+| `IntentInstance` | `@manifesto-ai/governance` low-level helpers | Carry actor, source, and projection context before proposal orchestration |
 
-`Intent` is the smallest useful request object for direct dispatch. `IntentInstance` adds the metadata needed for proposal flow and branch-aware legitimacy.
+`Intent` is the canonical public request object. `IntentInstance` exists when you need to materialize governed provenance outside the activated runtime methods.
 
 ---
 
-## The Practical SDK Shape
+## The Practical Runtime Shape
 
-The safest path is to create intents with `createIntent()`:
+The safest path is to create intents from the activated runtime:
 
 ```typescript
-import { createIntent } from "@manifesto-ai/sdk";
+const app = createManifesto(schema, effects).activate();
 
-const intent = createIntent(
-  "addTodo",
-  { id: crypto.randomUUID(), title: "Review the docs" },
+const intent = app.createIntent(
+  app.MEL.actions.addTodo,
   crypto.randomUUID(),
+  "Review the docs",
 );
 ```
 
 Then dispatch it:
 
 ```typescript
-manifesto.dispatch(intent);
+await app.dispatchAsync(intent);
 ```
 
-That keeps the `intentId` explicit and stable for the lifetime of that intent.
+That keeps the `intentId` stable while avoiding stringly-typed public calls.
 
 ---
 
 ## The Governed Shape
 
-Use `createIntentInstance()` when you need actor identity, source metadata, or a governed proposal path:
+Use `createIntentInstance()` when you need actor identity, source metadata, or a service-level governed proposal path:
 
 ```typescript
-import { createIntentInstance } from "@manifesto-ai/world";
+import { createIntentInstance } from "@manifesto-ai/governance";
 
 const intentInstance = await createIntentInstance({
   body: {
@@ -68,7 +68,7 @@ const intentInstance = await createIntentInstance({
 });
 ```
 
-The governed runtime uses that instance to create and track a proposal. The intent itself is still the request, but now it carries the metadata needed for explicit legitimacy.
+The decorator runtime usually creates proposal metadata for you. Reach for `IntentInstance` when you are working below that runtime boundary.
 
 ---
 
@@ -80,7 +80,7 @@ The current SDK uses `intentId` to correlate lifecycle events:
 - `dispatch:rejected`
 - `dispatch:failed`
 
-If you build a `dispatchAsync()` helper on top of `on()`, it usually matches completion or failure by `intentId`.
+If you build an awaitable helper on top of `on()`, it usually matches completion or failure by `intentId`.
 
 ---
 
@@ -99,23 +99,20 @@ That difference matters because:
 ## A Simple Example
 
 ```typescript
-import { createManifesto, createIntent } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
-const manifesto = createManifesto({
-  schema: TodoMel,
-  effects: {},
-});
+const app = createManifesto(TodoMel, {}).activate();
 
-manifesto.dispatch(
-  createIntent(
-    "addTodo",
-    { id: crypto.randomUUID(), title: "Ship the rewrite" },
+await app.dispatchAsync(
+  app.createIntent(
+    app.MEL.actions.addTodo,
     crypto.randomUUID(),
+    "Ship the rewrite",
   ),
 );
 
-console.log(manifesto.getSnapshot().data);
+console.log(app.getSnapshot().data);
 ```
 
 ---

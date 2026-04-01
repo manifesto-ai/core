@@ -1,8 +1,8 @@
 # AI Agent Integration
 
-> Let an agent choose the next change, then route that change through either direct dispatch or governed proposal flow.
+> Let an agent choose the next change, then route that change through either the activated base runtime or the governed decorator chain.
 >
-> **Current Contract Note:** This page describes the current SDK direct-dispatch and current World runtime integration surface. SDK snapshots now follow the current Core v4.0.0 contract and no longer expose accumulated `system.errors`.
+> **Current Contract Note:** This page describes the current activation-first SDK surface and the current Lineage/Governance decorator runtime surface. SDK snapshots follow the current Core v4.0.0 contract and no longer expose accumulated `system.errors`.
 
 ---
 
@@ -22,14 +22,14 @@ If you use Codex and want Manifesto-specific guidance loaded into the agent sess
 ## 1. Direct-Dispatch Agent Path
 
 ```typescript
-import { createIntent, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 
-const snapshot = await dispatchAsync(
-  manifesto,
-  createIntent(
-    "todo.add",
-    { title: "Agent-authored task" },
-    crypto.randomUUID(),
+const world = createManifesto(todoSchema, effects).activate();
+
+const snapshot = await world.dispatchAsync(
+  world.createIntent(
+    world.MEL.actions.addTodo,
+    "Agent-authored task",
   ),
 );
 ```
@@ -40,58 +40,41 @@ This path is appropriate when the agent is already trusted to act on the current
 
 ## 2. Governed Proposal Path
 
-When the agent needs explicit approval, create an intent instance and hand it to the governed runtime.
+When the agent needs explicit approval, compose Governance and Lineage first, then submit a proposal from the activated runtime.
 
 ```typescript
-import {
-  createIntentInstance,
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
 
-const store = createInMemoryWorldStore();
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, { lineageService: lineage });
-const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-});
-
-const intent = await createIntentInstance({
-  body: {
-    type: "todo.add",
-    input: { title: "Agent-authored task" },
+const agentRuntime = withGovernance(
+  withLineage(createManifesto(todoSchema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
+  {
+    governanceStore: createInMemoryGovernanceStore(),
+    bindings: [
+      {
+        actorId: "actor:agent",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "todo-agent",
+      deriveActor: () => ({ actorId: "actor:agent", kind: "agent" }),
+      deriveSource: () => ({ kind: "agent", eventId: crypto.randomUUID() }),
+    },
   },
-  schemaHash: "todo-v1",
-  projectionId: "todo-ui",
-  source: { kind: "agent", eventId: "evt-2" },
-  actor: { actorId: "agent-1", kind: "agent" },
-});
+).activate();
 
-const branch = world.lineage.getActiveBranch();
-const proposal = world.governance.createProposal({
-  baseWorld: branch.head,
-  branchId: branch.id,
-  actorId: intent.meta.origin.actor.actorId,
-  authorityId: "auth-auto",
-  intent: {
-    type: intent.body.type,
-    intentId: intent.intentId,
-    input: intent.body.input,
-    scopeProposal: intent.body.scopeProposal,
-  },
-  executionKey: intent.intentKey,
-  submittedAt: Date.now(),
-  epoch: branch.epoch,
-});
+const proposal = await agentRuntime.proposeAsync(
+  agentRuntime.createIntent(
+    agentRuntime.MEL.actions.addTodo,
+    "Agent-authored task",
+  ),
+);
 ```
-
-This current governed path uses `branch.head` as the public branch pointer exposed by the facade. The projected v2 drafts split continuity `tip` from `head` and move seal provenance into attempt records, but those changes are not current yet.
 
 From there, the agent can submit the proposal for approval, wait for authority resolution, and let the governed runtime seal the result.
 
@@ -115,35 +98,25 @@ If the agent is deciding between candidate writes but does not need a formal rev
 If you use a translator or planner, treat its output as an intent candidate, not as a state mutation.
 
 ```typescript
-import {
-  createIntent,
-  dispatchAsync,
-  type ManifestoInstance,
-} from "@manifesto-ai/sdk";
+type AgentCommand =
+  | { kind: "addTodo"; title: string }
+  | { kind: "toggleTodo"; id: string };
 
-type IntentCandidate = {
-  type: string;
-  input?: unknown;
-};
-
-async function runAgentTurn(
-  manifesto: ManifestoInstance,
-  candidate: IntentCandidate,
-) {
-  const snapshot = await dispatchAsync(
-    manifesto,
-    createIntent(
-      candidate.type,
-      candidate.input ?? {},
-      crypto.randomUUID(),
-    ),
-  );
-
-  return snapshot.data;
+async function runAgentTurn(command: AgentCommand) {
+  switch (command.kind) {
+    case "addTodo":
+      return world.dispatchAsync(
+        world.createIntent(world.MEL.actions.addTodo, command.title),
+      );
+    case "toggleTodo":
+      return world.dispatchAsync(
+        world.createIntent(world.MEL.actions.toggleTodo, command.id),
+      );
+  }
 }
 ```
 
-The agent proposes a change. The runtime decides how that change becomes the next Snapshot.
+The agent or planner can still choose the next command. The app-owned translator layer is responsible for mapping that command into the runtime's typed action refs instead of letting the agent mutate state directly or rely on raw string names as the app-facing contract.
 
 ---
 
@@ -162,7 +135,7 @@ That is the right place for:
 
 ## Common Mistakes
 
-### Letting the agent bypass the SDK
+### Letting the agent bypass the runtime
 
 If the agent edits storage or UI state directly, humans and automation stop sharing one truth.
 
@@ -180,5 +153,5 @@ The agent should reason from Snapshot, not from a private memory of what it thin
 
 - Read [Codex Skills Setup](/guides/codex-skills) if you want Codex to load Manifesto-specific guidance
 - Read [React](./react) to connect the same instance to a UI
-- Read [World](../concepts/world) when the agent should work through proposals and sealing
+- Read [Governance API](/api/governance) when the agent should work through proposals and sealing
 - Read [Architecture](/architecture/) when you want the bigger system model

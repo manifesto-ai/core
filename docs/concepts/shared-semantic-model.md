@@ -20,8 +20,8 @@ This is what makes Manifesto a semantic layer rather than a state management lib
 ## One Semantic Core, Two Runtime Surfaces
 
 ```text
-SDK surface -> createIntent() -> dispatch() -> next Snapshot
-World surface -> createIntentInstance() -> proposal -> seal -> next Snapshot
+Base runtime -> activate() -> createIntent(MEL.actions.*) -> dispatchAsync() -> next Snapshot
+Governed runtime -> withLineage() -> withGovernance() -> proposeAsync() -> seal -> next Snapshot
 ```
 
 The semantic core is shared. The runtime surface changes based on whether you need direct dispatch or governed composition.
@@ -41,34 +41,31 @@ The contract stays the same. The Snapshot is the shared truth.
 ## A Small Example
 
 ```typescript
-import { createManifesto, createIntent } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 import TaskBoardMel from "./task-board.mel";
 
-const manifesto = createManifesto({
-  schema: TaskBoardMel,
-  effects: {},
-});
+const app = createManifesto(TaskBoardMel, {}).activate();
 
 // UI surface
-manifesto.dispatch(
-  createIntent(
-    "addTask",
-    { id: crypto.randomUUID(), title: "Human-created task" },
+await app.dispatchAsync(
+  app.createIntent(
+    app.MEL.actions.addTask,
     crypto.randomUUID(),
+    "Human-created task",
   ),
 );
 
 // Agent surface - same direct-dispatch contract
-manifesto.dispatch(
-  createIntent(
-    "addTask",
-    { id: crypto.randomUUID(), title: "Agent-created task" },
+await app.dispatchAsync(
+  app.createIntent(
+    app.MEL.actions.addTask,
     crypto.randomUUID(),
+    "Agent-created task",
   ),
 );
 ```
 
-The governed surface uses the same domain meaning, but it wraps the request in proposal and lineage metadata before sealing.
+The governed surface uses the same domain meaning, but it adds proposal and lineage semantics before publication.
 
 ---
 
@@ -96,6 +93,7 @@ Sometimes the shared semantic model is enough. Sometimes you need stronger contr
 - lineage and audit history
 
 That is where [World](./world) comes in. It is an explicit governance layer that composes on top of the same Snapshot and request model.
+That is where [World](./world) comes in. It is the explicit governed composition model built from Lineage and Governance on top of the same Snapshot and request model.
 
 ---
 

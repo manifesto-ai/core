@@ -1,400 +1,164 @@
-/**
- * createManifesto() Factory
- *
- * The sole SDK-owned concept. Creates a ManifestoInstance for the default
- * direct-dispatch path by composing schema compilation and Host execution into
- * a single handle. Governed World composition remains explicit outside this
- * factory.
- *
- * @see SDK SPEC v1.0.0 §5
- * @see ADR-010
- * @module
- */
-
 import {
-  createHost,
-  type ManifestoHost,
-  type EffectHandler as HostEffectHandler,
   type EffectContext as HostEffectContext,
+  type EffectHandler as HostEffectHandler,
+  type ManifestoHost,
+  createHost,
 } from "@manifesto-ai/host";
 import {
-  type DomainSchema,
-  type Patch,
-  type Snapshot as CoreSnapshot,
-  type Intent,
-  getAvailableActions as queryAvailableActions,
-  isActionAvailable as queryActionAvailable,
-  semanticPathToPatchPath,
+  createIntent as createCoreIntent,
   extractDefaults,
+  hashSchemaSync,
+  semanticPathToPatchPath,
+  type DomainSchema,
+  type Intent,
+  type Patch,
 } from "@manifesto-ai/core";
-import { compileMelDomain } from "@manifesto-ai/compiler";
+import {
+  compileMelDomain,
+  parse as parseMel,
+  tokenize as tokenizeMel,
+} from "@manifesto-ai/compiler";
 
-import type {
-  Snapshot,
-  ManifestoConfig,
-  ManifestoInstance,
-  ManifestoEvent,
-  ManifestoEventMap,
-  EffectHandler,
-  Selector,
-  Unsubscribe,
+import {
+  ACTION_PARAM_NAMES,
+  attachRuntimeKernelFactory,
+  createBaseRuntimeInstance,
+  createRuntimeKernel,
+} from "./internal.js";
+import {
+  type BaseLaws,
+  type ComposableManifesto,
+  type EffectHandler,
+  type ManifestoDomainShape,
+  type Snapshot,
+  type TypedActionRef,
+  type TypedMEL,
 } from "./types.js";
-import { ReservedEffectError, DisposedError, ManifestoError, CompileError } from "./errors.js";
+import {
+  AlreadyActivatedError,
+  CompileError,
+  ManifestoError,
+  ReservedEffectError,
+} from "./errors.js";
 
-// =============================================================================
-// Constants
-// =============================================================================
-
-/** Reserved effect type used by the compiler for $system.* references. */
 const RESERVED_EFFECT_TYPE = "system.get";
-
-/** Reserved namespace prefix for system actions. */
 const RESERVED_NAMESPACE_PREFIX = "system.";
+const BASE_LAWS: BaseLaws = Object.freeze({ __baseLaws: true });
 
-// =============================================================================
-// createManifesto() — SDK SPEC v1.0.0 §5
-// =============================================================================
+type RuntimeActionRef = TypedActionRef<ManifestoDomainShape> & {
+  readonly [ACTION_PARAM_NAMES]: readonly string[] | null;
+};
 
-/**
- * Create a ManifestoInstance.
- *
- * This is the sole entry point for SDK consumers. It composes the protocol
- * axes required for the default direct-dispatch runtime into a single handle with
- * 7 methods: dispatch, subscribe, on, isActionAvailable,
- * getAvailableActions, getSnapshot, dispose.
- *
- * @see SDK-FACTORY-1 through SDK-FACTORY-5
- * @see SDK-INV-1 through SDK-INV-6
- */
-export function createManifesto<T = unknown>(
-  config: ManifestoConfig<T>,
-): ManifestoInstance<T> {
-  // ─── INV-3: Schema resolution ──────────────────────────────────────────
-  const schema = resolveSchema(config.schema);
+type ActionParamMetadata = readonly string[] | null;
 
-  // ─── INV-4: Reserved effect protection ─────────────────────────────────
-  if (RESERVED_EFFECT_TYPE in config.effects) {
+type ResolvedSchema = {
+  readonly schema: DomainSchema;
+  readonly actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>;
+};
+
+export function createManifesto<T extends ManifestoDomainShape>(
+  schemaInput: DomainSchema | string,
+  effects: Record<string, EffectHandler>,
+): ComposableManifesto<T, BaseLaws> {
+  if (RESERVED_EFFECT_TYPE in effects) {
     throw new ReservedEffectError(RESERVED_EFFECT_TYPE);
   }
 
-  // Validate no user actions use reserved namespace
-  validateReservedNamespaces(schema);
+  const resolved = resolveSchema(schemaInput);
+  validateReservedNamespaces(resolved.schema);
 
-  // ─── INV-5: Host creation + effect registration ────────────────────────
-  const host = createInternalHost(schema, config.effects, config.snapshot);
-
-  // ─── State holder (closure-captured) ───────────────────────────────────
-  // Host always initializes with a snapshot (initialData defaults to {})
-  let currentSnapshot: CoreSnapshot = host.getSnapshot()!;
-
-  // ─── Subscription store ────────────────────────────────────────────────
-  const subscribers = new Set<Subscriber<unknown>>();
-
-  // ─── Event channel (telemetry) ─────────────────────────────────────────
-  const eventListeners = new Map<ManifestoEvent, Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>>();
-
-  // ─── Serial dispatch queue (SDK-INV-5) ─────────────────────────────────
-  let dispatchQueue: Promise<void> = Promise.resolve();
-
-  // ─── Disposed flag ─────────────────────────────────────────────────────
-  let disposed = false;
-
-  // ─── Guard function ────────────────────────────────────────────────────
-  const guard = config.guard ?? null;
-
-  // =========================================================================
-  // dispatch() — SDK-DISPATCH-1~4
-  // =========================================================================
-
-  function dispatch(intent: Intent): void {
-    // SDK-DISPATCH-4
-    if (disposed) {
-      throw new DisposedError();
-    }
-
-    // SDK-DISPATCH-2: Enrich with intentId if not provided
-    const enrichedIntent: Intent = intent.intentId
-      ? intent
-      : { ...intent, intentId: generateIntentId() };
-
-    // SDK-DISPATCH-1, SDK-DISPATCH-3: Enqueue for serial processing
-    const prev = dispatchQueue;
-    dispatchQueue = prev
-      .catch(() => {}) // Previous failure doesn't block queue
-      .then(() => processIntent(enrichedIntent));
-    // Tail always resolves
-    dispatchQueue = dispatchQueue.catch(() => {});
-  }
-
-  /**
-   * Process a single intent through the Host dispatch cycle.
-   */
-  async function processIntent(intent: Intent): Promise<void> {
-    // SDK-DISPOSE-1: Do not process queued intents after dispose
-    if (disposed) return;
-
-    // SDK-INV-5: Guard evaluates against current snapshot at dequeue time
-    if (guard) {
-      try {
-        // SDK-SNAP-IMMUTABLE: Prevent guard from mutating internal state
-        const allowed = guard(intent, Object.freeze(structuredClone(currentSnapshot)) as Snapshot<T>);
-        if (!allowed) {
-          emitEvent("dispatch:rejected", {
-            intentId: intent.intentId,
-            intent,
-            reason: "Guard rejected the intent",
-          });
-          return;
-        }
-      } catch (error) {
-        emitEvent("dispatch:failed", {
-          intentId: intent.intentId,
-          intent,
-          error: error instanceof Error ? error : new Error(String(error)),
-        });
-        return;
+  let activated = false;
+  const manifesto = {
+    _laws: BASE_LAWS,
+    schema: resolved.schema,
+    activate() {
+      if (activated) {
+        throw new AlreadyActivatedError();
       }
-    }
+      activated = true;
+      return createBaseRuntimeInstance(
+        createRuntimeKernel<T>({
+          schema: resolved.schema,
+          host: createInternalHost(resolved.schema, effects),
+          MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
+          createIntent: buildCreateIntent<T>(),
+        }),
+      );
+    },
+  };
 
-    try {
-      const result = await host.dispatch(intent);
+  return attachRuntimeKernelFactory(manifesto, () =>
+    createRuntimeKernel<T>({
+      schema: resolved.schema,
+      host: createInternalHost(resolved.schema, effects),
+      MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
+      createIntent: buildCreateIntent<T>(),
+    }),
+  );
+}
 
-      if (result.status === "error") {
-        currentSnapshot = result.snapshot;
-        notifySubscribers();
-        emitEvent("dispatch:failed", {
-          intentId: intent.intentId,
-          intent,
-          error: result.error ?? new ManifestoError("HOST_ERROR", "Host dispatch failed"),
-        });
-        return;
-      }
-
-      // Update state
-      currentSnapshot = result.snapshot;
-
-      // SDK-INV-1: notify subscribers at terminal snapshot only
-      notifySubscribers();
-
-      emitEvent("dispatch:completed", {
-        intentId: intent.intentId,
-        intent,
-        snapshot: result.snapshot as Snapshot<T>,
-      });
-    } catch (error) {
-      emitEvent("dispatch:failed", {
-        intentId: intent.intentId,
-        intent,
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-    }
-  }
-
-  // =========================================================================
-  // subscribe() — SDK-SUB-1~4
-  // =========================================================================
-
-  function subscribe<R>(
-    selector: Selector<T, R>,
-    listener: (value: R) => void,
-  ): Unsubscribe {
-    if (disposed) return () => {};
-
-    const sub: Subscriber<R> = {
-      selector: selector as Selector<unknown, R>,
-      listener,
-      lastValue: selector(currentSnapshot as Snapshot<T>),
-      initialized: true,
+function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
+  const resolved = typeof schema === "string"
+    ? compileSchema(schema)
+    : {
+      schema,
+      actionParamMetadata: deriveActionParamMetadata(schema),
     };
-
-    subscribers.add(sub as Subscriber<unknown>);
-
-    return () => {
-      subscribers.delete(sub as Subscriber<unknown>);
-    };
-  }
-
-  // =========================================================================
-  // on() — SDK-EVENT-1~3, SDK-INV-2
-  // =========================================================================
-
-  function on<K extends ManifestoEvent>(
-    event: K,
-    handler: (payload: ManifestoEventMap<T>[K]) => void,
-  ): Unsubscribe {
-    if (disposed) return () => {};
-
-    let listeners = eventListeners.get(event);
-    if (!listeners) {
-      listeners = new Set();
-      eventListeners.set(event, listeners as Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>);
-    }
-    listeners.add(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
-
-    return () => {
-      listeners!.delete(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
-    };
-  }
-
-  // =========================================================================
-  // Availability Queries
-  // =========================================================================
-
-  function isActionAvailable(actionName: string): boolean {
-    return queryActionAvailable(schema, currentSnapshot, actionName);
-  }
-
-  function getAvailableActions(): readonly string[] {
-    return queryAvailableActions(schema, currentSnapshot);
-  }
-
-  // =========================================================================
-  // getSnapshot() — SDK-SNAP-1
-  // =========================================================================
-
-  function getSnapshot(): Snapshot<T> {
-    // SDK-SNAP-IMMUTABLE: Return a frozen copy to prevent external mutation
-    // that would bypass the patch/apply pipeline.
-    return Object.freeze(structuredClone(currentSnapshot)) as Snapshot<T>;
-  }
-
-  // =========================================================================
-  // dispose() — SDK-DISPOSE-1~3
-  // =========================================================================
-
-  function dispose(): void {
-    if (disposed) return;
-    disposed = true;
-
-    // Release all resources
-    subscribers.clear();
-    eventListeners.clear();
-  }
-
-  // =========================================================================
-  // Internal helpers
-  // =========================================================================
-
-  /** Notify all subscribers with current snapshot (SDK-INV-1). */
-  function notifySubscribers(): void {
-    // SDK-SNAP-IMMUTABLE: Pass a frozen clone to selectors so that neither
-    // selector nor listener can mutate internal state.
-    const frozenSnap = Object.freeze(structuredClone(currentSnapshot)) as Snapshot<T>;
-    for (const sub of subscribers) {
-      const selected = (sub.selector as Selector<T, unknown>)(frozenSnap);
-
-      // Selector-based change detection (SDK-SUB-4)
-      if (sub.initialized && Object.is(sub.lastValue, selected)) {
-        continue;
-      }
-
-      sub.lastValue = selected;
-      sub.initialized = true;
-      sub.listener(selected);
-    }
-  }
-
-  /** Emit an event to the telemetry channel. */
-  function emitEvent<K extends ManifestoEvent>(
-    event: K,
-    payload: ManifestoEventMap<T>[K],
-  ): void {
-    const listeners = eventListeners.get(event);
-    if (!listeners) return;
-    for (const handler of listeners) {
-      try {
-        handler(payload);
-      } catch {
-        // Event handlers must not break the dispatch loop
-      }
-    }
-  }
-
-  // =========================================================================
-  // Return ManifestoInstance
-  // =========================================================================
 
   return {
-    dispatch,
-    subscribe,
-    on,
-    isActionAvailable,
-    getAvailableActions,
-    getSnapshot,
-    dispose,
+    schema: withPlatformNamespaces(resolved.schema),
+    actionParamMetadata: resolved.actionParamMetadata,
   };
 }
 
-// =============================================================================
-// Schema Resolution (INV-3)
-// =============================================================================
+function compileSchema(source: string): ResolvedSchema {
+  const result = compileMelDomain(source, { mode: "domain" });
 
-/**
- * Resolve schema from DomainSchema or MEL text string.
- * Injects platform namespaces ($host, $mel).
- */
-function resolveSchema(schema: DomainSchema | string): DomainSchema {
-  let domainSchema: DomainSchema;
+  if (result.errors.length > 0) {
+    const formatted = result.errors.map((diagnostic) => {
+      const loc = diagnostic.location;
+      if (!loc || (loc.start.line === 0 && loc.start.column === 0)) {
+        return `[${diagnostic.code}] ${diagnostic.message}`;
+      }
 
-  if (typeof schema === "string") {
-    const result = compileMelDomain(schema, { mode: "domain" });
+      const header = `[${diagnostic.code}] ${diagnostic.message} (${loc.start.line}:${loc.start.column})`;
+      const line = source.split("\n")[loc.start.line - 1];
+      if (!line) {
+        return header;
+      }
 
-    if (result.errors.length > 0) {
-      const formatted = result.errors.map((d) => {
-        const loc = d.location;
-        const header = loc && (loc.start.line > 0 || loc.start.column > 0)
-          ? `[${d.code}] ${d.message} (${loc.start.line}:${loc.start.column})`
-          : `[${d.code}] ${d.message}`;
-
-        if (!loc || loc.start.line === 0) return header;
-
-        const sourceLines = schema.split("\n");
-        const lineContent = sourceLines[loc.start.line - 1];
-        if (!lineContent) return header;
-
-        const lineNumStr = String(loc.start.line).padStart(4, " ");
-        const underlineLen = Math.max(1,
-          loc.end.line === loc.start.line
-            ? Math.min(loc.end.column - loc.start.column, lineContent.length - loc.start.column + 1)
-            : 1);
-        const padding = " ".repeat(lineNumStr.length + 3 + loc.start.column - 1);
-        return `${header}\n${lineNumStr} | ${lineContent}\n${padding}${"^".repeat(underlineLen)}`;
-      }).join("\n\n");
-
-      throw new CompileError(
-        result.errors,
-        `MEL compilation failed:\n${formatted}`,
+      const lineNum = String(loc.start.line).padStart(4, " ");
+      const underlineLen = Math.max(
+        1,
+        loc.end.line === loc.start.line
+          ? Math.min(loc.end.column - loc.start.column, Math.max(1, line.length - loc.start.column + 1))
+          : 1,
       );
-    }
+      const padding = " ".repeat(lineNum.length + 3 + loc.start.column - 1);
+      return `${header}\n${lineNum} | ${line}\n${padding}${"^".repeat(underlineLen)}`;
+    }).join("\n\n");
 
-    if (!result.schema) {
-      throw new ManifestoError(
-        "COMPILE_ERROR",
-        "MEL compilation produced no schema",
-      );
-    }
-
-    domainSchema = result.schema as DomainSchema;
-  } else {
-    domainSchema = schema;
+    throw new CompileError(result.errors, `MEL compilation failed:\n${formatted}`);
   }
 
-  return withPlatformNamespaces(domainSchema);
+  if (!result.schema) {
+    throw new ManifestoError("COMPILE_ERROR", "MEL compilation produced no schema");
+  }
+
+  const schema = result.schema as DomainSchema;
+  return {
+    schema,
+    actionParamMetadata: deriveActionParamMetadata(
+      schema,
+      extractActionParamOrderFromMel(source),
+    ),
+  };
 }
 
-// =============================================================================
-// Platform Namespace Injection (INV-3)
-// =============================================================================
-
-/**
- * Inject $host and $mel platform namespaces into schema.
- * Absorbed from runtime/src/schema/schema-manager.ts.
- */
 function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
   const fields = { ...schema.state.fields };
   let changed = false;
 
-  // $host namespace
   if (!fields.$host) {
     fields.$host = {
       type: "object",
@@ -403,16 +167,12 @@ function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
     };
     changed = true;
   } else if (fields.$host.type !== "object") {
-    throw new ManifestoError(
-      "SCHEMA_ERROR",
-      "Reserved namespace '$host' must be an object field",
-    );
+    throw new ManifestoError("SCHEMA_ERROR", "Reserved namespace '$host' must be an object field");
   } else if (fields.$host.default === undefined) {
     fields.$host = { ...fields.$host, default: {} };
     changed = true;
   }
 
-  // $mel namespace with guards.intent structure
   if (!fields.$mel) {
     fields.$mel = {
       type: "object",
@@ -435,10 +195,7 @@ function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
     };
     changed = true;
   } else if (fields.$mel.type !== "object") {
-    throw new ManifestoError(
-      "SCHEMA_ERROR",
-      "Reserved namespace '$mel' must be an object field",
-    );
+    throw new ManifestoError("SCHEMA_ERROR", "Reserved namespace '$mel' must be an object field");
   } else {
     let nextMel = fields.$mel;
     if (nextMel.default === undefined) {
@@ -470,13 +227,10 @@ function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
       };
       changed = true;
     } else if (guardsField.type !== "object") {
-      throw new ManifestoError(
-        "SCHEMA_ERROR",
-        "Reserved namespace '$mel.guards' must be an object field",
-      );
+      throw new ManifestoError("SCHEMA_ERROR", "Reserved namespace '$mel.guards' must be an object field");
     } else {
       let nextGuards = guardsField;
-      if (guardsField.default === undefined) {
+      if (nextGuards.default === undefined) {
         nextGuards = { ...nextGuards, default: { intent: {} } };
         changed = true;
       }
@@ -498,10 +252,7 @@ function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
         };
         changed = true;
       } else if (intentField.type !== "object") {
-        throw new ManifestoError(
-          "SCHEMA_ERROR",
-          "Reserved namespace '$mel.guards.intent' must be an object field",
-        );
+        throw new ManifestoError("SCHEMA_ERROR", "Reserved namespace '$mel.guards.intent' must be an object field");
       } else if (intentField.default === undefined) {
         nextGuards = {
           ...nextGuards,
@@ -526,28 +277,30 @@ function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
 
     if (nextMel !== fields.$mel) {
       fields.$mel = nextMel;
-      changed = true;
     }
   }
 
-  if (!changed) return schema;
+  if (!changed) {
+    return schema;
+  }
 
-  return {
+  const nextSchema = {
     ...schema,
     state: {
       ...schema.state,
       fields,
     },
   };
+
+  const { hash: _hash, ...schemaWithoutHash } = nextSchema;
+  return {
+    ...nextSchema,
+    hash: hashSchemaSync(schemaWithoutHash),
+  };
 }
 
-// =============================================================================
-// Reserved Namespace Validation
-// =============================================================================
-
 function validateReservedNamespaces(schema: DomainSchema): void {
-  const actions = schema.actions || {};
-  for (const actionType of Object.keys(actions)) {
+  for (const actionType of Object.keys(schema.actions ?? {})) {
     if (actionType.startsWith(RESERVED_NAMESPACE_PREFIX)) {
       throw new ManifestoError(
         "RESERVED_NAMESPACE",
@@ -557,46 +310,185 @@ function validateReservedNamespaces(schema: DomainSchema): void {
   }
 }
 
-// =============================================================================
-// Internal Host Creation (INV-5)
-// Absorbed from runtime/src/execution/internal-host.ts
-// =============================================================================
+function buildTypedMel<T extends ManifestoDomainShape>(
+  schema: DomainSchema,
+  actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>,
+): TypedMEL<T> {
+  const actions = Object.fromEntries(
+    Object.keys(schema.actions).map((name) => {
+      const ref: Record<PropertyKey, unknown> = {
+        __kind: "ActionRef",
+        name,
+      };
+      Object.defineProperty(ref, ACTION_PARAM_NAMES, {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: Object.hasOwn(actionParamMetadata, name)
+          ? actionParamMetadata[name]
+          : [],
+      });
+      return [name, Object.freeze(ref)];
+    }),
+  );
+
+  const state = Object.fromEntries(
+    Object.keys(schema.state.fields)
+      .filter((name) => !name.startsWith("$"))
+      .map((name) => [name, Object.freeze({
+        __kind: "FieldRef",
+        path: name,
+      })]),
+  );
+
+  const computed = Object.fromEntries(
+    Object.keys(schema.computed.fields)
+      .map((name) => [name, Object.freeze({
+        __kind: "ComputedRef",
+        path: name,
+      })]),
+  );
+
+  return Object.freeze({
+    actions: Object.freeze(actions),
+    state: Object.freeze(state),
+    computed: Object.freeze(computed),
+  }) as unknown as TypedMEL<T>;
+}
+
+function buildCreateIntent<T extends ManifestoDomainShape>(): (
+  action: TypedActionRef<T, keyof T["actions"]>,
+  ...args: unknown[]
+) => Intent {
+  return (action, ...args) => {
+    const actionRef = action as unknown as RuntimeActionRef;
+    const intentId = generateUUID();
+    const input = packIntentInput(actionRef, args);
+    return createCoreIntent(
+      String(action.name),
+      input,
+      intentId,
+    );
+  };
+}
+
+function getActionParamNames(input: DomainSchema["actions"][string]["input"]): readonly string[] {
+  if (!input || input.type !== "object" || !input.fields) {
+    return [];
+  }
+
+  return Object.keys(input.fields);
+}
+
+function deriveActionParamMetadata(
+  schema: DomainSchema,
+  actionParamOrder?: Readonly<Record<string, readonly string[]>>,
+): Readonly<Record<string, ActionParamMetadata>> {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(schema.actions).map(([name, action]) => {
+      const preferredOrder = actionParamOrder?.[name];
+      if (preferredOrder && preferredOrder.length > 0) {
+        return [name, Object.freeze([...preferredOrder])];
+      }
+
+      if (!action.input || action.input.type !== "object" || !action.input.fields) {
+        return [name, []];
+      }
+
+      const fieldNames = getActionParamNames(action.input);
+      return [name, fieldNames.length <= 1 ? fieldNames : null];
+    }),
+  ));
+}
+
+function extractActionParamOrderFromMel(
+  source: string,
+): Readonly<Record<string, readonly string[]>> | undefined {
+  const lexed = tokenizeMel(source);
+  if (lexed.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return undefined;
+  }
+
+  const parsed = parseMel(lexed.tokens);
+  if (!parsed.program) {
+    return undefined;
+  }
+
+  return Object.freeze(Object.fromEntries(
+    parsed.program.domain.members
+      .filter((member) => member.kind === "action")
+      .map((action) => [action.name, Object.freeze(action.params.map((param) => param.name))]),
+  ));
+}
+
+function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): unknown {
+  const paramNames = Object.hasOwn(action, ACTION_PARAM_NAMES)
+    ? action[ACTION_PARAM_NAMES]
+    : [];
+  if (args.length === 0) {
+    return undefined;
+  }
+
+  if (paramNames === null) {
+    if (args.length === 1 && isPlainObject(args[0])) {
+      return args[0];
+    }
+
+    throw new ManifestoError(
+      "INVALID_INTENT_ARGS",
+      `Action "${String(action.name)}" requires a single object argument because positional parameter metadata is unavailable`,
+    );
+  }
+
+  if (paramNames.length === 0) {
+    if (args.length === 1) {
+      return args[0];
+    }
+
+    throw new ManifestoError(
+      "INVALID_INTENT_ARGS",
+      `Action "${String(action.name)}" does not accept multiple positional arguments`,
+    );
+  }
+
+  if (args.length === 1 && isPlainObject(args[0]) && paramNames.length > 1) {
+    return args[0];
+  }
+
+  return Object.fromEntries(args.map((value, index) => [
+    paramNames[index] ?? `arg${index}`,
+    value,
+  ]));
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function createInternalHost(
   schema: DomainSchema,
   effects: Record<string, EffectHandler>,
-  initialSnapshot?: Snapshot,
 ): ManifestoHost {
   const host = createHost(schema, {
-    initialData: initialSnapshot?.data ?? extractDefaults(schema.state),
+    initialData: extractDefaults(schema.state),
   });
 
-  // P1-1: When restoring from a persisted snapshot, use host.reset() to
-  // hydrate the full canonical Snapshot (meta, system, input) rather than
-  // only forwarding data via initialData which resets meta.version to 0.
-  if (initialSnapshot) {
-    host.reset(initialSnapshot);
-  }
-
-  // Register reserved system.get handler (compiler-internal, CRITICAL)
   host.registerEffect(RESERVED_EFFECT_TYPE, async (
     _type: string,
     params: Record<string, unknown>,
     ctx: HostEffectContext,
   ): Promise<Patch[]> => {
-    const { patches } = executeSystemGet(params, ctx.snapshot);
+    const { patches } = executeSystemGet(params, ctx.snapshot as Snapshot);
     return patches;
   });
 
-  // Register user effects, adapting 2-param → 3-param signature
   for (const [effectType, appHandler] of Object.entries(effects)) {
     const hostHandler: HostEffectHandler = async (
       _type: string,
       params: Record<string, unknown>,
       ctx: HostEffectContext,
     ): Promise<Patch[]> => {
-      const appCtx = { snapshot: ctx.snapshot };
-      const patches = await appHandler(params, appCtx);
+      const patches = await appHandler(params, { snapshot: freezeSnapshot(ctx.snapshot) });
       return patches as Patch[];
     };
 
@@ -605,11 +497,6 @@ function createInternalHost(
 
   return host;
 }
-
-// =============================================================================
-// system.get Effect Implementation
-// Absorbed from runtime/src/execution/system-get.ts
-// =============================================================================
 
 interface SystemGetReadParams {
   path: string;
@@ -621,8 +508,6 @@ interface SystemGetGenerateParams {
   into: string;
 }
 
-type SystemGetParams = SystemGetReadParams | SystemGetGenerateParams;
-
 function isGenerateParams(params: unknown): params is SystemGetGenerateParams {
   return (
     typeof params === "object" &&
@@ -630,6 +515,35 @@ function isGenerateParams(params: unknown): params is SystemGetGenerateParams {
     "key" in params &&
     "into" in params
   );
+}
+
+function executeSystemGet(
+  params: unknown,
+  snapshot: Snapshot,
+): { patches: Patch[] } {
+  if (isGenerateParams(params)) {
+    return {
+      patches: [{
+        op: "set",
+        path: normalizeTargetPath(params.into),
+        value: generateSystemValue(params.key),
+      }],
+    };
+  }
+
+  const { path, target } = params as SystemGetReadParams;
+  const result = resolvePathValue(path, snapshot);
+  if (!target) {
+    return { patches: [] };
+  }
+
+  return {
+    patches: [{
+      op: "set",
+      path: normalizeTargetPath(target),
+      value: result.value,
+    }],
+  };
 }
 
 function generateSystemValue(key: string): unknown {
@@ -646,45 +560,12 @@ function generateSystemValue(key: string): unknown {
   }
 }
 
-function generateUUID(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-function executeSystemGet(
-  params: unknown,
-  snapshot: Snapshot,
-): { patches: Patch[] } {
-  if (isGenerateParams(params)) {
-    const value = generateSystemValue(params.key);
-    const patches: Patch[] = [{
-      op: "set",
-      path: normalizeTargetPath(params.into),
-      value,
-    }];
-    return { patches };
-  }
-
-  // Read mode
-  const { path, target } = params as SystemGetReadParams;
-  const result = resolvePathValue(path, snapshot);
-
-  const patches: Patch[] = [];
-  if (target) {
-    patches.push({
-      op: "set",
-      path: normalizeTargetPath(target),
-      value: result.value,
-    });
-  }
-
-  return { patches };
+function normalizeTargetPath(path: string): Patch["path"] {
+  const normalized = normalizePath(path);
+  const withoutDataRoot = normalized.startsWith("data.")
+    ? normalized.slice("data.".length)
+    : normalized;
+  return semanticPathToPatchPath(withoutDataRoot);
 }
 
 function normalizePath(path: string): string {
@@ -694,28 +575,17 @@ function normalizePath(path: string): string {
   return path;
 }
 
-function normalizeTargetPath(path: string): Patch["path"] {
-  const normalized = normalizePath(path);
-  const withoutDataRoot = normalized.startsWith("data.")
-    ? normalized.slice("data.".length)
-    : normalized;
-  return semanticPathToPatchPath(withoutDataRoot);
-}
-
 function resolvePathValue(
   path: string,
   snapshot: Snapshot,
 ): { value: unknown; found: boolean } {
   const normalized = normalizePath(path);
   const parts = normalized.split(".");
-
   if (parts.length === 0) {
     return { value: undefined, found: false };
   }
 
-  const root = parts[0];
-  const rest = parts.slice(1);
-
+  const [root, ...rest] = parts;
   let current: unknown;
 
   switch (root) {
@@ -734,13 +604,11 @@ function resolvePathValue(
     default:
       current = snapshot.data;
       rest.unshift(root);
+      break;
   }
 
   for (const part of rest) {
-    if (current === null || current === undefined) {
-      return { value: undefined, found: false };
-    }
-    if (typeof current !== "object") {
+    if (current === null || current === undefined || typeof current !== "object") {
       return { value: undefined, found: false };
     }
     current = (current as Record<string, unknown>)[part];
@@ -749,21 +617,18 @@ function resolvePathValue(
   return { value: current, found: current !== undefined };
 }
 
-// =============================================================================
-// Subscriber Type (internal)
-// =============================================================================
-
-interface Subscriber<R> {
-  selector: Selector<unknown, R>;
-  listener: (value: R) => void;
-  lastValue: R | undefined;
-  initialized: boolean;
+function freezeSnapshot<TData = unknown>(snapshot: Snapshot<TData>): Snapshot<TData> {
+  return Object.freeze(structuredClone(snapshot)) as Snapshot<TData>;
 }
 
-// =============================================================================
-// Intent ID Generation (SDK-DISPATCH-2, SDK-INV-6)
-// =============================================================================
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
 
-function generateIntentId(): string {
-  return generateUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const random = (Math.random() * 16) | 0;
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }

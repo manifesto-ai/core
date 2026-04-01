@@ -1,188 +1,106 @@
 # Governance Guide
 
-> Practical guide for using `@manifesto-ai/governance` directly.
+## 1. Compose Governance On A Manifesto
 
-> **Current Contract Note:** This guide describes the current v2.0.0 governance surface.
+```ts
+import { createManifesto } from "@manifesto-ai/sdk";
+import { withGovernance } from "@manifesto-ai/governance";
 
-## 1. Assemble Governance On Top Of Lineage
-
-```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createInMemoryGovernanceStore,
-  createIntentInstance,
-} from "@manifesto-ai/governance";
-import {
-  createInMemoryLineageStore,
-  createLineageService,
-} from "@manifesto-ai/lineage";
-
-const lineageStore = createInMemoryLineageStore();
-const lineage = createLineageService(lineageStore);
-const governanceStore = createInMemoryGovernanceStore();
-const governance = createGovernanceService(governanceStore, {
-  lineageService: lineage,
-});
-const eventDispatcher = createGovernanceEventDispatcher({
-  service: governance,
-});
-```
-
-Governance depends on lineage for branch and identity reads. It does not own lineage storage or world sealing.
-
----
-
-## 2. Create An Intent Instance
-
-```typescript
-const intent = await createIntentInstance({
-  body: {
-    type: "todo.add",
-    input: { title: "Write the governance guide" },
-  },
-  schemaHash: "todo-v1",
-  projectionId: "todo-ui",
-  source: { kind: "ui", eventId: "evt-1" },
-  actor: { actorId: "user-1", kind: "human" },
-});
-```
-
-`intentKey` is derived from the intent body and schema context. It remains stable for the same semantic input.
-
----
-
-## 3. Proposal Lifecycle Recipe
-
-```typescript
-const branch = lineage.getActiveBranch();
-const proposal = governance.createProposal({
-  baseWorld: branch.head,
-  branchId: branch.id,
-  actorId: intent.meta.origin.actor.actorId,
-  authorityId: "auth-auto",
-  intent: {
-    type: intent.body.type,
-    intentId: intent.intentId,
-    input: intent.body.input,
-    scopeProposal: intent.body.scopeProposal,
-  },
-  executionKey: intent.intentKey,
-  submittedAt: Date.now(),
-  epoch: branch.epoch,
-});
-```
-
-The governance service keeps proposal lifecycle, branch gating, and decision records explicit.
-
-Typical statuses move through submitted, evaluating, approved or rejected, and then to a terminal outcome. If a proposal loses its branch race, it can become superseded instead of executing.
-
----
-
-## 4. Branch Gate, Stale Ingress, And Superseded Cases
-
-```typescript
-if (governanceStore.getExecutionStageProposal(branch.id)) {
-  throw new Error("branch already has an execution-stage proposal");
-}
-```
-
-Use the branch gate to keep only one execution-stage proposal active for a branch at a time.
-
-When the branch head changes before the decision lands, stale ingress should be discarded or superseded rather than executed against the wrong base world.
-
-The important lesson is not the exact status label. The important lesson is that governance makes the race explicit and records the outcome.
-
----
-
-## 5. Finalize And Emit
-
-```typescript
-const prepared = governance.prepareAuthorityResult(
-  { ...proposal, status: "evaluating" },
-  { kind: "approved", approvedScope: null },
+const governed = withGovernance(
+  createManifesto<CounterDomain>(schema, effects),
   {
-    currentEpoch: branch.epoch,
-    currentBranchHead: branch.head,
-    decidedAt: Date.now(),
-  },
-);
-
-if (!prepared.decisionRecord) {
-  throw new Error("expected decision record");
-}
-
-const executingProposal = {
-  ...prepared.proposal,
-  status: "executing" as const,
-  decisionId: prepared.decisionRecord.decisionId,
-  decidedAt: prepared.decisionRecord.decidedAt,
-};
-
-governanceStore.putProposal(executingProposal);
-governanceStore.putDecisionRecord(prepared.decisionRecord);
-
-const lineageCommit = lineage.prepareSealNext({
-  schemaHash: "todo-v1",
-  baseWorldId: branch.head,
-  branchId: branch.id,
-  terminalSnapshot,
-  createdAt: Date.now(),
-  proposalRef: executingProposal.proposalId,
-  decisionRef: prepared.decisionRecord.decisionId,
-});
-
-const finalized = governance.finalize(
-  executingProposal,
-  lineageCommit,
-  Date.now(),
-);
-
-const rejected = governance.finalizeOnSealRejection(
-  executingProposal,
-  {
-    kind: "self_loop",
-    computedWorldId: executingProposal.baseWorld,
-    message: "No-op transition",
-  },
-  Date.now(),
-);
-```
-
-Use `finalize()` for the normal success path. Use `finalizeOnSealRejection()` when the seal cannot be accepted and you still need a terminal governance record.
-
----
-
-## 6. Post-Commit Event Dispatcher
-
-```typescript
-const events: string[] = [];
-const eventDispatcher = createGovernanceEventDispatcher({
-  service: governance,
-  sink: {
-    emit(event): void {
-      events.push(event.type);
+    lineage: { store },
+    bindings: [
+      {
+        actorId: "agent:demo",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "counter",
+      deriveActor() {
+        return { actorId: "agent:demo", kind: "agent" };
+      },
+      deriveSource(intent) {
+        return { kind: "agent", eventId: intent.intentId };
+      },
     },
   },
-});
-
-eventDispatcher.emitSealCompleted(finalized, lineageCommit);
-eventDispatcher.emitSealRejected(rejected, {
-  kind: "self_loop",
-  computedWorldId: executingProposal.baseWorld,
-  message: "No-op transition",
-});
+).activate();
 ```
 
-Use `createGovernanceEventDispatcher()` when you want post-commit event emission for completion, failure, world creation, or branch fork events.
+If lineage was not explicitly composed earlier, `config.lineage` is required. Governance does not create a default in-memory lineage store for you.
 
----
+## 2. Propose Instead Of Dispatch
 
-## 7. Related Docs
+```ts
+const proposal = await governed.proposeAsync(
+  governed.createIntent(governed.MEL.actions.increment),
+);
+```
+
+Governed runtimes do not expose `dispatchAsync`. That backdoor is removed by design.
+
+## 3. Auto-Approved Flow
+
+With `auto_approve` or policy-based approval, `proposeAsync()` can return a terminal proposal immediately.
+
+```ts
+if (proposal.status === "completed") {
+  console.log(governed.getSnapshot().data.count);
+}
+```
+
+Visible snapshots publish only after lineage seal commit succeeds.
+
+## 4. Pending Human Resolution
+
+HITL and tribunal bindings keep the proposal in `evaluating` until a later decision resolves it.
+
+```ts
+const pending = await governed.proposeAsync(
+  governed.createIntent(governed.MEL.actions.increment),
+);
+
+if (pending.status === "evaluating") {
+  await governed.approve(pending.proposalId);
+  // or:
+  // await governed.reject(pending.proposalId, "manual stop");
+}
+```
+
+`approve()` and `reject()` are pending-resolution APIs. They are not a general admin override for arbitrary proposal states.
+
+## 5. Lineage Semantics Stay Available
+
+Governed runtimes still carry the lineage query surface:
+
+- `restore(worldId)`
+- `getWorld(worldId)`
+- `getLatestHead()`
+- `getHeads()`
+- `getBranches()`
+- `getActiveBranch()`
+- `switchActiveBranch(branchId)`
+- `createBranch(name, fromWorldId?)`
+
+The only removed verb is direct execution.
+
+## 6. Low-Level Governance Substrate
+
+The service/store/evaluator exports still exist for protocol testing and lower-level composition:
+
+- `createGovernanceService()`
+- `createGovernanceEventDispatcher()`
+- `createInMemoryGovernanceStore()`
+- `createAuthorityEvaluator()`
+
+Those are useful when you are testing lifecycle invariants directly. They are no longer the package’s primary application story.
+
+## Related Docs
 
 - [Governance README](../README.md)
-- [Governance Specification](governance-SPEC-2.0.0v.md)
-- [Historical v1 Baseline](governance-SPEC-1.0.0v.md)
+- [Governance Specification](governance-SPEC-v3.0.0-draft.md)
+- [Historical v2 Baseline](governance-SPEC-2.0.0v.md)
 - [Governance Version Index](VERSION-INDEX.md)
-- [World](../../../docs/concepts/world)
-- [Governed Composition](../../../docs/tutorial/05-governed-composition)

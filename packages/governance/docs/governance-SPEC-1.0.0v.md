@@ -8,7 +8,7 @@
 > **Extracted from:** World SPEC v2.0.5 (§5.6–5.7, §6, §7.1–7.7, §8, §10.1–10.2, §10.5–10.7)
 > **Authors:** Manifesto Team
 > **License:** MIT
-> **Historical Note:** This document is retained as the initial split-native governance baseline. The current normative governance contract now lives in [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md).
+> **Historical Note:** This document is retained as the initial split-native governance baseline. The current governance decorator contract now lives in [governance-SPEC-v3.0.0-draft.md](governance-SPEC-v3.0.0-draft.md).
 
 ---
 

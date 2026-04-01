@@ -1,24 +1,31 @@
-import todoSchema from "./domain/todo.mel";
 import { useManifesto } from "./hooks/use-manifesto";
 import { TodoInput } from "./components/todo-input";
 import { TodoList } from "./components/todo-list";
 import { TodoFooter } from "./components/todo-footer";
-import type { TodoData, Todo } from "./types";
+import type { TodoComputed } from "./types";
 
 export function App() {
-  const { state, ready, act } = useManifesto(todoSchema);
+  const {
+    state,
+    ready,
+    addTodo,
+    toggleTodo,
+    removeTodo,
+    setFilter,
+    clearCompleted,
+  } = useManifesto();
 
   if (!ready || !state) {
     return <div className="loading">Loading...</div>;
   }
 
-  const data = state.data as TodoData;
-  const computed = state.computed as Record<string, unknown>;
+  const data = state.data;
+  const computed = state.computed as TodoComputed;
 
-  const todos = data.todos as Todo[];
+  const todos = data.todos;
   const filterMode = data.filterMode;
-  const activeCount = computed["activeCount"] as number;
-  const hasCompleted = computed["hasCompleted"] as boolean;
+  const activeCount = computed.activeCount;
+  const hasCompleted = computed.hasCompleted;
 
   const filteredTodos = todos.filter((todo) => {
     if (filterMode === "active") return !todo.completed;
@@ -30,7 +37,7 @@ export function App() {
     <section className="todoapp">
       <header className="header">
         <h1>todos</h1>
-        <TodoInput onAdd={(title) => act("addTodo", { title })} />
+        <TodoInput onAdd={(title) => void addTodo(title)} />
       </header>
 
       {todos.length > 0 && (
@@ -38,8 +45,8 @@ export function App() {
           <section className="main">
             <TodoList
               todos={filteredTodos}
-              onToggle={(id) => act("toggleTodo", { id })}
-              onRemove={(id) => act("removeTodo", { id })}
+              onToggle={(id) => void toggleTodo(id)}
+              onRemove={(id) => void removeTodo(id)}
             />
           </section>
 
@@ -47,8 +54,8 @@ export function App() {
             activeCount={activeCount}
             hasCompleted={hasCompleted}
             filterMode={filterMode}
-            onSetFilter={(f) => act("setFilter", { newFilter: f })}
-            onClearCompleted={() => act("clearCompleted")}
+            onSetFilter={(filter) => void setFilter(filter)}
+            onClearCompleted={() => void clearCompleted()}
           />
         </>
       )}

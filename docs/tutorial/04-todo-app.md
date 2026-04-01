@@ -16,7 +16,7 @@
 ## Prerequisites
 
 - You finished [Working with Effects](./03-effects)
-- You are still using the SDK `dispatchAsync()` utility from tutorial 1
+- You are still using the activation-first SDK path from tutorial 1
 
 ---
 
@@ -80,7 +80,7 @@ domain TodoApp {
 
 ---
 
-## 2. Create the App Instance
+## 2. Create the App Runtime
 
 Create `manifesto.ts`:
 
@@ -88,10 +88,7 @@ Create `manifesto.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import TodoAppMel from "./todo-app.mel";
 
-export const manifesto = createManifesto({
-  schema: TodoAppMel,
-  effects: {},
-});
+export const world = createManifesto(TodoAppMel, {}).activate();
 ```
 
 ---
@@ -101,8 +98,7 @@ export const manifesto = createManifesto({
 Create `main.ts`:
 
 ```typescript
-import { createIntent, dispatchAsync } from "@manifesto-ai/sdk";
-import { manifesto } from "./manifesto";
+import { world } from "./manifesto";
 
 type Todo = {
   id: string;
@@ -111,7 +107,7 @@ type Todo = {
 };
 
 function render() {
-  const snapshot = manifesto.getSnapshot();
+  const snapshot = world.getSnapshot();
   const todos = snapshot.data.todos as Todo[];
   const filter = snapshot.data.filter as "all" | "active" | "completed";
 
@@ -133,7 +129,7 @@ function render() {
   }
 }
 
-manifesto.subscribe(
+world.subscribe(
   (snapshot) => ({
     todos: snapshot.data.todos,
     filter: snapshot.data.filter,
@@ -146,46 +142,42 @@ manifesto.subscribe(
 async function run() {
   render();
 
-  await dispatchAsync(
-    manifesto,
-    createIntent(
-      "addTodo",
-      { id: crypto.randomUUID(), title: "Write the tutorial" },
+  await world.dispatchAsync(
+    world.createIntent(
+      world.MEL.actions.addTodo,
+      "Write the tutorial",
       crypto.randomUUID(),
     ),
   );
 
-  await dispatchAsync(
-    manifesto,
-    createIntent(
-      "addTodo",
-      { id: crypto.randomUUID(), title: "Review the generated docs build" },
+  await world.dispatchAsync(
+    world.createIntent(
+      world.MEL.actions.addTodo,
+      "Review the generated docs build",
       crypto.randomUUID(),
     ),
   );
 
-  let firstTodoId = (manifesto.getSnapshot().data.todos as Todo[])[0].id;
-  await dispatchAsync(
-    manifesto,
-    createIntent("toggleTodo", { id: firstTodoId }, crypto.randomUUID()),
+  const firstTodoId = (world.getSnapshot().data.todos as Todo[])[0].id;
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.toggleTodo, firstTodoId),
   );
 
-  await dispatchAsync(
-    manifesto,
-    createIntent("setFilter", { value: "completed" }, crypto.randomUUID()),
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.setFilter, "completed"),
   );
-  await dispatchAsync(
-    manifesto,
-    createIntent("clearCompleted", crypto.randomUUID()),
+
+  await world.dispatchAsync(
+    world.createIntent(world.MEL.actions.clearCompleted),
   );
 
   render();
-  manifesto.dispose();
+  world.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  manifesto.dispose();
+  world.dispose();
 });
 ```
 
@@ -196,7 +188,7 @@ run().catch((error) => {
 This tutorial separates three concerns cleanly:
 
 - MEL owns domain rules
-- `createManifesto()` owns runtime composition
+- `createManifesto(...).activate()` owns runtime composition
 - `render()` owns presentation
 
 That same split scales to React, a CLI, a server process, or an AI worker. The UI layer changes. The domain and Snapshot model stay the same.

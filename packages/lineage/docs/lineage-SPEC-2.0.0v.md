@@ -1,12 +1,12 @@
 # Manifesto Lineage Protocol Specification
 
-> **Status:** Normative (Living Document)
+> **Status:** Historical Normative Reference
 > **Package:** `@manifesto-ai/lineage`
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Related:** ADR-014, ADR-015, ADR-016
 
-> **Historical Note:** [lineage-SPEC-1.0.1v.md](lineage-SPEC-1.0.1v.md) is retained as the superseded split-era baseline before ADR-015/ADR-016 landed in the current package contract.
+> **Historical Note:** [lineage-SPEC-v3.0.0-draft.md](lineage-SPEC-v3.0.0-draft.md) now defines the truthful current contract. This document is retained as the pre-ADR-017 service-first baseline.
 
 ---
 

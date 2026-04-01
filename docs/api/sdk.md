@@ -1,6 +1,6 @@
 # @manifesto-ai/sdk
 
-> Thin direct-dispatch entry point for Manifesto.
+> Activation-first base runtime entry point for Manifesto.
 
 ## Overview
 
@@ -8,54 +8,59 @@
 
 Use SDK when you want:
 
-- the shortest path to a running app
-- direct dispatch
-- subscriptions, availability queries, and snapshot reads without governed assembly
+- the shortest path to a running base world
+- a clear activation boundary before runtime execution
+- typed intent creation through `MEL.actions.*`
+- subscriptions, availability queries, and snapshot reads in one package
 
-If you need proposals, legitimacy, sealed lineage, or explicit runtime composition, move to top-level `@manifesto-ai/world`.
+The current SDK contract is:
+
+`createManifesto(schema, effects) -> activate() -> base runtime instance`
 
 ## SDK-Owned Surface
 
 - `createManifesto()`
-- `dispatchAsync()`
-- `defineOps()`
+- `activate()`
+- activated base runtime:
+  - `createIntent`
+  - `dispatchAsync`
+  - `subscribe`
+  - `on`
+  - `getSnapshot`
+  - `getAvailableActions`
+  - `isActionAvailable`
+  - `MEL`
+  - `dispose`
 - SDK error types
 
-## Thin World Re-exports
-
-SDK intentionally keeps only a narrow world escape hatch:
-
-- `createWorld()`
-
-This is not the full governed surface. SDK does not expose store adapter implementations or the split-native governance/lineage service factories needed for full governed bootstrap.
-
-## Direct-Dispatch Example
+## Base Runtime Example
 
 ```typescript
-import { createIntent, createManifesto, dispatchAsync } from "@manifesto-ai/sdk";
+import { createManifesto } from "@manifesto-ai/sdk";
 
-const manifesto = createManifesto({
-  schema: domainSchema,
-  effects: {},
-});
+const manifesto = createManifesto<CounterDomain>(domainSchema, {});
+const world = manifesto.activate();
 
-await dispatchAsync(manifesto, createIntent("increment", "intent-1"));
+const intent = world.createIntent(world.MEL.actions.increment);
+await world.dispatchAsync(intent);
 
-manifesto.isActionAvailable("increment");
-manifesto.getAvailableActions();
+world.isActionAvailable("increment");
+world.getAvailableActions();
+world.getSnapshot();
 ```
 
-## When To Leave SDK
+## Governed Composition Direction
 
-Move to `@manifesto-ai/world` when:
+The forward public direction under ADR-017 is:
 
-- you need proposal approval before execution
-- you need sealed world ids and lineage queries
-- you need a durable governed store
-- you need `WorldRuntime.executeApprovedProposal()`
+`createManifesto() -> withLineage() -> withGovernance() -> activate()`
+
+Those governed runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are historical tombstones, not the SDK's canonical current story.
 
 ## Related Docs
 
+- [Lineage API](./lineage.md)
+- [Governance API](./governance.md)
 - [World API](./world.md)
 - [Quickstart](/quickstart)
 - [Governed Composition Guide](/guides/governed-composition)

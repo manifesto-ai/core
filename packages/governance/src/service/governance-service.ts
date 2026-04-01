@@ -62,6 +62,37 @@ export class DefaultGovernanceService implements GovernanceService {
     });
   }
 
+  beginEvaluating(proposal: Proposal): Proposal & { readonly status: "evaluating" } {
+    return this.transitionProposal(proposal, "evaluating") as Proposal & {
+      readonly status: "evaluating";
+    };
+  }
+
+  beginExecution(proposal: Proposal): Proposal & { readonly status: "executing" } {
+    if (!proposal.decisionId) {
+      throw new Error(
+        "GOV-EXEC-1 violation: approved proposal requires decisionId before execution can begin"
+      );
+    }
+
+    return this.transitionProposal(proposal, "executing") as Proposal & {
+      readonly status: "executing";
+    };
+  }
+
+  failExecution(
+    proposal: Proposal,
+    completedAt: number,
+    resultWorld?: WorldId
+  ): Proposal & { readonly status: "failed" } {
+    return this.transitionProposal(proposal, "failed", {
+      completedAt,
+      ...(resultWorld !== undefined ? { resultWorld } : {}),
+    }) as Proposal & {
+      readonly status: "failed";
+    };
+  }
+
   async prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,

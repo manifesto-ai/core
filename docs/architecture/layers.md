@@ -113,28 +113,27 @@ onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
 
 ---
 
-### World
+### Governed Composition
 
 > **One-liner:** Governed composition layer that determines what becomes legitimate history.
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Governed runtime assembly over governance + lineage + sealing coordination |
-| **Primary API** | `createWorld()` plus adapter subpaths such as `@manifesto-ai/world/in-memory` |
-| **Owns** | Facade assembly, governed store contract, coordinator-owned commit flow |
+| **Role** | Decorator-owned legitimacy + continuity over the same SDK runtime |
+| **Primary API** | `withLineage()` and `withGovernance()` before `activate()` |
+| **Owns** | Proposal legitimacy, seal-aware publication, restore, branch/head state, decision visibility |
 | **Does NOT Know** | Host internal API, TraceEvent structure, execution micro-steps |
 
 ```typescript
-// World's world view
-// top-level @manifesto-ai/world is the exact governed facade
-// governance and lineage remain explicit protocol layers underneath it
+// Governed composition is explicit.
+// No top-level facade package owns runtime assembly anymore.
 ```
 
 **Constitutional Rules:**
-1. World composes governance and lineage; it does not replace their protocol boundaries
-2. World seals results; it does not interpret Host micro-steps
-3. World owns the governed composition surface and post-commit event coordination
-4. World does not own execution telemetry (`execution:compute`, `execution:patches`, etc.)
+1. Governance and Lineage compose over SDK; they do not replace Host/Core boundaries
+2. Governed composition seals results; it does not interpret Host micro-steps
+3. The governed path owns legitimacy and continuity, not a facade-owned execution backdoor
+4. Governed decorators do not own execution telemetry (`execution:compute`, `execution:patches`, etc.)
 
 ---
 
@@ -272,13 +271,13 @@ packages/
 ### Dependency Graph
 
 ```
-@manifesto-ai/sdk
-  ├── @manifesto-ai/host
-  │     └── @manifesto-ai/core
-  ├── @manifesto-ai/world
-  │     └── @manifesto-ai/core
-  └── @manifesto-ai/compiler
-        └── @manifesto-ai/core
+@manifesto-ai/governance
+  └── @manifesto-ai/lineage
+        └── @manifesto-ai/sdk
+              ├── @manifesto-ai/host
+              │     └── @manifesto-ai/core
+              └── @manifesto-ai/compiler
+                    └── @manifesto-ai/core
 ```
 
 ---

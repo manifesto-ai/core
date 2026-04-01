@@ -3,7 +3,7 @@
 This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory.
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.0.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` direct-dispatch current with the Core v4 Snapshot shape, `@manifesto-ai/world` as the exact governed facade, and `@manifesto-ai/governance` / `@manifesto-ai/lineage` as the official split protocol packages.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.0.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3 activation-first, and `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -17,47 +17,39 @@ If you want the governing documentation rules, see [Documentation Governance](..
 
 ## Current Normative Package Specifications
 
-### Core Packages
+### Core Runtime
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
 | **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v4.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v4.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/world** | [Facade SPEC](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) (v2.0.0) | Normative (exact governed facade) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/VERSION-INDEX.md) |
 
-### Split Protocol Packages
+### Application and Decorator Packages
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) (v2.0.0) | Normative (continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) (v2.0.0) | Normative (legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
-
-> **Current World Authority:** `@manifesto-ai/world` is the exact governed facade. The current facade contract composes Governance v2.0.0 with Lineage v2.0.0. `world-SPEC.md` is historical reference only.
-
-### Application Layer
-
-| Package | Latest SPEC | Status | Package Docs |
-|---------|-------------|--------|--------------|
-| **@manifesto-ai/sdk** | v2.0.0 current direct-dispatch surface with Core v4 Snapshot shape | Normative (direct-dispatch entry) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | [Current Draft](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) (v3.0.0) | Normative (activation-first entry) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/lineage** | [Current Draft](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md) (v3.0.0) | Normative (decorator continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/governance** | [Current Draft](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-v3.0.0-draft.md) (v3.0.0) | Normative (decorator legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.7.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
-## Remaining Projected Drafts
+> **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
-These documents remain repo-tracked drafts, but they are not current package contracts.
-
-| Package | Draft SPEC | Status | Notes |
-|---------|------------|--------|-------|
-| **@manifesto-ai/sdk** | [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) | Draft | Remaining SDK surface cleanup beyond the current v2 contract |
-
-## Historical and Retired References
+## Historical and Removed References
 
 These references remain available for traceability, but they are not maintained onboarding entry points.
 
+### World Facade Package
+
+`@manifesto-ai/world` was removed from the active workspace in ADR-017 Phase 4. It is no longer a normative package and no longer defines the public governed bootstrap story.
+
+For the historical tombstone page, see [API: @manifesto-ai/world](/api/world).
+
 ### SDK v2.0.0
 
-`@manifesto-ai/sdk` remains a **thin composition layer** over the Manifesto protocol. The canonical public entrypoint is `createManifesto()` returning `ManifestoInstance` with `dispatch`, `subscribe`, `on`, availability queries, `getSnapshot`, and `dispose`.
+`@manifesto-ai/sdk` v2 is a historical reference only. Before ADR-017, the canonical public entrypoint was `createManifesto()` returning `ManifestoInstance` with `dispatch`, `subscribe`, `on`, availability queries, `getSnapshot`, and `dispose`.
 
 The `@manifesto-ai/runtime` package is **retired** — its responsibilities are absorbed into `createManifesto()` internal wiring. Runtime SPEC v0.2.0 is superseded with no successor.
 
@@ -83,29 +75,21 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
   - Updated directly in the living document; FDR-H018~H025 inlined
   - Deprecated §9 (Compiler Integration) moved to Appendix D
 
-### World
-
-- **World Facade SPEC** — [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) (Normative, exact governed facade)
-  - Defines `GovernedWorldStore`, `WorldRuntime`, async persistence, adapter subpaths, and the exact governed facade
-- **Legacy World Protocol SPEC** — [world-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-SPEC.md) (Historical reference)
-  - Historical monolith reference only
-  - Governance and lineage ownership live in their package specs
-
 ### Lineage
 
-- **Lineage SPEC** — [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) (Living Document, current through v2.0.0)
-  - Defines parent-linked identity, `SealAttempt`, `head` / `tip` / `headAdvancedAt`, persistence, replay, and restore normalization
+- **Lineage SPEC** — [lineage-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
+  - Defines `withLineage()`, seal-aware publication, restore, and branch/head runtime queries
 
 ### Governance
 
-- **Governance SPEC** — [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) (Living Document, current through v2.0.0)
-  - Defines actor/authority, proposal lifecycle, single-writer gate, attempt-scoped provenance, seal coordination, events, and governance persistence
+- **Governance SPEC** — [governance-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
+  - Defines `withGovernance()`, lineage guarantee, governed proposal flow, pending resolution, and post-seal governance visibility
 
 ### SDK
 
-- **SDK SPEC v2.0.0** (Normative)
-  - [sdk-SPEC-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v2.0.0.md)
-  - Hard-cut SDK — `createManifesto()` as sole owned concept, `ManifestoInstance` (7 methods including availability queries)
+- **SDK SPEC v3.0.0** (Current)
+  - [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md)
+  - Activation-first SDK — `createManifesto()` returns a composable manifesto and runtime verbs appear only after `activate()`
 
 ### Compiler (MEL)
 
@@ -125,14 +109,20 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 | 03-31 | Lineage | v2.0.0 | ADR-015 + ADR-016 lineage contract landed: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
 | 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
 | 03-31 | Host | v4.0.0 | Current Host alignment follows the Core v4 Snapshot contract and removes `system.errors` from Host-facing Snapshot references |
-| 03-31 | World | Facade v2.0.0 | Hard-cut governed facade landed: `GovernedWorldStore`, `runInSealTransaction()`, `WorldRuntime`, adapter subpaths, and world-owned execution seam |
-| 03-31 | SDK | v2 current surface | Current SDK Snapshot surface now follows Core v4 and no longer exposes `system.errors`; governed seal internals remain out of scope |
-| 03-28 | World | Facade v1.0.0 | World facade SPEC added for exact governed composition: composite store, coordinator, `createWorld()`, and facade lifecycle |
+| 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
 | 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
-| 03-28 | ADR/Docs | — | Living SPEC hub updated for the hard-cut surface: World facade is canonical, Governance and Lineage are split protocol packages |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
 | 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
+
+### Recent Changes (2026-04)
+
+| Date | Package | Version | Change |
+|------|---------|---------|--------|
+| 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
+| 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
+| 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with lineage auto-guarantee |
+| 04-01 | World | Removed | `@manifesto-ai/world` removed from the active workspace and downgraded to historical tombstone status |
 
 ### Recent Changes (2026-02)
 
@@ -158,7 +148,7 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ## Living Documents
 
-Core and Host are maintained as **Living Documents** when a package has entered the living-document model — single consolidated files that incorporate changes directly, with `Changelog` capturing history. World Facade, Governance, and Lineage are current versioned specs for their package scopes.
+Core and Host are maintained as **Living Documents** when a package has entered the living-document model. SDK, Governance, and Lineage remain current versioned specs for their package scopes.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history
@@ -174,7 +164,7 @@ When documents conflict:
 ```
 SPEC (highest authority)
   ↓
-FDR (design rationale — now inlined in SPECs for Core/Host/World)
+FDR (design rationale — now inlined in SPECs for Core/Host)
   ↓
 ADR (architectural decisions — kept as separate immutable records)
   ↓

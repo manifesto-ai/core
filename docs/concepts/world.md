@@ -2,15 +2,15 @@
 
 > Governed composition for legitimacy, continuity, and sealing.
 
-## What World Means in the Hard-Cut Model
+## What World Means Now
 
-World is no longer a separate monolithic runtime hidden behind its own object model. At the public package surface, top-level `@manifesto-ai/world` is the exact governed facade that composes:
+World is no longer a top-level facade package. In the current hard-cut model, "world" means the governed state transition path created by composing:
 
 - governance for legitimacy
 - lineage for continuity
-- a facade-owned store and coordinator for sealing
+- the same SDK runtime for execution
 
-The underlying semantics still live in explicit protocol packages. World is the package you use when you want the governed runtime assembled coherently.
+The underlying semantics live in explicit protocol packages. Governed composition is now expressed directly through `withLineage()` and `withGovernance()`.
 
 ## When To Use It
 
@@ -18,8 +18,8 @@ Choose World when you need one or more of these:
 
 - explicit proposal and authority flow
 - immutable world history and branch/head semantics
-- atomic sealing and post-commit governance events
-- a single package that exposes the full governed runtime surface
+- seal-aware publication and restore
+- approval and decision visibility without bypassing runtime boundaries
 
 If you only need direct-dispatch application runtime, stay on `@manifesto-ai/sdk`.
 
@@ -27,55 +27,39 @@ If you only need direct-dispatch application runtime, stay on `@manifesto-ai/sdk
 
 ```text
 actor
-  -> intent instance
+  -> typed intent
   -> governance decides legitimacy
   -> host executes approved intent
-  -> coordinator seals result into lineage
-  -> post-commit events are emitted
+  -> lineage seals result
+  -> governed history advances
 ```
 
 More concretely:
 
-1. An actor creates an intent instance.
+1. A caller creates a typed intent from the activated runtime.
 2. Governance creates and advances a proposal.
 3. Host executes the approved intent against a base snapshot.
-4. The coordinator finalizes governance, commits lineage and governance records, and emits post-commit events.
+4. Lineage seals the result and exposes it as visible history.
 
 ## Public Assembly
 
 ```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createIntentInstance,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { withLineage } from "@manifesto-ai/lineage";
+import { withGovernance } from "@manifesto-ai/governance";
+
+const governed = withGovernance(
+  withLineage(createManifesto(schema, effects), lineageConfig),
+  governanceConfig,
+).activate();
 ```
-
-## Package Structure
-
-```text
-@manifesto-ai/world
-  -> re-exports @manifesto-ai/governance
-  -> re-exports @manifesto-ai/lineage
-  -> owns createWorld(), WorldCoordinator, WorldRuntime
-  -> exposes store adapters through /in-memory, /indexeddb, /sqlite subpaths
-```
-
-That split matters:
-
-- use `@manifesto-ai/world` for governed runtime assembly
-- use `@manifesto-ai/governance` directly for legitimacy-specific work
-- use `@manifesto-ai/lineage` directly for continuity-specific work
 
 ## Key Properties
 
 - Worlds are immutable.
-- Governance and lineage stay explicit protocol services.
-- Sealing is atomic and ordered.
-- Post-commit events happen only after the commit succeeds.
+- Governance and lineage stay explicit protocol packages.
+- Sealing is ordered and publication-aware.
+- Legitimacy and continuity are explicit, not hidden in a facade.
 
 ## See Also
 

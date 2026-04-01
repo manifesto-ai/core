@@ -1,54 +1,72 @@
 # @manifesto-ai/governance
 
-> Legitimacy protocol for governed Manifesto composition.
+> Governed decorator runtime for legitimacy, approval, and sealed execution.
 
 ## Overview
 
-`@manifesto-ai/governance` owns the proposal, authority, decision, and post-commit event model used by governed deployments.
+`@manifesto-ai/governance` owns `withGovernance()` and the activated governed runtime.
 
-> **Current Contract Note:** This page describes the current Governance v1.0.0 surface. The projected v2.0.0 rewrite is draft-only in [packages/governance/docs/governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md).
+> **Current Contract Note:** The truthful current package contract is Governance v3. See [Specifications](/internals/spec/) for the current draft index.
 
-Use this package directly when you want:
+## Canonical Surface
 
-- proposal lifecycle types and helpers
-- authority handlers and evaluator composition
-- governance-only tests or tooling
-- direct access to governance stores and services without going through `@manifesto-ai/world`
+```ts
+import { createManifesto } from "@manifesto-ai/sdk";
+import { withGovernance } from "@manifesto-ai/governance";
 
-If you are assembling a full governed runtime, top-level `@manifesto-ai/world` remains the canonical package because it re-exports governance together with lineage and the facade-owned coordinator/store surface.
-
-## Main Runtime Surface
-
-```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  InMemoryGovernanceStore,
-} from "@manifesto-ai/governance";
+const governed = withGovernance(
+  createManifesto<CounterDomain>(schema, effects),
+  {
+    lineage: { store },
+    bindings,
+    execution: {
+      projectionId: "counter",
+      deriveActor(intent) {
+        return { actorId: "agent:demo", kind: "agent" };
+      },
+      deriveSource(intent) {
+        return { kind: "agent", eventId: intent.intentId };
+      },
+    },
+  },
+).activate();
 ```
 
-## What This Package Owns
+## Activated Runtime
 
-- `GovernanceStore` and `InMemoryGovernanceStore`
-- `GovernanceService` and `createGovernanceService()`
-- proposal lifecycle types such as `Proposal`, `ProposalStatus`, `DecisionRecord`
-- authority handlers such as `AutoApproveHandler`, `PolicyRulesHandler`, `HITLHandler`, and `TribunalHandler`
-- intent-instance helpers: `createIntentInstance()`, `createIntentInstanceSync()`, `computeIntentKey()`
-- post-commit event dispatch helpers through `createGovernanceEventDispatcher()`
+Governed runtimes keep the lineage query surface, but remove direct dispatch:
 
-## Relationship to World
+- `proposeAsync(intent)`
+- `approve(proposalId, approvedScope?)`
+- `reject(proposalId, reason?)`
+- `getProposal(proposalId)`
+- `getProposals(branchId?)`
+- `bindActor(binding)`
+- `getActorBinding(actorId)`
+- `getDecisionRecord(decisionId)`
 
-```text
-@manifesto-ai/world
-  -> re-exports @manifesto-ai/governance
-  -> adds facade-owned store/coordinator composition
-```
+`dispatchAsync` is intentionally absent.
 
-Use `@manifesto-ai/governance` directly when you need legitimacy rules by themselves. Use `@manifesto-ai/world` when you need governed runtime assembly.
+## Lineage Guarantee
+
+- If `withLineage()` was already composed, governance uses that explicit lineage setup.
+- If not, `config.lineage` is required.
+- Governance does not create a default in-memory lineage store for the caller.
+
+## Low-Level Protocol Surface
+
+The package still exports low-level seams such as:
+
+- `createGovernanceService()`
+- `createGovernanceEventDispatcher()`
+- `createInMemoryGovernanceStore()`
+- `createAuthorityEvaluator()`
+
+Those remain useful for protocol tests and custom orchestration, but they are no longer the canonical app-facing entry.
 
 ## Related Docs
 
-- [World API](./world.md)
+- [SDK API](./sdk.md)
 - [Lineage API](./lineage.md)
+- [Governed Composition Guide](/guides/governed-composition)
 - [Specifications](/internals/spec/)
-- [Governance v2 Draft SPEC](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md)

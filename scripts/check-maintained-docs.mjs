@@ -26,6 +26,7 @@ const maintainedDocRoots = [
 const excludedMaintainedPaths = new Set([
   "docs/guides/migrate-app-to-sdk.md",
   "docs/guides/performance-report.md",
+  "docs/guides/typed-patch-ops.md",
 ]);
 
 const packageMaintainedDocs = [
@@ -44,10 +45,18 @@ const legacyApiPatterns = [
 const globalForbiddenPatterns = [
   ...legacyApiPatterns,
   { label: "@manifesto-ai/world/facade", pattern: /@manifesto-ai\/world\/facade/g },
+  { label: "ManifestoConfig", pattern: /\bManifestoConfig\b/g },
+  { label: "ManifestoInstance", pattern: /\bManifestoInstance\b/g },
+  { label: "defineOps()", pattern: /\bdefineOps\(/g },
+  { label: "createWorld()", pattern: /\bcreateWorld\(/g },
   { label: "await dispatch(", pattern: /await\s+dispatch\(/g },
   {
     label: "legacy dispatchAsync(action, input) signature",
     pattern: /dispatchAsync\(\s*[^,\n]+\s*,\s*["'`]/g,
+  },
+  {
+    label: "top-level dispatchAsync(instance, intent) usage",
+    pattern: /(?<!\.)dispatchAsync\(\s*[^),\n]+\s*,/g,
   },
 ];
 

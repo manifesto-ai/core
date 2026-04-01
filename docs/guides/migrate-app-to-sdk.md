@@ -38,11 +38,11 @@ The important migration is not just the import path. The public shape changed.
 
 | Legacy App Facade | Current SDK |
 |-------------------|-------------|
-| `createApp({ schema, effects })` | `createManifesto({ schema, effects })` |
+| `createApp({ schema, effects })` | `createManifesto(schema, effects).activate()` |
 | `await app.ready()` | Not needed |
-| `app.act("type", input)` | `manifesto.dispatch(createIntent("type", input, intentId))` |
-| `await handle.done()` | `on()` events or a `dispatchAsync()` helper |
-| `app.getState()` | `manifesto.getSnapshot()` |
+| `app.act("type", input)` | `world.dispatchAsync(world.createIntent(world.MEL.actions.someAction, ...args))` |
+| `await handle.done()` | `await world.dispatchAsync(...)` |
+| `app.getState()` | `world.getSnapshot()` |
 
 ---
 
@@ -66,8 +66,8 @@ The script is a first pass only. It helps with import-path replacement. You stil
 
 - Replace `createApp` with `createManifesto`
 - Remove `ready()`
-- Replace `act()` flows with `dispatch()` plus telemetry or a helper
-- Replace `getState()` with `getSnapshot()`
+- Replace `act()` flows with `world.createIntent(world.MEL.actions.*)` plus `await world.dispatchAsync(...)`
+- Replace `getState()` with `world.getSnapshot()`
 - Re-run tests and docs build
 
 ---

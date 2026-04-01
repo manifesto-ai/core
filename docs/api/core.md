@@ -178,5 +178,6 @@ next = core.applySystemDelta(next, result.systemDelta);
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/host](./host) | Executes requirements/effects produced by Core |
-| [@manifesto-ai/world](./world) | Governs proposal and world lineage |
-| [@manifesto-ai/sdk](./sdk) | Public facade using Core/Host/World |
+| [@manifesto-ai/sdk](./sdk) | Activation-first runtime built on Core + Host |
+| [@manifesto-ai/lineage](./lineage) | Adds continuity and sealing over the same snapshot model |
+| [@manifesto-ai/governance](./governance) | Adds legitimacy and proposal flow over the same snapshot model |

@@ -53,22 +53,6 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@types/node@25.5.0)(jsdom@27.4.0)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.2))
 
-  examples/governed-minimal-node:
-    dependencies:
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../../packages/world
-    devDependencies:
-      '@types/node':
-        specifier: ^25.5.0
-        version: 25.5.0
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   examples/todo-react:
     dependencies:
       '@manifesto-ai/sdk':
@@ -99,6 +83,31 @@ importers:
       vite:
         specifier: ^8.0.3
         version: 8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/activation-cts:
+    dependencies:
+      '@manifesto-ai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../cts-kit
+      '@manifesto-ai/governance':
+        specifier: workspace:*
+        version: link:../governance
+      '@manifesto-ai/lineage':
+        specifier: workspace:*
+        version: link:../lineage
+      '@manifesto-ai/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@types/node@25.5.0)(jsdom@27.4.0)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/codegen:
     devDependencies:
@@ -148,9 +157,6 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
@@ -211,6 +217,9 @@ importers:
       '@manifesto-ai/lineage':
         specifier: workspace:*
         version: link:../lineage
+      '@manifesto-ai/sdk':
+        specifier: workspace:*
+        version: link:../sdk
     devDependencies:
       '@manifesto-ai/core':
         specifier: workspace:*
@@ -244,6 +253,10 @@ importers:
         version: 4.1.2(@types/node@25.5.0)(jsdom@27.4.0)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/lineage:
+    dependencies:
+      '@manifesto-ai/sdk':
+        specifier: workspace:*
+        version: link:../sdk
     devDependencies:
       '@manifesto-ai/core':
         specifier: workspace:*
@@ -272,38 +285,7 @@ importers:
       '@manifesto-ai/host':
         specifier: workspace:*
         version: link:../host
-      '@manifesto-ai/world':
-        specifier: workspace:*
-        version: link:../world
     devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^8.0.3
-        version: 8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.2)
-      vitest:
-        specifier: ^4.1.2
-        version: 4.1.2(@types/node@25.5.0)(jsdom@27.4.0)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.2))
-
-  packages/world:
-    dependencies:
-      '@manifesto-ai/governance':
-        specifier: workspace:*
-        version: link:../governance
-      '@manifesto-ai/lineage':
-        specifier: workspace:*
-        version: link:../lineage
-    devDependencies:
-      '@manifesto-ai/core':
-        specifier: workspace:*
-        version: link:../core
-      '@manifesto-ai/cts-kit':
-        specifier: workspace:*
-        version: link:../cts-kit
-      fake-indexeddb:
-        specifier: ^6.2.5
-        version: 6.2.5
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -2095,10 +2077,6 @@ packages:
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
-
-  fake-indexeddb@6.2.5:
-    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
-    engines: {node: '>=18'}
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -4937,8 +4915,6 @@ snapshots:
   events@3.3.0: {}
 
   expect-type@1.3.0: {}
-
-  fake-indexeddb@6.2.5: {}
 
   fast-deep-equal@3.1.3: {}
 

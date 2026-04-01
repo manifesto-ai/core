@@ -8,25 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Documentation architecture established (Layer 1-6)
-- Constitutional constraints document (CLAUDE.md)
-- Agent usage guide (AGENTS.md)
-- Security policy (SECURITY.md)
-- Contributing guidelines with constitutional requirements
-- MEL `onceIntent` contextual keyword with `$mel` guard namespace support
-- ADR-008 documenting SDK-first public entry and App package retirement
-- Migration tooling: `scripts/migrate/app-to-sdk.mjs` and guide `docs/guides/migrate-app-to-sdk.md`
+- `@manifesto-ai/activation-cts`, a private cross-package compliance suite that locks the base, lineage, and governance activation chains together
+- Final ADR-017 landing checklist and release cleanup for the activation-first/decorator-runtime hard cut
 
 ### Changed
-- Moved package documentation from docs/packages/* to packages/*/docs/*
-- Updated README.md with correct documentation links
-- Intent IR SPEC v0.2.0: ListTerm for plurality, QuantitySpec, PredOp `in`, term-level `ext`, orderBy semantics, and stricter canonicalization (default elision + RFC3339 UTC date normalization)
-- Schema hashing clarified as semantic identity (excludes `$`-prefixed platform fields); runtime effective hash treated as internal
-- World/App snapshot handling excludes `$mel` alongside `$host` for deterministic hashing
-- Learn/Quickstart/App Migration docs updated for `onceIntent` and `$mel` platform namespaces
-- Canonical public entrypoint switched to `@manifesto-ai/sdk` (SDK package promoted to `v1.0.0`)
-- `@manifesto-ai/app` moved to deprecated compatibility status for R1 (hard removal scheduled for R2)
-- Root build/test/lint filters now include SDK/Runtime as first-class packages while keeping App compatibility coverage
+- `@manifesto-ai/sdk` now exposes the current `v3.0.0` activation-first contract: `createManifesto(schema, effects)` returns a composable manifesto, runtime verbs appear only after `activate()`, and instance-owned `createIntent()` / `dispatchAsync()` define the base execution path
+- `@manifesto-ai/lineage` now owns the seal-aware decorator runtime through `withLineage(...).activate()`
+- `@manifesto-ai/governance` now owns the governed proposal runtime through `withGovernance(...).activate()`, with lineage guaranteed by explicit composition or required governance config
+- Beginner docs, AI agent integration docs, debugging guidance, re-entry guidance, and the React example now teach the activation-first SDK path and decorator chain instead of the removed v2 helper/world-facade story
+- Release metadata now treats SDK, Lineage, and Governance as the current `3.0.0` package set and removes `@manifesto-ai/world` from the release graph
+
+### Removed
+- `@manifesto-ai/world` from the active workspace, public package map, and release metadata
+- The world-facade-first governed bootstrap story from maintained docs and examples
+- The maintained current-guide status of the retired SDK v2 `defineOps()` helper; it now remains only as historical/tombstone documentation
 
 ## [1.0.0] - 2025-01-01
 

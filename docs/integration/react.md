@@ -1,17 +1,17 @@
 # React Integration
 
-> Keep React on Snapshot reads and let the runtime assembly live outside the component tree.
+> Keep React focused on Snapshot reads. Activate the runtime once per app mount, then expose typed action helpers from a hook.
 
 ---
 
 ## What You Build
 
-- one shared `ManifestoInstance`
-- a selector hook powered by `useSyncExternalStore`
-- a small dispatch helper for event handlers
-- an optional governed runtime module that lives outside React
+- one activated SDK runtime held in a ref
+- one React state value seeded from `getSnapshot()`
+- one subscription that keeps React in sync with terminal snapshots
+- explicit action helpers such as `addTodo(title)` instead of `act("addTodo", input)`
 
-This page stays SDK-first. If your app needs approval or lineage, React should still render snapshots rather than own the governed assembly.
+This page stays SDK-first. If your app later needs lineage or governance, compose those decorators before activation and keep the React layer on snapshot reads.
 
 ---
 
@@ -22,168 +22,283 @@ This page stays SDK-first. If your app needs approval or lineage, React should s
 
 ---
 
-## 1. Create The SDK Instance Outside React
+## 1. Define The Domain Shape
 
-Create `manifesto.ts`:
+Create `types.ts`:
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
-import CounterMel from "./counter.mel";
+export type Todo = {
+  readonly id: string;
+  readonly title: string;
+  readonly completed: boolean;
+};
 
-export const manifesto = createManifesto({
-  schema: CounterMel,
-  effects: {},
-});
+export type FilterMode = "all" | "active" | "completed";
+
+export type TodoData = {
+  readonly todos: readonly Todo[];
+  readonly filterMode: FilterMode;
+};
+
+export type TodoComputed = {
+  readonly todoCount: number;
+  readonly completedCount: number;
+  readonly activeCount: number;
+  readonly hasCompleted: boolean;
+};
+
+export type TodoDomain = {
+  readonly actions: {
+    readonly addTodo: (title: string) => void;
+    readonly toggleTodo: (id: string) => void;
+    readonly removeTodo: (id: string) => void;
+    readonly setFilter: (newFilter: FilterMode) => void;
+    readonly clearCompleted: () => void;
+  };
+  readonly state: TodoData;
+  readonly computed: TodoComputed;
+};
 ```
 
-Create the instance once. Do not recreate it inside a component render.
+The hook uses this type to keep `MEL.actions.*` aligned with the domain action signatures.
 
 ---
 
-## 2. Build A Selector Hook
+## 2. Build A Hook Around An Activated Runtime
 
-Create `hooks.ts`:
+Create `hooks/use-manifesto.ts`:
 
 ```typescript
-import { createIntent, type Snapshot } from "@manifesto-ai/sdk";
-import { useSyncExternalStore } from "react";
-import { manifesto } from "./manifesto";
+import { useEffect, useRef, useState } from "react";
+import { createManifesto, type ManifestoBaseInstance, type Snapshot } from "@manifesto-ai/sdk";
+import todoSchema from "../domain/todo.mel";
+import type { FilterMode, TodoData, TodoDomain } from "../types";
 
-export function useManifestoSelector<R>(
-  selector: (snapshot: Snapshot) => R,
-): R {
-  return useSyncExternalStore(
-    (onStoreChange) => manifesto.subscribe(selector, () => onStoreChange()),
-    () => selector(manifesto.getSnapshot()),
-    () => selector(manifesto.getSnapshot()),
-  );
-}
+type UseManifestoResult = {
+  readonly state: Snapshot<TodoData> | null;
+  readonly ready: boolean;
+  readonly addTodo: (title: string) => Promise<Snapshot<TodoData>>;
+  readonly toggleTodo: (id: string) => Promise<Snapshot<TodoData>>;
+  readonly removeTodo: (id: string) => Promise<Snapshot<TodoData>>;
+  readonly setFilter: (newFilter: FilterMode) => Promise<Snapshot<TodoData>>;
+  readonly clearCompleted: () => Promise<Snapshot<TodoData>>;
+};
 
-export function dispatchIntent(type: string, input?: unknown): void {
-  const intentId = crypto.randomUUID();
-  const intent =
-    input === undefined
-      ? createIntent(type, intentId)
-      : createIntent(type, input, intentId);
+export function useManifesto(): UseManifestoResult {
+  const worldRef = useRef<ManifestoBaseInstance<TodoDomain> | null>(null);
+  const [state, setState] = useState<Snapshot<TodoData> | null>(null);
 
-  manifesto.dispatch(intent);
+  useEffect(() => {
+    const world = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
+    worldRef.current = world;
+    setState(world.getSnapshot());
+
+    const unsubscribe = world.subscribe(
+      (snapshot) => snapshot,
+      (nextSnapshot) => setState(nextSnapshot),
+    );
+
+    return () => {
+      unsubscribe();
+      worldRef.current = null;
+      setState(null);
+      world.dispose();
+    };
+  }, []);
+
+  const dispatchOrReject = (
+    run: (world: ManifestoBaseInstance<TodoDomain>) => Promise<Snapshot<TodoData>>,
+  ): Promise<Snapshot<TodoData>> => {
+    const world = worldRef.current;
+    if (!world) {
+      return Promise.reject(new Error("Manifesto runtime is not ready"));
+    }
+    return run(world);
+  };
+
+  const addTodo = (title: string) =>
+    dispatchOrReject((world) =>
+      world.dispatchAsync(
+        world.createIntent(world.MEL.actions.addTodo, title),
+      ));
+
+  const toggleTodo = (id: string) =>
+    dispatchOrReject((world) =>
+      world.dispatchAsync(
+        world.createIntent(world.MEL.actions.toggleTodo, id),
+      ));
+
+  const removeTodo = (id: string) =>
+    dispatchOrReject((world) =>
+      world.dispatchAsync(
+        world.createIntent(world.MEL.actions.removeTodo, id),
+      ));
+
+  const setFilter = (newFilter: FilterMode) =>
+    dispatchOrReject((world) =>
+      world.dispatchAsync(
+        world.createIntent(world.MEL.actions.setFilter, newFilter),
+      ));
+
+  const clearCompleted = () =>
+    dispatchOrReject((world) =>
+      world.dispatchAsync(
+        world.createIntent(world.MEL.actions.clearCompleted),
+      ));
+
+  return {
+    state,
+    ready: state !== null,
+    addTodo,
+    toggleTodo,
+    removeTodo,
+    setFilter,
+    clearCompleted,
+  };
 }
 ```
 
-This keeps React focused on rendering. Manifesto still owns state transitions.
+The important runtime rules are:
+
+- `createManifesto(...).activate()` runs once per mounted hook instance
+- `world.subscribe(...)` pushes only later terminal snapshots
+- every action helper creates an intent from `world.MEL.actions.*`
+- React never calls removed SDK helper surfaces or synchronous base dispatch
 
 ---
 
-## 3. Use It In A Component
+## 3. Render Snapshot Data In Components
 
 ```tsx
-import { dispatchIntent, useManifestoSelector } from "./hooks";
+import { useManifesto } from "./hooks/use-manifesto";
+import type { TodoComputed } from "./types";
 
-export function CounterPanel() {
-  const count = useManifestoSelector((snapshot) => snapshot.data.count as number);
-  const doubled = useManifestoSelector(
-    (snapshot) => snapshot.computed["doubled"] as number,
-  );
+export function App() {
+  const {
+    state,
+    ready,
+    addTodo,
+    toggleTodo,
+    removeTodo,
+    setFilter,
+    clearCompleted,
+  } = useManifesto();
+
+  if (!ready || !state) {
+    return <div className="loading">Loading...</div>;
+  }
+
+  const data = state.data;
+  const computed = state.computed as TodoComputed;
+  const todos = data.todos;
+  const filteredTodos = todos.filter((todo) => {
+    if (data.filterMode === "active") return !todo.completed;
+    if (data.filterMode === "completed") return todo.completed;
+    return true;
+  });
 
   return (
-    <section>
-      <h1>Counter</h1>
-      <p>Count: {count}</p>
-      <p>Doubled: {doubled}</p>
-      <button onClick={() => dispatchIntent("increment")}>Increment</button>
-      <button onClick={() => dispatchIntent("decrement")}>Decrement</button>
+    <section className="todoapp">
+      <header className="header">
+        <h1>todos</h1>
+        <TodoInput onAdd={(title) => void addTodo(title)} />
+      </header>
+
+      {todos.length > 0 && (
+        <>
+          <TodoList
+            todos={filteredTodos}
+            onToggle={(id) => void toggleTodo(id)}
+            onRemove={(id) => void removeTodo(id)}
+          />
+
+          <TodoFooter
+            activeCount={computed.activeCount}
+            hasCompleted={computed.hasCompleted}
+            filterMode={data.filterMode}
+            onSetFilter={(filter) => void setFilter(filter)}
+            onClearCompleted={() => void clearCompleted()}
+          />
+        </>
+      )}
     </section>
   );
 }
 ```
 
+React only reads snapshots and calls typed helpers. The Manifesto runtime still owns state transitions, queueing, and action availability.
+
 ---
 
-## 4. If You Need Awaitable UI Flows
+## 4. Awaitable UI Flows Stay On The Same Helpers
 
-Keep `dispatch()` synchronous and use `dispatchAsync()` outside the component when you need to await a completion:
+If a form or modal needs to wait for completion, await the helper:
 
 ```typescript
-import { createIntent, dispatchAsync } from "@manifesto-ai/sdk";
-
-const intent = createIntent(
-  "todo.add",
-  { title: "Review the UI flow" },
-  crypto.randomUUID(),
-);
-
-const nextSnapshot = await dispatchAsync(manifesto, intent);
+await addTodo("Review the UI flow");
 ```
 
-Use that for form submissions or flows where the UI should wait for a terminal snapshot.
+The helper already uses `world.dispatchAsync(world.createIntent(...))`, so you do not need a second generic dispatch layer.
 
 ---
 
 ## 5. If The App Is Governed
 
-Keep the governed assembly in a separate runtime module and let React read snapshots from it.
+Keep the same React shape. The only change is the runtime assembly before activation:
 
 ```typescript
-// world-runtime.ts
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createInMemoryWorldStore } from "@manifesto-ai/world/in-memory";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
 
-const store = createInMemoryWorldStore();
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, { lineageService: lineage });
-
-export const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-});
+const governed = withGovernance(
+  withLineage(createManifesto(todoSchema as string, effects), {
+    store: createInMemoryLineageStore(),
+  }),
+  {
+    governanceStore: createInMemoryGovernanceStore(),
+    bindings: [
+      {
+        actorId: "actor:auto",
+        authorityId: "authority:auto",
+        policy: { mode: "auto_approve" },
+      },
+    ],
+    execution: {
+      projectionId: "todo-ui",
+      deriveActor: () => ({ actorId: "actor:auto", kind: "human" }),
+      deriveSource: () => ({ kind: "ui", eventId: crypto.randomUUID() }),
+    },
+  },
+).activate();
 ```
 
-React should still render Snapshot slices. The governed runtime can sit beside React, in a bootstrap module or server-facing controller, while the component tree stays read-focused.
-
----
-
-## When React Should Stay On Snapshot Reads Only
-
-Keep React read-only when:
-
-- proposals are created elsewhere
-- approvals need a separate workflow
-- branch and history state are managed by a controller, not the component tree
-- you want the UI to stay simple while governance remains explicit
-
-In that setup, React should receive the latest Snapshot and maybe a few derived selectors, but not the proposal or sealing APIs themselves.
+The component tree can still render snapshots the same way. What changes is the runtime contract behind the hook: proposals and approvals replace direct base dispatch.
 
 ---
 
 ## Common Mistakes
 
-### Creating the instance inside a component
+### Recreating the runtime on every render
 
-That resets subscriptions and application state.
+Activate once during mount, then keep the runtime in a ref.
 
-### Awaiting `dispatch()`
+### Reintroducing a generic string dispatcher
 
-`dispatch()` returns `void`. Use `dispatchAsync()` when you need an awaitable flow.
+Prefer explicit helpers like `addTodo(title)` over `act("addTodo", input)`. That keeps the app path aligned with typed `MEL.actions.*`.
+
+### Waiting for removed SDK APIs
+
+There is no `dispatch()`-first path anymore. Await the action helper, which already delegates to `dispatchAsync()`.
 
 ### Expecting `subscribe()` to emit immediately
 
-Read `getSnapshot()` for the initial render. `subscribe()` is for later terminal updates.
-
-### Mutating the returned snapshot
-
-React should render it, not edit it.
+Seed the initial React state from `getSnapshot()`. `subscribe()` is only for later terminal updates.
 
 ---
 
 ## Next
 
-- Read [AI Agents](./ai-agents) to drive the same instance from an agent workflow
-- Read [World](../concepts/world) if the UI participates in a governed runtime
-- Read [Debugging](/guides/debugging) if a UI update does not match the snapshot you expected
+- Read [AI Agents](./ai-agents) to drive the same runtime from an agent workflow
+- Read [Governed Composition](/guides/governed-composition) when the UI needs lineage or approvals
+- Read [Debugging](/guides/debugging) if a rendered snapshot does not match the intent you dispatched

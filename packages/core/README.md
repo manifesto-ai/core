@@ -186,7 +186,7 @@ Use Core directly when:
 - Testing domain logic in isolation
 - Building developer tools (debuggers, visualizers)
 
-For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit governance, see [`@manifesto-ai/world`](../world/).
+For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit governance, see [`@manifesto-ai/lineage`](../lineage/) and [`@manifesto-ai/governance`](../governance/).
 
 ---
 

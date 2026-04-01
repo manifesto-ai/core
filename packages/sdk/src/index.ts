@@ -1,102 +1,61 @@
 /**
- * @manifesto-ai/sdk v2.0.0
+ * @manifesto-ai/sdk v3.0.0
  *
- * Protocol-first SDK — thin composition layer over the Manifesto protocol stack.
- * The SDK owns one concept: createManifesto() and exposes only a narrow
- * pass-through World surface for callers that opt into explicit governed
- * composition.
+ * SDK hard cut around the activation boundary.
  *
- * @see sdk-SPEC-v2.0.0.md
- * @see ADR-010
+ * @see sdk-SPEC-v3.0.0-draft.md
+ * @see ADR-017
  * @packageDocumentation
  */
 
 export type { SdkManifest } from "./manifest.js";
 
-// =============================================================================
-// SDK-Owned Exports
-// =============================================================================
-
 export { createManifesto } from "./create-manifesto.js";
-export { dispatchAsync, DispatchRejectedError } from "./dispatch-async.js";
 
 export type {
-  Snapshot,
-  ManifestoInstance,
-  ManifestoConfig,
+  ActivatedInstance,
+  ActionArgs,
+  BaseLaws,
+  ComposableManifesto,
+  ComputedRef,
+  EffectContext,
+  EffectHandler,
+  FieldRef,
+  GovernanceInstance,
+  GovernanceLaws,
+  LineageInstance,
+  LineageLaws,
+  ManifestoBaseInstance,
+  ManifestoDomainShape,
   ManifestoEvent,
   ManifestoEventMap,
   ManifestoEventPayload,
-  EffectContext,
-  EffectHandler,
   Selector,
+  Snapshot,
+  TypedActionRef,
+  TypedCreateIntent,
+  TypedDispatchAsync,
+  TypedMEL,
+  TypedOn,
+  TypedSubscribe,
   Unsubscribe,
 } from "./types.js";
 
 export {
+  AlreadyActivatedError,
+  CompileError,
+  DisposedError,
   ManifestoError,
   ReservedEffectError,
-  DisposedError,
-  CompileError,
 } from "./errors.js";
 
 export type { CompileDiagnostic } from "./errors.js";
 
-// =============================================================================
-// Typed Patch Operations (SDK-owned utility)
-// =============================================================================
-
-export { defineOps } from "./typed-ops.js";
-export type { TypedOps, DataPaths, ValueAt, ObjectPaths } from "./typed-ops.js";
-
-// =============================================================================
-// Protocol Re-exports — @manifesto-ai/core (SDK-REEXPORT-1)
-// =============================================================================
-
 export type {
   DomainSchema,
-  Snapshot as CoreSnapshot,
-  Patch,
-  SetPatch,
-  UnsetPatch,
-  MergePatch,
   Intent,
-  ComputeResult,
-  Requirement,
-  ErrorValue,
-  TraceGraph,
+  Patch,
+  Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
-export { createIntent, createSnapshot, createCore } from "@manifesto-ai/core";
-
-// =============================================================================
-// Protocol Re-exports — @manifesto-ai/host (SDK-REEXPORT-1)
-// =============================================================================
-
-export type { HostResult, HostOptions } from "@manifesto-ai/host";
-
-// =============================================================================
-// Protocol Re-exports — @manifesto-ai/world (SDK-REEXPORT-1)
-// =============================================================================
-
-export type {
-  CoordinatorSealGenesisParams,
-  CoordinatorSealNextParams,
-  ExecuteApprovedProposalInput,
-  GovernedWorldStore,
-  GovernanceEventDispatcher,
-  RecoveredWorldRuntimeCompletion,
-  ResumeExecutingProposalInput,
-  SealResult,
-  SealedWorldRuntimeCompletion,
-  WorldStoreTransaction,
-  WorldConfig,
-  WorldCoordinator,
-  WorldExecutionOptions,
-  WorldExecutionResult,
-  WorldExecutor,
-  WorldInstance,
-  WorldRuntimeCompletion,
-  WorldRuntime,
-} from "@manifesto-ai/world";
-export { createWorld } from "@manifesto-ai/world";
+export { createSnapshot } from "@manifesto-ai/core";

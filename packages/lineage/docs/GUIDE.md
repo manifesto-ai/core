@@ -1,107 +1,84 @@
 # Lineage Guide
 
-> Practical guide for using `@manifesto-ai/lineage` directly.
+> Practical guide for the current ADR-017 lineage runtime.
 
-> **Current Contract Note:** This guide describes the current v2.0.0 lineage surface.
+> **Current Contract Note:** This guide follows the current v3 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`.
 
-## 1. Assemble Lineage
+## 1. Compose Lineage Before Activation
 
-```typescript
-import {
-  createInMemoryLineageStore,
-  createLineageService,
-} from "@manifesto-ai/lineage";
+```ts
+import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 
-const store = createInMemoryLineageStore();
-const lineage = createLineageService(store);
+const manifesto = createManifesto<CounterDomain>(schema, effects);
+
+const world = withLineage(manifesto, {
+  store: createInMemoryLineageStore(),
+}).activate();
 ```
 
-`LineageService` owns identity, branch, and seal operations. `LineageStore` owns persistence.
+Lineage does not decorate a running instance. It decorates the composable manifesto and participates in the activation pipeline.
 
----
+## 2. Dispatch Means Execute And Seal
 
-## 2. Compute Identity
-
-Assume `terminalSnapshot` is the current `Snapshot` value from your runtime.
-
-```typescript
-import { computeSnapshotHash, computeWorldId } from "@manifesto-ai/lineage";
-
-const snapshotHash = computeSnapshotHash({
-  schemaHash: "todo-v1",
-  snapshot: terminalSnapshot,
-});
-const worldId = computeWorldId({
-  schemaHash: "todo-v1",
-  snapshotHash,
-});
+```ts
+await world.dispatchAsync(
+  world.createIntent(world.MEL.actions.increment),
+);
 ```
 
-Identity is deterministic. The same inputs produce the same hash and world id.
+On a lineage runtime, `dispatchAsync()` means:
 
----
+1. execute the intent
+2. prepare and commit a lineage seal
+3. only then publish the new visible snapshot
 
-## 3. Prepare Genesis And Next Seals
+If seal commit fails, the Promise rejects and the new snapshot does not become visible.
 
-```typescript
-const genesis = lineage.prepareSealGenesis({
-  schemaHash: "todo-v1",
-  terminalSnapshot,
-  createdAt: Date.now(),
-});
+## 3. Read Heads, Branches, And Worlds
 
-lineage.commitPrepared(genesis);
+```ts
+const latestHead = await world.getLatestHead();
+const branches = await world.getBranches();
+const activeBranch = await world.getActiveBranch();
 
-const branch = lineage.getActiveBranch();
-
-const next = lineage.prepareSealNext({
-  baseWorldId: genesis.worldId,
-  branchId: branch.id,
-  schemaHash: "todo-v1",
-  terminalSnapshot: nextSnapshot,
-  createdAt: Date.now(),
-});
-
-lineage.commitPrepared(next);
+if (latestHead) {
+  const record = await world.getWorld(latestHead.worldId);
+}
 ```
 
-Genesis and branch advancement stay explicit. Lineage does not evaluate governance or authority.
+These APIs project the backing `LineageService` through the activated runtime.
 
----
+## 4. Restore A Sealed World
 
-## 4. Switch Branches And Inspect State
+```ts
+const head = await world.getLatestHead();
+if (head) {
+  await world.restore(head.worldId);
+}
 
-```typescript
-const activeBranch = lineage.getActiveBranch();
-const featureBranchId = lineage.createBranch("feature-a", activeBranch.head);
-lineage.switchActiveBranch(featureBranchId);
-
-const branch = lineage.getActiveBranch();
-const heads = lineage.getHeads();
-const restored = lineage.restore(branch.head);
+console.log(world.getSnapshot().data);
 ```
 
-Branch switching should read like a deliberate change in continuity, not an invisible side effect.
+`restore()` updates the visible runtime snapshot and resets Host execution state to the restored lineage snapshot.
 
----
+## 5. Branch Deliberately
 
-## 5. Replay And Restore
+```ts
+const featureBranchId = await world.createBranch("feature-a");
+await world.switchActiveBranch(featureBranchId);
+```
 
-Use lineage directly when you need deterministic history, replay, or branch inspection without the full governed facade.
+Switching branches also restores that branch head into the visible runtime state.
 
-Typical queries are:
+## 6. Low-Level Lineage Still Exists
 
-- `getActiveBranch()` for the current branch
-- `getHeads()` for current heads
-- `restore(worldId)` for a world-based restore
-- `commitPrepared()` for writing a prepared seal
+Use `LineageService` and `LineageStore` directly when you need prepared commits, hashing utilities, or persistence tooling without the activated runtime wrapper.
 
----
-
-## 6. Related Docs
+## 7. Related Docs
 
 - [Lineage README](../README.md)
-- [Lineage Specification](lineage-SPEC-2.0.0v.md)
-- [Lineage Version Index](VERSION-INDEX.md)
-- [World](../../../docs/concepts/world)
-- [Governed Composition](../../../docs/tutorial/05-governed-composition)
+- [Lineage Specification](lineage-SPEC-v3.0.0-draft.md)
+- [Version Index](VERSION-INDEX.md)
+- [SDK API](../../../docs/api/sdk.md)
+- [Lineage API](../../../docs/api/lineage.md)

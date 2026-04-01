@@ -1,94 +1,47 @@
 # @manifesto-ai/world
 
-> Canonical governed composition surface for Manifesto.
+> Historical facade package removed from the active workspace in ADR-017 Phase 4.
 
-## Overview
+## Status
 
-Top-level `@manifesto-ai/world` is the package you use when you want:
+`@manifesto-ai/world` is no longer part of the active package graph, build matrix, or public runtime story.
 
-- lineage services and query APIs
-- governance services and proposal lifecycle APIs
-- a facade-owned runtime assembly surface
-- explicit governed execution and sealing
+It used to provide:
 
-It is the full consumer-facing governed package. You do not need to mix direct imports from `@manifesto-ai/governance` and `@manifesto-ai/lineage` unless you intentionally want only one protocol layer. Concrete store adapters are imported from dedicated `@manifesto-ai/world/*` subpaths.
+- `createWorld`
+- facade-owned store adapters
+- one-package governed runtime assembly
+- top-level re-exports for lineage and governance helpers
 
-## Main Runtime Factories
+That facade path was hard-cut removed. There is no compatibility shell.
 
-- `createWorld()`
+## Current Replacement
 
-## Core Facade-Owned Types
-
-```typescript
-type GovernedWorldStore
-type WorldStoreTransaction
-type GovernanceEventDispatcher
-type WorldExecutor
-type WorldExecutionOptions
-type WorldExecutionResult
-type WorldRuntime
-type WorldRuntimeCompletion
-type WorldCoordinator
-type WorldConfig
-type WorldInstance
-```
-
-## Canonical Node-Local Composition
+Use the decorator chain directly:
 
 ```typescript
-import {
-  createGovernanceEventDispatcher,
-  createGovernanceService,
-  createLineageService,
-  createWorld,
-} from "@manifesto-ai/world";
-import { createSqliteWorldStore } from "@manifesto-ai/world/sqlite";
+import { createManifesto } from "@manifesto-ai/sdk";
+import { withLineage } from "@manifesto-ai/lineage";
+import { withGovernance } from "@manifesto-ai/governance";
 
-const store = createSqliteWorldStore({ filename: "./.manifesto/world.sqlite" });
-const lineage = createLineageService(store);
-const governance = createGovernanceService(store, {
-  lineageService: lineage,
-});
-
-const world = createWorld({
-  store,
-  lineage,
-  governance,
-  eventDispatcher: createGovernanceEventDispatcher({ service: governance }),
-  executor,
-});
+const governed = withGovernance(
+  withLineage(createManifesto(schema, effects), lineageConfig),
+  governanceConfig,
+).activate();
 ```
 
-The consumer-facing happy path is `world.runtime.executeApprovedProposal(...)`, not manual sealing orchestration.
+Ownership is now split explicitly:
 
-## Store Guidance
+- `@manifesto-ai/sdk` owns `createManifesto()` and `activate()`
+- `@manifesto-ai/lineage` owns continuity, seal-aware publication, restore, and branch/head queries
+- `@manifesto-ai/governance` owns proposal flow, bindings, approval, rejection, and decision visibility
 
-- `@manifesto-ai/world/sqlite` for Node-local durable apps
-- `@manifesto-ai/world/in-memory` for tests and ephemeral flows
-- `@manifesto-ai/world/indexeddb` for browser durable apps
-
-All of them satisfy the same `GovernedWorldStore` contract.
-
-## Split-Native Re-exports
-
-Top-level `@manifesto-ai/world` also re-exports:
-
-- lineage types and services
-- governance types and services
-- intent-instance helpers such as `createIntentInstance()`
-
-That is why `@manifesto-ai/world` is the canonical governed import path.
+No direct replacement for the old `world/sqlite`, `world/in-memory`, or `world/indexeddb` adapter story landed in this phase.
 
 ## Related Packages
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/sdk](./sdk.md) | Direct-dispatch entry point |
-| [@manifesto-ai/governance](./governance.md) | Governance protocol by itself |
-| [@manifesto-ai/lineage](./lineage.md) | Lineage protocol by itself |
-
-## Learn The Runtime
-
-- [Governed Composition Guide](/guides/governed-composition)
-- `packages/world/docs/GUIDE.md`
-- [Concepts: World](/concepts/world)
+| [@manifesto-ai/sdk](./sdk.md) | Base activation-first runtime |
+| [@manifesto-ai/lineage](./lineage.md) | Governed continuity package |
+| [@manifesto-ai/governance](./governance.md) | Governed legitimacy package |

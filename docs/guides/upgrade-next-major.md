@@ -8,8 +8,8 @@ This guide captures the practical changes needed to move onto the current next-m
 
 Use one of these two public entry paths:
 
-- `@manifesto-ai/sdk` with `createManifesto()` for direct dispatch
-- `@manifesto-ai/world` for governed composition, lineage, sealing, and recovery
+- `@manifesto-ai/sdk` with `createManifesto()` and `activate()` for base runtime
+- `@manifesto-ai/lineage` + `@manifesto-ai/governance` for governed composition
 
 Do not mix them into a single bootstrap story.
 
@@ -17,50 +17,37 @@ Do not mix them into a single bootstrap story.
 
 If you are moving old governed code forward, align to these surfaces:
 
-- use `GovernedWorldStore` instead of older store naming
-- use `runInSealTransaction()` as the canonical seal persistence seam
-- use `WorldExecutor` as the execution abstraction owner
-- use `WorldRuntime.executeApprovedProposal()` for the governed happy path
-- use `WorldRuntime.resumeExecutingProposal()` for recovery and replay convergence
-- use async store and service APIs throughout lineage, governance, and world
-
-## Store Migration
-
-Pick the durable adapter that matches the runtime you are building:
-
-- Node-local app: `@manifesto-ai/world/sqlite`
-- Browser app: `@manifesto-ai/world/indexeddb`
-- Tests or ephemeral local composition: `@manifesto-ai/world/in-memory`
-
-The assembly story stays the same. Only the store factory changes.
+- use `createManifesto(schema, effects)` instead of config-style runtime factories
+- use `withLineage(...)` and `withGovernance(...)` before `activate()`
+- use activated instance methods such as `createIntent(...)`, `dispatchAsync(...)`, and `proposeAsync(...)`
+- use package-owned stores and services from Lineage and Governance directly
+- treat the old world facade, adapter subpaths, and facade-owned coordinator/runtime as removed
 
 ## Governed Bootstrap
 
 The current governed path is:
 
-1. Create the store
-2. Create `lineage` and `governance` services
-3. Create the governance event dispatcher
-4. Create the `world`
-5. Seal genesis
-6. Persist an `executing` proposal and decision record
-7. Call `world.runtime.executeApprovedProposal()`
-
-For a runnable reference, use the repo example at `examples/governed-minimal-node`.
+1. Create the composable manifesto
+2. Add Lineage
+3. Add Governance
+4. Activate
+5. Call `proposeAsync()`
+6. Read history through Lineage queries such as `getLatestHead()` and `restore()`
 
 ## What Not to Carry Forward
 
 Do not reintroduce the removed transition surfaces from earlier drafts:
 
-- `CommitCapableWorldStore`
-- `WriteSet`
-- `commitSeal()` as a public store contract
-- governance-owned execution abstractions
-- sync persistence assumptions for lineage, governance, or world stores
+- `createWorld`
+- world adapter subpaths
+- facade-owned coordinator/runtime types
+- facade-owned execution seams
+- config-first `createManifesto(...)` bootstraps
 
 ## See Also
 
 - [Governed Composition](./governed-composition)
 - [Release Hardening](./release-hardening)
-- [World API](/api/world)
 - [SDK API](/api/sdk)
+- [Lineage API](/api/lineage)
+- [Governance API](/api/governance)
