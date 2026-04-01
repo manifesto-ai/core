@@ -4,7 +4,7 @@ import {
   computeSnapshotHash,
   computeWorldId,
   deriveTerminalStatus,
-} from "./index.js";
+} from "./hash.js";
 
 function createTestSnapshot(
   data: Record<string, unknown>,

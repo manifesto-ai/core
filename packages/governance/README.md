@@ -10,12 +10,14 @@
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
 
 const governed = withGovernance(
-  createManifesto<CounterDomain>(schema, effects),
+  withLineage(createManifesto<CounterDomain>(schema, effects), {
+    store: createInMemoryLineageStore(),
+  }),
   {
-    lineage: { store },
     bindings,
     execution: {
       projectionId: "counter",
@@ -44,9 +46,9 @@ const proposal = await governed.proposeAsync(
 
 ## What Changes After Governance Activation
 
-- direct `dispatchAsync` no longer exists
+- direct `dispatchAsync` and `commitAsync` no longer exist
 - the canonical state-change path becomes `proposeAsync() -> approve()/reject()`
-- lineage is guaranteed at runtime
+- lineage must be composed before governance activation
 - visible snapshots publish only after approved execution seals successfully
 
 ## Low-Level Surface Still Available

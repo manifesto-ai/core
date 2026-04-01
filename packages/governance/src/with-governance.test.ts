@@ -4,13 +4,15 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { createManifesto } from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import {
   createInMemoryLineageStore,
-  createLineageService,
-  type LineageService,
   withLineage,
 } from "@manifesto-ai/lineage";
+import {
+  createLineageService,
+  type LineageService,
+} from "@manifesto-ai/lineage/internal";
 
 import {
   createInMemoryGovernanceStore,
@@ -165,11 +167,13 @@ function createDeferred() {
 }
 
 describe("@manifesto-ai/governance decorator runtime", () => {
-  it("auto-ensures lineage from config and removes the dispatchAsync backdoor", async () => {
+  it("requires explicit lineage composition and removes direct execution backdoors", async () => {
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         bindings: [createAutoBinding()],
         execution: {
           projectionId: "proj:auto",
@@ -186,6 +190,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).activate();
 
     expect("dispatchAsync" in governed).toBe(false);
+    expect("commitAsync" in governed).toBe(false);
 
     const proposal = await governed.proposeAsync(
       governed.createIntent(governed.MEL.actions.increment),
@@ -200,9 +205,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
         execution: {
@@ -239,9 +246,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(governed.getSnapshot().data.count).toBe(1);
   });
 
-  it("uses explicitly composed lineage instead of governance config lineage overrides", async () => {
+  it("uses the explicitly composed lineage service", async () => {
     const explicitStore = createInMemoryLineageStore();
-    const ignoredStore = createInMemoryLineageStore();
     const explicitService = createLineageService(explicitStore);
 
     const governed = withGovernance(
@@ -250,7 +256,6 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         { service: explicitService },
       ),
       {
-        lineage: { store: ignoredStore },
         bindings: [createAutoBinding()],
         execution: {
           projectionId: "proj:explicit",
@@ -271,19 +276,20 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     );
 
     expect((await explicitService.getBranches()).length).toBeGreaterThan(0);
-    expect((await ignoredStore.getBranches()).length).toBe(0);
   });
 
   it("records failed governed executions without publishing the failed snapshot", async () => {
     const events: GovernanceEvent[] = [];
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {
-        "api.fetch": async () => {
-          throw new Error("boom");
-        },
-      }),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {
+          "api.fetch": async () => {
+            throw new Error("boom");
+          },
+        }),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         bindings: [createAutoBinding()],
         eventSink: {
           emit(event) {
@@ -345,9 +351,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as LineageService;
 
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { service: failingService },
+      ),
       {
-        lineage: { service: failingService },
         governanceStore,
         bindings: [createAutoBinding()],
         execution: {
@@ -399,9 +407,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
       {
-        lineage: { store: createInMemoryLineageStore() },
         governanceStore: serializedStore,
         bindings: [createHitlBinding()],
         execution: {
@@ -437,5 +447,52 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     );
     expect(next.status).toBe("completed");
     expect(governed.getSnapshot().data.count).toBe(1);
+  });
+
+  it("shares activation ownership with the base and lineage composables", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const lineage = withLineage(base, { store: createInMemoryLineageStore() });
+    const governed = withGovernance(lineage, {
+      bindings: [createAutoBinding()],
+      execution: {
+        projectionId: "proj:activation-ownership",
+        deriveActor: () => ({
+          actorId: "actor:auto",
+          kind: "agent",
+        }),
+        deriveSource: () => ({
+          kind: "agent",
+          eventId: "evt:activation-ownership",
+        }),
+      },
+    });
+
+    const world = governed.activate();
+
+    expect(() => lineage.activate()).toThrow(AlreadyActivatedError);
+    expect(() => base.activate()).toThrow(AlreadyActivatedError);
+
+    world.dispose();
+  });
+
+  it("rejects governance composition without an explicit lineage decorator at runtime", () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+
+    expect(() =>
+      withGovernance(base as never, {
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:missing-lineage",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:missing-lineage",
+          }),
+        },
+      })
+    ).toThrow("withGovernance() requires a manifesto already composed with withLineage()");
   });
 });

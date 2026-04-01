@@ -1,23 +1,25 @@
 import type {
-  BaseLaws,
   ComposableManifesto,
   LineageLaws,
   ManifestoDomainShape,
 } from "@manifesto-ai/sdk";
 import {
-  AlreadyActivatedError,
   ManifestoError,
 } from "@manifesto-ai/sdk";
 import {
+  activateComposable,
+  assertComposableNotActivated,
   attachRuntimeKernelFactory,
+  getActivationState,
   getRuntimeKernelFactory,
   type RuntimeKernel,
 } from "@manifesto-ai/sdk/internal";
 
 import { createLineageService } from "./service/lineage-service.js";
-import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import type {
+  BaseComposableManifesto,
   LineageComposableManifesto,
+  LineageComposableLaws,
   LineageConfig,
   LineageInstance,
 } from "./runtime-types.js";
@@ -31,47 +33,49 @@ const LINEAGE_LAWS: LineageLaws = Object.freeze({ __lineageLaws: true });
 
 export function withLineage<
   T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
 >(
-  manifesto: ComposableManifesto<T, Laws>,
-  config: LineageConfig = {},
-): LineageComposableManifesto<T, Laws> {
-  const service = config.service
-    ?? createLineageService(config.store ?? createInMemoryLineageStore());
+  manifesto: BaseComposableManifesto<T>,
+  config: LineageConfig,
+): LineageComposableManifesto<T> {
+  assertComposableNotActivated(manifesto);
+
+  const service = "service" in config
+    ? config.service
+    : createLineageService(config.store);
   const resolvedConfig: ResolvedLineageConfig = Object.freeze({
     ...config,
     service,
   });
   const createKernel = getRuntimeKernelFactory(manifesto);
-  let activated = false;
+  const activationState = getActivationState(manifesto);
 
-  const decorated: LineageComposableManifesto<T, Laws> = {
+  const decorated: LineageComposableManifesto<T> = {
     _laws: Object.freeze({
       ...manifesto._laws,
       ...LINEAGE_LAWS,
-    }) as Laws & LineageLaws,
+    }) as LineageComposableLaws,
     schema: manifesto.schema,
     activate() {
-      if (activated) {
-        throw new AlreadyActivatedError();
-      }
-      activated = true;
+      activateComposable(
+        decorated as unknown as ComposableManifesto<T, LineageComposableLaws>,
+      );
       return activateLineageRuntime<T>(createKernel(), service, resolvedConfig);
     },
   };
 
   attachRuntimeKernelFactory(
-    decorated as unknown as ComposableManifesto<T, Laws & LineageLaws>,
+    decorated as unknown as ComposableManifesto<T, LineageComposableLaws>,
     createKernel,
+    activationState,
   );
 
   return attachLineageDecoration(
-    decorated as unknown as ComposableManifesto<T, Laws & LineageLaws>,
+    decorated as unknown as ComposableManifesto<T, LineageComposableLaws>,
     {
       service,
       config: resolvedConfig,
     },
-  ) as unknown as LineageComposableManifesto<T, Laws>;
+  ) as unknown as LineageComposableManifesto<T>;
 }
 
 function activateLineageRuntime<T extends ManifestoDomainShape>(
@@ -81,7 +85,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
 ): LineageInstance<T> {
   const controller = createLineageRuntimeController(kernel, service, config);
 
-  async function dispatchAsync(intent: Parameters<LineageInstance<T>["dispatchAsync"]>[0]) {
+  async function commitAsync(intent: Parameters<LineageInstance<T>["commitAsync"]>[0]) {
     const sealed = await controller
       .sealIntent(intent, { publishOnCompleted: true })
       .catch((error) => {
@@ -105,7 +109,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
       return sealed.publishedSnapshot;
     }
 
-    const failure = toDispatchFailure(sealed.hostResult.error);
+    const failure = toCommitFailure(sealed.hostResult.error);
     kernel.emitEvent("dispatch:failed", {
       intentId: sealed.intent.intentId ?? "",
       intent: sealed.intent,
@@ -116,7 +120,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
 
   return {
     createIntent: kernel.createIntent,
-    dispatchAsync,
+    commitAsync,
     subscribe: kernel.subscribe,
     on: kernel.on,
     getSnapshot: kernel.getSnapshot,
@@ -127,6 +131,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     dispose: kernel.dispose,
     restore: controller.restore,
     getWorld: controller.getWorld,
+    getLineage: controller.getLineage,
     getLatestHead: controller.getLatestHead,
     getHeads: controller.getHeads,
     getBranches: controller.getBranches,
@@ -136,14 +141,14 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
   };
 }
 
-function toDispatchFailure(error: unknown): Error {
+function toCommitFailure(error: unknown): Error {
   if (error instanceof Error) {
     return error;
   }
 
   return new ManifestoError(
-    "LINEAGE_DISPATCH_FAILED",
-    "Dispatch did not produce a completed lineage head",
+    "LINEAGE_COMMIT_FAILED",
+    "Commit did not produce a completed lineage head",
   );
 }
 

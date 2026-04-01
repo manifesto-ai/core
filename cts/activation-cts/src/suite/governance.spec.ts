@@ -5,9 +5,9 @@ import {
 } from "@manifesto-ai/governance";
 import {
   createInMemoryLineageStore,
-  createLineageService,
   withLineage,
 } from "@manifesto-ai/lineage";
+import { createLineageService } from "@manifesto-ai/lineage/internal";
 import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
@@ -30,10 +30,14 @@ describe("ACTS Governance Suite", () => {
       "withGovernance() stays pre-activation and one-shot until runtime opens.",
     ),
     () => {
+      const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+      const lineage = withLineage(
+        base,
+        { store: createInMemoryLineageStore() },
+      );
       const manifesto = withGovernance(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        lineage,
         {
-          lineage: { store: createInMemoryLineageStore() },
           governanceStore: createInMemoryGovernanceStore(),
           bindings: [createAutoBinding()],
           execution: createExecutionConfig("acts-gov-surface"),
@@ -63,17 +67,33 @@ describe("ACTS Governance Suite", () => {
           (() => {
             try {
               manifesto.activate();
+            } catch (error) {
+              if (!(error instanceof AlreadyActivatedError)) {
+                return false;
+              }
+            }
+
+            try {
+              lineage.activate();
+            } catch (error) {
+              if (!(error instanceof AlreadyActivatedError)) {
+                return false;
+              }
+            }
+
+            try {
+              base.activate();
               return false;
             } catch (error) {
               return error instanceof AlreadyActivatedError;
             }
           })(),
           {
-            passMessage: "Governance-decorated composable activation is one-shot.",
-            failMessage: "Governance-decorated composable allowed second activation.",
+            passMessage: "Governance-decorated composable shares one-shot activation with lineage and base composables.",
+            failMessage: "Governance activation still leaves a re-activation backdoor on the governed, lineage, or base composable.",
             evidence: [
               noteEvidence(
-                "Second activation attempt threw AlreadyActivatedError on the governance-decorated composable.",
+                "Second activation attempt threw AlreadyActivatedError on the governed, lineage, and base composables.",
               ),
             ],
           },
@@ -87,13 +107,16 @@ describe("ACTS Governance Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.GOVERNANCE_AUTO_LINEAGE,
-      "Governance auto-ensures lineage and removes direct dispatchAsync from the governed runtime.",
+      "Governance requires explicit lineage composition and removes direct dispatch and commit verbs from the governed runtime.",
     ),
     async () => {
-      const governed = withGovernance(
+      const lineage = withLineage(
         createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      );
+      const governed = withGovernance(
+        lineage,
         {
-          lineage: { store: createInMemoryLineageStore() },
           governanceStore: createInMemoryGovernanceStore(),
           bindings: [createAutoBinding()],
           execution: createExecutionConfig("acts-gov-auto"),
@@ -108,10 +131,10 @@ describe("ACTS Governance Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-2"),
-          !("dispatchAsync" in governed),
+          !("dispatchAsync" in governed) && !("commitAsync" in governed),
           {
-            passMessage: "Governed runtime removes the direct dispatchAsync backdoor.",
-            failMessage: "Governed runtime still exposes dispatchAsync.",
+            passMessage: "Governed runtime removes both direct dispatchAsync and commitAsync backdoors.",
+            failMessage: "Governed runtime still exposes a superseded execution verb.",
             evidence: [
               noteEvidence(
                 "Checked runtime surface on governed activation output.",
@@ -125,11 +148,11 @@ describe("ACTS Governance Suite", () => {
             && governed.getSnapshot().data.count === 1
             && latestHead !== null,
           {
-            passMessage: "Governance auto-ensures lineage and produces a sealed head on proposal completion.",
-            failMessage: "Governance auto-lineage guarantee did not yield a completed proposal plus lineage head.",
+            passMessage: "Governance runs only on explicitly lineage-composed input and still produces a sealed head on proposal completion.",
+            failMessage: "Explicit lineage composition did not yield a completed proposal plus lineage head.",
             evidence: [
               noteEvidence(
-                "Activated governance directly from a base composable using config.lineage and checked proposal completion plus head availability.",
+                "Activated governance from an explicitly lineage-composed manifesto and checked proposal completion plus head availability.",
               ),
             ],
           },
@@ -143,11 +166,10 @@ describe("ACTS Governance Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE,
-      "Explicit lineage composition wins over governance config lineage overrides.",
+      "Governance reuses the explicitly composed lineage service.",
     ),
     async () => {
       const explicitStore = createInMemoryLineageStore();
-      const ignoredStore = createInMemoryLineageStore();
       const explicitService = createLineageService(explicitStore);
 
       const governed = withGovernance(
@@ -156,7 +178,6 @@ describe("ACTS Governance Suite", () => {
           { service: explicitService },
         ),
         {
-          lineage: { store: ignoredStore },
           governanceStore: createInMemoryGovernanceStore(),
           bindings: [createAutoBinding()],
           execution: createExecutionConfig("acts-gov-explicit"),
@@ -170,14 +191,13 @@ describe("ACTS Governance Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-4"),
-          (await explicitService.getBranches()).length > 0
-            && (await ignoredStore.getBranches()).length === 0,
+          (await explicitService.getBranches()).length > 0,
           {
-            passMessage: "Explicit withLineage() composition wins over governance config lineage overrides.",
-            failMessage: "Governance config lineage overrode an explicitly composed lineage runtime.",
+            passMessage: "Governance execution reuses the explicitly composed lineage service.",
+            failMessage: "Governance execution did not write through the explicitly composed lineage service.",
             evidence: [
               noteEvidence(
-                "Compared branch persistence between explicit lineage service and ignored governance config store.",
+                "Activated governance on an explicitly composed lineage service and confirmed branch persistence on that same service.",
               ),
             ],
           },

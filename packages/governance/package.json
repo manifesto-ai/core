@@ -30,7 +30,8 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
+    "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

@@ -11,9 +11,10 @@
 Use this package when you want:
 
 - `withLineage(createManifesto(...), config).activate()`
-- seal-aware `dispatchAsync`
+- seal-aware `commitAsync`
 - head, branch, world, and restore APIs on the activated runtime
-- direct access to `LineageService` / `LineageStore` for low-level persistence and tooling
+- `getLineage()` for DAG inspection
+- direct access to `@manifesto-ai/lineage/internal` for low-level persistence and tooling
 
 ## Canonical Runtime Surface
 
@@ -31,13 +32,13 @@ const world = withLineage(
 
 - `withLineage()` and `LineageConfig`
 - activated `LineageInstance<T>`
-- lineage-aware `dispatchAsync` that seals before publication
-- `restore`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
-- `LineageStore`, `LineageService`, hashing, prepared commits, and restore normalization
+- lineage-aware `commitAsync` that seals before publication
+- `restore`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
+- continuity ownership plus the internal provider surface
 
 ## Runtime Meaning
 
-`dispatchAsync()` on a lineage runtime is not the base SDK verb anymore.
+`commitAsync()` on a lineage runtime is not the base SDK verb anymore.
 
 It means:
 
@@ -45,7 +46,7 @@ It means:
 2. seal the resulting terminal snapshot into lineage
 3. publish only the snapshot that legitimately becomes the new visible head
 
-If seal commit fails, the dispatch rejects and the new snapshot does not become visible.
+If seal commit fails, the commit rejects and the new snapshot does not become visible.
 
 ## Relationship to SDK
 

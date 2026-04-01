@@ -19,7 +19,7 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
-| v3.0.0 | [SPEC](lineage-SPEC-v3.0.0-draft.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md), [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Decorator runtime + lineage substrate | Current |
+| v3.0.0 | [SPEC](lineage-SPEC-v3.0.0-draft.md) | [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md), [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Decorator runtime + lineage substrate | Current |
 | v2.0.0 | [SPEC](lineage-SPEC-2.0.0v.md) | [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Service-first hard-cut lineage contract | Superseded |
 | v1.0.1 | [SPEC](lineage-SPEC-1.0.1v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Split-native baseline patch release | Historical |
 | v1.0.0 | [SPEC](lineage-SPEC-1.0.0v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial protocol extraction | Historical |

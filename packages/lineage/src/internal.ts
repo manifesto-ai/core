@@ -20,7 +20,25 @@ import type {
   World,
   WorldHead,
   WorldId,
+  WorldLineage,
 } from "./types.js";
+
+export type {
+  ArtifactRef,
+  BranchId,
+  BranchInfo,
+  BranchSwitchResult,
+  LineageService,
+  LineageStore,
+  PreparedLineageCommit,
+  SealAttempt,
+  World,
+  WorldId,
+} from "./types.js";
+export {
+  DefaultLineageService,
+  createLineageService,
+} from "./service/lineage-service.js";
 
 export const LINEAGE_DECORATION = Symbol("manifesto-lineage.decoration");
 
@@ -61,6 +79,7 @@ export interface LineageRuntimeController<T extends ManifestoDomainShape> {
     options?: SealIntentOptions,
   ): Promise<SealedIntentResult<T>>;
   getWorld(worldId: WorldId): Promise<World | null>;
+  getLineage(): Promise<WorldLineage>;
   getLatestHead(): Promise<WorldHead | null>;
   getHeads(): Promise<readonly WorldHead[]>;
   getBranches(): Promise<readonly BranchInfo[]>;
@@ -258,6 +277,11 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     return service.getWorld(worldId);
   }
 
+  async function getLineage(): Promise<WorldLineage> {
+    await ensureReady();
+    return service.getLineage();
+  }
+
   async function getLatestHead(): Promise<WorldHead | null> {
     await ensureReady();
     return service.getLatestHead();
@@ -378,6 +402,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     ensureReady,
     sealIntent,
     getWorld,
+    getLineage,
     getLatestHead,
     getHeads,
     getBranches,

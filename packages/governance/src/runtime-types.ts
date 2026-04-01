@@ -1,6 +1,6 @@
 import type {
-  BaseLaws,
   ComposableManifesto,
+  BaseLaws,
   GovernanceLaws,
   LineageLaws,
   ManifestoDomainShape,
@@ -8,10 +8,7 @@ import type {
 import type { Intent as CoreIntent } from "@manifesto-ai/core";
 import type {
   BranchId,
-  LineageConfig,
   LineageInstance,
-  LineageService,
-  LineageStore,
 } from "@manifesto-ai/lineage";
 
 import type { AuthorityEvaluator } from "./authority/evaluator.js";
@@ -29,40 +26,29 @@ import type {
   SourceRef,
 } from "./types.js";
 
-export type GovernanceLineageConfig =
-  | {
-      readonly service: LineageService;
-      readonly store?: LineageStore;
-      readonly branchId?: BranchId;
-    }
-  | {
-      readonly store: LineageStore;
-      readonly service?: LineageService;
-      readonly branchId?: BranchId;
-    };
-
 export type GovernanceExecutionConfig = {
   readonly projectionId: string;
   readonly deriveActor: (intent: CoreIntent) => ActorRef;
   readonly deriveSource: (intent: CoreIntent) => SourceRef;
 };
 
-export type GovernanceConfig<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
-> = {
+export type GovernanceConfig = {
   readonly bindings: readonly ActorAuthorityBinding[];
   readonly governanceStore?: GovernanceStore;
   readonly evaluator?: AuthorityEvaluator;
   readonly eventSink?: GovernanceEventSink;
   readonly now?: () => number;
   readonly execution: GovernanceExecutionConfig;
-} & (Laws extends LineageLaws
-  ? { readonly lineage?: GovernanceLineageConfig | LineageConfig }
-  : { readonly lineage: GovernanceLineageConfig });
+};
+
+export type LineageComposableLaws = BaseLaws & LineageLaws & {
+  readonly __governanceLaws?: never;
+};
+
+export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
 
 export type GovernanceInstance<T extends ManifestoDomainShape> =
-  Omit<LineageInstance<T>, "dispatchAsync"> & {
+  Omit<LineageInstance<T>, "commitAsync"> & {
     readonly proposeAsync: (intent: CoreIntent) => Promise<Proposal>;
     readonly approve: (
       proposalId: ProposalId,
@@ -80,10 +66,19 @@ export type GovernanceInstance<T extends ManifestoDomainShape> =
 
 export type GovernanceComposableManifesto<
   T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
 > = Omit<
-  ComposableManifesto<T, Laws & LineageLaws & GovernanceLaws>,
+  ComposableManifesto<T, GovernedComposableLaws>,
   "activate"
 > & {
   activate(): GovernanceInstance<T>;
 };
+
+declare module "@manifesto-ai/sdk" {
+  interface ManifestoDecoratedRuntimeByLaws<T extends ManifestoDomainShape> {
+    readonly governance: GovernanceInstance<T>;
+  }
+}
+
+export type LineageComposableManifestoInput<
+  T extends ManifestoDomainShape,
+> = ComposableManifesto<T, LineageComposableLaws>;

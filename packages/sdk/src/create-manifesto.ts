@@ -21,12 +21,13 @@ import {
 
 import {
   ACTION_PARAM_NAMES,
+  activateComposable,
   attachRuntimeKernelFactory,
   createBaseRuntimeInstance,
   createRuntimeKernel,
 } from "./internal.js";
 import {
-  type BaseLaws,
+  type BaseComposableLaws,
   type ComposableManifesto,
   type EffectHandler,
   type ManifestoDomainShape,
@@ -35,7 +36,6 @@ import {
   type TypedMEL,
 } from "./types.js";
 import {
-  AlreadyActivatedError,
   CompileError,
   ManifestoError,
   ReservedEffectError,
@@ -43,7 +43,7 @@ import {
 
 const RESERVED_EFFECT_TYPE = "system.get";
 const RESERVED_NAMESPACE_PREFIX = "system.";
-const BASE_LAWS: BaseLaws = Object.freeze({ __baseLaws: true });
+const BASE_LAWS: BaseComposableLaws = Object.freeze({ __baseLaws: true });
 
 type RuntimeActionRef = TypedActionRef<ManifestoDomainShape> & {
   readonly [ACTION_PARAM_NAMES]: readonly string[] | null;
@@ -59,7 +59,7 @@ type ResolvedSchema = {
 export function createManifesto<T extends ManifestoDomainShape>(
   schemaInput: DomainSchema | string,
   effects: Record<string, EffectHandler>,
-): ComposableManifesto<T, BaseLaws> {
+): ComposableManifesto<T, BaseComposableLaws> {
   if (RESERVED_EFFECT_TYPE in effects) {
     throw new ReservedEffectError(RESERVED_EFFECT_TYPE);
   }
@@ -67,15 +67,11 @@ export function createManifesto<T extends ManifestoDomainShape>(
   const resolved = resolveSchema(schemaInput);
   validateReservedNamespaces(resolved.schema);
 
-  let activated = false;
   const manifesto = {
     _laws: BASE_LAWS,
     schema: resolved.schema,
     activate() {
-      if (activated) {
-        throw new AlreadyActivatedError();
-      }
-      activated = true;
+      activateComposable(manifesto);
       return createBaseRuntimeInstance(
         createRuntimeKernel<T>({
           schema: resolved.schema,

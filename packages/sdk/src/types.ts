@@ -18,6 +18,14 @@ export type ManifestoDomainShape = {
 export type BaseLaws = { readonly __baseLaws: true };
 export type LineageLaws = { readonly __lineageLaws: true };
 export type GovernanceLaws = { readonly __governanceLaws: true };
+export type BaseComposableLaws = BaseLaws & {
+  readonly __lineageLaws?: never;
+  readonly __governanceLaws?: never;
+};
+export type LineageComposableLaws = BaseLaws & LineageLaws & {
+  readonly __governanceLaws?: never;
+};
+export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
 
 export type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
 
@@ -78,6 +86,8 @@ export type TypedCreateIntent<T extends ManifestoDomainShape> = <
 export type TypedDispatchAsync<T extends ManifestoDomainShape> = (
   intent: Intent,
 ) => Promise<Snapshot<T["state"]>>;
+export type TypedCommitAsync<T extends ManifestoDomainShape> =
+  TypedDispatchAsync<T>;
 
 export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   selector: Selector<T["state"], R>,
@@ -131,31 +141,35 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly dispose: () => void;
 };
 
-// Boundary-only placeholder names. Owning packages will later replace these
-// with their full runtime contracts.
-export type LineageInstance<T extends ManifestoDomainShape> =
-  ManifestoBaseInstance<T> & {
-    readonly __lineageBrand?: true;
-  };
+export interface ManifestoRuntimeByLaws<T extends ManifestoDomainShape> {
+  readonly base: ManifestoBaseInstance<T>;
+}
 
-export type GovernanceInstance<T extends ManifestoDomainShape> =
-  Omit<LineageInstance<T>, "dispatchAsync"> & {
-    readonly __governanceBrand?: true;
-  };
+export interface ManifestoDecoratedRuntimeByLaws<
+  T extends ManifestoDomainShape,
+> {}
+
+type ResolvedManifestoRuntimeByLaws<
+  T extends ManifestoDomainShape,
+> = ManifestoRuntimeByLaws<T> & ManifestoDecoratedRuntimeByLaws<T>;
 
 export type ActivatedInstance<
   T extends ManifestoDomainShape,
   Laws,
 > =
   Laws extends GovernanceLaws
-    ? GovernanceInstance<T>
+    ? ResolvedManifestoRuntimeByLaws<T> extends { readonly governance: infer Runtime }
+      ? Runtime
+      : never
     : Laws extends LineageLaws
-      ? LineageInstance<T>
-      : ManifestoBaseInstance<T>;
+      ? ResolvedManifestoRuntimeByLaws<T> extends { readonly lineage: infer Runtime }
+        ? Runtime
+        : never
+      : ManifestoRuntimeByLaws<T>["base"];
 
 export type ComposableManifesto<
   T extends ManifestoDomainShape,
-  Laws extends BaseLaws = BaseLaws,
+  Laws extends BaseLaws = BaseComposableLaws,
 > = {
   readonly _laws: Laws;
   readonly schema: DomainSchema;

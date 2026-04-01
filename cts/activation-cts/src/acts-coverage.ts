@@ -63,7 +63,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.LINEAGE_SEAL_PUBLICATION,
     "lineage",
-    "Lineage dispatch publishes only after seal commit succeeds and does not publish on commit failure.",
+    "Lineage commit publishes only after seal commit succeeds and does not publish on commit failure.",
   ),
   complianceCase(
     ACTS_CASES.GOVERNANCE_COMPOSABLE_SURFACE,
@@ -73,12 +73,12 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.GOVERNANCE_AUTO_LINEAGE,
     "governance",
-    "Governance auto-ensures lineage and removes direct dispatchAsync from the governed runtime.",
+    "Governance requires explicit lineage composition and removes direct dispatchAsync and commitAsync from the governed runtime.",
   ),
   complianceCase(
     ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE,
     "governance",
-    "Explicit lineage composition wins over governance config lineage overrides.",
+    "Governance reuses the explicitly composed lineage service.",
   ),
   complianceCase(
     ACTS_CASES.TYPES_PRE_ACTIVATION,
@@ -88,12 +88,12 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.TYPES_GOVERNED_RUNTIME,
     "types",
-    "Governed runtime rejects dispatchAsync at compile time while allowing proposeAsync.",
+    "Lineage and governed runtimes reject superseded verbs at compile time while exposing commitAsync or proposeAsync as appropriate.",
   ),
   complianceCase(
     ACTS_CASES.TYPES_LINEAGE_CONFIG,
     "types",
-    "withGovernance() requires lineage config on base composables and allows omission after explicit withLineage().",
+    "withGovernance() requires explicit lineage composition, withLineage() requires a non-empty config, and governed composables cannot be downgraded.",
   ),
 ] as const;
 

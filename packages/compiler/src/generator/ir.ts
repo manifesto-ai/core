@@ -34,7 +34,14 @@ import {
   sysPathExpr,
   toMelExpr,
 } from "../lowering/to-mel-expr.js";
-import { hashSchemaSync, semanticPathToPatchPath, sha256Sync, type PatchPath } from "@manifesto-ai/core";
+import {
+  hashSchemaSync,
+  semanticPathToPatchPath,
+  sha256Sync,
+  type ExprNode as RuntimeExprNode,
+  type FlowNode as RuntimeFlowNode,
+  type PatchPath,
+} from "@manifesto-ai/core";
 import { lowerCanonicalSchema } from "./runtime-lowering.js";
 
 // ============ Core IR Types (matching @manifesto-ai/core) ============
@@ -42,79 +49,14 @@ import { lowerCanonicalSchema } from "./runtime-lowering.js";
 /**
  * Core ExprNode types (simplified, matching core/schema/expr.ts)
  */
-export type CoreExprNode =
-  | { kind: "lit"; value: unknown }
-  | { kind: "get"; path: string }
-  | { kind: "eq"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "neq"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "gt"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "gte"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "lt"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "lte"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "and"; args: CoreExprNode[] }
-  | { kind: "or"; args: CoreExprNode[] }
-  | { kind: "not"; arg: CoreExprNode }
-  | { kind: "if"; cond: CoreExprNode; then: CoreExprNode; else: CoreExprNode }
-  | { kind: "add"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "sub"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "mul"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "div"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "mod"; left: CoreExprNode; right: CoreExprNode }
-  | { kind: "neg"; arg: CoreExprNode }
-  | { kind: "abs"; arg: CoreExprNode }
-  | { kind: "min"; args: CoreExprNode[] }
-  | { kind: "max"; args: CoreExprNode[] }
-  // v0.3.2: Array aggregation functions
-  | { kind: "sumArray"; array: CoreExprNode }
-  | { kind: "minArray"; array: CoreExprNode }
-  | { kind: "maxArray"; array: CoreExprNode }
-  | { kind: "floor"; arg: CoreExprNode }
-  | { kind: "ceil"; arg: CoreExprNode }
-  | { kind: "round"; arg: CoreExprNode }
-  | { kind: "sqrt"; arg: CoreExprNode }
-  | { kind: "pow"; base: CoreExprNode; exponent: CoreExprNode }
-  | { kind: "concat"; args: CoreExprNode[] }
-  | { kind: "trim"; str: CoreExprNode }
-  | { kind: "toLowerCase"; str: CoreExprNode }
-  | { kind: "toUpperCase"; str: CoreExprNode }
-  | { kind: "strLen"; str: CoreExprNode }
-  | { kind: "substring"; str: CoreExprNode; start: CoreExprNode; end?: CoreExprNode }
-  | { kind: "len"; arg: CoreExprNode }
-  | { kind: "at"; array: CoreExprNode; index: CoreExprNode }
-  | { kind: "first"; array: CoreExprNode }
-  | { kind: "last"; array: CoreExprNode }
-  | { kind: "slice"; array: CoreExprNode; start: CoreExprNode; end?: CoreExprNode }
-  | { kind: "includes"; array: CoreExprNode; item: CoreExprNode }
-  | { kind: "filter"; array: CoreExprNode; predicate: CoreExprNode }
-  | { kind: "map"; array: CoreExprNode; mapper: CoreExprNode }
-  | { kind: "find"; array: CoreExprNode; predicate: CoreExprNode }
-  | { kind: "every"; array: CoreExprNode; predicate: CoreExprNode }
-  | { kind: "some"; array: CoreExprNode; predicate: CoreExprNode }
-  | { kind: "append"; array: CoreExprNode; items: CoreExprNode[] }
-  | { kind: "object"; fields: Record<string, CoreExprNode> }
-  | { kind: "field"; object: CoreExprNode; property: string }
-  | { kind: "keys"; obj: CoreExprNode }
-  | { kind: "values"; obj: CoreExprNode }
-  | { kind: "entries"; obj: CoreExprNode }
-  | { kind: "merge"; objects: CoreExprNode[] }
-  | { kind: "typeof"; arg: CoreExprNode }
-  | { kind: "isNull"; arg: CoreExprNode }
-  | { kind: "coalesce"; args: CoreExprNode[] }
-  | { kind: "toString"; arg: CoreExprNode };
+export type CoreExprNode = RuntimeExprNode;
 
 export type CompilerExprNode = MelExprNode;
 
 /**
  * Core FlowNode types (matching core/schema/flow.ts)
  */
-export type CoreFlowNode =
-  | { kind: "seq"; steps: CoreFlowNode[] }
-  | { kind: "if"; cond: CoreExprNode; then: CoreFlowNode; else?: CoreFlowNode }
-  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
-  | { kind: "effect"; type: string; params: Record<string, CoreExprNode> }
-  | { kind: "call"; flow: string }
-  | { kind: "halt"; reason?: string }
-  | { kind: "fail"; code: string; message?: CoreExprNode };
+export type CoreFlowNode = RuntimeFlowNode;
 
 export type CompilerFlowNode =
   | { kind: "seq"; steps: CompilerFlowNode[] }
