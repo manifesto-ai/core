@@ -342,6 +342,11 @@ export interface GovernanceService {
   createProposal(input: CreateProposalInput): Proposal;
   beginEvaluating(proposal: Proposal): Proposal & { readonly status: "evaluating" };
   beginExecution(proposal: Proposal): Proposal & { readonly status: "executing" };
+  failExecution(
+    proposal: Proposal,
+    completedAt: number,
+    resultWorld?: WorldId
+  ): Proposal & { readonly status: "failed" };
   prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,

@@ -195,8 +195,11 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     executingProposal: Proposal & { readonly status: "executing" },
     intent: CoreIntent,
   ): Promise<Proposal> {
+    let sealed: Awaited<ReturnType<typeof lineage.sealIntent>> | null = null;
+    let proposalPersisted = false;
+
     try {
-      const sealed = await lineage.sealIntent(intent, {
+      sealed = await lineage.sealIntent(intent, {
         proposalRef: executingProposal.proposalId,
         decisionRef: executingProposal.decisionId,
         publishOnCompleted: false,
@@ -210,6 +213,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       );
 
       await governanceStore.putProposal(governanceCommit.proposal);
+      proposalPersisted = true;
       await governanceStore.putDecisionRecord(governanceCommit.decisionRecord);
       eventDispatcher.emitSealCompleted(governanceCommit, sealed.preparedCommit);
 
@@ -232,6 +236,18 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       return governanceCommit.proposal;
     } catch (error) {
       const failure = toGovernanceFailure(error);
+      if (!proposalPersisted) {
+        try {
+          const failedProposal = governanceService.failExecution(
+            executingProposal,
+            getCurrentTimestamp(),
+            sealed?.preparedCommit.worldId,
+          );
+          await governanceStore.putProposal(failedProposal);
+        } catch {
+          // Preserve the original execution failure if compensating persistence also fails.
+        }
+      }
       if (!isActionUnavailable(failure)) {
         kernel.emitEvent("dispatch:failed", {
           intentId: intent.intentId ?? "",

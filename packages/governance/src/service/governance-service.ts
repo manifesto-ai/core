@@ -80,6 +80,19 @@ export class DefaultGovernanceService implements GovernanceService {
     };
   }
 
+  failExecution(
+    proposal: Proposal,
+    completedAt: number,
+    resultWorld?: WorldId
+  ): Proposal & { readonly status: "failed" } {
+    return this.transitionProposal(proposal, "failed", {
+      completedAt,
+      ...(resultWorld !== undefined ? { resultWorld } : {}),
+    }) as Proposal & {
+      readonly status: "failed";
+    };
+  }
+
   async prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,

@@ -8,6 +8,7 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import {
   createInMemoryLineageStore,
   createLineageService,
+  type LineageService,
   withLineage,
 } from "@manifesto-ai/lineage";
 
@@ -299,5 +300,62 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     const decision = await governed.getDecisionRecord(proposal.decisionId!);
     expect(decision?.decision.kind).toBe("approved");
+  });
+
+  it("persists terminal failure when lineage seal commit throws after execution begins", async () => {
+    const lineageStore = createInMemoryLineageStore();
+    const governanceStore = createInMemoryGovernanceStore();
+    const realService = createLineageService(lineageStore);
+    let commitCount = 0;
+
+    const failingService = new Proxy(realService, {
+      get(target, property, receiver) {
+        if (property === "commitPrepared") {
+          return async (...args: Parameters<LineageService["commitPrepared"]>) => {
+            commitCount += 1;
+            if (commitCount > 1) {
+              throw new Error("seal commit failed");
+            }
+            return target.commitPrepared(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as LineageService;
+
+    const governed = withGovernance(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      {
+        lineage: { service: failingService },
+        governanceStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:seal-failure",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:seal-failure",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(
+      governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      ),
+    ).rejects.toThrow("seal commit failed");
+
+    const activeBranch = await failingService.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 });
