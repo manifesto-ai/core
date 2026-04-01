@@ -17,6 +17,7 @@ import {
   withGovernance,
   type ActorAuthorityBinding,
   type GovernanceEvent,
+  type GovernanceStore,
 } from "./index.js";
 
 const pp = semanticPathToPatchPath;
@@ -143,6 +144,24 @@ function createHitlBinding(): ActorAuthorityBinding {
       },
     },
   };
+}
+
+function createAutoBindingForHuman(): ActorAuthorityBinding {
+  return {
+    actorId: "actor:human",
+    authorityId: "authority:human",
+    policy: {
+      mode: "auto_approve",
+    },
+  };
+}
+
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 }
 
 describe("@manifesto-ai/governance decorator runtime", () => {
@@ -357,5 +376,66 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(stored).toHaveLength(1);
     expect(stored[0]?.status).toBe("failed");
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("serializes bindActor updates with proposal execution", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    const gate = createDeferred();
+    const getActorBindingStarted = createDeferred();
+
+    const serializedStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "getActorBinding") {
+          return async (...args: Parameters<GovernanceStore["getActorBinding"]>) => {
+            getActorBindingStarted.resolve();
+            await gate.promise;
+            return target.getActorBinding(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      {
+        lineage: { store: createInMemoryLineageStore() },
+        governanceStore: serializedStore,
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:serialized-bindings",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:serialized-bindings",
+          }),
+        },
+      },
+    ).activate();
+
+    const pendingProposal = governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    await getActorBindingStarted.promise;
+    const bindingUpdate = governed.bindActor(createAutoBindingForHuman());
+    gate.resolve();
+
+    const proposal = await pendingProposal;
+    await bindingUpdate;
+
+    expect(proposal.status).toBe("evaluating");
+    expect(governed.getSnapshot().data.count).toBe(0);
+
+    const next = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+    expect(next.status).toBe("completed");
+    expect(governed.getSnapshot().data.count).toBe(1);
   });
 });

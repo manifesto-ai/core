@@ -54,6 +54,104 @@ describe("createManifesto()", () => {
     world.dispose();
   });
 
+  it("preserves MEL action parameter order when packing multi-argument intents", () => {
+    type TodoDomain = {
+      actions: {
+        addTodo: (title: string, id: string) => void;
+      };
+      state: {
+        todos: Array<{ id: string; title: string }>;
+      };
+      computed: {};
+    };
+
+    const world = createManifesto<TodoDomain>(`
+domain Todos {
+  state { todos: Array<{ id: string, title: string }> = [] }
+
+  action addTodo(title: string, id: string) {
+    onceIntent {
+      patch todos = append(todos, { id: id, title: title })
+    }
+  }
+}
+`, {}).activate();
+
+    const intent = world.createIntent(world.MEL.actions.addTodo, "Write docs", "todo-1");
+    expect(intent.input).toEqual({ title: "Write docs", id: "todo-1" });
+
+    world.dispose();
+  });
+
+  it("rejects positional packing for hand-authored multi-field object inputs", () => {
+    type ManualSchemaDomain = {
+      actions: {
+        addTodo: (title: string, id: string) => void;
+      };
+      state: {
+        todos: Array<{ id: string; title: string }>;
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-manual-add-todo",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          todos: {
+            type: "array",
+            required: false,
+            default: [],
+            items: {
+              type: "object",
+              required: true,
+              fields: {
+                id: { type: "string", required: true },
+                title: { type: "string", required: true },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        addTodo: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              id: { type: "string", required: true },
+              title: { type: "string", required: true },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.todos",
+            value: {
+              kind: "append",
+              array: { kind: "get", path: "todos" },
+              items: [{ kind: "get", path: "input" }],
+            },
+          },
+        },
+      },
+    });
+    const world = createManifesto<ManualSchemaDomain>(schema, {}).activate();
+
+    expect(() => (
+      world.createIntent as unknown as (...args: unknown[]) => ReturnType<typeof world.createIntent>
+    )(world.MEL.actions.addTodo, "Write docs", "todo-1")).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INTENT_ARGS",
+      }),
+    );
+
+    world.dispose();
+  });
+
   it("compiles MEL source strings before activation", async () => {
     const world = createManifesto<MelCounterDomain>(counterMelSource, {}).activate();
 

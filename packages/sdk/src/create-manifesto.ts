@@ -13,7 +13,11 @@ import {
   type Intent,
   type Patch,
 } from "@manifesto-ai/core";
-import { compileMelDomain } from "@manifesto-ai/compiler";
+import {
+  compileMelDomain,
+  parse as parseMel,
+  tokenize as tokenizeMel,
+} from "@manifesto-ai/compiler";
 
 import {
   ACTION_PARAM_NAMES,
@@ -42,7 +46,14 @@ const RESERVED_NAMESPACE_PREFIX = "system.";
 const BASE_LAWS: BaseLaws = Object.freeze({ __baseLaws: true });
 
 type RuntimeActionRef = TypedActionRef<ManifestoDomainShape> & {
-  readonly [ACTION_PARAM_NAMES]: readonly string[];
+  readonly [ACTION_PARAM_NAMES]: readonly string[] | null;
+};
+
+type ActionParamMetadata = readonly string[] | null;
+
+type ResolvedSchema = {
+  readonly schema: DomainSchema;
+  readonly actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>;
 };
 
 export function createManifesto<T extends ManifestoDomainShape>(
@@ -53,13 +64,13 @@ export function createManifesto<T extends ManifestoDomainShape>(
     throw new ReservedEffectError(RESERVED_EFFECT_TYPE);
   }
 
-  const schema = resolveSchema(schemaInput);
-  validateReservedNamespaces(schema);
+  const resolved = resolveSchema(schemaInput);
+  validateReservedNamespaces(resolved.schema);
 
   let activated = false;
   const manifesto = {
     _laws: BASE_LAWS,
-    schema,
+    schema: resolved.schema,
     activate() {
       if (activated) {
         throw new AlreadyActivatedError();
@@ -67,9 +78,9 @@ export function createManifesto<T extends ManifestoDomainShape>(
       activated = true;
       return createBaseRuntimeInstance(
         createRuntimeKernel<T>({
-          schema,
-          host: createInternalHost(schema, effects),
-          MEL: buildTypedMel<T>(schema),
+          schema: resolved.schema,
+          host: createInternalHost(resolved.schema, effects),
+          MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
           createIntent: buildCreateIntent<T>(),
         }),
       );
@@ -78,23 +89,29 @@ export function createManifesto<T extends ManifestoDomainShape>(
 
   return attachRuntimeKernelFactory(manifesto, () =>
     createRuntimeKernel<T>({
-      schema,
-      host: createInternalHost(schema, effects),
-      MEL: buildTypedMel<T>(schema),
+      schema: resolved.schema,
+      host: createInternalHost(resolved.schema, effects),
+      MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
       createIntent: buildCreateIntent<T>(),
     }),
   );
 }
 
-function resolveSchema(schema: DomainSchema | string): DomainSchema {
-  const compiled = typeof schema === "string"
+function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
+  const resolved = typeof schema === "string"
     ? compileSchema(schema)
-    : schema;
+    : {
+      schema,
+      actionParamMetadata: deriveActionParamMetadata(schema),
+    };
 
-  return withPlatformNamespaces(compiled);
+  return {
+    schema: withPlatformNamespaces(resolved.schema),
+    actionParamMetadata: resolved.actionParamMetadata,
+  };
 }
 
-function compileSchema(source: string): DomainSchema {
+function compileSchema(source: string): ResolvedSchema {
   const result = compileMelDomain(source, { mode: "domain" });
 
   if (result.errors.length > 0) {
@@ -128,7 +145,14 @@ function compileSchema(source: string): DomainSchema {
     throw new ManifestoError("COMPILE_ERROR", "MEL compilation produced no schema");
   }
 
-  return result.schema as DomainSchema;
+  const schema = result.schema as DomainSchema;
+  return {
+    schema,
+    actionParamMetadata: deriveActionParamMetadata(
+      schema,
+      extractActionParamOrderFromMel(source),
+    ),
+  };
 }
 
 function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
@@ -286,9 +310,12 @@ function validateReservedNamespaces(schema: DomainSchema): void {
   }
 }
 
-function buildTypedMel<T extends ManifestoDomainShape>(schema: DomainSchema): TypedMEL<T> {
+function buildTypedMel<T extends ManifestoDomainShape>(
+  schema: DomainSchema,
+  actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>,
+): TypedMEL<T> {
   const actions = Object.fromEntries(
-    Object.entries(schema.actions).map(([name, action]) => {
+    Object.keys(schema.actions).map((name) => {
       const ref: Record<PropertyKey, unknown> = {
         __kind: "ActionRef",
         name,
@@ -297,7 +324,7 @@ function buildTypedMel<T extends ManifestoDomainShape>(schema: DomainSchema): Ty
         enumerable: false,
         configurable: false,
         writable: false,
-        value: getActionParamNames(action.input),
+        value: actionParamMetadata[name] ?? [],
       });
       return [name, Object.freeze(ref)];
     }),
@@ -351,10 +378,62 @@ function getActionParamNames(input: DomainSchema["actions"][string]["input"]): r
   return Object.keys(input.fields);
 }
 
+function deriveActionParamMetadata(
+  schema: DomainSchema,
+  actionParamOrder?: Readonly<Record<string, readonly string[]>>,
+): Readonly<Record<string, ActionParamMetadata>> {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(schema.actions).map(([name, action]) => {
+      const preferredOrder = actionParamOrder?.[name];
+      if (preferredOrder && preferredOrder.length > 0) {
+        return [name, Object.freeze([...preferredOrder])];
+      }
+
+      if (!action.input || action.input.type !== "object" || !action.input.fields) {
+        return [name, []];
+      }
+
+      const fieldNames = getActionParamNames(action.input);
+      return [name, fieldNames.length <= 1 ? fieldNames : null];
+    }),
+  ));
+}
+
+function extractActionParamOrderFromMel(
+  source: string,
+): Readonly<Record<string, readonly string[]>> | undefined {
+  const lexed = tokenizeMel(source);
+  if (lexed.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return undefined;
+  }
+
+  const parsed = parseMel(lexed.tokens);
+  if (!parsed.program) {
+    return undefined;
+  }
+
+  return Object.freeze(Object.fromEntries(
+    parsed.program.domain.members
+      .filter((member) => member.kind === "action")
+      .map((action) => [action.name, Object.freeze(action.params.map((param) => param.name))]),
+  ));
+}
+
 function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): unknown {
   const paramNames = action[ACTION_PARAM_NAMES] ?? [];
   if (args.length === 0) {
     return undefined;
+  }
+
+  if (paramNames === null) {
+    if (args.length === 1 && isPlainObject(args[0])) {
+      return args[0];
+    }
+
+    throw new ManifestoError(
+      "INVALID_INTENT_ARGS",
+      `Action "${String(action.name)}" requires a single object argument because positional parameter metadata is unavailable`,
+    );
   }
 
   if (paramNames.length === 0) {
@@ -362,13 +441,24 @@ function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): un
       return args[0];
     }
 
-    return Object.fromEntries(args.map((value, index) => [`arg${index}`, value]));
+    throw new ManifestoError(
+      "INVALID_INTENT_ARGS",
+      `Action "${String(action.name)}" does not accept multiple positional arguments`,
+    );
+  }
+
+  if (args.length === 1 && isPlainObject(args[0]) && paramNames.length > 1) {
+    return args[0];
   }
 
   return Object.fromEntries(args.map((value, index) => [
     paramNames[index] ?? `arg${index}`,
     value,
   ]));
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function createInternalHost(

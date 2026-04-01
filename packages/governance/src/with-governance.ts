@@ -444,8 +444,14 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       throw new DisposedError();
     }
 
-    await ensureBindings();
-    await governanceStore.putActorBinding(binding);
+    return kernel.enqueue(async () => {
+      if (kernel.isDisposed()) {
+        throw new DisposedError();
+      }
+
+      await ensureBindings();
+      await governanceStore.putActorBinding(binding);
+    });
   }
 
   async function getActorBinding(actorId: string): Promise<ActorAuthorityBinding | null> {
