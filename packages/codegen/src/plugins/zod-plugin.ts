@@ -10,10 +10,16 @@ import type { TsPluginArtifacts } from "./ts-plugin.js";
 const PLUGIN_NAME = "codegen-plugin-zod";
 const TS_PLUGIN_NAME = "codegen-plugin-ts";
 
+/**
+ * @deprecated Prefer `createDomainPlugin()` for canonical domain facade output.
+ */
 export interface ZodPluginOptions {
   readonly schemasFile?: string;
 }
 
+/**
+ * @deprecated Prefer `createDomainPlugin()` for canonical domain facade output.
+ */
 export function createZodPlugin(options?: ZodPluginOptions): CodegenPlugin {
   const schemasFile = options?.schemasFile ?? "base.ts";
 

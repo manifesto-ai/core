@@ -41,6 +41,7 @@ export interface GenerateOptions {
   readonly plugins: readonly CodegenPlugin[];
   readonly sourceId?: string;
   readonly stamp?: boolean;
+  readonly cleanOutDir?: boolean;
 }
 
 export interface GenerateResult {

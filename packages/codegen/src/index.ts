@@ -20,8 +20,17 @@ export type {
 export { generate } from "./runner.js";
 
 // Plugins
-export { createTsPlugin, createZodPlugin } from "./plugins/index.js";
-export type { TsPluginOptions, TsPluginArtifacts, ZodPluginOptions } from "./plugins/index.js";
+export {
+  createDomainPlugin,
+  createTsPlugin,
+  createZodPlugin,
+} from "./plugins/index.js";
+export type {
+  DomainPluginOptions,
+  TsPluginOptions,
+  TsPluginArtifacts,
+  ZodPluginOptions,
+} from "./plugins/index.js";
 
 // Utilities (for custom plugin authors)
 export { validatePath } from "./path-safety.js";

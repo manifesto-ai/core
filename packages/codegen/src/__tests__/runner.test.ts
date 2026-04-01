@@ -100,6 +100,35 @@ describe("generate()", () => {
     });
   });
 
+  describe("output flushing", () => {
+    it("does not clean outDir by default", async () => {
+      const fs = await import("node:fs/promises");
+      const p = createMockPlugin("ok", {
+        patches: [{ op: "set", path: "a.ts", content: "x" }],
+      });
+
+      await generate({ schema, outDir: "/tmp/out", plugins: [p] });
+      expect(fs.rm).not.toHaveBeenCalled();
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    it("cleans outDir when explicitly requested", async () => {
+      const fs = await import("node:fs/promises");
+      const p = createMockPlugin("ok", {
+        patches: [{ op: "set", path: "a.ts", content: "x" }],
+      });
+
+      await generate({
+        schema,
+        outDir: "/tmp/out",
+        plugins: [p],
+        cleanOutDir: true,
+      });
+
+      expect(fs.rm).toHaveBeenCalledWith("/tmp/out", { recursive: true, force: true });
+    });
+  });
+
   describe("path validation", () => {
     it("errors on invalid paths", async () => {
       const p = createMockPlugin("p", {

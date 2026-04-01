@@ -31,7 +31,7 @@ pnpm add @manifesto-ai/core
 ### Minimal Example
 
 ```typescript
-import { generate, createTsPlugin, createZodPlugin } from "@manifesto-ai/codegen";
+import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
 import type { DomainSchema } from "@manifesto-ai/core";
 
 // 1. Define a schema with one type
@@ -60,69 +60,56 @@ const schema: DomainSchema = {
 const result = await generate({
   schema,
   outDir: "./generated",
-  plugins: [createTsPlugin(), createZodPlugin()],
+  sourceId: "src/domain/hello.mel",
+  plugins: [createDomainPlugin()],
 });
 
 // 3. Check result
 console.log(result.diagnostics); // → [] (no errors)
-console.log(result.files.map(f => f.path)); // → ["types.ts", "base.ts"]
+console.log(result.files.map(f => f.path)); // → ["src/domain/hello.mel.ts"]
 ```
 
-Generated **types.ts**:
+Generated **src/domain/hello.mel.ts**:
 ```typescript
-export interface User {
-  id: string;
-  name: string;
+export interface ExampleDomain {
+  readonly state: {}
+  readonly computed: {}
+  readonly actions: {}
 }
-```
-
-Generated **base.ts**:
-```typescript
-import { z } from "zod";
-import type { User } from "./types";
-
-export const UserSchema: z.ZodType<User> = z.object({
-  id: z.string(),
-  name: z.string(),
-});
 ```
 
 ---
 
 ## Basic Usage
 
-### Use Case 1: TypeScript Types Only
+### Use Case 1: Canonical Domain Facade
 
-**Goal:** Generate only TypeScript type definitions.
+**Goal:** Generate the recommended `<domain>.mel.ts` shape for SDK consumers.
 
 ```typescript
-import { generate, createTsPlugin } from "@manifesto-ai/codegen";
+import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
 
 const result = await generate({
   schema,
   outDir: "./generated",
-  plugins: [createTsPlugin()],
+  sourceId: "src/domain/todo.mel",
+  plugins: [createDomainPlugin()],
 });
 
-// Result: only types.ts is generated
-console.log(result.files.map(f => f.path)); // → ["types.ts"]
+// Result: only src/domain/todo.mel.ts is generated
+console.log(result.files.map(f => f.path)); // → ["src/domain/todo.mel.ts"]
 ```
 
-The TS plugin maps each TypeDefinition kind:
+The domain plugin emits one facade interface with:
+- `readonly state`
+- `readonly computed`
+- `readonly actions`
 
-| TypeDefinition | TypeScript Output |
-|----------------|-------------------|
-| `{ kind: "primitive", type: "string" }` | `string` |
-| `{ kind: "literal", value: "active" }` | `"active"` |
-| `{ kind: "array", element: ... }` | `T[]` |
-| `{ kind: "record", key: ..., value: ... }` | `Record<K, V>` |
-| `{ kind: "object", fields: ... }` | `export interface Name { ... }` |
-| `{ kind: "union", types: [...] }` | `T1 \| T2` |
-| `{ kind: "ref", name: "Other" }` | `Other` |
+Computed values are inferred from Core expression nodes when possible. Unsupported expressions degrade to `unknown` with a warning diagnostic.
 
-### Use Case 2: TypeScript + Zod Together
+### Use Case 2: Legacy TypeScript + Zod Together
 
-**Goal:** Generate Zod schemas that reference TypeScript types.
+**Goal:** Keep the old low-level artifact flow during migration.
 
 ```typescript
 import { generate, createTsPlugin, createZodPlugin } from "@manifesto-ai/codegen";
@@ -136,6 +123,8 @@ const result = await generate({
 // types.ts: TypeScript interfaces
 // base.ts: Zod schemas with z.ZodType<T> annotations
 ```
+
+`createTsPlugin()` and `createZodPlugin()` are deprecated. Prefer `createDomainPlugin()` for new integrations.
 
 When the Zod plugin runs after the TS plugin, it reads the TS plugin's artifacts to:
 - Add `z.ZodType<TypeName>` type annotations
