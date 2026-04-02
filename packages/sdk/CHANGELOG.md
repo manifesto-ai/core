@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/manifesto-ai/core/compare/sdk-v3.3.0...sdk-v3.3.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* **sdk:** restore direct action availability check ([39a26c0](https://github.com/manifesto-ai/core/commit/39a26c02c37e84c94df3fc6be97ef89a5e4e9a0d))
+
 ## [3.3.0](https://github.com/manifesto-ai/core/compare/sdk-v3.2.0...sdk-v3.3.0) (2026-04-02)
 
 
