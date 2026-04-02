@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.3.2](https://github.com/manifesto-ai/core/compare/sdk-v3.3.1...sdk-v3.3.2) (2026-04-02)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.1.0
+
 ## [3.3.1](https://github.com/manifesto-ai/core/compare/sdk-v3.3.0...sdk-v3.3.1) (2026-04-02)
 
 
