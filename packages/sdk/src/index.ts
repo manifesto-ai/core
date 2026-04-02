@@ -39,6 +39,7 @@ export type {
   TypedCommitAsync,
   TypedCreateIntent,
   TypedDispatchAsync,
+  TypedIntent,
   TypedMEL,
   TypedOn,
   TypedSubscribe,

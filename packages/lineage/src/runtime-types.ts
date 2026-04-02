@@ -4,6 +4,7 @@ import type {
   LineageLaws,
   ManifestoBaseInstance,
   ManifestoDomainShape,
+  Snapshot,
   TypedDispatchAsync,
 } from "@manifesto-ai/sdk";
 
@@ -45,6 +46,7 @@ export type LineageInstance<T extends ManifestoDomainShape> =
     readonly commitAsync: TypedCommitAsync<T>;
     readonly restore: (worldId: WorldId) => Promise<void>;
     readonly getWorld: (worldId: WorldId) => Promise<World | null>;
+    readonly getWorldSnapshot: (worldId: WorldId) => Promise<Snapshot<T["state"]> | null>;
     readonly getLineage: () => Promise<WorldLineage>;
     readonly getLatestHead: () => Promise<WorldHead | null>;
     readonly getHeads: () => Promise<readonly WorldHead[]>;

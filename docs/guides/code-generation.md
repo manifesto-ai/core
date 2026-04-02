@@ -20,6 +20,8 @@ DomainSchema ──> [ TS Plugin ] ──> types.ts
                  [ Zod Plugin ] ──> base.ts
 ```
 
+Code generation is optional. The stable runtime contract does not require generated files; you can keep writing the app-facing `ManifestoDomainShape` manually and treat codegen as a build-time acceleration step.
+
 ---
 
 ## Installation
@@ -69,6 +71,8 @@ const result = await generate({
 console.log(result.files.map(f => f.path));
 // -> ["types.ts", "base.ts"]
 ```
+
+If you want deterministic control over when files are emitted, prefer calling `generate()` directly in build or CI rather than depending only on bundler-time hooks.
 
 **Generated types.ts:**
 

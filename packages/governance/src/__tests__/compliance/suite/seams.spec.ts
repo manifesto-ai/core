@@ -46,7 +46,7 @@ describe("GCTS Seam Suite", () => {
   it(
     caseTitle(
       GCTS_CASES.SEAMS_NATIVE_SURFACE,
-      "Governance package exposes native store/service exports without world or host internals."
+      "Governance package exposes native store/service exports through the provider entry point without world or host internals."
     ),
     async () => {
       const adapter = createGovernanceComplianceAdapter();
@@ -94,7 +94,7 @@ describe("GCTS Seam Suite", () => {
         evaluateRule(getRuleOrThrow("GOV-STORE-3"), typeof exported.createInMemoryGovernanceStore === "function", {
           passMessage: "Governance package provides a native in-memory GovernanceStore implementation.",
           failMessage: "Governance package is missing native in-memory GovernanceStore implementation.",
-          evidence: [noteEvidence("Verified createInMemoryGovernanceStore() export exists.")],
+          evidence: [noteEvidence("Verified createInMemoryGovernanceStore() exists on the governance provider entry point.")],
         }),
         evaluateRule(getRuleOrThrow("GOV-STORE-4"), executionStageStoreWorks, {
           passMessage: "GovernanceStore.getExecutionStageProposal() returns the single approved/executing proposal for a branch.",

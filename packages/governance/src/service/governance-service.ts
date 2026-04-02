@@ -4,7 +4,7 @@ import type {
   PreparedLineageCommit,
   World,
   WorldId,
-} from "@manifesto-ai/lineage/internal";
+} from "@manifesto-ai/lineage/provider";
 import {
   getValidTransitions,
   isExecutionStageStatus,

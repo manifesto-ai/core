@@ -163,9 +163,6 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.80.0
         version: 0.80.0(zod@4.3.6)
-      '@manifesto-ai/codegen':
-        specifier: workspace:*
-        version: link:../codegen
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core

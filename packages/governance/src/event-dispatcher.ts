@@ -2,7 +2,7 @@ import type {
   ErrorInfo,
   PreparedGovernanceCommit,
 } from "./types.js";
-import type { PreparedLineageCommit } from "@manifesto-ai/lineage/internal";
+import type { PreparedLineageCommit } from "@manifesto-ai/lineage/provider";
 import { createNoopGovernanceEventSink, type GovernanceEventDispatcher, type GovernanceEventSink, type GovernanceService } from "./types.js";
 
 export interface CreateGovernanceEventDispatcherOptions {

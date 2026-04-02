@@ -4,8 +4,8 @@ import type {
   GovernanceLaws,
   LineageLaws,
   ManifestoDomainShape,
+  TypedIntent,
 } from "@manifesto-ai/sdk";
-import type { Intent as CoreIntent } from "@manifesto-ai/core";
 import type {
   BranchId,
   LineageInstance,
@@ -26,19 +26,19 @@ import type {
   SourceRef,
 } from "./types.js";
 
-export type GovernanceExecutionConfig = {
+export type GovernanceExecutionConfig<T extends ManifestoDomainShape> = {
   readonly projectionId: string;
-  readonly deriveActor: (intent: CoreIntent) => ActorRef;
-  readonly deriveSource: (intent: CoreIntent) => SourceRef;
+  readonly deriveActor: (intent: TypedIntent<T>) => ActorRef;
+  readonly deriveSource: (intent: TypedIntent<T>) => SourceRef;
 };
 
-export type GovernanceConfig = {
+export type GovernanceConfig<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly bindings: readonly ActorAuthorityBinding[];
   readonly governanceStore?: GovernanceStore;
   readonly evaluator?: AuthorityEvaluator;
   readonly eventSink?: GovernanceEventSink;
   readonly now?: () => number;
-  readonly execution: GovernanceExecutionConfig;
+  readonly execution: GovernanceExecutionConfig<T>;
 };
 
 export type LineageComposableLaws = BaseLaws & LineageLaws & {
@@ -49,7 +49,7 @@ export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
 
 export type GovernanceInstance<T extends ManifestoDomainShape> =
   Omit<LineageInstance<T>, "commitAsync"> & {
-    readonly proposeAsync: (intent: CoreIntent) => Promise<Proposal>;
+    readonly proposeAsync: (intent: TypedIntent<T>) => Promise<Proposal>;
     readonly approve: (
       proposalId: ProposalId,
       approvedScope?: IntentScope | null,

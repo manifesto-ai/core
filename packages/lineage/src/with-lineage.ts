@@ -13,7 +13,7 @@ import {
   getActivationState,
   getRuntimeKernelFactory,
   type RuntimeKernel,
-} from "@manifesto-ai/sdk/internal";
+} from "@manifesto-ai/sdk/provider";
 
 import { createLineageService } from "./service/lineage-service.js";
 import type {
@@ -154,6 +154,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     dispose: kernel.dispose,
     restore: controller.restore,
     getWorld: controller.getWorld,
+    getWorldSnapshot: controller.getWorldSnapshot,
     getLineage: controller.getLineage,
     getLatestHead: controller.getLatestHead,
     getHeads: controller.getHeads,

@@ -242,7 +242,41 @@ The helper already uses `world.dispatchAsync(world.createIntent(...))`, so you d
 
 ---
 
-## 5. If The App Is Governed
+## 5. Treat Availability As Snapshot-Derived UI State
+
+`isActionAvailable()` is a point-in-time runtime read. If the UI needs a reactive boolean, recompute it in the same path that updates React state from snapshots.
+
+```typescript
+const syncAvailability = (world: ManifestoBaseInstance<TodoDomain>) => {
+  setCanClearCompleted(world.isActionAvailable("clearCompleted"));
+};
+
+useEffect(() => {
+  const world = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
+  worldRef.current = world;
+  setState(world.getSnapshot());
+  syncAvailability(world);
+
+  const unsubscribe = world.subscribe(
+    (snapshot) => snapshot,
+    (nextSnapshot) => {
+      setState(nextSnapshot);
+      syncAvailability(world);
+    },
+  );
+
+  return () => {
+    unsubscribe();
+    world.dispose();
+  };
+}, []);
+```
+
+Do not treat `isActionAvailable()` itself as a subscription source.
+
+---
+
+## 6. If The App Is Governed
 
 Keep the same React shape. The only change is the runtime assembly before activation:
 
@@ -294,6 +328,14 @@ There is no `dispatch()`-first path anymore. Await the action helper, which alre
 ### Expecting `subscribe()` to emit immediately
 
 Seed the initial React state from `getSnapshot()`. `subscribe()` is only for later terminal updates.
+
+### Treating `isActionAvailable()` as reactive by itself
+
+Read it when your subscribed snapshot changes, then store the result in React state if the component needs a stable boolean.
+
+### Forgetting subscription cleanup
+
+Always call the returned `unsubscribe()` and `dispose()` the runtime in the effect cleanup. React owns the view lifecycle, but the runtime still owns its queue and listeners.
 
 ---
 

@@ -11,8 +11,9 @@
 - `withLineage(createManifesto(...), config).activate()`
 - lineage-aware `commitAsync` that seals before publication
 - restore, head, branch, and world queries on the activated runtime
+- `getWorldSnapshot(worldId)` for stored sealed snapshot lookup
 - `getLineage()` for DAG inspection on the activated runtime
-- sealing substrate and the internal provider surface
+- sealing substrate and the provider surface
 - deterministic world identity, branch semantics, and restore normalization
 
 ## Canonical Path
@@ -38,7 +39,7 @@ if (head) {
 
 ## Low-Level Usage
 
-Use `@manifesto-ai/lineage/internal` when you need `LineageService`, `LineageStore`, prepared commits, or custom persistence without the activated runtime wrapper.
+Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageStore`, prepared commits, or custom persistence without the activated runtime wrapper.
 
 ## Docs
 

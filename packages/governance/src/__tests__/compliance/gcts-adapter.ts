@@ -1,4 +1,4 @@
-import * as governance from "../../index.js";
+import * as governance from "../../provider.js";
 import type { GovernanceComplianceAdapter } from "./gcts-types.js";
 
 export class NativeGovernanceComplianceAdapter

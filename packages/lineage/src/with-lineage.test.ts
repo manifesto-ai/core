@@ -264,6 +264,10 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
 
     await world.commitAsync(world.createIntent(world.MEL.actions.add, 2));
     const mainHead = await world.getLatestHead();
+    const mainSnapshot = await world.getWorldSnapshot(mainHead!.worldId);
+
+    expect(mainSnapshot?.data.count).toBe(2);
+    expect(await world.getWorldSnapshot("world:missing")).toBeNull();
 
     const featureBranchId = await world.createBranch("feature");
     const switchResult = await world.switchActiveBranch(featureBranchId);

@@ -18,6 +18,12 @@ export type {
 
 // Runner
 export { generate } from "./runner.js";
+export { createCompilerCodegen } from "./compiler-codegen.js";
+export type {
+  CompilerCodegenInput,
+  CompilerCodegenOptions,
+  CompilerCodegenEmitter,
+} from "./compiler-codegen.js";
 
 // Plugins
 export {

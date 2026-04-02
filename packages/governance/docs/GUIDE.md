@@ -80,6 +80,7 @@ Governed runtimes still carry the lineage query surface:
 
 - `restore(worldId)`
 - `getWorld(worldId)`
+- `getWorldSnapshot(worldId)`
 - `getLatestHead()`
 - `getHeads()`
 - `getBranches()`
@@ -88,15 +89,18 @@ Governed runtimes still carry the lineage query surface:
 - `createBranch(name, fromWorldId?)`
 
 The removed verbs are direct execution verbs. Governance keeps the lineage query surface, not lineage execution.
+`getWorldSnapshot(worldId)` reads the stored sealed snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
 
 ## 6. Low-Level Governance Substrate
 
-The service/store/evaluator exports still exist for protocol testing and lower-level composition:
+The provider entry point exists for protocol testing and lower-level composition:
 
+- `@manifesto-ai/governance/provider`
 - `createGovernanceService()`
 - `createGovernanceEventDispatcher()`
-- `createInMemoryGovernanceStore()`
 - `createAuthorityEvaluator()`
+
+`createInMemoryGovernanceStore()` remains available from the root package for simple bootstrap and tests.
 
 Those are useful when you are testing lifecycle invariants directly. They are no longer the package’s primary application story.
 

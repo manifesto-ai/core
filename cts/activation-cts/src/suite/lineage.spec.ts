@@ -6,7 +6,7 @@ import {
 import {
   createLineageService,
   type LineageService,
-} from "@manifesto-ai/lineage/internal";
+} from "@manifesto-ai/lineage/provider";
 import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {

@@ -71,6 +71,7 @@ type LineageInstance<T extends ManifestoDomainShape> =
     readonly commitAsync: TypedCommitAsync<T>;
     readonly restore: (worldId: WorldId) => Promise<void>;
     readonly getWorld: (worldId: WorldId) => Promise<World | null>;
+    readonly getWorldSnapshot: (worldId: WorldId) => Promise<Snapshot<T["state"]> | null>;
     readonly getLineage: () => Promise<WorldLineage>;
     readonly getLatestHead: () => Promise<WorldHead | null>;
     readonly getHeads: () => Promise<readonly WorldHead[]>;
@@ -88,6 +89,7 @@ Normative rules:
 | LIN-V3-SFC-1 | MUST | `LineageInstance<T>` include the entire base SDK runtime surface except that `dispatchAsync` is replaced by lineage-aware `commitAsync` |
 | LIN-V3-SFC-2 | MUST | `restore(worldId)` resolve after the runtime visible snapshot has been updated |
 | LIN-V3-SFC-3 | MUST | query methods return continuity truth from the backing `LineageService` |
+| LIN-V3-SFC-3a | SHOULD | `getWorldSnapshot(worldId)` expose the stored sealed snapshot substrate for a specific world when available |
 | LIN-V3-SFC-4 | MUST | `getLineage()` expose the world DAG from the backing `LineageService` |
 | LIN-V3-SFC-5 | MUST | `createBranch()` and `switchActiveBranch()` remain lineage-owned runtime verbs, not SDK verbs |
 
@@ -172,6 +174,8 @@ Lineage still seals failed terminal snapshots. However failed continuity does no
 ### 5.1 Restore
 
 `LineageService.restore(worldId)` continues to return a normalized snapshot substrate.
+
+`getWorldSnapshot(worldId)` is the complementary read path for the stored sealed snapshot substrate. It is not the restore-normalized resume contract.
 
 `LineageInstance.restore(worldId)` is the runtime-facing projection:
 

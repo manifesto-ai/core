@@ -2,7 +2,6 @@ import {
   getAvailableActions as queryAvailableActions,
   isActionAvailable as queryActionAvailable,
   type DomainSchema,
-  type Intent,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 import type { HostResult, ManifestoHost } from "@manifesto-ai/host";
@@ -22,6 +21,7 @@ import type {
   Selector,
   Snapshot,
   TypedCreateIntent,
+  TypedIntent,
   TypedMEL,
   TypedOn,
   TypedSubscribe,
@@ -67,12 +67,12 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     payload: ManifestoEventMap<T>[K],
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
-  readonly ensureIntentId: (intent: Intent) => Intent;
+  readonly ensureIntentId: (intent: TypedIntent<T>) => TypedIntent<T>;
   readonly executeHost: (
-    intent: Intent,
+    intent: TypedIntent<T>,
     options?: HostDispatchOptions,
   ) => Promise<HostResult>;
-  readonly rejectUnavailable: (intent: Intent) => never;
+  readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
 }
 
 export type RuntimeKernelFactory<T extends ManifestoDomainShape> = () => RuntimeKernel<T>;
@@ -338,7 +338,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return result;
   }
 
-  function ensureIntentId(intent: Intent): Intent {
+  function ensureIntentId(intent: TypedIntent<T>): TypedIntent<T> {
     if (intent.intentId && intent.intentId.length > 0) {
       return intent;
     }
@@ -346,17 +346,17 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return {
       ...intent,
       intentId: generateUUID(),
-    };
+    } as TypedIntent<T>;
   }
 
   async function executeHost(
-    intent: Intent,
+    intent: TypedIntent<T>,
     options?: HostDispatchOptions,
   ): Promise<HostResult> {
     return host.dispatch(intent, options);
   }
 
-  function rejectUnavailable(intent: Intent): never {
+  function rejectUnavailable(intent: TypedIntent<T>): never {
     const error = new ManifestoError(
       "ACTION_UNAVAILABLE",
       `Action "${intent.type}" is unavailable against the current visible snapshot`,
@@ -418,7 +418,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
 export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   kernel: RuntimeKernel<T>,
 ): ManifestoBaseInstance<T> {
-  async function processIntent(intent: Intent): Promise<Snapshot<T["state"]>> {
+  async function processIntent(intent: TypedIntent<T>): Promise<Snapshot<T["state"]>> {
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
@@ -461,7 +461,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     return publishedSnapshot;
   }
 
-  function dispatchAsync(intent: Intent): Promise<Snapshot<T["state"]>> {
+  function dispatchAsync(intent: TypedIntent<T>): Promise<Snapshot<T["state"]>> {
     if (kernel.isDisposed()) {
       return Promise.reject(new DisposedError());
     }

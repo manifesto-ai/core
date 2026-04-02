@@ -144,7 +144,7 @@ export function createAutoBinding(): ActorAuthorityBinding {
 
 export function createExecutionConfig(
   projectionId: string,
-): GovernanceExecutionConfig {
+): GovernanceExecutionConfig<CounterDomain> {
   return {
     projectionId,
     deriveActor: () => ({

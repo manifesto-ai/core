@@ -30,9 +30,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./internal": {
-      "types": "./dist/internal.d.ts",
-      "import": "./dist/internal.js"
+    "./provider": {
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js"
     }
   },
   "files": [
@@ -43,7 +43,9 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
-    "test": "vitest run",
+    "test": "pnpm run test:runtime && pnpm run test:types",
+    "test:runtime": "vitest run",
+    "test:types": "tsc -p tsconfig.types.json --noEmit",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {

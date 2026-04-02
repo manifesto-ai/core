@@ -12,7 +12,7 @@ import {
 import {
   createLineageService,
   type LineageService,
-} from "@manifesto-ai/lineage/internal";
+} from "@manifesto-ai/lineage/provider";
 
 import {
   createInMemoryGovernanceStore,
@@ -24,9 +24,9 @@ import {
 
 const lineageSealCalls = vi.hoisted(() => [] as Array<{ executionKey?: string }>);
 
-vi.mock("@manifesto-ai/lineage/internal", async () => {
-  const actual = await vi.importActual<typeof import("@manifesto-ai/lineage/internal")>(
-    "@manifesto-ai/lineage/internal",
+vi.mock("@manifesto-ai/lineage/provider", async () => {
+  const actual = await vi.importActual<typeof import("@manifesto-ai/lineage/provider")>(
+    "@manifesto-ai/lineage/provider",
   );
 
   return {
@@ -228,7 +228,10 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(governed.getSnapshot().data.count).toBe(1);
 
     const head = await governed.getLatestHead();
+    const sealedSnapshot = await governed.getWorldSnapshot(head!.worldId);
+
     expect(head).not.toBeNull();
+    expect(sealedSnapshot?.data.count).toBe(1);
   });
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {

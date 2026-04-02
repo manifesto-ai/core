@@ -8,7 +8,7 @@
 
 In Manifesto, you do not call domain methods that mutate state directly. You submit an `Intent` and let the runtime compute the next terminal Snapshot.
 
-At the runtime level, an intent is the unit that goes into `dispatchAsync()` or `proposeAsync()`.
+At the runtime level, an intent is the unit that goes into `dispatchAsync(intent)`. The same typed intent also flows through lineage `commitAsync(intent)` and governance `proposeAsync(intent)`.
 
 ---
 
@@ -18,7 +18,7 @@ The direct-dispatch path and the governed path use related but different inputs:
 
 | Type | Used By | Purpose |
 |------|---------|---------|
-| `Intent` | `@manifesto-ai/sdk`, governed activated runtimes | Request a typed Snapshot transition |
+| `Intent` | `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, governed activated runtimes | Request a typed Snapshot transition |
 | `IntentInstance` | `@manifesto-ai/governance` low-level helpers | Carry actor, source, and projection context before proposal orchestration |
 
 `Intent` is the canonical public request object. `IntentInstance` exists when you need to materialize governed provenance outside the activated runtime methods.
@@ -46,6 +46,7 @@ await app.dispatchAsync(intent);
 ```
 
 That keeps the `intentId` stable while avoiding stringly-typed public calls.
+Lineage and governance keep the same typed intent object while promoting the runtime verb to `commitAsync()` and `proposeAsync()`.
 
 ---
 

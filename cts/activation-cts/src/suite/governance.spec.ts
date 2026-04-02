@@ -7,7 +7,7 @@ import {
   createInMemoryLineageStore,
   withLineage,
 } from "@manifesto-ai/lineage";
-import { createLineageService } from "@manifesto-ai/lineage/internal";
+import { createLineageService } from "@manifesto-ai/lineage/provider";
 import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {

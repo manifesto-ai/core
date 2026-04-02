@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": [
+    "src/__tests__/types/**/*.ts",
+    "src/__tests__/helpers/schema.ts",
+    "src/__tests__/helpers/foreign-schema.ts"
+  ]
+}

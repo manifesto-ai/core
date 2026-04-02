@@ -71,7 +71,6 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.26.0",
-    "@manifesto-ai/codegen": "^0.1.5",
     "@manifesto-ai/core": "^2.0.0",
     "openai": "^4.0.0",
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
@@ -79,9 +78,6 @@
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "@manifesto-ai/codegen": {
       "optional": true
     },
     "openai": {
@@ -101,7 +97,6 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
-    "@manifesto-ai/codegen": "workspace:*",
     "@manifesto-ai/core": "workspace:*",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",

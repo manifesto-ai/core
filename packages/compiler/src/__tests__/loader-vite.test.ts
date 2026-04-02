@@ -59,6 +59,56 @@ describe("unplugin core", () => {
     expect(plugin.transformInclude("/tmp/counter.manifesto")).toBe(true);
     expect(plugin.transformInclude("/tmp/counter.mel")).toBe(false);
   });
+
+  it("emits compiled schemas through an injected codegen handler", async () => {
+    const emit = vi.fn(async () => {});
+    const plugin = unpluginMel.raw({ codegen: emit });
+    const sourcePath = join(process.cwd(), "src/domain/counter.mel");
+
+    plugin.transform(VALID_MEL, sourcePath);
+    await plugin.buildEnd?.call(plugin);
+
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceId: "src/domain/counter.mel",
+        schema: expect.objectContaining({
+          actions: expect.objectContaining({
+            increment: expect.any(Object),
+          }),
+        }),
+      })
+    );
+  });
+
+  it("keeps external absolute source IDs collision-free for codegen", async () => {
+    const emit = vi.fn(async () => {});
+    const plugin = unpluginMel.raw({ codegen: emit });
+
+    plugin.transform(VALID_MEL, "/tmp/workspace-a/domain/counter.mel");
+    plugin.transform(VALID_MEL, "/var/tmp/workspace-b/domain/counter.mel");
+    await plugin.buildEnd?.call(plugin);
+
+    expect(emit).toHaveBeenCalledTimes(2);
+
+    const sourceIds = emit.mock.calls.map(([artifact]) => artifact.sourceId);
+    expect(new Set(sourceIds).size).toBe(2);
+    for (const sourceId of sourceIds) {
+      expect(sourceId).toMatch(/^external\/counter--[a-f0-9]{12}\.mel$/);
+    }
+  });
+
+  it("rejects codegen config objects without a callable emit function", () => {
+    const invalidCodegen: unknown = { outDir: "." };
+
+    expect(() =>
+      unpluginMel.raw({
+        codegen: invalidCodegen as never,
+      })
+    ).toThrow(
+      "manifesto:mel codegen must be a function or an object with a callable emit field"
+    );
+  });
 });
 
 describe("vite export", () => {

@@ -13,8 +13,9 @@ Use this package when you want:
 - `withLineage(createManifesto(...), config).activate()`
 - seal-aware `commitAsync`
 - head, branch, world, and restore APIs on the activated runtime
+- `getWorldSnapshot(worldId)` for stored sealed snapshot inspection by world id
 - `getLineage()` for DAG inspection
-- direct access to `@manifesto-ai/lineage/internal` for low-level persistence and tooling
+- direct access to `@manifesto-ai/lineage/provider` for low-level persistence and tooling
 
 ## Canonical Runtime Surface
 
@@ -33,8 +34,8 @@ const world = withLineage(
 - `withLineage()` and `LineageConfig`
 - activated `LineageInstance<T>`
 - lineage-aware `commitAsync` that seals before publication
-- `restore`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
-- continuity ownership plus the internal provider surface
+- `restore`, `getWorld`, `getWorldSnapshot`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
+- continuity ownership plus the provider surface
 
 ## Runtime Meaning
 

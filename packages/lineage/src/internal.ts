@@ -6,9 +6,9 @@ import {
   type LineageLaws,
   type ManifestoDomainShape,
   type Snapshot,
+  type TypedIntent,
 } from "@manifesto-ai/sdk";
-import type { HostDispatchOptions, RuntimeKernel } from "@manifesto-ai/sdk/internal";
-import type { Intent } from "@manifesto-ai/core";
+import type { HostDispatchOptions, RuntimeKernel } from "@manifesto-ai/sdk/provider";
 
 import type { LineageConfig } from "./runtime-types.js";
 import type {
@@ -67,7 +67,7 @@ export type SealIntentOptions = {
 };
 
 export type SealedIntentResult<T extends ManifestoDomainShape> = {
-  readonly intent: Intent;
+  readonly intent: TypedIntent<T>;
   readonly hostResult: Awaited<ReturnType<RuntimeKernel<T>["executeHost"]>>;
   readonly preparedCommit: PreparedNextCommit;
   readonly publishedSnapshot?: Snapshot<T["state"]>;
@@ -76,10 +76,11 @@ export type SealedIntentResult<T extends ManifestoDomainShape> = {
 export interface LineageRuntimeController<T extends ManifestoDomainShape> {
   ensureReady(): Promise<void>;
   sealIntent(
-    intent: Intent,
+    intent: TypedIntent<T>,
     options?: SealIntentOptions,
   ): Promise<SealedIntentResult<T>>;
   getWorld(worldId: WorldId): Promise<World | null>;
+  getWorldSnapshot(worldId: WorldId): Promise<Snapshot<T["state"]> | null>;
   getLineage(): Promise<WorldLineage>;
   getLatestHead(): Promise<WorldHead | null>;
   getHeads(): Promise<readonly WorldHead[]>;
@@ -192,7 +193,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
   }
 
   async function sealIntent(
-    intent: Intent,
+    intent: TypedIntent<T>,
     options?: SealIntentOptions,
   ): Promise<SealedIntentResult<T>> {
     if (kernel.isDisposed()) {
@@ -281,6 +282,12 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
   async function getWorld(worldId: WorldId): Promise<World | null> {
     await ensureReady();
     return service.getWorld(worldId);
+  }
+
+  async function getWorldSnapshot(worldId: WorldId): Promise<Snapshot<T["state"]> | null> {
+    await ensureReady();
+    const snapshot = await service.getSnapshot(worldId);
+    return snapshot as Snapshot<T["state"]> | null;
   }
 
   async function getLineage(): Promise<WorldLineage> {
@@ -408,6 +415,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     ensureReady,
     sealIntent,
     getWorld,
+    getWorldSnapshot,
     getLineage,
     getLatestHead,
     getHeads,

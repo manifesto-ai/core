@@ -51,6 +51,8 @@ const governed = withGovernance(
 4. Let Governance auto-approve or return a pending proposal.
 5. Read sealed history through Lineage queries such as `getLatestHead()` and `restore()`.
 
+Use `getWorldSnapshot(worldId)` when you need the stored sealed snapshot substrate for a committed world. Use `restore(worldId)` when you need the normalized runtime resume path.
+
 ## Store Choices
 
 Use the store surfaces from the owning packages directly:

@@ -27,12 +27,15 @@ import {
   createRuntimeKernel,
 } from "./internal.js";
 import {
+  type ActionArgs,
   type BaseComposableLaws,
   type ComposableManifesto,
   type EffectHandler,
   type ManifestoDomainShape,
   type Snapshot,
   type TypedActionRef,
+  type TypedCreateIntent,
+  type TypedIntent,
   type TypedMEL,
 } from "./types.js";
 import {
@@ -352,11 +355,11 @@ function buildTypedMel<T extends ManifestoDomainShape>(
   }) as unknown as TypedMEL<T>;
 }
 
-function buildCreateIntent<T extends ManifestoDomainShape>(): (
-  action: TypedActionRef<T, keyof T["actions"]>,
-  ...args: unknown[]
-) => Intent {
-  return (action, ...args) => {
+function buildCreateIntent<T extends ManifestoDomainShape>(): TypedCreateIntent<T> {
+  return <K extends keyof T["actions"]>(
+    action: TypedActionRef<T, K>,
+    ...args: ActionArgs<T, K>
+  ): TypedIntent<T, K> => {
     const actionRef = action as unknown as RuntimeActionRef;
     const intentId = generateUUID();
     const input = packIntentInput(actionRef, args);
@@ -364,7 +367,7 @@ function buildCreateIntent<T extends ManifestoDomainShape>(): (
       String(action.name),
       input,
       intentId,
-    );
+    ) as TypedIntent<T, K>;
   };
 }
 

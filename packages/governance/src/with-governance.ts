@@ -2,6 +2,7 @@ import type {
   ComposableManifesto,
   GovernanceLaws,
   ManifestoDomainShape,
+  TypedIntent,
 } from "@manifesto-ai/sdk";
 import {
   DisposedError,
@@ -14,8 +15,7 @@ import {
   getActivationState,
   getRuntimeKernelFactory,
   type RuntimeKernel,
-} from "@manifesto-ai/sdk/internal";
-import type { Intent as CoreIntent } from "@manifesto-ai/core";
+} from "@manifesto-ai/sdk/provider";
 import {
   type BranchId,
 } from "@manifesto-ai/lineage";
@@ -23,7 +23,7 @@ import {
   createLineageRuntimeController,
   getLineageDecoration,
   type ResolvedLineageConfig,
-} from "@manifesto-ai/lineage/internal";
+} from "@manifesto-ai/lineage/provider";
 
 import { createAuthorityEvaluator, type AuthorityEvaluator } from "./authority/evaluator.js";
 import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
@@ -57,7 +57,7 @@ export function withGovernance<
   T extends ManifestoDomainShape,
 >(
   manifesto: LineageComposableManifestoInput<T>,
-  config: GovernanceConfig,
+  config: GovernanceConfig<T>,
 ): GovernanceComposableManifesto<T> {
   assertComposableNotActivated(manifesto);
 
@@ -101,7 +101,7 @@ export function withGovernance<
 function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   kernel: RuntimeKernel<T>,
   lineageConfig: ResolvedLineageConfig,
-  config: GovernanceConfig,
+  config: GovernanceConfig<T>,
 ): GovernanceInstance<T> {
   const governanceStore = config.governanceStore ?? createInMemoryGovernanceStore();
   const governanceService = createGovernanceService(governanceStore, {
@@ -195,7 +195,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
 
   async function finalizeApprovedExecution(
     executingProposal: Proposal & { readonly status: "executing" },
-    intent: CoreIntent,
+    intent: TypedIntent<T>,
   ): Promise<Proposal> {
     let sealed: Awaited<ReturnType<typeof lineage.sealIntent>> | null = null;
     let terminalProposal: Proposal | null = null;
@@ -301,10 +301,10 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     const executingProposal = governanceService.beginExecution(prepared.proposal);
     await governanceStore.putProposal(executingProposal);
 
-    return finalizeApprovedExecution(executingProposal, toCoreIntent(prepared.proposal));
+    return finalizeApprovedExecution(executingProposal, toTypedIntent<T>(prepared.proposal));
   }
 
-  async function proposeAsync(intent: CoreIntent): Promise<Proposal> {
+  async function proposeAsync(intent: TypedIntent<T>): Promise<Proposal> {
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
@@ -496,6 +496,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     dispose: kernel.dispose,
     restore: lineage.restore,
     getWorld: lineage.getWorld,
+    getWorldSnapshot: lineage.getWorldSnapshot,
     getLineage: lineage.getLineage,
     getLatestHead: lineage.getLatestHead,
     getHeads: lineage.getHeads,
@@ -516,15 +517,15 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   return governed satisfies GovernanceInstance<T>;
 }
 
-function toCoreIntent(proposal: Proposal): CoreIntent {
+function toTypedIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {
   return {
     type: proposal.intent.type,
     intentId: proposal.intent.intentId,
     ...(proposal.intent.input !== undefined ? { input: proposal.intent.input } : {}),
-  };
+  } as TypedIntent<T>;
 }
 
-function hasScopeProposal(intent: CoreIntent): intent is CoreIntent & {
+function hasScopeProposal<T extends ManifestoDomainShape>(intent: TypedIntent<T>): intent is TypedIntent<T> & {
   readonly scopeProposal: IntentScope;
 } {
   return "scopeProposal" in intent && intent.scopeProposal !== undefined;

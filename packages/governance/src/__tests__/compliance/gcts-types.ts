@@ -11,7 +11,7 @@ import type {
   RuleMode,
 } from "@manifesto-ai/cts-kit";
 import type { ProposalStatus } from "../../index.js";
-import type { DefaultGovernanceService, InMemoryGovernanceStore } from "../../index.js";
+import type { DefaultGovernanceService, InMemoryGovernanceStore } from "../../provider.js";
 
 export const GCTS_SUITES = [
   "lifecycle",

@@ -1,0 +1,113 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const pkg = process.argv[2];
+
+if (!pkg) {
+  throw new Error("usage: node scripts/check-public-surface.mjs <package-path>");
+}
+
+const rules = {
+  "packages/lineage": {
+    allow: new Set([
+      "ArtifactRef",
+      "BranchId",
+      "BranchInfo",
+      "BranchSwitchResult",
+      "World",
+      "WorldHead",
+      "WorldId",
+      "WorldLineage",
+      "LineageConfig",
+      "LineageInstance",
+      "InMemoryLineageStore",
+      "createInMemoryLineageStore",
+      "withLineage",
+    ]),
+  },
+  "packages/governance": {
+    allow: new Set([
+      "ActorAuthorityBinding",
+      "ActorId",
+      "ActorKind",
+      "ActorRef",
+      "AuthorityId",
+      "AuthorityKind",
+      "AuthorityPolicy",
+      "AuthorityRef",
+      "DecisionId",
+      "DecisionRecord",
+      "ErrorInfo",
+      "FinalDecision",
+      "GovernanceComposableManifesto",
+      "GovernanceConfig",
+      "GovernanceEvent",
+      "GovernanceEventSink",
+      "GovernanceEventType",
+      "GovernanceExecutionConfig",
+      "GovernanceInstance",
+      "IntentScope",
+      "PolicyCondition",
+      "PolicyRule",
+      "Proposal",
+      "ProposalId",
+      "ProposalStatus",
+      "QuorumRule",
+      "SourceKind",
+      "SourceRef",
+      "SupersedeReason",
+      "Vote",
+      "WaitingFor",
+      "createInMemoryGovernanceStore",
+      "createNoopGovernanceEventSink",
+      "withGovernance",
+    ]),
+  },
+};
+
+const rule = rules[pkg];
+if (!rule) {
+  throw new Error(`no public-surface rule configured for ${pkg}`);
+}
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..");
+const dtsPath = path.join(repoRoot, pkg, "dist/index.d.ts");
+const source = readFileSync(dtsPath, "utf8");
+const exportMatches = [...source.matchAll(/export(?:\s+type)?\s*\{([^}]+)\}/g)];
+const exportedNames = new Set();
+
+for (const match of exportMatches) {
+  const block = match[1] ?? "";
+  for (const rawPart of block.split(",")) {
+    const part = rawPart.trim();
+    if (!part) {
+      continue;
+    }
+
+    const cleaned = part.replace(/^type\s+/, "");
+    const aliasMatch = cleaned.match(/^(.+?)\s+as\s+(.+)$/);
+    const exported = (aliasMatch ? aliasMatch[2] : cleaned).trim();
+    exportedNames.add(exported);
+  }
+}
+
+const unexpected = [...exportedNames]
+  .filter((name) => !rule.allow.has(name))
+  .sort();
+
+if (unexpected.length > 0) {
+  throw new Error(
+    `${pkg} dist/index.d.ts exports unexpected root symbols: ${unexpected.join(", ")}`,
+  );
+}
+
+const aliasMatches = [...source.matchAll(/\bas\s+([A-Za-z])\b/g)]
+  .map((match) => match[1]);
+
+if (aliasMatches.length > 0) {
+  throw new Error(
+    `${pkg} dist/index.d.ts contains one-letter export aliases: ${aliasMatches.join(", ")}`,
+  );
+}

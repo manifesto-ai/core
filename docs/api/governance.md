@@ -47,6 +47,9 @@ Governed runtimes keep the lineage query surface, but remove direct execution:
 - `getActorBinding(actorId)`
 - `getDecisionRecord(decisionId)`
 
+Lineage queries such as `getWorldSnapshot(worldId)`, `getLatestHead()`, and `getBranches()` remain available.
+`getWorldSnapshot(worldId)` remains the stored sealed snapshot lookup inherited from lineage. `restore(worldId)` remains the normalized resume path.
+
 `dispatchAsync` and `commitAsync` are intentionally absent.
 
 ## Lineage Guarantee
@@ -57,14 +60,7 @@ Governed runtimes keep the lineage query surface, but remove direct execution:
 
 ## Low-Level Protocol Surface
 
-The package still exports low-level seams such as:
-
-- `createGovernanceService()`
-- `createGovernanceEventDispatcher()`
-- `createInMemoryGovernanceStore()`
-- `createAuthorityEvaluator()`
-
-Those remain useful for protocol tests and custom orchestration, but they are no longer the canonical app-facing entry.
+Use `@manifesto-ai/governance/provider` for low-level seams such as `createGovernanceService()`, `createGovernanceEventDispatcher()`, `createAuthorityEvaluator()`, and authority handlers. `createInMemoryGovernanceStore()` remains available from the root package as a consumer-safe bootstrap helper.
 
 ## Related Docs
 
