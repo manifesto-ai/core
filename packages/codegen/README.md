@@ -23,7 +23,7 @@ DomainSchema -> CODEGEN -> Generated Files
 
 | Responsibility | Description |
 |----------------|-------------|
-| Generate canonical domain facades | DomainSchema -> `<domain>.mel.ts` with `state` / `computed` / `actions` |
+| Generate canonical domain facades | DomainSchema -> `<domain>.domain.ts` with `state` / `computed` / `actions` |
 | Generate legacy TS/Zod artifacts | Optional low-level `types.ts` / `base.ts` output |
 | Generate Zod schemas | DomainSchema types -> Zod validators with type annotations |
 | Plugin pipeline | Run plugins sequentially with shared artifacts |
@@ -71,11 +71,11 @@ const result = await generate({
   plugins: [createDomainPlugin()],
 });
 
-// result.files -> [{ path: "src/domain/hello.mel.ts", content: "..." }]
+// result.files -> [{ path: "src/domain/hello.domain.ts", content: "..." }]
 // result.diagnostics -> [] (empty = no warnings or errors)
 ```
 
-For bundler-time emission, inject Codegen explicitly into the compiler plugin:
+For compiler-driven emission during dev or build, inject Codegen explicitly into the compiler plugin:
 
 ```typescript
 import { defineConfig } from "vite";
@@ -85,7 +85,10 @@ import { createCompilerCodegen } from "@manifesto-ai/codegen";
 export default defineConfig({
   plugins: [
     melPlugin({
-      codegen: createCompilerCodegen(),
+      codegen: {
+        emit: createCompilerCodegen(),
+        timing: "transform",
+      },
     }),
   ],
 });
@@ -93,7 +96,7 @@ export default defineConfig({
 
 This produces a canonical domain facade:
 
-**src/domain/hello.mel.ts**
+**src/domain/hello.domain.ts**
 ```typescript
 export interface HelloDomain {
   readonly state: {
@@ -189,14 +192,14 @@ Same DomainSchema always produces byte-identical output files. Fields and types 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Reads DomainSchema, TypeDefinition, TypeSpec |
-| Used by | Build scripts | Called during build to generate type-safe code |
+| Used by | Build scripts / compiler plugin | Called during dev or build to generate type-safe code |
 
 ---
 
 ## When to Use Codegen
 
 Use Codegen when:
-- You want a canonical `<domain>.mel.ts` facade for `createManifesto<T>()`
+- You want a canonical `<domain>.domain.ts` facade for `createManifesto<T>()`
 - You want type-safe TypeScript interfaces from your DomainSchema
 - You want Zod runtime validators that match your schema types
 - You need deterministic, reproducible code generation in CI

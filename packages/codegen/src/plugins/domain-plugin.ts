@@ -133,11 +133,12 @@ function deriveInterfaceName(ctx: CodegenContext): string | null {
 
 function deriveFileName(sourceId?: string): string {
   if (!sourceId) {
-    return "domain.ts";
+    return "domain.domain.ts";
   }
 
   const normalized = sourceId.replace(/\\/g, "/");
-  return `${normalized}.ts`;
+  const stem = normalized.replace(/\.[^.]+$/, "");
+  return `${stem}.domain.ts`;
 }
 
 function basenameWithoutExtension(sourceId?: string): string | null {
