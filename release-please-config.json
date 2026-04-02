@@ -6,8 +6,8 @@
   "include-component-in-tag": true,
   "include-v-in-tag": true,
   "always-link-local": true,
-  "group-pull-request-title-pattern": "chore: release linked packages",
-  "pull-request-title-pattern": "chore: release${component} ${version}",
+  "group-pull-request-title-pattern": "chore: release ${branch}",
+  "pull-request-title-pattern": "chore: release ${branch}",
   "plugins": [
     {
       "type": "node-workspace",
