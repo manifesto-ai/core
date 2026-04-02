@@ -6,5 +6,7 @@ export default defineConfig({
   tsconfig: "tsconfig.build.json",
   dts: false,
   clean: true,
-  sourcemap: true,
+  sourcemap: false,
+  minify: true,
+  external: ["zod"],
 });
