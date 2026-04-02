@@ -21,7 +21,7 @@ describe("createManifesto()", () => {
   it("returns a composable manifesto with normalized schema and no runtime verbs", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
 
-    expect(manifesto.schema.state.fields.$host).toBeDefined();
+    expect(manifesto.schema.state.fields["$host"]).toBeDefined();
     expect(manifesto.schema.state.fields.$mel).toBeDefined();
     expect("activate" in manifesto).toBe(true);
     expect("dispatchAsync" in manifesto).toBe(false);
@@ -79,6 +79,63 @@ domain Todos {
 
     const intent = world.createIntent(world.MEL.actions.addTodo, "Write docs", "todo-1");
     expect(intent.input).toEqual({ title: "Write docs", id: "todo-1" });
+
+    world.dispose();
+  });
+
+  it("accepts object-form binding for MEL actions with multiple parameters", () => {
+    type TodoDomain = {
+      actions: {
+        addTodo: (title: string, id: string) => void;
+        clearCompleted: () => void;
+      };
+      state: {
+        todos: Array<{ id: string; title: string }>;
+      };
+      computed: {};
+    };
+
+    const world = createManifesto<TodoDomain>(`
+domain Todos {
+  state { todos: Array<{ id: string, title: string }> = [] }
+
+  action addTodo(title: string, id: string) {
+    onceIntent {
+      patch todos = append(todos, { id: id, title: title })
+    }
+  }
+
+  action clearCompleted() {
+    onceIntent {
+      patch todos = todos
+    }
+  }
+}
+`, {}).activate();
+
+    const intent = world.createIntent(world.MEL.actions.addTodo, {
+      title: "Write docs",
+      id: "todo-1",
+    });
+
+    expect(intent.input).toEqual({ title: "Write docs", id: "todo-1" });
+
+    const metadata = world.getActionMetadata("addTodo");
+    expect(metadata.name).toBe("addTodo");
+    expect(metadata.params).toEqual(["title", "id"]);
+    expect(metadata.input).toMatchObject({
+      type: "object",
+      required: true,
+      fields: {
+        title: { type: "string", required: true },
+        id: { type: "string", required: true },
+      },
+    });
+    expect(metadata.description).toBeUndefined();
+    expect(world.getActionMetadata().map((action) => action.name)).toEqual([
+      "addTodo",
+      "clearCompleted",
+    ]);
 
     world.dispose();
   });
@@ -159,6 +216,87 @@ domain Todos {
       world.MEL.actions.addTodo,
       { id: "todo-1", title: "Write docs" },
     ).input).toEqual({ id: "todo-1", title: "Write docs" });
+
+    world.dispose();
+  });
+
+  it("exposes schema descriptions and manual object-input metadata", () => {
+    type TodoDomain = {
+      actions: {
+        addTodo: (title: string, id: string) => void;
+        clearCompleted: () => void;
+      };
+      state: {
+        todos: Array<{ id: string; title: string }>;
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-action-metadata",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          todos: {
+            type: "array",
+            required: false,
+            default: [],
+            items: {
+              type: "object",
+              required: true,
+              fields: {
+                id: { type: "string", required: true },
+                title: { type: "string", required: true },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        addTodo: {
+          description: "Append a todo item",
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              id: { type: "string", required: true },
+              title: { type: "string", required: true },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.todos",
+            value: {
+              kind: "append",
+              array: { kind: "get", path: "todos" },
+              items: [{ kind: "get", path: "input" }],
+            },
+          },
+        },
+        clearCompleted: {
+          description: "Remove completed todos",
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.todos",
+            value: { kind: "get", path: "todos" },
+          },
+        },
+      },
+    });
+
+    const world = createManifesto<TodoDomain>(schema, {}).activate();
+    const addTodo = world.getActionMetadata("addTodo");
+    const clearCompleted = world.getActionMetadata("clearCompleted");
+
+    expect(addTodo.params).toEqual(["id", "title"]);
+    expect(addTodo.description).toBe("Append a todo item");
+    expect(clearCompleted.params).toEqual([]);
+    expect(clearCompleted.input).toBeUndefined();
+    expect(clearCompleted.description).toBe("Remove completed todos");
 
     world.dispose();
   });

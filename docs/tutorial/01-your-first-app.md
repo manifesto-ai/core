@@ -142,7 +142,7 @@ That action is unsafe. It describes an unconditional state change with no marker
 
 ### Reaching for raw string action names in app code
 
-The preferred app-facing path is `world.createIntent(world.MEL.actions.someAction, ...args)`, not stringly-typed action names.
+The preferred app-facing path is `world.createIntent(world.MEL.actions.someAction, ...args)` or `world.createIntent(world.MEL.actions.someAction, { ...params })`, not stringly-typed action names.
 
 ### Reading stale state without awaiting execution
 

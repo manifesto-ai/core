@@ -81,7 +81,7 @@ Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageSto
 ## 7. Related Docs
 
 - [Lineage README](../README.md)
-- [Lineage Specification](lineage-SPEC-v3.0.0-draft.md)
+- [Lineage Specification](lineage-SPEC.md)
 - [Version Index](VERSION-INDEX.md)
 - [SDK API](../../../docs/api/sdk.md)
 - [Lineage API](../../../docs/api/lineage.md)

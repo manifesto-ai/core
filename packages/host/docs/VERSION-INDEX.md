@@ -41,7 +41,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 ## Notes
 
-- [host-SPEC.md](host-SPEC.md) is the truthful current contract.
+- [host-SPEC.md](host-SPEC.md) is the current living contract.
 - Host current Snapshot references now follow Core v4 current shape: `lastError` remains, accumulated `system.errors` is removed.
 - The retained host v4 draft file is historical drafting context for the landed alignment and restore-boundary wording.
 - Host v1.0.0 and v1.1.0 SPEC/FDR documents predate the v2.0 rewrite and are not included in this repo.

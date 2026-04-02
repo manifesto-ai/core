@@ -16,6 +16,10 @@ export default defineConfig({
         find: "@manifesto-ai/sdk",
         replacement: fromHere("../sdk/src/index.ts"),
       },
+      {
+        find: "@manifesto-ai/cts-kit",
+        replacement: fromHere("../../cts/cts-kit/src/index.ts"),
+      },
     ],
   },
   test: {

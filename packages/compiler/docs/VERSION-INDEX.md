@@ -10,7 +10,7 @@
 - **SPEC:** [v0.7.0](SPEC-v0.7.0.md) (Full)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** v0.7.0 adds statement composition via `flow` / `include` (ADR-013a) and entity collection primitives `findById()`, `existsById()`, `updateById()`, `removeById()` (ADR-013b). FDR remains at v0.5.0 baseline.
+**Note:** v0.7.0 is the current normative MEL compiler contract. It adds statement composition via `flow` / `include` (ADR-013a) and entity collection primitives `findById()`, `existsById()`, `updateById()`, `removeById()` (ADR-013b). FDR remains at the v0.5.0 rationale baseline.
 
 ---
 
@@ -18,7 +18,7 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v0.7.0 | [SPEC](SPEC-v0.7.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
+| v0.7.0 | [SPEC](SPEC-v0.7.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
 | v0.6.0 | — (historical baseline; no standalone file in repo) | [FDR](FDR-v0.5.0.md) | Full | Superseded by v0.7.0 |
 | v0.5.0 | [SPEC](SPEC-v0.5.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
 | v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Merged |

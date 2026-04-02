@@ -73,6 +73,18 @@ export type ActionArgs<
   K extends keyof T["actions"],
 > = T["actions"][K] extends (...args: infer P) => unknown ? P : never;
 
+export type ActionObjectBindingArgs<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"],
+> = ActionArgs<T, K> extends [unknown, unknown, ...unknown[]]
+  ? [params: Record<string, unknown>]
+  : never;
+
+export type CreateIntentArgs<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"],
+> = ActionArgs<T, K> | ActionObjectBindingArgs<T, K>;
+
 export type Selector<T, R> = (snapshot: Snapshot<T>) => R;
 export type Unsubscribe = () => void;
 
@@ -92,7 +104,7 @@ export type TypedCreateIntent<T extends ManifestoDomainShape> = <
   K extends keyof T["actions"],
 >(
   action: TypedActionRef<T, K>,
-  ...args: ActionArgs<T, K>
+  ...args: CreateIntentArgs<T, K>
 ) => TypedIntent<T, K>;
 
 export type TypedDispatchAsync<T extends ManifestoDomainShape> = (
@@ -105,6 +117,21 @@ export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   selector: Selector<T["state"], R>,
   listener: (value: R) => void,
 ) => Unsubscribe;
+
+export type TypedActionMetadata<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"] = keyof T["actions"],
+> = {
+  readonly name: K;
+  readonly params: readonly string[];
+  readonly input: DomainSchema["actions"][string]["input"];
+  readonly description: string | undefined;
+};
+
+export type TypedGetActionMetadata<T extends ManifestoDomainShape> = {
+  (): readonly TypedActionMetadata<T>[];
+  <K extends keyof T["actions"]>(name: K): TypedActionMetadata<T, K>;
+};
 
 export interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:completed": {
@@ -147,6 +174,7 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
+  readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;

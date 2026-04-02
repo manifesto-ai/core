@@ -1,6 +1,7 @@
 # ADR-014: Split World Protocol into Governance and Lineage Packages
 
-> **Status:** Accepted
+> **Status:** Implemented
+> **Implemented In:** `@manifesto-ai/lineage`, `@manifesto-ai/governance`, ADR-017 decorator composition, current package version indexes, and the world-package retirement path
 > **Date:** 2026-03-28
 > **Deciders:** Sungwoo Jung, Manifesto Architecture Team
 > **Scope:** `@manifesto-ai/world`, `@manifesto-ai/governance`, `@manifesto-ai/lineage`, SDK composition, docs/release

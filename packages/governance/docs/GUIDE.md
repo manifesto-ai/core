@@ -107,6 +107,6 @@ Those are useful when you are testing lifecycle invariants directly. They are no
 ## Related Docs
 
 - [Governance README](../README.md)
-- [Governance Specification](governance-SPEC-v3.0.0-draft.md)
+- [Governance Specification](governance-SPEC.md)
 - [Historical v2 Baseline](governance-SPEC-2.0.0v.md)
 - [Governance Version Index](VERSION-INDEX.md)

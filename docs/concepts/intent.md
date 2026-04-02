@@ -39,6 +39,15 @@ const intent = app.createIntent(
 );
 ```
 
+Multi-parameter actions also support a single object argument when you want to bind by field name instead of position:
+
+```typescript
+const intent = app.createIntent(app.MEL.actions.addTodo, {
+  id: crypto.randomUUID(),
+  title: "Review the docs",
+});
+```
+
 Then dispatch it:
 
 ```typescript
@@ -47,6 +56,19 @@ await app.dispatchAsync(intent);
 
 That keeps the `intentId` stable while avoiding stringly-typed public calls.
 Lineage and governance keep the same typed intent object while promoting the runtime verb to `commitAsync()` and `proposeAsync()`.
+
+---
+
+## Binding rules
+
+Current SDK rules are:
+
+- zero-parameter actions: `createIntent(action)`
+- single-parameter actions: `createIntent(action, value)`
+- multi-parameter actions with positional metadata: `createIntent(action, ...args)` or `createIntent(action, { ...params })`
+- hand-authored multi-field object inputs without positional metadata: prefer `createIntent(action, { ...params })`
+
+The runtime still owns the canonical `Intent.input` packing step.
 
 ---
 
@@ -106,11 +128,10 @@ import TodoMel from "./todo.mel";
 const app = createManifesto(TodoMel, {}).activate();
 
 await app.dispatchAsync(
-  app.createIntent(
-    app.MEL.actions.addTodo,
-    crypto.randomUUID(),
-    "Ship the rewrite",
-  ),
+  app.createIntent(app.MEL.actions.addTodo, {
+    id: crypto.randomUUID(),
+    title: "Ship the rewrite",
+  }),
 );
 
 console.log(app.getSnapshot().data);
@@ -128,9 +149,9 @@ The intent is the request. The snapshot is the result.
 
 You can construct the object yourself, but `createIntent()` is the safer and clearer path for current SDK usage.
 
-### Assuming `dispatch()` completes synchronously
+### Assuming `dispatchAsync()` gives you anything other than the next terminal snapshot
 
-`dispatch()` enqueues work and returns immediately. Use telemetry or read the next terminal snapshot later.
+`dispatchAsync()` resolves with the next terminal snapshot. It does not bypass Snapshot-first semantics or hand you raw effect results directly.
 
 ---
 

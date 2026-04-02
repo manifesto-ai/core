@@ -27,7 +27,7 @@ import {
   createRuntimeKernel,
 } from "./internal.js";
 import {
-  type ActionArgs,
+  type CreateIntentArgs,
   type BaseComposableLaws,
   type ComposableManifesto,
   type EffectHandler,
@@ -358,7 +358,7 @@ function buildTypedMel<T extends ManifestoDomainShape>(
 function buildCreateIntent<T extends ManifestoDomainShape>(): TypedCreateIntent<T> {
   return <K extends keyof T["actions"]>(
     action: TypedActionRef<T, K>,
-    ...args: ActionArgs<T, K>
+    ...args: CreateIntentArgs<T, K>
   ): TypedIntent<T, K> => {
     const actionRef = action as unknown as RuntimeActionRef;
     const intentId = generateUUID();

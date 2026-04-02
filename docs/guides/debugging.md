@@ -71,7 +71,25 @@ const intent = world.createIntent(world.MEL.actions.fetchUser, "123");
 await world.dispatchAsync(intent);
 ```
 
+For multi-parameter actions, object-form binding is also a supported public path:
+
+```typescript
+const intent = world.createIntent(world.MEL.actions.addTodo, {
+  id: "todo-1",
+  title: "Review docs",
+});
+await world.dispatchAsync(intent);
+```
+
 That keeps app code on the typed `MEL.actions.*` surface and lets the runtime pack the canonical object-shaped input expected by the compiled action.
+
+If you need to see exactly what the runtime thinks the action contract is, inspect it directly:
+
+```typescript
+console.log(world.getActionMetadata("addTodo"));
+```
+
+That is often faster than reconstructing the expected input shape from source.
 
 ---
 
@@ -96,9 +114,9 @@ If the returned patches are wrong, the problem is in the handler. If the patches
 
 Remember how `subscribe()` behaves today:
 
-- It does not emit immediately on registration
-- It compares selected values with `Object.is`
-- It runs after terminal snapshots, not during intermediate work
+- it does not emit immediately on registration
+- it compares selected values with `Object.is`
+- it runs after terminal snapshots, not during intermediate work
 
 If you subscribe to a value that does not actually change, your listener will not fire.
 
@@ -108,9 +126,9 @@ If you subscribe to a value that does not actually change, your listener will no
 
 If an action appears to run more than once, look for:
 
-- Missing `onceIntent`
-- An unguarded effect declaration
-- A state-driven loop that no longer changes its exit condition
+- missing `onceIntent`
+- an unguarded effect declaration
+- a state-driven loop that no longer changes its exit condition
 
 Use the [Re-entry Safety](./reentry-safe-flows) guide for that class of bug.
 

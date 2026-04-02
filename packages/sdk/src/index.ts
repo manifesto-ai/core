@@ -3,7 +3,7 @@
  *
  * SDK hard cut around the activation boundary.
  *
- * @see sdk-SPEC-v3.0.0-draft.md
+ * @see sdk-SPEC.md
  * @see ADR-017
  * @packageDocumentation
  */
@@ -15,6 +15,10 @@ export { createManifesto } from "./create-manifesto.js";
 export type {
   ActivatedInstance,
   ActionArgs,
+  CreateIntentArgs,
+  ActionObjectBindingArgs,
+  TypedActionMetadata,
+  TypedGetActionMetadata,
   BaseLaws,
   BaseComposableLaws,
   ComposableManifesto,

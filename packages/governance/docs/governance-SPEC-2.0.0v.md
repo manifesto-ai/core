@@ -9,7 +9,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Historical Note:** Governance v3 moved the package’s truthful current contract to [governance-SPEC-v3.0.0-draft.md](governance-SPEC-v3.0.0-draft.md). This document is retained as the service-first baseline before ADR-017 decorator landing.
+> **Historical Note:** Governance v3 moved the package’s current living contract to [governance-SPEC.md](governance-SPEC.md). This document is retained as the service-first baseline before ADR-017 decorator landing.
 
 ---
 

@@ -1,12 +1,12 @@
-# Manifesto SDK Specification v3.0.0 Draft
+# Manifesto SDK Specification
 
-> **Status:** Normative Draft, truthful current contract
+> **Status:** Normative (Living Document)
 > **Scope:** Manifesto SDK Layer - Public Developer API
 > **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
 > **Supersedes:** SDK SPEC v2.0.0
 > **Implements:** ADR-017 v3.1
 
-> **Historical Note:** [sdk-SPEC-v2.0.0.md](sdk-SPEC-v2.0.0.md) is retained as the pre-ADR-017 hard-cut baseline.
+> **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 
 ## 1. Purpose
 
@@ -185,14 +185,39 @@ type ActionArgs<
   K extends keyof T["actions"],
 > = T["actions"][K] extends (...args: infer P) => unknown ? P : never;
 
+type ActionObjectBindingArgs<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"],
+> = readonly [Record<string, unknown>];
+
+type CreateIntentArgs<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"],
+> = ActionArgs<T, K> | ActionObjectBindingArgs<T, K>;
+
 type Selector<T, R> = (snapshot: Snapshot<T>) => R;
 type Unsubscribe = () => void;
+
+type TypedActionMetadata<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"] = keyof T["actions"],
+> = {
+  readonly name: K;
+  readonly params: readonly string[];
+  readonly input: unknown;
+  readonly description?: string;
+};
+
+type TypedGetActionMetadata<T extends ManifestoDomainShape> = {
+  (): readonly TypedActionMetadata<T>[];
+  <K extends keyof T["actions"]>(name: K): TypedActionMetadata<T, K>;
+};
 
 type TypedCreateIntent<T extends ManifestoDomainShape> = <
   K extends keyof T["actions"],
 >(
   action: TypedActionRef<T, K>,
-  ...args: ActionArgs<T, K>
+  ...args: CreateIntentArgs<T, K>
 ) => Intent;
 
 type TypedDispatchAsync<T extends ManifestoDomainShape> = (
@@ -204,6 +229,8 @@ type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   listener: (value: R) => void,
 ) => Unsubscribe;
 ```
+
+`TypedActionMetadata<T, K>.input` MUST carry the same machine-readable action input schema that the runtime uses for validation and inspection.
 
 ### 5.6 Event Types
 
@@ -287,7 +314,7 @@ type CompileDiagnostic = {
 |---------|-------|-------------|
 | SDK-TYPE-1 | MUST | The public names in §5 are frozen for the current SDK v3 surface |
 | SDK-TYPE-2 | MUST | `TypedMEL<T>` MUST preserve the key sets of `T["actions"]`, `T["state"]`, and `T["computed"]` exactly |
-| SDK-TYPE-3 | MUST | `TypedCreateIntent<T>` MUST derive its argument list from the TypeScript parameter list of the referenced action |
+| SDK-TYPE-3 | MUST | `TypedCreateIntent<T>` MUST derive its argument list from the referenced action and MUST surface object binding when the action input is object-shaped |
 | SDK-TYPE-4 | MUST | `TypedDispatchAsync<T>` MUST accept any Core `Intent`, including intents not created by `TypedCreateIntent<T>` |
 | SDK-TYPE-5 | MUST | `TypedOn<T>` payload typing MUST narrow by event name |
 
@@ -362,6 +389,7 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getSnapshot: () => Snapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
+  readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
   readonly dispose: () => void;
@@ -374,10 +402,11 @@ The canonical public surface is the instance object. Destructuring is optional e
 
 `createIntent()` is instance-owned and typed from `MEL.actions.*`.
 
-The canonical form is:
+The canonical forms are:
 
 ```typescript
-const intent = world.createIntent(world.MEL.actions.someAction, ...args);
+const positionalIntent = world.createIntent(world.MEL.actions.someAction, ...args);
+const objectIntent = world.createIntent(world.MEL.actions.someAction, { ...params });
 ```
 
 The SDK MUST NOT treat string action names as the canonical SDK v3 creation path.
@@ -387,6 +416,10 @@ The SDK MUST NOT treat string action names as the canonical SDK v3 creation path
 If the referenced action has zero parameters, `Intent.input` MUST be `undefined`.
 
 If the referenced action has one or more parameters, `createIntent()` MUST synthesize `Intent.input` in the canonical object shape expected by the compiled action, preserving MEL-declared parameter names and declared order. `TypedActionRef` is the carrier of the metadata required for that packing step.
+
+For compiled multi-parameter actions with positional metadata, both positional and object forms are valid public contract.
+
+For actions whose public input is already a single object shape without positional metadata, only object form is guaranteed.
 
 ### 7.2 `dispatchAsync()`
 
@@ -404,11 +437,20 @@ If Host execution produces a terminal error result that also carries a new termi
 
 If execution fails before a new terminal snapshot exists, SDK MUST emit `dispatch:failed`, MUST leave the visible snapshot unchanged, and MUST reject the Promise.
 
-### 7.3 Availability Queries
+### 7.3 Availability and Metadata Queries
 
-`getAvailableActions()` and `isActionAvailable()` are observational reads over the current visible snapshot.
+`getAvailableActions()`, `isActionAvailable()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
 
-They MUST delegate to Core action-availability semantics rather than reconstructing policy in SDK.
+Availability reads MUST delegate to Core action-availability semantics rather than reconstructing policy in SDK.
+
+`getActionMetadata()` MUST expose the SDK-known action metadata only:
+
+- action name
+- parameter names
+- machine-readable input schema
+- optional description
+
+`getActionMetadata()` MUST NOT invent app-defined extension fields or richer ownership/routing protocols.
 
 ### 7.4 `subscribe()`
 
@@ -456,7 +498,7 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-BASE-1 | MUST | `ManifestoBaseInstance<T>` MUST expose exactly the fields shown in §7 |
 | SDK-BASE-2 | MUST | `dispatchAsync()` MUST be the canonical base execution verb |
 | SDK-BASE-3 | MUST | `createIntent()` MUST be typed from `MEL.actions.*`, not raw string action names |
-| SDK-BASE-4 | MUST | `getAvailableActions()` and `isActionAvailable()` MUST be typed from `keyof T["actions"]` |
+| SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
 | SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
 | SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` as normative execution surface |
 | SDK-DISPATCH-1 | MUST | `dispatchAsync()` MUST serialize intent processing FIFO per activated base instance |
@@ -594,7 +636,7 @@ An SDK v3 implementation complies with this draft only if all of the following a
 
 ## 13. References
 
-- [SDK SPEC v2.0.0](sdk-SPEC-v2.0.0.md)
+- [SDK Version Index](VERSION-INDEX.md)
 - [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md)
 - [Core SPEC v4.0.0](../../core/docs/core-SPEC.md)
 - [Host Contract v4.0.0](../../host/docs/host-SPEC.md)

@@ -1,6 +1,6 @@
 # Manifesto Lineage Specification v3.0.0
 
-> **Status:** Normative Draft, truthful current contract
+> **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/lineage`
 > **Related:** ADR-015, ADR-016, ADR-017
 

@@ -42,8 +42,8 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-010](./010-major-hard-cut) | Protocol-First SDK Reconstruction | Implemented | 2026-02-27 | Core, Runtime, Host, World, SDK |
 | [ADR-011](./011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Implemented | 2026-02-25 | Host, Runtime, World, SDK |
 | [ADR-012](./012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented | 2026-03-05 | Core, Compiler, Host, SDK, Docs |
-| [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed | 2026-03-24 | Compiler |
-| [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed | 2026-03-24 | Compiler |
+| [ADR-013a](./013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Implemented | 2026-03-24 | Compiler |
+| [ADR-013b](./013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Implemented | 2026-03-24 | Compiler |
 | [ADR-014](./014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented | 2026-03-28 | World, Governance, Lineage, SDK, Docs |
 | [ADR-015](./015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Implemented | 2026-03-29 | Core, Lineage, Host, World, SDK |
 | [ADR-016](./016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Implemented | 2026-03-29 | Lineage, Governance, World |
@@ -90,11 +90,12 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-013 Split Notes
 
 - There is no standalone `ADR-013` file in the repository.
-- The original mixed ADR-013 draft was withdrawn and split into `ADR-013a` (`flow`/`include`) and `ADR-013b` (entity collection primitives) for separate review and approval.
+- The original mixed ADR-013 draft was withdrawn and split into `ADR-013a` (`flow`/`include`) and `ADR-013b` (entity collection primitives).
+- Both split tracks are now implemented in the compiler current contract and reflected in Compiler SPEC v0.7.0 plus the compiler compliance suites.
 
 ### ADR-014 Companion Notes
 
-- ADR-014 is an accepted protocol split of `@manifesto-ai/world` into `@manifesto-ai/governance` and `@manifesto-ai/lineage`.
+- ADR-014 is the implemented protocol split of `@manifesto-ai/world` into `@manifesto-ai/governance` and `@manifesto-ai/lineage`.
 - [Lineage SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) is now the canonical continuity-engine document.
 - [Governance SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) is now the canonical legitimacy-engine document.
 - [World Facade SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) is now the canonical governed-facade document.
@@ -105,7 +106,7 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-015 is implemented and lands in the current Core contract: accumulated `system.errors` history and `appendErrors` are removed while `lastError` remains the sole current error surface.
 - ADR-015 originally landed alongside Core v4.0.0, Host v4.0.0, Lineage v2.0.0, Governance v2.0.0, and World facade v2.0.0. The current decorator supersession is tracked separately by ADR-017 and the v3.0.0 package version indexes.
 - [core-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC-v4.0.0-draft.md) is now historical draft context only; the current normative Core contract is [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md).
-- The wider SDK/decorator rewrite is now current in [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md), but the Snapshot-shape portion of ADR-015 remains its independent current contribution.
+- The wider SDK/decorator rewrite is now current in [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), but the Snapshot-shape portion of ADR-015 remains its independent current contribution.
 - ADR-015 now pairs with [ADR-016](./016-merkle-tree-lineage), the implemented lineage-side companion for the same co-deployed epoch boundary.
 
 ### ADR-016 Companion Notes
