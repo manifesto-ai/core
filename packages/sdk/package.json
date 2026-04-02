@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/sdk",
-  "version": "3.1.2",
+  "version": "3.2.0",
   "description": "Manifesto SDK - Activation-first public API for the base runtime",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
