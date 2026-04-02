@@ -41,13 +41,13 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.backfill == 'true' }}
     steps:
-      - name: Release Please (github-release)
+      - name: Release Please (release only)
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          command: github-release
+          skip-github-pull-request: true
 
   publish:
     name: Publish to npm
