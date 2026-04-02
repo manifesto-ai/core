@@ -30,6 +30,7 @@
     "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/activation-cts --filter=@manifesto-ai/host --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
     "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/activation-cts --filter=@manifesto-ai/host --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
     "test:hardening": "pnpm build && pnpm test && pnpm docs:release:check",
+    "check:commit-messages": "node scripts/check-commit-messages.mjs",
     "check:no-app-imports": "node scripts/check-no-app-imports.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "docs:dev": "vitepress dev docs",

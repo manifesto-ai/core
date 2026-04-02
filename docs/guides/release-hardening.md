@@ -8,10 +8,14 @@ This guide defines the minimum checks required before publishing the current har
 
 Release Please runs in workspace mode for this monorepo. Active runtime packages are not released as unrelated per-package PRs.
 
-- `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, and `@manifesto-ai/governance` form the linked runtime stack.
-- Changes touching any package in that stack must be reviewed and merged as a single release train when Release Please proposes them together.
+- `@manifesto-ai/core`, `@manifesto-ai/host`, `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, and `@manifesto-ai/governance` form the linked runtime stack.
+- `@manifesto-ai/compiler` and `@manifesto-ai/codegen` form the linked tooling stack.
+- `@manifesto-ai/skills` remains independent from the runtime and tooling release trains.
+- Changes touching any package in a linked train must be reviewed and merged as a single release train when Release Please proposes them together.
 - Internal workspace dependency updates are handled by the `node-workspace` and `linked-versions` plugins. Do not work around version skew in consumer apps with package-manager overrides unless you are diagnosing a broken publish.
 - Manual publish is for recovery only. Normal releases should flow through the grouped Release Please PR and the publish workflow.
+- Release Please computes release candidates from conventional commit messages. Use `feat:`, `fix:`, `deps:`, `perf:`, or `revert:` for release-bearing changes. `docs:`, `chore:`, `refactor:`, `test:`, `build:`, and `ci:` changes may pass CI but do not, by themselves, create a release PR.
+- Backfill is for merged release PR recovery only. `workflow_dispatch backfill=true` can recreate missing tags or GitHub releases, but it cannot create a release PR that was never opened.
 
 ## Release Gate
 
@@ -27,6 +31,12 @@ For the one-shot gate, use:
 
 ```bash
 pnpm test:hardening
+```
+
+For commit-message diagnosis before opening a PR, use:
+
+```bash
+node scripts/check-commit-messages.mjs origin/main HEAD
 ```
 
 ## What The Test Gate Proves
