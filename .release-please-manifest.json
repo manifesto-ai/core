@@ -1,10 +1,10 @@
 {
-  "packages/codegen": "0.2.0",
-  "packages/compiler": "2.0.0",
+  "packages/codegen": "0.2.1",
+  "packages/compiler": "3.0.0",
   "packages/core": "2.8.0",
-  "packages/governance": "3.2.0",
+  "packages/governance": "3.3.0",
   "packages/host": "2.5.0",
-  "packages/lineage": "3.2.0",
-  "packages/sdk": "3.2.0",
+  "packages/lineage": "3.3.0",
+  "packages/sdk": "3.3.0",
   "skills": "0.2.2"
 }
