@@ -77,7 +77,17 @@ function resolveCodegenEmitter(
     return null;
   }
 
-  return typeof codegen === "function" ? codegen : codegen.emit;
+  if (typeof codegen === "function") {
+    return codegen;
+  }
+
+  if (typeof codegen === "object" && typeof codegen.emit === "function") {
+    return codegen.emit;
+  }
+
+  throw new TypeError(
+    "manifesto:mel codegen must be a function or an object with a callable emit field"
+  );
 }
 
 export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {

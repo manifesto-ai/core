@@ -97,6 +97,18 @@ describe("unplugin core", () => {
       expect(sourceId).toMatch(/^external\/counter--[a-f0-9]{12}\.mel$/);
     }
   });
+
+  it("rejects codegen config objects without a callable emit function", () => {
+    const invalidCodegen: unknown = { outDir: "." };
+
+    expect(() =>
+      unpluginMel.raw({
+        codegen: invalidCodegen as never,
+      })
+    ).toThrow(
+      "manifesto:mel codegen must be a function or an object with a callable emit field"
+    );
+  });
 });
 
 describe("vite export", () => {
