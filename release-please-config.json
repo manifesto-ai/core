@@ -18,6 +18,8 @@
       "type": "linked-versions",
       "groupName": "runtime stack",
       "components": [
+        "@manifesto-ai/core",
+        "@manifesto-ai/host",
         "@manifesto-ai/sdk",
         "@manifesto-ai/lineage",
         "@manifesto-ai/governance"
@@ -26,6 +28,15 @@
       "specialWords": [
         "SDK"
       ]
+    },
+    {
+      "type": "linked-versions",
+      "groupName": "tooling stack",
+      "components": [
+        "@manifesto-ai/compiler",
+        "@manifesto-ai/codegen"
+      ],
+      "merge": true
     }
   ],
   "changelog-sections": [
