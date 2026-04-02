@@ -19,7 +19,7 @@ If you are moving old governed code forward, align to these surfaces:
 
 - use `createManifesto(schema, effects)` instead of config-style runtime factories
 - use `withLineage(...)` and `withGovernance(...)` before `activate()`
-- use activated instance methods such as `createIntent(...)`, `dispatchAsync(...)`, `commitAsync(...)`, and `proposeAsync(...)`
+- use `createIntent(...)` on the activated instance, then call the runtime verb for the surface you activated. Base runtimes use `dispatchAsync(intent)`. Lineage runtimes use `commitAsync(intent)`. Governance runtimes use `proposeAsync(intent)`.
 - use package-owned stores and services from Lineage and Governance directly
 - treat the old world facade, adapter subpaths, and facade-owned coordinator/runtime as removed
 

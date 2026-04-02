@@ -8,7 +8,7 @@
 
 In Manifesto, you do not call domain methods that mutate state directly. You submit an `Intent` and let the runtime compute the next terminal Snapshot.
 
-At the runtime level, an intent is the unit that goes into `dispatchAsync()`, `commitAsync()`, or `proposeAsync()`.
+At the runtime level, an intent is the unit that goes into `dispatchAsync(intent)`. The same typed intent also flows through lineage `commitAsync(intent)` and governance `proposeAsync(intent)`.
 
 ---
 
