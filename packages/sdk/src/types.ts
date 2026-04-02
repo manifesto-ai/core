@@ -76,15 +76,27 @@ export type ActionArgs<
 export type Selector<T, R> = (snapshot: Snapshot<T>) => R;
 export type Unsubscribe = () => void;
 
+declare const MANIFESTO_INTENT_BRAND: unique symbol;
+
+export type TypedIntent<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"] = keyof T["actions"],
+> = Intent & {
+  readonly [MANIFESTO_INTENT_BRAND]: {
+    readonly domain: T;
+    readonly action: K;
+  };
+};
+
 export type TypedCreateIntent<T extends ManifestoDomainShape> = <
   K extends keyof T["actions"],
 >(
   action: TypedActionRef<T, K>,
   ...args: ActionArgs<T, K>
-) => Intent;
+) => TypedIntent<T, K>;
 
 export type TypedDispatchAsync<T extends ManifestoDomainShape> = (
-  intent: Intent,
+  intent: TypedIntent<T>,
 ) => Promise<Snapshot<T["state"]>>;
 export type TypedCommitAsync<T extends ManifestoDomainShape> =
   TypedDispatchAsync<T>;
@@ -97,17 +109,17 @@ export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
 export interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:completed": {
     readonly intentId: string;
-    readonly intent: Intent;
+    readonly intent: TypedIntent<T>;
     readonly snapshot: Snapshot<T["state"]>;
   };
   "dispatch:rejected": {
     readonly intentId: string;
-    readonly intent: Intent;
+    readonly intent: TypedIntent<T>;
     readonly reason: string;
   };
   "dispatch:failed": {
     readonly intentId: string;
-    readonly intent: Intent;
+    readonly intent: TypedIntent<T>;
     readonly error: Error;
     readonly snapshot?: Snapshot<T["state"]>;
   };

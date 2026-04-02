@@ -121,7 +121,7 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-017 Version Notes
 
 - The canonical implemented record is [ADR-017 v3.1](./017-capability-decorator-pattern), which lands the activation boundary, one-shot `activate()`, and Governance/Lineage config precedence rules.
-- The earlier [ADR-017 v2 archived draft](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus) is retained for traceability. It preserves the cross-model review consensus phase before the activation-boundary rewrite and before the final `dispatchAsync`/`proposeAsync` surface stabilized.
+- The earlier [ADR-017 v2 archived draft](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus) is retained for traceability. It preserves the cross-model review consensus phase before the activation-boundary rewrite and before the final `dispatchAsync -> commitAsync -> proposeAsync` verb chain stabilized.
 
 ---
 

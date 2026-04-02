@@ -75,6 +75,22 @@ const result = await generate({
 // result.diagnostics -> [] (empty = no warnings or errors)
 ```
 
+For bundler-time emission, inject Codegen explicitly into the compiler plugin:
+
+```typescript
+import { defineConfig } from "vite";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+
+export default defineConfig({
+  plugins: [
+    melPlugin({
+      codegen: createCompilerCodegen(),
+    }),
+  ],
+});
+```
+
 This produces a canonical domain facade:
 
 **src/domain/hello.mel.ts**
@@ -108,6 +124,7 @@ Legacy `createTsPlugin()` and `createZodPlugin()` remain available, but are depr
 ```typescript
 // Entry point
 function generate(options: GenerateOptions): Promise<GenerateResult>;
+function createCompilerCodegen(options?: CompilerCodegenOptions): CompilerCodegenEmitter;
 
 // Built-in plugins
 function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin;
@@ -129,6 +146,12 @@ type GenerateResult = {
   files: Array<{ path: string; content: string }>;
   artifacts: Record<string, unknown>;
   diagnostics: Diagnostic[];
+};
+
+type CompilerCodegenOptions = {
+  outDir?: string;      // Default: "."
+  plugins?: CodegenPlugin[]; // Default: [createDomainPlugin()]
+  stamp?: boolean;
 };
 
 type CodegenPlugin = {

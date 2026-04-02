@@ -4,19 +4,28 @@
  * Single implementation that targets Vite, Webpack, Rollup, esbuild, and Rspack.
  */
 
+import * as nodePath from "node:path";
 import { createUnplugin } from "unplugin";
 import type { DomainSchema } from "@manifesto-ai/core";
 import { compileMelDomain } from "./api/index.js";
 import { formatDiagnostic } from "./mel-module.js";
 
+export type MelCodegenArtifact = {
+  readonly schema: DomainSchema;
+  readonly sourceId: string;
+};
+
+export type MelCodegenEmitter = (
+  artifact: MelCodegenArtifact
+) => unknown | Promise<unknown>;
+
 export type MelCodegenOptions = {
-  readonly outDir: string;
-  readonly plugins?: readonly import("@manifesto-ai/codegen").CodegenPlugin[];
+  readonly emit: MelCodegenEmitter;
 };
 
 export type MelPluginOptions = {
   readonly include?: RegExp;
-  readonly codegen?: MelCodegenOptions | false;
+  readonly codegen?: MelCodegenEmitter | MelCodegenOptions | false;
 };
 
 function normalizeId(id: string): string {
@@ -28,9 +37,38 @@ function testRegex(regex: RegExp, value: string): boolean {
   return regex.test(value);
 }
 
+function normalizeArtifactSourceId(sourceId: string): string {
+  const normalized = normalizeId(sourceId).replace(/\\/g, "/");
+  if (!normalized) {
+    return "domain.mel";
+  }
+
+  if (!nodePath.isAbsolute(sourceId)) {
+    return normalized.replace(/^\.\//, "");
+  }
+
+  const relative = nodePath.relative(process.cwd(), sourceId);
+  if (!relative || relative.startsWith("..") || nodePath.isAbsolute(relative)) {
+    return nodePath.posix.basename(normalized);
+  }
+
+  return relative.split(nodePath.sep).join("/");
+}
+
+function resolveCodegenEmitter(
+  codegen: MelPluginOptions["codegen"]
+): MelCodegenEmitter | null {
+  if (!codegen) {
+    return null;
+  }
+
+  return typeof codegen === "function" ? codegen : codegen.emit;
+}
+
 export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
   const include = options.include ?? /\.mel$/;
   const compiledSchemas = new Map<string, DomainSchema>();
+  const codegenEmitter = resolveCodegenEmitter(options.codegen);
 
   return {
     name: "manifesto:mel",
@@ -53,8 +91,8 @@ export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
         throw new Error(`MEL compilation produced no schema for ${sourceId}`);
       }
 
-      if (options.codegen) {
-        compiledSchemas.set(sourceId, result.schema);
+      if (codegenEmitter) {
+        compiledSchemas.set(normalizeArtifactSourceId(sourceId), result.schema);
       }
 
       const serializedSchema = JSON.stringify(result.schema, null, 2);
@@ -62,30 +100,12 @@ export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
     },
 
     async buildEnd() {
-      if (!options.codegen || compiledSchemas.size === 0) return;
-
-      let codegen: typeof import("@manifesto-ai/codegen");
-      try {
-        codegen = await import("@manifesto-ai/codegen");
-      } catch {
-        console.warn(
-          "[manifesto:mel] codegen option is enabled but @manifesto-ai/codegen is not installed. Skipping."
-        );
+      if (!codegenEmitter || compiledSchemas.size === 0) {
         return;
       }
 
-      const plugins = options.codegen.plugins ?? [
-        codegen.createTsPlugin(),
-        codegen.createZodPlugin(),
-      ];
-
       for (const [sourceId, schema] of compiledSchemas) {
-        await codegen.generate({
-          schema,
-          outDir: options.codegen.outDir,
-          plugins,
-          sourceId,
-        });
+        await codegenEmitter({ schema, sourceId });
       }
     },
   };

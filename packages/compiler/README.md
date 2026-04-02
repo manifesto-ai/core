@@ -110,16 +110,28 @@ npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
 ### Plugin Options
 
 ```typescript
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+
 melPlugin({
   include: /\.mel$/,           // File filter (default: /\.mel$/)
-  codegen: {                    // Optional: auto-generate types
-    outDir: "src/generated",   // Output directory
-    plugins: [/* custom */],   // Defaults to TS + Zod plugins
-  },
+  codegen: createCompilerCodegen(),
 });
 ```
 
-The `codegen` option requires `@manifesto-ai/codegen` as a peer dependency. When enabled, TypeScript types and Zod schemas are generated automatically at build time.
+`codegen` is an explicit emitter hook. `@manifesto-ai/compiler` does not import `@manifesto-ai/codegen` for you; install it only if you want build-time artifact generation and inject the emitter yourself.
+
+`createCompilerCodegen()` can be called with no options. In that default mode it uses the canonical domain plugin and writes `<source>.mel.ts` next to the compiled `.mel` file. You can still customize the pipeline:
+
+```typescript
+import { createCompilerCodegen, createDomainPlugin } from "@manifesto-ai/codegen";
+
+melPlugin({
+  codegen: createCompilerCodegen({
+    outDir: "src/generated",
+    plugins: [createDomainPlugin({ interfaceName: "CounterDomain" })],
+  }),
+});
+```
 
 ### Subpath Exports
 

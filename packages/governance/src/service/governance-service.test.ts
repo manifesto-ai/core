@@ -3,11 +3,11 @@ import type { Snapshot } from "@manifesto-ai/core";
 import {
   createInMemoryLineageStore,
 } from "@manifesto-ai/lineage";
-import { createLineageService } from "@manifesto-ai/lineage/internal";
+import { createLineageService } from "@manifesto-ai/lineage/provider";
 import {
   createGovernanceService,
   createInMemoryGovernanceStore,
-} from "../index.js";
+} from "../provider.js";
 
 function createSnapshot(
   data: Record<string, unknown>,

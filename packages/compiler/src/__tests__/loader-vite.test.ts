@@ -59,6 +59,27 @@ describe("unplugin core", () => {
     expect(plugin.transformInclude("/tmp/counter.manifesto")).toBe(true);
     expect(plugin.transformInclude("/tmp/counter.mel")).toBe(false);
   });
+
+  it("emits compiled schemas through an injected codegen handler", async () => {
+    const emit = vi.fn(async () => {});
+    const plugin = unpluginMel.raw({ codegen: emit });
+    const sourcePath = join(process.cwd(), "src/domain/counter.mel");
+
+    plugin.transform(VALID_MEL, sourcePath);
+    await plugin.buildEnd?.call(plugin);
+
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceId: "src/domain/counter.mel",
+        schema: expect.objectContaining({
+          actions: expect.objectContaining({
+            increment: expect.any(Object),
+          }),
+        }),
+      })
+    );
+  });
 });
 
 describe("vite export", () => {

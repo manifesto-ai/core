@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "baseUrl": ".",
+    "paths": {
+      "@manifesto-ai/sdk": ["../sdk/src/index.ts"],
+      "@manifesto-ai/sdk/provider": ["../sdk/src/provider.ts"]
+    }
+  },
+  "include": [
+    "src/__tests__/types/**/*.ts"
+  ]
+}

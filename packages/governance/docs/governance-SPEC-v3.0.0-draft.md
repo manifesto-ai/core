@@ -23,14 +23,14 @@ Governance v3 does not own base manifesto creation. That remains `@manifesto-ai/
 ```ts
 function withGovernance<T extends ManifestoDomainShape>(
   manifesto: LineageComposableManifestoInput<T>,
-  config: GovernanceConfig,
+  config: GovernanceConfig<T>,
 ): GovernanceComposableManifesto<T>;
 ```
 
 ## 3. Config Contract
 
 ```ts
-type GovernanceConfig = {
+type GovernanceConfig<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   bindings: readonly ActorAuthorityBinding[];
   governanceStore?: GovernanceStore;
   evaluator?: AuthorityEvaluator;
@@ -38,8 +38,8 @@ type GovernanceConfig = {
   now?: () => number;
   execution: {
     projectionId: string;
-    deriveActor(intent: Intent): ActorRef;
-    deriveSource(intent: Intent): SourceRef;
+    deriveActor(intent: TypedIntent<T>): ActorRef;
+    deriveSource(intent: TypedIntent<T>): SourceRef;
   };
 };
 ```
@@ -57,7 +57,7 @@ Governed runtimes MUST include lineage semantics.
 ```ts
 type GovernanceInstance<T> =
   Omit<LineageInstance<T>, "commitAsync"> & {
-    proposeAsync(intent: Intent): Promise<Proposal>;
+    proposeAsync(intent: TypedIntent<T>): Promise<Proposal>;
     approve(proposalId: ProposalId, approvedScope?: IntentScope | null): Promise<Proposal>;
     reject(proposalId: ProposalId, reason?: string): Promise<Proposal>;
     getProposal(proposalId: ProposalId): Promise<Proposal | null>;
@@ -110,13 +110,15 @@ Approved governance execution MUST run through lineage sealing.
 
 ## 9. Low-Level Exports
 
-The following exports remain public:
+Low-level seams are owned by the provider entry point:
 
+- `@manifesto-ai/governance/provider`
 - `createGovernanceService()`
 - `createGovernanceEventDispatcher()`
-- `createInMemoryGovernanceStore()`
 - `createAuthorityEvaluator()`
 - authority handlers and protocol types
+
+`createInMemoryGovernanceStore()` also remains available from the root package as a consumer-safe bootstrap helper.
 
 They are valid low-level seams but are no longer the canonical application entry path.
 

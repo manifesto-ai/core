@@ -28,16 +28,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./internal": {
-      "types": "./dist/internal.d.ts",
-      "import": "./dist/internal.js"
+    "./provider": {
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js"
     }
   },
   "scripts": {
-    "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
+    "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist && node ../../scripts/check-public-surface.mjs packages/lineage",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
-    "test": "vitest run",
+    "test": "pnpm run test:runtime && pnpm run test:types",
+    "test:runtime": "vitest run",
+    "test:types": "tsc -p tsconfig.types.json --noEmit",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },

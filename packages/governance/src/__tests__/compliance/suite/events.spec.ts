@@ -5,11 +5,11 @@ import {
   createGovernanceService,
   createInMemoryGovernanceStore,
   type GovernanceEvent,
-} from "../../../index.js";
+} from "../../../provider.js";
 import {
   createInMemoryLineageStore,
 } from "@manifesto-ai/lineage";
-import { createLineageService } from "@manifesto-ai/lineage/internal";
+import { createLineageService } from "@manifesto-ai/lineage/provider";
 import { createGovernanceComplianceAdapter } from "../gcts-adapter.js";
 import {
   evaluateRule,
@@ -95,9 +95,9 @@ describe("GCTS Events Suite", () => {
           }
         ),
         evaluateRule(getRuleOrThrow("GOV-EVT-DISP-2"), typeof createDispatcher === "function", {
-          passMessage: "Governance exports a public createGovernanceEventDispatcher() factory.",
-          failMessage: "Governance is missing the public dispatcher factory required by the facade seam.",
-          evidence: [noteEvidence("Verified createGovernanceEventDispatcher is present on the package public exports.")],
+          passMessage: "Governance exposes a provider-scoped createGovernanceEventDispatcher() factory.",
+          failMessage: "Governance is missing the provider-scoped dispatcher factory required by the facade seam.",
+          evidence: [noteEvidence("Verified createGovernanceEventDispatcher is present on the governance provider exports.")],
         }),
       ]);
 

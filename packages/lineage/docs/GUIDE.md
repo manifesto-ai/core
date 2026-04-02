@@ -45,10 +45,12 @@ const lineage = await world.getLineage();
 
 if (latestHead) {
   const record = await world.getWorld(latestHead.worldId);
+  const sealedSnapshot = await world.getWorldSnapshot(latestHead.worldId);
 }
 ```
 
 These APIs project the backing continuity truth through the activated runtime.
+`getWorldSnapshot(worldId)` reads the stored sealed snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
 
 ## 4. Restore A Sealed World
 
@@ -74,7 +76,7 @@ Switching branches also restores that branch head into the visible runtime state
 
 ## 6. Low-Level Lineage Still Exists
 
-Use `@manifesto-ai/lineage/internal` when you need `LineageService`, `LineageStore`, prepared commits, or persistence tooling without the activated runtime wrapper.
+Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageStore`, prepared commits, or persistence tooling without the activated runtime wrapper.
 
 ## 7. Related Docs
 

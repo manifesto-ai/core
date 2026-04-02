@@ -42,7 +42,8 @@ const proposal = await governed.proposeAsync(
 - proposal lifecycle and authority evaluation
 - pending human/tribunal resolution through `approve()` / `reject()`
 - governance decision records and post-commit governance events
-- low-level governance stores, services, authority handlers, and intent-instance helpers
+- lineage-preserving query access such as `getWorldSnapshot()`, `getLatestHead()`, and `getBranches()`
+- low-level governance stores, services, authority handlers, and intent-instance helpers via `@manifesto-ai/governance/provider`
 
 ## What Changes After Governance Activation
 
@@ -50,16 +51,19 @@ const proposal = await governed.proposeAsync(
 - the canonical state-change path becomes `proposeAsync() -> approve()/reject()`
 - lineage must be composed before governance activation
 - visible snapshots publish only after approved execution seals successfully
+- `getWorldSnapshot(worldId)` remains the stored sealed snapshot lookup; `restore(worldId)` remains the normalized resume path inherited from lineage
 
 ## Low-Level Surface Still Available
 
-The service-first exports remain public for lower-level tooling and protocol tests:
+The provider entry point remains public for lower-level tooling and protocol tests:
 
+- `@manifesto-ai/governance/provider`
 - `createGovernanceService()`
 - `createGovernanceEventDispatcher()`
-- `createInMemoryGovernanceStore()`
 - `createAuthorityEvaluator()`
 - authority handlers and lifecycle types
+
+`createInMemoryGovernanceStore()` also remains available from the root package as a consumer-safe bootstrap helper.
 
 Those are no longer the canonical application entry story.
 

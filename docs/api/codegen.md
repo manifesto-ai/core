@@ -1,6 +1,6 @@
 # @manifesto-ai/codegen
 
-> Plugin-based code generation from DomainSchema (TypeScript types + Zod schemas)
+> Plugin-based code generation from DomainSchema (canonical domain facades plus optional legacy TS/Zod artifacts)
 
 ---
 
@@ -14,6 +14,7 @@ Use this package when you need:
 - Zod runtime validators that match those types
 - Deterministic, reproducible code generation in CI
 - Custom output formats via the plugin system
+- Explicit build-tool integration via injected emitters
 
 ---
 
@@ -42,6 +43,21 @@ if (result.diagnostics.some(d => d.level === "error")) {
 - `files: Array<{ path: string; content: string }>` -- generated file contents
 - `artifacts: Record<string, unknown>` -- plugin artifacts (namespaced by plugin name)
 - `diagnostics: Diagnostic[]` -- warnings and errors
+
+### createCompilerCodegen()
+
+Builds an explicit emitter for `@manifesto-ai/compiler` bundler plugins. This keeps the compiler decoupled from Codegen: the compiler only calls the emitter you provide.
+
+```typescript
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+
+melPlugin({
+  codegen: createCompilerCodegen(),
+});
+```
+
+Options are optional. By default, this uses `createDomainPlugin()` and emits `<source>.mel.ts` next to the source `.mel` file.
 
 ### createTsPlugin()
 

@@ -113,17 +113,17 @@ npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
 All bundler plugins accept the same options:
 
 ```typescript
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+
 melPlugin({
   include: /\.mel$/,  // File filter regex (default: /\.mel$/)
-  codegen: {          // Optional: auto-generate types at build time
-    outDir: "src/generated",
-  },
+  codegen: createCompilerCodegen(),
 });
 ```
 
 ### Auto Code Generation
 
-When `codegen` is provided, the plugin generates TypeScript types and Zod validation schemas whenever `.mel` files are compiled. Requires `@manifesto-ai/codegen`:
+The compiler does not import `@manifesto-ai/codegen` on its own. If you want build-time code generation, inject an emitter explicitly:
 
 ```bash
 pnpm add -D @manifesto-ai/codegen
@@ -133,17 +133,33 @@ pnpm add -D @manifesto-ai/codegen
 // vite.config.ts
 import { defineConfig } from "vite";
 import { melPlugin } from "@manifesto-ai/compiler/vite";
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
 
 export default defineConfig({
   plugins: [
     melPlugin({
-      codegen: { outDir: "src/generated" },
+      codegen: createCompilerCodegen(),
     }),
   ],
 });
 ```
 
-This generates `types.ts` and Zod schemas in `src/generated/` every time your `.mel` files change. See [Code Generation](/guides/code-generation) for details on customizing plugins.
+`createCompilerCodegen()` can be called with no options. In that default mode it uses `createDomainPlugin()` and writes a canonical `<source>.mel.ts` facade. For example, compiling `src/domain/counter.mel` emits `src/domain/counter.mel.ts`.
+
+You can still customize the pipeline:
+
+```typescript
+import { createCompilerCodegen, createDomainPlugin } from "@manifesto-ai/codegen";
+
+melPlugin({
+  codegen: createCompilerCodegen({
+    outDir: "src/generated",
+    plugins: [createDomainPlugin({ interfaceName: "CounterDomain" })],
+  }),
+});
+```
+
+See [Code Generation](/guides/code-generation) for plugin details.
 
 ---
 
@@ -162,17 +178,21 @@ This generates `types.ts` and Zod schemas in `src/generated/` every time your `.
 
 ## TypeScript Support
 
-To get type-checking for `.mel` imports, create a declaration file:
+To get type-checking for `.mel` imports, create a declaration file in your app source tree such as `src/types/mel.d.ts`:
 
 ```typescript
-// mel.d.ts
+// src/types/mel.d.ts
 declare module "*.mel" {
   const schema: import("@manifesto-ai/core").DomainSchema;
   export default schema;
 }
 ```
 
-If you use the `codegen` option, you get full type definitions for your domain's state, actions, and computed values.
+The compiler does not inject this declaration automatically. Keep the file inside your TypeScript `include` globs so editor and `tsc` both see it.
+
+If you inject a codegen emitter, you get generated domain type artifacts alongside your compiled `.mel` imports.
+
+If you are not using codegen yet, this declaration is still enough to import `.mel` as a typed `DomainSchema` and pair it with an explicit `ManifestoDomainShape` in application code.
 
 ---
 

@@ -4,6 +4,11 @@
 
 import { unpluginMel } from "./unplugin.js";
 
-export type { MelPluginOptions, MelCodegenOptions } from "./unplugin.js";
+export type {
+  MelPluginOptions,
+  MelCodegenOptions,
+  MelCodegenEmitter,
+  MelCodegenArtifact,
+} from "./unplugin.js";
 export const melPlugin = unpluginMel.vite;
 export default melPlugin;

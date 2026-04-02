@@ -6,7 +6,7 @@ import {
   type DomainSchema,
 } from "@manifesto-ai/core";
 import { createManifesto } from "@manifesto-ai/sdk";
-import { getRuntimeKernelFactory, type RuntimeKernel } from "@manifesto-ai/sdk/internal";
+import { getRuntimeKernelFactory, type RuntimeKernel } from "@manifesto-ai/sdk/provider";
 
 import { createLineageRuntimeController } from "./internal.js";
 import { createLineageService } from "./service/lineage-service.js";

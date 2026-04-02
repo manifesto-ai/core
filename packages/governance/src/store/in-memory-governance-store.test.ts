@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInMemoryGovernanceStore } from "../index.js";
+import { createInMemoryGovernanceStore } from "../provider.js";
 
 describe("@manifesto-ai/governance in-memory store", () => {
   it("returns the single approved or executing proposal for a branch", async () => {

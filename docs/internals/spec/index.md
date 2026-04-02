@@ -8,6 +8,8 @@ Specifications are maintained in canonical package docs with version indexes. Th
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
 
+If an older ADR conflicts with a current package SPEC on runtime surface details, the current package SPEC wins.
+
 ## Reading Order
 
 1. Read the current package README and VERSION-INDEX for the surface you want to use.
@@ -78,12 +80,12 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 ### Lineage
 
 - **Lineage SPEC** — [lineage-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
-  - Defines `withLineage()`, seal-aware publication, restore, and branch/head runtime queries
+  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored-substrate lookup, restore, and branch/head runtime queries
 
 ### Governance
 
 - **Governance SPEC** — [governance-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
-  - Defines `withGovernance()`, explicit lineage prerequisite, governed proposal flow, pending resolution, and post-seal governance visibility
+  - Defines `withGovernance()`, explicit lineage prerequisite, governed `proposeAsync()` flow, pending resolution, and post-seal governance visibility
 
 ### SDK
 

@@ -6,7 +6,7 @@ import {
   isTerminalStatus,
   isValidTransition,
   transitionCreatesDecisionRecord,
-} from "./index.js";
+} from "./provider.js";
 
 describe("@manifesto-ai/governance state machine", () => {
   it("models split-native superseded transitions", () => {
