@@ -1,5 +1,6 @@
 import {
   getAvailableActions as queryAvailableActions,
+  isActionAvailable as queryActionAvailable,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
@@ -329,7 +330,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   }) as TypedGetActionMetadata<T>;
 
   function isActionAvailable(name: keyof T["actions"]): boolean {
-    return getAvailableActions().includes(name);
+    return queryActionAvailable(schema, visibleSnapshot, String(name));
   }
 
   function dispose(): void {
