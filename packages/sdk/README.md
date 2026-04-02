@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The truthful current SDK contract is the ADR-017 activation model documented in [docs/sdk-SPEC-v3.0.0-draft.md](docs/sdk-SPEC-v3.0.0-draft.md). The filename still says `draft`, but the activation-first decorator runtime is the current landed contract.
+> **Current Contract Note:** The current SDK contract is the ADR-017 activation model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md).
 
 ## What This Package Owns
 
@@ -20,7 +20,7 @@ Use the SDK when you want:
 
 - the shortest path to a running base world
 - typed intent creation through `MEL.actions.*`
-- `dispatchAsync`, subscriptions, availability queries, and snapshot reads in one package
+- `dispatchAsync`, subscriptions, availability queries, action metadata inspection, and snapshot reads in one package
 - a clear boundary between law composition and runtime execution
 
 ## Activation Lifecycle
@@ -57,6 +57,7 @@ The activated base runtime exposes:
 - `on`
 - `getSnapshot`
 - `getAvailableActions`
+- `getActionMetadata`
 - `isActionAvailable`
 - `MEL`
 - `dispose`
@@ -74,6 +75,5 @@ Those governed runtime contracts land in the owning `@manifesto-ai/lineage` and 
 ## Docs
 
 - [SDK Guide](docs/GUIDE.md)
-- [SDK Specification v3](docs/sdk-SPEC-v3.0.0-draft.md)
-- [SDK Specification v2](docs/sdk-SPEC-v2.0.0.md)
+- [SDK Specification](docs/sdk-SPEC.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

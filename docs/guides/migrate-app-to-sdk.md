@@ -40,7 +40,7 @@ The important migration is not just the import path. The public shape changed.
 |-------------------|-------------|
 | `createApp({ schema, effects })` | `createManifesto(schema, effects).activate()` |
 | `await app.ready()` | Not needed |
-| `app.act("type", input)` | `world.dispatchAsync(world.createIntent(world.MEL.actions.someAction, ...args))` |
+| `app.act("type", input)` | `await world.dispatchAsync(world.createIntent(world.MEL.actions.someAction, { ...params }))` |
 | `await handle.done()` | `await world.dispatchAsync(...)` |
 | `app.getState()` | `world.getSnapshot()` |
 
@@ -66,7 +66,7 @@ The script is a first pass only. It helps with import-path replacement. You stil
 
 - Replace `createApp` with `createManifesto`
 - Remove `ready()`
-- Replace `act()` flows with `world.createIntent(world.MEL.actions.*)` plus `await world.dispatchAsync(...)`
+- Replace `act()` flows with `world.createIntent(world.MEL.actions.*)` plus `await world.dispatchAsync(...)`; use positional or object binding to match the action shape
 - Replace `getState()` with `world.getSnapshot()`
 - Re-run tests and docs build
 

@@ -160,9 +160,9 @@ Use `data` for stored domain state. Use `computed` for values you want to derive
 
 This tutorial subscribes to `totalCount`, not the full snapshot. That keeps the reaction focused on one meaningful value.
 
-### Action arguments stay positional in app code
+### Action inputs can be positional or object-shaped in app code
 
-`world.createIntent(world.MEL.actions.addTodo, title, id)` is typed from the MEL action signature. The runtime packs those values into the canonical object input expected by the compiled action.
+`world.createIntent(world.MEL.actions.addTodo, title, id)` is typed from the MEL action signature, and `world.createIntent(world.MEL.actions.addTodo, { title, id })` is also supported when the action input is object-shaped. The runtime still packs both forms into the canonical object input expected by the compiled action.
 
 ### Actions stay small
 

@@ -24,6 +24,10 @@ export default defineConfig({
         find: "@manifesto-ai/lineage",
         replacement: fromHere("../lineage/src/index.ts"),
       },
+      {
+        find: "@manifesto-ai/cts-kit",
+        replacement: fromHere("../../cts/cts-kit/src/index.ts"),
+      },
     ],
   },
   test: {

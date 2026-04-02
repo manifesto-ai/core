@@ -6,7 +6,7 @@
 
 `@manifesto-ai/lineage` adds time, sealing, history, and restore to a composable manifesto.
 
-> **Current Contract Note:** This page describes the current Lineage v3.0.0 surface. The truthful package contract is [packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md).
+> **Current Contract Note:** This page describes the current Lineage v3.0.0 surface. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
 
 Use this package when you want:
 

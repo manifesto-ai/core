@@ -1,7 +1,7 @@
 # MEL Compiler Specification v0.7.0
 
 > **Version:** 0.7.0  
-> **Status:** Draft  
+> **Status:** Normative  
 > **Authors:** Manifesto Team  
 > **License:** MIT  
 > **Changelog:**

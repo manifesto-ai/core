@@ -30,12 +30,12 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/sdk** | [Current Draft](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md) (v3.0.0) | Normative (activation-first entry) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/lineage** | [Current Draft](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md) (v3.0.0) | Normative (decorator continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/governance** | [Current Draft](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-v3.0.0-draft.md) (v3.0.0) | Normative (decorator legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.0.0 surface) | Normative (activation-first entry) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v3.0.0 surface) | Normative (decorator continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.0.0 surface) | Normative (decorator legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
-| **@manifesto-ai/compiler** | v0.7.0 | Draft | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.7.0 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -49,18 +49,11 @@ These references remain available for traceability, but they are not maintained 
 
 For the historical tombstone page, see [API: @manifesto-ai/world](/api/world).
 
-### SDK v2.0.0
+### Historical SDK Surfaces
 
-`@manifesto-ai/sdk` v2 is a historical reference only. Before ADR-017, the canonical public entrypoint was `createManifesto()` returning `ManifestoInstance` with `dispatch`, `subscribe`, `on`, availability queries, `getSnapshot`, and `dispose`.
+Historical SDK v0-v2 package specs were removed from the working tree after the activation-first cut. Use Git history when you need archaeology for the ready-instance/runtime-helper era.
 
-The `@manifesto-ai/runtime` package is **retired** — its responsibilities are absorbed into `createManifesto()` internal wiring. Runtime SPEC v0.2.0 is superseded with no successor.
-
-| Document | Status | Notes |
-|----------|--------|-------|
-| [SDK SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v2.0.0.md) | Normative | Hard-cut SDK — `createManifesto()` as sole owned concept |
-| [SDK SPEC v1.0.1](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v1.0.1.md) | Superseded | Historical hard-cut baseline |
-| [SDK SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v0.2.0.md) | Superseded | Historical — pre-ADR-010 draft baseline |
-| [Runtime SPEC v0.2.0](https://github.com/manifesto-ai/core/blob/main/packages/runtime/docs/runtime-SPEC-v0.2.0.md) | Superseded | Historical — Runtime retired per ADR-010 (no successor) |
+The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are absorbed into `createManifesto()` internal wiring.
 
 ---
 
@@ -79,18 +72,18 @@ The `@manifesto-ai/runtime` package is **retired** — its responsibilities are 
 
 ### Lineage
 
-- **Lineage SPEC** — [lineage-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
+- **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v3.0.0 surface)
   - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored-substrate lookup, restore, and branch/head runtime queries
 
 ### Governance
 
-- **Governance SPEC** — [governance-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-v3.0.0-draft.md) (Current through v3.0.0)
+- **Governance SPEC** — [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (Living Document, current v3.0.0 surface)
   - Defines `withGovernance()`, explicit lineage prerequisite, governed `proposeAsync()` flow, pending resolution, and post-seal governance visibility
 
 ### SDK
 
-- **SDK SPEC v3.0.0** (Current)
-  - [sdk-SPEC-v3.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md)
+- **SDK SPEC** (Living Document)
+  - [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md)
   - Activation-first SDK — `createManifesto()` returns a composable manifesto and runtime verbs appear only after `activate()`
 
 ### Compiler (MEL)

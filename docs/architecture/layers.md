@@ -95,7 +95,7 @@ function apply(snapshot: Snapshot, patches: Patch[]): Snapshot;
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Execute effects, apply patches, manage re-entry |
-| **Primary API** | `dispatch()`, `onTrace()` |
+| **Primary API** | `createHost()`, `dispatch()`, `registerEffect()` |
 | **Owns** | ExecutionKey mailbox, job lifecycle, effect execution |
 | **Does NOT Know** | World, Proposal, Authority, governance |
 
@@ -144,7 +144,7 @@ onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Compose the direct-dispatch runtime, implement policies, present public APIs |
-| **Primary API** | `createManifesto()`, `dispatch()`, `subscribe()` |
+| **Primary API** | `createManifesto()`, `activate()`, `createIntent()`, `dispatchAsync()` |
 | **Owns** | Host integration, execution telemetry, direct-dispatch application runtime |
 | **Does NOT Know** | Core computation internals, governed composition internals |
 

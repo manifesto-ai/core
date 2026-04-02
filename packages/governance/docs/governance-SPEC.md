@@ -1,8 +1,8 @@
-# Governance SPEC v3.0.0 Draft
+# Manifesto Governance Specification
 
-> Status: normative draft, truthful current contract
-> Package: `@manifesto-ai/governance`
-> ADR Basis: [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md)
+> **Status:** Normative (Living Document)
+> **Package:** `@manifesto-ai/governance`
+> **ADR Basis:** [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md)
 
 ## 1. Scope
 

@@ -6,7 +6,7 @@
 > **License:** MIT
 > **Related:** ADR-014, ADR-015, ADR-016
 
-> **Historical Note:** [lineage-SPEC-v3.0.0-draft.md](lineage-SPEC-v3.0.0-draft.md) now defines the truthful current contract. This document is retained as the pre-ADR-017 service-first baseline.
+> **Historical Note:** [lineage-SPEC.md](lineage-SPEC.md) now defines the current living contract. This document is retained as the pre-ADR-017 service-first baseline.
 
 ---
 

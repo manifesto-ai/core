@@ -23,4 +23,59 @@ const foreignIntent = foreign.createIntent(foreign.MEL.actions.toggle);
 // @ts-expect-error dispatchAsync rejects intents branded for a different domain
 void world.dispatchAsync(foreignIntent);
 
+type TodoDomain = {
+  actions: {
+    addTodo: (title: string, id: string) => void;
+    clearCompleted: () => void;
+  };
+  state: {
+    todos: Array<{ id: string; title: string }>;
+  };
+  computed: {};
+};
+
+const todo = createManifesto<TodoDomain>(`
+domain Todos {
+  state { todos: Array<{ id: string, title: string }> = [] }
+
+  action addTodo(title: string, id: string) {
+    onceIntent {
+      patch todos = append(todos, { id: id, title: title })
+    }
+  }
+
+  action clearCompleted() {
+    onceIntent {
+      patch todos = todos
+    }
+  }
+}
+`, {}).activate();
+
+void todo.createIntent(todo.MEL.actions.addTodo, {
+  title: "Review docs",
+  id: "todo-1",
+});
+
+// @ts-expect-error zero-parameter actions do not accept object binding
+void todo.createIntent(todo.MEL.actions.clearCompleted, {});
+
+const addTodoMetadata = todo.getActionMetadata("addTodo");
+const addTodoName: "addTodo" = addTodoMetadata.name;
+const addTodoParams: readonly string[] = addTodoMetadata.params;
+const addTodoDescription: string | undefined = addTodoMetadata.description;
+const actionMetadata = todo.getActionMetadata();
+const actionMetadataList: readonly {
+  readonly name: keyof TodoDomain["actions"];
+  readonly params: readonly string[];
+  readonly description: string | undefined;
+}[] = actionMetadata;
+void addTodoName;
+void addTodoParams;
+void addTodoDescription;
+void actionMetadataList;
+
+// @ts-expect-error getActionMetadata only accepts domain action names
+void todo.getActionMetadata("missing");
+
 export {};

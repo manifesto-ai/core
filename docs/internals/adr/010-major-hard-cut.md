@@ -5,7 +5,7 @@
 > **Deciders:** 정성우, Manifesto Architecture Team
 > **Scope:** Global (SDK, Runtime, Core, Host, World, MEL/Compiler)
 > **Supersedes:** ADR-007 (SDK/Runtime Split Kickoff), ADR-008 (SDK-First Transition), SDK-SPEC v0.1.0, Runtime-SPEC v0.1.0
-> **Implemented-by:** [SDK SPEC v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC-v1.0.0.md), `packages/sdk/src/create-manifesto.ts`, `packages/sdk/src/types.ts`, and [@manifesto-ai/runtime (Retired)](../retired/runtime.md)
+> **Implemented-by:** historical SDK v1.0.0 contract (removed from the working tree; see Git history), `packages/sdk/src/create-manifesto.ts`, `packages/sdk/src/types.ts`, and [@manifesto-ai/runtime (Retired)](../retired/runtime.md)
 > **Related:** ADR-001 (Layer Separation), ADR-006 (PUB/CHAN/CAN)
 
 ---

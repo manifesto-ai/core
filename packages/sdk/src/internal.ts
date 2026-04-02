@@ -1,6 +1,5 @@
 import {
   getAvailableActions as queryAvailableActions,
-  isActionAvailable as queryActionAvailable,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
@@ -20,7 +19,9 @@ import type {
   ManifestoEventMap,
   Selector,
   Snapshot,
+  TypedActionMetadata,
   TypedCreateIntent,
+  TypedGetActionMetadata,
   TypedIntent,
   TypedMEL,
   TypedOn,
@@ -31,6 +32,12 @@ import type {
 export const ACTION_PARAM_NAMES = Symbol("manifesto-sdk.action-param-names");
 export const RUNTIME_KERNEL_FACTORY = Symbol("manifesto-sdk.runtime-kernel-factory");
 export const ACTIVATION_STATE = Symbol("manifesto-sdk.activation-state");
+
+type RuntimeActionParamMetadata = readonly string[] | null;
+type RuntimeActionRef = {
+  readonly name: PropertyKey;
+  readonly [ACTION_PARAM_NAMES]?: RuntimeActionParamMetadata;
+};
 
 export type ActivationState = {
   activated: boolean;
@@ -53,6 +60,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
+  readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly dispose: () => void;
   readonly isDisposed: () => boolean;
@@ -195,6 +203,16 @@ function getExistingActivationState<
   return internal[ACTIVATION_STATE] ?? null;
 }
 
+function getActionInputFieldNames(
+  input: DomainSchema["actions"][string]["input"],
+): readonly string[] {
+  if (!input || input.type !== "object" || !input.fields) {
+    return [];
+  }
+
+  return Object.keys(input.fields);
+}
+
 export function createRuntimeKernel<T extends ManifestoDomainShape>({
   schema,
   host,
@@ -209,6 +227,29 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   let visibleSnapshot: CoreSnapshot = initialSnapshot;
   let dispatchQueue: Promise<void> = Promise.resolve();
   let disposed = false;
+  const actionNames = Object.keys(schema.actions) as Array<keyof T["actions"] & string>;
+  const actionMetadataByName = Object.freeze(
+    Object.fromEntries(
+      actionNames.map((name) => {
+        const action = schema.actions[name];
+        const actionRef = MEL.actions[name] as unknown as RuntimeActionRef | undefined;
+        const rawParams = actionRef?.[ACTION_PARAM_NAMES];
+        const params = Object.freeze(
+          Array.isArray(rawParams) ? [...rawParams] : getActionInputFieldNames(action.input),
+        );
+
+        return [name, Object.freeze({
+          name,
+          params,
+          input: action.input,
+          description: action.description,
+        })];
+      }),
+    ),
+  ) as Readonly<Record<keyof T["actions"] & string, TypedActionMetadata<T>>>;
+  const actionMetadata = Object.freeze(
+    actionNames.map((name) => actionMetadataByName[name]),
+  ) as readonly TypedActionMetadata<T>[];
 
   const subscribers = new Set<Subscriber<T["state"], unknown>>();
   const eventListeners = new Map<
@@ -279,8 +320,16 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return queryAvailableActions(schema, visibleSnapshot) as readonly (keyof T["actions"])[];
   }
 
+  const getActionMetadata: TypedGetActionMetadata<T> = ((name?: keyof T["actions"]) => {
+    if (name !== undefined) {
+      return actionMetadataByName[String(name) as keyof T["actions"] & string];
+    }
+
+    return actionMetadata;
+  }) as TypedGetActionMetadata<T>;
+
   function isActionAvailable(name: keyof T["actions"]): boolean {
-    return queryActionAvailable(schema, visibleSnapshot, String(name));
+    return getAvailableActions().includes(name);
   }
 
   function dispose(): void {
@@ -401,6 +450,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     on,
     getSnapshot,
     getAvailableActions,
+    getActionMetadata,
     isActionAvailable,
     dispose,
     isDisposed: () => disposed,
@@ -477,6 +527,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     on: kernel.on,
     getSnapshot: kernel.getSnapshot,
     getAvailableActions: kernel.getAvailableActions,
+    getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
     MEL: kernel.MEL,
     schema: kernel.schema,

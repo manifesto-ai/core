@@ -12,7 +12,7 @@ In the default path, a caller submits an intent through the SDK:
 caller
   -> createManifesto()
   -> activate()
-  -> instance.createIntent(MEL.actions.*)
+  -> instance.createIntent(MEL.actions.*, input?)
   -> instance.dispatchAsync()
   -> Host
   -> Core
@@ -28,7 +28,7 @@ That is the core loop a new developer should keep in mind.
 
 ### 1. The caller activates the runtime and creates an Intent
 
-Usually with `instance.createIntent(instance.MEL.actions.someAction, ...args)`.
+Usually with `instance.createIntent(instance.MEL.actions.someAction, ...args)` or `instance.createIntent(instance.MEL.actions.someAction, { ...params })`, depending on the action shape.
 
 ### 2. SDK enqueues the work
 

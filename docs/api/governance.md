@@ -6,7 +6,7 @@
 
 `@manifesto-ai/governance` owns `withGovernance()` and the activated governed runtime.
 
-> **Current Contract Note:** The truthful current package contract is Governance v3. See [Specifications](/internals/spec/) for the current draft index.
+> **Current Contract Note:** The current package contract is Governance v3. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
 
 ## Canonical Surface
 

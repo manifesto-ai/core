@@ -1,6 +1,6 @@
 # ADR-013b: Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById`
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Date:** 2026-03-24
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** `@manifesto-ai/compiler` (MEL builtin surface + lowering)
@@ -10,6 +10,7 @@
 > **Supersedes:** ADR-013 (Withdrawn — mixed three independent decisions)
 > **Breaking:** No — additive builtin functions only; existing syntax unaffected; Core IR unchanged; runtime layers unchanged
 > **Internal Structure:** §4 Query Primitives (013b-1) and §5 Transform Primitives (013b-2) have **separate acceptance criteria** and may be approved independently.
+> **Implemented In:** Compiler SPEC v0.7.0, entity primitive lowering/analyzer paths, generator/integration/compliance test suites
 
 ---
 

@@ -98,9 +98,9 @@ These are still declared in flow form, but they do not require a user-supplied n
 
 ## Common Mistakes
 
-### Expecting `dispatch()` to give you the effect result
+### Expecting `dispatchAsync()` to give you the effect result
 
-The result is visible in the next snapshot, not as a direct return value from `dispatch()`.
+The result is visible in the next snapshot, not as a direct return value from `dispatchAsync()`.
 
 ### Throwing away status fields
 

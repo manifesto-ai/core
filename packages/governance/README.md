@@ -4,7 +4,7 @@
 
 `@manifesto-ai/governance` is the package that turns a composable manifesto into a governed world. Its canonical public entry is `withGovernance(manifesto, config)`.
 
-> **Current Contract Note:** The truthful current package contract is [docs/governance-SPEC-v3.0.0-draft.md](docs/governance-SPEC-v3.0.0-draft.md). The v2.0.0 governance spec remains as the historical service-first baseline.
+> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline.
 
 ## Canonical Runtime Path
 
@@ -71,7 +71,7 @@ Those are no longer the canonical application entry story.
 
 - [Docs Landing](docs/README.md)
 - [Governance Guide](docs/GUIDE.md)
-- [Governance Specification](docs/governance-SPEC-v3.0.0-draft.md)
+- [Governance Specification](docs/governance-SPEC.md)
 - [Historical v2 Baseline](docs/governance-SPEC-2.0.0v.md)
 - [Historical v1 Baseline](docs/governance-SPEC-1.0.0v.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)

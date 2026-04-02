@@ -4,7 +4,7 @@
 
 `@manifesto-ai/lineage` is the package that adds time, history, and restore to a composable manifesto.
 
-> **Current Contract Note:** The truthful current package contract is [docs/lineage-SPEC-v3.0.0-draft.md](docs/lineage-SPEC-v3.0.0-draft.md). The v2 lineage spec remains as the historical service-first baseline.
+> **Current Contract Note:** The current package contract is [docs/lineage-SPEC.md](docs/lineage-SPEC.md). The v2 lineage spec remains as the historical service-first baseline.
 
 ## What This Package Owns
 
@@ -45,6 +45,6 @@ Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageSto
 
 - [Docs Landing](docs/README.md)
 - [Lineage Guide](docs/GUIDE.md)
-- [Lineage Specification](docs/lineage-SPEC-v3.0.0-draft.md)
+- [Lineage Specification](docs/lineage-SPEC.md)
 - [Historical v2 Service-First SPEC](docs/lineage-SPEC-2.0.0v.md)
 - [VERSION-INDEX](docs/VERSION-INDEX.md)
