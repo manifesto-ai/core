@@ -80,6 +80,23 @@ describe("unplugin core", () => {
       })
     );
   });
+
+  it("keeps external absolute source IDs collision-free for codegen", async () => {
+    const emit = vi.fn(async () => {});
+    const plugin = unpluginMel.raw({ codegen: emit });
+
+    plugin.transform(VALID_MEL, "/tmp/workspace-a/domain/counter.mel");
+    plugin.transform(VALID_MEL, "/var/tmp/workspace-b/domain/counter.mel");
+    await plugin.buildEnd?.call(plugin);
+
+    expect(emit).toHaveBeenCalledTimes(2);
+
+    const sourceIds = emit.mock.calls.map(([artifact]) => artifact.sourceId);
+    expect(new Set(sourceIds).size).toBe(2);
+    for (const sourceId of sourceIds) {
+      expect(sourceId).toMatch(/^external\/counter--[a-f0-9]{12}\.mel$/);
+    }
+  });
 });
 
 describe("vite export", () => {

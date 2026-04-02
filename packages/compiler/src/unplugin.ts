@@ -4,6 +4,7 @@
  * Single implementation that targets Vite, Webpack, Rollup, esbuild, and Rspack.
  */
 
+import { createHash } from "node:crypto";
 import * as nodePath from "node:path";
 import { createUnplugin } from "unplugin";
 import type { DomainSchema } from "@manifesto-ai/core";
@@ -49,10 +50,24 @@ function normalizeArtifactSourceId(sourceId: string): string {
 
   const relative = nodePath.relative(process.cwd(), sourceId);
   if (!relative || relative.startsWith("..") || nodePath.isAbsolute(relative)) {
-    return nodePath.posix.basename(normalized);
+    return createExternalArtifactSourceId(normalized);
   }
 
   return relative.split(nodePath.sep).join("/");
+}
+
+function createExternalArtifactSourceId(sourceId: string): string {
+  const basename = nodePath.posix.basename(sourceId) || "domain.mel";
+  const extension = nodePath.posix.extname(basename);
+  const stem = basename.slice(0, basename.length - extension.length) || "domain";
+  const hash = createHash("sha256").update(sourceId).digest("hex").slice(0, 12);
+  const safeStem = sanitizePathSegment(stem);
+  return `external/${safeStem}--${hash}${extension}`;
+}
+
+function sanitizePathSegment(value: string): string {
+  const normalized = value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return normalized || "domain";
 }
 
 function resolveCodegenEmitter(
