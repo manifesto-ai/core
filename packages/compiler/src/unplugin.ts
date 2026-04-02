@@ -32,6 +32,8 @@ export type MelPluginOptions = {
   readonly codegen?: MelCodegenEmitter | MelCodegenOptions | false;
 };
 
+const VALID_CODEGEN_TIMINGS = new Set<MelCodegenTiming>(["transform", "build", "both"]);
+
 function normalizeId(id: string): string {
   return id.split("?", 1)[0];
 }
@@ -85,9 +87,16 @@ function resolveCodegenOptions(
   }
 
   if (typeof codegen === "object" && typeof codegen.emit === "function") {
+    const timing = codegen.timing ?? "transform";
+    if (!VALID_CODEGEN_TIMINGS.has(timing)) {
+      throw new TypeError(
+        `manifesto:mel codegen timing must be one of "transform", "build", or "both" (received ${JSON.stringify(timing)})`
+      );
+    }
+
     return {
       emit: codegen.emit,
-      timing: codegen.timing ?? "transform",
+      timing,
     };
   }
 

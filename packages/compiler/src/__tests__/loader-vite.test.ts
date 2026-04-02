@@ -122,6 +122,19 @@ describe("unplugin core", () => {
       "manifesto:mel codegen must be a function or an object with a callable emit field"
     );
   });
+
+  it("rejects unsupported codegen timing values", () => {
+    expect(() =>
+      unpluginMel.raw({
+        codegen: {
+          emit: async () => {},
+          timing: "tranform" as never,
+        },
+      })
+    ).toThrow(
+      'manifesto:mel codegen timing must be one of "transform", "build", or "both"'
+    );
+  });
 });
 
 describe("vite export", () => {
