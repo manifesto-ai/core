@@ -87,7 +87,7 @@ describe("createDomainPlugin", () => {
     );
 
     expect(out.patches).toHaveLength(1);
-    expect(out.patches[0].path).toBe("src/domain/hello.mel.ts");
+    expect(out.patches[0].path).toBe("src/domain/hello.domain.ts");
     expect(out.patches[0].content).toContain("export interface HelloDomain {");
     expect(out.patches[0].content).toContain("readonly state: {");
     expect(out.patches[0].content).toContain("counter: number");

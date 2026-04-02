@@ -66,10 +66,10 @@ const result = await generate({
 
 // 3. Check result
 console.log(result.diagnostics); // → [] (no errors)
-console.log(result.files.map(f => f.path)); // → ["src/domain/hello.mel.ts"]
+console.log(result.files.map(f => f.path)); // → ["src/domain/hello.domain.ts"]
 ```
 
-Generated **src/domain/hello.mel.ts**:
+Generated **src/domain/hello.domain.ts**:
 ```typescript
 export interface ExampleDomain {
   readonly state: {}
@@ -84,7 +84,7 @@ export interface ExampleDomain {
 
 ### Use Case 1: Canonical Domain Facade
 
-**Goal:** Generate the recommended `<domain>.mel.ts` shape for SDK consumers.
+**Goal:** Generate the recommended `<domain>.domain.ts` shape for SDK consumers.
 
 ```typescript
 import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
@@ -96,8 +96,8 @@ const result = await generate({
   plugins: [createDomainPlugin()],
 });
 
-// Result: only src/domain/todo.mel.ts is generated
-console.log(result.files.map(f => f.path)); // → ["src/domain/todo.mel.ts"]
+// Result: only src/domain/todo.domain.ts is generated
+console.log(result.files.map(f => f.path)); // → ["src/domain/todo.domain.ts"]
 ```
 
 The domain plugin emits one facade interface with:

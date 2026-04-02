@@ -25,7 +25,7 @@ async function importFromModuleCode(code: string): Promise<{ default: unknown }>
 describe("unplugin core", () => {
   it("transforms .mel source into an ESM module", async () => {
     const plugin = unpluginMel.raw({});
-    const result = plugin.transform(VALID_MEL, "/tmp/counter.mel");
+    const result = await plugin.transform(VALID_MEL, "/tmp/counter.mel");
     expect(result).toBeDefined();
 
     const code = typeof result === "string" ? result : result?.code;
@@ -42,9 +42,9 @@ describe("unplugin core", () => {
     expect(plugin.transformInclude("/tmp/main.ts")).toBe(false);
   });
 
-  it("throws when MEL compilation fails", () => {
+  it("throws when MEL compilation fails", async () => {
     const plugin = unpluginMel.raw({});
-    expect(() => plugin.transform("domain Broken {", "/tmp/broken.mel")).toThrow(
+    await expect(plugin.transform("domain Broken {", "/tmp/broken.mel")).rejects.toThrow(
       "MEL compilation failed"
     );
   });
@@ -65,8 +65,7 @@ describe("unplugin core", () => {
     const plugin = unpluginMel.raw({ codegen: emit });
     const sourcePath = join(process.cwd(), "src/domain/counter.mel");
 
-    plugin.transform(VALID_MEL, sourcePath);
-    await plugin.buildEnd?.call(plugin);
+    await plugin.transform(VALID_MEL, sourcePath);
 
     expect(emit).toHaveBeenCalledTimes(1);
     expect(emit).toHaveBeenCalledWith(
@@ -85,9 +84,8 @@ describe("unplugin core", () => {
     const emit = vi.fn(async () => {});
     const plugin = unpluginMel.raw({ codegen: emit });
 
-    plugin.transform(VALID_MEL, "/tmp/workspace-a/domain/counter.mel");
-    plugin.transform(VALID_MEL, "/var/tmp/workspace-b/domain/counter.mel");
-    await plugin.buildEnd?.call(plugin);
+    await plugin.transform(VALID_MEL, "/tmp/workspace-a/domain/counter.mel");
+    await plugin.transform(VALID_MEL, "/var/tmp/workspace-b/domain/counter.mel");
 
     expect(emit).toHaveBeenCalledTimes(2);
 
@@ -96,6 +94,21 @@ describe("unplugin core", () => {
     for (const sourceId of sourceIds) {
       expect(sourceId).toMatch(/^external\/counter--[a-f0-9]{12}\.mel$/);
     }
+  });
+
+  it("can defer codegen emission to buildEnd", async () => {
+    const emit = vi.fn(async () => {});
+    const plugin = unpluginMel.raw({ codegen: { emit, timing: "build" } });
+
+    await plugin.transform(VALID_MEL, "/tmp/counter.mel");
+
+    expect(emit).not.toHaveBeenCalled();
+
+    await plugin.buildEnd?.call(plugin);
+
+    expect(emit).toHaveBeenCalledTimes(1);
+    const sourceId = emit.mock.calls[0]?.[0]?.sourceId;
+    expect(sourceId).toMatch(/^external\/counter--[a-f0-9]{12}\.mel$/);
   });
 
   it("rejects codegen config objects without a callable emit function", () => {
