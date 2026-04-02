@@ -32,6 +32,11 @@ Changes that violate this constitution produce systems that are NOT Manifesto-co
 
 When documents conflict, prefer higher-ranked sources.
 
+**Commit discipline:**
+- If an LLM creates or rewrites commits, each commit subject MUST use Conventional Commit format: `type(scope): summary` or `type: summary`.
+- Allowed types are the repository-enforced set: `build`, `chore`, `ci`, `deps`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`.
+- Non-conforming commit subjects are constitution violations because CI rejects them and they break release automation expectations.
+
 **Operational note for external tool setup:**
 - `@manifesto-ai/skills` is a separate package for Codex/Claude-oriented guidance.
 - Codex setup is explicit, not `postinstall`-driven: install the package, then run `npm exec manifesto-skills install-codex` or `pnpm exec manifesto-skills install-codex`.
