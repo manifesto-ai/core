@@ -143,8 +143,8 @@ export class EffectExecutor {
     }
 
     const context: EffectContext = {
-      snapshot: deepFreeze(snapshot),
-      requirement: deepFreeze(requirement),
+      snapshot: deepFreeze(structuredClone(snapshot)),
+      requirement: deepFreeze(structuredClone(requirement)),
     };
 
     try {

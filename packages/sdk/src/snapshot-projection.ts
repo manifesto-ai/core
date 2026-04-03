@@ -390,11 +390,11 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
     return value;
   }
 
-  const objectValue = value as Record<PropertyKey, unknown>;
-
-  if (ArrayBuffer.isView(objectValue)) {
-    return value;
+  if (isBinaryValue(value)) {
+    return cloneBinaryValue(value) as T;
   }
+
+  const objectValue = value as Record<PropertyKey, unknown>;
 
   if (seen.has(objectValue)) {
     return value;
@@ -408,8 +408,39 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
 
   for (const key of Reflect.ownKeys(objectValue)) {
     const child = objectValue[key];
+    if (isBinaryValue(child)) {
+      defineReadOnlyBinaryProperty(objectValue, key, child);
+      continue;
+    }
     deepFreeze(child, seen);
   }
 
   return Object.freeze(value);
+}
+
+function isBinaryValue(value: unknown): value is ArrayBuffer | ArrayBufferView {
+  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+
+function cloneBinaryValue<T extends ArrayBuffer | ArrayBufferView>(value: T): T {
+  return structuredClone(value);
+}
+
+function defineReadOnlyBinaryProperty(
+  target: Record<PropertyKey, unknown>,
+  key: PropertyKey,
+  value: ArrayBuffer | ArrayBufferView,
+): void {
+  const descriptor = Object.getOwnPropertyDescriptor(target, key);
+  if (!descriptor || !("value" in descriptor)) {
+    return;
+  }
+
+  Object.defineProperty(target, key, {
+    enumerable: descriptor.enumerable ?? true,
+    configurable: false,
+    get() {
+      return cloneBinaryValue(value);
+    },
+  });
 }

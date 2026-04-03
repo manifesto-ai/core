@@ -498,6 +498,21 @@ describe("activated base runtime", () => {
     expect(Object.isFrozen(snapshot.data.payload as object)).toBe(true);
     expect(Object.isFrozen(canonical.data.payload as object)).toBe(true);
 
+    if (projectedBytes) {
+      projectedBytes[0] = 9;
+      expect(Array.from(projectedBytes)).toEqual([9, 2, 3]);
+    }
+
+    const nextProjectedBytes = ((world.getSnapshot().data.payload as {
+      bytes?: Uint8Array;
+    } | undefined)?.bytes);
+    const nextCanonicalBytes = ((world.getCanonicalSnapshot().data.payload as {
+      bytes?: Uint8Array;
+    } | undefined)?.bytes);
+
+    expect(Array.from(nextProjectedBytes ?? [])).toEqual([1, 2, 3]);
+    expect(Array.from(nextCanonicalBytes ?? [])).toEqual([1, 2, 3]);
+
     world.dispose();
   });
 
