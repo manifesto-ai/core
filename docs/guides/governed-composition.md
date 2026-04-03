@@ -64,7 +64,6 @@ The old world-facade adapter story was removed. No direct replacement for `world
 
 ## See Also
 
-- [World API](/api/world)
 - [SDK API](/api/sdk)
 - [Lineage API](/api/lineage)
 - [Governance API](/api/governance)

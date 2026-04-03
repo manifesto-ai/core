@@ -125,6 +125,5 @@ Those governed runtime contracts belong to the owning `@manifesto-ai/lineage` an
 
 - [Lineage API](./lineage.md)
 - [Governance API](./governance.md)
-- [World API](./world.md)
 - [Quickstart](/quickstart)
 - [Governed Composition Guide](/guides/governed-composition)

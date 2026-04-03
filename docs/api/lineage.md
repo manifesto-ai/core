@@ -64,5 +64,4 @@ SDK owns the base activation boundary. Lineage owns continuity once that boundar
 
 - [SDK API](./sdk.md)
 - [Governance API](./governance.md)
-- [World API](./world.md)
 - [Governed Composition Guide](/guides/governed-composition)
