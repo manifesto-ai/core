@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.1.1](https://github.com/manifesto-ai/core/compare/compiler-v3.1.0...compiler-v3.1.1) (2026-04-03)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.9.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.0.0 to ^2.9.0
+
 ## [3.1.0](https://github.com/manifesto-ai/core/compare/compiler-v3.0.0...compiler-v3.1.0) (2026-04-02)
 
 
