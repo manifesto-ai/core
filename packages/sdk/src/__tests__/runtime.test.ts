@@ -28,6 +28,8 @@ type ProjectionDomain = {
     safeCount: number;
     hostValue: string | null;
     hostDerived: string | null;
+    stealthHostValue: string | null;
+    stealthHostDerived: string | null;
   };
 };
 
@@ -62,6 +64,14 @@ function createProjectionSchema(): DomainSchema {
         hostDerived: {
           deps: ["hostValue"],
           expr: { kind: "get", path: "hostValue" },
+        },
+        stealthHostValue: {
+          deps: [],
+          expr: { kind: "get", path: "$host.requestId" },
+        },
+        stealthHostDerived: {
+          deps: ["stealthHostValue"],
+          expr: { kind: "get", path: "stealthHostValue" },
         },
       },
     },
@@ -253,6 +263,8 @@ describe("activated base runtime", () => {
     expect(before.computed).toEqual({ safeCount: 0 });
     expect(canonicalBefore.computed).toHaveProperty("hostValue");
     expect(canonicalBefore.computed).toHaveProperty("hostDerived");
+    expect(canonicalBefore.computed).toHaveProperty("stealthHostValue");
+    expect(canonicalBefore.computed).toHaveProperty("stealthHostDerived");
 
     const resolved = await world.dispatchAsync(
       world.createIntent(world.MEL.actions.touchHost),
@@ -268,6 +280,8 @@ describe("activated base runtime", () => {
     expect(canonicalAfter.data.$host?.requestId).toBe("req-1");
     expect(canonicalAfter.computed.hostValue).toBe("req-1");
     expect(canonicalAfter.computed.hostDerived).toBe("req-1");
+    expect(canonicalAfter.computed.stealthHostValue).toBe("req-1");
+    expect(canonicalAfter.computed.stealthHostDerived).toBe("req-1");
 
     world.dispose();
   });
@@ -320,6 +334,9 @@ describe("activated base runtime", () => {
       data: {
         count: 0,
         status: "loading",
+      },
+      computed: {
+        safeCount: 0,
       },
       system: {
         status: "pending",

@@ -54,14 +54,14 @@ export function buildSnapshotProjectionPlan(
       return true;
     }
 
-    for (const dep of field.deps) {
-      if (isPlatformDependency(dep)) {
+    for (const path of collectExprGetPaths(field.expr)) {
+      if (isPlatformDependency(path)) {
         visiting.delete(name);
         memo.set(name, false);
         return false;
       }
 
-      const computedDependency = resolveComputedDependency(dep, computedFields);
+      const computedDependency = resolveComputedDependency(path, computedFields);
       if (
         computedDependency !== null
         && !isVisibleComputed(computedDependency, visiting)
@@ -178,6 +178,43 @@ function isPlatformDependency(dep: string): boolean {
     : dep;
   const root = normalized.split(".")[0] ?? "";
   return root.startsWith("$");
+}
+
+function collectExprGetPaths(expr: unknown): string[] {
+  const paths: string[] = [];
+  const seen = new WeakSet<object>();
+
+  const visit = (node: unknown): void => {
+    if (node === null || node === undefined) {
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    if (typeof node !== "object") {
+      return;
+    }
+
+    const objectNode = node as Record<string, unknown>;
+    if (seen.has(objectNode)) {
+      return;
+    }
+    seen.add(objectNode);
+
+    if (objectNode.kind === "get" && typeof objectNode.path === "string") {
+      paths.push(objectNode.path);
+    }
+
+    for (const value of Object.values(objectNode)) {
+      visit(value);
+    }
+  };
+
+  visit(expr);
+  return paths;
 }
 
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
