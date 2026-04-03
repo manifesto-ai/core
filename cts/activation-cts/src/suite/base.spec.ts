@@ -135,25 +135,31 @@ describe("ACTS Base Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.BASE_MUTATION_SAFETY,
-      "Visible snapshot reads are mutation-safe and do not leak external changes back in.",
+      "Visible snapshot reads are read-only, mutation-safe, and do not leak external changes back in.",
     ),
     async () => {
       const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
       await world.dispatchAsync(world.createIntent(world.MEL.actions.add, 3));
 
       const snapshot = world.getSnapshot();
-      (snapshot.data as { count: number }).count = 999;
+      let threwOnMutation = false;
+
+      try {
+        (snapshot.data as { count: number }).count = 999;
+      } catch (error) {
+        threwOnMutation = error instanceof TypeError;
+      }
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-BASE-5"),
-          world.getSnapshot().data.count === 3,
+          threwOnMutation && world.getSnapshot().data.count === 3,
           {
-            passMessage: "Snapshot reads are mutation-safe.",
-            failMessage: "Mutating a returned snapshot changed the visible runtime snapshot.",
+            passMessage: "Snapshot reads are read-only and mutation-safe.",
+            failMessage: "Visible snapshot reads were mutable or leaked external mutation back into runtime state.",
             evidence: [
               noteEvidence(
-                "Mutated count on a previously returned snapshot and re-read visible snapshot state.",
+                "Attempted to mutate count on a returned snapshot, confirmed TypeError, then re-read visible snapshot state.",
               ),
             ],
           },
