@@ -277,8 +277,23 @@ function cycleSafeEqualInternal(
       return false;
     }
 
-    return leftObject.every((value, index) =>
-      cycleSafeEqualInternal(value, rightObject[index], seen));
+    for (let index = 0; index < leftObject.length; index += 1) {
+      const leftHasValue = Object.prototype.hasOwnProperty.call(leftObject, index);
+      const rightHasValue = Object.prototype.hasOwnProperty.call(rightObject, index);
+
+      if (leftHasValue !== rightHasValue) {
+        return false;
+      }
+
+      if (
+        leftHasValue
+        && !cycleSafeEqualInternal(leftObject[index], rightObject[index], seen)
+      ) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   if (leftObject instanceof Date && rightObject instanceof Date) {

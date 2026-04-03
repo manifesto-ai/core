@@ -10,6 +10,7 @@ import {
   ManifestoError,
   createManifesto,
 } from "../index.js";
+import { projectedSnapshotsEqual } from "../snapshot-projection.js";
 import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
 const pp = semanticPathToPatchPath;
@@ -514,6 +515,41 @@ describe("activated base runtime", () => {
     expect(Array.from(nextCanonicalBytes ?? [])).toEqual([1, 2, 3]);
 
     world.dispose();
+  });
+
+  it("treats sparse array holes as distinct projected values", () => {
+    const sparse = new Array(1);
+    const defined = [undefined];
+
+    expect(projectedSnapshotsEqual(
+      {
+        data: { payload: sparse },
+        computed: {},
+        system: { status: "idle", lastError: null },
+        meta: { schemaHash: "schema" },
+      },
+      {
+        data: { payload: defined },
+        computed: {},
+        system: { status: "idle", lastError: null },
+        meta: { schemaHash: "schema" },
+      },
+    )).toBe(false);
+
+    expect(projectedSnapshotsEqual(
+      {
+        data: { payload: defined },
+        computed: {},
+        system: { status: "idle", lastError: null },
+        meta: { schemaHash: "schema" },
+      },
+      {
+        data: { payload: sparse },
+        computed: {},
+        system: { status: "idle", lastError: null },
+        meta: { schemaHash: "schema" },
+      },
+    )).toBe(false);
   });
 
   it("dispose rejects future dispatches and snapshot mutation does not leak back in", async () => {
