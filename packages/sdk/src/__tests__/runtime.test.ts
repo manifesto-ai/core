@@ -17,6 +17,7 @@ const pp = semanticPathToPatchPath;
 type ProjectionDomain = {
   actions: {
     touchHost: () => void;
+    touchHostCycle: () => void;
     capture: () => void;
   };
   state: {
@@ -75,6 +76,20 @@ function createProjectionSchema(): DomainSchema {
           then: {
             kind: "effect",
             type: "host.touch",
+            params: {},
+          },
+        },
+      },
+      touchHostCycle: {
+        flow: {
+          kind: "if",
+          cond: {
+            kind: "isNull",
+            arg: { kind: "get", path: "$host.cycle" },
+          },
+          then: {
+            kind: "effect",
+            type: "host.cycle",
             params: {},
           },
         },
@@ -253,6 +268,34 @@ describe("activated base runtime", () => {
     expect(canonicalAfter.data.$host?.requestId).toBe("req-1");
     expect(canonicalAfter.computed.hostValue).toBe("req-1");
     expect(canonicalAfter.computed.hostDerived).toBe("req-1");
+
+    world.dispose();
+  });
+
+  it("guards canonical snapshot freezing against cyclic platform values", async () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+
+    const world = createManifesto<ProjectionDomain>(createProjectionSchema(), {
+      "host.cycle": async () => [{
+        op: "set",
+        path: pp("$host.cycle"),
+        value: cyclic,
+      }],
+    }).activate();
+
+    await expect(
+      world.dispatchAsync(world.createIntent(world.MEL.actions.touchHostCycle)),
+    ).resolves.toBe(world.getSnapshot());
+
+    const canonical = world.getCanonicalSnapshot();
+    const hostCycle = canonical.data.$host?.cycle as
+      | Record<string, unknown>
+      | undefined;
+
+    expect(hostCycle).toBeDefined();
+    expect(hostCycle?.self).toBe(hostCycle);
+    expect(Object.isFrozen(hostCycle)).toBe(true);
 
     world.dispose();
   });

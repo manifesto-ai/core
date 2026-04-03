@@ -180,8 +180,14 @@ function isPlatformDependency(dep: string): boolean {
   return root.startsWith("$");
 }
 
-function deepFreeze<T>(value: T): T {
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || value === undefined || typeof value !== "object") {
+    return value;
+  }
+
+  const objectValue = value as Record<PropertyKey, unknown>;
+
+  if (seen.has(objectValue)) {
     return value;
   }
 
@@ -189,9 +195,11 @@ function deepFreeze<T>(value: T): T {
     return value;
   }
 
-  for (const key of Object.getOwnPropertyNames(value)) {
-    const child = (value as Record<string, unknown>)[key];
-    deepFreeze(child);
+  seen.add(objectValue);
+
+  for (const key of Reflect.ownKeys(objectValue)) {
+    const child = objectValue[key];
+    deepFreeze(child, seen);
   }
 
   return Object.freeze(value);
