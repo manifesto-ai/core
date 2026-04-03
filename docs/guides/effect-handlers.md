@@ -194,4 +194,3 @@ Patch only the state you intend to change. It keeps handlers easier to review an
 ## Next
 
 - Read [Debugging](./debugging) if an effect is not behaving the way you expect
-- Read [Typed Patch Ops](./typed-patch-ops) if you want safer patch creation in TypeScript

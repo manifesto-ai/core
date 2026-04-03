@@ -68,6 +68,6 @@ Representative runtime scenarios:
 Phase F does not add new telemetry products. The minimum operator baseline is:
 
 - release gate commands above stay green
-- benchmark history remains informational only in [Performance Report](./performance-report)
+- benchmark history is available in git history
 
 If you need deeper operational tracing, treat that as follow-up work rather than part of the current release gate.

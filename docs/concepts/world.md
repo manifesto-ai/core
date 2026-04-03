@@ -63,7 +63,6 @@ const governed = withGovernance(
 
 ## See Also
 
-- [World API](../api/world.md)
 - [Governance API](../api/governance.md)
 - [Lineage API](../api/lineage.md)
 - [Governed Composition Guide](../guides/governed-composition.md)
