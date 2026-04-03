@@ -54,7 +54,7 @@ These guides are preserved for project history or retired migration paths. They 
 - You add `withLineage()` and `withGovernance()` only when the app needs governed composition
 - You create intents through an activated runtime or low-level governance helpers
 - You observe outcomes through subscriptions, runtime events, governed proposals, and lineage/governance query APIs
-- You treat Snapshot as the single source of truth
+- You treat `getSnapshot()` as the default runtime read model and escalate to canonical reads only when needed
 
 ---
 

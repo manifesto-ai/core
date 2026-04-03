@@ -80,7 +80,7 @@
 
 ### Coordinate
 
-**Definition:** A single point in a semantic space, represented by a Snapshot. The complete state of a domain at a specific moment in time.
+**Definition:** A single point in a semantic space, represented by the canonical Snapshot substrate. At the SDK boundary, applications usually observe a projected Snapshot read model derived from that canonical coordinate.
 
 **Key insight:** Traditional state management treats state as data to mutate. Manifesto treats state as a coordinate to navigate.
 
@@ -333,18 +333,18 @@
 
 ### Snapshot
 
-**Definition:** The complete state of a system at a point in time. In the semantic space model, a Snapshot is a coordinate—one point in the space defined by the schema. Snapshot is the single source of truth and the only communication channel between Core and Host.
+**Definition:** At the SDK/application boundary, Snapshot is the projected default read model returned by `getSnapshot()`. At the Core/Host boundary, the full canonical substrate is still the only communication channel. In the semantic space model, both refer to the same coordinate seen at different boundaries.
 
 **Structure:**
-- `data` — Domain state
-- `system` — Runtime state (status, errors, requirements)
-- `meta` — Metadata (version, timestamp, hash)
+- `data` — Domain state in projected reads; canonical data also includes platform `$*` namespaces
+- `system` — Projected reads expose `status` and `lastError`; canonical reads also include requirements and current action
+- `meta` — Projected reads expose `schemaHash`; canonical reads also include version, timestamp, and randomSeed
 - `computed` — Derived values
-- `input` — Transient input data
+- `input` — Canonical-only transient input data
 
 **Not to be confused with:**
 - State — Snapshot is immutable; "state" often implies mutability
-- Checkpoint — Snapshot is the active state, not just a backup
+- CanonicalSnapshot — the full substrate used for persistence, restore, hashing, and deep inspection
 
 **See also:** [Patch](#patch), [World](#world)
 

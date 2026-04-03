@@ -89,7 +89,7 @@ Governed runtimes still carry the lineage query surface:
 - `createBranch(name, fromWorldId?)`
 
 The removed verbs are direct execution verbs. Governance keeps the lineage query surface, not lineage execution.
-`getWorldSnapshot(worldId)` reads the stored sealed snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
+`getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
 
 ## 6. Low-Level Governance Substrate
 

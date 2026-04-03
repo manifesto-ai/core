@@ -1,5 +1,5 @@
 import type { Intent } from "@manifesto-ai/core";
-import type { Snapshot } from "../../../../sdk/src/index.ts";
+import type { CanonicalSnapshot } from "../../../../sdk/src/index.ts";
 
 import { createManifesto } from "../../../../sdk/src/index.ts";
 import {
@@ -49,7 +49,7 @@ const governed = withGovernance<CounterDomain>(
 void governed.proposeAsync(
   governed.createIntent(governed.MEL.actions.increment),
 );
-const governedWorldSnapshot: Promise<Snapshot<CounterDomain["state"]> | null> = governed.getWorldSnapshot("world-1");
+const governedWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> = governed.getWorldSnapshot("world-1");
 void governedWorldSnapshot;
 void governed.getLatestHead();
 void governed.getBranches();

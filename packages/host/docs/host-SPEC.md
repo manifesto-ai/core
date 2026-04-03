@@ -102,7 +102,7 @@ interface Host {
 
 ### 3.3 Snapshot (Core Reference)
 
-The complete state of a domain at a point in time.
+The canonical complete state of a domain at a point in time.
 
 **Host MUST use the canonical Snapshot type defined in Core SPEC.**
 

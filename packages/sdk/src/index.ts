@@ -21,6 +21,8 @@ export type {
   TypedGetActionMetadata,
   BaseLaws,
   BaseComposableLaws,
+  CanonicalPlatformNamespaces,
+  CanonicalSnapshot,
   ComposableManifesto,
   ComputedRef,
   EffectContext,

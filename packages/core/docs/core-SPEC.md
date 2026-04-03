@@ -1245,10 +1245,10 @@ type TraceGraph = {
 
 ### 13.1 Purpose
 
-Snapshot is the **immutable, point-in-time representation** of world state. It is the **only medium of communication** between computations.
+In the Core SPEC, `Snapshot` is the **canonical immutable, point-in-time substrate** of world state at the Core/Host boundary. It is the **only medium of communication** between computations.
 
-> **Rationale (FDR-002):** Snapshot is the only communication medium — no return values, callbacks, events, shared state, or continuation parameters. Single medium means: complete state (Snapshot contains everything), no hidden state (nothing exists outside), reproducibility (same Snapshot + same Intent = same result), debuggability (inspect Snapshot at any point).
-> **Canonical statement:** "If it's not in Snapshot, it doesn't exist."
+> **Rationale (FDR-002):** Snapshot is the only communication medium — no return values, callbacks, events, shared state, or continuation parameters. Single medium means: complete state (the canonical Snapshot contains everything), no hidden state (nothing exists outside), reproducibility (same Snapshot + same Intent = same result), debuggability (inspect Snapshot at any point).
+> **Canonical statement:** "At the Core/Host boundary, if it's not in the canonical Snapshot, it doesn't exist."
 
 ### 13.2 Structure
 
@@ -1314,7 +1314,7 @@ This is terminology only.
   (e.g., `snapshot.computed['doubled']`), not by assuming nested object structure.
 
 - Higher-level layers **MAY** provide derived read-only views or aliases (e.g., `snapshot.state` as an alias of `snapshot.data`,
-  or ergonomic aliases for computed keys), but such views **MUST NOT** change the canonical Snapshot contract at the Core/Host boundary.
+  or ergonomic aliases for computed keys), but such views **MUST NOT** change the canonical Snapshot contract at the Core/Host boundary. This includes SDK-level projected read models that intentionally hide canonical-only fields from default application reads.
 
 ### 13.4 Requirements
 
@@ -1912,7 +1912,7 @@ an explicit query path for host control flow.
 The absence of a `resume()` API is intentional and reflects a core design principle:
 
 1. **Simplicity**: No need to track suspended execution contexts.
-2. **Serialization**: Snapshot is the complete state; nothing else to persist.
+2. **Serialization**: the canonical Snapshot is the complete state; nothing else to persist.
 3. **Determinism**: Same snapshot + same intent = same result.
 4. **Debugging**: Easy to reproduce any computation by replaying snapshot + intent.
 

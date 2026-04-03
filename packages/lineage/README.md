@@ -11,7 +11,7 @@
 - `withLineage(createManifesto(...), config).activate()`
 - lineage-aware `commitAsync` that seals before publication
 - restore, head, branch, and world queries on the activated runtime
-- `getWorldSnapshot(worldId)` for stored sealed snapshot lookup
+- `getWorldSnapshot(worldId)` for stored sealed canonical snapshot lookup
 - `getLineage()` for DAG inspection on the activated runtime
 - sealing substrate and the provider surface
 - deterministic world identity, branch semantics, and restore normalization
