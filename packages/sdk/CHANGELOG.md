@@ -1,5 +1,31 @@
 # Changelog
 
+## [3.4.0](https://github.com/manifesto-ai/core/compare/sdk-v3.3.2...sdk-v3.4.0) (2026-04-03)
+
+
+### Features
+
+* **sdk:** implement adr-018 public snapshot boundary ([47d05ad](https://github.com/manifesto-ai/core/commit/47d05ad702282f44331db4aa322697b3debeeaa4))
+
+
+### Bug Fixes
+
+* **runtime:** handle literal expr payloads and typed arrays ([3e2ec34](https://github.com/manifesto-ai/core/commit/3e2ec34bc2b737ad3e71659879523691431b2de7))
+* **runtime:** harden snapshot projection against cycles ([6a1b8e4](https://github.com/manifesto-ai/core/commit/6a1b8e477b6948c1638c231353bacbb568a038dd))
+* **runtime:** isolate typed array snapshot reads ([e1487ad](https://github.com/manifesto-ai/core/commit/e1487ad9243e5c49a0c6f5642413e5f852e398a9))
+* **sdk:** compare sparse projected arrays precisely ([d03bb4f](https://github.com/manifesto-ai/core/commit/d03bb4f9acb37892c2f7b5151f21ca884760347e))
+* **sdk:** derive projection visibility from expr reads ([32647b5](https://github.com/manifesto-ai/core/commit/32647b5a4297967788c37e02de58888e66cd0441))
+* **sdk:** guard snapshot freezing against cycles ([677b4c9](https://github.com/manifesto-ai/core/commit/677b4c907d80209aadad3195304b8e9d25b1c165))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.1.1
+    * @manifesto-ai/core bumped to 2.9.0
+    * @manifesto-ai/host bumped to 2.6.0
+
 ## [3.3.2](https://github.com/manifesto-ai/core/compare/sdk-v3.3.1...sdk-v3.3.2) (2026-04-02)
 
 

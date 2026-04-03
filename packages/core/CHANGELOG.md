@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/manifesto-ai/core/compare/core-v2.8.0...core-v2.9.0) (2026-04-03)
+
+
+### Features
+
+* **sdk:** implement adr-018 public snapshot boundary ([47d05ad](https://github.com/manifesto-ai/core/commit/47d05ad702282f44331db4aa322697b3debeeaa4))
+
 ## [2.8.0](https://github.com/manifesto-ai/core/compare/core-v2.7.1...core-v2.8.0) (2026-03-30)
 
 
