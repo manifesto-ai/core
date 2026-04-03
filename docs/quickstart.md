@@ -99,7 +99,7 @@ console.log(world.getSnapshot().data.count); // 2
 
 | Concept | What It Does |
 |---------|--------------|
-| **Snapshot** | Single source of truth for all state |
+| **Snapshot** | Default runtime read model for application state |
 | **Intent** | Request to perform an action |
 | **Flow** | Declarative computation (pure, no side effects) |
 | **Effect** | External operation (API calls, etc.) |

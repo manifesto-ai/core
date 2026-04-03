@@ -50,7 +50,7 @@ if (latestHead) {
 ```
 
 These APIs project the backing continuity truth through the activated runtime.
-`getWorldSnapshot(worldId)` reads the stored sealed snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
+`getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
 
 ## 4. Restore A Sealed World
 

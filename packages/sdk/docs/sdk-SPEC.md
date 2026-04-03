@@ -125,7 +125,27 @@ This is the minimum type shape required for SDK generic propagation.
 ### 5.2 Snapshot and Effect Types
 
 ```typescript
-type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
+type CanonicalPlatformNamespaces = {
+  $host?: Record<string, unknown>;
+  $mel?: Record<string, unknown>;
+  [k: `$${string}`]: unknown;
+};
+
+type Snapshot<T = unknown> = {
+  readonly data: T;
+  readonly computed: Record<string, unknown>;
+  readonly system: {
+    readonly status: "idle" | "computing" | "pending" | "error";
+    readonly lastError: ErrorValue | null;
+  };
+  readonly meta: {
+    readonly schemaHash: string;
+  };
+};
+
+type CanonicalSnapshot<T = unknown> = Omit<CoreSnapshot, "data"> & {
+  readonly data: T & CanonicalPlatformNamespaces;
+};
 
 type EffectContext<T = unknown> = {
   readonly snapshot: Readonly<Snapshot<T>>;
@@ -361,7 +381,7 @@ If the caller explicitly declares `$host`, `$mel`, `$mel.guards`, or `$mel.guard
 
 The activation model does not change the SDK-owned effect handler shape. The SDK-facing handler remains the simplified two-parameter contract in §5.2 and MUST be adapted internally to the Host execution contract.
 
-The `snapshot` in `EffectContext` MUST reflect the current terminal snapshot visible to the activated runtime at effect execution time.
+The `snapshot` in `EffectContext` MUST reflect the current projected snapshot visible to the activated runtime at effect execution time. It MUST NOT expose canonical-only substrate such as `data.$*`, `system.pendingRequirements`, `system.currentAction`, `input`, `meta.version`, `meta.timestamp`, or `meta.randomSeed`.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -387,6 +407,7 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly getActionMetadata: TypedGetActionMetadata<T>;
@@ -454,7 +475,7 @@ Availability reads MUST delegate to Core action-availability semantics rather th
 
 ### 7.4 `subscribe()`
 
-`subscribe()` observes visible snapshot publication through selector projection.
+`subscribe()` observes visible projected snapshot publication through selector projection.
 
 It MUST NOT fire synchronously upon registration.
 
@@ -463,6 +484,8 @@ It MUST fire at most once per published terminal snapshot for a given subscripti
 Selector-based change detection MUST use `Object.is` on the selected value.
 
 `subscribe()` MUST NOT fire for rejected dispatches, and MUST NOT fire for failures that do not publish a new terminal snapshot.
+
+Canonical-only changes that do not affect any projected field MUST NOT trigger subscribers.
 
 Exceptions thrown by selectors or listeners MUST NOT alter dispatch outcome, visible snapshot state, queue state, or event emission. Implementations MAY swallow or externally report those callback errors, but MUST isolate them from runtime semantics.
 
@@ -476,11 +499,17 @@ Exceptions thrown by event handlers MUST NOT alter dispatch outcome, visible sna
 
 ### 7.6 `getSnapshot()`
 
-`getSnapshot()` returns the current visible terminal snapshot synchronously.
+`getSnapshot()` returns the current visible **projected** terminal snapshot synchronously.
 
 The returned value MUST be protected from external mutation. The implementation MAY use freezing, cloning, proxies, or equivalent defensive techniques, but callers MUST NOT be able to mutate internal runtime state by mutating the returned value.
 
-### 7.7 `dispose()`
+### 7.7 `getCanonicalSnapshot()`
+
+`getCanonicalSnapshot()` returns the current visible **canonical** runtime substrate synchronously.
+
+This is the explicit inspection seam for persistence-aware tooling, stored-world alignment, and low-level debugging. It is not the default application-facing read surface.
+
+### 7.8 `dispose()`
 
 `dispose()` is idempotent.
 
@@ -490,6 +519,7 @@ After disposal:
 - `subscribe()` MUST return a no-op unsubscriber and MUST NOT register the listener
 - `on()` MUST return a no-op unsubscriber and MUST NOT register the handler
 - `getSnapshot()` MUST continue returning the last visible terminal snapshot
+- `getCanonicalSnapshot()` MUST continue returning the last visible canonical snapshot
 
 Dispose MUST release all SDK-owned resources for the activated base instance, including subscription storage, telemetry listeners, and queued runtime bookkeeping.
 
@@ -511,11 +541,14 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-SUB-2 | MUST | `subscribe()` listeners MUST fire only after visible terminal snapshot publication |
 | SDK-SUB-3 | MUST | selector change detection MUST use `Object.is` |
 | SDK-SUB-4 | MUST NOT | rejected dispatches MUST NOT trigger subscribers |
+| SDK-SUB-5 | MUST NOT | canonical-only substrate changes MUST NOT trigger subscribers when the projected Snapshot is unchanged |
 | SDK-EVENT-1 | MUST | `on()` MUST support exactly the event names defined in §5.6 for the base world |
 | SDK-EVENT-2 | MUST | all event payloads MUST include `intentId` for correlation |
 | SDK-EVENT-3 | MUST NOT | `on()` MUST NOT be a state-change channel |
 | SDK-SNAP-1 | MUST | `getSnapshot()` MUST return the current visible terminal snapshot synchronously |
-| SDK-SNAP-2 | MUST | returned snapshots and selector inputs MUST be mutation-safe |
+| SDK-SNAP-2 | MUST | `getSnapshot()` MUST return the projected Snapshot surface, not the canonical substrate |
+| SDK-SNAP-3 | MUST | `getCanonicalSnapshot()` MUST return the current visible canonical substrate synchronously |
+| SDK-SNAP-4 | MUST | returned snapshots and selector inputs MUST be mutation-safe |
 | SDK-DISPOSE-1 | MUST | `dispose()` MUST be idempotent |
 | SDK-DISPOSE-2 | MUST | post-dispose `dispatchAsync()` MUST reject with `DisposedError` |
 | SDK-DISPOSE-3 | MUST | post-dispose `subscribe()` and `on()` MUST be inert registrations |

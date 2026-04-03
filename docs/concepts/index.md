@@ -103,7 +103,7 @@ Simpler alternatives exist for:
 | Concept | Definition | Key Principle |
 |---------|------------|---------------|
 | [Shared Semantic Model](./shared-semantic-model.md) | One domain, many surfaces | Define once, project everywhere |
-| [Snapshot](./snapshot.md) | Complete state at a point in time | If it's not in Snapshot, it doesn't exist |
+| [Snapshot](./snapshot.md) | Default runtime read model over canonical state | Read projected by default, canonical intentionally |
 | [Intent](./intent.md) | Request to perform a domain action | Intents are proposals, not commands |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they don't execute |
 | [Effect](./effect.md) | Declaration of external operation | Core declares, Host fulfills |

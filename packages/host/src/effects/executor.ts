@@ -86,16 +86,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function deepFreeze<T>(value: T): T {
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
     return value;
   }
 
-  const props = Object.getOwnPropertyNames(value);
+  const objectValue = value as Record<PropertyKey, unknown>;
+
+  if (ArrayBuffer.isView(objectValue)) {
+    return value;
+  }
+
+  if (seen.has(objectValue)) {
+    return value;
+  }
+
+  seen.add(objectValue);
+
+  const props = Reflect.ownKeys(objectValue);
   for (const prop of props) {
-    const child = (value as Record<string, unknown>)[prop];
+    const child = objectValue[prop];
     if (child && typeof child === "object") {
-      deepFreeze(child);
+      deepFreeze(child, seen);
     }
   }
 
@@ -131,8 +143,8 @@ export class EffectExecutor {
     }
 
     const context: EffectContext = {
-      snapshot: deepFreeze(snapshot),
-      requirement: deepFreeze(requirement),
+      snapshot: deepFreeze(structuredClone(snapshot)),
+      requirement: deepFreeze(structuredClone(requirement)),
     };
 
     try {

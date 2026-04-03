@@ -51,7 +51,7 @@ const proposal = await governed.proposeAsync(
 - the canonical state-change path becomes `proposeAsync() -> approve()/reject()`
 - lineage must be composed before governance activation
 - visible snapshots publish only after approved execution seals successfully
-- `getWorldSnapshot(worldId)` remains the stored sealed snapshot lookup; `restore(worldId)` remains the normalized resume path inherited from lineage
+- `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup; `restore(worldId)` remains the normalized resume path inherited from lineage
 
 ## Low-Level Surface Still Available
 

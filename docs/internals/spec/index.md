@@ -71,7 +71,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 ### Lineage
 
 - **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v3.0.0 surface)
-  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored-substrate lookup, restore, and branch/head runtime queries
+  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored sealed canonical snapshot lookup, restore, and branch/head runtime queries
 
 ### Governance
 

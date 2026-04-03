@@ -1,4 +1,5 @@
 import {
+  type CanonicalSnapshot,
   DisposedError,
   ManifestoError,
   type BaseLaws,
@@ -80,7 +81,7 @@ export interface LineageRuntimeController<T extends ManifestoDomainShape> {
     options?: SealIntentOptions,
   ): Promise<SealedIntentResult<T>>;
   getWorld(worldId: WorldId): Promise<World | null>;
-  getWorldSnapshot(worldId: WorldId): Promise<Snapshot<T["state"]> | null>;
+  getWorldSnapshot(worldId: WorldId): Promise<CanonicalSnapshot<T["state"]> | null>;
   getLineage(): Promise<WorldLineage>;
   getLatestHead(): Promise<WorldHead | null>;
   getHeads(): Promise<readonly WorldHead[]>;
@@ -284,10 +285,12 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     return service.getWorld(worldId);
   }
 
-  async function getWorldSnapshot(worldId: WorldId): Promise<Snapshot<T["state"]> | null> {
+  async function getWorldSnapshot(
+    worldId: WorldId,
+  ): Promise<CanonicalSnapshot<T["state"]> | null> {
     await ensureReady();
     const snapshot = await service.getSnapshot(worldId);
-    return snapshot as Snapshot<T["state"]> | null;
+    return snapshot as CanonicalSnapshot<T["state"]> | null;
   }
 
   async function getLineage(): Promise<WorldLineage> {

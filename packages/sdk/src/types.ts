@@ -2,8 +2,12 @@ import type {
   DomainSchema,
   Intent,
   Patch,
-  Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
+import type {
+  CanonicalPlatformNamespaces,
+  CanonicalSnapshot,
+  Snapshot,
+} from "./snapshot-projection.js";
 
 type ActionFn = {
   bivarianceHack(...args: unknown[]): unknown;
@@ -26,8 +30,6 @@ export type LineageComposableLaws = BaseLaws & LineageLaws & {
   readonly __governanceLaws?: never;
 };
 export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
-
-export type Snapshot<T = unknown> = Omit<CoreSnapshot, "data"> & { data: T };
 
 export type EffectContext<T = unknown> = {
   readonly snapshot: Readonly<Snapshot<T>>;
@@ -173,6 +175,7 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
@@ -206,6 +209,12 @@ export type ActivatedInstance<
         ? Runtime
         : never
       : ManifestoRuntimeByLaws<T>["base"];
+
+export type {
+  CanonicalPlatformNamespaces,
+  CanonicalSnapshot,
+  Snapshot,
+};
 
 export type ComposableManifesto<
   T extends ManifestoDomainShape,

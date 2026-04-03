@@ -27,6 +27,7 @@ The current SDK contract is:
   - `subscribe`
   - `on`
   - `getSnapshot`
+  - `getCanonicalSnapshot`
   - `getAvailableActions`
   - `getActionMetadata`
   - `isActionAvailable`
@@ -50,6 +51,7 @@ world.isActionAvailable("increment");
 world.getAvailableActions();
 world.getActionMetadata("increment");
 world.getSnapshot();
+world.getCanonicalSnapshot();
 ```
 
 ## `createIntent()` binding forms
@@ -112,6 +114,7 @@ The current public seam includes:
 - activation helpers such as `attachRuntimeKernelFactory()`, `getRuntimeKernelFactory()`, `getActivationState()`, and `activateComposable()`
 
 App-facing runtime work should stay on `@manifesto-ai/sdk`.
+`getSnapshot()` is the default projected read model for application code. `getCanonicalSnapshot()` is the full runtime substrate for persistence, deep debugging, and infrastructure-aware tooling.
 
 ## Governed Composition Direction
 

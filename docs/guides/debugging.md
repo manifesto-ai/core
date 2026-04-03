@@ -60,6 +60,16 @@ If the snapshot did not change, ask:
 - Did the selector you subscribed to stay equal by `Object.is`?
 - Did the effect handler return patches for the fields you expected?
 
+If you need to inspect hidden runtime residue, compare canonical snapshots as well:
+
+```typescript
+const beforeCanonical = world.getCanonicalSnapshot();
+const afterCanonical = world.getCanonicalSnapshot();
+
+console.log("before canonical", beforeCanonical.system.pendingRequirements);
+console.log("after canonical", afterCanonical.system.pendingRequirements);
+```
+
 ---
 
 ## 3. Verify the Intent Shape
@@ -107,6 +117,8 @@ console.log(patches);
 ```
 
 If the returned patches are wrong, the problem is in the handler. If the patches are right but state still does not look right, the problem is higher in the flow.
+
+Use `world.getSnapshot()` here when you want to mirror the SDK-facing effect contract. Use `world.getCanonicalSnapshot()` separately only if you are debugging hidden host/runtime state.
 
 ---
 
@@ -157,7 +169,7 @@ This is often enough to debug an onboarding example or a failing integration tes
 
 ### Looking only at UI behavior
 
-Start with telemetry and Snapshot. UI bugs and domain bugs are easier to separate once you know whether the snapshot actually changed.
+Start with telemetry and the projected Snapshot. UI bugs and domain bugs are easier to separate once you know whether the public read model actually changed. Escalate to `getCanonicalSnapshot()` only when you need hidden runtime detail.
 
 ### Debugging the whole app at once
 
