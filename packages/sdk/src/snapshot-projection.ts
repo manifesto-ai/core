@@ -209,8 +209,13 @@ function collectExprGetPaths(expr: unknown): string[] {
     }
     seen.add(objectNode);
 
+    if (objectNode.kind === "lit") {
+      return;
+    }
+
     if (objectNode.kind === "get" && typeof objectNode.path === "string") {
       paths.push(objectNode.path);
+      return;
     }
 
     for (const value of Object.values(objectNode)) {
@@ -386,6 +391,10 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   }
 
   const objectValue = value as Record<PropertyKey, unknown>;
+
+  if (ArrayBuffer.isView(objectValue)) {
+    return value;
+  }
 
   if (seen.has(objectValue)) {
     return value;

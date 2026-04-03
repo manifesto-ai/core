@@ -93,6 +93,10 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
 
   const objectValue = value as Record<PropertyKey, unknown>;
 
+  if (ArrayBuffer.isView(objectValue)) {
+    return value;
+  }
+
   if (seen.has(objectValue)) {
     return value;
   }

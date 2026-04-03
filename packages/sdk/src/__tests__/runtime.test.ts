@@ -30,6 +30,8 @@ type ProjectionDomain = {
   computed: {
     safeCount: number;
     activeCount: number;
+    literalPayload: { kind: string; path: string };
+    literalPayloadDerived: { kind: string; path: string };
     hostValue: string | null;
     hostDerived: string | null;
     stealthHostValue: string | null;
@@ -90,6 +92,20 @@ function createProjectionSchema(): DomainSchema {
               predicate: { kind: "get", path: "$item.active" },
             },
           },
+        },
+        literalPayload: {
+          deps: [],
+          expr: {
+            kind: "lit",
+            value: {
+              kind: "get",
+              path: "$host.requestId",
+            },
+          },
+        },
+        literalPayloadDerived: {
+          deps: ["literalPayload"],
+          expr: { kind: "get", path: "literalPayload" },
         },
         hostValue: {
           deps: ["$host.requestId"],
@@ -308,7 +324,12 @@ describe("activated base runtime", () => {
     world.subscribe((snapshot) => snapshot, subscriber);
     world.on("dispatch:completed", completed);
 
-    expect(before.computed).toEqual({ safeCount: 0, activeCount: 1 });
+    expect(before.computed).toEqual({
+      safeCount: 0,
+      activeCount: 1,
+      literalPayload: { kind: "get", path: "$host.requestId" },
+      literalPayloadDerived: { kind: "get", path: "$host.requestId" },
+    });
     expect(canonicalBefore.computed).toHaveProperty("hostValue");
     expect(canonicalBefore.computed).toHaveProperty("hostDerived");
     expect(canonicalBefore.computed).toHaveProperty("stealthHostValue");
@@ -322,7 +343,12 @@ describe("activated base runtime", () => {
 
     expect(resolved).toBe(after);
     expect(after).toBe(before);
-    expect(after.computed).toEqual({ safeCount: 0, activeCount: 1 });
+    expect(after.computed).toEqual({
+      safeCount: 0,
+      activeCount: 1,
+      literalPayload: { kind: "get", path: "$host.requestId" },
+      literalPayloadDerived: { kind: "get", path: "$host.requestId" },
+    });
     expect(subscriber).not.toHaveBeenCalled();
     expect(completed).toHaveBeenCalledTimes(1);
     expect(canonicalAfter.data.$host?.requestId).toBe("req-1");
@@ -378,6 +404,8 @@ describe("activated base runtime", () => {
     expect(world.getSnapshot().computed).toEqual({
       safeCount: 0,
       activeCount: 1,
+      literalPayload: { kind: "get", path: "$host.requestId" },
+      literalPayloadDerived: { kind: "get", path: "$host.requestId" },
     });
 
     const resolved = await world.dispatchAsync(
@@ -390,6 +418,8 @@ describe("activated base runtime", () => {
     expect(snapshot.computed).toEqual({
       safeCount: 0,
       activeCount: 1,
+      literalPayload: { kind: "get", path: "$host.requestId" },
+      literalPayloadDerived: { kind: "get", path: "$host.requestId" },
     });
     expect(payload).toBeDefined();
     expect(payload?.self).toBe(payload);
@@ -422,6 +452,8 @@ describe("activated base runtime", () => {
       computed: {
         safeCount: 0,
         activeCount: 1,
+        literalPayload: { kind: "get", path: "$host.requestId" },
+        literalPayloadDerived: { kind: "get", path: "$host.requestId" },
       },
       system: {
         status: "pending",
@@ -433,6 +465,38 @@ describe("activated base runtime", () => {
     expect((seenSnapshots[0] as { data: Record<string, unknown> }).data).not.toHaveProperty("$host");
     expect((seenSnapshots[0] as { system: Record<string, unknown> }).system).not.toHaveProperty("pendingRequirements");
     expect("input" in (seenSnapshots[0] as object)).toBe(false);
+
+    world.dispose();
+  });
+
+  it("publishes snapshots containing typed array values without freeze failures", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const world = createManifesto<ProjectionDomain>(createProjectionSchema(), {
+      "state.cycle": async () => [{
+        op: "set",
+        path: pp("payload"),
+        value: {
+          bytes,
+        },
+      }],
+    }).activate();
+
+    const resolved = await world.dispatchAsync(
+      world.createIntent(world.MEL.actions.touchDataCycle),
+    );
+
+    const snapshot = world.getSnapshot();
+    const canonical = world.getCanonicalSnapshot();
+    const projectedBytes = (snapshot.data.payload as { bytes?: Uint8Array } | undefined)?.bytes;
+    const canonicalBytes = (canonical.data.payload as { bytes?: Uint8Array } | undefined)?.bytes;
+
+    expect(resolved).toBe(snapshot);
+    expect(projectedBytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(projectedBytes ?? [])).toEqual([1, 2, 3]);
+    expect(canonicalBytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(canonicalBytes ?? [])).toEqual([1, 2, 3]);
+    expect(Object.isFrozen(snapshot.data.payload as object)).toBe(true);
+    expect(Object.isFrozen(canonical.data.payload as object)).toBe(true);
 
     world.dispose();
   });

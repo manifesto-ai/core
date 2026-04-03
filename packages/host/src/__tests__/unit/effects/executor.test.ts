@@ -110,6 +110,24 @@ describe("EffectExecutor", () => {
       expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
     });
 
+    it("should allow typed array snapshot values in frozen handler context", async () => {
+      let receivedContext: any;
+      const handler: EffectHandler = async (_type, _params, context) => {
+        receivedContext = context;
+        return [];
+      };
+      registry.register("test", handler);
+
+      await executor.execute(
+        createTestRequirement("test"),
+        createTestSnapshot({ payload: { bytes: new Uint8Array([1, 2, 3]) } }),
+      );
+
+      expect(receivedContext.snapshot.data.payload.bytes).toBeInstanceOf(Uint8Array);
+      expect(Array.from(receivedContext.snapshot.data.payload.bytes)).toEqual([1, 2, 3]);
+      expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
+    });
+
     it("should provide a frozen requirement to handler", async () => {
       let receivedContext: any;
       const handler: EffectHandler = async (_type, _params, context) => {
