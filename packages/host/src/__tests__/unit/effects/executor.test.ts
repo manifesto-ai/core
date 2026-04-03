@@ -87,6 +87,29 @@ describe("EffectExecutor", () => {
       expect(Object.isFrozen(receivedContext.snapshot.system)).toBe(true);
     });
 
+    it("should freeze cyclic snapshot values without recursion overflow", async () => {
+      let receivedContext: any;
+      const handler: EffectHandler = async (_type, _params, context) => {
+        receivedContext = context;
+        return [];
+      };
+      registry.register("test", handler);
+
+      const cyclic: Record<string, unknown> = {};
+      cyclic.self = cyclic;
+
+      await executor.execute(
+        createTestRequirement("test"),
+        createTestSnapshot({ payload: cyclic }),
+      );
+
+      expect(receivedContext.snapshot.data.payload).toBeDefined();
+      expect(receivedContext.snapshot.data.payload.self).toBe(
+        receivedContext.snapshot.data.payload,
+      );
+      expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
+    });
+
     it("should provide a frozen requirement to handler", async () => {
       let receivedContext: any;
       const handler: EffectHandler = async (_type, _params, context) => {

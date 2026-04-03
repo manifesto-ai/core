@@ -1,5 +1,4 @@
 import {
-  canonicalEqual,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
@@ -25,6 +24,8 @@ export type CanonicalSnapshot<T = unknown> =
 export type SnapshotProjectionPlan = {
   visibleComputedKeys: readonly string[];
 };
+
+const COLLECTION_CONTEXT_ROOTS = new Set(["$item", "$index", "$array"]);
 
 export function buildSnapshotProjectionPlan(
   schema: DomainSchema,
@@ -117,7 +118,7 @@ export function projectedSnapshotsEqual<T>(
   left: Snapshot<T>,
   right: Snapshot<T>,
 ): boolean {
-  return canonicalEqual(left, right);
+  return cycleSafeEqual(left, right);
 }
 
 function projectData<T>(data: unknown): T {
@@ -177,7 +178,11 @@ function isPlatformDependency(dep: string): boolean {
     ? dep.slice("data.".length)
     : dep;
   const root = normalized.split(".")[0] ?? "";
-  return root.startsWith("$");
+  if (!root.startsWith("$")) {
+    return false;
+  }
+
+  return !COLLECTION_CONTEXT_ROOTS.has(root);
 }
 
 function collectExprGetPaths(expr: unknown): string[] {
@@ -215,6 +220,164 @@ function collectExprGetPaths(expr: unknown): string[] {
 
   visit(expr);
   return paths;
+}
+
+function cycleSafeEqual(left: unknown, right: unknown): boolean {
+  return cycleSafeEqualInternal(left, right, new WeakMap<object, WeakSet<object>>());
+}
+
+function cycleSafeEqualInternal(
+  left: unknown,
+  right: unknown,
+  seen: WeakMap<object, WeakSet<object>>,
+): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  if (typeof left !== typeof right) {
+    return false;
+  }
+
+  if (left === null || right === null) {
+    return left === right;
+  }
+
+  if (typeof left !== "object" || typeof right !== "object") {
+    return false;
+  }
+
+  const leftObject = left as object;
+  const rightObject = right as object;
+  const leftTag = Object.prototype.toString.call(leftObject);
+  const rightTag = Object.prototype.toString.call(rightObject);
+
+  if (leftTag !== rightTag) {
+    return false;
+  }
+
+  let seenRight = seen.get(leftObject);
+  if (seenRight?.has(rightObject)) {
+    return true;
+  }
+
+  if (!seenRight) {
+    seenRight = new WeakSet<object>();
+    seen.set(leftObject, seenRight);
+  }
+  seenRight.add(rightObject);
+
+  if (Array.isArray(leftObject) && Array.isArray(rightObject)) {
+    if (leftObject.length !== rightObject.length) {
+      return false;
+    }
+
+    return leftObject.every((value, index) =>
+      cycleSafeEqualInternal(value, rightObject[index], seen));
+  }
+
+  if (leftObject instanceof Date && rightObject instanceof Date) {
+    return leftObject.getTime() === rightObject.getTime();
+  }
+
+  if (leftObject instanceof RegExp && rightObject instanceof RegExp) {
+    return leftObject.source === rightObject.source
+      && leftObject.flags === rightObject.flags;
+  }
+
+  if (ArrayBuffer.isView(leftObject) && ArrayBuffer.isView(rightObject)) {
+    if (leftObject.constructor !== rightObject.constructor) {
+      return false;
+    }
+
+    if (leftObject.byteLength !== rightObject.byteLength) {
+      return false;
+    }
+
+    const leftBytes = new Uint8Array(
+      leftObject.buffer,
+      leftObject.byteOffset,
+      leftObject.byteLength,
+    );
+    const rightBytes = new Uint8Array(
+      rightObject.buffer,
+      rightObject.byteOffset,
+      rightObject.byteLength,
+    );
+
+    return leftBytes.every((value, index) => value === rightBytes[index]);
+  }
+
+  if (leftObject instanceof ArrayBuffer && rightObject instanceof ArrayBuffer) {
+    if (leftObject.byteLength !== rightObject.byteLength) {
+      return false;
+    }
+
+    const leftBytes = new Uint8Array(leftObject);
+    const rightBytes = new Uint8Array(rightObject);
+    return leftBytes.every((value, index) => value === rightBytes[index]);
+  }
+
+  if (leftObject instanceof Map && rightObject instanceof Map) {
+    if (leftObject.size !== rightObject.size) {
+      return false;
+    }
+
+    const leftEntries = Array.from(leftObject.entries());
+    const rightEntries = Array.from(rightObject.entries());
+
+    return leftEntries.every(([leftKey, leftValue], index) => {
+      const rightEntry = rightEntries[index];
+      if (!rightEntry) {
+        return false;
+      }
+
+      const [rightKey, rightValue] = rightEntry;
+      return cycleSafeEqualInternal(leftKey, rightKey, seen)
+        && cycleSafeEqualInternal(leftValue, rightValue, seen);
+    });
+  }
+
+  if (leftObject instanceof Set && rightObject instanceof Set) {
+    if (leftObject.size !== rightObject.size) {
+      return false;
+    }
+
+    const leftValues = Array.from(leftObject.values());
+    const rightValues = Array.from(rightObject.values());
+
+    return leftValues.every((value, index) =>
+      cycleSafeEqualInternal(value, rightValues[index], seen));
+  }
+
+  const leftKeys = getComparableObjectKeys(leftObject);
+  const rightKeys = getComparableObjectKeys(rightObject);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  for (let index = 0; index < leftKeys.length; index += 1) {
+    const leftKey = leftKeys[index];
+    const rightKey = rightKeys[index];
+    if (leftKey !== rightKey) {
+      return false;
+    }
+
+    const leftValue = (leftObject as Record<string, unknown>)[leftKey];
+    const rightValue = (rightObject as Record<string, unknown>)[rightKey];
+    if (!cycleSafeEqualInternal(leftValue, rightValue, seen)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getComparableObjectKeys(value: object): string[] {
+  return Object.keys(value as Record<string, unknown>)
+    .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+    .sort();
 }
 
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {

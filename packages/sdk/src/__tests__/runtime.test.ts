@@ -18,14 +18,18 @@ type ProjectionDomain = {
   actions: {
     touchHost: () => void;
     touchHostCycle: () => void;
+    touchDataCycle: () => void;
     capture: () => void;
   };
   state: {
     status: string;
     count: number;
+    items?: { active: boolean }[];
+    payload?: Record<string, unknown>;
   };
   computed: {
     safeCount: number;
+    activeCount: number;
     hostValue: string | null;
     hostDerived: string | null;
     stealthHostValue: string | null;
@@ -49,6 +53,19 @@ function createProjectionSchema(): DomainSchema {
       fields: {
         status: { type: "string", required: false, default: "idle" },
         count: { type: "number", required: false, default: 0 },
+        items: {
+          type: "array",
+          required: false,
+          default: [{ active: true }, { active: false }],
+          items: {
+            type: "object",
+            required: true,
+            fields: {
+              active: { type: "boolean", required: true },
+            },
+          },
+        },
+        payload: { type: "object", required: false },
       },
     },
     computed: {
@@ -56,6 +73,23 @@ function createProjectionSchema(): DomainSchema {
         safeCount: {
           deps: ["count"],
           expr: { kind: "get", path: "count" },
+        },
+        activeCount: {
+          deps: ["items"],
+          expr: {
+            kind: "len",
+            arg: {
+              kind: "filter",
+              array: {
+                kind: "coalesce",
+                args: [
+                  { kind: "get", path: "items" },
+                  { kind: "lit", value: [] },
+                ],
+              },
+              predicate: { kind: "get", path: "$item.active" },
+            },
+          },
         },
         hostValue: {
           deps: ["$host.requestId"],
@@ -100,6 +134,20 @@ function createProjectionSchema(): DomainSchema {
           then: {
             kind: "effect",
             type: "host.cycle",
+            params: {},
+          },
+        },
+      },
+      touchDataCycle: {
+        flow: {
+          kind: "if",
+          cond: {
+            kind: "isNull",
+            arg: { kind: "get", path: "payload" },
+          },
+          then: {
+            kind: "effect",
+            type: "state.cycle",
             params: {},
           },
         },
@@ -260,7 +308,7 @@ describe("activated base runtime", () => {
     world.subscribe((snapshot) => snapshot, subscriber);
     world.on("dispatch:completed", completed);
 
-    expect(before.computed).toEqual({ safeCount: 0 });
+    expect(before.computed).toEqual({ safeCount: 0, activeCount: 1 });
     expect(canonicalBefore.computed).toHaveProperty("hostValue");
     expect(canonicalBefore.computed).toHaveProperty("hostDerived");
     expect(canonicalBefore.computed).toHaveProperty("stealthHostValue");
@@ -274,7 +322,7 @@ describe("activated base runtime", () => {
 
     expect(resolved).toBe(after);
     expect(after).toBe(before);
-    expect(after.computed).toEqual({ safeCount: 0 });
+    expect(after.computed).toEqual({ safeCount: 0, activeCount: 1 });
     expect(subscriber).not.toHaveBeenCalled();
     expect(completed).toHaveBeenCalledTimes(1);
     expect(canonicalAfter.data.$host?.requestId).toBe("req-1");
@@ -298,9 +346,10 @@ describe("activated base runtime", () => {
       }],
     }).activate();
 
-    await expect(
-      world.dispatchAsync(world.createIntent(world.MEL.actions.touchHostCycle)),
-    ).resolves.toBe(world.getSnapshot());
+    const resolved = await world.dispatchAsync(
+      world.createIntent(world.MEL.actions.touchHostCycle),
+    );
+    expect(resolved).toBe(world.getSnapshot());
 
     const canonical = world.getCanonicalSnapshot();
     const hostCycle = canonical.data.$host?.cycle as
@@ -310,6 +359,41 @@ describe("activated base runtime", () => {
     expect(hostCycle).toBeDefined();
     expect(hostCycle?.self).toBe(hostCycle);
     expect(Object.isFrozen(hostCycle)).toBe(true);
+
+    world.dispose();
+  });
+
+  it("keeps iterator-local computed values visible and compares cyclic projected data safely", async () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+
+    const world = createManifesto<ProjectionDomain>(createProjectionSchema(), {
+      "state.cycle": async () => [{
+        op: "set",
+        path: pp("payload"),
+        value: cyclic,
+      }],
+    }).activate();
+
+    expect(world.getSnapshot().computed).toEqual({
+      safeCount: 0,
+      activeCount: 1,
+    });
+
+    const resolved = await world.dispatchAsync(
+      world.createIntent(world.MEL.actions.touchDataCycle),
+    );
+    const snapshot = world.getSnapshot();
+    expect(resolved).toBe(snapshot);
+    const payload = snapshot.data.payload as Record<string, unknown> | undefined;
+
+    expect(snapshot.computed).toEqual({
+      safeCount: 0,
+      activeCount: 1,
+    });
+    expect(payload).toBeDefined();
+    expect(payload?.self).toBe(payload);
+    expect(Object.isFrozen(payload)).toBe(true);
 
     world.dispose();
   });
@@ -337,6 +421,7 @@ describe("activated base runtime", () => {
       },
       computed: {
         safeCount: 0,
+        activeCount: 1,
       },
       system: {
         status: "pending",
