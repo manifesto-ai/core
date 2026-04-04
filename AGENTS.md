@@ -30,8 +30,7 @@ If you want Codex to load Manifesto-specific guidance in another project:
 3. Restart Codex
 
 This setup is explicit. `@manifesto-ai/skills` does not auto-register itself from `postinstall`.
-
-For the full walkthrough, see [docs/guides/codex-skills.md](docs/guides/codex-skills.md).
+For the full walkthrough, see the external `@manifesto-ai/skills` package README.
 
 **Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
 

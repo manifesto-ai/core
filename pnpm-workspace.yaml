@@ -3,4 +3,3 @@ packages:
   - "cts/*"
   - "apps/*"
   - "examples/*"
-  - "skills"

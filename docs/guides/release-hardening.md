@@ -10,7 +10,6 @@ Release Please runs in workspace mode for this monorepo. Active runtime packages
 
 - `@manifesto-ai/core`, `@manifesto-ai/host`, `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, and `@manifesto-ai/governance` form the linked runtime stack.
 - `@manifesto-ai/compiler` and `@manifesto-ai/codegen` form the linked tooling stack.
-- `@manifesto-ai/skills` remains independent from the runtime and tooling release trains.
 - Changes touching any package in a linked train must be reviewed and merged as a single release train when Release Please proposes them together.
 - Internal workspace dependency updates are handled by the `node-workspace` and `linked-versions` plugins. Do not work around version skew in consumer apps with package-manager overrides unless you are diagnosing a broken publish.
 - Manual publish is for recovery only. Normal releases should flow through the grouped Release Please PR and the publish workflow.

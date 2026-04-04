@@ -15,7 +15,7 @@ Manifesto supports two stable agent patterns:
 
 Use direct dispatch when the agent is operating inside a trusted app session and does not need approval. Use governed proposals when the action needs legitimacy, actor tracking, or branch history.
 
-If you use Codex and want Manifesto-specific guidance loaded into the agent session, install [`@manifesto-ai/skills`](/guides/codex-skills) separately and run its explicit Codex setup command.
+If you use Codex and want Manifesto-specific guidance loaded into the agent session, install `@manifesto-ai/skills` separately and run its explicit Codex setup command.
 
 ---
 
@@ -151,7 +151,7 @@ The agent should reason from Snapshot, not from a private memory of what it thin
 
 ## Next
 
-- Read [Codex Skills Setup](/guides/codex-skills) if you want Codex to load Manifesto-specific guidance
+- Install `@manifesto-ai/skills` if you want Codex to load Manifesto-specific guidance
 - Read [React](./react) to connect the same instance to a UI
 - Read [Governance API](/api/governance) when the agent should work through proposals and sealing
 - Read [Architecture](/architecture/) when you want the bigger system model
