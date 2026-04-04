@@ -5,7 +5,7 @@
 
 ---
 
-> **Current Contract Note:** This page reflects the current Core v4.0.0 Snapshot model. Accumulated `system.errors` is no longer part of the current Snapshot contract.
+> **Current Contract Note:** This page describes the canonical Snapshot model at the Core/Host boundary. SDK applications usually read a projected Snapshot via `getSnapshot()`, while the full substrate remains canonical underneath. Accumulated `system.errors` is no longer part of the current Snapshot contract.
 
 ## What Is Determinism?
 
@@ -19,7 +19,7 @@ This equation is:
 - **Pure**: Same inputs always produce same outputs
 - **Total**: Always returns a result (never throws)
 - **Traceable**: Every step is recorded
-- **Complete**: Snapshot is the whole truth
+- **Complete**: the canonical Snapshot is the whole truth
 
 **There are no exceptions to this rule.**
 
@@ -61,11 +61,11 @@ These guarantees hold regardless of whether you run through the direct-dispatch 
 
 ## How Determinism Is Achieved
 
-### 1. Snapshot Is the Only Medium
+### 1. Canonical Snapshot Is the Only Medium
 
 The first pillar of determinism is eliminating all hidden state:
 
-> **If it's not in Snapshot, it doesn't exist.**
+> **At the Core/Host boundary, if it's not in Snapshot, it doesn't exist.**
 
 Traditional systems pass values in multiple ways:
 - Function return values
@@ -84,12 +84,12 @@ This multiplicity creates:
 
 **Single communication medium** means:
 
-1. **Complete State**: Snapshot contains everything needed to understand current state
-2. **No Hidden State**: Nothing exists outside Snapshot
-3. **Reproducibility**: Same Snapshot + Same Intent = Same Result
-4. **Debuggability**: Inspect Snapshot at any point to understand everything
+1. **Complete State**: the canonical Snapshot contains everything needed to understand current state
+2. **No Hidden State**: nothing exists outside the canonical substrate
+3. **Reproducibility**: same Snapshot + same Intent = same result
+4. **Debuggability**: inspect Snapshot at any point to understand everything
 
-#### Snapshot Structure
+#### Canonical Snapshot Structure
 
 ```typescript
 type Snapshot = {
@@ -116,6 +116,8 @@ type Snapshot = {
 - All state changes happen via Patches
 - Computed values are recalculated, never stored
 - There is no channel for value passing outside Snapshot
+
+At the SDK boundary, `getSnapshot()` intentionally projects this canonical structure into a smaller application-facing read model.
 
 ### 2. No Suspended Execution Context
 
@@ -452,17 +454,17 @@ For very deep Flows (100+ nodes) or high-frequency updates (1000+/sec):
 
 ### Q: How do you handle time-dependent logic?
 
-**A:** Time comes from Snapshot, not the environment.
+**A:** In the canonical Core/Host contract, time comes from `snapshot.meta`, not the environment.
 
 ```typescript
 // Wrong: Non-deterministic
 const now = Date.now();
 
 // Right: Deterministic
-const now = snapshot.input.__host.now;
+const now = snapshot.meta.timestamp;
 ```
 
-Host provides time as input. Core reads it from Snapshot.
+Host provides time through HostContext and writes the deterministic result into canonical snapshot metadata. Core reads it from Snapshot. At the SDK boundary, projected `getSnapshot()` intentionally hides this field; use `getCanonicalSnapshot()` when you need it.
 
 ### Q: Can effects have side effects?
 
@@ -474,17 +476,17 @@ But Core's computation remains pure.
 
 ### Q: What about randomness?
 
-**A:** Randomness comes from Snapshot, not `Math.random()`.
+**A:** In the canonical Core/Host contract, randomness comes from `snapshot.meta`, not `Math.random()`.
 
 ```typescript
 // Wrong: Non-deterministic
 const id = Math.random().toString();
 
 // Right: Deterministic
-const id = snapshot.input.__host.randomSeed;
+const id = snapshot.meta.randomSeed;
 ```
 
-Host provides randomness via HostContext (available under `input.__host`). Core uses it deterministically.
+Host provides randomness via HostContext and writes the deterministic seed into canonical snapshot metadata. Core uses it deterministically. Projected SDK snapshots do not expose this field by default.
 
 ---
 

@@ -1,145 +1,102 @@
 # Snapshot
 
-> The complete state of a system at a point in time.
+> The default application-facing read model in Manifesto.
 
-## What Is Snapshot?
+## What Snapshot Means Now
 
-Snapshot is the single source of truth in Manifesto. It captures everything about your application's state: domain data, derived values, runtime status, and metadata.
+In current SDK runtimes, `getSnapshot()` returns a **projected Snapshot** for ordinary application code.
 
-**If it's not in Snapshot, it doesn't exist.** All communication between layers happens through Snapshot. There are no hidden channels, no side-band data, no implicit context.
+That projected Snapshot is intentionally smaller than the full runtime substrate:
 
-This design enables complete state visibility, deterministic computation, and full reproducibility. You can serialize a Snapshot, replay it later, and get identical results.
+- it includes domain `data`
+- it includes public `computed` values
+- it includes `system.status` and `system.lastError`
+- it includes `meta.schemaHash`
+- it excludes infrastructure residue such as `data.$host`, `data.$mel`, `system.pendingRequirements`, `system.currentAction`, `input`, and canonical runtime counters
 
-## Structure
+If you need the full substrate, use `getCanonicalSnapshot()`.
+
+## Snapshot vs CanonicalSnapshot
 
 ```typescript
 type Snapshot<TData = unknown> = {
-  /** Domain data (your business state) */
   readonly data: TData;
-
-  /** Computed values (derived, never stored) */
   readonly computed: Record<string, unknown>;
-
-  /** System state (runtime status, errors, pending effects) */
   readonly system: {
-    status: 'idle' | 'computing' | 'pending' | 'error';
+    status: "idle" | "computing" | "pending" | "error";
+    lastError: ErrorValue | null;
+  };
+  readonly meta: {
+    schemaHash: string;
+  };
+};
+
+type CanonicalSnapshot<TData = unknown> = {
+  readonly data: TData & CanonicalPlatformNamespaces;
+  readonly computed: Record<string, unknown>;
+  readonly system: {
+    status: "idle" | "computing" | "pending" | "error";
     lastError: ErrorValue | null;
     pendingRequirements: readonly Requirement[];
     currentAction: string | null;
   };
-
-  /** Transient input for current action */
   readonly input: unknown;
-
-  /** Metadata */
   readonly meta: {
-    version: number;      // Monotonically increasing
-    timestamp: number;    // When last modified
-    randomSeed: string;   // Deterministic randomness
-    schemaHash: string;   // Schema this conforms to
+    version: number;
+    timestamp: number;
+    randomSeed: string;
+    schemaHash: string;
   };
 };
 ```
 
+The distinction is by layer:
+
+- Core and Host operate on the canonical full substrate
+- SDK and application code default to the projected Snapshot
+- Lineage persistence and restore operate on canonical snapshots
+
+## Reading State
+
+Use the projected Snapshot for normal UI and application logic:
+
+```typescript
+const snapshot = world.getSnapshot();
+
+console.log(snapshot.data.todos);
+console.log(snapshot.computed.activeCount);
+console.log(snapshot.system.lastError);
+```
+
+Escalate to the canonical substrate only when you need infrastructure detail:
+
+```typescript
+const canonical = world.getCanonicalSnapshot();
+
+console.log(canonical.data.$host);
+console.log(canonical.system.pendingRequirements);
+console.log(canonical.meta.version);
+```
+
+## Persistence and Restore
+
+Projected Snapshot is not a persistence substrate.
+
+- use `getSnapshot()` for rendering, selectors, and public application reads
+- use canonical snapshots for hashing, sealing, restore, and forensic inspection
+
+In practice, that means lineage/world storage APIs work with canonical snapshots, while the active SDK runtime keeps `getSnapshot()` as the safe default read.
+
 ## Key Properties
 
-- **Immutable**: Snapshots never change after creation. Any modification produces a new Snapshot.
-- **Complete**: Contains all state needed to understand the system.
-- **Versioned**: `meta.version` increments by exactly 1 per change.
-- **Content-addressable**: Can be hashed for identity comparison.
-
-## Example
-
-```typescript
-const snapshot: Snapshot = {
-  data: {
-    todos: [
-      { id: "1", title: "Buy milk", completed: false },
-      { id: "2", title: "Write code", completed: true }
-    ],
-    filter: "all"
-  },
-  computed: {
-    activeCount: 1,
-    completedCount: 1
-  },
-  system: {
-    status: 'idle',
-    lastError: null,
-    pendingRequirements: [],
-    currentAction: null
-  },
-  input: null,
-  meta: {
-    version: 42,
-    timestamp: 1704067200000,
-    randomSeed: "seed-abc",
-    schemaHash: "sha256:..."
-  }
-};
-```
-
-## Snapshot vs Sealed World History
-
-Snapshot is the current terminal state. World history is the record of sealed states and the lineage around them.
-
-| Snapshot | Sealed World History |
-|----------|----------------------|
-| The current read model | The ordered record of seals and branches |
-| Used by SDK direct-dispatch flows | Used by governed composition and audit flows |
-| Read as the latest terminal value | Replayed or restored through lineage |
-| Updated by the next dispatch result | Extended by explicit sealing |
-
-If you only need to render or derive the latest domain state, Snapshot is enough. If you need auditability, branch awareness, or replay, you need the sealed world record as well.
-
----
-
-## Common Patterns
-
-### Reading State
-
-```typescript
-// Domain data
-const todos = snapshot.data.todos;
-
-// Computed values (recalculated, not stored)
-const activeCount = snapshot.computed["activeCount"];
-
-// Check for errors
-if (snapshot.system.lastError) {
-  console.log(snapshot.system.lastError.message);
-}
-```
-
-### Modifying State (via Patches)
-
-```typescript
-// NEVER do this
-snapshot.data.count = 5; // FORBIDDEN
-
-// Always use patches through Core
-const newSnapshot = core.apply(schema, snapshot, [
-  {
-    op: "set",
-    path: [{ kind: "prop", name: "count" }],
-    value: 5,
-  },
-], context);
-```
-
-### Persistence
-
-```typescript
-// Serialize
-const json = JSON.stringify(snapshot);
-
-// Deserialize — computed values are always recalculated on next compute()
-const loaded = JSON.parse(json);
-```
+- **Immutable**: both projected and canonical snapshot reads are mutation-safe
+- **Projected by default**: ordinary app code does not see `$*` namespaces or orchestration residue unless it asks for canonical state
+- **Canonical underneath**: the full substrate still exists and remains the only Core/Host communication medium
+- **Schema-aware**: `meta.schemaHash` stays visible in the projected Snapshot because it identifies the read model's schema without leaking runtime residue
 
 ## See Also
 
 - [Intent](./intent.md) - How changes are requested
 - [Effect](./effect.md) - How external operations work
-- [World](./world) - How sealed history and governance wrap Snapshot
-- [Flow](./flow.md) - How computations modify Snapshot
+- [World](./world) - How sealed history and governance wrap canonical snapshots
+- [Flow](./flow.md) - How computations modify canonical state

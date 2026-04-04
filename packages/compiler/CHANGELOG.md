@@ -1,5 +1,29 @@
 # Changelog
 
+## [3.1.1](https://github.com/manifesto-ai/core/compare/compiler-v3.1.0...compiler-v3.1.1) (2026-04-03)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.9.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.0.0 to ^2.9.0
+
+## [3.1.0](https://github.com/manifesto-ai/core/compare/compiler-v3.0.0...compiler-v3.1.0) (2026-04-02)
+
+
+### Features
+
+* **compiler:** emit codegen during dev and rename domain output ([fee61e3](https://github.com/manifesto-ai/core/commit/fee61e35681268e941914f6be2c0374ec98c63c4))
+* **compiler:** emit codegen during dev and rename domain output ([a67b3c0](https://github.com/manifesto-ai/core/commit/a67b3c082923191d3e46c7bbaab7bd117d318c5f))
+
+
+### Bug Fixes
+
+* **compiler:** validate codegen timing values ([5b9ead1](https://github.com/manifesto-ai/core/commit/5b9ead178abe5ea2dab03aa6526bef6534e8183a))
+
 ## [3.0.0](https://github.com/manifesto-ai/core/compare/compiler-v2.0.0...compiler-v3.0.0) (2026-04-02)
 
 

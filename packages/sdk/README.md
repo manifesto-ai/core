@@ -21,6 +21,7 @@ Use the SDK when you want:
 - the shortest path to a running base world
 - typed intent creation through `MEL.actions.*`
 - `dispatchAsync`, subscriptions, availability queries, action metadata inspection, and snapshot reads in one package
+- projected Snapshot reads by default, with canonical inspection available explicitly
 - a clear boundary between law composition and runtime execution
 
 ## Activation Lifecycle
@@ -37,6 +38,7 @@ await world.dispatchAsync(intent);
 world.isActionAvailable("increment");
 world.getAvailableActions();
 world.getSnapshot();
+world.getCanonicalSnapshot();
 ```
 
 The canonical SDK lifecycle is:
@@ -47,6 +49,8 @@ The canonical SDK lifecycle is:
 4. execute with instance-owned `dispatchAsync()`
 5. observe through `subscribe()` / `on()` and read through `getSnapshot()`
 
+`getSnapshot()` is the projected application-facing read surface. `getCanonicalSnapshot()` is the explicit escape hatch for full substrate inspection.
+
 ## Base Runtime Surface
 
 The activated base runtime exposes:
@@ -56,6 +60,7 @@ The activated base runtime exposes:
 - `subscribe`
 - `on`
 - `getSnapshot`
+- `getCanonicalSnapshot`
 - `getAvailableActions`
 - `getActionMetadata`
 - `isActionAvailable`

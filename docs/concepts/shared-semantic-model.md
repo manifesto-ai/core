@@ -1,6 +1,6 @@
 # Shared Semantic Model
 
-> Manifesto is a semantic layer for deterministic domain state. Every surface reads from the same Snapshot and speaks the same domain semantics.
+> Manifesto is a semantic layer for deterministic domain state. Every surface reads from the same underlying snapshot substrate and speaks the same domain semantics.
 
 ---
 
@@ -10,7 +10,7 @@ The important idea is not "multi-actor support" or "AI integration" as separate 
 
 - the same MEL domain declaration
 - the same request model for asking for change
-- the same Snapshot as single source of truth
+- the same snapshot substrate, exposed as projected Snapshot reads by default
 - the same deterministic compute equation
 
 This is what makes Manifesto a semantic layer rather than a state management library or an AI framework.
@@ -34,7 +34,7 @@ The surfaces can be:
 - a background job
 - an LLM-powered agent
 
-The contract stays the same. The Snapshot is the shared truth.
+The contract stays the same. The same snapshot substrate is shared across surfaces, even when applications read it through the projected Snapshot boundary.
 
 ---
 
@@ -99,7 +99,7 @@ That is where [World](./world) comes in. It is the explicit governed composition
 
 ## See Also
 
-- [Snapshot](./snapshot) for the single source of truth
+- [Snapshot](./snapshot) for the projected read model and canonical substrate split
 - [Intent](./intent) for the unit of requested change
 - [Integration: AI Agents](../integration/ai-agents) for practical agent patterns
 - [World](./world) for explicit governance and lineage

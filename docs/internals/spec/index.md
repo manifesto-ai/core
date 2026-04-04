@@ -47,8 +47,6 @@ These references remain available for traceability, but they are not maintained 
 
 `@manifesto-ai/world` was removed from the active workspace in ADR-017 Phase 4. It is no longer a normative package and no longer defines the public governed bootstrap story.
 
-For the historical tombstone page, see [API: @manifesto-ai/world](/api/world).
-
 ### Historical SDK Surfaces
 
 Historical SDK v0-v2 package specs were removed from the working tree after the activation-first cut. Use Git history when you need archaeology for the ready-instance/runtime-helper era.
@@ -73,7 +71,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 ### Lineage
 
 - **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v3.0.0 surface)
-  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored-substrate lookup, restore, and branch/head runtime queries
+  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored sealed canonical snapshot lookup, restore, and branch/head runtime queries
 
 ### Governance
 

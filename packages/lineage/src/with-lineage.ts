@@ -147,6 +147,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     subscribe: kernel.subscribe,
     on: kernel.on,
     getSnapshot: kernel.getSnapshot,
+    getCanonicalSnapshot: kernel.getCanonicalSnapshot,
     getAvailableActions: kernel.getAvailableActions,
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,

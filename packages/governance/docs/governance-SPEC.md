@@ -68,6 +68,12 @@ type GovernanceInstance<T> =
   };
 ```
 
+The inherited read surfaces keep their lineage/SDK meanings:
+
+- `getSnapshot()` is the projected application-facing runtime read
+- `getCanonicalSnapshot()` is the current visible canonical runtime substrate
+- `getWorldSnapshot(worldId)` is the stored canonical snapshot for a sealed world
+
 ## 6. Verb Promotion
 
 Governed runtimes MUST NOT expose `dispatchAsync` or `commitAsync`.

@@ -2,21 +2,24 @@
 
 **Semantic Layer for Deterministic Domain State**
 
-Manifesto gives you one semantic model for deterministic domain state, traceable history, and explicit governance. Use the SDK when you want the shortest path to a running app. Add Lineage and Governance decorators when you need sealing, history, and proposal legitimacy.
+Manifesto gives you one semantic model for deterministic domain state, traceable history, and explicit governance.
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/core.svg)](https://www.npmjs.com/package/@manifesto-ai/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## Two Ways In
+## Install
 
-| Path | Use it when | Start here |
-|------|-------------|------------|
-| **Base runtime** | You want the shortest onboarding path and present-only execution | [`@manifesto-ai/sdk`](./docs/api/sdk.md) |
-| **Governed composition** | You want explicit lineage, authority, and sealing behavior | [`@manifesto-ai/lineage`](./docs/api/lineage.md) + [`@manifesto-ai/governance`](./docs/api/governance.md) |
+```bash
+pnpm add @manifesto-ai/sdk @manifesto-ai/compiler
+```
 
-### 1. Base Runtime
+---
+
+## Quick Example
+
+Define a domain in MEL:
 
 ```mel
 domain Counter {
@@ -28,12 +31,25 @@ domain Counter {
 }
 ```
 
+Configure your bundler (Vite shown):
+
+```typescript
+// vite.config.ts
+import { defineConfig } from "vite";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+
+export default defineConfig({
+  plugins: [melPlugin()],
+});
+```
+
+Activate and run:
+
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const manifesto = createManifesto(CounterMel, {});
-const app = manifesto.activate();
+const app = createManifesto(CounterMel, {}).activate();
 
 await app.dispatchAsync(
   app.createIntent(app.MEL.actions.increment),
@@ -41,50 +57,28 @@ await app.dispatchAsync(
 console.log(app.getSnapshot().data.count); // 1
 ```
 
-### 2. Governed Composition
+---
 
-```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
-import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
+## Packages
 
-const governed = withGovernance(
-  withLineage(createManifesto(CounterMel, {}), {
-    store: createInMemoryLineageStore(),
-  }),
-  {
-    governanceStore: createInMemoryGovernanceStore(),
-    bindings: [
-      {
-        actorId: "actor:auto",
-        authorityId: "authority:auto",
-        policy: { mode: "auto_approve" },
-      },
-    ],
-    execution: {
-      projectionId: "counter-ui",
-      deriveActor: () => ({ actorId: "actor:auto", kind: "agent" }),
-      deriveSource: () => ({ kind: "ui", eventId: crypto.randomUUID() }),
-    },
-  },
-).activate();
-
-const proposal = await governed.proposeAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
-```
-
-The old world facade and its adapter subpaths were removed. There is no Phase 4 drop-in replacement for the old `world/sqlite` style bootstrap.
+| Package | Role |
+|---------|------|
+| [`@manifesto-ai/sdk`](./docs/api/sdk.md) | Activation-first public API |
+| [`@manifesto-ai/core`](./docs/api/core.md) | Pure semantic computation |
+| [`@manifesto-ai/host`](./docs/api/host.md) | Effect execution runtime |
+| [`@manifesto-ai/compiler`](./docs/api/compiler.md) | MEL to DomainSchema compiler |
+| [`@manifesto-ai/codegen`](./docs/api/codegen.md) | Schema-driven code generation |
+| [`@manifesto-ai/lineage`](./docs/api/lineage.md) | Seal-aware continuity and history |
+| [`@manifesto-ai/governance`](./docs/api/governance.md) | Proposal legitimacy and approval |
 
 ---
 
-## What Manifesto Is
+## Two Paths
 
-Manifesto is a semantic layer for deterministic domain state. You declare the meaning of your domain once, and then choose the surface you want to use:
-
-- `@manifesto-ai/sdk` for activation-first base runtime
-- `@manifesto-ai/lineage` for continuity, sealing, and history
-- `@manifesto-ai/governance` for legitimacy, proposal flow, and approval
+| Path | Use it when | Start here |
+|------|-------------|------------|
+| **Base runtime** | You want the shortest path to a running app | [`@manifesto-ai/sdk`](./docs/api/sdk.md) |
+| **Governed composition** | You need lineage, authority, and sealing | [`@manifesto-ai/lineage`](./docs/api/lineage.md) + [`@manifesto-ai/governance`](./docs/api/governance.md) |
 
 The core equation stays the same:
 
@@ -92,7 +86,7 @@ The core equation stays the same:
 compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
 ```
 
-It is pure, total, and traceable.
+Pure, total, and traceable.
 
 ---
 
@@ -108,9 +102,7 @@ It is pure, total, and traceable.
 ## Where To Go Next
 
 - [Quickstart](./docs/quickstart.md)
-- [SDK API](./docs/api/sdk.md)
-- [Lineage API](./docs/api/lineage.md)
-- [Governance API](./docs/api/governance.md)
-- [Guides](./docs/guides/index.md)
+- [Tutorial](./docs/tutorial/index.md)
+- [API Reference](./docs/api/index.md)
+- [Concepts](./docs/concepts/index.md)
 - [Architecture](./docs/architecture/index.md)
-- [Internals](./docs/internals/index.md)

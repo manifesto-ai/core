@@ -24,8 +24,6 @@ The package was retired in R2 and is no longer part of the workspace release set
 
 Use `@manifesto-ai/sdk` for all application-facing APIs.
 
-- Migration guide: [Migrate app imports to sdk](/guides/migrate-app-to-sdk)
-
 ---
 
 ## Historical References

@@ -20,14 +20,19 @@ export type MelCodegenEmitter = (
   artifact: MelCodegenArtifact
 ) => unknown | Promise<unknown>;
 
+export type MelCodegenTiming = "transform" | "build" | "both";
+
 export type MelCodegenOptions = {
   readonly emit: MelCodegenEmitter;
+  readonly timing?: MelCodegenTiming;
 };
 
 export type MelPluginOptions = {
   readonly include?: RegExp;
   readonly codegen?: MelCodegenEmitter | MelCodegenOptions | false;
 };
+
+const VALID_CODEGEN_TIMINGS = new Set<MelCodegenTiming>(["transform", "build", "both"]);
 
 function normalizeId(id: string): string {
   return id.split("?", 1)[0];
@@ -70,19 +75,29 @@ function sanitizePathSegment(value: string): string {
   return normalized || "domain";
 }
 
-function resolveCodegenEmitter(
+function resolveCodegenOptions(
   codegen: MelPluginOptions["codegen"]
-): MelCodegenEmitter | null {
+): MelCodegenOptions | null {
   if (!codegen) {
     return null;
   }
 
   if (typeof codegen === "function") {
-    return codegen;
+    return { emit: codegen, timing: "transform" };
   }
 
   if (typeof codegen === "object" && typeof codegen.emit === "function") {
-    return codegen.emit;
+    const timing = codegen.timing ?? "transform";
+    if (!VALID_CODEGEN_TIMINGS.has(timing)) {
+      throw new TypeError(
+        `manifesto:mel codegen timing must be one of "transform", "build", or "both" (received ${JSON.stringify(timing)})`
+      );
+    }
+
+    return {
+      emit: codegen.emit,
+      timing,
+    };
   }
 
   throw new TypeError(
@@ -93,7 +108,7 @@ function resolveCodegenEmitter(
 export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
   const include = options.include ?? /\.mel$/;
   const compiledSchemas = new Map<string, DomainSchema>();
-  const codegenEmitter = resolveCodegenEmitter(options.codegen);
+  const codegen = resolveCodegenOptions(options.codegen);
 
   return {
     name: "manifesto:mel",
@@ -103,7 +118,7 @@ export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
       return testRegex(include, normalizeId(id));
     },
 
-    transform(source: string, id: string) {
+    async transform(source: string, id: string) {
       const sourceId = normalizeId(id);
       const result = compileMelDomain(source, { mode: "domain" });
 
@@ -116,8 +131,16 @@ export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
         throw new Error(`MEL compilation produced no schema for ${sourceId}`);
       }
 
-      if (codegenEmitter) {
-        compiledSchemas.set(normalizeArtifactSourceId(sourceId), result.schema);
+      const artifactSourceId = normalizeArtifactSourceId(sourceId);
+
+      if (codegen) {
+        if (codegen.timing === "transform" || codegen.timing === "both") {
+          await codegen.emit({ schema: result.schema, sourceId: artifactSourceId });
+        }
+
+        if (codegen.timing === "build" || codegen.timing === "both") {
+          compiledSchemas.set(artifactSourceId, result.schema);
+        }
       }
 
       const serializedSchema = JSON.stringify(result.schema, null, 2);
@@ -125,12 +148,12 @@ export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
     },
 
     async buildEnd() {
-      if (!codegenEmitter || compiledSchemas.size === 0) {
+      if (!codegen || compiledSchemas.size === 0) {
         return;
       }
 
       for (const [sourceId, schema] of compiledSchemas) {
-        await codegenEmitter({ schema, sourceId });
+        await codegen.emit({ schema, sourceId });
       }
     },
   };

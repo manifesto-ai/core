@@ -53,7 +53,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_MUTATION_SAFETY,
     "base",
-    "Visible snapshot reads are mutation-safe and do not leak external changes back in.",
+    "Visible snapshot reads are read-only, mutation-safe, and do not leak external changes back in.",
   ),
   complianceCase(
     ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE,

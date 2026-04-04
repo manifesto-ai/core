@@ -83,5 +83,3 @@ await world.dispatchAsync(
 - [Release Hardening Guide](/guides/release-hardening)
 - [Next-Major Upgrade Guide](/guides/upgrade-next-major)
 - [Specifications](/internals/spec/)
-
-Historical note: the old world facade was removed from the active workspace; see [@manifesto-ai/world](./world) only for the tombstone page.

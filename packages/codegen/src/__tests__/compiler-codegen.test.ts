@@ -43,7 +43,7 @@ describe("createCompilerCodegen", () => {
         sourceId: "src/domain/counter.mel",
       });
 
-      const output = await readFile(join(outDir, "src/domain/counter.mel.ts"), "utf8");
+      const output = await readFile(join(outDir, "src/domain/counter.domain.ts"), "utf8");
       expect(output).toContain("export interface CounterDomain {");
       expect(output).toContain("count: number");
       expect(output).toContain("doubled: number");

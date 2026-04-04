@@ -13,6 +13,7 @@ import {
 } from "./errors.js";
 import type {
   BaseLaws,
+  CanonicalSnapshot,
   ComposableManifesto,
   ManifestoBaseInstance,
   ManifestoDomainShape,
@@ -29,6 +30,12 @@ import type {
   TypedSubscribe,
   Unsubscribe,
 } from "./types.js";
+import {
+  cloneAndDeepFreeze,
+  projectCanonicalSnapshot,
+  projectedSnapshotsEqual,
+  type SnapshotProjectionPlan,
+} from "./snapshot-projection.js";
 
 export const ACTION_PARAM_NAMES = Symbol("manifesto-sdk.action-param-names");
 export const RUNTIME_KERNEL_FACTORY = Symbol("manifesto-sdk.runtime-kernel-factory");
@@ -60,6 +67,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
@@ -96,6 +104,7 @@ export type InternalComposableManifesto<
 
 type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
   readonly schema: DomainSchema;
+  readonly projectionPlan: SnapshotProjectionPlan;
   readonly host: ManifestoHost;
   readonly MEL: TypedMEL<T>;
   readonly createIntent: TypedCreateIntent<T>;
@@ -216,16 +225,26 @@ function getActionInputFieldNames(
 
 export function createRuntimeKernel<T extends ManifestoDomainShape>({
   schema,
+  projectionPlan,
   host,
   MEL,
   createIntent,
 }: RuntimeKernelOptions<T>): RuntimeKernel<T> {
-  const initialSnapshot = host.getSnapshot();
-  if (!initialSnapshot) {
+  const initialCanonicalSnapshot = host.getSnapshot();
+  if (!initialCanonicalSnapshot) {
     throw new ManifestoError("SCHEMA_ERROR", "Host failed to initialize its genesis snapshot");
   }
 
-  let visibleSnapshot: CoreSnapshot = initialSnapshot;
+  let visibleCanonicalSnapshot: CoreSnapshot = structuredClone(initialCanonicalSnapshot);
+  let visibleProjectedSnapshot = cloneAndDeepFreeze(
+    projectCanonicalSnapshot<T["state"]>(
+      visibleCanonicalSnapshot,
+      projectionPlan,
+    ),
+  );
+  let visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
+    visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
+  );
   let dispatchQueue: Promise<void> = Promise.resolve();
   let disposed = false;
   const actionNames = Object.keys(schema.actions) as Array<keyof T["actions"] & string>;
@@ -270,7 +289,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     let initialized = false;
 
     try {
-      lastValue = selector(snapshotForSelector<T["state"]>(visibleSnapshot));
+      lastValue = selector(visibleProjectedSnapshot);
       initialized = true;
     } catch {
       lastValue = undefined;
@@ -314,11 +333,18 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   }
 
   function getSnapshot(): Snapshot<T["state"]> {
-    return freezeSnapshot(visibleSnapshot) as Snapshot<T["state"]>;
+    return visibleProjectedSnapshot;
+  }
+
+  function getCanonicalSnapshot(): CanonicalSnapshot<T["state"]> {
+    return visibleCanonicalReadSnapshot;
   }
 
   function getAvailableActions(): readonly (keyof T["actions"])[] {
-    return queryAvailableActions(schema, visibleSnapshot) as readonly (keyof T["actions"])[];
+    return queryAvailableActions(
+      schema,
+      visibleCanonicalSnapshot,
+    ) as readonly (keyof T["actions"])[];
   }
 
   const getActionMetadata: TypedGetActionMetadata<T> = ((name?: keyof T["actions"]) => {
@@ -330,7 +356,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   }) as TypedGetActionMetadata<T>;
 
   function isActionAvailable(name: keyof T["actions"]): boolean {
-    return queryActionAvailable(schema, visibleSnapshot, String(name));
+    return queryActionAvailable(schema, visibleCanonicalSnapshot, String(name));
   }
 
   function dispose(): void {
@@ -347,18 +373,33 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
   ): Snapshot<T["state"]> {
-    visibleSnapshot = structuredClone(snapshot);
-    host.reset(visibleSnapshot);
+    visibleCanonicalSnapshot = structuredClone(snapshot);
+    host.reset(structuredClone(visibleCanonicalSnapshot));
+    visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
+      visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
+    );
 
-    const publishedSnapshot = freezeSnapshot(visibleSnapshot) as Snapshot<T["state"]>;
-    if (options?.notify !== false) {
-      notifySubscribers(publishedSnapshot);
+    const nextProjectedSnapshot = projectCanonicalSnapshot<T["state"]>(
+      visibleCanonicalSnapshot,
+      projectionPlan,
+    );
+    const projectedChanged = !projectedSnapshotsEqual(
+      nextProjectedSnapshot,
+      visibleProjectedSnapshot,
+    );
+
+    if (projectedChanged) {
+      visibleProjectedSnapshot = cloneAndDeepFreeze(nextProjectedSnapshot);
     }
-    return publishedSnapshot;
+
+    if (options?.notify !== false && projectedChanged) {
+      notifySubscribers(visibleProjectedSnapshot);
+    }
+    return visibleProjectedSnapshot;
   }
 
   function restoreVisibleSnapshot(): void {
-    host.reset(visibleSnapshot);
+    host.reset(structuredClone(visibleCanonicalSnapshot));
   }
 
   function emitEvent<K extends ManifestoEvent>(
@@ -455,7 +496,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     isActionAvailable,
     dispose,
     isDisposed: () => disposed,
-    getVisibleCoreSnapshot: () => structuredClone(visibleSnapshot),
+    getCanonicalSnapshot,
+    getVisibleCoreSnapshot: () => structuredClone(visibleCanonicalSnapshot),
     setVisibleSnapshot,
     restoreVisibleSnapshot,
     emitEvent,
@@ -527,6 +569,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     subscribe: kernel.subscribe,
     on: kernel.on,
     getSnapshot: kernel.getSnapshot,
+    getCanonicalSnapshot: kernel.getCanonicalSnapshot,
     getAvailableActions: kernel.getAvailableActions,
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
@@ -534,14 +577,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     schema: kernel.schema,
     dispose: kernel.dispose,
   };
-}
-
-function snapshotForSelector<TState>(snapshot: CoreSnapshot): Snapshot<TState> {
-  return freezeSnapshot(snapshot) as Snapshot<TState>;
-}
-
-function freezeSnapshot<TData = unknown>(snapshot: CoreSnapshot): Snapshot<TData> {
-  return Object.freeze(structuredClone(snapshot)) as Snapshot<TData>;
 }
 
 function toError(error: unknown): Error {

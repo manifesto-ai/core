@@ -87,6 +87,55 @@ describe("EffectExecutor", () => {
       expect(Object.isFrozen(receivedContext.snapshot.system)).toBe(true);
     });
 
+    it("should freeze cyclic snapshot values without recursion overflow", async () => {
+      let receivedContext: any;
+      const handler: EffectHandler = async (_type, _params, context) => {
+        receivedContext = context;
+        return [];
+      };
+      registry.register("test", handler);
+
+      const cyclic: Record<string, unknown> = {};
+      cyclic.self = cyclic;
+
+      await executor.execute(
+        createTestRequirement("test"),
+        createTestSnapshot({ payload: cyclic }),
+      );
+
+      expect(receivedContext.snapshot.data.payload).toBeDefined();
+      expect(receivedContext.snapshot.data.payload.self).toBe(
+        receivedContext.snapshot.data.payload,
+      );
+      expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
+    });
+
+    it("should allow typed array snapshot values in frozen handler context", async () => {
+      let receivedContext: any;
+      const handler: EffectHandler = async (_type, _params, context) => {
+        receivedContext = context;
+        return [];
+      };
+      registry.register("test", handler);
+
+      const snapshot = createTestSnapshot({
+        payload: { bytes: new Uint8Array([1, 2, 3]) },
+      });
+
+      await executor.execute(
+        createTestRequirement("test"),
+        snapshot,
+      );
+
+      expect(receivedContext.snapshot.data.payload.bytes).toBeInstanceOf(Uint8Array);
+      expect(Array.from(receivedContext.snapshot.data.payload.bytes)).toEqual([1, 2, 3]);
+      expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
+
+      receivedContext.snapshot.data.payload.bytes[0] = 9;
+      expect(Array.from(receivedContext.snapshot.data.payload.bytes)).toEqual([9, 2, 3]);
+      expect(Array.from((snapshot.data as { payload: { bytes: Uint8Array } }).payload.bytes)).toEqual([1, 2, 3]);
+    });
+
     it("should provide a frozen requirement to handler", async () => {
       let receivedContext: any;
       const handler: EffectHandler = async (_type, _params, context) => {

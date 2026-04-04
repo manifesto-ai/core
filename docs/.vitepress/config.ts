@@ -122,7 +122,6 @@ export default defineConfig({
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'Debugging', link: '/guides/debugging' },
-            { text: 'Typed Patch Ops', link: '/guides/typed-patch-ops' },
             { text: 'Code Generation', link: '/guides/code-generation' },
           ]
         },
@@ -145,7 +144,6 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
-            { text: '@manifesto-ai/world', link: '/api/world' },
             { text: '@manifesto-ai/governance', link: '/api/governance' },
             { text: '@manifesto-ai/lineage', link: '/api/lineage' },
             { text: '@manifesto-ai/core', link: '/api/core' },

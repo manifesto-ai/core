@@ -11,6 +11,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pull-request-title:
+    name: Pull Request Title
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.14.0
+
+      - name: Validate pull request title
+        run: node scripts/check-pr-title.mjs
+        env:
+          GITHUB_PR_TITLE: ${{ github.event.pull_request.title }}
+
   commit-messages:
     name: Commit Messages
     if: ${{ github.event_name == 'pull_request' }}

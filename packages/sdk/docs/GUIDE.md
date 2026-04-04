@@ -19,6 +19,7 @@ const canIncrement = world.isActionAvailable("increment");
 const available = world.getAvailableActions();
 const metadata = world.getActionMetadata("increment");
 const snapshot = world.getSnapshot();
+const canonical = world.getCanonicalSnapshot();
 ```
 
 This is the normal SDK lifecycle:
@@ -31,6 +32,8 @@ This is the normal SDK lifecycle:
 6. read the next terminal Snapshot
 
 `createManifesto()` no longer returns a ready-to-run runtime instance. The activated instance is the canonical public surface.
+
+`getSnapshot()` is the normal projected read for app code. `getCanonicalSnapshot()` is the explicit full-substrate read for persistence-aware or infrastructure-aware debugging.
 
 ---
 

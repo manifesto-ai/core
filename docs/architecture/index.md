@@ -37,9 +37,9 @@ The important beginner takeaway is that not every layer needs to be in your head
 
 ## Architecture Principles
 
-### Snapshot is the shared truth
+### Snapshot is the shared read model
 
-State is read through Snapshot, not through hidden runtime variables.
+State is read through Snapshot rather than hidden runtime variables. At the SDK boundary this means the projected read model from `getSnapshot()`. At the Core/Host boundary, the underlying canonical Snapshot substrate remains the single communication medium.
 
 ### Core computes, Host fulfills
 

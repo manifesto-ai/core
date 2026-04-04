@@ -1,5 +1,34 @@
 # Changelog
 
+## [3.4.0](https://github.com/manifesto-ai/core/compare/governance-v3.3.2...governance-v3.4.0) (2026-04-03)
+
+
+### Features
+
+* **sdk:** implement adr-018 public snapshot boundary ([47d05ad](https://github.com/manifesto-ai/core/commit/47d05ad702282f44331db4aa322697b3debeeaa4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.4.0
+    * @manifesto-ai/sdk bumped to 3.4.0
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.9.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.0.0 to ^2.9.0
+
+## [3.3.2](https://github.com/manifesto-ai/core/compare/governance-v3.3.1...governance-v3.3.2) (2026-04-02)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.3.2
+    * @manifesto-ai/sdk bumped to 3.3.2
+
 ## [3.3.1](https://github.com/manifesto-ai/core/compare/governance-v3.3.0...governance-v3.3.1) (2026-04-02)
 
 

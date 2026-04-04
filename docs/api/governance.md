@@ -48,7 +48,7 @@ Governed runtimes keep the lineage query surface, but remove direct execution:
 - `getDecisionRecord(decisionId)`
 
 Lineage queries such as `getWorldSnapshot(worldId)`, `getLatestHead()`, and `getBranches()` remain available.
-`getWorldSnapshot(worldId)` remains the stored sealed snapshot lookup inherited from lineage. `restore(worldId)` remains the normalized resume path.
+`getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` remains the current visible canonical substrate. `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup inherited from lineage. `restore(worldId)` remains the normalized resume path.
 
 `dispatchAsync` and `commitAsync` are intentionally absent.
 

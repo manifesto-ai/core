@@ -12,6 +12,7 @@ import {
   type DomainSchema,
   type Intent,
   type Patch,
+  type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 import {
   compileMelDomain,
@@ -32,12 +33,17 @@ import {
   type ComposableManifesto,
   type EffectHandler,
   type ManifestoDomainShape,
-  type Snapshot,
   type TypedActionRef,
   type TypedCreateIntent,
   type TypedIntent,
   type TypedMEL,
 } from "./types.js";
+import {
+  buildSnapshotProjectionPlan,
+  cloneAndDeepFreeze,
+  projectEffectContextSnapshot,
+  type SnapshotProjectionPlan,
+} from "./snapshot-projection.js";
 import {
   CompileError,
   ManifestoError,
@@ -57,7 +63,10 @@ type ActionParamMetadata = readonly string[] | null;
 type ResolvedSchema = {
   readonly schema: DomainSchema;
   readonly actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>;
+  readonly projectionPlan: SnapshotProjectionPlan;
 };
+
+type CompiledSchema = Omit<ResolvedSchema, "projectionPlan">;
 
 export function createManifesto<T extends ManifestoDomainShape>(
   schemaInput: DomainSchema | string,
@@ -78,7 +87,12 @@ export function createManifesto<T extends ManifestoDomainShape>(
       return createBaseRuntimeInstance(
         createRuntimeKernel<T>({
           schema: resolved.schema,
-          host: createInternalHost(resolved.schema, effects),
+          projectionPlan: resolved.projectionPlan,
+          host: createInternalHost(
+            resolved.schema,
+            resolved.projectionPlan,
+            effects,
+          ),
           MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
           createIntent: buildCreateIntent<T>(),
         }),
@@ -89,7 +103,8 @@ export function createManifesto<T extends ManifestoDomainShape>(
   return attachRuntimeKernelFactory(manifesto, () =>
     createRuntimeKernel<T>({
       schema: resolved.schema,
-      host: createInternalHost(resolved.schema, effects),
+      projectionPlan: resolved.projectionPlan,
+      host: createInternalHost(resolved.schema, resolved.projectionPlan, effects),
       MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
       createIntent: buildCreateIntent<T>(),
     }),
@@ -97,20 +112,22 @@ export function createManifesto<T extends ManifestoDomainShape>(
 }
 
 function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
-  const resolved = typeof schema === "string"
+  const resolved: CompiledSchema = typeof schema === "string"
     ? compileSchema(schema)
     : {
       schema,
       actionParamMetadata: deriveActionParamMetadata(schema),
     };
 
+  const normalizedSchema = withPlatformNamespaces(resolved.schema);
   return {
-    schema: withPlatformNamespaces(resolved.schema),
+    schema: normalizedSchema,
     actionParamMetadata: resolved.actionParamMetadata,
+    projectionPlan: buildSnapshotProjectionPlan(normalizedSchema),
   };
 }
 
-function compileSchema(source: string): ResolvedSchema {
+function compileSchema(source: string): CompiledSchema {
   const result = compileMelDomain(source, { mode: "domain" });
 
   if (result.errors.length > 0) {
@@ -466,6 +483,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function createInternalHost(
   schema: DomainSchema,
+  projectionPlan: SnapshotProjectionPlan,
   effects: Record<string, EffectHandler>,
 ): ManifestoHost {
   const host = createHost(schema, {
@@ -477,7 +495,7 @@ function createInternalHost(
     params: Record<string, unknown>,
     ctx: HostEffectContext,
   ): Promise<Patch[]> => {
-    const { patches } = executeSystemGet(params, ctx.snapshot as Snapshot);
+    const { patches } = executeSystemGet(params, ctx.snapshot as CoreSnapshot);
     return patches;
   });
 
@@ -487,7 +505,11 @@ function createInternalHost(
       params: Record<string, unknown>,
       ctx: HostEffectContext,
     ): Promise<Patch[]> => {
-      const patches = await appHandler(params, { snapshot: freezeSnapshot(ctx.snapshot) });
+      const patches = await appHandler(params, {
+        snapshot: cloneAndDeepFreeze(
+          projectEffectContextSnapshot(ctx.snapshot, projectionPlan),
+        ),
+      });
       return patches as Patch[];
     };
 
@@ -518,7 +540,7 @@ function isGenerateParams(params: unknown): params is SystemGetGenerateParams {
 
 function executeSystemGet(
   params: unknown,
-  snapshot: Snapshot,
+  snapshot: CoreSnapshot,
 ): { patches: Patch[] } {
   if (isGenerateParams(params)) {
     return {
@@ -576,7 +598,7 @@ function normalizePath(path: string): string {
 
 function resolvePathValue(
   path: string,
-  snapshot: Snapshot,
+  snapshot: CoreSnapshot,
 ): { value: unknown; found: boolean } {
   const normalized = normalizePath(path);
   const parts = normalized.split(".");
@@ -615,11 +637,6 @@ function resolvePathValue(
 
   return { value: current, found: current !== undefined };
 }
-
-function freezeSnapshot<TData = unknown>(snapshot: Snapshot<TData>): Snapshot<TData> {
-  return Object.freeze(structuredClone(snapshot)) as Snapshot<TData>;
-}
-
 function generateUUID(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();

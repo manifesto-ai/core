@@ -34,7 +34,7 @@ The current governed path is:
 5. Call `proposeAsync()`
 6. Read history through Lineage queries such as `getLatestHead()` and `restore()`
 
-Use `getWorldSnapshot(worldId)` when you need the stored sealed snapshot substrate. Use `restore(worldId)` when you need the normalized runtime resume path.
+Use `getWorldSnapshot(worldId)` when you need the stored sealed canonical snapshot substrate. Use `restore(worldId)` when you need the normalized runtime resume path.
 
 ## What Not to Carry Forward
 

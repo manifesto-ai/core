@@ -48,6 +48,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-015](./015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Implemented | 2026-03-29 | Core, Lineage, Host, World, SDK |
 | [ADR-016](./016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Implemented | 2026-03-29 | Lineage, Governance, World |
 | [ADR-017](./017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented | 2026-04-01 | SDK, Lineage, Governance |
+| [ADR-018](./018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented | 2026-04-03 | SDK, Core (docs), Docs, Lineage, Governance |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 

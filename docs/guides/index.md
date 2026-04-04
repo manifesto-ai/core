@@ -18,7 +18,6 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 | [Release Hardening](./release-hardening) | You need the current release gate, known limitations, or operator checks |
 | [Upgrade to Next Major](./upgrade-next-major) | You are moving app/runtime code onto the hard-cut next-major surface |
 | [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |
-| [Typed Patch Ops](./typed-patch-ops) | You want safer patch creation in TypeScript |
 | [Code Generation](./code-generation) | You want generated TypeScript or Zod artifacts from a schema |
 
 ---
@@ -31,20 +30,7 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 4. Read [Release Hardening](./release-hardening) when you are preparing a governed runtime for release
 5. Read [Codex Skills Setup](./codex-skills) if you work with Codex
 6. Read [Re-entry Safety](./reentry-safe-flows)
-7. Read [Typed Patch Ops](./typed-patch-ops)
-
 That sequence matches the problems most teams hit first.
-
----
-
-## Historical Guides
-
-These guides are preserved for project history or retired migration paths. They are not part of the maintained onboarding path.
-
-| Guide | Status | Use It Only When |
-|-------|--------|------------------|
-| [Legacy App Migration](./migrate-app-to-sdk) | Historical | You are reviewing an old `@manifesto-ai/app` migration |
-| [Performance Report](./performance-report) | Historical snapshot | You need the archived benchmark report from early 2026 |
 
 ---
 
@@ -54,7 +40,7 @@ These guides are preserved for project history or retired migration paths. They 
 - You add `withLineage()` and `withGovernance()` only when the app needs governed composition
 - You create intents through an activated runtime or low-level governance helpers
 - You observe outcomes through subscriptions, runtime events, governed proposals, and lineage/governance query APIs
-- You treat Snapshot as the single source of truth
+- You treat `getSnapshot()` as the default runtime read model and escalate to canonical reads only when needed
 
 ---
 

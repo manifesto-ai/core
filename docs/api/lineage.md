@@ -13,7 +13,7 @@ Use this package when you want:
 - `withLineage(createManifesto(...), config).activate()`
 - seal-aware `commitAsync`
 - head, branch, world, and restore APIs on the activated runtime
-- `getWorldSnapshot(worldId)` for stored sealed snapshot inspection by world id
+- `getWorldSnapshot(worldId)` for stored sealed canonical snapshot inspection by world id
 - `getLineage()` for DAG inspection
 - direct access to `@manifesto-ai/lineage/provider` for low-level persistence and tooling
 
@@ -60,9 +60,14 @@ If seal commit fails, the commit rejects and the new snapshot does not become vi
 
 SDK owns the base activation boundary. Lineage owns continuity once that boundary is decorated.
 
+On a lineage runtime:
+
+- `getSnapshot()` is the projected runtime read
+- `getCanonicalSnapshot()` is the current visible canonical substrate
+- `getWorldSnapshot(worldId)` is the stored sealed canonical snapshot
+
 ## Related Docs
 
 - [SDK API](./sdk.md)
 - [Governance API](./governance.md)
-- [World API](./world.md)
 - [Governed Composition Guide](/guides/governed-composition)
