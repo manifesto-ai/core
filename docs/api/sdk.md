@@ -116,17 +116,17 @@ The current public seam includes:
 App-facing runtime work should stay on `@manifesto-ai/sdk`.
 `getSnapshot()` is the default projected read model for application code. `getCanonicalSnapshot()` is the full runtime substrate for persistence, deep debugging, and infrastructure-aware tooling.
 
-## Governed Composition Direction
+## Advanced Runtime Direction
 
 The forward public direction under ADR-017 is:
 
 `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
-Those governed runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are historical tombstones, not the SDK's canonical current story.
+Those advanced-runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are historical tombstones, not the SDK's canonical current story.
 
 ## Related Docs
 
 - [Lineage API](./lineage.md)
 - [Governance API](./governance.md)
 - [Quickstart](/quickstart)
-- [Governed Composition Guide](/guides/governed-composition)
+- [When You Need Approval or History](/guides/approval-and-history)

@@ -4,7 +4,7 @@
 
 ## Overview
 
-`@manifesto-ai/governance` owns `withGovernance()` and the activated governed runtime.
+`@manifesto-ai/governance` owns `withGovernance()` and the activated advanced runtime.
 
 > **Current Contract Note:** The current package contract is Governance v3. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
 
@@ -66,5 +66,5 @@ Use `@manifesto-ai/governance/provider` for low-level seams such as `createGover
 
 - [SDK API](./sdk.md)
 - [Lineage API](./lineage.md)
-- [Governed Composition Guide](/guides/governed-composition)
+- [Advanced Runtime Assembly](/guides/governed-composition)
 - [Specifications](/internals/spec/)

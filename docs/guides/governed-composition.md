@@ -1,18 +1,18 @@
-# Governed Composition
+# Advanced Runtime Assembly
 
-> Assemble governed composition directly from SDK, Lineage, and Governance.
+> Assemble the approval-and-history runtime directly from SDK, Lineage, and Governance.
 
-Use governed composition when you need explicit proposal approval, lineage continuity, sealed worlds, or auditable runtime events. If you only need direct dispatch, stay on `@manifesto-ai/sdk` and `createManifesto()`.
+Only read this after [When You Need Approval or History](/guides/approval-and-history) has already told you that the project needs these layers. If you only need direct dispatch, stay on `@manifesto-ai/sdk` and `createManifesto()`.
 
 ## The Current Path
 
-The current governed path is:
+The current advanced-runtime path is:
 
 1. create a composable manifesto with `createManifesto(schema, effects)`
 2. add continuity with `withLineage(...)`
 3. add legitimacy with `withGovernance(...)`
 4. call `activate()`
-5. submit governed work with `proposeAsync(...)`
+5. submit reviewable work with `proposeAsync(...)`
 
 ## Minimal Assembly
 
@@ -64,6 +64,7 @@ The old world-facade adapter story was removed. No direct replacement for `world
 
 ## See Also
 
+- [When You Need Approval or History](/guides/approval-and-history)
 - [SDK API](/api/sdk)
 - [Lineage API](/api/lineage)
 - [Governance API](/api/governance)

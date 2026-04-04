@@ -9,6 +9,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const maintainedDocRoots = [
   "README.md",
   "docs/index.md",
+  "docs/start-here.md",
   "docs/quickstart.md",
   "docs/api",
   "docs/architecture",

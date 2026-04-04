@@ -1,6 +1,6 @@
 # Upgrade to the Next Major
 
-> Moving onto the hard-cut governed runtime surface.
+> Moving onto the hard-cut runtime surfaces, including the optional advanced runtime.
 
 This guide captures the practical changes needed to move onto the current next-major surface after the hard-cut align work.
 
@@ -9,7 +9,7 @@ This guide captures the practical changes needed to move onto the current next-m
 Use one of these two public entry paths:
 
 - `@manifesto-ai/sdk` with `createManifesto()` and `activate()` for base runtime
-- `@manifesto-ai/lineage` + `@manifesto-ai/governance` for governed composition
+- `@manifesto-ai/lineage` + `@manifesto-ai/governance` for the advanced runtime
 
 Do not mix them into a single bootstrap story.
 
@@ -23,9 +23,9 @@ If you are moving old governed code forward, align to these surfaces:
 - use package-owned stores and services from Lineage and Governance directly
 - treat the old world facade, adapter subpaths, and facade-owned coordinator/runtime as removed
 
-## Governed Bootstrap
+## Advanced Runtime Bootstrap
 
-The current governed path is:
+The current advanced-runtime path is:
 
 1. Create the composable manifesto
 2. Add Lineage
@@ -48,7 +48,7 @@ Do not reintroduce the removed transition surfaces from earlier drafts:
 
 ## See Also
 
-- [Governed Composition](./governed-composition)
+- [Advanced Runtime Assembly](./governed-composition)
 - [Release Hardening](./release-hardening)
 - [SDK API](/api/sdk)
 - [Lineage API](/api/lineage)
