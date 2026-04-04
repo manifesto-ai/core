@@ -42,7 +42,6 @@ const LEGACY_ALLOWLIST = [
   /^scripts\/check-no-app-imports\.mjs$/,
   /^scripts\/migrate\/app-to-sdk\.mjs$/,
   /^scripts\/release\/README\.md$/,
-  /^skills\//,
 ];
 
 function toPosixPath(filePath) {

@@ -11,7 +11,6 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 | Guide | When to Read It |
 |-------|-----------------|
 | [Bundler Setup](./bundler-setup) | You need to configure Vite, Next.js, Webpack, or another bundler for `.mel` files |
-| [Codex Skills Setup](./codex-skills) | You want Codex to load Manifesto-specific guidance from `@manifesto-ai/skills` |
 | [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
 | [Governed Composition](./governed-composition) | You want to compose Lineage and Governance decorators explicitly |
 | [Debugging](./debugging) | A dispatch does not do what you expected |
@@ -28,8 +27,7 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 2. Read [Governed Composition](./governed-composition) if you need explicit lineage or authority
 3. Read [Debugging](./debugging)
 4. Read [Release Hardening](./release-hardening) when you are preparing a governed runtime for release
-5. Read [Codex Skills Setup](./codex-skills) if you work with Codex
-6. Read [Re-entry Safety](./reentry-safe-flows)
+5. Read [Re-entry Safety](./reentry-safe-flows)
 That sequence matches the problems most teams hit first.
 
 ---
