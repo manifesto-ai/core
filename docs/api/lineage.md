@@ -70,4 +70,4 @@ On a lineage runtime:
 
 - [SDK API](./sdk.md)
 - [Governance API](./governance.md)
-- [Governed Composition Guide](/guides/governed-composition)
+- [Advanced Runtime Assembly](/guides/governed-composition)

@@ -342,5 +342,5 @@ Always call the returned `unsubscribe()` and `dispose()` the runtime in the effe
 ## Next
 
 - Read [AI Agents](./ai-agents) to drive the same runtime from an agent workflow
-- Read [Governed Composition](/guides/governed-composition) when the UI needs lineage or approvals
+- Read [When You Need Approval or History](/guides/approval-and-history) when the UI later needs lineage or approvals
 - Read [Debugging](/guides/debugging) if a rendered snapshot does not match the intent you dispatched

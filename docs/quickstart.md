@@ -39,6 +39,19 @@ Next.js, Webpack, Rollup, esbuild, and Rspack are all supported. See [Bundler Se
 
 ---
 
+## Optional DX Add-ons
+
+Once the base runtime is in place, add the surrounding tooling only where it helps:
+
+| Need | Package | Docs |
+|------|---------|------|
+| Bootstrap and configure a project | `@manifesto-ai/cli` | [CLI API](/api/cli) |
+| Author MEL with editor and agent-aware tooling | `@manifesto-ai/mel-lsp` | [MEL LSP API](/api/mel-lsp) |
+| Load current Manifesto guidance into AI tools | `@manifesto-ai/skills` | [Skills API](/api/skills) |
+| Inspect findings, snapshots, trace, lineage, or governance | `@manifesto-ai/studio-cli`, `@manifesto-ai/studio-mcp` | [Developer Tooling Guide](/guides/developer-tooling) |
+
+---
+
 ## Create Your First App
 
 ### 1. Define the domain
@@ -91,7 +104,8 @@ console.log(world.getSnapshot().data.count); // 2
 ## Next Step
 
 - Continue with the [Tutorial](/tutorial/) for the base-runtime learning path
-- Jump to [Governed Composition](/tutorial/05-governed-composition) when you need explicit lineage, authority, and sealing
+- Read [Developer Tooling](/guides/developer-tooling) when you want CLI setup, editor support, Studio inspection, or AI coding tool integration
+- Read [When You Need Approval or History](/guides/approval-and-history) only if the project later needs review, audit history, or sealing
 
 ---
 
@@ -103,7 +117,6 @@ console.log(world.getSnapshot().data.count); // 2
 | **Intent** | Request to perform an action |
 | **Flow** | Declarative computation (pure, no side effects) |
 | **Effect** | External operation (API calls, etc.) |
-| **World** | Governed composition model that adds legitimacy and continuity |
 
 ```text
 compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
