@@ -63,17 +63,17 @@ domain Counter {
 import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const world = createManifesto(CounterMel, {}).activate();
+const instance = createManifesto(CounterMel, {}).activate();
 
-await world.dispatchAsync(
-  world.createIntent(world.MEL.actions.increment),
+await instance.dispatchAsync(
+  instance.createIntent(instance.MEL.actions.increment),
 );
-console.log(world.getSnapshot().data.count); // 1
+console.log(instance.getSnapshot().data.count); // 1
 
-await world.dispatchAsync(
-  world.createIntent(world.MEL.actions.increment),
+await instance.dispatchAsync(
+  instance.createIntent(instance.MEL.actions.increment),
 );
-console.log(world.getSnapshot().data.count); // 2
+console.log(instance.getSnapshot().data.count); // 2
 ```
 
 ---
@@ -83,7 +83,7 @@ console.log(world.getSnapshot().data.count); // 2
 - MEL defined the state and action semantics
 - `createManifesto()` created a composable manifesto
 - `activate()` opened the runtime surface
-- `world.createIntent(world.MEL.actions.increment)` built a typed intent from the MEL action
+- `instance.createIntent(instance.MEL.actions.increment)` built a typed intent from the MEL action
 - `dispatchAsync()` executed that intent and resolved after the next terminal snapshot was published
 
 ---
@@ -103,7 +103,7 @@ console.log(world.getSnapshot().data.count); // 2
 | **Intent** | Request to perform an action |
 | **Flow** | Declarative computation (pure, no side effects) |
 | **Effect** | External operation (API calls, etc.) |
-| **World** | Governed composition model that adds legitimacy and continuity |
+| **World** | Governed composition built from Lineage and Governance when you need legitimacy and continuity |
 
 ```text
 compute(schema, snapshot, intent) -> (snapshot', requirements, trace)

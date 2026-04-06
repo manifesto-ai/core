@@ -1,5 +1,7 @@
 import { defineConfig } from "tsup";
 
+const release = process.env.MANIFESTO_RELEASE === "1";
+
 export default defineConfig({
   entry: {
     index: "src/index.ts",
@@ -14,5 +16,5 @@ export default defineConfig({
   tsconfig: "tsconfig.build.json",
   dts: false,
   clean: true,
-  sourcemap: true,
+  sourcemap: !release,
 });

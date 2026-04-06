@@ -27,6 +27,16 @@ export type CounterDomain = ManifestoDomainShape & {
   };
 };
 
+export type HaltingDomain = ManifestoDomainShape & {
+  actions: {
+    finalize: () => void;
+  };
+  state: {
+    status: string;
+  };
+  computed: {};
+};
+
 export function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -126,6 +136,30 @@ export function createCounterSchema(): DomainSchema {
               params: {},
             },
           ],
+        },
+      },
+    },
+  });
+}
+
+export function createHaltingSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:activation-cts-halting",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        status: { type: "string", required: false, default: "idle" },
+      },
+    },
+    computed: {
+      fields: {},
+    },
+    actions: {
+      finalize: {
+        flow: {
+          kind: "halt",
+          reason: "done",
         },
       },
     },

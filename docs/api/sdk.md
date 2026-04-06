@@ -8,12 +8,12 @@
 
 Use SDK when you want:
 
-- the shortest path to a running base world
+- the shortest path to a running base runtime
 - a clear activation boundary before runtime execution
 - typed intent creation through `MEL.actions.*`
-- subscriptions, availability queries, action metadata inspection, and snapshot reads in one package
+- subscriptions, availability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
-The current SDK contract is:
+The current SDK v3.1.0 contract is:
 
 `createManifesto(schema, effects) -> activate() -> base runtime instance`
 
@@ -31,7 +31,10 @@ The current SDK contract is:
   - `getAvailableActions`
   - `getActionMetadata`
   - `isActionAvailable`
+  - `getSchemaGraph`
+  - `simulate`
   - `MEL`
+  - `schema`
   - `dispose`
 - SDK error types
 - `@manifesto-ai/sdk/provider` for decorator/provider authoring seams
@@ -42,16 +45,18 @@ The current SDK contract is:
 import { createManifesto } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto<CounterDomain>(domainSchema, {});
-const world = manifesto.activate();
+const instance = manifesto.activate();
 
-const intent = world.createIntent(world.MEL.actions.increment);
-await world.dispatchAsync(intent);
+const intent = instance.createIntent(instance.MEL.actions.increment);
+await instance.dispatchAsync(intent);
 
-world.isActionAvailable("increment");
-world.getAvailableActions();
-world.getActionMetadata("increment");
-world.getSnapshot();
-world.getCanonicalSnapshot();
+instance.isActionAvailable("increment");
+instance.getAvailableActions();
+instance.getActionMetadata("increment");
+instance.getSnapshot();
+instance.getCanonicalSnapshot();
+instance.getSchemaGraph();
+instance.simulate(instance.MEL.actions.increment);
 ```
 
 ## `createIntent()` binding forms
@@ -61,10 +66,10 @@ world.getCanonicalSnapshot();
 Supported forms today are:
 
 ```typescript
-world.createIntent(world.MEL.actions.increment);
-world.createIntent(world.MEL.actions.add, 3);
-world.createIntent(world.MEL.actions.addTodo, "Review docs", "todo-1");
-world.createIntent(world.MEL.actions.addTodo, {
+instance.createIntent(instance.MEL.actions.increment);
+instance.createIntent(instance.MEL.actions.add, 3);
+instance.createIntent(instance.MEL.actions.addTodo, "Review docs", "todo-1");
+instance.createIntent(instance.MEL.actions.addTodo, {
   title: "Review docs",
   id: "todo-1",
 });
@@ -84,14 +89,14 @@ This is a supported public contract, not an implementation detail.
 Use `getActionMetadata()` when a UI, adapter, or agent needs the runtime's public action contract without maintaining a parallel registry.
 
 ```typescript
-const addTodo = world.getActionMetadata("addTodo");
+const addTodo = instance.getActionMetadata("addTodo");
 
 console.log(addTodo.name);
 console.log(addTodo.params);
 console.log(addTodo.input);
 console.log(addTodo.description);
 
-const allActions = world.getActionMetadata();
+const allActions = instance.getActionMetadata();
 ```
 
 The accessor exposes:
@@ -102,6 +107,12 @@ The accessor exposes:
 - optional description
 
 `getAvailableActions()` remains the legality query. `getActionMetadata()` is a read-only contract inspection surface.
+
+## Static Graph And Dry-Run Introspection
+
+Use `getSchemaGraph()` when you need the projected static dependency graph for the activated schema. Ref-based lookup through `instance.MEL.*` is the canonical surface; kind-prefixed ids such as `state:count` are debug-only convenience.
+
+Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
 
 ## Decorator/provider authoring seam
 

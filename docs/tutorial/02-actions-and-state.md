@@ -94,9 +94,9 @@ Create `main.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
-const world = createManifesto(TodoMel, {}).activate();
+const instance = createManifesto(TodoMel, {}).activate();
 
-world.subscribe(
+instance.subscribe(
   (snapshot) => snapshot.computed["totalCount"],
   (totalCount) => {
     console.log("Total todos:", totalCount);
@@ -104,47 +104,47 @@ world.subscribe(
 );
 
 async function run() {
-  await world.dispatchAsync(
-    world.createIntent(
-      world.MEL.actions.addTodo,
+  await instance.dispatchAsync(
+    instance.createIntent(
+      instance.MEL.actions.addTodo,
       "Learn Manifesto",
       crypto.randomUUID(),
     ),
   );
 
-  await world.dispatchAsync(
-    world.createIntent(
-      world.MEL.actions.addTodo,
+  await instance.dispatchAsync(
+    instance.createIntent(
+      instance.MEL.actions.addTodo,
       "Ship the first tutorial rewrite",
       crypto.randomUUID(),
     ),
   );
 
-  let snapshot = world.getSnapshot();
+  let snapshot = instance.getSnapshot();
   console.log("Total todos:", snapshot.computed["totalCount"]);
   console.log("Has todos:", snapshot.computed["hasTodos"]);
 
   const firstTodoId = (snapshot.data.todos as Array<{ id: string }>)[0].id;
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.toggleTodo, firstTodoId),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.toggleTodo, firstTodoId),
   );
 
-  snapshot = world.getSnapshot();
+  snapshot = instance.getSnapshot();
   console.log("Completed state:", snapshot.data.todos);
 
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.clearCompleted),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.clearCompleted),
   );
 
-  snapshot = world.getSnapshot();
+  snapshot = instance.getSnapshot();
   console.log("Todos after clearCompleted:", snapshot.data.todos);
 
-  world.dispose();
+  instance.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  world.dispose();
+  instance.dispose();
 });
 ```
 
@@ -162,7 +162,7 @@ This tutorial subscribes to `totalCount`, not the full snapshot. That keeps the 
 
 ### Action inputs can be positional or object-shaped in app code
 
-`world.createIntent(world.MEL.actions.addTodo, title, id)` is typed from the MEL action signature, and `world.createIntent(world.MEL.actions.addTodo, { title, id })` is also supported when the action input is object-shaped. The runtime still packs both forms into the canonical object input expected by the compiled action.
+`instance.createIntent(instance.MEL.actions.addTodo, title, id)` is typed from the MEL action signature, and `instance.createIntent(instance.MEL.actions.addTodo, { title, id })` is also supported when the action input is object-shaped. The runtime still packs both forms into the canonical object input expected by the compiled action.
 
 ### Actions stay small
 
@@ -184,7 +184,7 @@ That makes the domain easier to test and easier to explain.
 Do not do this:
 
 ```typescript
-const snapshot = world.getSnapshot();
+const snapshot = instance.getSnapshot();
 (snapshot.data.todos as Array<{ completed: boolean }>)[0].completed = true;
 ```
 

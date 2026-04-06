@@ -1,69 +1,77 @@
 # Architecture
 
-> **Version:** 2.1
+> **Version:** 3.0
 > **Status:** Normative
-> **Last Updated:** 2026-03-11
+> **Last Updated:** 2026-04-06
 
 ---
 
 ## Overview
 
-Manifesto is a semantic layer for deterministic domain state. It separates pure computation from effect execution and governance, enabling full traceability, reproducibility, and accountability for every state transition.
+Manifesto's current architecture is a layered system with one semantic core, one execution engine, one default application runtime, and two optional governed decorators.
 
-This document defines the **constitutional boundaries** between Manifesto's layers. It is the authoritative reference for architectural decisions.
+The current package story is:
 
----
+- `@manifesto-ai/compiler` optionally lowers MEL into `DomainSchema`
+- `@manifesto-ai/sdk` is the default application entry
+- `@manifesto-ai/host` executes requirements and applies transitions
+- `@manifesto-ai/core` computes semantic meaning
+- `@manifesto-ai/lineage` adds continuity, sealing, restore, and history
+- `@manifesto-ai/governance` adds legitimacy, proposal flow, and authority
 
-## Design Philosophy
-
-### Core Principles
-
-1. **Separation of Concerns**
-   - Each layer has exactly one primary responsibility
-   - Layers communicate through well-defined interfaces
-   - No layer reaches into another's internals
-
-2. **"Does NOT Know" as Boundary**
-   - What a layer **doesn't know** defines its boundary more clearly than what it does
-   - Ignorance is a feature, not a bug
-
-3. **Results vs Process**
-   - **World** owns results (what becomes history)
-   - **SDK** owns process (how execution happens)
-
-4. **Composition over Inheritance**
-   - SDK assembles; it doesn't extend
-   - Layers are composed, not inherited
+There is no current top-level `@manifesto-ai/world` facade in the active public runtime story.
 
 ---
 
-## Layer Model
+## Current Layer Model
 
+### Base Runtime
+
+```text
+caller -> SDK (`createManifesto` -> `activate`)
+       -> Host
+       -> Core
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                           SDK                                   │
-│                   (Composition Root)                            │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │              Host ↔ World Integration                     │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                             │                                   │
-│              ┌──────────────┴──────────────┐                    │
-│              ▼                              ▼                   │
-│  ┌─────────────────────┐      ┌─────────────────────────────┐  │
-│  │       World         │      │          Host               │  │
-│  │   (Governance)      │      │       (Execution)           │  │
-│  │                     │      │                             │  │
-│  │  ┌───────────────┐  │      │  ┌───────────────────────┐  │  │
-│  │  │     Core      │  │      │  │        Core           │  │  │
-│  │  │  (Semantics)  │  │      │  │     (Semantics)       │  │  │
-│  │  └───────────────┘  │      │  └───────────────────────┘  │  │
-│  └─────────────────────┘      └─────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+
+### Governed Composition
+
+```text
+caller -> withLineage -> withGovernance -> activate
+       -> SDK runtime
+       -> Host
+       -> Core
 ```
+
+### Optional MEL Frontend
+
+```text
+MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
+```
+
+---
+
+## Design Principles
+
+1. **Core computes meaning.** It remains pure and deterministic.
+2. **Host fulfills declared work.** It executes effects and applies transitions.
+3. **SDK owns the direct-dispatch runtime.** It is the default application-facing surface.
+4. **Governance and Lineage are explicit decorators.** They add legitimacy and continuity without replacing Host/Core boundaries.
+5. **Snapshot remains the only medium.** Cross-layer information still flows through Snapshot, not hidden callbacks or side channels.
 
 ---
 
 ## Layer Definitions
+
+### Compiler
+
+> **One-liner:** Optional MEL frontend.
+
+| Aspect | Definition |
+|--------|------------|
+| **Role** | Parse, validate, and lower MEL into `DomainSchema` |
+| **Primary API** | MEL plugins, compiler entrypoints, schema extraction helpers |
+| **Owns** | MEL syntax, validation, lowering, schema derivation |
+| **Does NOT Know** | Runtime execution, approval decisions, effect fulfillment |
 
 ### Core
 
@@ -71,279 +79,197 @@ This document defines the **constitutional boundaries** between Manifesto's laye
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Compute meaning from state + intent |
-| **Primary API** | `compute()`, `apply()` |
-| **Owns** | Snapshot structure, semantic truth |
-| **Does NOT Know** | IO, execution, approval, governance, World |
-
-```typescript
-// Core's world view
-type Snapshot = { data, computed, system, meta, input? };
-function compute(snapshot: Snapshot, intent: Intent): ComputeResult;
-function apply(snapshot: Snapshot, patches: Patch[]): Snapshot;
-```
-
-**Constitutional Rule:**
-> Core MUST be pure. Given the same input, Core MUST produce the same output, always.
-
----
+| **Role** | Compute meaning from schema + snapshot + intent |
+| **Primary API** | `compute()`, `apply()`, `applySystemDelta()` |
+| **Owns** | Semantic truth, patch/system transitions, computed evaluation |
+| **Does NOT Know** | IO, execution loops, authority, lineage, runtime assembly |
 
 ### Host
 
-> **One-liner:** Execution engine that converges intents to terminal state.
+> **One-liner:** Effect execution and convergence engine.
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Execute effects, apply patches, manage re-entry |
-| **Primary API** | `createHost()`, `dispatch()`, `registerEffect()` |
-| **Owns** | ExecutionKey mailbox, job lifecycle, effect execution |
-| **Does NOT Know** | World, Proposal, Authority, governance |
+| **Role** | Execute requirements, apply patches/system delta, drive compute to terminal state |
+| **Primary API** | `createHost()`, `dispatch()`, effect registration |
+| **Owns** | Mailbox/job model, effect execution, deterministic host context |
+| **Does NOT Know** | Proposal legitimacy, authority policy, branch/head history |
 
-```typescript
-// Host's world view
-// ExecutionKey is derived internally by Host and opaque to callers.
-dispatch(intent: Intent): Promise<HostResult>;
-onTrace(handler: (event: TraceEvent) => void): Unsubscribe;
-```
+### SDK
 
-**Constitutional Rules:**
-1. Host treats ExecutionKey as **opaque** (no semantic interpretation)
-2. Host guarantees **run-to-completion** per job
-3. Host provides **onTrace** for observation (not callbacks for control)
+> **One-liner:** Default application runtime.
+
+| Aspect | Definition |
+|--------|------------|
+| **Role** | Compose the direct-dispatch runtime and present the public app-facing API |
+| **Primary API** | `createManifesto()`, `activate()`, `createIntent()`, `dispatchAsync()` |
+| **Owns** | Direct runtime assembly, telemetry, projected reads, public instance surface |
+| **Does NOT Know** | Core internals, authority policy internals, lineage storage internals |
+
+### Lineage
+
+> **One-liner:** Continuity and history decorator.
+
+| Aspect | Definition |
+|--------|------------|
+| **Role** | Add sealing, restore, branch/head queries, and stored world snapshots |
+| **Primary API** | `withLineage()`, `commitAsync()`, `restore()`, lineage queries |
+| **Owns** | World history, branch/head refs, seal records, stored canonical snapshots |
+| **Does NOT Know** | Host execution micro-steps, approval policy semantics |
+
+### Governance
+
+> **One-liner:** Legitimacy and proposal decorator.
+
+| Aspect | Definition |
+|--------|------------|
+| **Role** | Add proposal lifecycle, approval/rejection, authority evaluation, and governed publication |
+| **Primary API** | `withGovernance()`, `proposeAsync()`, proposal queries, authority seams |
+| **Owns** | Proposal legitimacy, decision recording, governed execution admission |
+| **Does NOT Know** | Host execution micro-steps, Core semantic internals, implicit lineage creation |
 
 ---
+
+## Boundary Matrix
+
+| Layer | Must Not Know |
+|-------|---------------|
+| **Compiler** | Runtime execution, effect fulfillment, governance policy |
+| **Core** | IO, wall-clock behavior, execution loops, lineage/governance policy |
+| **Host** | Authority decisions, proposal semantics, branch/head legitimacy |
+| **SDK** | Core internals, lineage storage internals, governance policy internals |
+| **Lineage** | Host execution micro-steps, authority logic |
+| **Governance** | Host execution micro-steps, implicit continuity ownership |
+
+---
+
+## Dependency Direction
+
+```text
+Application -> Compiler (optional)
+Application -> SDK
+Application -> withLineage -> withGovernance -> activate
+
+Governance -> Lineage
+Lineage -> SDK
+SDK -> Host
+Host -> Core
+Compiler -> Core (schema contract)
+```
+
+The important current ownership rule is that governed composition builds on the SDK runtime. SDK no longer re-exports or owns a facade-level governed bootstrap package.
+
+---
+
+## Runtime Ownership
+
+### Base Runtime Surface
+
+The base activated instance lives in SDK and owns:
+
+- projected `getSnapshot()`
+- canonical `getCanonicalSnapshot()`
+- intent construction and dispatch
+- availability queries
+- projected introspection such as `getSchemaGraph()` and `simulate()`
+- execution telemetry for the direct runtime
+
+### Governed Runtime Surface
+
+When Lineage and Governance are composed in, they add:
+
+- continuity and sealing
+- restore and stored world snapshot lookup
+- branch/head queries
+- proposal lifecycle and authority decisions
+
+They do not replace Host or Core and they do not reintroduce a facade-owned execution layer.
+
+---
+
+## Public Composition Patterns
+
+### Direct Dispatch
+
+```typescript
+const instance = createManifesto(schema, effects).activate();
+await instance.dispatchAsync(
+  instance.createIntent(instance.MEL.actions.someAction),
+);
+```
 
 ### Governed Composition
 
-> **One-liner:** Governed composition layer that determines what becomes legitimate history.
-
-| Aspect | Definition |
-|--------|------------|
-| **Role** | Decorator-owned legitimacy + continuity over the same SDK runtime |
-| **Primary API** | `withLineage()` and `withGovernance()` before `activate()` |
-| **Owns** | Proposal legitimacy, seal-aware publication, restore, branch/head state, decision visibility |
-| **Does NOT Know** | Host internal API, TraceEvent structure, execution micro-steps |
-
 ```typescript
-// Governed composition is explicit.
-// No top-level facade package owns runtime assembly anymore.
-```
-
-**Constitutional Rules:**
-1. Governance and Lineage compose over SDK; they do not replace Host/Core boundaries
-2. Governed composition seals results; it does not interpret Host micro-steps
-3. The governed path owns legitimacy and continuity, not a facade-owned execution backdoor
-4. Governed decorators do not own execution telemetry (`execution:compute`, `execution:patches`, etc.)
-
----
-
-### SDK (Composition Layer)
-
-> **One-liner:** Assembly layer that makes execution viable.
-
-| Aspect | Definition |
-|--------|------------|
-| **Role** | Compose the direct-dispatch runtime, implement policies, present public APIs |
-| **Primary API** | `createManifesto()`, `activate()`, `createIntent()`, `dispatchAsync()` |
-| **Owns** | Host integration, execution telemetry, direct-dispatch application runtime |
-| **Does NOT Know** | Core computation internals, governed composition internals |
-
-```typescript
-// SDK responsibilities
-host.onTrace((trace) => {
-  // Transform TraceEvent → SDK telemetry events
-  sdkEmitter.emit('execution:compute', ...);
-});
-```
-
-**Constitutional Rules:**
-1. SDK is the canonical direct-dispatch application entry
-2. SDK owns **execution telemetry events** (derived from Host's TraceEvent)
-3. SDK may re-export selected governed world factories and types, but it is not the full governed protocol surface
-4. SDK is the **evolution absorption layer** for Host changes in the direct-dispatch path
-
----
-
-## Boundaries
-
-### The "Does NOT Know" Matrix
-
-| Layer | Does NOT Know |
-|-------|---------------|
-| **Core** | IO, execution loops, approval, governance, World, Host |
-| **Host** | World, Proposal, Authority, governance, approval decisions |
-| **World** | Host internal API, TraceEvent, dispatch options, execution micro-steps |
-| **SDK** | Core computation internals, governed composition internals |
-
-### Dependency Direction
-
-```
-Application → SDK → Host
-Application → World → Governance + Lineage + Host
-SDK → Host
-World → Core
-Host → Core
+const manifesto = createManifesto(schema, effects);
+const lineage = withLineage(manifesto, lineageOptions);
+const governed = withGovernance(lineage, governanceOptions).activate();
 ```
 
 ---
 
-## Event Ownership
-
-### World-Owned Events (Governance Results)
-
-| Event | Description |
-|-------|-------------|
-| `proposal:submitted` | Proposal entered system |
-| `proposal:evaluating` | Authority deliberating |
-| `proposal:decided` | Authority made decision |
-| `proposal:superseded` | Proposal dropped (epoch-based) |
-| `execution:completed` | Execution succeeded, World created |
-| `execution:failed` | Execution failed, World created |
-| `world:created` | New World sealed |
-| `world:forked` | Branch created |
-
-### SDK-Owned Events (Execution Telemetry)
-
-| Event | Description |
-|-------|-------------|
-| `execution:started` | Execution began |
-| `execution:compute` | Compute iteration |
-| `execution:patches` | Patches generated |
-| `execution:effect:dispatched` | Effect sent |
-| `execution:effect:fulfilled` | Effect completed |
-
-### The Rule
-
-> **Results are World's; Process is SDK's.**
-
----
-
-## Interface Contracts
-
-### HostExecutor (World → SDK)
-
-```typescript
-// Defined by World, implemented by SDK
-interface HostExecutor {
-  execute(
-    key: ExecutionKey,
-    baseSnapshot: Snapshot,
-    intent: Intent,
-    opts?: HostExecutionOptions
-  ): Promise<HostExecutionResult>;
-}
-
-type HostExecutionResult = {
-  readonly outcome: 'completed' | 'failed';
-  readonly terminalSnapshot: Snapshot;
-  readonly traceRef?: ArtifactRef;
-  readonly error?: ExecutionError;
-};
-```
-
-### TraceEvent (Host → SDK)
-
-```typescript
-// Defined by Host, consumed by SDK
-type TraceEvent =
-  | { type: 'compute:start'; ... }
-  | { type: 'compute:end'; ... }
-  | { type: 'effect:dispatched'; ... }
-  | { type: 'effect:fulfilled'; ... }
-  | { type: 'apply:patches'; ... }
-  // ...
-```
-
----
-
-## Package Structure
-
-```
-packages/
-  sdk/         # SDK: Public entrypoint & composition layer
-  core/        # Core: Semantic computation
-  host/        # Host: Execution engine
-  world/       # World: Governance protocol
-  compiler/    # MEL → DomainSchema
-  codegen/     # DomainSchema → TypeScript/Zod
-```
-
-### Dependency Graph
-
-```
-@manifesto-ai/governance
-  └── @manifesto-ai/lineage
-        └── @manifesto-ai/sdk
-              ├── @manifesto-ai/host
-              │     └── @manifesto-ai/core
-              └── @manifesto-ai/compiler
-                    └── @manifesto-ai/core
-```
-
----
-
-## Evolution Strategy
-
-### When Host Changes
-
-1. SDK absorbs the change
-2. HostExecutor implementation adapts
-3. World remains unchanged
-
-### When World Constitution Changes
-
-1. World SPEC/FDR updated
-2. SDK may need to adjust HostExecutor implementation
-3. Host remains unchanged
+## Evolution Rules
 
 ### When Core Changes
 
-1. Both Host and World may need updates
-2. SDK adapts as needed
-3. This is rare (Core is stable)
+- Host absorbs execution-side consequences
+- SDK surface adjusts only where public runtime exposure changes
+- Lineage and Governance adjust only if their stored/runtime contracts depend on the changed substrate
+
+### When Host Changes
+
+- SDK absorbs direct-runtime integration changes
+- Lineage and Governance adapt only as consumers of the SDK runtime/decorator chain
+
+### When Governance Or Lineage Changes
+
+- their owning package specs and guides change first
+- SDK does not become the owner of governed policy or continuity semantics
 
 ### Adding New Features
 
-| Feature Type | Where to Add |
-|--------------|--------------|
-| New effect type | Host |
-| New governance policy | World |
-| New execution strategy | SDK |
-| New semantic capability | Core |
+| Feature Type | Where It Belongs |
+|--------------|------------------|
+| New MEL syntax | Compiler |
+| New semantic operator or transition rule | Core |
+| New effect execution behavior | Host |
+| New direct-runtime convenience | SDK |
+| New continuity/history capability | Lineage |
+| New legitimacy/proposal capability | Governance |
 
 ---
 
 ## Compliance Checklist
 
-An implementation is compliant with this architecture if:
+An implementation is aligned with the current architecture only if:
 
-- [ ] Core has no IO, no execution logic, no governance awareness
-- [ ] Host has no World/Proposal/Authority awareness
-- [ ] World has no Host internal API usage (only HostExecutor interface)
-- [ ] World does not emit telemetry events (only governance events)
-- [ ] SDK implements HostExecutor for World
-- [ ] SDK transforms TraceEvent to telemetry events
-- [ ] SDK is the only layer that imports both Host and World
+- [ ] Core stays pure and deterministic
+- [ ] Host executes requirements without making legitimacy decisions
+- [ ] SDK remains the default direct-dispatch runtime entry
+- [ ] governed composition is expressed through `withLineage()` and `withGovernance()`
+- [ ] no maintained public story depends on a top-level `@manifesto-ai/world` facade
+- [ ] Snapshot remains the only cross-compute communication medium
 
 ---
 
 ## Summary
 
-| Layer | One Word | Owns | Does NOT Know |
-|-------|----------|------|---------------|
-| Core | Truth | Semantics | Execution |
-| Host | Engine | Execution | Governance |
-| World | History | Governance | Host internals |
-| SDK | Assembly | Integration | Constitutions |
+| Layer | Owns |
+|-------|------|
+| Compiler | MEL frontend and lowering |
+| Core | Semantic truth |
+| Host | Execution and convergence |
+| SDK | Direct runtime surface |
+| Lineage | Continuity and history |
+| Governance | Legitimacy and approval |
 
 ---
 
 ## Related Documents
 
-- [ADR-001: Layer Separation](/internals/adr/001-layer-separation) - Design decision rationale
-- [ADR-010: Protocol-First SDK Reconstruction](/internals/adr/010-major-hard-cut) - App/Runtime retirement
-- [Specifications](/internals/spec/) - Package specifications (Core, Host, World, etc.)
-
----
-
-*This document is the architectural constitution of Manifesto. Changes require ADR process.*
+- [Architecture Index](/architecture/)
+- [World Concept](/concepts/world)
+- [SDK API](/api/sdk)
+- [Lineage API](/api/lineage)
+- [Governance API](/api/governance)
+- [SPEC Index](/internals/spec/)

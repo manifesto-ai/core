@@ -126,9 +126,9 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
 import { effects } from "./effects";
 
-const world = createManifesto(UserProfileMel, effects).activate();
+const instance = createManifesto(UserProfileMel, effects).activate();
 
-world.subscribe(
+instance.subscribe(
   (snapshot) => ({
     loading: snapshot.data.loading,
     error: snapshot.data.error,
@@ -140,20 +140,20 @@ world.subscribe(
 );
 
 async function run() {
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.fetchUser, "123"),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.fetchUser, "123"),
   );
 
-  const snapshot = world.getSnapshot();
+  const snapshot = instance.getSnapshot();
   console.log("Has user:", snapshot.computed["hasUser"]);
   console.log("User data:", snapshot.data.user);
 
-  world.dispose();
+  instance.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  world.dispose();
+  instance.dispose();
 });
 ```
 

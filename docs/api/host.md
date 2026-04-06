@@ -64,7 +64,7 @@ class ManifestoHost {
 }
 ```
 
-`ManifestoHost.getSnapshot()` returns the Host's canonical snapshot substrate. If you are working at the SDK layer, `world.getSnapshot()` means the projected application-facing read instead.
+`ManifestoHost.getSnapshot()` returns the Host's canonical snapshot substrate. If you are working at the SDK layer, `instance.getSnapshot()` means the projected application-facing read instead.
 
 ### HostResult
 

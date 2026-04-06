@@ -92,7 +92,6 @@ Sometimes the shared semantic model is enough. Sometimes you need stronger contr
 - proposal review
 - lineage and audit history
 
-That is where [World](./world) comes in. It is an explicit governance layer that composes on top of the same Snapshot and request model.
 That is where [World](./world) comes in. It is the explicit governed composition model built from Lineage and Governance on top of the same Snapshot and request model.
 
 ---

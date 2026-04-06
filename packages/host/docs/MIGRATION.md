@@ -2,6 +2,7 @@
 
 > **Purpose:** Step-by-step guide for migrating from Host v1.x to v2.0.2
 > **Audience:** Developers using @manifesto-ai/host in existing projects
+> **Historical Note:** This guide documents the v1.x -> v2.0.2 migration only. It is not the current onboarding path. For the maintained Host contract, use `host-SPEC.md` and `VERSION-INDEX.md`.
 
 ---
 

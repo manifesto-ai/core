@@ -2,7 +2,7 @@
 
 > Practical guide for the activation-first `@manifesto-ai/sdk` path.
 
-> **Current Contract Note:** This guide follows the current SDK v3 activation model. `createManifesto()` now returns a composable manifesto, and runtime verbs appear only after `activate()`.
+> **Current Contract Note:** This guide follows the current SDK v3.1.0 living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current base surface includes projected introspection.
 
 ## 1. Build The Activation Lifecycle
 
@@ -10,16 +10,18 @@
 import { createManifesto } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto<CounterDomain>(domainSchema, {});
-const world = manifesto.activate();
+const instance = manifesto.activate();
 
-const intent = world.createIntent(world.MEL.actions.increment);
-await world.dispatchAsync(intent);
+const intent = instance.createIntent(instance.MEL.actions.increment);
+await instance.dispatchAsync(intent);
 
-const canIncrement = world.isActionAvailable("increment");
-const available = world.getAvailableActions();
-const metadata = world.getActionMetadata("increment");
-const snapshot = world.getSnapshot();
-const canonical = world.getCanonicalSnapshot();
+const canIncrement = instance.isActionAvailable("increment");
+const available = instance.getAvailableActions();
+const metadata = instance.getActionMetadata("increment");
+const snapshot = instance.getSnapshot();
+const canonical = instance.getCanonicalSnapshot();
+const graph = instance.getSchemaGraph();
+const preview = instance.simulate(instance.MEL.actions.increment);
 ```
 
 This is the normal SDK lifecycle:
@@ -40,9 +42,9 @@ This is the normal SDK lifecycle:
 ## 2. Create Typed Intents
 
 ```typescript
-const increment = world.createIntent(world.MEL.actions.increment);
-const add = world.createIntent(world.MEL.actions.add, 3);
-const addTodo = world.createIntent(world.MEL.actions.addTodo, {
+const increment = instance.createIntent(instance.MEL.actions.increment);
+const add = instance.createIntent(instance.MEL.actions.add, 3);
+const addTodo = instance.createIntent(instance.MEL.actions.addTodo, {
   title: "Review docs",
   id: "todo-1",
 });
@@ -53,14 +55,14 @@ const addTodo = world.createIntent(world.MEL.actions.addTodo, {
 The canonical path is:
 
 ```typescript
-const intent = world.createIntent(world.MEL.actions.someAction, ...args);
-await world.dispatchAsync(intent);
+const intent = instance.createIntent(instance.MEL.actions.someAction, ...args);
+await instance.dispatchAsync(intent);
 ```
 
 For multi-parameter actions, the runtime also supports a single object argument:
 
 ```typescript
-const intent = world.createIntent(world.MEL.actions.addTodo, {
+const intent = instance.createIntent(instance.MEL.actions.addTodo, {
   title: "Review docs",
   id: "todo-1",
 });
@@ -75,8 +77,8 @@ String-name intent creation is no longer the SDK's canonical public story.
 ## 3. Inspect The Runtime Contract
 
 ```typescript
-const allActions = world.getActionMetadata();
-const addTodo = world.getActionMetadata("addTodo");
+const allActions = instance.getActionMetadata();
+const addTodo = instance.getActionMetadata("addTodo");
 
 console.log(addTodo.params);
 console.log(addTodo.input);
@@ -90,17 +92,39 @@ Use `getActionMetadata()` when an adapter, model-facing tool, or UI needs the pu
 
 ---
 
-## 4. Dispatch, Observe, And Read
+## 4. Inspect Static Graphs And Dry-Run Outcomes
 
 ```typescript
-const off = world.subscribe(
+const graph = instance.getSchemaGraph();
+
+const downstream = graph.traceDown(instance.MEL.state.count);
+const upstream = graph.traceUp(instance.MEL.actions.incrementIfEven);
+const debug = graph.traceDown("state:count");
+
+const preview = instance.simulate(instance.MEL.actions.increment);
+
+console.log(preview.snapshot);
+console.log(preview.changedPaths);
+console.log(preview.newAvailableActions);
+```
+
+Use `getSchemaGraph()` for projected static dependency inspection. Ref-based lookup through `instance.MEL.*` is canonical. Kind-prefixed ids such as `state:count` remain convenience/debug-only.
+
+Use `simulate()` for a non-committing dry-run against the current canonical snapshot. It returns the projected next snapshot, effect requirements, new availability, and sorted `changedPaths`. Treat `changedPaths` as explanation/debug output rather than the branching API.
+
+---
+
+## 5. Dispatch, Observe, And Read
+
+```typescript
+const off = instance.subscribe(
   (snapshot) => snapshot.data.count,
   (count) => {
     console.log("Count changed:", count);
   },
 );
 
-const offCompleted = world.on("dispatch:completed", (event) => {
+const offCompleted = instance.on("dispatch:completed", (event) => {
   console.log("Completed intent:", event.intentId);
 });
 ```
@@ -111,22 +135,22 @@ If you need effect-level instrumentation, keep the effect handlers small and let
 
 ---
 
-## 5. Activation Is One-Shot
+## 6. Activation Is One-Shot
 
 ```typescript
 const manifesto = createManifesto<CounterDomain>(domainSchema, {});
-const world = manifesto.activate();
+const instance = manifesto.activate();
 ```
 
 After activation:
 
-- runtime verbs exist on `world`
+- runtime verbs exist on `instance`
 - the composable manifesto cannot be activated again
 - there is no path back to the pre-activation phase
 
 ---
 
-## 6. Decorator / provider authoring seam
+## 7. Decorator / provider authoring seam
 
 Use `@manifesto-ai/sdk/provider` only when you are composing new decorators or provider-level runtime wrappers.
 
@@ -173,9 +197,12 @@ function withExampleDecorator<T extends ManifestoDomainShape>(
         subscribe: kernel.subscribe,
         on: kernel.on,
         getSnapshot: kernel.getSnapshot,
+        getCanonicalSnapshot: kernel.getCanonicalSnapshot,
         getAvailableActions: kernel.getAvailableActions,
         getActionMetadata: kernel.getActionMetadata,
         isActionAvailable: kernel.isActionAvailable,
+        getSchemaGraph: kernel.getSchemaGraph,
+        simulate: kernel.simulate,
         MEL: kernel.MEL,
         schema: kernel.schema,
         dispose: kernel.dispose,
@@ -191,7 +218,7 @@ The point of the subpath is to let decorator authors stay on public imports. App
 
 ---
 
-## 7. Governed Composition Direction
+## 8. Governed Composition Direction
 
 Stay on the SDK when:
 
@@ -207,12 +234,12 @@ Those runtime contracts belong to the owning Lineage and Governance packages. Th
 
 ---
 
-## 8. Related Docs
+## 9. Related Docs
 
 - [SDK README](../README.md)
 - [SDK Specification](sdk-SPEC.md)
 - [SDK Version Index](VERSION-INDEX.md)
 - [SDK API](../../../docs/api/sdk.md)
 - [API Index](../../../docs/api/index.md)
-- [World](../../../docs/api/world.md)
+- [World Concept](../../../docs/concepts/world.md)
 - [Tutorial](../../../docs/tutorial/)

@@ -31,8 +31,8 @@ MEL source -> Compiler -> DomainSchema -> Core
 | --- | --- |
 | Execute effects | Host |
 | Apply patches | Core |
-| Govern authority | World |
-| Bind UI | Bridge / React |
+| Govern authority or seal history | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
+| Bind UI or caller integrations | SDK / application layer |
 
 ---
 

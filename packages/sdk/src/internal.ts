@@ -1,10 +1,21 @@
 import {
+  apply,
+  applySystemDelta,
+  computeSync,
   getAvailableActions as queryAvailableActions,
   isActionAvailable as queryActionAvailable,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
-import type { HostResult, ManifestoHost } from "@manifesto-ai/host";
+import {
+  extractSchemaGraph,
+  type SchemaGraph as RawSchemaGraph,
+} from "@manifesto-ai/compiler";
+import type {
+  HostContextProvider,
+  HostResult,
+  ManifestoHost,
+} from "@manifesto-ai/host";
 
 import {
   AlreadyActivatedError,
@@ -19,7 +30,11 @@ import type {
   ManifestoDomainShape,
   ManifestoEvent,
   ManifestoEventMap,
+  SchemaGraph,
+  SchemaGraphNodeId,
+  SchemaGraphNodeRef,
   Selector,
+  SimulateResult,
   Snapshot,
   TypedActionMetadata,
   TypedCreateIntent,
@@ -27,6 +42,7 @@ import type {
   TypedIntent,
   TypedMEL,
   TypedOn,
+  TypedSimulate,
   TypedSubscribe,
   Unsubscribe,
 } from "./types.js";
@@ -40,6 +56,7 @@ import {
 export const ACTION_PARAM_NAMES = Symbol("manifesto-sdk.action-param-names");
 export const RUNTIME_KERNEL_FACTORY = Symbol("manifesto-sdk.runtime-kernel-factory");
 export const ACTIVATION_STATE = Symbol("manifesto-sdk.activation-state");
+const SCHEMA_GRAPH_NODE_ID_PATTERN = /^(state|computed|action):.+$/;
 
 type RuntimeActionParamMetadata = readonly string[] | null;
 type RuntimeActionRef = {
@@ -71,6 +88,8 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
+  readonly getSchemaGraph: () => SchemaGraph;
+  readonly simulate: TypedSimulate<T>;
   readonly dispose: () => void;
   readonly isDisposed: () => boolean;
   readonly getVisibleCoreSnapshot: () => CoreSnapshot;
@@ -89,6 +108,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
     options?: HostDispatchOptions,
   ) => Promise<HostResult>;
+  readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
 }
 
@@ -106,9 +126,231 @@ type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
   readonly schema: DomainSchema;
   readonly projectionPlan: SnapshotProjectionPlan;
   readonly host: ManifestoHost;
+  readonly hostContextProvider: HostContextProvider;
   readonly MEL: TypedMEL<T>;
   readonly createIntent: TypedCreateIntent<T>;
 };
+
+function createSdkSchemaGraph(rawGraph: RawSchemaGraph): SchemaGraph {
+  const nodeIds = new Set(rawGraph.nodes.map((node) => node.id));
+  const outgoing = new Map<SchemaGraphNodeId, Set<SchemaGraphNodeId>>();
+  const incoming = new Map<SchemaGraphNodeId, Set<SchemaGraphNodeId>>();
+
+  const link = (
+    index: Map<SchemaGraphNodeId, Set<SchemaGraphNodeId>>,
+    from: SchemaGraphNodeId,
+    to: SchemaGraphNodeId,
+  ): void => {
+    const next = index.get(from);
+    if (next) {
+      next.add(to);
+      return;
+    }
+    index.set(from, new Set([to]));
+  };
+
+  for (const edge of rawGraph.edges) {
+    link(outgoing, edge.from, edge.to);
+    link(incoming, edge.to, edge.from);
+  }
+
+  const materialize = (included: ReadonlySet<SchemaGraphNodeId>): SchemaGraph => {
+    const subgraph: RawSchemaGraph = Object.freeze({
+      nodes: Object.freeze(
+        rawGraph.nodes.filter((node) => included.has(node.id)),
+      ),
+      edges: Object.freeze(
+        rawGraph.edges.filter(
+          (edge) => included.has(edge.from) && included.has(edge.to),
+        ),
+      ),
+    });
+    return createSdkSchemaGraph(subgraph);
+  };
+
+  const trace = (
+    target: SchemaGraphNodeRef | SchemaGraphNodeId,
+    direction: "incoming" | "outgoing",
+  ): SchemaGraph => {
+    const seed = resolveSchemaGraphNodeId(target, nodeIds);
+    const frontier: SchemaGraphNodeId[] = [seed];
+    const seen = new Set<SchemaGraphNodeId>([seed]);
+    const index = direction === "incoming" ? incoming : outgoing;
+
+    while (frontier.length > 0) {
+      const current = frontier.shift();
+      if (!current) {
+        continue;
+      }
+
+      for (const next of index.get(current) ?? []) {
+        if (seen.has(next)) {
+          continue;
+        }
+
+        seen.add(next);
+        frontier.push(next);
+      }
+    }
+
+    return materialize(seen);
+  };
+
+  return Object.freeze({
+    nodes: rawGraph.nodes,
+    edges: rawGraph.edges,
+    traceUp(target: SchemaGraphNodeRef | SchemaGraphNodeId): SchemaGraph {
+      return trace(target, "incoming");
+    },
+    traceDown(target: SchemaGraphNodeRef | SchemaGraphNodeId): SchemaGraph {
+      return trace(target, "outgoing");
+    },
+  });
+}
+
+function resolveSchemaGraphNodeId(
+  target: SchemaGraphNodeRef | SchemaGraphNodeId,
+  nodeIds: ReadonlySet<SchemaGraphNodeId>,
+): SchemaGraphNodeId {
+  if (typeof target === "string") {
+    if (!SCHEMA_GRAPH_NODE_ID_PATTERN.test(target)) {
+      throw new ManifestoError(
+        "SCHEMA_ERROR",
+        'SchemaGraph node id must use "state:<name>", "computed:<name>", or "action:<name>"',
+      );
+    }
+
+    if (!nodeIds.has(target as SchemaGraphNodeId)) {
+      throw new ManifestoError(
+        "SCHEMA_ERROR",
+        `Unknown SchemaGraph node id "${target}"`,
+      );
+    }
+
+    return target as SchemaGraphNodeId;
+  }
+
+  let nodeId: SchemaGraphNodeId;
+  switch (target.__kind) {
+    case "ActionRef":
+      nodeId = `action:${String(target.name)}`;
+      break;
+    case "FieldRef":
+      nodeId = `state:${target.name}`;
+      break;
+    case "ComputedRef":
+      nodeId = `computed:${target.name}`;
+      break;
+    default:
+      throw new ManifestoError(
+        "SCHEMA_ERROR",
+        "Unsupported SchemaGraph ref lookup target",
+      );
+  }
+
+  if (!nodeIds.has(nodeId)) {
+    throw new ManifestoError(
+      "SCHEMA_ERROR",
+      `SchemaGraph node "${nodeId}" is not part of the projected graph`,
+    );
+  }
+
+  return nodeId;
+}
+
+function diffProjectedPaths<T>(
+  left: Snapshot<T>,
+  right: Snapshot<T>,
+): readonly string[] {
+  const paths = new Set<string>();
+  const seen = new WeakMap<object, WeakSet<object>>();
+
+  const visit = (a: unknown, b: unknown, path: string): void => {
+    if (Object.is(a, b)) {
+      return;
+    }
+
+    if (a === null || b === null) {
+      paths.add(path);
+      return;
+    }
+
+    if (typeof a !== "object" || typeof b !== "object") {
+      paths.add(path);
+      return;
+    }
+
+    const leftObject = a as object;
+    const rightObject = b as object;
+    const leftSeen = seen.get(leftObject);
+    if (leftSeen?.has(rightObject)) {
+      return;
+    }
+    if (leftSeen) {
+      leftSeen.add(rightObject);
+    } else {
+      seen.set(leftObject, new WeakSet([rightObject]));
+    }
+
+    if (Array.isArray(a) || Array.isArray(b)) {
+      if (!Array.isArray(a) || !Array.isArray(b)) {
+        paths.add(path);
+        return;
+      }
+
+      const limit = Math.max(a.length, b.length);
+      for (let index = 0; index < limit; index += 1) {
+        const leftHas = Object.prototype.hasOwnProperty.call(a, index);
+        const rightHas = Object.prototype.hasOwnProperty.call(b, index);
+        const childPath = `${path}[${index}]`;
+        if (leftHas !== rightHas) {
+          paths.add(childPath);
+          continue;
+        }
+        if (!leftHas && !rightHas) {
+          continue;
+        }
+        visit(a[index], b[index], childPath);
+      }
+      return;
+    }
+
+    if (!isPlainDiffableObject(a) || !isPlainDiffableObject(b)) {
+      paths.add(path);
+      return;
+    }
+
+    const keys = new Set([
+      ...Object.keys(a),
+      ...Object.keys(b),
+    ]);
+    for (const key of [...keys].sort()) {
+      const leftHas = Object.prototype.hasOwnProperty.call(a, key);
+      const rightHas = Object.prototype.hasOwnProperty.call(b, key);
+      const childPath = `${path}.${key}`;
+      if (leftHas !== rightHas) {
+        paths.add(childPath);
+        continue;
+      }
+      visit(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+        childPath,
+      );
+    }
+  };
+
+  visit(left.data, right.data, "data");
+  visit(left.computed, right.computed, "computed");
+  visit(left.system, right.system, "system");
+  visit(left.meta, right.meta, "meta");
+
+  return Object.freeze([...paths].sort());
+}
+
+function isPlainDiffableObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === "[object Object]";
+}
 
 export function attachRuntimeKernelFactory<
   T extends ManifestoDomainShape,
@@ -227,6 +469,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   schema,
   projectionPlan,
   host,
+  hostContextProvider,
   MEL,
   createIntent,
 }: RuntimeKernelOptions<T>): RuntimeKernel<T> {
@@ -247,6 +490,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   );
   let dispatchQueue: Promise<void> = Promise.resolve();
   let disposed = false;
+  const schemaGraph = createSdkSchemaGraph(extractSchemaGraph(schema));
   const actionNames = Object.keys(schema.actions) as Array<keyof T["actions"] & string>;
   const actionMetadataByName = Object.freeze(
     Object.fromEntries(
@@ -359,6 +603,41 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return queryActionAvailable(schema, visibleCanonicalSnapshot, String(name));
   }
 
+  function getSchemaGraph(): SchemaGraph {
+    return schemaGraph;
+  }
+
+  const simulate: TypedSimulate<T> = ((
+    action,
+    ...args
+  ) => {
+    const intent = ensureIntentId(createIntent(action, ...args));
+    if (!isActionAvailable(intent.type as keyof T["actions"])) {
+      throw createUnavailableError(intent);
+    }
+
+    const context = hostContextProvider.createFrozenContext(intent.intentId);
+    const baseline = structuredClone(visibleCanonicalSnapshot);
+    const result = computeSync(schema, baseline, intent, context);
+    const afterPatches = apply(schema, baseline, result.patches, context);
+    const canonicalSimulated = applySystemDelta(afterPatches, result.systemDelta);
+    const projectedSimulated = cloneAndDeepFreeze(
+      projectCanonicalSnapshot<T["state"]>(canonicalSimulated, projectionPlan),
+    );
+
+    return Object.freeze({
+      snapshot: projectedSimulated,
+      changedPaths: diffProjectedPaths(visibleProjectedSnapshot, projectedSimulated),
+      newAvailableActions: Object.freeze(
+        [
+          ...queryAvailableActions(schema, canonicalSimulated),
+        ] as Array<keyof T["actions"]>,
+      ),
+      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
+      status: result.status,
+    }) as SimulateResult<T>;
+  }) as TypedSimulate<T>;
+
   function dispose(): void {
     if (disposed) {
       return;
@@ -447,11 +726,15 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return host.dispatch(intent, options);
   }
 
-  function rejectUnavailable(intent: TypedIntent<T>): never {
-    const error = new ManifestoError(
+  function createUnavailableError(intent: TypedIntent<T>): ManifestoError {
+    return new ManifestoError(
       "ACTION_UNAVAILABLE",
       `Action "${intent.type}" is unavailable against the current visible snapshot`,
     );
+  }
+
+  function rejectUnavailable(intent: TypedIntent<T>): never {
+    const error = createUnavailableError(intent);
     emitEvent("dispatch:rejected", {
       intentId: intent.intentId ?? "",
       intent,
@@ -494,6 +777,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     getAvailableActions,
     getActionMetadata,
     isActionAvailable,
+    getSchemaGraph,
+    simulate,
     dispose,
     isDisposed: () => disposed,
     getCanonicalSnapshot,
@@ -504,6 +789,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     enqueue,
     ensureIntentId,
     executeHost,
+    createUnavailableError,
     rejectUnavailable,
   };
 }
@@ -573,6 +859,8 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     getAvailableActions: kernel.getAvailableActions,
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
+    getSchemaGraph: kernel.getSchemaGraph,
+    simulate: kernel.simulate,
     MEL: kernel.MEL,
     schema: kernel.schema,
     dispose: kernel.dispose,

@@ -61,7 +61,7 @@ The distinction is by layer:
 Use the projected Snapshot for normal UI and application logic:
 
 ```typescript
-const snapshot = world.getSnapshot();
+const snapshot = instance.getSnapshot();
 
 console.log(snapshot.data.todos);
 console.log(snapshot.computed.activeCount);
@@ -71,7 +71,7 @@ console.log(snapshot.system.lastError);
 Escalate to the canonical substrate only when you need infrastructure detail:
 
 ```typescript
-const canonical = world.getCanonicalSnapshot();
+const canonical = instance.getCanonicalSnapshot();
 
 console.log(canonical.data.$host);
 console.log(canonical.system.pendingRequirements);
@@ -85,7 +85,7 @@ Projected Snapshot is not a persistence substrate.
 - use `getSnapshot()` for rendering, selectors, and public application reads
 - use canonical snapshots for hashing, sealing, restore, and forensic inspection
 
-In practice, that means lineage/world storage APIs work with canonical snapshots, while the active SDK runtime keeps `getSnapshot()` as the safe default read.
+In practice, that means lineage storage and governed-history APIs work with canonical snapshots, while the active SDK runtime keeps `getSnapshot()` as the safe default read.
 
 ## Key Properties
 

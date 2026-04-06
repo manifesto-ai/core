@@ -71,6 +71,8 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   inventory("COMP-DEP-6", "§4.4.1", "SHOULD", "state-and-computed"),
 
   ...inventoryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5", "TYPE-LOWER-6", "TYPE-LOWER-7", "TYPE-LOWER-8", "TYPE-LOWER-9"], "§5.6.2", "MUST", "state-and-computed"),
+  ...inventoryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14"], "SPEC v0.8.0 §6/§7/§8", "MUST", "introspection"),
+  inventory("SGRAPH-15", "SPEC v0.8.0 §6", "SHOULD", "introspection"),
 
   ...inventoryMany(["ENTITY-1", "ENTITY-2", "ENTITY-2a", "ENTITY-2b", "ENTITY-3", "ENTITY-4", "ENTITY-5", "ENTITY-7", "ENTITY-8", "ENTITY-9"], "§9.1.10", "MUST", "entity-primitives"),
   ...inventoryMany(["TRANSFORM-1", "TRANSFORM-2", "TRANSFORM-3", "TRANSFORM-4", "TRANSFORM-5"], "§9.1.10", "MUST", "entity-primitives"),

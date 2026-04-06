@@ -64,9 +64,9 @@ Create `main.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const world = createManifesto(CounterMel, {}).activate();
+const instance = createManifesto(CounterMel, {}).activate();
 
-world.subscribe(
+instance.subscribe(
   (snapshot) => snapshot.data.count,
   (count) => {
     console.log("Count changed:", count);
@@ -74,28 +74,28 @@ world.subscribe(
 );
 
 async function run() {
-  console.log("Initial count:", world.getSnapshot().data.count);
+  console.log("Initial count:", instance.getSnapshot().data.count);
 
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.increment),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.increment),
   );
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.increment),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.increment),
   );
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.decrement),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.decrement),
   );
 
-  const snapshot = world.getSnapshot();
+  const snapshot = instance.getSnapshot();
   console.log("Final count:", snapshot.data.count);
   console.log("Doubled:", snapshot.computed["doubled"]);
 
-  world.dispose();
+  instance.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  world.dispose();
+  instance.dispose();
 });
 ```
 
@@ -111,7 +111,7 @@ npx tsx main.ts
 
 - `createManifesto()` built a composable manifesto from your domain
 - `activate()` opened the runtime surface
-- `createIntent(world.MEL.actions.*)` gave you a typed, app-facing intent path
+- `createIntent(instance.MEL.actions.*)` gave you a typed, app-facing intent path
 - `dispatchAsync()` resolved after each terminal snapshot was published
 - `subscribe()` fired after each published change
 - `getSnapshot()` let you read the latest terminal state directly
@@ -142,7 +142,7 @@ That action is unsafe. It describes an unconditional state change with no marker
 
 ### Reaching for raw string action names in app code
 
-The preferred app-facing path is `world.createIntent(world.MEL.actions.someAction, ...args)` or `world.createIntent(world.MEL.actions.someAction, { ...params })`, not stringly-typed action names.
+The preferred app-facing path is `instance.createIntent(instance.MEL.actions.someAction, ...args)` or `instance.createIntent(instance.MEL.actions.someAction, { ...params })`, not stringly-typed action names.
 
 ### Reading stale state without awaiting execution
 

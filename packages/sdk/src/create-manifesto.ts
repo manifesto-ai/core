@@ -1,8 +1,11 @@
 import {
   type EffectContext as HostEffectContext,
   type EffectHandler as HostEffectHandler,
+  type HostContextProvider,
   type ManifestoHost,
+  createHostContextProvider,
   createHost,
+  defaultRuntime,
 } from "@manifesto-ai/host";
 import {
   createIntent as createCoreIntent,
@@ -67,6 +70,10 @@ type ResolvedSchema = {
 };
 
 type CompiledSchema = Omit<ResolvedSchema, "projectionPlan">;
+type InternalHostBundle = {
+  readonly host: ManifestoHost;
+  readonly contextProvider: HostContextProvider;
+};
 
 export function createManifesto<T extends ManifestoDomainShape>(
   schemaInput: DomainSchema | string,
@@ -84,15 +91,17 @@ export function createManifesto<T extends ManifestoDomainShape>(
     schema: resolved.schema,
     activate() {
       activateComposable(manifesto);
+      const internalHost = createInternalHost(
+        resolved.schema,
+        resolved.projectionPlan,
+        effects,
+      );
       return createBaseRuntimeInstance(
         createRuntimeKernel<T>({
           schema: resolved.schema,
           projectionPlan: resolved.projectionPlan,
-          host: createInternalHost(
-            resolved.schema,
-            resolved.projectionPlan,
-            effects,
-          ),
+          host: internalHost.host,
+          hostContextProvider: internalHost.contextProvider,
           MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
           createIntent: buildCreateIntent<T>(),
         }),
@@ -100,15 +109,21 @@ export function createManifesto<T extends ManifestoDomainShape>(
     },
   };
 
-  return attachRuntimeKernelFactory(manifesto, () =>
-    createRuntimeKernel<T>({
+  return attachRuntimeKernelFactory(manifesto, () => {
+    const internalHost = createInternalHost(
+      resolved.schema,
+      resolved.projectionPlan,
+      effects,
+    );
+    return createRuntimeKernel<T>({
       schema: resolved.schema,
       projectionPlan: resolved.projectionPlan,
-      host: createInternalHost(resolved.schema, resolved.projectionPlan, effects),
+      host: internalHost.host,
+      hostContextProvider: internalHost.contextProvider,
       MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
       createIntent: buildCreateIntent<T>(),
-    }),
-  );
+    });
+  });
 }
 
 function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
@@ -353,7 +368,7 @@ function buildTypedMel<T extends ManifestoDomainShape>(
       .filter((name) => !name.startsWith("$"))
       .map((name) => [name, Object.freeze({
         __kind: "FieldRef",
-        path: name,
+        name,
       })]),
   );
 
@@ -361,7 +376,7 @@ function buildTypedMel<T extends ManifestoDomainShape>(
     Object.keys(schema.computed.fields)
       .map((name) => [name, Object.freeze({
         __kind: "ComputedRef",
-        path: name,
+        name,
       })]),
   );
 
@@ -485,10 +500,13 @@ function createInternalHost(
   schema: DomainSchema,
   projectionPlan: SnapshotProjectionPlan,
   effects: Record<string, EffectHandler>,
-): ManifestoHost {
+): InternalHostBundle {
+  const runtime = defaultRuntime;
   const host = createHost(schema, {
     initialData: extractDefaults(schema.state),
+    runtime,
   });
+  const contextProvider = createHostContextProvider(runtime);
 
   host.registerEffect(RESERVED_EFFECT_TYPE, async (
     _type: string,
@@ -516,7 +534,10 @@ function createInternalHost(
     host.registerEffect(effectType, hostHandler);
   }
 
-  return host;
+  return {
+    host,
+    contextProvider,
+  };
 }
 
 interface SystemGetReadParams {

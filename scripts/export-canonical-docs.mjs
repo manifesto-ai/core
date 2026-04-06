@@ -1,11 +1,14 @@
+import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const defaultOutDir = path.join(repoRoot, "temp", "canonical-docs");
+const execFileAsync = promisify(execFile);
 
 const CONSTITUTION_AND_GOVERNANCE = [
   "CLAUDE.md",
@@ -13,6 +16,10 @@ const CONSTITUTION_AND_GOVERNANCE = [
   "docs/internals/spec/index.md",
   "docs/internals/adr/index.md",
   "docs/internals/fdr/index.md",
+];
+
+const API_AND_GLOSSARY_PREFIX = [
+  "docs/internals/glossary.md",
 ];
 
 function parseArgs(argv) {
@@ -54,6 +61,30 @@ async function pathExists(relativePath) {
 
 function uniqueSorted(values) {
   return [...new Set(values)].sort();
+}
+
+async function collectFilesUnder(relativeDir, extensions) {
+  const files = [];
+
+  async function walk(dir) {
+    const entries = await fs.readdir(path.join(repoRoot, dir), { withFileTypes: true });
+
+    for (const entry of entries) {
+      const relativePath = path.posix.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(relativePath);
+        continue;
+      }
+
+      const extension = path.posix.extname(entry.name);
+      if (extensions.includes(extension)) {
+        files.push(relativePath);
+      }
+    }
+  }
+
+  await walk(relativeDir);
+  return uniqueSorted(files);
 }
 
 function extractCurrentSpecPaths(specIndexContent) {
@@ -202,9 +233,28 @@ async function collectAdrFiles() {
   ]);
 }
 
+async function collectApiAndGlossaryDocs() {
+  const apiDocs = await collectFilesUnder("docs/api", [".md"]);
+  return uniqueSorted([
+    ...API_AND_GLOSSARY_PREFIX,
+    ...apiDocs,
+  ]);
+}
+
+async function collectMelDocs() {
+  return collectFilesUnder("docs/mel", [".md", ".mel"]);
+}
+
+async function collectArchitectureDocs() {
+  return collectFilesUnder("docs/architecture", [".md"]);
+}
+
 async function buildBundles() {
   const currentPackageDocs = await collectCurrentPackageDocs();
   const adrDocs = await collectAdrFiles();
+  const apiAndGlossaryDocs = await collectApiAndGlossaryDocs();
+  const architectureDocs = await collectArchitectureDocs();
+  const melDocs = await collectMelDocs();
 
   return [
     {
@@ -224,6 +274,24 @@ async function buildBundles() {
       filename: "20-active-adrs.md",
       title: "Active ADRs",
       files: adrDocs,
+    },
+    {
+      id: "api-and-glossary",
+      filename: "30-api-and-glossary.md",
+      title: "API and Glossary",
+      files: apiAndGlossaryDocs,
+    },
+    {
+      id: "architecture",
+      filename: "40-architecture.md",
+      title: "Architecture",
+      files: architectureDocs,
+    },
+    {
+      id: "mel-language",
+      filename: "50-mel-language.md",
+      title: "MEL Language",
+      files: melDocs,
     },
   ];
 }
@@ -265,9 +333,16 @@ function printBundleList(bundles) {
   }
 }
 
+async function createTarGz(archivePath, baseDir, entries) {
+  await fs.mkdir(path.dirname(archivePath), { recursive: true });
+  await execFileAsync("tar", ["-czf", archivePath, "-C", baseDir, ...entries]);
+}
+
 async function writeOutputs(outDir, bundles) {
   const generatedAt = new Date().toISOString();
   await fs.mkdir(outDir, { recursive: true });
+  await fs.rm(path.join(outDir, "archives"), { recursive: true, force: true });
+  const generatedFiles = bundles.map((bundle) => bundle.filename);
 
   const manifest = {
     generatedAt,
@@ -281,6 +356,12 @@ async function writeOutputs(outDir, bundles) {
       sources: bundle.files,
     })),
     sourceFileCount: bundles.reduce((count, bundle) => count + bundle.files.length, 0),
+    archives: {
+      fullArchive: path.relative(
+        repoRoot,
+        path.join(path.dirname(outDir), `${path.basename(outDir)}.tar.gz`),
+      ),
+    },
   };
 
   for (const bundle of bundles) {
@@ -289,6 +370,7 @@ async function writeOutputs(outDir, bundles) {
     await fs.writeFile(outputPath, content, "utf8");
   }
 
+  generatedFiles.push("manifest.json");
   await fs.writeFile(
     path.join(outDir, "manifest.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
@@ -307,13 +389,24 @@ async function writeOutputs(outDir, bundles) {
       ...bundle.files.map((file) => `- ${file}`),
       "",
     ]),
+    "## Archives",
+    "",
+    `- ${manifest.archives.fullArchive}`,
+    "",
   ];
 
+  generatedFiles.push("manifest.md");
   await fs.writeFile(
     path.join(outDir, "manifest.md"),
     `${summaryLines.join("\n")}\n`,
     "utf8",
   );
+
+  const fullArchivePath = path.join(
+    path.dirname(outDir),
+    `${path.basename(outDir)}.tar.gz`,
+  );
+  await createTarGz(fullArchivePath, outDir, generatedFiles);
 
   return manifest;
 }
@@ -332,6 +425,7 @@ async function main() {
   for (const bundle of manifest.bundles) {
     console.log(`- ${bundle.filename} (${bundle.sourceCount} sources)`);
   }
+  console.log(`- archive: ${manifest.archives.fullArchive}`);
 }
 
 main().catch((error) => {

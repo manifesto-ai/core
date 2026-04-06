@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
 
-> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v4.0.0. Host-facing Snapshot references now follow the current Core v4 contract and no longer include accumulated `system.errors`. The broader co-deployed lineage/governance/world epoch remains tracked in their package drafts.
+> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v4.0.0. Host-facing Snapshot references now follow the current Core v4 contract and no longer include accumulated `system.errors`. The co-deployed lineage/governance composition epoch remains tracked in their package docs.
 
 ---
 
@@ -14,11 +14,11 @@ Host is the **effect execution runtime** of Manifesto. It orchestrates the compu
 
 In the Manifesto architecture:
 
-```
-World -> HOST -> Core
-            |
-   Executes effects, applies patches
-   Runs the mailbox-based execution model
+```text
+SDK runtime / governed decorators -> HOST -> Core
+                                     |
+                            Executes effects, applies patches
+                            Runs the mailbox-based execution model
 ```
 
 ---
@@ -317,7 +317,7 @@ Runtime -> HOST (v2.0.2) -> Core
 **Most users don't need to use Host directly.**
 
 Use Host directly when:
-- Building a custom runtime without World governance
+- Building a custom runtime without governed composition
 - Testing effect handlers in isolation
 - Building CLI tools or scripts
 - Implementing custom execution policies
@@ -331,10 +331,10 @@ For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry 
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](./docs/GUIDE.md) | Step-by-step usage guide |
-| [MIGRATION.md](./docs/MIGRATION.md) | v1.x -> v2.0.x migration guide |
-| [host-SPEC-v2.0.2.md](./docs/host-SPEC-v2.0.2.md) | Complete specification |
-| [host-FDR-v2.0.2.md](./docs/host-FDR-v2.0.2.md) | Design rationale |
-| [VERSION-INDEX.md](./docs/VERSION-INDEX.md) | Version history |
+| [host-SPEC.md](./docs/host-SPEC.md) | Current living specification |
+| [VERSION-INDEX.md](./docs/VERSION-INDEX.md) | Current and historical document map |
+| [MIGRATION.md](./docs/MIGRATION.md) | Historical v1.x -> v2.0.2 migration guide |
+| [host-FDR-v2.0.2.md](./docs/archive/host-FDR-v2.0.2.md) | Historical rationale addendum |
 
 ---
 

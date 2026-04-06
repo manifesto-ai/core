@@ -24,11 +24,11 @@ If you use Codex and want Manifesto-specific guidance loaded into the agent sess
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 
-const world = createManifesto(todoSchema, effects).activate();
+const instance = createManifesto(todoSchema, effects).activate();
 
-const snapshot = await world.dispatchAsync(
-  world.createIntent(
-    world.MEL.actions.addTodo,
+const snapshot = await instance.dispatchAsync(
+  instance.createIntent(
+    instance.MEL.actions.addTodo,
     "Agent-authored task",
   ),
 );
@@ -105,12 +105,12 @@ type AgentCommand =
 async function runAgentTurn(command: AgentCommand) {
   switch (command.kind) {
     case "addTodo":
-      return world.dispatchAsync(
-        world.createIntent(world.MEL.actions.addTodo, command.title),
+      return instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.addTodo, command.title),
       );
     case "toggleTodo":
-      return world.dispatchAsync(
-        world.createIntent(world.MEL.actions.toggleTodo, command.id),
+      return instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.toggleTodo, command.id),
       );
   }
 }

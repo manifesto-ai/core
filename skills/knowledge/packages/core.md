@@ -4,7 +4,7 @@
 
 ## Role
 
-Core computes meaning. It must not perform IO, access wall-clock time, execute effects, or know about Host or World policy.
+Core computes meaning. It must not perform IO, access wall-clock time, execute effects, or know about Host, Lineage, or Governance policy.
 
 ## Public API
 
@@ -101,5 +101,5 @@ type SystemDelta = {
 
 - Core owns semantic meaning and validation.
 - Host owns execution.
-- World owns governance and proposal flow around execution.
+- Governance and Lineage own legitimacy and continuity around execution.
 - Current Core v4 keeps `lastError` as the sole current error surface.

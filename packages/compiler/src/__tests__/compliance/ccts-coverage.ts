@@ -58,6 +58,11 @@ export const CCTS_CASES = {
   ENTITY_TRANSFORM_PLACEMENT: "CCTS-ENTITY-002",
   ENTITY_TYPING: "CCTS-ENTITY-003",
 
+  INTROSPECTION_GRAPH_SURFACE: "CCTS-INT-001",
+  INTROSPECTION_FEEDS_UNLOCKS: "CCTS-INT-002",
+  INTROSPECTION_MUTATIONS: "CCTS-INT-003",
+  INTROSPECTION_PROJECTION: "CCTS-INT-004",
+
   DETERMINISM_COMPILE: "CCTS-DET-001",
   DETERMINISM_LOWER: "CCTS-DET-002",
 } as const;
@@ -104,6 +109,11 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.ENTITY_TRANSFORM_PLACEMENT, "entity-primitives", "Transform primitive placement remains constrained."),
   complianceCase(CCTS_CASES.ENTITY_TYPING, "entity-primitives", "Entity typing and uniqueness rules are tracked."),
 
+  complianceCase(CCTS_CASES.INTROSPECTION_GRAPH_SURFACE, "introspection", "SchemaGraph emits projected nodes with kind-prefixed ids and deterministic ordering."),
+  complianceCase(CCTS_CASES.INTROSPECTION_FEEDS_UNLOCKS, "introspection", "SchemaGraph extracts feeds and unlocks relations from computed deps and availability." ),
+  complianceCase(CCTS_CASES.INTROSPECTION_MUTATIONS, "introspection", "SchemaGraph extracts mutates relations from patches and effect into roots."),
+  complianceCase(CCTS_CASES.INTROSPECTION_PROJECTION, "introspection", "SchemaGraph excludes $*-owned substrate and tainted computed nodes."),
+
   complianceCase(CCTS_CASES.DETERMINISM_COMPILE, "determinism", "Compilation remains deterministic."),
   complianceCase(CCTS_CASES.DETERMINISM_LOWER, "determinism", "Lowering remains deterministic."),
 ] as const;
@@ -147,6 +157,10 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["ADR-013b", "ENTITY-1", "ENTITY-3", "ENTITY-4", "ENTITY-5", "ENTITY-7", "ENTITY-8", "ENTITY-9"], [CCTS_CASES.ENTITY_SURFACE]),
   ...coverMany(["ENTITY-2", "ENTITY-2a", "ENTITY-2b", "E030", "E030a", "E030b"], [CCTS_CASES.ENTITY_TYPING]),
   ...coverMany(["TRANSFORM-1", "TRANSFORM-2", "TRANSFORM-3", "TRANSFORM-4", "TRANSFORM-5", "E031", "E032", "E033", "E034", "E035"], [CCTS_CASES.ENTITY_TRANSFORM_PLACEMENT]),
+  ...coverMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-14", "SGRAPH-15"], [CCTS_CASES.INTROSPECTION_GRAPH_SURFACE]),
+  ...coverMany(["SGRAPH-5", "SGRAPH-6", "SGRAPH-10", "SGRAPH-11"], [CCTS_CASES.INTROSPECTION_FEEDS_UNLOCKS]),
+  ...coverMany(["SGRAPH-7", "SGRAPH-8", "SGRAPH-9"], [CCTS_CASES.INTROSPECTION_MUTATIONS]),
+  ...coverMany(["SGRAPH-12", "SGRAPH-13"], [CCTS_CASES.INTROSPECTION_PROJECTION]),
 
   ...coverMany(["E003"], [CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF]),
   ...coverMany(["E006", "E007", "E008"], [CCTS_CASES.ACTIONS_FAIL_STOP_DIAGNOSTICS]),

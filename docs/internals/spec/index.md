@@ -30,12 +30,12 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.0.0 surface) | Normative (activation-first entry) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.1.0 surface) | Normative (activation-first entry + introspection) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v3.0.0 surface) | Normative (decorator continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.0.0 surface) | Normative (decorator legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
-| **@manifesto-ai/compiler** | v0.7.0 | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | v0.7.0 base + v0.8.0 addendum | Normative base + companion addendum | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -82,13 +82,16 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 - **SDK SPEC** (Living Document)
   - [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md)
-  - Activation-first SDK — `createManifesto()` returns a composable manifesto and runtime verbs appear only after `activate()`
+  - Activation-first SDK — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current surface includes projected `SchemaGraph` plus `simulate()`
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v0.7.0** (Full)
+- **Compiler SPEC v0.7.0** (Full Base)
   - [SPEC-v0.7.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.7.0.md)
   - Adds: statement composition via `flow`/`include` (ADR-013a) and entity collection primitives `findById()` / `existsById()` / `updateById()` / `removeById()` (ADR-013b)
+- **Compiler SPEC v0.8.0** (Companion Addendum)
+  - [SPEC-v0.8.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.8.0.md)
+  - Defines projected `SchemaGraph` extraction consumed by the current SDK v3.1.0 introspection surface
 
 ---
 
@@ -112,6 +115,8 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 04-06 | SDK | v3.1.0 | Living SDK spec promoted the projected introspection surface to current status: `getSchemaGraph()` and `simulate()` are now part of the current package contract |
+| 04-06 | Compiler | v0.8.0 | Companion `SchemaGraph` addendum documented for the current SDK introspection surface |
 | 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
 | 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with an explicit lineage prerequisite |
@@ -141,7 +146,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ## Living Documents
 
-Core and Host are maintained as **Living Documents** when a package has entered the living-document model. SDK, Governance, and Lineage remain current versioned specs for their package scopes.
+Core, Host, SDK, Governance, and Lineage are maintained as **Living Documents** for their active package scopes. Compiler remains versioned full specs with companion addenda when a narrower extension is sufficient.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history

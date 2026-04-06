@@ -42,4 +42,6 @@ MEL text -> Lexer -> Parser -> Analyzer -> Generator -> Lowering
 ## Notes
 
 - Current spec baseline is `packages/compiler/docs/SPEC-v0.7.0.md`.
+- Current introspection addendum is `packages/compiler/docs/SPEC-v0.8.0.md`.
+- Current compiler surface also exports `extractSchemaGraph(schema)` for projected static introspection support.
 - FDR baseline remains `packages/compiler/docs/FDR-v0.5.0.md`.

@@ -1,8 +1,18 @@
 import type {
+  ComputeStatus,
   DomainSchema,
   Intent,
   Patch,
+  Requirement,
 } from "@manifesto-ai/core";
+import type {
+  SchemaGraph as CompilerSchemaGraph,
+  SchemaGraphEdge,
+  SchemaGraphEdgeRelation,
+  SchemaGraphNode,
+  SchemaGraphNodeId,
+  SchemaGraphNodeKind,
+} from "@manifesto-ai/compiler";
 import type {
   CanonicalPlatformNamespaces,
   CanonicalSnapshot,
@@ -50,11 +60,13 @@ export type TypedActionRef<
 
 export type FieldRef<TValue> = {
   readonly __kind: "FieldRef";
+  readonly name: string;
   readonly _type?: TValue;
 };
 
 export type ComputedRef<TValue> = {
   readonly __kind: "ComputedRef";
+  readonly name: string;
   readonly _type?: TValue;
 };
 
@@ -114,6 +126,35 @@ export type TypedDispatchAsync<T extends ManifestoDomainShape> = (
 ) => Promise<Snapshot<T["state"]>>;
 export type TypedCommitAsync<T extends ManifestoDomainShape> =
   TypedDispatchAsync<T>;
+
+export type SchemaGraphNodeRef =
+  | TypedActionRef<ManifestoDomainShape>
+  | FieldRef<unknown>
+  | ComputedRef<unknown>;
+
+export type SchemaGraph = CompilerSchemaGraph & {
+  traceUp(ref: SchemaGraphNodeRef): SchemaGraph;
+  traceUp(nodeId: SchemaGraphNodeId): SchemaGraph;
+  traceDown(ref: SchemaGraphNodeRef): SchemaGraph;
+  traceDown(nodeId: SchemaGraphNodeId): SchemaGraph;
+};
+
+export type SimulateResult<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly snapshot: Snapshot<T["state"]>;
+  readonly changedPaths: readonly string[];
+  readonly newAvailableActions: readonly (keyof T["actions"])[];
+  readonly requirements: readonly Requirement[];
+  readonly status: ComputeStatus;
+};
+
+export type TypedSimulate<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  action: TypedActionRef<T, K>,
+  ...args: CreateIntentArgs<T, K>
+) => SimulateResult<T>;
 
 export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   selector: Selector<T["state"], R>,
@@ -179,6 +220,8 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
+  readonly getSchemaGraph: () => SchemaGraph;
+  readonly simulate: TypedSimulate<T>;
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
   readonly dispose: () => void;
@@ -214,6 +257,11 @@ export type {
   CanonicalPlatformNamespaces,
   CanonicalSnapshot,
   Snapshot,
+  SchemaGraphEdge,
+  SchemaGraphEdgeRelation,
+  SchemaGraphNode,
+  SchemaGraphNodeId,
+  SchemaGraphNodeKind,
 };
 
 export type ComposableManifesto<

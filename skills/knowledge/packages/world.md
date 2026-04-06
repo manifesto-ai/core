@@ -1,107 +1,32 @@
 # @manifesto-ai/world
 
-> Canonical governed composition surface for Manifesto.
+> Historical note only.
 
-## Role
+## Status
 
-Top-level `@manifesto-ai/world` is the exact consumer-facing facade for:
+`@manifesto-ai/world` is not part of the current maintained public runtime story.
 
-- `createWorld()` and `WorldRuntime`
-- the `GovernedWorldStore` contract and seal transaction seam
-- the world-owned execution boundary (`WorldExecutor`)
-- split-native lineage and governance service re-exports
-- intent-instance helpers and governed bootstrap wiring
-
-## Dependencies
-
-- `uuid`
-- Peer: `@manifesto-ai/core`
-
-## Public API
-
-### `createWorld(config): WorldInstance`
+The active governed composition path is:
 
 ```typescript
-interface WorldConfig {
-  store: GovernedWorldStore;
-  lineage: LineageService;
-  governance: GovernanceService;
-  eventDispatcher: GovernanceEventDispatcher;
-  executor: WorldExecutor;
-}
+createManifesto(schema, effects)
+  -> withLineage(...)
+  -> withGovernance(...)
+  -> activate()
 ```
 
-### `WorldInstance`
+## How to use this file
 
-```typescript
-interface WorldInstance {
-  store: GovernedWorldStore;
-  lineage: LineageService;
-  governance: GovernanceService;
-  coordinator: WorldCoordinator;
-  runtime: WorldRuntime;
-}
-```
+Use this file only when:
 
-### `WorldRuntime`
+- reading historical ADRs or archived specs
+- explaining the previous facade split
+- handling migration or archaeology tasks
 
-```typescript
-interface WorldRuntime {
-  executeApprovedProposal(input: ExecuteApprovedProposalInput): Promise<WorldRuntimeCompletion>;
-  resumeExecutingProposal(input: ResumeExecutingProposalInput): Promise<WorldRuntimeCompletion>;
-}
-```
+Do not use old `world` facade docs as the default basis for new code changes.
 
-### `WorldExecutor`
+## Current owners
 
-World defines its own execution seam and does not import `@manifesto-ai/host` directly:
-
-```typescript
-interface WorldExecutor {
-  execute(
-    key: ExecutionKey,
-    snapshot: Snapshot,
-    intent: Intent,
-    opts?: WorldExecutionOptions,
-  ): Promise<WorldExecutionResult>;
-
-  abort?(key: ExecutionKey): void;
-}
-```
-
-## Stores, Helpers, and Re-exports
-
-Top-level exports include:
-
-- `createWorld`
-- `createLineageService`
-- `createGovernanceService`
-- `createGovernanceEventDispatcher`
-- `createIntentInstance`, `createIntentInstanceSync`
-- split-native lineage and governance types
-- the facade-owned `GovernedWorldStore`, `WorldCoordinator`, and `WorldRuntime` types
-
-Concrete store adapters live on subpaths:
-
-- `@manifesto-ai/world/in-memory`
-- `@manifesto-ai/world/indexeddb`
-- `@manifesto-ai/world/sqlite`
-
-## Event Model
-
-Current world implementation emits governance-oriented events such as:
-
-- `proposal:submitted`
-- `proposal:evaluating`
-- `proposal:decided`
-- `proposal:superseded`
-- `execution:completed`
-- `execution:failed`
-- `world:created`
-- `world:forked`
-
-## Current Structure
-
-- Use top-level `@manifesto-ai/world` for consumer-facing governed composition.
-- Use `@manifesto-ai/governance` or `@manifesto-ai/lineage` directly only when the task is intentionally scoped to one protocol layer.
-- Use adapter subpaths only when you need a concrete store implementation.
+- continuity and sealing: `@manifesto-ai/lineage`
+- legitimacy and proposals: `@manifesto-ai/governance`
+- direct application runtime: `@manifesto-ai/sdk`

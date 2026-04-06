@@ -24,6 +24,10 @@ export const ACTS_CASES = {
   BASE_ACTIVATION_CHAIN: "ACTS-BASE-002",
   BASE_DEQUEUE_AVAILABILITY: "ACTS-BASE-003",
   BASE_MUTATION_SAFETY: "ACTS-BASE-004",
+  BASE_INTROSPECTION_SURFACE: "ACTS-BASE-005",
+  BASE_SCHEMA_GRAPH_LOOKUP: "ACTS-BASE-006",
+  BASE_SIMULATE_NON_COMMITTING: "ACTS-BASE-007",
+  BASE_SIMULATE_HALTED: "ACTS-BASE-008",
   LINEAGE_COMPOSABLE_SURFACE: "ACTS-LIN-001",
   LINEAGE_SEAL_PUBLICATION: "ACTS-LIN-002",
   GOVERNANCE_COMPOSABLE_SURFACE: "ACTS-GOV-001",
@@ -32,6 +36,7 @@ export const ACTS_CASES = {
   TYPES_PRE_ACTIVATION: "ACTS-TYPE-001",
   TYPES_GOVERNED_RUNTIME: "ACTS-TYPE-002",
   TYPES_LINEAGE_CONFIG: "ACTS-TYPE-003",
+  TYPES_BASE_INTROSPECTION: "ACTS-TYPE-004",
 } as const;
 
 export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = [
@@ -54,6 +59,26 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     ACTS_CASES.BASE_MUTATION_SAFETY,
     "base",
     "Visible snapshot reads are read-only, mutation-safe, and do not leak external changes back in.",
+  ),
+  complianceCase(
+    ACTS_CASES.BASE_INTROSPECTION_SURFACE,
+    "base",
+    "Activated base runtime exposes getSchemaGraph() and simulate() as read-only introspection verbs.",
+  ),
+  complianceCase(
+    ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP,
+    "base",
+    "SchemaGraph lookup is ref-canonical, kind-prefixed string debug lookup remains supported, and projection excludes platform substrate.",
+  ),
+  complianceCase(
+    ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
+    "base",
+    "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, and new availability.",
+  ),
+  complianceCase(
+    ACTS_CASES.BASE_SIMULATE_HALTED,
+    "base",
+    "simulate() preserves Core halted status without publishing runtime state.",
   ),
   complianceCase(
     ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE,
@@ -95,6 +120,11 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     "types",
     "withGovernance() requires explicit lineage composition, withLineage() requires a non-empty config, and governed composables cannot be downgraded.",
   ),
+  complianceCase(
+    ACTS_CASES.TYPES_BASE_INTROSPECTION,
+    "types",
+    "Activated base runtime exposes typed introspection refs, graph helpers, and simulate() result types.",
+  ),
 ] as const;
 
 export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntry[] = [
@@ -113,6 +143,22 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
   ...coverMany(
     ["ACTS-BASE-5"],
     [ACTS_CASES.BASE_MUTATION_SAFETY],
+  ),
+  ...coverMany(
+    ["ACTS-BASE-6"],
+    [ACTS_CASES.BASE_INTROSPECTION_SURFACE],
+  ),
+  ...coverMany(
+    ["ACTS-BASE-7"],
+    [ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP],
+  ),
+  ...coverMany(
+    ["ACTS-BASE-8"],
+    [ACTS_CASES.BASE_SIMULATE_NON_COMMITTING],
+  ),
+  ...coverMany(
+    ["ACTS-BASE-9"],
+    [ACTS_CASES.BASE_SIMULATE_HALTED],
   ),
   ...coverMany(
     ["ACTS-LIN-1", "ACTS-LIN-3"],
@@ -145,6 +191,10 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
   ...coverMany(
     ["ACTS-TYPE-3"],
     [ACTS_CASES.TYPES_LINEAGE_CONFIG],
+  ),
+  ...coverMany(
+    ["ACTS-TYPE-4"],
+    [ACTS_CASES.TYPES_BASE_INTROSPECTION],
   ),
 ] as const;
 

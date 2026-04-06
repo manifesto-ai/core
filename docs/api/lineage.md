@@ -23,7 +23,7 @@ Use this package when you want:
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 
-const world = withLineage(
+const lineage = withLineage(
   createManifesto<CounterDomain>(domainSchema, effects),
   { store: createInMemoryLineageStore() },
 ).activate();
