@@ -313,18 +313,58 @@ describe("CCTS Introspection Suite", () => {
         edge.from === "action:mutatePaths"
         && edge.relation === "mutates"
         && edge.to === "state:box").length;
+      const callSchema = withHash({
+        id: "manifesto:ccts-introspection-call-roots",
+        version: "1.0.0",
+        types: {},
+        state: {
+          fields: {
+            tasks: {
+              type: "array",
+              required: false,
+              default: [],
+              items: { type: "string", required: true },
+            },
+          },
+        },
+        computed: {
+          fields: {},
+        },
+        actions: {
+          helper: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("tasks"),
+              value: { kind: "lit", value: ["done"] },
+            },
+          },
+          wrapper: {
+            flow: { kind: "call", flow: "helper" },
+          },
+          nestedWrapper: {
+            flow: { kind: "call", flow: "wrapper" },
+          },
+        },
+      });
+      const callGraph = extractSchemaGraph(callSchema);
+      const callEdges = callGraph.edges.map((edge) =>
+        `${edge.from}|${edge.relation}|${edge.to}`);
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("SGRAPH-7"),
           edges.includes("action:mutate|mutates|state:tasks")
-            && taskMutatesCount === 1,
+            && taskMutatesCount === 1
+            && callEdges.includes("action:wrapper|mutates|state:tasks")
+            && callEdges.includes("action:nestedWrapper|mutates|state:tasks"),
           {
             passMessage: "Patch targets emit mutates edges.",
             failMessage: "Patch targets did not emit the expected mutates edge.",
             evidence: [
               noteEvidence("Observed MEL edges", edges),
               noteEvidence("Observed normalized edges", normalizedEdges),
+              noteEvidence("Observed call edges", callEdges),
             ],
           },
         ),

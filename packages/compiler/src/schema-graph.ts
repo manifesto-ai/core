@@ -99,7 +99,7 @@ export function extractSchemaGraph(schema: DomainSchema): SchemaGraph {
     const action = schema.actions[actionName];
     const actionId = actionNodeId(actionName);
 
-    for (const root of collectMutationRootsFromFlow(action.flow)) {
+    for (const root of collectMutationRootsFromFlow(action.flow, schema)) {
       if (stateNameSet.has(root)) {
         pushEdge(actionId, stateNodeId(root), "mutates");
       }
@@ -171,21 +171,27 @@ function getVisibleComputedNames(schema: DomainSchema): string[] {
     .filter((name) => isVisibleComputed(name, new Set()));
 }
 
-function collectMutationRootsFromFlow(flow: CoreFlowNode): string[] {
+function collectMutationRootsFromFlow(
+  flow: CoreFlowNode,
+  schema: DomainSchema,
+): string[] {
   const roots = new Set<string>();
 
-  const visit = (node: CoreFlowNode | undefined): void => {
+  const visit = (
+    node: CoreFlowNode | undefined,
+    callStack: ReadonlySet<string>,
+  ): void => {
     if (!node) {
       return;
     }
 
     switch (node.kind) {
       case "seq":
-        node.steps.forEach(visit);
+        node.steps.forEach((step) => visit(step, callStack));
         return;
       case "if":
-        visit(node.then);
-        visit(node.else);
+        visit(node.then, callStack);
+        visit(node.else, callStack);
         return;
       case "patch": {
         const root = rootFromPatchPath(node.path);
@@ -201,14 +207,28 @@ function collectMutationRootsFromFlow(flow: CoreFlowNode): string[] {
         }
         return;
       }
-      case "call":
+      case "call": {
+        if (callStack.has(node.flow)) {
+          return;
+        }
+
+        const action = schema.actions[node.flow];
+        if (!action) {
+          return;
+        }
+
+        const nextCallStack = new Set(callStack);
+        nextCallStack.add(node.flow);
+        visit(action.flow, nextCallStack);
+        return;
+      }
       case "halt":
       case "fail":
         return;
     }
   };
 
-  visit(flow);
+  visit(flow, new Set());
   return [...roots];
 }
 
