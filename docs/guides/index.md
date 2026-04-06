@@ -2,7 +2,7 @@
 
 > Solve one concrete problem at a time.
 
-If you are still learning the basics, start with the [Tutorial](/tutorial/). These guides assume you know how to dispatch intents and read Snapshots.
+If you are still learning the basics, start with [Start Here](/start-here) and then the [Tutorial](/tutorial/). These guides assume you already know how to dispatch intents and read Snapshots.
 
 ---
 
@@ -10,10 +10,11 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 
 | Guide | When to Read It |
 |-------|-----------------|
+| [Developer Tooling](./developer-tooling) | You want the current CLI, MEL editor, AI skills, or Studio inspection workflow |
+| [When You Need Approval or History](./approval-and-history) | The project now needs review, branch continuity, sealed history, or auditability |
 | [Bundler Setup](./bundler-setup) | You need to configure Vite, Next.js, Webpack, or another bundler for `.mel` files |
-| [Codex Skills Setup](./codex-skills) | You want Codex to load Manifesto-specific guidance from `@manifesto-ai/skills` |
 | [Effect Handlers](./effect-handlers) | You need to connect Manifesto to an API, database, or other IO |
-| [Governed Composition](./governed-composition) | You want to compose Lineage and Governance decorators explicitly |
+| [Advanced Runtime Assembly](./governed-composition) | You already know you need Lineage and Governance decorators and want the assembly steps |
 | [Debugging](./debugging) | A dispatch does not do what you expected |
 | [Release Hardening](./release-hardening) | You need the current release gate, known limitations, or operator checks |
 | [Upgrade to Next Major](./upgrade-next-major) | You are moving app/runtime code onto the hard-cut next-major surface |
@@ -24,11 +25,11 @@ If you are still learning the basics, start with the [Tutorial](/tutorial/). The
 
 ## Recommended Order After the Tutorial
 
-1. Read [Effect Handlers](./effect-handlers)
-2. Read [Governed Composition](./governed-composition) if you need explicit lineage or authority
+1. Read [Developer Tooling](./developer-tooling) if you are setting up repo bootstrap, editor support, agent context, or Studio analysis surfaces
+2. Read [Effect Handlers](./effect-handlers)
 3. Read [Debugging](./debugging)
-4. Read [Release Hardening](./release-hardening) when you are preparing a governed runtime for release
-5. Read [Codex Skills Setup](./codex-skills) if you work with Codex
+4. Read [When You Need Approval or History](./approval-and-history) only if the project now needs review, auditability, or sealed history
+5. Read [Release Hardening](./release-hardening) when you are preparing an advanced runtime for release
 6. Read [Re-entry Safety](./reentry-safe-flows)
 That sequence matches the problems most teams hit first.
 
@@ -37,7 +38,7 @@ That sequence matches the problems most teams hit first.
 ## What These Guides Assume
 
 - You use `createManifesto()` and `activate()` for base runtime apps
-- You add `withLineage()` and `withGovernance()` only when the app needs governed composition
+- You add `withLineage()` and `withGovernance()` only when the app needs the advanced runtime
 - You create intents through an activated runtime or low-level governance helpers
 - You observe outcomes through subscriptions, runtime events, governed proposals, and lineage/governance query APIs
 - You treat `getSnapshot()` as the default runtime read model and escalate to canonical reads only when needed
@@ -48,4 +49,5 @@ That sequence matches the problems most teams hit first.
 
 - [Tutorial](/tutorial/) for the step-by-step learning path
 - [Integration](/integration/) for React and AI-agent patterns
+- [API Reference](/api/) for package-level CLI, LSP, Studio, and runtime docs
 - [Architecture](/architecture/) for the system-level model

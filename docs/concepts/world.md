@@ -65,4 +65,4 @@ const governed = withGovernance(
 
 - [Governance API](../api/governance.md)
 - [Lineage API](../api/lineage.md)
-- [Governed Composition Guide](../guides/governed-composition.md)
+- [Advanced Runtime Assembly](../guides/governed-composition.md)

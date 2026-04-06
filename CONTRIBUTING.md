@@ -56,7 +56,6 @@ Use the package name as scope:
 
 - `core` - @manifesto-ai/core
 - `host` - @manifesto-ai/host
-- `world` - @manifesto-ai/world
 - `sdk` - @manifesto-ai/sdk
 - `compiler` - @manifesto-ai/compiler
 - `codegen` - @manifesto-ai/codegen

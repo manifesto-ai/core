@@ -9,4 +9,5 @@ export default defineConfig({
   dts: false,
   clean: true,
   sourcemap: !release,
+  minify: true,
 });

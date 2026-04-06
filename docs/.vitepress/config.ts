@@ -51,22 +51,20 @@ export default defineConfig({
 
   themeConfig: {
     nav: [
-      { text: 'Quickstart', link: '/quickstart' },
+      { text: 'Start Here', link: '/start-here' },
       { text: 'Tutorial', link: '/tutorial/' },
-      { text: 'Concepts', link: '/concepts/' },
-      { text: 'MEL', link: '/mel/' },
-      { text: 'Guides', link: '/guides/' },
-      { text: 'API', link: '/api/' },
-      { text: 'Architecture', link: '/architecture/' },
+      { text: 'Tooling', link: '/guides/developer-tooling' },
+      { text: 'Reference', link: '/api/' },
       { text: 'Internals', link: '/internals/' },
     ],
 
     sidebar: {
+      '/start-here': [],
       '/quickstart': [],
 
       '/tutorial/': [
         {
-          text: 'Direct-dispatch Track',
+          text: 'Core Path',
           items: [
             { text: 'Overview', link: '/tutorial/' },
             { text: '1. Your First App', link: '/tutorial/01-your-first-app' },
@@ -76,10 +74,10 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Governed Track',
+          text: 'Optional Advanced Runtime',
           items: [
-            { text: '5. Governed Composition', link: '/tutorial/05-governed-composition' },
-            { text: '6. Governed Sealing and History', link: '/tutorial/06-governed-sealing-and-history' },
+            { text: '5. Approval and History Setup', link: '/tutorial/05-governed-composition' },
+            { text: '6. Sealed History and Review Flow', link: '/tutorial/06-governed-sealing-and-history' },
           ]
         },
       ],
@@ -117,7 +115,9 @@ export default defineConfig({
           text: 'How-to Guides',
           items: [
             { text: 'Overview', link: '/guides/' },
-            { text: 'Governed Composition', link: '/guides/governed-composition' },
+            { text: 'Developer Tooling', link: '/guides/developer-tooling' },
+            { text: 'When You Need Approval or History', link: '/guides/approval-and-history' },
+            { text: 'Advanced Runtime Assembly', link: '/guides/governed-composition' },
             { text: 'Bundler Setup', link: '/guides/bundler-setup' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
             { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
@@ -140,16 +140,37 @@ export default defineConfig({
 
       '/api/': [
         {
-          text: 'API Reference',
+          text: 'Base Runtime',
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
+          ]
+        },
+        {
+          text: 'Advanced Runtime',
+          items: [
             { text: '@manifesto-ai/governance', link: '/api/governance' },
             { text: '@manifesto-ai/lineage', link: '/api/lineage' },
+          ]
+        },
+        {
+          text: 'Core Runtime',
+          items: [
             { text: '@manifesto-ai/core', link: '/api/core' },
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
+          ]
+        },
+        {
+          text: 'DX Tooling',
+          items: [
+            { text: '@manifesto-ai/cli', link: '/api/cli' },
+            { text: '@manifesto-ai/skills', link: '/api/skills' },
+            { text: '@manifesto-ai/mel-lsp', link: '/api/mel-lsp' },
+            { text: '@manifesto-ai/studio-cli', link: '/api/studio-cli' },
+            { text: '@manifesto-ai/studio-core', link: '/api/studio-core' },
+            { text: '@manifesto-ai/studio-mcp', link: '/api/studio-mcp' },
           ]
         }
       ],

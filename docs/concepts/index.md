@@ -1,6 +1,8 @@
 # Concepts
 
-> Quick reference for Manifesto's core building blocks and runtime choices.
+> Second-pass reference for Manifesto's core building blocks and runtime choices.
+
+If you are new and still choosing where to begin, go back to [Start Here](/start-here). This section is for when the quickstart or tutorial already mostly makes sense and you want the vocabulary to snap into place.
 
 Manifesto is a semantic layer for deterministic domain state. You declare what your domain means once; every surface reads from the same Snapshot model. The main choice is not the semantics. It is the runtime shape you assemble around them.
 
@@ -140,5 +142,6 @@ compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 ## See Also
 
 - [Architecture Overview](/architecture/) - How concepts fit into layers
+- [Start Here](/start-here) - Choose the shortest reading path
 - [Getting Started Guide](/quickstart) - Build something
 - [Specifications](/internals/spec/) - Normative definitions

@@ -1,20 +1,20 @@
-# Governed Sealing and History
+# Sealed History And Review Flow
 
-> See how a governed proposal becomes sealed history under the decorator runtime.
+> See how a reviewable proposal becomes sealed history under the advanced runtime.
 
 ## What You'll Learn
 
-- how a governed proposal moves toward execution
+- how a reviewable proposal moves toward execution
 - how approval and rejection fit into the sealing flow
 - how to read branch, head, and restored snapshot state after commit
 
 ## Prerequisites
 
-- You finished [Governed Composition](./05-governed-composition)
-- You already know the governed runtime assembly
+- You finished [Approval and History Setup](./05-governed-composition)
+- You already know the advanced runtime assembly
 - You want to understand the operational flow after a proposal is created
 
-## 1. Create The Governed Request
+## 1. Create The Reviewable Request
 
 ```typescript
 const intent = governed.createIntent(

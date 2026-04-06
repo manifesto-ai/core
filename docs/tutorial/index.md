@@ -1,11 +1,11 @@
 # Tutorial
 
-> Learn Manifesto through the base runtime first, then add governed composition when the app needs it.
+> Learn Manifesto through the base runtime first. Only open the advanced runtime track when the project needs approval or sealed history.
 
 These tutorials are for developers who know TypeScript but are new to Manifesto. The learning path is split on purpose:
 
-- Tutorials `01` through `04` stay focused on the SDK base runtime
-- Tutorials `05` and `06` introduce governed composition with Lineage and Governance decorators
+- Tutorials `01` through `04` are the normal first path
+- Tutorials `05` and `06` are an optional advanced runtime add-on
 
 ---
 
@@ -19,16 +19,15 @@ These tutorials are for developers who know TypeScript but are new to Manifesto.
 
 ## The Mental Model
 
-Manifesto applications can start in two different ways:
+Manifesto applications should usually start one way:
 
 1. Base runtime apps use `createManifesto()`, `activate()`, and typed runtime intents
-2. Governed apps add Lineage and Governance before activation
 
-The domain model stays the same in both paths. The difference is where approval, branch history, and audit live.
+Later, if the project needs approval, branch history, or auditability, add the advanced runtime layers without changing the domain model.
 
 ---
 
-## Direct-Dispatch Track
+## Core Path
 
 Use this path when you want the shortest route from a MEL domain to a running app.
 
@@ -43,16 +42,16 @@ If you only need a Snapshot-driven app, stop here. The SDK path is enough.
 
 ---
 
-## Governed Track
+## Optional Advanced Runtime
 
-Use this path when you need branch history, explicit actor identity, approval, or post-commit lineage.
+Read this only when the project now needs reviewable writes, branch history, explicit actor identity, or sealed continuity.
 
 | Step | Tutorial | Time | Outcome |
 |------|----------|------|---------|
-| 5 | [Governed Composition](./05-governed-composition) | 20 min | Compose Lineage and Governance decorators on top of the same manifesto |
-| 6 | [Governed Sealing and History](./06-governed-sealing-and-history) | 25 min | Submit proposals, approve or reject them, and read sealed branch history |
+| 5 | [Approval and History Setup](./05-governed-composition) | 20 min | Add Lineage and Governance decorators on top of the same manifesto |
+| 6 | [Sealed History and Review Flow](./06-governed-sealing-and-history) | 25 min | Submit proposals, approve or reject them, and read sealed branch history |
 
-This track builds on the same semantics as the SDK path, but it makes the governance seams explicit.
+If you are still deciding whether you need this, read [When You Need Approval or History](/guides/approval-and-history) first.
 
 ---
 
@@ -85,4 +84,4 @@ Effect handlers do not feed values back through a hidden return channel. They re
 
 ---
 
-Start with [Your First Manifesto Instance](./01-your-first-app) for the SDK path, or jump to [Governed Composition](./05-governed-composition) when you need explicit lineage and approval.
+Start with [Your First Manifesto Instance](./01-your-first-app). Open the advanced runtime track only after the base path already makes sense.

@@ -2,6 +2,8 @@
 
 > For contributors, implementers, and deep-dive readers.
 
+If you are onboarding to the public product surface, stop here and go to [Start Here](/start-here). Internals are intentionally the last stop, not the first one.
+
 This section contains detailed technical documentation for those who want to understand or contribute to Manifesto's implementation.
 
 ## Maintained Internals

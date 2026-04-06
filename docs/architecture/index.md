@@ -1,6 +1,8 @@
 # Architecture
 
-> Understand the current implementation shape before you dig into the lower layers.
+> Third-pass reading for understanding the current implementation shape.
+
+Do not start here if you are still trying to get the first app or tooling flow running. Start with [Start Here](/start-here), then come back once the runtime path already feels concrete.
 
 ---
 
@@ -70,4 +72,4 @@ Read the architecture pages when:
 - you are integrating Manifesto into a larger system
 - you need to decide whether to add Lineage or Governance
 
-If you are still learning the APIs, go back to [Tutorial](/tutorial/) first.
+If you are still learning the APIs, go back to [Start Here](/start-here) or [Tutorial](/tutorial/) first.

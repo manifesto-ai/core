@@ -1,15 +1,17 @@
-# Governed Composition
+# Approval And History Setup
 
-> Compose governed runtime behavior directly from the owning packages.
+> Add the advanced runtime layers only after the base path already works.
+
+Read this tutorial only when the project now needs approval, branch continuity, or sealed history.
 
 ## What You'll Build
 
 - one composable manifesto
 - one lineage decorator for continuity
 - one governance decorator for legitimacy
-- one activated governed runtime
+- one activated advanced runtime
 
-## 1. Assemble The Governed Runtime
+## 1. Assemble The Advanced Runtime
 
 Create `governed-runtime.ts`:
 
@@ -42,7 +44,7 @@ export const governed = withGovernance(
 
 This file should live outside React components and outside request handlers that only need Snapshot reads.
 
-## 2. Create A Governed Request
+## 2. Create A Reviewable Request
 
 ```typescript
 const intent = governed.createIntent(
@@ -51,7 +53,7 @@ const intent = governed.createIntent(
 );
 ```
 
-The typed intent still comes from the runtime. Governance adds proposal semantics when you submit it.
+The typed intent still comes from the runtime. Governance adds proposal semantics only when you submit it.
 
 ## 3. Submit The Proposal
 
@@ -75,7 +77,7 @@ export function readCurrentBranch() {
 
 ## When To Use This Track
 
-Use the governed track when you need:
+Use this track when you need:
 
 - explicit approval or review before a state transition
 - branch-aware history
@@ -86,4 +88,4 @@ If none of those matter, stay on the base-runtime tutorials and the SDK path.
 
 ## Next
 
-Continue to [Governed Sealing and History](./06-governed-sealing-and-history) to see how proposals become sealed history.
+Continue to [Sealed History and Review Flow](./06-governed-sealing-and-history) to see how proposals become sealed history.
