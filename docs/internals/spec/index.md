@@ -33,6 +33,7 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 | **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.1.0 surface) | Normative (activation-first entry + introspection) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v3.0.0 surface) | Normative (decorator continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.0.0 surface) | Normative (decorator legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/planner** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/planner/docs/planner-SPEC.md) (v0.2.0 slice) | Normative (implemented planner slice: `preview()`, `plan()`, greedy + MCTS strategies, conservative core enumerator) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/planner/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.7.0 base + v0.8.0 addendum | Normative base + companion addendum | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
@@ -41,11 +42,11 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 ## Draft and Pending Package Specifications
 
-These specs are design-level normative drafts for surfaces that are not yet landed in the active workspace. They are not current public package contracts.
+These specs are design-level drafts for future phases or not-yet-cut package contracts. They are not the current package-owned living specs.
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/planner** | [Draft v1.2.0](./planner-SPEC-v1.2.0-draft) | Normative (Draft, blocked on SDK provider simulation seam) | — |
+| **@manifesto-ai/planner (future phases)** | [Draft v1.2.0](./planner-SPEC-v1.2.0-draft) | Design draft for planner phases beyond the implemented v0.2.0 slice | [planner docs](https://github.com/manifesto-ai/core/blob/main/packages/planner/docs/README.md) |
 
 > **Draft Planned Extension:** `createManifesto() -> withLineage() -> withGovernance() -> withPlanner() -> activate()`
 
@@ -96,9 +97,9 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ### Planner (Draft)
 
-- **Planner SPEC v1.2.0 (Draft)**
+- **Planner Draft v1.2.0 (Future Phases)**
   - [planner-SPEC-v1.2.0-draft.md](./planner-SPEC-v1.2.0-draft)
-  - Defines a proposed `withPlanner()` decorator, `createPlanner()` builder, separate strategy/enumerator seams, and the blocking SDK `RuntimeKernel` simulation seam required before implementation
+  - Captures broader planner design beyond the currently implemented first slice, including future strategy work and package evolution notes
 
 ### Compiler (MEL)
 
@@ -133,6 +134,8 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 |------|---------|---------|--------|
 | 04-06 | SDK | v3.1.0 | Living SDK spec promoted the projected introspection surface to current status: `getSchemaGraph()` and `simulate()` are now part of the current package contract |
 | 04-07 | Planner | v1.2.0 | Draft planner spec tightened the public contract: `enumerator-first` DX retained, `strategy` split preserved, runtime term-key generics propagated, and `createCoreEnumerator()` defined as intentionally conservative |
+| 04-07 | Planner | v0.2.0 | `@manifesto-ai/planner` current slice now includes `mctsStrategy()` with deterministic rollouts and terminal handling for `pending` rollout states |
+| 04-07 | Planner | v0.1.0 | `@manifesto-ai/planner` package landed as an implemented first slice with package-owned living docs, `preview()`, `plan()`, `greedyStrategy()`, and a conservative core enumerator |
 | 04-06 | Compiler | v0.8.0 | Companion `SchemaGraph` addendum documented for the current SDK introspection surface |
 | 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |

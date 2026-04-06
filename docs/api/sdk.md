@@ -135,9 +135,14 @@ The forward public direction under ADR-017 is:
 
 Those advanced-runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are historical tombstones, not the SDK's canonical current story.
 
+If you need read-only foresight after governance, an optional outer layer now exists:
+
+`createManifesto() -> withLineage() -> withGovernance() -> withPlanner() -> activate()`
+
 ## Related Docs
 
 - [Lineage API](./lineage.md)
 - [Governance API](./governance.md)
+- [Planner API](./planner.md)
 - [Quickstart](/quickstart)
 - [When You Need Approval or History](/guides/approval-and-history)

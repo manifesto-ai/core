@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.build.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@manifesto-ai/sdk": ["../sdk/dist/index.d.ts"],
+      "@manifesto-ai/sdk/provider": ["../sdk/dist/provider.d.ts"],
+      "@manifesto-ai/governance": ["../governance/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts", "src/__tests__/**/*"]
+}
