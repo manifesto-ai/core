@@ -16,7 +16,7 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 |---------|------------|-------|--------------|
 | **@manifesto-ai/core** | v2.0.0 (historical) | Compute equation, purity, patches | [archive/FDR-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/archive/FDR-v2.0.0.md) |
 | **@manifesto-ai/host** | v2.0.2 (inlined in host-SPEC) | Event-loop, snapshot ownership | [host-FDR-v2.0.2.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/archive/host-FDR-v2.0.2.md) |
-| **@manifesto-ai/world** | v2.0.5 (inlined in world-SPEC) | Governance, lineage, namespaces, head query, resume | [world-FDR-v2.0.5-addendum.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/archive/world-FDR-v2.0.5-addendum.md) |
+| **@manifesto-ai/world (retired)** | v2.0.5 (historical) | Former unified governance/lineage rationale before the protocol split | [world-FDR-v2.0.5-addendum.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/archive/world-FDR-v2.0.5-addendum.md) |
 
 ### Application Layer
 
@@ -24,8 +24,9 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 |---------|------------|-------|--------------|
 | **App facade (retired)** | Removed (R2) | Legacy compatibility rationale | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.5.0-patch | MEL syntax, IR design | [FDR-v0.5.0-patch.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0-patch.md) |
+| **@manifesto-ai/sdk** | v3.1.0 (draft) | Projected schema graph, full-transition dry-run simulation, and introspection rationale staged into the living SDK spec | [FDR-v3.1.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/FDR-v3.1.0-draft.md) |
 
-> Core/Host/World rationale is primarily available in each package SPEC `Rationale` block. Standalone FDR files are historical or supplemental references.
+> Core/Host rationale is primarily available in each package SPEC `Rationale` block. The former `@manifesto-ai/world` rationale is retained only as historical split context. SDK currently has a draft additive rationale track for projected introspection APIs; its accepted contract now also appears in the living SDK spec.
 
 ---
 
@@ -50,7 +51,11 @@ App-era rationale remains part of project history and ADR context (see ADR-007, 
 - FDR-H023: Context determinism
 - FDR-H024~H027: Snapshot type alignment
 
-**World v2.0.5** - Governance model
+**SDK v3.1.0 (draft)** - Introspection expansion
+- FDR-SDK-001: Projected SchemaGraph influence graph
+- FDR-SDK-002: Full-transition `simulate()` dry-run
+
+**Historical World v2.0.5** - Pre-split governance model
 - FDR-W001~W020: Proposal, Authority, Decision
 - FDR-W021+: Host-World data contract
 - FDR-W036~W038: Head query, resume contract (v2.0.5 addendum)

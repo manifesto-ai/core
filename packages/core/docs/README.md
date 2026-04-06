@@ -37,7 +37,7 @@ Host -> CORE -> ComputeResult
 | Execute effects | Host |
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
-| Govern authority/proposals | World |
+| Govern authority/proposals | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Handle UI/event bindings | App |
 
 ---
@@ -166,7 +166,7 @@ When an action needs IO (API call, timer, etc.), Core doesn't execute it. Instea
 ## Relationship with Other Packages
 
 ```
-App/World -> Host -> Core
+SDK / custom runtime -> Host -> Core
 ```
 
 | Relationship | Package | How |

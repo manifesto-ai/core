@@ -79,10 +79,10 @@ flowchart TB
 import { createManifesto } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto<CounterDomain>(domainSchema, {});
-const world = manifesto.activate();
+const instance = manifesto.activate();
 
-await world.dispatchAsync(
-  world.createIntent(world.MEL.actions.increment),
+await instance.dispatchAsync(
+  instance.createIntent(instance.MEL.actions.increment),
 );
 ```
 

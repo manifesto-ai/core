@@ -33,6 +33,9 @@ describe("createManifesto()", () => {
     const world = manifesto.activate();
 
     expect(world.MEL.actions.increment).toBeDefined();
+    expect(world.MEL.actions.increment.name).toBe("increment");
+    expect(world.MEL.state.count.name).toBe("count");
+    expect(world.MEL.computed.doubled.name).toBe("doubled");
     expect(() => manifesto.activate()).toThrow(AlreadyActivatedError);
 
     world.dispose();

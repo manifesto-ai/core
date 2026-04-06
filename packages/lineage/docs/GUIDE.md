@@ -12,7 +12,7 @@ import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 
 const manifesto = createManifesto<CounterDomain>(schema, effects);
 
-const world = withLineage(manifesto, {
+const lineage = withLineage(manifesto, {
   store: createInMemoryLineageStore(),
 }).activate();
 ```
@@ -22,8 +22,8 @@ Lineage does not decorate a running instance. It decorates the composable manife
 ## 2. Commit Means Execute And Seal
 
 ```ts
-await world.commitAsync(
-  world.createIntent(world.MEL.actions.increment),
+await lineage.commitAsync(
+  lineage.createIntent(lineage.MEL.actions.increment),
 );
 ```
 
@@ -38,14 +38,14 @@ If seal commit fails, the Promise rejects and the new snapshot does not become v
 ## 3. Read Heads, Branches, Worlds, And Lineage
 
 ```ts
-const latestHead = await world.getLatestHead();
-const branches = await world.getBranches();
-const activeBranch = await world.getActiveBranch();
-const lineage = await world.getLineage();
+const latestHead = await lineage.getLatestHead();
+const branches = await lineage.getBranches();
+const activeBranch = await lineage.getActiveBranch();
+const history = await lineage.getLineage();
 
 if (latestHead) {
-  const record = await world.getWorld(latestHead.worldId);
-  const sealedSnapshot = await world.getWorldSnapshot(latestHead.worldId);
+  const record = await lineage.getWorld(latestHead.worldId);
+  const sealedSnapshot = await lineage.getWorldSnapshot(latestHead.worldId);
 }
 ```
 
@@ -55,12 +55,12 @@ These APIs project the backing continuity truth through the activated runtime.
 ## 4. Restore A Sealed World
 
 ```ts
-const head = await world.getLatestHead();
+const head = await lineage.getLatestHead();
 if (head) {
-  await world.restore(head.worldId);
+  await lineage.restore(head.worldId);
 }
 
-console.log(world.getSnapshot().data);
+console.log(lineage.getSnapshot().data);
 ```
 
 `restore()` updates the visible runtime snapshot and resets Host execution state to the restored lineage snapshot.
@@ -68,8 +68,8 @@ console.log(world.getSnapshot().data);
 ## 5. Branch Deliberately
 
 ```ts
-const featureBranchId = await world.createBranch("feature-a");
-await world.switchActiveBranch(featureBranchId);
+const featureBranchId = await lineage.createBranch("feature-a");
+await lineage.switchActiveBranch(featureBranchId);
 ```
 
 Switching branches also restores that branch head into the visible runtime state.

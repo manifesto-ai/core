@@ -12,11 +12,11 @@ Host is responsible for orchestrating Manifesto intent execution. It calls Core 
 
 In the Manifesto architecture:
 
-```
-World -> HOST -> Core
-            |
-   Executes effects, applies patches
-   Runs the mailbox-based compute-effect loop
+```text
+SDK runtime / governed decorators -> HOST -> Core
+                                     |
+                            Executes effects, applies patches
+                            Runs the mailbox-based compute-effect loop
 ```
 
 ---
@@ -37,7 +37,7 @@ World -> HOST -> Core
 |--------------------|--------|
 | Compute state transitions | Core |
 | Define domain semantics/schema | App |
-| Govern authority/proposals | World |
+| Govern authority/proposals | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Handle UI/event bindings | App |
 
 ---
@@ -144,8 +144,8 @@ Effect handlers should be idempotent when possible. If the same effect runs twic
 
 ## Relationship with Other Packages
 
-```
-World -> HOST -> Core
+```text
+SDK runtime / governed decorators -> HOST -> Core
 ```
 
 | Relationship | Package | How |
@@ -160,7 +160,7 @@ World -> HOST -> Core
 **Most users don't need to use Host directly.**
 
 Use Host directly when:
-- Building a custom runtime without World governance
+- Building a custom runtime without lineage/governance decorators
 - Testing effect handlers in isolation
 - Building CLI tools or scripts
 

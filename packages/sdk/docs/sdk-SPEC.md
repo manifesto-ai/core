@@ -2,15 +2,17 @@
 
 > **Status:** Normative (Living Document)
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
+> **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Compiler SPEC v0.8.0 addendum, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
 > **Supersedes:** SDK SPEC v2.0.0
 > **Implements:** ADR-017 v3.1
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
+>
+> **Current v3.1.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5 are now part of the current living SDK contract. The compiler-side extraction contract currently lives in the companion addendum [SPEC-v0.8.0](../../compiler/docs/SPEC-v0.8.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3 public contract.
+This document defines the current SDK v3.1.0 public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
@@ -32,6 +34,8 @@ Normative rule prefixes:
 | `SDK-TYPE-*` | public type rules |
 | `SDK-BASE-*` | activated base runtime surface |
 | `SDK-DISPATCH-*` | `dispatchAsync()` semantics |
+| `SDK-GRAPH-*` | `getSchemaGraph()` and `SchemaGraph` semantics |
+| `SDK-SIM-*` | `simulate()` semantics |
 | `SDK-SUB-*` | subscription semantics |
 | `SDK-EVENT-*` | telemetry channel semantics |
 | `SDK-SNAP-*` | snapshot visibility and immutability |
@@ -49,7 +53,7 @@ The SDK owns the present-only application entrypoint. It does not own lineage co
 | SDK-ROLE-1 | MUST | SDK MUST own exactly one concept: `createManifesto()` |
 | SDK-ROLE-2 | MUST | `createManifesto()` MUST return `ComposableManifesto<T, BaseLaws>`, not a runtime instance |
 | SDK-ROLE-3 | MUST NOT | SDK MUST NOT expose app-facing governed assembly through `@manifesto-ai/world` re-exports |
-| SDK-ROLE-4 | MUST | SDK MUST define only the present-only base world contract; lineage and governance verb promotion belong to their owning packages |
+| SDK-ROLE-4 | MUST | SDK MUST define only the present-only base runtime contract; lineage and governance verb promotion belong to their owning packages |
 | SDK-ROLE-5 | MUST NOT | SDK v3 MUST NOT preserve v2 compatibility aliases or helper surfaces that compete with the activation model |
 | SDK-ROLE-6 | MUST | SDK MAY continue to pass through selected Core and Host exports, but those pass-through exports are not the subject of this SDK-owned contract unless referenced explicitly by SDK-owned signatures below |
 
@@ -58,7 +62,7 @@ The SDK owns the present-only application entrypoint. It does not own lineage co
 SDK v3 has two phases:
 
 1. **Law composition** — `createManifesto()` returns a composable manifesto with no live runtime verbs.
-2. **Runtime execution** — `activate()` opens the world and returns the final runtime instance for the currently composed laws.
+2. **Runtime execution** — `activate()` opens the runtime and returns the final instance for the currently composed laws.
 
 ### 4.1 Phase Marker Types
 
@@ -170,16 +174,18 @@ type TypedActionRef<
 
 type FieldRef<TValue> = {
   readonly __kind: "FieldRef";
+  readonly name: string;
   readonly _type?: TValue;
 };
 
 type ComputedRef<TValue> = {
   readonly __kind: "ComputedRef";
+  readonly name: string;
   readonly _type?: TValue;
 };
 ```
 
-The concrete runtime representation of these references is implementation-defined. The only normative guarantee is key fidelity and type fidelity.
+`TypedActionRef.name`, `FieldRef.name`, and `ComputedRef.name` are the normative identity carriers for SDK references. Implementations MAY attach additional runtime fields, but those extra fields remain non-normative and callers MUST NOT depend on them.
 
 ### 5.4 Typed MEL Surface
 
@@ -248,6 +254,55 @@ type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   selector: Selector<T["state"], R>,
   listener: (value: R) => void,
 ) => Unsubscribe;
+
+type SchemaGraphNodeKind = "state" | "computed" | "action";
+
+type SchemaGraphNodeId =
+  | `state:${string}`
+  | `computed:${string}`
+  | `action:${string}`;
+
+type SchemaGraphNode = {
+  readonly id: SchemaGraphNodeId;
+  readonly kind: SchemaGraphNodeKind;
+  readonly name: string;
+};
+
+type SchemaGraphEdgeRelation = "feeds" | "mutates" | "unlocks";
+
+type SchemaGraphEdge = {
+  readonly from: SchemaGraphNodeId;
+  readonly to: SchemaGraphNodeId;
+  readonly relation: SchemaGraphEdgeRelation;
+};
+
+type SchemaGraphNodeRef =
+  | TypedActionRef<ManifestoDomainShape>
+  | FieldRef<unknown>
+  | ComputedRef<unknown>;
+
+type SchemaGraph = {
+  readonly nodes: readonly SchemaGraphNode[];
+  readonly edges: readonly SchemaGraphEdge[];
+  traceUp(ref: SchemaGraphNodeRef): SchemaGraph;
+  traceUp(nodeId: SchemaGraphNodeId): SchemaGraph;
+  traceDown(ref: SchemaGraphNodeRef): SchemaGraph;
+  traceDown(nodeId: SchemaGraphNodeId): SchemaGraph;
+};
+
+type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
+  readonly snapshot: Snapshot<T["state"]>;
+
+  /**
+   * Inspection/debug-only diff of the projected public snapshot.
+   * Callers MUST NOT treat these display paths as the canonical branching API.
+   */
+  readonly changedPaths: readonly string[];
+
+  readonly newAvailableActions: readonly (keyof T["actions"])[];
+  readonly requirements: readonly Requirement[];
+  readonly status: "complete" | "pending" | "halted" | "error";
+};
 ```
 
 `TypedActionMetadata<T, K>.input` MUST carry the same machine-readable action input schema that the runtime uses for validation and inspection.
@@ -337,6 +392,9 @@ type CompileDiagnostic = {
 | SDK-TYPE-3 | MUST | `TypedCreateIntent<T>` MUST derive its argument list from the referenced action and MUST surface object binding when the action input is object-shaped |
 | SDK-TYPE-4 | MUST | `TypedDispatchAsync<T>` MUST accept any Core `Intent`, including intents not created by `TypedCreateIntent<T>` |
 | SDK-TYPE-5 | MUST | `TypedOn<T>` payload typing MUST narrow by event name |
+| SDK-TYPE-6 | MUST | `TypedActionRef.name`, `FieldRef.name`, and `ComputedRef.name` MUST be stable public identifiers for the referenced action/state/computed node |
+| SDK-TYPE-7 | MUST NOT | SDK-owned introspection depend on implementation-defined extra runtime fields on refs |
+| SDK-TYPE-8 | MUST | `SchemaGraph` string lookup overloads use kind-prefixed node ids (`state:*`, `computed:*`, `action:*`); ref lookup remains the canonical surface |
 
 ## 6. `createManifesto()`
 
@@ -398,7 +456,7 @@ The `snapshot` in `EffectContext` MUST reflect the current projected snapshot vi
 
 ## 7. Activated Base Surface
 
-Activating an undecorated composable manifesto returns the present-only base world:
+Activating an undecorated composable manifesto returns the present-only base runtime instance:
 
 ```typescript
 type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
@@ -411,6 +469,11 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly getActionMetadata: TypedGetActionMetadata<T>;
+  readonly getSchemaGraph: () => SchemaGraph;
+  readonly simulate: <K extends keyof T["actions"]>(
+    action: TypedActionRef<T, K>,
+    ...args: CreateIntentArgs<T, K>
+  ) => SimulateResult<T>;
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
   readonly dispose: () => void;
@@ -419,6 +482,8 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 The canonical public surface is the instance object. Destructuring is optional ergonomics only.
 
+The members in §7.4 and §7.5 are part of the current v3.1.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
+
 ### 7.1 `createIntent()`
 
 `createIntent()` is instance-owned and typed from `MEL.actions.*`.
@@ -426,8 +491,8 @@ The canonical public surface is the instance object. Destructuring is optional e
 The canonical forms are:
 
 ```typescript
-const positionalIntent = world.createIntent(world.MEL.actions.someAction, ...args);
-const objectIntent = world.createIntent(world.MEL.actions.someAction, { ...params });
+const positionalIntent = instance.createIntent(instance.MEL.actions.someAction, ...args);
+const objectIntent = instance.createIntent(instance.MEL.actions.someAction, { ...params });
 ```
 
 The SDK MUST NOT treat string action names as the canonical SDK v3 creation path.
@@ -444,7 +509,7 @@ For actions whose public input is already a single object shape without position
 
 ### 7.2 `dispatchAsync()`
 
-`dispatchAsync()` is the sole base-world execution verb.
+`dispatchAsync()` is the sole base-runtime execution verb.
 
 It MUST serialize intents per activated base instance. Concurrent calls on the same instance MUST be processed FIFO.
 
@@ -473,7 +538,54 @@ Availability reads MUST delegate to Core action-availability semantics rather th
 
 `getActionMetadata()` MUST NOT invent app-defined extension fields or richer ownership/routing protocols.
 
-### 7.4 `subscribe()`
+### 7.4 `getSchemaGraph()`
+
+`getSchemaGraph()` returns the current instance's projected static dependency graph.
+
+The graph MUST be derived from the activated `DomainSchema` alone. It MUST NOT depend on the current snapshot or dispatch history.
+
+The SDK SHOULD compute the graph once at activation time and cache it for the lifetime of the instance.
+
+Graph nodes use kind-prefixed ids for debug lookup and a bare `name` for canonical ref identity mapping:
+
+- `state:tasks` corresponds to `instance.MEL.state.tasks`
+- `computed:todoCount` corresponds to `instance.MEL.computed.todoCount`
+- `action:createTask` corresponds to `instance.MEL.actions.createTask`
+
+`traceUp(ref)` and `traceDown(ref)` are the canonical query surface. The string overloads are convenience/debug-only and MUST accept only kind-prefixed node ids.
+
+`getSchemaGraph()` MUST expose the projected graph only:
+
+- `data.$host`, `data.$mel`, and every other `data.$*` namespace are excluded
+- edges touching any excluded `$*` node are excluded
+- computed nodes whose transitive dependency closure touches `data.$*` are excluded, consistent with the projection boundary of `getSnapshot()`
+
+The only supported graph relations are `feeds`, `mutates`, and `unlocks`.
+
+### 7.5 `simulate()`
+
+`simulate()` performs a pure dry-run of an action against the current canonical snapshot without committing the result.
+
+It MUST use the same intent packing as `createIntent()` and the same deterministic HostContext construction as `dispatchAsync()`.
+
+If the action is unavailable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE`.
+
+For a successful dry-run, `simulate()` MUST:
+
+1. call Core `computeSync()`
+2. apply the emitted patches with Core `apply()`
+3. apply the emitted system transition with Core `applySystemDelta()`
+4. project the resulting canonical snapshot through the same public lens as `getSnapshot()`
+
+`simulate().snapshot` is the projected public snapshot that would become visible if the action ran now.
+
+`changedPaths` is an inspection/debug-only diff of the projected public snapshot. Callers SHOULD use `snapshot`, `getAvailableActions()`, `isActionAvailable()`, or explicit snapshot reads for programmatic branching instead of branching on display-path strings.
+
+`newAvailableActions` MUST be evaluated against the canonical simulated snapshot, not the projected snapshot, because action availability may depend on canonical-only substrate even when that substrate is excluded from the public projection.
+
+`status` MUST mirror Core `ComputeStatus` exactly: `complete`, `pending`, `halted`, or `error`.
+
+### 7.6 `subscribe()`
 
 `subscribe()` observes visible projected snapshot publication through selector projection.
 
@@ -489,7 +601,7 @@ Canonical-only changes that do not affect any projected field MUST NOT trigger s
 
 Exceptions thrown by selectors or listeners MUST NOT alter dispatch outcome, visible snapshot state, queue state, or event emission. Implementations MAY swallow or externally report those callback errors, but MUST isolate them from runtime semantics.
 
-### 7.5 `on()`
+### 7.7 `on()`
 
 `on()` is the SDK telemetry channel.
 
@@ -497,19 +609,19 @@ It carries intent lifecycle events only. It MUST NOT be used for state change no
 
 Exceptions thrown by event handlers MUST NOT alter dispatch outcome, visible snapshot state, queue state, or other event handlers.
 
-### 7.6 `getSnapshot()`
+### 7.8 `getSnapshot()`
 
 `getSnapshot()` returns the current visible **projected** terminal snapshot synchronously.
 
 The returned value MUST be protected from external mutation. The implementation MAY use freezing, cloning, proxies, or equivalent defensive techniques, but callers MUST NOT be able to mutate internal runtime state by mutating the returned value.
 
-### 7.7 `getCanonicalSnapshot()`
+### 7.9 `getCanonicalSnapshot()`
 
 `getCanonicalSnapshot()` returns the current visible **canonical** runtime substrate synchronously.
 
 This is the explicit inspection seam for persistence-aware tooling, stored-world alignment, and low-level debugging. It is not the default application-facing read surface.
 
-### 7.8 `dispose()`
+### 7.10 `dispose()`
 
 `dispose()` is idempotent.
 
@@ -531,18 +643,33 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
 | SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
 | SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` as normative execution surface |
+| SDK-BASE-7 | MUST | `getSchemaGraph()` and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
 | SDK-DISPATCH-1 | MUST | `dispatchAsync()` MUST serialize intent processing FIFO per activated base instance |
 | SDK-DISPATCH-2 | MUST | availability checks for queued intents MUST run at dequeue time against the then-current visible snapshot |
 | SDK-DISPATCH-3 | MUST | unavailable actions MUST reject without snapshot publication |
 | SDK-DISPATCH-4 | MUST | successful completion MUST resolve with the same snapshot that became visible through `getSnapshot()` and `dispatch:completed` |
 | SDK-DISPATCH-5 | MUST | terminal failures with a new published snapshot MUST reject and emit `dispatch:failed` with that snapshot attached |
 | SDK-DISPATCH-6 | MUST | pre-publication failures MUST reject without changing the visible snapshot |
+| SDK-GRAPH-1 | MUST | `getSchemaGraph()` MUST expose a static graph derived from the activated `DomainSchema` alone, with no snapshot dependency |
+| SDK-GRAPH-2 | MUST | the public graph MUST exclude `data.$*` nodes, edges touching excluded `$*` nodes, and computed nodes tainted by transitive `$*` dependencies |
+| SDK-GRAPH-3 | SHOULD | the SDK SHOULD compute the graph once at activation time and cache it for the instance lifetime |
+| SDK-GRAPH-4 | MUST | the only public relation labels are `feeds`, `mutates`, and `unlocks` |
+| SDK-GRAPH-5 | MUST | `traceUp()` and `traceDown()` ref overloads are the canonical SDK query surface |
+| SDK-GRAPH-6 | MUST | string lookup overloads MUST accept only kind-prefixed node ids and MUST be treated as convenience/debug-only |
+| SDK-SIM-1 | MUST NOT | SDK implementations let `simulate()` mutate, commit, or publish runtime state |
+| SDK-SIM-2 | MUST | unavailable simulated actions MUST throw `ManifestoError` code `ACTION_UNAVAILABLE` before dry-run compute begins |
+| SDK-SIM-3 | MUST | `simulate()` MUST use the same intent packing and HostContext construction as normal dispatch |
+| SDK-SIM-4 | MUST | `simulate()` MUST apply both Core `apply()` and Core `applySystemDelta()` to produce a complete simulated snapshot |
+| SDK-SIM-5 | MUST | `simulate().snapshot` MUST return the same projected surface shape as `getSnapshot()` |
+| SDK-SIM-6 | MUST | `simulate().newAvailableActions` MUST be evaluated against the canonical simulated snapshot |
+| SDK-SIM-7 | MUST | `simulate().changedPaths` MUST be diffed from the projected public snapshot only and MUST be treated as inspection/debug-only, not as the canonical branching API |
+| SDK-SIM-8 | MUST | `simulate().status` MUST mirror Core `ComputeStatus` exactly, including `halted` |
 | SDK-SUB-1 | MUST | `subscribe()` MUST NOT fire synchronously on registration |
 | SDK-SUB-2 | MUST | `subscribe()` listeners MUST fire only after visible terminal snapshot publication |
 | SDK-SUB-3 | MUST | selector change detection MUST use `Object.is` |
 | SDK-SUB-4 | MUST NOT | rejected dispatches MUST NOT trigger subscribers |
 | SDK-SUB-5 | MUST NOT | canonical-only substrate changes MUST NOT trigger subscribers when the projected Snapshot is unchanged |
-| SDK-EVENT-1 | MUST | `on()` MUST support exactly the event names defined in §5.6 for the base world |
+| SDK-EVENT-1 | MUST | `on()` MUST support exactly the event names defined in §5.6 for the base runtime instance |
 | SDK-EVENT-2 | MUST | all event payloads MUST include `intentId` for correlation |
 | SDK-EVENT-3 | MUST NOT | `on()` MUST NOT be a state-change channel |
 | SDK-SNAP-1 | MUST | `getSnapshot()` MUST return the current visible terminal snapshot synchronously |
@@ -652,16 +779,18 @@ Required stable codes:
 
 ## 12. Compliance Checklist
 
-An SDK v3 implementation complies with this draft only if all of the following are true:
+An SDK v3.1.0 implementation complies with this living contract only if all of the following are true:
 
 - `createManifesto()` returns a composable manifesto, not a runtime instance.
 - Pre-activation objects expose no runtime verbs.
 - `activate()` is one-shot and throws `AlreadyActivatedError` on repeat use.
 - `ManifestoConfig` does not exist in the v3 contract.
 - SDK no longer presents `@manifesto-ai/world` as part of its public story.
-- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, availability queries, `MEL`, `schema`, and `dispose`.
+- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
 - `dispatchAsync()` is FIFO per instance and evaluates availability at dequeue time.
+- `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
+- `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
 - Subscribers fire only after visible terminal snapshot publication and use selector change detection.
 - Event payloads are typed and correlated by `intentId`.
 - Reserved effect override and reserved namespace misuse are rejected at factory time.
@@ -674,3 +803,5 @@ An SDK v3 implementation complies with this draft only if all of the following a
 - [Core SPEC v4.0.0](../../core/docs/core-SPEC.md)
 - [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
 - [Compiler SPEC v0.7.0](../../compiler/docs/SPEC-v0.7.0.md)
+- [Compiler SPEC v0.8.0 Addendum](../../compiler/docs/SPEC-v0.8.0.md)
+- [SDK FDR v3.1.0 Rationale Track](FDR-v3.1.0-draft.md)

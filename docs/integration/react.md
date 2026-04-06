@@ -85,65 +85,65 @@ type UseManifestoResult = {
 };
 
 export function useManifesto(): UseManifestoResult {
-  const worldRef = useRef<ManifestoBaseInstance<TodoDomain> | null>(null);
+  const instanceRef = useRef<ManifestoBaseInstance<TodoDomain> | null>(null);
   const [state, setState] = useState<Snapshot<TodoData> | null>(null);
 
   useEffect(() => {
-    const world = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
-    worldRef.current = world;
-    setState(world.getSnapshot());
+    const instance = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
+    instanceRef.current = instance;
+    setState(instance.getSnapshot());
 
-    const unsubscribe = world.subscribe(
+    const unsubscribe = instance.subscribe(
       (snapshot) => snapshot,
       (nextSnapshot) => setState(nextSnapshot),
     );
 
     return () => {
       unsubscribe();
-      worldRef.current = null;
+      instanceRef.current = null;
       setState(null);
-      world.dispose();
+      instance.dispose();
     };
   }, []);
 
   const dispatchOrReject = (
-    run: (world: ManifestoBaseInstance<TodoDomain>) => Promise<Snapshot<TodoData>>,
+    run: (instance: ManifestoBaseInstance<TodoDomain>) => Promise<Snapshot<TodoData>>,
   ): Promise<Snapshot<TodoData>> => {
-    const world = worldRef.current;
-    if (!world) {
+    const instance = instanceRef.current;
+    if (!instance) {
       return Promise.reject(new Error("Manifesto runtime is not ready"));
     }
-    return run(world);
+    return run(instance);
   };
 
   const addTodo = (title: string) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.addTodo, title),
+    dispatchOrReject((instance) =>
+      instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.addTodo, title),
       ));
 
   const toggleTodo = (id: string) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.toggleTodo, id),
+    dispatchOrReject((instance) =>
+      instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.toggleTodo, id),
       ));
 
   const removeTodo = (id: string) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.removeTodo, id),
+    dispatchOrReject((instance) =>
+      instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.removeTodo, id),
       ));
 
   const setFilter = (newFilter: FilterMode) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.setFilter, newFilter),
+    dispatchOrReject((instance) =>
+      instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.setFilter, newFilter),
       ));
 
   const clearCompleted = () =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.clearCompleted),
+    dispatchOrReject((instance) =>
+      instance.dispatchAsync(
+        instance.createIntent(instance.MEL.actions.clearCompleted),
       ));
 
   return {
@@ -161,8 +161,8 @@ export function useManifesto(): UseManifestoResult {
 The important runtime rules are:
 
 - `createManifesto(...).activate()` runs once per mounted hook instance
-- `world.subscribe(...)` pushes only later terminal snapshots
-- every action helper creates an intent from `world.MEL.actions.*`
+- `instance.subscribe(...)` pushes only later terminal snapshots
+- every action helper creates an intent from `instance.MEL.actions.*`
 - React never calls removed SDK helper surfaces or synchronous base dispatch
 
 ---
@@ -238,7 +238,7 @@ If a form or modal needs to wait for completion, await the helper:
 await addTodo("Review the UI flow");
 ```
 
-The helper already uses `world.dispatchAsync(world.createIntent(...))`, so you do not need a second generic dispatch layer.
+The helper already uses `instance.dispatchAsync(instance.createIntent(...))`, so you do not need a second generic dispatch layer.
 
 ---
 
@@ -247,27 +247,27 @@ The helper already uses `world.dispatchAsync(world.createIntent(...))`, so you d
 `isActionAvailable()` is a point-in-time runtime read. If the UI needs a reactive boolean, recompute it in the same path that updates React state from snapshots.
 
 ```typescript
-const syncAvailability = (world: ManifestoBaseInstance<TodoDomain>) => {
-  setCanClearCompleted(world.isActionAvailable("clearCompleted"));
+const syncAvailability = (instance: ManifestoBaseInstance<TodoDomain>) => {
+  setCanClearCompleted(instance.isActionAvailable("clearCompleted"));
 };
 
 useEffect(() => {
-  const world = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
-  worldRef.current = world;
-  setState(world.getSnapshot());
-  syncAvailability(world);
+  const instance = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
+  instanceRef.current = instance;
+  setState(instance.getSnapshot());
+  syncAvailability(instance);
 
-  const unsubscribe = world.subscribe(
+  const unsubscribe = instance.subscribe(
     (snapshot) => snapshot,
     (nextSnapshot) => {
       setState(nextSnapshot);
-      syncAvailability(world);
+      syncAvailability(instance);
     },
   );
 
   return () => {
     unsubscribe();
-    world.dispose();
+    instance.dispose();
   };
 }, []);
 ```

@@ -88,7 +88,7 @@ Create `manifesto.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import TodoAppMel from "./todo-app.mel";
 
-export const world = createManifesto(TodoAppMel, {}).activate();
+export const instance = createManifesto(TodoAppMel, {}).activate();
 ```
 
 ---
@@ -98,7 +98,7 @@ export const world = createManifesto(TodoAppMel, {}).activate();
 Create `main.ts`:
 
 ```typescript
-import { world } from "./manifesto";
+import { instance } from "./manifesto";
 
 type Todo = {
   id: string;
@@ -107,7 +107,7 @@ type Todo = {
 };
 
 function render() {
-  const snapshot = world.getSnapshot();
+  const snapshot = instance.getSnapshot();
   const todos = snapshot.data.todos as Todo[];
   const filter = snapshot.data.filter as "all" | "active" | "completed";
 
@@ -129,7 +129,7 @@ function render() {
   }
 }
 
-world.subscribe(
+instance.subscribe(
   (snapshot) => ({
     todos: snapshot.data.todos,
     filter: snapshot.data.filter,
@@ -142,42 +142,42 @@ world.subscribe(
 async function run() {
   render();
 
-  await world.dispatchAsync(
-    world.createIntent(
-      world.MEL.actions.addTodo,
+  await instance.dispatchAsync(
+    instance.createIntent(
+      instance.MEL.actions.addTodo,
       "Write the tutorial",
       crypto.randomUUID(),
     ),
   );
 
-  await world.dispatchAsync(
-    world.createIntent(
-      world.MEL.actions.addTodo,
+  await instance.dispatchAsync(
+    instance.createIntent(
+      instance.MEL.actions.addTodo,
       "Review the generated docs build",
       crypto.randomUUID(),
     ),
   );
 
-  const firstTodoId = (world.getSnapshot().data.todos as Todo[])[0].id;
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.toggleTodo, firstTodoId),
+  const firstTodoId = (instance.getSnapshot().data.todos as Todo[])[0].id;
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.toggleTodo, firstTodoId),
   );
 
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.setFilter, "completed"),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.setFilter, "completed"),
   );
 
-  await world.dispatchAsync(
-    world.createIntent(world.MEL.actions.clearCompleted),
+  await instance.dispatchAsync(
+    instance.createIntent(instance.MEL.actions.clearCompleted),
   );
 
   render();
-  world.dispose();
+  instance.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  world.dispose();
+  instance.dispose();
 });
 ```
 

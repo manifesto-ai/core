@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+import {
+  AlreadyActivatedError,
+  ManifestoError,
+  createManifesto,
+} from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
   evaluateRule,
@@ -7,7 +12,15 @@ import {
   noteEvidence,
 } from "../assertions.js";
 import { getRuleOrThrow } from "../acts-rules.js";
-import { createCounterSchema, type CounterDomain } from "../helpers/schema.js";
+import {
+  createCounterSchema,
+  createHaltingSchema,
+  withHash,
+  type CounterDomain,
+  type HaltingDomain,
+} from "../helpers/schema.js";
+
+const pp = semanticPathToPatchPath;
 
 describe("ACTS Base Suite", () => {
   it(
@@ -162,6 +175,216 @@ describe("ACTS Base Suite", () => {
                 "Attempted to mutate count on a returned snapshot, confirmed TypeError, then re-read visible snapshot state.",
               ),
             ],
+          },
+        ),
+      ]);
+
+      world.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.BASE_INTROSPECTION_SURFACE,
+      "Activated base runtime exposes getSchemaGraph() and simulate() as read-only introspection verbs.",
+    ),
+    () => {
+      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const graph = world.getSchemaGraph();
+      const simulated = world.simulate(world.MEL.actions.increment);
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-6"),
+          "getSchemaGraph" in world
+            && "simulate" in world
+            && Array.isArray(graph.nodes)
+            && Array.isArray(graph.edges)
+            && simulated.snapshot.data.count === 1
+            && world.getSnapshot().data.count === 0,
+          {
+            passMessage: "Base runtime exposes getSchemaGraph() and simulate() without committing state.",
+            failMessage: "Base runtime did not expose the introspection surface or simulate() committed state.",
+            evidence: [
+              noteEvidence("Observed graph nodes", graph.nodes),
+              noteEvidence("Observed simulated snapshot", simulated.snapshot),
+            ],
+          },
+        ),
+      ]);
+
+      world.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP,
+      "SchemaGraph lookup is ref-canonical, kind-prefixed string debug lookup remains supported, and projection excludes platform substrate.",
+    ),
+    () => {
+      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const graph = world.getSchemaGraph();
+      const downstream = graph.traceDown(world.MEL.state.count);
+      const upstream = graph.traceUp(world.MEL.actions.incrementIfEven);
+      const debug = graph.traceDown("state:count");
+      let rejectedPlainName = false;
+      let rejectedMalformedId = false;
+
+      try {
+        graph.traceDown("count" as never);
+      } catch (error) {
+        rejectedPlainName = error instanceof ManifestoError && error.code === "SCHEMA_ERROR";
+      }
+
+      try {
+        graph.traceDown("state:" as never);
+      } catch (error) {
+        rejectedMalformedId = error instanceof ManifestoError && error.code === "SCHEMA_ERROR";
+      }
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-7"),
+          graph.nodes.every((node) => !node.id.includes("$"))
+            && graph.edges.every((edge) => !edge.from.includes("$") && !edge.to.includes("$"))
+            && downstream.nodes.some((node) => node.id === "computed:doubled")
+            && downstream.nodes.some((node) => node.id === "action:incrementIfEven")
+            && upstream.nodes.some((node) => node.id === "state:count")
+            && debug.nodes.some((node) => node.id === "state:count")
+            && rejectedPlainName
+            && rejectedMalformedId,
+          {
+            passMessage: "SchemaGraph respects projection and supports ref-canonical plus kind-prefixed debug lookup.",
+            failMessage: "SchemaGraph lookup or projection semantics did not match the activation contract.",
+            evidence: [
+              noteEvidence("Observed graph", graph),
+              noteEvidence("Downstream from state.count", downstream),
+              noteEvidence("Upstream into incrementIfEven", upstream),
+            ],
+          },
+        ),
+      ]);
+
+      world.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
+      "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, and new availability.",
+    ),
+    () => {
+      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const before = world.getSnapshot();
+      const simulated = world.simulate(world.MEL.actions.load);
+      const after = world.getSnapshot();
+      type NoOpProjectedDomain = {
+        actions: {
+          touchHostDirect: () => void;
+        };
+        state: {
+          count: number;
+        };
+        computed: {};
+      };
+      const noOpWorld = createManifesto<NoOpProjectedDomain>(withHash({
+        id: "manifesto:activation-cts-noop-simulate",
+        version: "1.0.0",
+        types: {},
+        state: {
+          fields: {
+            count: { type: "number", required: false, default: 0 },
+          },
+        },
+        computed: {
+          fields: {},
+        },
+        actions: {
+          touchHostDirect: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("count"),
+              value: { kind: "get", path: "count" },
+            },
+          },
+        },
+      }), {}).activate();
+      const noOpBefore = noOpWorld.getSnapshot();
+      const firstNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
+      const secondNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
+      const noOpAfter = noOpWorld.getSnapshot();
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-8"),
+          before.data.status === "idle"
+            && after.data.status === "idle"
+            && after.data.count === before.data.count
+            && simulated.status === "pending"
+            && simulated.snapshot.data.status === "loading"
+            && simulated.requirements.length === 1
+            && simulated.changedPaths.includes("data.status")
+            && simulated.changedPaths.includes("system.status")
+            && JSON.stringify(simulated.changedPaths) === JSON.stringify([...simulated.changedPaths].sort())
+            && simulated.changedPaths.every((path) =>
+              !path.includes("$")
+              && path !== "system.pendingRequirements"
+              && path !== "system.currentAction"),
+          {
+            passMessage: "simulate() stays non-committing and returns projected-only dry-run results.",
+            failMessage: "simulate() committed runtime state or leaked canonical-only diff paths.",
+            evidence: [
+              noteEvidence("Observed simulated result", simulated),
+              noteEvidence("Visible snapshot after simulate()", after),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-8"),
+          firstNoOp.status === "complete"
+            && firstNoOp.changedPaths.length === 0
+            && firstNoOp.requirements.length === 0
+            && JSON.stringify(firstNoOp) === JSON.stringify(secondNoOp)
+            && JSON.stringify(noOpBefore) === JSON.stringify(noOpAfter),
+          {
+            passMessage: "Projected no-op simulation stays empty and repeatable.",
+            failMessage: "Projected no-op simulation leaked changes or became unstable across repeated dry-runs.",
+            evidence: [
+              noteEvidence("First no-op simulate()", firstNoOp),
+              noteEvidence("Second no-op simulate()", secondNoOp),
+            ],
+          },
+        ),
+      ]);
+
+      world.dispose();
+      noOpWorld.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.BASE_SIMULATE_HALTED,
+      "simulate() preserves Core halted status without publishing runtime state.",
+    ),
+    () => {
+      const world = createManifesto<HaltingDomain>(createHaltingSchema(), {}).activate();
+      const simulated = world.simulate(world.MEL.actions.finalize);
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-9"),
+          simulated.status === "halted"
+            && simulated.changedPaths.length === 0
+            && simulated.requirements.length === 0
+            && world.getSnapshot().data.status === "idle",
+          {
+            passMessage: "simulate() preserves halted status without publishing state.",
+            failMessage: "simulate() did not preserve halted status or published state unexpectedly.",
+            evidence: [noteEvidence("Observed simulated result", simulated)],
           },
         ),
       ]);

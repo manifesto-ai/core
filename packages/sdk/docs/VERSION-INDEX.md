@@ -1,16 +1,28 @@
 # SDK Version Index
 
+> **Package:** `@manifesto-ai/sdk`
+> **Last Updated:** 2026-04-06
+
 ## Current Contract
 
 | Version | Document | ADR | Notes | Status |
 |---------|----------|-----|-------|--------|
-| v3.0.0 | [SPEC](sdk-SPEC.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Activation-first SDK with `activate()`, typed `createIntent()`, `dispatchAsync()`, availability queries, action metadata inspection, and the public provider authoring seam | Current |
+| v3.1.0 | [SPEC](sdk-SPEC.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Activation-first SDK with `activate()`, typed `createIntent()`, `dispatchAsync()`, availability queries, action metadata inspection, projected `SchemaGraph`, `simulate()`, and the public provider authoring seam | Current |
+
+## Draft Rationale Track
+
+| Version | Document | Related ADR | Notes | Status |
+|---------|----------|-------------|-------|--------|
+| v3.1.0 | [FDR](FDR-v3.1.0-draft.md) | [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md) | Rationale companion for the current v3.1.0 introspection surface: `SchemaGraph` (`feeds` / `mutates` / `unlocks`) and full-transition `simulate()` | Draft |
+
+The companion compiler addendum lives in [../../compiler/docs/SPEC-v0.8.0.md](../../compiler/docs/SPEC-v0.8.0.md).
 
 ## Reading Order
 
 1. Read [../README.md](../README.md) for package entrypoint guidance.
 2. Read [GUIDE.md](GUIDE.md) for current usage and decorator/provider authoring boundaries.
 3. Read [sdk-SPEC.md](sdk-SPEC.md) for the current living SDK contract.
+4. If you are studying the current v3.1.0 introspection surface, read [sdk-SPEC.md](sdk-SPEC.md) §5.5 and §7.4-§7.5, then [../../compiler/docs/SPEC-v0.8.0.md](../../compiler/docs/SPEC-v0.8.0.md), then [FDR-v3.1.0-draft.md](FDR-v3.1.0-draft.md).
 
 ## Historical Note
 

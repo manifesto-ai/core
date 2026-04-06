@@ -12,6 +12,7 @@ export const CCTS_SUITES = [
   "lowering-and-ir",
   "flow-composition",
   "entity-primitives",
+  "introspection",
   "determinism",
   "matrix",
 ] as const;

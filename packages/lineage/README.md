@@ -23,17 +23,17 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import { withLineage, createInMemoryLineageStore } from "@manifesto-ai/lineage";
 
 const manifesto = createManifesto<CounterDomain>(schema, effects);
-const world = withLineage(manifesto, {
+const lineage = withLineage(manifesto, {
   store: createInMemoryLineageStore(),
 }).activate();
 
-await world.commitAsync(
-  world.createIntent(world.MEL.actions.increment),
+await lineage.commitAsync(
+  lineage.createIntent(lineage.MEL.actions.increment),
 );
 
-const head = await world.getLatestHead();
+const head = await lineage.getLatestHead();
 if (head) {
-  await world.restore(head.worldId);
+  await lineage.restore(head.worldId);
 }
 ```
 

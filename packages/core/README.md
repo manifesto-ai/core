@@ -37,7 +37,7 @@ Host -> CORE -> ComputeResult
 | Execute effects | Host |
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
-| Govern authority/proposals | World |
+| Govern authority/proposals | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Handle UI/event bindings | SDK |
 
 ---
@@ -140,7 +140,7 @@ type Patch = { op: "set" | "unset" | "merge", path, value? };
 type ComputeResult = { status, snapshot, requirements, trace };
 ```
 
-> See [SPEC-v2.0.0.md](docs/SPEC-v2.0.0.md) for complete API reference.
+> See [core-SPEC.md](docs/core-SPEC.md) for the current living specification.
 
 ---
 
@@ -195,8 +195,9 @@ For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry 
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](docs/GUIDE.md) | Step-by-step usage guide |
-| [SPEC-v2.0.0.md](docs/SPEC-v2.0.0.md) | Complete specification |
-| [FDR-v2.0.0.md](docs/FDR-v2.0.0.md) | Design rationale |
+| [core-SPEC.md](docs/core-SPEC.md) | Current living specification |
+| [VERSION-INDEX.md](docs/VERSION-INDEX.md) | Current and historical document map |
+| [FDR-v1.0.0.md](docs/FDR-v1.0.0.md) | Historical design rationale |
 
 ---
 

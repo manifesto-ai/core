@@ -35,6 +35,8 @@ type ProjectionDomain = {
     literalPayloadDerived: { kind: string; path: string };
     hostValue: string | null;
     hostDerived: string | null;
+    slashHostValue: string | null;
+    slashHostDerived: string | null;
     stealthHostValue: string | null;
     stealthHostDerived: string | null;
   };
@@ -115,6 +117,14 @@ function createProjectionSchema(): DomainSchema {
         hostDerived: {
           deps: ["hostValue"],
           expr: { kind: "get", path: "hostValue" },
+        },
+        slashHostValue: {
+          deps: ["/$host.requestId"],
+          expr: { kind: "get", path: "/$host.requestId" },
+        },
+        slashHostDerived: {
+          deps: ["slashHostValue"],
+          expr: { kind: "get", path: "slashHostValue" },
         },
         stealthHostValue: {
           deps: [],
@@ -239,6 +249,288 @@ describe("activated base runtime", () => {
     world.dispose();
   });
 
+  it("exposes projected SchemaGraph traversal through refs and kind-prefixed debug ids", () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const graph = world.getSchemaGraph();
+    const downstream = graph.traceDown(world.MEL.state.count);
+    const upstream = graph.traceUp(world.MEL.actions.incrementIfEven);
+    const debug = graph.traceDown("state:count");
+    let rejectedPlainName = false;
+    let rejectedMalformedId = false;
+
+    try {
+      graph.traceDown("count" as never);
+    } catch (error) {
+      rejectedPlainName = error instanceof ManifestoError
+        && error.code === "SCHEMA_ERROR";
+    }
+
+    try {
+      graph.traceDown("state:" as never);
+    } catch (error) {
+      rejectedMalformedId = error instanceof ManifestoError
+        && error.code === "SCHEMA_ERROR";
+    }
+
+    expect(graph.nodes.map((node) => node.id)).toEqual([
+      "state:count",
+      "state:status",
+      "computed:doubled",
+      "action:increment",
+      "action:add",
+      "action:incrementIfEven",
+      "action:load",
+    ]);
+    expect(graph.edges).toEqual(
+      expect.arrayContaining([
+        { from: "state:count", to: "computed:doubled", relation: "feeds" },
+        { from: "state:count", to: "action:incrementIfEven", relation: "unlocks" },
+        { from: "action:increment", to: "state:count", relation: "mutates" },
+      ]),
+    );
+    expect(graph.nodes.every((node) => !node.id.includes("$"))).toBe(true);
+    expect(downstream.nodes.map((node) => node.id)).toEqual(
+      expect.arrayContaining([
+        "state:count",
+        "computed:doubled",
+        "action:incrementIfEven",
+      ]),
+    );
+    expect(upstream.nodes.map((node) => node.id)).toEqual(
+      expect.arrayContaining([
+        "state:count",
+        "action:incrementIfEven",
+      ]),
+    );
+    expect(debug.nodes.map((node) => node.id)).toEqual(
+      expect.arrayContaining(["state:count"]),
+    );
+    expect(rejectedPlainName).toBe(true);
+    expect(rejectedMalformedId).toBe(true);
+
+    world.dispose();
+  });
+
+  it("rejects refs that are not part of the projected graph", () => {
+    const world = createManifesto<ProjectionDomain>(createProjectionSchema(), {}).activate();
+    const graph = world.getSchemaGraph();
+    const snapshot = world.getSnapshot();
+
+    expect(() => graph.traceDown(world.MEL.computed.hostValue)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "SCHEMA_ERROR",
+      }),
+    );
+    expect(() => graph.traceDown(world.MEL.computed.slashHostValue)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "SCHEMA_ERROR",
+      }),
+    );
+    expect(snapshot.computed).not.toHaveProperty("hostValue");
+    expect(snapshot.computed).not.toHaveProperty("slashHostValue");
+
+    world.dispose();
+  });
+
+  it("simulates pending actions without publishing state and diffs only the projected surface", () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const before = world.getSnapshot();
+    const simulated = world.simulate(world.MEL.actions.load);
+    const after = world.getSnapshot();
+
+    expect(before.data.status).toBe("idle");
+    expect(after.data.status).toBe("idle");
+    expect(after.data.count).toBe(before.data.count);
+    expect(simulated.status).toBe("pending");
+    expect(simulated.snapshot).toMatchObject({
+      data: {
+        count: 0,
+        status: "loading",
+      },
+      computed: {
+        doubled: 0,
+      },
+      system: {
+        status: "pending",
+      },
+    });
+    expect(simulated.changedPaths).toEqual(
+      expect.arrayContaining(["data.status", "system.status"]),
+    );
+    expect(simulated.changedPaths).toEqual(
+      [...simulated.changedPaths].sort(),
+    );
+    expect(simulated.changedPaths.every((path) =>
+      !path.includes("$")
+      && path !== "system.pendingRequirements"
+      && path !== "system.currentAction")).toBe(true);
+    expect(simulated.requirements).toHaveLength(1);
+    expect(simulated.newAvailableActions).toEqual(
+      expect.arrayContaining(["incrementIfEven"]),
+    );
+    expect(world.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
+
+    world.dispose();
+  });
+
+  it("simulates projected no-op actions with empty changedPaths and stable repeated results", () => {
+    type NoOpProjectedDomain = {
+      actions: {
+        touchHostDirect: () => void;
+      };
+      state: {
+        count: number;
+      };
+      computed: {};
+    };
+
+    const world = createManifesto<NoOpProjectedDomain>(withHash({
+      id: "manifesto:sdk-v3-noop-simulate",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          count: { type: "number", required: false, default: 0 },
+        },
+      },
+      computed: {
+        fields: {},
+      },
+      actions: {
+        touchHostDirect: {
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: pp("count"),
+            value: { kind: "get", path: "count" },
+          },
+        },
+      },
+    }), {}).activate();
+
+    const before = world.getSnapshot();
+    const first = world.simulate(world.MEL.actions.touchHostDirect);
+    const second = world.simulate(world.MEL.actions.touchHostDirect);
+    const after = world.getSnapshot();
+
+    expect(first.status).toBe("complete");
+    expect(first.changedPaths).toEqual([]);
+    expect(first.requirements).toEqual([]);
+    expect(first.snapshot).toEqual(before);
+    expect(second).toEqual(first);
+    expect(after).toEqual(before);
+
+    world.dispose();
+  });
+
+  it("simulates from the same host intent-slot baseline as dispatch", async () => {
+    type IntentSlotDomain = {
+      actions: {
+        markViaSlot: () => void;
+      };
+      state: {
+        status: string;
+      };
+      computed: {};
+    };
+
+    const world = createManifesto<IntentSlotDomain>(withHash({
+      id: "manifesto:sdk-v3-intent-slot-simulate",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          status: { type: "string", required: false, default: "idle" },
+        },
+      },
+      computed: {
+        fields: {},
+      },
+      actions: {
+        markViaSlot: {
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: pp("status"),
+            value: {
+              kind: "if",
+              cond: {
+                kind: "isNull",
+                arg: { kind: "get", path: "$host.intentSlots" },
+              },
+              then: { kind: "lit", value: "missing" },
+              else: { kind: "lit", value: "present" },
+            },
+          },
+        },
+      },
+    }), {}).activate();
+
+    const simulated = world.simulate(world.MEL.actions.markViaSlot);
+    const before = world.getSnapshot();
+    const resolved = await world.dispatchAsync(
+      world.createIntent(world.MEL.actions.markViaSlot),
+    );
+
+    expect(before.data.status).toBe("idle");
+    expect(simulated.status).toBe("complete");
+    expect(simulated.snapshot.data.status).toBe("present");
+    expect(world.getSnapshot().data.status).toBe("present");
+    expect(resolved.data.status).toBe("present");
+
+    world.dispose();
+  });
+
+  it("simulates halted actions and unavailable actions without committing runtime state", async () => {
+    type HaltingDomain = {
+      actions: {
+        finalize: () => void;
+      };
+      state: {
+        status: string;
+      };
+      computed: {};
+    };
+
+    const haltingWorld = createManifesto<HaltingDomain>(withHash({
+      id: "manifesto:sdk-v3-halting",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          status: { type: "string", required: false, default: "idle" },
+        },
+      },
+      computed: {
+        fields: {},
+      },
+      actions: {
+        finalize: {
+          flow: {
+            kind: "halt",
+            reason: "done",
+          },
+        },
+      },
+    }), {}).activate();
+
+    const halted = haltingWorld.simulate(haltingWorld.MEL.actions.finalize);
+    expect(halted.status).toBe("halted");
+    expect(halted.changedPaths).toEqual([]);
+    expect(haltingWorld.getSnapshot().data.status).toBe("idle");
+    haltingWorld.dispose();
+
+    const counterWorld = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    await counterWorld.dispatchAsync(counterWorld.createIntent(counterWorld.MEL.actions.increment));
+    expect(() => counterWorld.simulate(counterWorld.MEL.actions.incrementIfEven)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "ACTION_UNAVAILABLE",
+      }),
+    );
+    expect(counterWorld.getSnapshot().data.count).toBe(1);
+    counterWorld.dispose();
+  });
+
   it("checks availability at dequeue time and rejects without publication", async () => {
     const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const subscriber = vi.fn();
@@ -333,6 +625,8 @@ describe("activated base runtime", () => {
     });
     expect(canonicalBefore.computed).toHaveProperty("hostValue");
     expect(canonicalBefore.computed).toHaveProperty("hostDerived");
+    expect(canonicalBefore.computed).toHaveProperty("slashHostValue");
+    expect(canonicalBefore.computed).toHaveProperty("slashHostDerived");
     expect(canonicalBefore.computed).toHaveProperty("stealthHostValue");
     expect(canonicalBefore.computed).toHaveProperty("stealthHostDerived");
 
@@ -355,6 +649,8 @@ describe("activated base runtime", () => {
     expect(canonicalAfter.data.$host?.requestId).toBe("req-1");
     expect(canonicalAfter.computed.hostValue).toBe("req-1");
     expect(canonicalAfter.computed.hostDerived).toBe("req-1");
+    expect(canonicalAfter.computed).toHaveProperty("slashHostValue");
+    expect(canonicalAfter.computed).toHaveProperty("slashHostDerived");
     expect(canonicalAfter.computed.stealthHostValue).toBe("req-1");
     expect(canonicalAfter.computed.stealthHostDerived).toBe("req-1");
 

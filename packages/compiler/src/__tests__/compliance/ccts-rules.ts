@@ -42,6 +42,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   ...registryMany(["COMP-DEP-5", "COMP-DEP-6"], "blocking"),
   ...registryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5"], "blocking"),
   ...registryMany(["TYPE-LOWER-6", "TYPE-LOWER-7", "TYPE-LOWER-8", "TYPE-LOWER-9"], "blocking"),
+  ...registryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14", "SGRAPH-15"], "blocking"),
 
   ...registryMany(["ENTITY-1", "ENTITY-2", "ENTITY-2a", "ENTITY-2b", "ENTITY-3", "ENTITY-4", "ENTITY-5", "ENTITY-7", "ENTITY-8", "ENTITY-9"], "blocking"),
   ...registryMany(["TRANSFORM-1", "TRANSFORM-2", "TRANSFORM-3", "TRANSFORM-4", "TRANSFORM-5"], "blocking"),
