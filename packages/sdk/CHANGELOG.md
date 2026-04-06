@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.5.0](https://github.com/manifesto-ai/core/compare/sdk-v3.4.0...sdk-v3.5.0) (2026-04-06)
+
+
+### Features
+
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+
+
+### Bug Fixes
+
+* **sdk:** mirror host intent slots in simulate ([e4870aa](https://github.com/manifesto-ai/core/commit/e4870aa6dbe038787a16f1815ca72feb0a463fde))
+* **sdk:** normalize slash platform projection ([5815e25](https://github.com/manifesto-ai/core/commit/5815e259b84942ab8b06d0f4a03d7840e55245c7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.2.0
+    * @manifesto-ai/core bumped to 2.10.0
+    * @manifesto-ai/host bumped to 2.7.0
+
 ## [3.4.0](https://github.com/manifesto-ai/core/compare/sdk-v3.3.2...sdk-v3.4.0) (2026-04-03)
 
 

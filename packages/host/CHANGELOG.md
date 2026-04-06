@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.7.0](https://github.com/manifesto-ai/core/compare/host-v2.6.0...host-v2.7.0) (2026-04-06)
+
+
+### Features
+
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.10.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.9.0 to ^2.10.0
+
 ## [2.6.0](https://github.com/manifesto-ai/core/compare/host-v2.5.0...host-v2.6.0) (2026-04-03)
 
 

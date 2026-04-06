@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/codegen",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Manifesto Codegen - Plugin-based code generation from DomainSchema",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -42,7 +42,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "~2.9.0"
+    "@manifesto-ai/core": "~2.10.0"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",

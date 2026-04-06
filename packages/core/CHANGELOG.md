@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.10.0](https://github.com/manifesto-ai/core/compare/core-v2.9.0...core-v2.10.0) (2026-04-06)
+
+
+### Features
+
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+
 ## [2.9.0](https://github.com/manifesto-ai/core/compare/core-v2.8.0...core-v2.9.0) (2026-04-03)
 
 
