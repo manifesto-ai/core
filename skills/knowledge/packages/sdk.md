@@ -1,102 +1,127 @@
 # @manifesto-ai/sdk
 
-> Default application-facing runtime for Manifesto.
+> Public developer API layer. Canonical entry point for SDK-style Manifesto apps.
 
 ## Role
 
-SDK owns the current direct-dispatch surface:
+SDK owns the public app-facing surface:
 
-- `createManifesto(schema, effects)`
-- activation boundary via `activate()`
-- typed `createIntent()` and `dispatchAsync()`
-- projected `getSnapshot()`
-- canonical `getCanonicalSnapshot()`
-- action availability and metadata inspection
-- projected introspection via `getSchemaGraph()` and `simulate()`
+- `createManifesto()`
+- availability query convenience methods on `ManifestoInstance`
+- `dispatchAsync()`
+- `defineOps()`
+- SDK error types
+- selected re-exports from Core, Host, and World
 
-SDK no longer owns governed composition through a top-level `world` facade.
+In the current implementation, `createManifesto()` composes Core, Host, and Compiler directly. The package also depends on `@manifesto-ai/world` and re-exports only a thin governed surface, but `createManifesto()` itself is not a World orchestrator.
 
 ## Dependencies
 
 - `@manifesto-ai/core`
 - `@manifesto-ai/host`
+- `@manifesto-ai/world`
 - `@manifesto-ai/compiler`
 
 ## Public API
 
-### `createManifesto(schema, effects): ComposableManifesto<T, BaseComposableLaws>`
+### `createManifesto(config): ManifestoInstance<T>`
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
-import CounterSchema from "./counter.mel";
 
-const manifesto = createManifesto(CounterSchema, {
-  "api.fetchUser": async (params, ctx) => {
-    const p = params as { id: string };
-    const data = await fetch(`/users/${p.id}`).then((r) => r.json());
-    return [{ op: "set", path: ["user"], value: data }];
+const app = createManifesto({
+  schema: domainSchema,
+  effects: {
+    "api.fetchUser": async (params, ctx) => {
+      const p = params as { id: string };
+      const data = await fetch(`/users/${p.id}`).then((r) => r.json());
+      return [{ op: "set", path: "data.user", value: data }];
+    },
   },
 });
 ```
 
-### Base activated instance
+### `ManifestoConfig<T>`
 
 ```typescript
-const instance = createManifesto(schema, effects).activate();
-
-const intent = instance.createIntent(instance.MEL.actions.increment);
-await instance.dispatchAsync(intent);
-
-instance.getSnapshot();
-instance.getCanonicalSnapshot();
-instance.getSchemaGraph();
-instance.simulate(instance.MEL.actions.increment);
-instance.getAvailableActions();
-instance.getActionMetadata();
-instance.isActionAvailable("increment");
+interface ManifestoConfig<T = unknown> {
+  schema: DomainSchema | string;
+  effects: Record<string, EffectHandler>;
+  guard?: (intent: Intent, snapshot: Snapshot<T>) => boolean;
+  snapshot?: Snapshot<T>;
+}
 ```
 
-### `ManifestoBaseInstance<T>`
+Note: current implementation does not accept a `store` option on `createManifesto()`.
+
+### `ManifestoInstance<T>`
 
 ```typescript
-interface ManifestoBaseInstance<T> {
-  createIntent(actionRef, ...args): TypedIntent<T>;
-  dispatchAsync(intent): Promise<Snapshot<T["state"]>>;
-  subscribe(selector, listener): Unsubscribe;
-  on(event, handler): Unsubscribe;
-  getSnapshot(): Snapshot<T["state"]>;
-  getCanonicalSnapshot(): CanonicalSnapshot<T["state"]>;
-  getAvailableActions(): readonly (keyof T["actions"])[];
-  getActionMetadata(name?): TypedActionMetadata<T> | readonly TypedActionMetadata<T>[];
-  isActionAvailable(name): boolean;
-  getSchemaGraph(): SchemaGraph;
-  simulate(actionRef, ...args): SimulateResult<T>;
-  MEL: TypedMEL<T>;
-  schema: DomainSchema;
+interface ManifestoInstance<T = unknown> {
+  dispatch(intent: Intent): void;
+  subscribe<R>(selector: Selector<T, R>, listener: (value: R) => void): Unsubscribe;
+  on<K extends ManifestoEvent>(
+    event: K,
+    handler: (payload: ManifestoEventMap<T>[K]) => void,
+  ): Unsubscribe;
+  isActionAvailable(actionName: string): boolean;
+  getAvailableActions(): readonly string[];
+  getSnapshot(): Snapshot<T>;
   dispose(): void;
 }
 ```
 
-## Current semantics
-
-- `getSnapshot()` is projected and hides platform-owned internals such as `data.$*`.
-- `getCanonicalSnapshot()` returns the current visible canonical substrate.
-- `getSchemaGraph()` exposes projected static graph structure only.
-- `simulate()` is a pure dry-run that uses the full transition contract but does not commit runtime state.
-- `changedPaths` from `simulate()` is inspection/debug output, not the canonical branching API.
-
-## Governed composition
-
-SDK is the substrate for the current governed path:
+### Effect handler types
 
 ```typescript
-createManifesto(schema, effects)
-  -> withLineage(...)
-  -> withGovernance(...)
-  -> activate()
+type EffectContext<T = unknown> = {
+  readonly snapshot: Readonly<Snapshot<T>>;
+};
+
+type EffectHandler = (
+  params: unknown,
+  ctx: EffectContext,
+) => Promise<readonly Patch[]>;
 ```
 
-SDK does not re-export the old world facade and does not own governed bootstrap assembly.
+SDK adapts this 2-argument handler to Host's internal 3-argument effect handler contract.
+
+### `dispatchAsync(instance, intent): Promise<Snapshot<T>>`
+
+Promise wrapper around `dispatch()` plus event subscriptions:
+
+- resolves on `dispatch:completed`
+- rejects on `dispatch:failed`
+- rejects with `DispatchRejectedError` on `dispatch:rejected`
+
+### `defineOps<TData>()`
+
+```typescript
+import { defineOps } from "@manifesto-ai/sdk";
+
+type State = { count: number; user: { name: string; age: number } };
+const ops = defineOps<State>();
+
+ops.set("count", 5);
+ops.set("user.name", "Alice");
+ops.merge("user", { age: 30 });
+ops.unset("count");
+ops.raw.set("$host.custom", { ok: true });
+```
+
+### Event channel
+
+```typescript
+type ManifestoEvent = "dispatch:completed" | "dispatch:rejected" | "dispatch:failed";
+```
+
+Payloads are event-specific through `ManifestoEventMap<T>`.
+
+## Selected Re-exports
+
+- From Core: `createIntent`, `createSnapshot`, `createCore`, core types
+- From Host: `HostResult`, `HostOptions`
+- From World: `createWorld` plus the thin governed type surface needed for explicit composition
 
 ## Errors
 
@@ -104,9 +129,10 @@ SDK does not re-export the old world facade and does not own governed bootstrap 
 - `ReservedEffectError`
 - `DisposedError`
 - `CompileError`
+- `DispatchRejectedError`
 
 ## Notes
 
-- `FieldRef` and `ComputedRef` use `name` as the current public identity field.
-- Graph traversal is ref-canonical; string node ids are debug convenience only.
-- Current living contract is `packages/sdk/docs/sdk-SPEC.md`.
+- SDK `Snapshot<T>` transparently follows the current Core Snapshot shape.
+- `getSnapshot()` no longer exposes accumulated `system.errors`.
+- `isActionAvailable()` and `getAvailableActions()` delegate to Core against the current snapshot.

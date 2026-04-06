@@ -1,29 +1,26 @@
 {
-  "version": "0.5.0",
-  "lastChecked": "2026-04-06",
+  "version": "0.4.0",
+  "lastChecked": "2026-03-31",
   "mappings": [
     {
       "skill": "SKILL.md",
       "sources": [
         { "path": "CLAUDE.md", "version": "1.0", "sections": ["§1", "§2", "§3", "§11"] },
-        { "path": "docs/architecture/layers.md", "version": "3.0" },
-        { "path": "packages/sdk/docs/sdk-SPEC.md", "version": "3.1.0" },
-        { "path": "packages/lineage/docs/lineage-SPEC.md", "version": "3.0.0" },
-        { "path": "packages/governance/docs/governance-SPEC.md", "version": "3.0.0" }
+        { "path": "packages/core/docs/core-SPEC.md", "version": "4.0.0", "sections": ["§3"] },
+        { "path": "packages/host/docs/host-SPEC.md", "version": "4.0.0", "sections": ["§4", "§7"] },
+        { "path": "packages/world/src/facade/index.ts", "version": "2.6.0" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/architecture.md",
       "sources": [
-        { "path": "docs/architecture/layers.md", "version": "3.0" },
         { "path": "packages/core/docs/core-SPEC.md", "version": "4.0.0", "sections": ["§3", "§13", "§16"] },
         { "path": "packages/host/docs/host-SPEC.md", "version": "4.0.0", "sections": ["§4", "§7", "§9"] },
-        { "path": "packages/sdk/docs/sdk-SPEC.md", "version": "3.1.0" },
-        { "path": "packages/lineage/docs/lineage-SPEC.md", "version": "3.0.0" },
-        { "path": "packages/governance/docs/governance-SPEC.md", "version": "3.0.0" }
+        { "path": "packages/sdk/src/create-manifesto.ts", "version": "2.2.0" },
+        { "path": "packages/world/src/facade/index.ts", "version": "2.6.0" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/mel-patterns.md",
@@ -37,113 +34,93 @@
       "skill": "knowledge/effect-patterns.md",
       "sources": [
         { "path": "packages/host/docs/host-SPEC.md", "version": "4.0.0", "sections": ["§7", "§8", "§9"] },
-        { "path": "packages/sdk/src/types.ts", "version": "3.4.0" },
-        { "path": "packages/sdk/src/create-manifesto.ts", "version": "3.4.0" }
+        { "path": "packages/sdk/src/types.ts", "version": "2.2.0" },
+        { "path": "packages/sdk/src/create-manifesto.ts", "version": "2.2.0" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/patch-rules.md",
       "sources": [
         { "path": "packages/core/docs/core-SPEC.md", "version": "4.0.0", "sections": ["§8", "§13", "§14"] },
-        { "path": "packages/core/src/schema/patch.ts", "version": "2.9.0" },
-        { "path": "packages/core/src/core/apply.ts", "version": "2.9.0" }
+        { "path": "packages/core/src/schema/patch.ts", "version": "2.7.1" },
+        { "path": "packages/core/src/core/apply.ts", "version": "2.7.1" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/antipatterns.md",
       "sources": [
         { "path": "CLAUDE.md", "version": "1.0", "sections": ["§10"] },
         { "path": "packages/core/docs/core-SPEC.md", "version": "4.0.0" },
-        { "path": "docs/architecture/layers.md", "version": "3.0" }
+        { "path": "packages/world/src/facade/index.ts", "version": "2.6.0" }
       ],
       "note": "Accumulated from real usage feedback and constitutional violations.",
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-02-09"
     },
     {
       "skill": "knowledge/spec-index.md",
       "sources": [
-        { "path": "skills/knowledge/llm/LLM-INDEX.md", "version": "0.5.0" }
+        { "path": "skills/knowledge/llm/LLM-INDEX.md", "version": "0.4.0" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/packages/core.md",
       "sources": [
-        { "path": "packages/core/package.json", "version": "2.9.0" },
-        { "path": "packages/core/src/index.ts", "version": "2.9.0" },
+        { "path": "packages/core/package.json", "version": "2.7.1" },
+        { "path": "packages/core/src/index.ts", "version": "2.7.1" },
         { "path": "packages/core/docs/core-SPEC.md", "version": "4.0.0" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/packages/host.md",
       "sources": [
-        { "path": "packages/host/package.json", "version": "2.6.0" },
-        { "path": "packages/host/src/index.ts", "version": "2.6.0" },
+        { "path": "packages/host/package.json", "version": "2.4.0" },
+        { "path": "packages/host/src/index.ts", "version": "2.4.0" },
         { "path": "packages/host/docs/host-SPEC.md", "version": "4.0.0" }
       ],
-      "lastSynced": "2026-04-06"
-    },
-    {
-      "skill": "knowledge/packages/sdk.md",
-      "sources": [
-        { "path": "packages/sdk/package.json", "version": "3.4.0" },
-        { "path": "packages/sdk/src/index.ts", "version": "3.4.0" },
-        { "path": "packages/sdk/src/types.ts", "version": "3.4.0" },
-        { "path": "packages/sdk/src/create-manifesto.ts", "version": "3.4.0" },
-        { "path": "packages/sdk/docs/sdk-SPEC.md", "version": "3.1.0" }
-      ],
-      "lastSynced": "2026-04-06"
-    },
-    {
-      "skill": "knowledge/packages/lineage.md",
-      "sources": [
-        { "path": "packages/lineage/package.json", "version": "3.4.0" },
-        { "path": "packages/lineage/src/index.ts", "version": "3.4.0" },
-        { "path": "packages/lineage/src/runtime-types.ts", "version": "3.4.0" },
-        { "path": "packages/lineage/docs/lineage-SPEC.md", "version": "3.0.0" }
-      ],
-      "lastSynced": "2026-04-06"
-    },
-    {
-      "skill": "knowledge/packages/governance.md",
-      "sources": [
-        { "path": "packages/governance/package.json", "version": "3.4.0" },
-        { "path": "packages/governance/src/index.ts", "version": "3.4.0" },
-        { "path": "packages/governance/src/runtime-types.ts", "version": "3.4.0" },
-        { "path": "packages/governance/docs/governance-SPEC.md", "version": "3.0.0" }
-      ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/packages/world.md",
       "sources": [
-        { "path": "docs/concepts/world.md", "version": "current concept" },
-        { "path": "docs/internals/spec/index.md", "version": "current index" },
-        { "path": "docs/internals/fdr/index.md", "version": "historical note" }
+        { "path": "packages/world/package.json", "version": "2.6.0" },
+        { "path": "packages/world/src/index.ts", "version": "2.6.0" },
+        { "path": "packages/world/src/facade/index.ts", "version": "2.6.0" },
+        { "path": "packages/world/docs/VERSION-INDEX.md", "version": "2026-03-28" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-31"
+    },
+    {
+      "skill": "knowledge/packages/sdk.md",
+      "sources": [
+        { "path": "packages/sdk/package.json", "version": "2.2.0" },
+        { "path": "packages/sdk/src/index.ts", "version": "2.2.0" },
+        { "path": "packages/sdk/src/types.ts", "version": "2.2.0" },
+        { "path": "packages/sdk/src/create-manifesto.ts", "version": "2.2.0" },
+        { "path": "packages/sdk/docs/sdk-SPEC-v2.0.0.md", "version": "2.0.0" }
+      ],
+      "lastSynced": "2026-03-31"
     },
     {
       "skill": "knowledge/packages/compiler.md",
       "sources": [
-        { "path": "packages/compiler/package.json", "version": "3.1.1" },
-        { "path": "packages/compiler/src/index.ts", "version": "3.1.1" },
-        { "path": "packages/compiler/docs/SPEC-v0.7.0.md", "version": "0.7.0" },
-        { "path": "packages/compiler/docs/SPEC-v0.8.0.md", "version": "0.8.0" }
+        { "path": "packages/compiler/package.json", "version": "1.8.3" },
+        { "path": "packages/compiler/src/index.ts", "version": "1.8.3" },
+        { "path": "packages/compiler/docs/SPEC-v0.7.0.md", "version": "0.7.0" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-28"
     },
     {
       "skill": "knowledge/packages/codegen.md",
       "sources": [
-        { "path": "packages/codegen/package.json", "version": "0.2.3" },
-        { "path": "packages/codegen/src/index.ts", "version": "0.2.3" },
+        { "path": "packages/codegen/package.json", "version": "0.1.3" },
+        { "path": "packages/codegen/src/index.ts", "version": "0.1.3" },
         { "path": "packages/codegen/docs/SPEC-v0.1.1.md", "version": "0.1.1" }
       ],
-      "lastSynced": "2026-04-06"
+      "lastSynced": "2026-03-28"
     }
   ]
 }

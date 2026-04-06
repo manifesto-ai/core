@@ -1,7 +1,7 @@
 # SPEC Index
 
 > Source: `./llm/LLM-INDEX.md`
-> Last synced: 2026-04-06
+> Last synced: 2026-03-31
 
 ## Normative Hierarchy
 
@@ -11,7 +11,7 @@
 4. **Code**
 5. **README**
 
-When documents conflict, prefer the higher-ranked source. When historical docs and living docs diverge, use the current maintained package surface for coding tasks unless the task explicitly targets history.
+When documents conflict, prefer the higher-ranked source. When current and next-major docs diverge, use the current exported package surface for coding tasks unless the task explicitly targets a draft.
 
 ## Current Code-Writing Baseline
 
@@ -21,7 +21,7 @@ When documents conflict, prefer the higher-ranked source. When historical docs a
 - `packages/core/docs/VERSION-INDEX.md`
 - `packages/core/src/index.ts`
 
-Use for: canonical snapshot shape, patch semantics, `SystemDelta`, compute/apply contract, validation, explainability, availability.
+Use for: constitution, current Snapshot shape, patch semantics, validation, `SystemDelta`, and availability query API.
 
 ### Host
 
@@ -29,80 +29,89 @@ Use for: canonical snapshot shape, patch semantics, `SystemDelta`, compute/apply
 - `packages/host/docs/VERSION-INDEX.md`
 - `packages/host/src/index.ts`
 
-Use for: effect handler contract, requirement lifecycle, execution model, Host/Core boundary.
+Use for: effect handler contract, requirement lifecycle, execution model, and Host/Core boundary.
+
+### World
+
+- `packages/world/docs/world-facade-spec-v1.0.0.md`
+- `packages/world/docs/VERSION-INDEX.md`
+- `packages/world/src/index.ts`
+- `packages/world/src/facade/index.ts`
+
+Use for: top-level governed composition, `createWorld()`, `WorldRuntime`, store contract, and the exact facade-owned execution boundary.
+
+### Governance
+
+- `packages/governance/docs/governance-SPEC-1.0.0v.md`
+- `packages/governance/docs/VERSION-INDEX.md`
+- `packages/governance/src/index.ts`
+
+Use for: proposal lifecycle, authority evaluation, governance events, and proposal persistence semantics.
+
+### Lineage
+
+- `packages/lineage/docs/lineage-SPEC-1.0.1v.md`
+- `packages/lineage/docs/VERSION-INDEX.md`
+- `packages/lineage/src/index.ts`
+
+Use for: world identity, seal attempts, branch/head/tip rules, restore, replay, and continuity persistence.
 
 ### SDK
 
-- `packages/sdk/docs/sdk-SPEC.md`
+- `packages/sdk/docs/sdk-SPEC-v2.0.0.md`
 - `packages/sdk/docs/VERSION-INDEX.md`
 - `packages/sdk/src/index.ts`
 - `packages/sdk/src/types.ts`
 - `packages/sdk/src/create-manifesto.ts`
 
-Use for: `createManifesto(schema, effects)`, activation boundary, typed refs, `createIntent`, `dispatchAsync`, projected reads, `getCanonicalSnapshot`, `getSchemaGraph`, `simulate`, and public runtime types.
-
-### Lineage
-
-- `packages/lineage/docs/lineage-SPEC.md`
-- `packages/lineage/docs/VERSION-INDEX.md`
-- `packages/lineage/src/index.ts`
-- `packages/lineage/src/runtime-types.ts`
-
-Use for: `withLineage()`, `commitAsync`, restore, branch/head queries, sealing continuity, stored world snapshots.
-
-### Governance
-
-- `packages/governance/docs/governance-SPEC.md`
-- `packages/governance/docs/VERSION-INDEX.md`
-- `packages/governance/src/index.ts`
-- `packages/governance/src/runtime-types.ts`
-
-Use for: `withGovernance()`, explicit lineage prerequisite, proposal lifecycle, authority evaluation, decision records, governed runtime surface.
+Use for: `createManifesto()`, `ManifestoConfig`, `ManifestoInstance`, availability queries, `dispatchAsync`, typed events, and typed patch helpers.
 
 ### Compiler
 
 - `packages/compiler/docs/SPEC-v0.7.0.md`
-- `packages/compiler/docs/SPEC-v0.8.0.md`
 - `packages/compiler/docs/VERSION-INDEX.md`
 - `packages/compiler/src/index.ts`
 
-Use for: MEL syntax, compiler public API, bundler integrations, compile diagnostics, and current `SchemaGraph` extraction addendum.
+Use for: MEL syntax, compiler public API, bundler integrations, compile diagnostics, patch compilation.
 
 ### Codegen
 
 - `packages/codegen/docs/SPEC-v0.1.1.md`
 - `packages/codegen/docs/VERSION-INDEX.md`
-- `packages/codegen/src/index.ts`
 
 Use for: code generation plugin contracts.
 
-## Current FDR / ADR References Worth Loading
+## Next-Major Draft References
 
-- `packages/sdk/docs/FDR-v3.1.0-draft.md` for accepted rationale behind `SchemaGraph` and `simulate()`
-- `docs/internals/adr/014-split-world-protocol.md` for split history
-- `docs/internals/adr/015-snapshot-ontological-purification.md` for current error-surface removal
-- `docs/internals/adr/017-capability-decorator-pattern.md` for activation-first SDK and decorator composition
-- `docs/internals/adr/018-public-snapshot-boundary.md` for projected vs canonical snapshot boundary
+These docs are real, but they are not the current code-writing target unless the task explicitly targets a draft:
 
-## Historical References
+- `packages/sdk/docs/sdk-SPEC-v3.0.0-draft.md`
+- `packages/governance/docs/governance-SPEC-2.0.0v.md`
+- `packages/lineage/docs/lineage-SPEC-2.0.0v.md`
+- `packages/world/docs/world-facade-spec-v2.0.0.md`
 
-Use only when the task explicitly targets migration or archaeology:
+Use them to understand projected next-major changes. Do not let them override current package exports unless the task is explicitly about the draft.
 
-- retired `@manifesto-ai/world` docs
-- versioned `*-v*.md` historical specs
-- archive documents under `archive/`
+## Global ADRs Worth Loading
+
+- ADR-002: `onceIntent` + `$mel` namespace
+- ADR-010: protocol-first SDK reconstruction
+- ADR-014: split world protocol design direction
+- ADR-015: current Snapshot error-history removal
+- ADR-016: next-major lineage/governance/world epoch direction
 
 ## Quick Lookup
 
 | Need to understand... | Go to |
 |----------------------|-------|
 | Snapshot structure | `packages/core/docs/core-SPEC.md` |
-| `patches` + `systemDelta` contract | `packages/core/docs/core-SPEC.md` |
+| `patches` + `systemDelta` contract | `packages/core/docs/core-SPEC.md`, `packages/core/src/schema/result.ts` |
+| Availability query API | `packages/core/docs/core-SPEC.md`, `packages/core/src/core/action-availability.ts`, `packages/sdk/src/create-manifesto.ts` |
 | Effect handler contract | `packages/host/docs/host-SPEC.md`, `packages/sdk/src/types.ts` |
-| SDK instance API | `packages/sdk/src/types.ts`, `packages/sdk/docs/sdk-SPEC.md` |
-| `getCanonicalSnapshot()` | `packages/sdk/docs/sdk-SPEC.md`, `docs/internals/adr/018-public-snapshot-boundary.md` |
-| `getSchemaGraph()` / `simulate()` | `packages/sdk/docs/sdk-SPEC.md`, `packages/sdk/docs/FDR-v3.1.0-draft.md` |
-| `withLineage()` runtime | `packages/lineage/src/index.ts`, `packages/lineage/docs/lineage-SPEC.md` |
-| `withGovernance()` runtime | `packages/governance/src/index.ts`, `packages/governance/docs/governance-SPEC.md` |
+| SDK instance API | `packages/sdk/src/types.ts`, `packages/sdk/src/create-manifesto.ts` |
+| `dispatchAsync` | `packages/sdk/src/dispatch-async.ts` |
+| Current governed facade surface | `packages/world/src/index.ts`, `packages/world/src/facade/index.ts`, `packages/world/docs/world-facade-spec-v1.0.0.md` |
+| Governance package surface | `packages/governance/src/index.ts`, `packages/governance/docs/VERSION-INDEX.md` |
+| Lineage package surface | `packages/lineage/src/index.ts`, `packages/lineage/docs/VERSION-INDEX.md` |
 | MEL syntax | `packages/compiler/docs/SPEC-v0.7.0.md` |
-| Compiler introspection addendum | `packages/compiler/docs/SPEC-v0.8.0.md` |
+| Compiler public API | `packages/compiler/src/index.ts` |

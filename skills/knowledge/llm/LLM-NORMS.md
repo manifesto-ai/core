@@ -11,11 +11,9 @@ This is a compact summary of high-salience rules. For exact wording, defer to th
 
 ## Core boundaries
 
-- Core computes meaning; Host executes effects.
-- SDK owns the default direct-dispatch runtime.
-- Lineage owns continuity and sealing.
-- Governance owns legitimacy and proposals.
-- Snapshot is the sole communication medium between compute steps.
+- Core computes meaning; Host executes effects; World governs proposals and lineage.
+- Core is pure and deterministic: same input, same output.
+- Snapshot is the sole communication medium between layers.
 - State changes are expressed as patches plus system transitions, not hidden mutable state.
 
 ## Patch semantics
@@ -29,7 +27,6 @@ This is a compact summary of high-salience rules. For exact wording, defer to th
 - Errors are values in snapshot state.
 - Core must not throw business-logic errors.
 - Effect handlers should report failures through patches or terminal results, not opaque side channels.
-- Current snapshot contract keeps `lastError` as the sole current error surface; accumulated `system.errors` is removed.
 
 ## Platform namespaces
 
@@ -37,23 +34,20 @@ This is a compact summary of high-salience rules. For exact wording, defer to th
 - Schema hashing excludes platform-owned `$` namespaces.
 - Domain schemas must not define `$`-prefixed identifiers.
 
-## Current runtime model
+## MEL guard rules
 
-- `createManifesto(schema, effects)` returns a composable manifesto.
-- Runtime verbs appear only after `activate()`.
-- Governed composition is `createManifesto(...) -> withLineage(...) -> withGovernance(...) -> activate()`.
-- There is no current top-level `@manifesto-ai/world` facade in the active public package story.
+- `once(marker)` requires the first statement to patch the same marker with `$meta.intentId`.
+- `onceIntent` is syntactic sugar for per-intent idempotency using `$mel` guard storage.
+- Guard writes for `onceIntent` use `merge` at `$mel.guards.intent`.
 
-## Current SDK note
+## Current implementation note
 
-- `getSnapshot()` is the projected app-facing read.
-- `getCanonicalSnapshot()` is the canonical substrate read.
-- `getSchemaGraph()` is projected static introspection.
-- `simulate()` is a non-committing projected dry-run.
-- Ref-based lookup is canonical; string ids in graph traversal are debug convenience only.
+- In this repo, top-level `@manifesto-ai/world` is the exact consumer-facing governed facade.
+- `@manifesto-ai/governance` and `@manifesto-ai/lineage` are implemented code packages and own their protocol-layer behavior.
+- For consumer-facing governed work, prefer current `@manifesto-ai/world` exports and adapter subpaths. Import split-native packages directly only when the task is intentionally scoped to governance or lineage.
 
 ## Guidance for LLM use
 
 - Do not infer behavior not stated in SPEC, FDR, ADR, or current exported code.
-- When current and historical docs differ, call that out explicitly and prefer the current maintained package surface unless the task targets history.
-- Prefer current package exports and current living specs for implementation guidance.
+- When current and next-major docs differ, call that out explicitly and prefer the current exported surface unless the task targets a draft.
+- Prefer current package exports and source layout for implementation guidance.

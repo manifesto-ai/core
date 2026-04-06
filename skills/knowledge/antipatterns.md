@@ -173,18 +173,18 @@ Why: User-facing APIs must be type-safe with zero string paths.
 
 ### AP-011: Authority Bypass
 
-Bypassing governance on the governed path.
+Executing intents without World Protocol.
 
 ```typescript
-// FORBIDDEN on the governed path
-governedHost.execute(snapshot, intent);  // Skips proposal + authority flow!
+// FORBIDDEN
+host.execute(snapshot, intent);  // Skips governance!
 
 // CORRECT
-governed.proposeAsync(intent);
-// Authority evaluates -> approved proposals execute through the governed runtime
+world.submitProposal(actor, intentInstance);
+// Authority evaluates → approved intents go to Host
 ```
 
-Why: direct-dispatch SDK may execute intents immediately, but governed runtimes must route execution through proposal and authority flow for legitimacy and auditability.
+Why: All intents must pass through World Protocol for governance and auditability.
 
 ## MEL-Specific Mistakes
 

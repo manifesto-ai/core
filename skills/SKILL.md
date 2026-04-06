@@ -1,9 +1,9 @@
 ---
 name: manifesto
-description: Use when working on Manifesto repositories, MEL flows, or SDK/Lineage/Governance/Host/Core boundaries. Loads implementation-aligned architecture, patch, effect, and package guidance.
+description: Use when working on Manifesto repositories, MEL flows, or Core/Host/SDK/World boundaries. Loads implementation-aligned architecture, patch, effect, and package guidance.
 ---
 
-# Manifesto Skills v0.3.0
+# Manifesto Skills v0.2.0
 
 You are working on a Manifesto-based project. These rules are non-negotiable.
 
@@ -11,10 +11,9 @@ You are working on a Manifesto-based project. These rules are non-negotiable.
 
 This skills pack follows the current implementation in this repo.
 
-- `@manifesto-ai/sdk` is the default direct-dispatch application entry.
-- `@manifesto-ai/lineage` and `@manifesto-ai/governance` are the active governed composition packages.
-- Governed composition is expressed as `createManifesto(...) -> withLineage(...) -> withGovernance(...) -> activate()`.
-- There is no current top-level `@manifesto-ai/world` facade in the active public runtime story. Treat older `world` package docs as historical only.
+- `@manifesto-ai/world` is the canonical governed composition package and exact consumer-facing facade.
+- `@manifesto-ai/governance` and `@manifesto-ai/lineage` are implemented code packages and own their protocol-layer behavior.
+- For governed work, prefer top-level `@manifesto-ai/world` for composition and import split-native packages directly only when the task is intentionally limited to governance or lineage.
 
 ## Absolute Rules
 
@@ -36,7 +35,7 @@ Load these before writing code in each area:
 
 | Task | Knowledge File |
 |------|---------------|
-| Understanding current package boundaries and runtime ownership | `@knowledge/architecture.md` |
+| Understanding Core/Host/SDK/World boundaries | `@knowledge/architecture.md` |
 | Writing MEL domain code | `@knowledge/mel-patterns.md` |
 | MEL complete function reference | `@knowledge/mel-reference.md` |
 | Implementing effect handlers | `@knowledge/effect-patterns.md` |
@@ -50,19 +49,12 @@ Load when working with a specific package API:
 
 | Package | Knowledge File |
 |---------|---------------|
-| `@manifesto-ai/sdk` | `@knowledge/packages/sdk.md` |
-| `@manifesto-ai/lineage` | `@knowledge/packages/lineage.md` |
-| `@manifesto-ai/governance` | `@knowledge/packages/governance.md` |
-| `@manifesto-ai/core` | `@knowledge/packages/core.md` |
-| `@manifesto-ai/host` | `@knowledge/packages/host.md` |
-| `@manifesto-ai/compiler` | `@knowledge/packages/compiler.md` |
-| `@manifesto-ai/codegen` | `@knowledge/packages/codegen.md` |
-
-Historical only:
-
-| Topic | Knowledge File |
-|------|---------------|
-| retired `world` facade context | `@knowledge/packages/world.md` |
+| @manifesto-ai/sdk | `@knowledge/packages/sdk.md` |
+| @manifesto-ai/core | `@knowledge/packages/core.md` |
+| @manifesto-ai/host | `@knowledge/packages/host.md` |
+| @manifesto-ai/world | `@knowledge/packages/world.md` |
+| @manifesto-ai/compiler | `@knowledge/packages/compiler.md` |
+| @manifesto-ai/codegen | `@knowledge/packages/codegen.md` |
 
 ## Self-Check
 
