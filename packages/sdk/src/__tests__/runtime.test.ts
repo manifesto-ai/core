@@ -35,6 +35,8 @@ type ProjectionDomain = {
     literalPayloadDerived: { kind: string; path: string };
     hostValue: string | null;
     hostDerived: string | null;
+    slashHostValue: string | null;
+    slashHostDerived: string | null;
     stealthHostValue: string | null;
     stealthHostDerived: string | null;
   };
@@ -115,6 +117,14 @@ function createProjectionSchema(): DomainSchema {
         hostDerived: {
           deps: ["hostValue"],
           expr: { kind: "get", path: "hostValue" },
+        },
+        slashHostValue: {
+          deps: ["/$host.requestId"],
+          expr: { kind: "get", path: "/$host.requestId" },
+        },
+        slashHostDerived: {
+          deps: ["slashHostValue"],
+          expr: { kind: "get", path: "slashHostValue" },
         },
         stealthHostValue: {
           deps: [],
@@ -304,12 +314,20 @@ describe("activated base runtime", () => {
   it("rejects refs that are not part of the projected graph", () => {
     const world = createManifesto<ProjectionDomain>(createProjectionSchema(), {}).activate();
     const graph = world.getSchemaGraph();
+    const snapshot = world.getSnapshot();
 
     expect(() => graph.traceDown(world.MEL.computed.hostValue)).toThrowError(
       expect.objectContaining<Partial<ManifestoError>>({
         code: "SCHEMA_ERROR",
       }),
     );
+    expect(() => graph.traceDown(world.MEL.computed.slashHostValue)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "SCHEMA_ERROR",
+      }),
+    );
+    expect(snapshot.computed).not.toHaveProperty("hostValue");
+    expect(snapshot.computed).not.toHaveProperty("slashHostValue");
 
     world.dispose();
   });
@@ -549,6 +567,8 @@ describe("activated base runtime", () => {
     });
     expect(canonicalBefore.computed).toHaveProperty("hostValue");
     expect(canonicalBefore.computed).toHaveProperty("hostDerived");
+    expect(canonicalBefore.computed).toHaveProperty("slashHostValue");
+    expect(canonicalBefore.computed).toHaveProperty("slashHostDerived");
     expect(canonicalBefore.computed).toHaveProperty("stealthHostValue");
     expect(canonicalBefore.computed).toHaveProperty("stealthHostDerived");
 
@@ -571,6 +591,8 @@ describe("activated base runtime", () => {
     expect(canonicalAfter.data.$host?.requestId).toBe("req-1");
     expect(canonicalAfter.computed.hostValue).toBe("req-1");
     expect(canonicalAfter.computed.hostDerived).toBe("req-1");
+    expect(canonicalAfter.computed).toHaveProperty("slashHostValue");
+    expect(canonicalAfter.computed).toHaveProperty("slashHostDerived");
     expect(canonicalAfter.computed.stealthHostValue).toBe("req-1");
     expect(canonicalAfter.computed.stealthHostDerived).toBe("req-1");
 

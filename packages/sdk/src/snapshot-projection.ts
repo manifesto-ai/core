@@ -173,11 +173,21 @@ function resolveComputedDependency(
     : null;
 }
 
+function normalizeSemanticPath(path: string): string {
+  if (path.startsWith("/")) {
+    return path.slice(1).replace(/\//g, ".");
+  }
+
+  return path;
+}
+
 function isPlatformDependency(dep: string): boolean {
-  const normalized = dep.startsWith("data.")
-    ? dep.slice("data.".length)
-    : dep;
-  const root = normalized.split(".")[0] ?? "";
+  const normalized = normalizeSemanticPath(dep);
+  const withoutDataRoot = normalized.startsWith("data.")
+    ? normalized.slice("data.".length)
+    : normalized;
+  const match = /^([^.[\]]+)/.exec(withoutDataRoot);
+  const root = match?.[1] ?? "";
   if (!root.startsWith("$")) {
     return false;
   }
