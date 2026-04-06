@@ -5,6 +5,5 @@
   "packages/governance": "3.4.0",
   "packages/host": "2.6.0",
   "packages/lineage": "3.4.0",
-  "packages/sdk": "3.4.0",
-  "skills": "0.2.2"
+  "packages/sdk": "3.4.0"
 }
