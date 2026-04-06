@@ -8,6 +8,7 @@ export type {
   HostDispatchOptions,
   RuntimeKernel,
   RuntimeKernelFactory,
+  SimulateResult,
 } from "./internal.js";
 export {
   activateComposable,

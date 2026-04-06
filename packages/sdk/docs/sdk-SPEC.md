@@ -700,6 +700,17 @@ function withGovernance<T extends ManifestoDomainShape, L extends BaseLaws>(
 
 Those APIs are owned by their packages, not by SDK. SDK v3 guarantees only that its composable manifesto is the canonical input to that decorator chain.
 
+The public decorator/provider authoring seam lives at `@manifesto-ai/sdk/provider`.
+That subpath exposes `RuntimeKernel`, `RuntimeKernelFactory`, and the activation-state helpers used by `withLineage()` and `withGovernance()`.
+
+For decorator authors that need hypothetical planning or dry-run analysis against caller-provided canonical snapshots, `RuntimeKernel` MUST additionally expose:
+
+- `simulateSync(snapshot, intent)`
+- `getAvailableActionsFor(snapshot)`
+- `isActionAvailableFor(snapshot, actionName)`
+
+Those methods are provider-authoring seams only. They operate on caller-provided canonical snapshots and MUST NOT mutate or publish the visible runtime snapshot.
+
 This SDK spec does not restate:
 
 - lineage seal semantics
@@ -716,6 +727,8 @@ Those are defined by ADR-017 and their owning package specs.
 | SDK-BOUNDARY-3 | MUST NOT | SDK MUST NOT present `@manifesto-ai/world` as part of the SDK public contract in v3 |
 | SDK-BOUNDARY-4 | MUST | governed composition from the SDK story MUST be expressed as `createManifesto() -> withLineage() -> withGovernance() -> activate()` |
 | SDK-BOUNDARY-5 | MUST | once lineage or governance laws are composed, `activate()` MUST return the runtime type defined by the owning package rather than the base SDK runtime |
+| SDK-BOUNDARY-6 | MUST | `@manifesto-ai/sdk/provider` MUST expose arbitrary-snapshot `RuntimeKernel` helpers `simulateSync()`, `getAvailableActionsFor()`, and `isActionAvailableFor()` for decorator authors |
+| SDK-BOUNDARY-7 | MUST NOT | provider-seam arbitrary-snapshot helpers MUST NOT mutate, publish, or otherwise replace the visible runtime snapshot |
 
 ## 9. Hard-Cut Removals
 

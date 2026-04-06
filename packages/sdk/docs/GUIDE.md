@@ -164,6 +164,16 @@ The stable authoring seam is the activation/runtime composition layer:
 - `activateComposable()`
 - `assertComposableNotActivated()`
 
+For decorators that need hypothetical planning or availability checks against
+non-live state, `RuntimeKernel` also exposes pure arbitrary-snapshot helpers:
+
+- `simulateSync(snapshot, intent)`
+- `getAvailableActionsFor(snapshot)`
+- `isActionAvailableFor(snapshot, actionName)`
+
+These operate on caller-provided canonical snapshots. They do not publish,
+commit, or mutate the runtime's visible snapshot.
+
 Minimal example:
 
 ```typescript
@@ -215,6 +225,19 @@ function withExampleDecorator<T extends ManifestoDomainShape>(
 ```
 
 The point of the subpath is to let decorator authors stay on public imports. App-facing integrations should stay on `@manifesto-ai/sdk`.
+
+Example arbitrary-snapshot dry-run:
+
+```typescript
+const kernel = getRuntimeKernelFactory(manifesto)();
+const root = kernel.getCanonicalSnapshot();
+const intent = kernel.createIntent(kernel.MEL.actions.increment);
+const simulated = kernel.simulateSync(root, intent);
+
+console.log(simulated.snapshot);
+console.log(kernel.getAvailableActionsFor(simulated.snapshot));
+console.log(kernel.isActionAvailableFor(simulated.snapshot, "incrementIfEven"));
+```
 
 ---
 

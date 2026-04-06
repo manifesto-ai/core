@@ -10,6 +10,7 @@ import {
   ManifestoError,
   createManifesto,
 } from "../index.js";
+import { getRuntimeKernelFactory } from "../provider.js";
 import { projectedSnapshotsEqual } from "../snapshot-projection.js";
 import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
@@ -529,6 +530,86 @@ describe("activated base runtime", () => {
     );
     expect(counterWorld.getSnapshot().data.count).toBe(1);
     counterWorld.dispose();
+  });
+
+  it("simulates arbitrary canonical snapshots without mutating visible runtime state", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const intent = kernel.createIntent(kernel.MEL.actions.increment);
+    const first = kernel.simulateSync(canonical, intent);
+    const second = kernel.simulateSync(canonical, intent);
+    const normalizeTimestamp = (
+      result: typeof first,
+    ) => ({
+      ...result,
+      snapshot: {
+        ...result.snapshot,
+        meta: {
+          ...result.snapshot.meta,
+          timestamp: 0,
+        },
+      },
+    });
+
+    expect(normalizeTimestamp(first)).toEqual(normalizeTimestamp(second));
+    expect(first.status).toBe("complete");
+    expect(first.snapshot.data.count).toBe(1);
+    expect(canonical.data.count).toBe(0);
+    expect(kernel.getCanonicalSnapshot().data.count).toBe(0);
+
+    kernel.dispose();
+  });
+
+  it("queries action availability against arbitrary canonical snapshots through RuntimeKernel", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const incremented = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.increment),
+    );
+
+    expect(kernel.isActionAvailableFor(canonical, "incrementIfEven")).toBe(true);
+    expect(kernel.isActionAvailableFor(incremented.snapshot, "incrementIfEven")).toBe(false);
+    expect(kernel.isActionAvailable("incrementIfEven")).toBe(true);
+    expect(kernel.getAvailableActionsFor(incremented.snapshot)).not.toContain("incrementIfEven");
+    expect(kernel.getAvailableActions()).toContain("incrementIfEven");
+
+    kernel.dispose();
+  });
+
+  it("returns canonical simulation metadata for pending results and rejects unavailable arbitrary-snapshot dry-runs", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const pending = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.load),
+    );
+    const odd = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.increment),
+    );
+
+    expect(pending.status).toBe("pending");
+    expect(pending.patches).toHaveLength(1);
+    expect(pending.requirements).toHaveLength(1);
+    expect(pending.systemDelta.addRequirements).toHaveLength(1);
+    expect(pending.snapshot.system.pendingRequirements).toHaveLength(1);
+    expect(kernel.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
+
+    expect(() =>
+      kernel.simulateSync(
+        odd.snapshot,
+        kernel.createIntent(kernel.MEL.actions.incrementIfEven),
+      )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "ACTION_UNAVAILABLE",
+      }),
+    );
+
+    kernel.dispose();
   });
 
   it("checks availability at dequeue time and rejects without publication", async () => {
