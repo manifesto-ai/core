@@ -1,9 +1,9 @@
 # Specifications
 
-This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory.
+This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory, plus draft specification work that has not yet become a landed package surface.
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.0.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3 activation-first, and `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.0.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3 activation-first, and `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -38,6 +38,16 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 | **@manifesto-ai/compiler** | v0.7.0 base + v0.8.0 addendum | Normative base + companion addendum | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
+
+## Draft and Pending Package Specifications
+
+These specs are design-level normative drafts for surfaces that are not yet landed in the active workspace. They are not current public package contracts.
+
+| Package | SPEC | Status | Package Docs |
+|---------|------|--------|--------------|
+| **@manifesto-ai/planner** | [Draft v1.2.0](./planner-SPEC-v1.2.0-draft) | Normative (Draft, blocked on SDK provider simulation seam) | — |
+
+> **Draft Planned Extension:** `createManifesto() -> withLineage() -> withGovernance() -> withPlanner() -> activate()`
 
 ## Historical and Removed References
 
@@ -84,6 +94,12 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
   - [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md)
   - Activation-first SDK — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current surface includes projected `SchemaGraph` plus `simulate()`
 
+### Planner (Draft)
+
+- **Planner SPEC v1.2.0 (Draft)**
+  - [planner-SPEC-v1.2.0-draft.md](./planner-SPEC-v1.2.0-draft)
+  - Defines a proposed `withPlanner()` decorator, `createPlanner()` builder, separate strategy/enumerator seams, and the blocking SDK `RuntimeKernel` simulation seam required before implementation
+
 ### Compiler (MEL)
 
 - **Compiler SPEC v0.7.0** (Full Base)
@@ -116,6 +132,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
 | 04-06 | SDK | v3.1.0 | Living SDK spec promoted the projected introspection surface to current status: `getSchemaGraph()` and `simulate()` are now part of the current package contract |
+| 04-07 | Planner | v1.2.0 | Draft planner spec tightened the public contract: `enumerator-first` DX retained, `strategy` split preserved, runtime term-key generics propagated, and `createCoreEnumerator()` defined as intentionally conservative |
 | 04-06 | Compiler | v0.8.0 | Companion `SchemaGraph` addendum documented for the current SDK introspection surface |
 | 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
