@@ -14,8 +14,10 @@ import {
 import type {
   HostContextProvider,
   HostResult,
+  IntentSlot,
   ManifestoHost,
 } from "@manifesto-ai/host";
+import { getHostState } from "@manifesto-ai/host";
 
 import {
   AlreadyActivatedError,
@@ -607,6 +609,36 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return schemaGraph;
   }
 
+  function withHostIntentSlot(
+    snapshot: CoreSnapshot,
+    intent: TypedIntent<T>,
+    context: ReturnType<HostContextProvider["createFrozenContext"]>,
+  ): CoreSnapshot {
+    const hostState = getHostState(snapshot.data);
+    const intentSlots = hostState?.intentSlots ?? {};
+    const intentSlot: IntentSlot = intent.input === undefined
+      ? { type: intent.type }
+      : { type: intent.type, input: intent.input };
+
+    return apply(
+      schema,
+      snapshot,
+      [
+        {
+          op: "merge",
+          path: [{ kind: "prop", name: "$host" }],
+          value: {
+            intentSlots: {
+              ...intentSlots,
+              [intent.intentId]: intentSlot,
+            },
+          },
+        },
+      ],
+      context,
+    );
+  }
+
   const simulate: TypedSimulate<T> = ((
     action,
     ...args
@@ -617,7 +649,11 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     }
 
     const context = hostContextProvider.createFrozenContext(intent.intentId);
-    const baseline = structuredClone(visibleCanonicalSnapshot);
+    const baseline = withHostIntentSlot(
+      structuredClone(visibleCanonicalSnapshot),
+      intent,
+      context,
+    );
     const result = computeSync(schema, baseline, intent, context);
     const afterPatches = apply(schema, baseline, result.patches, context);
     const canonicalSimulated = applySystemDelta(afterPatches, result.systemDelta);

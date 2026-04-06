@@ -423,6 +423,64 @@ describe("activated base runtime", () => {
     world.dispose();
   });
 
+  it("simulates from the same host intent-slot baseline as dispatch", async () => {
+    type IntentSlotDomain = {
+      actions: {
+        markViaSlot: () => void;
+      };
+      state: {
+        status: string;
+      };
+      computed: {};
+    };
+
+    const world = createManifesto<IntentSlotDomain>(withHash({
+      id: "manifesto:sdk-v3-intent-slot-simulate",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          status: { type: "string", required: false, default: "idle" },
+        },
+      },
+      computed: {
+        fields: {},
+      },
+      actions: {
+        markViaSlot: {
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: pp("status"),
+            value: {
+              kind: "if",
+              cond: {
+                kind: "isNull",
+                arg: { kind: "get", path: "$host.intentSlots" },
+              },
+              then: { kind: "lit", value: "missing" },
+              else: { kind: "lit", value: "present" },
+            },
+          },
+        },
+      },
+    }), {}).activate();
+
+    const simulated = world.simulate(world.MEL.actions.markViaSlot);
+    const before = world.getSnapshot();
+    const resolved = await world.dispatchAsync(
+      world.createIntent(world.MEL.actions.markViaSlot),
+    );
+
+    expect(before.data.status).toBe("idle");
+    expect(simulated.status).toBe("complete");
+    expect(simulated.snapshot.data.status).toBe("present");
+    expect(world.getSnapshot().data.status).toBe("present");
+    expect(resolved.data.status).toBe("present");
+
+    world.dispose();
+  });
+
   it("simulates halted actions and unavailable actions without committing runtime state", async () => {
     type HaltingDomain = {
       actions: {
