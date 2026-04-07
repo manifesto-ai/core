@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current SDK contract is the living v3.1.0 activation-and-introspection model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md).
+> **Current Contract Note:** The current SDK contract is the living v3.3.0 activation-and-introspection model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). That current contract now includes `@manifesto-ai/sdk/extensions` for safe arbitrary-snapshot read-only helpers after activation, including `createSimulationSession(instance)`.
 
 ## What This Package Owns
 
@@ -72,7 +72,60 @@ The activated base runtime exposes:
 - `schema`
 - `dispose`
 
+The current post-activation extension seam is `@manifesto-ai/sdk/extensions`, which exposes `getExtensionKernel(instance)` for safe arbitrary-snapshot simulation helpers without exposing the full provider seam.
+
 `getSchemaGraph()` exposes the projected static dependency graph for the activated schema. `simulate()` is a non-committing dry-run convenience that returns the projected next snapshot, effect requirements, new availability, and sorted `changedPaths`. `changedPaths` is inspection/debug output, not the canonical branching API.
+
+## Extension Kernel
+
+Use `@manifesto-ai/sdk/extensions` when a tool or helper needs to branch from hypothetical canonical snapshots after activation.
+
+```typescript
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
+
+const ext = getExtensionKernel(instance);
+const root = ext.getCanonicalSnapshot();
+
+const step1 = ext.simulateSync(
+  root,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+const branchA = ext.simulateSync(
+  step1.snapshot,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+const branchB = ext.simulateSync(
+  step1.snapshot,
+  ext.createIntent(ext.MEL.actions.add, 5),
+);
+
+const projectedA = ext.projectSnapshot(branchA.snapshot);
+const projectedB = ext.projectSnapshot(branchB.snapshot);
+```
+
+This seam is the intended substrate for simulation-session helpers, branching analysis, and other post-activation hypothetical tooling. It replaces the need for a dedicated outer simulation package at the SDK boundary.
+
+## Simulation Session Helper
+
+`@manifesto-ai/sdk/extensions` also ships a first-party session helper on top of the same substrate:
+
+```typescript
+import { createSimulationSession } from "@manifesto-ai/sdk/extensions";
+
+const sim = createSimulationSession(instance);
+const step1 = sim.next(instance.MEL.actions.increment);
+const branchA = step1.next(instance.MEL.actions.increment);
+const branchB = step1.next(instance.MEL.actions.add, 5);
+```
+
+`createSimulationSession()` is intentionally thin:
+
+- root session starts from the current canonical snapshot
+- `next()` is immutable and returns a new branch
+- `snapshot` is projected, `canonicalSnapshot` stays available explicitly
+- terminal `pending` / `halted` / `error` sessions cannot advance further
 
 ## Governed Composition Direction
 

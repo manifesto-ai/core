@@ -1,13 +1,13 @@
 # SDK Version Index
 
 > **Package:** `@manifesto-ai/sdk`
-> **Last Updated:** 2026-04-06
+> **Last Updated:** 2026-04-07
 
 ## Current Contract
 
 | Version | Document | ADR | Notes | Status |
 |---------|----------|-----|-------|--------|
-| v3.1.0 | [SPEC](sdk-SPEC.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Activation-first SDK with `activate()`, typed `createIntent()`, `dispatchAsync()`, availability queries, action metadata inspection, projected `SchemaGraph`, `simulate()`, and the public provider authoring seam | Current |
+| v3.3.0 | [SPEC](sdk-SPEC.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md), [ADR-019](../../../docs/internals/adr/019-post-activation-extension-kernel.md) | Activation-first SDK with `activate()`, typed `createIntent()`, `dispatchAsync()`, availability queries, action metadata inspection, projected `SchemaGraph`, `simulate()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper, and the public provider authoring seam | Current |
 
 ## Draft Rationale Track
 
@@ -23,6 +23,7 @@ The companion compiler addendum lives in [../../compiler/docs/SPEC-v0.8.0.md](..
 2. Read [GUIDE.md](GUIDE.md) for current usage and decorator/provider authoring boundaries.
 3. Read [sdk-SPEC.md](sdk-SPEC.md) for the current living SDK contract.
 4. If you are studying the current v3.1.0 introspection surface, read [sdk-SPEC.md](sdk-SPEC.md) §5.5 and §7.4-§7.5, then [../../compiler/docs/SPEC-v0.8.0.md](../../compiler/docs/SPEC-v0.8.0.md), then [FDR-v3.1.0-draft.md](FDR-v3.1.0-draft.md).
+5. If you are building helper/tooling work against arbitrary snapshots, read [ADR-019](../../../docs/internals/adr/019-post-activation-extension-kernel.md) and [sdk-SPEC.md](sdk-SPEC.md) §7.10 + §8. This is the canonical home for post-activation branching helpers and simulation-session work.
 
 ## Historical Note
 

@@ -66,14 +66,19 @@ const rules = {
   },
 };
 
-const rule = rules[pkg];
+const exportPath = process.argv[3];
+const ruleKey = exportPath ? `${pkg}/${exportPath}` : pkg;
+const rule = rules[ruleKey];
 if (!rule) {
-  throw new Error(`no public-surface rule configured for ${pkg}`);
+  throw new Error(`no public-surface rule configured for ${ruleKey}`);
 }
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const dtsPath = path.join(repoRoot, pkg, "dist/index.d.ts");
+const dtsPath = path.join(
+  repoRoot,
+  rule.dtsPath ?? path.join(pkg, "dist/index.d.ts"),
+);
 const source = readFileSync(dtsPath, "utf8");
 const exportMatches = [...source.matchAll(/export(?:\s+type)?\s*\{([^}]+)\}/g)];
 const exportedNames = new Set();
@@ -99,7 +104,7 @@ const unexpected = [...exportedNames]
 
 if (unexpected.length > 0) {
   throw new Error(
-    `${pkg} dist/index.d.ts exports unexpected root symbols: ${unexpected.join(", ")}`,
+    `${ruleKey} exports unexpected symbols: ${unexpected.join(", ")}`,
   );
 }
 
@@ -108,6 +113,6 @@ const aliasMatches = [...source.matchAll(/\bas\s+([A-Za-z])\b/g)]
 
 if (aliasMatches.length > 0) {
   throw new Error(
-    `${pkg} dist/index.d.ts contains one-letter export aliases: ${aliasMatches.join(", ")}`,
+    `${ruleKey} contains one-letter export aliases: ${aliasMatches.join(", ")}`,
   );
 }

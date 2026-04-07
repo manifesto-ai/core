@@ -4,8 +4,12 @@ import {
   computeSync,
   getAvailableActions as queryAvailableActions,
   isActionAvailable as queryActionAvailable,
+  type ComputeStatus,
   type DomainSchema,
+  type Patch,
+  type Requirement,
   type Snapshot as CoreSnapshot,
+  type SystemDelta,
 } from "@manifesto-ai/core";
 import {
   extractSchemaGraph,
@@ -36,7 +40,7 @@ import type {
   SchemaGraphNodeId,
   SchemaGraphNodeRef,
   Selector,
-  SimulateResult,
+  SimulateResult as ProjectedSimulateResult,
   Snapshot,
   TypedActionMetadata,
   TypedCreateIntent,
@@ -54,10 +58,15 @@ import {
   projectedSnapshotsEqual,
   type SnapshotProjectionPlan,
 } from "./snapshot-projection.js";
+import type {
+  ExtensionKernel,
+  ExtensionSimulateResult,
+} from "./extensions-types.js";
 
 export const ACTION_PARAM_NAMES = Symbol("manifesto-sdk.action-param-names");
 export const RUNTIME_KERNEL_FACTORY = Symbol("manifesto-sdk.runtime-kernel-factory");
 export const ACTIVATION_STATE = Symbol("manifesto-sdk.activation-state");
+export const EXTENSION_KERNEL = Symbol("manifesto-sdk.extension-kernel");
 const SCHEMA_GRAPH_NODE_ID_PATTERN = /^(state|computed|action):.+$/;
 
 type RuntimeActionParamMetadata = readonly string[] | null;
@@ -79,6 +88,16 @@ interface Subscriber<TState, R> {
   initialized: boolean;
 }
 
+export type SimulateResult<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly snapshot: CanonicalSnapshot<T["state"]>;
+  readonly patches: readonly Patch[];
+  readonly systemDelta: Readonly<SystemDelta>;
+  readonly status: ComputeStatus;
+  readonly requirements: readonly Requirement[];
+};
+
 export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly schema: DomainSchema;
   readonly MEL: TypedMEL<T>;
@@ -87,10 +106,21 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
+  readonly getAvailableActionsFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ) => readonly (keyof T["actions"])[];
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly getActionMetadata: TypedGetActionMetadata<T>;
+  readonly isActionAvailableFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    name: keyof T["actions"],
+  ) => boolean;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly getSchemaGraph: () => SchemaGraph;
+  readonly simulateSync: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => SimulateResult<T>;
   readonly simulate: TypedSimulate<T>;
   readonly dispose: () => void;
   readonly isDisposed: () => boolean;
@@ -112,6 +142,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   ) => Promise<HostResult>;
   readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
+  readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
 }
 
 export type RuntimeKernelFactory<T extends ManifestoDomainShape> = () => RuntimeKernel<T>;
@@ -122,6 +153,10 @@ export type InternalComposableManifesto<
 > = ComposableManifesto<T, Laws> & {
   readonly [RUNTIME_KERNEL_FACTORY]: RuntimeKernelFactory<T>;
   readonly [ACTIVATION_STATE]: ActivationState;
+};
+
+type ExtensionKernelCarrier<T extends ManifestoDomainShape> = {
+  readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
 };
 
 type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
@@ -404,6 +439,39 @@ export function getRuntimeKernelFactory<
   return factory;
 }
 
+export function attachExtensionKernel<
+  T extends ManifestoDomainShape,
+  TInstance extends object,
+>(
+  runtime: TInstance,
+  kernel: RuntimeKernel<T>,
+): TInstance {
+  Object.defineProperty(runtime, EXTENSION_KERNEL, {
+    enumerable: false,
+    configurable: false,
+    writable: false,
+    value: kernel[EXTENSION_KERNEL],
+  });
+
+  return runtime;
+}
+
+export function getAttachedExtensionKernel<T extends ManifestoDomainShape>(
+  runtime: object,
+): ExtensionKernel<T> {
+  const internal = runtime as Partial<ExtensionKernelCarrier<T>>;
+  const kernel = internal[EXTENSION_KERNEL];
+
+  if (!kernel) {
+    throw new ManifestoError(
+      "SCHEMA_ERROR",
+      "Activated runtime is missing its extension kernel",
+    );
+  }
+
+  return kernel;
+}
+
 export function getActivationState<
   T extends ManifestoDomainShape,
   Laws extends BaseLaws,
@@ -480,12 +548,17 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     throw new ManifestoError("SCHEMA_ERROR", "Host failed to initialize its genesis snapshot");
   }
 
+  function projectSnapshotFromCanonical(
+    snapshot: CoreSnapshot,
+  ): Snapshot<T["state"]> {
+    return cloneAndDeepFreeze(
+      projectCanonicalSnapshot<T["state"]>(snapshot, projectionPlan),
+    );
+  }
+
   let visibleCanonicalSnapshot: CoreSnapshot = structuredClone(initialCanonicalSnapshot);
-  let visibleProjectedSnapshot = cloneAndDeepFreeze(
-    projectCanonicalSnapshot<T["state"]>(
-      visibleCanonicalSnapshot,
-      projectionPlan,
-    ),
+  let visibleProjectedSnapshot = projectSnapshotFromCanonical(
+    visibleCanonicalSnapshot,
   );
   let visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
     visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
@@ -586,11 +659,18 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return visibleCanonicalReadSnapshot;
   }
 
+  function getAvailableActionsFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ): readonly (keyof T["actions"])[] {
+    return Object.freeze(
+      [
+        ...queryAvailableActions(schema, snapshot as CoreSnapshot),
+      ] as Array<keyof T["actions"]>,
+    );
+  }
+
   function getAvailableActions(): readonly (keyof T["actions"])[] {
-    return queryAvailableActions(
-      schema,
-      visibleCanonicalSnapshot,
-    ) as readonly (keyof T["actions"])[];
+    return getAvailableActionsFor(visibleCanonicalReadSnapshot);
   }
 
   const getActionMetadata: TypedGetActionMetadata<T> = ((name?: keyof T["actions"]) => {
@@ -601,8 +681,15 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return actionMetadata;
   }) as TypedGetActionMetadata<T>;
 
+  function isActionAvailableFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    name: keyof T["actions"],
+  ): boolean {
+    return queryActionAvailable(schema, snapshot as CoreSnapshot, String(name));
+  }
+
   function isActionAvailable(name: keyof T["actions"]): boolean {
-    return queryActionAvailable(schema, visibleCanonicalSnapshot, String(name));
+    return isActionAvailableFor(visibleCanonicalReadSnapshot, name);
   }
 
   function getSchemaGraph(): SchemaGraph {
@@ -639,39 +726,60 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     );
   }
 
+  function createSimulationUnavailableError(intent: TypedIntent<T>): ManifestoError {
+    return new ManifestoError(
+      "ACTION_UNAVAILABLE",
+      `Action "${intent.type}" is unavailable against the provided canonical snapshot`,
+    );
+  }
+
+  function simulateSync(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): SimulateResult<T> {
+    const enrichedIntent = ensureIntentId(intent);
+    if (!isActionAvailableFor(snapshot, enrichedIntent.type as keyof T["actions"])) {
+      throw createSimulationUnavailableError(enrichedIntent);
+    }
+
+    const context = hostContextProvider.createFrozenContext(enrichedIntent.intentId);
+    const baseline = withHostIntentSlot(
+      structuredClone(snapshot as CoreSnapshot),
+      enrichedIntent,
+      context,
+    );
+    const result = computeSync(schema, baseline, enrichedIntent, context);
+    const afterPatches = apply(schema, baseline, result.patches, context);
+    const canonicalSimulated = applySystemDelta(afterPatches, result.systemDelta);
+
+    return Object.freeze({
+      snapshot: cloneAndDeepFreeze(
+        canonicalSimulated as CanonicalSnapshot<T["state"]>,
+      ),
+      patches: cloneAndDeepFreeze(result.patches),
+      systemDelta: cloneAndDeepFreeze(result.systemDelta),
+      status: result.status,
+      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
+    }) as SimulateResult<T>;
+  }
+
   const simulate: TypedSimulate<T> = ((
     action,
     ...args
   ) => {
-    const intent = ensureIntentId(createIntent(action, ...args));
-    if (!isActionAvailable(intent.type as keyof T["actions"])) {
-      throw createUnavailableError(intent);
-    }
-
-    const context = hostContextProvider.createFrozenContext(intent.intentId);
-    const baseline = withHostIntentSlot(
-      structuredClone(visibleCanonicalSnapshot),
-      intent,
-      context,
+    const simulated = simulateSync(
+      visibleCanonicalReadSnapshot,
+      createIntent(action, ...args),
     );
-    const result = computeSync(schema, baseline, intent, context);
-    const afterPatches = apply(schema, baseline, result.patches, context);
-    const canonicalSimulated = applySystemDelta(afterPatches, result.systemDelta);
-    const projectedSimulated = cloneAndDeepFreeze(
-      projectCanonicalSnapshot<T["state"]>(canonicalSimulated, projectionPlan),
-    );
+    const projectedSimulated = projectSnapshotFromCanonical(simulated.snapshot);
 
     return Object.freeze({
       snapshot: projectedSimulated,
       changedPaths: diffProjectedPaths(visibleProjectedSnapshot, projectedSimulated),
-      newAvailableActions: Object.freeze(
-        [
-          ...queryAvailableActions(schema, canonicalSimulated),
-        ] as Array<keyof T["actions"]>,
-      ),
-      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
-      status: result.status,
-    }) as SimulateResult<T>;
+      newAvailableActions: getAvailableActionsFor(simulated.snapshot),
+      requirements: simulated.requirements,
+      status: simulated.status,
+    }) as ProjectedSimulateResult<T>;
   }) as TypedSimulate<T>;
 
   function dispose(): void {
@@ -694,9 +802,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
       visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
     );
 
-    const nextProjectedSnapshot = projectCanonicalSnapshot<T["state"]>(
+    const nextProjectedSnapshot = projectSnapshotFromCanonical(
       visibleCanonicalSnapshot,
-      projectionPlan,
     );
     const projectedChanged = !projectedSnapshotsEqual(
       nextProjectedSnapshot,
@@ -704,7 +811,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     );
 
     if (projectedChanged) {
-      visibleProjectedSnapshot = cloneAndDeepFreeze(nextProjectedSnapshot);
+      visibleProjectedSnapshot = nextProjectedSnapshot;
     }
 
     if (options?.notify !== false && projectedChanged) {
@@ -803,6 +910,30 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     }
   }
 
+  const extensionKernel = Object.freeze({
+    MEL,
+    schema,
+    createIntent,
+    getCanonicalSnapshot,
+    projectSnapshot: (
+      snapshot: CanonicalSnapshot<T["state"]>,
+    ): Snapshot<T["state"]> => projectSnapshotFromCanonical(snapshot),
+    simulateSync: (
+      snapshot: CanonicalSnapshot<T["state"]>,
+      intent: TypedIntent<T>,
+    ): ExtensionSimulateResult<T> => {
+      const result = simulateSync(snapshot, intent);
+      return Object.freeze({
+        snapshot: result.snapshot,
+        patches: result.patches,
+        requirements: result.requirements,
+        status: result.status,
+      }) as ExtensionSimulateResult<T>;
+    },
+    getAvailableActionsFor,
+    isActionAvailableFor,
+  }) as ExtensionKernel<T>;
+
   return {
     schema,
     MEL,
@@ -810,10 +941,13 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     subscribe,
     on,
     getSnapshot,
+    getAvailableActionsFor,
     getAvailableActions,
     getActionMetadata,
+    isActionAvailableFor,
     isActionAvailable,
     getSchemaGraph,
+    simulateSync,
     simulate,
     dispose,
     isDisposed: () => disposed,
@@ -827,6 +961,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     executeHost,
     createUnavailableError,
     rejectUnavailable,
+    [EXTENSION_KERNEL]: extensionKernel,
   };
 }
 
@@ -885,7 +1020,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     return kernel.enqueue(() => processIntent(enrichedIntent));
   }
 
-  return {
+  return attachExtensionKernel({
     createIntent: kernel.createIntent,
     dispatchAsync,
     subscribe: kernel.subscribe,
@@ -900,7 +1035,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     MEL: kernel.MEL,
     schema: kernel.schema,
     dispose: kernel.dispose,
-  };
+  }, kernel);
 }
 
 function toError(error: unknown): Error {

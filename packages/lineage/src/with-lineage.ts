@@ -9,6 +9,7 @@ import {
 import {
   activateComposable,
   assertComposableNotActivated,
+  attachExtensionKernel,
   attachRuntimeKernelFactory,
   getActivationState,
   getRuntimeKernelFactory,
@@ -141,7 +142,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     throw failure;
   }
 
-  return {
+  return attachExtensionKernel({
     createIntent: kernel.createIntent,
     commitAsync,
     subscribe: kernel.subscribe,
@@ -166,7 +167,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     getActiveBranch: controller.getActiveBranch,
     switchActiveBranch: controller.switchActiveBranch,
     createBranch: controller.createBranch,
-  };
+  }, kernel);
 }
 
 function toCommitFailure(error: unknown): Error {

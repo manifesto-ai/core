@@ -8,7 +8,7 @@ If you are new, do not read this section front-to-back. Start with [Start Here](
 
 Start with the base runtime and treat the rest as lookup layers around it.
 
-The public surface around that runtime also includes project bootstrapping, MEL editor tooling, explicit AI skill installation, Studio-based inspection packages, and an optional advanced runtime layer for approval and history.
+The public surface around that runtime also includes project bootstrapping, MEL editor tooling, explicit AI skill installation, Studio-based inspection packages, and an advanced runtime layer for approval and history.
 
 | Path | Package | Use When |
 |------|---------|----------|
@@ -21,7 +21,7 @@ The public surface around that runtime also includes project bootstrapping, MEL 
 
 | Package | Responsibility |
 |---------|----------------|
-| [@manifesto-ai/sdk](./sdk) | Activation-first base runtime entry, typed MEL surface, and present-only execution |
+| [@manifesto-ai/sdk](./sdk) | Activation-first base runtime entry, typed MEL surface, present-only execution, and `sdk/extensions` for safe arbitrary-snapshot helper/tooling work |
 
 ### Advanced Runtime
 
@@ -89,7 +89,7 @@ await instance.dispatchAsync(
 ### Advanced Runtime Direction
 
 ```typescript
-// ADR-017 direction
+// Current decorator direction
 // createManifesto(schema, effects)
 //   -> withLineage(...)
 //   -> withGovernance(...)

@@ -5,6 +5,7 @@ import {
   type DomainSchema,
 } from "@manifesto-ai/core";
 import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
+import { getExtensionKernel } from "../../sdk/src/extensions.js";
 
 import {
   type LineageService,
@@ -288,6 +289,18 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     const world = lineage.activate();
 
     expect(() => base.activate()).toThrow(AlreadyActivatedError);
+
+    world.dispose();
+  });
+
+  it("attaches the sdk extension kernel to the activated lineage runtime", () => {
+    const world = withLineage(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const ext = getExtensionKernel(world);
+
+    expect(ext.projectSnapshot(ext.getCanonicalSnapshot())).toEqual(world.getSnapshot());
 
     world.dispose();
   });

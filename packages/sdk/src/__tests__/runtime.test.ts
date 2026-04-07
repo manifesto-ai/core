@@ -10,6 +10,8 @@ import {
   ManifestoError,
   createManifesto,
 } from "../index.js";
+import { getExtensionKernel } from "../extensions.js";
+import { getRuntimeKernelFactory } from "../provider.js";
 import { projectedSnapshotsEqual } from "../snapshot-projection.js";
 import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
@@ -529,6 +531,133 @@ describe("activated base runtime", () => {
     );
     expect(counterWorld.getSnapshot().data.count).toBe(1);
     counterWorld.dispose();
+  });
+
+  it("simulates arbitrary canonical snapshots without mutating visible runtime state", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const intent = kernel.createIntent(kernel.MEL.actions.increment);
+    const first = kernel.simulateSync(canonical, intent);
+    const second = kernel.simulateSync(canonical, intent);
+    const normalizeTimestamp = (
+      result: typeof first,
+    ) => ({
+      ...result,
+      snapshot: {
+        ...result.snapshot,
+        meta: {
+          ...result.snapshot.meta,
+          timestamp: 0,
+        },
+      },
+    });
+
+    expect(normalizeTimestamp(first)).toEqual(normalizeTimestamp(second));
+    expect(first.status).toBe("complete");
+    expect(first.snapshot.data.count).toBe(1);
+    expect(canonical.data.count).toBe(0);
+    expect(kernel.getCanonicalSnapshot().data.count).toBe(0);
+
+    kernel.dispose();
+  });
+
+  it("queries action availability against arbitrary canonical snapshots through RuntimeKernel", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const incremented = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.increment),
+    );
+
+    expect(kernel.isActionAvailableFor(canonical, "incrementIfEven")).toBe(true);
+    expect(kernel.isActionAvailableFor(incremented.snapshot, "incrementIfEven")).toBe(false);
+    expect(kernel.isActionAvailable("incrementIfEven")).toBe(true);
+    expect(kernel.getAvailableActionsFor(incremented.snapshot)).not.toContain("incrementIfEven");
+    expect(kernel.getAvailableActions()).toContain("incrementIfEven");
+
+    kernel.dispose();
+  });
+
+  it("returns canonical simulation metadata for pending results and rejects unavailable arbitrary-snapshot dry-runs", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const pending = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.load),
+    );
+    const odd = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.increment),
+    );
+
+    expect(pending.status).toBe("pending");
+    expect(pending.patches).toHaveLength(1);
+    expect(pending.requirements).toHaveLength(1);
+    expect(pending.systemDelta.addRequirements).toHaveLength(1);
+    expect(pending.snapshot.system.pendingRequirements).toHaveLength(1);
+    expect(kernel.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
+
+    expect(() =>
+      kernel.simulateSync(
+        odd.snapshot,
+        kernel.createIntent(kernel.MEL.actions.incrementIfEven),
+      )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "ACTION_UNAVAILABLE",
+      }),
+    );
+
+    kernel.dispose();
+  });
+
+  it("exposes a pure extension kernel with current-snapshot simulate parity", () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const ext = getExtensionKernel(world);
+    const subscriber = vi.fn();
+    const completed = vi.fn();
+
+    world.subscribe((snapshot) => snapshot.data.count, subscriber);
+    world.on("dispatch:completed", completed);
+
+    const beforeProjected = world.getSnapshot();
+    const beforeCanonical = world.getCanonicalSnapshot();
+    const intent = ext.createIntent(ext.MEL.actions.increment);
+    const simulated = ext.simulateSync(ext.getCanonicalSnapshot(), intent);
+    const projected = ext.projectSnapshot(simulated.snapshot);
+    const publicSimulated = world.simulate(world.MEL.actions.increment);
+
+    expect(ext.MEL).toBe(world.MEL);
+    expect(ext.schema).toBe(world.schema);
+    expect(ext.getCanonicalSnapshot()).toEqual(beforeCanonical);
+    expect(projected).toEqual(publicSimulated.snapshot);
+    expect(simulated.status).toBe(publicSimulated.status);
+    expect(simulated.requirements).toEqual(publicSimulated.requirements);
+    expect(ext.getAvailableActionsFor(simulated.snapshot)).toEqual(publicSimulated.newAvailableActions);
+    expect(world.getSnapshot()).toBe(beforeProjected);
+    expect(world.getCanonicalSnapshot()).toEqual(beforeCanonical);
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(completed).not.toHaveBeenCalled();
+
+    world.dispose();
+  });
+
+  it("keeps extension-kernel methods available after runtime disposal", () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const ext = getExtensionKernel(world);
+    const canonical = ext.getCanonicalSnapshot();
+    const intent = ext.createIntent(ext.MEL.actions.increment);
+
+    world.dispose();
+
+    expect(ext.getCanonicalSnapshot()).toEqual(canonical);
+    expect(ext.projectSnapshot(canonical)).toEqual(world.getSnapshot());
+
+    const simulated = ext.simulateSync(canonical, intent);
+    expect(simulated.snapshot.data.count).toBe(1);
+    expect(ext.getAvailableActionsFor(simulated.snapshot)).not.toContain("incrementIfEven");
   });
 
   it("checks availability at dequeue time and rejects without publication", async () => {

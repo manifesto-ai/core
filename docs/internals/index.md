@@ -64,7 +64,7 @@ There is no standalone `ADR-013` page. The mixed proposal was split into [ADR-01
 
 ## Specifications
 
-Formal specifications for each package. See the [Specifications Hub](./spec/) for links to all package specifications with current versions.
+Formal specifications for each package. See the [Specifications Hub](./spec/) for links to all package specifications with current versions, plus draft package specs that have not yet landed in the active workspace.
 
 ## Design Rationale (FDRs)
 

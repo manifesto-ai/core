@@ -13,9 +13,17 @@ Use SDK when you want:
 - typed intent creation through `MEL.actions.*`
 - subscriptions, availability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
-The current SDK v3.1.0 contract is:
+The current SDK v3.3.0 contract is:
 
 `createManifesto(schema, effects) -> activate() -> base runtime instance`
+
+The current post-activation extension seam is:
+
+`@manifesto-ai/sdk/extensions -> getExtensionKernel(app)`
+
+The current first-party hypothetical-session helper is:
+
+`@manifesto-ai/sdk/extensions -> createSimulationSession(app)`
 
 ## SDK-Owned Surface
 
@@ -37,6 +45,7 @@ The current SDK v3.1.0 contract is:
   - `schema`
   - `dispose`
 - SDK error types
+- `@manifesto-ai/sdk/extensions` for safe arbitrary-snapshot read-only helpers
 - `@manifesto-ai/sdk/provider` for decorator/provider authoring seams
 
 ## Base Runtime Example
@@ -127,6 +136,62 @@ The current public seam includes:
 App-facing runtime work should stay on `@manifesto-ai/sdk`.
 `getSnapshot()` is the default projected read model for application code. `getCanonicalSnapshot()` is the full runtime substrate for persistence, deep debugging, and infrastructure-aware tooling.
 
+## Extension Kernel
+
+ADR-019 now lands in the current SDK contract through `@manifesto-ai/sdk/extensions`.
+
+Its purpose is to give helper and tool authors a **safe post-activation arbitrary-snapshot read-only surface** without exposing the full provider seam.
+
+Usage:
+
+```typescript
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
+
+const ext = getExtensionKernel(instance);
+const root = ext.getCanonicalSnapshot();
+const intent = ext.createIntent(ext.MEL.actions.increment);
+const simulated = ext.simulateSync(root, intent);
+const projected = ext.projectSnapshot(simulated.snapshot);
+```
+
+Branching hypothetical futures stays on the same seam:
+
+```typescript
+const ext = getExtensionKernel(instance);
+const root = ext.getCanonicalSnapshot();
+
+const first = ext.simulateSync(
+  root,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+const branchA = ext.simulateSync(
+  first.snapshot,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+const branchB = ext.simulateSync(
+  first.snapshot,
+  ext.createIntent(ext.MEL.actions.add, 5),
+);
+
+const projectedA = ext.projectSnapshot(branchA.snapshot);
+const projectedB = ext.projectSnapshot(branchB.snapshot);
+```
+
+This is the intended substrate for manual simulation helpers. The SDK no longer relies on a dedicated planner/simulator package for post-activation hypothetical tooling.
+
+When you want a branchable helper rather than raw substrate access, use the built-in session API:
+
+```typescript
+import { createSimulationSession } from "@manifesto-ai/sdk/extensions";
+
+const sim = createSimulationSession(instance);
+const step1 = sim.next(instance.MEL.actions.increment);
+const branchA = step1.next(instance.MEL.actions.increment);
+const branchB = step1.next(instance.MEL.actions.add, 5);
+```
+
 ## Advanced Runtime Direction
 
 The forward public direction under ADR-017 is:
@@ -134,6 +199,8 @@ The forward public direction under ADR-017 is:
 `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
 Those advanced-runtime contracts belong to the owning `@manifesto-ai/lineage` and `@manifesto-ai/governance` packages. Legacy world-facade docs are historical tombstones, not the SDK's canonical current story.
+
+If you need richer post-activation hypothetical tooling, build it on `@manifesto-ai/sdk/extensions` rather than a dedicated outer decorator.
 
 ## Related Docs
 

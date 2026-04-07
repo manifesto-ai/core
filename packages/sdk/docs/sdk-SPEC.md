@@ -4,15 +4,15 @@
 > **Scope:** Manifesto SDK Layer - Public Developer API
 > **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Compiler SPEC v0.8.0 addendum, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
 > **Supersedes:** SDK SPEC v2.0.0
-> **Implements:** ADR-017 v3.1
+> **Implements:** ADR-017 v3.1, ADR-019 v1.1
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.1.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5 are now part of the current living SDK contract. The compiler-side extraction contract currently lives in the companion addendum [SPEC-v0.8.0](../../compiler/docs/SPEC-v0.8.0.md).
+> **Current v3.3.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contract currently lives in the companion addendum [SPEC-v0.8.0](../../compiler/docs/SPEC-v0.8.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3.1.0 public contract.
+This document defines the current SDK v3.3.0 public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
@@ -36,6 +36,7 @@ Normative rule prefixes:
 | `SDK-DISPATCH-*` | `dispatchAsync()` semantics |
 | `SDK-GRAPH-*` | `getSchemaGraph()` and `SchemaGraph` semantics |
 | `SDK-SIM-*` | `simulate()` semantics |
+| `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` semantics |
 | `SDK-SUB-*` | subscription semantics |
 | `SDK-EVENT-*` | telemetry channel semantics |
 | `SDK-SNAP-*` | snapshot visibility and immutability |
@@ -482,7 +483,7 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 The canonical public surface is the instance object. Destructuring is optional ergonomics only.
 
-The members in §7.4 and §7.5 are part of the current v3.1.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
+The members in §7.4 and §7.5 are part of the current v3.3.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
 
 ### 7.1 `createIntent()`
 
@@ -621,7 +622,143 @@ The returned value MUST be protected from external mutation. The implementation 
 
 This is the explicit inspection seam for persistence-aware tooling, stored-world alignment, and low-level debugging. It is not the default application-facing read surface.
 
-### 7.10 `dispose()`
+### 7.10 `@manifesto-ai/sdk/extensions`
+
+ADR-019 defines the SDK seam for post-activation, arbitrary-snapshot, observationally pure tooling:
+
+```typescript
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
+
+const ext = getExtensionKernel(instance);
+```
+
+`getExtensionKernel()` accepts an activated SDK runtime:
+
+```typescript
+getExtensionKernel<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  app: ActivatedInstance<T, Laws>,
+): ExtensionKernel<T>;
+```
+
+It MUST NOT accept a pre-activation `ComposableManifesto`.
+
+The public surface is:
+
+```typescript
+interface ExtensionKernel<T extends ManifestoDomainShape> {
+  readonly MEL: TypedMEL<T>;
+  readonly schema: DomainSchema;
+
+  createIntent: TypedCreateIntent<T>;
+  getCanonicalSnapshot(): CanonicalSnapshot<T["state"]>;
+
+  projectSnapshot(
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ): Snapshot<T["state"]>;
+
+  simulateSync(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): ExtensionSimulateResult<T>;
+
+  getAvailableActionsFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ): readonly (keyof T["actions"])[];
+
+  isActionAvailableFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    actionName: keyof T["actions"],
+  ): boolean;
+}
+
+type ExtensionSimulateResult<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly snapshot: CanonicalSnapshot<T["state"]>;
+  readonly patches: readonly Patch[];
+  readonly requirements: readonly Requirement[];
+  readonly status: ComputeStatus;
+};
+```
+
+`ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` are observational equivalents of the corresponding activated-runtime members. The extension seam narrows capability, not meaning.
+
+All arbitrary-snapshot operations accept **canonical** snapshots only. Passing projected `Snapshot` values, or canonical snapshots that do not conform to the activated runtime's schema, is out of contract.
+
+The Extension Kernel is the safe public subset for helper and tool authors. It MUST remain observationally pure: no publication, execution, event emission, queue control, or visible runtime mutation.
+
+`ExtensionSimulateResult` is intentionally canonical and minimal. Unlike current-snapshot `simulate()`, it does not bundle projected `changedPaths` or `newAvailableActions`. Callers that need those views MUST compose `projectSnapshot()` and `getAvailableActionsFor()` explicitly.
+
+Extension-kernel acquisition and use are post-activation only, but they are not part of runtime execution. The seam remains analytical after `dispose()`: observationally pure methods MUST NOT reject solely because the source runtime has been disposed.
+
+#### 7.10.1 `createSimulationSession()`
+
+`@manifesto-ai/sdk/extensions` also exposes a first-party immutable branching helper:
+
+```typescript
+createSimulationSession<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  app: ActivatedInstance<T, Laws>,
+): SimulationSession<T>;
+```
+
+The helper is intentionally thin over the Extension Kernel:
+
+```typescript
+type SimulationSessionStatus = ComputeStatus | "idle";
+
+type SimulationActionRef<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = TypedActionRef<T, keyof T["actions"]>;
+
+type SimulationSessionStep<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly intent: TypedIntent<T>;
+  readonly snapshot: Snapshot<T["state"]>;
+  readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly availableActions: readonly SimulationActionRef<T>[];
+  readonly requirements: readonly Requirement[];
+  readonly status: ComputeStatus;
+  readonly isTerminal: boolean;
+};
+
+type SimulationSessionResult<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly snapshot: Snapshot<T["state"]>;
+  readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly depth: number;
+  readonly trajectory: readonly SimulationSessionStep<T>[];
+  readonly availableActions: readonly SimulationActionRef<T>[];
+  readonly requirements: readonly Requirement[];
+  readonly status: SimulationSessionStatus;
+  readonly isTerminal: boolean;
+};
+
+interface SimulationSession<T extends ManifestoDomainShape> {
+  readonly snapshot: Snapshot<T["state"]>;
+  readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly depth: number;
+  readonly trajectory: readonly SimulationSessionStep<T>[];
+  readonly availableActions: readonly SimulationActionRef<T>[];
+  readonly requirements: readonly Requirement[];
+  readonly status: SimulationSessionStatus;
+  readonly isTerminal: boolean;
+
+  next<K extends keyof T["actions"]>(
+    action: TypedActionRef<T, K>,
+    ...args: CreateIntentArgs<T, K>
+  ): SimulationSession<T>;
+
+  next(intent: TypedIntent<T>): SimulationSession<T>;
+
+  finish(): SimulationSessionResult<T>;
+}
+```
+
+The root session starts from the current canonical runtime snapshot and projects that snapshot to the normal public `Snapshot` surface. Each `next()` call performs one arbitrary-snapshot `simulateSync()` step and returns a new branch. The original session MUST remain unchanged.
+
+### 7.11 `dispose()`
 
 `dispose()` is idempotent.
 
@@ -664,6 +801,23 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-SIM-6 | MUST | `simulate().newAvailableActions` MUST be evaluated against the canonical simulated snapshot |
 | SDK-SIM-7 | MUST | `simulate().changedPaths` MUST be diffed from the projected public snapshot only and MUST be treated as inspection/debug-only, not as the canonical branching API |
 | SDK-SIM-8 | MUST | `simulate().status` MUST mirror Core `ComputeStatus` exactly, including `halted` |
+| SDK-EXT-1 | MUST | `getExtensionKernel()` MUST accept only activated runtime instances and MUST return a frozen, bound Extension Kernel |
+| SDK-EXT-2 | MUST | `ExtensionKernel.projectSnapshot()` MUST apply the same public projection boundary as `getSnapshot()` |
+| SDK-EXT-3 | MUST | `ExtensionKernel.projectSnapshot()` MUST be observationally pure; it MUST NOT be implemented by mutating the visible runtime snapshot and reading it back |
+| SDK-EXT-4 | MUST | `ExtensionKernel.simulateSync()` MUST use the same `computeSync -> apply -> applySystemDelta` transition contract as `simulate()` |
+| SDK-EXT-5 | MUST | `ExtensionKernel.simulateSync()` MUST preserve the same unavailable-action rejection semantics as `simulate()` |
+| SDK-EXT-6 | MUST | `ExtensionKernel.getAvailableActionsFor()` and `isActionAvailableFor()` MUST evaluate against the caller-provided canonical snapshot |
+| SDK-EXT-7 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST expose publication-control, execution-control, queue-control, or provider-activation helpers |
+| SDK-EXT-8 | MUST NOT | Calls through `ExtensionKernel` MUST mutate the visible runtime snapshot, trigger subscribers, emit runtime events, or enqueue work on the source runtime |
+| SDK-EXT-9 | MUST | `ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` MUST remain observationally equivalent to the corresponding activated-runtime members |
+| SDK-EXT-10 | MUST | `ExtensionSimulateResult` MUST remain canonical and minimal; projected `changedPaths` and `newAvailableActions` belong to `simulate()` or explicit follow-up extension calls, not to `simulateSync()` |
+| SDK-EXT-11 | MUST | For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime, `projectSnapshot(result.snapshot)`, `result.status`, `result.requirements`, and `getAvailableActionsFor(result.snapshot)` from `simulateSync(snapshot, intent)` MUST match public `simulate()` semantics |
+| SDK-EXT-12 | MUST | Observationally pure `ExtensionKernel` methods MUST remain callable after `dispose()` and MUST NOT reject solely because the source runtime has been disposed |
+| SDK-EXT-13 | MUST | `createSimulationSession()` MUST share the same safe substrate as `ExtensionKernel`; it MUST NOT require provider-only access or bypass the extension boundary with provider-only capabilities |
+| SDK-EXT-14 | MUST | The root `SimulationSession` MUST start from `getCanonicalSnapshot()` and expose both the projected `snapshot` and the canonical substrate explicitly as `canonicalSnapshot` |
+| SDK-EXT-15 | MUST | `SimulationSession.next()` MUST be immutable: it returns a new session branch and MUST NOT mutate the original session |
+| SDK-EXT-16 | MUST | `SimulationSession.availableActions` MUST expose typed MEL action refs for the current branch state, derived from `getAvailableActionsFor(canonicalSnapshot)` |
+| SDK-EXT-17 | MUST | Terminal `SimulationSession` states (`pending`, `halted`, `error`) MUST reject further `next()` calls with an SDK error; `finish()` MUST remain available |
 | SDK-SUB-1 | MUST | `subscribe()` MUST NOT fire synchronously on registration |
 | SDK-SUB-2 | MUST | `subscribe()` listeners MUST fire only after visible terminal snapshot publication |
 | SDK-SUB-3 | MUST | selector change detection MUST use `Object.is` |
@@ -700,6 +854,30 @@ function withGovernance<T extends ManifestoDomainShape, L extends BaseLaws>(
 
 Those APIs are owned by their packages, not by SDK. SDK v3 guarantees only that its composable manifesto is the canonical input to that decorator chain.
 
+The post-activation extension seam lives at `@manifesto-ai/sdk/extensions`.
+That subpath is for helper and tool authors who need safe arbitrary-snapshot read-only operations on an activated runtime.
+
+The public decorator/provider authoring seam lives at `@manifesto-ai/sdk/provider`.
+That subpath exposes `RuntimeKernel`, `RuntimeKernelFactory`, and the activation-state helpers used by `withLineage()` and `withGovernance()`.
+
+For decorator authors that need hypothetical planning or dry-run analysis against caller-provided canonical snapshots, `RuntimeKernel` MUST additionally expose:
+
+- `simulateSync(snapshot, intent)`
+- `getAvailableActionsFor(snapshot)`
+- `isActionAvailableFor(snapshot, actionName)`
+
+Those methods are provider-authoring seams only. They operate on caller-provided canonical snapshots and MUST NOT mutate or publish the visible runtime snapshot.
+
+Post-activation pure extension does not reopen pre-activation composition. `@manifesto-ai/sdk/extensions` is not a decorator seam and MUST NOT be used to model identity-changing capabilities.
+
+The three SDK layers are intentionally distinct:
+
+| Subpath | Audience | Capability Level |
+|---------|----------|------------------|
+| `@manifesto-ai/sdk` | App consumers | Safe current-snapshot runtime |
+| `@manifesto-ai/sdk/extensions` | Helper and tool authors | Safe arbitrary-snapshot read-only runtime |
+| `@manifesto-ai/sdk/provider` | Decorator/runtime authors | Full provider-authoring seam |
+
 This SDK spec does not restate:
 
 - lineage seal semantics
@@ -716,6 +894,11 @@ Those are defined by ADR-017 and their owning package specs.
 | SDK-BOUNDARY-3 | MUST NOT | SDK MUST NOT present `@manifesto-ai/world` as part of the SDK public contract in v3 |
 | SDK-BOUNDARY-4 | MUST | governed composition from the SDK story MUST be expressed as `createManifesto() -> withLineage() -> withGovernance() -> activate()` |
 | SDK-BOUNDARY-5 | MUST | once lineage or governance laws are composed, `activate()` MUST return the runtime type defined by the owning package rather than the base SDK runtime |
+| SDK-BOUNDARY-6 | MUST | `@manifesto-ai/sdk/provider` MUST expose arbitrary-snapshot `RuntimeKernel` helpers `simulateSync()`, `getAvailableActionsFor()`, and `isActionAvailableFor()` for decorator authors |
+| SDK-BOUNDARY-7 | MUST NOT | provider-seam arbitrary-snapshot helpers MUST NOT mutate, publish, or otherwise replace the visible runtime snapshot |
+| SDK-BOUNDARY-8 | MUST | `@manifesto-ai/sdk/extensions` MUST expose post-activation observationally pure arbitrary-snapshot helpers for activated runtimes |
+| SDK-BOUNDARY-9 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST NOT expose runtime-control methods or provider-only activation/composition helpers |
+| SDK-BOUNDARY-10 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST NOT be treated as a decorator or law-composition seam; identity-changing capabilities remain pre-activation concerns |
 
 ## 9. Hard-Cut Removals
 
@@ -779,7 +962,7 @@ Required stable codes:
 
 ## 12. Compliance Checklist
 
-An SDK v3.1.0 implementation complies with this living contract only if all of the following are true:
+An SDK v3.3.0 implementation complies with this living contract only if all of the following are true:
 
 - `createManifesto()` returns a composable manifesto, not a runtime instance.
 - Pre-activation objects expose no runtime verbs.
@@ -791,6 +974,7 @@ An SDK v3.1.0 implementation complies with this living contract only if all of t
 - `dispatchAsync()` is FIFO per instance and evaluates availability at dequeue time.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
 - `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
+- `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers and no runtime-control methods.
 - Subscribers fire only after visible terminal snapshot publication and use selector change detection.
 - Event payloads are typed and correlated by `intentId`.
 - Reserved effect override and reserved namespace misuse are rejected at factory time.

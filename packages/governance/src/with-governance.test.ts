@@ -5,6 +5,7 @@ import {
   type DomainSchema,
 } from "@manifesto-ai/core";
 import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
+import { getExtensionKernel } from "../../sdk/src/extensions.js";
 import {
   createInMemoryLineageStore,
   withLineage,
@@ -736,5 +737,34 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         },
       })
     ).toThrow("withGovernance() requires a manifesto already composed with withLineage()");
+  });
+
+  it("attaches the sdk extension kernel to the activated governance runtime", () => {
+    const world = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:extension-kernel",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:extension-kernel",
+          }),
+        },
+      },
+    ).activate();
+    const ext = getExtensionKernel(world);
+
+    expect(ext.projectSnapshot(ext.getCanonicalSnapshot())).toEqual(world.getSnapshot());
+
+    world.dispose();
   });
 });
