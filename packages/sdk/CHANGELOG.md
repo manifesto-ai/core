@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.6.0](https://github.com/manifesto-ai/core/compare/sdk-v3.5.0...sdk-v3.6.0) (2026-04-07)
+
+
+### Features
+
+* **sdk:** add planner runtime kernel seam ([040af7a](https://github.com/manifesto-ai/core/commit/040af7a13cc3fc84ba114ccb7b2a3d68416b391e))
+
+
+### Bug Fixes
+
+* **sdk:** freeze simulation session intents ([a109088](https://github.com/manifesto-ai/core/commit/a10908863f5baa6b75005b7773d1186ac36141c7))
+
 ## [3.5.0](https://github.com/manifesto-ai/core/compare/sdk-v3.4.0...sdk-v3.5.0) (2026-04-06)
 
 

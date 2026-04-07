@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.5.1](https://github.com/manifesto-ai/core/compare/lineage-v3.5.0...lineage-v3.5.1) (2026-04-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 3.6.0
+
 ## [3.5.0](https://github.com/manifesto-ai/core/compare/lineage-v3.4.0...lineage-v3.5.0) (2026-04-06)
 
 
