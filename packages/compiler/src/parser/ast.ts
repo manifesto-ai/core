@@ -102,6 +102,8 @@ export interface ActionNode extends ASTNode {
   params: ParamNode[];
   /** v0.3.2: Optional availability condition */
   available?: ExprNode;
+  /** v0.9.0: Optional dispatchability condition */
+  dispatchable?: ExprNode;
   body: GuardedStmtNode[];
 }
 

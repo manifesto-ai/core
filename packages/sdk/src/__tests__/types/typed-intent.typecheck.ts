@@ -1,5 +1,6 @@
 import type { Intent } from "@manifesto-ai/core";
 
+import type { DispatchBlocker } from "../../index.ts";
 import { createManifesto } from "../../index.ts";
 import { createForeignSchema, type ForeignDomain } from "../helpers/foreign-schema.ts";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
@@ -64,15 +65,28 @@ const addTodoMetadata = todo.getActionMetadata("addTodo");
 const addTodoName: "addTodo" = addTodoMetadata.name;
 const addTodoParams: readonly string[] = addTodoMetadata.params;
 const addTodoDescription: string | undefined = addTodoMetadata.description;
+const addTodoHasDispatchableGate: boolean = addTodoMetadata.hasDispatchableGate;
+const addTodoDispatchable: boolean = todo.isIntentDispatchable(
+  todo.MEL.actions.addTodo,
+  { title: "Review docs", id: "todo-1" },
+);
+const addTodoBlockers: readonly DispatchBlocker[] = todo.getIntentBlockers(
+  todo.MEL.actions.addTodo,
+  { title: "Review docs", id: "todo-1" },
+);
 const actionMetadata = todo.getActionMetadata();
 const actionMetadataList: readonly {
   readonly name: keyof TodoDomain["actions"];
   readonly params: readonly string[];
   readonly description: string | undefined;
+  readonly hasDispatchableGate: boolean;
 }[] = actionMetadata;
 void addTodoName;
 void addTodoParams;
 void addTodoDescription;
+void addTodoHasDispatchableGate;
+void addTodoDispatchable;
+void addTodoBlockers;
 void actionMetadataList;
 
 // @ts-expect-error getActionMetadata only accepts domain action names

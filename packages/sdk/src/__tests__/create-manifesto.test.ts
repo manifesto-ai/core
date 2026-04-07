@@ -10,9 +10,11 @@ import {
 } from "../index.js";
 import {
   counterMelSource,
+  createDispatchabilitySchema,
   createCounterSchema,
   createRawCounterSchema,
   type CounterDomain,
+  type DispatchabilityDomain,
   type MelCounterDomain,
   withHash,
 } from "./helpers/schema.js";
@@ -135,6 +137,7 @@ domain Todos {
       },
     });
     expect(metadata.description).toBeUndefined();
+    expect(metadata.hasDispatchableGate).toBe(false);
     expect(world.getActionMetadata().map((action) => action.name)).toEqual([
       "addTodo",
       "clearCompleted",
@@ -297,9 +300,23 @@ domain Todos {
 
     expect(addTodo.params).toEqual(["id", "title"]);
     expect(addTodo.description).toBe("Append a todo item");
+    expect(addTodo.hasDispatchableGate).toBe(false);
     expect(clearCompleted.params).toEqual([]);
     expect(clearCompleted.input).toBeUndefined();
     expect(clearCompleted.description).toBe("Remove completed todos");
+    expect(clearCompleted.hasDispatchableGate).toBe(false);
+
+    world.dispose();
+  });
+
+  it("marks dispatchable actions in metadata", () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    expect(world.getActionMetadata("increment").hasDispatchableGate).toBe(false);
+    expect(world.getActionMetadata("incrementGuarded").hasDispatchableGate).toBe(true);
 
     world.dispose();
   });

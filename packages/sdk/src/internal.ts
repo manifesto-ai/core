@@ -4,6 +4,7 @@ import {
   computeSync,
   getAvailableActions as queryAvailableActions,
   isActionAvailable as queryActionAvailable,
+  isIntentDispatchable as queryIntentDispatchable,
   type ComputeStatus,
   type DomainSchema,
   type Patch,
@@ -32,6 +33,7 @@ import type {
   BaseLaws,
   CanonicalSnapshot,
   ComposableManifesto,
+  DispatchBlocker,
   ManifestoBaseInstance,
   ManifestoDomainShape,
   ManifestoEvent,
@@ -45,7 +47,9 @@ import type {
   TypedActionMetadata,
   TypedCreateIntent,
   TypedGetActionMetadata,
+  TypedGetIntentBlockers,
   TypedIntent,
+  TypedIsIntentDispatchable,
   TypedMEL,
   TypedOn,
   TypedSimulate,
@@ -110,12 +114,22 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     snapshot: CanonicalSnapshot<T["state"]>,
   ) => readonly (keyof T["actions"])[];
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
+  readonly getIntentBlockersFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => readonly DispatchBlocker[];
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailableFor: (
     snapshot: CanonicalSnapshot<T["state"]>,
     name: keyof T["actions"],
   ) => boolean;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
+  readonly isIntentDispatchableFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => boolean;
+  readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
+  readonly getIntentBlockers: TypedGetIntentBlockers<T>;
   readonly getSchemaGraph: () => SchemaGraph;
   readonly simulateSync: (
     snapshot: CanonicalSnapshot<T["state"]>,
@@ -141,7 +155,9 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     options?: HostDispatchOptions,
   ) => Promise<HostResult>;
   readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
+  readonly createNotDispatchableError: (intent: TypedIntent<T>) => ManifestoError;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
+  readonly rejectNotDispatchable: (intent: TypedIntent<T>) => never;
   readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
 }
 
@@ -582,6 +598,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
           params,
           input: action.input,
           description: action.description,
+          hasDispatchableGate: action.dispatchable !== undefined,
         })];
       }),
     ),
@@ -673,6 +690,19 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return getAvailableActionsFor(visibleCanonicalReadSnapshot);
   }
 
+  function buildDispatchBlocker(
+    layer: DispatchBlocker["layer"],
+    expression: DispatchBlocker["expression"],
+    description?: string,
+  ): DispatchBlocker {
+    return Object.freeze({
+      layer,
+      expression,
+      evaluatedResult: false,
+      ...(description !== undefined ? { description } : {}),
+    }) as DispatchBlocker;
+  }
+
   const getActionMetadata: TypedGetActionMetadata<T> = ((name?: keyof T["actions"]) => {
     if (name !== undefined) {
       return actionMetadataByName[String(name) as keyof T["actions"] & string];
@@ -691,6 +721,58 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   function isActionAvailable(name: keyof T["actions"]): boolean {
     return isActionAvailableFor(visibleCanonicalReadSnapshot, name);
   }
+
+  function isIntentDispatchableFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): boolean {
+    return queryIntentDispatchable(schema, snapshot as CoreSnapshot, intent);
+  }
+
+  const isIntentDispatchable: TypedIsIntentDispatchable<T> = ((
+    action,
+    ...args
+  ) => isIntentDispatchableFor(
+    visibleCanonicalReadSnapshot,
+    createIntent(action, ...args),
+  )) as TypedIsIntentDispatchable<T>;
+
+  function getIntentBlockersFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): readonly DispatchBlocker[] {
+    const actionName = intent.type as keyof T["actions"] & string;
+    const action = schema.actions[actionName];
+    if (!action) {
+      return Object.freeze([]);
+    }
+
+    if (!isActionAvailableFor(snapshot, actionName)) {
+      return Object.freeze(
+        action.available
+          ? [buildDispatchBlocker("available", action.available, action.description)]
+          : [],
+      );
+    }
+
+    if (!isIntentDispatchableFor(snapshot, intent)) {
+      return Object.freeze(
+        action.dispatchable
+          ? [buildDispatchBlocker("dispatchable", action.dispatchable, action.description)]
+          : [],
+      );
+    }
+
+    return Object.freeze([]);
+  }
+
+  const getIntentBlockers: TypedGetIntentBlockers<T> = ((
+    action,
+    ...args
+  ) => getIntentBlockersFor(
+    visibleCanonicalReadSnapshot,
+    createIntent(action, ...args),
+  )) as TypedGetIntentBlockers<T>;
 
   function getSchemaGraph(): SchemaGraph {
     return schemaGraph;
@@ -733,6 +815,13 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     );
   }
 
+  function createSimulationNotDispatchableError(intent: TypedIntent<T>): ManifestoError {
+    return new ManifestoError(
+      "INTENT_NOT_DISPATCHABLE",
+      `Action "${intent.type}" is available, but the bound intent is not dispatchable against the provided canonical snapshot`,
+    );
+  }
+
   function simulateSync(
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
@@ -740,6 +829,9 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     const enrichedIntent = ensureIntentId(intent);
     if (!isActionAvailableFor(snapshot, enrichedIntent.type as keyof T["actions"])) {
       throw createSimulationUnavailableError(enrichedIntent);
+    }
+    if (!isIntentDispatchableFor(snapshot, enrichedIntent)) {
+      throw createSimulationNotDispatchableError(enrichedIntent);
     }
 
     const context = hostContextProvider.createFrozenContext(enrichedIntent.intentId);
@@ -876,14 +968,29 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     );
   }
 
-  function rejectUnavailable(intent: TypedIntent<T>): never {
-    const error = createUnavailableError(intent);
+  function createNotDispatchableError(intent: TypedIntent<T>): ManifestoError {
+    return new ManifestoError(
+      "INTENT_NOT_DISPATCHABLE",
+      `Action "${intent.type}" is available, but the bound intent is not dispatchable against the current visible snapshot`,
+    );
+  }
+
+  function rejectRejectedIntent(intent: TypedIntent<T>, error: ManifestoError): never {
     emitEvent("dispatch:rejected", {
       intentId: intent.intentId ?? "",
       intent,
+      code: error.code as ManifestoEventMap<T>["dispatch:rejected"]["code"],
       reason: error.message,
     });
     throw error;
+  }
+
+  function rejectUnavailable(intent: TypedIntent<T>): never {
+    return rejectRejectedIntent(intent, createUnavailableError(intent));
+  }
+
+  function rejectNotDispatchable(intent: TypedIntent<T>): never {
+    return rejectRejectedIntent(intent, createNotDispatchableError(intent));
   }
 
   function notifySubscribers(snapshot: Snapshot<T["state"]>): void {
@@ -932,6 +1039,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     },
     getAvailableActionsFor,
     isActionAvailableFor,
+    isIntentDispatchableFor,
   }) as ExtensionKernel<T>;
 
   return {
@@ -943,9 +1051,13 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     getSnapshot,
     getAvailableActionsFor,
     getAvailableActions,
+    getIntentBlockersFor,
     getActionMetadata,
     isActionAvailableFor,
     isActionAvailable,
+    isIntentDispatchableFor,
+    isIntentDispatchable,
+    getIntentBlockers,
     getSchemaGraph,
     simulateSync,
     simulate,
@@ -960,7 +1072,9 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     ensureIntentId,
     executeHost,
     createUnavailableError,
+    createNotDispatchableError,
     rejectUnavailable,
+    rejectNotDispatchable,
     [EXTENSION_KERNEL]: extensionKernel,
   };
 }
@@ -975,6 +1089,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
     if (!kernel.isActionAvailable(intent.type as keyof T["actions"])) {
       return kernel.rejectUnavailable(intent);
+    }
+    if (!kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), intent)) {
+      return kernel.rejectNotDispatchable(intent);
     }
 
     let result: HostResult;
@@ -1028,6 +1145,8 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     getSnapshot: kernel.getSnapshot,
     getCanonicalSnapshot: kernel.getCanonicalSnapshot,
     getAvailableActions: kernel.getAvailableActions,
+    isIntentDispatchable: kernel.isIntentDispatchable,
+    getIntentBlockers: kernel.getIntentBlockers,
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
     getSchemaGraph: kernel.getSchemaGraph,

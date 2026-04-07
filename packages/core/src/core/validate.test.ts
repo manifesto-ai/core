@@ -383,6 +383,35 @@ describe("validate", () => {
       expect(result.valid).toBe(true);
     });
 
+    it("should validate action with dispatchability condition", () => {
+      const schema = createValidSchema({
+        actions: {
+          withdraw: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
+            dispatchable: {
+              kind: "gte",
+              left: { kind: "get", path: "balance" },
+              right: { kind: "get", path: "input.amount" },
+            },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("balance"),
+              value: { kind: "lit", value: 0 },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+      expect(result.valid).toBe(true);
+    });
+
     it("should allow meta paths in action flow", () => {
       const schema = createValidSchema({
         actions: {
@@ -415,6 +444,34 @@ describe("validate", () => {
               kind: "patch",
               op: "set", path: pp("dummy"),
               value: { kind: "get", path: "input.missing" },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("input.missing"))).toBe(true);
+    });
+
+    it("should reject unknown input paths in dispatchable expressions", () => {
+      const schema = createValidSchema({
+        actions: {
+          update: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "string", required: true },
+              },
+            },
+            dispatchable: { kind: "get", path: "input.missing" },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("dummy"),
+              value: { kind: "get", path: "input.value" },
             },
           },
         },

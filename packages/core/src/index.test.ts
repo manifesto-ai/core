@@ -13,5 +13,6 @@ describe("core", () => {
     expect(core.explain).toBeInstanceOf(Function);
     expect(core.isActionAvailable).toBeInstanceOf(Function);
     expect(core.getAvailableActions).toBeInstanceOf(Function);
+    expect(core.isIntentDispatchable).toBeInstanceOf(Function);
   });
 });

@@ -350,7 +350,10 @@ action shoot(cellIndex: number)
 }
 ```
 
-**Note:** `dispatchable when` may reference action parameters by bare name, but not by direct `$input.*` syntax.
+**Notes:**
+- `dispatchable when` may reference action parameters by bare name, but not by direct `$input.*` syntax.
+- If both clauses are present, order is fixed: `available when` first, then `dispatchable when`.
+- Each clause may appear at most once per action. Wrong ordering and duplicate clauses are compile errors.
 
 ```mel
 // ❌ COMPILE ERROR: direct $input not allowed in dispatchable

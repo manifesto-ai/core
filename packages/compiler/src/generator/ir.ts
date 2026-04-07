@@ -122,6 +122,7 @@ export interface ActionSpec {
   flow: CoreFlowNode;
   input?: FieldSpec;
   available?: CoreExprNode;
+  dispatchable?: CoreExprNode;
   description?: string;
 }
 
@@ -129,6 +130,7 @@ export interface CompilerActionSpec {
   flow: CompilerFlowNode;
   input?: FieldSpec;
   available?: CompilerExprNode;
+  dispatchable?: CompilerExprNode;
   description?: string;
 }
 
@@ -948,16 +950,23 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
         };
       }
 
-      // v0.3.2: Generate available condition if present
+      // v0.3.2+: Generate availability/dispatchability conditions if present
       let available: CompilerExprNode | undefined;
       if (member.available) {
         available = generateExpr(member.available, ctx);
+      }
+      let dispatchable: CompilerExprNode | undefined;
+      if (member.dispatchable) {
+        dispatchable = generateExpr(member.dispatchable, ctx, {
+          preferActionParams: true,
+        });
       }
 
       actions[member.name] = {
         flow,
         input,
         available,
+        dispatchable,
       };
 
       ctx.currentAction = null;
@@ -1266,14 +1275,34 @@ function pathToSegments(path: string): string[] {
 
 // ============ Expression Generation ============
 
-function generateExpr(expr: ExprNode, ctx: GeneratorContext): CompilerExprNode {
+interface GenerateExprOptions {
+  preferActionParams?: boolean;
+}
+
+function generateExpr(
+  expr: ExprNode,
+  ctx: GeneratorContext,
+  options: GenerateExprOptions = {}
+): CompilerExprNode {
   return toMelExpr(expr, {
-    resolveIdentifier: (name) => resolveIdentifier(name, ctx),
+    resolveIdentifier: (name) => resolveIdentifier(name, ctx, options),
     resolveSystemIdent: (path) => resolveSystemIdent(path, ctx),
   });
 }
 
-function resolveIdentifier(name: string, ctx: GeneratorContext): CompilerExprNode {
+function resolveIdentifier(
+  name: string,
+  ctx: GeneratorContext,
+  options: GenerateExprOptions = {}
+): CompilerExprNode {
+  if (
+    options.preferActionParams
+    && ctx.currentAction
+    && ctx.actionParams.get(ctx.currentAction)?.has(name)
+  ) {
+    return getPathExpr("input", name);
+  }
+
   if (ctx.stateFields.has(name) || ctx.computedFields.has(name)) {
     return getPathExpr(name);
   }

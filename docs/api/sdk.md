@@ -13,7 +13,7 @@ Use SDK when you want:
 - typed intent creation through `MEL.actions.*`
 - subscriptions, availability queries, dispatchability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
-The current SDK v3.4.0 contract is:
+The current documented SDK contract is:
 
 `createManifesto(schema, effects) -> activate() -> base runtime instance`
 
@@ -129,6 +129,8 @@ Use `getSchemaGraph()` when you need the projected static dependency graph for t
 
 Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
 
+Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INTENT_NOT_DISPATCHABLE` means the action stayed available, but the bound intent failed the fine gate.
+
 ## Decorator/provider authoring seam
 
 Use `@manifesto-ai/sdk/provider` when you are composing activation-first runtimes or authoring decorators on top of the SDK. That subpath is for package authors, not typical app code.
@@ -160,6 +162,14 @@ const simulated = ext.simulateSync(root, intent);
 const projected = ext.projectSnapshot(simulated.snapshot);
 ```
 
+The core analytical helpers on this seam are:
+
+- `projectSnapshot()`
+- `getAvailableActionsFor()`
+- `isActionAvailableFor()`
+- `isIntentDispatchableFor()`
+- `simulateSync()`
+
 Branching hypothetical futures stays on the same seam:
 
 ```typescript
@@ -186,6 +196,8 @@ const projectedB = ext.projectSnapshot(branchB.snapshot);
 ```
 
 This is the intended substrate for manual simulation helpers. The SDK no longer relies on a dedicated planner/simulator package for post-activation hypothetical tooling.
+
+The extension seam does not expose blocker explanations. For arbitrary snapshots, compose `isIntentDispatchableFor()` with your own tooling logic. For the current visible snapshot, stay on the activated base runtime and use `getIntentBlockers()`.
 
 When you want a branchable helper rather than raw substrate access, use the built-in session API:
 

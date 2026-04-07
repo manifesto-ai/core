@@ -25,6 +25,7 @@ import {
  * - V-004: All `call` references in FlowSpec MUST exist
  * - V-005: FlowSpec `call` graph MUST be acyclic
  * - V-006: ActionSpec.available expression MUST return boolean (runtime check)
+ * - V-009: ActionSpec.dispatchable expression MUST return boolean (runtime check)
  * - V-007: ActionSpec.input MUST be valid FieldSpec (Zod handles this)
  * - V-008: Schema hash MUST match canonical hash
  */
@@ -416,6 +417,7 @@ function validateActionExprPaths(
     const exprPaths = [
       ...collectGetPathsFromFlow(action.flow),
       ...(action.available ? collectGetPathsFromExpr(action.available) : []),
+      ...(action.dispatchable ? collectGetPathsFromExpr(action.dispatchable) : []),
     ];
 
     for (const exprPath of exprPaths) {

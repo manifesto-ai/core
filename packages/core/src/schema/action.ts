@@ -27,6 +27,13 @@ export const ActionSpec = z.object({
   available: ExprNodeSchema.optional(),
 
   /**
+   * Intent dispatchability condition.
+   * If defined, callers MAY query it against a bound intent before execution.
+   * Expression MUST return boolean.
+   */
+  dispatchable: ExprNodeSchema.optional(),
+
+  /**
    * Human-readable description
    */
   description: z.string().optional(),

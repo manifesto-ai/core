@@ -13,7 +13,12 @@ import {
 import { getExtensionKernel } from "../extensions.js";
 import { getRuntimeKernelFactory } from "../provider.js";
 import { projectedSnapshotsEqual } from "../snapshot-projection.js";
-import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
+import {
+  createCounterSchema,
+  createDispatchabilitySchema,
+  type CounterDomain,
+  type DispatchabilityDomain,
+} from "./helpers/schema.js";
 
 const pp = semanticPathToPatchPath;
 
@@ -44,11 +49,42 @@ type ProjectionDomain = {
   };
 };
 
+type InvalidDispatchabilityDomain = {
+  actions: {
+    blockedInvalid: () => void;
+  };
+  state: {
+    enabled: boolean;
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
     hash: hashSchemaSync(schema),
   };
+}
+
+function createInvalidDispatchabilitySchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v3-invalid-dispatchability",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        enabled: { type: "boolean", required: false, default: false },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      blockedInvalid: {
+        available: { kind: "get", path: "enabled" },
+        dispatchable: { kind: "lit", value: "not-a-boolean" },
+        flow: { kind: "halt", reason: "blockedInvalid" },
+      },
+    },
+  });
 }
 
 function createProjectionSchema(): DomainSchema {
@@ -613,6 +649,96 @@ describe("activated base runtime", () => {
     kernel.dispose();
   });
 
+  it("queries bound-intent dispatchability and blockers through the base runtime", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    expect(world.isIntentDispatchable(world.MEL.actions.incrementGuarded, 1)).toBe(true);
+    expect(world.getIntentBlockers(world.MEL.actions.incrementGuarded, 1)).toEqual([]);
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+
+    expect(world.isIntentDispatchable(world.MEL.actions.incrementGuarded, 1)).toBe(false);
+    expect(world.getIntentBlockers(world.MEL.actions.incrementGuarded, 1)).toEqual([
+      expect.objectContaining({
+        layer: "dispatchable",
+        evaluatedResult: false,
+      }),
+    ]);
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.disable));
+
+    expect(world.getIntentBlockers(world.MEL.actions.incrementGuarded, 5)).toEqual([
+      expect.objectContaining({
+        layer: "available",
+        evaluatedResult: false,
+      }),
+    ]);
+
+    world.dispose();
+  });
+
+  it("rejects non-dispatchable dry-runs before compute begins", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+
+    expect(() => world.simulate(world.MEL.actions.incrementGuarded, 1)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INTENT_NOT_DISPATCHABLE",
+      }),
+    );
+    expect(world.getSnapshot().data.count).toBe(1);
+
+    world.dispose();
+  });
+
+  it("short-circuits invalid dispatchability behind availability across runtime queries", () => {
+    const world = createManifesto<InvalidDispatchabilityDomain>(
+      createInvalidDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    expect(world.isIntentDispatchable(world.MEL.actions.blockedInvalid)).toBe(false);
+    expect(world.getIntentBlockers(world.MEL.actions.blockedInvalid)).toEqual([
+      expect.objectContaining({
+        layer: "available",
+        evaluatedResult: false,
+      }),
+    ]);
+    expect(() => world.simulate(world.MEL.actions.blockedInvalid)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "ACTION_UNAVAILABLE",
+      }),
+    );
+
+    world.dispose();
+  });
+
+  it("checks dispatchability against arbitrary canonical snapshots through RuntimeKernel", () => {
+    const manifesto = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    );
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+    const guardedIntent = kernel.createIntent(kernel.MEL.actions.incrementGuarded, 1);
+    const incremented = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.increment),
+    );
+
+    expect(kernel.isIntentDispatchableFor(canonical, guardedIntent)).toBe(true);
+    expect(kernel.isIntentDispatchableFor(incremented.snapshot, guardedIntent)).toBe(false);
+
+    kernel.dispose();
+  });
+
   it("exposes a pure extension kernel with current-snapshot simulate parity", () => {
     const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const ext = getExtensionKernel(world);
@@ -683,6 +809,39 @@ describe("activated base runtime", () => {
     expect(world.getSnapshot().data.count).toBe(1);
     expect(subscriber).toHaveBeenCalledTimes(1);
     expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({ code: "ACTION_UNAVAILABLE" });
+    world.dispose();
+  });
+
+  it("checks dispatchability at dequeue time and rejects without publication", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const subscriber = vi.fn();
+    const rejected = vi.fn();
+
+    world.subscribe((snapshot) => snapshot.data.count, subscriber);
+    world.on("dispatch:rejected", rejected);
+
+    const first = world.dispatchAsync(
+      world.createIntent(world.MEL.actions.increment),
+    );
+    const second = world.dispatchAsync(
+      world.createIntent(world.MEL.actions.incrementGuarded, 1),
+    );
+
+    await expect(first).resolves.toMatchObject({ data: { count: 1 } });
+    await expect(second).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+
+    expect(world.getSnapshot().data.count).toBe(1);
+    expect(subscriber).toHaveBeenCalledTimes(1);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
     world.dispose();
   });
 

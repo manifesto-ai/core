@@ -840,6 +840,7 @@ action submit() available when and(isNotNull(email), isNull(submittedAt)) {
 - Cannot use bare action parameter names — input does not exist yet
 - Cannot use `$meta.*` — metadata is not part of the coarse pre-intent gate
 - Cannot use `$system.*` — IO is not available at availability check time
+- May appear at most once per action
 - Must be a pure expression over state/computed only
 
 ```mel
@@ -870,6 +871,9 @@ action shoot(cellIndex: number)
 - May reference action parameters by bare declared name
 - Cannot use direct `$input.*` syntax in MEL source
 - Cannot use `$meta.*`, `$system.*`, or effects
+- May appear at most once per action
+- If both clauses are present, `available when` must appear before `dispatchable when`
+- Dispatchability is only considered after coarse availability passes; if `available when` is false, the runtime/query returns `false` without evaluating `dispatchable when`
 - Must be a pure expression
 
 Use `dispatchable when` for input-dependent legality that should be rejected **before execution**, not for execution-time narrative failures.
@@ -1324,6 +1328,8 @@ System values provide access to runtime context and IO. They have two categories
 | `$meta.actor` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
 | `$meta.authority` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
 | `$item` | Effect `where`, `select`, `by` expressions | Computed, outside effect context |
+
+Bare action parameter names are valid source syntax in action bodies and in `dispatchable when`. Direct `$input.*` remains invalid in `dispatchable when` even though the compiled schema lowers parameter reads to input paths.
 
 ### `$system.*` — IO Values
 
