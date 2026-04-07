@@ -1,5 +1,6 @@
 import { ManifestoError } from "./errors.js";
 import { getAttachedExtensionKernel } from "./internal.js";
+import { cloneAndDeepFreeze } from "./snapshot-projection.js";
 import type {
   ExtensionKernel,
   SimulationActionRef,
@@ -57,7 +58,7 @@ function createSessionStep<T extends ManifestoDomainShape>(
 ): SimulationSessionStep<T> {
   const isTerminal = isTerminalStatus(status);
   return Object.freeze({
-    intent,
+    intent: cloneAndDeepFreeze(intent),
     snapshot: ext.projectSnapshot(snapshot),
     canonicalSnapshot: snapshot,
     availableActions: getAvailableActionRefs(ext, snapshot, isTerminal),

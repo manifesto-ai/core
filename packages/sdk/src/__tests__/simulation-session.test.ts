@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ManifestoError, createManifesto } from "../index.js";
 import { createSimulationSession } from "../extensions.js";
+import type { TypedIntent } from "../types.js";
 import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
 describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
@@ -74,6 +75,26 @@ describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
     expect(final.snapshot.data.count).toBe(3);
     expect(final.trajectory).toHaveLength(1);
     expect(final.trajectory[0]?.intent).toEqual(intent);
+
+    app.dispose();
+  });
+
+  it("clones and deep-freezes recorded intents in the trajectory", () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const root = createSimulationSession(app);
+    const intent = app.createIntent(app.MEL.actions.add, 3) as TypedIntent<CounterDomain> & {
+      input: { amount: number };
+    };
+    const step = root.next(intent);
+    const recorded = step.trajectory[0]!.intent as typeof intent;
+
+    intent.input.amount = 99;
+
+    expect(recorded.input.amount).toBe(3);
+    expect(() => {
+      recorded.input.amount = 77;
+    }).toThrow(TypeError);
 
     app.dispose();
   });
