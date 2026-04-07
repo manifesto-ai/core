@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.5.1](https://github.com/manifesto-ai/core/compare/governance-v3.5.0...governance-v3.5.1) (2026-04-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.5.1
+    * @manifesto-ai/sdk bumped to 3.6.0
+
 ## [3.5.0](https://github.com/manifesto-ai/core/compare/governance-v3.4.0...governance-v3.5.0) (2026-04-06)
 
 
