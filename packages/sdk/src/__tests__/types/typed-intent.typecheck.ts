@@ -7,6 +7,7 @@ import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
 const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 const typedIntent = world.createIntent(world.MEL.actions.increment);
+void world.createIntent(world.MEL.actions.add, { amount: 3 });
 
 void world.dispatchAsync(typedIntent);
 

@@ -91,7 +91,7 @@ export type ActionArgs<
 export type ActionObjectBindingArgs<
   T extends ManifestoDomainShape,
   K extends keyof T["actions"],
-> = ActionArgs<T, K> extends [unknown, unknown, ...unknown[]]
+> = ActionArgs<T, K> extends [unknown, ...unknown[]]
   ? [params: Record<string, unknown>]
   : never;
 

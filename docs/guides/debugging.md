@@ -93,7 +93,7 @@ const intent = instance.createIntent(instance.MEL.actions.fetchUser, "123");
 await instance.dispatchAsync(intent);
 ```
 
-For multi-parameter actions, object-form binding is also a supported public path:
+For parameterized actions, object-form binding is also a supported public path:
 
 ```typescript
 const intent = instance.createIntent(instance.MEL.actions.addTodo, {

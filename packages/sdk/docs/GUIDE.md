@@ -59,7 +59,7 @@ const intent = instance.createIntent(instance.MEL.actions.someAction, ...args);
 await instance.dispatchAsync(intent);
 ```
 
-For multi-parameter actions, the runtime also supports a single object argument:
+For parameterized actions, the runtime also supports a single object argument:
 
 ```typescript
 const intent = instance.createIntent(instance.MEL.actions.addTodo, {
@@ -68,7 +68,7 @@ const intent = instance.createIntent(instance.MEL.actions.addTodo, {
 });
 ```
 
-Use that when field-name binding is clearer than positional order.
+Use that when field-name binding is clearer than positional order. Single-parameter actions may also use `{ paramName: value }` when that is more readable than the raw value form.
 
 String-name intent creation is no longer the SDK's canonical public story.
 

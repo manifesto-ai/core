@@ -215,7 +215,9 @@ type ActionArgs<
 type ActionObjectBindingArgs<
   T extends ManifestoDomainShape,
   K extends keyof T["actions"],
-> = readonly [Record<string, unknown>];
+> = ActionArgs<T, K> extends [unknown, ...unknown[]]
+  ? readonly [Record<string, unknown>]
+  : never;
 
 type CreateIntentArgs<
   T extends ManifestoDomainShape,
@@ -533,7 +535,7 @@ If the referenced action has zero parameters, `Intent.input` MUST be `undefined`
 
 If the referenced action has one or more parameters, `createIntent()` MUST synthesize `Intent.input` in the canonical object shape expected by the compiled action, preserving MEL-declared parameter names and declared order. `TypedActionRef` is the carrier of the metadata required for that packing step.
 
-For compiled multi-parameter actions with positional metadata, both positional and object forms are valid public contract.
+For compiled actions with positional metadata, positional and object forms are both valid public contract. This includes single-parameter actions, where object form means `{ paramName: value }`.
 
 For actions whose public input is already a single object shape without positional metadata, only object form is guaranteed.
 

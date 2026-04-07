@@ -59,6 +59,82 @@ describe("createManifesto()", () => {
     world.dispose();
   });
 
+  it("accepts object-form binding for single-parameter scalar actions", () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const add = world.createIntent(world.MEL.actions.add, { amount: 7 });
+    expect(add.type).toBe("add");
+    expect(add.input).toEqual({ amount: 7 });
+
+    world.dispose();
+  });
+
+  it("preserves direct-value packing for single object-valued parameters while allowing named binding", () => {
+    type SettingsDomain = {
+      actions: {
+        configure: (settings: { theme: string }) => void;
+      };
+      state: {
+        current: { theme: string };
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-single-object-param",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          current: {
+            type: "object",
+            required: true,
+            default: { theme: "light" },
+            fields: {
+              theme: { type: "string", required: true },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        configure: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              settings: {
+                type: "object",
+                required: true,
+                fields: {
+                  theme: { type: "string", required: true },
+                },
+              },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.current",
+            value: { kind: "get", path: "input.settings" },
+          },
+        },
+      },
+    });
+    const world = createManifesto<SettingsDomain>(schema, {}).activate();
+
+    expect(
+      world.createIntent(world.MEL.actions.configure, { theme: "dark" }).input,
+    ).toEqual({ settings: { theme: "dark" } });
+    expect(
+      world.createIntent(world.MEL.actions.configure, {
+        settings: { theme: "dark" },
+      }).input,
+    ).toEqual({ settings: { theme: "dark" } });
+
+    world.dispose();
+  });
+
   it("preserves MEL action parameter order when packing multi-argument intents", () => {
     type TodoDomain = {
       actions: {

@@ -482,6 +482,14 @@ function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): un
     );
   }
 
+  if (
+    paramNames.length === 1 &&
+    args.length === 1 &&
+    isNamedSingleParamBinding(args[0], paramNames[0])
+  ) {
+    return args[0];
+  }
+
   if (args.length === 1 && isPlainObject(args[0]) && paramNames.length > 1) {
     return args[0];
   }
@@ -494,6 +502,18 @@ function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): un
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNamedSingleParamBinding(
+  value: unknown,
+  paramName: string | undefined,
+): value is Record<string, unknown> {
+  if (!paramName || !isPlainObject(value)) {
+    return false;
+  }
+
+  const keys = Object.keys(value);
+  return keys.length === 1 && keys[0] === paramName;
 }
 
 function createInternalHost(

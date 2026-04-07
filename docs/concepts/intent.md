@@ -39,7 +39,7 @@ const intent = app.createIntent(
 );
 ```
 
-Multi-parameter actions also support a single object argument when you want to bind by field name instead of position:
+Parameterized actions also support a single object argument when you want to bind by field name instead of position:
 
 ```typescript
 const intent = app.createIntent(app.MEL.actions.addTodo, {
@@ -64,7 +64,7 @@ Lineage and governance keep the same typed intent object while promoting the run
 Current SDK rules are:
 
 - zero-parameter actions: `createIntent(action)`
-- single-parameter actions: `createIntent(action, value)`
+- single-parameter actions: `createIntent(action, value)` or `createIntent(action, { paramName: value })`
 - multi-parameter actions with positional metadata: `createIntent(action, ...args)` or `createIntent(action, { ...params })`
 - hand-authored multi-field object inputs without positional metadata: prefer `createIntent(action, { ...params })`
 
