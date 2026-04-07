@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import * as sdk from "../index.js";
+import * as extensions from "../extensions.js";
 
 describe("SDK public runtime exports", () => {
   it("exposes the v3 hard-cut runtime surface", () => {
@@ -19,5 +20,12 @@ describe("SDK public runtime exports", () => {
     expect("defineOps" in sdk).toBe(false);
     expect("createWorld" in sdk).toBe(false);
     expect("createIntent" in sdk).toBe(false);
+  });
+
+  it("keeps the extension kernel on the extensions subpath", () => {
+    expect(extensions.getExtensionKernel).toBeDefined();
+    expect(extensions.createSimulationSession).toBeDefined();
+    expect("getExtensionKernel" in sdk).toBe(false);
+    expect("createSimulationSession" in sdk).toBe(false);
   });
 });

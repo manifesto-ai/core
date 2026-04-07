@@ -58,10 +58,15 @@ import {
   projectedSnapshotsEqual,
   type SnapshotProjectionPlan,
 } from "./snapshot-projection.js";
+import type {
+  ExtensionKernel,
+  ExtensionSimulateResult,
+} from "./extensions-types.js";
 
 export const ACTION_PARAM_NAMES = Symbol("manifesto-sdk.action-param-names");
 export const RUNTIME_KERNEL_FACTORY = Symbol("manifesto-sdk.runtime-kernel-factory");
 export const ACTIVATION_STATE = Symbol("manifesto-sdk.activation-state");
+export const EXTENSION_KERNEL = Symbol("manifesto-sdk.extension-kernel");
 const SCHEMA_GRAPH_NODE_ID_PATTERN = /^(state|computed|action):.+$/;
 
 type RuntimeActionParamMetadata = readonly string[] | null;
@@ -137,6 +142,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   ) => Promise<HostResult>;
   readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
+  readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
 }
 
 export type RuntimeKernelFactory<T extends ManifestoDomainShape> = () => RuntimeKernel<T>;
@@ -147,6 +153,10 @@ export type InternalComposableManifesto<
 > = ComposableManifesto<T, Laws> & {
   readonly [RUNTIME_KERNEL_FACTORY]: RuntimeKernelFactory<T>;
   readonly [ACTIVATION_STATE]: ActivationState;
+};
+
+type ExtensionKernelCarrier<T extends ManifestoDomainShape> = {
+  readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
 };
 
 type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
@@ -429,6 +439,39 @@ export function getRuntimeKernelFactory<
   return factory;
 }
 
+export function attachExtensionKernel<
+  T extends ManifestoDomainShape,
+  TInstance extends object,
+>(
+  runtime: TInstance,
+  kernel: RuntimeKernel<T>,
+): TInstance {
+  Object.defineProperty(runtime, EXTENSION_KERNEL, {
+    enumerable: false,
+    configurable: false,
+    writable: false,
+    value: kernel[EXTENSION_KERNEL],
+  });
+
+  return runtime;
+}
+
+export function getAttachedExtensionKernel<T extends ManifestoDomainShape>(
+  runtime: object,
+): ExtensionKernel<T> {
+  const internal = runtime as Partial<ExtensionKernelCarrier<T>>;
+  const kernel = internal[EXTENSION_KERNEL];
+
+  if (!kernel) {
+    throw new ManifestoError(
+      "SCHEMA_ERROR",
+      "Activated runtime is missing its extension kernel",
+    );
+  }
+
+  return kernel;
+}
+
 export function getActivationState<
   T extends ManifestoDomainShape,
   Laws extends BaseLaws,
@@ -505,12 +548,17 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     throw new ManifestoError("SCHEMA_ERROR", "Host failed to initialize its genesis snapshot");
   }
 
+  function projectSnapshotFromCanonical(
+    snapshot: CoreSnapshot,
+  ): Snapshot<T["state"]> {
+    return cloneAndDeepFreeze(
+      projectCanonicalSnapshot<T["state"]>(snapshot, projectionPlan),
+    );
+  }
+
   let visibleCanonicalSnapshot: CoreSnapshot = structuredClone(initialCanonicalSnapshot);
-  let visibleProjectedSnapshot = cloneAndDeepFreeze(
-    projectCanonicalSnapshot<T["state"]>(
-      visibleCanonicalSnapshot,
-      projectionPlan,
-    ),
+  let visibleProjectedSnapshot = projectSnapshotFromCanonical(
+    visibleCanonicalSnapshot,
   );
   let visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
     visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
@@ -723,9 +771,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
       visibleCanonicalReadSnapshot,
       createIntent(action, ...args),
     );
-    const projectedSimulated = cloneAndDeepFreeze(
-      projectCanonicalSnapshot<T["state"]>(simulated.snapshot, projectionPlan),
-    );
+    const projectedSimulated = projectSnapshotFromCanonical(simulated.snapshot);
 
     return Object.freeze({
       snapshot: projectedSimulated,
@@ -756,9 +802,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
       visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
     );
 
-    const nextProjectedSnapshot = projectCanonicalSnapshot<T["state"]>(
+    const nextProjectedSnapshot = projectSnapshotFromCanonical(
       visibleCanonicalSnapshot,
-      projectionPlan,
     );
     const projectedChanged = !projectedSnapshotsEqual(
       nextProjectedSnapshot,
@@ -766,7 +811,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     );
 
     if (projectedChanged) {
-      visibleProjectedSnapshot = cloneAndDeepFreeze(nextProjectedSnapshot);
+      visibleProjectedSnapshot = nextProjectedSnapshot;
     }
 
     if (options?.notify !== false && projectedChanged) {
@@ -865,6 +910,30 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     }
   }
 
+  const extensionKernel = Object.freeze({
+    MEL,
+    schema,
+    createIntent,
+    getCanonicalSnapshot,
+    projectSnapshot: (
+      snapshot: CanonicalSnapshot<T["state"]>,
+    ): Snapshot<T["state"]> => projectSnapshotFromCanonical(snapshot),
+    simulateSync: (
+      snapshot: CanonicalSnapshot<T["state"]>,
+      intent: TypedIntent<T>,
+    ): ExtensionSimulateResult<T> => {
+      const result = simulateSync(snapshot, intent);
+      return Object.freeze({
+        snapshot: result.snapshot,
+        patches: result.patches,
+        requirements: result.requirements,
+        status: result.status,
+      }) as ExtensionSimulateResult<T>;
+    },
+    getAvailableActionsFor,
+    isActionAvailableFor,
+  }) as ExtensionKernel<T>;
+
   return {
     schema,
     MEL,
@@ -892,6 +961,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     executeHost,
     createUnavailableError,
     rejectUnavailable,
+    [EXTENSION_KERNEL]: extensionKernel,
   };
 }
 
@@ -950,7 +1020,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     return kernel.enqueue(() => processIntent(enrichedIntent));
   }
 
-  return {
+  return attachExtensionKernel({
     createIntent: kernel.createIntent,
     dispatchAsync,
     subscribe: kernel.subscribe,
@@ -965,7 +1035,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     MEL: kernel.MEL,
     schema: kernel.schema,
     dispose: kernel.dispose,
-  };
+  }, kernel);
 }
 
 function toError(error: unknown): Error {

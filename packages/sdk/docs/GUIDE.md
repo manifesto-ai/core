@@ -2,7 +2,7 @@
 
 > Practical guide for the activation-first `@manifesto-ai/sdk` path.
 
-> **Current Contract Note:** This guide follows the current SDK v3.1.0 living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current base surface includes projected introspection.
+> **Current Contract Note:** This guide follows the current SDK v3.3.0 living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes projected introspection, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
 
 ## 1. Build The Activation Lifecycle
 
@@ -150,7 +150,82 @@ After activation:
 
 ---
 
-## 7. Decorator / provider authoring seam
+## 7. `@manifesto-ai/sdk/extensions`
+
+The current post-activation extension seam is:
+
+```typescript
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
+
+const ext = getExtensionKernel(instance);
+const root = ext.getCanonicalSnapshot();
+const intent = ext.createIntent(ext.MEL.actions.increment);
+const simulated = ext.simulateSync(root, intent);
+const projected = ext.projectSnapshot(simulated.snapshot);
+```
+
+Use this seam when you need:
+
+- arbitrary-snapshot dry-runs after activation
+- availability checks against hypothetical canonical snapshots
+- pure projection of hypothetical canonical snapshots back to public `Snapshot`
+- helper/tool authoring without importing the full provider seam
+
+This seam remains distinct from `@manifesto-ai/sdk/provider`:
+
+- `sdk/extensions` = safe arbitrary-snapshot read-only tools
+- `sdk/provider` = full decorator/provider authoring seam
+
+Minimal branching example:
+
+```typescript
+const ext = getExtensionKernel(instance);
+const root = ext.getCanonicalSnapshot();
+
+const step1 = ext.simulateSync(
+  root,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+const branchA = ext.simulateSync(
+  step1.snapshot,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+const branchB = ext.simulateSync(
+  step1.snapshot,
+  ext.createIntent(ext.MEL.actions.add, 5),
+);
+
+const projectedA = ext.projectSnapshot(branchA.snapshot);
+const projectedB = ext.projectSnapshot(branchB.snapshot);
+```
+
+The SDK treats this as substrate, not as a separate outer decorator. The first-party `createSimulationSession(app)` helper is built directly on this seam.
+
+The SDK now ships that helper directly:
+
+```typescript
+import { createSimulationSession } from "@manifesto-ai/sdk/extensions";
+
+const sim = createSimulationSession(instance);
+const step1 = sim.next(instance.MEL.actions.increment);
+const branchA = step1.next(instance.MEL.actions.increment);
+const branchB = step1.next(instance.MEL.actions.load);
+
+console.log(branchA.snapshot);
+console.log(branchB.status);
+```
+
+`createSimulationSession()` is a thin immutable wrapper over the Extension Kernel:
+
+- root session starts from the current canonical snapshot
+- `next()` returns a new branch and leaves the original session unchanged
+- `availableActions` are typed MEL action refs for the current branch
+- `finish()` returns the current branch state as a plain result object
+- terminal `pending`, `halted`, and `error` branches reject further `next()` calls
+
+## 8. Decorator / provider authoring seam
 
 Use `@manifesto-ai/sdk/provider` only when you are composing new decorators or provider-level runtime wrappers.
 
@@ -241,7 +316,7 @@ console.log(kernel.isActionAvailableFor(simulated.snapshot, "incrementIfEven"));
 
 ---
 
-## 8. Governed Composition Direction
+## 9. Governed Composition Direction
 
 Stay on the SDK when:
 
@@ -257,7 +332,7 @@ Those runtime contracts belong to the owning Lineage and Governance packages. Th
 
 ---
 
-## 9. Related Docs
+## 10. Related Docs
 
 - [SDK README](../README.md)
 - [SDK Specification](sdk-SPEC.md)

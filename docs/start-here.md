@@ -46,7 +46,6 @@ Read this only after the base runtime path already feels normal.
 2. [Tutorial 05: Approval and History Setup](/tutorial/05-governed-composition)
 3. [Tutorial 06: Sealed History and Review Flow](/tutorial/06-governed-sealing-and-history)
 4. [@manifesto-ai/lineage](/api/lineage) and [@manifesto-ai/governance](/api/governance) only when you need package-level detail
-5. [@manifesto-ai/planner](/api/planner) only when you already have governance and need read-only `preview()` / `plan()` foresight
 
 ## Do Not Start With These
 

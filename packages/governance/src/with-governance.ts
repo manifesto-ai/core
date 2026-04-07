@@ -11,6 +11,7 @@ import {
 import {
   activateComposable,
   assertComposableNotActivated,
+  attachExtensionKernel,
   attachRuntimeKernelFactory,
   getActivationState,
   getRuntimeKernelFactory,
@@ -518,7 +519,10 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     getDecisionRecord,
   };
 
-  return governed satisfies GovernanceInstance<T>;
+  return attachExtensionKernel(
+    governed satisfies GovernanceInstance<T>,
+    kernel,
+  );
 }
 
 function toTypedIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {

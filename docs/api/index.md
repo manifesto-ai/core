@@ -8,13 +8,12 @@ If you are new, do not read this section front-to-back. Start with [Start Here](
 
 Start with the base runtime and treat the rest as lookup layers around it.
 
-The public surface around that runtime also includes project bootstrapping, MEL editor tooling, explicit AI skill installation, Studio-based inspection packages, and an optional advanced runtime layer for approval and history.
+The public surface around that runtime also includes project bootstrapping, MEL editor tooling, explicit AI skill installation, Studio-based inspection packages, and an advanced runtime layer for approval and history.
 
 | Path | Package | Use When |
 |------|---------|----------|
 | **Base runtime** | [@manifesto-ai/sdk](./sdk) | You want the activation-first app path with `createManifesto()` and `activate()` |
 | **Advanced runtime** | [@manifesto-ai/lineage](./lineage) + [@manifesto-ai/governance](./governance) | You now need approval, sealing, or branch continuity on top of the base runtime |
-| **Strategic runtime** | [@manifesto-ai/planner](./planner) | You already have a governed runtime and now need read-only `preview()` / `plan()` foresight |
 
 ## Package Map
 
@@ -22,7 +21,7 @@ The public surface around that runtime also includes project bootstrapping, MEL 
 
 | Package | Responsibility |
 |---------|----------------|
-| [@manifesto-ai/sdk](./sdk) | Activation-first base runtime entry, typed MEL surface, and present-only execution |
+| [@manifesto-ai/sdk](./sdk) | Activation-first base runtime entry, typed MEL surface, present-only execution, and `sdk/extensions` for safe arbitrary-snapshot helper/tooling work |
 
 ### Advanced Runtime
 
@@ -30,7 +29,6 @@ The public surface around that runtime also includes project bootstrapping, MEL 
 |---------|----------------|
 | [@manifesto-ai/lineage](./lineage) | `withLineage()` decorator runtime, world identity, branch/head state, sealing continuity, restore and queries |
 | [@manifesto-ai/governance](./governance) | `withGovernance()` decorator runtime, proposal lifecycle, approval flow, decision records, governance events |
-| [@manifesto-ai/planner](./planner) | `withPlanner()` decorator runtime, read-only planning over governed worlds, `preview()`, `plan()`, and separate strategy/enumerator seams |
 
 ### Core Runtime Packages
 
@@ -65,10 +63,8 @@ flowchart TB
   SDK --> ACT["activate()"]
   SDK --> LIN["withLineage()"]
   LIN --> GOV["withGovernance()"]
-  GOV --> PLAN["withPlanner()"]
   LIN --> ACT
   GOV --> ACT
-  PLAN --> ACT
   ACT --> HOST["@manifesto-ai/host"]
   HOST --> CORE["@manifesto-ai/core"]
   GOV --> LIN
@@ -93,11 +89,10 @@ await instance.dispatchAsync(
 ### Advanced Runtime Direction
 
 ```typescript
-// ADR-017 direction
+// Current decorator direction
 // createManifesto(schema, effects)
 //   -> withLineage(...)
 //   -> withGovernance(...)
-//   -> withPlanner(...) // optional strategic layer
 //   -> activate()
 ```
 

@@ -13,6 +13,7 @@ export type {
 export {
   activateComposable,
   assertComposableNotActivated,
+  attachExtensionKernel,
   attachRuntimeKernelFactory,
   createRuntimeKernel,
   getActivationState,
