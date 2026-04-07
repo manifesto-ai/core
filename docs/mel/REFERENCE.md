@@ -2,7 +2,7 @@
 
 > **Purpose:** The single document a user reads to learn and use MEL. Covers every function, construct, and pattern with examples.
 > **Audience:** Developers writing MEL domains. Both beginners and experienced users.
-> **Normative sources:** SPEC-v0.7.0.md §9 (Standard Library), validator.ts (function signatures), lower-expr.ts (supported functions).
+> **Normative sources:** SPEC-v0.7.0.md §9 (Standard Library), SPEC-v0.9.0.md (`dispatchable when`), validator.ts (function signatures), lower-expr.ts (supported functions).
 
 ---
 
@@ -26,8 +26,9 @@
    - 6.2 [once](#62-once)
    - 6.3 [onceIntent](#63-onceintent)
    - 6.4 [available when](#64-available-when)
-   - 6.5 [fail](#65-fail)
-   - 6.6 [stop](#66-stop)
+   - 6.5 [dispatchable when](#65-dispatchable-when)
+   - 6.6 [fail](#66-fail)
+   - 6.7 [stop](#67-stop)
 7. [Patch Operations](#7-patch-operations)
 8. [Effects](#8-effects)
    - 8.1 [Array Effects](#81-array-effects)
@@ -126,7 +127,9 @@ domain DomainName {
   computed name = expression
 
   // State transitions with guards
-  action name(param: Type) available when condition {
+  action name(param: Type)
+    available when coarseCondition
+    dispatchable when fineCondition {
     when condition {
       patch field = expression
       effect type({ args, into: target })
@@ -815,7 +818,7 @@ action addTask(title: string) {
 
 ### 6.4 `available when`
 
-Declares a precondition for the action. The action is only available to be called when the condition is true.
+Declares the **coarse action-family gate**. The action is available to be considered only when the condition is true.
 
 ```mel
 action decrement() available when gt(count, 0) {
@@ -834,8 +837,10 @@ action submit() available when and(isNotNull(email), isNull(submittedAt)) {
 
 **`available when` restrictions:**
 - Cannot use `$input.*` — parameters are not available at availability check time
+- Cannot use bare action parameter names — input does not exist yet
+- Cannot use `$meta.*` — metadata is not part of the coarse pre-intent gate
 - Cannot use `$system.*` — IO is not available at availability check time
-- Must be a pure expression over domain state only
+- Must be a pure expression over state/computed only
 
 ```mel
 // NOT ALLOWED: $input in available when
@@ -846,7 +851,32 @@ action process(x: number) available when gt($input.x, 0) {  // Error E005
 
 ---
 
-### 6.5 `fail`
+### 6.5 `dispatchable when`
+
+Declares the **fine bound-intent gate**. The action may be available in general, but a specific bound intent can still be rejected by `dispatchable when`.
+
+```mel
+action shoot(cellIndex: number)
+  available when canShoot
+  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  onceIntent {
+    patch cells = updateAt(cells, cellIndex, "pending")
+  }
+}
+```
+
+**`dispatchable when` rules:**
+- May reference state and computed values
+- May reference action parameters by bare declared name
+- Cannot use direct `$input.*` syntax in MEL source
+- Cannot use `$meta.*`, `$system.*`, or effects
+- Must be a pure expression
+
+Use `dispatchable when` for input-dependent legality that should be rejected **before execution**, not for execution-time narrative failures.
+
+---
+
+### 6.6 `fail`
 
 Terminates the action with an error. Errors are values in Snapshot — they do not throw exceptions.
 
@@ -884,7 +914,7 @@ fail "ERROR_CODE" with concat("Dynamic: ", value)
 
 ---
 
-### 6.6 `stop`
+### 6.7 `stop`
 
 Terminates the action successfully with no action taken. Means "nothing to do" — not "waiting" or "suspended".
 
@@ -1289,10 +1319,10 @@ System values provide access to runtime context and IO. They have two categories
 | `$system.uuid` | Action body only | Computed, state init |
 | `$system.random` | Action body only | Computed, state init |
 | `$system.env.<name>` | Action body only | Computed, state init |
-| `$input.<field>` | Action body, effect sub-expressions | `available when`, state init |
-| `$meta.intentId` | Anywhere | State init |
-| `$meta.actor` | Anywhere | State init |
-| `$meta.authority` | Anywhere | State init |
+| `$input.<field>` | Action body, effect sub-expressions | `available when`, `dispatchable when`, state init |
+| `$meta.intentId` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
+| `$meta.actor` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
+| `$meta.authority` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
 | `$item` | Effect `where`, `select`, `by` expressions | Computed, outside effect context |
 
 ### `$system.*` — IO Values

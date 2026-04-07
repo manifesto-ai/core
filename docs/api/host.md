@@ -12,7 +12,7 @@
 - Applies domain patches and system transitions in interlocked order
 - Produces terminal snapshot/status per dispatch
 
-> **Current Contract Note:** This page describes the current Host v4.0.0 surface. Host-facing Snapshot references now follow the current Core v4.0.0 canonical contract and no longer include accumulated `system.errors`. This is the full Core/Host substrate, not the projected SDK `getSnapshot()` read model.
+> **Current Contract Note:** This page describes the current Host v4.0.0 surface. Host-facing Snapshot references now follow the current Core v4.1.0 canonical contract and no longer include accumulated `system.errors`. This is the full Core/Host substrate, not the projected SDK `getSnapshot()` read model.
 
 ---
 

@@ -80,7 +80,7 @@ export interface ManifestoCore {
   ): ExplainResult;
 
   /**
-   * Check whether an action is currently dispatchable.
+   * Check whether an action is currently available for a new invocation.
    */
   isActionAvailable(
     schema: DomainSchema,
@@ -89,7 +89,7 @@ export interface ManifestoCore {
   ): boolean;
 
   /**
-   * Return all currently dispatchable action names.
+   * Return all currently available action names.
    */
   getAvailableActions(
     schema: DomainSchema,

@@ -2,17 +2,17 @@
 
 > **Status:** Normative (Living Document)
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v4.0.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Compiler SPEC v0.8.0 addendum, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
+> **Compatible with:** Core SPEC v4.1.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Compiler SPEC v0.8.0 addendum, Compiler SPEC v0.9.0 addendum, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
 > **Supersedes:** SDK SPEC v2.0.0
-> **Implements:** ADR-017 v3.1, ADR-019 v1.1
+> **Implements:** ADR-017 v3.1, ADR-019 v1.1, ADR-020 v1
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.3.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contract currently lives in the companion addendum [SPEC-v0.8.0](../../compiler/docs/SPEC-v0.8.0.md).
+> **Current v3.4.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the intent-level dispatchability additions in §7.2-§7.5, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contracts live in the companion addenda [SPEC-v0.8.0](../../compiler/docs/SPEC-v0.8.0.md) and [SPEC-v0.9.0](../../compiler/docs/SPEC-v0.9.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3.3.0 public contract.
+This document defines the current SDK v3.4.0 public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
@@ -232,12 +232,20 @@ type TypedActionMetadata<
   readonly name: K;
   readonly params: readonly string[];
   readonly input: unknown;
+  readonly hasDispatchableGate: boolean;
   readonly description?: string;
 };
 
 type TypedGetActionMetadata<T extends ManifestoDomainShape> = {
   (): readonly TypedActionMetadata<T>[];
   <K extends keyof T["actions"]>(name: K): TypedActionMetadata<T, K>;
+};
+
+type DispatchBlocker = {
+  readonly layer: "available" | "dispatchable";
+  readonly expression: ExprNode;
+  readonly evaluatedResult: unknown;
+  readonly description?: string;
 };
 
 type TypedCreateIntent<T extends ManifestoDomainShape> = <
@@ -250,6 +258,20 @@ type TypedCreateIntent<T extends ManifestoDomainShape> = <
 type TypedDispatchAsync<T extends ManifestoDomainShape> = (
   intent: Intent,
 ) => Promise<Snapshot<T["state"]>>;
+
+type TypedIsIntentDispatchable<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  action: TypedActionRef<T, K>,
+  ...args: CreateIntentArgs<T, K>
+) => boolean;
+
+type TypedGetIntentBlockers<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  action: TypedActionRef<T, K>,
+  ...args: CreateIntentArgs<T, K>
+) => readonly DispatchBlocker[];
 
 type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   selector: Selector<T["state"], R>,
@@ -308,6 +330,8 @@ type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
 
 `TypedActionMetadata<T, K>.input` MUST carry the same machine-readable action input schema that the runtime uses for validation and inspection.
 
+`TypedActionMetadata<T, K>.hasDispatchableGate` MUST expose whether the action declares `dispatchable when` in the compiled schema.
+
 ### 5.6 Event Types
 
 ```typescript
@@ -320,6 +344,7 @@ interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:rejected": {
     readonly intentId: string;
     readonly intent: Intent;
+    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE";
     readonly reason: string;
   };
   "dispatch:failed": {
@@ -396,6 +421,8 @@ type CompileDiagnostic = {
 | SDK-TYPE-6 | MUST | `TypedActionRef.name`, `FieldRef.name`, and `ComputedRef.name` MUST be stable public identifiers for the referenced action/state/computed node |
 | SDK-TYPE-7 | MUST NOT | SDK-owned introspection depend on implementation-defined extra runtime fields on refs |
 | SDK-TYPE-8 | MUST | `SchemaGraph` string lookup overloads use kind-prefixed node ids (`state:*`, `computed:*`, `action:*`); ref lookup remains the canonical surface |
+| SDK-TYPE-9 | MUST | `DispatchBlocker.layer` MUST distinguish coarse action availability from fine intent dispatchability |
+| SDK-TYPE-10 | MUST | `dispatch:rejected` event payloads MUST expose a stable machine-readable rejection `code` |
 
 ## 6. `createManifesto()`
 
@@ -469,6 +496,8 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
+  readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
+  readonly getIntentBlockers: TypedGetIntentBlockers<T>;
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly getSchemaGraph: () => SchemaGraph;
   readonly simulate: <K extends keyof T["actions"]>(
@@ -483,7 +512,7 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 The canonical public surface is the instance object. Destructuring is optional ergonomics only.
 
-The members in §7.4 and §7.5 are part of the current v3.3.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
+The members in §7.4 and §7.5 are part of the current v3.4.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
 
 ### 7.1 `createIntent()`
 
@@ -514,9 +543,16 @@ For actions whose public input is already a single object shape without position
 
 It MUST serialize intents per activated base instance. Concurrent calls on the same instance MUST be processed FIFO.
 
-Action availability MUST be evaluated at **dequeue time**, not call time. This guarantees that an earlier queued intent can change the snapshot before a later queued intent is admitted or rejected.
+Action availability and intent dispatchability MUST be evaluated at **dequeue time**, not call time. This guarantees that an earlier queued intent can change the snapshot before a later queued intent is admitted or rejected.
 
-If the action is unavailable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected`, and MUST NOT notify subscribers.
+The dequeue-time admission order is normative:
+
+1. evaluate `isActionAvailable()`
+2. if available, evaluate `isIntentDispatchable()`
+
+If the action is unavailable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `ACTION_UNAVAILABLE`, and MUST NOT notify subscribers.
+
+If the action is available but the bound intent is not dispatchable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `INTENT_NOT_DISPATCHABLE`, and MUST NOT notify subscribers.
 
 If execution succeeds, `dispatchAsync()` MUST publish the new terminal snapshot, notify subscribers, emit `dispatch:completed`, and resolve with that same snapshot.
 
@@ -524,20 +560,26 @@ If Host execution produces a terminal error result that also carries a new termi
 
 If execution fails before a new terminal snapshot exists, SDK MUST emit `dispatch:failed`, MUST leave the visible snapshot unchanged, and MUST reject the Promise.
 
-### 7.3 Availability and Metadata Queries
+### 7.3 Availability, Dispatchability, and Metadata Queries
 
-`getAvailableActions()`, `isActionAvailable()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
+`getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
 
-Availability reads MUST delegate to Core action-availability semantics rather than reconstructing policy in SDK.
+Availability and dispatchability reads MUST delegate to Core legality semantics rather than reconstructing policy in SDK.
 
 `getActionMetadata()` MUST expose the SDK-known action metadata only:
 
 - action name
 - parameter names
 - machine-readable input schema
+- `hasDispatchableGate`
 - optional description
 
 `getActionMetadata()` MUST NOT invent app-defined extension fields or richer ownership/routing protocols.
+
+`getIntentBlockers()` is an SDK-owned explanation surface. It MUST return:
+
+- an empty list when the bound intent is dispatchable
+- one or more `DispatchBlocker` values when the action is unavailable or the bound intent fails `dispatchable`
 
 ### 7.4 `getSchemaGraph()`
 
@@ -563,6 +605,8 @@ Graph nodes use kind-prefixed ids for debug lookup and a bare `name` for canonic
 
 The only supported graph relations are `feeds`, `mutates`, and `unlocks`.
 
+Input-dependent `dispatchable when` predicates MUST NOT be projected into `SchemaGraph`. The public graph remains a static schema-derived artifact over `available when`, writes, and computed dependencies only.
+
 ### 7.5 `simulate()`
 
 `simulate()` performs a pure dry-run of an action against the current canonical snapshot without committing the result.
@@ -570,6 +614,8 @@ The only supported graph relations are `feeds`, `mutates`, and `unlocks`.
 It MUST use the same intent packing as `createIntent()` and the same deterministic HostContext construction as `dispatchAsync()`.
 
 If the action is unavailable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE`.
+
+If the action is available but the bound intent is not dispatchable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `INTENT_NOT_DISPATCHABLE`.
 
 For a successful dry-run, `simulate()` MUST:
 
@@ -583,6 +629,8 @@ For a successful dry-run, `simulate()` MUST:
 `changedPaths` is an inspection/debug-only diff of the projected public snapshot. Callers SHOULD use `snapshot`, `getAvailableActions()`, `isActionAvailable()`, or explicit snapshot reads for programmatic branching instead of branching on display-path strings.
 
 `newAvailableActions` MUST be evaluated against the canonical simulated snapshot, not the projected snapshot, because action availability may depend on canonical-only substrate even when that substrate is excluded from the public projection.
+
+`newAvailableActions` remains the coarse action-family read. It MUST NOT be reinterpreted as a list of fully dispatchable bound intents.
 
 `status` MUST mirror Core `ComputeStatus` exactly: `complete`, `pending`, `halted`, or `error`.
 
@@ -669,6 +717,11 @@ interface ExtensionKernel<T extends ManifestoDomainShape> {
     snapshot: CanonicalSnapshot<T["state"]>,
     actionName: keyof T["actions"],
   ): boolean;
+
+  isIntentDispatchableFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): boolean;
 }
 
 type ExtensionSimulateResult<
@@ -687,7 +740,7 @@ All arbitrary-snapshot operations accept **canonical** snapshots only. Passing p
 
 The Extension Kernel is the safe public subset for helper and tool authors. It MUST remain observationally pure: no publication, execution, event emission, queue control, or visible runtime mutation.
 
-`ExtensionSimulateResult` is intentionally canonical and minimal. Unlike current-snapshot `simulate()`, it does not bundle projected `changedPaths` or `newAvailableActions`. Callers that need those views MUST compose `projectSnapshot()` and `getAvailableActionsFor()` explicitly.
+`ExtensionSimulateResult` is intentionally canonical and minimal. Unlike current-snapshot `simulate()`, it does not bundle projected `changedPaths`, `newAvailableActions`, or blocker explanations. Callers that need those views MUST compose `projectSnapshot()`, `getAvailableActionsFor()`, and `isIntentDispatchableFor()` explicitly.
 
 Extension-kernel acquisition and use are post-activation only, but they are not part of runtime execution. The seam remains analytical after `dispose()`: observationally pure methods MUST NOT reject solely because the source runtime has been disposed.
 
@@ -777,16 +830,19 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-BASE-1 | MUST | `ManifestoBaseInstance<T>` MUST expose exactly the fields shown in §7 |
 | SDK-BASE-2 | MUST | `dispatchAsync()` MUST be the canonical base execution verb |
 | SDK-BASE-3 | MUST | `createIntent()` MUST be typed from `MEL.actions.*`, not raw string action names |
-| SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
+| SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
 | SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
 | SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` as normative execution surface |
 | SDK-BASE-7 | MUST | `getSchemaGraph()` and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
 | SDK-DISPATCH-1 | MUST | `dispatchAsync()` MUST serialize intent processing FIFO per activated base instance |
 | SDK-DISPATCH-2 | MUST | availability checks for queued intents MUST run at dequeue time against the then-current visible snapshot |
-| SDK-DISPATCH-3 | MUST | unavailable actions MUST reject without snapshot publication |
-| SDK-DISPATCH-4 | MUST | successful completion MUST resolve with the same snapshot that became visible through `getSnapshot()` and `dispatch:completed` |
-| SDK-DISPATCH-5 | MUST | terminal failures with a new published snapshot MUST reject and emit `dispatch:failed` with that snapshot attached |
-| SDK-DISPATCH-6 | MUST | pre-publication failures MUST reject without changing the visible snapshot |
+| SDK-DISPATCH-3 | MUST | if the action is available, dispatchability checks for queued intents MUST also run at dequeue time against the then-current visible snapshot |
+| SDK-DISPATCH-4 | MUST | unavailable actions MUST reject without snapshot publication |
+| SDK-DISPATCH-5 | MUST | available but non-dispatchable intents MUST reject without snapshot publication |
+| SDK-DISPATCH-6 | MUST | `dispatch:rejected` payloads MUST distinguish `ACTION_UNAVAILABLE` from `INTENT_NOT_DISPATCHABLE` |
+| SDK-DISPATCH-7 | MUST | successful completion MUST resolve with the same snapshot that became visible through `getSnapshot()` and `dispatch:completed` |
+| SDK-DISPATCH-8 | MUST | terminal failures with a new published snapshot MUST reject and emit `dispatch:failed` with that snapshot attached |
+| SDK-DISPATCH-9 | MUST | pre-publication failures MUST reject without changing the visible snapshot |
 | SDK-GRAPH-1 | MUST | `getSchemaGraph()` MUST expose a static graph derived from the activated `DomainSchema` alone, with no snapshot dependency |
 | SDK-GRAPH-2 | MUST | the public graph MUST exclude `data.$*` nodes, edges touching excluded `$*` nodes, and computed nodes tainted by transitive `$*` dependencies |
 | SDK-GRAPH-3 | SHOULD | the SDK SHOULD compute the graph once at activation time and cache it for the instance lifetime |
@@ -795,6 +851,7 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-GRAPH-6 | MUST | string lookup overloads MUST accept only kind-prefixed node ids and MUST be treated as convenience/debug-only |
 | SDK-SIM-1 | MUST NOT | SDK implementations let `simulate()` mutate, commit, or publish runtime state |
 | SDK-SIM-2 | MUST | unavailable simulated actions MUST throw `ManifestoError` code `ACTION_UNAVAILABLE` before dry-run compute begins |
+| SDK-SIM-2a | MUST | available but non-dispatchable simulated intents MUST throw `ManifestoError` code `INTENT_NOT_DISPATCHABLE` before dry-run compute begins |
 | SDK-SIM-3 | MUST | `simulate()` MUST use the same intent packing and HostContext construction as normal dispatch |
 | SDK-SIM-4 | MUST | `simulate()` MUST apply both Core `apply()` and Core `applySystemDelta()` to produce a complete simulated snapshot |
 | SDK-SIM-5 | MUST | `simulate().snapshot` MUST return the same projected surface shape as `getSnapshot()` |
@@ -805,8 +862,8 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-EXT-2 | MUST | `ExtensionKernel.projectSnapshot()` MUST apply the same public projection boundary as `getSnapshot()` |
 | SDK-EXT-3 | MUST | `ExtensionKernel.projectSnapshot()` MUST be observationally pure; it MUST NOT be implemented by mutating the visible runtime snapshot and reading it back |
 | SDK-EXT-4 | MUST | `ExtensionKernel.simulateSync()` MUST use the same `computeSync -> apply -> applySystemDelta` transition contract as `simulate()` |
-| SDK-EXT-5 | MUST | `ExtensionKernel.simulateSync()` MUST preserve the same unavailable-action rejection semantics as `simulate()` |
-| SDK-EXT-6 | MUST | `ExtensionKernel.getAvailableActionsFor()` and `isActionAvailableFor()` MUST evaluate against the caller-provided canonical snapshot |
+| SDK-EXT-5 | MUST | `ExtensionKernel.simulateSync()` MUST preserve the same unavailable-action and non-dispatchable-intent rejection semantics as `simulate()` |
+| SDK-EXT-6 | MUST | `ExtensionKernel.getAvailableActionsFor()`, `isActionAvailableFor()`, and `isIntentDispatchableFor()` MUST evaluate against the caller-provided canonical snapshot |
 | SDK-EXT-7 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST expose publication-control, execution-control, queue-control, or provider-activation helpers |
 | SDK-EXT-8 | MUST NOT | Calls through `ExtensionKernel` MUST mutate the visible runtime snapshot, trigger subscribers, emit runtime events, or enqueue work on the source runtime |
 | SDK-EXT-9 | MUST | `ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` MUST remain observationally equivalent to the corresponding activated-runtime members |
@@ -941,6 +998,7 @@ Required stable codes:
 | `DISPOSED` | post-dispose runtime call |
 | `ALREADY_ACTIVATED` | second activation attempt on the same composable manifesto |
 | `ACTION_UNAVAILABLE` | queued dispatch reached the front of the queue but the action was unavailable against the current visible snapshot |
+| `INTENT_NOT_DISPATCHABLE` | the action was available, but the bound intent failed the dispatchability gate against the current visible snapshot |
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -949,6 +1007,7 @@ Required stable codes:
 | SDK-ERR-3 | MUST | `ReservedEffectError` MUST expose the attempted effect type |
 | SDK-ERR-4 | MUST | `AlreadyActivatedError` MUST be thrown on second activation attempt |
 | SDK-ERR-5 | MUST | unavailable queued dispatches MUST reject with `ManifestoError` code `ACTION_UNAVAILABLE` or an exact subclass carrying that code |
+| SDK-ERR-6 | MUST | available but non-dispatchable queued dispatches MUST reject with `ManifestoError` code `INTENT_NOT_DISPATCHABLE` or an exact subclass carrying that code |
 
 ## 11. Invariants
 
@@ -962,16 +1021,16 @@ Required stable codes:
 
 ## 12. Compliance Checklist
 
-An SDK v3.3.0 implementation complies with this living contract only if all of the following are true:
+An SDK v3.4.0 implementation complies with this living contract only if all of the following are true:
 
 - `createManifesto()` returns a composable manifesto, not a runtime instance.
 - Pre-activation objects expose no runtime verbs.
 - `activate()` is one-shot and throws `AlreadyActivatedError` on repeat use.
 - `ManifestoConfig` does not exist in the v3 contract.
 - SDK no longer presents `@manifesto-ai/world` as part of its public story.
-- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
+- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
-- `dispatchAsync()` is FIFO per instance and evaluates availability at dequeue time.
+- `dispatchAsync()` is FIFO per instance and evaluates availability before dispatchability at dequeue time.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
 - `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
 - `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers and no runtime-control methods.
@@ -984,8 +1043,9 @@ An SDK v3.3.0 implementation complies with this living contract only if all of t
 
 - [SDK Version Index](VERSION-INDEX.md)
 - [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md)
-- [Core SPEC v4.0.0](../../core/docs/core-SPEC.md)
+- [Core SPEC v4.1.0](../../core/docs/core-SPEC.md)
 - [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
 - [Compiler SPEC v0.7.0](../../compiler/docs/SPEC-v0.7.0.md)
 - [Compiler SPEC v0.8.0 Addendum](../../compiler/docs/SPEC-v0.8.0.md)
+- [Compiler SPEC v0.9.0 Addendum](../../compiler/docs/SPEC-v0.9.0.md)
 - [SDK FDR v3.1.0 Rationale Track](FDR-v3.1.0-draft.md)

@@ -80,7 +80,7 @@ export function isActionAvailable(
 }
 
 /**
- * Return all currently dispatchable actions in schema key order.
+ * Return all currently available actions in schema key order.
  */
 export function getAvailableActions(
   schema: DomainSchema,

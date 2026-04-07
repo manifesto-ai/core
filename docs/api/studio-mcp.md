@@ -74,7 +74,7 @@ If the server starts without a default schema, those resources return an error p
 Use `studio-mcp` when:
 
 - one MCP session is focused on one domain and its overlays
-- an agent needs read-only graph, findings, or governance tools
+- an agent needs read-only graph, findings, coarse availability, or action-blocker tools
 - you want the same inspection surface locally over stdio or remotely over HTTP
 
 Use [`@manifesto-ai/studio-core`](./studio-core) directly when you are already inside TypeScript and do not need MCP transport.

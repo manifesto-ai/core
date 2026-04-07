@@ -53,6 +53,8 @@ Records of significant architectural decisions:
 | [ADR-016](./adr/016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Implemented |
 | [ADR-017](./adr/017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented |
 | [ADR-018](./adr/018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented |
+| [ADR-019](./adr/019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented |
+| [ADR-020](./adr/020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Proposed |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

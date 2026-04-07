@@ -3,7 +3,7 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
-> **Compatible with:** Core SPEC v4.0.0, ARCHITECTURE v2.0
+> **Compatible with:** Core SPEC v4.1.0, ARCHITECTURE v2.0
 > **Hard-cut Alignment:** ADR-011, ADR-015
 > **Authors:** Manifesto Team
 > **License:** MIT
@@ -111,7 +111,7 @@ The canonical complete state of a domain at a point in time.
 import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } from '@manifesto-ai/core';
 
 // ============================================================
-// AUTHORITATIVE DEFINITION - Core SPEC v4.0.0
+// AUTHORITATIVE DEFINITION - Core SPEC v4.1.0
 // ============================================================
 // type Snapshot<TData = unknown> = {
 //   readonly data: TData;

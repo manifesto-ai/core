@@ -13,6 +13,10 @@ ADR-009 alignment points:
 - Runtime evaluation resolves IR path segments to concrete `PatchPath`
 - Invalid segment resolution is skipped with warnings (TOTAL behavior)
 
+Current MEL compiler addenda also cover:
+- projected `SchemaGraph` extraction (`SPEC-v0.8.0`)
+- intent-level dispatchability via `dispatchable when` (`SPEC-v0.9.0`)
+
 ---
 
 ## Main Entry Points

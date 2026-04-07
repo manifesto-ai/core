@@ -27,7 +27,7 @@ instance.on("dispatch:completed", (event) => {
 });
 
 instance.on("dispatch:rejected", (event) => {
-  console.log("rejected", event.intentId, event.reason);
+  console.log("rejected", event.intentId, event.code, event.reason);
 });
 
 instance.on("dispatch:failed", (event) => {
@@ -38,7 +38,7 @@ instance.on("dispatch:failed", (event) => {
 This immediately tells you which class of failure you are dealing with:
 
 - `completed`: the domain and handlers ran to a terminal snapshot
-- `rejected`: availability or another gate rejected the intent before publication
+- `rejected`: availability or dispatchability rejected the intent before publication
 - `failed`: effect execution or downstream processing failed
 
 ---
@@ -61,6 +61,7 @@ console.log("after canonical", afterCanonical.system.pendingRequirements);
 If the snapshot did not change, ask:
 
 - Did the action become unavailable by the time it was dequeued?
+- Did the action stay available, but the specific bound intent fail dispatchability?
 - Did the selector you subscribed to stay equal by `Object.is`?
 - Did the effect handler return patches for the fields you expected?
 

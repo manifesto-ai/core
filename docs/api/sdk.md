@@ -11,9 +11,9 @@ Use SDK when you want:
 - the shortest path to a running base runtime
 - a clear activation boundary before runtime execution
 - typed intent creation through `MEL.actions.*`
-- subscriptions, availability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
+- subscriptions, availability queries, dispatchability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
-The current SDK v3.3.0 contract is:
+The current SDK v3.4.0 contract is:
 
 `createManifesto(schema, effects) -> activate() -> base runtime instance`
 
@@ -37,6 +37,8 @@ The current first-party hypothetical-session helper is:
   - `getSnapshot`
   - `getCanonicalSnapshot`
   - `getAvailableActions`
+  - `isIntentDispatchable`
+  - `getIntentBlockers`
   - `getActionMetadata`
   - `isActionAvailable`
   - `getSchemaGraph`
@@ -61,6 +63,8 @@ await instance.dispatchAsync(intent);
 
 instance.isActionAvailable("increment");
 instance.getAvailableActions();
+instance.isIntentDispatchable(instance.MEL.actions.increment);
+instance.getIntentBlockers(instance.MEL.actions.increment);
 instance.getActionMetadata("increment");
 instance.getSnapshot();
 instance.getCanonicalSnapshot();
@@ -103,6 +107,7 @@ const addTodo = instance.getActionMetadata("addTodo");
 console.log(addTodo.name);
 console.log(addTodo.params);
 console.log(addTodo.input);
+console.log(addTodo.hasDispatchableGate);
 console.log(addTodo.description);
 
 const allActions = instance.getActionMetadata();
@@ -113,15 +118,16 @@ The accessor exposes:
 - action name
 - parameter names
 - machine-readable input schema
+- `hasDispatchableGate`
 - optional description
 
-`getAvailableActions()` remains the legality query. `getActionMetadata()` is a read-only contract inspection surface.
+`getAvailableActions()` remains the coarse legality query. `isIntentDispatchable()` and `getIntentBlockers()` are the fine bound-intent legality surface. `getActionMetadata()` is a read-only contract inspection surface.
 
 ## Static Graph And Dry-Run Introspection
 
 Use `getSchemaGraph()` when you need the projected static dependency graph for the activated schema. Ref-based lookup through `instance.MEL.*` is the canonical surface; kind-prefixed ids such as `state:count` are debug-only convenience.
 
-Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
+Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
 
 ## Decorator/provider authoring seam
 

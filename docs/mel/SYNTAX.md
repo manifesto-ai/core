@@ -329,11 +329,32 @@ action submit() available when and(isNotNull(email), eq(submittedAt, null)) {
 }
 ```
 
-**Note:** `available when` cannot reference `$input.*`.
+**Note:** `available when` cannot reference `$input.*` or bare action parameter names.
 
 ```mel
 // ❌ COMPILE ERROR: $input not allowed in available
 action process(x: number) available when gt($input.x, 0) {
+  when true { patch count = add(count, 1) }
+}
+```
+
+### Dispatchable When (Bound Intent Gate)
+
+```mel
+action shoot(cellIndex: number)
+  available when canShoot
+  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  when true {
+    patch cells = updateAt(cells, cellIndex, "pending")
+  }
+}
+```
+
+**Note:** `dispatchable when` may reference action parameters by bare name, but not by direct `$input.*` syntax.
+
+```mel
+// ❌ COMPILE ERROR: direct $input not allowed in dispatchable
+action process(x: number) dispatchable when gt($input.x, 0) {
   when true { patch count = add(count, 1) }
 }
 ```
