@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createCore, createSnapshot, getAvailableActions, isActionAvailable } from "../index.js";
 import type { DomainSchema } from "../schema/domain.js";
 import { hashSchemaSync } from "../utils/hash.js";
+import * as computedEvaluator from "../evaluator/computed.js";
 
 const HOST_CONTEXT = { now: 123, randomSeed: "seed" };
 
@@ -101,6 +102,17 @@ describe("action availability query", () => {
     const snapshot = createTestSnapshot(schema.hash, 5);
 
     expect(getAvailableActions(schema, snapshot)).toEqual(["withdraw", "deposit"]);
+  });
+
+  it("reuses a single prepared computed snapshot across getAvailableActions()", () => {
+    const schema = createTestSchema();
+    const snapshot = createTestSnapshot(schema.hash, 5);
+    const spy = vi.spyOn(computedEvaluator, "evaluateComputed");
+
+    expect(getAvailableActions(schema, snapshot)).toEqual(["withdraw", "deposit"]);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    spy.mockRestore();
   });
 
   it("ignores currentAction and answers for a new invocation", () => {

@@ -226,7 +226,21 @@ export function getAvailableActions(
   schema: DomainSchema,
   snapshot: Snapshot
 ): readonly string[] {
-  return Object.keys(schema.actions).filter((actionName) =>
-    isActionAvailable(schema, snapshot, actionName)
-  );
+  const prepared = prepareQuerySnapshot(schema, snapshot);
+  if (prepared.kind === "error") {
+    throw new Error(prepared.message);
+  }
+
+  return Object.keys(schema.actions).filter((actionName) => {
+    const result = evaluateAvailabilityAgainstPreparedSnapshot(
+      schema,
+      prepared.snapshot,
+      actionName,
+      snapshot.meta.timestamp
+    );
+    if (result.kind === "error") {
+      throw new Error(result.message);
+    }
+    return result.available;
+  });
 }
