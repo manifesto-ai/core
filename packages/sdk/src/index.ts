@@ -1,7 +1,7 @@
 /**
- * @manifesto-ai/sdk v3.0.0
+ * @manifesto-ai/sdk
  *
- * SDK hard cut around the activation boundary.
+ * Activation-first SDK package surface.
  *
  * @see sdk-SPEC.md
  * @see ADR-017

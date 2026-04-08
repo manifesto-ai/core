@@ -2,7 +2,7 @@
 
 > Let an agent choose the next change, then route that change through the base runtime first and escalate only when writes need review or audit history.
 >
-> **Current Contract Note:** This page describes the current activation-first SDK surface and the current Lineage/Governance decorator runtime surface. SDK snapshots follow the current Core v4.1.0 contract and no longer expose accumulated `system.errors`.
+> **Current Contract Note:** This page describes the current activation-first SDK surface and the current Lineage/Governance decorator runtime surface. SDK snapshots follow the current Core v4.2.0 contract and no longer expose accumulated `system.errors`.
 
 ---
 

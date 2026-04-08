@@ -2,7 +2,7 @@
 
 > **Host** is the effect execution runtime of Manifesto. It executes effects, applies patches, and manages the compute-effect loop.
 
-> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through Host v4.0.0. Host-facing Snapshot references now follow the current Core v4.1.0 contract and no longer include accumulated `system.errors`.
+> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through Host v4.0.0. Host-facing Snapshot references now follow the current Core v4.2.0 contract and no longer include accumulated `system.errors`.
 
 ---
 

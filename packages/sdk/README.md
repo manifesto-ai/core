@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current SDK contract is the living v3.3.0 activation-and-introspection model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). That current contract now includes `@manifesto-ai/sdk/extensions` for safe arbitrary-snapshot read-only helpers after activation, including `createSimulationSession(instance)`.
+> **Current Contract Note:** The current SDK contract is the living v3.5.0 activation-first model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed `createIntent()` object binding, intent dispatchability queries, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(instance)`.
 
 ## What This Package Owns
 
@@ -20,7 +20,7 @@ Use the SDK when you want:
 
 - the shortest path to a running base runtime
 - typed intent creation through `MEL.actions.*`
-- `dispatchAsync`, subscriptions, availability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
+- `dispatchAsync`, subscriptions, availability and dispatchability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 - projected Snapshot reads by default, with canonical inspection available explicitly
 - a clear boundary between law composition and runtime execution
 

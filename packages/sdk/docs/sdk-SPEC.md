@@ -2,17 +2,17 @@
 
 > **Status:** Normative (Living Document)
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v4.1.0, Host Contract v4.0.0, Compiler SPEC v0.7.0, Compiler SPEC v0.8.0 addendum, Compiler SPEC v0.9.0 addendum, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
+> **Compatible with:** Core SPEC v4.2.0, Host Contract v4.0.0, Compiler SPEC v1.0.0, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
 > **Supersedes:** SDK SPEC v2.0.0
 > **Implements:** ADR-017 v3.1, ADR-019 v1.1, ADR-020 v1
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.4.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the intent-level dispatchability additions in §7.2-§7.5, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contracts live in the companion addenda [SPEC-v0.8.0](../../compiler/docs/SPEC-v0.8.0.md) and [SPEC-v0.9.0](../../compiler/docs/SPEC-v0.9.0.md).
+> **Current v3.5.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the intent-level dispatchability additions in §7.2-§7.5, single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3.4.0 public contract.
+This document defines the current SDK v3.5.0 public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
@@ -514,7 +514,7 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 The canonical public surface is the instance object. Destructuring is optional ergonomics only.
 
-The members in §7.4 and §7.5 are part of the current v3.4.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
+The members in §7.4 and §7.5 are part of the current v3.5.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
 
 ### 7.1 `createIntent()`
 
@@ -1023,7 +1023,7 @@ Required stable codes:
 
 ## 12. Compliance Checklist
 
-An SDK v3.4.0 implementation complies with this living contract only if all of the following are true:
+An SDK v3.5.0 implementation complies with this living contract only if all of the following are true:
 
 - `createManifesto()` returns a composable manifesto, not a runtime instance.
 - Pre-activation objects expose no runtime verbs.
@@ -1045,9 +1045,7 @@ An SDK v3.4.0 implementation complies with this living contract only if all of t
 
 - [SDK Version Index](VERSION-INDEX.md)
 - [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md)
-- [Core SPEC v4.1.0](../../core/docs/core-SPEC.md)
+- [Core SPEC v4.2.0](../../core/docs/core-SPEC.md)
 - [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
-- [Compiler SPEC v0.7.0](../../compiler/docs/SPEC-v0.7.0.md)
-- [Compiler SPEC v0.8.0 Addendum](../../compiler/docs/SPEC-v0.8.0.md)
-- [Compiler SPEC v0.9.0 Addendum](../../compiler/docs/SPEC-v0.9.0.md)
+- [Compiler SPEC v1.0.0](../../compiler/docs/SPEC-v1.0.0.md)
 - [SDK FDR v3.1.0 Rationale Track](FDR-v3.1.0-draft.md)

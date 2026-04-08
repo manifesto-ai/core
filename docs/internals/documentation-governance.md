@@ -31,6 +31,7 @@ This guide defines core documentation operations for Manifesto. These rules alig
 ### 1-4. Reading Order
 
 - Prefer maintained docs first: README, package landing pages, API docs, concept docs, and current package indexes.
+- For canonical export and external knowledge ingestion, prefer `docs/internals/spec/current-contract.md` as the current-only entry before package-level detail.
 - Use historical ADR/SPEC/FDR material only after the current surface is understood.
 - Do not use archive documents to infer current public APIs or canonical import paths.
 
