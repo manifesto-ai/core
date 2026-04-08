@@ -243,15 +243,7 @@ export function pathExistsInStateSpec(
     if (rootType) {
       const existsInTypeDefinition = rest.length === 0
         ? true
-        : pathExistsInTypeDefinitionSegments(
-          rootType,
-          types,
-          rest.map((segment) =>
-            isNumericSegment(segment)
-              ? ({ kind: "index", index: Number(segment) } satisfies PatchSegment)
-              : ({ kind: "prop", name: segment } satisfies PatchSegment)
-          ),
-        );
+        : pathExistsInTypeDefinitionSegments(rootType, types, rest);
       if (existsInTypeDefinition) {
         return true;
       }

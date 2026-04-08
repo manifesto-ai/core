@@ -486,6 +486,41 @@ describe("validate", () => {
       expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
       expect(result.errors.some((e) => e.message.includes("input.missing"))).toBe(true);
     });
+
+    it("should allow numeric object keys in inputType-backed action paths", () => {
+      const schema = createValidSchema({
+        actions: {
+          update: {
+            inputType: {
+              kind: "object",
+              fields: {
+                payload: {
+                  type: {
+                    kind: "object",
+                    fields: {
+                      "0": {
+                        type: { kind: "primitive", type: "string" },
+                        optional: false,
+                      },
+                    },
+                  },
+                  optional: false,
+                },
+              },
+            },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("dummy"),
+              value: { kind: "get", path: "input.payload.0" },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(true);
+    });
   });
 
   describe("Call Reference Validation (V-004)", () => {

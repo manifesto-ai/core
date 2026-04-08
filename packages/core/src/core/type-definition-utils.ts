@@ -82,21 +82,59 @@ export function pathExistsInTypeDefinition(
     return true;
   }
 
-  const segments = parsePath(path).map((segment) =>
-    isNumericSegment(segment)
-      ? ({ kind: "index", index: Number(segment) } satisfies PatchSegment)
-      : ({ kind: "prop", name: segment } satisfies PatchSegment)
-  );
-
-  return getTypeDefinitionAtSegments(definition, types, segments) !== null;
+  return getTypeDefinitionAtPathSegments(definition, types, parsePath(path)) !== null;
 }
 
 export function pathExistsInTypeDefinitionSegments(
   definition: TypeDefinition,
   types: Record<string, TypeSpec>,
-  segments: readonly PatchSegment[],
+  segments: readonly string[],
 ): boolean {
-  return getTypeDefinitionAtSegments(definition, types, segments) !== null;
+  return getTypeDefinitionAtPathSegments(definition, types, segments) !== null;
+}
+
+function getTypeDefinitionAtPathSegments(
+  definition: TypeDefinition,
+  types: Record<string, TypeSpec>,
+  segments: readonly string[],
+): TypeDefinition | null {
+  let current: TypeDefinition | null = definition;
+
+  for (const segment of segments) {
+    if (!current) {
+      return null;
+    }
+
+    const traversable = stripNullableEnvelope(current, types);
+    if (!traversable) {
+      return null;
+    }
+
+    switch (traversable.kind) {
+      case "object":
+        current = traversable.fields[segment]?.type ?? null;
+        break;
+
+      case "record":
+        current = traversable.value;
+        break;
+
+      case "array":
+        if (!isNumericSegment(segment)) {
+          return null;
+        }
+        current = traversable.element;
+        break;
+
+      case "primitive":
+        return null;
+
+      default:
+        return null;
+    }
+  }
+
+  return current;
 }
 
 export function getTypeDefinitionAtSegments(
