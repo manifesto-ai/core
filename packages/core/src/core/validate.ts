@@ -14,6 +14,10 @@ import {
   pathExistsInFieldSpec,
   validateValueAgainstFieldSpec,
 } from "./validation-utils.js";
+import {
+  pathExistsInTypeDefinition,
+  validateValueAgainstTypeDefinition,
+} from "./type-definition-utils.js";
 
 /**
  * Validate a domain schema
@@ -105,7 +109,7 @@ export function validate(schema: unknown): ValidationResult {
     });
   }
 
-  errors.push(...validateStateDefaults(domainSchema.state, "state.fields"));
+  errors.push(...validateStateDefaults(domainSchema, "state.fields"));
 
   errors.push(...validateComputedDeps(domainSchema));
 
@@ -253,10 +257,35 @@ function validateCallGraph(
 }
 
 function validateStateDefaults(
-  state: import("../schema/field.js").StateSpec,
+  schema: import("../schema/domain.js").DomainSchema,
   basePath: string
 ): ValidationError[] {
   const errors: ValidationError[] = [];
+  const state = schema.state;
+
+  if (state.fieldTypes) {
+    for (const [name, field] of Object.entries(state.fields)) {
+      if (field.default === undefined) {
+        continue;
+      }
+
+      const fieldType = state.fieldTypes[name];
+      if (!fieldType) {
+        continue;
+      }
+
+      const typeCheck = validateValueAgainstTypeDefinition(field.default, fieldType, schema.types);
+      if (!typeCheck.ok) {
+        errors.push({
+          code: "V-009",
+          message: `Default value type mismatch: ${typeCheck.message}`,
+          path: `${basePath}.${name}`,
+        });
+      }
+    }
+
+    return errors;
+  }
 
   const visit = (
     spec: import("../schema/field.js").FieldSpec,
@@ -318,7 +347,7 @@ function validateComputedDeps(
     for (const dep of spec.deps) {
       const exists =
         pathExistsInComputedSpec(schema.computed, dep) ||
-        pathExistsInStateSpec(schema.state, dep);
+        pathExistsInStateSpec(schema.state, dep, schema.types);
       if (!exists) {
         errors.push({
           code: "V-001",
@@ -350,7 +379,7 @@ function validateComputedExprPaths(
       if (exprPath.startsWith("system.")) {
         return true;
       }
-      return !pathExistsInStateSpec(schema.state, exprPath);
+      return !pathExistsInStateSpec(schema.state, exprPath, schema.types);
     });
 
     for (const exprPath of invalidPaths) {
@@ -390,7 +419,7 @@ function validateComputedDepsCoverage(
         if (pathExistsInComputedSpec(schema.computed, exprPath)) {
           return true;
         }
-        return pathExistsInStateSpec(schema.state, exprPath);
+        return pathExistsInStateSpec(schema.state, exprPath, schema.types);
       })
     );
 
@@ -426,7 +455,16 @@ function validateActionExprPaths(
       }
 
       if (exprPath === "input" || exprPath.startsWith("input.")) {
-        if (action.input) {
+        if (action.inputType) {
+          const subPath = exprPath === "input" ? "" : exprPath.slice(6);
+          if (!pathExistsInTypeDefinition(action.inputType, schema.types, subPath)) {
+            errors.push({
+              code: "V-003",
+              message: `Unknown input path: ${exprPath}`,
+              path: `actions.${actionName}`,
+            });
+          }
+        } else if (action.input) {
           const subPath = exprPath === "input" ? "" : exprPath.slice(6);
           if (!pathExistsInFieldSpec(action.input, subPath)) {
             errors.push({
@@ -451,7 +489,7 @@ function validateActionExprPaths(
         continue;
       }
 
-      if (!pathExistsInStateSpec(schema.state, exprPath)) {
+      if (!pathExistsInStateSpec(schema.state, exprPath, schema.types)) {
         errors.push({
           code: "V-003",
           message: `Unknown state path: ${exprPath}`,

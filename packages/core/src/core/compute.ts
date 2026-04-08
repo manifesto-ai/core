@@ -13,6 +13,7 @@ import { isOk } from "../schema/common.js";
 import type { HostContext } from "../schema/host-context.js";
 import { evaluateActionAvailability } from "./action-availability.js";
 import { applySystemDelta } from "./system-delta.js";
+import { validateValueAgainstTypeDefinition } from "./type-definition-utils.js";
 
 /**
  * Compute the result of dispatching an intent (synchronous).
@@ -56,8 +57,8 @@ export function computeSync(
     );
   }
 
-  if (action.input) {
-    const inputError = validateInput(action.input, intent.input);
+  if (action.input || action.inputType) {
+    const inputError = validateInput(schema, action.inputType, action.input, intent.input);
     if (inputError) {
       return createErrorResult(
         currentSnapshot,
@@ -293,7 +294,21 @@ function estimateResultVersion(snapshot: Snapshot, patches: readonly Patch[], de
  * Validate input against action's input schema
  * Returns error message if invalid, null if valid
  */
-function validateInput(inputSpec: FieldSpec, input: unknown): string | null {
+function validateInput(
+  schema: DomainSchema,
+  inputType: import("../schema/type-spec.js").TypeDefinition | undefined,
+  inputSpec: FieldSpec | undefined,
+  input: unknown,
+): string | null {
+  if (inputType) {
+    const result = validateValueAgainstTypeDefinition(input, inputType, schema.types);
+    return result.ok ? null : result.message ?? "Invalid input";
+  }
+
+  if (!inputSpec) {
+    return null;
+  }
+
   if (inputSpec.type === "object") {
     if (typeof input !== "object" || input === null || Array.isArray(input)) {
       return `Expected object input, got ${typeof input}`;

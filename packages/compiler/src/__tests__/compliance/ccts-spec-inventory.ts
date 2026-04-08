@@ -70,7 +70,14 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   ...inventoryMany(["COMP-DEP-1", "COMP-DEP-2", "COMP-DEP-3", "COMP-DEP-4", "COMP-DEP-5"], "§4.4.1", "MUST", "state-and-computed"),
   inventory("COMP-DEP-6", "§4.4.1", "SHOULD", "state-and-computed"),
 
-  ...inventoryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5", "TYPE-LOWER-6", "TYPE-LOWER-7", "TYPE-LOWER-8", "TYPE-LOWER-9"], "§5.6.2", "MUST", "state-and-computed"),
+  ...inventoryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5"], "§5.6.2", "MUST", "state-and-computed"),
+  inventory("TYPE-LOWER-6", "§5.6.2", "MUST", "state-and-computed", {
+    notes: "Nullable schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
+  }),
+  inventory("TYPE-LOWER-7", "§5.6.2", "MUST", "state-and-computed", {
+    notes: "Record schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
+  }),
+  ...inventoryMany(["TYPE-LOWER-8", "TYPE-LOWER-9"], "§5.6.2", "MUST", "state-and-computed"),
   ...inventoryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14"], "SPEC v0.8.0 §6/§7/§8", "MUST", "introspection"),
   inventory("SGRAPH-15", "SPEC v0.8.0 §6", "SHOULD", "introspection"),
 
@@ -93,7 +100,15 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   inventory("E012", "§13.6", "MUST", "state-and-computed"),
   ...inventoryMany(["E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024"], "§13.6", "MUST", "flow-composition"),
   ...inventoryMany(["E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035"], "§13.6", "MUST", "entity-primitives"),
-  ...inventoryMany(["E040", "E041", "E042", "E043", "E044", "E045", "E046"], "§13.6", "MUST", "state-and-computed"),
+  ...inventoryMany(["E040", "E041", "E042", "E043", "E044"], "§13.6", "MUST", "state-and-computed"),
+  inventory("E045", "§13.6", "MUST", "state-and-computed", {
+    lifecycle: "superseded",
+    notes: "Superseded when nullable schema-position types became supported through TypeDefinition-backed runtime validation.",
+  }),
+  inventory("E046", "§13.6", "MUST", "state-and-computed", {
+    lifecycle: "superseded",
+    notes: "Superseded when Record schema-position types became supported through TypeDefinition-backed runtime validation.",
+  }),
 ] as const;
 
 export function getInventoryRuleOrThrow(ruleId: string): CompilerComplianceInventoryItem {

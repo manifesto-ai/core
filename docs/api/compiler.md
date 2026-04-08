@@ -13,9 +13,13 @@ ADR-009 alignment points:
 - Runtime evaluation resolves IR path segments to concrete `PatchPath`
 - Invalid segment resolution is skipped with warnings (TOTAL behavior)
 
-Current MEL compiler addenda also cover:
-- projected `SchemaGraph` extraction (`SPEC-v0.8.0`)
-- intent-level dispatchability via `dispatchable when` (`SPEC-v0.9.0`)
+The current full compiler contract is [SPEC-v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md).
+
+Current compiler responsibilities also include:
+- projected `SchemaGraph` extraction
+- intent-level dispatchability via `dispatchable when`
+- rich schema-position lowering through `state.fieldTypes`, `action.inputType`, and `action.params`
+- pure collection builtins such as `filter`, `map`, `find`, `every`, and `some` in expression contexts
 
 ---
 

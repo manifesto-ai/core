@@ -22,31 +22,24 @@
 
 MEL forbids hidden iteration. All iteration is declarative, not imperative.
 
-### Error: filter/map in computed
+### Error: effect-level array.filter in computed
 
 ```mel
 // ❌ BROKEN
-computed activeItems = filter(items, $item.active)
+computed activeItems = effect array.filter({
+  source: items,
+  where: eq($item.active, true),
+  into: result
+})
 ```
 
-**Error:** `SemanticError: 'filter' is not a builtin function. Use effect array.filter() instead.`
+**Error:** `SemanticError: Effects are not allowed in computed expressions.`
 
-**Rule violated:** MEL has no `filter()` or `map()` functions. These are effects.
+**Rule violated:** `effect array.filter(...)` is an effect statement, not an expression. In computed, use the expression-level `filter()` builtin.
 
 ```mel
-// ✅ FIXED: Use effect in action
-action loadActive() {
-  once(loading) {
-    patch loading = $meta.intentId
-    effect array.filter({
-      source: items,
-      where: eq($item.active, true),
-      into: activeItems
-    })
-  }
-}
-
-// Then use computed to access the result
+// ✅ FIXED: Use the expression builtin in computed
+computed activeItems = filter(items, eq($item.active, true))
 computed hasActiveItems = gt(len(activeItems), 0)
 ```
 
@@ -65,19 +58,8 @@ computed lowest = min(map(items, $item.price))
 **Rule violated:** `sum()`, `min()`, `max()` accept only direct state references, not expressions.
 
 ```mel
-// ✅ FIXED: Prepare data first with effect, then aggregate
-action preparePrices() {
-  once(filtering) {
-    patch filtering = $meta.intentId
-    effect array.filter({
-      source: prices,
-      where: gt($item, 0),
-      into: positivePrices
-    })
-  }
-}
-
-// Now aggregate the filtered result
+// ✅ FIXED: Use a computed intermediate, then aggregate
+computed positivePrices = filter(prices, gt($item, 0))
 computed total = sum(positivePrices)
 ```
 
@@ -155,28 +137,14 @@ computed smallest = min(a, b, c, d)      // Multi-value comparison
 
 ---
 
-### Error: Aggregation on Record
+### Note: len() on Record
 
 ```mel
-// ❌ BROKEN
-computed taskCount = len(tasks)   // tasks is Record<string, Task>
+// ✅ VALID
+computed taskCount = len(tasks)
 ```
 
-**Error:** `SemanticError: 'len' expects Array<T>, got Record<string, Task>.`
-
-**Rule violated:** `len()` works only on arrays, not records.
-
-```mel
-// ✅ FIXED: Get keys first
-action loadKeys() {
-  once(loading) {
-    patch loading = $meta.intentId
-    effect record.keys({ source: tasks, into: taskIds })
-  }
-}
-
-computed taskCount = len(taskIds)
-```
+`len()` works on strings, arrays, and records/objects. For records it returns the key count.
 
 ---
 
@@ -734,7 +702,7 @@ action processAll() {
 
 | Error Category | Common Cause | Fix |
 |----------------|--------------|-----|
-| Hidden iteration | Using filter/map as functions | Use `effect array.filter/map()` |
+| Hidden iteration | Using effect-level `array.filter/map()` in computed | Use expression builtins `filter()` / `map()` |
 | Aggregation | Nested calls in sum/min/max | Prepare data with effect first |
 | Effect in computed | Thinking computed can do IO | Move to action |
 | Unguarded statement | Missing when/once | Add guard |

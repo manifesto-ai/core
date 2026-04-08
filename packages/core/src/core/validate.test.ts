@@ -63,7 +63,10 @@ function createValidSchema(overrides: Partial<DomainSchema> = {}): DomainSchema 
     version: "1.0.0",
     ...restOverrides,
     types: types ?? {},
-    state: { fields: stateFields },
+    state: {
+      fields: stateFields,
+      ...(state?.fieldTypes ? { fieldTypes: state.fieldTypes } : {}),
+    },
     computed: { fields: computedFields },
     actions,
   };
@@ -1003,6 +1006,46 @@ describe("V-009: default type validation", () => {
     const result = validate(schema);
     const v009Errors = result.errors.filter((e) => e.code === "V-009");
     expect(v009Errors).toHaveLength(0);
+  });
+
+  it("should pass when required fieldTypes allow nullable defaults", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          selectedId: { type: "string", required: true, default: null },
+        },
+        fieldTypes: {
+          selectedId: {
+            kind: "union",
+            types: [
+              { kind: "primitive", type: "string" },
+              { kind: "literal", value: null },
+            ],
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    const v009Errors = result.errors.filter((e) => e.code === "V-009");
+    expect(v009Errors).toHaveLength(0);
+  });
+
+  it("should fail when fieldTypes keep a required field non-nullable", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          selectedId: { type: "string", required: true, default: null },
+        },
+        fieldTypes: {
+          selectedId: { kind: "primitive", type: "string" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009", path: "state.fields.selectedId" })
+    );
   });
 
   it("should fail when nested object field has wrong nested default type", () => {

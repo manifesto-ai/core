@@ -323,7 +323,7 @@ describe("CCTS State and Computed Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.STATE_UNSUPPORTED_TYPES, "(TYPE-LOWER-6..9, E043..E046) unsupported FieldSpec shapes remain rejected"), () => {
+  it(caseTitle(CCTS_CASES.STATE_UNSUPPORTED_TYPES, "(TYPE-LOWER-6..9, E043/E044) rich schema shapes lower via TypeDefinition while unsupported unions remain rejected"), () => {
     const nullableResult = adapter.compile(`
       domain Demo {
         state { value: string | null = null }
@@ -352,31 +352,28 @@ describe("CCTS State and Computed Suite", () => {
     `);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-6"), hasDiagnosticCode(nullableResult.errors, "E045"), {
-        passMessage: "Nullable schema-position types are rejected.",
-        failMessage: "Nullable schema-position types are not yet rejected.",
+      evaluateRule(getRuleOrThrow("TYPE-LOWER-6"), nullableResult.success, {
+        passMessage: "Nullable schema-position types compile through the TypeDefinition seam.",
+        failMessage: "Nullable schema-position types do not yet compile through the TypeDefinition seam.",
         evidence: [
-          noteEvidence("Observed nullable field", nullableResult.value?.state.fields["value"]),
+          noteEvidence("Observed nullable FieldSpec", nullableResult.value?.state.fields["value"]),
+          noteEvidence("Observed nullable fieldType", nullableResult.value?.state.fieldTypes?.["value"]),
           ...diagnosticEvidence(nullableResult.errors),
         ],
       }),
-      evaluateRule(getRuleOrThrow("E045"), hasDiagnosticCode(nullableResult.errors, "E045"), {
-        passMessage: "Nullable schema-position types emit E045.",
-        failMessage: "Nullable schema-position types do not yet emit E045.",
-        evidence: diagnosticEvidence(nullableResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-7"), hasDiagnosticCode(recordResult.errors, "E046"), {
-        passMessage: "Record schema-position types are rejected.",
-        failMessage: "Record schema-position types are not yet rejected.",
+      evaluateRule(
+        getRuleOrThrow("TYPE-LOWER-7"),
+        recordResult.success
+          && recordResult.value?.state.fields["entries"]?.type === "object"
+          && recordResult.value?.state.fieldTypes?.["entries"]?.kind === "record",
+        {
+        passMessage: "Record schema-position types compile with compatibility FieldSpec plus precise TypeDefinition.",
+        failMessage: "Record schema-position types do not yet lower through the split runtime seam.",
         evidence: [
-          noteEvidence("Observed record field", recordResult.value?.state.fields["entries"]),
+          noteEvidence("Observed record FieldSpec", recordResult.value?.state.fields["entries"]),
+          noteEvidence("Observed record fieldType", recordResult.value?.state.fieldTypes?.["entries"]),
           ...diagnosticEvidence(recordResult.errors),
         ],
-      }),
-      evaluateRule(getRuleOrThrow("E046"), hasDiagnosticCode(recordResult.errors, "E046"), {
-        passMessage: "Record schema-position types emit E046.",
-        failMessage: "Record schema-position types do not yet emit E046.",
-        evidence: diagnosticEvidence(recordResult.errors),
       }),
       evaluateRule(getRuleOrThrow("TYPE-LOWER-8"), hasDiagnosticCode(unionResult.errors, "E043"), {
         passMessage: "Non-trivial unions in schema positions are rejected.",

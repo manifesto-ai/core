@@ -13,7 +13,7 @@
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
 
-> **Current Contract Note:** This page describes the current Core v4.1.0 surface. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate.
+> **Current Contract Note:** This page describes the current Core v4.2.0 surface. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
 
 ---
 

@@ -541,9 +541,14 @@ function getExistingActivationState<
   return internal[ACTIVATION_STATE] ?? null;
 }
 
-function getActionInputFieldNames(
-  input: DomainSchema["actions"][string]["input"],
+function getActionParamNames(
+  action: DomainSchema["actions"][string],
 ): readonly string[] {
+  if (action.params) {
+    return action.params;
+  }
+
+  const input = action.input;
   if (!input || input.type !== "object" || !input.fields) {
     return [];
   }
@@ -590,7 +595,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
         const actionRef = MEL.actions[name] as unknown as RuntimeActionRef | undefined;
         const rawParams = actionRef?.[ACTION_PARAM_NAMES];
         const params = Object.freeze(
-          Array.isArray(rawParams) ? [...rawParams] : getActionInputFieldNames(action.input),
+          Array.isArray(rawParams) ? [...rawParams] : getActionParamNames(action),
         );
 
         return [name, Object.freeze({

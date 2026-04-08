@@ -3,7 +3,9 @@ import type { FlowNode } from "../schema/flow.js";
 import type { FieldSpec, StateSpec } from "../schema/field.js";
 import type { ComputedSpec } from "../schema/computed.js";
 import type { PatchSegment } from "../schema/patch.js";
+import type { TypeSpec } from "../schema/type-spec.js";
 import { parsePath } from "../utils/path.js";
+import { pathExistsInTypeDefinition } from "./type-definition-utils.js";
 
 const SEMVER_REGEX =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
@@ -217,7 +219,33 @@ export function collectGetPathsFromFlow(flow: FlowNode): string[] {
   return paths;
 }
 
-export function pathExistsInStateSpec(state: StateSpec, path: string): boolean {
+export function pathExistsInStateSpec(
+  state: StateSpec,
+  path: string,
+  types: Record<string, TypeSpec> = {},
+): boolean {
+  if (state.fieldTypes) {
+    if (!path) {
+      return true;
+    }
+
+    const segments = parsePath(path);
+    const [root, ...rest] = segments;
+    if (!root) {
+      return true;
+    }
+
+    const rootType = state.fieldTypes[root];
+    if (rootType) {
+      const existsInTypeDefinition = rest.length === 0
+        ? true
+        : pathExistsInTypeDefinition(rootType, types, rest.join("."));
+      if (existsInTypeDefinition) {
+        return true;
+      }
+    }
+  }
+
   return pathExistsInFieldSpec({ type: "object", required: true, fields: state.fields }, path);
 }
 

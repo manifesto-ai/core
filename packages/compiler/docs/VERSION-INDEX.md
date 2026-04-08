@@ -1,17 +1,16 @@
 # MEL Compiler Documentation Index
 
 > **Package:** `@manifesto-ai/compiler`
-> **Last Updated:** 2026-04-07
+> **Last Updated:** 2026-04-08
 
 ---
 
 ## Latest Version
 
-- **Base SPEC:** [v0.7.0](SPEC-v0.7.0.md) (Full)
-- **Current Addendum:** [v0.9.0](SPEC-v0.9.0.md) (Normative Addendum)
+- **Current Full SPEC:** [v1.0.0](SPEC-v1.0.0.md) (Full)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** v0.7.0 remains the full compiler baseline. [v0.9.0](SPEC-v0.9.0.md) is the current additive addendum for intent-level dispatchability (`dispatchable when`). The earlier [v0.8.0](SPEC-v0.8.0.md) `SchemaGraph` addendum remains in force alongside it.
+**Note:** [v1.0.0](SPEC-v1.0.0.md) is the current integrated compiler contract. It rolls up the old v0.7.0 baseline plus the v0.8.0 `SchemaGraph` and v0.9.0 `dispatchable when` addenda, and it reflects the landed `TypeDefinition`-backed support for nullable and record schema-position types.
 
 ---
 
@@ -19,9 +18,10 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v0.9.0 | [SPEC](SPEC-v0.9.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Normative Addendum (Base: v0.7.0) | Current |
-| v0.8.0 | [SPEC](SPEC-v0.8.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Companion Addendum (Base: v0.7.0) | Draft |
-| v0.7.0 | [SPEC](SPEC-v0.7.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current Base |
+| v1.0.0 | [SPEC](SPEC-v1.0.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
+| v0.9.0 | [SPEC](SPEC-v0.9.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Historical Addendum (merged into v1.0.0) | Superseded |
+| v0.8.0 | [SPEC](SPEC-v0.8.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Historical Addendum (merged into v1.0.0) | Superseded |
+| v0.7.0 | [SPEC](SPEC-v0.7.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Baseline | Superseded |
 | v0.6.0 | — (historical baseline; no standalone file in repo) | [FDR](FDR-v0.5.0.md) | Full | Superseded by v0.7.0 |
 | v0.5.0 | [SPEC](SPEC-v0.5.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
 | v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Merged |
@@ -36,23 +36,11 @@
 
 ## Reading Guide
 
-### For v0.9.0 Addendum
+### For Current
 
-1. Read [SPEC-v0.7.0.md](SPEC-v0.7.0.md) for the full compiler baseline.
-2. Read [SPEC-v0.9.0.md](SPEC-v0.9.0.md) for the additive `dispatchable when` contract.
-3. Read [SPEC-v0.8.0.md](SPEC-v0.8.0.md) if you also need the `SchemaGraph` extraction contract.
-
-### For v0.8.0 Addendum
-
-1. Read [SPEC-v0.7.0.md](SPEC-v0.7.0.md) for the current compiler baseline.
-2. Read [SPEC-v0.8.0.md](SPEC-v0.8.0.md) for the additive `SchemaGraph` extraction addendum.
-3. Read [../../sdk/docs/FDR-v3.1.0-draft.md](../../sdk/docs/FDR-v3.1.0-draft.md) for the consumer-side rationale companion.
-
-### For Latest (v0.7.0)
-
-1. Read [SPEC-v0.7.0.md](SPEC-v0.7.0.md) (full specification)
-2. For the two new proposal tracks, read [ADR-013a](../../../docs/internals/adr/013a-mel-statement-composition-flow-and-include.md) and [ADR-013b](../../../docs/internals/adr/013b-entity-collection-primitives.md)
-3. For baseline rationale: [FDR-v0.5.0.md](FDR-v0.5.0.md)
+1. Read [SPEC-v1.0.0.md](SPEC-v1.0.0.md) for the current full compiler contract.
+2. Use [SPEC-v0.8.0.md](SPEC-v0.8.0.md) and [SPEC-v0.9.0.md](SPEC-v0.9.0.md) only for historical addendum context.
+3. For rationale history, use [FDR-v0.5.0.md](FDR-v0.5.0.md).
 
 ### For v0.4.0 (Historical Patch)
 

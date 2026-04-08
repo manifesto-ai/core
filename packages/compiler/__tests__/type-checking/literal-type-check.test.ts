@@ -92,8 +92,17 @@ describe("Literal type checking", () => {
           action a() { when true { patch name = "ok" } }
         }
       `);
-      expect(result.success).toBe(false);
-      expect(result.errors.some(d => d.code === "E045")).toBe(true);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.schema.state.fields.name.type).toBe("string");
+        expect(result.schema.state.fieldTypes?.name).toEqual({
+          kind: "union",
+          types: [
+            { kind: "primitive", type: "string" },
+            { kind: "literal", value: null },
+          ],
+        });
+      }
     });
   });
 
@@ -167,6 +176,44 @@ describe("Literal type checking", () => {
       expect(result.errors.some(d =>
         d.code === "E_TYPE_MISMATCH" && d.message.includes("nums[1]")
       )).toBe(true);
+    });
+  });
+
+  describe("record types", () => {
+    it("accepts record field types in schema positions", () => {
+      const result = compileSource(`
+        domain Test {
+          type Todo = { id: string, done: boolean }
+          state { todos: Record<string, Todo> = {} }
+          computed c = todos
+          action syncTodos(entries: Record<string, Todo>) {
+            when true { patch todos = entries }
+          }
+        }
+      `);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.schema.state.fields.todos.type).toBe("object");
+        expect(result.schema.state.fieldTypes?.todos).toEqual({
+          kind: "record",
+          key: { kind: "primitive", type: "string" },
+          value: { kind: "ref", name: "Todo" },
+        });
+        expect(result.schema.actions.syncTodos.params).toEqual(["entries"]);
+        expect(result.schema.actions.syncTodos.inputType).toEqual({
+          kind: "object",
+          fields: {
+            entries: {
+              type: {
+                kind: "record",
+                key: { kind: "primitive", type: "string" },
+                value: { kind: "ref", name: "Todo" },
+              },
+              optional: false,
+            },
+          },
+        });
+      }
     });
   });
 

@@ -2,7 +2,7 @@
 
 > **Purpose:** The single document a user reads to learn and use MEL. Covers every function, construct, and pattern with examples.
 > **Audience:** Developers writing MEL domains. Both beginners and experienced users.
-> **Normative sources:** SPEC-v0.7.0.md §9 (Standard Library), SPEC-v0.9.0.md (`dispatchable when`), validator.ts (function signatures), lower-expr.ts (supported functions).
+> **Normative sources:** SPEC-v1.0.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
 
 ---
 
@@ -547,14 +547,9 @@ computed uniqueIds = unique(allIds)
 computed allMembers = flat(teamMemberArrays)
 ```
 
-> **`len()` does not work on records.** To count records, extract keys first:
+> **`len()` works on records and objects.** For records/objects it returns the key count:
 > ```mel
-> // In computed:
-> computed taskIds = keys(tasks)
-> computed taskCount = len(taskIds)
-> // Or in an action pipeline:
-> effect record.keys({ source: tasks, into: taskIds })
-> // then: len(taskIds)
+> computed taskCount = len(tasks)
 > ```
 
 > **`filter`, `map`, `find`, `every`, `some` in computed use `$item` inline.** These are expression-level functions that take a predicate or mapper expression where `$item` refers to the current element. They differ from the effect-level `array.filter` etc. (see §8.1).
@@ -1736,7 +1731,7 @@ domain Toggles {
 | `\`Hello ${name}\`` | `concat("Hello ", name)` |
 | `when items { }` | `when gt(len(items), 0) { }` |
 | `eq(items, [])` | `eq(len(items), 0)` |
-| `len(tasks)` (record) | `effect record.keys(...)` then `len(taskIds)` |
+| `len(tasks)` (record) | `len(tasks)` |
 | `sum(filter(prices))` | Two computed: `computed active = filter(prices, ...)` then `sum(active)` |
 | Unguarded `patch count = 1` | `when true { patch count = 1 }` |
 | `once` block without marker first | `patch marker = $meta.intentId` must be first statement |
@@ -1745,4 +1740,4 @@ domain Toggles {
 
 ---
 
-*Authoritative sources: SPEC-v0.7.0.md §9, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*
+*Authoritative sources: SPEC-v1.0.0.md, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*

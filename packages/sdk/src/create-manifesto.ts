@@ -422,6 +422,11 @@ function deriveActionParamMetadata(
         return [name, Object.freeze([...preferredOrder])];
       }
 
+      if (action.params && action.params.length > 0) {
+        const params = Object.freeze([...action.params]);
+        return [name, params.length <= 1 ? params : null];
+      }
+
       if (!action.input || action.input.type !== "object" || !action.input.fields) {
         return [name, []];
       }

@@ -16,6 +16,10 @@ import { generateRequirementIdSync } from "../utils/hash.js";
 import { type EvalContext, withSnapshot, withNodePath, withCollectionContext } from "./context.js";
 import { evaluateExpr } from "./expr.js";
 import { getFieldSpecAtSegments, validateValueAgainstFieldSpec } from "../core/validation-utils.js";
+import {
+  getStateTypeDefinitionAtSegments,
+  validateValueAgainstTypeDefinition,
+} from "../core/type-definition-utils.js";
 
 /**
  * Flow execution status
@@ -254,9 +258,10 @@ function evaluatePatch(
   }
 
   const rootSpec: FieldSpec = { type: "object", required: true, fields: ctx.schema.state.fields };
-  const fieldSpec = getFieldSpecAtSegments(rootSpec, flow.path);
+  const typeDefinition = getStateTypeDefinitionAtSegments(ctx.schema.state, ctx.schema.types, flow.path);
+  const fieldSpec = typeDefinition ? null : getFieldSpecAtSegments(rootSpec, flow.path);
   const displayPath = patchPathToDisplayString(flow.path);
-  if (!fieldSpec) {
+  if (!typeDefinition && !fieldSpec) {
     return {
       state: setError(state, createError(
         "PATH_NOT_FOUND",
@@ -270,10 +275,15 @@ function evaluatePatch(
   }
 
   if (flow.op !== "unset") {
-    const validation = validateValueAgainstFieldSpec(patchValue, fieldSpec, {
-      allowPartial: flow.op === "merge",
-      allowUndefined: false,
-    });
+    const validation = typeDefinition
+      ? validateValueAgainstTypeDefinition(patchValue, typeDefinition, ctx.schema.types, {
+        allowPartial: flow.op === "merge",
+        allowUndefined: false,
+      })
+      : validateValueAgainstFieldSpec(patchValue, fieldSpec as FieldSpec, {
+        allowPartial: flow.op === "merge",
+        allowUndefined: false,
+      });
     if (!validation.ok) {
       return {
         state: setError(state, createError(

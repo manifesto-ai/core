@@ -11,6 +11,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v4.2.0 | TypeDefinition-backed runtime typing seam — `StateSpec.fieldTypes`, `ActionSpec.inputType`, and `ActionSpec.params` become normative when present | — |
 | v4.1.0 | Add intent dispatchability query API — `ActionSpec.dispatchable`, `isIntentDispatchable()` | — |
 | v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
 | v3.1.0 | Additive availability query API — `isActionAvailable()`, `getAvailableActions()` | — |
@@ -238,8 +239,8 @@ type DomainSchema = {
 ### 4.3 Types (Compiler v0.3.3)
 
 `types` carries **named type declarations** produced by the compiler.
-They are **schema metadata** only; Core does not interpret them during compute/apply,
-but they are part of the schema hash.
+
+They remain part of the schema hash, and they are also used by the current runtime typing seam whenever `StateSpec.fieldTypes` or `ActionSpec.inputType` are present.
 
 ```typescript
 type TypeSpec = {
@@ -271,6 +272,9 @@ StateSpec defines the **shape** of domain state. It contains only structural inf
 type StateSpec = {
   /** Root fields of the state */
   readonly fields: Record<string, FieldSpec>;
+
+  /** Precise runtime type seam for root state fields when present */
+  readonly fieldTypes?: Record<string, TypeDefinition>;
 };
 
 type FieldSpec = {
@@ -917,8 +921,14 @@ type ActionSpec = {
   /** The flow to execute */
   readonly flow: FlowNode;
   
-  /** Input schema (for validation) */
+  /** Compatibility input schema (for coarse validation / tooling) */
   readonly input?: FieldSpec;
+
+  /** Precise runtime input schema when present */
+  readonly inputType?: TypeDefinition;
+
+  /** Canonical declared parameter order when present */
+  readonly params?: readonly string[];
   
   /** Availability condition (when is this action family available?) */
   readonly available?: ExprNode;
@@ -1348,9 +1358,10 @@ This is terminology only.
 | V-004 | All `call` references in FlowSpec MUST exist |
 | V-005 | FlowSpec `call` graph MUST be acyclic |
 | V-006 | ActionSpec.available expression MUST return boolean |
-| V-007 | ActionSpec.input MUST be valid FieldSpec |
+| V-007 | ActionSpec.input MUST be valid FieldSpec when present |
 | V-008 | Schema hash MUST match canonical hash |
 | V-009 | ActionSpec.dispatchable expression MUST return boolean when present |
+| V-010 | `StateSpec.fieldTypes` / `ActionSpec.inputType` MUST be valid TypeDefinition carriers when present |
 
 ### 14.2 Runtime Validation
 

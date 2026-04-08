@@ -229,7 +229,11 @@ computed largest = max(x, y, z)
 computed filtered = effect array.filter({ source: items, into: result })
 // Error: Effects not allowed in computed
 
-// ❌ COMPILE ERROR: Hidden iteration
+// ✅ VALID: expression-level collection builtins
+computed filtered = filter(items, eq($item.active, true))
+computed names = map(items, $item.name)
+
+// ❌ COMPILE ERROR: nested aggregation
 computed total = sum(filter(prices))     // Error: No nested calls
 computed avg = div(sum(prices), len(prices))  // ✅ This IS allowed
 

@@ -1,16 +1,17 @@
 # Core Documentation Index
 
 > **Package:** `@manifesto-ai/core`
-> **Last Updated:** 2026-04-07
+> **Last Updated:** 2026-04-08
 
 ---
 
 ## Current Specification
 
-- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v4.1.0
+- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v4.2.0
   - Consolidated from v2.x living document with ADR-009 hard-cut updates
   - Includes additive availability query API: `isActionAvailable()` and `getAvailableActions()`
   - Includes additive intent dispatchability query API: `isIntentDispatchable()`
+  - Uses `state.fieldTypes` / `action.inputType` as the normative runtime typing seam when present
   - ADR-015 hard cut landed: accumulated `system.errors` and `appendErrors` are removed
   - FDR rationale inlined as `> **Rationale (FDR-XXX):**` blocks
   - See Appendix D in the SPEC for FDR cross-reference table
@@ -34,6 +35,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 - The Living Document replaces the patch-chain reading model. All content is in one file.
 - v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
 - v3.1.0 additively exposes the R-002 availability check as `isActionAvailable()` and `getAvailableActions()` without changing the compute/apply loop.
+- v4.2.0 additively promotes `state.fieldTypes` / `action.inputType` / `action.params` as the normative runtime typing seam for nullable and record-aware validation while keeping `FieldSpec` as the compatibility surface.
 - v4.1.0 additively exposes intent-level dispatchability as `isIntentDispatchable(schema, snapshot, intent)` while preserving the existing `available` contract unchanged.
 - v4.0.0 lands ADR-015 in the current Core contract: `system.errors` and `appendErrors` are removed, and `lastError` is the sole current error surface.
 - v1.0.0 SPEC/FDR predate the v2.0 rewrite and are not included in this repo.

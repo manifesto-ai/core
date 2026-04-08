@@ -91,6 +91,7 @@ export interface FieldSpec {
  */
 export interface StateSpec {
   fields: Record<string, FieldSpec>;
+  fieldTypes?: Record<string, TypeDefinition>;
 }
 
 /**
@@ -121,6 +122,8 @@ export interface ComputedSpec {
 export interface ActionSpec {
   flow: CoreFlowNode;
   input?: FieldSpec;
+  inputType?: TypeDefinition;
+  params?: readonly string[];
   available?: CoreExprNode;
   dispatchable?: CoreExprNode;
   description?: string;
@@ -129,6 +132,8 @@ export interface ActionSpec {
 export interface CompilerActionSpec {
   flow: CompilerFlowNode;
   input?: FieldSpec;
+  inputType?: TypeDefinition;
+  params?: readonly string[];
   available?: CompilerExprNode;
   dispatchable?: CompilerExprNode;
   description?: string;
@@ -203,8 +208,10 @@ interface GeneratorContext {
   diagnostics: Diagnostic[];
   /** v0.3.3: Type declarations for expanding user-defined types */
   typeDefs: Map<string, TypeDeclNode>;
+  typeDefinitions: Map<string, TypeDefinition>;
   /** Track 2: State field specs for literal type validation in patches */
   stateFieldSpecs: Map<string, FieldSpec>;
+  stateFieldTypes: Map<string, TypeDefinition>;
 }
 
 interface ComputedEntry {
@@ -225,7 +232,9 @@ function createContext(domainName: string): GeneratorContext {
     currentAction: null,
     diagnostics: [],
     typeDefs: new Map(),
+    typeDefinitions: new Map(),
     stateFieldSpecs: new Map(),
+    stateFieldTypes: new Map(),
   };
 }
 
@@ -336,9 +345,11 @@ function generateTypes(domain: DomainNode, _ctx: GeneratorContext): Record<strin
   const types: Record<string, TypeSpec> = {};
 
   for (const typeDecl of domain.types) {
+    const definition = typeExprToDefinition(typeDecl.typeExpr);
+    _ctx.typeDefinitions.set(typeDecl.name, definition);
     types[typeDecl.name] = {
       name: typeDecl.name,
-      definition: typeExprToDefinition(typeDecl.typeExpr),
+      definition,
     };
   }
 
@@ -349,7 +360,7 @@ function typeExprToDefinition(typeExpr: TypeExprNode): TypeDefinition {
   switch (typeExpr.kind) {
     case "simpleType":
       // Primitive types vs type references
-      if (["string", "number", "boolean", "null"].includes(typeExpr.name)) {
+      if (["string", "number", "boolean", "null", "object", "array"].includes(typeExpr.name)) {
         return { kind: "primitive", type: typeExpr.name };
       }
       // User-defined type reference
@@ -398,10 +409,14 @@ function typeExprToDefinition(typeExpr: TypeExprNode): TypeDefinition {
 
 function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
   const fields: Record<string, FieldSpec> = {};
+  const fieldTypes: Record<string, TypeDefinition> = {};
 
   for (const member of domain.members) {
     if (member.kind === "state") {
       for (const field of member.fields) {
+        const typeDefinition = typeExprToDefinition(field.typeExpr);
+        fieldTypes[field.name] = typeDefinition;
+        ctx.stateFieldTypes.set(field.name, typeDefinition);
         const typeSpec = typeExprToFieldSpec(field.typeExpr, ctx);
         if (typeSpec) {
           ctx.stateFieldSpecs.set(field.name, typeSpec);
@@ -414,7 +429,7 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
     }
   }
 
-  return { fields };
+  return { fields, fieldTypes };
 }
 
 function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldSpec | null {
@@ -430,7 +445,13 @@ function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldS
   // (before `required: true` override, which means "field must exist in state",
   //  not "field is non-nullable")
   if (defaultValue !== undefined) {
-    validateLiteralAgainstSpec(defaultValue, spec, field.name, field.location, ctx);
+    validateLiteralAgainstTypeDefinition(
+      defaultValue,
+      typeExprToDefinition(field.typeExpr),
+      field.name,
+      field.location,
+      ctx,
+    );
   }
 
   return {
@@ -499,13 +520,7 @@ function typeExprToFieldSpec(
       }
 
       if (hasNull && nonNullTypes.length === 1) {
-        pushSchemaTypeError(
-          ctx,
-          "E045",
-          `Nullable type '${describeTypeExpr(typeExpr)}' cannot be lowered to FieldSpec`,
-          typeExpr.location
-        );
-        return null;
+        return typeExprToFieldSpec(nonNullTypes[0], ctx, seenTypeRefs);
       }
 
       pushSchemaTypeError(
@@ -530,13 +545,10 @@ function typeExprToFieldSpec(
     }
 
     case "recordType":
-      pushSchemaTypeError(
-        ctx,
-        "E046",
-        `Record type '${describeTypeExpr(typeExpr)}' cannot be lowered to FieldSpec`,
-        typeExpr.location
-      );
-      return null;
+      return {
+        type: "object",
+        required: true,
+      };
 
     case "literalType":
       // Single literal type - use its base type
@@ -607,6 +619,267 @@ function describeTypeExpr(typeExpr: TypeExprNode): string {
 }
 
 // ============ Literal Type Validation (Track 2) ============
+
+function resolveTypeDefinitionWithCtx(
+  definition: TypeDefinition,
+  ctx: GeneratorContext,
+  seenRefs: readonly string[] = [],
+): TypeDefinition | null {
+  if (definition.kind !== "ref") {
+    return definition;
+  }
+
+  if (seenRefs.includes(definition.name)) {
+    return null;
+  }
+
+  const next = ctx.typeDefinitions.get(definition.name);
+  if (!next) {
+    return null;
+  }
+
+  return resolveTypeDefinitionWithCtx(next, ctx, [...seenRefs, definition.name]);
+}
+
+function describeTypeDefinition(definition: TypeDefinition): string {
+  switch (definition.kind) {
+    case "primitive":
+      return definition.type;
+    case "array":
+      return `Array<${describeTypeDefinition(definition.element)}>`;
+    case "record":
+      return `Record<${describeTypeDefinition(definition.key)}, ${describeTypeDefinition(definition.value)}>`;
+    case "object":
+      return `{ ${Object.entries(definition.fields)
+        .map(([name, field]) => `${name}${field.optional ? "?" : ""}: ${describeTypeDefinition(field.type)}`)
+        .join("; ")} }`;
+    case "union":
+      return definition.types.map((candidate) => describeTypeDefinition(candidate)).join(" | ");
+    case "literal":
+      return JSON.stringify(definition.value);
+    case "ref":
+      return definition.name;
+  }
+}
+
+function literalMatchesTypeDefinition(
+  value: unknown,
+  definition: TypeDefinition,
+  ctx: GeneratorContext,
+): boolean {
+  const resolved = resolveTypeDefinitionWithCtx(definition, ctx);
+  if (!resolved) {
+    return false;
+  }
+
+  switch (resolved.kind) {
+    case "primitive":
+      switch (resolved.type) {
+        case "null":
+          return value === null;
+        case "string":
+          return typeof value === "string";
+        case "number":
+          return typeof value === "number";
+        case "boolean":
+          return typeof value === "boolean";
+        case "object":
+          return value !== null && !Array.isArray(value) && typeof value === "object";
+        case "array":
+          return Array.isArray(value);
+        default:
+          return false;
+      }
+
+    case "literal":
+      return Object.is(value, resolved.value);
+
+    case "array":
+      return Array.isArray(value)
+        && value.every((item) => literalMatchesTypeDefinition(item, resolved.element, ctx));
+
+    case "record":
+      return value !== null
+        && !Array.isArray(value)
+        && typeof value === "object"
+        && Object.values(value as Record<string, unknown>)
+          .every((item) => literalMatchesTypeDefinition(item, resolved.value, ctx));
+
+    case "object":
+      if (value === null || Array.isArray(value) || typeof value !== "object") {
+        return false;
+      }
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        if (!(key in resolved.fields)) {
+          return false;
+        }
+      }
+      for (const [name, field] of Object.entries(resolved.fields)) {
+        if (!(name in (value as Record<string, unknown>))) {
+          if (!field.optional) {
+            return false;
+          }
+          continue;
+        }
+        if (!literalMatchesTypeDefinition((value as Record<string, unknown>)[name], field.type, ctx)) {
+          return false;
+        }
+      }
+      return true;
+
+    case "union":
+      return resolved.types.some((candidate) => literalMatchesTypeDefinition(value, candidate, ctx));
+
+    case "ref":
+      return false;
+  }
+}
+
+function validateLiteralAgainstTypeDefinition(
+  value: unknown,
+  definition: TypeDefinition,
+  fieldName: string,
+  location: SourceLocation,
+  ctx: GeneratorContext,
+): void {
+  if (value === undefined) return;
+  const resolved = resolveTypeDefinitionWithCtx(definition, ctx);
+  if (!resolved) {
+    ctx.diagnostics.push({
+      severity: "error",
+      code: "E_TYPE_MISMATCH",
+      message: `Type mismatch: field '${fieldName}' expects ${describeTypeDefinition(definition)}, got ${JSON.stringify(value)}`,
+      location,
+    });
+    return;
+  }
+
+  if (resolved.kind === "union") {
+    if (literalMatchesTypeDefinition(value, resolved, ctx)) {
+      return;
+    }
+    ctx.diagnostics.push({
+      severity: "error",
+      code: "E_TYPE_MISMATCH",
+      message: `Type mismatch: field '${fieldName}' expects ${describeTypeDefinition(resolved)}, got ${JSON.stringify(value)}`,
+      location,
+    });
+    return;
+  }
+
+  switch (resolved.kind) {
+    case "primitive": {
+      const actualType = Array.isArray(value)
+        ? "array"
+        : (value === null ? "null" : typeof value);
+      switch (resolved.type) {
+        case "null":
+          if (value !== null) {
+            emitTypeMismatch(ctx, fieldName, "null", actualType, location);
+          }
+          return;
+        case "string":
+        case "number":
+        case "boolean":
+          if (typeof value !== resolved.type) {
+            emitTypeMismatch(ctx, fieldName, resolved.type, actualType, location);
+          }
+          return;
+        case "object":
+          if (value === null || Array.isArray(value) || typeof value !== "object") {
+            emitTypeMismatch(ctx, fieldName, "object", actualType, location);
+          }
+          return;
+        case "array":
+          if (!Array.isArray(value)) {
+            emitTypeMismatch(ctx, fieldName, "array", actualType, location);
+          }
+          return;
+      }
+      return;
+    }
+
+    case "literal":
+      if (!Object.is(value, resolved.value)) {
+        ctx.diagnostics.push({
+          severity: "error",
+          code: "E_TYPE_MISMATCH",
+          message: `Type mismatch: field '${fieldName}' expects literal ${JSON.stringify(resolved.value)}, got ${JSON.stringify(value)}`,
+          location,
+        });
+      }
+      return;
+
+    case "array":
+      if (!Array.isArray(value)) {
+        const actualType = value === null ? "null" : (typeof value === "object" ? "object" : typeof value);
+        emitTypeMismatch(ctx, fieldName, "array", actualType, location);
+        return;
+      }
+      for (let i = 0; i < value.length; i += 1) {
+        validateLiteralAgainstTypeDefinition(value[i], resolved.element, `${fieldName}[${i}]`, location, ctx);
+      }
+      return;
+
+    case "record":
+      if (value === null || Array.isArray(value) || typeof value !== "object") {
+        const actualType = Array.isArray(value) ? "array" : (value === null ? "null" : typeof value);
+        emitTypeMismatch(ctx, fieldName, "object", actualType, location);
+        return;
+      }
+      for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        validateLiteralAgainstTypeDefinition(entry, resolved.value, `${fieldName}.${key}`, location, ctx);
+      }
+      return;
+
+    case "object":
+      if (value === null || Array.isArray(value) || typeof value !== "object") {
+        const actualType = Array.isArray(value) ? "array" : (value === null ? "null" : typeof value);
+        emitTypeMismatch(ctx, fieldName, "object", actualType, location);
+        return;
+      }
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        if (!(key in resolved.fields)) {
+          ctx.diagnostics.push({
+            severity: "error",
+            code: "E_TYPE_MISMATCH",
+            message: `Type mismatch: field '${fieldName}.${key}' is not declared in ${describeTypeDefinition(resolved)}`,
+            location,
+          });
+        }
+      }
+      for (const [name, field] of Object.entries(resolved.fields)) {
+        if (!(name in (value as Record<string, unknown>))) {
+          if (!field.optional) {
+            ctx.diagnostics.push({
+              severity: "error",
+              code: "E_TYPE_MISMATCH",
+              message: `Type mismatch: field '${fieldName}.${name}' is required`,
+              location,
+            });
+          }
+          continue;
+        }
+        validateLiteralAgainstTypeDefinition(
+          (value as Record<string, unknown>)[name],
+          field.type,
+          `${fieldName}.${name}`,
+          location,
+          ctx,
+        );
+      }
+      return;
+
+    case "ref":
+      ctx.diagnostics.push({
+        severity: "error",
+        code: "E_TYPE_MISMATCH",
+        message: `Type mismatch: field '${fieldName}' expects ${describeTypeDefinition(definition)}, got ${JSON.stringify(value)}`,
+        location,
+      });
+      return;
+  }
+}
 
 /**
  * Validate a literal value against a FieldSpec, emitting E_TYPE_MISMATCH diagnostics.
@@ -929,24 +1202,35 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
         params.add(param.name);
       }
       ctx.actionParams.set(member.name, params);
+      const declaredParams = member.params.map((param) => param.name);
 
       const flow = generateFlow(member.body, ctx);
 
       // Generate input spec if there are params
       let input: FieldSpec | undefined;
+      let inputType: TypeDefinition | undefined;
       if (member.params.length > 0) {
         const inputFields: Record<string, FieldSpec> = {};
+        const inputTypeFields: Record<string, { type: TypeDefinition; optional: boolean }> = {};
         for (const param of member.params) {
           const fieldSpec = typeExprToFieldSpec(param.typeExpr, ctx);
           if (!fieldSpec) {
             continue;
           }
           inputFields[param.name] = structuredClone(fieldSpec);
+          inputTypeFields[param.name] = {
+            type: typeExprToDefinition(param.typeExpr),
+            optional: false,
+          };
         }
         input = {
           type: "object",
           required: true,
           fields: inputFields,
+        };
+        inputType = {
+          kind: "object",
+          fields: inputTypeFields,
         };
       }
 
@@ -965,6 +1249,8 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
       actions[member.name] = {
         flow,
         input,
+        inputType,
+        params: declaredParams,
         available,
         dispatchable,
       };
@@ -1126,30 +1412,57 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlow
     if (stmt.op === "set") {
       const rootField = stmt.path.segments[0];
       if (rootField.kind === "propertySegment") {
-        const fieldSpec = ctx.stateFieldSpecs.get(rootField.name);
-        if (fieldSpec) {
-          // Resolve the target spec for nested paths
-          let targetSpec = fieldSpec;
+        const fieldType = ctx.stateFieldTypes.get(rootField.name);
+        if (fieldType) {
+          // Resolve the target type for nested paths
+          let targetType: TypeDefinition | null = fieldType;
           const segments = stmt.path.segments;
           for (let i = 1; i < segments.length; i++) {
             const seg = segments[i];
-            if (seg.kind === "propertySegment" && targetSpec.fields?.[seg.name]) {
-              targetSpec = targetSpec.fields[seg.name];
-            } else if (seg.kind === "indexSegment" && targetSpec.items) {
-              targetSpec = targetSpec.items;
+            const resolved: TypeDefinition | null = targetType
+              ? resolveTypeDefinitionWithCtx(targetType, ctx)
+              : null;
+            if (!resolved) {
+              targetType = null;
+              break;
+            }
+            if (resolved.kind === "union") {
+              const nonNullTypes: TypeDefinition[] = resolved.types.filter((candidate: TypeDefinition) => {
+                const next = resolveTypeDefinitionWithCtx(candidate, ctx);
+                return !(
+                  next?.kind === "primitive" && next.type === "null"
+                ) && !(
+                  next?.kind === "literal" && next.value === null
+                );
+              });
+              if (nonNullTypes.length !== 1) {
+                targetType = null;
+                break;
+              }
+              targetType = nonNullTypes[0];
+              i -= 1;
+              continue;
+            }
+
+            if (seg.kind === "propertySegment" && resolved.kind === "object" && resolved.fields[seg.name]) {
+              targetType = resolved.fields[seg.name].type;
+            } else if (seg.kind === "propertySegment" && resolved.kind === "record") {
+              targetType = resolved.value;
+            } else if (seg.kind === "indexSegment" && resolved.kind === "array") {
+              targetType = resolved.element;
             } else {
               // Can't resolve further — skip validation
-              targetSpec = undefined as unknown as FieldSpec;
+              targetType = null;
               break;
             }
           }
-          if (targetSpec) {
+          if (targetType) {
             const literalValue = evaluatePatchLiteral(stmt.value, ctx);
             if (literalValue !== undefined) {
               const fieldName = stmt.path.segments.map(s =>
                 s.kind === "propertySegment" ? s.name : "[*]"
               ).join(".");
-              validateLiteralAgainstSpec(literalValue, targetSpec, fieldName, stmt.location, ctx);
+              validateLiteralAgainstTypeDefinition(literalValue, targetType, fieldName, stmt.location, ctx);
             }
           }
         }
