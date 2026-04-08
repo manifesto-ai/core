@@ -109,6 +109,8 @@ export function validate(schema: unknown): ValidationResult {
     });
   }
 
+  errors.push(...validateTypingSeams(domainSchema));
+
   errors.push(...validateStateDefaults(domainSchema, "state.fields"));
 
   errors.push(...validateComputedDeps(domainSchema));
@@ -250,6 +252,26 @@ function validateCallGraph(
   for (const actionName of edges.keys()) {
     if (!visited.has(actionName)) {
       dfs(actionName, [actionName]);
+    }
+  }
+
+  return errors;
+}
+
+function validateTypingSeams(
+  schema: import("../schema/domain.js").DomainSchema,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (schema.state.fieldTypes) {
+    for (const name of Object.keys(schema.state.fieldTypes)) {
+      if (!(name in schema.state.fields)) {
+        errors.push({
+          code: "V-010",
+          message: `state.fieldTypes.${name} has no matching state.fields entry`,
+          path: `state.fieldTypes.${name}`,
+        });
+      }
     }
   }
 

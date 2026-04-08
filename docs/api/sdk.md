@@ -91,7 +91,7 @@ instance.createIntent(instance.MEL.actions.addTodo, {
 Rules:
 
 - zero-parameter actions use `createIntent(action)`
-- single-parameter actions accept either the parameter value directly or a single object argument keyed by the declared parameter name
+- single-parameter actions accept the parameter value directly; keyed object binding is also supported when the single parameter is not itself object-like
 - multi-parameter actions support both positional binding and a single object argument
 - hand-authored multi-field object inputs without positional metadata should be treated as object-only bindings
 

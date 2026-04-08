@@ -80,6 +80,39 @@ describe("apply", () => {
     expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
   });
 
+  it("should reject patch roots that exist only in state.fieldTypes", () => {
+    const schema: DomainSchema = {
+      id: "manifesto:test",
+      version: "1.0.0",
+      hash: "test-hash",
+      types: {},
+      state: {
+        fields: {
+          dummy: { type: "string", required: true },
+        },
+        fieldTypes: {
+          ghost: { kind: "primitive", type: "string" },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        noop: { flow: { kind: "halt", reason: "noop" } },
+      },
+    };
+
+    const snapshot = createSnapshot({ dummy: "initial" }, schema.hash, HOST_CONTEXT);
+    const result = apply(
+      schema,
+      snapshot,
+      [{ op: "set", path: pp("ghost"), value: "value" }],
+      HOST_CONTEXT,
+    );
+
+    expect(result.data).toEqual({ dummy: "initial" });
+    expect(result.system.status).toBe("error");
+    expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
+  });
+
   it("should preserve dotted record keys in patch paths", () => {
     const schema: DomainSchema = {
       id: "manifesto:test",

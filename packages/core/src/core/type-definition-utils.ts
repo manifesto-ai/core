@@ -155,6 +155,10 @@ export function getStateTypeDefinitionAtSegments(
     return null;
   }
 
+  if (!(root.name in state.fields)) {
+    return null;
+  }
+
   const rootType = state.fieldTypes[root.name];
   if (!rootType) {
     return null;

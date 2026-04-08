@@ -64,7 +64,7 @@ Lineage and governance keep the same typed intent object while promoting the run
 Current SDK rules are:
 
 - zero-parameter actions: `createIntent(action)`
-- single-parameter actions: `createIntent(action, value)` or `createIntent(action, { paramName: value })`
+- single-parameter actions: `createIntent(action, value)`; keyed object binding is also supported when the single parameter is not itself object-like
 - multi-parameter actions with positional metadata: `createIntent(action, ...args)` or `createIntent(action, { ...params })`
 - hand-authored multi-field object inputs without positional metadata: prefer `createIntent(action, { ...params })`
 

@@ -1048,6 +1048,24 @@ describe("V-009: default type validation", () => {
     );
   });
 
+  it("should fail when state.fieldTypes contains roots missing from state.fields", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          count: { type: "number", required: true, default: 0 },
+        },
+        fieldTypes: {
+          ghost: { kind: "primitive", type: "string" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "state.fieldTypes.ghost" }),
+    );
+  });
+
   it("should fail when nested object field has wrong nested default type", () => {
     const schema = createValidSchema({
       state: {

@@ -7,7 +7,7 @@
 
 | Version | Document | ADR | Notes | Status |
 |---------|----------|-----|-------|--------|
-| v3.5.0 | [SPEC](sdk-SPEC.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md), [ADR-019](../../../docs/internals/adr/019-post-activation-extension-kernel.md), [ADR-020](../../../docs/internals/adr/020-intent-level-dispatchability.md) | Activation-first SDK with `activate()`, typed `createIntent()` including single-parameter object binding, dequeue-time rejection codes for coarse vs fine legality, current-snapshot blocker explanations, projected `SchemaGraph`, `simulate()`, the `@manifesto-ai/sdk/extensions` Extension Kernel including arbitrary-snapshot `isIntentDispatchableFor()`, the first-party `createSimulationSession()` helper, and the public provider authoring seam | Current |
+| v3.5.0 | [SPEC](sdk-SPEC.md) | [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md), [ADR-019](../../../docs/internals/adr/019-post-activation-extension-kernel.md), [ADR-020](../../../docs/internals/adr/020-intent-level-dispatchability.md) | Activation-first SDK with `activate()`, typed `createIntent()` including non-ambiguous single-parameter object binding, dequeue-time rejection codes for coarse vs fine legality, current-snapshot blocker explanations, projected `SchemaGraph`, `simulate()`, the `@manifesto-ai/sdk/extensions` Extension Kernel including arbitrary-snapshot `isIntentDispatchableFor()`, the first-party `createSimulationSession()` helper, and the public provider authoring seam | Current |
 
 ## Draft Rationale Track
 

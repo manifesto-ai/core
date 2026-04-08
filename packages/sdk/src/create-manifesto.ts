@@ -25,6 +25,7 @@ import {
 
 import {
   ACTION_PARAM_NAMES,
+  ACTION_SINGLE_PARAM_OBJECT_VALUE,
   activateComposable,
   attachRuntimeKernelFactory,
   createBaseRuntimeInstance,
@@ -59,13 +60,16 @@ const BASE_LAWS: BaseComposableLaws = Object.freeze({ __baseLaws: true });
 
 type RuntimeActionRef = TypedActionRef<ManifestoDomainShape> & {
   readonly [ACTION_PARAM_NAMES]: readonly string[] | null;
+  readonly [ACTION_SINGLE_PARAM_OBJECT_VALUE]?: boolean;
 };
 
 type ActionParamMetadata = readonly string[] | null;
+type ActionSingleParamObjectValueMetadata = boolean;
 
 type ResolvedSchema = {
   readonly schema: DomainSchema;
   readonly actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>;
+  readonly actionSingleParamObjectValueMetadata: Readonly<Record<string, ActionSingleParamObjectValueMetadata>>;
   readonly projectionPlan: SnapshotProjectionPlan;
 };
 
@@ -102,7 +106,11 @@ export function createManifesto<T extends ManifestoDomainShape>(
           projectionPlan: resolved.projectionPlan,
           host: internalHost.host,
           hostContextProvider: internalHost.contextProvider,
-          MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
+          MEL: buildTypedMel<T>(
+            resolved.schema,
+            resolved.actionParamMetadata,
+            resolved.actionSingleParamObjectValueMetadata,
+          ),
           createIntent: buildCreateIntent<T>(),
         }),
       );
@@ -120,7 +128,11 @@ export function createManifesto<T extends ManifestoDomainShape>(
       projectionPlan: resolved.projectionPlan,
       host: internalHost.host,
       hostContextProvider: internalHost.contextProvider,
-      MEL: buildTypedMel<T>(resolved.schema, resolved.actionParamMetadata),
+      MEL: buildTypedMel<T>(
+        resolved.schema,
+        resolved.actionParamMetadata,
+        resolved.actionSingleParamObjectValueMetadata,
+      ),
       createIntent: buildCreateIntent<T>(),
     });
   });
@@ -132,12 +144,14 @@ function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
     : {
       schema,
       actionParamMetadata: deriveActionParamMetadata(schema),
+      actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
     };
 
   const normalizedSchema = withPlatformNamespaces(resolved.schema);
   return {
     schema: normalizedSchema,
     actionParamMetadata: resolved.actionParamMetadata,
+    actionSingleParamObjectValueMetadata: resolved.actionSingleParamObjectValueMetadata,
     projectionPlan: buildSnapshotProjectionPlan(normalizedSchema),
   };
 }
@@ -183,6 +197,7 @@ function compileSchema(source: string): CompiledSchema {
       schema,
       extractActionParamOrderFromMel(source),
     ),
+    actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
   };
 }
 
@@ -344,6 +359,7 @@ function validateReservedNamespaces(schema: DomainSchema): void {
 function buildTypedMel<T extends ManifestoDomainShape>(
   schema: DomainSchema,
   actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>,
+  actionSingleParamObjectValueMetadata: Readonly<Record<string, ActionSingleParamObjectValueMetadata>>,
 ): TypedMEL<T> {
   const actions = Object.fromEntries(
     Object.keys(schema.actions).map((name) => {
@@ -358,6 +374,12 @@ function buildTypedMel<T extends ManifestoDomainShape>(
         value: Object.hasOwn(actionParamMetadata, name)
           ? actionParamMetadata[name]
           : [],
+      });
+      Object.defineProperty(ref, ACTION_SINGLE_PARAM_OBJECT_VALUE, {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: actionSingleParamObjectValueMetadata[name] ?? false,
       });
       return [name, Object.freeze(ref)];
     }),
@@ -416,7 +438,7 @@ function deriveActionParamMetadata(
   actionParamOrder?: Readonly<Record<string, readonly string[]>>,
 ): Readonly<Record<string, ActionParamMetadata>> {
   return Object.freeze(Object.fromEntries(
-    Object.entries(schema.actions).map(([name, action]) => {
+    (Object.entries(schema.actions) as [string, DomainSchema["actions"][string]][]).map(([name, action]) => {
       const preferredOrder = actionParamOrder?.[name];
       if (preferredOrder && preferredOrder.length > 0) {
         return [name, Object.freeze([...preferredOrder])];
@@ -435,6 +457,90 @@ function deriveActionParamMetadata(
       return [name, fieldNames.length <= 1 ? fieldNames : null];
     }),
   ));
+}
+
+function deriveSingleParamObjectValueMetadata(
+  schema: DomainSchema,
+): Readonly<Record<string, ActionSingleParamObjectValueMetadata>> {
+  return Object.freeze(Object.fromEntries(
+    (Object.entries(schema.actions) as [string, DomainSchema["actions"][string]][])
+      .map(([name, action]) => [name, isSingleParamObjectValued(schema, action)]),
+  ));
+}
+
+function isSingleParamObjectValued(
+  schema: DomainSchema,
+  action: DomainSchema["actions"][string],
+): boolean {
+  if (action.params?.length === 1 && action.inputType?.kind === "object") {
+    const field = action.inputType.fields[action.params[0] ?? ""];
+    return field ? isPlainObjectLikeTypeDefinition(field.type, schema.types) : false;
+  }
+
+  if (
+    action.input?.type === "object"
+    && action.input.fields
+    && Object.keys(action.input.fields).length === 1
+  ) {
+    const [field] = Object.values(action.input.fields);
+    return field?.type === "object";
+  }
+
+  return false;
+}
+
+function isPlainObjectLikeTypeDefinition(
+  definition: DomainSchema["types"][string]["definition"],
+  types: DomainSchema["types"],
+  seenRefs: readonly string[] = [],
+): boolean {
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      return false;
+    }
+
+    const next = types[definition.name];
+    return next
+      ? isPlainObjectLikeTypeDefinition(next.definition, types, [...seenRefs, definition.name])
+      : false;
+  }
+
+  if (definition.kind === "union") {
+    const nonNullTypes = definition.types.filter((candidate: typeof definition.types[number]) =>
+      !isNullLikeTypeDefinition(candidate, types, seenRefs)
+    );
+    return nonNullTypes.length === 1
+      ? isPlainObjectLikeTypeDefinition(nonNullTypes[0], types, seenRefs)
+      : false;
+  }
+
+  return (
+    definition.kind === "object"
+    || definition.kind === "record"
+    || (definition.kind === "primitive" && definition.type === "object")
+  );
+}
+
+function isNullLikeTypeDefinition(
+  definition: DomainSchema["types"][string]["definition"],
+  types: DomainSchema["types"],
+  seenRefs: readonly string[] = [],
+): boolean {
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      return false;
+    }
+
+    const next = types[definition.name];
+    return next
+      ? isNullLikeTypeDefinition(next.definition, types, [...seenRefs, definition.name])
+      : false;
+  }
+
+  return (
+    (definition.kind === "primitive" && definition.type === "null")
+    || (definition.kind === "literal" && definition.value === null)
+  );
 }
 
 function extractActionParamOrderFromMel(
@@ -485,6 +591,15 @@ function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): un
       "INVALID_INTENT_ARGS",
       `Action "${String(action.name)}" does not accept multiple positional arguments`,
     );
+  }
+
+  if (
+    paramNames.length === 1 &&
+    args.length === 1 &&
+    isPlainObject(args[0]) &&
+    action[ACTION_SINGLE_PARAM_OBJECT_VALUE]
+  ) {
+    return { [paramNames[0] ?? "arg0"]: args[0] };
   }
 
   if (

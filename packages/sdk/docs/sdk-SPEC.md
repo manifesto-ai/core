@@ -8,7 +8,7 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.5.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the intent-level dispatchability additions in §7.2-§7.5, single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
+> **Current v3.5.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the intent-level dispatchability additions in §7.2-§7.5, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
 
 ## 1. Purpose
 
@@ -535,7 +535,7 @@ If the referenced action has zero parameters, `Intent.input` MUST be `undefined`
 
 If the referenced action has one or more parameters, `createIntent()` MUST synthesize `Intent.input` in the canonical object shape expected by the compiled action, preserving MEL-declared parameter names and declared order. `TypedActionRef` is the carrier of the metadata required for that packing step.
 
-For compiled actions with positional metadata, positional and object forms are both valid public contract. This includes single-parameter actions, where object form means `{ paramName: value }`.
+For compiled actions with positional metadata, positional and object forms are both valid public contract. This includes single-parameter actions, where object form means `{ paramName: value }` when the single parameter is not itself object-like. If the single parameter is object-like, the runtime preserves direct-value packing to avoid ambiguous double interpretation.
 
 For actions whose public input is already a single object shape without positional metadata, only object form is guaranteed.
 

@@ -69,13 +69,13 @@ describe("createManifesto()", () => {
     world.dispose();
   });
 
-  it("preserves direct-value packing for single object-valued parameters while allowing named binding", () => {
+  it("preserves direct-value packing for ambiguous single object-valued parameters", () => {
     type SettingsDomain = {
       actions: {
-        configure: (settings: { theme: string }) => void;
+        configure: (settings: { settings: string }) => void;
       };
       state: {
-        current: { theme: string };
+        current: { settings: string };
       };
       computed: {};
     };
@@ -89,9 +89,9 @@ describe("createManifesto()", () => {
           current: {
             type: "object",
             required: true,
-            default: { theme: "light" },
+            default: { settings: "light" },
             fields: {
-              theme: { type: "string", required: true },
+              settings: { type: "string", required: true },
             },
           },
         },
@@ -107,7 +107,7 @@ describe("createManifesto()", () => {
                 type: "object",
                 required: true,
                 fields: {
-                  theme: { type: "string", required: true },
+                  settings: { type: "string", required: true },
                 },
               },
             },
@@ -124,13 +124,8 @@ describe("createManifesto()", () => {
     const world = createManifesto<SettingsDomain>(schema, {}).activate();
 
     expect(
-      world.createIntent(world.MEL.actions.configure, { theme: "dark" }).input,
-    ).toEqual({ settings: { theme: "dark" } });
-    expect(
-      world.createIntent(world.MEL.actions.configure, {
-        settings: { theme: "dark" },
-      }).input,
-    ).toEqual({ settings: { theme: "dark" } });
+      world.createIntent(world.MEL.actions.configure, { settings: "dark" }).input,
+    ).toEqual({ settings: { settings: "dark" } });
 
     world.dispose();
   });

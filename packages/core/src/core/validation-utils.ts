@@ -235,6 +235,10 @@ export function pathExistsInStateSpec(
       return true;
     }
 
+    if (!(root in state.fields)) {
+      return false;
+    }
+
     const rootType = state.fieldTypes[root];
     if (rootType) {
       const existsInTypeDefinition = rest.length === 0
