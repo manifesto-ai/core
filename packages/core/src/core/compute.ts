@@ -47,27 +47,15 @@ export function computeSync(
     );
   }
 
-  if (!intent.intentId || intent.intentId === "") {
+  const inputError = validateIntentInput(schema, intent);
+  if (inputError) {
     return createErrorResult(
       currentSnapshot,
       intent,
       "INVALID_INPUT",
-      "Intent must have a non-empty intentId",
+      inputError,
       context
     );
-  }
-
-  if (action.input || action.inputType) {
-    const inputError = validateInput(schema, action.inputType, action.input, intent.input);
-    if (inputError) {
-      return createErrorResult(
-        currentSnapshot,
-        intent,
-        "INVALID_INPUT",
-        inputError,
-        context
-      );
-    }
   }
 
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
@@ -147,6 +135,30 @@ export async function compute(
   context: HostContext
 ): Promise<ComputeResult> {
   return computeSync(schema, snapshot, intent, context);
+}
+
+/**
+ * Validate only the caller-provided input portion of an intent.
+ * Returns an error message when the intent is malformed, or null when valid.
+ */
+export function validateIntentInput(
+  schema: DomainSchema,
+  intent: Intent,
+): string | null {
+  if (!intent.intentId || intent.intentId === "") {
+    return "Intent must have a non-empty intentId";
+  }
+
+  const action = schema.actions[intent.type];
+  if (!action) {
+    return null;
+  }
+
+  if (!action.input && !action.inputType) {
+    return null;
+  }
+
+  return validateInput(schema, action.inputType, action.input, intent.input);
 }
 
 /**

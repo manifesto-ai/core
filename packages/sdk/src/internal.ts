@@ -5,6 +5,7 @@ import {
   getAvailableActions as queryAvailableActions,
   isActionAvailable as queryActionAvailable,
   isIntentDispatchable as queryIntentDispatchable,
+  validateIntentInput as queryIntentInputValidation,
   type ComputeStatus,
   type DomainSchema,
   type Patch,
@@ -999,17 +1000,9 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ): ManifestoError | null {
-    const action = schema.actions[intent.type as keyof T["actions"] & string];
-    if (!action || (!action.input && !action.inputType)) {
-      return null;
-    }
-
-    const context = hostContextProvider.createFrozenContext(intent.intentId ?? generateUUID());
-    const result = computeSync(schema, snapshot as CoreSnapshot, intent, context);
-    const lastError = result.systemDelta.lastError;
-    return lastError?.code === "INVALID_INPUT"
-      ? createInvalidInputError(lastError.message)
-      : null;
+    void snapshot;
+    const message = queryIntentInputValidation(schema, intent);
+    return message ? createInvalidInputError(message) : null;
   }
 
   function rejectRejectedIntent(intent: TypedIntent<T>, error: ManifestoError): never {

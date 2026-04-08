@@ -15,7 +15,7 @@ import type { SemanticPath } from "./schema/common.js";
 import type { ComputeResult, ValidationResult, ExplainResult, SystemDelta } from "./schema/result.js";
 import type { HostContext } from "./schema/host-context.js";
 
-import { compute, computeSync } from "./core/compute.js";
+import { compute, computeSync, validateIntentInput } from "./core/compute.js";
 import { apply } from "./core/apply.js";
 import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
@@ -148,6 +148,7 @@ export * from "./factories.js";
 export {
   compute,
   computeSync,
+  validateIntentInput,
   apply,
   applySystemDelta,
   validate,

@@ -59,6 +59,16 @@ type InvalidDispatchabilityDomain = {
   computed: {};
 };
 
+type FlowInvalidInputDomain = {
+  actions: {
+    brokenMap: () => void;
+  };
+  state: {
+    items: number[];
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -82,6 +92,37 @@ function createInvalidDispatchabilitySchema(): DomainSchema {
         available: { kind: "get", path: "enabled" },
         dispatchable: { kind: "lit", value: "not-a-boolean" },
         flow: { kind: "halt", reason: "blockedInvalid" },
+      },
+    },
+  });
+}
+
+function createFlowInvalidInputSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v3-flow-invalid-input",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        items: {
+          type: "array",
+          required: false,
+          default: [],
+          items: { type: "number", required: true },
+        },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      brokenMap: {
+        flow: {
+          kind: "effect",
+          type: "array.map",
+          params: {
+            into: { kind: "lit", value: "items" },
+            select: { kind: "lit", value: 1 },
+          },
+        },
       },
     },
   });
@@ -896,6 +937,46 @@ describe("activated base runtime", () => {
     expect(rejected.mock.calls[0]?.[0]).toMatchObject({
       code: "INVALID_INPUT",
     });
+    world.dispose();
+  });
+
+  it("does not pre-classify flow INVALID_INPUT failures as rejected input", async () => {
+    const world = createManifesto<FlowInvalidInputDomain>(
+      createFlowInvalidInputSchema(),
+      {},
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    world.on("dispatch:rejected", rejected);
+    world.on("dispatch:failed", failed);
+
+    await expect(
+      world.dispatchAsync(world.createIntent(world.MEL.actions.brokenMap)),
+    ).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "EFFECT_EXECUTION_FAILED",
+    });
+
+    expect(rejected).not.toHaveBeenCalled();
+    expect(failed).toHaveBeenCalledTimes(1);
+    expect(failed.mock.calls[0]?.[0]).toMatchObject({
+      error: expect.objectContaining({
+        code: "EFFECT_EXECUTION_FAILED",
+        details: expect.objectContaining({
+          lastError: expect.objectContaining({
+            code: "INVALID_INPUT",
+          }),
+        }),
+      }),
+      snapshot: expect.objectContaining({
+        system: expect.objectContaining({
+          lastError: expect.objectContaining({
+            code: "INVALID_INPUT",
+          }),
+        }),
+      }),
+    });
+
     world.dispose();
   });
 

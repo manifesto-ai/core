@@ -267,7 +267,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
           // Preserve the original execution failure if compensating persistence also fails.
         }
       }
-      if (!isActionUnavailable(failure)) {
+      if (!isRejectedDispatchError(failure)) {
         kernel.emitEvent("dispatch:failed", {
           intentId: intent.intentId ?? "",
           intent,
@@ -552,8 +552,12 @@ function toGovernanceFailure(error: unknown): Error {
   );
 }
 
-function isActionUnavailable(error: Error): boolean {
+function isRejectedDispatchError(error: Error): boolean {
   return "code" in error
     && typeof error.code === "string"
-    && error.code === "ACTION_UNAVAILABLE";
+    && (
+      error.code === "ACTION_UNAVAILABLE"
+      || error.code === "INTENT_NOT_DISPATCHABLE"
+      || error.code === "INVALID_INPUT"
+    );
 }

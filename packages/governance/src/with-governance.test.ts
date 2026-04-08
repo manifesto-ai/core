@@ -4,7 +4,7 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
 import { getExtensionKernel } from "../../sdk/src/extensions.js";
 import {
   createInMemoryLineageStore,
@@ -886,6 +886,95 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         description: "Frozen while disabled",
       },
     ]);
+
+    governed.dispose();
+  });
+
+  it("emits dispatch:rejected without dispatch:failed for non-dispatchable governed execution", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:governance-rejected",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:governance-rejected",
+          }),
+        },
+      },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    governed.on("dispatch:rejected", rejected);
+    governed.on("dispatch:failed", failed);
+
+    await expect(
+      governed.proposeAsync(governed.createIntent(governed.MEL.actions.spend, 15)),
+    ).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    governed.dispose();
+  });
+
+  it("emits dispatch:rejected without dispatch:failed for invalid governed input", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:governance-invalid-input",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:governance-invalid-input",
+          }),
+        },
+      },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    governed.on("dispatch:rejected", rejected);
+    governed.on("dispatch:failed", failed);
+
+    const invalidIntent = {
+      ...governed.createIntent(governed.MEL.actions.spend, 1),
+      input: { amount: "oops" },
+    } as unknown as Parameters<typeof governed.proposeAsync>[0];
+
+    await expect(governed.proposeAsync(invalidIntent)).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INVALID_INPUT",
+    });
+
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+    expect(failed).not.toHaveBeenCalled();
 
     governed.dispose();
   });
