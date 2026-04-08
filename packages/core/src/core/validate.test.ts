@@ -1160,6 +1160,71 @@ describe("V-009: default type validation", () => {
     );
   });
 
+  it("should accept nullable inputType object carriers that resolve null refs through aliases", () => {
+    const schema = createValidSchema({
+      types: {
+        InputObj: {
+          name: "InputObj",
+          definition: {
+            kind: "object",
+            fields: {
+              x: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+        },
+        NullAlias: {
+          name: "NullAlias",
+          definition: { kind: "literal", value: null },
+        },
+        MaybeInput: {
+          name: "MaybeInput",
+          definition: {
+            kind: "union",
+            types: [
+              { kind: "ref", name: "InputObj" },
+              { kind: "ref", name: "NullAlias" },
+            ],
+          },
+        },
+      },
+      actions: {
+        submit: {
+          params: ["x"],
+          inputType: { kind: "ref", name: "MaybeInput" },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("should fail when action.params contains duplicate names", () => {
+    const schema = createValidSchema({
+      actions: {
+        submit: {
+          params: ["x", "x"],
+          inputType: {
+            kind: "object",
+            fields: {
+              x: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.params.1" }),
+    );
+  });
+
   it("should fail when typing seams declare record keys that are not strings", () => {
     const schema = createValidSchema({
       state: {

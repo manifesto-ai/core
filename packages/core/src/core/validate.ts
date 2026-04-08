@@ -321,6 +321,20 @@ function validateActionParams(
     return [];
   }
 
+  const duplicateErrors: ValidationError[] = [];
+  const seenParams = new Set<string>();
+  for (const [index, paramName] of params.entries()) {
+    if (seenParams.has(paramName)) {
+      duplicateErrors.push({
+        code: "V-010",
+        message: `Duplicate parameter name "${paramName}" is not allowed`,
+        path: `actions.${actionName}.params.${index}`,
+      });
+      continue;
+    }
+    seenParams.add(paramName);
+  }
+
   let inputFields: readonly string[] | null = null;
 
   if (action.inputType) {
@@ -330,7 +344,9 @@ function validateActionParams(
   }
 
   if (!inputFields) {
-    return [{
+    return [
+      ...duplicateErrors,
+      {
       code: "V-010",
       message: `actions.${actionName}.params requires an object-shaped input carrier`,
       path: `actions.${actionName}.params`,
@@ -338,7 +354,9 @@ function validateActionParams(
   }
 
   const inputFieldSet = new Set(inputFields);
-  return params.flatMap((paramName, index) => (
+  return [
+    ...duplicateErrors,
+    ...params.flatMap((paramName, index) => (
     inputFieldSet.has(paramName)
       ? []
       : [{
@@ -346,7 +364,7 @@ function validateActionParams(
         message: `Parameter "${paramName}" has no matching input field`,
         path: `actions.${actionName}.params.${index}`,
       }]
-  ));
+  ))];
 }
 
 function getInputTypeFieldNames(
@@ -354,32 +372,36 @@ function getInputTypeFieldNames(
   types: Record<string, TypeSpec>,
   seenRefs: readonly string[] = [],
 ): readonly string[] | null {
-  if (definition.kind === "ref") {
-    if (seenRefs.includes(definition.name)) {
-      return null;
-    }
-    const next = types[definition.name];
-    return next
-      ? getInputTypeFieldNames(next.definition, types, [...seenRefs, definition.name])
-      : null;
+  const resolved = resolveTypeDefinition(definition, types, seenRefs);
+  if (!resolved) {
+    return null;
   }
 
-  if (definition.kind === "union") {
-    const nonNullTypes = definition.types.filter((candidate) => !isNullLike(candidate));
+  if (resolved.kind === "union") {
+    const nonNullTypes = resolved.types.filter((candidate) => !isNullLikeResolved(candidate, types, seenRefs));
     return nonNullTypes.length === 1
       ? getInputTypeFieldNames(nonNullTypes[0], types, seenRefs)
       : null;
   }
 
-  return definition.kind === "object"
-    ? Object.keys(definition.fields)
+  return resolved.kind === "object"
+    ? Object.keys(resolved.fields)
     : null;
 }
 
-function isNullLike(definition: import("../schema/type-spec.js").TypeDefinition): boolean {
+function isNullLikeResolved(
+  definition: import("../schema/type-spec.js").TypeDefinition,
+  types: Record<string, TypeSpec>,
+  seenRefs: readonly string[] = [],
+): boolean {
+  const resolved = resolveTypeDefinition(definition, types, seenRefs);
+  if (!resolved) {
+    return false;
+  }
+
   return (
-    (definition.kind === "primitive" && definition.type === "null")
-    || (definition.kind === "literal" && definition.value === null)
+    (resolved.kind === "primitive" && resolved.type === "null")
+    || (resolved.kind === "literal" && resolved.value === null)
   );
 }
 
