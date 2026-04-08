@@ -1,7 +1,7 @@
 # Host Documentation Index
 
 > **Package:** `@manifesto-ai/host`
-> **Last Updated:** 2026-03-31
+> **Last Updated:** 2026-04-08
 
 ---
 
@@ -10,6 +10,7 @@
 - **SPEC (Living Document):** [host-SPEC.md](host-SPEC.md) — Normative, current through v4.0.0
   - Consolidated from v2.x living document + ADR-009 hard-cut updates
   - ADR-015 hard cut landed: Host-facing Snapshot references no longer include accumulated `system.errors`
+  - Compatible with current Core living spec through v4.2.0; Core intent-dispatchability and runtime typing additions do not change Host's contract
   - Deprecated Compiler Integration moved to Appendix D
   - See Appendix C in the SPEC for FDR cross-reference table
 - **README:** [../README.md](../README.md) — package landing page

@@ -49,6 +49,11 @@ export interface ExtensionKernel<T extends ManifestoDomainShape> {
     snapshot: CanonicalSnapshot<T["state"]>,
     actionName: keyof T["actions"],
   ) => boolean;
+
+  readonly isIntentDispatchableFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => boolean;
 }
 
 export type SimulationSessionStatus = ComputeStatus | "idle" | "computing";

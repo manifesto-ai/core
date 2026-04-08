@@ -25,6 +25,7 @@ export type TokenKind =
   | "NULL"
   | "AS"
   | "AVAILABLE"   // v0.3.2
+  | "DISPATCHABLE" // v0.9.0
   | "FAIL"        // v0.3.2
   | "STOP"        // v0.3.2
   | "WITH"        // v0.3.2
@@ -106,6 +107,7 @@ export const KEYWORDS: Record<string, TokenKind> = {
   null: "NULL",
   as: "AS",
   available: "AVAILABLE",  // v0.3.2
+  dispatchable: "DISPATCHABLE", // v0.9.0
   fail: "FAIL",            // v0.3.2
   stop: "STOP",            // v0.3.2
   with: "WITH",            // v0.3.2

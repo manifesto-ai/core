@@ -104,6 +104,16 @@ export const DEFAULT_ACTION_CONTEXT: ExprLoweringContext = {
 };
 
 /**
+ * Context for dispatchable expressions (bound-input only).
+ */
+export const DEFAULT_DISPATCHABLE_CONTEXT: ExprLoweringContext = {
+  mode: "action",
+  allowSysPaths: { prefixes: ["input"] },
+  fnTableVersion: "1.0",
+  allowItem: false,
+};
+
+/**
  * Context for effect.args (allows $item).
  */
 export const EFFECT_ARGS_CONTEXT: ExprLoweringContext = {

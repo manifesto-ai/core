@@ -50,6 +50,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-017](./017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented | 2026-04-01 | SDK, Lineage, Governance |
 | [ADR-018](./018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented | 2026-04-03 | SDK, Core (docs), Docs, Lineage, Governance |
 | [ADR-019](./019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented | 2026-04-07 | SDK |
+| [ADR-020](./020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Proposed | 2026-04-07 | Compiler, Core, SDK, Studio/Introspection, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 

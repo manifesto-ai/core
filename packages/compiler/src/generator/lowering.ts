@@ -317,7 +317,7 @@ function transformFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
     case "seq":
       return {
         kind: "seq",
-        steps: flow.steps.map(s => transformFlow(s, ctx)),
+        steps: flow.steps.map((s: CoreFlowNode) => transformFlow(s, ctx)),
       };
 
     case "if":

@@ -6,7 +6,7 @@
 
 `@manifesto-ai/lineage` adds time, sealing, history, and restore to a composable manifesto.
 
-> **Current Contract Note:** This page describes the current Lineage v3.0.0 surface. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
+> **Current Contract Note:** This page describes the current Lineage v3 decorator surface, unchanged through package release v3.5.0. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
 
 Use this package when you want:
 
@@ -34,8 +34,14 @@ const lineage = withLineage(
 - `withLineage()` and `LineageConfig`
 - activated `LineageInstance<T>`
 - lineage-aware `commitAsync` that seals before publication
+- inherited legality queries such as `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 - `restore`, `getWorld`, `getWorldSnapshot`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
 - continuity ownership plus the provider surface
+
+Those inherited legality queries keep the base SDK meaning:
+
+- availability is checked before dispatchability
+- `getIntentBlockers()` returns the first failing layer, so an unavailable action yields an `available` blocker and does not evaluate `dispatchable`
 
 ## Runtime Meaning
 

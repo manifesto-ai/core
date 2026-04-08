@@ -27,7 +27,7 @@ instance.on("dispatch:completed", (event) => {
 });
 
 instance.on("dispatch:rejected", (event) => {
-  console.log("rejected", event.intentId, event.reason);
+  console.log("rejected", event.intentId, event.code, event.reason);
 });
 
 instance.on("dispatch:failed", (event) => {
@@ -38,7 +38,9 @@ instance.on("dispatch:failed", (event) => {
 This immediately tells you which class of failure you are dealing with:
 
 - `completed`: the domain and handlers ran to a terminal snapshot
-- `rejected`: availability or another gate rejected the intent before publication
+- `rejected`: availability or dispatchability rejected the intent before publication
+  - `ACTION_UNAVAILABLE`: the coarse action gate failed
+  - `INTENT_NOT_DISPATCHABLE`: the action stayed available, but the bound intent failed the fine gate
 - `failed`: effect execution or downstream processing failed
 
 ---
@@ -60,9 +62,25 @@ console.log("after canonical", afterCanonical.system.pendingRequirements);
 
 If the snapshot did not change, ask:
 
+- What `dispatch:rejected` code was emitted: `ACTION_UNAVAILABLE` or `INTENT_NOT_DISPATCHABLE`?
 - Did the action become unavailable by the time it was dequeued?
+- Did the action stay available, but the specific bound intent fail dispatchability?
 - Did the selector you subscribed to stay equal by `Object.is`?
 - Did the effect handler return patches for the fields you expected?
+
+Before you queue the intent again, ask the runtime directly:
+
+```typescript
+console.log(
+  instance.isIntentDispatchable(instance.MEL.actions.fetchUser, "123"),
+);
+
+console.log(
+  instance.getIntentBlockers(instance.MEL.actions.fetchUser, "123"),
+);
+```
+
+`getAvailableActions()` and `isActionAvailable()` answer the coarse question. `isIntentDispatchable()` and `getIntentBlockers()` answer the fine bound-intent question.
 
 ---
 
@@ -75,7 +93,7 @@ const intent = instance.createIntent(instance.MEL.actions.fetchUser, "123");
 await instance.dispatchAsync(intent);
 ```
 
-For multi-parameter actions, object-form binding is also a supported public path:
+For parameterized actions, object-form binding is also a supported public path:
 
 ```typescript
 const intent = instance.createIntent(instance.MEL.actions.addTodo, {

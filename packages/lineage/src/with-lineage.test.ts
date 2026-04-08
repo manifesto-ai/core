@@ -31,6 +31,18 @@ type CounterDomain = {
   };
 };
 
+type DispatchabilityDomain = {
+  actions: {
+    spend: (amount: number) => void;
+    frozenSpend: (amount: number) => void;
+  };
+  state: {
+    balance: number;
+    enabled: boolean;
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -110,6 +122,53 @@ function createCounterSchema(): DomainSchema {
             },
           ],
         },
+      },
+    },
+  });
+}
+
+function createDispatchabilitySchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:lineage-v3-dispatchability",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        balance: { type: "number", required: true, default: 10 },
+        enabled: { type: "boolean", required: true, default: true },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      spend: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            amount: { type: "number", required: true },
+          },
+        },
+        available: { kind: "get", path: "enabled" },
+        dispatchable: {
+          kind: "gte",
+          left: { kind: "get", path: "balance" },
+          right: { kind: "get", path: "input.amount" },
+        },
+        description: "Spend only when balance covers amount",
+        flow: { kind: "halt", reason: "spend" },
+      },
+      frozenSpend: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            amount: { type: "number", required: true },
+          },
+        },
+        available: { kind: "lit", value: false },
+        dispatchable: { kind: "lit", value: "not-a-boolean" },
+        description: "Frozen while disabled",
+        flow: { kind: "halt", reason: "frozenSpend" },
       },
     },
   });
@@ -301,6 +360,116 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     const ext = getExtensionKernel(world);
 
     expect(ext.projectSnapshot(ext.getCanonicalSnapshot())).toEqual(world.getSnapshot());
+
+    world.dispose();
+  });
+
+  it("inherits dispatchability queries from the base sdk runtime surface", () => {
+    const world = withLineage(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const ext = getExtensionKernel(world);
+    const canonical = ext.getCanonicalSnapshot();
+    const intent = world.createIntent(world.MEL.actions.increment);
+
+    expect(world.isIntentDispatchable(world.MEL.actions.increment)).toBe(
+      ext.isIntentDispatchableFor(canonical, intent),
+    );
+    expect(world.getIntentBlockers(world.MEL.actions.increment)).toEqual([]);
+
+    world.dispose();
+  });
+
+  it("preserves coarse and fine legality semantics on the activated lineage runtime", () => {
+    const schema = createDispatchabilitySchema();
+    const world = withLineage(
+      createManifesto<DispatchabilityDomain>(schema, {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const ext = getExtensionKernel(world);
+    const canonical = ext.getCanonicalSnapshot();
+    const blockedSpend = world.createIntent(world.MEL.actions.spend, 15);
+    const frozenSpend = world.createIntent(world.MEL.actions.frozenSpend, 1);
+
+    expect(world.isIntentDispatchable(world.MEL.actions.spend, 15)).toBe(
+      ext.isIntentDispatchableFor(canonical, blockedSpend),
+    );
+    expect(world.getIntentBlockers(world.MEL.actions.spend, 15)).toEqual([
+      {
+        layer: "dispatchable",
+        expression: schema.actions.spend.dispatchable,
+        evaluatedResult: false,
+        description: "Spend only when balance covers amount",
+      },
+    ]);
+
+    expect(world.isIntentDispatchable(world.MEL.actions.frozenSpend, 1)).toBe(false);
+    expect(world.getIntentBlockers(world.MEL.actions.frozenSpend, 1)).toEqual([
+      {
+        layer: "available",
+        expression: schema.actions.frozenSpend.available,
+        evaluatedResult: false,
+        description: "Frozen while disabled",
+      },
+    ]);
+
+    world.dispose();
+  });
+
+  it("rejects non-dispatchable commits before sealing and emits dispatch:rejected", async () => {
+    const world = withLineage(
+      createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    world.on("dispatch:rejected", rejected);
+    world.on("dispatch:failed", failed);
+
+    await expect(
+      world.commitAsync(world.createIntent(world.MEL.actions.spend, 15)),
+    ).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+
+    expect(world.getSnapshot().data.balance).toBe(10);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    world.dispose();
+  });
+
+  it("rejects invalid commit input before sealing and emits dispatch:rejected", async () => {
+    const world = withLineage(
+      createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    world.on("dispatch:rejected", rejected);
+    world.on("dispatch:failed", failed);
+
+    const invalidIntent = {
+      ...world.createIntent(world.MEL.actions.spend, 1),
+      input: { amount: "oops" },
+    } as unknown as Parameters<typeof world.commitAsync>[0];
+
+    await expect(world.commitAsync(invalidIntent)).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INVALID_INPUT",
+    });
+
+    expect(world.getSnapshot().data.balance).toBe(10);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+    expect(failed).not.toHaveBeenCalled();
 
     world.dispose();
   });

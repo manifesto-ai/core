@@ -400,6 +400,115 @@ describe("compute", () => {
       expect(result.status).toBe("error");
       expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
     });
+
+    it("should accept explicit null when inputType allows nullable values", async () => {
+      const schema = createTestSchema({
+        actions: {
+          setSelection: {
+            params: ["value"],
+            inputType: {
+              kind: "object",
+              fields: {
+                value: {
+                  type: {
+                    kind: "union",
+                    types: [
+                      { kind: "primitive", type: "string" },
+                      { kind: "literal", value: null },
+                    ],
+                  },
+                  optional: false,
+                },
+              },
+            },
+            flow: { kind: "halt", reason: "ok" },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("setSelection", { value: null });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("halted");
+      expect(result.snapshot.system.lastError).toBeNull();
+    });
+
+    it("should reject missing required nullable input fields", async () => {
+      const schema = createTestSchema({
+        actions: {
+          setSelection: {
+            params: ["value"],
+            inputType: {
+              kind: "object",
+              fields: {
+                value: {
+                  type: {
+                    kind: "union",
+                    types: [
+                      { kind: "primitive", type: "string" },
+                      { kind: "literal", value: null },
+                    ],
+                  },
+                  optional: false,
+                },
+              },
+            },
+            flow: { kind: "halt", reason: "ok" },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("setSelection", {});
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
+    });
+
+    it("should reject record entries that violate inputType value shapes", async () => {
+      const schema = createTestSchema({
+        actions: {
+          syncTodos: {
+            params: ["entries"],
+            inputType: {
+              kind: "object",
+              fields: {
+                entries: {
+                  type: {
+                    kind: "record",
+                    key: { kind: "primitive", type: "string" },
+                    value: {
+                      kind: "object",
+                      fields: {
+                        done: { type: { kind: "primitive", type: "boolean" }, optional: false },
+                      },
+                    },
+                  },
+                  optional: false,
+                },
+              },
+            },
+            flow: { kind: "halt", reason: "ok" },
+          },
+        },
+      });
+
+      const snapshot = createTestSnapshot({}, schema.hash);
+      const intent = createTestIntent("syncTodos", {
+        entries: {
+          a: { done: "yes" },
+        },
+      });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError?.code).toBe("INVALID_INPUT");
+    });
   });
 
   describe("Computed Values", () => {

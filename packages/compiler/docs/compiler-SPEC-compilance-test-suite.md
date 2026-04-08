@@ -99,7 +99,7 @@ Blocking rules reflect currently implemented compiler behavior:
 - primitive-only equality enforcement (`A15`) with direct compile-time probes
 - `flow` / `include` composition and diagnostics (ADR-013a, `FLOW-*`, `E013`-`E024`)
 - entity primitives and placement/type diagnostics (ADR-013b, `ENTITY-*`, `TRANSFORM-*`, `E030`-`E035`)
-- schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E046`)
+- schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E044`; `E045`/`E046` retained only as superseded inventory items)
 - deterministic compile/lower output
 
 ### Pending

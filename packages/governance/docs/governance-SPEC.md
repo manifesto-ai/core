@@ -73,6 +73,9 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - `getSnapshot()` is the projected application-facing runtime read
 - `getCanonicalSnapshot()` is the current visible canonical runtime substrate
 - `getWorldSnapshot(worldId)` is the stored canonical snapshot for a sealed world
+- `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()` remain inherited read/query surfaces
+- inherited legality queries preserve the base SDK ordering: availability is checked before dispatchability
+- inherited `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker without evaluating `dispatchable`
 
 ## 6. Verb Promotion
 
@@ -148,3 +151,5 @@ Governance v3 no longer teaches:
 | GOV-V3-6 | MUST | pending HITL or tribunal proposals MUST remain in `evaluating` until `approve()` or `reject()` resolves them |
 | GOV-V3-7 | MUST | approved execution MUST seal through lineage before visible snapshot publication |
 | GOV-V3-8 | MUST NOT | failed governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot |
+| GOV-V3-9 | MUST | inherited legality queries preserve the base SDK availability-before-dispatchability ordering |
+| GOV-V3-10 | MUST | inherited `getIntentBlockers()` expose only the first failing legality layer |

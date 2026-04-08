@@ -10,7 +10,7 @@ Use it when you want:
 
 - a semantic graph of the domain
 - findings analysis over static and runtime overlays
-- action availability and blocker explanations
+- action availability and coarse blocker explanations, alongside runtime-owned fine intent-legality tooling
 - snapshot, trace, lineage, and governance inspection
 - one read-only analysis engine shared across CLI, MCP, and UI surfaces
 
@@ -46,8 +46,8 @@ const session = createStudioSession({
 | `detachOverlay(kind)` | Drop one overlay from the session |
 | `getGraph(format?)` | Return the domain graph projection |
 | `getFindings(filter?)` | Return findings across the current bundle |
-| `getActionAvailability()` | Return action legality from the current canonical snapshot |
-| `explainActionBlocker(actionId)` | Explain why an action is blocked |
+| `getActionAvailability()` | Return coarse action-family legality from the current canonical snapshot |
+| `explainActionBlocker(actionId)` | Explain why an action family is blocked |
 | `inspectSnapshot()` | Return a snapshot inspection projection |
 | `analyzeTrace()` | Return trace replay analysis |
 | `getLineageState()` | Return lineage state projection |

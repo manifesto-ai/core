@@ -13,7 +13,7 @@
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
 
-> **Current Contract Note:** This page describes the current Core v4.0.0 surface. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract.
+> **Current Contract Note:** This page describes the current Core v4.2.0 surface. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
 
 ---
 
@@ -95,6 +95,12 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot
   ): readonly string[];
+
+  isIntentDispatchable(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    intent: Intent
+  ): boolean;
 }
 ```
 
@@ -153,7 +159,8 @@ interface ComputeResult {
 - `system/input/computed/meta` are not patch targets.
 - Use `applySystemDelta()` for all system transitions.
 - `patchPathToDisplayString()` is display-only and must not be parsed for execution.
-- `isActionAvailable()` and `getAvailableActions()` are read-only availability queries over the current Snapshot.
+- `isActionAvailable()` and `getAvailableActions()` are read-only coarse availability queries over the current Snapshot.
+- `isIntentDispatchable()` is the read-only fine intent-admission query over `schema + snapshot + intent`.
 
 ---
 

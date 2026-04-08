@@ -15,6 +15,7 @@ const canonical = ext.getCanonicalSnapshot();
 const available = ext.getAvailableActionsFor(canonical);
 const isAvailable = ext.isActionAvailableFor(canonical, "increment");
 const intent = ext.createIntent(ext.MEL.actions.increment);
+const isDispatchable = ext.isIntentDispatchableFor(canonical, intent);
 const simulated: ExtensionSimulateResult<CounterDomain> = ext.simulateSync(canonical, intent);
 const projected = ext.projectSnapshot(simulated.snapshot);
 const next = session.next(world.MEL.actions.increment);
@@ -27,6 +28,7 @@ void sdk.createSimulationSession;
 
 void available;
 void isAvailable;
+void isDispatchable;
 void projected;
 void finished;
 

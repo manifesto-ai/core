@@ -1,5 +1,8 @@
 import type { Intent } from "@manifesto-ai/core";
-import type { CanonicalSnapshot } from "../../../../sdk/src/index.ts";
+import type {
+  CanonicalSnapshot,
+  DispatchBlocker,
+} from "../../../../sdk/src/index.ts";
 
 import { createManifesto } from "../../../../sdk/src/index.ts";
 import {
@@ -24,7 +27,11 @@ void lineage.commitAsync(
   lineage.createIntent(lineage.MEL.actions.increment),
 );
 const lineageWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> = lineage.getWorldSnapshot("world-1");
+const lineageDispatchable: boolean = lineage.isIntentDispatchable(lineage.MEL.actions.increment);
+const lineageBlockers: readonly DispatchBlocker[] = lineage.getIntentBlockers(lineage.MEL.actions.increment);
 void lineageWorldSnapshot;
+void lineageDispatchable;
+void lineageBlockers;
 
 // @ts-expect-error lineage runtime removes dispatchAsync after verb promotion
 lineage.dispatchAsync(

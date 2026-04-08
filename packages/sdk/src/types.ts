@@ -1,6 +1,7 @@
 import type {
   ComputeStatus,
   DomainSchema,
+  ExprNode,
   Intent,
   Patch,
   Requirement,
@@ -90,7 +91,7 @@ export type ActionArgs<
 export type ActionObjectBindingArgs<
   T extends ManifestoDomainShape,
   K extends keyof T["actions"],
-> = ActionArgs<T, K> extends [unknown, unknown, ...unknown[]]
+> = ActionArgs<T, K> extends [unknown, ...unknown[]]
   ? [params: Record<string, unknown>]
   : never;
 
@@ -169,12 +170,34 @@ export type TypedActionMetadata<
   readonly params: readonly string[];
   readonly input: DomainSchema["actions"][string]["input"];
   readonly description: string | undefined;
+  readonly hasDispatchableGate: boolean;
 };
 
 export type TypedGetActionMetadata<T extends ManifestoDomainShape> = {
   (): readonly TypedActionMetadata<T>[];
   <K extends keyof T["actions"]>(name: K): TypedActionMetadata<T, K>;
 };
+
+export type DispatchBlocker = {
+  readonly layer: "available" | "dispatchable";
+  readonly expression: ExprNode;
+  readonly evaluatedResult: unknown;
+  readonly description?: string;
+};
+
+export type TypedIsIntentDispatchable<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  action: TypedActionRef<T, K>,
+  ...args: CreateIntentArgs<T, K>
+) => boolean;
+
+export type TypedGetIntentBlockers<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  action: TypedActionRef<T, K>,
+  ...args: CreateIntentArgs<T, K>
+) => readonly DispatchBlocker[];
 
 export interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:completed": {
@@ -185,6 +208,7 @@ export interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:rejected": {
     readonly intentId: string;
     readonly intent: TypedIntent<T>;
+    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
     readonly reason: string;
   };
   "dispatch:failed": {
@@ -218,6 +242,8 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getSnapshot: () => Snapshot<T["state"]>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
+  readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
+  readonly getIntentBlockers: TypedGetIntentBlockers<T>;
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly getSchemaGraph: () => SchemaGraph;

@@ -12,6 +12,10 @@ import {
   validateValueAgainstFieldSpec,
 } from "./validation-utils.js";
 import {
+  getStateTypeDefinitionAtSegments,
+  validateValueAgainstTypeDefinition,
+} from "./type-definition-utils.js";
+import {
   isSafePatchPath,
   mergeAtPatchPath,
   patchPathToDisplayString,
@@ -96,8 +100,9 @@ export function apply(
       continue;
     }
 
-    const fieldSpec = getFieldSpecAtSegments(rootSpec, patch.path);
-    if (!fieldSpec) {
+    const typeDefinition = getStateTypeDefinitionAtSegments(schema.state, schema.types, patch.path);
+    const fieldSpec = typeDefinition ? null : getFieldSpecAtSegments(rootSpec, patch.path);
+    if (!typeDefinition && !fieldSpec) {
       validationErrors.push(createError(
         "PATH_NOT_FOUND",
         `Unknown patch path: ${displayPath}`,
@@ -122,10 +127,15 @@ export function apply(
     }
 
     if (patch.op !== "unset") {
-      const result = validateValueAgainstFieldSpec(patch.value, fieldSpec, {
-        allowPartial: patch.op === "merge",
-        allowUndefined: false,
-      });
+      const result = typeDefinition
+        ? validateValueAgainstTypeDefinition(patch.value, typeDefinition, schema.types, {
+          allowPartial: patch.op === "merge",
+          allowUndefined: false,
+        })
+        : validateValueAgainstFieldSpec(patch.value, fieldSpec as FieldSpec, {
+          allowPartial: patch.op === "merge",
+          allowUndefined: false,
+        });
       if (!result.ok) {
         validationErrors.push(createError(
           "TYPE_MISMATCH",

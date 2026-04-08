@@ -2,7 +2,7 @@
 
 > **Purpose:** The single document a user reads to learn and use MEL. Covers every function, construct, and pattern with examples.
 > **Audience:** Developers writing MEL domains. Both beginners and experienced users.
-> **Normative sources:** SPEC-v0.7.0.md §9 (Standard Library), validator.ts (function signatures), lower-expr.ts (supported functions).
+> **Normative sources:** SPEC-v1.0.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
 
 ---
 
@@ -26,8 +26,9 @@
    - 6.2 [once](#62-once)
    - 6.3 [onceIntent](#63-onceintent)
    - 6.4 [available when](#64-available-when)
-   - 6.5 [fail](#65-fail)
-   - 6.6 [stop](#66-stop)
+   - 6.5 [dispatchable when](#65-dispatchable-when)
+   - 6.6 [fail](#66-fail)
+   - 6.7 [stop](#67-stop)
 7. [Patch Operations](#7-patch-operations)
 8. [Effects](#8-effects)
    - 8.1 [Array Effects](#81-array-effects)
@@ -126,7 +127,9 @@ domain DomainName {
   computed name = expression
 
   // State transitions with guards
-  action name(param: Type) available when condition {
+  action name(param: Type)
+    available when coarseCondition
+    dispatchable when fineCondition {
     when condition {
       patch field = expression
       effect type({ args, into: target })
@@ -544,14 +547,9 @@ computed uniqueIds = unique(allIds)
 computed allMembers = flat(teamMemberArrays)
 ```
 
-> **`len()` does not work on records.** To count records, extract keys first:
+> **`len()` works on records and objects.** For records/objects it returns the key count:
 > ```mel
-> // In computed:
-> computed taskIds = keys(tasks)
-> computed taskCount = len(taskIds)
-> // Or in an action pipeline:
-> effect record.keys({ source: tasks, into: taskIds })
-> // then: len(taskIds)
+> computed taskCount = len(tasks)
 > ```
 
 > **`filter`, `map`, `find`, `every`, `some` in computed use `$item` inline.** These are expression-level functions that take a predicate or mapper expression where `$item` refers to the current element. They differ from the effect-level `array.filter` etc. (see §8.1).
@@ -815,7 +813,7 @@ action addTask(title: string) {
 
 ### 6.4 `available when`
 
-Declares a precondition for the action. The action is only available to be called when the condition is true.
+Declares the **coarse action-family gate**. The action is available to be considered only when the condition is true.
 
 ```mel
 action decrement() available when gt(count, 0) {
@@ -834,8 +832,11 @@ action submit() available when and(isNotNull(email), isNull(submittedAt)) {
 
 **`available when` restrictions:**
 - Cannot use `$input.*` — parameters are not available at availability check time
+- Cannot use bare action parameter names — input does not exist yet
+- Cannot use `$meta.*` — metadata is not part of the coarse pre-intent gate
 - Cannot use `$system.*` — IO is not available at availability check time
-- Must be a pure expression over domain state only
+- May appear at most once per action
+- Must be a pure expression over state/computed only
 
 ```mel
 // NOT ALLOWED: $input in available when
@@ -846,7 +847,35 @@ action process(x: number) available when gt($input.x, 0) {  // Error E005
 
 ---
 
-### 6.5 `fail`
+### 6.5 `dispatchable when`
+
+Declares the **fine bound-intent gate**. The action may be available in general, but a specific bound intent can still be rejected by `dispatchable when`.
+
+```mel
+action shoot(cellIndex: number)
+  available when canShoot
+  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  onceIntent {
+    patch cells = updateAt(cells, cellIndex, "pending")
+  }
+}
+```
+
+**`dispatchable when` rules:**
+- May reference state and computed values
+- May reference action parameters by bare declared name
+- Cannot use direct `$input.*` syntax in MEL source
+- Cannot use `$meta.*`, `$system.*`, or effects
+- May appear at most once per action
+- If both clauses are present, `available when` must appear before `dispatchable when`
+- Dispatchability is only considered after coarse availability passes; if `available when` is false, the runtime/query returns `false` without evaluating `dispatchable when`
+- Must be a pure expression
+
+Use `dispatchable when` for input-dependent legality that should be rejected **before execution**, not for execution-time narrative failures.
+
+---
+
+### 6.6 `fail`
 
 Terminates the action with an error. Errors are values in Snapshot — they do not throw exceptions.
 
@@ -884,7 +913,7 @@ fail "ERROR_CODE" with concat("Dynamic: ", value)
 
 ---
 
-### 6.6 `stop`
+### 6.7 `stop`
 
 Terminates the action successfully with no action taken. Means "nothing to do" — not "waiting" or "suspended".
 
@@ -1289,11 +1318,13 @@ System values provide access to runtime context and IO. They have two categories
 | `$system.uuid` | Action body only | Computed, state init |
 | `$system.random` | Action body only | Computed, state init |
 | `$system.env.<name>` | Action body only | Computed, state init |
-| `$input.<field>` | Action body, effect sub-expressions | `available when`, state init |
-| `$meta.intentId` | Anywhere | State init |
-| `$meta.actor` | Anywhere | State init |
-| `$meta.authority` | Anywhere | State init |
+| `$input.<field>` | Action body, effect sub-expressions | `available when`, `dispatchable when`, state init |
+| `$meta.intentId` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
+| `$meta.actor` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
+| `$meta.authority` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
 | `$item` | Effect `where`, `select`, `by` expressions | Computed, outside effect context |
+
+Bare action parameter names are valid source syntax in action bodies and in `dispatchable when`. Direct `$input.*` remains invalid in `dispatchable when` even though the compiled schema lowers parameter reads to input paths.
 
 ### `$system.*` — IO Values
 
@@ -1700,7 +1731,7 @@ domain Toggles {
 | `\`Hello ${name}\`` | `concat("Hello ", name)` |
 | `when items { }` | `when gt(len(items), 0) { }` |
 | `eq(items, [])` | `eq(len(items), 0)` |
-| `len(tasks)` (record) | `effect record.keys(...)` then `len(taskIds)` |
+| `len(tasks)` (record) | `len(tasks)` |
 | `sum(filter(prices))` | Two computed: `computed active = filter(prices, ...)` then `sum(active)` |
 | Unguarded `patch count = 1` | `when true { patch count = 1 }` |
 | `once` block without marker first | `patch marker = $meta.intentId` must be first statement |
@@ -1709,4 +1740,4 @@ domain Toggles {
 
 ---
 
-*Authoritative sources: SPEC-v0.7.0.md §9, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*
+*Authoritative sources: SPEC-v1.0.0.md, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*

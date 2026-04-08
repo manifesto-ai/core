@@ -63,7 +63,10 @@ function createValidSchema(overrides: Partial<DomainSchema> = {}): DomainSchema 
     version: "1.0.0",
     ...restOverrides,
     types: types ?? {},
-    state: { fields: stateFields },
+    state: {
+      fields: stateFields,
+      ...(state?.fieldTypes ? { fieldTypes: state.fieldTypes } : {}),
+    },
     computed: { fields: computedFields },
     actions,
   };
@@ -383,6 +386,35 @@ describe("validate", () => {
       expect(result.valid).toBe(true);
     });
 
+    it("should validate action with dispatchability condition", () => {
+      const schema = createValidSchema({
+        actions: {
+          withdraw: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
+            dispatchable: {
+              kind: "gte",
+              left: { kind: "get", path: "balance" },
+              right: { kind: "get", path: "input.amount" },
+            },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("balance"),
+              value: { kind: "lit", value: 0 },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+      expect(result.valid).toBe(true);
+    });
+
     it("should allow meta paths in action flow", () => {
       const schema = createValidSchema({
         actions: {
@@ -425,6 +457,69 @@ describe("validate", () => {
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
       expect(result.errors.some((e) => e.message.includes("input.missing"))).toBe(true);
+    });
+
+    it("should reject unknown input paths in dispatchable expressions", () => {
+      const schema = createValidSchema({
+        actions: {
+          update: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "string", required: true },
+              },
+            },
+            dispatchable: { kind: "get", path: "input.missing" },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("dummy"),
+              value: { kind: "get", path: "input.value" },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("input.missing"))).toBe(true);
+    });
+
+    it("should allow numeric object keys in inputType-backed action paths", () => {
+      const schema = createValidSchema({
+        actions: {
+          update: {
+            inputType: {
+              kind: "object",
+              fields: {
+                payload: {
+                  type: {
+                    kind: "object",
+                    fields: {
+                      "0": {
+                        type: { kind: "primitive", type: "string" },
+                        optional: false,
+                      },
+                    },
+                  },
+                  optional: false,
+                },
+              },
+            },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("dummy"),
+              value: { kind: "get", path: "input.payload.0" },
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(true);
     });
   });
 
@@ -946,6 +1041,326 @@ describe("V-009: default type validation", () => {
     const result = validate(schema);
     const v009Errors = result.errors.filter((e) => e.code === "V-009");
     expect(v009Errors).toHaveLength(0);
+  });
+
+  it("should pass when required fieldTypes allow nullable defaults", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          selectedId: { type: "string", required: true, default: null },
+        },
+        fieldTypes: {
+          selectedId: {
+            kind: "union",
+            types: [
+              { kind: "primitive", type: "string" },
+              { kind: "literal", value: null },
+            ],
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    const v009Errors = result.errors.filter((e) => e.code === "V-009");
+    expect(v009Errors).toHaveLength(0);
+  });
+
+  it("should fail when fieldTypes keep a required field non-nullable", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          selectedId: { type: "string", required: true, default: null },
+        },
+        fieldTypes: {
+          selectedId: { kind: "primitive", type: "string" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009", path: "state.fields.selectedId" })
+    );
+  });
+
+  it("should fail when state.fieldTypes contains roots missing from state.fields", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          count: { type: "number", required: true, default: 0 },
+        },
+        fieldTypes: {
+          ghost: { kind: "primitive", type: "string" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "state.fieldTypes.ghost" }),
+    );
+  });
+
+  it("should fail when state.fieldTypes contains unresolved refs", () => {
+    const schema = createValidSchema({
+      state: {
+        fieldTypes: {
+          count: { kind: "ref", name: "MissingType" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "state.fieldTypes.count" }),
+    );
+  });
+
+  it("should fail when action.inputType contains unresolved refs", () => {
+    const schema = createValidSchema({
+      actions: {
+        submit: {
+          inputType: { kind: "ref", name: "MissingInput" },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.inputType" }),
+    );
+  });
+
+  it("should fail when action.params do not match the declared inputType fields", () => {
+    const schema = createValidSchema({
+      actions: {
+        submit: {
+          params: ["x", "y"],
+          inputType: {
+            kind: "object",
+            fields: {
+              x: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.params.1" }),
+    );
+  });
+
+  it("should accept nullable inputType object carriers that resolve null refs through aliases", () => {
+    const schema = createValidSchema({
+      types: {
+        InputObj: {
+          name: "InputObj",
+          definition: {
+            kind: "object",
+            fields: {
+              x: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+        },
+        NullAlias: {
+          name: "NullAlias",
+          definition: { kind: "literal", value: null },
+        },
+        MaybeInput: {
+          name: "MaybeInput",
+          definition: {
+            kind: "union",
+            types: [
+              { kind: "ref", name: "InputObj" },
+              { kind: "ref", name: "NullAlias" },
+            ],
+          },
+        },
+      },
+      actions: {
+        submit: {
+          params: ["x"],
+          inputType: { kind: "ref", name: "MaybeInput" },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("should reject cyclic nullable inputType aliases without overflowing validation", () => {
+    const schema = createValidSchema({
+      types: {
+        CyclicMaybeInput: {
+          name: "CyclicMaybeInput",
+          definition: {
+            kind: "union",
+            types: [
+              { kind: "ref", name: "CyclicMaybeInput" },
+              { kind: "literal", value: null },
+            ],
+          },
+        },
+      },
+      actions: {
+        submit: {
+          params: ["x"],
+          inputType: { kind: "ref", name: "CyclicMaybeInput" },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.params" }),
+    );
+  });
+
+  it("should fail when action.params contains duplicate names", () => {
+    const schema = createValidSchema({
+      actions: {
+        submit: {
+          params: ["x", "x"],
+          inputType: {
+            kind: "object",
+            fields: {
+              x: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.params.1" }),
+    );
+  });
+
+  it("should fail when typing seams declare record keys that are not strings", () => {
+    const schema = createValidSchema({
+      state: {
+        fieldTypes: {
+          count: {
+            kind: "record",
+            key: { kind: "primitive", type: "number" },
+            value: { kind: "primitive", type: "string" },
+          },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "state.fieldTypes.count.key" }),
+    );
+  });
+
+  it("should keep FieldSpec default validation for roots missing fieldTypes", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          selectedId: { type: "string", required: true, default: 42 as unknown as string },
+        },
+        fieldTypes: {
+          count: { kind: "primitive", type: "number" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009", path: "state.fields.selectedId" }),
+    );
+  });
+
+  it("should still require optional defaults when fieldTypes are present", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          settings: {
+            type: "object",
+            required: true,
+            default: {},
+            fields: {
+              theme: { type: "string", required: false },
+            },
+          },
+        },
+        fieldTypes: {
+          settings: {
+            kind: "object",
+            fields: {
+              theme: { type: { kind: "primitive", type: "string" }, optional: true },
+            },
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fields.settings.theme" }),
+    );
+  });
+
+  it("should accept escaped state paths when fieldTypes drive path validation", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          files: {
+            type: "object",
+            required: true,
+            default: {},
+          },
+        },
+        fieldTypes: {
+          files: {
+            kind: "record",
+            key: { kind: "primitive", type: "string" },
+            value: {
+              kind: "object",
+              fields: {
+                status: { type: { kind: "primitive", type: "string" }, optional: false },
+              },
+            },
+          },
+        },
+      },
+      computed: {
+        fields: {
+          statusForProof: {
+            expr: { kind: "get", path: String.raw`files.file:///proof\.lean.status` },
+            deps: [String.raw`files.file:///proof\.lean.status`],
+          },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(true);
   });
 
   it("should fail when nested object field has wrong nested default type", () => {

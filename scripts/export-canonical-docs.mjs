@@ -9,11 +9,11 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const defaultOutDir = path.join(repoRoot, "temp", "canonical-docs");
 const execFileAsync = promisify(execFile);
+const CURRENT_CONTRACT_DOC = "docs/internals/spec/current-contract.md";
 
 const CONSTITUTION_AND_GOVERNANCE = [
   "CLAUDE.md",
   "docs/internals/documentation-governance.md",
-  "docs/internals/spec/index.md",
   "docs/internals/adr/index.md",
   "docs/internals/fdr/index.md",
 ];
@@ -99,7 +99,10 @@ function extractCurrentSpecPaths(specIndexContent) {
 
   for (const match of section.matchAll(githubBlobPattern)) {
     const relativePath = match[1];
-    if (relativePath?.startsWith("packages/")) {
+    if (
+      relativePath?.startsWith("packages/")
+      && !relativePath.endsWith("VERSION-INDEX.md")
+    ) {
       paths.add(relativePath);
     }
   }
@@ -137,6 +140,12 @@ function extractCurrentVersionIndexDocPaths(versionIndexContent, versionIndexPat
     if (!resolved.startsWith("packages/")) {
       continue;
     }
+    if (resolved.endsWith("VERSION-INDEX.md")) {
+      continue;
+    }
+    if (path.posix.basename(resolved).startsWith("FDR-")) {
+      continue;
+    }
 
     paths.add(resolved);
   }
@@ -163,7 +172,6 @@ async function collectCurrentPackageDocs() {
 
   const files = new Set([
     "README.md",
-    specIndexPath,
   ]);
 
   for (const root of packageRoots) {
@@ -172,7 +180,6 @@ async function collectCurrentPackageDocs() {
       path.posix.join(root, "README.md"),
       path.posix.join(root, "docs", "README.md"),
       path.posix.join(root, "docs", "GUIDE.md"),
-      versionIndexPath,
     ];
 
     for (const candidate of candidates) {
@@ -258,8 +265,14 @@ async function buildBundles() {
 
   return [
     {
+      id: "current-contract",
+      filename: "00-current-contract.md",
+      title: "Current Contract",
+      files: [CURRENT_CONTRACT_DOC],
+    },
+    {
       id: "constitution-and-governance",
-      filename: "00-constitution-and-governance.md",
+      filename: "05-constitution-and-governance.md",
       title: "Constitution and Governance",
       files: uniqueSorted(CONSTITUTION_AND_GOVERNANCE),
     },

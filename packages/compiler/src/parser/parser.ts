@@ -257,11 +257,25 @@ export class Parser {
 
     this.consume("RPAREN", "Expected ')' after parameters");
 
-    // v0.3.2: Parse optional 'available when <Expr>'
+    // v0.3.2+: Parse optional 'available when <Expr>' then 'dispatchable when <Expr>'
     let available: ExprNode | undefined;
     if (this.match("AVAILABLE")) {
       this.consume("WHEN", "Expected 'when' after 'available'");
       available = this.parseExpression();
+    }
+    let dispatchable: ExprNode | undefined;
+    if (this.match("DISPATCHABLE")) {
+      this.consume("WHEN", "Expected 'when' after 'dispatchable'");
+      dispatchable = this.parseExpression();
+    }
+    if (this.check("AVAILABLE")) {
+      const message = dispatchable
+        ? "'available when' must appear before 'dispatchable when' in an action"
+        : "Action can declare 'available when' at most once";
+      throw this.errorAtCurrent(message);
+    }
+    if (this.check("DISPATCHABLE")) {
+      throw this.errorAtCurrent("Action can declare 'dispatchable when' at most once");
     }
 
     this.consume("LBRACE", "Expected '{' to start action body");
@@ -279,6 +293,7 @@ export class Parser {
       name,
       params,
       available,
+      dispatchable,
       body,
       location: mergeLocations(start, end),
     };

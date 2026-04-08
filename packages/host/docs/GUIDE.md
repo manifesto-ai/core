@@ -5,7 +5,7 @@
 > **Prerequisites:** Basic understanding of Core
 > **Time to complete:** ~20 minutes
 
-> **Current Contract Note:** This guide follows the current Host v4.0.0 surface. Host-facing Snapshot references now follow Core v4.0.0 and no longer include accumulated `system.errors`.
+> **Current Contract Note:** This guide follows the current Host v4.0.0 surface. Host-facing Snapshot references now follow Core v4.2.0 and no longer include accumulated `system.errors`.
 
 ---
 

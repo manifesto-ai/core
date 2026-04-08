@@ -90,6 +90,8 @@ Governed runtimes still carry the lineage query surface:
 
 The removed verbs are direct execution verbs. Governance keeps the lineage query surface, not lineage execution.
 `getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
+The activated governed runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
+Those inherited legality queries keep the base SDK semantics: availability short-circuits dispatchability, and `getIntentBlockers()` reports the first failing layer instead of combining coarse and fine blockers.
 
 ## 6. Low-Level Governance Substrate
 

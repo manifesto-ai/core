@@ -4,7 +4,7 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
 import { getExtensionKernel } from "../../sdk/src/extensions.js";
 import {
   createInMemoryLineageStore,
@@ -66,6 +66,18 @@ type CounterDomain = {
   computed: {
     doubled: number;
   };
+};
+
+type DispatchabilityDomain = {
+  actions: {
+    spend: (amount: number) => void;
+    frozenSpend: (amount: number) => void;
+  };
+  state: {
+    balance: number;
+    enabled: boolean;
+  };
+  computed: {};
 };
 
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
@@ -152,6 +164,53 @@ function createCounterSchema(): DomainSchema {
   });
 }
 
+function createDispatchabilitySchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:governance-v3-dispatchability",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        balance: { type: "number", required: true, default: 10 },
+        enabled: { type: "boolean", required: true, default: true },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      spend: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            amount: { type: "number", required: true },
+          },
+        },
+        available: { kind: "get", path: "enabled" },
+        dispatchable: {
+          kind: "gte",
+          left: { kind: "get", path: "balance" },
+          right: { kind: "get", path: "input.amount" },
+        },
+        description: "Spend only when balance covers amount",
+        flow: { kind: "halt", reason: "spend" },
+      },
+      frozenSpend: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            amount: { type: "number", required: true },
+          },
+        },
+        available: { kind: "lit", value: false },
+        dispatchable: { kind: "lit", value: "not-a-boolean" },
+        description: "Frozen while disabled",
+        flow: { kind: "halt", reason: "frozenSpend" },
+      },
+    },
+  });
+}
+
 function createAutoBinding(): ActorAuthorityBinding {
   return {
     actorId: "actor:auto",
@@ -220,6 +279,17 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     expect("dispatchAsync" in governed).toBe(false);
     expect("commitAsync" in governed).toBe(false);
+    expect(typeof governed.isIntentDispatchable).toBe("function");
+    expect(typeof governed.getIntentBlockers).toBe("function");
+
+    const ext = getExtensionKernel(governed);
+    const canonical = ext.getCanonicalSnapshot();
+    const incrementIntent = governed.createIntent(governed.MEL.actions.increment);
+
+    expect(governed.isIntentDispatchable(governed.MEL.actions.increment)).toBe(
+      ext.isIntentDispatchableFor(canonical, incrementIntent),
+    );
+    expect(governed.getIntentBlockers(governed.MEL.actions.increment)).toEqual([]);
 
     const proposal = await governed.proposeAsync(
       governed.createIntent(governed.MEL.actions.increment),
@@ -766,5 +836,146 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(ext.projectSnapshot(ext.getCanonicalSnapshot())).toEqual(world.getSnapshot());
 
     world.dispose();
+  });
+
+  it("preserves coarse and fine legality semantics on the activated governance runtime", () => {
+    const schema = createDispatchabilitySchema();
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DispatchabilityDomain>(schema, {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:dispatchability",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:dispatchability",
+          }),
+        },
+      },
+    ).activate();
+    const ext = getExtensionKernel(governed);
+    const canonical = ext.getCanonicalSnapshot();
+    const blockedSpend = governed.createIntent(governed.MEL.actions.spend, 15);
+
+    expect(governed.isIntentDispatchable(governed.MEL.actions.spend, 15)).toBe(
+      ext.isIntentDispatchableFor(canonical, blockedSpend),
+    );
+    expect(governed.getIntentBlockers(governed.MEL.actions.spend, 15)).toEqual([
+      {
+        layer: "dispatchable",
+        expression: schema.actions.spend.dispatchable,
+        evaluatedResult: false,
+        description: "Spend only when balance covers amount",
+      },
+    ]);
+
+    expect(governed.isIntentDispatchable(governed.MEL.actions.frozenSpend, 1)).toBe(false);
+    expect(governed.getIntentBlockers(governed.MEL.actions.frozenSpend, 1)).toEqual([
+      {
+        layer: "available",
+        expression: schema.actions.frozenSpend.available,
+        evaluatedResult: false,
+        description: "Frozen while disabled",
+      },
+    ]);
+
+    governed.dispose();
+  });
+
+  it("emits dispatch:rejected without dispatch:failed for non-dispatchable governed execution", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:governance-rejected",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:governance-rejected",
+          }),
+        },
+      },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    governed.on("dispatch:rejected", rejected);
+    governed.on("dispatch:failed", failed);
+
+    await expect(
+      governed.proposeAsync(governed.createIntent(governed.MEL.actions.spend, 15)),
+    ).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    governed.dispose();
+  });
+
+  it("emits dispatch:rejected without dispatch:failed for invalid governed input", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:governance-invalid-input",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:governance-invalid-input",
+          }),
+        },
+      },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    governed.on("dispatch:rejected", rejected);
+    governed.on("dispatch:failed", failed);
+
+    const invalidIntent = {
+      ...governed.createIntent(governed.MEL.actions.spend, 1),
+      input: { amount: "oops" },
+    } as unknown as Parameters<typeof governed.proposeAsync>[0];
+
+    await expect(governed.proposeAsync(invalidIntent)).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INVALID_INPUT",
+    });
+
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    governed.dispose();
   });
 });

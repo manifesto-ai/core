@@ -11,6 +11,8 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v4.2.0 | TypeDefinition-backed runtime typing seam — `StateSpec.fieldTypes`, `ActionSpec.inputType`, and `ActionSpec.params` become normative when present | — |
+| v4.1.0 | Add intent dispatchability query API — `ActionSpec.dispatchable`, `isIntentDispatchable()` | — |
 | v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
 | v3.1.0 | Additive availability query API — `isActionAvailable()`, `getAvailableActions()` | — |
 | v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at `snapshot.data` | FDR-015 |
@@ -237,8 +239,8 @@ type DomainSchema = {
 ### 4.3 Types (Compiler v0.3.3)
 
 `types` carries **named type declarations** produced by the compiler.
-They are **schema metadata** only; Core does not interpret them during compute/apply,
-but they are part of the schema hash.
+
+They remain part of the schema hash, and they are also used by the current runtime typing seam whenever `StateSpec.fieldTypes` or `ActionSpec.inputType` are present.
 
 ```typescript
 type TypeSpec = {
@@ -270,6 +272,9 @@ StateSpec defines the **shape** of domain state. It contains only structural inf
 type StateSpec = {
   /** Root fields of the state */
   readonly fields: Record<string, FieldSpec>;
+
+  /** Precise runtime type seam for root state fields when present */
+  readonly fieldTypes?: Record<string, TypeDefinition>;
 };
 
 type FieldSpec = {
@@ -916,11 +921,20 @@ type ActionSpec = {
   /** The flow to execute */
   readonly flow: FlowNode;
   
-  /** Input schema (for validation) */
+  /** Compatibility input schema (for coarse validation / tooling) */
   readonly input?: FieldSpec;
+
+  /** Precise runtime input schema when present */
+  readonly inputType?: TypeDefinition;
+
+  /** Canonical declared parameter order when present */
+  readonly params?: readonly string[];
   
-  /** Availability condition (when can this action be dispatched?) */
+  /** Availability condition (when is this action family available?) */
   readonly available?: ExprNode;
+
+  /** Bound-intent dispatchability condition (when is this specific intent admissible?) */
+  readonly dispatchable?: ExprNode;
   
   /** Human-readable description */
   readonly description?: string;
@@ -948,6 +962,11 @@ type ActionSpec = {
         { "kind": "not", "arg": { "kind": "get", "path": "isLoading" } }
       ]
     },
+    "dispatchable": {
+      "kind": "neq",
+      "left": { "kind": "get", "path": "title" },
+      "right": { "kind": "lit", "value": "" }
+    },
     "flow": { "kind": "seq", "steps": ["..."] }
   },
   
@@ -963,6 +982,7 @@ type ActionSpec = {
 
 - Each action MUST have a unique name within the schema.
 - If `available` is defined, Core MUST check it before executing the flow on **initial invocation** (StartIntent). Core MUST NOT re-check `available` on **re-entry** (ContinueCompute), because the action has already been admitted and its own patches may have invalidated the availability condition. Re-entry is detected when `snapshot.system.currentAction` matches the intent's action type. See §14.2 R-002.
+- If `dispatchable` is defined, it expresses a pure **bound-intent** admission predicate over `schema + snapshot + intent`. It is queried through `isIntentDispatchable()`. Core `compute()` does not enforce `dispatchable` as part of StartIntent admission.
 - If `input` is defined, Core MUST validate input against the schema.
 
 ---
@@ -1338,8 +1358,10 @@ This is terminology only.
 | V-004 | All `call` references in FlowSpec MUST exist |
 | V-005 | FlowSpec `call` graph MUST be acyclic |
 | V-006 | ActionSpec.available expression MUST return boolean |
-| V-007 | ActionSpec.input MUST be valid FieldSpec |
+| V-007 | ActionSpec.input MUST be valid FieldSpec when present |
 | V-008 | Schema hash MUST match canonical hash |
+| V-009 | ActionSpec.dispatchable expression MUST return boolean when present |
+| V-010 | `StateSpec.fieldTypes` / `ActionSpec.inputType` MUST be valid TypeDefinition carriers when present |
 
 ### 14.2 Runtime Validation
 
@@ -1490,7 +1512,7 @@ interface ManifestoCore {
   ): ExplainResult;
 
   /**
-   * Check whether an action is currently dispatchable.
+   * Check whether an action family is currently available.
    *
    * Evaluates ActionSpec.available against the current snapshot.
    * This is a pure, synchronous, side-effect-free query.
@@ -1502,7 +1524,7 @@ interface ManifestoCore {
   ): boolean;
 
   /**
-   * Return all action names that are currently dispatchable.
+   * Return all action names that are currently available.
    *
    * Equivalent to filtering schema.actions by isActionAvailable().
    * This is a pure, synchronous, side-effect-free query.
@@ -1511,6 +1533,18 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot
   ): readonly string[];
+
+  /**
+   * Check whether a specific bound intent is dispatchable.
+   *
+   * Evaluates ActionSpec.dispatchable against the current snapshot and intent input.
+   * This is a pure, synchronous, side-effect-free query.
+   */
+  isIntentDispatchable(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    intent: Intent
+  ): boolean;
 }
 
 type Intent = {
@@ -1687,7 +1721,7 @@ The Flow will naturally proceed because:
 
 **All continuity is expressed exclusively through Snapshot.**
 
-### 16.6 Availability Query
+### 16.6 Action Availability Query
 
 `isActionAvailable()` and `getAvailableActions()` are read-only projections of the
 same availability check that `compute()` performs for initial invocation under
@@ -1701,8 +1735,30 @@ an explicit query path for host control flow.
 | AVAIL-Q-3 | MUST | If `ActionSpec.available` is undefined, `isActionAvailable()` MUST return `true`. |
 | AVAIL-Q-4 | MUST | If `actionName` does not exist in `schema.actions`, `isActionAvailable()` MUST throw. This is a schema contract violation, not a runtime availability question. |
 | AVAIL-Q-5 | MUST | `getAvailableActions()` MUST return the same result as filtering action names through `isActionAvailable()`. Order SHOULD follow `schema.actions` key order. |
-| AVAIL-Q-6 | MUST NOT | Availability query MUST NOT treat `snapshot.system.currentAction` as re-entry state. It answers whether the action is dispatchable for a new invocation attempt against the current Snapshot. |
+| AVAIL-Q-6 | MUST NOT | Availability query MUST NOT treat `snapshot.system.currentAction` as re-entry state. It answers whether the action family is currently available for a new invocation attempt against the current Snapshot. |
 | AVAIL-Q-7 | MUST NOT | Availability query MUST NOT require `HostContext`. It is pure over schema + snapshot. |
+
+---
+
+### 16.7 Intent Dispatchability Query
+
+`isIntentDispatchable()` is the pure bound-intent admission query.
+
+It is intentionally separate from action-family availability:
+
+- `available` answers coarse action-level readiness
+- `dispatchable` answers fine intent-level admissibility
+
+The query does not mutate Snapshot, does not emit `SystemDelta`, and does not replace `compute()`.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| DISP-Q-1 | MUST | `isIntentDispatchable()` MUST evaluate `ActionSpec.dispatchable` against the current snapshot and the intent's bound input. |
+| DISP-Q-2 | MUST | If `ActionSpec.dispatchable` is undefined, `isIntentDispatchable()` MUST return `true`. |
+| DISP-Q-3 | MUST | `isIntentDispatchable()` MUST be pure and side-effect-free. It MUST NOT modify Snapshot, emit `SystemDelta`, create Patches, or generate trace entries. |
+| DISP-Q-4 | MUST | If the intent's action is not available under `isActionAvailable()`, `isIntentDispatchable()` MUST return `false` without evaluating `ActionSpec.dispatchable`. |
+| DISP-Q-5 | MUST | `isIntentDispatchable()` MUST reuse the same expression-evaluation machinery used by `compute()` rather than defining a second evaluation model. |
+| DISP-Q-6 | MUST NOT | `isIntentDispatchable()` MUST NOT require `HostContext`. It is pure over schema + snapshot + intent. |
 
 ---
 

@@ -209,6 +209,16 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     message: "Record type cannot be lowered to FieldSpec",
     category: "type",
   },
+  E047: {
+    code: "E047",
+    message: "dispatchable expression must be pure (state/computed/action parameters only)",
+    category: "semantic",
+  },
+  E048: {
+    code: "E048",
+    message: "Transform primitive in dispatchable condition",
+    category: "semantic",
+  },
 
   // ============ Scope Errors (E1xx) ============
   E_UNDEFINED: {

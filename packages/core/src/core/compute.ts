@@ -13,6 +13,7 @@ import { isOk } from "../schema/common.js";
 import type { HostContext } from "../schema/host-context.js";
 import { evaluateActionAvailability } from "./action-availability.js";
 import { applySystemDelta } from "./system-delta.js";
+import { validateValueAgainstTypeDefinition } from "./type-definition-utils.js";
 
 /**
  * Compute the result of dispatching an intent (synchronous).
@@ -46,27 +47,15 @@ export function computeSync(
     );
   }
 
-  if (!intent.intentId || intent.intentId === "") {
+  const inputError = validateIntentInput(schema, intent);
+  if (inputError) {
     return createErrorResult(
       currentSnapshot,
       intent,
       "INVALID_INPUT",
-      "Intent must have a non-empty intentId",
+      inputError,
       context
     );
-  }
-
-  if (action.input) {
-    const inputError = validateInput(action.input, intent.input);
-    if (inputError) {
-      return createErrorResult(
-        currentSnapshot,
-        intent,
-        "INVALID_INPUT",
-        inputError,
-        context
-      );
-    }
   }
 
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
@@ -146,6 +135,30 @@ export async function compute(
   context: HostContext
 ): Promise<ComputeResult> {
   return computeSync(schema, snapshot, intent, context);
+}
+
+/**
+ * Validate only the caller-provided input portion of an intent.
+ * Returns an error message when the intent is malformed, or null when valid.
+ */
+export function validateIntentInput(
+  schema: DomainSchema,
+  intent: Intent,
+): string | null {
+  if (!intent.intentId || intent.intentId === "") {
+    return "Intent must have a non-empty intentId";
+  }
+
+  const action = schema.actions[intent.type];
+  if (!action) {
+    return null;
+  }
+
+  if (!action.input && !action.inputType) {
+    return null;
+  }
+
+  return validateInput(schema, action.inputType, action.input, intent.input);
 }
 
 /**
@@ -293,7 +306,21 @@ function estimateResultVersion(snapshot: Snapshot, patches: readonly Patch[], de
  * Validate input against action's input schema
  * Returns error message if invalid, null if valid
  */
-function validateInput(inputSpec: FieldSpec, input: unknown): string | null {
+function validateInput(
+  schema: DomainSchema,
+  inputType: import("../schema/type-spec.js").TypeDefinition | undefined,
+  inputSpec: FieldSpec | undefined,
+  input: unknown,
+): string | null {
+  if (inputType) {
+    const result = validateValueAgainstTypeDefinition(input, inputType, schema.types);
+    return result.ok ? null : result.message ?? "Invalid input";
+  }
+
+  if (!inputSpec) {
+    return null;
+  }
+
   if (inputSpec.type === "object") {
     if (typeof input !== "object" || input === null || Array.isArray(input)) {
       return `Expected object input, got ${typeof input}`;

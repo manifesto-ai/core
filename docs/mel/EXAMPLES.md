@@ -19,6 +19,7 @@ examples/
 │   ├── basic.mel          # Simple actions with when
 │   ├── parameters.mel     # Actions with input parameters
 │   ├── available.mel      # available when preconditions
+│   ├── dispatchable.mel   # dispatchable when bound-intent legality
 │   └── multi-step.mel     # Multi-step pipelines with once
 │
 ├── control/
@@ -81,7 +82,8 @@ State transitions with guards, patches, and effects.
 |------|----------|
 | `basic.mel` | Simple `when` guards with `patch` |
 | `parameters.mel` | Using `$input` and parameter references |
-| `available.mel` | `available when` preconditions |
+| `available.mel` | `available when` coarse preconditions |
+| `dispatchable.mel` | `dispatchable when` input-aware legality |
 | `multi-step.mel` | Sequential `once` blocks for pipelines |
 
 ### `control/`

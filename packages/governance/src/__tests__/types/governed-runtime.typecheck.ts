@@ -1,5 +1,8 @@
 import type { Intent } from "@manifesto-ai/core";
-import type { CanonicalSnapshot } from "../../../../sdk/src/index.ts";
+import type {
+  CanonicalSnapshot,
+  DispatchBlocker,
+} from "../../../../sdk/src/index.ts";
 
 import { createManifesto } from "../../../../sdk/src/index.ts";
 import {
@@ -50,7 +53,11 @@ void governed.proposeAsync(
   governed.createIntent(governed.MEL.actions.increment),
 );
 const governedWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> = governed.getWorldSnapshot("world-1");
+const governedDispatchable: boolean = governed.isIntentDispatchable(governed.MEL.actions.increment);
+const governedBlockers: readonly DispatchBlocker[] = governed.getIntentBlockers(governed.MEL.actions.increment);
 void governedWorldSnapshot;
+void governedDispatchable;
+void governedBlockers;
 void governed.getLatestHead();
 void governed.getBranches();
 

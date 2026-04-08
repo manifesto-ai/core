@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TypeDefinition } from "./type-spec.js";
 
 /**
  * Field type definitions
@@ -49,5 +50,6 @@ export const FieldSpec: z.ZodType<FieldSpec> = z.lazy(() =>
  */
 export const StateSpec = z.object({
   fields: z.record(z.string(), FieldSpec),
+  fieldTypes: z.record(z.string(), TypeDefinition).optional(),
 });
 export type StateSpec = z.infer<typeof StateSpec>;

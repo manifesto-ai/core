@@ -1,6 +1,7 @@
 import type { MelExprNode } from "../lowering/lower-expr.js";
 import {
   DEFAULT_ACTION_CONTEXT,
+  DEFAULT_DISPATCHABLE_CONTEXT,
   DEFAULT_SCHEMA_CONTEXT,
   EFFECT_ARGS_CONTEXT,
   lowerExprNode,
@@ -51,6 +52,7 @@ function lowerAction(action: CompilerActionSpec): DomainSchema["actions"][string
     ...action,
     flow: lowerFlow(action.flow),
     available: action.available ? lowerSchemaExpr(action.available) : undefined,
+    dispatchable: action.dispatchable ? lowerDispatchableExpr(action.dispatchable) : undefined,
   };
 }
 
@@ -106,6 +108,10 @@ function lowerSchemaExpr(expr: MelExprNode): CoreExprNode {
 
 function lowerActionExpr(expr: MelExprNode): CoreExprNode {
   return lowerExprNode(rewriteForRuntime(expr), DEFAULT_ACTION_CONTEXT);
+}
+
+function lowerDispatchableExpr(expr: MelExprNode): CoreExprNode {
+  return lowerExprNode(rewriteForRuntime(expr), DEFAULT_DISPATCHABLE_CONTEXT);
 }
 
 function lowerEffectExpr(expr: MelExprNode): CoreExprNode {

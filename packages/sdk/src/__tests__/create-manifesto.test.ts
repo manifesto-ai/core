@@ -10,9 +10,11 @@ import {
 } from "../index.js";
 import {
   counterMelSource,
+  createDispatchabilitySchema,
   createCounterSchema,
   createRawCounterSchema,
   type CounterDomain,
+  type DispatchabilityDomain,
   type MelCounterDomain,
   withHash,
 } from "./helpers/schema.js";
@@ -53,6 +55,162 @@ describe("createManifesto()", () => {
     expect(add.type).toBe("add");
     expect(add.input).toEqual({ amount: 7 });
     expect(add.intentId.length).toBeGreaterThan(0);
+
+    world.dispose();
+  });
+
+  it("accepts object-form binding for single-parameter scalar actions", () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const add = world.createIntent(world.MEL.actions.add, { amount: 7 });
+    expect(add.type).toBe("add");
+    expect(add.input).toEqual({ amount: 7 });
+
+    world.dispose();
+  });
+
+  it("preserves direct-value packing for ambiguous single object-valued parameters", () => {
+    type SettingsDomain = {
+      actions: {
+        configure: (settings: { settings: string }) => void;
+      };
+      state: {
+        current: { settings: string };
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-single-object-param",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          current: {
+            type: "object",
+            required: true,
+            default: { settings: "light" },
+            fields: {
+              settings: { type: "string", required: true },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        configure: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              settings: {
+                type: "object",
+                required: true,
+                fields: {
+                  settings: { type: "string", required: true },
+                },
+              },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.current",
+            value: { kind: "get", path: "input.settings" },
+          },
+        },
+      },
+    });
+    const world = createManifesto<SettingsDomain>(schema, {}).activate();
+
+    expect(
+      world.createIntent(world.MEL.actions.configure, { settings: "dark" }).input,
+    ).toEqual({ settings: { settings: "dark" } });
+
+    world.dispose();
+  });
+
+  it("preserves direct-value packing when inputType wraps object params through refs", () => {
+    type SettingsDomain = {
+      actions: {
+        configure: (settings: { settings: string }) => void;
+      };
+      state: {
+        current: { settings: string };
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-single-object-param-ref",
+      version: "1.0.0",
+      types: {
+        Settings: {
+          name: "Settings",
+          definition: {
+            kind: "object",
+            fields: {
+              settings: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+        },
+        ConfigureInput: {
+          name: "ConfigureInput",
+          definition: {
+            kind: "object",
+            fields: {
+              settings: { type: { kind: "ref", name: "Settings" }, optional: false },
+            },
+          },
+        },
+      },
+      state: {
+        fields: {
+          current: {
+            type: "object",
+            required: true,
+            default: { settings: "light" },
+            fields: {
+              settings: { type: "string", required: true },
+            },
+          },
+        },
+        fieldTypes: {
+          current: { kind: "ref", name: "Settings" },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        configure: {
+          params: ["settings"],
+          inputType: { kind: "ref", name: "ConfigureInput" },
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              settings: {
+                type: "object",
+                required: true,
+                fields: {
+                  settings: { type: "string", required: true },
+                },
+              },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.current",
+            value: { kind: "get", path: "input.settings" },
+          },
+        },
+      },
+    });
+    const world = createManifesto<SettingsDomain>(schema, {}).activate();
+
+    expect(
+      world.createIntent(world.MEL.actions.configure, { settings: "dark" }).input,
+    ).toEqual({ settings: { settings: "dark" } });
 
     world.dispose();
   });
@@ -135,6 +293,7 @@ domain Todos {
       },
     });
     expect(metadata.description).toBeUndefined();
+    expect(metadata.hasDispatchableGate).toBe(false);
     expect(world.getActionMetadata().map((action) => action.name)).toEqual([
       "addTodo",
       "clearCompleted",
@@ -223,6 +382,72 @@ domain Todos {
     world.dispose();
   });
 
+  it("preserves positional packing when manual schemas provide action.params", () => {
+    type ManualSchemaDomain = {
+      actions: {
+        addTodo: (title: string, id: string) => void;
+      };
+      state: {
+        todos: Array<{ id: string; title: string }>;
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-manual-add-todo-with-params",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          todos: {
+            type: "array",
+            required: false,
+            default: [],
+            items: {
+              type: "object",
+              required: true,
+              fields: {
+                id: { type: "string", required: true },
+                title: { type: "string", required: true },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        addTodo: {
+          params: ["title", "id"],
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              id: { type: "string", required: true },
+              title: { type: "string", required: true },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.todos",
+            value: {
+              kind: "append",
+              array: { kind: "get", path: "todos" },
+              items: [{ kind: "get", path: "input" }],
+            },
+          },
+        },
+      },
+    });
+    const world = createManifesto<ManualSchemaDomain>(schema, {}).activate();
+
+    expect(
+      world.createIntent(world.MEL.actions.addTodo, "Write docs", "todo-1").input,
+    ).toEqual({ title: "Write docs", id: "todo-1" });
+
+    world.dispose();
+  });
+
   it("exposes schema descriptions and manual object-input metadata", () => {
     type TodoDomain = {
       actions: {
@@ -297,9 +522,23 @@ domain Todos {
 
     expect(addTodo.params).toEqual(["id", "title"]);
     expect(addTodo.description).toBe("Append a todo item");
+    expect(addTodo.hasDispatchableGate).toBe(false);
     expect(clearCompleted.params).toEqual([]);
     expect(clearCompleted.input).toBeUndefined();
     expect(clearCompleted.description).toBe("Remove completed todos");
+    expect(clearCompleted.hasDispatchableGate).toBe(false);
+
+    world.dispose();
+  });
+
+  it("marks dispatchable actions in metadata", () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    expect(world.getActionMetadata("increment").hasDispatchableGate).toBe(false);
+    expect(world.getActionMetadata("incrementGuarded").hasDispatchableGate).toBe(true);
 
     world.dispose();
   });

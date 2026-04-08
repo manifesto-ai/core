@@ -2,8 +2,12 @@
 
 This page serves as a hub linking to the authoritative specifications maintained in each package's `docs/` directory, plus draft specification work that has not yet become a landed package surface.
 
+::: tip Current-Only Entry
+If you need a single current-surface document without version-history context, start with [Current Contract](./current-contract.md).
+:::
+
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.0.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.3.0 activation-first plus `sdk/extensions`, and `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, and `@manifesto-ai/compiler` v1.0.0 as the rolled-up MEL compiler contract, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -23,19 +27,19 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v4.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v4.2.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v4.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
 
 ### Application and Decorator Packages
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.3.0 surface) | Normative (activation-first entry + introspection + `sdk/extensions` + `createSimulationSession()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.5.0 surface) | Normative (activation-first entry + availability + dispatchability introspection + `sdk/extensions` + `createSimulationSession()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v3.0.0 surface) | Normative (decorator continuity package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.0.0 surface) | Normative (decorator legitimacy package) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
-| **@manifesto-ai/compiler** | v0.7.0 base + v0.8.0 addendum | Normative base + companion addendum | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md) | Normative full MEL compiler contract | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -63,7 +67,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ### Core
 
-- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v4.0.0)
+- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v4.2.0)
   - Updated directly in the living document; FDR rationale inlined
 
 ### Host
@@ -86,16 +90,13 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 - **SDK SPEC** (Living Document)
   - [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md)
-  - Activation-first SDK — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current surface includes projected `SchemaGraph`, `simulate()`, and `sdk/extensions`
+  - Activation-first SDK — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current surface includes projected `SchemaGraph`, `simulate()`, dispatchability queries, and `sdk/extensions`
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v0.7.0** (Full Base)
-  - [SPEC-v0.7.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.7.0.md)
-  - Adds: statement composition via `flow`/`include` (ADR-013a) and entity collection primitives `findById()` / `existsById()` / `updateById()` / `removeById()` (ADR-013b)
-- **Compiler SPEC v0.8.0** (Companion Addendum)
-  - [SPEC-v0.8.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v0.8.0.md)
-  - Defines projected `SchemaGraph` extraction consumed by the current SDK v3.1.0 introspection surface
+- **Compiler SPEC v1.0.0** (Current Full)
+  - [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md)
+  - Rolls up `SchemaGraph`, `dispatchable when`, `TypeDefinition`-backed schema-position lowering, and pure collection builtins into the current MEL compiler contract
 
 ---
 
@@ -119,9 +120,14 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 04-06 | SDK | v3.1.0 | Living SDK spec promoted the projected introspection surface to current status: `getSchemaGraph()` and `simulate()` are now part of the current package contract |
+| 04-08 | Compiler | v1.0.0 | Current full compiler spec rolls up v0.7.0 + addenda and lands `TypeDefinition`-backed nullable/record schema-position lowering plus expression-level collection builtins |
+| 04-08 | Core | v4.2.0 | Living Core spec now treats `state.fieldTypes` / `action.inputType` as the normative runtime typing seam while keeping `FieldSpec` as the compatibility surface |
+| 04-07 | Core | v4.1.0 | Living Core spec adds `ActionSpec.dispatchable` and the pure `isIntentDispatchable()` query without changing `available` semantics |
+| 04-07 | SDK | v3.4.0 | Living SDK spec adds intent dispatchability queries, blocker explanations, metadata flagging, and dispatch/simulate rejection split |
+| 04-07 | Compiler | v0.9.0 | Companion addendum documents `dispatchable when` and preserves `SchemaGraph` as availability-only static projection |
 | 04-07 | SDK | v3.3.0 | `@manifesto-ai/sdk/extensions` now also ships `createSimulationSession()` as the first-party immutable branching helper over the current arbitrary-snapshot seam |
 | 04-07 | SDK | v3.2.0 | ADR-019 landed: `@manifesto-ai/sdk/extensions` is now the current safe post-activation arbitrary-snapshot seam |
+| 04-06 | SDK | v3.1.0 | Living SDK spec promoted the projected introspection surface to current status: `getSchemaGraph()` and `simulate()` are now part of the current package contract |
 | 04-06 | Compiler | v0.8.0 | Companion `SchemaGraph` addendum documented for the current SDK introspection surface |
 | 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |

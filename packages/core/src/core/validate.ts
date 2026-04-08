@@ -1,5 +1,6 @@
 import { DomainSchema } from "../schema/domain.js";
 import type { ValidationResult, ValidationError } from "../schema/result.js";
+import type { TypeSpec } from "../schema/type-spec.js";
 import { validResult, invalidResult } from "../schema/result.js";
 import { buildDependencyGraph, topologicalSort, detectCycles } from "../evaluator/dag.js";
 import { isErr } from "../schema/common.js";
@@ -14,6 +15,12 @@ import {
   pathExistsInFieldSpec,
   validateValueAgainstFieldSpec,
 } from "./validation-utils.js";
+import {
+  getTypeDefinitionAtSegments,
+  pathExistsInTypeDefinition,
+  resolveTypeDefinition,
+  validateValueAgainstTypeDefinition,
+} from "./type-definition-utils.js";
 
 /**
  * Validate a domain schema
@@ -25,6 +32,8 @@ import {
  * - V-004: All `call` references in FlowSpec MUST exist
  * - V-005: FlowSpec `call` graph MUST be acyclic
  * - V-006: ActionSpec.available expression MUST return boolean (runtime check)
+ * - V-009: ActionSpec.dispatchable expression MUST return boolean (runtime check)
+ * - V-010: Typing seams MUST align with compatibility carriers and resolve refs
  * - V-007: ActionSpec.input MUST be valid FieldSpec (Zod handles this)
  * - V-008: Schema hash MUST match canonical hash
  */
@@ -104,7 +113,9 @@ export function validate(schema: unknown): ValidationResult {
     });
   }
 
-  errors.push(...validateStateDefaults(domainSchema.state, "state.fields"));
+  errors.push(...validateTypingSeams(domainSchema));
+
+  errors.push(...validateStateDefaults(domainSchema, "state.fields"));
 
   errors.push(...validateComputedDeps(domainSchema));
 
@@ -251,15 +262,241 @@ function validateCallGraph(
   return errors;
 }
 
-function validateStateDefaults(
-  state: import("../schema/field.js").StateSpec,
-  basePath: string
+function validateTypingSeams(
+  schema: import("../schema/domain.js").DomainSchema,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
+  if (schema.state.fieldTypes) {
+    for (const name of Object.keys(schema.state.fieldTypes)) {
+      if (!(name in schema.state.fields)) {
+        errors.push({
+          code: "V-010",
+          message: `state.fieldTypes.${name} has no matching state.fields entry`,
+          path: `state.fieldTypes.${name}`,
+        });
+      }
+
+      errors.push(
+        ...validateTypeDefinitionRefs(
+          schema.state.fieldTypes[name],
+          schema.types,
+          `state.fieldTypes.${name}`,
+        ),
+      );
+    }
+  }
+
+  for (const [actionName, action] of Object.entries(schema.actions)) {
+    if (!action.inputType) {
+      if (action.params && action.params.length > 0) {
+        errors.push(...validateActionParams(actionName, action, schema.types));
+      }
+      continue;
+    }
+
+    errors.push(
+      ...validateTypeDefinitionRefs(
+        action.inputType,
+        schema.types,
+        `actions.${actionName}.inputType`,
+      ),
+    );
+
+    if (action.params && action.params.length > 0) {
+      errors.push(...validateActionParams(actionName, action, schema.types));
+    }
+  }
+
+  return errors;
+}
+
+function validateActionParams(
+  actionName: string,
+  action: import("../schema/action.js").ActionSpec,
+  types: Record<string, TypeSpec>,
+): ValidationError[] {
+  const params = action.params ?? [];
+  if (params.length === 0) {
+    return [];
+  }
+
+  const duplicateErrors: ValidationError[] = [];
+  const seenParams = new Set<string>();
+  for (const [index, paramName] of params.entries()) {
+    if (seenParams.has(paramName)) {
+      duplicateErrors.push({
+        code: "V-010",
+        message: `Duplicate parameter name "${paramName}" is not allowed`,
+        path: `actions.${actionName}.params.${index}`,
+      });
+      continue;
+    }
+    seenParams.add(paramName);
+  }
+
+  let inputFields: readonly string[] | null = null;
+
+  if (action.inputType) {
+    inputFields = getInputTypeFieldNames(action.inputType, types);
+  } else if (action.input?.type === "object" && action.input.fields) {
+    inputFields = Object.keys(action.input.fields);
+  }
+
+  if (!inputFields) {
+    return [
+      ...duplicateErrors,
+      {
+      code: "V-010",
+      message: `actions.${actionName}.params requires an object-shaped input carrier`,
+      path: `actions.${actionName}.params`,
+    }];
+  }
+
+  const inputFieldSet = new Set(inputFields);
+  return [
+    ...duplicateErrors,
+    ...params.flatMap((paramName, index) => (
+    inputFieldSet.has(paramName)
+      ? []
+      : [{
+        code: "V-010",
+        message: `Parameter "${paramName}" has no matching input field`,
+        path: `actions.${actionName}.params.${index}`,
+      }]
+  ))];
+}
+
+function getInputTypeFieldNames(
+  definition: import("../schema/type-spec.js").TypeDefinition,
+  types: Record<string, TypeSpec>,
+  seenRefs: readonly string[] = [],
+): readonly string[] | null {
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      return null;
+    }
+    const next = types[definition.name];
+    return next
+      ? getInputTypeFieldNames(next.definition, types, [...seenRefs, definition.name])
+      : null;
+  }
+
+  if (definition.kind === "union") {
+    const nonNullTypes = definition.types.filter((candidate) => !isNullLikeResolved(candidate, types, seenRefs));
+    return nonNullTypes.length === 1
+      ? getInputTypeFieldNames(nonNullTypes[0], types, seenRefs)
+      : null;
+  }
+
+  return definition.kind === "object"
+    ? Object.keys(definition.fields)
+    : null;
+}
+
+function isNullLikeResolved(
+  definition: import("../schema/type-spec.js").TypeDefinition,
+  types: Record<string, TypeSpec>,
+  seenRefs: readonly string[] = [],
+): boolean {
+  const resolved = resolveTypeDefinition(definition, types, seenRefs);
+  if (!resolved) {
+    return false;
+  }
+
+  return (
+    (resolved.kind === "primitive" && resolved.type === "null")
+    || (resolved.kind === "literal" && resolved.value === null)
+  );
+}
+
+function validateTypeDefinitionRefs(
+  definition: import("../schema/type-spec.js").TypeDefinition,
+  types: Record<string, TypeSpec>,
+  path: string,
+  seenRefs: readonly string[] = [],
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      errors.push({
+        code: "V-010",
+        message: `Cyclic type reference "${definition.name}" in typing seam`,
+        path,
+      });
+      return errors;
+    }
+
+    const next = types[definition.name];
+    if (!next || !resolveTypeDefinition(definition, types)) {
+      errors.push({
+        code: "V-010",
+        message: `Unknown type reference "${definition.name}" in typing seam`,
+        path,
+      });
+      return errors;
+    }
+
+    errors.push(
+      ...validateTypeDefinitionRefs(
+        next.definition,
+        types,
+        path,
+        [...seenRefs, definition.name],
+      ),
+    );
+    return errors;
+  }
+
+  switch (definition.kind) {
+    case "array":
+      return validateTypeDefinitionRefs(definition.element, types, `${path}.element`, seenRefs);
+    case "record": {
+      const recordErrors = [
+        ...validateTypeDefinitionRefs(definition.key, types, `${path}.key`, seenRefs),
+        ...validateTypeDefinitionRefs(definition.value, types, `${path}.value`, seenRefs),
+      ];
+      const resolvedKey = resolveTypeDefinition(definition.key, types);
+      if (resolvedKey && (resolvedKey.kind !== "primitive" || resolvedKey.type !== "string")) {
+        recordErrors.push({
+          code: "V-010",
+          message: "Record typing seams require string keys",
+          path: `${path}.key`,
+        });
+      }
+      return recordErrors;
+    }
+    case "object":
+      for (const [fieldName, field] of Object.entries(definition.fields)) {
+        errors.push(
+          ...validateTypeDefinitionRefs(field.type, types, `${path}.fields.${fieldName}.type`, seenRefs),
+        );
+      }
+      return errors;
+    case "union":
+      for (const [index, candidate] of definition.types.entries()) {
+        errors.push(
+          ...validateTypeDefinitionRefs(candidate, types, `${path}.types.${index}`, seenRefs),
+        );
+      }
+      return errors;
+    default:
+      return errors;
+  }
+}
+
+function validateStateDefaults(
+  schema: import("../schema/domain.js").DomainSchema,
+  basePath: string
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const state = schema.state;
+
   const visit = (
     spec: import("../schema/field.js").FieldSpec,
-    path: string
+    path: string,
+    typeDefinition?: import("../schema/type-spec.js").TypeDefinition,
   ) => {
     if (!spec.required && spec.default === undefined) {
       errors.push({
@@ -270,15 +507,22 @@ function validateStateDefaults(
     }
 
     if (spec.default !== undefined) {
-      // Null on required (non-nullable) field
-      if (spec.default === null && spec.required !== false) {
+      if (typeDefinition) {
+        const typeCheck = validateValueAgainstTypeDefinition(spec.default, typeDefinition, schema.types);
+        if (!typeCheck.ok) {
+          errors.push({
+            code: "V-009",
+            message: `Default value type mismatch: ${typeCheck.message}`,
+            path,
+          });
+        }
+      } else if (spec.default === null && spec.required !== false) {
         errors.push({
           code: "V-009",
           message: `Default value 'null' is not compatible with required field type '${typeof spec.type === "string" ? spec.type : "enum"}'`,
           path,
         });
       } else if (spec.default !== null) {
-        // Type check non-null defaults
         const typeCheck = validateValueAgainstFieldSpec(spec.default, spec);
         if (!typeCheck.ok) {
           errors.push({
@@ -292,17 +536,23 @@ function validateStateDefaults(
 
     if (spec.type === "object" && spec.fields) {
       for (const [name, field] of Object.entries(spec.fields)) {
-        visit(field, `${path}.${name}`);
+        const nestedType = typeDefinition
+          ? getTypeDefinitionAtSegments(typeDefinition, schema.types, [{ kind: "prop", name }])
+          : null;
+        visit(field, `${path}.${name}`, nestedType ?? undefined);
       }
     }
 
     if (spec.type === "array" && spec.items) {
-      visit(spec.items, `${path}[]`);
+      const itemType = typeDefinition
+        ? getTypeDefinitionAtSegments(typeDefinition, schema.types, [{ kind: "index", index: 0 }])
+        : null;
+      visit(spec.items, `${path}[]`, itemType ?? undefined);
     }
   };
 
   for (const [name, field] of Object.entries(state.fields)) {
-    visit(field, `${basePath}.${name}`);
+    visit(field, `${basePath}.${name}`, state.fieldTypes?.[name]);
   }
 
   return errors;
@@ -317,7 +567,7 @@ function validateComputedDeps(
     for (const dep of spec.deps) {
       const exists =
         pathExistsInComputedSpec(schema.computed, dep) ||
-        pathExistsInStateSpec(schema.state, dep);
+        pathExistsInStateSpec(schema.state, dep, schema.types);
       if (!exists) {
         errors.push({
           code: "V-001",
@@ -349,7 +599,7 @@ function validateComputedExprPaths(
       if (exprPath.startsWith("system.")) {
         return true;
       }
-      return !pathExistsInStateSpec(schema.state, exprPath);
+      return !pathExistsInStateSpec(schema.state, exprPath, schema.types);
     });
 
     for (const exprPath of invalidPaths) {
@@ -389,7 +639,7 @@ function validateComputedDepsCoverage(
         if (pathExistsInComputedSpec(schema.computed, exprPath)) {
           return true;
         }
-        return pathExistsInStateSpec(schema.state, exprPath);
+        return pathExistsInStateSpec(schema.state, exprPath, schema.types);
       })
     );
 
@@ -416,6 +666,7 @@ function validateActionExprPaths(
     const exprPaths = [
       ...collectGetPathsFromFlow(action.flow),
       ...(action.available ? collectGetPathsFromExpr(action.available) : []),
+      ...(action.dispatchable ? collectGetPathsFromExpr(action.dispatchable) : []),
     ];
 
     for (const exprPath of exprPaths) {
@@ -424,7 +675,16 @@ function validateActionExprPaths(
       }
 
       if (exprPath === "input" || exprPath.startsWith("input.")) {
-        if (action.input) {
+        if (action.inputType) {
+          const subPath = exprPath === "input" ? "" : exprPath.slice(6);
+          if (!pathExistsInTypeDefinition(action.inputType, schema.types, subPath)) {
+            errors.push({
+              code: "V-003",
+              message: `Unknown input path: ${exprPath}`,
+              path: `actions.${actionName}`,
+            });
+          }
+        } else if (action.input) {
           const subPath = exprPath === "input" ? "" : exprPath.slice(6);
           if (!pathExistsInFieldSpec(action.input, subPath)) {
             errors.push({
@@ -449,7 +709,7 @@ function validateActionExprPaths(
         continue;
       }
 
-      if (!pathExistsInStateSpec(schema.state, exprPath)) {
+      if (!pathExistsInStateSpec(schema.state, exprPath, schema.types)) {
         errors.push({
           code: "V-003",
           message: `Unknown state path: ${exprPath}`,

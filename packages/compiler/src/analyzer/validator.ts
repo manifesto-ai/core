@@ -699,6 +699,9 @@ export class SemanticValidator {
     if (action.available) {
       this.validateAvailableExpr(action.available);
     }
+    if (action.dispatchable) {
+      this.validateDispatchableExpr(action.dispatchable);
+    }
 
     // FDR-MEL-020: All patch/effect must be inside guards.
     // fail/stop are parsed permissively at top-level and narrowed here.
@@ -794,6 +797,82 @@ export class SemanticValidator {
       case "arrayLiteral":
         for (const elem of expr.elements) {
           this.validateAvailableExpr(elem);
+        }
+        break;
+
+      // literal, identifier, iterationVar are OK
+    }
+  }
+
+  /**
+   * v0.9.0: Validate dispatchable expression is pure (E047)
+   * Allows state/computed/action params, but forbids direct $input.*, $meta.*, and $system.*.
+   */
+  private validateDispatchableExpr(expr: ExprNode): void {
+    switch (expr.kind) {
+      case "systemIdent":
+        if (expr.path[0] === "system") {
+          this.error(
+            "$system.* cannot be used in dispatchable condition (must be pure expression)",
+            expr.location,
+            "E047"
+          );
+        }
+        if (expr.path[0] === "input") {
+          this.error(
+            "$input.* cannot be used in dispatchable condition (use bare action parameter names)",
+            expr.location,
+            "E047"
+          );
+        }
+        if (expr.path[0] === "meta") {
+          this.error(
+            "$meta.* cannot be used in dispatchable condition (dispatchability is snapshot + bound-input only)",
+            expr.location,
+            "E047"
+          );
+        }
+        break;
+
+      case "functionCall":
+        for (const arg of expr.args) {
+          this.validateDispatchableExpr(arg);
+        }
+        break;
+
+      case "binary":
+        this.validateDispatchableExpr(expr.left);
+        this.validateDispatchableExpr(expr.right);
+        break;
+
+      case "unary":
+        this.validateDispatchableExpr(expr.operand);
+        break;
+
+      case "ternary":
+        this.validateDispatchableExpr(expr.condition);
+        this.validateDispatchableExpr(expr.consequent);
+        this.validateDispatchableExpr(expr.alternate);
+        break;
+
+      case "propertyAccess":
+        this.validateDispatchableExpr(expr.object);
+        break;
+
+      case "indexAccess":
+        this.validateDispatchableExpr(expr.object);
+        this.validateDispatchableExpr(expr.index);
+        break;
+
+      case "objectLiteral":
+        for (const prop of expr.properties) {
+          this.validateDispatchableExpr(prop.value);
+        }
+        break;
+
+      case "arrayLiteral":
+        for (const elem of expr.elements) {
+          this.validateDispatchableExpr(elem);
         }
         break;
 

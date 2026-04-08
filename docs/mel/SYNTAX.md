@@ -229,7 +229,11 @@ computed largest = max(x, y, z)
 computed filtered = effect array.filter({ source: items, into: result })
 // Error: Effects not allowed in computed
 
-// ❌ COMPILE ERROR: Hidden iteration
+// ✅ VALID: expression-level collection builtins
+computed filtered = filter(items, eq($item.active, true))
+computed names = map(items, $item.name)
+
+// ❌ COMPILE ERROR: nested aggregation
 computed total = sum(filter(prices))     // Error: No nested calls
 computed avg = div(sum(prices), len(prices))  // ✅ This IS allowed
 
@@ -329,11 +333,35 @@ action submit() available when and(isNotNull(email), eq(submittedAt, null)) {
 }
 ```
 
-**Note:** `available when` cannot reference `$input.*`.
+**Note:** `available when` cannot reference `$input.*` or bare action parameter names.
 
 ```mel
 // ❌ COMPILE ERROR: $input not allowed in available
 action process(x: number) available when gt($input.x, 0) {
+  when true { patch count = add(count, 1) }
+}
+```
+
+### Dispatchable When (Bound Intent Gate)
+
+```mel
+action shoot(cellIndex: number)
+  available when canShoot
+  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  when true {
+    patch cells = updateAt(cells, cellIndex, "pending")
+  }
+}
+```
+
+**Notes:**
+- `dispatchable when` may reference action parameters by bare name, but not by direct `$input.*` syntax.
+- If both clauses are present, order is fixed: `available when` first, then `dispatchable when`.
+- Each clause may appear at most once per action. Wrong ordering and duplicate clauses are compile errors.
+
+```mel
+// ❌ COMPILE ERROR: direct $input not allowed in dispatchable
+action process(x: number) dispatchable when gt($input.x, 0) {
   when true { patch count = add(count, 1) }
 }
 ```

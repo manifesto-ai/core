@@ -15,12 +15,16 @@ import type { SemanticPath } from "./schema/common.js";
 import type { ComputeResult, ValidationResult, ExplainResult, SystemDelta } from "./schema/result.js";
 import type { HostContext } from "./schema/host-context.js";
 
-import { compute, computeSync } from "./core/compute.js";
+import { compute, computeSync, validateIntentInput } from "./core/compute.js";
 import { apply } from "./core/apply.js";
 import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
-import { getAvailableActions, isActionAvailable } from "./core/action-availability.js";
+import {
+  getAvailableActions,
+  isActionAvailable,
+  isIntentDispatchable,
+} from "./core/action-availability.js";
 
 /**
  * ManifestoCore interface
@@ -80,7 +84,7 @@ export interface ManifestoCore {
   ): ExplainResult;
 
   /**
-   * Check whether an action is currently dispatchable.
+   * Check whether an action is currently available for a new invocation.
    */
   isActionAvailable(
     schema: DomainSchema,
@@ -89,12 +93,21 @@ export interface ManifestoCore {
   ): boolean;
 
   /**
-   * Return all currently dispatchable action names.
+   * Return all currently available action names.
    */
   getAvailableActions(
     schema: DomainSchema,
     snapshot: Snapshot
   ): readonly string[];
+
+  /**
+   * Check whether a specific bound intent is dispatchable against the current snapshot.
+   */
+  isIntentDispatchable(
+    schema: DomainSchema,
+    snapshot: Snapshot,
+    intent: Intent
+  ): boolean;
 }
 
 /**
@@ -110,6 +123,7 @@ export function createCore(): ManifestoCore {
     explain,
     isActionAvailable,
     getAvailableActions,
+    isIntentDispatchable,
   };
 }
 
@@ -134,10 +148,12 @@ export * from "./factories.js";
 export {
   compute,
   computeSync,
+  validateIntentInput,
   apply,
   applySystemDelta,
   validate,
   explain,
   isActionAvailable,
   getAvailableActions,
+  isIntentDispatchable,
 };

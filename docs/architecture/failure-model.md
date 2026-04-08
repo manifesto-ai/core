@@ -5,7 +5,7 @@
 
 ---
 
-> **Current Contract Note:** This page reflects the current Core v4.0.0 error model. `lastError` remains the sole current error surface; accumulated `system.errors` and `SystemDelta.appendErrors` are removed.
+> **Current Contract Note:** This page reflects the current Core v4.2.0 error model. `lastError` remains the sole current error surface; accumulated `system.errors` and `SystemDelta.appendErrors` are removed.
 
 ## The Core Principle
 

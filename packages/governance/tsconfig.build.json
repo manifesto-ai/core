@@ -5,8 +5,8 @@
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@manifesto-ai/lineage": ["../lineage/dist/index.d.ts"],
-      "@manifesto-ai/lineage/provider": ["../lineage/dist/provider.d.ts"]
+      "@manifesto-ai/lineage": ["../lineage/dist/index"],
+      "@manifesto-ai/lineage/provider": ["../lineage/dist/provider"]
     }
   },
   "include": ["src/**/*"],

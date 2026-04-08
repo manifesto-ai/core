@@ -2,7 +2,7 @@
 
 > Practical guide for the activation-first `@manifesto-ai/sdk` path.
 
-> **Current Contract Note:** This guide follows the current SDK v3.3.0 living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes projected introspection, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
+> **Current Contract Note:** This guide follows the current SDK v3.5.0 living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes dispatchability queries and projected introspection, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
 
 ## 1. Build The Activation Lifecycle
 
@@ -59,7 +59,7 @@ const intent = instance.createIntent(instance.MEL.actions.someAction, ...args);
 await instance.dispatchAsync(intent);
 ```
 
-For multi-parameter actions, the runtime also supports a single object argument:
+For parameterized actions, the runtime also supports a single object argument:
 
 ```typescript
 const intent = instance.createIntent(instance.MEL.actions.addTodo, {
@@ -68,7 +68,7 @@ const intent = instance.createIntent(instance.MEL.actions.addTodo, {
 });
 ```
 
-Use that when field-name binding is clearer than positional order.
+Use that when field-name binding is clearer than positional order. Single-parameter actions may also use `{ paramName: value }` when that is more readable than the raw value form.
 
 String-name intent creation is no longer the SDK's canonical public story.
 

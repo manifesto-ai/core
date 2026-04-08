@@ -27,7 +27,7 @@ const ENTITY_PRIMITIVE_FNS = new Set([
   ...ENTITY_TRANSFORM_FNS,
 ]);
 
-type ExprContext = "computed" | "action" | "guard" | "available" | "patch";
+type ExprContext = "computed" | "action" | "guard" | "available" | "dispatchable" | "patch";
 
 function addDiagnostic(
   diagnostics: Diagnostic[],
@@ -81,6 +81,9 @@ function validateAction(
 ): void {
   if (action.available) {
     validateExpr(action.available, "available", params, symbols, diagnostics, dedupe, 0);
+  }
+  if (action.dispatchable) {
+    validateExpr(action.dispatchable, "dispatchable", params, symbols, diagnostics, dedupe, 0);
   }
 
   for (const stmt of action.body) {
@@ -269,6 +272,14 @@ function validateEntityCall(
         dedupe,
         "E035",
         "updateById/removeById are not allowed in available conditions.",
+        expr.location
+      );
+    } else if (context === "dispatchable") {
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E048",
+        "updateById/removeById are not allowed in dispatchable conditions.",
         expr.location
       );
     } else if (context === "guard") {

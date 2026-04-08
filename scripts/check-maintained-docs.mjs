@@ -21,6 +21,7 @@ const maintainedDocRoots = [
   "docs/internals/documentation-governance.md",
   "docs/internals/glossary.md",
   "docs/internals/index.md",
+  "docs/internals/spec/current-contract.md",
   "docs/internals/test-conventions.md",
 ];
 
