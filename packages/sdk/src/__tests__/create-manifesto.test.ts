@@ -297,6 +297,72 @@ domain Todos {
     world.dispose();
   });
 
+  it("preserves positional packing when manual schemas provide action.params", () => {
+    type ManualSchemaDomain = {
+      actions: {
+        addTodo: (title: string, id: string) => void;
+      };
+      state: {
+        todos: Array<{ id: string; title: string }>;
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-manual-add-todo-with-params",
+      version: "1.0.0",
+      types: {},
+      state: {
+        fields: {
+          todos: {
+            type: "array",
+            required: false,
+            default: [],
+            items: {
+              type: "object",
+              required: true,
+              fields: {
+                id: { type: "string", required: true },
+                title: { type: "string", required: true },
+              },
+            },
+          },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        addTodo: {
+          params: ["title", "id"],
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              id: { type: "string", required: true },
+              title: { type: "string", required: true },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.todos",
+            value: {
+              kind: "append",
+              array: { kind: "get", path: "todos" },
+              items: [{ kind: "get", path: "input" }],
+            },
+          },
+        },
+      },
+    });
+    const world = createManifesto<ManualSchemaDomain>(schema, {}).activate();
+
+    expect(
+      world.createIntent(world.MEL.actions.addTodo, "Write docs", "todo-1").input,
+    ).toEqual({ title: "Write docs", id: "todo-1" });
+
+    world.dispose();
+  });
+
   it("exposes schema descriptions and manual object-input metadata", () => {
     type TodoDomain = {
       actions: {

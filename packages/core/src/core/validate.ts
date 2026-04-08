@@ -15,6 +15,7 @@ import {
   validateValueAgainstFieldSpec,
 } from "./validation-utils.js";
 import {
+  getTypeDefinitionAtSegments,
   pathExistsInTypeDefinition,
   validateValueAgainstTypeDefinition,
 } from "./type-definition-utils.js";
@@ -285,33 +286,10 @@ function validateStateDefaults(
   const errors: ValidationError[] = [];
   const state = schema.state;
 
-  if (state.fieldTypes) {
-    for (const [name, field] of Object.entries(state.fields)) {
-      if (field.default === undefined) {
-        continue;
-      }
-
-      const fieldType = state.fieldTypes[name];
-      if (!fieldType) {
-        continue;
-      }
-
-      const typeCheck = validateValueAgainstTypeDefinition(field.default, fieldType, schema.types);
-      if (!typeCheck.ok) {
-        errors.push({
-          code: "V-009",
-          message: `Default value type mismatch: ${typeCheck.message}`,
-          path: `${basePath}.${name}`,
-        });
-      }
-    }
-
-    return errors;
-  }
-
   const visit = (
     spec: import("../schema/field.js").FieldSpec,
-    path: string
+    path: string,
+    typeDefinition?: import("../schema/type-spec.js").TypeDefinition,
   ) => {
     if (!spec.required && spec.default === undefined) {
       errors.push({
@@ -322,15 +300,22 @@ function validateStateDefaults(
     }
 
     if (spec.default !== undefined) {
-      // Null on required (non-nullable) field
-      if (spec.default === null && spec.required !== false) {
+      if (typeDefinition) {
+        const typeCheck = validateValueAgainstTypeDefinition(spec.default, typeDefinition, schema.types);
+        if (!typeCheck.ok) {
+          errors.push({
+            code: "V-009",
+            message: `Default value type mismatch: ${typeCheck.message}`,
+            path,
+          });
+        }
+      } else if (spec.default === null && spec.required !== false) {
         errors.push({
           code: "V-009",
           message: `Default value 'null' is not compatible with required field type '${typeof spec.type === "string" ? spec.type : "enum"}'`,
           path,
         });
       } else if (spec.default !== null) {
-        // Type check non-null defaults
         const typeCheck = validateValueAgainstFieldSpec(spec.default, spec);
         if (!typeCheck.ok) {
           errors.push({
@@ -344,17 +329,23 @@ function validateStateDefaults(
 
     if (spec.type === "object" && spec.fields) {
       for (const [name, field] of Object.entries(spec.fields)) {
-        visit(field, `${path}.${name}`);
+        const nestedType = typeDefinition
+          ? getTypeDefinitionAtSegments(typeDefinition, schema.types, [{ kind: "prop", name }])
+          : null;
+        visit(field, `${path}.${name}`, nestedType ?? undefined);
       }
     }
 
     if (spec.type === "array" && spec.items) {
-      visit(spec.items, `${path}[]`);
+      const itemType = typeDefinition
+        ? getTypeDefinitionAtSegments(typeDefinition, schema.types, [{ kind: "index", index: 0 }])
+        : null;
+      visit(spec.items, `${path}[]`, itemType ?? undefined);
     }
   };
 
   for (const [name, field] of Object.entries(state.fields)) {
-    visit(field, `${basePath}.${name}`);
+    visit(field, `${basePath}.${name}`, state.fieldTypes?.[name]);
   }
 
   return errors;

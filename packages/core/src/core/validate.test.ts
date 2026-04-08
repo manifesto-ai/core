@@ -1066,6 +1066,54 @@ describe("V-009: default type validation", () => {
     );
   });
 
+  it("should keep FieldSpec default validation for roots missing fieldTypes", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          selectedId: { type: "string", required: true, default: 42 as unknown as string },
+        },
+        fieldTypes: {
+          count: { kind: "primitive", type: "number" },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-009", path: "state.fields.selectedId" }),
+    );
+  });
+
+  it("should still require optional defaults when fieldTypes are present", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          settings: {
+            type: "object",
+            required: true,
+            default: {},
+            fields: {
+              theme: { type: "string", required: false },
+            },
+          },
+        },
+        fieldTypes: {
+          settings: {
+            kind: "object",
+            fields: {
+              theme: { type: { kind: "primitive", type: "string" }, optional: true },
+            },
+          },
+        },
+      },
+    });
+    const result = validate(schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fields.settings.theme" }),
+    );
+  });
+
   it("should fail when nested object field has wrong nested default type", () => {
     const schema = createValidSchema({
       state: {

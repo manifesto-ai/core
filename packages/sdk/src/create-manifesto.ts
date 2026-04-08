@@ -446,7 +446,7 @@ function deriveActionParamMetadata(
 
       if (action.params && action.params.length > 0) {
         const params = Object.freeze([...action.params]);
-        return [name, params.length <= 1 ? params : null];
+        return [name, params];
       }
 
       if (!action.input || action.input.type !== "object" || !action.input.fields) {
@@ -482,7 +482,8 @@ function isSingleParamObjectValued(
     && action.input.fields
     && Object.keys(action.input.fields).length === 1
   ) {
-    const [field] = Object.values(action.input.fields);
+    const [fieldName] = Object.keys(action.input.fields);
+    const field = fieldName ? action.input.fields[fieldName] : undefined;
     return field?.type === "object";
   }
 
