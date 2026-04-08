@@ -372,20 +372,25 @@ function getInputTypeFieldNames(
   types: Record<string, TypeSpec>,
   seenRefs: readonly string[] = [],
 ): readonly string[] | null {
-  const resolved = resolveTypeDefinition(definition, types, seenRefs);
-  if (!resolved) {
-    return null;
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      return null;
+    }
+    const next = types[definition.name];
+    return next
+      ? getInputTypeFieldNames(next.definition, types, [...seenRefs, definition.name])
+      : null;
   }
 
-  if (resolved.kind === "union") {
-    const nonNullTypes = resolved.types.filter((candidate) => !isNullLikeResolved(candidate, types, seenRefs));
+  if (definition.kind === "union") {
+    const nonNullTypes = definition.types.filter((candidate) => !isNullLikeResolved(candidate, types, seenRefs));
     return nonNullTypes.length === 1
       ? getInputTypeFieldNames(nonNullTypes[0], types, seenRefs)
       : null;
   }
 
-  return resolved.kind === "object"
-    ? Object.keys(resolved.fields)
+  return definition.kind === "object"
+    ? Object.keys(definition.fields)
     : null;
 }
 

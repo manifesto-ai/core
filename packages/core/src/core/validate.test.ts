@@ -1201,6 +1201,37 @@ describe("V-009: default type validation", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("should reject cyclic nullable inputType aliases without overflowing validation", () => {
+    const schema = createValidSchema({
+      types: {
+        CyclicMaybeInput: {
+          name: "CyclicMaybeInput",
+          definition: {
+            kind: "union",
+            types: [
+              { kind: "ref", name: "CyclicMaybeInput" },
+              { kind: "literal", value: null },
+            ],
+          },
+        },
+      },
+      actions: {
+        submit: {
+          params: ["x"],
+          inputType: { kind: "ref", name: "CyclicMaybeInput" },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.params" }),
+    );
+  });
+
   it("should fail when action.params contains duplicate names", () => {
     const schema = createValidSchema({
       actions: {
