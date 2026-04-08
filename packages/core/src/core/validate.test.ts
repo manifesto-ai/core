@@ -1136,6 +1136,51 @@ describe("V-009: default type validation", () => {
     );
   });
 
+  it("should fail when action.params do not match the declared inputType fields", () => {
+    const schema = createValidSchema({
+      actions: {
+        submit: {
+          params: ["x", "y"],
+          inputType: {
+            kind: "object",
+            fields: {
+              x: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+          flow: { kind: "halt", reason: "submit" },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "actions.submit.params.1" }),
+    );
+  });
+
+  it("should fail when typing seams declare record keys that are not strings", () => {
+    const schema = createValidSchema({
+      state: {
+        fieldTypes: {
+          count: {
+            kind: "record",
+            key: { kind: "primitive", type: "number" },
+            value: { kind: "primitive", type: "string" },
+          },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "V-010", path: "state.fieldTypes.count.key" }),
+    );
+  });
+
   it("should keep FieldSpec default validation for roots missing fieldTypes", () => {
     const schema = createValidSchema({
       state: {

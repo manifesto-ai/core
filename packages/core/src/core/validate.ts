@@ -289,6 +289,9 @@ function validateTypingSeams(
 
   for (const [actionName, action] of Object.entries(schema.actions)) {
     if (!action.inputType) {
+      if (action.params && action.params.length > 0) {
+        errors.push(...validateActionParams(actionName, action, schema.types));
+      }
       continue;
     }
 
@@ -299,9 +302,85 @@ function validateTypingSeams(
         `actions.${actionName}.inputType`,
       ),
     );
+
+    if (action.params && action.params.length > 0) {
+      errors.push(...validateActionParams(actionName, action, schema.types));
+    }
   }
 
   return errors;
+}
+
+function validateActionParams(
+  actionName: string,
+  action: import("../schema/action.js").ActionSpec,
+  types: Record<string, TypeSpec>,
+): ValidationError[] {
+  const params = action.params ?? [];
+  if (params.length === 0) {
+    return [];
+  }
+
+  let inputFields: readonly string[] | null = null;
+
+  if (action.inputType) {
+    inputFields = getInputTypeFieldNames(action.inputType, types);
+  } else if (action.input?.type === "object" && action.input.fields) {
+    inputFields = Object.keys(action.input.fields);
+  }
+
+  if (!inputFields) {
+    return [{
+      code: "V-010",
+      message: `actions.${actionName}.params requires an object-shaped input carrier`,
+      path: `actions.${actionName}.params`,
+    }];
+  }
+
+  const inputFieldSet = new Set(inputFields);
+  return params.flatMap((paramName, index) => (
+    inputFieldSet.has(paramName)
+      ? []
+      : [{
+        code: "V-010",
+        message: `Parameter "${paramName}" has no matching input field`,
+        path: `actions.${actionName}.params.${index}`,
+      }]
+  ));
+}
+
+function getInputTypeFieldNames(
+  definition: import("../schema/type-spec.js").TypeDefinition,
+  types: Record<string, TypeSpec>,
+  seenRefs: readonly string[] = [],
+): readonly string[] | null {
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      return null;
+    }
+    const next = types[definition.name];
+    return next
+      ? getInputTypeFieldNames(next.definition, types, [...seenRefs, definition.name])
+      : null;
+  }
+
+  if (definition.kind === "union") {
+    const nonNullTypes = definition.types.filter((candidate) => !isNullLike(candidate));
+    return nonNullTypes.length === 1
+      ? getInputTypeFieldNames(nonNullTypes[0], types, seenRefs)
+      : null;
+  }
+
+  return definition.kind === "object"
+    ? Object.keys(definition.fields)
+    : null;
+}
+
+function isNullLike(definition: import("../schema/type-spec.js").TypeDefinition): boolean {
+  return (
+    (definition.kind === "primitive" && definition.type === "null")
+    || (definition.kind === "literal" && definition.value === null)
+  );
 }
 
 function validateTypeDefinitionRefs(
@@ -346,11 +425,21 @@ function validateTypeDefinitionRefs(
   switch (definition.kind) {
     case "array":
       return validateTypeDefinitionRefs(definition.element, types, `${path}.element`, seenRefs);
-    case "record":
-      return [
+    case "record": {
+      const recordErrors = [
         ...validateTypeDefinitionRefs(definition.key, types, `${path}.key`, seenRefs),
         ...validateTypeDefinitionRefs(definition.value, types, `${path}.value`, seenRefs),
       ];
+      const resolvedKey = resolveTypeDefinition(definition.key, types);
+      if (resolvedKey && (resolvedKey.kind !== "primitive" || resolvedKey.type !== "string")) {
+        recordErrors.push({
+          code: "V-010",
+          message: "Record typing seams require string keys",
+          path: `${path}.key`,
+        });
+      }
+      return recordErrors;
+    }
     case "object":
       for (const [fieldName, field] of Object.entries(definition.fields)) {
         errors.push(
