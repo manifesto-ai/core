@@ -114,7 +114,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
       .sealIntent(intent, { publishOnCompleted: true })
       .catch((error) => {
         const failure = toError(error);
-        if (!isActionUnavailable(failure)) {
+        if (!isRejectedDispatchError(failure)) {
           kernel.emitEvent("dispatch:failed", {
             intentId: intent.intentId ?? "",
             intent,
@@ -189,8 +189,12 @@ function toError(error: unknown): Error {
     : new Error(String(error));
 }
 
-function isActionUnavailable(error: Error): boolean {
+function isRejectedDispatchError(error: Error): boolean {
   return "code" in error
     && typeof error.code === "string"
-    && error.code === "ACTION_UNAVAILABLE";
+    && (
+      error.code === "ACTION_UNAVAILABLE"
+      || error.code === "INTENT_NOT_DISPATCHABLE"
+      || error.code === "INVALID_INPUT"
+    );
 }

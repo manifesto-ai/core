@@ -416,4 +416,61 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
 
     world.dispose();
   });
+
+  it("rejects non-dispatchable commits before sealing and emits dispatch:rejected", async () => {
+    const world = withLineage(
+      createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    world.on("dispatch:rejected", rejected);
+    world.on("dispatch:failed", failed);
+
+    await expect(
+      world.commitAsync(world.createIntent(world.MEL.actions.spend, 15)),
+    ).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+
+    expect(world.getSnapshot().data.balance).toBe(10);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    world.dispose();
+  });
+
+  it("rejects invalid commit input before sealing and emits dispatch:rejected", async () => {
+    const world = withLineage(
+      createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+    const rejected = vi.fn();
+    const failed = vi.fn();
+
+    world.on("dispatch:rejected", rejected);
+    world.on("dispatch:failed", failed);
+
+    const invalidIntent = {
+      ...world.createIntent(world.MEL.actions.spend, 1),
+      input: { amount: "oops" },
+    } as unknown as Parameters<typeof world.commitAsync>[0];
+
+    await expect(world.commitAsync(invalidIntent)).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INVALID_INPUT",
+    });
+
+    expect(world.getSnapshot().data.balance).toBe(10);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+    expect(failed).not.toHaveBeenCalled();
+
+    world.dispose();
+  });
 });

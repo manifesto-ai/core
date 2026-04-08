@@ -213,6 +213,13 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       if (!kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"])) {
         return kernel.rejectUnavailable(enrichedIntent);
       }
+      const invalidInput = kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent);
+      if (invalidInput) {
+        return kernel.rejectInvalidInput(enrichedIntent, invalidInput.message);
+      }
+      if (!kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent)) {
+        return kernel.rejectNotDispatchable(enrichedIntent);
+      }
 
       let result: Awaited<ReturnType<RuntimeKernel<T>["executeHost"]>>;
       try {
