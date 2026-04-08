@@ -1,5 +1,6 @@
 import { DomainSchema } from "../schema/domain.js";
 import type { ValidationResult, ValidationError } from "../schema/result.js";
+import type { TypeSpec } from "../schema/type-spec.js";
 import { validResult, invalidResult } from "../schema/result.js";
 import { buildDependencyGraph, topologicalSort, detectCycles } from "../evaluator/dag.js";
 import { isErr } from "../schema/common.js";
@@ -17,6 +18,7 @@ import {
 import {
   getTypeDefinitionAtSegments,
   pathExistsInTypeDefinition,
+  resolveTypeDefinition,
   validateValueAgainstTypeDefinition,
 } from "./type-definition-utils.js";
 
@@ -31,6 +33,7 @@ import {
  * - V-005: FlowSpec `call` graph MUST be acyclic
  * - V-006: ActionSpec.available expression MUST return boolean (runtime check)
  * - V-009: ActionSpec.dispatchable expression MUST return boolean (runtime check)
+ * - V-010: Typing seams MUST align with compatibility carriers and resolve refs
  * - V-007: ActionSpec.input MUST be valid FieldSpec (Zod handles this)
  * - V-008: Schema hash MUST match canonical hash
  */
@@ -273,10 +276,98 @@ function validateTypingSeams(
           path: `state.fieldTypes.${name}`,
         });
       }
+
+      errors.push(
+        ...validateTypeDefinitionRefs(
+          schema.state.fieldTypes[name],
+          schema.types,
+          `state.fieldTypes.${name}`,
+        ),
+      );
     }
   }
 
+  for (const [actionName, action] of Object.entries(schema.actions)) {
+    if (!action.inputType) {
+      continue;
+    }
+
+    errors.push(
+      ...validateTypeDefinitionRefs(
+        action.inputType,
+        schema.types,
+        `actions.${actionName}.inputType`,
+      ),
+    );
+  }
+
   return errors;
+}
+
+function validateTypeDefinitionRefs(
+  definition: import("../schema/type-spec.js").TypeDefinition,
+  types: Record<string, TypeSpec>,
+  path: string,
+  seenRefs: readonly string[] = [],
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      errors.push({
+        code: "V-010",
+        message: `Cyclic type reference "${definition.name}" in typing seam`,
+        path,
+      });
+      return errors;
+    }
+
+    const next = types[definition.name];
+    if (!next || !resolveTypeDefinition(definition, types)) {
+      errors.push({
+        code: "V-010",
+        message: `Unknown type reference "${definition.name}" in typing seam`,
+        path,
+      });
+      return errors;
+    }
+
+    errors.push(
+      ...validateTypeDefinitionRefs(
+        next.definition,
+        types,
+        path,
+        [...seenRefs, definition.name],
+      ),
+    );
+    return errors;
+  }
+
+  switch (definition.kind) {
+    case "array":
+      return validateTypeDefinitionRefs(definition.element, types, `${path}.element`, seenRefs);
+    case "record":
+      return [
+        ...validateTypeDefinitionRefs(definition.key, types, `${path}.key`, seenRefs),
+        ...validateTypeDefinitionRefs(definition.value, types, `${path}.value`, seenRefs),
+      ];
+    case "object":
+      for (const [fieldName, field] of Object.entries(definition.fields)) {
+        errors.push(
+          ...validateTypeDefinitionRefs(field.type, types, `${path}.fields.${fieldName}.type`, seenRefs),
+        );
+      }
+      return errors;
+    case "union":
+      for (const [index, candidate] of definition.types.entries()) {
+        errors.push(
+          ...validateTypeDefinitionRefs(candidate, types, `${path}.types.${index}`, seenRefs),
+        );
+      }
+      return errors;
+    default:
+      return errors;
+  }
 }
 
 function validateStateDefaults(

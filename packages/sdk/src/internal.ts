@@ -156,8 +156,13 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
     options?: HostDispatchOptions,
   ) => Promise<HostResult>;
+  readonly validateIntentInputFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => ManifestoError | null;
   readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
   readonly createNotDispatchableError: (intent: TypedIntent<T>) => ManifestoError;
+  readonly rejectInvalidInput: (intent: TypedIntent<T>, message: string) => never;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
   readonly rejectNotDispatchable: (intent: TypedIntent<T>) => never;
   readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
@@ -837,6 +842,10 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     if (!isActionAvailableFor(snapshot, enrichedIntent.type as keyof T["actions"])) {
       throw createSimulationUnavailableError(enrichedIntent);
     }
+    const invalidInput = validateIntentInputFor(snapshot, enrichedIntent);
+    if (invalidInput) {
+      throw invalidInput;
+    }
     if (!isIntentDispatchableFor(snapshot, enrichedIntent)) {
       throw createSimulationNotDispatchableError(enrichedIntent);
     }
@@ -982,6 +991,27 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     );
   }
 
+  function createInvalidInputError(message: string): ManifestoError {
+    return new ManifestoError("INVALID_INPUT", message);
+  }
+
+  function validateIntentInputFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): ManifestoError | null {
+    const action = schema.actions[intent.type as keyof T["actions"] & string];
+    if (!action || (!action.input && !action.inputType)) {
+      return null;
+    }
+
+    const context = hostContextProvider.createFrozenContext(intent.intentId ?? generateUUID());
+    const result = computeSync(schema, snapshot as CoreSnapshot, intent, context);
+    const lastError = result.systemDelta.lastError;
+    return lastError?.code === "INVALID_INPUT"
+      ? createInvalidInputError(lastError.message)
+      : null;
+  }
+
   function rejectRejectedIntent(intent: TypedIntent<T>, error: ManifestoError): never {
     emitEvent("dispatch:rejected", {
       intentId: intent.intentId ?? "",
@@ -994,6 +1024,10 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
 
   function rejectUnavailable(intent: TypedIntent<T>): never {
     return rejectRejectedIntent(intent, createUnavailableError(intent));
+  }
+
+  function rejectInvalidInput(intent: TypedIntent<T>, message: string): never {
+    return rejectRejectedIntent(intent, createInvalidInputError(message));
   }
 
   function rejectNotDispatchable(intent: TypedIntent<T>): never {
@@ -1078,8 +1112,10 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     enqueue,
     ensureIntentId,
     executeHost,
+    validateIntentInputFor,
     createUnavailableError,
     createNotDispatchableError,
+    rejectInvalidInput,
     rejectUnavailable,
     rejectNotDispatchable,
     [EXTENSION_KERNEL]: extensionKernel,
@@ -1096,6 +1132,10 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
     if (!kernel.isActionAvailable(intent.type as keyof T["actions"])) {
       return kernel.rejectUnavailable(intent);
+    }
+    const invalidInput = kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), intent);
+    if (invalidInput) {
+      return kernel.rejectInvalidInput(intent, invalidInput.message);
     }
     if (!kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), intent)) {
       return kernel.rejectNotDispatchable(intent);

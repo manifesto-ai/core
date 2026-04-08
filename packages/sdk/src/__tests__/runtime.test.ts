@@ -698,6 +698,31 @@ describe("activated base runtime", () => {
     world.dispose();
   });
 
+  it("rejects invalid input before dispatchability during dry-runs", () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const ext = getExtensionKernel(world);
+
+    const invalidIntent = {
+      ...world.createIntent(world.MEL.actions.incrementGuarded, 1),
+      input: { max: "not-a-number" },
+    } as Parameters<typeof ext.simulateSync>[1];
+
+    expect(() => ext.simulateSync(
+      world.getCanonicalSnapshot(),
+      invalidIntent,
+    )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INPUT",
+      }),
+    );
+    expect(world.getSnapshot().data.count).toBe(0);
+
+    world.dispose();
+  });
+
   it("short-circuits invalid dispatchability behind availability across runtime queries", () => {
     const world = createManifesto<InvalidDispatchabilityDomain>(
       createInvalidDispatchabilitySchema(),
@@ -841,6 +866,35 @@ describe("activated base runtime", () => {
     expect(rejected).toHaveBeenCalledTimes(1);
     expect(rejected.mock.calls[0]?.[0]).toMatchObject({
       code: "INTENT_NOT_DISPATCHABLE",
+    });
+    world.dispose();
+  });
+
+  it("rejects invalid input before dispatchability checks", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const subscriber = vi.fn();
+    const rejected = vi.fn();
+
+    world.subscribe((snapshot) => snapshot.data.count, subscriber);
+    world.on("dispatch:rejected", rejected);
+
+    const invalidIntent = {
+      ...world.createIntent(world.MEL.actions.incrementGuarded, 1),
+      input: { max: "not-a-number" },
+    } as unknown as Parameters<typeof world.dispatchAsync>[0];
+
+    await expect(world.dispatchAsync(invalidIntent)).rejects.toMatchObject<Partial<ManifestoError>>({
+      code: "INVALID_INPUT",
+    });
+
+    expect(world.getSnapshot().data.count).toBe(0);
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(rejected.mock.calls[0]?.[0]).toMatchObject({
+      code: "INVALID_INPUT",
     });
     world.dispose();
   });

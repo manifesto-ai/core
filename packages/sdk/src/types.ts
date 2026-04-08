@@ -208,7 +208,7 @@ export interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:rejected": {
     readonly intentId: string;
     readonly intent: TypedIntent<T>;
-    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE";
+    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
     readonly reason: string;
   };
   "dispatch:failed": {
