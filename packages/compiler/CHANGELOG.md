@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.3.0](https://github.com/manifesto-ai/core/compare/compiler-v3.2.0...compiler-v3.3.0) (2026-04-08)
+
+
+### Features
+
+* implement ADR-020 dispatchability ([606fe7b](https://github.com/manifesto-ai/core/commit/606fe7b3b5e1679e918f5b24fb1e0233f8c24660))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+* **schema:** support record and nullable schema positions ([59a0cfa](https://github.com/manifesto-ai/core/commit/59a0cfaf5b0117e6a7f143ce90e67964f8d37618))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.11.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.10.0 to ^2.11.0
+
 ## [3.2.0](https://github.com/manifesto-ai/core/compare/compiler-v3.1.1...compiler-v3.2.0) (2026-04-06)
 
 

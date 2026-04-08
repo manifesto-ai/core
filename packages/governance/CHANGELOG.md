@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.6.0](https://github.com/manifesto-ai/core/compare/governance-v3.5.1...governance-v3.6.0) (2026-04-08)
+
+
+### Features
+
+* **decorators:** inherit legality query surface ([5ddc9e2](https://github.com/manifesto-ai/core/commit/5ddc9e25178b504f2cec131b20c7fdbd10ec31ed))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+
+
+### Bug Fixes
+
+* align input preflight and governance rejection events ([8fcca8e](https://github.com/manifesto-ai/core/commit/8fcca8e37a9c85b6e006f1911650f90af4742030))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.6.0
+    * @manifesto-ai/sdk bumped to 3.7.0
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.11.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.10.0 to ^2.11.0
+
 ## [3.5.1](https://github.com/manifesto-ai/core/compare/governance-v3.5.0...governance-v3.5.1) (2026-04-07)
 
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## [3.6.0](https://github.com/manifesto-ai/core/compare/lineage-v3.5.1...lineage-v3.6.0) (2026-04-08)
+
+
+### Features
+
+* **decorators:** inherit legality query surface ([5ddc9e2](https://github.com/manifesto-ai/core/commit/5ddc9e25178b504f2cec131b20c7fdbd10ec31ed))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+
+
+### Bug Fixes
+
+* enforce lineage dispatchability admission ([2a0b2f6](https://github.com/manifesto-ai/core/commit/2a0b2f6239854ee51a0f74cd536d4254f63f099e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 3.7.0
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.11.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.10.0 to ^2.11.0
+
 ## [3.5.1](https://github.com/manifesto-ai/core/compare/lineage-v3.5.0...lineage-v3.5.1) (2026-04-07)
 
 

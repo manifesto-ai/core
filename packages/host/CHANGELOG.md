@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.8.0](https://github.com/manifesto-ai/core/compare/host-v2.7.0...host-v2.8.0) (2026-04-08)
+
+
+### Features
+
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.11.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.10.0 to ^2.11.0
+
 ## [2.7.0](https://github.com/manifesto-ai/core/compare/host-v2.6.0...host-v2.7.0) (2026-04-06)
 
 
