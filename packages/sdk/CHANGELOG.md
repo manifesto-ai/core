@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.7.0](https://github.com/manifesto-ai/core/compare/sdk-v3.6.0...sdk-v3.7.0) (2026-04-08)
+
+
+### Features
+
+* implement ADR-020 dispatchability ([606fe7b](https://github.com/manifesto-ai/core/commit/606fe7b3b5e1679e918f5b24fb1e0233f8c24660))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+* **schema:** support record and nullable schema positions ([59a0cfa](https://github.com/manifesto-ai/core/commit/59a0cfaf5b0117e6a7f143ce90e67964f8d37618))
+* **sdk:** allow object binding for single-param intents ([afd6207](https://github.com/manifesto-ai/core/commit/afd6207a1454c287ab140d83e5335517cb6fd875))
+
+
+### Bug Fixes
+
+* address ADR-020 review feedback ([029a3b6](https://github.com/manifesto-ai/core/commit/029a3b6832aae04f23309dfe428e2cb22bb1fdcc))
+* address escaped path and ref input review feedback ([2541a6e](https://github.com/manifesto-ai/core/commit/2541a6e649502d09e0ab5ef360ed000c01b21c3b))
+* address follow-up ADR-020 review feedback ([c0e6244](https://github.com/manifesto-ai/core/commit/c0e6244063ba666b459c1fd049c4d00a5c6f2a86))
+* address typing seam and input validation feedback ([aa0903a](https://github.com/manifesto-ai/core/commit/aa0903ab8c705c3774d710f45f4e838547804154))
+* align input preflight and governance rejection events ([8fcca8e](https://github.com/manifesto-ai/core/commit/8fcca8e37a9c85b6e006f1911650f90af4742030))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.3.0
+    * @manifesto-ai/core bumped to 2.11.0
+    * @manifesto-ai/host bumped to 2.8.0
+
 ## [3.6.0](https://github.com/manifesto-ai/core/compare/sdk-v3.5.0...sdk-v3.6.0) (2026-04-07)
 
 

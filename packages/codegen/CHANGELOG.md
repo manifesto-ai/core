@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.5](https://github.com/manifesto-ai/core/compare/codegen-v0.2.4...codegen-v0.2.5) (2026-04-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.11.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ~2.10.0 to ~2.11.0
+
 ## [0.2.4](https://github.com/manifesto-ai/core/compare/codegen-v0.2.3...codegen-v0.2.4) (2026-04-06)
 
 

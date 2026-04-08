@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.11.0](https://github.com/manifesto-ai/core/compare/core-v2.10.0...core-v2.11.0) (2026-04-08)
+
+
+### Features
+
+* implement ADR-020 dispatchability ([606fe7b](https://github.com/manifesto-ai/core/commit/606fe7b3b5e1679e918f5b24fb1e0233f8c24660))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+* **schema:** support record and nullable schema positions ([59a0cfa](https://github.com/manifesto-ai/core/commit/59a0cfaf5b0117e6a7f143ce90e67964f8d37618))
+
+
+### Bug Fixes
+
+* address ADR-020 review feedback ([029a3b6](https://github.com/manifesto-ai/core/commit/029a3b6832aae04f23309dfe428e2cb22bb1fdcc))
+* address escaped path and ref input review feedback ([2541a6e](https://github.com/manifesto-ai/core/commit/2541a6e649502d09e0ab5ef360ed000c01b21c3b))
+* address follow-up ADR-020 review feedback ([c0e6244](https://github.com/manifesto-ai/core/commit/c0e6244063ba666b459c1fd049c4d00a5c6f2a86))
+* address typing seam and input validation feedback ([aa0903a](https://github.com/manifesto-ai/core/commit/aa0903ab8c705c3774d710f45f4e838547804154))
+* align input preflight and governance rejection events ([8fcca8e](https://github.com/manifesto-ai/core/commit/8fcca8e37a9c85b6e006f1911650f90af4742030))
+* guard cyclic nullable input aliases ([83896f3](https://github.com/manifesto-ai/core/commit/83896f35948a4284d35d05d8d1380afc33a66faf))
+* preserve numeric object keys in type paths ([ea0e499](https://github.com/manifesto-ai/core/commit/ea0e499d2904cc4dc70a30826696af39efeede41))
+* tighten action params typing validation ([1e42328](https://github.com/manifesto-ai/core/commit/1e42328c95adc5773ce55e281636a6a347eb64c0))
+* validate params and record key typing seams ([ac1120a](https://github.com/manifesto-ai/core/commit/ac1120a3dd165dedab41885bbeaa001c452a32bd))
+
+
+### Performance Improvements
+
+* reuse prepared snapshots in availability queries ([2599bc8](https://github.com/manifesto-ai/core/commit/2599bc877fe846eeaaa9ea3b2dd64e7989824b97))
+
 ## [2.10.0](https://github.com/manifesto-ai/core/compare/core-v2.9.0...core-v2.10.0) (2026-04-06)
 
 
