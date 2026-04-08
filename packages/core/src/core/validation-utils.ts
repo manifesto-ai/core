@@ -5,7 +5,7 @@ import type { ComputedSpec } from "../schema/computed.js";
 import type { PatchSegment } from "../schema/patch.js";
 import type { TypeSpec } from "../schema/type-spec.js";
 import { parsePath } from "../utils/path.js";
-import { pathExistsInTypeDefinition } from "./type-definition-utils.js";
+import { pathExistsInTypeDefinition, pathExistsInTypeDefinitionSegments } from "./type-definition-utils.js";
 
 const SEMVER_REGEX =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
@@ -243,7 +243,15 @@ export function pathExistsInStateSpec(
     if (rootType) {
       const existsInTypeDefinition = rest.length === 0
         ? true
-        : pathExistsInTypeDefinition(rootType, types, rest.join("."));
+        : pathExistsInTypeDefinitionSegments(
+          rootType,
+          types,
+          rest.map((segment) =>
+            isNumericSegment(segment)
+              ? ({ kind: "index", index: Number(segment) } satisfies PatchSegment)
+              : ({ kind: "prop", name: segment } satisfies PatchSegment)
+          ),
+        );
       if (existsInTypeDefinition) {
         return true;
       }

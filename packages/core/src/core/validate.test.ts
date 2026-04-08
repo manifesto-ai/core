@@ -1114,6 +1114,44 @@ describe("V-009: default type validation", () => {
     );
   });
 
+  it("should accept escaped state paths when fieldTypes drive path validation", () => {
+    const schema = createValidSchema({
+      state: {
+        fields: {
+          files: {
+            type: "object",
+            required: true,
+            default: {},
+          },
+        },
+        fieldTypes: {
+          files: {
+            kind: "record",
+            key: { kind: "primitive", type: "string" },
+            value: {
+              kind: "object",
+              fields: {
+                status: { type: { kind: "primitive", type: "string" }, optional: false },
+              },
+            },
+          },
+        },
+      },
+      computed: {
+        fields: {
+          statusForProof: {
+            expr: { kind: "get", path: String.raw`files.file:///proof\.lean.status` },
+            deps: [String.raw`files.file:///proof\.lean.status`],
+          },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(true);
+  });
+
   it("should fail when nested object field has wrong nested default type", () => {
     const schema = createValidSchema({
       state: {

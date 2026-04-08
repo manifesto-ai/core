@@ -130,6 +130,91 @@ describe("createManifesto()", () => {
     world.dispose();
   });
 
+  it("preserves direct-value packing when inputType wraps object params through refs", () => {
+    type SettingsDomain = {
+      actions: {
+        configure: (settings: { settings: string }) => void;
+      };
+      state: {
+        current: { settings: string };
+      };
+      computed: {};
+    };
+
+    const schema = withHash({
+      id: "manifesto:sdk-v3-single-object-param-ref",
+      version: "1.0.0",
+      types: {
+        Settings: {
+          name: "Settings",
+          definition: {
+            kind: "object",
+            fields: {
+              settings: { type: { kind: "primitive", type: "string" }, optional: false },
+            },
+          },
+        },
+        ConfigureInput: {
+          name: "ConfigureInput",
+          definition: {
+            kind: "object",
+            fields: {
+              settings: { type: { kind: "ref", name: "Settings" }, optional: false },
+            },
+          },
+        },
+      },
+      state: {
+        fields: {
+          current: {
+            type: "object",
+            required: true,
+            default: { settings: "light" },
+            fields: {
+              settings: { type: "string", required: true },
+            },
+          },
+        },
+        fieldTypes: {
+          current: { kind: "ref", name: "Settings" },
+        },
+      },
+      computed: { fields: {} },
+      actions: {
+        configure: {
+          params: ["settings"],
+          inputType: { kind: "ref", name: "ConfigureInput" },
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              settings: {
+                type: "object",
+                required: true,
+                fields: {
+                  settings: { type: "string", required: true },
+                },
+              },
+            },
+          },
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: "data.current",
+            value: { kind: "get", path: "input.settings" },
+          },
+        },
+      },
+    });
+    const world = createManifesto<SettingsDomain>(schema, {}).activate();
+
+    expect(
+      world.createIntent(world.MEL.actions.configure, { settings: "dark" }).input,
+    ).toEqual({ settings: { settings: "dark" } });
+
+    world.dispose();
+  });
+
   it("preserves MEL action parameter order when packing multi-argument intents", () => {
     type TodoDomain = {
       actions: {

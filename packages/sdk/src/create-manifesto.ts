@@ -472,9 +472,13 @@ function isSingleParamObjectValued(
   schema: DomainSchema,
   action: DomainSchema["actions"][string],
 ): boolean {
-  if (action.params?.length === 1 && action.inputType?.kind === "object") {
-    const field = action.inputType.fields[action.params[0] ?? ""];
-    return field ? isPlainObjectLikeTypeDefinition(field.type, schema.types) : false;
+  if (action.params?.length === 1 && action.inputType) {
+    const fieldType = getObjectFieldTypeDefinition(
+      action.inputType,
+      action.params[0] ?? "",
+      schema.types,
+    );
+    return fieldType ? isPlainObjectLikeTypeDefinition(fieldType, schema.types) : false;
   }
 
   if (
@@ -488,6 +492,39 @@ function isSingleParamObjectValued(
   }
 
   return false;
+}
+
+function getObjectFieldTypeDefinition(
+  definition: DomainSchema["types"][string]["definition"],
+  fieldName: string,
+  types: DomainSchema["types"],
+  seenRefs: readonly string[] = [],
+): DomainSchema["types"][string]["definition"] | null {
+  if (definition.kind === "ref") {
+    if (seenRefs.includes(definition.name)) {
+      return null;
+    }
+
+    const next = types[definition.name];
+    return next
+      ? getObjectFieldTypeDefinition(next.definition, fieldName, types, [...seenRefs, definition.name])
+      : null;
+  }
+
+  if (definition.kind === "union") {
+    const nonNullTypes = definition.types.filter((candidate: typeof definition.types[number]) =>
+      !isNullLikeTypeDefinition(candidate, types, seenRefs)
+    );
+    return nonNullTypes.length === 1
+      ? getObjectFieldTypeDefinition(nonNullTypes[0], fieldName, types, seenRefs)
+      : null;
+  }
+
+  if (definition.kind !== "object") {
+    return null;
+  }
+
+  return definition.fields[fieldName]?.type ?? null;
 }
 
 function isPlainObjectLikeTypeDefinition(

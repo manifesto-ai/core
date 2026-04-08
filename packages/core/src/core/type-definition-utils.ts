@@ -91,6 +91,14 @@ export function pathExistsInTypeDefinition(
   return getTypeDefinitionAtSegments(definition, types, segments) !== null;
 }
 
+export function pathExistsInTypeDefinitionSegments(
+  definition: TypeDefinition,
+  types: Record<string, TypeSpec>,
+  segments: readonly PatchSegment[],
+): boolean {
+  return getTypeDefinitionAtSegments(definition, types, segments) !== null;
+}
+
 export function getTypeDefinitionAtSegments(
   definition: TypeDefinition,
   types: Record<string, TypeSpec>,
