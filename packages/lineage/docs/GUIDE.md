@@ -51,6 +51,8 @@ if (latestHead) {
 
 These APIs project the backing continuity truth through the activated runtime.
 `getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
+The activated lineage runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
+Those inherited legality queries keep the same ordering as the base SDK: availability short-circuits dispatchability, and `getIntentBlockers()` returns the first failing layer instead of stacking coarse and fine blockers together.
 
 ## 4. Restore A Sealed World
 

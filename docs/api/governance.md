@@ -6,7 +6,7 @@
 
 `@manifesto-ai/governance` owns `withGovernance()` and the activated advanced runtime.
 
-> **Current Contract Note:** The current package contract is Governance v3. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
+> **Current Contract Note:** This page describes the current Governance v3 decorator surface, unchanged through package release v3.5.0. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
 
 ## Canonical Surface
 
@@ -46,9 +46,15 @@ Governed runtimes keep the lineage query surface, but remove direct execution:
 - `bindActor(binding)`
 - `getActorBinding(actorId)`
 - `getDecisionRecord(decisionId)`
+- inherited legality queries such as `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 
 Lineage queries such as `getWorldSnapshot(worldId)`, `getLatestHead()`, and `getBranches()` remain available.
 `getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` remains the current visible canonical substrate. `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup inherited from lineage. `restore(worldId)` remains the normalized resume path.
+
+Those inherited legality queries preserve the base SDK ordering and blocker meaning:
+
+- availability is checked before dispatchability
+- `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker rather than evaluating `dispatchable`
 
 `dispatchAsync` and `commitAsync` are intentionally absent.
 

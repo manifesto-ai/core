@@ -1,13 +1,13 @@
 # Governance Protocol Documentation Index
 
 > **Package:** `@manifesto-ai/governance`
-> **Last Updated:** 2026-04-01
+> **Last Updated:** 2026-04-08
 
 ## Current Specification
 
-- **Package Release:** v3.3.0
+- **Package Release:** v3.5.0
 - **Contract Surface:** v3.0 decorator runtime + governed activation
-- **SPEC (Living Document):** [governance-SPEC.md](governance-SPEC.md) - current contract, unchanged through package release v3.3.0
+- **SPEC (Living Document):** [governance-SPEC.md](governance-SPEC.md) - current contract, unchanged through package release v3.5.0
 - **README:** [../README.md](../README.md)
 - **Guide:** [GUIDE.md](GUIDE.md)
 
@@ -28,7 +28,7 @@
 
 ## Notes
 
-- The current package release is `3.3.0`; the current contract surface remains the v3.0 governance decorator model documented in [governance-SPEC.md](governance-SPEC.md).
+- The current package release is `3.5.0`; the current contract surface remains the v3.0 governance decorator model documented in [governance-SPEC.md](governance-SPEC.md).
 - The truthful current application-facing contract is `withGovernance(manifesto, config).activate()`.
 - Governance v3 requires explicit lineage composition and removes direct `dispatchAsync` / `commitAsync` from governed instances.
 - Low-level service/store exports remain public, but they are no longer the canonical package story.

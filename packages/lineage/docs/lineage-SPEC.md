@@ -92,8 +92,12 @@ Normative rules:
 | LIN-V3-SFC-3a | SHOULD | `getWorldSnapshot(worldId)` expose the stored sealed canonical snapshot substrate for a specific world when available |
 | LIN-V3-SFC-4 | MUST | `getLineage()` expose the world DAG from the backing `LineageService` |
 | LIN-V3-SFC-5 | MUST | `createBranch()` and `switchActiveBranch()` remain lineage-owned runtime verbs, not SDK verbs |
+| LIN-V3-SFC-6 | MUST | inherited legality queries preserve the base SDK ordering: availability is evaluated before dispatchability |
+| LIN-V3-SFC-7 | MUST | inherited `getIntentBlockers()` return only the first failing layer, so unavailable actions surface an `available` blocker without evaluating `dispatchable` |
 
 `getSnapshot()` remains the projected runtime read model inherited from SDK. `getCanonicalSnapshot()` returns the current visible runtime substrate. `getWorldSnapshot(worldId)` is different again: it reads the stored sealed canonical substrate for a specific world from lineage storage.
+
+The inherited SDK read surface also remains available on the activated lineage runtime, including `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()`.
 
 ---
 
@@ -140,6 +144,7 @@ Normative rules:
 | LIN-V3-DISPATCH-1 | MUST | preserve the SDK FIFO per-instance queue |
 | LIN-V3-DISPATCH-2 | MUST | evaluate action availability at dequeue time against the currently visible snapshot |
 | LIN-V3-DISPATCH-3 | MUST | unavailable actions reject without sealing or snapshot publication |
+| LIN-V3-DISPATCH-3a | MUST | when the action is unavailable, lineage commit MUST NOT evaluate `dispatchable` before rejecting |
 
 ### 4.2 Successful Completed Commit
 
