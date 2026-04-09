@@ -8,11 +8,11 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.5.0 Status:** The projected introspection additions in §5.5 and §7.4-§7.5, the intent-level dispatchability additions in §7.2-§7.5, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel in §7.10, and the first-party `createSimulationSession()` helper on that seam are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
+> **Current v3.6.0 Status:** The projected introspection additions, the intent-level dispatchability additions, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, and additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()` are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3.5.0 public contract.
+This document defines the current SDK v3.6.0 public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
@@ -37,6 +37,8 @@ Normative rule prefixes:
 | `SDK-GRAPH-*` | `getSchemaGraph()` and `SchemaGraph` semantics |
 | `SDK-SIM-*` | `simulate()` semantics |
 | `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` semantics |
+| `SDK-EXT-EXPLAIN-*` | extension-kernel intent explanation semantics |
+| `SDK-EXPLAIN-RT-*` | activated-runtime explanation convenience semantics |
 | `SDK-SUB-*` | subscription semantics |
 | `SDK-EVENT-*` | telemetry channel semantics |
 | `SDK-SNAP-*` | snapshot visibility and immutability |
@@ -250,12 +252,22 @@ type DispatchBlocker = {
   readonly description?: string;
 };
 
+type TypedIntent<
+  T extends ManifestoDomainShape,
+  K extends keyof T["actions"] = keyof T["actions"],
+> = Intent & {
+  readonly __typedIntent__?: {
+    readonly domain: T;
+    readonly action: K;
+  };
+};
+
 type TypedCreateIntent<T extends ManifestoDomainShape> = <
   K extends keyof T["actions"],
 >(
   action: TypedActionRef<T, K>,
   ...args: CreateIntentArgs<T, K>
-) => Intent;
+) => TypedIntent<T, K>;
 
 type TypedDispatchAsync<T extends ManifestoDomainShape> = (
   intent: Intent,
@@ -328,11 +340,47 @@ type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly requirements: readonly Requirement[];
   readonly status: "complete" | "pending" | "halted" | "error";
 };
+
+type IntentExplanation<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "blocked";
+      readonly actionName: keyof T["actions"] & string;
+      readonly available: false;
+      readonly dispatchable: false;
+      readonly blockers: readonly DispatchBlocker[];
+    }
+  | {
+      readonly kind: "blocked";
+      readonly actionName: keyof T["actions"] & string;
+      readonly available: true;
+      readonly dispatchable: false;
+      readonly blockers: readonly DispatchBlocker[];
+    }
+  | {
+      readonly kind: "admitted";
+      readonly actionName: keyof T["actions"] & string;
+      readonly available: true;
+      readonly dispatchable: true;
+      readonly status: ComputeStatus;
+      readonly requirements: readonly Requirement[];
+      readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly snapshot: Snapshot<T["state"]>;
+      readonly newAvailableActions: readonly (keyof T["actions"])[];
+      readonly changedPaths: readonly string[];
+    };
 ```
 
 `TypedActionMetadata<T, K>.input` MUST carry the same machine-readable action input schema that the runtime uses for validation and inspection.
 
 `TypedActionMetadata<T, K>.hasDispatchableGate` MUST expose whether the action declares `dispatchable when` in the compiled schema.
+
+`TypedIntent<T, K>` is the SDK's typed view of a Core `Intent`. Its runtime branding strategy is implementation-defined.
+
+`IntentExplanation<T>.dispatchable` in blocked results reflects admission state. In the `available: false` branch, `dispatchable: false` MUST NOT be interpreted as evidence that dispatchability was evaluated.
+
+`IntentExplanation<T>.canonicalSnapshot` is a canonical inspection surface. The stable parity surface for repeated explanation reads is the projected `snapshot` plus the summary fields documented below. Host-managed canonical metadata such as logical `timestamp` is not the intended byte-for-byte comparison surface across repeated dry-run reads.
 
 ### 5.6 Event Types
 
@@ -346,7 +394,7 @@ interface ManifestoEventMap<T extends ManifestoDomainShape> {
   "dispatch:rejected": {
     readonly intentId: string;
     readonly intent: Intent;
-    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE";
+    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
     readonly reason: string;
   };
   "dispatch:failed": {
@@ -500,6 +548,9 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
   readonly getIntentBlockers: TypedGetIntentBlockers<T>;
+  readonly explainIntent: (intent: TypedIntent<T>) => IntentExplanation<T>;
+  readonly why: (intent: TypedIntent<T>) => IntentExplanation<T>;
+  readonly whyNot: (intent: TypedIntent<T>) => readonly DispatchBlocker[] | null;
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly getSchemaGraph: () => SchemaGraph;
   readonly simulate: <K extends keyof T["actions"]>(
@@ -514,7 +565,7 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 The canonical public surface is the instance object. Destructuring is optional ergonomics only.
 
-The members in §7.4 and §7.5 are part of the current v3.5.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
+The members in §7.3.1-§7.5 are part of the current v3.6.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
 
 ### 7.1 `createIntent()`
 
@@ -550,9 +601,12 @@ Action availability and intent dispatchability MUST be evaluated at **dequeue ti
 The dequeue-time admission order is normative:
 
 1. evaluate `isActionAvailable()`
-2. if available, evaluate `isIntentDispatchable()`
+2. if available, validate bound intent input against the activated action contract
+3. if input is valid, evaluate `isIntentDispatchable()`
 
 If the action is unavailable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `ACTION_UNAVAILABLE`, and MUST NOT notify subscribers.
+
+If the action is available but the bound intent input is invalid at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `INVALID_INPUT`, and MUST NOT notify subscribers.
 
 If the action is available but the bound intent is not dispatchable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `INTENT_NOT_DISPATCHABLE`, and MUST NOT notify subscribers.
 
@@ -562,9 +616,9 @@ If Host execution produces a terminal error result that also carries a new termi
 
 If execution fails before a new terminal snapshot exists, SDK MUST emit `dispatch:failed`, MUST leave the visible snapshot unchanged, and MUST reject the Promise.
 
-### 7.3 Availability, Dispatchability, and Metadata Queries
+### 7.3 Availability, Dispatchability, Explanation, and Metadata Queries
 
-`getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
+`getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `explainIntent()`, `why()`, `whyNot()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
 
 Availability and dispatchability reads MUST delegate to Core legality semantics rather than reconstructing policy in SDK.
 
@@ -582,6 +636,33 @@ Availability and dispatchability reads MUST delegate to Core legality semantics 
 
 - an empty list when the bound intent is dispatchable
 - one or more `DispatchBlocker` values when the action is unavailable or the bound intent fails `dispatchable`
+
+#### 7.3.1 Intent Explanation Reads
+
+`explainIntent(intent)` returns `IntentExplanation<T>` for a bound typed intent against the runtime's current visible canonical snapshot.
+
+It MUST be observationally pure and MUST delegate to the extension-kernel explanation substrate rather than reimplementing a second explanation path.
+
+The legality ordering is normative:
+
+1. evaluate action availability
+2. if available, validate bound intent input against the activated action contract
+3. if input is valid, evaluate bound-intent dispatchability
+4. if admitted, perform the same dry-run transition contract as `simulate()`
+
+If the action is unavailable, explanation reads MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
+
+If the action is available but the supplied bound intent input is invalid, `explainIntent()` MUST throw `ManifestoError` with code `INVALID_INPUT` before dispatchability evaluation or blocker projection. `why()` and `whyNot()` inherit the same validation semantics.
+
+Blocked results MUST expose blockers for the first failing layer only. They MUST NOT combine availability and dispatchability blockers into one mixed result.
+
+Admitted results MUST expose the canonical simulated snapshot, the projected public snapshot, status, requirements, new available actions, and changed paths.
+
+`why(intent)` is a convenience alias of `explainIntent(intent)`.
+
+`whyNot(intent)` is a convenience projection over `explainIntent(intent)`. It MUST return blockers for the first failing layer, or `null` if the intent is admitted.
+
+`whyNot()` does not replace `getIntentBlockers()`. `getIntentBlockers()` remains the empty-array current-snapshot blocker query surface; `whyNot()` is an additive convenience read with a `null` admitted sentinel.
 
 ### 7.4 `getSchemaGraph()`
 
@@ -616,6 +697,8 @@ Input-dependent `dispatchable when` predicates MUST NOT be projected into `Schem
 It MUST use the same intent packing as `createIntent()` and the same deterministic HostContext construction as `dispatchAsync()`.
 
 If the action is unavailable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE`.
+
+If the action is available but the bound intent input is invalid against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `INVALID_INPUT`.
 
 If the action is available but the bound intent is not dispatchable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `INTENT_NOT_DISPATCHABLE`.
 
@@ -724,6 +807,11 @@ interface ExtensionKernel<T extends ManifestoDomainShape> {
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ): boolean;
+
+  explainIntentFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): IntentExplanation<T>;
 }
 
 type ExtensionSimulateResult<
@@ -742,11 +830,40 @@ All arbitrary-snapshot operations accept **canonical** snapshots only. Passing p
 
 The Extension Kernel is the safe public subset for helper and tool authors. It MUST remain observationally pure: no publication, execution, event emission, queue control, or visible runtime mutation.
 
-`ExtensionSimulateResult` is intentionally canonical and minimal. Unlike current-snapshot `simulate()`, it does not bundle projected `changedPaths`, `newAvailableActions`, or blocker explanations. Callers that need those views MUST compose `projectSnapshot()`, `getAvailableActionsFor()`, and `isIntentDispatchableFor()` explicitly.
+`ExtensionSimulateResult` is intentionally canonical and minimal. `simulateSync()` itself does not bundle projected `changedPaths`, `newAvailableActions`, or blocker explanations. Callers that need structured intent explanation SHOULD use `explainIntentFor()`. Callers that need lower-level composition MAY still combine `projectSnapshot()`, `getAvailableActionsFor()`, and `isIntentDispatchableFor()` explicitly.
 
 Extension-kernel acquisition and use are post-activation only, but they are not part of runtime execution. The seam remains analytical after `dispose()`: observationally pure methods MUST NOT reject solely because the source runtime has been disposed.
 
-#### 7.10.1 `createSimulationSession()`
+#### 7.10.1 `explainIntentFor()`
+
+`explainIntentFor(snapshot, intent)` provides structured intent-level explanation over a caller-supplied canonical snapshot and returns `IntentExplanation<T>` as defined in §5.5.
+
+Its purpose is to compose, in one observationally pure call:
+
+1. coarse availability check
+2. input validation against the activated action contract
+3. fine dispatchability check
+4. structured blocker construction for the first failing layer
+5. dry-run simulation when the bound intent is admitted
+
+It MUST remain post-activation and observationally pure.
+
+It MUST NOT publish, mutate, dispatch, enqueue, subscribe, emit runtime events, or expose provider-only runtime-control surfaces.
+
+If the action is unavailable, `explainIntentFor()` MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
+
+If the action is available but the supplied bound intent input is invalid, `explainIntentFor()` MUST throw `ManifestoError` with code `INVALID_INPUT` before dispatchability evaluation, blocker projection, or dry-run simulation.
+
+Blocked results MUST expose blockers for the first failing layer only. They MUST NOT combine availability and dispatchability blockers into one mixed result.
+
+Blocker construction reuses the same internal blocker path as the base runtime's `getIntentBlockers()`. No new public `getIntentBlockersFor()` is added to the extension seam.
+
+For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime:
+
+- blocked results MUST be semantically equivalent to `getIntentBlockers()` at the first failing layer
+- admitted results MUST be semantically equivalent to `simulate()` for projected snapshot, status, requirements, new available actions, and changed paths
+
+#### 7.10.2 `createSimulationSession()`
 
 `@manifesto-ai/sdk/extensions` also exposes a first-party immutable branching helper:
 
@@ -824,6 +941,7 @@ After disposal:
 - `on()` MUST return a no-op unsubscriber and MUST NOT register the handler
 - `getSnapshot()` MUST continue returning the last visible terminal snapshot
 - `getCanonicalSnapshot()` MUST continue returning the last visible canonical snapshot
+- `explainIntent()`, `why()`, and `whyNot()` MUST continue operating as observational reads over the last visible canonical snapshot
 
 Dispose MUST release all SDK-owned resources for the activated base instance, including subscription storage, telemetry listeners, and queued runtime bookkeeping.
 
@@ -836,12 +954,22 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
 | SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` as normative execution surface |
 | SDK-BASE-7 | MUST | `getSchemaGraph()` and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
+| SDK-EXPLAIN-RT-1 | MUST | `explainIntent()` MUST evaluate against the runtime's current visible canonical snapshot only |
+| SDK-EXPLAIN-RT-2 | MUST | `explainIntent()` MUST be observationally pure |
+| SDK-EXPLAIN-RT-3 | MUST | `explainIntent()` MUST delegate to the extension-kernel explanation substrate rather than reimplementing a second explanation model |
+| SDK-EXPLAIN-RT-4 | MUST | `why()` MUST be provided as an alias of `explainIntent()` |
+| SDK-EXPLAIN-RT-5 | MUST | `whyNot()` MUST be provided as a convenience projection over blocked explanations |
+| SDK-EXPLAIN-RT-6 | MUST | `whyNot()` MUST return `null` for admitted intents, not an empty array |
+| SDK-EXPLAIN-RT-7 | MUST | If the action is available but the bound intent input is invalid, `explainIntent()`, `why()`, and `whyNot()` MUST throw `ManifestoError` code `INVALID_INPUT` before blocker projection or dispatchability evaluation |
+| SDK-EXPLAIN-RT-7a | MUST | If the action is unavailable, `explainIntent()`, `why()`, and `whyNot()` MUST short-circuit before invalid-input evaluation and return the unavailable blocked result |
 | SDK-DISPATCH-1 | MUST | `dispatchAsync()` MUST serialize intent processing FIFO per activated base instance |
 | SDK-DISPATCH-2 | MUST | availability checks for queued intents MUST run at dequeue time against the then-current visible snapshot |
-| SDK-DISPATCH-3 | MUST | if the action is available, dispatchability checks for queued intents MUST also run at dequeue time against the then-current visible snapshot |
+| SDK-DISPATCH-3 | MUST | if the action is available, bound intent input validation for queued intents MUST run at dequeue time against the then-current visible snapshot before dispatchability checks |
+| SDK-DISPATCH-3a | MUST | if the action is available and input is valid, dispatchability checks for queued intents MUST also run at dequeue time against the then-current visible snapshot |
 | SDK-DISPATCH-4 | MUST | unavailable actions MUST reject without snapshot publication |
+| SDK-DISPATCH-4a | MUST | invalid-input intents MUST reject without snapshot publication |
 | SDK-DISPATCH-5 | MUST | available but non-dispatchable intents MUST reject without snapshot publication |
-| SDK-DISPATCH-6 | MUST | `dispatch:rejected` payloads MUST distinguish `ACTION_UNAVAILABLE` from `INTENT_NOT_DISPATCHABLE` |
+| SDK-DISPATCH-6 | MUST | `dispatch:rejected` payloads MUST distinguish `ACTION_UNAVAILABLE`, `INVALID_INPUT`, and `INTENT_NOT_DISPATCHABLE` |
 | SDK-DISPATCH-7 | MUST | successful completion MUST resolve with the same snapshot that became visible through `getSnapshot()` and `dispatch:completed` |
 | SDK-DISPATCH-8 | MUST | terminal failures with a new published snapshot MUST reject and emit `dispatch:failed` with that snapshot attached |
 | SDK-DISPATCH-9 | MUST | pre-publication failures MUST reject without changing the visible snapshot |
@@ -853,6 +981,7 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-GRAPH-6 | MUST | string lookup overloads MUST accept only kind-prefixed node ids and MUST be treated as convenience/debug-only |
 | SDK-SIM-1 | MUST NOT | SDK implementations let `simulate()` mutate, commit, or publish runtime state |
 | SDK-SIM-2 | MUST | unavailable simulated actions MUST throw `ManifestoError` code `ACTION_UNAVAILABLE` before dry-run compute begins |
+| SDK-SIM-2b | MUST | available but invalid-input simulated intents MUST throw `ManifestoError` code `INVALID_INPUT` before dispatchability evaluation or dry-run compute begins |
 | SDK-SIM-2a | MUST | available but non-dispatchable simulated intents MUST throw `ManifestoError` code `INTENT_NOT_DISPATCHABLE` before dry-run compute begins |
 | SDK-SIM-3 | MUST | `simulate()` MUST use the same intent packing and HostContext construction as normal dispatch |
 | SDK-SIM-4 | MUST | `simulate()` MUST apply both Core `apply()` and Core `applySystemDelta()` to produce a complete simulated snapshot |
@@ -877,6 +1006,18 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-EXT-15 | MUST | `SimulationSession.next()` MUST be immutable: it returns a new session branch and MUST NOT mutate the original session |
 | SDK-EXT-16 | MUST | `SimulationSession.availableActions` MUST expose typed MEL action refs for the current branch state, derived from `getAvailableActionsFor(canonicalSnapshot)` |
 | SDK-EXT-17 | MUST | Terminal `SimulationSession` states (`pending`, `halted`, `error`) MUST reject further `next()` calls with an SDK error; `finish()` MUST remain available |
+| SDK-EXT-EXPLAIN-1 | MUST | `explainIntentFor()` MUST be observationally pure and MUST NOT modify visible runtime state, canonical runtime state, subscriptions, events, or queues |
+| SDK-EXT-EXPLAIN-2 | MUST | `explainIntentFor()` MUST preserve legality ordering: availability first, input validation second, dispatchability third, simulation fourth |
+| SDK-EXT-EXPLAIN-3 | MUST | If the action is unavailable, `explainIntentFor()` MUST return a blocked result with `available: false` and MUST NOT evaluate input validation or dispatchability |
+| SDK-EXT-EXPLAIN-3a | MUST | If the action is available but the bound intent input is invalid, `explainIntentFor()` MUST throw `ManifestoError` code `INVALID_INPUT` before dispatchability evaluation, blocker projection, or dry-run simulation |
+| SDK-EXT-EXPLAIN-4 | MUST | If the action is available but the bound intent is not dispatchable, `explainIntentFor()` MUST return a blocked result with `available: true, dispatchable: false` and MUST NOT perform dry-run simulation |
+| SDK-EXT-EXPLAIN-5 | MUST | If the bound intent is admitted, `explainIntentFor()` MUST perform the same dry-run transition contract as `simulateSync()` over the supplied canonical snapshot |
+| SDK-EXT-EXPLAIN-6 | MUST | For admitted intents, the projected snapshot MUST equal `projectSnapshot(simulateSync(snapshot, intent).snapshot)` |
+| SDK-EXT-EXPLAIN-7 | MUST | Blocked results MUST expose blockers for the first failing layer only. They MUST NOT combine availability and dispatchability blockers into one mixed result |
+| SDK-EXT-EXPLAIN-8 | SHOULD | Admitted results SHOULD expose the resulting canonical snapshot, projected public snapshot, status, requirements, new available actions, and changed paths |
+| SDK-EXT-EXPLAIN-9 | MUST | `changedPaths` in explanation results remain inspection/debug-only, consistent with `SDK-SIM-7` |
+| SDK-EXT-EXPLAIN-10 | MUST | Blocked result blockers MUST be semantically equivalent to what `getIntentBlockers()` would return for the same snapshot and intent at the first failing layer |
+| SDK-EXT-EXPLAIN-11 | MUST | Blocker construction MUST delegate to the existing internal blocker path, not reimplement blocker assembly |
 | SDK-SUB-1 | MUST | `subscribe()` MUST NOT fire synchronously on registration |
 | SDK-SUB-2 | MUST | `subscribe()` listeners MUST fire only after visible terminal snapshot publication |
 | SDK-SUB-3 | MUST | selector change detection MUST use `Object.is` |
@@ -892,6 +1033,7 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-DISPOSE-1 | MUST | `dispose()` MUST be idempotent |
 | SDK-DISPOSE-2 | MUST | post-dispose `dispatchAsync()` MUST reject with `DisposedError` |
 | SDK-DISPOSE-3 | MUST | post-dispose `subscribe()` and `on()` MUST be inert registrations |
+| SDK-DISPOSE-4 | MUST | post-dispose `explainIntent()`, `why()`, and `whyNot()` MUST remain callable as read-only views over the last visible canonical snapshot |
 
 ## 8. Decorator Boundary
 
@@ -1000,6 +1142,7 @@ Required stable codes:
 | `DISPOSED` | post-dispose runtime call |
 | `ALREADY_ACTIVATED` | second activation attempt on the same composable manifesto |
 | `ACTION_UNAVAILABLE` | queued dispatch reached the front of the queue but the action was unavailable against the current visible snapshot |
+| `INVALID_INPUT` | the action was available, but the bound intent input failed SDK validation against the activated action contract |
 | `INTENT_NOT_DISPATCHABLE` | the action was available, but the bound intent failed the dispatchability gate against the current visible snapshot |
 
 | Rule ID | Level | Description |
@@ -1009,6 +1152,7 @@ Required stable codes:
 | SDK-ERR-3 | MUST | `ReservedEffectError` MUST expose the attempted effect type |
 | SDK-ERR-4 | MUST | `AlreadyActivatedError` MUST be thrown on second activation attempt |
 | SDK-ERR-5 | MUST | unavailable queued dispatches MUST reject with `ManifestoError` code `ACTION_UNAVAILABLE` or an exact subclass carrying that code |
+| SDK-ERR-5a | MUST | invalid-input queued dispatches MUST reject with `ManifestoError` code `INVALID_INPUT` or an exact subclass carrying that code |
 | SDK-ERR-6 | MUST | available but non-dispatchable queued dispatches MUST reject with `ManifestoError` code `INTENT_NOT_DISPATCHABLE` or an exact subclass carrying that code |
 
 ## 11. Invariants
@@ -1023,19 +1167,21 @@ Required stable codes:
 
 ## 12. Compliance Checklist
 
-An SDK v3.5.0 implementation complies with this living contract only if all of the following are true:
+An SDK v3.6.0 implementation complies with this living contract only if all of the following are true:
 
 - `createManifesto()` returns a composable manifesto, not a runtime instance.
 - Pre-activation objects expose no runtime verbs.
 - `activate()` is one-shot and throws `AlreadyActivatedError` on repeat use.
 - `ManifestoConfig` does not exist in the v3 contract.
 - SDK no longer presents `@manifesto-ai/world` as part of its public story.
-- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
+- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, intent explanation reads, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
-- `dispatchAsync()` is FIFO per instance and evaluates availability before dispatchability at dequeue time.
+- `dispatchAsync()` is FIFO per instance and evaluates availability, then input validation, then dispatchability at dequeue time.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
 - `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
-- `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers and no runtime-control methods.
+- `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers, including `explainIntentFor()`, and no runtime-control methods.
+- `explainIntent()`, `why()`, and `whyNot()` remain current-snapshot read-only conveniences layered over the same extension-kernel explanation substrate.
+- `INVALID_INPUT` is a stable rejection/error code across dispatch, explanation, and dry-run validation paths.
 - Subscribers fire only after visible terminal snapshot publication and use selector change detection.
 - Event payloads are typed and correlated by `intentId`.
 - Reserved effect override and reserved namespace misuse are rejected at factory time.

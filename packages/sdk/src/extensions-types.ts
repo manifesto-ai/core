@@ -8,6 +8,7 @@ import type {
 import type {
   CanonicalSnapshot,
   CreateIntentArgs,
+  IntentExplanation,
   ManifestoDomainShape,
   Snapshot,
   TypedActionRef,
@@ -54,6 +55,11 @@ export interface ExtensionKernel<T extends ManifestoDomainShape> {
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ) => boolean;
+
+  readonly explainIntentFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => IntentExplanation<T>;
 }
 
 export type SimulationSessionStatus = ComputeStatus | "idle" | "computing";

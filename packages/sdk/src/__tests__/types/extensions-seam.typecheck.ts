@@ -6,6 +6,7 @@ import {
   type ExtensionSimulateResult,
   type SimulationSession,
 } from "../../extensions.ts";
+import type { IntentExplanation } from "../../index.ts";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
 const world = sdk.createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
@@ -16,6 +17,7 @@ const available = ext.getAvailableActionsFor(canonical);
 const isAvailable = ext.isActionAvailableFor(canonical, "increment");
 const intent = ext.createIntent(ext.MEL.actions.increment);
 const isDispatchable = ext.isIntentDispatchableFor(canonical, intent);
+const explanation: IntentExplanation<CounterDomain> = ext.explainIntentFor(canonical, intent);
 const simulated: ExtensionSimulateResult<CounterDomain> = ext.simulateSync(canonical, intent);
 const projected = ext.projectSnapshot(simulated.snapshot);
 const next = session.next(world.MEL.actions.increment);
@@ -29,6 +31,7 @@ void sdk.createSimulationSession;
 void available;
 void isAvailable;
 void isDispatchable;
+void explanation;
 void projected;
 void finished;
 
