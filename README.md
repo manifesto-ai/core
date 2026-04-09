@@ -46,3 +46,26 @@ console.log(app.getSnapshot().data.count); // 1
 - Go deeper into the model: [Concepts](./docs/concepts/index.md), [Architecture](./docs/architecture/index.md), [Internals](./docs/internals/index.md)
 
 Start with `@manifesto-ai/sdk` and `@manifesto-ai/compiler`. Add Lineage, Governance, or the surrounding DX packages only when the project actually needs them.
+
+## What Manifesto Is Not
+
+- Not a state management library
+- Not an AI framework
+- Not a database or ORM
+- Not a workflow engine
+
+## Research & Citation
+Manifesto is a general-purpose declarative runtime. The underlying design philosophy and the initial empirical validation of its reflective protocol
+If you use this core framework in your research, please cite:
+
+```
+@misc{jeong2026llmdoesselfrevisingagent,
+      title={How Much LLM Does a Self-Revising Agent Actually Need?},
+      author={Seongwoo Jeong and Seonil Son},
+      year={2026},
+      eprint={2604.07236},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2604.07236},
+}
+```
