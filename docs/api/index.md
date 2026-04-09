@@ -1,47 +1,52 @@
 # API Reference
 
-> Lookup surface by job, not reading order.
+> Lookup the app-facing runtime surface first. Drop into package overviews only when you need the owning package boundary.
 
-If you are new, start with [Quickstart](/quickstart) and [Tutorial](/tutorial/) first. Come back here once you know which package you need.
+If you are learning Manifesto for the first time, start with the [Guide](/guide/introduction). Use this section when you know what you want to call.
 
-## Build An App
+## App Runtime APIs
+
+| Area | Start Here |
+|------|------------|
+| Create an app | [Application](./application) |
+| Inspect the activated handle | [Runtime Instance](./runtime) |
+| Show legal actions to UI or agents | [Actions and Availability](./actions-and-availability) |
+| Request a transition | [Intents](./intents) |
+| Read domain state | [Snapshots and Subscriptions](./snapshots-and-subscriptions) |
+| Fulfill external work | [Effects](./effects) |
+| Add approval or HITL | [Governed Runtime](./governed-runtime) |
+| Import `.mel` files | [Bundler Adapters](./bundler-adapters) |
+
+## Public Surface Inventory
+
+[Public Surface Inventory](./public-surface) is generated from first-party package exports. Use it when you need to confirm whether a name is public. Use curated pages above for meaning and examples.
+
+## Package Overviews
 
 | Package | Use When |
 |---------|----------|
-| [@manifesto-ai/sdk](./sdk) | You want the activation-first app path with `createManifesto()` and `activate()` |
-
-## Add Approval And History Later
-
-| Package | Use When |
-|---------|----------|
-| [@manifesto-ai/lineage](./lineage) | You need continuity, restore, branch/head history, or sealing on top of the base runtime |
+| [@manifesto-ai/sdk](./sdk) | You want the activation-first base runtime |
+| [@manifesto-ai/lineage](./lineage) | You need continuity, restore, branch/head history, or sealing |
 | [@manifesto-ai/governance](./governance) | You need proposals, approval flow, decisions, and governance events |
+| [@manifesto-ai/compiler](./compiler) | You need MEL compilation, lowering, or bundler adapters |
+| [@manifesto-ai/codegen](./codegen) | You need schema-driven TypeScript or Zod generation |
+| [@manifesto-ai/core](./core) | You need the pure computation layer |
+| [@manifesto-ai/host](./host) | You need the low-level host orchestration layer |
 
-## Set Up Tooling Around The Runtime
+## Tooling Overviews
 
 | Package | Use When |
 |---------|----------|
 | [@manifesto-ai/cli](./cli) | You want project bootstrap, bundler integration, setup flows, or drift checks |
 | [@manifesto-ai/mel-lsp](./mel-lsp) | You want MEL diagnostics, completion, navigation, rename, and schema introspection |
 | [@manifesto-ai/skills](./skills) | You want current Manifesto guidance loaded into Codex or other AI tools |
-| [@manifesto-ai/studio-cli](./studio-cli) | You want local read-only inspection for findings, graph, snapshot, trace, lineage, or governance |
-| [@manifesto-ai/studio-core](./studio-core) | You want projection-first analysis APIs in your own tooling |
+| [@manifesto-ai/studio-cli](./studio-cli) | You want local read-only inspection from a terminal |
+| [@manifesto-ai/studio-core](./studio-core) | You want projection-first analysis APIs in TypeScript tooling |
 | [@manifesto-ai/studio-mcp](./studio-mcp) | You want an MCP inspection surface for agents or remote clients |
-
-## Work On The Runtime Or Compiler Surface
-
-| Package | Use When |
-|---------|----------|
-| [@manifesto-ai/core](./core) | You need the pure computation layer |
-| [@manifesto-ai/host](./host) | You need effect execution and compute/apply orchestration |
-| [@manifesto-ai/compiler](./compiler) | You need MEL compilation and lowering |
-| [@manifesto-ai/codegen](./codegen) | You need schema-driven TypeScript or Zod generation |
 
 ## Related Docs
 
-- [Quickstart](/quickstart)
-- [Tutorial](/tutorial/)
-- [Guides](/guides/)
-- [Concepts](/concepts/)
-- [Architecture](/architecture/)
+- [Guide](/guide/introduction)
+- [Quick Start](/guide/quick-start)
+- [MEL Reference](/mel/)
 - [Internals](/internals/)

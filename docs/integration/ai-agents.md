@@ -1,171 +1,283 @@
 # AI Agent Integration
 
-> Let an agent choose the next change, then route that change through the base runtime first and escalate only when writes need review or audit history.
+> Let agents see the current Snapshot, see the actions that are available now, and submit domain changes through the runtime.
 >
-> **Current Contract Note:** This page describes the current activation-first SDK surface and the current Lineage/Governance decorator runtime surface. SDK snapshots follow the current Core v4.2.0 contract and no longer expose accumulated `system.errors`.
+> **Current Contract Note:** This page uses the activation-first SDK surface: activate a `createManifesto(...)` app, then call `getSnapshot`, `getAvailableActions`, `getActionMetadata`, `createIntent`, and `dispatchAsync`. Governed examples use the current `withLineage(...) -> withGovernance(...) -> activate()` surface.
 
----
+An agent should not guess your domain API from prompt text. It should read the current state, read the currently legal actions, call an app-owned tool, and receive a Snapshot view back.
 
-## Two Agent Paths
-
-Manifesto supports two stable agent patterns:
-
-1. direct-dispatch agent turns
-2. governed proposal turns
-
-Use direct dispatch when the agent is operating inside a trusted app session and does not need approval. Escalate to reviewable proposals only when the action needs legitimacy, actor tracking, or branch history.
-
-## Agent Tooling Stack
-
-Current agent-facing DX is split across three packages:
-
-- [`@manifesto-ai/skills`](/api/skills) installs current Manifesto guidance into Codex, Claude Code, Cursor, Copilot, and Windsurf
-- [`@manifesto-ai/mel-lsp`](/api/mel-lsp) adds MEL diagnostics plus `mel/schemaIntrospection` and `mel/actionSignatures`
-- [`@manifesto-ai/studio-mcp`](/api/studio-mcp) exposes graph, findings, availability, trace, lineage, and governance over MCP
-
-Use `skills` for prompt context, `mel-lsp` for authoring-time schema awareness, and `studio-mcp` when an agent needs read-only inspection tools against a concrete domain.
-
-If you use Codex and want Manifesto-specific guidance loaded into the agent session, install `@manifesto-ai/skills` separately and run its explicit Codex setup command.
-
-If you are still deciding whether the agent really needs approval or history, read [When You Need Approval or History](/guides/approval-and-history) before adopting the advanced runtime.
-
----
-
-## 1. Direct-Dispatch Agent Path
-
-```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
-
-const instance = createManifesto(todoSchema, effects).activate();
-
-const snapshot = await instance.dispatchAsync(
-  instance.createIntent(
-    instance.MEL.actions.addTodo,
-    "Agent-authored task",
-  ),
-);
+```text
+Snapshot + getAvailableActions()
+  -> agent context for this step
+  -> model chooses a stable app-owned tool
+  -> tool re-reads runtime availability
+  -> tool creates a typed Manifesto Intent
+  -> runtime dispatches or proposes
+  -> fresh context returns for the next step
 ```
 
-This path is appropriate when the agent is already trusted to act on the current Snapshot and the app does not need proposal review.
+This guide uses a Todo app. Build that domain first in [Building a Todo App](/guide/essentials/todo-app).
+
+The examples assume action-level gates are modeled with MEL `available when`. `getAvailableActions()` reflects those current-snapshot action gates. Bound-input checks still belong to `dispatchable when`, `whyNot()`, or the final runtime dispatch.
 
 ---
 
-## 2. Optional Proposal Path
+## 1. Give The Agent Runtime Context
 
-When the agent genuinely needs explicit approval or audit history, compose Governance and Lineage first, then submit a proposal from the activated runtime.
+`getSnapshot()` tells the agent what is true. `getAvailableActions()` tells the agent what the domain allows now.
+
+```typescript
+import { app } from "./manifesto-app";
+
+export function readAgentContext() {
+  const snapshot = app.getSnapshot();
+  const availableActionNames = app.getAvailableActions();
+
+  return {
+    data: snapshot.data,
+    computed: snapshot.computed,
+    availableActions: availableActionNames.map((name) =>
+      app.getActionMetadata(name),
+    ),
+  };
+}
+```
+
+This is the agent's starting point: state plus the runtime's current public action contract. Do not maintain a parallel "actions the agent may call" list in prompt text.
+
+---
+
+## 2. Map Runtime Actions To Tools
+
+Start with app-owned tools. Each writer creates a typed Manifesto Intent.
+
+```typescript
+import { tool } from "ai";
+import { z } from "zod";
+
+import { app } from "./manifesto-app";
+import { readAgentContext } from "./agent-context";
+
+function isAvailable(actionName: "addTodo" | "clearCompleted") {
+  return app.getAvailableActions().includes(actionName);
+}
+
+function unavailable(actionName: "addTodo" | "clearCompleted") {
+  return {
+    status: "blocked" as const,
+    reason: `${actionName} is not available in the current Snapshot.`,
+    context: readAgentContext(),
+  };
+}
+
+export const todoTools = {
+  readTodoContext: tool({
+    description: "Read Todo Snapshot data, computed values, and available actions.",
+    inputSchema: z.object({}),
+    execute: async () => readAgentContext(),
+  }),
+
+  addTodo: tool({
+    description: "Add one todo through the Manifesto runtime.",
+    inputSchema: z.object({ title: z.string().min(1) }),
+    execute: async ({ title }) => {
+      if (!isAvailable("addTodo")) {
+        return unavailable("addTodo");
+      }
+
+      await app.dispatchAsync(
+        app.createIntent(app.MEL.actions.addTodo, title),
+      );
+
+      return {
+        status: "dispatched" as const,
+        context: readAgentContext(),
+      };
+    },
+  }),
+
+  clearCompleted: tool({
+    description: "Clear completed todos when the action is available.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      if (!isAvailable("clearCompleted")) {
+        return unavailable("clearCompleted");
+      }
+
+      await app.dispatchAsync(
+        app.createIntent(app.MEL.actions.clearCompleted),
+      );
+
+      return {
+        status: "dispatched" as const,
+        context: readAgentContext(),
+      };
+    },
+  }),
+};
+```
+
+Keep tool results fresh. A multi-step agent should receive updated `availableActions` after every tool call: read context, write, read the context returned by that write, decide the next tool.
+
+Do not cache `getAvailableActions()` for a whole agent turn. It is a read against the current Snapshot; every dispatch or approved proposal can change it.
+The runtime still checks again during dispatch, so a stale agent step cannot force an unavailable action through.
+
+---
+
+## 3. Run A Multi-Step AI SDK Turn
+
+Pass the current context to the model. Pass stable tools that re-check runtime availability during `execute`.
+
+```typescript
+import { openai } from "@ai-sdk/openai";
+import { generateText, stepCountIs } from "ai";
+
+import { readAgentContext } from "./agent-context";
+import { todoTools } from "./todo-agent-tools";
+
+export async function runTodoAgent(prompt: string) {
+  const context = readAgentContext();
+
+  return generateText({
+    model: openai("gpt-5.2"),
+    system:
+      "You are a Todo agent. Use the provided context and tools. " +
+      "Tool results include fresh Manifesto context. " +
+      "Check availableActions after each write. " +
+      "Do not claim a write happened unless a tool returns status='dispatched'.",
+    prompt: JSON.stringify({
+      userRequest: prompt,
+      manifestoContext: context,
+    }, null, 2),
+    tools: todoTools,
+    stopWhen: stepCountIs(4),
+  });
+}
+```
+
+The same pattern fits a backend route, worker, CLI, MCP server, or another agent framework. Keep the binding small: model loop outside, domain transition inside Manifesto.
+
+---
+
+## 4. Add HITL With Governance
+
+When the agent's writes need review, swap the activated runtime. The MEL domain and typed action refs stay the same.
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
+import {
+  createInMemoryGovernanceStore,
+  withGovernance,
+} from "@manifesto-ai/governance";
 
-const agentRuntime = withGovernance(
-  withLineage(createManifesto(todoSchema, effects), {
+export const app = withGovernance(
+  withLineage(createManifesto(todoSchema, {}), {
     store: createInMemoryLineageStore(),
   }),
   {
     governanceStore: createInMemoryGovernanceStore(),
     bindings: [
       {
-        actorId: "actor:agent",
-        authorityId: "authority:auto",
-        policy: { mode: "auto_approve" },
+        actorId: "actor:todo-agent",
+        authorityId: "authority:human-reviewer",
+        policy: {
+          mode: "hitl",
+          delegate: {
+            actorId: "actor:reviewer",
+            kind: "human",
+            name: "Reviewer",
+          },
+        },
       },
     ],
     execution: {
       projectionId: "todo-agent",
-      deriveActor: () => ({ actorId: "actor:agent", kind: "agent" }),
-      deriveSource: () => ({ kind: "agent", eventId: crypto.randomUUID() }),
+      deriveActor: () => ({ actorId: "actor:todo-agent", kind: "agent" }),
+      deriveSource: (intent) => ({ kind: "agent", eventId: intent.intentId }),
     },
   },
 ).activate();
-
-const proposal = await agentRuntime.proposeAsync(
-  agentRuntime.createIntent(
-    agentRuntime.MEL.actions.addTodo,
-    "Agent-authored task",
-  ),
-);
 ```
 
-From there, the agent can submit the proposal for approval, wait for authority resolution, and let the advanced runtime seal the result.
-
----
-
-## When To Propose Versus Route Directly
-
-| Use Direct Dispatch When | Use Governance When |
-|--------------------------|---------------------|
-| The action is routine and local | The action needs approval or review |
-| The agent is acting inside a trusted session | The agent may affect other users or branches |
-| The result can be observed from Snapshot only | You need proposal history or legitimacy records |
-| Latency matters more than audit structure | Auditability matters more than the shortest path |
-
-If the agent is deciding between candidate writes but does not need a formal review, direct dispatch is usually enough.
-
----
-
-## 3. Keep The Translator Boundary Clean
-
-If you use a translator or planner, treat its output as an intent candidate, not as a state mutation.
+Now writer tools propose instead of dispatching.
 
 ```typescript
-type AgentCommand =
-  | { kind: "addTodo"; title: string }
-  | { kind: "toggleTodo"; id: string };
+const addTodoForReview = tool({
+  description: "Propose a todo. A human reviewer must approve before it changes state.",
+  inputSchema: z.object({ title: z.string().min(1) }),
+  execute: async ({ title }) => {
+    const proposal = await app.proposeAsync(
+      app.createIntent(app.MEL.actions.addTodo, title),
+    );
 
-async function runAgentTurn(command: AgentCommand) {
-  switch (command.kind) {
-    case "addTodo":
-      return instance.dispatchAsync(
-        instance.createIntent(instance.MEL.actions.addTodo, command.title),
-      );
-    case "toggleTodo":
-      return instance.dispatchAsync(
-        instance.createIntent(instance.MEL.actions.toggleTodo, command.id),
-      );
-  }
+    if (proposal.status === "evaluating") {
+      return {
+        status: "needs_review" as const,
+        proposalId: proposal.proposalId,
+        context: readAgentContext(),
+      };
+    }
+
+    return {
+      status: proposal.status,
+      proposalId: proposal.proposalId,
+      context: readAgentContext(),
+    };
+  },
+});
+```
+
+With `mode: "hitl"`, the proposal remains `evaluating` and the visible Snapshot does not change until a reviewer approves it.
+
+```typescript
+export async function approveAgentProposal(proposalId: string) {
+  const proposal = await app.approve(proposalId);
+
+  return {
+    proposal,
+    context: readAgentContext(),
+  };
 }
 ```
 
-The agent or planner can still choose the next command. The app-owned translator layer is responsible for mapping that command into the runtime's typed action refs instead of letting the agent mutate state directly or rely on raw string names as the app-facing contract.
+That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools use `proposeAsync()` and a reviewer calls `approve()`.
 
 ---
 
-## 4. Keep Approval Logic Out Of The Prompt Alone
+## What Manifesto Adds To Agents
 
-If the action requires explicit approval, do not bury the policy inside prompt text only. Route it through governance so the review, decision, and seal are visible in the runtime model.
-
-That is the right place for:
-
-- actor identity
-- proposal review
-- branch-aware decisions
-- audit history
+- **Live capability discovery:** `getAvailableActions()` tells the agent which domain actions are legal against the current Snapshot.
+- **Runtime-owned writes:** tools translate model requests into `createIntent(app.MEL.actions.*)`; the model never mutates state directly.
+- **Snapshot feedback:** tool results return selected `snapshot.data`, `snapshot.computed`, and updated availability.
+- **Simple HITL escalation:** `withGovernance()` turns a write tool into a proposal tool without rewriting the MEL domain.
 
 ---
 
 ## Common Mistakes
 
-### Letting the agent bypass the runtime
+### Describing actions only in the system prompt
 
-If the agent edits storage or UI state directly, humans and automation stop sharing one truth.
+Use `getAvailableActions()` and `getActionMetadata()` as the source for agent-facing capabilities. Prompt text can explain behavior, but the runtime owns action availability.
 
-### Hiding approval logic in the agent layer
+### Letting the agent edit state directly
 
-If you need explicit approval, model it in governance or application policy, not in ad-hoc prompt logic alone.
+Do not let the agent write storage rows, React state, Redux slices, or serialized snapshots as its domain command. Call a tool that dispatches or proposes an Intent.
 
-### Forgetting to persist the resulting snapshot
+### Hiding approval logic in prompt text
 
-The agent should reason from Snapshot, not from a private memory of what it thinks happened.
+If a write requires review, use Governance or application policy. A prompt instruction like "ask me first" is not an auditable decision record.
+
+### Returning effect results as the action outcome
+
+Effects report back through patches. Actions and tools should read the resulting Snapshot view.
 
 ---
 
 ## Next
 
-- Install [`@manifesto-ai/skills`](/api/skills) if you want Codex or another AI tool to load Manifesto-specific guidance
-- Use [`@manifesto-ai/studio-mcp`](/api/studio-mcp) when the agent should inspect graph, findings, or runtime overlays through MCP
-- Read [React](./react) to connect the same instance to a UI
-- Read [When You Need Approval or History](/guides/approval-and-history) when the agent may need review, approval, or sealed history
-- Read [Governance API](/api/governance) when the agent should work through proposals and sealing
-- Read [Architecture](/architecture/) when you want the bigger system model
+- Build the domain first in [Building a Todo App](/guide/essentials/todo-app)
+- Connect the same runtime to a UI with [React](./react)
+- Learn action inspection in [SDK API](/api/sdk)
+- Read [When You Need Approval or History](/guides/approval-and-history) before adding sealed history to the product
+- Use [`@manifesto-ai/studio-mcp`](/api/studio-mcp) when an agent should inspect graph, findings, trace, lineage, or governance over MCP
