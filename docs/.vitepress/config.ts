@@ -138,17 +138,30 @@ export default defineConfig({
 
       '/api/': [
         {
-          text: 'Build An App',
+          text: 'API Reference',
           items: [
             { text: 'Overview', link: '/api/' },
-            { text: '@manifesto-ai/sdk', link: '/api/sdk' },
+            { text: 'Application', link: '/api/application' },
+            { text: 'Runtime Instance', link: '/api/runtime' },
+            { text: 'Actions and Availability', link: '/api/actions-and-availability' },
+            { text: 'Intents', link: '/api/intents' },
+            { text: 'Snapshots and Subscriptions', link: '/api/snapshots-and-subscriptions' },
+            { text: 'Effects', link: '/api/effects' },
+            { text: 'Governed Runtime', link: '/api/governed-runtime' },
+            { text: 'Bundler Adapters', link: '/api/bundler-adapters' },
+            { text: 'Public Surface Inventory', link: '/api/public-surface' },
           ]
         },
         {
-          text: 'Approval And History',
+          text: 'Package Overviews',
           items: [
-            { text: '@manifesto-ai/governance', link: '/api/governance' },
+            { text: '@manifesto-ai/sdk', link: '/api/sdk' },
             { text: '@manifesto-ai/lineage', link: '/api/lineage' },
+            { text: '@manifesto-ai/governance', link: '/api/governance' },
+            { text: '@manifesto-ai/compiler', link: '/api/compiler' },
+            { text: '@manifesto-ai/codegen', link: '/api/codegen' },
+            { text: '@manifesto-ai/core', link: '/api/core' },
+            { text: '@manifesto-ai/host', link: '/api/host' },
           ]
         },
         {
@@ -162,15 +175,6 @@ export default defineConfig({
             { text: '@manifesto-ai/studio-mcp', link: '/api/studio-mcp' },
           ]
         },
-        {
-          text: 'Runtime Internals',
-          items: [
-            { text: '@manifesto-ai/core', link: '/api/core' },
-            { text: '@manifesto-ai/host', link: '/api/host' },
-            { text: '@manifesto-ai/compiler', link: '/api/compiler' },
-            { text: '@manifesto-ai/codegen', link: '/api/codegen' },
-          ]
-        }
       ],
 
       '/internals/': [
