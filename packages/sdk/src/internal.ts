@@ -35,6 +35,7 @@ import type {
   CanonicalSnapshot,
   ComposableManifesto,
   DispatchBlocker,
+  IntentExplanation,
   ManifestoBaseInstance,
   ManifestoDomainShape,
   ManifestoEvent,
@@ -787,6 +788,112 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     createIntent(action, ...args),
   )) as TypedGetIntentBlockers<T>;
 
+  type IntentLegalityEvaluation =
+    | {
+      readonly kind: "unavailable";
+      readonly intent: TypedIntent<T>;
+      readonly actionName: keyof T["actions"] & string;
+    }
+    | {
+      readonly kind: "invalid-input";
+      readonly intent: TypedIntent<T>;
+      readonly actionName: keyof T["actions"] & string;
+      readonly error: ManifestoError;
+    }
+    | {
+      readonly kind: "not-dispatchable";
+      readonly intent: TypedIntent<T>;
+      readonly actionName: keyof T["actions"] & string;
+      readonly blockers: readonly DispatchBlocker[];
+    }
+    | {
+      readonly kind: "admitted";
+      readonly intent: TypedIntent<T>;
+      readonly actionName: keyof T["actions"] & string;
+    };
+
+  function evaluateIntentLegalityFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): IntentLegalityEvaluation {
+    const enrichedIntent = ensureIntentId(intent);
+    const actionName = enrichedIntent.type as keyof T["actions"] & string;
+
+    if (!isActionAvailableFor(snapshot, actionName)) {
+      return { kind: "unavailable", intent: enrichedIntent, actionName };
+    }
+
+    const invalidInput = validateIntentInputFor(snapshot, enrichedIntent);
+    if (invalidInput) {
+      return {
+        kind: "invalid-input",
+        intent: enrichedIntent,
+        actionName,
+        error: invalidInput,
+      };
+    }
+
+    const blockers = getIntentBlockersFor(snapshot, enrichedIntent);
+    if (blockers.length > 0) {
+      return {
+        kind: "not-dispatchable",
+        intent: enrichedIntent,
+        actionName,
+        blockers,
+      };
+    }
+
+    return { kind: "admitted", intent: enrichedIntent, actionName };
+  }
+
+  function explainIntentFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): IntentExplanation<T> {
+    const legality = evaluateIntentLegalityFor(snapshot, intent);
+
+    if (legality.kind === "unavailable") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        available: false,
+        dispatchable: false,
+        blockers: getIntentBlockersFor(snapshot, legality.intent),
+      }) as IntentExplanation<T>;
+    }
+
+    if (legality.kind === "invalid-input") {
+      throw legality.error;
+    }
+
+    if (legality.kind === "not-dispatchable") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        available: true,
+        dispatchable: false,
+        blockers: legality.blockers,
+      }) as IntentExplanation<T>;
+    }
+
+    const simulated = simulateSync(snapshot, legality.intent);
+    const projectedBefore = projectSnapshotFromCanonical(snapshot as CoreSnapshot);
+    const projectedAfter = projectSnapshotFromCanonical(simulated.snapshot);
+
+    return Object.freeze({
+      kind: "admitted",
+      actionName: legality.actionName,
+      available: true,
+      dispatchable: true,
+      status: simulated.status,
+      requirements: simulated.requirements,
+      canonicalSnapshot: simulated.snapshot,
+      snapshot: projectedAfter,
+      newAvailableActions: getAvailableActionsFor(simulated.snapshot),
+      changedPaths: diffProjectedPaths(projectedBefore, projectedAfter),
+    }) as IntentExplanation<T>;
+  }
+
   function getSchemaGraph(): SchemaGraph {
     return schemaGraph;
   }
@@ -839,17 +946,17 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ): SimulateResult<T> {
-    const enrichedIntent = ensureIntentId(intent);
-    if (!isActionAvailableFor(snapshot, enrichedIntent.type as keyof T["actions"])) {
-      throw createSimulationUnavailableError(enrichedIntent);
+    const legality = evaluateIntentLegalityFor(snapshot, intent);
+    if (legality.kind === "unavailable") {
+      throw createSimulationUnavailableError(legality.intent);
     }
-    const invalidInput = validateIntentInputFor(snapshot, enrichedIntent);
-    if (invalidInput) {
-      throw invalidInput;
+    if (legality.kind === "invalid-input") {
+      throw legality.error;
     }
-    if (!isIntentDispatchableFor(snapshot, enrichedIntent)) {
-      throw createSimulationNotDispatchableError(enrichedIntent);
+    if (legality.kind === "not-dispatchable") {
+      throw createSimulationNotDispatchableError(legality.intent);
     }
+    const enrichedIntent = legality.intent;
 
     const context = hostContextProvider.createFrozenContext(enrichedIntent.intentId);
     const baseline = withHostIntentSlot(
@@ -1074,6 +1181,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     getAvailableActionsFor,
     isActionAvailableFor,
     isIntentDispatchableFor,
+    explainIntentFor,
   }) as ExtensionKernel<T>;
 
   return {
@@ -1118,6 +1226,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
 export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   kernel: RuntimeKernel<T>,
 ): ManifestoBaseInstance<T> {
+  const extensionKernel = kernel[EXTENSION_KERNEL];
+
   async function processIntent(intent: TypedIntent<T>): Promise<Snapshot<T["state"]>> {
     if (kernel.isDisposed()) {
       throw new DisposedError();
@@ -1177,6 +1287,19 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     return kernel.enqueue(() => processIntent(enrichedIntent));
   }
 
+  function explainIntent(intent: TypedIntent<T>): IntentExplanation<T> {
+    return extensionKernel.explainIntentFor(kernel.getCanonicalSnapshot(), intent);
+  }
+
+  function why(intent: TypedIntent<T>): IntentExplanation<T> {
+    return explainIntent(intent);
+  }
+
+  function whyNot(intent: TypedIntent<T>): readonly DispatchBlocker[] | null {
+    const explanation = explainIntent(intent);
+    return explanation.kind === "blocked" ? explanation.blockers : null;
+  }
+
   return attachExtensionKernel({
     createIntent: kernel.createIntent,
     dispatchAsync,
@@ -1187,6 +1310,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     getAvailableActions: kernel.getAvailableActions,
     isIntentDispatchable: kernel.isIntentDispatchable,
     getIntentBlockers: kernel.getIntentBlockers,
+    explainIntent,
+    why,
+    whyNot,
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
     getSchemaGraph: kernel.getSchemaGraph,

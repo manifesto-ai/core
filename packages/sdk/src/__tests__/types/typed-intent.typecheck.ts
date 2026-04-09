@@ -1,12 +1,15 @@
 import type { Intent } from "@manifesto-ai/core";
 
-import type { DispatchBlocker } from "../../index.ts";
+import type { DispatchBlocker, IntentExplanation } from "../../index.ts";
 import { createManifesto } from "../../index.ts";
 import { createForeignSchema, type ForeignDomain } from "../helpers/foreign-schema.ts";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
 const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 const typedIntent = world.createIntent(world.MEL.actions.increment);
+const explanation: IntentExplanation<CounterDomain> = world.explainIntent(typedIntent);
+const sameExplanation: IntentExplanation<CounterDomain> = world.why(typedIntent);
+const blockersOrNull: readonly DispatchBlocker[] | null = world.whyNot(typedIntent);
 void world.createIntent(world.MEL.actions.add, { amount: 3 });
 
 void world.dispatchAsync(typedIntent);
@@ -89,6 +92,9 @@ void addTodoHasDispatchableGate;
 void addTodoDispatchable;
 void addTodoBlockers;
 void actionMetadataList;
+void explanation;
+void sameExplanation;
+void blockersOrNull;
 
 // @ts-expect-error getActionMetadata only accepts domain action names
 void todo.getActionMetadata("missing");

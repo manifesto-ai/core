@@ -5,6 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "@manifesto-ai/sdk": ["../../packages/sdk/dist/index.d.ts"],
+      "@manifesto-ai/sdk/extensions": ["../../packages/sdk/dist/extensions.d.ts"],
       "@manifesto-ai/sdk/provider": ["../../packages/sdk/dist/provider.d.ts"],
       "@manifesto-ai/lineage": ["../../packages/lineage/dist/index.d.ts"],
       "@manifesto-ai/lineage/provider": ["../../packages/lineage/dist/provider.d.ts"],

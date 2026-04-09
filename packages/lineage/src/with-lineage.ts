@@ -6,6 +6,7 @@ import type {
 import {
   ManifestoError,
 } from "@manifesto-ai/sdk";
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 import {
   activateComposable,
   assertComposableNotActivated,
@@ -108,6 +109,7 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
   config: ResolvedLineageConfig,
 ): LineageInstance<T> {
   const controller = createLineageRuntimeController(kernel, service, config);
+  let runtime!: LineageInstance<T>;
 
   async function commitAsync(intent: Parameters<LineageInstance<T>["commitAsync"]>[0]) {
     const sealed = await controller
@@ -142,7 +144,29 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     throw failure;
   }
 
-  return attachExtensionKernel({
+  function explainIntent(
+    intent: Parameters<LineageInstance<T>["explainIntent"]>[0],
+  ): ReturnType<LineageInstance<T>["explainIntent"]> {
+    return getExtensionKernel<T, LineageComposableLaws>(runtime).explainIntentFor(
+      kernel.getCanonicalSnapshot(),
+      intent,
+    );
+  }
+
+  function why(
+    intent: Parameters<LineageInstance<T>["why"]>[0],
+  ): ReturnType<LineageInstance<T>["why"]> {
+    return explainIntent(intent);
+  }
+
+  function whyNot(
+    intent: Parameters<LineageInstance<T>["whyNot"]>[0],
+  ): ReturnType<LineageInstance<T>["whyNot"]> {
+    const explanation = explainIntent(intent);
+    return explanation.kind === "blocked" ? explanation.blockers : null;
+  }
+
+  runtime = attachExtensionKernel({
     createIntent: kernel.createIntent,
     commitAsync,
     subscribe: kernel.subscribe,
@@ -156,6 +180,9 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
     simulate: kernel.simulate,
+    explainIntent,
+    why,
+    whyNot,
     MEL: kernel.MEL,
     schema: kernel.schema,
     dispose: kernel.dispose,
@@ -170,6 +197,8 @@ function activateLineageRuntime<T extends ManifestoDomainShape>(
     switchActiveBranch: controller.switchActiveBranch,
     createBranch: controller.createBranch,
   }, kernel);
+
+  return runtime;
 }
 
 function toCommitFailure(error: unknown): Error {

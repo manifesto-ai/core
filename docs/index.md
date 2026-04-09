@@ -7,13 +7,10 @@ hero:
   tagline: Define meaning once, then ship runtime, editor, agent, and inspection surfaces from the same MEL schema.
   actions:
     - theme: brand
-      text: Start Here
-      link: /start-here
-    - theme: alt
-      text: Quickstart
+      text: Start Building
       link: /quickstart
     - theme: alt
-      text: Developer Tooling
+      text: Tooling Setup
       link: /guides/developer-tooling
 
 features:
@@ -22,7 +19,7 @@ features:
     details: Same input -> same output. Always.
   - icon: 🧭
     title: Expandable
-    details: Start small, then add approval and sealed history only when the project actually needs them.
+    details: Start with the base runtime, then add approval and sealed history only when you need them.
   - icon: 📐
     title: Schema-First
     details: MEL and DomainSchema stay at the center of every surface.
@@ -34,41 +31,24 @@ features:
     details: Pure computation stays separate from IO.
 ---
 
-## Pick One Route
+## Build Your First App
 
-Do not start by browsing every section.
+Most teams should start with the base runtime and stay there until review or history becomes a real requirement.
 
-| If You Want | Read This First | Then Go Here |
-|-------------|-----------------|--------------|
-| Ship the first working app | [Start Here](/start-here) | [Quickstart](/quickstart) -> [Tutorial](/tutorial/) |
-| Set up CLI, editor, agent, or Studio workflows | [Developer Tooling](/guides/developer-tooling) | [API Reference](/api/) |
-| Add review, approval, or audit history | [When You Need Approval or History](/guides/approval-and-history) | [Tutorial](/tutorial/) |
-| Look up a package surface you already know you need | [API Reference](/api/) | package page |
+1. Read [Quickstart](/quickstart) to get one app running.
+2. Continue to the [Tutorial](/tutorial/) to learn the base runtime properly.
+3. Use [Guides](/guides/) only when you hit a concrete problem.
 
-If you are new, leave [Architecture](/architecture/) and [Internals](/internals/) for later.
+Start with `@manifesto-ai/sdk` and `@manifesto-ai/compiler`. Add Lineage or Governance only later.
 
-## Start With The Base Runtime
+## Add Only What You Need Later
 
-Manifesto's default path is the base runtime. Most teams should start there and stay there until the project needs review flows or sealed history.
-
-| Path | Package | When to use |
-|------|---------|-------------|
-| **Base runtime** | `@manifesto-ai/sdk` | You want the shortest path to a working app |
-| **Advanced runtime** | `@manifesto-ai/lineage` + `@manifesto-ai/governance` | You need approval, audit history, branch continuity, or sealing |
-
-When that later-stage need shows up, use [When You Need Approval or History](/guides/approval-and-history) first instead of jumping straight into the package APIs.
-
-## Developer Surfaces
-
-Manifesto's current public surface is not just the runtime packages.
-
-| Need | Package | What You Get |
-|------|---------|--------------|
-| **Bootstrap or retrofit a repo** | [`@manifesto-ai/cli`](/api/cli) | `init`, `integrate`, `setup`, `doctor`, `scaffold` |
-| **Author MEL with editor support** | [`@manifesto-ai/mel-lsp`](/api/mel-lsp) | diagnostics, completion, hover, rename, schema introspection |
-| **Load Manifesto guidance into AI tools** | [`@manifesto-ai/skills`](/api/skills) | explicit Codex, Claude Code, Cursor, Copilot, and Windsurf installers |
-| **Inspect a domain from the terminal** | [`@manifesto-ai/studio-cli`](/api/studio-cli) | findings, graph, snapshot, trace, lineage, governance, transition graphs |
-| **Build analysis tooling or agent endpoints** | [`@manifesto-ai/studio-core`](/api/studio-core) + [`@manifesto-ai/studio-mcp`](/api/studio-mcp) | projection-first analysis APIs and MCP transport |
+| Need | Go Here | Why |
+|------|---------|-----|
+| Set up CLI, editor, AI, or Studio workflows | [Developer Tooling](/guides/developer-tooling) | Add surrounding DX without changing the runtime path |
+| Add approval, review, or sealed history | [When You Need Approval or History](/guides/approval-and-history) | Escalate from direct dispatch only when the project needs it |
+| Look up a package you already know | [API Reference](/api/) | Use package docs as lookup, not onboarding |
+| Understand the model more deeply | [Concepts](/concepts/), [Architecture](/architecture/), [Internals](/internals/) | Deep-dive material after the app path feels normal |
 
 ## Quick Example
 
@@ -90,38 +70,8 @@ await app.dispatchAsync(app.createIntent(app.MEL.actions.increment));
 console.log(app.getSnapshot().data.count); // 1
 ```
 
-## Start Here
+## Keep These Defaults
 
-| Step | Link | Time |
-|------|------|------|
-| **Choose a reading path** | [Start Here](/start-here) | 3 min |
-| **Install and run** | [Quickstart](/quickstart) | 5 min |
-| **Set up DX surfaces** | [Developer Tooling](/guides/developer-tooling) | 10 min |
-| **Escalate to approval or history later** | [When You Need Approval or History](/guides/approval-and-history) | 10 min |
-| **Use reference pages only when needed** | [API Reference](/api/) | Browse |
-
-## Installation
-
-```bash
-npm install @manifesto-ai/sdk @manifesto-ai/compiler
-```
-
-Add `@manifesto-ai/lineage` and `@manifesto-ai/governance` only later, when the project needs approval, audit history, or sealed continuity on top of the same base runtime.
-
-Optional DX packages live on top of that runtime surface:
-
-| Need | Package |
-|------|---------|
-| Bootstrap/configuration | `@manifesto-ai/cli` |
-| Editor and schema introspection | `@manifesto-ai/mel-lsp` |
-| AI coding tool guidance | `@manifesto-ai/skills` |
-| Terminal inspection | `@manifesto-ai/studio-cli` |
-| Programmatic and MCP inspection | `@manifesto-ai/studio-core`, `@manifesto-ai/studio-mcp` |
-
-## Go Deeper
-
-- [Architecture](/architecture/) - system design and boundaries
-- [Guides](/guides/) - practical workflows
-- [Developer Tooling](/guides/developer-tooling) - CLI, editor, Studio, and agent setup
-- [API Reference](/api/) - package-level API docs
-- [Internals](/internals/) - ADRs, SPECs, FDRs
+- Build the first app before reading package reference pages front-to-back.
+- Treat direct dispatch and projected `getSnapshot()` reads as the default mental model.
+- Add tooling, approval/history, and deep-dive docs only when the app path already feels concrete.

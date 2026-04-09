@@ -24,11 +24,13 @@ Manifesto's current DX stack is intentionally split into a small set of packages
 ### Bootstrap a New App
 
 ```bash
-manifesto init --runtime gov --integration vite --codegen wire --skills codex
+manifesto init --runtime base --integration vite --codegen wire --skills codex
 manifesto doctor
 ```
 
 That flow installs the runtime packages, patches the selected integration surface, writes `manifesto.config.*`, and validates that declared intent still matches the repo.
+
+Switch `--runtime` to `lineage` or `gov` only when the project already needs approval, continuity, or sealed history.
 
 ### Give an AI Tool Current Manifesto Context
 

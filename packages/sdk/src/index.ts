@@ -33,6 +33,7 @@ export type {
   FieldRef,
   GovernedComposableLaws,
   GovernanceLaws,
+  IntentExplanation,
   LineageComposableLaws,
   LineageLaws,
   ManifestoBaseInstance,

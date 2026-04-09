@@ -11,7 +11,7 @@ Use SDK when you want:
 - the shortest path to a running base runtime
 - a clear activation boundary before runtime execution
 - typed intent creation through `MEL.actions.*`
-- subscriptions, availability queries, dispatchability queries, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
+- subscriptions, availability queries, dispatchability queries, intent explanation reads, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
 The current documented SDK contract is:
 
@@ -39,6 +39,9 @@ The current first-party hypothetical-session helper is:
   - `getAvailableActions`
   - `isIntentDispatchable`
   - `getIntentBlockers`
+  - `explainIntent`
+  - `why`
+  - `whyNot`
   - `getActionMetadata`
   - `isActionAvailable`
   - `getSchemaGraph`
@@ -59,6 +62,9 @@ const manifesto = createManifesto<CounterDomain>(domainSchema, {});
 const instance = manifesto.activate();
 
 const intent = instance.createIntent(instance.MEL.actions.increment);
+instance.explainIntent(intent);
+instance.why(intent);
+instance.whyNot(intent);
 await instance.dispatchAsync(intent);
 
 instance.isActionAvailable("increment");
@@ -121,15 +127,62 @@ The accessor exposes:
 - `hasDispatchableGate`
 - optional description
 
-`getAvailableActions()` remains the coarse legality query. `isIntentDispatchable()` and `getIntentBlockers()` are the fine bound-intent legality surface. `getActionMetadata()` is a read-only contract inspection surface.
+`getAvailableActions()` remains the coarse legality query. `isIntentDispatchable()`, `getIntentBlockers()`, and the intent explanation reads are the fine bound-intent legality surface. `getActionMetadata()` is a read-only contract inspection surface.
+
+## Intent Explanation
+
+Use the current-snapshot runtime reads when you want one structured answer to:
+
+- is the action available right now?
+- if available, is this bound intent dispatchable?
+- if admitted, what would the dry-run result look like?
+
+```typescript
+const intent = instance.createIntent(instance.MEL.actions.increment);
+
+const explanation = instance.explainIntent(intent);
+const same = instance.why(intent);
+const blockers = instance.whyNot(intent);
+```
+
+- `explainIntent()` returns a structured `IntentExplanation` for the bound intent against the current visible canonical snapshot.
+- `why()` is a convenience alias of `explainIntent()`.
+- `whyNot()` returns blockers for the first failing layer, or `null` if the intent is admitted.
+
+Explanation reads preserve SDK input validation ordering. If the action is available but the supplied intent input is invalid, `explainIntent()`, `why()`, and `whyNot()` throw `INVALID_INPUT` before dispatchability or blocker projection.
+If the action is unavailable, these reads return the unavailable blocked result and do not surface invalid-input failures hidden behind that unavailable action.
+They remain available after `dispose()` as read-only inspection over the last visible canonical snapshot.
+
+Blocked and admitted branches are explicit:
+
+```typescript
+if (explanation.kind === "blocked" && !explanation.available) {
+  console.log("Unavailable blockers", explanation.blockers);
+}
+
+if (explanation.kind === "blocked" && explanation.available) {
+  console.log("Dispatchability blockers", explanation.blockers);
+}
+
+if (explanation.kind === "admitted") {
+  console.log(explanation.snapshot);
+  console.log(explanation.canonicalSnapshot);
+  console.log(explanation.newAvailableActions);
+  console.log(explanation.changedPaths);
+}
+```
+
+Treat `snapshot`, `newAvailableActions`, `changedPaths`, and `status` as the stable comparison surface for repeated explanation reads. `canonicalSnapshot` is a canonical inspection view and may carry host-managed logical metadata such as `timestamp`.
 
 ## Static Graph And Dry-Run Introspection
 
 Use `getSchemaGraph()` when you need the projected static dependency graph for the activated schema. Ref-based lookup through `instance.MEL.*` is the canonical surface; kind-prefixed ids such as `state:count` are debug-only convenience.
 
-Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
+Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but invalid-input intents reject with `INVALID_INPUT`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
 
-Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INTENT_NOT_DISPATCHABLE` means the action stayed available, but the bound intent failed the fine gate.
+If the action is available but the bound intent input is invalid, `simulate()` rejects with `INVALID_INPUT` before dispatchability.
+
+Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
 
 ## Decorator/provider authoring seam
 
@@ -158,6 +211,7 @@ import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 const ext = getExtensionKernel(instance);
 const root = ext.getCanonicalSnapshot();
 const intent = ext.createIntent(ext.MEL.actions.increment);
+const explanation = ext.explainIntentFor(root, intent);
 const simulated = ext.simulateSync(root, intent);
 const projected = ext.projectSnapshot(simulated.snapshot);
 ```
@@ -168,6 +222,7 @@ The core analytical helpers on this seam are:
 - `getAvailableActionsFor()`
 - `isActionAvailableFor()`
 - `isIntentDispatchableFor()`
+- `explainIntentFor()`
 - `simulateSync()`
 
 Branching hypothetical futures stays on the same seam:
@@ -197,7 +252,36 @@ const projectedB = ext.projectSnapshot(branchB.snapshot);
 
 This is the intended substrate for manual simulation helpers. The SDK no longer relies on a dedicated planner/simulator package for post-activation hypothetical tooling.
 
-The extension seam does not expose blocker explanations. For arbitrary snapshots, compose `isIntentDispatchableFor()` with your own tooling logic. For the current visible snapshot, stay on the activated base runtime and use `getIntentBlockers()`.
+Use `explainIntentFor()` when you want the extension seam to compose availability, input validation, dispatchability, first-failing-layer blocker construction, and dry-run simulation for a caller-supplied canonical snapshot. `simulateSync()` remains the lower-level minimal dry-run primitive.
+
+`explainIntentFor()` preserves the same legality ordering as the public runtime:
+
+1. availability
+2. input validation
+3. dispatchability
+4. dry-run simulation if admitted
+
+Blocked results expose blockers for the first failing layer only. Admitted results expose the simulated canonical snapshot, the projected public snapshot, and the dry-run summary fields.
+
+If the action is available but the supplied intent input is invalid, `explainIntentFor()` throws `INVALID_INPUT` before dispatchability, blocker projection, or simulation.
+If the action is unavailable, `explainIntentFor()` returns the unavailable blocked result and does not surface invalid-input failures hidden behind that unavailable action.
+Like the rest of the analytical extension seam, it remains callable after `dispose()` and keeps reading from the last visible canonical snapshot.
+
+Branching from an admitted explanation stays on the same seam:
+
+```typescript
+const step1 = ext.explainIntentFor(
+  root,
+  ext.createIntent(ext.MEL.actions.increment),
+);
+
+if (step1.kind === "admitted") {
+  const step2 = ext.explainIntentFor(
+    step1.canonicalSnapshot,
+    ext.createIntent(ext.MEL.actions.add, 5),
+  );
+}
+```
 
 When you want a branchable helper rather than raw substrate access, use the built-in session API:
 

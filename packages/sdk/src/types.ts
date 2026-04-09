@@ -150,6 +150,36 @@ export type SimulateResult<
   readonly status: ComputeStatus;
 };
 
+export type IntentExplanation<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "blocked";
+      readonly actionName: keyof T["actions"] & string;
+      readonly available: false;
+      readonly dispatchable: false;
+      readonly blockers: readonly DispatchBlocker[];
+    }
+  | {
+      readonly kind: "blocked";
+      readonly actionName: keyof T["actions"] & string;
+      readonly available: true;
+      readonly dispatchable: false;
+      readonly blockers: readonly DispatchBlocker[];
+    }
+  | {
+      readonly kind: "admitted";
+      readonly actionName: keyof T["actions"] & string;
+      readonly available: true;
+      readonly dispatchable: true;
+      readonly status: ComputeStatus;
+      readonly requirements: readonly Requirement[];
+      readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly snapshot: Snapshot<T["state"]>;
+      readonly newAvailableActions: readonly (keyof T["actions"])[];
+      readonly changedPaths: readonly string[];
+    };
+
 export type TypedSimulate<T extends ManifestoDomainShape> = <
   K extends keyof T["actions"],
 >(
@@ -244,6 +274,9 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
   readonly getIntentBlockers: TypedGetIntentBlockers<T>;
+  readonly explainIntent: (intent: TypedIntent<T>) => IntentExplanation<T>;
+  readonly why: (intent: TypedIntent<T>) => IntentExplanation<T>;
+  readonly whyNot: (intent: TypedIntent<T>) => readonly DispatchBlocker[] | null;
   readonly getActionMetadata: TypedGetActionMetadata<T>;
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly getSchemaGraph: () => SchemaGraph;

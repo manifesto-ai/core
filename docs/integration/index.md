@@ -17,8 +17,8 @@ Both operate on the same semantic core. The difference is how much legitimacy, l
 
 ## When To Choose Which Path
 
-| Need | Start Here |
-|------|------------|
+| Need | Go Here |
+|------|---------|
 | Fast app wiring, rendering, and telemetry | [React](./react) |
 | Agent-driven transitions without approval gates | [AI Agents](./ai-agents) |
 | Editor, CLI, or agent-facing tooling around the same schema | [Developer Tooling](/guides/developer-tooling) |

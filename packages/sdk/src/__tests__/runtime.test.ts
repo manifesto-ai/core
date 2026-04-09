@@ -721,6 +721,164 @@ describe("activated base runtime", () => {
     world.dispose();
   });
 
+  it("explains current-snapshot intents through the base runtime", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const subscriber = vi.fn();
+    const completed = vi.fn();
+    const rejected = vi.fn();
+
+    world.subscribe((snapshot) => snapshot.data.count, subscriber);
+    world.on("dispatch:completed", completed);
+    world.on("dispatch:rejected", rejected);
+
+    const admittedIntent = world.createIntent(world.MEL.actions.incrementGuarded, 1);
+    const admitted = world.explainIntent(admittedIntent);
+
+    expect(admitted).toMatchObject({
+      kind: "admitted",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: true,
+      requirements: [],
+      status: "complete",
+    });
+    if (admitted.kind === "admitted") {
+      const simulated = world.simulate(world.MEL.actions.incrementGuarded, 1);
+      const ext = getExtensionKernel(world);
+      expect(admitted.snapshot).toEqual(simulated.snapshot);
+      expect(ext.projectSnapshot(admitted.canonicalSnapshot)).toEqual(simulated.snapshot);
+      expect(admitted.changedPaths).toEqual(simulated.changedPaths);
+      expect(admitted.newAvailableActions).toEqual(simulated.newAvailableActions);
+      expect(ext.getAvailableActionsFor(admitted.canonicalSnapshot)).toEqual(
+        simulated.newAvailableActions,
+      );
+      expect(admitted.requirements).toEqual(simulated.requirements);
+      expect(admitted.status).toBe(simulated.status);
+    }
+    const admittedAlias = world.why(admittedIntent);
+    expect(admittedAlias).toMatchObject({
+      kind: "admitted",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: true,
+      requirements: admitted.requirements,
+      status: admitted.status,
+    });
+    if (admitted.kind === "admitted" && admittedAlias.kind === "admitted") {
+      expect(admittedAlias.snapshot).toEqual(admitted.snapshot);
+      expect(admittedAlias.newAvailableActions).toEqual(admitted.newAvailableActions);
+      expect(admittedAlias.changedPaths).toEqual(admitted.changedPaths);
+    }
+    expect(world.whyNot(admittedIntent)).toBeNull();
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(completed).not.toHaveBeenCalled();
+    expect(rejected).not.toHaveBeenCalled();
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+
+    const notDispatchableIntent = world.createIntent(world.MEL.actions.incrementGuarded, 1);
+    const notDispatchable = world.explainIntent(notDispatchableIntent);
+    expect(notDispatchable).toEqual({
+      kind: "blocked",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: false,
+      blockers: world.getIntentBlockers(world.MEL.actions.incrementGuarded, 1),
+    });
+    expect(world.why(notDispatchableIntent)).toEqual(notDispatchable);
+    expect(world.whyNot(notDispatchableIntent)).toEqual(notDispatchable.blockers);
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.disable));
+
+    const unavailableIntent = world.createIntent(world.MEL.actions.incrementGuarded, 5);
+    const unavailable = world.explainIntent(unavailableIntent);
+    expect(unavailable).toEqual({
+      kind: "blocked",
+      actionName: "incrementGuarded",
+      available: false,
+      dispatchable: false,
+      blockers: world.getIntentBlockers(world.MEL.actions.incrementGuarded, 5),
+    });
+    expect(world.whyNot(unavailableIntent)).toEqual(unavailable.blockers);
+
+    world.dispose();
+  });
+
+  it("keeps base explanation reads available after runtime disposal", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+
+    const blockedIntent = world.createIntent(world.MEL.actions.incrementGuarded, 1);
+    const beforeDispose = world.explainIntent(blockedIntent);
+    expect(beforeDispose).toEqual({
+      kind: "blocked",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: false,
+      blockers: world.getIntentBlockers(world.MEL.actions.incrementGuarded, 1),
+    });
+    if (beforeDispose.kind !== "blocked") {
+      throw new Error("Expected a blocked explanation before disposal");
+    }
+
+    world.dispose();
+
+    expect(world.explainIntent(blockedIntent)).toEqual(beforeDispose);
+    expect(world.why(blockedIntent)).toEqual(beforeDispose);
+    expect(world.whyNot(blockedIntent)).toEqual(beforeDispose.blockers);
+  });
+
+  it("queries intent blockers against arbitrary canonical snapshots through the provider seam", () => {
+    const manifesto = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    );
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = kernel.getCanonicalSnapshot();
+
+    expect(
+      kernel.getIntentBlockersFor(
+        canonical,
+        kernel.createIntent(kernel.MEL.actions.incrementGuarded, 1),
+      ),
+    ).toEqual([]);
+
+    const incremented = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.increment),
+    );
+    expect(
+      kernel.getIntentBlockersFor(
+        incremented.snapshot,
+        kernel.createIntent(kernel.MEL.actions.incrementGuarded, 1),
+      ),
+    ).toEqual([
+      expect.objectContaining({ layer: "dispatchable", evaluatedResult: false }),
+    ]);
+
+    const disabled = kernel.simulateSync(
+      incremented.snapshot,
+      kernel.createIntent(kernel.MEL.actions.disable),
+    );
+    expect(
+      kernel.getIntentBlockersFor(
+        disabled.snapshot,
+        kernel.createIntent(kernel.MEL.actions.incrementGuarded, 1),
+      ),
+    ).toEqual([
+      expect.objectContaining({ layer: "available", evaluatedResult: false }),
+    ]);
+
+    kernel.dispose();
+  });
+
   it("rejects non-dispatchable dry-runs before compute begins", async () => {
     const world = createManifesto<DispatchabilityDomain>(
       createDispatchabilitySchema(),
@@ -760,6 +918,82 @@ describe("activated base runtime", () => {
       }),
     );
     expect(world.getSnapshot().data.count).toBe(0);
+
+    world.dispose();
+  });
+
+  it("rejects invalid input before dispatchability across explanation queries", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const ext = getExtensionKernel(world);
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+
+    const invalidIntent = {
+      ...world.createIntent(world.MEL.actions.incrementGuarded, 1),
+      input: { max: "not-a-number" },
+    } as Parameters<typeof world.explainIntent>[0];
+
+    expect(() => world.explainIntent(invalidIntent)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INPUT",
+      }),
+    );
+    expect(() => world.why(invalidIntent)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INPUT",
+      }),
+    );
+    expect(() => world.whyNot(invalidIntent)).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INPUT",
+      }),
+    );
+    expect(() => ext.explainIntentFor(
+      world.getCanonicalSnapshot(),
+      invalidIntent as Parameters<typeof ext.explainIntentFor>[1],
+    )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INPUT",
+      }),
+    );
+    expect(world.getSnapshot().data.count).toBe(1);
+
+    world.dispose();
+  });
+
+  it("short-circuits invalid input behind availability across explanation queries", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const ext = getExtensionKernel(world);
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.disable));
+
+    const invalidUnavailableIntent = {
+      ...world.createIntent(world.MEL.actions.incrementGuarded, 1),
+      input: { max: "not-a-number" },
+    } as Parameters<typeof world.explainIntent>[0];
+
+    const runtimeExplanation = world.explainIntent(invalidUnavailableIntent);
+    expect(runtimeExplanation).toEqual({
+      kind: "blocked",
+      actionName: "incrementGuarded",
+      available: false,
+      dispatchable: false,
+      blockers: world.getIntentBlockers(world.MEL.actions.incrementGuarded, 1),
+    });
+    if (runtimeExplanation.kind !== "blocked") {
+      throw new Error("Expected an unavailable blocked explanation");
+    }
+    expect(world.whyNot(invalidUnavailableIntent)).toEqual(runtimeExplanation.blockers);
+    expect(ext.explainIntentFor(
+      world.getCanonicalSnapshot(),
+      invalidUnavailableIntent as Parameters<typeof ext.explainIntentFor>[1],
+    )).toEqual(runtimeExplanation);
 
     world.dispose();
   });
@@ -834,6 +1068,102 @@ describe("activated base runtime", () => {
     expect(completed).not.toHaveBeenCalled();
 
     world.dispose();
+  });
+
+  it("explains arbitrary canonical snapshots through the extension kernel", () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const ext = getExtensionKernel(world);
+    const subscriber = vi.fn();
+    const completed = vi.fn();
+    const rejected = vi.fn();
+
+    world.subscribe((snapshot) => snapshot.data.count, subscriber);
+    world.on("dispatch:completed", completed);
+    world.on("dispatch:rejected", rejected);
+
+    const canonical = ext.getCanonicalSnapshot();
+    const admittedIntent = ext.createIntent(ext.MEL.actions.incrementGuarded, 1);
+    const admitted = ext.explainIntentFor(canonical, admittedIntent);
+    expect(admitted).toMatchObject({
+      kind: "admitted",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: true,
+      requirements: [],
+      status: "complete",
+    });
+    if (admitted.kind === "admitted") {
+      const simulated = ext.simulateSync(canonical, admittedIntent);
+      expect(admitted.snapshot).toEqual(ext.projectSnapshot(simulated.snapshot));
+      expect(ext.projectSnapshot(admitted.canonicalSnapshot)).toEqual(
+        ext.projectSnapshot(simulated.snapshot),
+      );
+      expect(admitted.newAvailableActions).toEqual(ext.getAvailableActionsFor(simulated.snapshot));
+    }
+
+    const incremented = ext.simulateSync(
+      canonical,
+      ext.createIntent(ext.MEL.actions.increment),
+    ).snapshot;
+    const blockedDispatchable = ext.explainIntentFor(
+      incremented,
+      ext.createIntent(ext.MEL.actions.incrementGuarded, 1),
+    );
+    expect(blockedDispatchable).toEqual({
+      kind: "blocked",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: false,
+      blockers: [
+        expect.objectContaining({
+          layer: "dispatchable",
+          evaluatedResult: false,
+        }),
+      ],
+    });
+
+    const disabled = ext.simulateSync(
+      incremented,
+      ext.createIntent(ext.MEL.actions.disable),
+    ).snapshot;
+    const blockedUnavailable = ext.explainIntentFor(
+      disabled,
+      ext.createIntent(ext.MEL.actions.incrementGuarded, 1),
+    );
+    expect(blockedUnavailable).toEqual({
+      kind: "blocked",
+      actionName: "incrementGuarded",
+      available: false,
+      dispatchable: false,
+      blockers: [
+        expect.objectContaining({
+          layer: "available",
+          evaluatedResult: false,
+        }),
+      ],
+    });
+
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(completed).not.toHaveBeenCalled();
+    expect(rejected).not.toHaveBeenCalled();
+
+    world.dispose();
+
+    const afterDispose = ext.explainIntentFor(canonical, admittedIntent);
+    expect(afterDispose).toMatchObject({
+      kind: "admitted",
+      actionName: "incrementGuarded",
+      available: true,
+      dispatchable: true,
+      requirements: admitted.requirements,
+      status: admitted.status,
+      snapshot: admitted.kind === "admitted" ? admitted.snapshot : undefined,
+      newAvailableActions: admitted.kind === "admitted" ? admitted.newAvailableActions : undefined,
+      changedPaths: admitted.kind === "admitted" ? admitted.changedPaths : undefined,
+    });
   });
 
   it("keeps extension-kernel methods available after runtime disposal", () => {
