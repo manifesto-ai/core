@@ -1,31 +1,12 @@
 # Tutorial
 
-> Learn Manifesto through the base runtime first. Only open the advanced runtime track when the project needs approval or sealed history.
-
-These tutorials are for developers who know TypeScript but are new to Manifesto. The learning path is split on purpose:
-
-- Tutorials `01` through `04` are the normal first path
-- Tutorials `05` and `06` are an optional advanced runtime add-on
-
----
+> Learn Manifesto through the base runtime first. Open the advanced runtime track only when the project needs approval or sealed history.
 
 ## Before You Start
 
 - Finish the [Quickstart](/quickstart)
 - Be comfortable reading basic TypeScript
 - Have a `.mel` loader configured with `@manifesto-ai/compiler`
-
----
-
-## The Mental Model
-
-Manifesto applications should usually start one way:
-
-1. Base runtime apps use `createManifesto()`, `activate()`, and typed runtime intents
-
-Later, if the project needs approval, branch history, or auditability, add the advanced runtime layers without changing the domain model.
-
----
 
 ## Core Path
 
@@ -40,9 +21,7 @@ Use this path when you want the shortest route from a MEL domain to a running ap
 
 If you only need a Snapshot-driven app, stop here. The SDK path is enough.
 
----
-
-## Optional Advanced Runtime
+## Advanced Runtime Later
 
 Read this only when the project now needs reviewable writes, branch history, explicit actor identity, or sealed continuity.
 
@@ -53,35 +32,11 @@ Read this only when the project now needs reviewable writes, branch history, exp
 
 If you are still deciding whether you need this, read [When You Need Approval or History](/guides/approval-and-history) first.
 
----
+## After The Tutorial
 
-## Common Beginner Mistakes
-
-### Expecting state changes before activation
-
-Runtime verbs do not exist until you call `activate()`. Create the composable manifesto first, then activate it.
-
-### Forgetting `onceIntent`
-
-If an action can re-enter during the compute loop, an unguarded patch or effect can run more than once. Use `onceIntent` unless you are intentionally building a state-driven loop.
-
-### Mutating a snapshot directly
-
-Snapshots are read models. You do not change them in place. You dispatch intents and let Manifesto compute the next snapshot.
-
-### Treating effects like returned values
-
-Effect handlers do not feed values back through a hidden return channel. They return patches, and those patches become part of the next snapshot.
-
----
-
-## After the Tutorials
-
-- Go to [How-to Guides](/guides/) when you need a concrete technique
-- Go to [Integration](/integration/) when you want React or AI-agent patterns
-- Go to [Core Concepts](/concepts/) when you want a deeper model of Snapshot, Intent, Effect, and World
-- Go to [Architecture](/architecture/) when you want the system-level picture
-
----
+- Go to [Guides](/guides/) when you need a concrete technique.
+- Go to [Integration](/integration/) when you want React or AI-agent patterns.
+- Go to [Concepts](/concepts/) when you want the vocabulary and mental model.
+- Go to [Architecture](/architecture/) when you want the system-level picture.
 
 Start with [Your First Manifesto Instance](./01-your-first-app). Open the advanced runtime track only after the base path already makes sense.

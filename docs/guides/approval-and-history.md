@@ -49,7 +49,7 @@ That adds:
 
 ## See Also
 
-- [Start Here](/start-here)
+- [Docs Home](/)
 - [Quickstart](/quickstart)
 - [Tutorial](/tutorial/)
 - [AI Agents](/integration/ai-agents)

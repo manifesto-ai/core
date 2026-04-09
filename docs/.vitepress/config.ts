@@ -51,11 +51,10 @@ export default defineConfig({
 
   themeConfig: {
     nav: [
-      { text: 'Start Here', link: '/start-here' },
-      { text: 'Tutorial', link: '/tutorial/' },
-      { text: 'Tooling', link: '/guides/developer-tooling' },
+      { text: 'Start', link: '/' },
+      { text: 'Learn', link: '/tutorial/' },
+      { text: 'Build', link: '/guides/' },
       { text: 'Reference', link: '/api/' },
-      { text: 'Internals', link: '/internals/' },
     ],
 
     sidebar: {
@@ -74,7 +73,7 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Optional Advanced Runtime',
+          text: 'Advanced Runtime Later',
           items: [
             { text: '5. Approval and History Setup', link: '/tutorial/05-governed-composition' },
             { text: '6. Sealed History and Review Flow', link: '/tutorial/06-governed-sealing-and-history' },
@@ -112,17 +111,29 @@ export default defineConfig({
 
       '/guides/': [
         {
-          text: 'How-to Guides',
+          text: 'Build And Debug',
           items: [
             { text: 'Overview', link: '/guides/' },
-            { text: 'Developer Tooling', link: '/guides/developer-tooling' },
-            { text: 'When You Need Approval or History', link: '/guides/approval-and-history' },
-            { text: 'Advanced Runtime Assembly', link: '/guides/governed-composition' },
             { text: 'Bundler Setup', link: '/guides/bundler-setup' },
             { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
             { text: 'Debugging', link: '/guides/debugging' },
             { text: 'Code Generation', link: '/guides/code-generation' },
+            { text: 'Developer Tooling', link: '/guides/developer-tooling' },
+            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
+          ]
+        },
+        {
+          text: 'Advanced Runtime Later',
+          items: [
+            { text: 'When You Need Approval or History', link: '/guides/approval-and-history' },
+            { text: 'Advanced Runtime Assembly', link: '/guides/governed-composition' },
+          ]
+        },
+        {
+          text: 'Maintainers And Operators',
+          items: [
+            { text: 'Release Hardening', link: '/guides/release-hardening' },
+            { text: 'Upgrade To Next Major', link: '/guides/upgrade-next-major' },
           ]
         },
       ],
@@ -140,30 +151,21 @@ export default defineConfig({
 
       '/api/': [
         {
-          text: 'Base Runtime',
+          text: 'Build An App',
           items: [
             { text: 'Overview', link: '/api/' },
             { text: '@manifesto-ai/sdk', link: '/api/sdk' },
           ]
         },
         {
-          text: 'Advanced Runtime',
+          text: 'Approval And History',
           items: [
             { text: '@manifesto-ai/governance', link: '/api/governance' },
             { text: '@manifesto-ai/lineage', link: '/api/lineage' },
           ]
         },
         {
-          text: 'Core Runtime',
-          items: [
-            { text: '@manifesto-ai/core', link: '/api/core' },
-            { text: '@manifesto-ai/host', link: '/api/host' },
-            { text: '@manifesto-ai/compiler', link: '/api/compiler' },
-            { text: '@manifesto-ai/codegen', link: '/api/codegen' },
-          ]
-        },
-        {
-          text: 'DX Tooling',
+          text: 'Tooling',
           items: [
             { text: '@manifesto-ai/cli', link: '/api/cli' },
             { text: '@manifesto-ai/skills', link: '/api/skills' },
@@ -171,6 +173,15 @@ export default defineConfig({
             { text: '@manifesto-ai/studio-cli', link: '/api/studio-cli' },
             { text: '@manifesto-ai/studio-core', link: '/api/studio-core' },
             { text: '@manifesto-ai/studio-mcp', link: '/api/studio-mcp' },
+          ]
+        },
+        {
+          text: 'Runtime Internals',
+          items: [
+            { text: '@manifesto-ai/core', link: '/api/core' },
+            { text: '@manifesto-ai/host', link: '/api/host' },
+            { text: '@manifesto-ai/compiler', link: '/api/compiler' },
+            { text: '@manifesto-ai/codegen', link: '/api/codegen' },
           ]
         }
       ],

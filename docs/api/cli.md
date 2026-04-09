@@ -18,7 +18,7 @@ The CLI treats `manifesto.config.*` as the source of truth.
 
 ```ts
 export default {
-  runtime: "gov",
+  runtime: "base",
   integration: {
     mode: "vite",
   },
@@ -68,13 +68,15 @@ That split makes "packages only", "install but do not wire codegen", and "instal
 ## Examples
 
 ```bash
-manifesto init --runtime gov --integration none --codegen install --skills codex
+manifesto init --runtime base --integration none --codegen install --skills codex
 manifesto integrate vite
 manifesto setup codegen wire
 manifesto setup skills codex
 manifesto scaffold counter
 manifesto doctor --json
 ```
+
+Use `runtime=lineage` or `runtime=gov` only when the project already needs approval, continuity, or sealing.
 
 ## Interactive Init
 

@@ -1,8 +1,6 @@
 # Quickstart
 
-> Get Manifesto running in 5 minutes.
-
----
+> Get one base-runtime app running in a few minutes.
 
 ## Install
 
@@ -17,11 +15,9 @@ pnpm add @manifesto-ai/sdk @manifesto-ai/compiler
 bun add @manifesto-ai/sdk @manifesto-ai/compiler
 ```
 
----
-
 ## Configure MEL
 
-MEL files (`.mel`) need a bundler plugin. Here's the common Vite setup:
+MEL files (`.mel`) need a bundler plugin. Here is the common Vite setup:
 
 ```typescript
 // vite.config.ts
@@ -36,21 +32,6 @@ export default defineConfig({
 ::: tip Other bundlers?
 Next.js, Webpack, Rollup, esbuild, and Rspack are all supported. See [Bundler Setup](/guides/bundler-setup).
 :::
-
----
-
-## Optional DX Add-ons
-
-Once the base runtime is in place, add the surrounding tooling only where it helps:
-
-| Need | Package | Docs |
-|------|---------|------|
-| Bootstrap and configure a project | `@manifesto-ai/cli` | [CLI API](/api/cli) |
-| Author MEL with editor and agent-aware tooling | `@manifesto-ai/mel-lsp` | [MEL LSP API](/api/mel-lsp) |
-| Load current Manifesto guidance into AI tools | `@manifesto-ai/skills` | [Skills API](/api/skills) |
-| Inspect findings, snapshots, trace, lineage, or governance | `@manifesto-ai/studio-cli`, `@manifesto-ai/studio-mcp` | [Developer Tooling Guide](/guides/developer-tooling) |
-
----
 
 ## Create Your First App
 
@@ -89,37 +70,17 @@ await instance.dispatchAsync(
 console.log(instance.getSnapshot().data.count); // 2
 ```
 
----
-
 ## What Just Happened?
 
-- MEL defined the state and action semantics
-- `createManifesto()` created a composable manifesto
-- `activate()` opened the runtime surface
-- `instance.createIntent(instance.MEL.actions.increment)` built a typed intent from the MEL action
-- `dispatchAsync()` executed that intent and resolved after the next terminal snapshot was published
-
----
+- MEL defined the state and action semantics.
+- `createManifesto()` created a composable manifesto.
+- `activate()` opened the runtime surface.
+- `createIntent()` built a typed intent from the MEL action.
+- `dispatchAsync()` executed that intent and resolved after the next terminal snapshot was published.
 
 ## Next Step
 
-- Continue with the [Tutorial](/tutorial/) for the base-runtime learning path
-- Read [Developer Tooling](/guides/developer-tooling) when you want CLI setup, editor support, Studio inspection, or AI coding tool integration
-- Read [When You Need Approval or History](/guides/approval-and-history) only if the project later needs review, audit history, or sealing
-
----
-
-## Key Concepts
-
-| Concept | What It Does |
-|---------|--------------|
-| **Snapshot** | Default runtime read model for application state |
-| **Intent** | Request to perform an action |
-| **Flow** | Declarative computation (pure, no side effects) |
-| **Effect** | External operation (API calls, etc.) |
-
-```text
-compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
-```
-
-Same input always produces same output. Pure, deterministic, traceable.
+1. Continue with the [Tutorial](/tutorial/) for the normal learning path.
+2. Use [Bundler Setup](/guides/bundler-setup) only if you are not on Vite.
+3. Use [Developer Tooling](/guides/developer-tooling) when you want CLI, editor, Studio, or AI-tool setup.
+4. Use [When You Need Approval or History](/guides/approval-and-history) only if the project later needs review, audit history, or sealing.
