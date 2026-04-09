@@ -1,8 +1,65 @@
 import fs from 'node:fs'
 import { defineConfig } from 'vitepress'
-import type { MarkdownRenderer } from 'vitepress'
+import type { DefaultTheme, MarkdownRenderer } from 'vitepress'
 
 const markdownLanguages = loadMarkdownLanguages()
+const guideSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: 'Getting Started',
+    items: [
+      { text: 'Introduction', link: '/guide/introduction' },
+      { text: 'Quick Start', link: '/guide/quick-start' },
+    ]
+  },
+  {
+    text: 'Essentials',
+    items: [
+      { text: 'Creating an App', link: '/guide/essentials/creating-an-app' },
+      { text: 'MEL Domain Basics', link: '/guide/essentials/mel-domain-basics' },
+      { text: 'State', link: '/guide/essentials/state' },
+      { text: 'Computed Values', link: '/guide/essentials/computed-values' },
+      { text: 'Actions and Intents', link: '/guide/essentials/actions-and-intents' },
+      { text: 'Reading Snapshots', link: '/guide/essentials/reading-snapshots' },
+      { text: 'Subscriptions', link: '/guide/essentials/subscriptions' },
+      { text: 'Effects', link: '/guide/essentials/effects' },
+      { text: 'Availability', link: '/guide/essentials/availability' },
+      { text: 'Building a Todo App', link: '/guide/essentials/todo-app' },
+    ]
+  },
+  {
+    text: 'Integrations',
+    items: [
+      { text: 'React', link: '/integration/react' },
+      { text: 'AI Agents', link: '/integration/ai-agents' },
+      { text: 'Tooling', link: '/guides/developer-tooling' },
+      { text: 'Bundler Setup', link: '/guides/bundler-setup' },
+    ]
+  },
+  {
+    text: 'Scaling Up',
+    items: [
+      { text: 'Approval and History', link: '/guides/approval-and-history' },
+      { text: 'Governed Composition', link: '/guides/governed-composition' },
+      { text: 'Sealed History and Review', link: '/tutorial/06-governed-sealing-and-history' },
+    ]
+  },
+  {
+    text: 'In-Depth',
+    items: [
+      { text: 'Shared Semantic Model', link: '/concepts/shared-semantic-model' },
+      { text: 'Snapshot', link: '/concepts/snapshot' },
+      { text: 'Intent', link: '/concepts/intent' },
+      { text: 'Flow', link: '/concepts/flow' },
+      { text: 'Effect Model', link: '/concepts/effect' },
+      { text: 'Determinism', link: '/architecture/determinism' },
+      { text: 'Data Flow', link: '/architecture/data-flow' },
+      { text: 'Failure Model', link: '/architecture/failure-model' },
+      { text: 'Layer Boundaries', link: '/architecture/layers' },
+      { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
+      { text: 'Debugging', link: '/guides/debugging' },
+    ]
+  },
+]
 
 function loadMarkdownLanguages() {
   const languagesDir = new URL('./languages/', import.meta.url)
@@ -51,50 +108,20 @@ export default defineConfig({
 
   themeConfig: {
     nav: [
-      { text: 'Start', link: '/' },
-      { text: 'Learn', link: '/tutorial/' },
-      { text: 'Build', link: '/guides/' },
-      { text: 'Reference', link: '/api/' },
+      { text: 'Guide', link: '/guide/introduction' },
+      { text: 'API', link: '/api/' },
+      { text: 'Reference', link: '/mel/' },
+      { text: 'Internals', link: '/internals/' },
     ],
 
     sidebar: {
-      '/start-here': [],
       '/quickstart': [],
-
-      '/tutorial/': [
-        {
-          text: 'Core Path',
-          items: [
-            { text: 'Overview', link: '/tutorial/' },
-            { text: '1. Your First App', link: '/tutorial/01-your-first-app' },
-            { text: '2. Actions and State', link: '/tutorial/02-actions-and-state' },
-            { text: '3. Working with Effects', link: '/tutorial/03-effects' },
-            { text: '4. Building a Todo App', link: '/tutorial/04-todo-app' },
-          ]
-        },
-        {
-          text: 'Advanced Runtime Later',
-          items: [
-            { text: '5. Approval and History Setup', link: '/tutorial/05-governed-composition' },
-            { text: '6. Sealed History and Review Flow', link: '/tutorial/06-governed-sealing-and-history' },
-          ]
-        },
-      ],
-
-      '/concepts/': [
-        {
-          text: 'Core Concepts',
-          items: [
-            { text: 'Overview', link: '/concepts/' },
-            { text: 'Shared Semantic Model', link: '/concepts/shared-semantic-model' },
-            { text: 'Snapshot', link: '/concepts/snapshot' },
-            { text: 'Intent', link: '/concepts/intent' },
-            { text: 'Flow', link: '/concepts/flow' },
-            { text: 'Effect', link: '/concepts/effect' },
-            { text: 'World', link: '/concepts/world' },
-          ]
-        }
-      ],
+      '/guide/': guideSidebar,
+      '/tutorial/': guideSidebar,
+      '/concepts/': guideSidebar,
+      '/architecture/': guideSidebar,
+      '/integration/': guideSidebar,
+      '/guides/': guideSidebar,
 
       '/mel/': [
         {
@@ -105,46 +132,6 @@ export default defineConfig({
             { text: 'Syntax Cookbook', link: '/mel/SYNTAX' },
             { text: 'Examples', link: '/mel/EXAMPLES' },
             { text: 'Error Guide', link: '/mel/ERROR-GUIDE' },
-          ]
-        }
-      ],
-
-      '/guides/': [
-        {
-          text: 'Build And Debug',
-          items: [
-            { text: 'Overview', link: '/guides/' },
-            { text: 'Bundler Setup', link: '/guides/bundler-setup' },
-            { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-            { text: 'Debugging', link: '/guides/debugging' },
-            { text: 'Code Generation', link: '/guides/code-generation' },
-            { text: 'Developer Tooling', link: '/guides/developer-tooling' },
-            { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
-          ]
-        },
-        {
-          text: 'Advanced Runtime Later',
-          items: [
-            { text: 'When You Need Approval or History', link: '/guides/approval-and-history' },
-            { text: 'Advanced Runtime Assembly', link: '/guides/governed-composition' },
-          ]
-        },
-        {
-          text: 'Maintainers And Operators',
-          items: [
-            { text: 'Release Hardening', link: '/guides/release-hardening' },
-            { text: 'Upgrade To Next Major', link: '/guides/upgrade-next-major' },
-          ]
-        },
-      ],
-
-      '/integration/': [
-        {
-          text: 'Integration',
-          items: [
-            { text: 'Overview', link: '/integration/' },
-            { text: 'React', link: '/integration/react' },
-            { text: 'AI Agents', link: '/integration/ai-agents' },
           ]
         }
       ],
@@ -182,19 +169,6 @@ export default defineConfig({
             { text: '@manifesto-ai/host', link: '/api/host' },
             { text: '@manifesto-ai/compiler', link: '/api/compiler' },
             { text: '@manifesto-ai/codegen', link: '/api/codegen' },
-          ]
-        }
-      ],
-
-      '/architecture/': [
-        {
-          text: 'Architecture',
-          items: [
-            { text: 'Overview', link: '/architecture/' },
-            { text: 'Layer Boundaries', link: '/architecture/layers' },
-            { text: 'Data Flow', link: '/architecture/data-flow' },
-            { text: 'Determinism', link: '/architecture/determinism' },
-            { text: 'Failure Model', link: '/architecture/failure-model' },
           ]
         }
       ],

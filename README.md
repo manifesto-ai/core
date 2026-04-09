@@ -10,8 +10,12 @@ Manifesto gives you one semantic model for deterministic domain state and toolin
 ## Install
 
 ```bash
-pnpm add @manifesto-ai/sdk @manifesto-ai/compiler
+npx @manifesto-ai/cli init
 ```
+
+That opens the interactive init flow. Prefer pnpm or bun? Use `pnpm dlx @manifesto-ai/cli init` or `bunx @manifesto-ai/cli init`.
+
+Prefer manual setup? Install `@manifesto-ai/sdk` for the app runtime. Install `@manifesto-ai/compiler` directly only when your project imports compiler entrypoints such as `@manifesto-ai/compiler/vite`.
 
 ## Quick Example
 
@@ -39,13 +43,13 @@ console.log(app.getSnapshot().data.count); // 1
 
 ## Start With The Docs
 
-- Build the first app: [Docs Home](./docs/index.md) -> [Quickstart](./docs/quickstart.md) -> [Tutorial](./docs/tutorial/index.md)
+- Build the first app: [Docs Home](./docs/index.md) -> [Guide Introduction](./docs/guide/introduction.md) -> [Quick Start](./docs/guide/quick-start.md)
 - Set up CLI, editor, AI, or Studio workflows: [Developer Tooling](./docs/guides/developer-tooling.md)
 - Add approval, review, or sealed history later: [When You Need Approval or History](./docs/guides/approval-and-history.md)
 - Look up a package you already know: [API Reference](./docs/api/index.md)
 - Go deeper into the model: [Concepts](./docs/concepts/index.md), [Architecture](./docs/architecture/index.md), [Internals](./docs/internals/index.md)
 
-Start with `@manifesto-ai/sdk` and `@manifesto-ai/compiler`. Add Lineage, Governance, or the surrounding DX packages only when the project actually needs them.
+Start with the base SDK runtime. Add compiler entrypoints, Lineage, Governance, or the surrounding DX packages only when the project actually needs them.
 
 ## What Manifesto Is Not
 

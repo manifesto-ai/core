@@ -1,4 +1,4 @@
-# Quickstart
+# Quick Start
 
 > Get one base-runtime app running in a few minutes.
 
@@ -42,19 +42,19 @@ export default defineConfig({
 });
 ```
 
-::: tip Other bundlers?
-Next.js, Webpack, Rollup, esbuild, and Rspack are all supported. See [Bundler Setup](/guides/bundler-setup), or run `manifesto integrate`.
-:::
+Other bundlers are covered in [Bundler Setup](/guides/bundler-setup), or can be wired with `manifesto integrate`.
 
-## Create Your First App
+## Define Your Domain
 
-### 1. Define the domain
+Create `counter.mel`:
 
 ```mel
 domain Counter {
   state {
     count: number = 0
   }
+
+  computed doubled = mul(count, 2)
 
   action increment() {
     onceIntent {
@@ -64,36 +64,31 @@ domain Counter {
 }
 ```
 
-### 2. Activate and run
+## Run It In Your App
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
-import CounterMel from "./counter.mel";
+import CounterSchema from "./counter.mel";
 
-const instance = createManifesto(CounterMel, {}).activate();
+const app = createManifesto(CounterSchema, {}).activate();
 
-await instance.dispatchAsync(
-  instance.createIntent(instance.MEL.actions.increment),
+await app.dispatchAsync(
+  app.createIntent(app.MEL.actions.increment),
 );
-console.log(instance.getSnapshot().data.count); // 1
 
-await instance.dispatchAsync(
-  instance.createIntent(instance.MEL.actions.increment),
-);
-console.log(instance.getSnapshot().data.count); // 2
+const snapshot = app.getSnapshot();
+console.log(snapshot.data.count);       // 1
+console.log(snapshot.computed.doubled); // 2
 ```
 
 ## What Just Happened?
 
-- MEL defined the state and action semantics.
-- `createManifesto()` created a composable manifesto.
-- `activate()` opened the runtime surface.
-- `createIntent()` built a typed intent from the MEL action.
-- `dispatchAsync()` executed that intent and resolved after the next terminal snapshot was published.
+- MEL declared domain state, derived values, and an action.
+- `createManifesto()` created a composable manifesto from the schema.
+- `activate()` opened the base runtime surface.
+- `createIntent()` built a typed request from `MEL.actions.increment`.
+- `dispatchAsync()` published the next terminal Snapshot.
 
-## Next Step
+## Next
 
-1. Continue with the [Tutorial](/tutorial/) for the normal learning path.
-2. Use [Bundler Setup](/guides/bundler-setup) only if you are not on Vite.
-3. Use [Developer Tooling](/guides/developer-tooling) when you want CLI, editor, Studio, or AI-tool setup.
-4. Use [When You Need Approval or History](/guides/approval-and-history) only if the project later needs review, audit history, or sealing.
+Continue to [Creating an App](./essentials/creating-an-app), or jump to [React](/integration/react), [AI Agents](/integration/ai-agents), or [API Reference](/api/) if you already know what you need.
