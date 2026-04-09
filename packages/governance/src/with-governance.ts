@@ -8,6 +8,7 @@ import {
   DisposedError,
   ManifestoError,
 } from "@manifesto-ai/sdk";
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 import {
   activateComposable,
   assertComposableNotActivated,
@@ -116,6 +117,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   });
   const now = config.now ?? Date.now;
   const lineage = createLineageRuntimeController(kernel, lineageConfig.service, lineageConfig);
+  let runtime!: GovernanceInstance<T>;
 
   let bindingsReady: Promise<void> | null = null;
 
@@ -485,6 +487,28 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     return governanceStore.getDecisionRecord(decisionId);
   }
 
+  function explainIntent(
+    intent: Parameters<GovernanceInstance<T>["explainIntent"]>[0],
+  ): ReturnType<GovernanceInstance<T>["explainIntent"]> {
+    return getExtensionKernel<T, GovernedComposableLaws>(runtime).explainIntentFor(
+      kernel.getCanonicalSnapshot(),
+      intent,
+    );
+  }
+
+  function why(
+    intent: Parameters<GovernanceInstance<T>["why"]>[0],
+  ): ReturnType<GovernanceInstance<T>["why"]> {
+    return explainIntent(intent);
+  }
+
+  function whyNot(
+    intent: Parameters<GovernanceInstance<T>["whyNot"]>[0],
+  ): ReturnType<GovernanceInstance<T>["whyNot"]> {
+    const explanation = explainIntent(intent);
+    return explanation.kind === "blocked" ? explanation.blockers : null;
+  }
+
   const governed = {
     createIntent: kernel.createIntent,
     subscribe: kernel.subscribe,
@@ -498,6 +522,9 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
     simulate: kernel.simulate,
+    explainIntent,
+    why,
+    whyNot,
     MEL: kernel.MEL,
     schema: kernel.schema,
     dispose: kernel.dispose,
@@ -521,10 +548,12 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     getDecisionRecord,
   };
 
-  return attachExtensionKernel(
+  runtime = attachExtensionKernel(
     governed satisfies GovernanceInstance<T>,
     kernel,
   );
+
+  return runtime;
 }
 
 function toTypedIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {

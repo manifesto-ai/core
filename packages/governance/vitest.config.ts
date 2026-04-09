@@ -13,6 +13,10 @@ export default defineConfig({
         replacement: fromHere("../sdk/src/provider.ts"),
       },
       {
+        find: "@manifesto-ai/sdk/extensions",
+        replacement: fromHere("../sdk/src/extensions.ts"),
+      },
+      {
         find: "@manifesto-ai/sdk",
         replacement: fromHere("../sdk/src/index.ts"),
       },

@@ -10,6 +10,7 @@
     "baseUrl": ".",
     "paths": {
       "@manifesto-ai/sdk": ["../sdk/src/index.ts"],
+      "@manifesto-ai/sdk/extensions": ["../sdk/src/extensions.ts"],
       "@manifesto-ai/sdk/provider": ["../sdk/src/provider.ts"],
       "@manifesto-ai/lineage": ["../lineage/src/index.ts"],
       "@manifesto-ai/lineage/provider": ["../lineage/src/provider.ts"]
