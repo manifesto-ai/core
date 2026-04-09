@@ -152,6 +152,7 @@ Pure, total, and traceable.
 Manifesto is a general-purpose declarative runtime. The underlying design philosophy and the initial empirical validation of its reflective protocol
 If you use this core framework in your research, please cite:
 
+```
 @misc{jeong2026llmdoesselfrevisingagent,
       title={How Much LLM Does a Self-Revising Agent Actually Need?}, 
       author={Seongwoo Jeong and Seonil Son},
@@ -161,3 +162,4 @@ If you use this core framework in your research, please cite:
       primaryClass={cs.AI},
       url={https://arxiv.org/abs/2604.07236}, 
 }
+```
