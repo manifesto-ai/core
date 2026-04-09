@@ -145,3 +145,19 @@ Pure, total, and traceable.
 - [API Reference](./docs/api/index.md)
 - [Concepts](./docs/concepts/index.md)
 - [Architecture](./docs/architecture/index.md)
+
+---
+
+## Research & Citation
+Manifesto is a general-purpose declarative runtime. The underlying design philosophy and the initial empirical validation of its reflective protocol
+If you use this core framework in your research, please cite:
+
+@misc{jeong2026llmdoesselfrevisingagent,
+      title={How Much LLM Does a Self-Revising Agent Actually Need?}, 
+      author={Seongwoo Jeong and Seonil Son},
+      year={2026},
+      eprint={2604.07236},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2604.07236}, 
+}
