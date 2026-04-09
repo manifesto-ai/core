@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.7.0](https://github.com/manifesto-ai/core/compare/governance-v3.6.0...governance-v3.7.0) (2026-04-09)
+
+
+### Features
+
+* add sdk intent explanation reads and hard-cut docs flow ([6a0b528](https://github.com/manifesto-ai/core/commit/6a0b5280081b7bfc0af5be2720468663a0944fa0))
+
+
+### Bug Fixes
+
+* **runtime:** propagate explanation reads to decorators ([469aeae](https://github.com/manifesto-ai/core/commit/469aeae0860f0443557fa76ae9ee08a1ef1c7ff7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.7.0
+    * @manifesto-ai/sdk bumped to 3.8.0
+
 ## [3.6.0](https://github.com/manifesto-ai/core/compare/governance-v3.5.1...governance-v3.6.0) (2026-04-08)
 
 

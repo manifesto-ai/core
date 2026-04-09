@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.8.0](https://github.com/manifesto-ai/core/compare/sdk-v3.7.0...sdk-v3.8.0) (2026-04-09)
+
+
+### Features
+
+* add sdk intent explanation reads and hard-cut docs flow ([6a0b528](https://github.com/manifesto-ai/core/commit/6a0b5280081b7bfc0af5be2720468663a0944fa0))
+* **sdk:** add intent explanation reads ([efbb11b](https://github.com/manifesto-ai/core/commit/efbb11b3709436fca511b34e607c50a9b98e23dc))
+
 ## [3.7.0](https://github.com/manifesto-ai/core/compare/sdk-v3.6.0...sdk-v3.7.0) (2026-04-08)
 
 
