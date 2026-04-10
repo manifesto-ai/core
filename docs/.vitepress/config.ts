@@ -91,6 +91,12 @@ export default defineConfig({
   title: 'Manifesto',
   description: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections',
   head: [
+    ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-FW564PKJWF' }],
+    ['script', {}, `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+
+gtag('config', 'G-FW564PKJWF');`],
     ['meta', { property: 'og:title', content: 'Manifesto' }],
     ['meta', { property: 'og:description', content: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections' }],
     ['meta', { property: 'og:type', content: 'website' }],
