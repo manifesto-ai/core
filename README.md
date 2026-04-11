@@ -65,7 +65,7 @@ If you use this core framework in your research, please cite:
 ```
 @misc{jeong2026llmdoesselfrevisingagent,
       title={How Much LLM Does a Self-Revising Agent Actually Need?},
-      author={Seongwoo Jeong and Seonil Son},
+      author={Sungwoo Jung and Seonil Son},
       year={2026},
       eprint={2604.07236},
       archivePrefix={arXiv},
