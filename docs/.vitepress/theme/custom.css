@@ -1,0 +1,350 @@
+/* ============================================================
+   Manifesto Docs — Glassmorphism Theme
+   ============================================================ */
+
+/* ----- Brand Colors ----- */
+
+:root {
+  --vp-c-brand-1: #7c3aed;
+  --vp-c-brand-2: #8b5cf6;
+  --vp-c-brand-3: #a78bfa;
+  --vp-c-brand-soft: rgba(124, 58, 237, 0.12);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
+
+  --vp-c-bg-alt: #faf8ff;
+  --vp-c-bg-soft: #f3f0ff;
+
+  /* button overrides */
+  --vp-button-brand-bg: #7c3aed;
+  --vp-button-brand-hover-bg: #6d28d9;
+  --vp-button-brand-active-bg: #5b21b6;
+  --vp-button-brand-text: #fff;
+}
+
+.dark {
+  --vp-c-brand-1: #a78bfa;
+  --vp-c-brand-2: #8b5cf6;
+  --vp-c-brand-3: #7c3aed;
+  --vp-c-brand-soft: rgba(167, 139, 250, 0.12);
+
+  --vp-home-hero-name-background: linear-gradient(135deg, #a78bfa 0%, #c084fc 40%, #e9d5ff 100%);
+
+  --vp-c-bg: #0f0a1a;
+  --vp-c-bg-alt: #130e20;
+  --vp-c-bg-soft: #1a1429;
+  --vp-c-bg-elv: #1e1833;
+
+  --vp-c-divider: rgba(167, 139, 250, 0.08);
+  --vp-c-gutter: rgba(167, 139, 250, 0.06);
+
+  --vp-button-brand-bg: #7c3aed;
+  --vp-button-brand-hover-bg: #8b5cf6;
+  --vp-button-brand-active-bg: #6d28d9;
+}
+
+/* ----- Navbar — Glassmorphism ----- */
+
+.VPNav {
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.06) !important;
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.dark .VPNav {
+  background: rgba(15, 10, 26, 0.72) !important;
+  border-bottom: 1px solid rgba(167, 139, 250, 0.08) !important;
+}
+
+/* make nav bar wrapper transparent so glass shows through */
+.VPNavBar .wrapper,
+.VPNavBar .container {
+  background: transparent !important;
+}
+
+/* ----- Sidebar — Glass active ----- */
+
+.VPSidebar {
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+.dark .VPSidebar {
+  background: rgba(15, 10, 26, 0.6) !important;
+}
+
+.VPSidebarItem .link.active {
+  background: rgba(124, 58, 237, 0.08);
+  border-left: 2px solid var(--vp-c-brand-1);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.dark .VPSidebarItem .link.active {
+  background: rgba(167, 139, 250, 0.08);
+}
+
+.VPSidebarItem .link:hover:not(.active) {
+  background: rgba(124, 58, 237, 0.04);
+  transition: background 0.2s ease;
+}
+
+.dark .VPSidebarItem .link:hover:not(.active) {
+  background: rgba(167, 139, 250, 0.04);
+}
+
+/* ----- Feature Cards — Glass ----- */
+
+.VPFeatures .VPFeature {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(124, 58, 237, 0.08) !important;
+  border-radius: 16px !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.dark .VPFeatures .VPFeature {
+  background: rgba(26, 20, 41, 0.5) !important;
+  border: 1px solid rgba(167, 139, 250, 0.08) !important;
+}
+
+.VPFeatures .VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.2) !important;
+}
+
+.dark .VPFeatures .VPFeature:hover {
+  box-shadow: 0 12px 40px rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.2) !important;
+}
+
+/* feature icon glass pill */
+.VPFeature .icon {
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.dark .VPFeature .icon {
+  background: rgba(167, 139, 250, 0.1);
+}
+
+/* feature scroll reveal */
+@supports (animation-timeline: view()) {
+  .VPFeatures .item {
+    animation: feature-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+
+  @keyframes feature-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ----- Code Blocks — Glass Frame ----- */
+
+.vp-doc div[class*='language-'] {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(124, 58, 237, 0.06);
+  border-radius: 12px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease;
+}
+
+.dark .vp-doc div[class*='language-'] {
+  background: rgba(26, 20, 41, 0.6) !important;
+  border: 1px solid rgba(167, 139, 250, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.vp-doc div[class*='language-']:hover {
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.06);
+}
+
+.dark .vp-doc div[class*='language-']:hover {
+  box-shadow: 0 4px 20px rgba(167, 139, 250, 0.08);
+}
+
+/* MEL-specific accent */
+.vp-doc div.language-mel {
+  border-left: 3px solid var(--vp-c-brand-1);
+}
+
+/* copy button */
+.vp-doc div[class*='language-'] button.copy {
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.vp-doc div[class*='language-'] button.copy:hover {
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.vp-doc div[class*='language-'] button.copy.copied {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+/* ----- Custom Blocks (tip/warning) — Glass ----- */
+
+.vp-doc .custom-block {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+  transition: box-shadow 0.3s ease;
+}
+
+.dark .vp-doc .custom-block {
+  background: rgba(26, 20, 41, 0.4) !important;
+}
+
+.vp-doc .custom-block.tip {
+  border-left: 3px solid var(--vp-c-brand-1);
+}
+
+/* ----- TOC Active Indicator ----- */
+
+.VPDocAsideOutline .outline-link {
+  transition: color 0.2s ease, padding-left 0.2s ease;
+}
+
+.VPDocAsideOutline .outline-link.active {
+  color: var(--vp-c-brand-1);
+  padding-left: 4px;
+}
+
+/* ----- Search Modal — Glass ----- */
+
+.VPLocalSearchBox .shell {
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(167, 139, 250, 0.1) !important;
+  border-radius: 16px !important;
+}
+
+.dark .VPLocalSearchBox .shell {
+  background: rgba(15, 10, 26, 0.85) !important;
+}
+
+.VPLocalSearchBox .search-input:focus {
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 0 0 3px var(--vp-c-brand-soft);
+}
+
+/* ----- Hero Section Enhancements ----- */
+
+.VPHero .name {
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
+.VPHero .actions .VPButton.brand {
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.VPHero .actions .VPButton.brand:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+}
+
+.VPHero .actions .VPButton.alt {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.dark .VPHero .actions .VPButton.alt {
+  background: rgba(167, 139, 250, 0.06);
+}
+
+.VPHero .actions .VPButton.alt:hover {
+  transform: translateY(-2px);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+/* ----- Heading scroll highlight (progressive) ----- */
+
+.vp-doc h2,
+.vp-doc h3 {
+  position: relative;
+}
+
+.vp-doc h2::before,
+.vp-doc h3::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  bottom: 0.15em;
+  width: 3px;
+  height: 1.1em;
+  border-radius: 3px;
+  background: transparent;
+  transition: background 0.3s ease;
+}
+
+@supports (animation-timeline: view()) {
+  .vp-doc h2,
+  .vp-doc h3 {
+    animation: heading-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 30%;
+  }
+
+  .vp-doc h2::before,
+  .vp-doc h3::before {
+    animation: heading-bar-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 30%;
+  }
+
+  @keyframes heading-reveal {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+  }
+
+  @keyframes heading-bar-reveal {
+    from { background: transparent; }
+    to { background: var(--vp-c-brand-1); }
+  }
+}
+
+/* ----- Page transitions (progressive) ----- */
+
+@supports (view-transition-name: auto) {
+  .vp-doc {
+    view-transition-name: doc-content;
+  }
+
+  ::view-transition-old(doc-content),
+  ::view-transition-new(doc-content) {
+    animation-duration: 0.2s;
+    animation-timing-function: ease;
+  }
+}
+
+/* ----- Accessibility: reduced motion ----- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
