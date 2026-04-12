@@ -1,5 +1,36 @@
 # Changelog
 
+## [3.8.0](https://github.com/manifesto-ai/core/compare/lineage-v3.7.2...lineage-v3.8.0) (2026-04-12)
+
+
+### Features
+
+* add sdk intent explanation reads and hard-cut docs flow ([6a0b528](https://github.com/manifesto-ai/core/commit/6a0b5280081b7bfc0af5be2720468663a0944fa0))
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+* **decorators:** inherit legality query surface ([5ddc9e2](https://github.com/manifesto-ai/core/commit/5ddc9e25178b504f2cec131b20c7fdbd10ec31ed))
+* implement lineage wave 1 split ([4449046](https://github.com/manifesto-ai/core/commit/4449046857fd804e962198a5ba1c872e6af9e136))
+* land core v4 cleanup and action availability queries ([#331](https://github.com/manifesto-ai/core/issues/331)) ([30ec2b4](https://github.com/manifesto-ai/core/commit/30ec2b481cebbf2a2640fe21fd7909d6b033a1b4))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+* **sdk:** implement adr-018 public snapshot boundary ([47d05ad](https://github.com/manifesto-ai/core/commit/47d05ad702282f44331db4aa322697b3debeeaa4))
+
+
+### Bug Fixes
+
+* enforce lineage dispatchability admission ([2a0b2f6](https://github.com/manifesto-ai/core/commit/2a0b2f6239854ee51a0f74cd536d4254f63f099e))
+* harden lineage config and finalize recovery ([1742398](https://github.com/manifesto-ai/core/commit/1742398121fefce13ff534d2ffaafd124f7e445a))
+* preserve governed seal outcomes and execution keys ([dc40be6](https://github.com/manifesto-ai/core/commit/dc40be6ebd1a5ed2dfdd194693e3efd240f54019))
+* **runtime:** propagate explanation reads to decorators ([469aeae](https://github.com/manifesto-ai/core/commit/469aeae0860f0443557fa76ae9ee08a1ef1c7ff7))
+* tighten governance post-commit events ([7a9404f](https://github.com/manifesto-ai/core/commit/7a9404f47d54dbaf8984cd1851c404a4743412a8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 3.11.0
+
 ## [3.7.2](https://github.com/manifesto-ai/core/compare/lineage-v3.7.1...lineage-v3.7.2) (2026-04-12)
 
 
