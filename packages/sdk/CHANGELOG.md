@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.12.1](https://github.com/manifesto-ai/core/compare/sdk-v3.12.0...sdk-v3.12.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* **docs:** align clean urls and favicon links ([0db1df5](https://github.com/manifesto-ai/core/commit/0db1df54599619026f41bb14317a27ca21498644))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.3.1
+    * @manifesto-ai/core bumped to 2.11.1
+    * @manifesto-ai/host bumped to 2.8.1
+
 ## [3.12.0](https://github.com/manifesto-ai/core/compare/sdk-v3.11.0...sdk-v3.12.0) (2026-04-12)
 
 
