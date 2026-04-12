@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.9.1](https://github.com/manifesto-ai/core/compare/lineage-v3.9.0...lineage-v3.9.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* **docs:** align clean urls and favicon links ([0db1df5](https://github.com/manifesto-ai/core/commit/0db1df54599619026f41bb14317a27ca21498644))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 3.12.1
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.11.1
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.11.0 to ^2.11.1
+
 ## [3.9.0](https://github.com/manifesto-ai/core/compare/lineage-v3.8.0...lineage-v3.9.0) (2026-04-12)
 
 

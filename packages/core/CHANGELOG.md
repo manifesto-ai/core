@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.1](https://github.com/manifesto-ai/core/compare/core-v2.11.0...core-v2.11.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* **docs:** align clean urls and favicon links ([0db1df5](https://github.com/manifesto-ai/core/commit/0db1df54599619026f41bb14317a27ca21498644))
+
 ## [2.11.0](https://github.com/manifesto-ai/core/compare/core-v2.10.0...core-v2.11.0) (2026-04-08)
 
 
