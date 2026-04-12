@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/governance",
-  "version": "3.8.0",
+  "version": "3.10.0",
   "description": "Manifesto Governance - decorator runtime for legitimacy, approval, and governed execution",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
