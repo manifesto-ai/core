@@ -63,13 +63,13 @@ Manifesto is a general-purpose declarative runtime. The underlying design philos
 If you use this core framework in your research, please cite:
 
 ```
-@misc{jeong2026llmdoesselfrevisingagent,
-      title={How Much LLM Does a Self-Revising Agent Actually Need?},
+@misc{jung2026llmdoesselfrevisingagent,
+      title={How Much LLM Does a Self-Revising Agent Actually Need?}, 
       author={Sungwoo Jung and Seonil Son},
       year={2026},
       eprint={2604.07236},
       archivePrefix={arXiv},
       primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2604.07236},
+      url={https://arxiv.org/abs/2604.07236}, 
 }
 ```
