@@ -1,0 +1,29 @@
+{
+  "name": "@manifesto-ai/example-todo-governed-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@manifesto-ai/governance": "workspace:*",
+    "@manifesto-ai/lineage": "workspace:*",
+    "@manifesto-ai/sdk": "workspace:*",
+    "@tailwindcss/vite": "^4.2.2",
+    "motion": "^12.38.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@manifesto-ai/compiler": "workspace:*",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3"
+  }
+}

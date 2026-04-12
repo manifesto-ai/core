@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sage-50: #f7f3ea;
+  --color-sage-100: #f2eee4;
+  --color-sage-200: #d8d4ca;
+  --color-sage-300: #a8b5b0;
+  --color-sage-400: #6c7d79;
+  --color-sage-500: #2e7d70;
+  --color-sage-600: #214d47;
+  --color-sage-700: #1e3d3a;
+  --color-sage-800: #183935;
+  --color-sage-900: #153531;
+
+  --color-ember-300: #f09878;
+  --color-ember-400: #e87048;
+  --color-ember-500: #b06456;
+  --color-ember-600: #9a4b38;
+
+  --color-sand-50: #fffef9;
+  --color-sand-100: #fff8ef;
+  --color-sand-200: #fffcf5;
+
+  --color-amber-400: #e0b02f;
+  --color-amber-600: #8b6200;
+
+  --font-serif: "Iowan Old Style", "Palatino Linotype", "Palatino", Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Inter", "Avenir Next", "Helvetica Neue", system-ui, sans-serif;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(46, 125, 112, 0.1), transparent 50%),
+    radial-gradient(ellipse at 100% 0%, rgba(232, 112, 72, 0.08), transparent 40%),
+    linear-gradient(180deg, #f7f3ea 0%, #f2eee4 100%);
+  color: var(--color-sage-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-fade-in {
+  animation: fade-in 400ms ease-out both;
+}
+
+.animate-fade-in-delay-1 {
+  animation: fade-in 400ms ease-out 100ms both;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fade-in 400ms ease-out 200ms both;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
