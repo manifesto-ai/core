@@ -105,6 +105,12 @@ export default defineConfig({
   title: 'Manifesto',
   description: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections',
   head: [
+    ['link', { rel: 'icon', href: '/favicon.ico', sizes: 'any' }],
+    ['link', { rel: 'icon', type: 'image/png', href: '/favicon-32x32.png', sizes: '32x32' }],
+    ['link', { rel: 'icon', type: 'image/png', href: '/favicon-16x16.png', sizes: '16x16' }],
+    ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
+    ['link', { rel: 'manifest', href: '/site.webmanifest' }],
+    ['meta', { name: 'theme-color', content: '#6617ad' }],
     ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-FW564PKJWF' }],
     ['script', {}, `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
