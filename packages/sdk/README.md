@@ -12,6 +12,7 @@ Use the SDK when you want:
 
 - the shortest path to a running base runtime
 - typed intent creation through `MEL.actions.*`
+- optional typed effect authoring through `@manifesto-ai/sdk/effects`
 - `dispatchAsync`, subscriptions, legality queries, explanation reads, dry-run simulation, and snapshot reads in one package
 - projected Snapshot reads by default, with canonical inspection available explicitly
 - safe post-activation arbitrary-snapshot tooling through `@manifesto-ai/sdk/extensions`
@@ -30,6 +31,8 @@ console.log(instance.getSnapshot().data.count);
 ```
 
 Base runtime reads cover availability, dispatchability, intent explanation, dry-run simulation, subscriptions, events, and both projected and canonical snapshot access.
+
+Effect authoring helpers live on the dedicated `@manifesto-ai/sdk/effects` subpath. The root package stays centered on `createManifesto()`.
 
 If you need review, approval, or sealed history later, compose `@manifesto-ai/lineage` and `@manifesto-ai/governance` before `activate()`. If you need arbitrary-snapshot tooling after activation, use `@manifesto-ai/sdk/extensions`.
 

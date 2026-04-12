@@ -1097,6 +1097,18 @@ _Source: `packages/sdk/src/index.ts`_
 - `TypedSubscribe`
 - `Unsubscribe`
 
+### @manifesto-ai/sdk/effects
+
+_Source: `packages/sdk/src/effects.ts`_
+
+#### Values
+
+- `defineEffects`
+
+#### Types
+
+- `PatchBuilder`
+
 ### @manifesto-ai/sdk/extensions
 
 _Source: `packages/sdk/src/extensions.ts`_

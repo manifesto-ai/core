@@ -29,9 +29,33 @@ Register handlers before activation:
 const app = createManifesto(schema, effects).activate();
 ```
 
-## Return Patches
+## Builder-First Authoring
 
-Handlers return core patches. Patch paths are structured and rooted at domain state.
+`defineEffects()` gives handlers typed top-level `MEL.state.*` refs while keeping the runtime contract unchanged.
+
+```typescript
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+import type { UserProfileDomain } from "./user-profile-types";
+
+const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
+  "api.fetchUser": async (params) => {
+    const { id } = params as { id: string };
+    const user = await fetchUser(id);
+
+    return [
+      set(MEL.state.user, user),
+      set(MEL.state.loading, false),
+      unset(MEL.state.error),
+    ];
+  },
+}));
+```
+
+`defineEffects()` is an SDK authoring helper only. The returned value is still `Record<string, EffectHandler>`, and each handler still returns concrete `Patch[]`.
+
+## Low-Level Raw Patch Form
+
+If you need the low-level surface directly, raw patch literals remain supported.
 
 ```typescript
 const effects = {

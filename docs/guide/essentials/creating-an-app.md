@@ -20,13 +20,19 @@ const app = createManifesto(CounterSchema, {}).activate();
 The first argument is your domain schema. The second argument is the effect handler map.
 
 ```typescript
-const app = createManifesto(UserProfileSchema, {
-  "api.fetchUser": async (params) => {
-    return [
-      { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-    ];
-  },
-}).activate();
+import { createManifesto } from "@manifesto-ai/sdk";
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+import UserProfileSchema from "./user-profile.mel";
+import type { UserProfileDomain } from "./user-profile-types";
+
+const app = createManifesto(
+  UserProfileSchema,
+  defineEffects<UserProfileDomain>(({ set }, MEL) => ({
+    "api.fetchUser": async () => [
+      set(MEL.state.loading, false),
+    ],
+  })),
+).activate();
 ```
 
 Pass `{}` when the domain does not declare external effects.

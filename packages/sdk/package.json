@@ -30,6 +30,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./effects": {
+      "types": "./dist/effects.d.ts",
+      "import": "./dist/effects.js"
+    },
     "./extensions": {
       "types": "./dist/extensions.d.ts",
       "import": "./dist/extensions.js"

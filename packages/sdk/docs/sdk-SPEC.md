@@ -206,7 +206,37 @@ type TypedMEL<T extends ManifestoDomainShape> = {
 };
 ```
 
-### 5.5 Runtime Helper Types
+### 5.5 Effect Authoring Subpath
+
+The root SDK contract remains centered on `createManifesto()`. Typed effect authoring helpers live on the adjunct `@manifesto-ai/sdk/effects` subpath.
+
+```typescript
+type MergeableObject<TValue> = TValue extends readonly unknown[]
+  ? never
+  : TValue extends object
+    ? TValue
+    : never;
+
+type PatchBuilder = {
+  set<TValue>(ref: FieldRef<TValue>, value: TValue): Patch;
+  unset<TValue>(ref: FieldRef<TValue>): Patch;
+  merge<TValue>(
+    ref: FieldRef<MergeableObject<TValue>>,
+    value: Partial<MergeableObject<TValue>>,
+  ): Patch;
+};
+
+declare function defineEffects<T extends ManifestoDomainShape>(
+  factory: (
+    ops: PatchBuilder,
+    MEL: TypedMEL<T>,
+  ) => Record<string, EffectHandler>,
+): Record<string, EffectHandler>;
+```
+
+`defineEffects()` is an authoring helper, not a runtime seam. It MUST return the same `Record<string, EffectHandler>` contract consumed by `createManifesto(schema, effects)`. v1 lowering is limited to top-level `MEL.state.*` refs via `FieldRef.name`. Implementations MAY attach runtime metadata to refs internally, but effect handlers MUST still return concrete `Patch[]`.
+
+### 5.6 Runtime Helper Types
 
 ```typescript
 type ActionArgs<
@@ -1124,6 +1154,8 @@ The following v2 surfaces are removed from the v3 SDK contract:
 - SDK thin world re-exports such as `createWorld()`
 - string-name canonical intent creation
 - v2 compatibility framing built around ready-to-use instances
+
+The additive `@manifesto-ai/sdk/effects` subpath does not revive the removed v2 helper-first runtime surface. `defineEffects()` is constrained to effect authoring and does not alter the root `createManifesto()` contract.
 
 This is an intentional hard cut. v2 usage patterns are not compatibility targets for the v3 spec.
 

@@ -3,7 +3,7 @@ import { defineConfig } from "tsup";
 const release = process.env.MANIFESTO_RELEASE === "1";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/extensions.ts", "src/provider.ts"],
+  entry: ["src/index.ts", "src/effects.ts", "src/extensions.ts", "src/provider.ts"],
   format: "esm",
   tsconfig: "tsconfig.build.json",
   dts: false,
