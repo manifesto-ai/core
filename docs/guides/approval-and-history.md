@@ -50,6 +50,6 @@ That adds:
 ## See Also
 
 - [Docs Home](/)
-- [Quickstart](/quickstart)
+- [Quick Start](/guide/quick-start)
 - [Tutorial](/tutorial/)
 - [AI Agents](/integration/ai-agents)

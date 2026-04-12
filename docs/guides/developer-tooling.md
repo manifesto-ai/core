@@ -75,7 +75,7 @@ If the project later needs reviewable writes or sealed history, step out of the 
 
 ## See Also
 
-- [Quickstart](/quickstart)
+- [Quick Start](/guide/quick-start)
 - [AI Agents](/integration/ai-agents)
 - [When You Need Approval or History](/guides/approval-and-history)
 - [Bundler Setup](/guides/bundler-setup)

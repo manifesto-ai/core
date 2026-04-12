@@ -2,7 +2,7 @@
 
 > Second-pass vocabulary and mental-model reference.
 
-If you are still trying to get the first app running, go back to [Quickstart](/quickstart) and [Tutorial](/tutorial/). This section is for when the app path mostly makes sense and you want the vocabulary to click.
+If you are still trying to get the first app running, go back to [Quick Start](/guide/quick-start) and [Tutorial](/tutorial/). This section is for when the app path mostly makes sense and you want the vocabulary to click.
 
 ## Core Concepts
 
@@ -35,7 +35,7 @@ compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 
 ## See Also
 
-- [Quickstart](/quickstart) for the runnable path
+- [Quick Start](/guide/quick-start) for the runnable path
 - [Tutorial](/tutorial/) for the learning path
 - [Architecture](/architecture/) for the system-level picture
 - [Internals](/internals/) for specs and historical decisions

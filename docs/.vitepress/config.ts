@@ -23,7 +23,15 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Subscriptions', link: '/guide/essentials/subscriptions' },
       { text: 'Effects', link: '/guide/essentials/effects' },
       { text: 'Availability', link: '/guide/essentials/availability' },
-      { text: 'Building a Todo App', link: '/guide/essentials/todo-app' },
+    ]
+  },
+  {
+    text: 'Tutorial',
+    items: [
+      { text: 'Your First App', link: '/tutorial/01-your-first-app' },
+      { text: 'Actions and State', link: '/tutorial/02-actions-and-state' },
+      { text: 'Working with Effects', link: '/tutorial/03-effects' },
+      { text: 'Building a Todo App', link: '/tutorial/04-todo-app' },
     ]
   },
   {
@@ -31,6 +39,8 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     items: [
       { text: 'React', link: '/integration/react' },
       { text: 'AI Agents', link: '/integration/ai-agents' },
+      { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+      { text: 'Code Generation', link: '/guides/code-generation' },
       { text: 'Tooling', link: '/guides/developer-tooling' },
       { text: 'Bundler Setup', link: '/guides/bundler-setup' },
     ]
@@ -38,9 +48,12 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'Scaling Up',
     items: [
-      { text: 'Approval and History', link: '/guides/approval-and-history' },
-      { text: 'Governed Composition', link: '/guides/governed-composition' },
+      { text: 'When You Need Approval', link: '/guides/approval-and-history' },
+      { text: 'Approval and History Setup', link: '/tutorial/05-governed-composition' },
       { text: 'Sealed History and Review', link: '/tutorial/06-governed-sealing-and-history' },
+      { text: 'Advanced Runtime Assembly', link: '/guides/governed-composition' },
+      { text: 'Release Hardening', link: '/guides/release-hardening' },
+      { text: 'Upgrade Guide', link: '/guides/upgrade-next-major' },
     ]
   },
   {
@@ -51,6 +64,7 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Intent', link: '/concepts/intent' },
       { text: 'Flow', link: '/concepts/flow' },
       { text: 'Effect Model', link: '/concepts/effect' },
+      { text: 'World', link: '/concepts/world' },
       { text: 'Determinism', link: '/architecture/determinism' },
       { text: 'Data Flow', link: '/architecture/data-flow' },
       { text: 'Failure Model', link: '/architecture/failure-model' },
@@ -138,6 +152,7 @@ gtag('config', 'G-FW564PKJWF');`],
             { text: 'Syntax Cookbook', link: '/mel/SYNTAX' },
             { text: 'Examples', link: '/mel/EXAMPLES' },
             { text: 'Error Guide', link: '/mel/ERROR-GUIDE' },
+            { text: 'LLM Context', link: '/mel/LLM-CONTEXT' },
           ]
         }
       ],

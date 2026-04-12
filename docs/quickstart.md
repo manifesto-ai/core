@@ -1,99 +1,13 @@
+---
+redirect: /guide/quick-start
+---
+
+<script setup>
+if (typeof window !== 'undefined') {
+  window.location.href = '/guide/quick-start'
+}
+</script>
+
 # Quickstart
 
-> Get one base-runtime app running in a few minutes.
-
-## Bootstrap With The CLI
-
-```bash
-npx @manifesto-ai/cli init
-```
-
-This opens the interactive init flow. Choose the base runtime and your bundler integration. The CLI installs runtime packages, records Manifesto project intent, and wires the selected MEL integration.
-
-::: tip Prefer pnpm or bun?
-Use `pnpm dlx @manifesto-ai/cli init` or `bunx @manifesto-ai/cli init`.
-:::
-
-## Install Manually
-
-If you do not want the CLI to patch your repo, install the runtime first:
-
-```bash
-npm install @manifesto-ai/sdk
-```
-
-`@manifesto-ai/sdk` depends on the compiler. Install `@manifesto-ai/compiler` directly only when your project imports compiler entrypoints, such as the Vite MEL plugin:
-
-```bash
-npm install -D @manifesto-ai/compiler
-```
-
-## Configure MEL Manually
-
-Skip this section if the CLI already wired Vite for you. Otherwise, add the MEL plugin:
-
-```typescript
-// vite.config.ts
-import { defineConfig } from "vite";
-import { melPlugin } from "@manifesto-ai/compiler/vite";
-
-export default defineConfig({
-  plugins: [melPlugin()],
-});
-```
-
-::: tip Other bundlers?
-Next.js, Webpack, Rollup, esbuild, and Rspack are all supported. See [Bundler Setup](/guides/bundler-setup), or run `manifesto integrate`.
-:::
-
-## Create Your First App
-
-### 1. Define the domain
-
-```mel
-domain Counter {
-  state {
-    count: number = 0
-  }
-
-  action increment() {
-    onceIntent {
-      patch count = add(count, 1)
-    }
-  }
-}
-```
-
-### 2. Activate and run
-
-```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
-import CounterMel from "./counter.mel";
-
-const instance = createManifesto(CounterMel, {}).activate();
-
-await instance.dispatchAsync(
-  instance.createIntent(instance.MEL.actions.increment),
-);
-console.log(instance.getSnapshot().data.count); // 1
-
-await instance.dispatchAsync(
-  instance.createIntent(instance.MEL.actions.increment),
-);
-console.log(instance.getSnapshot().data.count); // 2
-```
-
-## What Just Happened?
-
-- MEL defined the state and action semantics.
-- `createManifesto()` created a composable manifesto.
-- `activate()` opened the runtime surface.
-- `createIntent()` built a typed intent from the MEL action.
-- `dispatchAsync()` executed that intent and resolved after the next terminal snapshot was published.
-
-## Next Step
-
-1. Continue with the [Tutorial](/tutorial/) for the normal learning path.
-2. Use [Bundler Setup](/guides/bundler-setup) only if you are not on Vite.
-3. Use [Developer Tooling](/guides/developer-tooling) when you want CLI, editor, Studio, or AI-tool setup.
-4. Use [When You Need Approval or History](/guides/approval-and-history) only if the project later needs review, audit history, or sealing.
+This page has moved to [Quick Start](/guide/quick-start).

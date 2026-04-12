@@ -4,7 +4,7 @@
 
 ## Before You Start
 
-- Finish the [Quickstart](/quickstart)
+- Finish the [Quick Start](/guide/quick-start)
 - Be comfortable reading basic TypeScript
 - Have a `.mel` loader configured with `@manifesto-ai/compiler`
 

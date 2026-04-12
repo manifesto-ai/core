@@ -2,7 +2,7 @@
 
 > Deep-dive reading for understanding the current implementation shape.
 
-Do not start here if you are still trying to get the first app running. Use [Quickstart](/quickstart) and [Tutorial](/tutorial/) first, then come back once the runtime path already feels concrete.
+Do not start here if you are still trying to get the first app running. Use [Quick Start](/guide/quick-start) and [Tutorial](/tutorial/) first, then come back once the runtime path already feels concrete.
 
 ## The Current Picture
 
@@ -44,4 +44,4 @@ Read the architecture pages when:
 - you are integrating Manifesto into a larger system
 - you need to decide whether to add Lineage or Governance
 
-If you are still learning the APIs, go back to [Quickstart](/quickstart) or [Tutorial](/tutorial/) first.
+If you are still learning the APIs, go back to [Quick Start](/guide/quick-start) or [Tutorial](/tutorial/) first.
