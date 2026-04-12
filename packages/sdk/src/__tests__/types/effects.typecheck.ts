@@ -38,6 +38,9 @@ defineEffects<EffectsDomain>(({ set, merge }, MEL) => {
   // @ts-expect-error wrong value type for boolean field
   void set(MEL.state.loading, "oops");
 
+  // @ts-expect-error set must derive its value type from the referenced field
+  void set(MEL.state.loading, undefined);
+
   // @ts-expect-error merge rejects primitive fields
   void merge(MEL.state.loading, { nope: true });
 

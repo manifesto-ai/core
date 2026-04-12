@@ -28,12 +28,18 @@ type MergeableObject<TValue> = TValue extends readonly unknown[]
     ? TValue
     : never;
 
+type RefValue<TRef extends FieldRef<unknown>> = TRef extends FieldRef<infer TValue>
+  ? TValue
+  : never;
+
+type MergeValue<TRef extends FieldRef<unknown>> = Partial<MergeableObject<RefValue<TRef>>>;
+
 export type PatchBuilder = {
-  set<TValue>(ref: FieldRef<TValue>, value: TValue): Patch;
-  unset<TValue>(ref: FieldRef<TValue>): Patch;
-  merge<TValue>(
-    ref: FieldRef<MergeableObject<TValue>>,
-    value: Partial<MergeableObject<TValue>>,
+  set<TRef extends FieldRef<unknown>>(ref: TRef, value: RefValue<TRef>): Patch;
+  unset<TRef extends FieldRef<unknown>>(ref: TRef): Patch;
+  merge<TRef extends FieldRef<unknown>>(
+    ref: TRef,
+    value: MergeValue<TRef>,
   ): Patch;
 };
 
@@ -112,17 +118,17 @@ function toPatchPath(ref: FieldRef<unknown>): PatchPath {
 }
 
 const PATCH_BUILDER: PatchBuilder = Object.freeze({
-  set<TValue>(ref: FieldRef<TValue>, value: TValue): Patch {
+  set<TRef extends FieldRef<unknown>>(ref: TRef, value: RefValue<TRef>): Patch {
     assertFieldRef("set", ref);
     return setPatch(toPatchPath(ref), value);
   },
-  unset<TValue>(ref: FieldRef<TValue>): Patch {
+  unset<TRef extends FieldRef<unknown>>(ref: TRef): Patch {
     assertFieldRef("unset", ref);
     return unsetPatch(toPatchPath(ref));
   },
-  merge<TValue>(
-    ref: FieldRef<MergeableObject<TValue>>,
-    value: Partial<MergeableObject<TValue>>,
+  merge<TRef extends FieldRef<unknown>>(
+    ref: TRef,
+    value: MergeValue<TRef>,
   ): Patch {
     assertFieldRef("merge", ref);
     assertMergeValue(value);
