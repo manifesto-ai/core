@@ -9,6 +9,7 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import {
   createInMemoryGovernanceStore,
+  waitForProposal,
   withGovernance,
 } from "@manifesto-ai/governance";
 
@@ -37,6 +38,18 @@ const proposal = await app.proposeAsync(
 ```
 
 With `auto_approve` policy, a proposal may execute and complete immediately. With `hitl` policy, it usually remains `evaluating`.
+
+When a caller wants a normalized settlement read, use the additive helper:
+
+```typescript
+const settlement = await waitForProposal(app, proposal);
+
+if (settlement.kind === "completed") {
+  console.log(settlement.snapshot.data);
+}
+```
+
+`waitForProposal()` observes proposal settlement. It does not replace `proposeAsync()` as the governed write path.
 
 ## HITL Policy
 

@@ -4,14 +4,14 @@
 
 `@manifesto-ai/governance` is the package that turns a composable manifesto into a governed world. Its canonical public entry is `withGovernance(manifesto, config)`.
 
-> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline.
+> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline. The current root surface also includes the additive `waitForProposal()` observer helper.
 
 ## Canonical Runtime Path
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { withGovernance } from "@manifesto-ai/governance";
+import { waitForProposal, withGovernance } from "@manifesto-ai/governance";
 
 const governed = withGovernance(
   withLineage(createManifesto<CounterDomain>(schema, effects), {
@@ -34,6 +34,7 @@ const governed = withGovernance(
 const proposal = await governed.proposeAsync(
   governed.createIntent(governed.MEL.actions.increment),
 );
+const settlement = await waitForProposal(governed, proposal);
 ```
 
 ## What This Package Owns
@@ -41,6 +42,7 @@ const proposal = await governed.proposeAsync(
 - `withGovernance()` and the activated `GovernanceInstance`
 - proposal lifecycle and authority evaluation
 - pending human/tribunal resolution through `approve()` / `reject()`
+- additive proposal-settlement observation through `waitForProposal()`
 - governance decision records and post-commit governance events
 - lineage-preserving query access such as `getWorldSnapshot()`, `getLatestHead()`, and `getBranches()`
 - low-level governance stores, services, authority handlers, and intent-instance helpers via `@manifesto-ai/governance/provider`
@@ -49,6 +51,7 @@ const proposal = await governed.proposeAsync(
 
 - direct `dispatchAsync` and `commitAsync` no longer exist
 - the canonical state-change path becomes `proposeAsync() -> approve()/reject()`
+- `waitForProposal()` is an additive observation helper, not a replacement for `proposeAsync()`
 - lineage must be composed before governance activation
 - visible snapshots publish only after approved execution seals successfully
 - `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup; `restore(worldId)` remains the normalized resume path inherited from lineage

@@ -620,6 +620,8 @@ If execution fails before a new terminal snapshot exists, SDK MUST emit `dispatc
 
 `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `explainIntent()`, `why()`, `whyNot()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
 
+`getAvailableActions()` and `isActionAvailable()` are **snapshot-bound present-tense reads**, not durable capability grants or lease-like tokens. A name returned now MAY become unavailable after any later publication, restore, or other state change. Callers MUST re-read current legality instead of treating a prior action name as a stable future promise.
+
 Availability and dispatchability reads MUST delegate to Core legality semantics rather than reconstructing policy in SDK.
 
 `getActionMetadata()` MUST expose the SDK-known action metadata only:
@@ -649,6 +651,15 @@ The legality ordering is normative:
 2. if available, validate bound intent input against the activated action contract
 3. if input is valid, evaluate bound-intent dispatchability
 4. if admitted, perform the same dry-run transition contract as `simulate()`
+
+The intended public legality ladder is:
+
+1. coarse availability via `getAvailableActions()` / `isActionAvailable()`
+2. first-failing-layer blocker or explanation reads via `getIntentBlockers()`, `whyNot()`, or `explainIntent()`
+3. admitted dry-run via `simulate()`
+4. runtime execution via `dispatchAsync()`
+
+`getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `simulate()` is the admitted dry-run step. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
 
 If the action is unavailable, explanation reads MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
 

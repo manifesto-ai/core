@@ -4,6 +4,7 @@ import type {
 } from "./types.js";
 import type { PreparedLineageCommit } from "@manifesto-ai/lineage/provider";
 import { createNoopGovernanceEventSink, type GovernanceEventDispatcher, type GovernanceEventSink, type GovernanceService } from "./types.js";
+import { deriveErrorInfo } from "./error-info.js";
 
 export interface CreateGovernanceEventDispatcherOptions {
   readonly service: Pick<
@@ -80,16 +81,7 @@ function deriveWorldCreatedFrom(
 }
 
 function deriveExecutionFailure(lineageCommit: PreparedLineageCommit): ErrorInfo {
-  const currentError = lineageCommit.terminalSnapshot.system.lastError ?? undefined;
-  const pendingRequirements = lineageCommit.terminalSnapshot.system.pendingRequirements.map(
-    (requirement) => requirement.id
-  );
-
-  return {
-    summary: summarizeFailure(currentError ? 1 : 0, pendingRequirements.length),
-    ...(currentError ? { currentError } : {}),
-    ...(pendingRequirements.length > 0 ? { pendingRequirements } : {}),
-  };
+  return deriveErrorInfo(lineageCommit.terminalSnapshot);
 }
 
 function isTrueForkCommit(
@@ -100,17 +92,4 @@ function isTrueForkCommit(
   return lineageCommit.kind === "next"
     && "forkCreated" in lineageCommit
     && lineageCommit.forkCreated === true;
-}
-
-function summarizeFailure(errorCount: number, pendingRequirementCount: number): string {
-  if (errorCount > 0 && pendingRequirementCount > 0) {
-    return `Execution failed with ${errorCount} error(s) and ${pendingRequirementCount} pending requirement(s)`;
-  }
-  if (errorCount > 0) {
-    return `Execution failed with ${errorCount} error(s)`;
-  }
-  if (pendingRequirementCount > 0) {
-    return `Execution failed with ${pendingRequirementCount} pending requirement(s)`;
-  }
-  return "Execution failed";
 }

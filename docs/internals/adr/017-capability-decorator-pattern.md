@@ -22,6 +22,19 @@
 | v3.0 | 2026-04-01 | Activation boundary introduced; `createManifesto()` returns a composable manifesto and runtime verbs appear only after `activate()` | This document |
 | v3.1 | 2026-04-01 | `activate()` one-shot enforcement and Governance/Lineage config precedence rules clarified | This document |
 
+## Current Retained Decision
+
+Read this section first when you need the current decorator contract rather than the historical rationale:
+
+- the canonical composition path is `createManifesto() -> withLineage() -> withGovernance() -> activate()`
+- verb promotion is `dispatchAsync -> commitAsync -> proposeAsync`
+- `withGovernance()` requires explicit prior `withLineage()` composition
+- governed runtimes remove direct `dispatchAsync` and `commitAsync` backdoors
+- inherited legality queries preserve their base meanings across decorators; `getAvailableActions()` / `isActionAvailable()` are current-snapshot reads, not durable capability grants
+- proposal settlement observation, when needed, is additive to the governed story; it does not replace `proposeAsync()`
+
+The remaining sections are retained architectural rationale for the activation-first decorator pattern. When any older example or alternative branch in this ADR differs from the package specs or version indexes, the package docs win.
+
 ---
 
 ## 1. Context
@@ -447,7 +460,7 @@ const counter = withLineage(
 await counter.commitAsync(counter.createIntent(counter.MEL.actions.increment));
 
 // Resume from last session
-const head = counter.getLatestHead();
+const head = await counter.getLatestHead();
 if (head) await counter.restore(head.worldId);
 ```
 
@@ -463,7 +476,18 @@ const counter = withGovernance(
     createManifesto<CounterDomain>(CounterMel, {}),
     { store: sqliteStore }
   ),
-  { actors, authorities }
+  {
+    bindings,
+    execution: {
+      projectionId: "counter",
+      deriveActor(intent) {
+        return { actorId: "agent:demo", kind: "agent" };
+      },
+      deriveSource(intent) {
+        return { kind: "agent", eventId: intent.intentId };
+      },
+    },
+  }
 ).activate();
 
 // counter: GovernanceInstance<CounterDomain>

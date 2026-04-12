@@ -15,6 +15,7 @@ if (available.includes("clearCompleted")) {
 ```
 
 Do not cache this value for a long agent loop. Dispatch, approved proposal execution, or restore can change the next availability result.
+Treat the returned names as observational reads, not capability tokens. Base `dispatchAsync()`, lineage `commitAsync()`, and governed `proposeAsync()` still re-check legality against the then-current runtime state, and a pending governed proposal can later be superseded if the visible head advances.
 
 ## `isActionAvailable(name)`
 
@@ -61,6 +62,13 @@ Legality order is stable:
 2. input validation
 3. dispatchability
 4. admitted dry-run
+
+The intended public caller ladder is:
+
+1. `getAvailableActions()` / `isActionAvailable()` for the coarse current decision surface
+2. `getIntentBlockers()` / `whyNot()` / `explainIntent()` for the first failing layer
+3. `simulate()` when the candidate intent is admitted
+4. the runtime write verb when you are ready to execute or submit
 
 ## Agent Pattern
 

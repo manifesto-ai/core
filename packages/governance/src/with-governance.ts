@@ -32,6 +32,7 @@ import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
 import { createIntentInstance } from "./intent-instance.js";
 import { createGovernanceService } from "./service/governance-service.js";
 import { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
+import { attachWaitForProposalRuntime } from "./wait-for-proposal.js";
 import type {
   GovernanceComposableManifesto,
   GovernanceConfig,
@@ -548,9 +549,14 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     getDecisionRecord,
   };
 
-  runtime = attachExtensionKernel(
-    governed satisfies GovernanceInstance<T>,
-    kernel,
+  runtime = attachWaitForProposalRuntime(
+    attachExtensionKernel(
+      governed satisfies GovernanceInstance<T>,
+      kernel,
+    ),
+    {
+      isDisposed: kernel.isDisposed,
+    },
   );
 
   return runtime;

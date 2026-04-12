@@ -129,6 +129,8 @@ The accessor exposes:
 
 `getAvailableActions()` remains the coarse legality query. `isIntentDispatchable()`, `getIntentBlockers()`, and the intent explanation reads are the fine bound-intent legality surface. `getActionMetadata()` is a read-only contract inspection surface.
 
+Treat `getAvailableActions()` and `isActionAvailable()` as current-snapshot reads, not durable capability grants. The runtime still revalidates legality at dequeue time, so callers should re-read after state changes instead of caching an old action name as a future promise.
+
 ## Intent Explanation
 
 Use the current-snapshot runtime reads when you want one structured answer to:
@@ -174,6 +176,15 @@ if (explanation.kind === "admitted") {
 
 Treat `snapshot`, `newAvailableActions`, `changedPaths`, and `status` as the stable comparison surface for repeated explanation reads. `canonicalSnapshot` is a canonical inspection view and may carry host-managed logical metadata such as `timestamp`.
 
+The intended legality ladder for callers is:
+
+1. coarse availability
+2. blocker / explanation reads
+3. admitted dry-run
+4. execution
+
+`whyNot()` and `getIntentBlockers()` are the lightweight first-failing-layer reads. `simulate()` is the admitted dry-run step.
+
 ## Static Graph And Dry-Run Introspection
 
 Use `getSchemaGraph()` when you need the projected static dependency graph for the activated schema. Ref-based lookup through `instance.MEL.*` is the canonical surface; kind-prefixed ids such as `state:count` are debug-only convenience.
@@ -183,6 +194,8 @@ Use `simulate()` when you need a non-committing dry-run of an action against the
 If the action is available but the bound intent input is invalid, `simulate()` rejects with `INVALID_INPUT` before dispatchability.
 
 Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
+
+Base SDK and lineage runtimes keep event payloads plus stable rejection codes as the supported machine-readable execution outcome surface. `dispatchAsync()` and `commitAsync()` remain the primary success-or-reject DX paths. Governed runtimes add `waitForProposal()` in `@manifesto-ai/governance` as an additive proposal-settlement observer; it does not replace `proposeAsync()`.
 
 ## Decorator/provider authoring seam
 

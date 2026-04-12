@@ -5,7 +5,7 @@
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { withGovernance } from "@manifesto-ai/governance";
+import { waitForProposal, withGovernance } from "@manifesto-ai/governance";
 
 const governed = withGovernance(
   withLineage(createManifesto<CounterDomain>(schema, effects), {
@@ -56,6 +56,18 @@ if (proposal.status === "completed") {
 
 Visible snapshots publish only after lineage seal commit succeeds.
 
+When a caller wants a normalized proposal-settlement read, use the additive root helper:
+
+```ts
+const settlement = await waitForProposal(governed, proposal);
+
+if (settlement.kind === "completed") {
+  console.log(settlement.snapshot.data.count);
+}
+```
+
+`waitForProposal()` does not replace `proposeAsync()`. It observes the current proposal state and returns `completed`, `failed`, `rejected`, `superseded`, `pending`, or `timed_out`.
+
 ## 4. Pending Human Resolution
 
 HITL and tribunal bindings keep the proposal in `evaluating` until a later decision resolves it.
@@ -92,6 +104,7 @@ The removed verbs are direct execution verbs. Governance keeps the lineage query
 `getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
 The activated governed runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
 Those inherited legality queries keep the base SDK semantics: availability short-circuits dispatchability, and `getIntentBlockers()` reports the first failing layer instead of combining coarse and fine blockers.
+`getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot reads, not durable capability grants for later proposal admission.
 
 ## 6. Low-Level Governance Substrate
 

@@ -19,6 +19,8 @@ import {
 } from "../../../../lineage/src/index.ts";
 import {
   createInMemoryGovernanceStore,
+  type ProposalSettlement,
+  waitForProposal,
   withGovernance,
 } from "../../index.ts";
 
@@ -60,6 +62,11 @@ void governedDispatchable;
 void governedBlockers;
 void governed.getLatestHead();
 void governed.getBranches();
+const governedSettlement: Promise<ProposalSettlement<CounterDomain>> = waitForProposal(
+  governed,
+  "proposal-1",
+);
+void governedSettlement;
 
 // @ts-expect-error governed runtime removes base dispatchAsync
 governed.dispatchAsync(
@@ -99,5 +106,27 @@ const foreignIntent = foreignGoverned.createIntent(foreignGoverned.MEL.actions.t
 
 // @ts-expect-error proposeAsync rejects intents branded for a different domain
 void governed.proposeAsync(foreignIntent);
+
+async function checkSettlementNarrowing() {
+  const settlement = await waitForProposal(governed, "proposal-2");
+
+  if (settlement.kind === "completed") {
+    const count: number = settlement.snapshot.data.count;
+    const worldId: string = settlement.resultWorld;
+    void count;
+    void worldId;
+  }
+
+  if (settlement.kind === "failed") {
+    const summary: string = settlement.error.summary;
+    void summary;
+    if (settlement.resultWorld) {
+      const worldId: string = settlement.resultWorld;
+      void worldId;
+    }
+  }
+}
+
+void checkSettlementNarrowing();
 
 export {};

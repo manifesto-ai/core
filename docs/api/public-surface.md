@@ -737,6 +737,7 @@ _Source: `packages/governance/src/index.ts`_
 
 - `createInMemoryGovernanceStore`
 - `createNoopGovernanceEventSink`
+- `waitForProposal`
 - `withGovernance`
 
 #### Types
@@ -765,12 +766,14 @@ _Source: `packages/governance/src/index.ts`_
 - `PolicyRule`
 - `Proposal`
 - `ProposalId`
+- `ProposalSettlement`
 - `ProposalStatus`
 - `QuorumRule`
 - `SourceKind`
 - `SourceRef`
 - `SupersedeReason`
 - `Vote`
+- `WaitForProposalOptions`
 - `WaitingFor`
 
 ### @manifesto-ai/governance/provider

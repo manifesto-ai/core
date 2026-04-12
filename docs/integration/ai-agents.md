@@ -2,7 +2,7 @@
 
 > Let agents see the current Snapshot, see the actions that are available now, and submit domain changes through the runtime.
 >
-> **Current Contract Note:** This page uses the activation-first SDK surface: activate a `createManifesto(...)` app, then call `getSnapshot`, `getAvailableActions`, `getActionMetadata`, `createIntent`, and `dispatchAsync`. Governed examples use the current `withLineage(...) -> withGovernance(...) -> activate()` surface.
+> **Current Contract Note:** This page uses the activation-first SDK surface: activate a `createManifesto(...)` app, then call `getSnapshot`, `getAvailableActions`, `getActionMetadata`, `createIntent`, and `dispatchAsync`. Governed examples use the current `withLineage(...) -> withGovernance(...) -> activate()` surface, with optional settlement observation through `waitForProposal()`.
 
 An agent should not guess your domain API from prompt text. It should read the current state, read the currently legal actions, call an app-owned tool, and receive a Snapshot view back.
 
@@ -19,6 +19,7 @@ Snapshot + getAvailableActions()
 This guide uses a Todo app. Build that domain first in [Building a Todo App](/guide/essentials/todo-app).
 
 The examples assume action-level gates are modeled with MEL `available when`. `getAvailableActions()` reflects those current-snapshot action gates. Bound-input checks still belong to `dispatchable when`, `whyNot()`, or the final runtime dispatch.
+Treat `getAvailableActions()` as a present-tense observational read, not a capability token; tools still need to re-check legality at execution or proposal time.
 
 ---
 
@@ -168,6 +169,7 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import {
   createInMemoryGovernanceStore,
+  waitForProposal,
   withGovernance,
 } from "@manifesto-ai/governance";
 
@@ -219,8 +221,10 @@ const addTodoForReview = tool({
       };
     }
 
+    const settlement = await waitForProposal(app, proposal);
+
     return {
-      status: proposal.status,
+      status: settlement.kind,
       proposalId: proposal.proposalId,
       context: readAgentContext(),
     };
@@ -241,7 +245,7 @@ export async function approveAgentProposal(proposalId: string) {
 }
 ```
 
-That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools use `proposeAsync()` and a reviewer calls `approve()`.
+That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools use `proposeAsync()`, optionally observe settlement with `waitForProposal()`, and a reviewer calls `approve()` when policy requires it.
 
 ---
 
