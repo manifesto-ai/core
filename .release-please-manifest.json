@@ -2,8 +2,8 @@
   "packages/codegen": "0.2.5",
   "packages/compiler": "3.3.0",
   "packages/core": "2.11.0",
-  "packages/governance": "3.8.1",
+  "packages/governance": "3.9.0",
   "packages/host": "2.8.0",
-  "packages/lineage": "3.7.2",
-  "packages/sdk": "3.10.0"
+  "packages/lineage": "3.8.0",
+  "packages/sdk": "3.11.0"
 }
