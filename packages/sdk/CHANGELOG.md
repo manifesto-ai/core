@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.9.0](https://github.com/manifesto-ai/core/compare/sdk-v3.8.0...sdk-v3.9.0) (2026-04-12)
+
+
+### Features
+
+* **governance:** add waitForProposal observer ([94be2f1](https://github.com/manifesto-ai/core/commit/94be2f1e24c8228b4542393048090cd7dbd15929))
+* **governance:** add waitForProposal observer ([26ccdf8](https://github.com/manifesto-ai/core/commit/26ccdf8842679f059b083584a7635edc14011d00))
+
 ## [3.8.0](https://github.com/manifesto-ai/core/compare/sdk-v3.7.0...sdk-v3.8.0) (2026-04-09)
 
 
