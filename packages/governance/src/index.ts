@@ -33,9 +33,14 @@ export type {
   GovernanceExecutionConfig,
   GovernanceInstance,
 } from "./runtime-types.js";
+export type {
+  ProposalSettlement,
+  WaitForProposalOptions,
+} from "./wait-for-proposal.js";
 export {
   createNoopGovernanceEventSink,
 } from "./types.js";
 export { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
 
 export { withGovernance } from "./with-governance.js";
+export { waitForProposal } from "./wait-for-proposal.js";

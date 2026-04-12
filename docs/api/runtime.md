@@ -38,6 +38,17 @@ console.log(next.data.count);
 console.log(app.getAvailableActions());
 ```
 
+Treat `getAvailableActions()` and `isActionAvailable()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it executes or submits work.
+
+## Legality Ladder
+
+The intended public decision order is:
+
+1. availability via `getAvailableActions()` / `isActionAvailable()`
+2. blocker or explanation reads via `getIntentBlockers()`, `whyNot()`, or `explainIntent()`
+3. admitted dry-run via `simulate()`
+4. execution via the runtime's write verb
+
 ## Decorated Runtimes
 
 Decorators change the write verb:
@@ -49,6 +60,8 @@ Decorators change the write verb:
 | Governed runtime | `proposeAsync(intent)`, then `approve()` / `reject()` when policy requires review |
 
 Use the base runtime until approval, continuity, restore, branch/head history, or sealing is a product requirement.
+
+Legality query meaning is preserved across decorators. Base and lineage runtimes keep event payloads plus stable rejection codes as the official machine-readable execution result surface. Governed runtimes additionally expose `waitForProposal(app, proposalOrId, options?)` from `@manifesto-ai/governance` when a caller wants a normalized proposal-settlement value such as `completed`, `failed`, `rejected`, `superseded`, `pending`, or `timed_out`.
 
 ## Next
 

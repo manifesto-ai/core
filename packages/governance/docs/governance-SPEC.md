@@ -25,6 +25,12 @@ function withGovernance<T extends ManifestoDomainShape>(
   manifesto: LineageComposableManifestoInput<T>,
   config: GovernanceConfig<T>,
 ): GovernanceComposableManifesto<T>;
+
+function waitForProposal<T extends ManifestoDomainShape>(
+  app: GovernanceInstance<T>,
+  proposalOrId: Proposal | ProposalId,
+  options?: WaitForProposalOptions,
+): Promise<ProposalSettlement<T>>;
 ```
 
 ## 3. Config Contract
@@ -74,8 +80,27 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - `getCanonicalSnapshot()` is the current visible canonical runtime substrate
 - `getWorldSnapshot(worldId)` is the stored canonical snapshot for a sealed world
 - `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()` remain inherited read/query surfaces
+- `getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot observational reads, not durable capability grants
 - inherited legality queries preserve the base SDK ordering: availability is checked before dispatchability
 - inherited `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker without evaluating `dispatchable`
+
+`waitForProposal()` is a root-export observation helper. It is additive and MUST NOT replace the governed write path.
+
+### 5.1 `waitForProposal()`
+
+`waitForProposal()` observes proposal settlement without changing governed execution law.
+
+- the canonical state-change path remains `proposeAsync(intent) -> approve()/reject()`
+- if the latest proposal is terminal, `waitForProposal()` MUST return `completed`, `failed`, `rejected`, or `superseded`
+- if the latest proposal is non-terminal and `timeoutMs` is omitted or `0`, it MUST return `pending`
+- if `timeoutMs > 0`, it MUST poll `getProposal()` until the proposal becomes terminal or the observation deadline is reached
+- timing out MUST return `timed_out`; it is an observation boundary, not an execution failure
+- missing proposals MUST reject with `GOVERNANCE_PROPOSAL_NOT_FOUND`
+- disposed governed runtimes MUST reject with `DisposedError`
+- `completed` MUST include the current visible projected snapshot from `getSnapshot()` plus `resultWorld`
+- `failed` MUST include `resultWorld` plus `ErrorInfo`, and MUST NOT fabricate a visible snapshot
+- failed-branch `ErrorInfo` MUST follow the same shape as governance `execution:failed` events: `summary`, optional `currentError`, optional `pendingRequirements`
+- callers that need the stored failed world MUST use `getWorldSnapshot(resultWorld)` directly
 
 ## 6. Verb Promotion
 
@@ -96,6 +121,8 @@ The canonical state-change path is:
 3. create and persist a submitted proposal
 4. move that proposal into `evaluating`
 5. evaluate authority according to the resolved actor binding
+
+Proposal admission MUST evaluate inherited availability, input validation, and dispatchability against the current visible snapshot at proposal time. A prior `getAvailableActions()` or `isActionAvailable()` read MUST NOT be treated as a durable capability token for later proposal admission.
 
 ### 7.2 Immediate Outcomes
 
@@ -153,3 +180,7 @@ Governance v3 no longer teaches:
 | GOV-V3-8 | MUST NOT | failed governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot |
 | GOV-V3-9 | MUST | inherited legality queries preserve the base SDK availability-before-dispatchability ordering |
 | GOV-V3-10 | MUST | inherited `getIntentBlockers()` expose only the first failing legality layer |
+| GOV-V3-11 | MUST NOT | `waitForProposal()` replace `proposeAsync()` as the governed write path |
+| GOV-V3-12 | MUST | `waitForProposal()` return `pending` for non-terminal proposals when `timeoutMs` is omitted or `0`, and `timed_out` when the observation deadline expires |
+| GOV-V3-13 | MUST | `waitForProposal()` return failed settlement `ErrorInfo` without fabricating a visible snapshot |
+| GOV-V3-14 | MUST NOT | inherited availability reads be documented as durable capability grants for later proposal admission |

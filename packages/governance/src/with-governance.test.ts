@@ -4,7 +4,12 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
+import {
+  AlreadyActivatedError,
+  DisposedError,
+  ManifestoError,
+  createManifesto,
+} from "@manifesto-ai/sdk";
 import { getExtensionKernel } from "../../sdk/src/extensions.js";
 import {
   createInMemoryLineageStore,
@@ -17,6 +22,7 @@ import {
 
 import {
   createInMemoryGovernanceStore,
+  waitForProposal,
   withGovernance,
   type ActorAuthorityBinding,
   type GovernanceEvent,
@@ -348,6 +354,268 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(governed.getSnapshot().data.count).toBe(1);
   });
 
+  it("settles completed proposals through waitForProposal()", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-completed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-completed",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+    const settlement = await waitForProposal(governed, proposal);
+
+    expect(settlement).toMatchObject({
+      kind: "completed",
+      resultWorld: proposal.resultWorld,
+    });
+    if (settlement.kind !== "completed") {
+      throw new Error("expected completed settlement");
+    }
+    expect(settlement.snapshot.data.count).toBe(1);
+    expect(settlement.snapshot).toEqual(governed.getSnapshot());
+  });
+
+  it("returns pending immediately for non-terminal proposals when timeoutMs is omitted", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:wait-pending",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:wait-pending",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+    const settlement = await waitForProposal(governed, proposal);
+
+    expect(settlement).toMatchObject({
+      kind: "pending",
+      proposal: {
+        proposalId: proposal.proposalId,
+        status: "evaluating",
+      },
+    });
+  });
+
+  it("returns timed_out when a proposal does not settle before the observation deadline", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const governed = withGovernance(
+        withLineage(
+          createManifesto<CounterDomain>(createCounterSchema(), {}),
+          { store: createInMemoryLineageStore() },
+        ),
+        {
+          governanceStore: createInMemoryGovernanceStore(),
+          bindings: [createHitlBinding()],
+          execution: {
+            projectionId: "proj:wait-timeout",
+            deriveActor: () => ({
+              actorId: "actor:human",
+              kind: "human",
+            }),
+            deriveSource: () => ({
+              kind: "ui",
+              eventId: "evt:wait-timeout",
+            }),
+          },
+        },
+      ).activate();
+
+      const proposal = await governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      );
+      const settlementPromise = waitForProposal(governed, proposal, {
+        timeoutMs: 100,
+        pollIntervalMs: 25,
+      });
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      await expect(settlementPromise).resolves.toMatchObject({
+        kind: "timed_out",
+        proposal: {
+          proposalId: proposal.proposalId,
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("observes later approval through waitForProposal()", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const governed = withGovernance(
+        withLineage(
+          createManifesto<CounterDomain>(createCounterSchema(), {}),
+          { store: createInMemoryLineageStore() },
+        ),
+        {
+          governanceStore: createInMemoryGovernanceStore(),
+          bindings: [createHitlBinding()],
+          execution: {
+            projectionId: "proj:wait-approve",
+            deriveActor: () => ({
+              actorId: "actor:human",
+              kind: "human",
+            }),
+            deriveSource: () => ({
+              kind: "ui",
+              eventId: "evt:wait-approve",
+            }),
+          },
+        },
+      ).activate();
+
+      const proposal = await governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      );
+      const settlementPromise = waitForProposal(governed, proposal, {
+        timeoutMs: 250,
+        pollIntervalMs: 25,
+      });
+
+      await governed.approve(proposal.proposalId);
+      await vi.advanceTimersByTimeAsync(25);
+
+      await expect(settlementPromise).resolves.toMatchObject({
+        kind: "completed",
+        resultWorld: expect.any(String),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("observes later rejection through waitForProposal()", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const governed = withGovernance(
+        withLineage(
+          createManifesto<CounterDomain>(createCounterSchema(), {}),
+          { store: createInMemoryLineageStore() },
+        ),
+        {
+          governanceStore: createInMemoryGovernanceStore(),
+          bindings: [createHitlBinding()],
+          execution: {
+            projectionId: "proj:wait-reject",
+            deriveActor: () => ({
+              actorId: "actor:human",
+              kind: "human",
+            }),
+            deriveSource: () => ({
+              kind: "ui",
+              eventId: "evt:wait-reject",
+            }),
+          },
+        },
+      ).activate();
+
+      const proposal = await governed.proposeAsync(
+        governed.createIntent(governed.MEL.actions.increment),
+      );
+      const settlementPromise = waitForProposal(governed, proposal, {
+        timeoutMs: 250,
+        pollIntervalMs: 25,
+      });
+
+      await governed.reject(proposal.proposalId, "manual stop");
+      await vi.advanceTimersByTimeAsync(25);
+
+      await expect(settlementPromise).resolves.toMatchObject({
+        kind: "rejected",
+        proposal: {
+          proposalId: proposal.proposalId,
+          status: "rejected",
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("observes superseded proposals through waitForProposal()", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:wait-superseded",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:wait-superseded",
+          }),
+        },
+      },
+    ).activate();
+
+    const pending = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    await governed.bindActor(createAutoBindingForHuman());
+    await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.add, 2),
+    );
+    await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    await expect(waitForProposal(governed, pending)).resolves.toMatchObject({
+      kind: "superseded",
+      proposal: {
+        proposalId: pending.proposalId,
+        status: "superseded",
+      },
+    });
+  });
+
   it("uses the explicitly composed lineage service", async () => {
     const explicitStore = createInMemoryLineageStore();
     const explicitService = createLineageService(explicitStore);
@@ -427,6 +695,52 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     const decision = await governed.getDecisionRecord(proposal.decisionId!);
     expect(decision?.decision.kind).toBe("approved");
+  });
+
+  it("returns failed settlements with ErrorInfo and no visible snapshot fabrication", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {
+          "api.fetch": async () => {
+            throw new Error("boom");
+          },
+        }),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-failed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-failed",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.load),
+    );
+    const settlement = await waitForProposal(governed, proposal);
+
+    expect(settlement).toMatchObject({
+      kind: "failed",
+      resultWorld: proposal.resultWorld,
+      error: {
+        summary: "Execution failed with 1 pending requirement(s)",
+        pendingRequirements: [expect.any(String)],
+      },
+    });
+    if (settlement.kind !== "failed") {
+      throw new Error("expected failed settlement");
+    }
+    expect("snapshot" in settlement).toBe(false);
   });
 
   it("persists terminal failure when lineage seal commit throws after execution begins", async () => {
@@ -888,6 +1202,66 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ]);
 
     governed.dispose();
+  });
+
+  it("rejects waitForProposal() for missing proposals", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-missing",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-missing",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(waitForProposal(governed, "proposal:missing")).rejects.toMatchObject<
+      Partial<ManifestoError>
+    >({
+      code: "GOVERNANCE_PROPOSAL_NOT_FOUND",
+    });
+  });
+
+  it("rejects waitForProposal() after the governed runtime is disposed", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-disposed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-disposed",
+          }),
+        },
+      },
+    ).activate();
+
+    governed.dispose();
+
+    await expect(waitForProposal(governed, "proposal:disposed")).rejects.toBeInstanceOf(
+      DisposedError,
+    );
   });
 
   it("emits dispatch:rejected without dispatch:failed for non-dispatchable governed execution", async () => {

@@ -2,12 +2,12 @@
 
 > Governance v3 is the decorator-runtime landing under ADR-017.
 
-> **Current Contract Note:** The current governance contract is [governance-SPEC.md](governance-SPEC.md). The v2.0.0 and v1.0.0 specs remain as historical references.
+> **Current Contract Note:** The current governance contract is [governance-SPEC.md](governance-SPEC.md). The v2.0.0 and v1.0.0 specs remain as historical references. The current root surface also includes the additive `waitForProposal()` observer helper.
 
 ## Read First
 
 - [../README.md](../README.md) - package landing and canonical usage
-- [GUIDE.md](GUIDE.md) - practical `withGovernance()` composition guide
+- [GUIDE.md](GUIDE.md) - practical `withGovernance()` and `waitForProposal()` composition guide
 - [governance-SPEC.md](governance-SPEC.md) - current normative governance contract
 
 ## Historical References
