@@ -2,7 +2,7 @@
 
 > Solve one concrete problem at a time.
 
-If you are still learning the basics, start with [Quickstart](/quickstart) and then the [Tutorial](/tutorial/). These guides assume you already know how to dispatch intents and read Snapshots.
+If you are still learning the basics, start with [Quick Start](/guide/quick-start) and then the [Tutorial](/tutorial/). These guides assume you already know how to dispatch intents and read Snapshots.
 
 ## Build And Debug
 

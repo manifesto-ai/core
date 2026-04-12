@@ -105,4 +105,4 @@ Use `--non-interactive` when you want flag-driven setup only.
 
 - [Developer Tooling Guide](/guides/developer-tooling)
 - [Bundler Setup](/guides/bundler-setup)
-- [Quickstart](/quickstart)
+- [Quick Start](/guide/quick-start)

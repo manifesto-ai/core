@@ -321,5 +321,5 @@ If you need richer post-activation hypothetical tooling, build it on `@manifesto
 
 - [Lineage API](./lineage.md)
 - [Governance API](./governance.md)
-- [Quickstart](/quickstart)
+- [Quick Start](/guide/quick-start)
 - [When You Need Approval or History](/guides/approval-and-history)

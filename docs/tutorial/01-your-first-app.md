@@ -16,7 +16,7 @@
 
 ## Prerequisites
 
-- The [Quickstart](/quickstart) works in your environment
+- The [Quick Start](/guide/quick-start) works in your environment
 - You can import `.mel` files with `@manifesto-ai/compiler`
 
 ---
