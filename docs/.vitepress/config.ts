@@ -1,6 +1,14 @@
 import fs from 'node:fs'
 import { defineConfig } from 'vitepress'
 import type { DefaultTheme, MarkdownRenderer } from 'vitepress'
+import {
+  buildSeoHead,
+  buildSeoPageData,
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+  SITE_URL,
+  transformSitemapItems,
+} from './seo'
 
 const markdownLanguages = loadMarkdownLanguages()
 const guideSidebar: DefaultTheme.SidebarItem[] = [
@@ -102,8 +110,9 @@ function addMermaidRenderer(md: MarkdownRenderer) {
 }
 
 export default defineConfig({
-  title: 'Manifesto',
-  description: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections',
+  lang: 'en-US',
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico', sizes: 'any' }],
     ['link', { rel: 'icon', type: 'image/png', href: '/favicon-32x32.png', sizes: '32x32' }],
@@ -111,20 +120,21 @@ export default defineConfig({
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['link', { rel: 'manifest', href: '/site.webmanifest' }],
     ['meta', { name: 'theme-color', content: '#80b8f0' }],
+    ['meta', { name: 'application-name', content: SITE_TITLE }],
+    ['meta', { name: 'apple-mobile-web-app-title', content: SITE_TITLE }],
     ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-FW564PKJWF' }],
     ['script', {}, `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 
 gtag('config', 'G-FW564PKJWF');`],
-    ['meta', { property: 'og:title', content: 'Manifesto' }],
-    ['meta', { property: 'og:description', content: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections' }],
-    ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:url', content: 'https://docs.manifesto-ai.dev' }],
-    ['meta', { name: 'twitter:card', content: 'summary' }],
-    ['meta', { name: 'twitter:title', content: 'Manifesto' }],
-    ['meta', { name: 'twitter:description', content: 'Semantic layer for deterministic domain state — define meaning once, derive everything as projections' }],
   ],
+  sitemap: {
+    hostname: SITE_URL,
+    transformItems: transformSitemapItems,
+  },
+  transformHead: buildSeoHead,
+  transformPageData: buildSeoPageData,
   markdown: {
     languages: markdownLanguages,
     config: (md) => {
