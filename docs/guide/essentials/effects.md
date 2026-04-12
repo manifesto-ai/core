@@ -37,24 +37,27 @@ Start with a named effect when the work crosses a process boundary. Start with `
 ## Register a Handler
 
 ```typescript
-const app = createManifesto(UserProfileSchema, {
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+import type { UserProfileDomain } from "./user-profile-types";
+
+const app = createManifesto(UserProfileSchema, defineEffects<UserProfileDomain>(({ set }, MEL) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const user = await fetchUser(id);
 
     return [
-      { op: "set", path: [{ kind: "prop", name: "userName" }], value: user.name },
-      { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+      set(MEL.state.userName, user.name),
+      set(MEL.state.loading, false),
     ];
   },
-}).activate();
+}))).activate();
 ```
 
 Handlers return patches. The next Snapshot carries the visible result.
 
-## Patch Ops Returned by Handlers
+## Low-Level Patch Ops Returned by Handlers
 
-Effect handlers return `Patch[]`. Use the smallest patch that describes the visible result:
+`defineEffects()` still lowers to concrete `Patch[]`. If you want the low-level form directly, use the smallest raw patch that describes the visible result:
 
 | Patch op | Use When | Example |
 |----------|----------|---------|

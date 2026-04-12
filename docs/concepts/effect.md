@@ -35,20 +35,21 @@ It does not execute the fetch inline inside the domain.
 ## In TypeScript
 
 ```typescript
-import type { EffectHandler } from "@manifesto-ai/sdk";
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = {
+export const effects = defineEffects<UserProfileDomain>(({ set }, MEL) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const response = await fetch(`https://example.com/users/${id}`);
     const user = await response.json();
 
     return [
-      { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
-      { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+      set(MEL.state.user, user),
+      set(MEL.state.loading, false),
     ];
   },
-} satisfies Record<string, EffectHandler>;
+}));
 ```
 
 The handler performs IO and returns patches that become part of the next snapshot.

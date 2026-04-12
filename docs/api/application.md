@@ -19,7 +19,7 @@ const app = manifesto.activate();
 | Parameter | Meaning |
 |-----------|---------|
 | `schema` | A compiled `DomainSchema` or MEL source string |
-| `effects` | A record of SDK effect handlers, keyed by effect type |
+| `effects` | A record of SDK effect handlers, keyed by effect type. You can author it directly or via `@manifesto-ai/sdk/effects`. |
 
 `createManifesto()` returns a composable object. Runtime verbs such as `dispatchAsync()` and `getSnapshot()` exist only after `activate()`.
 

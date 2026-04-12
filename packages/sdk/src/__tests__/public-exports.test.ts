@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import * as sdk from "../index.js";
+import * as effectHelpers from "../effects.js";
 import * as extensions from "../extensions.js";
 
 describe("SDK public runtime exports", () => {
@@ -18,8 +19,14 @@ describe("SDK public runtime exports", () => {
     expect("dispatchAsync" in sdk).toBe(false);
     expect("DispatchRejectedError" in sdk).toBe(false);
     expect("defineOps" in sdk).toBe(false);
+    expect("defineEffects" in sdk).toBe(false);
     expect("createWorld" in sdk).toBe(false);
     expect("createIntent" in sdk).toBe(false);
+  });
+
+  it("keeps effect authoring helpers on the dedicated effects subpath", () => {
+    expect(effectHelpers.defineEffects).toBeDefined();
+    expect("defineEffects" in sdk).toBe(false);
   });
 
   it("keeps the extension kernel on the extensions subpath", () => {

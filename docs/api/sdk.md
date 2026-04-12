@@ -11,6 +11,7 @@ Use SDK when you want:
 - the shortest path to a running base runtime
 - a clear activation boundary before runtime execution
 - typed intent creation through `MEL.actions.*`
+- typed effect authoring through `@manifesto-ai/sdk/effects`
 - subscriptions, availability queries, dispatchability queries, intent explanation reads, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
 The current documented SDK contract is:
@@ -24,6 +25,10 @@ The current post-activation extension seam is:
 The current first-party hypothetical-session helper is:
 
 `@manifesto-ai/sdk/extensions -> createSimulationSession(app)`
+
+The current effect-authoring helper seam is:
+
+`@manifesto-ai/sdk/effects -> defineEffects()`
 
 ## SDK-Owned Surface
 
@@ -51,7 +56,18 @@ The current first-party hypothetical-session helper is:
   - `dispose`
 - SDK error types
 - `@manifesto-ai/sdk/extensions` for safe arbitrary-snapshot read-only helpers
+- `@manifesto-ai/sdk/effects` for typed effect authoring helpers
 - `@manifesto-ai/sdk/provider` for decorator/provider authoring seams
+
+## Effect Authoring Helper
+
+The root SDK story stays centered on `createManifesto()`. If you want typed top-level state refs when authoring effect handlers, import `defineEffects()` from the dedicated effects subpath.
+
+```typescript
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+```
+
+`defineEffects()` is an authoring helper only. It still returns a plain `Record<string, EffectHandler>`, and handlers still return concrete `Patch[]`.
 
 ## Base Runtime Example
 

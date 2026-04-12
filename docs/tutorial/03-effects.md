@@ -75,9 +75,10 @@ That does not execute the request by itself. It declares a requirement for the H
 Create `effects.ts`:
 
 ```typescript
-import type { EffectHandler } from "@manifesto-ai/sdk";
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = {
+export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
   "api.fetchUser": async (params, ctx) => {
     const { id } = params as { id: string };
 
@@ -90,28 +91,27 @@ export const effects = {
       const user = (await response.json()) as { id: string; name: string };
 
       return [
-        { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
-        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-        { op: "unset", path: [{ kind: "prop", name: "error" }] },
+        set(MEL.state.user, user),
+        set(MEL.state.loading, false),
+        unset(MEL.state.error),
       ];
     } catch (error) {
       return [
-        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-        {
-          op: "set",
-          path: [{ kind: "prop", name: "error" }],
-          value: error instanceof Error ? error.message : "Unknown error",
-        },
+        set(MEL.state.loading, false),
+        set(
+          MEL.state.error,
+          error instanceof Error ? error.message : "Unknown error",
+        ),
       ];
     }
   },
-} satisfies Record<string, EffectHandler>;
+}));
 ```
 
 Two details matter here:
 
 - The handler receives `params` plus `{ snapshot }`
-- The handler returns patches that update the domain
+- The handler returns concrete patches that update the domain
 
 It does not "return the fetched user to the action." The next snapshot carries that result.
 

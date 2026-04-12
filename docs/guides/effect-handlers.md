@@ -17,7 +17,7 @@ action fetchUser(id: string) {
 }
 ```
 
-At that point you need to register a handler in `createManifesto({ effects })`.
+At that point you need to register a handler in `createManifesto(schema, effects)`.
 
 ---
 
@@ -46,9 +46,10 @@ Do not return raw values. Do not rely on a hidden callback channel.
 ## A Minimal Example
 
 ```typescript
-import type { EffectHandler } from "@manifesto-ai/sdk";
+import { defineEffects } from "@manifesto-ai/sdk/effects";
+import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = {
+export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
 
@@ -61,22 +62,21 @@ export const effects = {
       const user = await response.json();
 
       return [
-        { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
-        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-        { op: "unset", path: [{ kind: "prop", name: "error" }] },
+        set(MEL.state.user, user),
+        set(MEL.state.loading, false),
+        unset(MEL.state.error),
       ];
     } catch (error) {
       return [
-        { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-        {
-          op: "set",
-          path: [{ kind: "prop", name: "error" }],
-          value: error instanceof Error ? error.message : "Unknown error",
-        },
+        set(MEL.state.loading, false),
+        set(
+          MEL.state.error,
+          error instanceof Error ? error.message : "Unknown error",
+        ),
       ];
     }
   },
-} satisfies Record<string, EffectHandler>;
+}));
 ```
 
 Register it:
@@ -86,10 +86,28 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import DomainMel from "./domain.mel";
 import { effects } from "./effects";
 
-const manifesto = createManifesto({
-  schema: DomainMel,
-  effects,
-});
+const manifesto = createManifesto(DomainMel, effects);
+```
+
+`defineEffects()` is only an authoring helper. Each handler still returns concrete `Patch[]`, and raw patch literals are still valid when you want the low-level surface.
+
+## Low-Level Raw Patch Form
+
+```typescript
+import type { EffectHandler } from "@manifesto-ai/sdk";
+
+export const effects = {
+  "api.fetchUser": async (params) => {
+    const { id } = params as { id: string };
+    const user = await fetchUser(id);
+
+    return [
+      { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
+      { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
+      { op: "unset", path: [{ kind: "prop", name: "error" }] },
+    ];
+  },
+} satisfies Record<string, EffectHandler>;
 ```
 
 ---
