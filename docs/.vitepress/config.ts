@@ -110,7 +110,7 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/png', href: '/favicon-16x16.png', sizes: '16x16' }],
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['link', { rel: 'manifest', href: '/site.webmanifest' }],
-    ['meta', { name: 'theme-color', content: '#6617ad' }],
+    ['meta', { name: 'theme-color', content: '#80b8f0' }],
     ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-FW564PKJWF' }],
     ['script', {}, `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
@@ -133,6 +133,8 @@ gtag('config', 'G-FW564PKJWF');`],
   },
 
   themeConfig: {
+    logo: '/logo-icon.png',
+
     nav: [
       { text: 'Guide', link: '/guide/introduction' },
       { text: 'API', link: '/api/' },
