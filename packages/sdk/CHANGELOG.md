@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.10.0](https://github.com/manifesto-ai/core/compare/sdk-v3.9.0...sdk-v3.10.0) (2026-04-12)
+
+
+### Features
+
+* **sdk:** add defineEffects patch builder ([4aa15c8](https://github.com/manifesto-ai/core/commit/4aa15c8b975423745fc26973688d317a2e217de7))
+* **sdk:** add defineEffects patch builder ([57b60ce](https://github.com/manifesto-ai/core/commit/57b60ce645b102c4eb9dfa695d59a1e5e417406a))
+
+
+### Bug Fixes
+
+* **sdk:** tighten defineEffects value inference ([eca806a](https://github.com/manifesto-ai/core/commit/eca806a25a66c87c1398241fdf05a022dc789c24))
+
 ## [3.9.0](https://github.com/manifesto-ai/core/compare/sdk-v3.8.0...sdk-v3.9.0) (2026-04-12)
 
 
