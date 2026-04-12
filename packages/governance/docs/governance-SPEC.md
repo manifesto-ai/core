@@ -98,9 +98,10 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - missing proposals MUST reject with `GOVERNANCE_PROPOSAL_NOT_FOUND`
 - disposed governed runtimes MUST reject with `DisposedError`
 - `completed` MUST include the current visible projected snapshot from `getSnapshot()` plus `resultWorld`
-- `failed` MUST include `resultWorld` plus `ErrorInfo`, and MUST NOT fabricate a visible snapshot
-- failed-branch `ErrorInfo` MUST follow the same shape as governance `execution:failed` events: `summary`, optional `currentError`, optional `pendingRequirements`
-- callers that need the stored failed world MUST use `getWorldSnapshot(resultWorld)` directly
+- `failed` MUST include `ErrorInfo` and MUST NOT fabricate a visible snapshot
+- `failed` SHOULD include `resultWorld` when a sealed failed world exists; when execution fails before a result world is recorded, `failed` MAY omit `resultWorld` and return summary-only `ErrorInfo`
+- when `resultWorld` exists, failed-branch `ErrorInfo` MUST follow the same shape as governance `execution:failed` events: `summary`, optional `currentError`, optional `pendingRequirements`
+- callers that need the stored failed world MUST use `getWorldSnapshot(resultWorld)` directly when `resultWorld` is present
 
 ## 6. Verb Promotion
 

@@ -119,9 +119,11 @@ async function checkSettlementNarrowing() {
 
   if (settlement.kind === "failed") {
     const summary: string = settlement.error.summary;
-    const worldId: string = settlement.resultWorld;
     void summary;
-    void worldId;
+    if (settlement.resultWorld) {
+      const worldId: string = settlement.resultWorld;
+      void worldId;
+    }
   }
 }
 

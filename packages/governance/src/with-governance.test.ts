@@ -799,7 +799,19 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     expect(stored).toHaveLength(1);
     expect(stored[0]?.status).toBe("failed");
+    expect(stored[0]?.resultWorld).toBeUndefined();
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+
+    await expect(waitForProposal(governed, stored[0]!.proposalId)).resolves.toMatchObject({
+      kind: "failed",
+      proposal: {
+        proposalId: stored[0]!.proposalId,
+        status: "failed",
+      },
+      error: {
+        summary: "Execution failed before a result world was recorded",
+      },
+    });
   });
 
   it("preserves the sealed terminal proposal when terminal persistence retries fail", async () => {

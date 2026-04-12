@@ -36,8 +36,8 @@ export type ProposalSettlement<
     }
   | {
       readonly kind: "failed";
-      readonly proposal: Proposal & { readonly status: "failed"; readonly resultWorld: WorldId };
-      readonly resultWorld: WorldId;
+      readonly proposal: Proposal & { readonly status: "failed" };
+      readonly resultWorld?: WorldId;
       readonly error: ErrorInfo;
     }
   | {
@@ -116,14 +116,15 @@ export async function waitForProposal<
     if (proposal.status === "failed") {
       const failedProposal = proposal as Proposal & {
         readonly status: "failed";
-        readonly resultWorld: WorldId;
       };
-      const resultWorld = requireResultWorld(failedProposal, "failed");
+      const failureInfo = await loadFailureInfo(app, failedProposal);
       return {
         kind: "failed",
         proposal: failedProposal,
-        resultWorld,
-        error: await loadFailureInfo(app, failedProposal, resultWorld),
+        ...(failureInfo.resultWorld !== undefined
+          ? { resultWorld: failureInfo.resultWorld }
+          : {}),
+        error: failureInfo.error,
       };
     }
 
@@ -166,9 +167,17 @@ export async function waitForProposal<
 
 async function loadFailureInfo<T extends ManifestoDomainShape>(
   app: GovernanceInstance<T>,
-  proposal: Proposal & { readonly status: "failed"; readonly resultWorld: WorldId },
-  resultWorld: WorldId,
-): Promise<ErrorInfo> {
+  proposal: Proposal & { readonly status: "failed" },
+): Promise<{ readonly error: ErrorInfo; readonly resultWorld?: WorldId }> {
+  if (!proposal.resultWorld) {
+    return {
+      error: {
+        summary: "Execution failed before a result world was recorded",
+      },
+    };
+  }
+
+  const resultWorld = proposal.resultWorld;
   assertNotDisposed(app);
   const snapshot = await app.getWorldSnapshot(resultWorld);
   if (!snapshot) {
@@ -178,12 +187,15 @@ async function loadFailureInfo<T extends ManifestoDomainShape>(
     );
   }
 
-  return deriveErrorInfo(snapshot);
+  return {
+    resultWorld,
+    error: deriveErrorInfo(snapshot),
+  };
 }
 
 function requireResultWorld(
-  proposal: Proposal & { readonly status: "completed" | "failed" },
-  status: "completed" | "failed",
+  proposal: Proposal & { readonly status: "completed" },
+  status: "completed",
 ): WorldId {
   if (!proposal.resultWorld) {
     throw new ManifestoError(
