@@ -11,6 +11,7 @@ import {
 } from './seo'
 
 const markdownLanguages = loadMarkdownLanguages()
+const ICON_ASSET_VERSION = '20260412b'
 const guideSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'Getting Started',
@@ -110,15 +111,17 @@ function addMermaidRenderer(md: MarkdownRenderer) {
 }
 
 export default defineConfig({
+  cleanUrls: true,
   lang: 'en-US',
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico', sizes: 'any' }],
-    ['link', { rel: 'icon', type: 'image/png', href: '/favicon-32x32.png', sizes: '32x32' }],
-    ['link', { rel: 'icon', type: 'image/png', href: '/favicon-16x16.png', sizes: '16x16' }],
-    ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
-    ['link', { rel: 'manifest', href: '/site.webmanifest' }],
+    ['link', { rel: 'icon', type: 'image/png', href: `/logo-icon.png?v=${ICON_ASSET_VERSION}`, sizes: '256x256' }],
+    ['link', { rel: 'icon', href: `/favicon.ico?v=${ICON_ASSET_VERSION}`, sizes: 'any' }],
+    ['link', { rel: 'icon', type: 'image/png', href: `/favicon-32x32.png?v=${ICON_ASSET_VERSION}`, sizes: '32x32' }],
+    ['link', { rel: 'icon', type: 'image/png', href: `/favicon-16x16.png?v=${ICON_ASSET_VERSION}`, sizes: '16x16' }],
+    ['link', { rel: 'apple-touch-icon', href: `/apple-touch-icon.png?v=${ICON_ASSET_VERSION}`, sizes: '180x180' }],
+    ['link', { rel: 'manifest', href: `/site.webmanifest?v=${ICON_ASSET_VERSION}` }],
     ['meta', { name: 'theme-color', content: '#80b8f0' }],
     ['meta', { name: 'application-name', content: SITE_TITLE }],
     ['meta', { name: 'apple-mobile-web-app-title', content: SITE_TITLE }],
