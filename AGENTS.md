@@ -66,10 +66,12 @@ Changes that violate this constitution produce systems that are NOT Manifesto-co
 
 When documents conflict, prefer higher-ranked sources.
 
-**Commit discipline:**
+**Commit and PR discipline:**
 - If an agent creates or rewrites commits, each commit subject must use Conventional Commit format: `type(scope): summary` or `type: summary`.
+- If an agent opens or updates a pull request, the pull request title must also use Conventional Commit format: `type(scope): summary` or `type: summary`.
 - Allowed types are the repository-enforced set: `build`, `chore`, `ci`, `deps`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`.
 - Treat non-conforming commit subjects as invalid output, not as a style preference, because CI rejects them and release automation relies on them.
+- Treat non-conforming pull request titles as invalid output, not as a style preference, because CI rejects them at the pull request gate.
 
 ---
 

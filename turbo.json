@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["MANIFESTO_RELEASE"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
