@@ -12,6 +12,7 @@ The base runtime returned by `createManifesto(...).activate()` exposes:
 | `schema` | The activated `DomainSchema` |
 | `createIntent(action, ...input)` | Build a typed intent |
 | `dispatchAsync(intent)` | Commit an intent through the base runtime |
+| `dispatchAsyncWithReport(intent)` | Get the same base execution outcome as a typed report union |
 | `getSnapshot()` | Read projected app-facing state |
 | `getCanonicalSnapshot()` | Read the full canonical substrate for persistence/debug tooling |
 | `subscribe(selector, listener)` | React to selected Snapshot values |
@@ -55,13 +56,13 @@ Decorators change the write verb:
 
 | Runtime | Write Verb |
 |---------|------------|
-| Base SDK | `dispatchAsync(intent)` |
-| Lineage runtime | `commitAsync(intent)` |
-| Governed runtime | `proposeAsync(intent)`, then `approve()` / `reject()` when policy requires review |
+| Base SDK | `dispatchAsync(intent)` with additive `dispatchAsyncWithReport(intent)` |
+| Lineage runtime | `commitAsync(intent)` with additive `commitAsyncWithReport(intent)` |
+| Governed runtime | `proposeAsync(intent)`, then `approve()` / `reject()` when policy requires review; observe settlement with `waitForProposal()` or `waitForProposalWithReport()` |
 
 Use the base runtime until approval, continuity, restore, branch/head history, or sealing is a product requirement.
 
-Legality query meaning is preserved across decorators. Base and lineage runtimes keep event payloads plus stable rejection codes as the official machine-readable execution result surface. Governed runtimes additionally expose `waitForProposal(app, proposalOrId, options?)` from `@manifesto-ai/governance` when a caller wants a normalized proposal-settlement value such as `completed`, `failed`, `rejected`, `superseded`, `pending`, or `timed_out`.
+Legality query meaning is preserved across decorators. Base and lineage runtimes now expose first-party additive write-report companions for machine-readable call results, while event payloads remain the streaming lifecycle channel. Governed runtimes intentionally do not add a direct write-report companion on the runtime itself; they use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for stored-world settlement outcome reports.
 
 ## Next
 

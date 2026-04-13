@@ -10,9 +10,10 @@ import {
   ManifestoError,
   createManifesto,
 } from "../index.js";
+import { createBaseRuntimeInstance } from "../runtime/base-runtime.js";
 import { getExtensionKernel } from "../extensions.js";
 import { getRuntimeKernelFactory } from "../provider.js";
-import { projectedSnapshotsEqual } from "../snapshot-projection.js";
+import { projectedSnapshotsEqual } from "../projection/snapshot-projection.js";
 import {
   createCounterSchema,
   createDispatchabilitySchema,
@@ -69,6 +70,18 @@ type FlowInvalidInputDomain = {
   computed: {};
 };
 
+type QueuedDisposeDomain = {
+  actions: {
+    hold: () => void;
+    increment: () => void;
+  };
+  state: {
+    count: number;
+    started: boolean;
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -121,6 +134,61 @@ function createFlowInvalidInputSchema(): DomainSchema {
           params: {
             into: { kind: "lit", value: "items" },
             select: { kind: "lit", value: 1 },
+          },
+        },
+      },
+    },
+  });
+}
+
+function createQueuedDisposeSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v3-queued-dispose",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+        started: { type: "boolean", required: false, default: false },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      hold: {
+        flow: {
+          kind: "if",
+          cond: {
+            kind: "eq",
+            left: { kind: "get", path: "started" },
+            right: { kind: "lit", value: false },
+          },
+          then: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("started"),
+                value: { kind: "lit", value: true },
+              },
+              {
+                kind: "effect",
+                type: "slow.wait",
+                params: {},
+              },
+            ],
+          },
+        },
+      },
+      increment: {
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("count"),
+          value: {
+            kind: "add",
+            left: { kind: "get", path: "count" },
+            right: { kind: "lit", value: 1 },
           },
         },
       },
@@ -717,6 +785,188 @@ describe("activated base runtime", () => {
         evaluatedResult: false,
       }),
     ]);
+
+    world.dispose();
+  });
+
+  it("returns completed reports with projected diffs and availability deltas", async () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const report = await world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.increment),
+    );
+
+    expect(report).toMatchObject({
+      kind: "completed",
+      admission: {
+        kind: "admitted",
+        actionName: "increment",
+      },
+    });
+
+    if (report.kind !== "completed") {
+      throw new Error("Expected a completed report");
+    }
+
+    expect(report.outcome.projected.beforeSnapshot.data.count).toBe(0);
+    expect(report.outcome.projected.afterSnapshot.data.count).toBe(1);
+    expect(report.outcome.projected.changedPaths).toEqual(
+      expect.arrayContaining(["data.count", "computed.doubled"]),
+    );
+    expect(report.outcome.projected.afterSnapshot).toEqual(world.getSnapshot());
+    expect(report.outcome.projected.availability.before).toEqual(
+      expect.arrayContaining(["incrementIfEven"]),
+    );
+    expect(report.outcome.projected.availability.after).not.toContain("incrementIfEven");
+    expect(report.outcome.projected.availability.unlocked).toEqual([]);
+    expect(report.outcome.projected.availability.locked).toEqual(["incrementIfEven"]);
+    expect(report.outcome.canonical.beforeCanonicalSnapshot.data.count).toBe(0);
+    expect(report.outcome.canonical.afterCanonicalSnapshot.data.count).toBe(1);
+    expect(report.outcome.canonical.status).toBe("idle");
+    expect(report.outcome.canonical.pendingRequirements).toEqual([]);
+    expect(report.diagnostics?.hostTraces).toBeDefined();
+    expect(Array.isArray(report.diagnostics?.hostTraces)).toBe(true);
+
+    world.dispose();
+  });
+
+  it("returns rejected reports for unavailable intents at dequeue time", async () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const rejected = vi.fn();
+    world.on("dispatch:rejected", rejected);
+
+    const first = world.dispatchAsync(
+      world.createIntent(world.MEL.actions.increment),
+    );
+    const second = world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.incrementIfEven),
+    );
+
+    await expect(first).resolves.toMatchObject({ data: { count: 1 } });
+
+    const report = await second;
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(report).toMatchObject({
+      kind: "rejected",
+      rejection: {
+        code: "ACTION_UNAVAILABLE",
+      },
+    });
+
+    if (report.kind !== "rejected" || report.admission.failure.kind !== "unavailable") {
+      throw new Error("Expected an unavailable rejected report");
+    }
+
+    expect(report.beforeSnapshot.data.count).toBe(1);
+    expect(report.beforeCanonicalSnapshot.data.count).toBe(1);
+    expect(report.admission.failure.blockers).toEqual([
+      expect.objectContaining({
+        layer: "available",
+        evaluatedResult: false,
+      }),
+    ]);
+    expect(world.getSnapshot().data.count).toBe(1);
+
+    world.dispose();
+  });
+
+  it("returns rejected reports for invalid input before dispatchability", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const rejected = vi.fn();
+    world.on("dispatch:rejected", rejected);
+
+    const invalidIntent = {
+      ...world.createIntent(world.MEL.actions.incrementGuarded, 1),
+      input: { max: "not-a-number" },
+    } as Parameters<typeof world.dispatchAsyncWithReport>[0];
+
+    const report = await world.dispatchAsyncWithReport(invalidIntent);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(report).toMatchObject({
+      kind: "rejected",
+      rejection: {
+        code: "INVALID_INPUT",
+      },
+    });
+
+    if (report.kind !== "rejected" || report.admission.failure.kind !== "invalid_input") {
+      throw new Error("Expected an invalid-input rejected report");
+    }
+
+    expect(report.admission.failure.error.message).toContain("max");
+    expect(report.beforeSnapshot.data.count).toBe(0);
+    expect(world.getSnapshot().data.count).toBe(0);
+
+    world.dispose();
+  });
+
+  it("returns rejected reports for non-dispatchable intents", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.increment));
+
+    const report = await world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.incrementGuarded, 1),
+    );
+
+    expect(report).toMatchObject({
+      kind: "rejected",
+      rejection: {
+        code: "INTENT_NOT_DISPATCHABLE",
+      },
+    });
+
+    if (report.kind !== "rejected" || report.admission.failure.kind !== "not_dispatchable") {
+      throw new Error("Expected a not-dispatchable rejected report");
+    }
+
+    expect(report.beforeSnapshot.data.count).toBe(1);
+    expect(report.admission.failure.blockers).toEqual([
+      expect.objectContaining({
+        layer: "dispatchable",
+        evaluatedResult: false,
+      }),
+    ]);
+
+    world.dispose();
+  });
+
+  it("hides invalid input behind unavailable rejections in report admission ordering", async () => {
+    const world = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    await world.dispatchAsync(world.createIntent(world.MEL.actions.disable));
+
+    const invalidUnavailableIntent = {
+      ...world.createIntent(world.MEL.actions.incrementGuarded, 1),
+      input: { max: "not-a-number" },
+    } as Parameters<typeof world.dispatchAsyncWithReport>[0];
+
+    const report = await world.dispatchAsyncWithReport(invalidUnavailableIntent);
+
+    expect(report).toMatchObject({
+      kind: "rejected",
+      rejection: {
+        code: "ACTION_UNAVAILABLE",
+      },
+    });
+
+    if (report.kind !== "rejected") {
+      throw new Error("Expected a rejected report");
+    }
+
+    expect(report.admission.failure.kind).toBe("unavailable");
+    expect(report).not.toHaveProperty("diagnostics");
+    expect(report).not.toHaveProperty("outcome");
+    expect(world.getSnapshot().data.enabled).toBe(false);
 
     world.dispose();
   });
@@ -1338,6 +1588,77 @@ describe("activated base runtime", () => {
     world.dispose();
   });
 
+  it("returns published failed reports when host returns an error snapshot", async () => {
+    const world = createManifesto<CounterDomain>(createCounterSchema(), {
+      "api.fetch": async () => {
+        throw new Error("boom");
+      },
+    }).activate();
+
+    const report = await world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.load),
+    );
+
+    expect(report).toMatchObject({
+      kind: "failed",
+      published: true,
+      error: {
+        stage: "host",
+      },
+    });
+
+    if (report.kind !== "failed") {
+      throw new Error("Expected a failed report");
+    }
+
+    expect(report.outcome).toBeDefined();
+    expect(report.diagnostics?.hostTraces).toBeDefined();
+    expect(report.error.code).toBe("LOOP_MAX_ITERATIONS");
+    expect(report.outcome?.projected.afterSnapshot).toEqual(world.getSnapshot());
+    expect(report.outcome?.projected.afterSnapshot.data).not.toHaveProperty("$host");
+
+    world.dispose();
+  });
+
+  it("returns unpublished failed reports when host execution throws before publication", async () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const world = createBaseRuntimeInstance({
+      ...kernel,
+      executeHost: async () => {
+        throw new Error("boom");
+      },
+    });
+    const failed = vi.fn();
+
+    world.on("dispatch:failed", failed);
+
+    const report = await world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.increment),
+    );
+
+    expect(failed).toHaveBeenCalledTimes(1);
+    expect(report).toMatchObject({
+      kind: "failed",
+      published: false,
+      error: {
+        message: "boom",
+        stage: "host",
+      },
+    });
+
+    if (report.kind !== "failed") {
+      throw new Error("Expected an unpublished failed report");
+    }
+
+    expect(report.outcome).toBeUndefined();
+    expect(report.diagnostics).toBeUndefined();
+    expect(report.beforeSnapshot.data.count).toBe(0);
+    expect(world.getSnapshot().data.count).toBe(0);
+
+    world.dispose();
+  });
+
   it("subscribers do not fire on registration and use selector projection with Object.is", async () => {
     const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const listener = vi.fn();
@@ -1617,5 +1938,40 @@ describe("activated base runtime", () => {
     await expect(
       world.dispatchAsync(world.createIntent(world.MEL.actions.increment)),
     ).rejects.toBeInstanceOf(DisposedError);
+    await expect(
+      world.dispatchAsyncWithReport(world.createIntent(world.MEL.actions.increment)),
+    ).rejects.toBeInstanceOf(DisposedError);
+  });
+
+  it("dispose rejects queued dispatches that begin after disposal", async () => {
+    let releaseFetch: (() => void) | undefined;
+    const fetchStarted = new Promise<void>((resolve) => {
+      releaseFetch = resolve;
+    });
+    const fetchCalls = vi.fn(async () => {
+      await fetchStarted;
+      return [];
+    });
+    const world = createManifesto<QueuedDisposeDomain>(createQueuedDisposeSchema(), {
+      "slow.wait": fetchCalls,
+    }).activate();
+
+    const first = world.dispatchAsync(world.createIntent(world.MEL.actions.hold));
+    await vi.waitFor(() => expect(fetchCalls).toHaveBeenCalledTimes(1));
+
+    const queuedDispatch = world.dispatchAsync(
+      world.createIntent(world.MEL.actions.increment),
+    );
+    const queuedReport = world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.increment),
+    );
+
+    world.dispose();
+    releaseFetch?.();
+
+    await first;
+    await expect(queuedDispatch).rejects.toBeInstanceOf(DisposedError);
+    await expect(queuedReport).rejects.toBeInstanceOf(DisposedError);
+    expect(world.getSnapshot().data.count).toBe(0);
   });
 });

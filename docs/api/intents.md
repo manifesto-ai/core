@@ -61,6 +61,23 @@ console.log(snapshot.data.todos);
 
 The action result lives in Snapshot. Do not expect a separate business return value from the action.
 
+## `dispatchAsyncWithReport(intent)`
+
+Use the additive companion when tooling needs the write result as a typed report union rather than `try/catch` plus manual diff logic.
+
+```typescript
+const report = await app.dispatchAsyncWithReport(
+  app.createIntent(app.MEL.actions.addTodo, "Write API docs"),
+);
+
+if (report.kind === "completed") {
+  console.log(report.outcome.projected.changedPaths);
+}
+```
+
+`dispatchAsyncWithReport()` preserves the same queueing, legality ordering, and publication semantics as `dispatchAsync()`.
+It adds first-party admission data, before/after snapshots, projected diffs, availability deltas, and optional diagnostics for callers that need a richer in-band result.
+
 ## Before Dispatch
 
 ```typescript

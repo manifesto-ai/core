@@ -197,4 +197,45 @@ describe("ACTS Lineage Suite", () => {
       failingWorld.dispose();
     },
   );
+
+  it(
+    caseTitle(
+      ACTS_CASES.LINEAGE_REPORT_SURFACE,
+      "Activated lineage runtime promotes commitAsyncWithReport(), removes base report verbs, and returns completed lineage continuity reports.",
+    ),
+    async () => {
+      const world = withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ).activate();
+
+      const report = await world.commitAsyncWithReport(
+        world.createIntent(world.MEL.actions.increment),
+      );
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-LIN-4"),
+          !("dispatchAsyncWithReport" in world)
+            && "commitAsyncWithReport" in world
+            && report.kind === "completed"
+            && report.headAdvanced === true
+            && report.outcome.projected.beforeSnapshot.data.count === 0
+            && report.outcome.projected.afterSnapshot.data.count === 1
+            && report.resultWorld === (await world.getLatestHead())?.worldId
+            && report.branchId === (await world.getActiveBranch()).id,
+          {
+            passMessage: "Lineage runtime promotes commitAsyncWithReport() and returns continuity-aware completed reports.",
+            failMessage: "Lineage report companion surface drifted from verb promotion or completed continuity report semantics.",
+            evidence: [
+              noteEvidence("Observed lineage commit report", report),
+              noteEvidence("Visible snapshot after lineage report commit", world.getSnapshot()),
+            ],
+          },
+        ),
+      ]);
+
+      world.dispose();
+    },
+  );
 });

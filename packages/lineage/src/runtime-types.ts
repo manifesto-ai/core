@@ -2,9 +2,16 @@ import type {
   BaseLaws,
   CanonicalSnapshot,
   ComposableManifesto,
+  DispatchReport,
+  ExecutionDiagnostics,
+  ExecutionFailureInfo,
+  ExecutionOutcome,
+  IntentAdmission,
   LineageLaws,
   ManifestoBaseInstance,
   ManifestoDomainShape,
+  Snapshot,
+  TypedIntent,
   TypedDispatchAsync,
 } from "@manifesto-ai/sdk";
 
@@ -40,10 +47,51 @@ export type LineageComposableLaws = BaseLaws & LineageLaws & {
 };
 
 type TypedCommitAsync<T extends ManifestoDomainShape> = TypedDispatchAsync<T>;
+type TypedCommitAsyncWithReport<T extends ManifestoDomainShape> = (
+  intent: TypedIntent<T>,
+) => Promise<CommitReport<T>>;
+
+type DispatchCompletedReport<T extends ManifestoDomainShape> = Extract<
+  DispatchReport<T>,
+  { readonly kind: "completed" }
+>;
+
+type DispatchRejectedReport<T extends ManifestoDomainShape> = Extract<
+  DispatchReport<T>,
+  { readonly kind: "rejected" }
+>;
+
+type DispatchFailedReport<T extends ManifestoDomainShape> = Extract<
+  DispatchReport<T>,
+  { readonly kind: "failed" }
+>;
+
+export type CommitReport<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | (DispatchCompletedReport<T> & {
+      readonly resultWorld: WorldId;
+      readonly branchId: BranchId;
+      readonly headAdvanced: true;
+    })
+  | DispatchRejectedReport<T>
+  | (Omit<DispatchFailedReport<T>, "published" | "outcome"> & {
+      readonly published: false;
+      readonly diagnostics?: ExecutionDiagnostics;
+      readonly resultWorld?: WorldId;
+      readonly branchId?: BranchId;
+      readonly headAdvanced?: false;
+      readonly sealedOutcome?: ExecutionOutcome<T>;
+      readonly error: ExecutionFailureInfo;
+      readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+    });
 
 export type LineageInstance<T extends ManifestoDomainShape> =
-  Omit<ManifestoBaseInstance<T>, "dispatchAsync"> & {
+  Omit<ManifestoBaseInstance<T>, "dispatchAsync" | "dispatchAsyncWithReport"> & {
     readonly commitAsync: TypedCommitAsync<T>;
+    readonly commitAsyncWithReport: TypedCommitAsyncWithReport<T>;
     readonly restore: (worldId: WorldId) => Promise<void>;
     readonly getWorld: (worldId: WorldId) => Promise<World | null>;
     readonly getWorldSnapshot: (

@@ -37,6 +37,7 @@ describe("ACTS Base Suite", () => {
           getRuleOrThrow("ACTS-BASE-1"),
           "activate" in manifesto
             && !("dispatchAsync" in manifesto)
+            && !("dispatchAsyncWithReport" in manifesto)
             && !("subscribe" in manifesto)
             && !("getSnapshot" in manifesto),
           {
@@ -385,6 +386,84 @@ describe("ACTS Base Suite", () => {
             passMessage: "simulate() preserves halted status without publishing state.",
             failMessage: "simulate() did not preserve halted status or published state unexpectedly.",
             evidence: [noteEvidence("Observed simulated result", simulated)],
+          },
+        ),
+      ]);
+
+      world.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.BASE_REPORT_SURFACE,
+      "Activated base runtime exposes dispatchAsyncWithReport() as an additive companion and returns completed report bundles without changing dispatchAsync().",
+    ),
+    async () => {
+      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const report = await world.dispatchAsyncWithReport(
+        world.createIntent(world.MEL.actions.add, 2),
+      );
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-10"),
+          "dispatchAsync" in world
+            && "dispatchAsyncWithReport" in world
+            && report.kind === "completed"
+            && report.outcome.projected.beforeSnapshot.data.count === 0
+            && report.outcome.projected.afterSnapshot.data.count === 2
+            && report.outcome.projected.changedPaths.includes("data.count")
+            && report.outcome.canonical.afterCanonicalSnapshot.data.count === 2
+            && world.getSnapshot().data.count === 2,
+          {
+            passMessage: "Base runtime keeps dispatchAsync() and adds dispatchAsyncWithReport() with completed execution outcomes.",
+            failMessage: "Base runtime did not expose the additive report surface or report the completed outcome correctly.",
+            evidence: [
+              noteEvidence("Observed dispatch report", report),
+              noteEvidence("Visible snapshot after report dispatch", world.getSnapshot()),
+            ],
+          },
+        ),
+      ]);
+
+      world.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.BASE_REPORT_REJECTION,
+      "dispatchAsyncWithReport() preserves dequeue-time legality ordering and returns rejected report unions for blocked intents.",
+    ),
+    async () => {
+      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const first = world.dispatchAsync(
+        world.createIntent(world.MEL.actions.increment),
+      );
+      const second = world.dispatchAsyncWithReport(
+        world.createIntent(world.MEL.actions.incrementIfEven),
+      );
+
+      await expect(first).resolves.toMatchObject({ data: { count: 1 } });
+      const report = await second;
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-11"),
+          report.kind === "rejected"
+            && report.rejection.code === "ACTION_UNAVAILABLE"
+            && report.admission.failure.kind === "unavailable"
+            && report.beforeSnapshot.data.count === 1
+            && report.beforeCanonicalSnapshot.data.count === 1
+            && world.getSnapshot().data.count === 1,
+          {
+            passMessage: "dispatchAsyncWithReport() preserves dequeue-time legality and returns rejected report unions without publication.",
+            failMessage: "dispatchAsyncWithReport() drifted from dequeue-time legality semantics or published on rejection.",
+            evidence: [
+              noteEvidence("Observed rejected dispatch report", report),
+              noteEvidence("Visible snapshot after queued rejection", world.getSnapshot()),
+            ],
           },
         ),
       ]);

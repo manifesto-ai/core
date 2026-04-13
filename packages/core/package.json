@@ -39,8 +39,8 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "node ../../node_modules/vitest/vitest.mjs run",
+    "test:coverage": "node ../../node_modules/vitest/vitest.mjs run --coverage"
   },
   "peerDependencies": {
     "zod": "^4.3.6"

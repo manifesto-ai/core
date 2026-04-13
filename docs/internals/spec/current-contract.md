@@ -1,7 +1,7 @@
 # Current Contract
 
 > **Status:** Living Document
-> **Last Updated:** 2026-04-08
+> **Last Updated:** 2026-04-13
 > **Purpose:** Single-source current contract for external consumers, canonical-doc exports, and current-surface onboarding
 
 This document is the current-only contract summary for the active Manifesto workspace.
@@ -37,10 +37,10 @@ This is the canonical entry story for new integrations.
 |---------|------------------|------|
 | `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v4.2.0) | Pure semantic runtime, schema validation, patch/apply semantics |
 | `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v4.0.0) | Effect execution, compute loop orchestration, canonical snapshot substrate |
-| `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v3.5.0 surface) | Activation-first application surface, intent creation/dispatch, simulation, projected introspection |
+| `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v3.x surface) | Activation-first application surface, intent creation/dispatch, additive base write reports, simulation, projected introspection |
 | `@manifesto-ai/compiler` | [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md) | Full current MEL compiler contract |
-| `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v3 decorator surface; package release v3.5.0) | Seal-aware continuity, canonical snapshot persistence, restore |
-| `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v3 decorator surface; package release v3.5.0) | Proposal legitimacy, governed runtime gate over lineage-composed manifesto |
+| `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v3.x decorator surface) | Seal-aware continuity, additive lineage write reports, canonical snapshot persistence, restore |
+| `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v3.x decorator surface) | Proposal legitimacy, governed runtime gate over lineage-composed manifesto, settlement observation and settlement reports |
 
 ## Core Runtime Contract
 
@@ -83,6 +83,7 @@ Current contract highlights:
 - Runtime verbs appear only after `activate()`.
 - `createIntent()` is anchored on the generated `MEL.actions.*` surface.
 - `dispatchAsync()` is the canonical execution verb.
+- `dispatchAsyncWithReport()` is the additive base write-report companion.
 - `simulate()` is the non-committing dry-run surface.
 - `getSchemaGraph()` is the projected static graph read.
 - `isActionAvailable()` remains the coarse gate query.
@@ -91,12 +92,13 @@ Current contract highlights:
 Current rejection split:
 
 - `ACTION_UNAVAILABLE`: coarse action gate failed
+- `INVALID_INPUT`: action is available, but bound intent input failed SDK validation
 - `INTENT_NOT_DISPATCHABLE`: action is available, but the bound intent failed the fine gate
 
 Current extension seam:
 
 - `@manifesto-ai/sdk/extensions` is the first-party arbitrary-snapshot seam after activation.
-- `simulateSync()` and `isIntentDispatchableFor()` align to the same availability/dispatchability ordering as the public runtime.
+- `simulateSync()`, `explainIntentFor()`, and `isIntentDispatchableFor()` align to the same availability/dispatchability ordering as the public runtime.
 
 ## Compiler and MEL Contract
 
@@ -139,11 +141,13 @@ Still out of current scope:
 Current contract highlights:
 
 - lineage owns sealed continuity and stored canonical snapshot lookup
+- lineage promotes the base write verb to `commitAsync()` and the additive report companion to `commitAsyncWithReport()`
 - governance composes on top of lineage, not beside it
 - decorated runtimes inherit the base read-only legality surface, including `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 - inherited decorator-runtime legality queries preserve the base SDK ordering: availability first, dispatchability second
 - inherited `getIntentBlockers()` surfaces only the first failing layer, so unavailable intents do not evaluate `dispatchable`
 - the active governed path is `withLineage(...)->withGovernance(...)->activate()`
+- governed runtimes intentionally omit direct base/lineage execution verbs and their report companions, and use `waitForProposal()` / `waitForProposalWithReport()` as additive settlement observers
 - there is no separate current `@manifesto-ai/world` package surface
 
 ## What External Consumers Should Read

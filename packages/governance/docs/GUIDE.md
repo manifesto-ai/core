@@ -5,7 +5,11 @@
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { waitForProposal, withGovernance } from "@manifesto-ai/governance";
+import {
+  waitForProposal,
+  waitForProposalWithReport,
+  withGovernance,
+} from "@manifesto-ai/governance";
 
 const governed = withGovernance(
   withLineage(createManifesto<CounterDomain>(schema, effects), {
@@ -67,6 +71,19 @@ if (settlement.kind === "completed") {
 ```
 
 `waitForProposal()` does not replace `proposeAsync()`. It observes the current proposal state and returns `completed`, `failed`, `rejected`, `superseded`, `pending`, or `timed_out`.
+
+When tooling needs a first-party outcome bundle anchored on stored lineage worlds, use the additive settlement-report companion:
+
+```ts
+const report = await waitForProposalWithReport(governed, proposal);
+
+if (report.kind === "completed") {
+  console.log(report.outcome.projected.changedPaths);
+  console.log(report.resultWorld);
+}
+```
+
+`waitForProposalWithReport()` stays observational. It does not replace `proposeAsync()`, and it does not turn governed runtime submission into a direct execution verb.
 
 ## 4. Pending Human Resolution
 

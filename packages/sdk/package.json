@@ -52,9 +52,9 @@
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
     "test": "pnpm run test:runtime && pnpm run test:types",
-    "test:runtime": "vitest run",
-    "test:types": "tsc -p tsconfig.types.json --noEmit",
-    "test:coverage": "vitest run --coverage"
+    "test:runtime": "node ../../node_modules/vitest/vitest.mjs run",
+    "test:types": "node ../../node_modules/typescript/bin/tsc -p tsconfig.types.json --noEmit",
+    "test:coverage": "node ../../node_modules/vitest/vitest.mjs run --coverage"
   },
   "dependencies": {
     "@manifesto-ai/compiler": "workspace:*",

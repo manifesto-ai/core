@@ -4,8 +4,13 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import { AlreadyActivatedError, ManifestoError, createManifesto } from "@manifesto-ai/sdk";
-import { getExtensionKernel } from "../../sdk/src/extensions.js";
+import {
+  AlreadyActivatedError,
+  DisposedError,
+  ManifestoError,
+  createManifesto,
+} from "@manifesto-ai/sdk";
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 
 import {
   type LineageService,
@@ -417,6 +422,172 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     world.dispose();
   });
 
+  it("returns completed commit reports with lineage continuity metadata", async () => {
+    const store = createInMemoryLineageStore();
+    const service = createLineageService(store);
+    const world = withLineage(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      { service },
+    ).activate();
+
+    const report = await world.commitAsyncWithReport(
+      world.createIntent(world.MEL.actions.increment),
+    );
+
+    expect(report).toMatchObject({
+      kind: "completed",
+      headAdvanced: true,
+    });
+
+    if (report.kind !== "completed") {
+      throw new Error("Expected a completed commit report");
+    }
+
+    expect(report.outcome.projected.beforeSnapshot.data.count).toBe(0);
+    expect(report.outcome.projected.afterSnapshot.data.count).toBe(1);
+    expect(report.outcome.projected.changedPaths).toContain("data.count");
+    expect(report.outcome.projected.afterSnapshot).toEqual(world.getSnapshot());
+    expect(report.resultWorld).toBe((await world.getLatestHead())?.worldId);
+    expect(report.branchId).toBe((await world.getActiveBranch()).id);
+    expect(report.diagnostics?.hostTraces).toBeDefined();
+
+    world.dispose();
+  });
+
+  it("returns unavailable rejected commit reports before input or dispatchability details leak", async () => {
+    const world = withLineage(
+      createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+
+    const invalidFrozenIntent = {
+      ...world.createIntent(world.MEL.actions.frozenSpend, 1),
+      input: { amount: "oops" },
+    } as unknown as Parameters<typeof world.commitAsyncWithReport>[0];
+
+    const report = await world.commitAsyncWithReport(invalidFrozenIntent);
+
+    expect(report).toMatchObject({
+      kind: "rejected",
+      rejection: {
+        code: "ACTION_UNAVAILABLE",
+      },
+    });
+
+    if (report.kind !== "rejected") {
+      throw new Error("Expected a rejected commit report");
+    }
+
+    expect(report.admission.failure.kind).toBe("unavailable");
+    expect(report).not.toHaveProperty("diagnostics");
+    expect(report).not.toHaveProperty("outcome");
+    expect(world.getSnapshot().data.balance).toBe(10);
+
+    world.dispose();
+  });
+
+  it("returns failed commit reports for sealed failed worlds without publishing the visible head", async () => {
+    const store = createInMemoryLineageStore();
+    const service = createLineageService(store);
+    const world = withLineage(
+      createManifesto<CounterDomain>(createCounterSchema(), {
+        "api.fetch": async () => {
+          throw new Error("boom");
+        },
+      }),
+      { service },
+    ).activate();
+
+    const report = await world.commitAsyncWithReport(
+      world.createIntent(world.MEL.actions.load),
+    );
+
+    expect(report).toMatchObject({
+      kind: "failed",
+      published: false,
+      headAdvanced: false,
+      error: {
+        stage: "host",
+      },
+    });
+
+    if (report.kind !== "failed") {
+      throw new Error("Expected a failed commit report");
+    }
+
+    expect(report.resultWorld).toBeDefined();
+    expect(report.branchId).toBe((await world.getActiveBranch()).id);
+    expect(report.sealedOutcome?.projected.afterSnapshot.data.status).toBe("loading");
+    expect(report.sealedOutcome?.canonical.afterCanonicalSnapshot.system.status).toBe("pending");
+    expect(report.diagnostics?.hostTraces).toBeDefined();
+    expect(world.getSnapshot().data.status).toBe("idle");
+
+    const activeBranch = await service.getActiveBranch();
+    expect(activeBranch.head).not.toBe(report.resultWorld);
+    expect(activeBranch.tip).toBe(report.resultWorld);
+
+    world.dispose();
+  });
+
+  it("returns failed commit reports for seal-stage failures without fabricating sealed outcomes", async () => {
+    const store = createInMemoryLineageStore();
+    const realService = createLineageService(store);
+    let commitCount = 0;
+    const service: LineageService = {
+      prepareSealGenesis: realService.prepareSealGenesis.bind(realService),
+      prepareSealNext: realService.prepareSealNext.bind(realService),
+      async commitPrepared(prepared) {
+        commitCount += 1;
+        if (commitCount > 1) {
+          throw new Error("seal commit failed");
+        }
+        return realService.commitPrepared(prepared);
+      },
+      createBranch: realService.createBranch.bind(realService),
+      getBranch: realService.getBranch.bind(realService),
+      getBranches: realService.getBranches.bind(realService),
+      getActiveBranch: realService.getActiveBranch.bind(realService),
+      switchActiveBranch: realService.switchActiveBranch.bind(realService),
+      getWorld: realService.getWorld.bind(realService),
+      getSnapshot: realService.getSnapshot.bind(realService),
+      getAttempts: realService.getAttempts.bind(realService),
+      getAttemptsByBranch: realService.getAttemptsByBranch.bind(realService),
+      getLineage: realService.getLineage.bind(realService),
+      getHeads: realService.getHeads.bind(realService),
+      getLatestHead: realService.getLatestHead.bind(realService),
+      restore: realService.restore.bind(realService),
+    };
+
+    const world = withLineage(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      { service },
+    ).activate();
+
+    const report = await world.commitAsyncWithReport(
+      world.createIntent(world.MEL.actions.increment),
+    );
+
+    expect(report).toMatchObject({
+      kind: "failed",
+      published: false,
+      error: {
+        stage: "seal",
+        message: "seal commit failed",
+      },
+    });
+
+    if (report.kind !== "failed") {
+      throw new Error("Expected a failed commit report");
+    }
+
+    expect(report.resultWorld).toBeUndefined();
+    expect(report.sealedOutcome).toBeUndefined();
+    expect(report.diagnostics?.hostTraces).toBeDefined();
+    expect(world.getSnapshot().data.count).toBe(0);
+
+    world.dispose();
+  });
+
   it("rejects non-dispatchable commits before sealing and emits dispatch:rejected", async () => {
     const world = withLineage(
       createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
@@ -472,5 +643,18 @@ describe("@manifesto-ai/lineage decorator runtime", () => {
     expect(failed).not.toHaveBeenCalled();
 
     world.dispose();
+  });
+
+  it("rejects commitAsyncWithReport after dispose", async () => {
+    const world = withLineage(
+      createManifesto<CounterDomain>(createCounterSchema(), {}),
+      { store: createInMemoryLineageStore() },
+    ).activate();
+
+    world.dispose();
+
+    await expect(
+      world.commitAsyncWithReport(world.createIntent(world.MEL.actions.increment)),
+    ).rejects.toBeInstanceOf(DisposedError);
   });
 });

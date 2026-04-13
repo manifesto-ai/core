@@ -21,7 +21,7 @@ const app = manifesto.activate();
 | `schema` | A compiled `DomainSchema` or MEL source string |
 | `effects` | A record of SDK effect handlers, keyed by effect type. You can author it directly or via `@manifesto-ai/sdk/effects`. |
 
-`createManifesto()` returns a composable object. Runtime verbs such as `dispatchAsync()` and `getSnapshot()` exist only after `activate()`.
+`createManifesto()` returns a composable object. Runtime verbs such as `dispatchAsync()` and `dispatchAsyncWithReport()`, plus reads such as `getSnapshot()`, exist only after `activate()`.
 
 ## Activation Boundary
 
@@ -54,7 +54,7 @@ const app = withGovernance(
 ).activate();
 ```
 
-The MEL domain stays the same. The activated runtime verbs change with the chosen composition.
+The MEL domain stays the same. The activated runtime verbs, and their additive report companions when present, change with the chosen composition.
 
 ## Next
 

@@ -9,6 +9,7 @@ export type {
   WorldLineage,
 } from "./types.js";
 export type {
+  CommitReport,
   LineageConfig,
   LineageInstance,
 } from "./runtime-types.js";

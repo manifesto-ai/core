@@ -10,7 +10,7 @@ import {
   ManifestoError,
   createManifesto,
 } from "@manifesto-ai/sdk";
-import { getExtensionKernel } from "../../sdk/src/extensions.js";
+import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 import {
   createInMemoryLineageStore,
   withLineage,
@@ -23,6 +23,7 @@ import {
 import {
   createInMemoryGovernanceStore,
   waitForProposal,
+  waitForProposalWithReport,
   withGovernance,
   type ActorAuthorityBinding,
   type GovernanceEvent,
@@ -393,6 +394,62 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(settlement.snapshot).toEqual(governed.getSnapshot());
   });
 
+  it("anchors completed settlement reports on stored worlds rather than the current visible head", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-report-completed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-report-completed",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+    await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.add, 2),
+    );
+
+    const report = await waitForProposalWithReport(governed, proposal);
+
+    expect(report).toMatchObject({
+      kind: "completed",
+      baseWorld: proposal.baseWorld,
+      resultWorld: proposal.resultWorld,
+    });
+    if (report.kind !== "completed") {
+      throw new Error("expected completed report");
+    }
+
+    const ext = getExtensionKernel(governed);
+    const beforeWorld = await governed.getWorldSnapshot(report.baseWorld);
+    const afterWorld = await governed.getWorldSnapshot(report.resultWorld);
+    if (!beforeWorld || !afterWorld) {
+      throw new Error("expected stored worlds for completed report");
+    }
+
+    expect(report.outcome.canonical.beforeCanonicalSnapshot).toEqual(beforeWorld);
+    expect(report.outcome.canonical.afterCanonicalSnapshot).toEqual(afterWorld);
+    expect(report.outcome.projected.beforeSnapshot).toEqual(ext.projectSnapshot(beforeWorld));
+    expect(report.outcome.projected.afterSnapshot).toEqual(ext.projectSnapshot(afterWorld));
+    expect(report.outcome.projected.afterSnapshot.data.count).toBe(1);
+    expect(governed.getSnapshot().data.count).toBe(3);
+  });
+
   it("returns pending immediately for non-terminal proposals when timeoutMs is omitted", async () => {
     const governed = withGovernance(
       withLineage(
@@ -616,6 +673,53 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     });
   });
 
+  it("keeps superseded settlement reports proposal-only", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:wait-report-superseded",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:wait-report-superseded",
+          }),
+        },
+      },
+    ).activate();
+
+    const pending = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    await governed.bindActor(createAutoBindingForHuman());
+    await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.add, 2),
+    );
+    await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.increment),
+    );
+
+    const report = await waitForProposalWithReport(governed, pending);
+
+    expect(report).toMatchObject({
+      kind: "superseded",
+      proposal: {
+        proposalId: pending.proposalId,
+        status: "superseded",
+      },
+    });
+    expect("outcome" in report).toBe(false);
+  });
+
   it("uses the explicitly composed lineage service", async () => {
     const explicitStore = createInMemoryLineageStore();
     const explicitService = createLineageService(explicitStore);
@@ -743,6 +847,64 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect("snapshot" in settlement).toBe(false);
   });
 
+  it("returns sealed failed-world reports without fabricating visible publication", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {
+          "api.fetch": async () => {
+            throw new Error("boom");
+          },
+        }),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-report-failed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-report-failed",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await governed.proposeAsync(
+      governed.createIntent(governed.MEL.actions.load),
+    );
+    const report = await waitForProposalWithReport(governed, proposal);
+
+    expect(report).toMatchObject({
+      kind: "failed",
+      baseWorld: proposal.baseWorld,
+      resultWorld: proposal.resultWorld,
+      published: false,
+      error: {
+        summary: "Execution failed with 1 pending requirement(s)",
+      },
+    });
+    if (report.kind !== "failed" || !report.resultWorld || !report.sealedOutcome) {
+      throw new Error("expected failed report with sealed outcome");
+    }
+
+    const ext = getExtensionKernel(governed);
+    const beforeWorld = await governed.getWorldSnapshot(report.baseWorld);
+    const afterWorld = await governed.getWorldSnapshot(report.resultWorld);
+    if (!beforeWorld || !afterWorld) {
+      throw new Error("expected stored worlds for failed report");
+    }
+
+    expect(report.sealedOutcome.canonical.beforeCanonicalSnapshot).toEqual(beforeWorld);
+    expect(report.sealedOutcome.canonical.afterCanonicalSnapshot).toEqual(afterWorld);
+    expect(report.sealedOutcome.projected.afterSnapshot).toEqual(ext.projectSnapshot(afterWorld));
+    expect(governed.getSnapshot().data.status).toBe("idle");
+  });
+
   it("persists terminal failure when lineage seal commit throws after execution begins", async () => {
     const lineageStore = createInMemoryLineageStore();
     const governanceStore = createInMemoryGovernanceStore();
@@ -812,6 +974,26 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         summary: "Execution failed before a result world was recorded",
       },
     });
+
+    const report = await waitForProposalWithReport(governed, stored[0]!.proposalId);
+
+    expect(report).toMatchObject({
+      kind: "failed",
+      proposal: {
+        proposalId: stored[0]!.proposalId,
+        status: "failed",
+      },
+      baseWorld: stored[0]!.baseWorld,
+      published: false,
+      error: {
+        summary: "Execution failed before a result world was recorded",
+      },
+    });
+    if (report.kind !== "failed") {
+      throw new Error("expected failed settlement report");
+    }
+    expect(report.resultWorld).toBeUndefined();
+    expect(report.sealedOutcome).toBeUndefined();
   });
 
   it("preserves the sealed terminal proposal when terminal persistence retries fail", async () => {
@@ -1274,6 +1456,36 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     await expect(waitForProposal(governed, "proposal:disposed")).rejects.toBeInstanceOf(
       DisposedError,
     );
+  });
+
+  it("rejects waitForProposalWithReport() after the governed runtime is disposed", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-report-disposed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-report-disposed",
+          }),
+        },
+      },
+    ).activate();
+
+    governed.dispose();
+
+    await expect(
+      waitForProposalWithReport(governed, "proposal:disposed"),
+    ).rejects.toBeInstanceOf(DisposedError);
   });
 
   it("emits dispatch:rejected without dispatch:failed for non-dispatchable governed execution", async () => {

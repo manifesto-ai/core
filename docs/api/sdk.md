@@ -12,6 +12,7 @@ Use SDK when you want:
 - a clear activation boundary before runtime execution
 - typed intent creation through `MEL.actions.*`
 - typed effect authoring through `@manifesto-ai/sdk/effects`
+- additive base write reports through `dispatchAsyncWithReport()`
 - subscriptions, availability queries, dispatchability queries, intent explanation reads, action metadata inspection, static graph inspection, dry-run simulation, and snapshot reads in one package
 
 The current documented SDK contract is:
@@ -37,6 +38,7 @@ The current effect-authoring helper seam is:
 - activated base runtime:
   - `createIntent`
   - `dispatchAsync`
+  - `dispatchAsyncWithReport`
   - `subscribe`
   - `on`
   - `getSnapshot`
@@ -82,6 +84,9 @@ instance.explainIntent(intent);
 instance.why(intent);
 instance.whyNot(intent);
 await instance.dispatchAsync(intent);
+const report = await instance.dispatchAsyncWithReport(
+  instance.createIntent(instance.MEL.actions.increment),
+);
 
 instance.isActionAvailable("increment");
 instance.getAvailableActions();
@@ -92,6 +97,7 @@ instance.getSnapshot();
 instance.getCanonicalSnapshot();
 instance.getSchemaGraph();
 instance.simulate(instance.MEL.actions.increment);
+console.log(report.kind);
 ```
 
 ## `createIntent()` binding forms
@@ -211,7 +217,37 @@ If the action is available but the bound intent input is invalid, `simulate()` r
 
 Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
 
-Base SDK and lineage runtimes keep event payloads plus stable rejection codes as the supported machine-readable execution outcome surface. `dispatchAsync()` and `commitAsync()` remain the primary success-or-reject DX paths. Governed runtimes add `waitForProposal()` in `@manifesto-ai/governance` as an additive proposal-settlement observer; it does not replace `proposeAsync()`.
+Base SDK and lineage runtimes keep event payloads plus stable rejection codes as streaming lifecycle telemetry. They now also expose additive write-report companions: base uses `dispatchAsyncWithReport()` and lineage uses `commitAsyncWithReport()`. Governed runtimes use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for stored-world settlement outcome reports. Neither helper replaces `proposeAsync()`.
+
+## Additive Write Report
+
+Use `dispatchAsyncWithReport()` when a caller needs a first-party execution bundle instead of `try/catch` plus manual before/after diff logic.
+
+```typescript
+const intent = instance.createIntent(instance.MEL.actions.increment);
+const report = await instance.dispatchAsyncWithReport(intent);
+
+if (report.kind === "completed") {
+  console.log(report.outcome.projected.changedPaths);
+  console.log(report.outcome.projected.availability.unlocked);
+}
+
+if (report.kind === "rejected") {
+  console.log(report.rejection.code);
+  console.log(report.admission.failure.kind);
+}
+```
+
+`dispatchAsyncWithReport()` is additive. It does not replace `dispatchAsync()`, and it does not change queueing, legality ordering, or publication behavior.
+
+The report union gives tooling and agent callers:
+
+- admitted vs blocked intent admission in-band
+- before/after projected and canonical snapshots on completed reports
+- projected diff and availability delta in `report.outcome`
+- stable rejection codes plus before snapshots on rejected reports
+- `published: true | false` on failed reports, with `outcome` only when a terminal snapshot was actually published
+- optional debug-grade `diagnostics.hostTraces` when the Host already returned trace data
 
 ## Decorator/provider authoring seam
 

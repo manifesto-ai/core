@@ -31,6 +31,12 @@ function waitForProposal<T extends ManifestoDomainShape>(
   proposalOrId: Proposal | ProposalId,
   options?: WaitForProposalOptions,
 ): Promise<ProposalSettlement<T>>;
+
+function waitForProposalWithReport<T extends ManifestoDomainShape>(
+  app: GovernanceInstance<T>,
+  proposalOrId: Proposal | ProposalId,
+  options?: WaitForProposalOptions,
+): Promise<ProposalSettlementReport<T>>;
 ```
 
 ## 3. Config Contract
@@ -62,7 +68,7 @@ Governed runtimes MUST include lineage semantics.
 
 ```ts
 type GovernanceInstance<T> =
-  Omit<LineageInstance<T>, "commitAsync"> & {
+  Omit<LineageInstance<T>, "commitAsync" | "commitAsyncWithReport"> & {
     proposeAsync(intent: TypedIntent<T>): Promise<Proposal>;
     approve(proposalId: ProposalId, approvedScope?: IntentScope | null): Promise<Proposal>;
     reject(proposalId: ProposalId, reason?: string): Promise<Proposal>;
@@ -84,7 +90,7 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - inherited legality queries preserve the base SDK ordering: availability is checked before dispatchability
 - inherited `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker without evaluating `dispatchable`
 
-`waitForProposal()` is a root-export observation helper. It is additive and MUST NOT replace the governed write path.
+`waitForProposal()` and `waitForProposalWithReport()` are root-export observation helpers. They are additive and MUST NOT replace the governed write path.
 
 ### 5.1 `waitForProposal()`
 
@@ -103,9 +109,52 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - when `resultWorld` exists, failed-branch `ErrorInfo` MUST follow the same shape as governance `execution:failed` events: `summary`, optional `currentError`, optional `pendingRequirements`
 - callers that need the stored failed world MUST use `getWorldSnapshot(resultWorld)` directly when `resultWorld` is present
 
+### 5.2 `waitForProposalWithReport()`
+
+`waitForProposalWithReport()` is the additive governance settlement-report companion.
+
+It observes the same proposal lifecycle as `waitForProposal()`, but when settlement truth includes sealed worlds it packages a first-party execution outcome anchored on stored lineage worlds rather than on the current visible head.
+
+Illustrative public shape:
+
+```ts
+type ProposalSettlementReport<T extends ManifestoDomainShape> =
+  | {
+      readonly kind: "completed";
+      readonly proposal: Proposal & { readonly status: "completed"; readonly resultWorld: WorldId };
+      readonly baseWorld: WorldId;
+      readonly resultWorld: WorldId;
+      readonly outcome: ExecutionOutcome<T>;
+    }
+  | {
+      readonly kind: "failed";
+      readonly proposal: Proposal & { readonly status: "failed" };
+      readonly baseWorld: WorldId;
+      readonly published: false;
+      readonly error: ErrorInfo;
+      readonly resultWorld?: WorldId;
+      readonly sealedOutcome?: ExecutionOutcome<T>;
+    }
+  | { readonly kind: "rejected"; readonly proposal: Proposal & { readonly status: "rejected" } }
+  | { readonly kind: "superseded"; readonly proposal: Proposal & { readonly status: "superseded" } }
+  | { readonly kind: "pending"; readonly proposal: Proposal }
+  | { readonly kind: "timed_out"; readonly proposal: Proposal };
+```
+
+Normative rules:
+
+- `waitForProposalWithReport()` MUST remain additive and MUST NOT replace `proposeAsync()`
+- for `completed`, the report MUST derive `ExecutionOutcome<T>` from `proposal.baseWorld -> proposal.resultWorld`
+- for `completed`, the report MUST NOT use the current visible runtime head as the settlement `after` truth
+- for `failed` with `resultWorld`, the report MUST include `published: false` and MAY include `sealedOutcome` derived from `proposal.baseWorld -> proposal.resultWorld`
+- for `failed` without `resultWorld`, the report MUST remain summary-only and MUST NOT fabricate `sealedOutcome`
+- `rejected`, `superseded`, `pending`, and `timed_out` reports MUST remain proposal-state observations only and MUST NOT fabricate execution diffs
+- governance settlement report derivation MUST reuse the same projected snapshot, changed-path, and availability-delta semantics already used by SDK/Lineage report companions
+- governance settlement reports in this phase MUST NOT expose diagnostics or raw host traces as part of the public contract
+
 ## 6. Verb Promotion
 
-Governed runtimes MUST NOT expose `dispatchAsync` or `commitAsync`.
+Governed runtimes MUST NOT expose `dispatchAsync`, `dispatchAsyncWithReport`, `commitAsync`, or `commitAsyncWithReport`.
 
 The canonical state-change path is:
 
@@ -181,7 +230,10 @@ Governance v3 no longer teaches:
 | GOV-V3-8 | MUST NOT | failed governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot |
 | GOV-V3-9 | MUST | inherited legality queries preserve the base SDK availability-before-dispatchability ordering |
 | GOV-V3-10 | MUST | inherited `getIntentBlockers()` expose only the first failing legality layer |
-| GOV-V3-11 | MUST NOT | `waitForProposal()` replace `proposeAsync()` as the governed write path |
+| GOV-V3-11 | MUST NOT | `waitForProposal()` or `waitForProposalWithReport()` replace `proposeAsync()` as the governed write path |
 | GOV-V3-12 | MUST | `waitForProposal()` return `pending` for non-terminal proposals when `timeoutMs` is omitted or `0`, and `timed_out` when the observation deadline expires |
 | GOV-V3-13 | MUST | `waitForProposal()` return failed settlement `ErrorInfo` without fabricating a visible snapshot |
 | GOV-V3-14 | MUST NOT | inherited availability reads be documented as durable capability grants for later proposal admission |
+| GOV-V3-15 | MUST | `waitForProposalWithReport()` anchor completed settlement outcomes on `proposal.baseWorld -> proposal.resultWorld`, not on the current visible head |
+| GOV-V3-16 | MUST NOT | `waitForProposalWithReport()` fabricate execution outcome or diff data for `rejected`, `superseded`, `pending`, or `timed_out` settlements |
+| GOV-V3-17 | MUST | failed settlement reports with no `resultWorld` remain summary-only with `published: false` |

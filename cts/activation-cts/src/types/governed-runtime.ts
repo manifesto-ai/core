@@ -3,6 +3,7 @@ import {
   withGovernance,
 } from "@manifesto-ai/governance";
 import {
+  type CommitReport,
   createInMemoryLineageStore,
   withLineage,
 } from "@manifesto-ai/lineage";
@@ -21,10 +22,16 @@ const lineage = withLineage(
 
 // @ts-expect-error lineage runtime removes direct dispatchAsync
 lineage.dispatchAsync;
+// @ts-expect-error lineage runtime removes direct dispatchAsyncWithReport
+lineage.dispatchAsyncWithReport;
 
 void lineage.commitAsync(
   lineage.createIntent(lineage.MEL.actions.increment),
 );
+const lineageReport: Promise<CommitReport<CounterDomain>> = lineage.commitAsyncWithReport(
+  lineage.createIntent(lineage.MEL.actions.increment),
+);
+void lineageReport;
 
 const governed = withGovernance(
   withLineage(
@@ -40,8 +47,12 @@ const governed = withGovernance(
 
 // @ts-expect-error governed runtime removes direct dispatchAsync
 governed.dispatchAsync;
+// @ts-expect-error governed runtime removes direct dispatchAsyncWithReport
+governed.dispatchAsyncWithReport;
 // @ts-expect-error governed runtime removes lineage commitAsync
 governed.commitAsync;
+// @ts-expect-error governed runtime removes lineage commitAsyncWithReport
+governed.commitAsyncWithReport;
 
 void governed.proposeAsync(
   governed.createIntent(governed.MEL.actions.increment),

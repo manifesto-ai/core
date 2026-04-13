@@ -1,4 +1,4 @@
-import { createManifesto } from "@manifesto-ai/sdk";
+import { createManifesto, type DispatchReport } from "@manifesto-ai/sdk";
 import {
   createCounterSchema,
   type CounterDomain,
@@ -17,12 +17,30 @@ void graph.traceUp("state:count");
 const simulated = world.simulate(world.MEL.actions.increment);
 const changedPaths: readonly string[] = simulated.changedPaths;
 const available: readonly (keyof CounterDomain["actions"])[] = simulated.newAvailableActions;
+const reportPromise: Promise<DispatchReport<CounterDomain>> = world.dispatchAsyncWithReport(
+  world.createIntent(world.MEL.actions.increment),
+);
+
+declare const report: DispatchReport<CounterDomain>;
+
+if (report.kind === "completed") {
+  const locked: readonly (keyof CounterDomain["actions"])[] =
+    report.outcome.projected.availability.locked;
+  void locked;
+}
+
+if (report.kind === "rejected") {
+  const rejectionCode: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT" =
+    report.rejection.code;
+  void rejectionCode;
+}
 
 void fieldName;
 void computedName;
 void actionName;
 void changedPaths;
 void available;
+void reportPromise;
 
 // @ts-expect-error FieldRef no longer exposes path as part of the public contract
 world.MEL.state.count.path;

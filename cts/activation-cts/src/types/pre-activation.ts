@@ -18,6 +18,8 @@ const base = createManifesto<CounterDomain>(createCounterSchema(), {});
 
 // @ts-expect-error base composable has no runtime verbs before activation
 base.dispatchAsync;
+// @ts-expect-error base composable has no report execution companion before activation
+base.dispatchAsyncWithReport;
 // @ts-expect-error base composable has no snapshot reads before activation
 base.getSnapshot;
 // @ts-expect-error base composable has no subscriptions before activation
@@ -27,6 +29,10 @@ const lineage = withLineage(base, { store: createInMemoryLineageStore() });
 
 // @ts-expect-error lineage composable still has no runtime verbs before activation
 lineage.commitAsync;
+// @ts-expect-error lineage composable still has no report companion before activation
+lineage.commitAsyncWithReport;
+// @ts-expect-error lineage composable still has no report execution companion before activation
+lineage.dispatchAsyncWithReport;
 // @ts-expect-error lineage composable still has no snapshot reads before activation
 lineage.getSnapshot;
 // @ts-expect-error lineage composable still has no subscriptions before activation
@@ -40,6 +46,10 @@ const governedComposable = withGovernance(lineage, {
 
 // @ts-expect-error governance composable has no proposeAsync before activation
 governedComposable.proposeAsync;
+// @ts-expect-error governance composable has no lineage report companion before activation
+governedComposable.commitAsyncWithReport;
+// @ts-expect-error governance composable has no base report companion before activation
+governedComposable.dispatchAsyncWithReport;
 // @ts-expect-error governance composable has no snapshot reads before activation
 governedComposable.getSnapshot;
 

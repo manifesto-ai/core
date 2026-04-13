@@ -9,7 +9,10 @@ import {
   type Snapshot,
   type TypedIntent,
 } from "@manifesto-ai/sdk";
-import type { HostDispatchOptions, RuntimeKernel } from "@manifesto-ai/sdk/provider";
+import type {
+  HostDispatchOptions,
+  LineageRuntimeKernel,
+} from "@manifesto-ai/sdk/provider";
 
 import type { LineageConfig } from "./runtime-types.js";
 import type {
@@ -67,11 +70,37 @@ export type SealIntentOptions = {
   readonly assumeEnqueued?: boolean;
 };
 
+type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
+  LineageRuntimeKernel<T>,
+  | "schema"
+  | "getVisibleCoreSnapshot"
+  | "setVisibleSnapshot"
+  | "restoreVisibleSnapshot"
+  | "isDisposed"
+  | "ensureIntentId"
+  | "isActionAvailable"
+  | "getCanonicalSnapshot"
+  | "validateIntentInputFor"
+  | "isIntentDispatchableFor"
+  | "rejectUnavailable"
+  | "rejectInvalidInput"
+  | "rejectNotDispatchable"
+  | "executeHost"
+  | "enqueue"
+>;
+
 export type SealedIntentResult<T extends ManifestoDomainShape> = {
   readonly intent: TypedIntent<T>;
-  readonly hostResult: Awaited<ReturnType<RuntimeKernel<T>["executeHost"]>>;
+  readonly hostResult: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
   readonly preparedCommit: PreparedNextCommit;
   readonly publishedSnapshot?: Snapshot<T["state"]>;
+};
+
+export type LineageSealRuntimeFailure<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = Error & {
+  readonly stage: "host" | "seal";
+  readonly hostResult?: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
 };
 
 export interface LineageRuntimeController<T extends ManifestoDomainShape> {
@@ -92,6 +121,33 @@ export interface LineageRuntimeController<T extends ManifestoDomainShape> {
   restore(worldId: WorldId): Promise<void>;
   switchActiveBranch(branchId: BranchId): Promise<BranchSwitchResult>;
   createBranch(name: string, fromWorldId?: WorldId): Promise<BranchId>;
+}
+
+function createLineageSealRuntimeFailure<T extends ManifestoDomainShape>(
+  error: unknown,
+  stage: "host" | "seal",
+  hostResult?: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>,
+): LineageSealRuntimeFailure<T> {
+  const failure = toError(error) as LineageSealRuntimeFailure<T>;
+  return Object.assign(
+    failure,
+    hostResult !== undefined
+      ? { stage, hostResult }
+      : { stage },
+  );
+}
+
+export function toLineageSealRuntimeFailure<T extends ManifestoDomainShape>(
+  error: unknown,
+): LineageSealRuntimeFailure<T> | null {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+
+  const candidate = error as LineageSealRuntimeFailure<T>;
+  return candidate.stage === "host" || candidate.stage === "seal"
+    ? candidate
+    : null;
 }
 
 export function attachLineageDecoration<
@@ -122,7 +178,7 @@ export function getLineageDecoration<
 }
 
 export function createLineageRuntimeController<T extends ManifestoDomainShape>(
-  kernel: RuntimeKernel<T>,
+  kernel: LineageControllerKernel<T>,
   service: LineageService,
   config: ResolvedLineageConfig,
 ): LineageRuntimeController<T> {
@@ -221,7 +277,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         return kernel.rejectNotDispatchable(enrichedIntent);
       }
 
-      let result: Awaited<ReturnType<RuntimeKernel<T>["executeHost"]>>;
+      let result: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
       try {
         result = await kernel.executeHost(
           enrichedIntent,
@@ -231,14 +287,18 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         );
       } catch (error) {
         kernel.restoreVisibleSnapshot();
-        throw toError(error);
+        throw createLineageSealRuntimeFailure<T>(error, "host");
       }
 
       if (!currentBranchId || !currentCompletedWorldId) {
         kernel.restoreVisibleSnapshot();
-        throw new ManifestoError(
-          "LINEAGE_STATE_ERROR",
-          "Lineage runtime has no active branch continuity after bootstrap",
+        throw createLineageSealRuntimeFailure<T>(
+          new ManifestoError(
+            "LINEAGE_STATE_ERROR",
+            "Lineage runtime has no active branch continuity after bootstrap",
+          ),
+          "seal",
+          result,
         );
       }
 
@@ -256,7 +316,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         await service.commitPrepared(prepared);
       } catch (error) {
         kernel.restoreVisibleSnapshot();
-        throw toError(error);
+        throw createLineageSealRuntimeFailure<T>(error, "seal", result);
       }
 
       if (prepared.branchChange.headAdvanced) {

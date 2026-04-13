@@ -5,6 +5,7 @@ import type {
   Intent,
   Patch,
   Requirement,
+  TraceGraph,
 } from "@manifesto-ai/core";
 import type {
   SchemaGraph as CompilerSchemaGraph,
@@ -18,7 +19,7 @@ import type {
   CanonicalPlatformNamespaces,
   CanonicalSnapshot,
   Snapshot,
-} from "./snapshot-projection.js";
+} from "./projection/snapshot-projection.js";
 
 type ActionFn = {
   bivarianceHack(...args: unknown[]): unknown;
@@ -150,6 +151,122 @@ export type SimulateResult<
   readonly status: ComputeStatus;
 };
 
+export type InvalidInputInfo = {
+  readonly code: "INVALID_INPUT";
+  readonly message: string;
+};
+
+export type IntentAdmissionFailure =
+  | {
+      readonly kind: "unavailable";
+      readonly blockers: readonly DispatchBlocker[];
+    }
+  | {
+      readonly kind: "invalid_input";
+      readonly error: InvalidInputInfo;
+    }
+  | {
+      readonly kind: "not_dispatchable";
+      readonly blockers: readonly DispatchBlocker[];
+    };
+
+export type IntentAdmission<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "admitted";
+      readonly actionName: keyof T["actions"] & string;
+    }
+  | {
+      readonly kind: "blocked";
+      readonly actionName: keyof T["actions"] & string;
+      readonly failure: IntentAdmissionFailure;
+    };
+
+export type AvailableActionDelta<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly before: readonly (keyof T["actions"])[];
+  readonly after: readonly (keyof T["actions"])[];
+  readonly unlocked: readonly (keyof T["actions"])[];
+  readonly locked: readonly (keyof T["actions"])[];
+};
+
+export type ProjectedDiff<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly beforeSnapshot: Snapshot<T["state"]>;
+  readonly afterSnapshot: Snapshot<T["state"]>;
+  readonly changedPaths: readonly string[];
+  readonly availability: AvailableActionDelta<T>;
+};
+
+export type CanonicalOutcome<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly afterCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly pendingRequirements: readonly Requirement[];
+  readonly status: CanonicalSnapshot<T["state"]>["system"]["status"];
+};
+
+export type ExecutionOutcome<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly projected: ProjectedDiff<T>;
+  readonly canonical: CanonicalOutcome<T>;
+};
+
+export type ExecutionFailureInfo = {
+  readonly message: string;
+  readonly code?: string;
+  readonly name?: string;
+  readonly stage?: "host" | "seal";
+};
+
+export type ExecutionDiagnostics = {
+  readonly hostTraces?: readonly TraceGraph[];
+};
+
+export type DispatchReport<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "completed";
+      readonly intent: TypedIntent<T>;
+      readonly admission: {
+        readonly kind: "admitted";
+        readonly actionName: keyof T["actions"] & string;
+      };
+      readonly outcome: ExecutionOutcome<T>;
+      readonly diagnostics?: ExecutionDiagnostics;
+    }
+  | {
+      readonly kind: "rejected";
+      readonly intent: TypedIntent<T>;
+      readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly rejection: {
+        readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
+        readonly reason: string;
+      };
+    }
+  | {
+      readonly kind: "failed";
+      readonly intent: TypedIntent<T>;
+      readonly admission: {
+        readonly kind: "admitted";
+        readonly actionName: keyof T["actions"] & string;
+      };
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly error: ExecutionFailureInfo;
+      readonly published: boolean;
+      readonly diagnostics?: ExecutionDiagnostics;
+      readonly outcome?: ExecutionOutcome<T>;
+    };
+
 export type IntentExplanation<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > =
@@ -267,6 +384,9 @@ export type TypedOn<T extends ManifestoDomainShape> = <
 export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly createIntent: TypedCreateIntent<T>;
   readonly dispatchAsync: TypedDispatchAsync<T>;
+  readonly dispatchAsyncWithReport: (
+    intent: TypedIntent<T>,
+  ) => Promise<DispatchReport<T>>;
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;

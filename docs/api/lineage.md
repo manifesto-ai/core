@@ -6,12 +6,13 @@
 
 `@manifesto-ai/lineage` adds time, sealing, history, and restore to a composable manifesto.
 
-> **Current Contract Note:** This page describes the current Lineage v3 decorator surface, unchanged through package release v3.5.0. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
+> **Current Contract Note:** This page describes the current Lineage v3.x decorator surface. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
 
 Use this package when you want:
 
 - `withLineage(createManifesto(...), config).activate()`
 - seal-aware `commitAsync`
+- additive lineage report companion `commitAsyncWithReport`
 - head, branch, world, and restore APIs on the activated runtime
 - `getWorldSnapshot(worldId)` for stored sealed canonical snapshot inspection by world id
 - `getLineage()` for DAG inspection
@@ -34,6 +35,7 @@ const lineage = withLineage(
 - `withLineage()` and `LineageConfig`
 - activated `LineageInstance<T>`
 - lineage-aware `commitAsync` that seals before publication
+- lineage-owned additive report companion `commitAsyncWithReport`
 - inherited legality queries such as `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 - `restore`, `getWorld`, `getWorldSnapshot`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
 - continuity ownership plus the provider surface
@@ -55,6 +57,8 @@ It means:
 
 If seal commit fails, the commit rejects and the new snapshot does not become visible.
 
+`commitAsyncWithReport()` is the additive companion for tooling and agent callers that need admission data, before/after snapshots, projected diffs, and continuity metadata without changing the underlying seal/publication semantics.
+
 ## Relationship to SDK
 
 ```text
@@ -71,6 +75,7 @@ On a lineage runtime:
 - `getSnapshot()` is the projected runtime read
 - `getCanonicalSnapshot()` is the current visible canonical substrate
 - `getWorldSnapshot(worldId)` is the stored sealed canonical snapshot
+- `dispatchAsync()` and `dispatchAsyncWithReport()` are no longer part of the promoted runtime surface
 
 ## Related Docs
 

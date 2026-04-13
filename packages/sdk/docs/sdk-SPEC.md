@@ -8,11 +8,11 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.6.0 Status:** The projected introspection additions, the intent-level dispatchability additions, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, and additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()` are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
+> **Current v3.x Status:** The projected introspection additions, the intent-level dispatchability additions, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3.6.0 public contract.
+This document defines the current SDK v3.x public contract.
 
 The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
@@ -34,6 +34,8 @@ Normative rule prefixes:
 | `SDK-TYPE-*` | public type rules |
 | `SDK-BASE-*` | activated base runtime surface |
 | `SDK-DISPATCH-*` | `dispatchAsync()` semantics |
+| `SDK-REPORT-*` | additive base write-report semantics |
+| `SDK-REPORT-SUB-*` | shared internal report substrate semantics |
 | `SDK-GRAPH-*` | `getSchemaGraph()` and `SchemaGraph` semantics |
 | `SDK-SIM-*` | `simulate()` semantics |
 | `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` semantics |
@@ -108,7 +110,7 @@ type ActivatedInstance<
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-PHASE-1 | MUST NOT | Pre-activation composable manifesto objects MUST NOT expose `dispatchAsync`, `proposeAsync`, `subscribe`, `on`, `getSnapshot`, or `dispose` |
+| SDK-PHASE-1 | MUST NOT | Pre-activation composable manifesto objects MUST NOT expose `dispatchAsync`, `dispatchAsyncWithReport`, `proposeAsync`, `subscribe`, `on`, `getSnapshot`, or `dispose` |
 | SDK-PHASE-2 | MUST | `activate()` MUST be the only SDK boundary that produces a runtime instance |
 | SDK-PHASE-3 | MUST | `activate()` MUST be one-shot; the second call on the same composable manifesto MUST throw `AlreadyActivatedError` |
 | SDK-PHASE-4 | MUST NOT | No path from runtime instance back to composable state may exist |
@@ -570,6 +572,9 @@ Activating an undecorated composable manifesto returns the present-only base run
 type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly createIntent: TypedCreateIntent<T>;
   readonly dispatchAsync: TypedDispatchAsync<T>;
+  readonly dispatchAsyncWithReport: (
+    intent: TypedIntent<T>
+  ) => Promise<DispatchReport<T>>;
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
   readonly getSnapshot: () => Snapshot<T["state"]>;
@@ -595,7 +600,9 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 The canonical public surface is the instance object. Destructuring is optional ergonomics only.
 
-The members in §7.3.1-§7.5 are part of the current v3.6.0 SDK surface. They remain read-only SDK conveniences layered over the same activated schema and canonical runtime substrate.
+`dispatchAsyncWithReport()` in §7.2.1 is an additive companion to the canonical base execution verb `dispatchAsync()`.
+
+The read-oriented members in §7.3.1-§7.5 remain SDK conveniences layered over the same activated schema and canonical runtime substrate.
 
 ### 7.1 `createIntent()`
 
@@ -646,6 +653,183 @@ If Host execution produces a terminal error result that also carries a new termi
 
 If execution fails before a new terminal snapshot exists, SDK MUST emit `dispatch:failed`, MUST leave the visible snapshot unchanged, and MUST reject the Promise.
 
+### 7.2.1 `dispatchAsyncWithReport()`
+
+`dispatchAsyncWithReport()` is an additive report companion to `dispatchAsync()`.
+
+It returns a `DispatchReport<T>` that packages the already-computed admission outcome, before/after snapshots, projected diff, availability delta, canonical completion state, and optional debug diagnostics for the same dequeue-time execution path.
+
+`dispatchAsyncWithReport()` is a public family-surface API.
+However, SDK implementations MUST derive it from one shared internal report substrate rather than reimplementing legality ordering, projected diff semantics, or failure classification as a second independent execution path.
+
+Illustrative shared internal helpers:
+
+```typescript
+type SharedReportSubstrate<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  deriveIntentAdmission(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): IntentAdmission<T>;
+
+  deriveExecutionOutcome(
+    beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>,
+    afterCanonicalSnapshot: CanonicalSnapshot<T["state"]>,
+  ): ExecutionOutcome<T>;
+
+  classifyExecutionFailure(
+    error: unknown,
+    context: { readonly stage: "host" | "seal" },
+  ): ExecutionFailureInfo;
+};
+```
+
+The helper names above are illustrative only.
+Equivalent implementation names are allowed.
+
+```typescript
+type InvalidInputInfo = {
+  readonly code: "INVALID_INPUT";
+  readonly message: string;
+};
+
+type IntentAdmissionFailure =
+  | {
+      readonly kind: "unavailable";
+      readonly blockers: readonly DispatchBlocker[];
+    }
+  | {
+      readonly kind: "invalid_input";
+      readonly error: InvalidInputInfo;
+    }
+  | {
+      readonly kind: "not_dispatchable";
+      readonly blockers: readonly DispatchBlocker[];
+    };
+
+type IntentAdmission<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "admitted";
+      readonly actionName: keyof T["actions"] & string;
+    }
+  | {
+      readonly kind: "blocked";
+      readonly actionName: keyof T["actions"] & string;
+      readonly failure: IntentAdmissionFailure;
+    };
+
+type AvailableActionDelta<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly before: readonly (keyof T["actions"])[];
+  readonly after: readonly (keyof T["actions"])[];
+  readonly unlocked: readonly (keyof T["actions"])[];
+  readonly locked: readonly (keyof T["actions"])[];
+};
+
+type ProjectedDiff<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly beforeSnapshot: Snapshot<T["state"]>;
+  readonly afterSnapshot: Snapshot<T["state"]>;
+  readonly changedPaths: readonly string[];
+  readonly availability: AvailableActionDelta<T>;
+};
+
+type CanonicalOutcome<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly afterCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+  readonly pendingRequirements: readonly Requirement[];
+  readonly status: CanonicalSnapshot<T["state"]>["system"]["status"];
+};
+
+type ExecutionOutcome<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> = {
+  readonly projected: ProjectedDiff<T>;
+  readonly canonical: CanonicalOutcome<T>;
+};
+
+type ExecutionFailureInfo = {
+  readonly message: string;
+  readonly code?: string;
+  readonly name?: string;
+  readonly stage?: "host" | "seal";
+};
+
+type ExecutionDiagnostics = {
+  readonly hostTraces?: readonly TraceGraph[];
+};
+
+type DispatchReport<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "completed";
+      readonly intent: TypedIntent<T>;
+      readonly admission: {
+        readonly kind: "admitted";
+        readonly actionName: keyof T["actions"] & string;
+      };
+      readonly outcome: ExecutionOutcome<T>;
+      readonly diagnostics?: ExecutionDiagnostics;
+    }
+  | {
+      readonly kind: "rejected";
+      readonly intent: TypedIntent<T>;
+      readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly rejection: {
+        readonly code: "ACTION_UNAVAILABLE" | "INVALID_INPUT" | "INTENT_NOT_DISPATCHABLE";
+        readonly reason: string;
+      };
+    }
+  | {
+      readonly kind: "failed";
+      readonly intent: TypedIntent<T>;
+      readonly admission: {
+        readonly kind: "admitted";
+        readonly actionName: keyof T["actions"] & string;
+      };
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly error: ExecutionFailureInfo;
+      readonly published: boolean;
+      readonly diagnostics?: ExecutionDiagnostics;
+      readonly outcome?: ExecutionOutcome<T>;
+    };
+```
+
+Semantics:
+
+- `changedPaths` is the projected diff over `beforeSnapshot` and `afterSnapshot`
+- `availability.before` and `availability.after` are public action-name sets derived using the same availability semantics as `getAvailableActions()`, evaluated against the canonical before/after snapshots
+- `availability.unlocked` and `availability.locked` are set differences over those public action-name sets
+- `ExecutionDiagnostics` is optional, best-effort, and debug-grade; callers MUST treat `Snapshot` as the semantic truth and MUST NOT rely on diagnostics for correctness
+- `ExecutionFailureInfo.stage` reserves `"seal"` for decorator-owned promoted runtimes that reuse the same shared report substrate; the base SDK runtime itself SHOULD emit `"host"` or omit `stage`
+
+### 7.2.2 Report And Shared-Substrate Semantics
+
+`dispatchAsyncWithReport()` MUST preserve the same dequeue-time legality ordering and publication semantics as `dispatchAsync()`.
+
+If the action is unavailable at dequeue time, `dispatchAsyncWithReport()` MUST resolve a rejected report with `ACTION_UNAVAILABLE`, the first failing admission layer, and the before snapshots.
+
+If the action is available but the bound intent input is invalid at dequeue time, `dispatchAsyncWithReport()` MUST resolve a rejected report with `INVALID_INPUT`, the first failing admission layer, and the before snapshots.
+
+If the action is available but the bound intent is not dispatchable at dequeue time, `dispatchAsyncWithReport()` MUST resolve a rejected report with `INTENT_NOT_DISPATCHABLE`, the first failing admission layer, and the before snapshots.
+
+If execution succeeds, `dispatchAsyncWithReport()` MUST publish the same new terminal snapshot as `dispatchAsync()` and MUST resolve a completed report whose `ExecutionOutcome<T>` reflects that same published result.
+
+If Host execution produces a terminal error result that also carries a new published terminal snapshot, `dispatchAsyncWithReport()` MUST publish that snapshot and MUST resolve a failed report with `published: true` and `outcome`.
+
+If execution fails before a new terminal snapshot exists, `dispatchAsyncWithReport()` MUST resolve a failed report with `published: false` and MUST NOT fabricate `outcome`.
+
 ### 7.3 Availability, Dispatchability, Explanation, and Metadata Queries
 
 `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `explainIntent()`, `why()`, `whyNot()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
@@ -687,7 +871,7 @@ The intended public legality ladder is:
 1. coarse availability via `getAvailableActions()` / `isActionAvailable()`
 2. first-failing-layer blocker or explanation reads via `getIntentBlockers()`, `whyNot()`, or `explainIntent()`
 3. admitted dry-run via `simulate()`
-4. runtime execution via `dispatchAsync()`
+4. runtime execution via `dispatchAsync()` or the additive report companion `dispatchAsyncWithReport()`
 
 `getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `simulate()` is the admitted dry-run step. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
 
@@ -978,6 +1162,7 @@ The root session starts from the current canonical runtime snapshot and projects
 After disposal:
 
 - `dispatchAsync()` MUST reject with `DisposedError`
+- `dispatchAsyncWithReport()` MUST reject with `DisposedError`
 - `subscribe()` MUST return a no-op unsubscriber and MUST NOT register the listener
 - `on()` MUST return a no-op unsubscriber and MUST NOT register the handler
 - `getSnapshot()` MUST continue returning the last visible terminal snapshot
@@ -988,12 +1173,12 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-BASE-1 | MUST | `ManifestoBaseInstance<T>` MUST expose exactly the fields shown in §7 |
+| SDK-BASE-1 | MUST | `ManifestoBaseInstance<T>` MUST expose the fields shown in §7 as part of the activated base runtime contract |
 | SDK-BASE-2 | MUST | `dispatchAsync()` MUST be the canonical base execution verb |
 | SDK-BASE-3 | MUST | `createIntent()` MUST be typed from `MEL.actions.*`, not raw string action names |
 | SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
 | SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
-| SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` as normative execution surface |
+| SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` or `dispatchAsyncWithReport(instance, intent)` as normative execution surfaces |
 | SDK-BASE-7 | MUST | `getSchemaGraph()` and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
 | SDK-EXPLAIN-RT-1 | MUST | `explainIntent()` MUST evaluate against the runtime's current visible canonical snapshot only |
 | SDK-EXPLAIN-RT-2 | MUST | `explainIntent()` MUST be observationally pure |
@@ -1014,6 +1199,23 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-DISPATCH-7 | MUST | successful completion MUST resolve with the same snapshot that became visible through `getSnapshot()` and `dispatch:completed` |
 | SDK-DISPATCH-8 | MUST | terminal failures with a new published snapshot MUST reject and emit `dispatch:failed` with that snapshot attached |
 | SDK-DISPATCH-9 | MUST | pre-publication failures MUST reject without changing the visible snapshot |
+| SDK-REPORT-SUB-1 | MUST | Implementations of `dispatchAsyncWithReport()` MUST reuse one internal admission-derivation story rather than reimplement legality ordering as a second independent path |
+| SDK-REPORT-SUB-2 | MUST | Shared report admission derivation MUST preserve the current legality order: availability -> input validation -> dispatchability |
+| SDK-REPORT-SUB-3 | MUST | Shared report admission derivation MUST continue to hide invalid-input failures behind an unavailable action |
+| SDK-REPORT-SUB-4 | MUST | First-failing-layer behavior MUST remain aligned with current blocker/explanation and rejected-dispatch semantics |
+| SDK-REPORT-SUB-5 | MUST | Projected changed-path derivation MUST reuse the same projected diff semantics already used by `simulate()` and admitted `explainIntent()` |
+| SDK-REPORT-SUB-6 | MUST | Failure classification MUST distinguish host-stage failure from reserved promoted-runtime seal-stage failure without fabricating a completed outcome |
+| SDK-REPORT-1 | MUST | `dispatchAsyncWithReport()` MUST preserve the same dequeue-time legality ordering and publication semantics as `dispatchAsync()` |
+| SDK-REPORT-2 | MUST NOT | `dispatchAsyncWithReport()` MUST NOT change the behavior or return contract of `dispatchAsync()` |
+| SDK-REPORT-3 | MUST | Rejected reports MUST expose the first failing legality layer as `admission` data plus stable rejection code |
+| SDK-REPORT-4 | MUST | Completed reports MUST expose `ExecutionOutcome<T>` for the same published result as `dispatchAsync()` |
+| SDK-REPORT-5 | MUST | if execution fails after a terminal snapshot was published, the failed report MUST include `published: true` plus `outcome` |
+| SDK-REPORT-6 | MUST | if execution fails before a new terminal snapshot exists, the failed report MUST include `published: false` and MUST NOT fabricate `outcome` |
+| SDK-REPORT-7 | SHOULD | Completed and failed reports MAY include optional debug-grade `diagnostics.hostTraces` when Host already returned trace data |
+| SDK-REPORT-8 | MUST | The presence or absence of `diagnostics` MUST NOT change semantic runtime outcome or publication behavior |
+| SDK-REPORT-9 | MUST | `dispatchAsyncWithReport()` MUST resolve report unions for normal operational outcomes (`completed`, `rejected`, `failed`) instead of rejecting for those outcomes |
+| SDK-REPORT-10 | MUST | Calls made after disposal MUST continue to reject with `DisposedError` rather than being remapped into a report union |
+| SDK-REPORT-11 | MUST NOT | This additive report surface MUST NOT expose provider-only runtime-control helpers or become a new execution-control seam |
 | SDK-GRAPH-1 | MUST | `getSchemaGraph()` MUST expose a static graph derived from the activated `DomainSchema` alone, with no snapshot dependency |
 | SDK-GRAPH-2 | MUST | the public graph MUST exclude `data.$*` nodes, edges touching excluded `$*` nodes, and computed nodes tainted by transitive `$*` dependencies |
 | SDK-GRAPH-3 | SHOULD | the SDK SHOULD compute the graph once at activation time and cache it for the instance lifetime |
@@ -1100,7 +1302,9 @@ The post-activation extension seam lives at `@manifesto-ai/sdk/extensions`.
 That subpath is for helper and tool authors who need safe arbitrary-snapshot read-only operations on an activated runtime.
 
 The public decorator/provider authoring seam lives at `@manifesto-ai/sdk/provider`.
-That subpath exposes `RuntimeKernel`, `RuntimeKernelFactory`, and the activation-state helpers used by `withLineage()` and `withGovernance()`.
+That subpath exposes `RuntimeKernel`, `RuntimeKernelFactory`, focused consumer aliases such as `LineageRuntimeKernel`, `GovernanceRuntimeKernel`, and `WaitForProposalRuntimeKernel`, plus the activation-state helpers used by `withLineage()` and `withGovernance()`.
+
+`RuntimeKernel` remains the compatibility aggregate for provider authors. Focused consumer aliases are narrower views over that same provider seam and MUST NOT weaken the compatibility contract of `RuntimeKernel`.
 
 For decorator authors that need hypothetical planning or dry-run analysis against caller-provided canonical snapshots, `RuntimeKernel` MUST additionally expose:
 
@@ -1137,6 +1341,7 @@ Those are defined by ADR-017 and their owning package specs.
 | SDK-BOUNDARY-4 | MUST | governed composition from the SDK story MUST be expressed as `createManifesto() -> withLineage() -> withGovernance() -> activate()` |
 | SDK-BOUNDARY-5 | MUST | once lineage or governance laws are composed, `activate()` MUST return the runtime type defined by the owning package rather than the base SDK runtime |
 | SDK-BOUNDARY-6 | MUST | `@manifesto-ai/sdk/provider` MUST expose arbitrary-snapshot `RuntimeKernel` helpers `simulateSync()`, `getAvailableActionsFor()`, and `isActionAvailableFor()` for decorator authors |
+| SDK-BOUNDARY-6a | MUST | `@manifesto-ai/sdk/provider` MAY expose focused consumer aliases, but those aliases MUST remain narrower views over the same provider seam and MUST NOT replace `RuntimeKernel` as the compatibility aggregate |
 | SDK-BOUNDARY-7 | MUST NOT | provider-seam arbitrary-snapshot helpers MUST NOT mutate, publish, or otherwise replace the visible runtime snapshot |
 | SDK-BOUNDARY-8 | MUST | `@manifesto-ai/sdk/extensions` MUST expose post-activation observationally pure arbitrary-snapshot helpers for activated runtimes |
 | SDK-BOUNDARY-9 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST NOT expose runtime-control methods or provider-only activation/composition helpers |
@@ -1210,16 +1415,17 @@ Required stable codes:
 
 ## 12. Compliance Checklist
 
-An SDK v3.6.0 implementation complies with this living contract only if all of the following are true:
+An SDK v3.x implementation complies with this living contract only if all of the following are true:
 
 - `createManifesto()` returns a composable manifesto, not a runtime instance.
 - Pre-activation objects expose no runtime verbs.
 - `activate()` is one-shot and throws `AlreadyActivatedError` on repeat use.
 - `ManifestoConfig` does not exist in the v3 contract.
 - SDK no longer presents `@manifesto-ai/world` as part of its public story.
-- The base activated runtime exposes `createIntent`, `dispatchAsync`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, intent explanation reads, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
+- The base activated runtime exposes `createIntent`, `dispatchAsync`, `dispatchAsyncWithReport`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, intent explanation reads, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
 - `dispatchAsync()` is FIFO per instance and evaluates availability, then input validation, then dispatchability at dequeue time.
+- `dispatchAsyncWithReport()` is additive, reuses the same legality ordering and projected diff semantics, and does not change `dispatchAsync()` publication behavior.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
 - `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
 - `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers, including `explainIntentFor()`, and no runtime-control methods.
