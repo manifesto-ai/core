@@ -5,8 +5,11 @@
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@manifesto-ai/lineage": ["../lineage/dist/index"],
-      "@manifesto-ai/lineage/provider": ["../lineage/dist/provider"]
+      "@manifesto-ai/sdk": ["../sdk/dist/index.d.ts"],
+      "@manifesto-ai/sdk/extensions": ["../sdk/dist/extensions.d.ts"],
+      "@manifesto-ai/sdk/provider": ["../sdk/dist/provider.d.ts"],
+      "@manifesto-ai/lineage": ["../lineage/dist/index.d.ts"],
+      "@manifesto-ai/lineage/provider": ["../lineage/dist/provider.d.ts"]
     }
   },
   "include": ["src/**/*"],

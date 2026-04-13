@@ -17,6 +17,7 @@ describe("SDK public runtime exports", () => {
 
   it("does not expose removed v2 helpers", () => {
     expect("dispatchAsync" in sdk).toBe(false);
+    expect("dispatchAsyncWithReport" in sdk).toBe(false);
     expect("DispatchRejectedError" in sdk).toBe(false);
     expect("defineOps" in sdk).toBe(false);
     expect("defineEffects" in sdk).toBe(false);

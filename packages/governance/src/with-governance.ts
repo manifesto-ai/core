@@ -16,7 +16,8 @@ import {
   attachRuntimeKernelFactory,
   getActivationState,
   getRuntimeKernelFactory,
-  type RuntimeKernel,
+  type GovernanceRuntimeKernel,
+  type GovernanceRuntimeKernelFactory,
 } from "@manifesto-ai/sdk/provider";
 import {
   type BranchId,
@@ -65,6 +66,7 @@ export function withGovernance<
   assertComposableNotActivated(manifesto);
 
   const createKernel = getRuntimeKernelFactory(manifesto);
+  const createGovernanceKernel: GovernanceRuntimeKernelFactory<T> = createKernel;
   const explicitLineage = getLineageDecoration(manifesto);
   if (!explicitLineage) {
     throw new ManifestoError(
@@ -85,7 +87,7 @@ export function withGovernance<
         decorated as unknown as ComposableManifesto<T, GovernedComposableLaws>,
       );
       return activateGovernanceRuntime<T>(
-        createKernel(),
+        createGovernanceKernel(),
         explicitLineage.config,
         config,
       );
@@ -102,7 +104,7 @@ export function withGovernance<
 }
 
 function activateGovernanceRuntime<T extends ManifestoDomainShape>(
-  kernel: RuntimeKernel<T>,
+  kernel: GovernanceRuntimeKernel<T>,
   lineageConfig: ResolvedLineageConfig,
   config: GovernanceConfig<T>,
 ): GovernanceInstance<T> {
@@ -556,6 +558,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     ),
     {
       isDisposed: kernel.isDisposed,
+      deriveExecutionOutcome: kernel.deriveExecutionOutcome,
     },
   );
 

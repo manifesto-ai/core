@@ -48,7 +48,7 @@ export type LineageComposableLaws = BaseLaws & LineageLaws & {
 export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
 
 export type GovernanceInstance<T extends ManifestoDomainShape> =
-  Omit<LineageInstance<T>, "commitAsync"> & {
+  Omit<LineageInstance<T>, "commitAsync" | "commitAsyncWithReport"> & {
     readonly proposeAsync: (intent: TypedIntent<T>) => Promise<Proposal>;
     readonly approve: (
       proposalId: ProposalId,

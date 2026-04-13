@@ -28,8 +28,11 @@ export const ACTS_CASES = {
   BASE_SCHEMA_GRAPH_LOOKUP: "ACTS-BASE-006",
   BASE_SIMULATE_NON_COMMITTING: "ACTS-BASE-007",
   BASE_SIMULATE_HALTED: "ACTS-BASE-008",
+  BASE_REPORT_SURFACE: "ACTS-BASE-009",
+  BASE_REPORT_REJECTION: "ACTS-BASE-010",
   LINEAGE_COMPOSABLE_SURFACE: "ACTS-LIN-001",
   LINEAGE_SEAL_PUBLICATION: "ACTS-LIN-002",
+  LINEAGE_REPORT_SURFACE: "ACTS-LIN-003",
   GOVERNANCE_COMPOSABLE_SURFACE: "ACTS-GOV-001",
   GOVERNANCE_EXPLICIT_LINEAGE: "ACTS-GOV-002",
   GOVERNANCE_EXPLICIT_PRECEDENCE: "ACTS-GOV-003",
@@ -81,6 +84,16 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     "simulate() preserves Core halted status without publishing runtime state.",
   ),
   complianceCase(
+    ACTS_CASES.BASE_REPORT_SURFACE,
+    "base",
+    "Activated base runtime exposes dispatchAsyncWithReport() as an additive companion and returns completed report bundles without changing dispatchAsync().",
+  ),
+  complianceCase(
+    ACTS_CASES.BASE_REPORT_REJECTION,
+    "base",
+    "dispatchAsyncWithReport() preserves dequeue-time legality ordering and returns rejected report unions for blocked intents.",
+  ),
+  complianceCase(
     ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE,
     "lineage",
     "withLineage() stays pre-activation and one-shot until runtime opens.",
@@ -89,6 +102,11 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     ACTS_CASES.LINEAGE_SEAL_PUBLICATION,
     "lineage",
     "Lineage commit publishes only after seal commit succeeds and does not publish on commit failure.",
+  ),
+  complianceCase(
+    ACTS_CASES.LINEAGE_REPORT_SURFACE,
+    "lineage",
+    "Activated lineage runtime promotes commitAsyncWithReport(), removes base report verbs, and returns completed lineage continuity reports.",
   ),
   complianceCase(
     ACTS_CASES.GOVERNANCE_COMPOSABLE_SURFACE,
@@ -161,12 +179,24 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.BASE_SIMULATE_HALTED],
   ),
   ...coverMany(
+    ["ACTS-BASE-10"],
+    [ACTS_CASES.BASE_REPORT_SURFACE],
+  ),
+  ...coverMany(
+    ["ACTS-BASE-11"],
+    [ACTS_CASES.BASE_REPORT_REJECTION],
+  ),
+  ...coverMany(
     ["ACTS-LIN-1", "ACTS-LIN-3"],
     [ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE],
   ),
   ...coverMany(
     ["ACTS-LIN-2"],
     [ACTS_CASES.LINEAGE_SEAL_PUBLICATION],
+  ),
+  ...coverMany(
+    ["ACTS-LIN-4"],
+    [ACTS_CASES.LINEAGE_REPORT_SURFACE],
   ),
   ...coverMany(
     ["ACTS-GOV-1", "ACTS-GOV-5"],

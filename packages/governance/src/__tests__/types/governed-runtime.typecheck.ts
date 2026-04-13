@@ -20,7 +20,9 @@ import {
 import {
   createInMemoryGovernanceStore,
   type ProposalSettlement,
+  type ProposalSettlementReport,
   waitForProposal,
+  waitForProposalWithReport,
   withGovernance,
 } from "../../index.ts";
 
@@ -66,7 +68,12 @@ const governedSettlement: Promise<ProposalSettlement<CounterDomain>> = waitForPr
   governed,
   "proposal-1",
 );
+const governedSettlementReport: Promise<ProposalSettlementReport<CounterDomain>> = waitForProposalWithReport(
+  governed,
+  "proposal-1",
+);
 void governedSettlement;
+void governedSettlementReport;
 
 // @ts-expect-error governed runtime removes base dispatchAsync
 governed.dispatchAsync(
@@ -75,6 +82,14 @@ governed.dispatchAsync(
 
 // @ts-expect-error governed runtime removes lineage commitAsync
 governed.commitAsync(
+  governed.createIntent(governed.MEL.actions.increment),
+);
+// @ts-expect-error governed runtime removes lineage commitAsyncWithReport
+governed.commitAsyncWithReport(
+  governed.createIntent(governed.MEL.actions.increment),
+);
+// @ts-expect-error governed runtime does not introduce proposeAsyncWithReport
+governed.proposeAsyncWithReport(
   governed.createIntent(governed.MEL.actions.increment),
 );
 
@@ -109,6 +124,7 @@ void governed.proposeAsync(foreignIntent);
 
 async function checkSettlementNarrowing() {
   const settlement = await waitForProposal(governed, "proposal-2");
+  const report = await waitForProposalWithReport(governed, "proposal-3");
 
   if (settlement.kind === "completed") {
     const count: number = settlement.snapshot.data.count;
@@ -123,6 +139,22 @@ async function checkSettlementNarrowing() {
     if (settlement.resultWorld) {
       const worldId: string = settlement.resultWorld;
       void worldId;
+    }
+  }
+
+  if (report.kind === "completed") {
+    const count: number = report.outcome.projected.afterSnapshot.data.count;
+    const worldId: string = report.resultWorld;
+    void count;
+    void worldId;
+  }
+
+  if (report.kind === "failed") {
+    const summary: string = report.error.summary;
+    void summary;
+    if (report.sealedOutcome) {
+      const count: number = report.sealedOutcome.projected.afterSnapshot.data.count;
+      void count;
     }
   }
 }

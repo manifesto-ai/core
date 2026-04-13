@@ -3,7 +3,7 @@
  * App code should prefer the main sdk entry point unless it needs hypothetical
  * read-only analysis over caller-provided canonical snapshots.
  */
-import { getAttachedExtensionKernel } from "./internal.js";
+import { getAttachedExtensionKernel } from "./compat/internal.js";
 import type { ExtensionKernel } from "./extensions-types.js";
 import type {
   BaseLaws,
@@ -20,7 +20,7 @@ export type {
   SimulationSessionStatus,
   SimulationSessionStep,
 } from "./extensions-types.js";
-export { createSimulationSession } from "./simulation-session.js";
+export { createSimulationSession } from "./projection/simulation-session.js";
 
 export function getExtensionKernel<
   T extends ManifestoDomainShape,

@@ -1,5 +1,5 @@
-import { ManifestoError } from "./errors.js";
-import { getAttachedExtensionKernel } from "./internal.js";
+import { ManifestoError } from "../errors.js";
+import { getAttachedExtensionKernel } from "../compat/internal.js";
 import { cloneAndDeepFreeze } from "./snapshot-projection.js";
 import type {
   ExtensionKernel,
@@ -8,7 +8,7 @@ import type {
   SimulationSessionResult,
   SimulationSessionStatus,
   SimulationSessionStep,
-} from "./extensions-types.js";
+} from "../extensions-types.js";
 import type {
   ActivatedInstance,
   BaseLaws,
@@ -17,7 +17,7 @@ import type {
   ManifestoDomainShape,
   TypedActionRef,
   TypedIntent,
-} from "./types.js";
+} from "../types.js";
 
 function isTerminalStatus(status: SimulationSessionStatus): boolean {
   return status === "pending" || status === "halted" || status === "error";

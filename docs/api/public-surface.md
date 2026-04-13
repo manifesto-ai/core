@@ -738,6 +738,7 @@ _Source: `packages/governance/src/index.ts`_
 - `createInMemoryGovernanceStore`
 - `createNoopGovernanceEventSink`
 - `waitForProposal`
+- `waitForProposalWithReport`
 - `withGovernance`
 
 #### Types
@@ -767,6 +768,7 @@ _Source: `packages/governance/src/index.ts`_
 - `Proposal`
 - `ProposalId`
 - `ProposalSettlement`
+- `ProposalSettlementReport`
 - `ProposalStatus`
 - `QuorumRule`
 - `SourceKind`
@@ -969,6 +971,7 @@ _Source: `packages/lineage/src/index.ts`_
 - `BranchId`
 - `BranchInfo`
 - `BranchSwitchResult`
+- `CommitReport`
 - `LineageConfig`
 - `LineageInstance`
 - `World`
@@ -1043,8 +1046,10 @@ _Source: `packages/sdk/src/index.ts`_
 - `ActionArgs`
 - `ActionObjectBindingArgs`
 - `ActivatedInstance`
+- `AvailableActionDelta`
 - `BaseComposableLaws`
 - `BaseLaws`
+- `CanonicalOutcome`
 - `CanonicalPlatformNamespaces`
 - `CanonicalSnapshot`
 - `CompileDiagnostic`
@@ -1053,14 +1058,21 @@ _Source: `packages/sdk/src/index.ts`_
 - `CoreSnapshot`
 - `CreateIntentArgs`
 - `DispatchBlocker`
+- `DispatchReport`
 - `DomainSchema`
 - `EffectContext`
 - `EffectHandler`
+- `ExecutionDiagnostics`
+- `ExecutionFailureInfo`
+- `ExecutionOutcome`
 - `FieldRef`
 - `GovernanceLaws`
 - `GovernedComposableLaws`
 - `Intent`
+- `IntentAdmission`
+- `IntentAdmissionFailure`
 - `IntentExplanation`
+- `InvalidInputInfo`
 - `LineageComposableLaws`
 - `LineageLaws`
 - `ManifestoBaseInstance`
@@ -1071,6 +1083,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `ManifestoEventPayload`
 - `ManifestoRuntimeByLaws`
 - `Patch`
+- `ProjectedDiff`
 - `SchemaGraph`
 - `SchemaGraphEdge`
 - `SchemaGraphEdgeRelation`
@@ -1145,7 +1158,12 @@ _Source: `packages/sdk/src/provider.ts`_
 #### Types
 
 - `ActivationState`
+- `GovernanceRuntimeKernel`
+- `GovernanceRuntimeKernelFactory`
 - `HostDispatchOptions`
+- `LineageRuntimeKernel`
+- `LineageRuntimeKernelFactory`
 - `RuntimeKernel`
 - `RuntimeKernelFactory`
 - `SimulateResult`
+- `WaitForProposalRuntimeKernel`

@@ -5,6 +5,8 @@
 > **Related:** ADR-015, ADR-016, ADR-017
 
 > **Historical Note:** [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md) is retained as the pre-ADR-017 service-first baseline. The current package contract adds the decorator runtime and activated `LineageInstance`.
+>
+> **Current v3.x Status:** The additive lineage write-report companion `commitAsyncWithReport()` is now part of the current living Lineage contract. Governance settlement reporting remains outside this package and outside this phase.
 
 ---
 
@@ -23,6 +25,7 @@ In v3, Lineage owns two public layers:
 - the app-facing decorator runtime:
   - `withLineage(createManifesto(...), config).activate()`
   - seal-aware `commitAsync`
+  - additive lineage write-report companion `commitAsyncWithReport`
   - activated restore/head/branch/world queries
 
 Lineage does not own authority, proposal legitimacy, or approval policy. Those remain governance concerns.
@@ -67,8 +70,11 @@ Normative rules:
 
 ```ts
 type LineageInstance<T extends ManifestoDomainShape> =
-  Omit<ManifestoBaseInstance<T>, "dispatchAsync"> & {
+  Omit<ManifestoBaseInstance<T>, "dispatchAsync" | "dispatchAsyncWithReport"> & {
     readonly commitAsync: TypedCommitAsync<T>;
+    readonly commitAsyncWithReport: (
+      intent: TypedIntent<T>,
+    ) => Promise<CommitReport<T>>;
     readonly restore: (worldId: WorldId) => Promise<void>;
     readonly getWorld: (worldId: WorldId) => Promise<World | null>;
     readonly getWorldSnapshot: (worldId: WorldId) => Promise<CanonicalSnapshot<T["state"]> | null>;
@@ -86,7 +92,7 @@ Normative rules:
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| LIN-V3-SFC-1 | MUST | `LineageInstance<T>` include the entire base SDK runtime surface except that `dispatchAsync` is replaced by lineage-aware `commitAsync` |
+| LIN-V3-SFC-1 | MUST | `LineageInstance<T>` include the entire base SDK runtime surface except that `dispatchAsync` and `dispatchAsyncWithReport` are replaced by lineage-aware `commitAsync` and `commitAsyncWithReport` |
 | LIN-V3-SFC-2 | MUST | `restore(worldId)` resolve after the runtime visible snapshot has been updated |
 | LIN-V3-SFC-3 | MUST | query methods return continuity truth from the backing `LineageService` |
 | LIN-V3-SFC-3a | SHOULD | `getWorldSnapshot(worldId)` expose the stored sealed canonical snapshot substrate for a specific world when available |
@@ -98,6 +104,8 @@ Normative rules:
 `getSnapshot()` remains the projected runtime read model inherited from SDK. `getCanonicalSnapshot()` returns the current visible runtime substrate. `getWorldSnapshot(worldId)` is different again: it reads the stored sealed canonical substrate for a specific world from lineage storage.
 
 The inherited SDK read surface also remains available on the activated lineage runtime, including `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()`.
+
+The base SDK write-report companion does not remain on a lineage runtime after verb promotion. The lineage-owned additive report companion is `commitAsyncWithReport()`.
 
 ---
 
@@ -137,6 +145,9 @@ Normative rules:
 2. seal the resulting terminal snapshot into lineage
 3. publish only the snapshot that is legitimate as the new visible head
 
+`LineageInstance.commitAsyncWithReport()` is the additive lineage-owned report companion to `commitAsync()`.
+It does not replace `commitAsync()`, and it does not change lineage seal/publication law.
+
 ### 4.1 Availability and Queue
 
 | Rule ID | Level | Description |
@@ -173,6 +184,73 @@ Lineage still seals failed terminal snapshots. However failed continuity does no
 | LIN-V3-DISPATCH-12 | MUST | if seal prepare or commit fails, `commitAsync()` reject |
 | LIN-V3-DISPATCH-13 | MUST | if seal prepare or commit fails, the unsealed terminal snapshot MUST NOT become externally visible |
 | LIN-V3-DISPATCH-14 | MUST | on seal failure the runtime revert Host execution state back to the last visible snapshot |
+
+### 4.5 Additive Report Companion
+
+Illustrative public shape:
+
+```ts
+type CommitReport<
+  T extends ManifestoDomainShape = ManifestoDomainShape,
+> =
+  | {
+      readonly kind: "completed";
+      readonly intent: TypedIntent<T>;
+      readonly admission: {
+        readonly kind: "admitted";
+        readonly actionName: keyof T["actions"] & string;
+      };
+      readonly outcome: ExecutionOutcome<T>;
+      readonly diagnostics?: ExecutionDiagnostics;
+      readonly resultWorld: WorldId;
+      readonly branchId: BranchId;
+      readonly headAdvanced: true;
+    }
+  | {
+      readonly kind: "rejected";
+      readonly intent: TypedIntent<T>;
+      readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly rejection: {
+        readonly code: "ACTION_UNAVAILABLE" | "INVALID_INPUT" | "INTENT_NOT_DISPATCHABLE";
+        readonly reason: string;
+      };
+    }
+  | {
+      readonly kind: "failed";
+      readonly intent: TypedIntent<T>;
+      readonly admission: {
+        readonly kind: "admitted";
+        readonly actionName: keyof T["actions"] & string;
+      };
+      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
+      readonly error: ExecutionFailureInfo;
+      readonly published: false;
+      readonly diagnostics?: ExecutionDiagnostics;
+      readonly resultWorld?: WorldId;
+      readonly branchId?: BranchId;
+      readonly headAdvanced?: false;
+      readonly sealedOutcome?: ExecutionOutcome<T>;
+    };
+```
+
+Normative rules:
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| LIN-V3-REPORT-1 | MUST | `commitAsyncWithReport()` preserve all current `commitAsync()` seal/publication rules |
+| LIN-V3-REPORT-2 | MUST | completed reports include `ExecutionOutcome<T>`, `resultWorld`, `branchId`, and `headAdvanced: true` for the same published head as `commitAsync()` |
+| LIN-V3-REPORT-3 | MUST | rejected reports expose the first failing admission layer plus stable rejection code and before snapshots, and MUST NOT seal or publish |
+| LIN-V3-REPORT-4 | MUST | if execution seals a non-head-advancing failed world, the failed report keep `published: false` and MAY expose `resultWorld`, `branchId`, `headAdvanced: false`, and `sealedOutcome` |
+| LIN-V3-REPORT-5 | MUST NOT | if seal prepare or seal commit fails, the failed report expose `sealedOutcome` or fabricate a `resultWorld` |
+| LIN-V3-REPORT-6 | MUST | when `error.stage === "seal"`, the failed report describe seal/continuity failure after admission rather than fabricating a completed lineage head |
+| LIN-V3-REPORT-7 | SHOULD | completed reports and failed reports MAY include optional debug-grade `diagnostics.hostTraces` when host execution already returned trace data |
+| LIN-V3-REPORT-8 | MUST | `sealedOutcome`, when present, describe the sealed host result only and MUST NOT imply visible publication or head advancement |
+| LIN-V3-REPORT-9 | MUST | `commitAsyncWithReport()` resolve report unions for normal operational outcomes (`completed`, `rejected`, `failed`) instead of rejecting for those outcomes |
+| LIN-V3-REPORT-10 | MUST | calls made after dispose continue to reject with `DisposedError` rather than being remapped into a report union |
+| LIN-V3-REPORT-11 | MUST NOT | `commitAsyncWithReport()` reintroduce base `dispatchAsync` or `dispatchAsyncWithReport` semantics into a lineage runtime |
 
 ---
 
@@ -213,7 +291,7 @@ Normative rules:
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | LIN-V3-DISP-1 | MUST | `dispose()` delegate to the underlying SDK runtime |
-| LIN-V3-DISP-2 | MUST | after dispose, `commitAsync`, `restore`, `createBranch`, and `switchActiveBranch` reject with `DisposedError` |
+| LIN-V3-DISP-2 | MUST | after dispose, `commitAsync`, `commitAsyncWithReport`, `restore`, `createBranch`, and `switchActiveBranch` reject with `DisposedError` |
 | LIN-V3-DISP-3 | MAY | read-only query methods continue to read from the backing lineage service after dispose |
 
 ---
@@ -231,9 +309,10 @@ The service/store/hash contract from v2 remains lineage-owned.
 An implementation is v3-compliant only if all of the following hold:
 
 - `withLineage()` accepts a composable manifesto and exposes no runtime verbs pre-activation.
-- activated lineage runtime promotes `commitAsync` instead of duplicating a second execution path.
+- activated lineage runtime promotes `commitAsync` and `commitAsyncWithReport` instead of keeping base write verbs.
 - successful dispatch resolves only after seal commit succeeds.
 - seal failure rejects and does not publish.
 - failed sealed outcomes do not replace the visible head snapshot.
+- `commitAsyncWithReport()` returns continuity-aware completed/rejected/failed report unions without weakening seal law.
 - branch switching restores the target branch head snapshot into the runtime.
 - the package documents `withLineage(...).activate()` as the canonical app-facing lineage path.

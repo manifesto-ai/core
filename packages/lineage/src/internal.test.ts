@@ -6,7 +6,10 @@ import {
   type DomainSchema,
 } from "@manifesto-ai/core";
 import { createManifesto } from "@manifesto-ai/sdk";
-import { getRuntimeKernelFactory, type RuntimeKernel } from "@manifesto-ai/sdk/provider";
+import {
+  getRuntimeKernelFactory,
+  type LineageRuntimeKernel,
+} from "@manifesto-ai/sdk/provider";
 
 import { createLineageRuntimeController } from "./internal.js";
 import { createLineageService } from "./service/lineage-service.js";
@@ -65,9 +68,9 @@ describe("@manifesto-ai/lineage internal runtime controller", () => {
   it("forwards explicit execution keys into host dispatch", async () => {
     const base = createManifesto<CounterDomain>(createCounterSchema(), {});
     const kernel = getRuntimeKernelFactory(base)();
-    let receivedOptions: Parameters<RuntimeKernel<CounterDomain>["executeHost"]>[1];
+    let receivedOptions: Parameters<LineageRuntimeKernel<CounterDomain>["executeHost"]>[1];
 
-    const trackingKernel: RuntimeKernel<CounterDomain> = {
+    const trackingKernel: LineageRuntimeKernel<CounterDomain> = {
       ...kernel,
       executeHost: vi.fn(async (intent, options) => {
         receivedOptions = options;

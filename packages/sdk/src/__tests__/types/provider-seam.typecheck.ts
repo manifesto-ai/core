@@ -6,10 +6,15 @@ import type {
 } from "../../index.ts";
 import type {
   ActivationState,
+  GovernanceRuntimeKernel,
+  GovernanceRuntimeKernelFactory,
   HostDispatchOptions,
+  LineageRuntimeKernel,
+  LineageRuntimeKernelFactory,
   RuntimeKernel,
   RuntimeKernelFactory,
   SimulateResult,
+  WaitForProposalRuntimeKernel,
 } from "../../provider.ts";
 import {
   activateComposable,
@@ -39,6 +44,11 @@ assertComposableNotActivated(manifesto);
 const activationState: ActivationState = getActivationState(manifesto);
 const resolvedFactory = getRuntimeKernelFactory(manifesto);
 const kernel: RuntimeKernel<DemoDomain> = resolvedFactory();
+const lineageFactory: LineageRuntimeKernelFactory<DemoDomain> = resolvedFactory;
+const lineageKernel: LineageRuntimeKernel<DemoDomain> = resolvedFactory();
+const governanceFactory: GovernanceRuntimeKernelFactory<DemoDomain> = resolvedFactory;
+const governanceKernel: GovernanceRuntimeKernel<DemoDomain> = resolvedFactory();
+const waitForProposalKernel: WaitForProposalRuntimeKernel<DemoDomain> = resolvedFactory();
 const metadata = kernel.getActionMetadata();
 const canonical = kernel.getCanonicalSnapshot();
 const availableFor: readonly (keyof DemoDomain["actions"])[] = kernel.getAvailableActionsFor(canonical);
@@ -51,13 +61,18 @@ const simulation: SimulateResult<DemoDomain> = kernel.simulateSync(canonical, in
 void activationState;
 void availableFor;
 void canonical;
+void governanceFactory;
+void governanceKernel;
 void isAvailableFor;
 void isDispatchableFor;
 void intent;
 void blockersFor;
+void lineageFactory;
+void lineageKernel;
 void metadata;
 void hostDispatchOptions;
 void simulation;
+void waitForProposalKernel;
 activateComposable(manifesto);
 
 export {};

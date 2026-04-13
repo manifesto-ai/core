@@ -2,7 +2,7 @@
 
 > Practical guide for the activation-first `@manifesto-ai/sdk` path.
 
-> **Current Contract Note:** This guide follows the current SDK v3.5.0 living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes dispatchability queries and projected introspection, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
+> **Current Contract Note:** This guide follows the current SDK v3.x living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes dispatchability queries and projected introspection, `dispatchAsyncWithReport()` is the additive base write-report companion, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
 
 ## 1. Build The Activation Lifecycle
 
@@ -36,6 +36,8 @@ This is the normal SDK lifecycle:
 `createManifesto()` no longer returns a ready-to-run runtime instance. The activated instance is the canonical public surface.
 
 `getSnapshot()` is the normal projected read for app code. `getCanonicalSnapshot()` is the explicit full-substrate read for persistence-aware or infrastructure-aware debugging.
+
+When ordinary app code only needs the next published Snapshot, keep using `dispatchAsync()`. When tooling or agent callers need in-band admission, before/after snapshots, projected diffs, availability deltas, or optional diagnostics, use the additive companion `dispatchAsyncWithReport()`.
 
 ---
 
@@ -114,7 +116,37 @@ Use `simulate()` for a non-committing dry-run against the current canonical snap
 
 ---
 
-## 5. Dispatch, Observe, And Read
+## 5. Use The Additive Report Companion When Tooling Needs More Context
+
+```typescript
+const report = await instance.dispatchAsyncWithReport(
+  instance.createIntent(instance.MEL.actions.increment),
+);
+
+if (report.kind === "completed") {
+  console.log(report.outcome.projected.changedPaths);
+  console.log(report.outcome.projected.availability.unlocked);
+}
+
+if (report.kind === "rejected") {
+  console.log(report.rejection.code);
+  console.log(report.admission.failure.kind);
+}
+```
+
+`dispatchAsyncWithReport()` does not replace `dispatchAsync()`.
+It is the additive write companion for callers that need:
+
+- first-failing admission data without `try/catch` control flow
+- before/after projected and canonical snapshots
+- projected `changedPaths` and availability deltas
+- optional debug-grade Host diagnostics when they already exist
+
+The report surface reuses the same dequeue-time legality ordering and publication semantics as `dispatchAsync()`.
+
+---
+
+## 6. Dispatch, Observe, And Read
 
 ```typescript
 const off = instance.subscribe(
@@ -135,7 +167,7 @@ If you need effect-level instrumentation, keep the effect handlers small and let
 
 ---
 
-## 6. Activation Is One-Shot
+## 7. Activation Is One-Shot
 
 ```typescript
 const manifesto = createManifesto<CounterDomain>(domainSchema, {});
@@ -150,7 +182,7 @@ After activation:
 
 ---
 
-## 7. `@manifesto-ai/sdk/extensions`
+## 8. `@manifesto-ai/sdk/extensions`
 
 The current post-activation extension seam is:
 

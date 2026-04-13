@@ -6,7 +6,7 @@
 
 `@manifesto-ai/governance` owns `withGovernance()` and the activated advanced runtime.
 
-> **Current Contract Note:** This page describes the current Governance v3 decorator surface, including the additive `waitForProposal()` observer helper, through package release v3.7.0. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
+> **Current Contract Note:** This page describes the current Governance v3.x decorator surface, including the additive settlement helpers `waitForProposal()` and `waitForProposalWithReport()`. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
 
 ## Canonical Surface
 
@@ -48,7 +48,12 @@ Governed runtimes keep the lineage query surface, but remove direct execution:
 - `getDecisionRecord(decisionId)`
 - inherited legality queries such as `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 
-The root package also exposes `waitForProposal(app, proposalOrId, options?)` as an additive observation helper. It does not replace `proposeAsync()`. It gives callers a normalized settlement read over `completed`, `failed`, `rejected`, `superseded`, `pending`, and `timed_out`.
+The root package also exposes additive settlement helpers:
+
+- `waitForProposal(app, proposalOrId, options?)` for normalized settlement state
+- `waitForProposalWithReport(app, proposalOrId, options?)` for world-anchored settlement outcome reports
+
+Neither helper replaces `proposeAsync()`.
 
 Lineage queries such as `getWorldSnapshot(worldId)`, `getLatestHead()`, and `getBranches()` remain available.
 `getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` remains the current visible canonical substrate. `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup inherited from lineage. `restore(worldId)` remains the normalized resume path.
@@ -59,7 +64,7 @@ Those inherited legality queries preserve the base SDK ordering and blocker mean
 - `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker rather than evaluating `dispatchable`
 - `getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot reads, not durable capability grants for later proposal admission
 
-`dispatchAsync` and `commitAsync` are intentionally absent.
+`dispatchAsync`, `dispatchAsyncWithReport`, `commitAsync`, and `commitAsyncWithReport` are intentionally absent. There is no governed `proposeAsyncWithReport()` in the current public surface.
 
 ## Lineage Guarantee
 

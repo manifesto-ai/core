@@ -5,11 +5,16 @@
  */
 export type {
   ActivationState,
+  GovernanceRuntimeKernel,
+  GovernanceRuntimeKernelFactory,
   HostDispatchOptions,
+  LineageRuntimeKernel,
+  LineageRuntimeKernelFactory,
   RuntimeKernel,
   RuntimeKernelFactory,
   SimulateResult,
-} from "./internal.js";
+  WaitForProposalRuntimeKernel,
+} from "./compat/internal.js";
 export {
   activateComposable,
   assertComposableNotActivated,
@@ -18,4 +23,4 @@ export {
   createRuntimeKernel,
   getActivationState,
   getRuntimeKernelFactory,
-} from "./internal.js";
+} from "./compat/internal.js";

@@ -2,7 +2,7 @@
 
 > Practical guide for the current ADR-017 lineage runtime.
 
-> **Current Contract Note:** This guide follows the current v3 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`.
+> **Current Contract Note:** This guide follows the current v3 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`, with `commitAsync()` as the canonical write verb and `commitAsyncWithReport()` as its additive report companion.
 
 ## 1. Compose Lineage Before Activation
 
@@ -35,7 +35,22 @@ On a lineage runtime, `commitAsync()` means:
 
 If seal commit fails, the Promise rejects and the new snapshot does not become visible.
 
-## 3. Read Heads, Branches, Worlds, And Lineage
+## 3. Use The Additive Report Companion When Tooling Needs More Context
+
+```ts
+const report = await lineage.commitAsyncWithReport(
+  lineage.createIntent(lineage.MEL.actions.increment),
+);
+```
+
+`commitAsyncWithReport()` does not replace `commitAsync()`.
+It keeps the same seal/publication law and packages the result as data.
+
+- `completed` reports include `outcome`, `resultWorld`, `branchId`, and `headAdvanced: true`
+- `rejected` reports include the first failing admission layer plus before snapshots
+- `failed` reports always keep `published: false`; if a failed world was sealed, they may also include `resultWorld`, `branchId`, and `sealedOutcome`
+
+## 4. Read Heads, Branches, Worlds, And Lineage
 
 ```ts
 const latestHead = await lineage.getLatestHead();
@@ -54,7 +69,7 @@ These APIs project the backing continuity truth through the activated runtime.
 The activated lineage runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
 Those inherited legality queries keep the same ordering as the base SDK: availability short-circuits dispatchability, and `getIntentBlockers()` returns the first failing layer instead of stacking coarse and fine blockers together.
 
-## 4. Restore A Sealed World
+## 5. Restore A Sealed World
 
 ```ts
 const head = await lineage.getLatestHead();
@@ -67,7 +82,7 @@ console.log(lineage.getSnapshot().data);
 
 `restore()` updates the visible runtime snapshot and resets Host execution state to the restored lineage snapshot.
 
-## 5. Branch Deliberately
+## 6. Branch Deliberately
 
 ```ts
 const featureBranchId = await lineage.createBranch("feature-a");
@@ -76,11 +91,11 @@ await lineage.switchActiveBranch(featureBranchId);
 
 Switching branches also restores that branch head into the visible runtime state.
 
-## 6. Low-Level Lineage Still Exists
+## 7. Low-Level Lineage Still Exists
 
 Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageStore`, prepared commits, or persistence tooling without the activated runtime wrapper.
 
-## 7. Related Docs
+## 8. Related Docs
 
 - [Lineage README](../README.md)
 - [Lineage Specification](lineage-SPEC.md)

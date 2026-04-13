@@ -10,6 +10,7 @@ import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import {
   createInMemoryGovernanceStore,
   waitForProposal,
+  waitForProposalWithReport,
   withGovernance,
 } from "@manifesto-ai/governance";
 
@@ -29,7 +30,8 @@ Governance requires an explicitly lineage-composed manifesto.
 
 ## Write With `proposeAsync(intent)`
 
-Governed runtimes intentionally do not expose `dispatchAsync()` or lineage `commitAsync()`.
+Governed runtimes intentionally do not expose base-runtime execution verbs such as `dispatchAsync()` or `dispatchAsyncWithReport()`.
+They also omit lineage `commitAsync()` and `commitAsyncWithReport()`.
 
 ```typescript
 const proposal = await app.proposeAsync(
@@ -50,6 +52,17 @@ if (settlement.kind === "completed") {
 ```
 
 `waitForProposal()` observes proposal settlement. It does not replace `proposeAsync()` as the governed write path.
+The current governed surface does not add a direct `proposeAsyncWithReport()` companion.
+
+When tooling needs a first-party historical outcome anchored on `proposal.baseWorld -> proposal.resultWorld`, use the additive root helper:
+
+```typescript
+const report = await waitForProposalWithReport(app, proposal);
+
+if (report.kind === "completed") {
+  console.log(report.outcome.projected.changedPaths);
+}
+```
 
 ## HITL Policy
 
