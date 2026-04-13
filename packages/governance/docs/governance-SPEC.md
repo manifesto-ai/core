@@ -68,7 +68,7 @@ Governed runtimes MUST include lineage semantics.
 
 ```ts
 type GovernanceInstance<T> =
-  Omit<LineageInstance<T>, "commitAsync"> & {
+  Omit<LineageInstance<T>, "commitAsync" | "commitAsyncWithReport"> & {
     proposeAsync(intent: TypedIntent<T>): Promise<Proposal>;
     approve(proposalId: ProposalId, approvedScope?: IntentScope | null): Promise<Proposal>;
     reject(proposalId: ProposalId, reason?: string): Promise<Proposal>;
