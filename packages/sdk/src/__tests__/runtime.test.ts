@@ -70,6 +70,18 @@ type FlowInvalidInputDomain = {
   computed: {};
 };
 
+type QueuedDisposeDomain = {
+  actions: {
+    hold: () => void;
+    increment: () => void;
+  };
+  state: {
+    count: number;
+    started: boolean;
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -122,6 +134,61 @@ function createFlowInvalidInputSchema(): DomainSchema {
           params: {
             into: { kind: "lit", value: "items" },
             select: { kind: "lit", value: 1 },
+          },
+        },
+      },
+    },
+  });
+}
+
+function createQueuedDisposeSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v3-queued-dispose",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+        started: { type: "boolean", required: false, default: false },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      hold: {
+        flow: {
+          kind: "if",
+          cond: {
+            kind: "eq",
+            left: { kind: "get", path: "started" },
+            right: { kind: "lit", value: false },
+          },
+          then: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("started"),
+                value: { kind: "lit", value: true },
+              },
+              {
+                kind: "effect",
+                type: "slow.wait",
+                params: {},
+              },
+            ],
+          },
+        },
+      },
+      increment: {
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("count"),
+          value: {
+            kind: "add",
+            left: { kind: "get", path: "count" },
+            right: { kind: "lit", value: 1 },
           },
         },
       },
@@ -1874,5 +1941,37 @@ describe("activated base runtime", () => {
     await expect(
       world.dispatchAsyncWithReport(world.createIntent(world.MEL.actions.increment)),
     ).rejects.toBeInstanceOf(DisposedError);
+  });
+
+  it("dispose rejects queued dispatches that begin after disposal", async () => {
+    let releaseFetch: (() => void) | undefined;
+    const fetchStarted = new Promise<void>((resolve) => {
+      releaseFetch = resolve;
+    });
+    const fetchCalls = vi.fn(async () => {
+      await fetchStarted;
+      return [];
+    });
+    const world = createManifesto<QueuedDisposeDomain>(createQueuedDisposeSchema(), {
+      "slow.wait": fetchCalls,
+    }).activate();
+
+    const first = world.dispatchAsync(world.createIntent(world.MEL.actions.hold));
+    await vi.waitFor(() => expect(fetchCalls).toHaveBeenCalledTimes(1));
+
+    const queuedDispatch = world.dispatchAsync(
+      world.createIntent(world.MEL.actions.increment),
+    );
+    const queuedReport = world.dispatchAsyncWithReport(
+      world.createIntent(world.MEL.actions.increment),
+    );
+
+    world.dispose();
+    releaseFetch?.();
+
+    await first;
+    await expect(queuedDispatch).rejects.toBeInstanceOf(DisposedError);
+    await expect(queuedReport).rejects.toBeInstanceOf(DisposedError);
+    expect(world.getSnapshot().data.count).toBe(0);
   });
 });

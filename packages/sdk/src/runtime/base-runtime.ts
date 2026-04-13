@@ -40,9 +40,15 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const enrichedIntent = kernel.ensureIntentId(intent);
-    return kernel.enqueue(async () => attemptToDispatchAsyncResult(
-      await runBaseDispatchAttempt(kernel, extensionKernel, publication, enrichedIntent),
-    ));
+    return kernel.enqueue(async () => {
+      if (kernel.isDisposed()) {
+        throw new DisposedError();
+      }
+
+      return attemptToDispatchAsyncResult(
+        await runBaseDispatchAttempt(kernel, extensionKernel, publication, enrichedIntent),
+      );
+    });
   }
 
   function dispatchAsyncWithReport(intent: TypedIntent<T>) {
@@ -51,9 +57,15 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const enrichedIntent = kernel.ensureIntentId(intent);
-    return kernel.enqueue(async () => attemptToDispatchReport(
-      await runBaseDispatchAttempt(kernel, extensionKernel, publication, enrichedIntent),
-    ));
+    return kernel.enqueue(async () => {
+      if (kernel.isDisposed()) {
+        throw new DisposedError();
+      }
+
+      return attemptToDispatchReport(
+        await runBaseDispatchAttempt(kernel, extensionKernel, publication, enrichedIntent),
+      );
+    });
   }
 
   function explainIntent(intent: TypedIntent<T>): IntentExplanation<T> {
