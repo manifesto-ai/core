@@ -485,6 +485,19 @@ describe("Semantic Analyzer", () => {
       }
     });
 
+    it("rejects null selectors in match()", () => {
+      const { program } = parseSource(`
+        domain Test {
+          computed label = match(null, [1, "one"], "other")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
+      }
+    });
+
     it("reports E051 for duplicate match keys", () => {
       const { program } = parseSource(`
         domain Test {
@@ -510,6 +523,23 @@ describe("Semantic Analyzer", () => {
       if (program) {
         const { diagnostics } = validateSemantics(program);
         expect(diagnostics.some((d) => d.code === "E052")).toBe(true);
+      }
+    });
+
+    it("rejects arg selection labels that are not one primitive kind", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            flag: boolean = true
+            score: number = 1
+          }
+          computed best = argmax([flag ? "a" : 1, true, score], ["b", true, score], "first")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
       }
     });
   });

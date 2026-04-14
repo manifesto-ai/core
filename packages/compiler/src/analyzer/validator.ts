@@ -251,6 +251,25 @@ function collectPrimitiveKinds(
   }
 }
 
+function getSingleNonNullPrimitiveKind(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): Exclude<PrimitiveKind, "null"> | "invalid" | null {
+  const kinds = collectPrimitiveKinds(typeExpr, symbols);
+  if (kinds === null) {
+    return null;
+  }
+  if (kinds === "nonprimitive") {
+    return "invalid";
+  }
+
+  const nonNullKinds = [...kinds].filter((kind): kind is Exclude<PrimitiveKind, "null"> => kind !== "null");
+  if (nonNullKinds.length !== 1 || kinds.has("null")) {
+    return "invalid";
+  }
+  return nonNullKinds[0]!;
+}
+
 function areComparableTypesCompatible(
   leftType: TypeExprNode | null,
   rightType: TypeExprNode | null,
@@ -1933,6 +1952,14 @@ export class SemanticValidator {
     }
 
     const selectorType = argTypes[0];
+    const selectorKind = getSingleNonNullPrimitiveKind(selectorType, this.symbols);
+    if (selectorKind === "invalid") {
+      this.error(
+        `Function 'match' requires a selector of type string, number, or boolean, got ${describeTypeExpr(selectorType, this.symbols)}`,
+        args[0]!.location,
+        "E_TYPE_MISMATCH"
+      );
+    }
     const seenKeys = new Set<string>();
     const valueTypes: Array<TypeExprNode | null> = [];
 
@@ -1969,10 +1996,10 @@ export class SemanticValidator {
       }
 
       const keyType = this.inferType(keyExpr, env);
-      const comparable = areComparableTypesCompatible(selectorType, keyType, this.symbols);
-      if (comparable === false) {
+      const keyKind = getSingleNonNullPrimitiveKind(keyType, this.symbols);
+      if (keyKind === "invalid" || (selectorKind !== null && keyKind !== null && selectorKind !== keyKind)) {
         this.error(
-          `Function 'match' selector and arm keys must be comparable primitive types, got ${describeTypeExpr(selectorType, this.symbols)} and ${describeTypeExpr(keyType, this.symbols)}`,
+          `Function 'match' selector and arm keys must use the same primitive type, got ${describeTypeExpr(selectorType, this.symbols)} and ${describeTypeExpr(keyType, this.symbols)}`,
           keyExpr.location,
           "E_TYPE_MISMATCH"
         );
@@ -2018,6 +2045,7 @@ export class SemanticValidator {
     }
 
     const labelTypes: Array<TypeExprNode | null> = [];
+    let labelKind: Exclude<PrimitiveKind, "null"> | null = null;
     for (let index = 0; index < args.length - 1; index += 1) {
       const candidate = args[index];
       if (candidate.kind !== "arrayLiteral" || candidate.elements.length !== 3) {
@@ -2031,14 +2059,18 @@ export class SemanticValidator {
 
       const [labelExpr, eligibleExpr, scoreExpr] = candidate.elements;
       const labelType = this.inferType(labelExpr, env);
-      const labelKinds = collectPrimitiveKinds(labelType, this.symbols);
-      if (
-        labelKinds === "nonprimitive" ||
-        !(labelKinds instanceof Set) ||
-        labelKinds.has("null")
-      ) {
+      const candidateLabelKind = getSingleNonNullPrimitiveKind(labelType, this.symbols);
+      if (candidateLabelKind === "invalid") {
         this.error(
-          `Function '${fnName}' requires primitive scalar labels, got ${describeTypeExpr(labelType, this.symbols)}`,
+          `Function '${fnName}' requires labels with exactly one primitive scalar type, got ${describeTypeExpr(labelType, this.symbols)}`,
+          labelExpr.location,
+          "E_TYPE_MISMATCH"
+        );
+      } else if (labelKind === null) {
+        labelKind = candidateLabelKind;
+      } else if (candidateLabelKind !== null && candidateLabelKind !== labelKind) {
+        this.error(
+          `Function '${fnName}' candidate labels must share one primitive scalar type, got ${labelKind} and ${candidateLabelKind}`,
           labelExpr.location,
           "E_TYPE_MISMATCH"
         );
