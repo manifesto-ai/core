@@ -542,6 +542,23 @@ describe("Semantic Analyzer", () => {
         expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
       }
     });
+
+    it("rejects nullable idiv() scores in arg selection", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            total: number = 10
+            divisor: number = 0
+          }
+          computed best = argmax(["a", true, idiv(total, divisor)], ["b", true, 1], "first")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
+      }
+    });
   });
 
   describe("duplicate state field detection (#252)", () => {

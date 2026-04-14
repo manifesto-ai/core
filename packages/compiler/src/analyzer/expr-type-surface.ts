@@ -51,7 +51,6 @@ const PRIMITIVE_NUMBER_CALLS = new Set([
   "clamp",
   "floor",
   "ceil",
-  "idiv",
   "round",
   "sqrt",
   "pow",
@@ -541,6 +540,13 @@ function inferFunctionCallType(
 
   if (PRIMITIVE_NUMBER_CALLS.has(expr.name)) {
     return simpleType("number", expr.location);
+  }
+
+  if (expr.name === "idiv") {
+    return joinTypeCandidates(
+      [simpleType("number", expr.location), simpleType("null", expr.location)],
+      expr.location
+    );
   }
 
   if (PRIMITIVE_STRING_CALLS.has(expr.name)) {
