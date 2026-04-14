@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/lineage",
-  "version": "3.9.1",
+  "version": "3.10.0",
   "description": "Manifesto Lineage - decorator runtime for seal-aware continuity, history, and restore",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "test:watch": "node ../../node_modules/vitest/vitest.mjs"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^2.11.1"
+    "@manifesto-ai/core": "^2.12.0"
   },
   "dependencies": {
     "@manifesto-ai/sdk": "workspace:*"

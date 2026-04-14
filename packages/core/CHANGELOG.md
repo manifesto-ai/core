@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.12.0](https://github.com/manifesto-ai/core/compare/core-v2.11.1...core-v2.12.0) (2026-04-13)
+
+
+### Features
+
+* **runtime:** add family reports and narrow provider seams ([693d669](https://github.com/manifesto-ai/core/commit/693d66946530f7986631d9665c703b1b61418f96))
+* **runtime:** add family reports and narrow provider seams ([27277ec](https://github.com/manifesto-ai/core/commit/27277ec190b365abd8248b7e74b84f7995618db4))
+
 ## [2.11.1](https://github.com/manifesto-ai/core/compare/core-v2.11.0...core-v2.11.1) (2026-04-12)
 
 

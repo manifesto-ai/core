@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.13.0](https://github.com/manifesto-ai/core/compare/sdk-v3.12.1...sdk-v3.13.0) (2026-04-13)
+
+
+### Features
+
+* **runtime:** add family reports and narrow provider seams ([693d669](https://github.com/manifesto-ai/core/commit/693d66946530f7986631d9665c703b1b61418f96))
+* **runtime:** add family reports and narrow provider seams ([27277ec](https://github.com/manifesto-ai/core/commit/27277ec190b365abd8248b7e74b84f7995618db4))
+
+
+### Bug Fixes
+
+* **sdk:** recheck dispose inside queued dispatch callbacks ([9066297](https://github.com/manifesto-ai/core/commit/90662976fd66bf715baaf168d26ef5948598d072))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.4.0
+    * @manifesto-ai/core bumped to 2.12.0
+    * @manifesto-ai/host bumped to 2.9.0
+
 ## [3.12.1](https://github.com/manifesto-ai/core/compare/sdk-v3.12.0...sdk-v3.12.1) (2026-04-12)
 
 

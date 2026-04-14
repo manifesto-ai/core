@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.4.0](https://github.com/manifesto-ai/core/compare/compiler-v3.3.1...compiler-v3.4.0) (2026-04-13)
+
+
+### Features
+
+* **runtime:** add family reports and narrow provider seams ([693d669](https://github.com/manifesto-ai/core/commit/693d66946530f7986631d9665c703b1b61418f96))
+* **runtime:** add family reports and narrow provider seams ([27277ec](https://github.com/manifesto-ai/core/commit/27277ec190b365abd8248b7e74b84f7995618db4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.12.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.11.1 to ^2.12.0
+
 ## [3.3.1](https://github.com/manifesto-ai/core/compare/compiler-v3.3.0...compiler-v3.3.1) (2026-04-12)
 
 
