@@ -1,25 +1,26 @@
 # MEL Examples Directory Structure
 
-> **Purpose:** Guide for organizing and exploring MEL example files.
+> **Purpose:** Guide for organizing and exploring the example `.mel` files under `docs/mel/examples/`.
 
 ---
 
 ## Directory Layout
 
 ```
-examples/
+docs/mel/examples/
 ├── computed/
 │   ├── basic.mel          # Basic computed expressions
 │   ├── aggregation.mel    # sum, min, max, len
 │   ├── boolean.mel        # Boolean conditions
+│   ├── bounded-sugar.mel  # absDiff, clamp, idiv, streak
 │   ├── null-handling.mel  # coalesce, isNull patterns
-│   └── object.mel         # merge, keys, values, entries
+│   ├── object.mel         # merge, keys, values, entries
+│   └── selection-sugar.mel # match, argmax, argmin
 │
 ├── action/
 │   ├── basic.mel          # Simple actions with when
 │   ├── parameters.mel     # Actions with input parameters
 │   ├── available.mel      # available when preconditions
-│   ├── dispatchable.mel   # dispatchable when bound-intent legality
 │   └── multi-step.mel     # Multi-step pipelines with once
 │
 ├── control/
@@ -30,9 +31,8 @@ examples/
 │
 └── effects/
     ├── api.mel            # API fetch/post effects
-    ├── array.mel          # filter, map, sort, flatMap
-    ├── record.mel         # keys, values, entries
-    └── partition.mel      # Splitting arrays
+    ├── array.mel          # filter, map, find, every, some
+    └── record.mel         # keys, values, entries
 ```
 
 ---
@@ -43,8 +43,9 @@ examples/
 
 1. **New to MEL?** Start with `computed/basic.mel` and `action/basic.mel`
 2. **Understanding guards?** Read `control/when.mel` then `control/once.mel`
-3. **Working with arrays?** See `effects/array.mel` for iteration patterns
-4. **Handling errors?** Check `control/fail.mel` and `control/stop.mel`
+3. **Need bounded numeric helpers?** See `computed/bounded-sugar.mel`
+4. **Need finite branch or candidate selection?** See `computed/selection-sugar.mel`
+5. **Handling errors?** Check `control/fail.mel` and `control/stop.mel`
 
 ### Reading Order for Beginners
 
@@ -52,11 +53,13 @@ examples/
 1. computed/basic.mel       → Pure expressions
 2. action/basic.mel         → State mutations with guards
 3. control/when.mel         → Conditional execution
-4. effects/array.mel        → Declarative iteration
-5. control/once.mel         → Idempotency patterns
-6. computed/aggregation.mel → sum/min/max
-7. control/fail.mel         → Error handling
-8. action/multi-step.mel    → Complex flows
+4. computed/bounded-sugar.mel → Lowering-only arithmetic sugar
+5. computed/selection-sugar.mel → Finite branch and candidate selection
+6. effects/array.mel        → Declarative iteration
+7. control/once.mel         → Idempotency patterns
+8. computed/aggregation.mel → sum/min/max
+9. control/fail.mel         → Error handling
+10. action/multi-step.mel   → Complex flows
 ```
 
 ---
@@ -72,7 +75,10 @@ Pure expressions that derive values from state. No effects, no mutations.
 | `basic.mel` | Arithmetic, string concatenation, property access |
 | `aggregation.mel` | `sum(arr)`, `min(arr)`, `max(arr)`, `len(arr)` |
 | `boolean.mel` | `and`, `or`, `not`, comparison operators |
+| `bounded-sugar.mel` | `absDiff`, `clamp`, `idiv`, `streak` |
 | `null-handling.mel` | `coalesce`, `isNull`, `isNotNull`, ternary |
+| `object.mel` | `merge`, `keys`, `values`, `entries` |
+| `selection-sugar.mel` | `match`, `argmax`, `argmin` |
 
 ### `action/`
 
@@ -83,7 +89,6 @@ State transitions with guards, patches, and effects.
 | `basic.mel` | Simple `when` guards with `patch` |
 | `parameters.mel` | Using `$input` and parameter references |
 | `available.mel` | `available when` coarse preconditions |
-| `dispatchable.mel` | `dispatchable when` input-aware legality |
 | `multi-step.mel` | Sequential `once` blocks for pipelines |
 
 ### `control/`
@@ -104,9 +109,8 @@ Host-executed requirements.
 | File | Contents |
 |------|----------|
 | `api.mel` | `effect api.fetch`, `effect api.post` |
-| `array.mel` | `filter`, `map`, `sort`, `flatMap` with `$item` |
+| `array.mel` | `filter`, `map`, `find`, `every`, `some` with `$item` |
 | `record.mel` | `keys`, `values`, `entries` |
-| `partition.mel` | Splitting with `pass` and `fail` targets |
 
 ---
 
@@ -149,6 +153,8 @@ domain Example {
 | Add two numbers | `computed/basic.mel` |
 | Check if array is empty | `computed/boolean.mel` |
 | Sum an array | `computed/aggregation.mel` |
+| Clamp a score or compute a streak | `computed/bounded-sugar.mel` |
+| Replace nested `cond(eq(...))` chains | `computed/selection-sugar.mel` |
 | Update state conditionally | `action/basic.mel` |
 | Prevent double execution | `control/once.mel` |
 | Filter an array | `effects/array.mel` |

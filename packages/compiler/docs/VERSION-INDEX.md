@@ -1,7 +1,7 @@
 # MEL Compiler Documentation Index
 
 > **Package:** `@manifesto-ai/compiler`
-> **Last Updated:** 2026-04-08
+> **Last Updated:** 2026-04-14
 
 ---
 
@@ -10,7 +10,7 @@
 - **Current Full SPEC:** [v1.0.0](SPEC-v1.0.0.md) (Full)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** [v1.0.0](SPEC-v1.0.0.md) is the current integrated compiler contract. It rolls up the old v0.7.0 baseline plus the v0.8.0 `SchemaGraph` and v0.9.0 `dispatchable when` addenda, and it reflects the landed `TypeDefinition`-backed support for nullable and record schema-position types.
+**Note:** [v1.0.0](SPEC-v1.0.0.md) is the current integrated compiler contract. It rolls up the old v0.7.0 baseline plus the v0.8.0 `SchemaGraph` and v0.9.0 `dispatchable when` addenda, reflects the landed `TypeDefinition`-backed support for nullable and record schema-position types, clarifies that any future additive MEL surface forms must preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary, and records the admitted bounded sugar function forms in parser-free function-call shape.
 
 ---
 

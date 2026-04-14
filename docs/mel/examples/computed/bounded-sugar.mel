@@ -1,0 +1,51 @@
+// ============================================
+// Title: Bounded Arithmetic Sugar
+// Description: absDiff, clamp, idiv, and streak
+// Prerequisites: computed/basic.mel
+// ============================================
+
+domain ComputedBoundedSugar {
+  // --- State ---
+  state {
+    observed: number = 8
+    predicted: number = 5
+    score: number = 14
+    totalAbs: number = 3
+    bucketSize: number = 2
+    missStreak: number = 2
+    highConfidenceMiss: boolean = true
+    penalty: number = 4
+  }
+
+  // --- Absolute difference ---
+  // Sugar for abs(sub(a, b))
+  computed predictionError = absDiff(observed, predicted)
+  computed penaltyGap = absDiff(score, penalty)
+
+  // --- Clamp ---
+  // Sugar for min(max(x, lo), hi)
+  computed boundedScore = clamp(score, 0, 10)
+  computed boundedPenalty = clamp(penalty, 0, 3)
+
+  // --- Integer division ---
+  // Uses mathematical floor semantics, not truncation toward zero
+  computed positiveBuckets = idiv(score, bucketSize)
+  computed negativeBuckets = idiv(neg(totalAbs), bucketSize)
+
+  // --- Streak counter ---
+  // Increments the previous counter when the condition holds, otherwise resets to 0
+  computed nextMissStreak = streak(missStreak, highConfidenceMiss)
+  computed resetMissStreak = streak(missStreak, false)
+}
+
+// ============================================
+// Notes:
+//   absDiff(a, b)   -> abs(sub(a, b))
+//   clamp(x, lo, hi) -> min(max(x, lo), hi)
+//   idiv(a, b)      -> floor(div(a, b))
+//   streak(prev, c) -> c ? add(prev, 1) : 0
+//
+// Anti-patterns:
+//   ❌ clamp(score, 10, 0)    // Literal bounds must be lo, hi
+//   ❌ idiv(score, 0)         // Returns null because div(score, 0) is null
+// ============================================

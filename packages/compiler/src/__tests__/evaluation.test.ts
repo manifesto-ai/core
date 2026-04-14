@@ -450,6 +450,54 @@ describe("evaluateExpr", () => {
         )
       ).toBe(null);
     });
+
+    it("should evaluate extended arithmetic operators", () => {
+      const ctx = createTestContext();
+
+      expect(
+        evaluateExpr({ kind: "abs", arg: { kind: "lit", value: -3 } }, ctx)
+      ).toBe(3);
+      expect(
+        evaluateExpr(
+          {
+            kind: "min",
+            args: [{ kind: "lit", value: 9 }, { kind: "lit", value: 4 }],
+          },
+          ctx
+        )
+      ).toBe(4);
+      expect(
+        evaluateExpr(
+          {
+            kind: "max",
+            args: [{ kind: "lit", value: 9 }, { kind: "lit", value: 4 }],
+          },
+          ctx
+        )
+      ).toBe(9);
+      expect(
+        evaluateExpr({ kind: "floor", arg: { kind: "lit", value: -1.2 } }, ctx)
+      ).toBe(-2);
+      expect(
+        evaluateExpr({ kind: "ceil", arg: { kind: "lit", value: -1.2 } }, ctx)
+      ).toBe(-1);
+      expect(
+        evaluateExpr({ kind: "round", arg: { kind: "lit", value: 1.6 } }, ctx)
+      ).toBe(2);
+      expect(
+        evaluateExpr({ kind: "sqrt", arg: { kind: "lit", value: 9 } }, ctx)
+      ).toBe(3);
+      expect(
+        evaluateExpr(
+          {
+            kind: "pow",
+            base: { kind: "lit", value: 2 },
+            exponent: { kind: "lit", value: 3 },
+          },
+          ctx
+        )
+      ).toBe(8);
+    });
   });
 
   describe("string operators", () => {
@@ -507,6 +555,20 @@ describe("evaluateExpr", () => {
           ctx
         )
       ).toBe(2);
+    });
+
+    it("should evaluate numeric array aggregation helpers", () => {
+      const ctx = createTestContext();
+
+      expect(
+        evaluateExpr({ kind: "sumArray", array: { kind: "get", path: "items" } }, ctx)
+      ).toBe(6);
+      expect(
+        evaluateExpr({ kind: "minArray", array: { kind: "get", path: "items" } }, ctx)
+      ).toBe(1);
+      expect(
+        evaluateExpr({ kind: "maxArray", array: { kind: "get", path: "items" } }, ctx)
+      ).toBe(3);
     });
 
     it("should return null for out-of-bounds at", () => {

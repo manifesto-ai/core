@@ -402,7 +402,7 @@ describe("Semantic Analyzer", () => {
     it("accepts all known builtin functions", () => {
       const { program } = parseSource(`
         domain Test {
-          state { x: number = 0, items: Array<number> = [], obj: object = {} }
+          state { x: number = 0, y: number = 1, items: Array<number> = [], obj: object = {}, ok: boolean = true, status: string = "open" }
           computed a = add(x, 1)
           computed b = mul(x, 2)
           computed c = isNull(x)
@@ -410,12 +410,153 @@ describe("Semantic Analyzer", () => {
           computed e = keys(obj)
           computed f = len(items)
           computed g = coalesce(x, 0)
+          computed h = absDiff(x, y)
+          computed i = clamp(x, 0, 10)
+          computed j = idiv(x, y)
+          computed k = streak(x, ok)
+          computed l = match(status, ["open", 1], ["closed", 0], -1)
+          computed m = argmax(["a", ok, x], ["b", ok, y], "first")
+          computed n = argmin(["a", ok, x], ["b", ok, y], "last")
         }
       `);
 
       if (program) {
         const { diagnostics } = validateSemantics(program);
         expect(diagnostics.filter(d => d.code === "E_UNKNOWN_FN")).toHaveLength(0);
+      }
+    });
+  });
+
+  describe("bounded sugar validation", () => {
+    it("reports E049 for reversed literal clamp bounds", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { score: number = 0 }
+          computed bounded = clamp(score, 10, 0)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E049")).toBe(true);
+      }
+    });
+
+    it("reports E049 for reversed clamp bounds with unary negative literals", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { score: number = 0 }
+          computed bounded = clamp(score, 10, -1)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E049")).toBe(true);
+      }
+    });
+
+    it("reports E050 for malformed match arms", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { status: string = "open" }
+          computed label = match(status, "open", 1, 0)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E050")).toBe(true);
+      }
+    });
+
+    it("accepts unary negative numeric match keys", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { score: number = 0 }
+          computed label = match(score, [-1, "neg"], [0, "zero"], "other")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E050")).toBe(false);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(false);
+      }
+    });
+
+    it("rejects null selectors in match()", () => {
+      const { program } = parseSource(`
+        domain Test {
+          computed label = match(null, [1, "one"], "other")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
+      }
+    });
+
+    it("reports E051 for duplicate match keys", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { status: string = "open" }
+          computed label = match(status, ["open", 1], ["open", 2], 0)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E051")).toBe(true);
+      }
+    });
+
+    it("reports E052 for malformed arg selection calls", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { score: number = 1 }
+          computed best = argmax(["a", true, score], "later")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E052")).toBe(true);
+      }
+    });
+
+    it("rejects arg selection labels that are not one primitive kind", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            flag: boolean = true
+            score: number = 1
+          }
+          computed best = argmax([flag ? "a" : 1, true, score], ["b", true, score], "first")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
+      }
+    });
+
+    it("rejects nullable idiv() scores in arg selection", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state {
+            total: number = 10
+            divisor: number = 0
+          }
+          computed best = argmax(["a", true, idiv(total, divisor)], ["b", true, 1], "first")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(true);
       }
     });
   });

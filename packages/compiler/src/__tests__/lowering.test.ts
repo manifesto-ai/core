@@ -323,6 +323,260 @@ describe("lowerExprNode", () => {
       });
     });
 
+    it("should lower absDiff(), clamp(), idiv(), and streak() as bounded sugar", () => {
+      expect(
+        lowerExprNode(
+          {
+            kind: "call",
+            fn: "absDiff",
+            args: [
+              { kind: "get", path: [{ kind: "prop", name: "observed" }] },
+              { kind: "get", path: [{ kind: "prop", name: "predicted" }] },
+            ],
+          },
+          DEFAULT_SCHEMA_CONTEXT
+        )
+      ).toEqual({
+        kind: "abs",
+        arg: {
+          kind: "sub",
+          left: { kind: "get", path: "observed" },
+          right: { kind: "get", path: "predicted" },
+        },
+      });
+
+      expect(
+        lowerExprNode(
+          {
+            kind: "call",
+            fn: "clamp",
+            args: [
+              { kind: "get", path: [{ kind: "prop", name: "score" }] },
+              { kind: "lit", value: 0 },
+              { kind: "lit", value: 10 },
+            ],
+          },
+          DEFAULT_SCHEMA_CONTEXT
+        )
+      ).toEqual({
+        kind: "min",
+        args: [
+          {
+            kind: "max",
+            args: [
+              { kind: "get", path: "score" },
+              { kind: "lit", value: 0 },
+            ],
+          },
+          { kind: "lit", value: 10 },
+        ],
+      });
+
+      expect(
+        lowerExprNode(
+          {
+            kind: "call",
+            fn: "idiv",
+            args: [
+              { kind: "get", path: [{ kind: "prop", name: "total" }] },
+              { kind: "lit", value: 2 },
+            ],
+          },
+          DEFAULT_SCHEMA_CONTEXT
+        )
+      ).toEqual({
+        kind: "floor",
+        arg: {
+          kind: "div",
+          left: { kind: "get", path: "total" },
+          right: { kind: "lit", value: 2 },
+        },
+      });
+
+      expect(
+        lowerExprNode(
+          {
+            kind: "call",
+            fn: "streak",
+            args: [
+              { kind: "get", path: [{ kind: "prop", name: "prev" }] },
+              { kind: "get", path: [{ kind: "prop", name: "flag" }] },
+            ],
+          },
+          DEFAULT_SCHEMA_CONTEXT
+        )
+      ).toEqual({
+        kind: "if",
+        cond: { kind: "get", path: "flag" },
+        then: {
+          kind: "add",
+          left: { kind: "get", path: "prev" },
+          right: { kind: "lit", value: 1 },
+        },
+        else: { kind: "lit", value: 0 },
+      });
+    });
+
+    it("should lower match() into nested if/eq expressions in source order", () => {
+      const input: MelExprNode = {
+        kind: "call",
+        fn: "match",
+        args: [
+          { kind: "get", path: [{ kind: "prop", name: "status" }] },
+          { kind: "arr", elements: [{ kind: "lit", value: "open" }, { kind: "lit", value: 1 }] },
+          { kind: "arr", elements: [{ kind: "lit", value: "closed" }, { kind: "lit", value: 0 }] },
+          { kind: "lit", value: -1 },
+        ],
+      };
+
+      expect(lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toEqual({
+        kind: "if",
+        cond: {
+          kind: "eq",
+          left: { kind: "get", path: "status" },
+          right: { kind: "lit", value: "open" },
+        },
+        then: { kind: "lit", value: 1 },
+        else: {
+          kind: "if",
+          cond: {
+            kind: "eq",
+            left: { kind: "get", path: "status" },
+            right: { kind: "lit", value: "closed" },
+          },
+          then: { kind: "lit", value: 0 },
+          else: { kind: "lit", value: -1 },
+        },
+      });
+    });
+
+    it("should lower argmax()/argmin() into deterministic selection trees", () => {
+      const argmax = lowerExprNode(
+        {
+          kind: "call",
+          fn: "argmax",
+          args: [
+            { kind: "arr", elements: [{ kind: "lit", value: "a" }, { kind: "get", path: [{ kind: "prop", name: "aOk" }] }, { kind: "get", path: [{ kind: "prop", name: "aScore" }] }] },
+            { kind: "arr", elements: [{ kind: "lit", value: "b" }, { kind: "get", path: [{ kind: "prop", name: "bOk" }] }, { kind: "get", path: [{ kind: "prop", name: "bScore" }] }] },
+            { kind: "lit", value: "first" },
+          ],
+        },
+        DEFAULT_SCHEMA_CONTEXT
+      );
+      const argmin = lowerExprNode(
+        {
+          kind: "call",
+          fn: "argmin",
+          args: [
+            { kind: "arr", elements: [{ kind: "lit", value: "a" }, { kind: "get", path: [{ kind: "prop", name: "aOk" }] }, { kind: "get", path: [{ kind: "prop", name: "aScore" }] }] },
+            { kind: "arr", elements: [{ kind: "lit", value: "b" }, { kind: "get", path: [{ kind: "prop", name: "bOk" }] }, { kind: "get", path: [{ kind: "prop", name: "bScore" }] }] },
+            { kind: "lit", value: "last" },
+          ],
+        },
+        DEFAULT_SCHEMA_CONTEXT
+      );
+
+      expect(argmax).toEqual({
+        kind: "if",
+        cond: {
+          kind: "and",
+          args: [
+            { kind: "get", path: "aOk" },
+            {
+              kind: "or",
+              args: [
+                {
+                  kind: "not",
+                  arg: { kind: "get", path: "bOk" },
+                },
+                {
+                  kind: "gte",
+                  left: { kind: "get", path: "aScore" },
+                  right: { kind: "get", path: "bScore" },
+                },
+              ],
+            },
+          ],
+        },
+        then: { kind: "lit", value: "a" },
+        else: {
+          kind: "if",
+          cond: {
+            kind: "and",
+            args: [
+              { kind: "get", path: "bOk" },
+              {
+                kind: "or",
+                args: [
+                  {
+                    kind: "not",
+                    arg: { kind: "get", path: "aOk" },
+                  },
+                  {
+                    kind: "gt",
+                    left: { kind: "get", path: "bScore" },
+                    right: { kind: "get", path: "aScore" },
+                  },
+                ],
+              },
+            ],
+          },
+          then: { kind: "lit", value: "b" },
+          else: { kind: "lit", value: null },
+        },
+      });
+
+      expect(argmin).toEqual({
+        kind: "if",
+        cond: {
+          kind: "and",
+          args: [
+            { kind: "get", path: "aOk" },
+            {
+              kind: "or",
+              args: [
+                {
+                  kind: "not",
+                  arg: { kind: "get", path: "bOk" },
+                },
+                {
+                  kind: "lt",
+                  left: { kind: "get", path: "aScore" },
+                  right: { kind: "get", path: "bScore" },
+                },
+              ],
+            },
+          ],
+        },
+        then: { kind: "lit", value: "a" },
+        else: {
+          kind: "if",
+          cond: {
+            kind: "and",
+            args: [
+              { kind: "get", path: "bOk" },
+              {
+                kind: "or",
+                args: [
+                  {
+                    kind: "not",
+                    arg: { kind: "get", path: "aOk" },
+                  },
+                  {
+                    kind: "lte",
+                    left: { kind: "get", path: "bScore" },
+                    right: { kind: "get", path: "aScore" },
+                  },
+                ],
+              },
+            ],
+          },
+          then: { kind: "lit", value: "b" },
+          else: { kind: "lit", value: null },
+        },
+      });
+    });
+
     it("should lower variadic merge() with 3+ objects", () => {
       const input: MelExprNode = {
         kind: "call",

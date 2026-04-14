@@ -99,6 +99,30 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
     case "neg":
       return evaluateNeg(expr.arg, ctx);
 
+    case "min":
+      return evaluateMin(expr.args, ctx);
+
+    case "max":
+      return evaluateMax(expr.args, ctx);
+
+    case "abs":
+      return evaluateAbs(expr.arg, ctx);
+
+    case "floor":
+      return evaluateFloor(expr.arg, ctx);
+
+    case "ceil":
+      return evaluateCeil(expr.arg, ctx);
+
+    case "round":
+      return evaluateRound(expr.arg, ctx);
+
+    case "sqrt":
+      return evaluateSqrt(expr.arg, ctx);
+
+    case "pow":
+      return evaluatePow(expr.base, expr.exponent, ctx);
+
     // String
     case "concat":
       return evaluateConcat(expr.args, ctx);
@@ -145,6 +169,15 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
 
     case "append":
       return evaluateAppend(expr.array, expr.items, ctx);
+
+    case "sumArray":
+      return evaluateSumArray(expr.array, ctx);
+
+    case "minArray":
+      return evaluateMinArray(expr.array, ctx);
+
+    case "maxArray":
+      return evaluateMaxArray(expr.array, ctx);
 
     // Object
     case "object":
@@ -422,6 +455,80 @@ function evaluateMod(left: ExprNode, right: ExprNode, ctx: EvaluationContext): n
 function evaluateNeg(arg: ExprNode, ctx: EvaluationContext): number | null {
   const value = evaluateNode(arg, ctx);
   return typeof value === "number" ? -value : null;
+}
+
+function evaluateMin(args: ExprNode[], ctx: EvaluationContext): number | null {
+  if (args.length === 0) {
+    return null;
+  }
+
+  let min: number | null = null;
+  for (const arg of args) {
+    const value = evaluateNode(arg, ctx);
+    if (typeof value !== "number") {
+      return null;
+    }
+    min = min === null ? value : Math.min(min, value);
+  }
+
+  return min;
+}
+
+function evaluateMax(args: ExprNode[], ctx: EvaluationContext): number | null {
+  if (args.length === 0) {
+    return null;
+  }
+
+  let max: number | null = null;
+  for (const arg of args) {
+    const value = evaluateNode(arg, ctx);
+    if (typeof value !== "number") {
+      return null;
+    }
+    max = max === null ? value : Math.max(max, value);
+  }
+
+  return max;
+}
+
+function evaluateAbs(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  return typeof value === "number" ? Math.abs(value) : null;
+}
+
+function evaluateFloor(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  return typeof value === "number" ? Math.floor(value) : null;
+}
+
+function evaluateCeil(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  return typeof value === "number" ? Math.ceil(value) : null;
+}
+
+function evaluateRound(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  return typeof value === "number" ? Math.round(value) : null;
+}
+
+function evaluateSqrt(arg: ExprNode, ctx: EvaluationContext): number | null {
+  const value = evaluateNode(arg, ctx);
+  if (typeof value !== "number" || value < 0) {
+    return null;
+  }
+  return Math.sqrt(value);
+}
+
+function evaluatePow(base: ExprNode, exponent: ExprNode, ctx: EvaluationContext): number | null {
+  const left = evaluateNode(base, ctx);
+  const right = evaluateNode(exponent, ctx);
+
+  if (typeof left !== "number" || typeof right !== "number") {
+    return null;
+  }
+
+  const value = Math.pow(left, right);
+  return Number.isFinite(value) ? value : null;
 }
 
 // ============ String Operators ============
@@ -705,6 +812,60 @@ function evaluateAppend(
 
   const itemValues = items.map((item) => evaluateNode(item, ctx));
   return [...arr, ...itemValues];
+}
+
+function evaluateSumArray(array: ExprNode, ctx: EvaluationContext): number | null {
+  const arr = evaluateNode(array, ctx);
+
+  if (!Array.isArray(arr)) {
+    return null;
+  }
+
+  let sum = 0;
+  for (const value of arr) {
+    if (typeof value !== "number") {
+      return null;
+    }
+    sum += value;
+  }
+
+  return sum;
+}
+
+function evaluateMinArray(array: ExprNode, ctx: EvaluationContext): number | null {
+  const arr = evaluateNode(array, ctx);
+
+  if (!Array.isArray(arr) || arr.length === 0) {
+    return null;
+  }
+
+  let min: number | null = null;
+  for (const value of arr) {
+    if (typeof value !== "number") {
+      return null;
+    }
+    min = min === null ? value : Math.min(min, value);
+  }
+
+  return min;
+}
+
+function evaluateMaxArray(array: ExprNode, ctx: EvaluationContext): number | null {
+  const arr = evaluateNode(array, ctx);
+
+  if (!Array.isArray(arr) || arr.length === 0) {
+    return null;
+  }
+
+  let max: number | null = null;
+  for (const value of arr) {
+    if (typeof value !== "number") {
+      return null;
+    }
+    max = max === null ? value : Math.max(max, value);
+  }
+
+  return max;
 }
 
 // ============ Object Operators ============

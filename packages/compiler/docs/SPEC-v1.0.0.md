@@ -3,7 +3,7 @@
 > **Version:** 1.0.0
 > **Type:** Full
 > **Status:** Normative
-> **Date:** 2026-04-08
+> **Date:** 2026-04-14
 > **Supersedes:** [SPEC-v0.7.0.md](SPEC-v0.7.0.md), [SPEC-v0.8.0.md](SPEC-v0.8.0.md), [SPEC-v0.9.0.md](SPEC-v0.9.0.md) as the current compiler contract
 > **Compatible with:** Core SPEC v4.2.0, SDK living spec v3.5.0
 
@@ -20,6 +20,7 @@ It rolls up the last active baseline plus addenda into one current surface:
 - v0.9.0 `dispatchable when` addendum
 - current landed compiler/runtime alignment for `Record<string, T>` and `T | null` in schema positions
 - current landed support for pure collection builtins in expression contexts
+- current clarification that additive MEL surface forms must preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary
 
 Historical compiler docs remain useful for archaeology, but **this file is the current truth**.
 
@@ -182,6 +183,99 @@ computed allDone = every(tasks, eq($item.done, true))
 computed bad = sum(filter(prices, gt($item, 0)))
 ```
 
+### 5.1 Additional Explicit MEL Surface Forms
+
+The builtin and collection surface defined in this spec is the **current** MEL source contract.
+
+Any additive MEL surface form beyond the builtin set explicitly defined here MUST satisfy all of the following:
+
+- it MUST be admitted explicitly at the MEL source level rather than appearing as an undocumented parser or lowering convenience
+- it MUST preserve the current meanings of existing builtin names such as `floor`, `ceil`, `min`, `max`, `filter`, `map`, `find`, `every`, and `some`
+- it MUST remain representable as an explicit MEL canonical expression or flow form through validation and type checking
+- lowering to Core Runtime IR MUST occur only at the existing MEL → Core lowering boundary
+- the lowered result MUST use existing Core/runtime expression and flow kinds only
+- user-defined accumulation, runtime-shaped iteration, dynamic dispatch, and other general-computation constructs remain forbidden
+
+Entity primitives are the current precedent for this pattern: they remain explicit MEL surface forms until the lowering boundary and then lower into existing Core/runtime kinds without changing the underlying runtime model.
+
+Only ordinary function-call forms are part of this contract. No new arm syntax, named arguments, or parser-only shorthand is implied here.
+
+The following bounded function forms are admitted under that rule:
+
+#### `absDiff(a, b)`
+
+- signature: `(number, number) -> number`
+- lowering: `abs(sub(a, b))`
+- both arguments MUST be numbers
+
+#### `clamp(x, lo, hi)`
+
+- signature: `(number, number, number) -> number`
+- lowering: `min(max(x, lo), hi)`
+- all arguments MUST be numbers
+- bounds MUST NOT be reordered implicitly
+- when both bounds are statically literal numbers and `lo > hi`, the compiler MUST reject the call
+- this does NOT change the existing meanings of unary `floor()` or `ceil()`
+
+#### `idiv(a, b)`
+
+- signature: `(number, number) -> number | null`
+- lowering: `floor(div(a, b))`
+- both arguments MUST be numbers
+- negative results MUST follow mathematical floor semantics, not truncation toward zero
+- zero-divisor behavior MUST inherit existing `div()` semantics, including `null` on zero
+
+#### `streak(prev, cond)`
+
+- signature: `(number, boolean) -> number`
+- lowering: `cond(cond, add(prev, 1), 0)`
+- `prev` MUST be a number
+- `cond` MUST be a boolean
+
+#### `match(key, [k1, v1], [k2, v2], ..., defaultValue)`
+
+- source form example: `match(status, ["open", 1], ["closed", 0], -1)`
+- the call MUST contain at least one arm and one default value
+- each arm MUST be an inline 2-item array literal `[matchKey, value]`
+- each `matchKey` MUST be a literal `string`, `number`, or `boolean`
+- the final positional argument MUST be the default value
+- `key` and every `matchKey` MUST have the same comparable primitive type: `string`, `number`, or `boolean`
+- duplicate literal arm keys MUST be rejected
+- all arm values and the default value MUST unify to one result type
+- lowering: nested `cond(eq(key, kN), vN, ...)` in source order
+
+#### `argmax([label, eligible, score], ..., tieBreak)`
+
+- source form example: `argmax(["a", aOk, aScore], ["b", bOk, bScore], "first")`
+- the call MUST contain at least one candidate and one tie-break literal
+- each candidate MUST be an inline 3-item array literal `[label, eligible, score]`
+- `eligible` MUST be boolean
+- `score` MUST be number
+- all labels MUST unify to one primitive scalar type: `string`, `number`, or `boolean`
+- the final positional argument MUST be the literal `"first"` or `"last"`
+- runtime-array forms such as `argmax(items, "first")` are NOT part of this contract
+- if no candidate is eligible, the result MUST be `null`
+- `"first"` MUST select the earliest source-order candidate among equal eligible maxima
+- `"last"` MUST select the latest source-order candidate among equal eligible maxima
+- lowering MUST use only existing conditional and comparison structure; tie-break determinism MUST be expressed through `gt`/`gte` selection order
+
+#### `argmin([label, eligible, score], ..., tieBreak)`
+
+- source form example: `argmin(["a", aOk, aScore], ["b", bOk, bScore], "last")`
+- candidate shape, label rules, and tie-break rules are identical to `argmax`
+- runtime-array forms are NOT part of this contract
+- if no candidate is eligible, the result MUST be `null`
+- `"first"` MUST select the earliest source-order candidate among equal eligible minima
+- `"last"` MUST select the latest source-order candidate among equal eligible minima
+- lowering MUST use only existing conditional and comparison structure; tie-break determinism MUST be expressed through `lt`/`lte` selection order
+
+Non-goals of this admission rule:
+
+- no `match(expr, "k" => v)` arrow-arm syntax
+- no `tieBreak: "first"` named-argument syntax
+- no runtime-array `argmax(items, scoreFn)` or `argmin(items, scoreFn)`
+- no reinterpretation of existing builtin meanings such as `floor`, `ceil`, `min`, `max`, `filter`, `map`, `find`, `every`, or `some`
+
 ---
 
 ## 6. Intent Dispatchability
@@ -242,6 +336,7 @@ The current compiler contract is:
 - compatibility `FieldSpec` remains available for coarse tooling and legacy consumers
 - nullable and record schema-position types are supported
 - pure collection builtins are supported in expressions
+- additive MEL surface expansions MUST preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary
 - `dispatchable when` is part of the full action contract
 - `SchemaGraph` remains availability-only and input-independent
 

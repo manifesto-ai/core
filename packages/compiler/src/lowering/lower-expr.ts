@@ -230,6 +230,77 @@ function lowerCall(
 ): CoreExprNode {
   const { fn, args } = input;
 
+  if (fn === "absDiff") {
+    if (args.length !== 2) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "abs",
+      arg: {
+        kind: "sub",
+        left: lowerExprNode(args[0], ctx),
+        right: lowerExprNode(args[1], ctx),
+      },
+    };
+  }
+
+  if (fn === "clamp") {
+    if (args.length !== 3) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "min",
+      args: [
+        {
+          kind: "max",
+          args: [
+            lowerExprNode(args[0], ctx),
+            lowerExprNode(args[1], ctx),
+          ],
+        },
+        lowerExprNode(args[2], ctx),
+      ],
+    };
+  }
+
+  if (fn === "idiv") {
+    if (args.length !== 2) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "floor",
+      arg: {
+        kind: "div",
+        left: lowerExprNode(args[0], ctx),
+        right: lowerExprNode(args[1], ctx),
+      },
+    };
+  }
+
+  if (fn === "streak") {
+    if (args.length !== 2) {
+      throw unknownCallFn(fn);
+    }
+    return {
+      kind: "if",
+      cond: lowerExprNode(args[1], ctx),
+      then: {
+        kind: "add",
+        left: lowerExprNode(args[0], ctx),
+        right: { kind: "lit", value: 1 },
+      },
+      else: { kind: "lit", value: 0 },
+    };
+  }
+
+  if (fn === "match") {
+    return lowerMatchCall(args, ctx);
+  }
+
+  if (fn === "argmax" || fn === "argmin") {
+    return lowerArgSelectionCall(fn, args, ctx);
+  }
+
   // Binary operators: left, right
   if (isBinaryOp(fn)) {
     if (args.length !== 2) {
@@ -561,6 +632,145 @@ function lowerArr(
     array: { kind: "lit", value: [] },
     items: loweredElements,
   };
+}
+
+type LoweredArgCandidate = {
+  label: CoreExprNode;
+  eligible: CoreExprNode;
+  score: CoreExprNode;
+};
+
+function lowerMatchCall(args: MelExprNode[], ctx: ExprLoweringContext): CoreExprNode {
+  if (args.length < 3) {
+    throw unknownCallFn("match");
+  }
+
+  const selector = lowerExprNode(args[0], ctx);
+  let current = lowerExprNode(args[args.length - 1], ctx);
+
+  for (let index = args.length - 2; index >= 1; index -= 1) {
+    const arm = args[index];
+    if (arm.kind !== "arr" || arm.elements.length !== 2) {
+      throw unknownCallFn("match");
+    }
+    current = {
+      kind: "if",
+      cond: {
+        kind: "eq",
+        left: selector,
+        right: lowerExprNode(arm.elements[0], ctx),
+      },
+      then: lowerExprNode(arm.elements[1], ctx),
+      else: current,
+    };
+  }
+
+  return current;
+}
+
+function lowerArgSelectionCall(
+  fn: "argmax" | "argmin",
+  args: MelExprNode[],
+  ctx: ExprLoweringContext
+): CoreExprNode {
+  if (args.length < 2) {
+    throw unknownCallFn(fn);
+  }
+
+  const tieBreak = args[args.length - 1];
+  if (tieBreak.kind !== "lit" || (tieBreak.value !== "first" && tieBreak.value !== "last")) {
+    throw unknownCallFn(fn);
+  }
+
+  const candidates = args.slice(0, -1).map((candidate) => lowerArgCandidate(candidate, ctx, fn));
+  if (candidates.length === 0) {
+    throw unknownCallFn(fn);
+  }
+
+  return buildArgSelection(fn, candidates, tieBreak.value);
+}
+
+function lowerArgCandidate(
+  candidate: MelExprNode,
+  ctx: ExprLoweringContext,
+  fn: "argmax" | "argmin"
+): LoweredArgCandidate {
+  if (candidate.kind !== "arr" || candidate.elements.length !== 3) {
+    throw unknownCallFn(fn);
+  }
+
+  return {
+    label: lowerExprNode(candidate.elements[0], ctx),
+    eligible: lowerExprNode(candidate.elements[1], ctx),
+    score: lowerExprNode(candidate.elements[2], ctx),
+  };
+}
+
+function buildArgSelection(
+  fn: "argmax" | "argmin",
+  candidates: LoweredArgCandidate[],
+  tieBreak: "first" | "last"
+): CoreExprNode {
+  let current: CoreExprNode = { kind: "lit", value: null };
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    current = {
+      kind: "if",
+      cond: buildArgSelectionCondition(fn, candidates, tieBreak, index),
+      then: candidates[index]!.label,
+      else: current,
+    };
+  }
+  return current;
+}
+
+function buildArgSelectionCondition(
+  fn: "argmax" | "argmin",
+  candidates: LoweredArgCandidate[],
+  tieBreak: "first" | "last",
+  index: number
+): CoreExprNode {
+  const current = candidates[index]!;
+  const comparisons: CoreExprNode[] = [];
+
+  for (let otherIndex = 0; otherIndex < candidates.length; otherIndex += 1) {
+    if (otherIndex === index) {
+      continue;
+    }
+    const other = candidates[otherIndex]!;
+    comparisons.push({
+      kind: "or",
+      args: [
+        { kind: "not", arg: other.eligible },
+        {
+          kind: selectionCompareKind(fn, tieBreak, index, otherIndex),
+          left: current.score,
+          right: other.score,
+        },
+      ],
+    });
+  }
+
+  if (comparisons.length === 0) {
+    return current.eligible;
+  }
+
+  return {
+    kind: "and",
+    args: [current.eligible, ...comparisons],
+  };
+}
+
+function selectionCompareKind(
+  fn: "argmax" | "argmin",
+  tieBreak: "first" | "last",
+  index: number,
+  otherIndex: number
+): "gt" | "gte" | "lt" | "lte" {
+  const prefersCurrentOnTie = tieBreak === "first" ? index < otherIndex : index > otherIndex;
+  if (fn === "argmax") {
+    return prefersCurrentOnTie ? "gte" : "gt";
+  }
+  return prefersCurrentOnTie ? "lte" : "lt";
 }
 
 // ============ Operator Classification ============
