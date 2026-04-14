@@ -19,7 +19,7 @@ MEL source -> Compiler -> DomainSchema -> Core
 | Responsibility | Description |
 | --- | --- |
 | Parse MEL | Tokenize and parse MEL into an AST |
-| Validate | Scope and semantic checks aligned to MEL v0.3.3 |
+| Validate | Scope, typing, and semantic checks aligned to the current compiler contract |
 | Generate IR | Produce DomainSchema for Core |
 | Lower system values | Optional lowering of $system.* into explicit effects |
 
@@ -33,6 +33,14 @@ MEL source -> Compiler -> DomainSchema -> Core
 | Apply patches | Core |
 | Govern authority or seal history | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Bind UI or caller integrations | SDK / application layer |
+
+Current MEL/compiler highlights:
+
+- `available when` remains the coarse action gate.
+- `dispatchable when` is the fine bound-intent legality gate.
+- Expression-level collection builtins include `filter`, `map`, `find`, `every`, and `some`.
+- Bounded parser-free sugar includes `absDiff`, `clamp`, `idiv`, `streak`, `match`, `argmax`, and `argmin`.
+- Current schema-position lowering supports `Record<string, T>` and `T | null`.
 
 ---
 
@@ -208,7 +216,7 @@ type CompileOptions = {
 | [MEL Syntax](../../docs/mel/SYNTAX.md) | Grammar and syntax |
 | [MEL Examples](../../docs/mel/EXAMPLES.md) | Example library |
 | [MEL Error Guide](../../docs/mel/ERROR-GUIDE.md) | Error codes and fixes |
-| [Compiler Spec](docs/SPEC-v0.7.0.md) | Full compiler and MEL spec |
+| [Compiler Spec](docs/SPEC-v1.0.0.md) | Current full compiler and MEL spec |
 | [Compiler FDR](docs/FDR-v0.5.0.md) | Design rationale |
 | [Compiler Compliance Suite](docs/compiler-SPEC-compilance-test-suite.md) | CCTS structure, rule modes, and execution guide |
 

@@ -1,14 +1,14 @@
 # API Reference
 
-> Lookup the app-facing runtime surface first. Drop into package overviews only when you need the owning package boundary.
+> Lookup the application-facing runtime surface first. Drop into package overviews only when you need the owning package boundary.
 
 If you are learning Manifesto for the first time, start with the [Guide](/guide/introduction). Use this section when you know what you want to call.
 
-## App Runtime APIs
+## Application Runtime APIs
 
 | Area | Start Here |
 |------|------------|
-| Create an app | [Application](./application) |
+| Create and activate a runtime | [Application](./application) |
 | Inspect the activated handle | [Runtime Instance](./runtime) |
 | Show legal actions to UI or agents | [Actions and Availability](./actions-and-availability) |
 | Request a transition | [Intents](./intents) |

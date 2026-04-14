@@ -204,7 +204,7 @@ type DomainSchema = {
   /** Content hash for integrity verification */
   readonly hash: string;
 
-  /** Named type declarations (compiler v0.3.3) */
+  /** Named type declarations supplied by the current compiler contract */
   readonly types: Record<string, TypeSpec>;
 
   /** State structure definition */
@@ -236,7 +236,7 @@ type DomainSchema = {
   Any effective/runtime hash is an internal artifact and MUST NOT be exposed as part of DomainSchema.
 - `state`, `computed`, and `actions` MUST NOT be empty.
 
-### 4.3 Types (Compiler v0.3.3)
+### 4.3 Types
 
 `types` carries **named type declarations** produced by the compiler.
 

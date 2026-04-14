@@ -1,6 +1,6 @@
 # Compiler SPEC Compilance Test Suite (CCTS)
 
-> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against MEL Compiler SPEC v0.7.0.
+> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.0.0.
 > **Audience:** Compiler maintainers and contributors extending MEL semantics.
 > **Status:** Operational
 
@@ -47,7 +47,7 @@ packages/compiler/src/__tests__/compliance/
 
 The suite mirrors the Host HCTS shape, but adds explicit inventory and coverage layers:
 
-- spec inventory (`SPEC-v0.7.0.md` rule surface)
+- spec inventory (`SPEC-v1.0.0.md` rule surface)
 - shared rule registry
 - case/rule coverage map
 - test adapter wrapping exported APIs
@@ -143,7 +143,7 @@ Those are valid follow-up steps once the registry and suite skeleton are stable.
 
 As of the current Phase 4 baseline:
 
-- `blocking`: concrete v0.7.0 feature families already enforced in compiler + CCTS
+- `blocking`: concrete current-contract feature families already enforced in compiler + CCTS
 - `pending`: none
 - `informational`: `A16`, `COMPILER-MEL-2a`
 

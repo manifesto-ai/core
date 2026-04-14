@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current SDK contract is the living v3.6.0 activation-first model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed `createIntent()` object binding, intent explanation reads, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(instance)`.
+> **Current Contract Note:** The current SDK contract is the activation-first model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed `createIntent()` object binding, intent explanation reads, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(instance)`.
 
 ## When to Use It
 

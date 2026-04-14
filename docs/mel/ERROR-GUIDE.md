@@ -545,7 +545,7 @@ state {
 ### Error: System value in state initializer
 
 ```mel
-// ❌ BROKEN (v0.3.0+)
+// ❌ BROKEN
 state {
   id: string = $system.uuid
   createdAt: number = $system.timestamp

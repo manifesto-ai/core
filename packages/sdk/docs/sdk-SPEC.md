@@ -3,18 +3,18 @@
 > **Status:** Normative (Living Document)
 > **Scope:** Manifesto SDK Layer - Public Developer API
 > **Compatible with:** Core SPEC v4.2.0, Host Contract v4.0.0, Compiler SPEC v1.0.0, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
-> **Supersedes:** SDK SPEC v2.0.0
-> **Implements:** ADR-017 v3.1, ADR-019 v1.1, ADR-020 v1
+> **Replaces:** Earlier SDK spec baselines as the current SDK contract
+> **Implements:** ADR-017, ADR-019, ADR-020
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current v3.x Status:** The projected introspection additions, the intent-level dispatchability additions, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are now part of the current living SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
+> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
 
 ## 1. Purpose
 
-This document defines the current SDK v3.x public contract.
+This document defines the current SDK public contract.
 
-The SDK still owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In v3, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
+The SDK owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In the current contract, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
 
 The SDK no longer presents top-level `@manifesto-ai/world` as part of its public story. Governed composition is expressed by decorating the composable manifesto with `withLineage()` and `withGovernance()` from their owning packages.
 
