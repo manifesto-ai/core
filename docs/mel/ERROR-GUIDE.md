@@ -55,7 +55,7 @@ computed lowest = min(map(items, $item.price))
 
 **Error:** `SemanticError: Aggregation accepts only direct array references.`
 
-**Rule violated:** `sum()`, `min()`, `max()` accept only direct state references, not expressions.
+**Rule violated:** `sum()`, `min()`, `max()` accept only direct state or computed array references, not inline expressions.
 
 ```mel
 // ✅ FIXED: Use a computed intermediate, then aggregate
@@ -63,33 +63,24 @@ computed positivePrices = filter(prices, gt($item, 0))
 computed total = sum(positivePrices)
 ```
 
-**Why:** MEL expresses facts ("the sum of X"), not procedures ("how to compute sum"). See FDR-MEL-060.
+**Why:** MEL expresses facts ("the sum of X"), not procedures ("how to compute sum"). See FDR-MEL-062.
 
 ---
 
-### Error: $item outside effect
+### Error: $item outside collection/effect context
 
 ```mel
 // ❌ BROKEN
 computed doubled = mul($item, 2)
 ```
 
-**Error:** `SemanticError: '$item' is only valid inside effect iteration context.`
+**Error:** `SemanticError: '$item' is only valid inside a collection predicate/mapper or effect iteration context.`
 
-**Rule violated:** `$item` refers to the current element during effect iteration. It has no meaning outside effects.
+**Rule violated:** `$item` refers to the current element of a collection traversal. It is valid inside expression-level `filter()` / `map()` / `find()` / `every()` / `some()` predicates or mappers, and inside effect-level iteration payloads. It has no meaning outside those contexts.
 
 ```mel
-// ✅ FIXED: Use $item inside effect
-action doubleAll() {
-  once(doubling) {
-    patch doubling = $meta.intentId
-    effect array.map({
-      source: items,
-      select: mul($item, 2),
-      into: doubled
-    })
-  }
-}
+// ✅ FIXED: Use $item inside a collection mapper
+computed doubled = map(items, mul($item, 2))
 ```
 
 ---
@@ -134,6 +125,82 @@ computed arrayMin = min(prices)          // Array aggregation
 computed smaller = min(a, b)             // Value comparison
 computed smallest = min(a, b, c, d)      // Multi-value comparison
 ```
+
+---
+
+### Error: Wrong arity for bounded sugar
+
+```mel
+// ❌ BROKEN
+computed a = clamp(score, 0)
+computed b = idiv(total, buckets, extra)
+computed c = streak(previous)
+computed d = clamp(score, 10, 0)
+```
+
+**Error:** `SemanticError: 'clamp' expects 3 arguments, 'idiv' expects 2, and 'streak' expects 2. Literal clamp bounds must be ordered lo, hi.`
+
+**Rule violated:** These bounded sugar functions have fixed arity. They are ordinary function calls, not variadic helpers. `clamp()` also does not silently swap literal bounds for you.
+
+```mel
+// ✅ FIXED
+computed a = clamp(score, 0, 100)
+computed b = idiv(total, buckets)
+computed c = streak(previous, eq(kind, "miss"))
+computed d = clamp(score, 0, 10)
+```
+
+---
+
+### Error: Malformed match arm or missing default
+
+```mel
+// ❌ BROKEN
+computed label = match(status, ["open", "Open"], ["closed", "Closed"])
+computed code = match(status, "open", 1, 0)
+computed mixed = match(status, ["open", 1], ["closed", "Closed"], 0)
+computed duplicate = match(status, ["open", 1], ["open", 2], 0)
+```
+
+**Error:** `SemanticError: 'match' requires inline [key, value] arms and a final default value.`
+
+**Rule violated:** `match()` is only supported in function form: `match(key, [k1, v1], [k2, v2], ..., defaultValue)`. Arm keys must be literal primitives and duplicates are invalid.
+
+```mel
+// ✅ FIXED
+computed label = match(status, ["open", "Open"], ["closed", "Closed"], "Unknown")
+computed code = match(status, ["open", 1], ["closed", 0], -1)
+```
+
+**Additional rule:** All `match` keys must be the same primitive comparable type as the first argument, and all arm values must unify with the default value. Mixing result types such as `number` and `string` is invalid.
+
+---
+
+### Error: Invalid argmax/argmin candidate shape
+
+```mel
+// ❌ BROKEN
+computed best = argmax(candidates, "first")
+computed best = argmax(["a", true, 1], ["b", 2, 3], tieBreak)
+computed best = argmax(["a", true, 1], ["b", true, "high"], "last")
+```
+
+**Error:** `SemanticError: 'argmax'/'argmin' require inline [label, eligible, score] candidates and a literal tie-break.`
+
+**Rule violated:** `argmax()` and `argmin()` do not accept runtime arrays. Each candidate must be written inline as `[label, eligible, score]`, where `eligible` is boolean and `score` is number. The final argument must be the literal `"first"` or `"last"`.
+
+```mel
+// ✅ FIXED
+computed best = argmax(
+  ["a", candidateA, scoreA],
+  ["b", candidateB, scoreB],
+  "first"
+)
+```
+
+**Additional rule:** If all candidates are ineligible, the result is `null`, not an error.
+
+**Tie-break rule:** For equal eligible scores, `"first"` chooses the earliest source-order candidate and `"last"` chooses the latest one.
 
 ---
 
@@ -704,6 +771,7 @@ action processAll() {
 |----------------|--------------|-----|
 | Hidden iteration | Using effect-level `array.filter/map()` in computed | Use expression builtins `filter()` / `map()` |
 | Aggregation | Nested calls in sum/min/max | Prepare data with effect first |
+| Bounded sugar shape | Wrong arity or malformed `match` / `argmax` / `argmin` | Use the fixed function forms with inline tuple literals |
 | Effect in computed | Thinking computed can do IO | Move to action |
 | Unguarded statement | Missing when/once | Add guard |
 | Non-boolean condition | Truthy coercion assumption | Use explicit comparison |

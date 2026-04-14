@@ -90,6 +90,8 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
     notes: "Optional lowering strategy equivalent to COMPILER-MEL-2.",
   }),
 
+  ...inventoryMany(["MEL-SUGAR-1", "MEL-SUGAR-2", "MEL-SUGAR-3", "MEL-SUGAR-4"], "§5.1", "MUST", "lowering-and-ir"),
+
   ...inventoryMany(["AD-COMP-LOW-001", "AD-COMP-LOW-002", "AD-COMP-LOW-003"], "§16", "MUST", "lowering-and-ir"),
   inventory("SCHEMA-RESERVED-1", "§17.4 / §21", "MUST", "lowering-and-ir"),
 
@@ -101,6 +103,7 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   ...inventoryMany(["E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024"], "§13.6", "MUST", "flow-composition"),
   ...inventoryMany(["E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035"], "§13.6", "MUST", "entity-primitives"),
   ...inventoryMany(["E040", "E041", "E042", "E043", "E044"], "§13.6", "MUST", "state-and-computed"),
+  ...inventoryMany(["E049", "E050", "E051", "E052"], "§13.6", "MUST", "lowering-and-ir"),
   inventory("E045", "§13.6", "MUST", "state-and-computed", {
     lifecycle: "superseded",
     notes: "Superseded when nullable schema-position types became supported through TypeDefinition-backed runtime validation.",

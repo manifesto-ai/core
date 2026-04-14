@@ -219,6 +219,26 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     message: "Transform primitive in dispatchable condition",
     category: "semantic",
   },
+  E049: {
+    code: "E049",
+    message: "Invalid literal clamp bounds",
+    category: "semantic",
+  },
+  E050: {
+    code: "E050",
+    message: "Invalid match() form",
+    category: "semantic",
+  },
+  E051: {
+    code: "E051",
+    message: "Duplicate match() key",
+    category: "semantic",
+  },
+  E052: {
+    code: "E052",
+    message: "Invalid argmax()/argmin() form",
+    category: "semantic",
+  },
 
   // ============ Scope Errors (E1xx) ============
   E_UNDEFINED: {

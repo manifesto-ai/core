@@ -50,6 +50,10 @@ export const CCTS_CASES = {
   IR_PURITY_SNAPSHOT_BOUNDARY: "CCTS-IR-007",
   IR_EVALUATION_ORDER: "CCTS-IR-008",
   IR_PRIMITIVE_EQUALITY: "CCTS-IR-009",
+  IR_BOUNDED_SUGAR_ARITH: "CCTS-IR-010",
+  IR_MATCH_SUGAR: "CCTS-IR-011",
+  IR_ARG_SELECTION_SUGAR: "CCTS-IR-012",
+  IR_SUGAR_DIAGNOSTICS: "CCTS-IR-013",
 
   FLOW_COMPOSITION: "CCTS-FLOW-001",
   FLOW_VALIDATION: "CCTS-FLOW-002",
@@ -101,6 +105,10 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.IR_PURITY_SNAPSHOT_BOUNDARY, "lowering-and-ir", "Expression roots stay explicit and snapshot-bounded."),
   complianceCase(CCTS_CASES.IR_EVALUATION_ORDER, "lowering-and-ir", "Expression evaluation order stays left-to-right and key-sorted."),
   complianceCase(CCTS_CASES.IR_PRIMITIVE_EQUALITY, "lowering-and-ir", "eq/neq stay limited to primitive operands."),
+  complianceCase(CCTS_CASES.IR_BOUNDED_SUGAR_ARITH, "lowering-and-ir", "Bounded arithmetic sugar lowers to existing runtime arithmetic/conditional nodes."),
+  complianceCase(CCTS_CASES.IR_MATCH_SUGAR, "lowering-and-ir", "match() remains finite literal-key branch sugar with source-order lowering."),
+  complianceCase(CCTS_CASES.IR_ARG_SELECTION_SUGAR, "lowering-and-ir", "argmax()/argmin() remain fixed-candidate deterministic selection sugar."),
+  complianceCase(CCTS_CASES.IR_SUGAR_DIAGNOSTICS, "lowering-and-ir", "Bounded sugar shape diagnostics remain visible."),
 
   complianceCase(CCTS_CASES.FLOW_COMPOSITION, "flow-composition", "flow/include remains compile-time composition only."),
   complianceCase(CCTS_CASES.FLOW_VALIDATION, "flow-composition", "Flow declaration and include contracts are tracked."),
@@ -141,6 +149,9 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["A31", "ADR-013a"], [CCTS_CASES.FLOW_COMPOSITION]),
   ...coverMany(["A32", "E009", "E010", "E011"], [CCTS_CASES.ACTIONS_AGGREGATION]),
   ...coverMany(["A33", "E012", "TYPE-LOWER-5"], [CCTS_CASES.STATE_INLINE_OBJECTS]),
+  ...coverMany(["MEL-SUGAR-1", "MEL-SUGAR-2"], [CCTS_CASES.IR_BOUNDED_SUGAR_ARITH]),
+  ...coverMany(["MEL-SUGAR-3"], [CCTS_CASES.IR_MATCH_SUGAR]),
+  ...coverMany(["MEL-SUGAR-4"], [CCTS_CASES.IR_ARG_SELECTION_SUGAR]),
 
   ...coverMany(["ACTION-INPUT-1", "ACTION-INPUT-2", "TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4"], [CCTS_CASES.STATE_ACTION_INPUT_FIELDS]),
   ...coverMany(["ACTION-INPUT-3"], [CCTS_CASES.STATE_ACTION_INPUT_OMISSION]),
@@ -164,6 +175,7 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
 
   ...coverMany(["E003"], [CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF]),
   ...coverMany(["E006", "E007", "E008"], [CCTS_CASES.ACTIONS_FAIL_STOP_DIAGNOSTICS]),
+  ...coverMany(["E049", "E050", "E051", "E052"], [CCTS_CASES.IR_SUGAR_DIAGNOSTICS]),
 ];
 
 export function caseTitle(caseId: string, description: string): string {

@@ -48,11 +48,14 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 
 1. `when` condition must be boolean — no truthy/falsy
 2. `eq`/`neq` only compare primitives (null, boolean, number, string)
-3. `len()` only works on arrays, not records
+3. `len()` works on strings, arrays, and records/objects
 4. `keys()`/`values()`/`entries()` work as expression builtins for object decomposition. `record.*` effects are for writing results to state in action flows.
 5. `sum()`/`min()`/`max()` with single arg = array aggregation
 6. `min(a,b)`/`max(a,b)` with multiple args = value comparison
-7. Complex object types in state must be named (`type X = { ... }`)
+7. `match()` is function-form only: `match(key, [k1, v1], ..., defaultValue)`
+8. `argmax()` / `argmin()` only accept inline `[label, eligible, score]` candidates plus a literal `"first"` or `"last"` tie-break
+9. `absDiff`, `clamp`, `idiv`, and `streak` are lowering-only sugar over existing arithmetic and conditional builtins
+10. Complex object types in state must be named (`type X = { ... }`)
 
 ---
 
@@ -133,6 +136,20 @@ computed min = min(values)           // Array<T> → T | null
 computed max = max(values)           // Array<T> → T | null
 computed length = len(items)         // Array<T> → number
 
+// Bounded sugar
+computed error = absDiff(observed, predicted)
+computed bounded = clamp(score, 0, 100)
+computed buckets = idiv(total, bucketSize)
+computed missStreak = streak(previousMissStreak, eq(kind, "miss"))
+
+// Finite branch / fixed candidate selection
+computed label = match(status, ["open", "Open"], ["closed", "Closed"], "Unknown")
+computed bestKind = argmax(
+  ["coarse", coarseOk, coarseDelta],
+  ["repair", repairOk, repairDelta],
+  "first"
+)
+
 // Object functions
 computed withDefaults = merge(config, { theme: "light" })  // Shallow merge (later wins)
 computed taskIds = keys(tasks)                              // Object keys
@@ -152,6 +169,12 @@ computed now = $system.timestamp
 
 // ❌ Nested aggregation
 computed total = sum(filter(prices))
+
+// ❌ Arrow-arm match syntax is not part of the current contract
+computed label = match(status, "open" => "Open", _ => "Unknown")
+
+// ❌ Runtime-array argmax/argmin forms are not supported
+computed best = argmax(candidates, "first")
 ```
 
 ---

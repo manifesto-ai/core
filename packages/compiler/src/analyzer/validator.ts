@@ -392,6 +392,21 @@ function extendCollectionTypeEnv(baseEnv: TypeEnv, itemType: TypeExprNode): Type
   return next;
 }
 
+function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | null | undefined {
+  if (expr.kind !== "literal") {
+    return undefined;
+  }
+  return expr.literalType === "null"
+    ? null
+    : typeof expr.value === "string" || typeof expr.value === "number" || typeof expr.value === "boolean"
+    ? expr.value
+    : undefined;
+}
+
+function isNumericLiteralExpr(expr: ExprNode): expr is Extract<ExprNode, { kind: "literal"; literalType: "number" }> {
+  return expr.kind === "literal" && expr.literalType === "number" && typeof expr.value === "number";
+}
+
 function resolvePathType(path: PathNode, symbols: DomainTypeSymbols): TypeExprNode | null {
   const [first, ...rest] = path.segments;
   if (!first || first.kind !== "propertySegment") {
@@ -1279,6 +1294,8 @@ export class SemanticValidator {
       case "mul":
       case "div":
       case "mod":
+      case "absDiff":
+      case "idiv":
       case "gt":
       case "gte":
       case "lt":
@@ -1357,6 +1374,7 @@ export class SemanticValidator {
         break;
 
       case "updateById":
+      case "clamp":
         if (args.length !== 3) {
           this.error(
             `Function '${name}' expects 3 arguments, got ${args.length}`,
@@ -1367,6 +1385,7 @@ export class SemanticValidator {
         break;
 
       case "removeById":
+      case "streak":
         if (args.length !== 2) {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
@@ -1415,6 +1434,27 @@ export class SemanticValidator {
             `Function '${name}' expects at least 1 argument`,
             location,
             "E_ARG_COUNT"
+          );
+        }
+        break;
+
+      case "match":
+        if (args.length < 3) {
+          this.error(
+            "Function 'match' expects a selector, at least one [key, value] arm, and a default value",
+            location,
+            "E050"
+          );
+        }
+        break;
+
+      case "argmax":
+      case "argmin":
+        if (args.length < 2) {
+          this.error(
+            `Function '${name}' expects at least one [label, eligible, score] candidate and a tie-break literal`,
+            location,
+            "E052"
           );
         }
         break;
@@ -1479,6 +1519,8 @@ export class SemanticValidator {
       case "mul":
       case "div":
       case "mod":
+      case "absDiff":
+      case "idiv":
       case "pow":
         if (args.length === 2) {
           this.requireAssignable(
@@ -1551,6 +1593,53 @@ export class SemanticValidator {
             simpleTypeNode("number", args[0].location),
             args[0].location,
             `Function '${name}' expects a numeric argument`
+          );
+        }
+        break;
+
+      case "clamp":
+        if (args.length === 3) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("number", args[0].location),
+            args[0].location,
+            "Function 'clamp' expects a numeric first argument"
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("number", args[1].location),
+            args[1].location,
+            "Function 'clamp' expects a numeric second argument"
+          );
+          this.requireAssignable(
+            argTypes[2],
+            simpleTypeNode("number", args[2].location),
+            args[2].location,
+            "Function 'clamp' expects a numeric third argument"
+          );
+          if (isNumericLiteralExpr(args[1]) && isNumericLiteralExpr(args[2]) && args[1].value > args[2].value) {
+            this.error(
+              "Function 'clamp' requires literal bounds in lo, hi order",
+              location,
+              "E049"
+            );
+          }
+        }
+        break;
+
+      case "streak":
+        if (args.length === 2) {
+          this.requireAssignable(
+            argTypes[0],
+            simpleTypeNode("number", args[0].location),
+            args[0].location,
+            "Function 'streak' expects a numeric first argument"
+          );
+          this.requireAssignable(
+            argTypes[1],
+            simpleTypeNode("boolean", args[1].location),
+            args[1].location,
+            "Function 'streak' expects a boolean second argument"
           );
         }
         break;
@@ -1670,6 +1759,15 @@ export class SemanticValidator {
 
       case "coalesce":
         this.validateCoalesceTypes(argTypes, location);
+        break;
+
+      case "match":
+        this.validateMatchCall(args, argTypes, location, env);
+        break;
+
+      case "argmax":
+      case "argmin":
+        this.validateArgSelectionCall(name, args, location, env);
         break;
 
       case "if":
@@ -1798,6 +1896,159 @@ export class SemanticValidator {
         if (compatible === false) {
           this.error(
             `coalesce arguments must have compatible non-null types, got ${describeTypeExpr(concreteTypes[i], this.symbols)} and ${describeTypeExpr(concreteTypes[j], this.symbols)}`,
+            location,
+            "E_TYPE_MISMATCH"
+          );
+          return;
+        }
+      }
+    }
+  }
+
+  private validateMatchCall(
+    args: ExprNode[],
+    argTypes: Array<TypeExprNode | null>,
+    location: SourceLocation,
+    env: TypeEnv
+  ): void {
+    if (!this.symbols || args.length < 3) {
+      return;
+    }
+
+    const selectorType = argTypes[0];
+    const seenKeys = new Set<string>();
+    const valueTypes: Array<TypeExprNode | null> = [];
+
+    for (let index = 1; index < args.length - 1; index += 1) {
+      const arm = args[index];
+      if (arm.kind !== "arrayLiteral" || arm.elements.length !== 2) {
+        this.error(
+          "Function 'match' requires each arm to be an inline [key, value] array literal",
+          arm.location,
+          "E050"
+        );
+        continue;
+      }
+
+      const [keyExpr, valueExpr] = arm.elements;
+      const literalKey = getLiteralPrimitiveValue(keyExpr);
+      if (literalKey === undefined || literalKey === null) {
+        this.error(
+          "Function 'match' requires literal string, number, or boolean arm keys",
+          keyExpr.location,
+          "E050"
+        );
+      } else {
+        const dedupeKey = `${typeof literalKey}:${String(literalKey)}`;
+        if (seenKeys.has(dedupeKey)) {
+          this.error(
+            `Function 'match' has duplicate arm key ${JSON.stringify(literalKey)}`,
+            keyExpr.location,
+            "E051"
+          );
+        } else {
+          seenKeys.add(dedupeKey);
+        }
+      }
+
+      const keyType = this.inferType(keyExpr, env);
+      const comparable = areComparableTypesCompatible(selectorType, keyType, this.symbols);
+      if (comparable === false) {
+        this.error(
+          `Function 'match' selector and arm keys must be comparable primitive types, got ${describeTypeExpr(selectorType, this.symbols)} and ${describeTypeExpr(keyType, this.symbols)}`,
+          keyExpr.location,
+          "E_TYPE_MISMATCH"
+        );
+      }
+
+      valueTypes.push(this.inferType(valueExpr, env));
+    }
+
+    valueTypes.push(argTypes[argTypes.length - 1]);
+    for (let i = 0; i < valueTypes.length; i += 1) {
+      for (let j = i + 1; j < valueTypes.length; j += 1) {
+        const compatible = areTypesCompatible(valueTypes[i], valueTypes[j], this.symbols);
+        if (compatible === false) {
+          this.error(
+            `Function 'match' arm values and default must have compatible types, got ${describeTypeExpr(valueTypes[i], this.symbols)} and ${describeTypeExpr(valueTypes[j], this.symbols)}`,
+            location,
+            "E_TYPE_MISMATCH"
+          );
+          return;
+        }
+      }
+    }
+  }
+
+  private validateArgSelectionCall(
+    fnName: "argmax" | "argmin",
+    args: ExprNode[],
+    location: SourceLocation,
+    env: TypeEnv
+  ): void {
+    if (!this.symbols || args.length < 2) {
+      return;
+    }
+
+    const tieBreakExpr = args[args.length - 1];
+    const tieBreakValue = getLiteralPrimitiveValue(tieBreakExpr);
+    if (tieBreakValue !== "first" && tieBreakValue !== "last") {
+      this.error(
+        `Function '${fnName}' requires a final tie-break literal of "first" or "last"`,
+        tieBreakExpr.location,
+        "E052"
+      );
+    }
+
+    const labelTypes: Array<TypeExprNode | null> = [];
+    for (let index = 0; index < args.length - 1; index += 1) {
+      const candidate = args[index];
+      if (candidate.kind !== "arrayLiteral" || candidate.elements.length !== 3) {
+        this.error(
+          `Function '${fnName}' requires inline [label, eligible, score] array literal candidates`,
+          candidate.location,
+          "E052"
+        );
+        continue;
+      }
+
+      const [labelExpr, eligibleExpr, scoreExpr] = candidate.elements;
+      const labelType = this.inferType(labelExpr, env);
+      const labelKinds = collectPrimitiveKinds(labelType, this.symbols);
+      if (
+        labelKinds === "nonprimitive" ||
+        !(labelKinds instanceof Set) ||
+        labelKinds.has("null")
+      ) {
+        this.error(
+          `Function '${fnName}' requires primitive scalar labels, got ${describeTypeExpr(labelType, this.symbols)}`,
+          labelExpr.location,
+          "E_TYPE_MISMATCH"
+        );
+      }
+
+      this.requireAssignable(
+        this.inferType(eligibleExpr, env),
+        simpleTypeNode("boolean", eligibleExpr.location),
+        eligibleExpr.location,
+        `Function '${fnName}' expects a boolean eligible value`
+      );
+      this.requireAssignable(
+        this.inferType(scoreExpr, env),
+        simpleTypeNode("number", scoreExpr.location),
+        scoreExpr.location,
+        `Function '${fnName}' expects a numeric score value`
+      );
+
+      labelTypes.push(labelType);
+    }
+
+    for (let i = 0; i < labelTypes.length; i += 1) {
+      for (let j = i + 1; j < labelTypes.length; j += 1) {
+        const compatible = areTypesCompatible(labelTypes[i], labelTypes[j], this.symbols);
+        if (compatible === false) {
+          this.error(
+            `Function '${fnName}' candidate labels must have compatible scalar types, got ${describeTypeExpr(labelTypes[i], this.symbols)} and ${describeTypeExpr(labelTypes[j], this.symbols)}`,
             location,
             "E_TYPE_MISMATCH"
           );

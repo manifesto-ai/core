@@ -1,0 +1,67 @@
+// ============================================
+// Title: Finite Branch and Selection Sugar
+// Description: match, argmax, and argmin in parser-free function form
+// Prerequisites: computed/boolean.mel
+// ============================================
+
+domain ComputedSelectionSugar {
+  // --- State ---
+  state {
+    status: "open" | "closed" | "pending" = "open"
+    coarseOk: boolean = true
+    repairOk: boolean = true
+    fallbackOk: boolean = false
+    coarseDelta: number = 5
+    repairDelta: number = 5
+    fallbackDelta: number = 9
+    coarseCost: number = 4
+    repairCost: number = 6
+  }
+
+  // --- Finite branch sugar ---
+  // match(key, [literalKey, value], ..., defaultValue)
+  computed statusCode = match(status, ["open", 1], ["closed", 0], -1)
+  computed statusLabel = match(status, ["open", "Open"], ["closed", "Closed"], "Unknown")
+
+  // --- Fixed candidate max selection ---
+  // argmax([label, eligible, score], ..., "first" | "last")
+  computed bestFirst = argmax(
+    ["coarse", coarseOk, coarseDelta],
+    ["repair", repairOk, repairDelta],
+    ["fallback", fallbackOk, fallbackDelta],
+    "first"
+  )
+
+  computed bestLast = argmax(
+    ["coarse", coarseOk, coarseDelta],
+    ["repair", repairOk, repairDelta],
+    ["fallback", fallbackOk, fallbackDelta],
+    "last"
+  )
+
+  // --- Fixed candidate min selection ---
+  computed cheapest = argmin(
+    ["coarse", coarseOk, coarseCost],
+    ["repair", repairOk, repairCost],
+    "first"
+  )
+
+  // --- Null-total behavior when no candidate is eligible ---
+  computed noSelection = argmax(
+    ["coarse", false, coarseDelta],
+    ["repair", false, repairDelta],
+    "first"
+  )
+}
+
+// ============================================
+// Rules:
+//   - match arms must be inline [key, value] pairs
+//   - match keys must be literal string/number/boolean values
+//   - argmax/argmin candidates must be inline [label, eligible, score] tuples
+//   - tie-break must be the literal "first" or "last"
+//
+// Anti-patterns:
+//   ❌ match(status, "open" => 1, _ => -1)
+//   ❌ argmax(candidates, "first")
+// ============================================

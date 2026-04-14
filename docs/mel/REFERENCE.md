@@ -50,6 +50,8 @@ MEL source -> @manifesto-ai/compiler -> DomainSchema -> Core -> Host
 
 MEL is a **source format**. It does not execute. It produces data that Core computes on.
 
+The builtin meanings documented in this reference are the current MEL surface. If the compiler later admits extra source-level sugar, it must do so explicitly and lower through the existing MEL → Core boundary without silently changing the meaning of the builtins documented here.
+
 ### What MEL is NOT
 
 MEL is not a general-purpose programming language. Specifically:
@@ -344,11 +346,15 @@ All MEL operations are function calls. Operators (`+`, `-`, `==`, etc.) are synt
 | `mod(a, b)` | `(number, number) → number` | Modulo remainder. Equivalent to `a % b`. |
 | `neg(a)` | `number → number` | Negation. Equivalent to `-a`. |
 | `abs(n)` | `number → number` | Absolute value. |
+| `absDiff(a, b)` | `(number, number) → number` | Absolute difference. Sugar for `abs(sub(a, b))`. |
 | `floor(n)` | `number → number` | Round down to nearest integer. |
 | `ceil(n)` | `number → number` | Round up to nearest integer. |
 | `round(n)` | `number → number` | Round to nearest integer. |
 | `sqrt(n)` | `number → number \| null` | Square root. Returns `null` if `n` is negative. |
 | `pow(base, exp)` | `(number, number) → number` | Exponentiation. `pow(2, 10)` = 1024. |
+| `clamp(x, lo, hi)` | `(number, number, number) → number` | Clamp `x` into the inclusive range `[lo, hi]`. Sugar for `min(max(x, lo), hi)`. |
+| `idiv(a, b)` | `(number, number) → number \| null` | Integer division via `floor(div(a, b))`. Returns `null` when `b` is 0. |
+| `streak(prev, cond)` | `(number, boolean) → number` | Counter sugar: returns `add(prev, 1)` when `cond` is true, otherwise `0`. |
 | `min(a, b, ...)` | `(...number) → number` | Minimum of two or more values. See also: `min(arr)` in §5.8. |
 | `max(a, b, ...)` | `(...number) → number` | Maximum of two or more values. See also: `max(arr)` in §5.8. |
 
@@ -360,13 +366,23 @@ computed withTax = mul(subtotal, 1.1)
 computed average = div(sum(scores), len(scores))
 computed remainder = mod(count, 10)
 computed magnitude = abs(neg(value))
+computed error = absDiff(observed, predicted)
 computed rounded = round(div(total, 3))
 computed hypotenuse = sqrt(add(pow(a, 2), pow(b, 2)))
+computed bounded = clamp(score, 0, 100)
+computed buckets = idiv(total, bucketSize)
+computed missStreak = streak(previousMissStreak, and(eq(kind, "shoot"), eq(hit, false)))
 computed smaller = min(priceA, priceB)
 computed largest = max(x, y, z)
 ```
 
 > **`div` returns null on zero divisor.** If the divisor may be zero, guard with `when neq(divisor, 0)` before using the result, or use `coalesce(div(a, b), 0)`.
+
+> **`clamp`, `idiv`, `streak`, and `absDiff` are lowering-only sugar.** They do not change the meanings of existing builtins such as `abs`, `floor`, `ceil`, `min`, or `max`.
+
+> **`clamp` does not reorder bounds.** `clamp(x, 10, 0)` is malformed intent, not a shorthand for swapping the range. When both bounds are literal, write them in `lo, hi` order.
+
+> **`idiv` uses mathematical floor semantics.** `idiv(-3, 2)` behaves like `floor(div(-3, 2))`, not truncation toward zero.
 
 ---
 
@@ -403,6 +419,9 @@ computed inRange = and(gte(value, min), lte(value, max))
 | `or(a, b, ...)` | `(...boolean) → boolean` | Logical OR. All arguments must be boolean. Variadic. |
 | `not(a)` | `boolean → boolean` | Logical NOT. |
 | `cond(c, t, e)` | `(boolean, T, T) → T` | Conditional. Returns `t` if `c` is true, otherwise `e`. Alias: `if`. |
+| `match(key, [k, v], ..., default)` | Function-form only | Finite branch sugar. Each arm is an inline `[key, value]` pair and the last argument is the default value. |
+| `argmax([label, eligible, score], ..., tieBreak)` | Function-form only | Deterministic fixed-candidate max selection. `tieBreak` must be `"first"` or `"last"`. Returns `null` if no candidate is eligible. |
+| `argmin([label, eligible, score], ..., tieBreak)` | Function-form only | Deterministic fixed-candidate min selection. `tieBreak` must be `"first"` or `"last"`. Returns `null` if no candidate is eligible. |
 
 **Examples:**
 
@@ -411,6 +430,17 @@ computed canSubmit = and(isNotNull(email), neq(trim(email), ""))
 computed isInactive = or(eq(status, "idle"), eq(status, "error"))
 computed isActive = not(isInactive)
 computed label = cond(gt(count, 0), "Has items", "Empty")
+computed modeLabel = match(mode, ["open", "Open"], ["closed", "Closed"], "Unknown")
+computed bestKind = argmax(
+  ["coarse", coarseEligible, coarseScore],
+  ["repair", repairEligible, repairScore],
+  "first"
+)
+computed cheapestKind = argmin(
+  ["small", smallEligible, smallCost],
+  ["large", largeEligible, largeCost],
+  "last"
+)
 ```
 
 > **Ternary syntax is sugar for `cond`.** `x ? a : b` compiles to `cond(x, a, b)`.
@@ -418,6 +448,14 @@ computed label = cond(gt(count, 0), "Has items", "Empty")
 > **Truthy/falsy coercion does not exist.** `when items` (using an array as a boolean) is a compile error. Always write an explicit boolean expression: `when gt(len(items), 0)`.
 
 > **`and` and `or` are variadic.** `and(a, b, c)` is valid MEL. There is no `&&` operator between more than two expressions; use `and(a, and(b, c))` or the variadic form.
+
+> **`match` is function-form only.** Write `match(status, ["open", 1], ["closed", 0], -1)`, not `match(status, "open" => 1, _ => -1)`.
+
+> **`match` arms are literal and unique.** Each arm key must be a literal `string`, `number`, or `boolean`, the call must include at least one arm plus a default value, and duplicate keys are invalid.
+
+> **`argmax` and `argmin` require inline candidate tuples.** They do not accept a runtime array of candidates, and the final `tieBreak` argument must be the literal `"first"` or `"last"`.
+
+> **Tie-break follows source order.** For equal eligible scores, `"first"` selects the earliest candidate and `"last"` selects the latest candidate. If no candidate is eligible, the result is `null`.
 
 ---
 
@@ -642,6 +680,8 @@ computed itemCount = len(items)
 > ```
 
 > **Forbidden accumulation functions.** `reduce`, `fold`, `foldl`, `foldr`, and `scan` do not exist in MEL. Any construct implying hidden state progression is forbidden. Use `sum()`, `min()`, `max()` for primitive aggregation.
+
+> **`argmax` and `argmin` are not aggregation functions.** They operate only on statically enumerated candidate tuples such as `argmax(["a", okA, scoreA], ["b", okB, scoreB], "first")`.
 
 ---
 

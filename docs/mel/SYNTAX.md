@@ -208,10 +208,9 @@ computed earliest = min(timestamps)
 computed mostExpensive = max(prices)
 computed latest = max(timestamps)
 
-// Len: Array<T> → number
+// Len: string | Array<T> | object -> number
 computed itemCount = len(items)
-// taskIds should be populated via record.keys effect
-computed taskCount = isNotNull(taskIds) ? len(taskIds) : 0
+computed taskCount = len(tasks)
 ```
 
 ### Value Comparison (Multiple Args)
@@ -221,6 +220,40 @@ computed taskCount = isNotNull(taskIds) ? len(taskIds) : 0
 computed smaller = min(a, b)
 computed largest = max(x, y, z)
 ```
+
+### Bounded Sugar and Finite Selection
+
+These forms are ordinary function calls in MEL source. They remain explicit through validation and lower only at the MEL → Core boundary.
+
+```mel
+// Arithmetic sugar
+computed error = absDiff(observed, predicted)
+computed boundedScore = clamp(score, 0, 100)
+computed bucket = idiv(total, bucketSize)
+computed missStreak = streak(previousMissStreak, eq(kind, "miss"))
+
+// Finite branch sugar
+computed label = match(status, ["open", "Open"], ["closed", "Closed"], "Unknown")
+
+// Fixed candidate selection sugar
+computed bestKind = argmax(
+  ["coarse", coarseOk, coarseDelta],
+  ["repair", repairOk, repairDelta],
+  "first"
+)
+
+computed cheapestKind = argmin(
+  ["coarse", coarseOk, coarseCost],
+  ["repair", repairOk, repairCost],
+  "last"
+)
+```
+
+Rules:
+- `match()` is function-form only. Each arm must be an inline `[key, value]` pair and the last argument is the default value.
+- `argmax()` / `argmin()` only accept inline `[label, eligible, score]` candidates.
+- `argmax()` / `argmin()` require a literal `"first"` or `"last"` tie-break as the final argument.
+- Runtime-array forms such as `argmax(candidates, "first")` are not supported.
 
 ### Forbidden Computed Examples
 
@@ -237,6 +270,12 @@ computed names = map(items, $item.name)
 computed total = sum(filter(prices))     // Error: No nested calls
 computed avg = div(sum(prices), len(prices))  // ✅ This IS allowed
 
+// ❌ COMPILE ERROR: Arrow-arm match syntax is not supported
+computed label = match(status, "open" => "Open", _ => "Unknown")
+
+// ❌ COMPILE ERROR: Runtime-array selection is not supported
+computed best = argmax(candidates, "first")
+
 // ❌ COMPILE ERROR: reduce/fold/scan (not in MEL)
 computed total = reduce(prices, add, 0)  // Error: reduce doesn't exist
 
@@ -246,8 +285,7 @@ computed sameRecord = eq(tasks, {})      // Error: Cannot compare Record
 
 // ✅ CORRECT: Check emptiness
 computed isEmpty = eq(len(items), 0)
-// For records, use record.keys effect + derived array
-computed hasNoTasks = isNotNull(taskIds) ? eq(len(taskIds), 0) : true
+computed hasNoTasks = eq(len(tasks), 0)
 
 // ❌ COMPILE ERROR: Method calls
 computed trimmed = email.trim()          // Error: No method calls

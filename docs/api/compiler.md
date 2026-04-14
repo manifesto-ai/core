@@ -20,6 +20,7 @@ Current compiler responsibilities also include:
 - intent-level dispatchability via `dispatchable when`
 - rich schema-position lowering through `state.fieldTypes`, `action.inputType`, and `action.params`
 - pure collection builtins such as `filter`, `map`, `find`, `every`, and `some` in expression contexts
+- bounded lowering-only MEL sugar such as `absDiff`, `clamp`, `idiv`, `streak`, `match`, `argmax`, and `argmin`
 
 ---
 

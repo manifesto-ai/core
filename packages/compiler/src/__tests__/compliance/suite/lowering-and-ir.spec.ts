@@ -9,6 +9,7 @@ import { createEvaluationContext, evaluateExpr } from "../../../index.js";
 import type { MelExprNode } from "../../../lowering/lower-expr.js";
 import { createCompilerComplianceAdapter } from "../ccts-adapter.js";
 import {
+  diagnosticEvidence,
   evaluateRule,
   expectAllCompliance,
   hasDiagnosticCode,
@@ -940,6 +941,264 @@ describe("CCTS Lowering and IR Suite", () => {
           noteEvidence("Entity return diagnostics", entityReturn.errors.map((diagnostic) => diagnostic.code)),
           noteEvidence("Primitive comparison diagnostics", primitiveComparisons.errors.map((diagnostic) => diagnostic.code)),
         ],
+      }),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_BOUNDED_SUGAR_ARITH, "(MEL-SUGAR-1/2) bounded arithmetic sugar stays explicit until lowering"), () => {
+    const source = `
+      domain Demo {
+        state {
+          observed: number = 8
+          predicted: number = 5
+          score: number = 14
+          totalAbs: number = 3
+          divisor: number = 2
+          prev: number = 2
+          locked: boolean = true
+        }
+        computed error = absDiff(observed, predicted)
+        computed bounded = clamp(score, 0, 10)
+        computed buckets = idiv(neg(totalAbs), divisor)
+        computed lockStreak = streak(prev, locked)
+      }
+    `;
+    const canonical = adapter.canonical(source);
+    const compiled = adapter.compile(source);
+
+    const canonicalFns = canonical.success
+      ? Object.values(canonical.value!.computed.fields).map((field) =>
+          field.expr.kind === "call" ? field.expr.fn : field.expr.kind
+        )
+      : [];
+    const runtimeKinds = compiled.success
+      ? Object.values(compiled.value!.computed.fields).map((field) => field.expr.kind)
+      : [];
+    const ctx = createEvaluationContext({
+      meta: { intentId: "i1" },
+      snapshot: {
+        data: {
+          observed: 8,
+          predicted: 5,
+          score: 14,
+          totalAbs: 3,
+          divisor: 2,
+          prev: 2,
+          locked: true,
+        },
+        computed: {},
+      },
+    });
+    const values = compiled.success
+      ? {
+          error: evaluateExpr(compiled.value!.computed.fields["error"].expr, ctx),
+          bounded: evaluateExpr(compiled.value!.computed.fields["bounded"].expr, ctx),
+          buckets: evaluateExpr(compiled.value!.computed.fields["buckets"].expr, ctx),
+          lockStreak: evaluateExpr(compiled.value!.computed.fields["lockStreak"].expr, ctx),
+        }
+      : null;
+
+    expectAllCompliance([
+      evaluateRule(
+        getRuleOrThrow("MEL-SUGAR-1"),
+        canonical.success &&
+          [...canonicalFns].sort().join(",") === "absDiff,clamp,idiv,streak",
+        {
+          passMessage: "Bounded arithmetic sugar remains explicit as canonical MEL call nodes.",
+          failMessage: "Bounded arithmetic sugar did not remain explicit through canonical MEL IR.",
+          evidence: [noteEvidence(`Observed canonical success=${canonical.success} diagnostics=${JSON.stringify(canonical.errors.map((diagnostic) => diagnostic.code))} functionNames=${JSON.stringify(canonicalFns)}`)],
+        }
+      ),
+      evaluateRule(
+        getRuleOrThrow("MEL-SUGAR-2"),
+        compiled.success &&
+          runtimeKinds.every((kind) => ["abs", "min", "floor", "if"].includes(kind)) &&
+          values?.error === 3 &&
+          values?.bounded === 10 &&
+          values?.buckets === -2 &&
+          values?.lockStreak === 3,
+        {
+          passMessage: "Bounded arithmetic sugar lowers only to existing runtime kinds and preserves semantics.",
+          failMessage: "Bounded arithmetic sugar lowering or semantics regressed.",
+          evidence: [
+            noteEvidence(`Observed runtime root kinds: ${JSON.stringify(runtimeKinds)}`),
+            noteEvidence(`Observed evaluated values: ${JSON.stringify(values)}`),
+          ],
+        }
+      ),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_MATCH_SUGAR, "(MEL-SUGAR-3) match() stays finite literal-key branch sugar"), () => {
+    const source = `
+      domain Demo {
+        state { status: string = "open" }
+        computed code = match(status, ["open", 1], ["closed", 0], -1)
+      }
+    `;
+    const canonical = adapter.canonical(source);
+    const compiled = adapter.compile(source);
+    const expr = compiled.value?.computed.fields["code"]?.expr as
+      | { kind?: string; cond?: { kind?: string; left?: { kind?: string; path?: string }; right?: { kind?: string; value?: unknown } } }
+      | undefined;
+    const openCode = compiled.success
+      ? evaluateExpr(
+          compiled.value!.computed.fields["code"].expr,
+          createEvaluationContext({
+            meta: { intentId: "i1" },
+            snapshot: { data: { status: "open" }, computed: {} },
+          })
+        )
+      : null;
+    const unknownCode = compiled.success
+      ? evaluateExpr(
+          compiled.value!.computed.fields["code"].expr,
+          createEvaluationContext({
+            meta: { intentId: "i1" },
+            snapshot: { data: { status: "pending" }, computed: {} },
+          })
+        )
+      : null;
+
+    expectAllCompliance([
+      evaluateRule(
+        getRuleOrThrow("MEL-SUGAR-3"),
+        canonical.success &&
+          canonical.value!.computed.fields["code"]?.expr.kind === "call" &&
+          (canonical.value!.computed.fields["code"]?.expr as { fn?: string }).fn === "match" &&
+          compiled.success &&
+          expr?.kind === "if" &&
+          expr.cond?.kind === "eq" &&
+          expr.cond.left?.kind === "get" &&
+          expr.cond.left.path === "status" &&
+          openCode === 1 &&
+          unknownCode === -1,
+        {
+          passMessage: "match() remains explicit in canonical IR and lowers to finite source-order conditional structure.",
+          failMessage: "match() no longer behaves as finite literal-key branch sugar.",
+          evidence: [
+            noteEvidence("Observed canonical expr", canonical.value?.computed.fields["code"]?.expr),
+            noteEvidence("Observed lowered expr", expr),
+            noteEvidence("Observed evaluated codes", { openCode, unknownCode }),
+          ],
+        }
+      ),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_ARG_SELECTION_SUGAR, "(MEL-SUGAR-4) argmax()/argmin() stay fixed-candidate deterministic selection sugar"), () => {
+    const source = `
+      domain Demo {
+        state {
+          aOk: boolean = true
+          bOk: boolean = true
+          cOk: boolean = false
+          aScore: number = 5
+          bScore: number = 5
+          cScore: number = 9
+        }
+        computed bestFirst = argmax(["a", aOk, aScore], ["b", bOk, bScore], ["c", cOk, cScore], "first")
+        computed bestLast = argmax(["a", aOk, aScore], ["b", bOk, bScore], ["c", cOk, cScore], "last")
+        computed worstFirst = argmin(["a", aOk, aScore], ["b", bOk, bScore], "first")
+        computed none = argmax(["a", false, aScore], ["b", false, bScore], "first")
+      }
+    `;
+    const canonical = adapter.canonical(source);
+    const compiled = adapter.compile(source);
+    const runtimeKinds = compiled.success
+      ? Object.values(compiled.value!.computed.fields).map((field) => field.expr.kind)
+      : [];
+    const ctx = createEvaluationContext({
+      meta: { intentId: "i1" },
+      snapshot: {
+        data: {
+          aOk: true,
+          bOk: true,
+          cOk: false,
+          aScore: 5,
+          bScore: 5,
+          cScore: 9,
+        },
+        computed: {},
+      },
+    });
+    const values = compiled.success
+      ? {
+          bestFirst: evaluateExpr(compiled.value!.computed.fields["bestFirst"].expr, ctx),
+          bestLast: evaluateExpr(compiled.value!.computed.fields["bestLast"].expr, ctx),
+          worstFirst: evaluateExpr(compiled.value!.computed.fields["worstFirst"].expr, ctx),
+          none: evaluateExpr(compiled.value!.computed.fields["none"].expr, ctx),
+        }
+      : null;
+
+    expectAllCompliance([
+      evaluateRule(
+        getRuleOrThrow("MEL-SUGAR-4"),
+        canonical.success &&
+          runtimeKinds.every((kind) => kind === "if") &&
+          values?.bestFirst === "a" &&
+          values?.bestLast === "b" &&
+          values?.worstFirst === "a" &&
+          values?.none === null,
+        {
+          passMessage: "argmax()/argmin() stay source-enumerated, deterministic, and null-total when nothing is eligible.",
+          failMessage: "argmax()/argmin() lowering or deterministic tie-break semantics regressed.",
+          evidence: [
+            noteEvidence("Observed canonical function names", canonical.success ? Object.values(canonical.value!.computed.fields).map((field) => (field.expr.kind === "call" ? field.expr.fn : field.expr.kind)) : []),
+            noteEvidence("Observed runtime kinds", runtimeKinds),
+            noteEvidence("Observed selection values", values),
+          ],
+        }
+      ),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_SUGAR_DIAGNOSTICS, "(E049/E050/E051/E052) bounded sugar diagnostics remain visible"), () => {
+    const clampResult = adapter.compile(`
+      domain Demo {
+        state { score: number = 0 }
+        computed bounded = clamp(score, 10, 0)
+      }
+    `);
+    const matchShape = adapter.compile(`
+      domain Demo {
+        state { status: string = "open" }
+        computed code = match(status, "open", 1, 0)
+      }
+    `);
+    const matchDuplicate = adapter.compile(`
+      domain Demo {
+        state { status: string = "open" }
+        computed code = match(status, ["open", 1], ["open", 2], 0)
+      }
+    `);
+    const argShape = adapter.compile(`
+      domain Demo {
+        state { score: number = 1 }
+        computed best = argmax(["a", true, score], "later")
+      }
+    `);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("E049"), hasDiagnosticCode(clampResult.errors, "E049"), {
+        passMessage: "Literal clamp bound inversion emits E049.",
+        failMessage: "Literal clamp bound inversion no longer emits E049.",
+        evidence: diagnosticEvidence(clampResult.errors),
+      }),
+      evaluateRule(getRuleOrThrow("E050"), hasDiagnosticCode(matchShape.errors, "E050"), {
+        passMessage: "Malformed match() forms emit E050.",
+        failMessage: "Malformed match() forms no longer emit E050.",
+        evidence: diagnosticEvidence(matchShape.errors),
+      }),
+      evaluateRule(getRuleOrThrow("E051"), hasDiagnosticCode(matchDuplicate.errors, "E051"), {
+        passMessage: "Duplicate match() keys emit E051.",
+        failMessage: "Duplicate match() keys no longer emit E051.",
+        evidence: diagnosticEvidence(matchDuplicate.errors),
+      }),
+      evaluateRule(getRuleOrThrow("E052"), hasDiagnosticCode(argShape.errors, "E052"), {
+        passMessage: "Malformed argmax()/argmin() forms emit E052.",
+        failMessage: "Malformed argmax()/argmin() forms no longer emit E052.",
+        evidence: diagnosticEvidence(argShape.errors),
       }),
     ]);
   });

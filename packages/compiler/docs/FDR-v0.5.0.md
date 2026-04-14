@@ -1995,6 +1995,34 @@ Prior to v0.4.0, the lowering boundary was implicit. It was unclear who transfor
 A34. Compiler is the single boundary between MEL IR and Core IR. [v0.4.0]
 ```
 
+### Extension Rule for Additional MEL Surface Forms
+
+Future additive MEL surface forms are acceptable only when they preserve this boundary rather than bypassing it.
+
+That means:
+
+- the source form stays explicit at the MEL surface
+- validation and type checking still operate on a MEL-level representation
+- lowering to Core/runtime forms happens only at the compiler-owned MEL → Core boundary
+- the lowered form uses existing Core/runtime kinds only
+- existing builtin meanings remain stable and are not silently reinterpreted
+
+This is the reason bounded sugar can be admissible while general computation features are not.
+
+Examples of acceptable expansion shape:
+
+- explicit surface alias over existing MEL calls
+- finite branch sugar that lowers to existing conditional structure
+- fixed-candidate selection sugar that lowers to existing comparisons
+
+This is why bounded function-form sugar such as `absDiff`, `clamp`, `idiv`, and `streak` is admissible, and why parser-free finite forms such as `match(key, [k, v], ..., default)` and `argmax([label, eligible, score], ..., "first" | "last")` can also fit the contract. They remain explicit MEL calls through validation and type checking, they are finite and source-enumerated, and they lower only into existing conditionals, comparisons, and arithmetic forms at the established compiler boundary.
+
+Examples of unacceptable expansion shape:
+
+- user-defined accumulation
+- runtime-array-driven best-candidate selection that behaves like a reducer
+- dynamic dispatch or any construct that changes the evaluation model rather than improving surface ergonomics
+
 ---
 
 ## FDR-MEL-065: Host Must Use Compiler

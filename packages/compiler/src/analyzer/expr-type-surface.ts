@@ -46,15 +46,19 @@ const PRIMITIVE_NUMBER_CALLS = new Set([
   "mul",
   "div",
   "mod",
+  "absDiff",
   "abs",
+  "clamp",
   "floor",
   "ceil",
+  "idiv",
   "round",
   "sqrt",
   "pow",
   "len",
   "strlen",
   "indexOf",
+  "streak",
   "sum",
   "min",
   "max",
@@ -627,6 +631,14 @@ function inferFunctionCallType(
     );
   }
 
+  if (expr.name === "match") {
+    return inferMatchType(expr, env, symbols);
+  }
+
+  if (expr.name === "argmax" || expr.name === "argmin") {
+    return inferArgSelectionType(expr, env, symbols);
+  }
+
   if (expr.name === "slice" && expr.args.length >= 1) {
     return inferExprType(expr.args[0], env, symbols);
   }
@@ -697,6 +709,53 @@ function joinTypeCandidates(
     types: deduped,
     location,
   };
+}
+
+function inferMatchType(
+  expr: Extract<ExprNode, { kind: "functionCall" }>,
+  env: TypeEnv,
+  symbols: DomainTypeSymbols
+): TypeExprNode | null {
+  if (expr.args.length < 3) {
+    return null;
+  }
+
+  const valueTypes: Array<TypeExprNode | null> = [];
+  for (let index = 1; index < expr.args.length - 1; index += 1) {
+    const arm = expr.args[index];
+    if (arm.kind !== "arrayLiteral" || arm.elements.length !== 2) {
+      return null;
+    }
+    valueTypes.push(inferExprType(arm.elements[1], env, symbols));
+  }
+  valueTypes.push(inferExprType(expr.args[expr.args.length - 1], env, symbols));
+  return joinTypeCandidates(valueTypes, expr.location);
+}
+
+function inferArgSelectionType(
+  expr: Extract<ExprNode, { kind: "functionCall" }>,
+  env: TypeEnv,
+  symbols: DomainTypeSymbols
+): TypeExprNode | null {
+  if (expr.args.length < 2) {
+    return null;
+  }
+
+  const labelTypes: Array<TypeExprNode | null> = [];
+  for (let index = 0; index < expr.args.length - 1; index += 1) {
+    const candidate = expr.args[index];
+    if (candidate.kind !== "arrayLiteral" || candidate.elements.length !== 3) {
+      return null;
+    }
+    labelTypes.push(inferExprType(candidate.elements[0], env, symbols));
+  }
+
+  const labelType = joinTypeCandidates(labelTypes, expr.location);
+  if (!labelType) {
+    return null;
+  }
+
+  return joinTypeCandidates([labelType, simpleType("null", expr.location)], expr.location);
 }
 
 function literalTypeFromValue(
