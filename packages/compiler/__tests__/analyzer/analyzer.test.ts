@@ -470,6 +470,21 @@ describe("Semantic Analyzer", () => {
       }
     });
 
+    it("accepts unary negative numeric match keys", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { score: number = 0 }
+          computed label = match(score, [-1, "neg"], [0, "zero"], "other")
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E050")).toBe(false);
+        expect(diagnostics.some((d) => d.code === "E_TYPE_MISMATCH")).toBe(false);
+      }
+    });
+
     it("reports E051 for duplicate match keys", () => {
       const { program } = parseSource(`
         domain Test {

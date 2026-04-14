@@ -393,6 +393,10 @@ function extendCollectionTypeEnv(baseEnv: TypeEnv, itemType: TypeExprNode): Type
 }
 
 function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | null | undefined {
+  const numericLiteral = getStaticNumericLiteralValue(expr);
+  if (typeof numericLiteral === "number") {
+    return numericLiteral;
+  }
   if (expr.kind !== "literal") {
     return undefined;
   }
