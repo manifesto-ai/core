@@ -44,7 +44,7 @@ domain Counter {
 
 State declares the domain's mutable fields with types and default values.
 
-### Named Types (v0.3.3)
+### Named Types
 
 Complex object types in state must be declared via `type`.
 
@@ -122,7 +122,7 @@ state {
   my$count: number = 0   // Error: $ prohibited anywhere
 }
 
-// ❌ COMPILE ERROR: System value in initializer (v0.3.0+)
+// ❌ COMPILE ERROR: System value in initializer
 state {
   id: string = $system.uuid          // Error: Must be deterministic
   createdAt: number = $system.timestamp // Error: Must be deterministic
@@ -191,7 +191,7 @@ effect array.map({
 })
 ```
 
-### Aggregation Functions (v0.3.2)
+### Aggregation Functions
 
 MEL supports primitive aggregation over arrays:
 
@@ -422,7 +422,7 @@ patch settings merge $input.partialSettings
 
 > **`patch merge` vs `merge()` expression:** `patch path merge expr` is a flow-level state operation that shallow-merges into state at `path`. `merge(a, b)` is a pure expression function that returns a new merged object without modifying state. See [Object Functions](#object-functions) below.
 
-### System Values (v0.3.0+)
+### System Values
 
 System values are IO and only allowed inside action bodies.
 

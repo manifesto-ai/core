@@ -47,15 +47,15 @@ Records of significant architectural decisions:
 | [ADR-010](./adr/010-major-hard-cut) | Protocol-First SDK Reconstruction | Implemented |
 | [ADR-011](./adr/011-host-boundary-reset-and-executionkey-serialization) | Host Boundary Reset Completeness Policy | Implemented |
 | [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented |
-| [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Proposed |
-| [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Proposed |
+| [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Implemented |
+| [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Implemented |
 | [ADR-014](./adr/014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented |
 | [ADR-015](./adr/015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Implemented |
 | [ADR-016](./adr/016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Implemented |
 | [ADR-017](./adr/017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented |
 | [ADR-018](./adr/018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented |
 | [ADR-019](./adr/019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented |
-| [ADR-020](./adr/020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Proposed |
+| [ADR-020](./adr/020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Implemented |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

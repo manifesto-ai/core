@@ -4,8 +4,8 @@
 > **Type:** Full
 > **Status:** Normative
 > **Date:** 2026-04-14
-> **Supersedes:** [SPEC-v0.7.0.md](SPEC-v0.7.0.md), [SPEC-v0.8.0.md](SPEC-v0.8.0.md), [SPEC-v0.9.0.md](SPEC-v0.9.0.md) as the current compiler contract
-> **Compatible with:** Core SPEC v4.2.0, SDK living spec v3.5.0
+> **Replaces:** Earlier compiler baselines and addenda as the current compiler contract
+> **Compatible with:** Core SPEC v4.2.0, current SDK activation-first contract
 
 ---
 
@@ -13,11 +13,11 @@
 
 This document is the **current full MEL compiler contract**.
 
-It rolls up the last active baseline plus addenda into one current surface:
+It consolidates the landed compiler surface into one current contract, including:
 
-- v0.7.0 full baseline
-- v0.8.0 `SchemaGraph` addendum
-- v0.9.0 `dispatchable when` addendum
+- the active full MEL/compiler baseline
+- `SchemaGraph` extraction
+- `dispatchable when`
 - current landed compiler/runtime alignment for `Record<string, T>` and `T | null` in schema positions
 - current landed support for pure collection builtins in expression contexts
 - current clarification that additive MEL surface forms must preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary

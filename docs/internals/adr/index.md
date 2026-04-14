@@ -50,7 +50,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-017](./017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented | 2026-04-01 | SDK, Lineage, Governance |
 | [ADR-018](./018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented | 2026-04-03 | SDK, Core (docs), Docs, Lineage, Governance |
 | [ADR-019](./019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented | 2026-04-07 | SDK |
-| [ADR-020](./020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Proposed | 2026-04-07 | Compiler, Core, SDK, Studio/Introspection, Docs |
+| [ADR-020](./020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Implemented | 2026-04-07 | Compiler, Core, SDK, Studio/Introspection, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -78,7 +78,8 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-010 defines the protocol-first reconstruction of the SDK as a thin composition layer with `createManifesto()` as its sole owned concept.
 - This ADR explicitly removes App-layer semantic coupling in product-facing APIs. ActionHandle, Session, Hook, Plugin, and 20+ binding-layer concepts are retired.
 - ADR-010 lifts the old SDK SPEC v0.1.0 kickoff lock for `submitProposal`, `createApp`, and legacy `App` aliases.
-- Public migration contract for v1 is `createManifesto()` returning `ManifestoInstance` with `dispatch()` as the single action entrypoint.
+- The original hard-cut migration contract was `createManifesto()` returning a runtime directly with `dispatch()` as the single action entrypoint.
+- The current SDK contract is the activation-first `createManifesto() -> activate()` model documented in [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md).
 - ADR-010 supersedes SDK SPEC v0.1.0 and v0.2.0 via SDK SPEC v1.0.0.
 - ADR-010 retires Runtime SPEC v0.1.0 and v0.2.0 (no successor — responsibilities absorbed into `createManifesto`).
 - ADR-010 is now implemented in the current SDK/package layout; the remaining split-related work belongs to ADR-014 rather than this hard-cut.
@@ -88,21 +89,21 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-011 defines Host boundary baseline-completeness policy for reset/Bootstrap entry.
 - It is the host-runtime contract companion to #198, scoped to full-canonical snapshot continuity at boundary entry.
 - executionKey serialization and timeout-slot release remain Host SPEC v2.0.3 enforcement work, not architecture decisions in this ADR.
-- 011 is implemented via Host SPEC v3.0.0 and boundary-entry hardening; §2.2/§2.3 remains enforced as Host SPEC behavior, not extra ADR text.
+- ADR-011 is implemented via the current Host contract and boundary-entry hardening; §2.2/§2.3 remains enforced as Host SPEC behavior, not extra ADR text.
 
 ### ADR-013 Split Notes
 
 - There is no standalone `ADR-013` file in the repository.
 - The original mixed ADR-013 draft was withdrawn and split into `ADR-013a` (`flow`/`include`) and `ADR-013b` (entity collection primitives).
-- Both split tracks are now implemented in the compiler current contract and reflected in Compiler SPEC v0.7.0 plus the compiler compliance suites.
+- Both split tracks are now implemented in the compiler current contract, reflected in [SPEC-v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md), and covered by the compiler compliance suites.
 
 ### ADR-014 Companion Notes
 
 - ADR-014 is the implemented protocol split of `@manifesto-ai/world` into `@manifesto-ai/governance` and `@manifesto-ai/lineage`.
-- [Lineage SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) is now the canonical continuity-engine document.
-- [Governance SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md) is now the canonical legitimacy-engine document.
-- [World Facade SPEC v2.0.0](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md) is now the canonical governed-facade document.
-- [World SPEC](../spec/#world) remains the legacy monolith reference during staged transition.
+- The current continuity contract now lives in [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
+- The current legitimacy contract now lives in [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
+- Historical split-era landing docs remain available in `lineage-SPEC-2.0.0v.md`, `governance-SPEC-2.0.0v.md`, and `world-facade-spec-v2.0.0.md`.
+- There is no separate current `@manifesto-ai/world` package surface; world-facade materials are historical split context only.
 
 ### ADR-015 Companion Notes
 
@@ -116,11 +117,17 @@ These ADRs affect multiple packages across the monorepo:
 
 - ADR-016 is implemented as the lineage identity rewrite companion to ADR-015: WorldId becomes parent-linked positional identity instead of content-only identity.
 - The landed contract introduces `tip` / `headAdvancedAt`, idempotent reuse for same-parent same-snapshot seals, and `SealAttempt` as the per-attempt chronology substrate.
-- The original service-first landing for this ADR is preserved in [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md).
-- The original legitimacy-side landing for this ADR is preserved in [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md).
-- The historical pre-landing Host execution-side draft remains available in [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md), but the current package contract is [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) at v4.0.0.
-- The historical facade contract remains available in [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md).
-- The original version impact for ADR-016 landed as Lineage v2.0.0, Governance v2.0.0, Host v4.0.0, and World facade v2.0.0. The current decorator supersession is tracked separately by [ADR-017](./017-capability-decorator-pattern) and the v3.0.0 package version indexes.
+- The original service-first landing is preserved in [lineage-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC-2.0.0v.md) and [governance-SPEC-2.0.0v.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC-2.0.0v.md).
+- The current continuity and legitimacy contracts now live in [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) and [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
+- The historical pre-landing Host execution-side draft remains available in [host-SPEC-v4.0.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC-v4.0.0-draft.md), while the current Host contract lives in [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md).
+- The historical world-facade contract remains available in [world-facade-spec-v2.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/world/docs/world-facade-spec-v2.0.0.md), but it is no longer a current package authority.
+- The current decorator-era routing is tracked by [ADR-017](./017-capability-decorator-pattern), the current package specs, and the current version indexes.
+
+### ADR-020 Companion Notes
+
+- ADR-020 is implemented in the current compiler, core, and SDK contracts.
+- The current behavior now lives in [SPEC-v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md), [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), and the maintained MEL docs.
+- This ADR remains the architectural rationale for `dispatchable when`; the owning package specs define the current runtime and compiler behavior.
 
 ### ADR-017 Version Notes
 

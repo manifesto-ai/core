@@ -1,7 +1,7 @@
 # Current Contract
 
 > **Status:** Living Document
-> **Last Updated:** 2026-04-13
+> **Last Updated:** 2026-04-14
 > **Purpose:** Single-source current contract for external consumers, canonical-doc exports, and current-surface onboarding
 
 This document is the current-only contract summary for the active Manifesto workspace.
@@ -124,6 +124,16 @@ Current expression support includes:
 - `every(arr, pred)`
 - `some(arr, pred)`
 
+Current bounded sugar support includes:
+
+- `absDiff(a, b)`
+- `clamp(x, lo, hi)`
+- `idiv(a, b)` with `number | null` result semantics
+- `streak(prev, condition)`
+- `match(key, [k, v], ..., default)` in parser-free function form
+- `argmax([label, eligible, score], ..., "first" | "last")`
+- `argmin([label, eligible, score], ..., "first" | "last")`
+
 Current schema-position support includes:
 
 - `Record<string, T>`
@@ -165,7 +175,7 @@ Do not use archived or superseded material to infer the current surface in these
 
 - pre-activation SDK or runtime-helper stories
 - `@manifesto-ai/world` as a current package
-- compiler `v0.7.0 + addendum` as the current MEL contract
+- an older compiler baseline plus addenda as the current MEL contract
 - nullable rejection or record rejection in current schema positions
 - "collection functions are not builtins" guidance
 

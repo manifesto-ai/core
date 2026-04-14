@@ -130,7 +130,7 @@ computed displayName = coalesce(user.name, "Anonymous")
 // Ternary
 computed label = gt(count, 0) ? "Positive" : "Zero or negative"
 
-// Aggregation (v0.3.2)
+// Aggregation
 computed sum = sum(prices)           // Array<number> → number
 computed min = min(values)           // Array<T> → T | null
 computed max = max(values)           // Array<T> → T | null
@@ -497,7 +497,7 @@ effect array.map({
 })
 ```
 
-### System Values (v0.3.0+)
+### System Values
 
 System values are IO and only allowed inside action bodies.
 

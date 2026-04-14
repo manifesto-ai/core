@@ -1,11 +1,13 @@
 # ADR-020: Intent-Level Dispatchability — `dispatchable when` Clause
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Date:** 2026-04-07
 > **Deciders:** 정성우 (Architect), Manifesto Architecture Team
 > **Scope:** Compiler, Core, SDK, Studio/Introspection, Docs
 > **Related ADRs:** ADR-017 (Capability Decorator Pattern), ADR-018 (Public Snapshot Boundary)
-> **Related SPECs:** Core SPEC v4, SDK SPEC v3.1.0, Compiler SPEC v0.8.0
+> **Related SPECs:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md)
+
+> **Current Contract Authority:** This ADR is implemented. The current behavior now lives in the owning package specs and current MEL docs. This document remains the architectural decision record and original design rationale.
 
 ---
 
@@ -26,7 +28,7 @@ isActionAvailable(schema, snapshot, actionName): boolean     // AVAIL-Q-1..7
 getAvailableActions(schema, snapshot): readonly string[]      // AVAIL-Q-5
 ```
 
-SDK v3.1.0 delegates to Core for these reads (§7.3) and checks availability at `dispatchAsync()` dequeue time. `simulate()` throws `ACTION_UNAVAILABLE` for unavailable actions (SIM-7).
+The current SDK contract delegates to Core for these reads and checks availability at `dispatchAsync()` dequeue time. `simulate()` throws `ACTION_UNAVAILABLE` for unavailable actions (SIM-7).
 
 This contract is sound. Nothing in this ADR changes it.
 
@@ -214,10 +216,10 @@ This fulfills Manifesto's promise that semantic legality is **readable, not opaq
 
 **Execution semantics update:**
 
-`dispatchAsync()` dequeue-time check is extended:
+`dispatchAsync()` dequeue-time check is now:
 
-| Step | Current (v3.1.0) | Proposed |
-|------|-----------------|----------|
+| Step | Before adoption | Current contract |
+|------|-----------------|------------------|
 | 1 | Check `isActionAvailable()` | Check `isActionAvailable()` |
 | 2 | — | Check `isIntentDispatchable()` |
 | 3 | Execute via Host | Execute via Host |
@@ -230,7 +232,7 @@ If dispatchability fails at dequeue time:
 
 **`simulate()` update:**
 
-`simulate()` currently throws `ACTION_UNAVAILABLE` when the action is unavailable (SIM-7). The proposed extension:
+`simulate()` throws `ACTION_UNAVAILABLE` when the action is unavailable (SIM-7). The current extension is:
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -332,7 +334,7 @@ action shoot(cellIndex: number) available when canShoot {
 }
 ```
 
-### After (proposed pattern)
+### After (current pattern)
 
 ```mel
 action shoot(cellIndex: number)
@@ -357,7 +359,7 @@ This is a syntactically additive change. No existing MEL source requires modific
 
 ---
 
-## 8. Open Questions
+## 8. Historical Open Questions
 
 ### OQ-1: `getActionMetadata()` dispatchable expression exposure
 
@@ -379,35 +381,35 @@ Should `dispatchable when` support `and()` / `or()` composition for multi-condit
 
 ---
 
-## 9. SPEC Diff Summary
+## 9. Landed SPEC Surface
 
-This section summarizes the normative changes required across package SPECs if this ADR is accepted.
+This section summarizes the landed normative changes across the owning package specs.
 
 ### Compiler SPEC
 
-- Add `DispatchableExpr` context definition (§13.1 companion).
-- Add constraint for `dispatchable when` scope rules (next free constraint ID).
-- Extend `ActionDecl` grammar: `AvailableClause? DispatchableClause?`.
-- Add `ActionSpec.dispatchable?: ExprNode` to compiled output.
+- Defines the `dispatchable when` expression context.
+- Defines scope rules for `dispatchable when`.
+- Extends action declarations with `AvailableClause? DispatchableClause?`.
+- Emits `ActionSpec.dispatchable?: ExprNode`.
 
 ### Core SPEC
 
-- Add `isIntentDispatchable()` function (§16.6 companion).
-- Add rules DISP-Q-1 through DISP-Q-6.
-- Clarify that `compute()` initial invocation checks availability only (not dispatchability) — dispatchability is a pre-`compute()` gate owned by the caller (SDK/Host).
+- Exposes `isIntentDispatchable()`.
+- Defines the dispatchability query rules.
+- Clarifies that `compute()` initial invocation checks availability only; dispatchability remains a pre-`compute()` gate owned by the caller.
 
 ### SDK SPEC
 
-- Add `isIntentDispatchable()` and `getIntentBlockers()` to activated base surface (§7 extension).
-- Extend `dispatchAsync()` dequeue semantics to include dispatchability check.
-- Add `INTENT_NOT_DISPATCHABLE` error code.
-- Extend `simulate()` with SIM-9.
-- Extend `getActionMetadata()` with `hasDispatchableGate` flag.
+- Exposes `isIntentDispatchable()` and `getIntentBlockers()` on the activated base surface.
+- Extends `dispatchAsync()` dequeue semantics to include dispatchability checks.
+- Defines `INTENT_NOT_DISPATCHABLE`.
+- Extends `simulate()` with the dispatchability rejection path.
+- Exposes `hasDispatchableGate` through `getActionMetadata()`.
 
 ### MEL Language Docs
 
 - Document `dispatchable when` syntax and semantics.
-- Add Battleship example as canonical illustration.
+- Use Battleship as the canonical illustration.
 - Clarify the three-layer legality model.
 
 ---
