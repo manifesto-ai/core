@@ -442,6 +442,20 @@ describe("Semantic Analyzer", () => {
       }
     });
 
+    it("reports E049 for reversed clamp bounds with unary negative literals", () => {
+      const { program } = parseSource(`
+        domain Test {
+          state { score: number = 0 }
+          computed bounded = clamp(score, 10, -1)
+        }
+      `);
+
+      if (program) {
+        const { diagnostics } = validateSemantics(program);
+        expect(diagnostics.some((d) => d.code === "E049")).toBe(true);
+      }
+    });
+
     it("reports E050 for malformed match arms", () => {
       const { program } = parseSource(`
         domain Test {

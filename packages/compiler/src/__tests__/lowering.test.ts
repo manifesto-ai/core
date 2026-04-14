@@ -501,7 +501,26 @@ describe("lowerExprNode", () => {
         then: { kind: "lit", value: "a" },
         else: {
           kind: "if",
-          cond: { kind: "get", path: "bOk" },
+          cond: {
+            kind: "and",
+            args: [
+              { kind: "get", path: "bOk" },
+              {
+                kind: "or",
+                args: [
+                  {
+                    kind: "not",
+                    arg: { kind: "get", path: "aOk" },
+                  },
+                  {
+                    kind: "gt",
+                    left: { kind: "get", path: "bScore" },
+                    right: { kind: "get", path: "aScore" },
+                  },
+                ],
+              },
+            ],
+          },
           then: { kind: "lit", value: "b" },
           else: { kind: "lit", value: null },
         },
@@ -532,7 +551,26 @@ describe("lowerExprNode", () => {
         then: { kind: "lit", value: "a" },
         else: {
           kind: "if",
-          cond: { kind: "get", path: "bOk" },
+          cond: {
+            kind: "and",
+            args: [
+              { kind: "get", path: "bOk" },
+              {
+                kind: "or",
+                args: [
+                  {
+                    kind: "not",
+                    arg: { kind: "get", path: "aOk" },
+                  },
+                  {
+                    kind: "lte",
+                    left: { kind: "get", path: "bScore" },
+                    right: { kind: "get", path: "aScore" },
+                  },
+                ],
+              },
+            ],
+          },
           then: { kind: "lit", value: "b" },
           else: { kind: "lit", value: null },
         },

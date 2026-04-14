@@ -1160,6 +1160,12 @@ describe("CCTS Lowering and IR Suite", () => {
         computed bounded = clamp(score, 10, 0)
       }
     `);
+    const clampUnaryResult = adapter.compile(`
+      domain Demo {
+        state { score: number = 0 }
+        computed bounded = clamp(score, 10, -1)
+      }
+    `);
     const matchShape = adapter.compile(`
       domain Demo {
         state { status: string = "open" }
@@ -1180,11 +1186,19 @@ describe("CCTS Lowering and IR Suite", () => {
     `);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("E049"), hasDiagnosticCode(clampResult.errors, "E049"), {
-        passMessage: "Literal clamp bound inversion emits E049.",
-        failMessage: "Literal clamp bound inversion no longer emits E049.",
-        evidence: diagnosticEvidence(clampResult.errors),
-      }),
+      evaluateRule(
+        getRuleOrThrow("E049"),
+        hasDiagnosticCode(clampResult.errors, "E049") &&
+          hasDiagnosticCode(clampUnaryResult.errors, "E049"),
+        {
+          passMessage: "Literal clamp bound inversion emits E049, including unary negative bounds.",
+          failMessage: "Literal clamp bound inversion no longer emits E049 for direct or unary-negative bounds.",
+          evidence: [
+            ...diagnosticEvidence(clampResult.errors),
+            ...diagnosticEvidence(clampUnaryResult.errors),
+          ],
+        }
+      ),
       evaluateRule(getRuleOrThrow("E050"), hasDiagnosticCode(matchShape.errors, "E050"), {
         passMessage: "Malformed match() forms emit E050.",
         failMessage: "Malformed match() forms no longer emit E050.",

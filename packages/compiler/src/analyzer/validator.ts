@@ -403,6 +403,17 @@ function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | n
     : undefined;
 }
 
+function getStaticNumericLiteralValue(expr: ExprNode): number | undefined {
+  if (expr.kind === "literal" && expr.literalType === "number" && typeof expr.value === "number") {
+    return expr.value;
+  }
+  if (expr.kind === "unary" && expr.operator === "-") {
+    const operand = getStaticNumericLiteralValue(expr.operand);
+    return typeof operand === "number" ? -operand : undefined;
+  }
+  return undefined;
+}
+
 function resolvePathType(path: PathNode, symbols: DomainTypeSymbols): TypeExprNode | null {
   const [first, ...rest] = path.segments;
   if (!first || first.kind !== "propertySegment") {
@@ -1613,8 +1624,8 @@ export class SemanticValidator {
             args[2].location,
             "Function 'clamp' expects a numeric third argument"
           );
-          const clampLoLiteral = getLiteralPrimitiveValue(args[1]);
-          const clampHiLiteral = getLiteralPrimitiveValue(args[2]);
+          const clampLoLiteral = getStaticNumericLiteralValue(args[1]);
+          const clampHiLiteral = getStaticNumericLiteralValue(args[2]);
           if (
             typeof clampLoLiteral === "number" &&
             typeof clampHiLiteral === "number" &&

@@ -711,74 +711,66 @@ function buildArgSelection(
   candidates: LoweredArgCandidate[],
   tieBreak: "first" | "last"
 ): CoreExprNode {
-  return buildArgSelectionState(fn, candidates, tieBreak, 0).label;
+  let current: CoreExprNode = { kind: "lit", value: null };
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    current = {
+      kind: "if",
+      cond: buildArgSelectionCondition(fn, candidates, tieBreak, index),
+      then: candidates[index]!.label,
+      else: current,
+    };
+  }
+  return current;
 }
 
-function buildArgSelectionState(
+function buildArgSelectionCondition(
   fn: "argmax" | "argmin",
   candidates: LoweredArgCandidate[],
   tieBreak: "first" | "last",
   index: number
-): { eligible: CoreExprNode; score: CoreExprNode; label: CoreExprNode } {
-  const current = candidates[index];
-  if (index === candidates.length - 1) {
-    return {
-      eligible: current.eligible,
-      score: current.score,
-      label: {
-        kind: "if",
-        cond: current.eligible,
-        then: current.label,
-        else: { kind: "lit", value: null },
-      },
-    };
+): CoreExprNode {
+  const current = candidates[index]!;
+  const comparisons: CoreExprNode[] = [];
+
+  for (let otherIndex = 0; otherIndex < candidates.length; otherIndex += 1) {
+    if (otherIndex === index) {
+      continue;
+    }
+    const other = candidates[otherIndex]!;
+    comparisons.push({
+      kind: "or",
+      args: [
+        { kind: "not", arg: other.eligible },
+        {
+          kind: selectionCompareKind(fn, tieBreak, index, otherIndex),
+          left: current.score,
+          right: other.score,
+        },
+      ],
+    });
   }
 
-  const rest = buildArgSelectionState(fn, candidates, tieBreak, index + 1);
-  const compareKind = selectionCompareKind(fn, tieBreak);
-  const chooseCurrent: CoreExprNode = {
-    kind: "and",
-    args: [
-      current.eligible,
-      {
-        kind: "or",
-        args: [
-          { kind: "not", arg: rest.eligible },
-          {
-            kind: compareKind,
-            left: current.score,
-            right: rest.score,
-          },
-        ],
-      },
-    ],
-  };
+  if (comparisons.length === 0) {
+    return current.eligible;
+  }
 
   return {
-    eligible: { kind: "or", args: [current.eligible, rest.eligible] },
-    score: {
-      kind: "if",
-      cond: chooseCurrent,
-      then: current.score,
-      else: rest.score,
-    },
-    label: {
-      kind: "if",
-      cond: chooseCurrent,
-      then: current.label,
-      else: rest.label,
-    },
+    kind: "and",
+    args: [current.eligible, ...comparisons],
   };
 }
 
 function selectionCompareKind(
   fn: "argmax" | "argmin",
-  tieBreak: "first" | "last"
+  tieBreak: "first" | "last",
+  index: number,
+  otherIndex: number
 ): "gt" | "gte" | "lt" | "lte" {
+  const prefersCurrentOnTie = tieBreak === "first" ? index < otherIndex : index > otherIndex;
   if (fn === "argmax") {
-    return tieBreak === "first" ? "gte" : "gt";
+    return prefersCurrentOnTie ? "gte" : "gt";
   }
-  return tieBreak === "first" ? "lte" : "lt";
+  return prefersCurrentOnTie ? "lte" : "lt";
 }
 
 // ============ Operator Classification ============
