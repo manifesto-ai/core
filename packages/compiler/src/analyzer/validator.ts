@@ -1617,7 +1617,13 @@ export class SemanticValidator {
             args[2].location,
             "Function 'clamp' expects a numeric third argument"
           );
-          if (isNumericLiteralExpr(args[1]) && isNumericLiteralExpr(args[2]) && args[1].value > args[2].value) {
+          const clampLoLiteral = getLiteralPrimitiveValue(args[1]);
+          const clampHiLiteral = getLiteralPrimitiveValue(args[2]);
+          if (
+            typeof clampLoLiteral === "number" &&
+            typeof clampHiLiteral === "number" &&
+            clampLoLiteral > clampHiLiteral
+          ) {
             this.error(
               "Function 'clamp' requires literal bounds in lo, hi order",
               location,
