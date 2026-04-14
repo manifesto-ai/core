@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.5.0](https://github.com/manifesto-ai/core/compare/compiler-v3.4.0...compiler-v3.5.0) (2026-04-14)
+
+
+### Features
+
+* **compiler:** add bounded MEL sugar contract ([f3e0cb4](https://github.com/manifesto-ai/core/commit/f3e0cb49ddae44d65a9478c8640c1cc9d2c96483))
+* **compiler:** add bounded MEL sugar contract ([bb59b40](https://github.com/manifesto-ai/core/commit/bb59b409c57230a9f37691dd36b242ac49e21572))
+
+
+### Bug Fixes
+
+* **compiler:** accept unary numeric match keys ([d3183c8](https://github.com/manifesto-ai/core/commit/d3183c812e3370cc204fb86d2c4f17ee25cb1081))
+* **compiler:** harden bounded sugar lowering ([4f7bf65](https://github.com/manifesto-ai/core/commit/4f7bf653be5f84225306e242a76f45a88f1bf5db))
+* **compiler:** infer nullable idiv results ([f06a445](https://github.com/manifesto-ai/core/commit/f06a445eb342f1023637201e1cb99ce8438b83c2))
+* **compiler:** remove broken numeric literal guard ([05d4f46](https://github.com/manifesto-ai/core/commit/05d4f465e1cdc73ab40cd70f568bd4609a8561a0))
+* **compiler:** resolve clamp literal narrowing ([e7b9589](https://github.com/manifesto-ai/core/commit/e7b95893f01728c9fa39b36c57e946da6db2415b))
+* **compiler:** tighten sugar validation contracts ([1bf1c4e](https://github.com/manifesto-ai/core/commit/1bf1c4eabfa14153b57c7fb374483c575c28faa4))
+
 ## [3.4.0](https://github.com/manifesto-ai/core/compare/compiler-v3.3.1...compiler-v3.4.0) (2026-04-13)
 
 
