@@ -403,10 +403,6 @@ function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | n
     : undefined;
 }
 
-function isNumericLiteralExpr(expr: ExprNode): expr is Extract<ExprNode, { kind: "literal"; literalType: "number" }> {
-  return expr.kind === "literal" && expr.literalType === "number" && typeof expr.value === "number";
-}
-
 function resolvePathType(path: PathNode, symbols: DomainTypeSymbols): TypeExprNode | null {
   const [first, ...rest] = path.segments;
   if (!first || first.kind !== "propertySegment") {
