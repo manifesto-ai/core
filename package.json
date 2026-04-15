@@ -50,16 +50,16 @@
   },
   "devDependencies": {
     "@vercel/analytics": "^2.0.1",
-    "@vitest/coverage-v8": "^4.1.2",
+    "@vitest/coverage-v8": "^4.1.4",
     "mermaid": "^11.13.0",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "turbo": "^2.9.4",
-    "typedoc": "^0.28.18",
+    "turbo": "^2.9.6",
+    "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
-    "vite": "^8.0.3",
+    "vite": "^8.0.8",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "zod": "^4.3.6"

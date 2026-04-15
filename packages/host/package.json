@@ -44,8 +44,8 @@
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
     "typescript": "^5.9.3",
-    "vite": "^8.0.3",
-    "vitest": "^4.1.2"
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
   },
   "files": [
     "dist"
