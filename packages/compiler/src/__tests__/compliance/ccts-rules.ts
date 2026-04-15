@@ -52,6 +52,9 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   registry("COMPILER-MEL-4", "blocking"),
   ...registryMany(["MEL-SUGAR-1", "MEL-SUGAR-2", "MEL-SUGAR-3", "MEL-SUGAR-4"], "blocking"),
 
+  ...registryMany(["META-1", "META-2", "META-3", "META-4", "META-5", "META-6", "META-7", "META-8", "META-9", "META-10"], "blocking"),
+  ...registryMany(["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"], "blocking"),
+
   registry("AD-COMP-LOW-001", "blocking"),
   registry("AD-COMP-LOW-002", "blocking"),
   registry("AD-COMP-LOW-003", "blocking"),
@@ -60,6 +63,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   ...registryMany(["E001", "E002", "E003", "E004", "E005", "E009", "E010", "E011"], "blocking"),
   ...registryMany(["E006", "E007", "E008"], "blocking"),
   ...registryMany(["E012", "E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024", "E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035", "E041", "E042", "E043", "E044", "E049", "E050", "E051", "E052"], "blocking"),
+  ...registryMany(["E053", "E054", "E055", "E056", "E057"], "blocking"),
   registry("E045", "informational"),
   registry("E046", "informational"),
   registry("E040", "blocking"),

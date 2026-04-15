@@ -36,6 +36,7 @@ packages/compiler/src/__tests__/compliance/
   ccts-matrix.spec.ts
   suite/
     grammar.spec.ts
+    annotations.spec.ts
     context.spec.ts
     state-and-computed.spec.ts
     actions-and-control.spec.ts
@@ -100,6 +101,7 @@ Blocking rules reflect currently implemented compiler behavior:
 - `flow` / `include` composition and diagnostics (ADR-013a, `FLOW-*`, `E013`-`E024`)
 - entity primitives and placement/type diagnostics (ADR-013b, `ENTITY-*`, `TRANSFORM-*`, `E030`-`E035`)
 - schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E044`; `E045`/`E046` retained only as superseded inventory items)
+- structural annotations via `@meta`, including valid v1 target placement, literal-only payload enforcement, payload-depth enforcement, deterministic sidecar emission, semantic erasure invariants, and the runtime-boundary guard between `DomainSchema` and tooling-only `DomainModule`
 - deterministic compile/lower output
 
 ### Pending

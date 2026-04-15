@@ -17,6 +17,18 @@ domain Counter {
 }
 `.trim();
 
+const ANNOTATED_MEL = `
+@meta("doc:summary", { area: "counter" })
+domain Counter {
+  state { count: number = 0 }
+
+  @meta("ui:button", { variant: "primary" })
+  action increment() {
+    onceIntent { patch count = add(count, 1) }
+  }
+}
+`.trim();
+
 async function importFromModuleCode(code: string): Promise<{ default: unknown }> {
   const encoded = Buffer.from(code, "utf8").toString("base64");
   return import(`data:text/javascript;base64,${encoded}`);
@@ -34,6 +46,19 @@ describe("unplugin core", () => {
     const module = await importFromModuleCode(code!);
     const schema = module.default as { actions?: Record<string, unknown> };
     expect(schema.actions).toHaveProperty("increment");
+  });
+
+  it("keeps schema-only bundler output even when MEL uses @meta", async () => {
+    const plugin = unpluginMel.raw({});
+    const result = await plugin.transform(ANNOTATED_MEL, "/tmp/counter.mel");
+    expect(result).toBeDefined();
+
+    const code = typeof result === "string" ? result : result?.code;
+    const module = await importFromModuleCode(code!);
+    const schema = module.default as { actions?: Record<string, unknown>; annotations?: unknown };
+
+    expect(schema.actions).toHaveProperty("increment");
+    expect(schema).not.toHaveProperty("annotations");
   });
 
   it("filters out non-.mel files via transformInclude", () => {
@@ -204,6 +229,32 @@ describe("node-loader resolve/load hooks", () => {
       const module = await importFromModuleCode(result.source as string);
       const schema = module.default as { actions?: Record<string, unknown> };
       expect(schema.actions).toHaveProperty("increment");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("loads annotated .mel files as schema-only modules", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "manifesto-mel-loader-"));
+
+    try {
+      const melPath = join(tempDir, "counter.mel");
+      await writeFile(melPath, ANNOTATED_MEL, "utf8");
+
+      const nextLoad = vi.fn(async () => ({
+        format: "module",
+        source: "",
+      }));
+
+      const result = await load(pathToFileURL(melPath).href, {}, nextLoad);
+      expect(nextLoad).not.toHaveBeenCalled();
+      expect(result.format).toBe("module");
+      expect(result.shortCircuit).toBe(true);
+
+      const module = await importFromModuleCode(result.source as string);
+      const schema = module.default as { annotations?: unknown; actions?: Record<string, unknown> };
+      expect(schema.actions).toHaveProperty("increment");
+      expect(schema).not.toHaveProperty("annotations");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

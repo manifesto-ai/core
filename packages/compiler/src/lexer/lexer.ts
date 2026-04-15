@@ -81,6 +81,7 @@ export class Lexer {
       case "*": this.addToken("STAR"); break;
       case "%": this.addToken("PERCENT"); break;
       case ":": this.addToken("COLON"); break;
+      case "@": this.addToken("AT"); break;
 
       // Two-character tokens
       case "=":

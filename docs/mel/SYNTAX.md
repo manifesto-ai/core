@@ -38,6 +38,48 @@ domain Counter {
 }
 ```
 
+### Structural Annotations (`@meta`)
+
+Use `@meta` to attach tooling-only metadata to the next declaration or field.
+
+```mel
+@meta("doc:summary", { area: "tasks" })
+domain TaskBoard {
+  @meta("doc:entity")
+  type Task = {
+    id: string,
+    @meta("ui:hidden")
+    internalNote: string | null
+  }
+
+  state {
+    @meta("analytics:track")
+    lastArchivedId: string | null = null
+  }
+
+  @meta("ui:primary-list")
+  computed hasArchivedTask = isNotNull(lastArchivedId)
+
+  @meta("ui:button", { variant: "secondary" })
+  action archive(id: string) {
+    when true {
+      patch lastArchivedId = id
+    }
+  }
+}
+```
+
+Rules:
+- `@meta` attaches to the immediately following construct.
+- Current targets are `domain`, `type`, `type field`, `state field`, `computed`, and `action`.
+- Multiple annotations may stack on the same target, and their source order is preserved.
+- Repeated tags on the same target are preserved; the compiler does not deduplicate them.
+- Payload must be JSON-like literal data only.
+- Payload nesting depth is capped at 2 levels.
+- Annotations do not change `compute()`, `available when`, or `dispatchable when`.
+- Unsupported attachment sites emit `E053`.
+- `action_param` annotations are not part of current MEL syntax.
+
 ---
 
 ## State
@@ -458,6 +500,29 @@ action bad() {
 action bad() {
   when true {
     count = 5        // Error: Use 'patch count = 5'
+  }
+}
+
+// ❌ COMPILE ERROR: @meta payload cannot contain MEL expressions
+@meta("ui:button", { disabled: eq(len(items), 0) })
+action archive() {
+  when true {
+    patch lastArchivedId = "done"
+  }
+}
+
+// ❌ COMPILE ERROR: @meta cannot annotate action parameters in current MEL
+action create(
+  @meta("ui:date-picker") dueDate: string
+) {
+  when true { }
+}
+
+// ❌ COMPILE ERROR: @meta cannot appear inside an action body
+action archive() {
+  @meta("ui:button")
+  when true {
+    patch lastArchivedId = "done"
   }
 }
 ```

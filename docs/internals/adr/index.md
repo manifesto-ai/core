@@ -51,6 +51,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-018](./018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented | 2026-04-03 | SDK, Core (docs), Docs, Lineage, Governance |
 | [ADR-019](./019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented | 2026-04-07 | SDK |
 | [ADR-020](./020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Implemented | 2026-04-07 | Compiler, Core, SDK, Studio/Introspection, Docs |
+| [ADR-021](./021-mel-structural-annotation-system-meta-sidecar) | MEL Structural Annotation System — `@meta` Sidecar | Accepted | 2026-04-15 | Compiler, Tooling, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -128,6 +129,12 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-020 is implemented in the current compiler, core, and SDK contracts.
 - The current behavior now lives in [SPEC-v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md), [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), and the maintained MEL docs.
 - This ADR remains the architectural rationale for `dispatchable when`; the owning package specs define the current runtime and compiler behavior.
+
+### ADR-021 Companion Notes
+
+- ADR-021 is accepted and reflected in the current compiler contract and maintained MEL docs for the current v1 surface.
+- The current landed/documented subset excludes `action_param`; that grammar decision remains deferred.
+- Core, Host, and SDK runtime entrypoints remain annotation-blind.
 
 ### ADR-017 Version Notes
 

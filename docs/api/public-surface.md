@@ -53,10 +53,12 @@ _Source: `packages/compiler/src/index.ts`_
 
 - `analyzeScope`
 - `applyPatchToWorkingSnapshot`
+- `buildAnnotationIndex`
 - `check`
 - `classifyCondition`
 - `compile`
 - `compileMelDomain`
+- `compileMelModule`
 - `compileMelPatch`
 - `createError`
 - `createEvaluationContext`
@@ -147,6 +149,10 @@ _Source: `packages/compiler/src/index.ts`_
 - `AddFieldOp`
 - `AddTypeOp`
 - `AllowedSysPrefix`
+- `Annotation`
+- `AnnotationExtractionResult`
+- `AnnotationIndex`
+- `AnnotationNode`
 - `ArrayLiteralExprNode`
 - `ArrayTypeNode`
 - `ASTNode`
@@ -155,6 +161,8 @@ _Source: `packages/compiler/src/index.ts`_
 - `CanonicalDomainSchema`
 - `CompileMelDomainOptions`
 - `CompileMelDomainResult`
+- `CompileMelModuleOptions`
+- `CompileMelModuleResult`
 - `CompileMelPatchOptions`
 - `CompileMelPatchResult`
 - `CompileOptions`
@@ -205,9 +213,11 @@ _Source: `packages/compiler/src/index.ts`_
 - `IRPatchPath`
 - `IRPathSegment`
 - `IterationVarExprNode`
+- `JsonLiteral`
 - `LexResult`
 - `LiteralExprNode`
 - `LiteralTypeNode`
+- `LocalTargetKey`
 - `LoweredPatchOp`
 - `LoweredTypeExpr`
 - `LoweredTypeField`

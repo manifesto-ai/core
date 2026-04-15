@@ -23,6 +23,26 @@ const app = manifesto.activate();
 
 `createManifesto()` returns a composable object. Runtime verbs such as `dispatchAsync()` and `dispatchAsyncWithReport()`, plus reads such as `getSnapshot()`, exist only after `activate()`.
 
+Compiler tooling artifacts such as `DomainModule` are outside this seam. If you compile through `compileMelModule()`, pass `module.schema` to `createManifesto()`, not the whole module.
+
+## Tooling vs Runtime
+
+```typescript
+import { compileMelModule } from "@manifesto-ai/compiler";
+import { createManifesto } from "@manifesto-ai/sdk";
+
+const result = compileMelModule(melSource, { mode: "module" });
+const module = result.module!;
+
+const manifesto = createManifesto(module.schema, {});
+const annotations = module.annotations;
+```
+
+- `createManifesto()` accepts MEL source or `DomainSchema`.
+- `createManifesto()` does not accept `DomainModule`.
+- tooling may read `module.annotations` and `module.graph`, but runtime remains annotation-blind.
+- importing a `.mel` file through the default loader/bundler path still yields schema-only output, even when the MEL source uses `@meta`.
+
 ## Activation Boundary
 
 ```typescript

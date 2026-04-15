@@ -14,7 +14,8 @@
 4. [Guard Errors](#guard-errors)
 5. [Type Errors](#type-errors)
 6. [Identifier Errors](#identifier-errors)
-7. [Semantic Errors](#semantic-errors)
+7. [Annotation Errors](#annotation-errors)
+8. [Semantic Errors](#semantic-errors)
 
 ---
 
@@ -568,6 +569,113 @@ action initialize() {
     patch init = $meta.intentId
     patch id = $system.uuid
     patch createdAt = $system.timestamp
+  }
+}
+```
+
+---
+
+## Annotation Errors
+
+### Error: @meta inside an action body (`E053`)
+
+```mel
+// ❌ BROKEN
+action archive(id: string) {
+  @meta("ui:button")
+  when true {
+    patch lastArchivedId = id
+  }
+}
+```
+
+**Error:** `E053 SyntaxError: @meta can attach only to domain, type, type field, state field, computed, or action declarations.`
+
+**Rule violated:** `@meta` attaches to the immediately following declaration or field, not to control-flow statements inside an action body.
+
+```mel
+// ✅ FIXED: Move @meta to the action declaration
+@meta("ui:button")
+action archive(id: string) {
+  when true {
+    patch lastArchivedId = id
+  }
+}
+```
+
+---
+
+### Error: Non-literal annotation payload (`E055`)
+
+```mel
+// ❌ BROKEN
+@meta("ui:button", { disabled: eq(len(items), 0) })
+action archive() {
+  when true {
+    patch lastArchivedId = "done"
+  }
+}
+```
+
+**Error:** `E055 SemanticError: Annotation payloads must be JSON-like literals. MEL expressions are not allowed in @meta payloads.`
+
+**Rule violated:** `@meta` payloads are tooling data, not semantic expressions.
+
+```mel
+// ✅ FIXED: Use literal metadata only
+@meta("ui:button", { variant: "secondary", disabledByDefault: false })
+action archive() {
+  when true {
+    patch lastArchivedId = "done"
+  }
+}
+```
+
+---
+
+### Error: Annotation payload nesting too deep (`E056`)
+
+```mel
+// ❌ BROKEN
+@meta("ui:card", { config: { pricing: { free: "$0" } } })
+computed cardVariant = "free"
+```
+
+**Error:** `E056 SemanticError: Annotation payload nesting exceeds the current MEL limit of 2 levels.`
+
+**Rule violated:** Current `@meta` payloads may use JSON-like literals only, with nesting depth capped at 2.
+
+```mel
+// ✅ FIXED: Flatten the payload
+@meta("ui:card", { tier: "free", priceLabel: "$0" })
+computed cardVariant = "free"
+```
+
+---
+
+### Error: Annotation on action parameter (`E054`)
+
+```mel
+// ❌ BROKEN
+action create(
+  @meta("ui:date-picker") dueDate: string
+) {
+  when true {
+    patch nextDueDate = dueDate
+  }
+}
+```
+
+**Error:** `E054 SyntaxError: Action-parameter annotations are not part of the current MEL syntax.`
+
+**Rule violated:** `action_param` annotations are deferred from the current v1 MEL contract.
+
+```mel
+// ✅ FIXED: Move metadata to the action for now
+@meta("ui:date-picker-form")
+action create(dueDate: string) {
+  when true {
+    patch nextDueDate = dueDate
   }
 }
 ```

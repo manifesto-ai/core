@@ -20,6 +20,30 @@ import {
 } from "./helpers/schema.js";
 
 describe("createManifesto()", () => {
+  it("rejects compiler DomainModule artifacts at the runtime schema seam", () => {
+    const schema = createCounterSchema();
+    const moduleArtifact = {
+      schema,
+      graph: { nodes: [], edges: [] },
+      annotations: {
+        schemaHash: schema.hash,
+        entries: {},
+      },
+    };
+
+    expect(() =>
+      createManifesto(
+        moduleArtifact as unknown as DomainSchema,
+        {},
+      ),
+    ).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "SCHEMA_ERROR",
+        message: expect.stringContaining("DomainModule"),
+      }),
+    );
+  });
+
   it("returns a composable manifesto with normalized schema and no runtime verbs", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
 
