@@ -52,6 +52,7 @@ export type TokenKind =
   | "QUESTION" // ?
   | "COLON" // :
   | "EQ" // =
+  | "AT" // @
   // Delimiters
   | "LPAREN" // (
   | "RPAREN" // )

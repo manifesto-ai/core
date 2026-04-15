@@ -162,7 +162,12 @@
 
 ### DomainModule
 
-**Definition:** The output of MEL compilation. At minimum it carries compiled `DomainSchema`; some compiler surfaces may also attach helper artifacts or generated facades around that schema.
+**Definition:** A compiler tooling artifact returned by additive seams such as `compileMelModule()`. It carries the compiled `DomainSchema` plus compiler-owned helper artifacts such as `SchemaGraph` and `AnnotationIndex`.
+
+**Key properties:**
+- Contains `schema`, `graph`, and `annotations`
+- Exists for tooling, inspection, and external consumers
+- Is not accepted by runtime seams such as `createManifesto()`; runtime consumes `DomainSchema` only
 
 **See also:** [Compiler](#compiler), [DomainSchema](#domainschema)
 

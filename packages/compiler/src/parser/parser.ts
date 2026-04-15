@@ -11,6 +11,7 @@ import {
   type ProgramNode,
   type DomainNode,
   type DomainMember,
+  type AnnotationNode,
   type TypeDeclNode,    // v0.3.3
   type StateNode,
   type StateFieldNode,
@@ -90,7 +91,11 @@ export class Parser {
     }
 
     // Parse domain
-    const domain = this.parseDomain();
+    const domainAnnotations = this.parseAnnotationList();
+    if (domainAnnotations.length > 0 && !this.check("DOMAIN")) {
+      this.reportUnsupportedAnnotations(domainAnnotations);
+    }
+    const domain = this.parseDomain(domainAnnotations);
 
     return {
       kind: "program",
@@ -121,24 +126,23 @@ export class Parser {
     };
   }
 
-  private parseDomain(): DomainNode {
+  private parseDomain(annotations: AnnotationNode[] = []): DomainNode {
     const start = this.consume("DOMAIN", "Expected 'domain'").location;
     const name = this.consume("IDENTIFIER", "Expected domain name").lexeme;
     this.consume("LBRACE", "Expected '{' after domain name");
 
-    // v0.3.3: Parse type declarations first
     const types: TypeDeclNode[] = [];
-    while (this.check("TYPE") && !this.isAtEnd()) {
-      types.push(this.parseTypeDecl());
-    }
-
     const members: DomainMember[] = [];
     while (!this.check("RBRACE") && !this.isAtEnd()) {
-      // v0.3.3: type declarations can appear anywhere in domain
+      const memberAnnotations = this.parseAnnotationList();
+      if (memberAnnotations.length > 0 && (this.check("RBRACE") || this.isAtEnd())) {
+        this.reportUnsupportedAnnotations(memberAnnotations);
+        continue;
+      }
       if (this.check("TYPE")) {
-        types.push(this.parseTypeDecl());
+        types.push(this.parseTypeDecl(memberAnnotations));
       } else {
-        const member = this.parseDomainMember();
+        const member = this.parseDomainMember(memberAnnotations);
         if (member) members.push(member);
       }
     }
@@ -148,6 +152,7 @@ export class Parser {
     return {
       kind: "domain",
       name,
+      annotations: annotations.length > 0 ? annotations : undefined,
       types,
       members,
       location: mergeLocations(start, end),
@@ -158,7 +163,7 @@ export class Parser {
    * v0.3.3: Parse type declaration
    * Syntax: type Name = TypeExpr
    */
-  private parseTypeDecl(): TypeDeclNode {
+  private parseTypeDecl(annotations: AnnotationNode[] = []): TypeDeclNode {
     const start = this.consume("TYPE", "Expected 'type'").location;
     const name = this.consume("IDENTIFIER", "Expected type name").lexeme;
     this.consume("EQ", "Expected '=' after type name");
@@ -167,17 +172,25 @@ export class Parser {
     return {
       kind: "typeDecl",
       name,
+      annotations: annotations.length > 0 ? annotations : undefined,
       typeExpr,
       location: mergeLocations(start, typeExpr.location),
     };
   }
 
-  private parseDomainMember(): DomainMember | null {
-    if (this.check("STATE")) return this.parseState();
-    if (this.check("COMPUTED")) return this.parseComputed();
-    if (this.check("ACTION")) return this.parseAction();
-    if (this.isFlowDeclContext()) return this.parseFlowDecl();
+  private parseDomainMember(annotations: AnnotationNode[] = []): DomainMember | null {
+    if (this.check("STATE")) {
+      this.reportUnsupportedAnnotations(annotations);
+      return this.parseState();
+    }
+    if (this.check("COMPUTED")) return this.parseComputed(annotations);
+    if (this.check("ACTION")) return this.parseAction(annotations);
+    if (this.isFlowDeclContext()) {
+      this.reportUnsupportedAnnotations(annotations);
+      return this.parseFlowDecl();
+    }
 
+    this.reportUnsupportedAnnotations(annotations);
     this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'state', 'computed', 'action', or 'flow'.`);
     this.advance(); // Skip the bad token
     return null;
@@ -191,7 +204,12 @@ export class Parser {
 
     const fields: StateFieldNode[] = [];
     while (!this.check("RBRACE") && !this.isAtEnd()) {
-      fields.push(this.parseStateField());
+      const fieldAnnotations = this.parseAnnotationList();
+      if (fieldAnnotations.length > 0 && (this.check("RBRACE") || this.isAtEnd())) {
+        this.reportUnsupportedAnnotations(fieldAnnotations);
+        continue;
+      }
+      fields.push(this.parseStateField(fieldAnnotations));
     }
 
     const end = this.consume("RBRACE", "Expected '}' to close state block").location;
@@ -203,7 +221,7 @@ export class Parser {
     };
   }
 
-  private parseStateField(): StateFieldNode {
+  private parseStateField(annotations: AnnotationNode[] = []): StateFieldNode {
     const nameToken = this.consume("IDENTIFIER", "Expected field name");
     this.consume("COLON", "Expected ':' after field name");
     const typeExpr = this.parseTypeExpr();
@@ -216,6 +234,7 @@ export class Parser {
     return {
       kind: "stateField",
       name: nameToken.lexeme,
+      annotations: annotations.length > 0 ? annotations : undefined,
       typeExpr,
       initializer,
       location: mergeLocations(
@@ -227,7 +246,7 @@ export class Parser {
 
   // ============ Computed ============
 
-  private parseComputed(): ComputedNode {
+  private parseComputed(annotations: AnnotationNode[] = []): ComputedNode {
     const start = this.consume("COMPUTED", "Expected 'computed'").location;
     const name = this.consume("IDENTIFIER", "Expected computed name").lexeme;
     this.consume("EQ", "Expected '=' after computed name");
@@ -236,6 +255,7 @@ export class Parser {
     return {
       kind: "computed",
       name,
+      annotations: annotations.length > 0 ? annotations : undefined,
       expression,
       location: mergeLocations(start, expression.location),
     };
@@ -243,7 +263,7 @@ export class Parser {
 
   // ============ Action ============
 
-  private parseAction(): ActionNode {
+  private parseAction(annotations: AnnotationNode[] = []): ActionNode {
     const start = this.consume("ACTION", "Expected 'action'").location;
     const name = this.consume("IDENTIFIER", "Expected action name").lexeme;
     this.consume("LPAREN", "Expected '(' after action name");
@@ -251,7 +271,12 @@ export class Parser {
     const params: ParamNode[] = [];
     if (!this.check("RPAREN")) {
       do {
-        params.push(this.parseParam());
+        const paramAnnotations = this.parseAnnotationList();
+        if (paramAnnotations.length > 0 && (this.check("RPAREN") || this.isAtEnd())) {
+          this.reportUnsupportedAnnotations(paramAnnotations);
+          break;
+        }
+        params.push(this.parseParam(paramAnnotations));
       } while (this.match("COMMA"));
     }
 
@@ -291,6 +316,7 @@ export class Parser {
     return {
       kind: "action",
       name,
+      annotations: annotations.length > 0 ? annotations : undefined,
       params,
       available,
       dispatchable,
@@ -307,7 +333,12 @@ export class Parser {
     const params: ParamNode[] = [];
     if (!this.check("RPAREN")) {
       do {
-        params.push(this.parseParam());
+        const paramAnnotations = this.parseAnnotationList();
+        this.reportUnsupportedAnnotations(paramAnnotations);
+        if (paramAnnotations.length > 0 && (this.check("RPAREN") || this.isAtEnd())) {
+          break;
+        }
+        params.push(this.parseParam(paramAnnotations));
       } while (this.match("COMMA"));
     }
 
@@ -331,7 +362,7 @@ export class Parser {
     };
   }
 
-  private parseParam(): ParamNode {
+  private parseParam(annotations: AnnotationNode[] = []): ParamNode {
     const nameToken = this.consume("IDENTIFIER", "Expected parameter name");
     this.consume("COLON", "Expected ':' after parameter name");
     const typeExpr = this.parseTypeExpr();
@@ -339,6 +370,7 @@ export class Parser {
     return {
       kind: "param",
       name: nameToken.lexeme,
+      annotations: annotations.length > 0 ? annotations : undefined,
       typeExpr,
       location: mergeLocations(nameToken.location, typeExpr.location),
     };
@@ -347,6 +379,9 @@ export class Parser {
   // ============ Statements ============
 
   private parseGuardedStmt(): GuardedStmtNode | null {
+    const annotations = this.parseAnnotationList();
+    this.reportUnsupportedAnnotations(annotations);
+
     if (this.check("WHEN")) return this.parseWhenStmt();
     if (this.check("ONCE")) return this.parseOnceStmt();
     if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
@@ -373,6 +408,9 @@ export class Parser {
   }
 
   private parseFlowStmt(): FlowStmtNode | null {
+    const annotations = this.parseAnnotationList();
+    this.reportUnsupportedAnnotations(annotations);
+
     if (this.check("WHEN")) return this.parseWhenStmt();
     if (this.isIncludeContext()) return this.parseIncludeStmt();
     if (this.check("ONCE")) return this.parseOnceStmt();
@@ -495,6 +533,9 @@ export class Parser {
   }
 
   private parseInnerStmt(): InnerStmtNode | null {
+    const annotations = this.parseAnnotationList();
+    this.reportUnsupportedAnnotations(annotations);
+
     if (this.check("PATCH")) return this.parsePatchStmt();
     if (this.check("EFFECT")) return this.parseEffectStmt();
     if (this.check("WHEN")) return this.parseWhenStmt();
@@ -760,6 +801,11 @@ export class Parser {
     const fields: TypeFieldNode[] = [];
 
     while (!this.check("RBRACE") && !this.isAtEnd()) {
+      const annotations = this.parseAnnotationList();
+      if (annotations.length > 0 && (this.check("RBRACE") || this.isAtEnd())) {
+        this.reportUnsupportedAnnotations(annotations);
+        continue;
+      }
       const nameToken = this.consume("IDENTIFIER", "Expected field name");
       const optional = this.match("QUESTION");
       this.consume("COLON", "Expected ':' after field name");
@@ -768,6 +814,7 @@ export class Parser {
       fields.push({
         kind: "typeField",
         name: nameToken.lexeme,
+        annotations: annotations.length > 0 ? annotations : undefined,
         typeExpr,
         optional,
         location: mergeLocations(nameToken.location, typeExpr.location),
@@ -1110,7 +1157,7 @@ export class Parser {
     const prev = this.previous();
     const unaryPrecedingTokens: TokenKind[] = [
       "LPAREN", "LBRACKET", "LBRACE", "COMMA", "COLON", "EQ",
-      "PLUS", "MINUS", "STAR", "SLASH", "PERCENT",
+      "PLUS", "MINUS", "STAR", "SLASH", "PERCENT", "AT",
       "EQ_EQ", "BANG_EQ", "LT", "LT_EQ", "GT", "GT_EQ",
       "AMP_AMP", "PIPE_PIPE", "BANG", "QUESTION", "QUESTION_QUESTION",
     ];
@@ -1187,6 +1234,52 @@ export class Parser {
     throw this.errorAtCurrent(message);
   }
 
+  private parseAnnotationList(): AnnotationNode[] {
+    const annotations: AnnotationNode[] = [];
+
+    while (this.check("AT")) {
+      annotations.push(this.parseAnnotation());
+    }
+
+    return annotations;
+  }
+
+  private parseAnnotation(): AnnotationNode {
+    const start = this.consume("AT", "Expected '@'").location;
+    const nameToken = this.consume("IDENTIFIER", "Expected annotation name after '@'");
+    if (nameToken.lexeme !== "meta") {
+      throw this.errorAtToken(nameToken, "Expected 'meta' after '@'");
+    }
+
+    this.consume("LPAREN", "Expected '(' after '@meta'");
+    const tagToken = this.consume("STRING", "Expected string tag as first @meta argument");
+
+    let payload: ExprNode | undefined;
+    if (this.match("COMMA")) {
+      payload = this.parseExpression();
+    }
+
+    const end = this.consume("RPAREN", "Expected ')' after @meta arguments").location;
+
+    return {
+      kind: "annotation",
+      tag: tagToken.value as string,
+      payload,
+      location: mergeLocations(start, end),
+    };
+  }
+
+  private reportUnsupportedAnnotations(annotations: readonly AnnotationNode[]): void {
+    for (const annotation of annotations) {
+      this.diagnostics.push({
+        severity: "error",
+        code: "E053",
+        message: "@meta can attach only to domain, type, type field, state field, computed, or action declarations.",
+        location: annotation.location,
+      });
+    }
+  }
+
   private error(message: string): void {
     this.diagnostics.push({
       severity: "error",
@@ -1202,6 +1295,16 @@ export class Parser {
       code: "MEL_PARSER",
       message,
       location: this.peek().location,
+    });
+    return new Error(message);
+  }
+
+  private errorAtToken(token: Token, message: string): Error {
+    this.diagnostics.push({
+      severity: "error",
+      code: "MEL_PARSER",
+      message,
+      location: token.location,
     });
     return new Error(message);
   }

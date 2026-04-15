@@ -40,9 +40,19 @@ export interface ImportNode extends ASTNode {
 export interface DomainNode extends ASTNode {
   kind: "domain";
   name: string;
+  annotations?: AnnotationNode[];
   /** v0.3.3: Named type declarations */
   types: TypeDeclNode[];
   members: DomainMember[];
+}
+
+/**
+ * Structural annotation declaration.
+ */
+export interface AnnotationNode extends ASTNode {
+  kind: "annotation";
+  tag: string;
+  payload?: ExprNode;
 }
 
 /**
@@ -57,6 +67,7 @@ export type DomainMember = StateNode | ComputedNode | ActionNode | FlowDeclNode;
 export interface TypeDeclNode extends ASTNode {
   kind: "typeDecl";
   name: string;
+  annotations?: AnnotationNode[];
   typeExpr: TypeExprNode;
 }
 
@@ -76,6 +87,7 @@ export interface StateNode extends ASTNode {
 export interface StateFieldNode extends ASTNode {
   kind: "stateField";
   name: string;
+  annotations?: AnnotationNode[];
   typeExpr: TypeExprNode;
   initializer?: ExprNode;
 }
@@ -88,6 +100,7 @@ export interface StateFieldNode extends ASTNode {
 export interface ComputedNode extends ASTNode {
   kind: "computed";
   name: string;
+  annotations?: AnnotationNode[];
   expression: ExprNode;
 }
 
@@ -99,6 +112,7 @@ export interface ComputedNode extends ASTNode {
 export interface ActionNode extends ASTNode {
   kind: "action";
   name: string;
+  annotations?: AnnotationNode[];
   params: ParamNode[];
   /** v0.3.2: Optional availability condition */
   available?: ExprNode;
@@ -124,6 +138,7 @@ export interface FlowDeclNode extends ASTNode {
 export interface ParamNode extends ASTNode {
   kind: "param";
   name: string;
+  annotations?: AnnotationNode[];
   typeExpr: TypeExprNode;
 }
 
@@ -306,6 +321,7 @@ export interface ObjectTypeNode extends ASTNode {
 export interface TypeFieldNode extends ASTNode {
   kind: "typeField";
   name: string;
+  annotations?: AnnotationNode[];
   typeExpr: TypeExprNode;
   optional: boolean;
 }

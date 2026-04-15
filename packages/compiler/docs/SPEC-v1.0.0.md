@@ -3,7 +3,7 @@
 > **Version:** 1.0.0
 > **Type:** Full
 > **Status:** Normative
-> **Date:** 2026-04-14
+> **Date:** 2026-04-15
 > **Replaces:** Earlier compiler baselines and addenda as the current compiler contract
 > **Compatible with:** Core SPEC v4.2.0, current SDK activation-first contract
 
@@ -17,6 +17,7 @@ It consolidates the landed compiler surface into one current contract, including
 
 - the active full MEL/compiler baseline
 - `SchemaGraph` extraction
+- structural annotations via `@meta` with a tooling-only sidecar
 - `dispatchable when`
 - current landed compiler/runtime alignment for `Record<string, T>` and `T | null` in schema positions
 - current landed support for pure collection builtins in expression contexts
@@ -28,7 +29,23 @@ Historical compiler docs remain useful for archaeology, but **this file is the c
 
 ## 2. Current Output Contract
 
-The compiler emits three distinct type-carrying seams in `DomainSchema`:
+The current compiler contract defines three distinct artifacts:
+
+- `DomainSchema` as the semantic runtime artifact returned by existing schema-only compile entrypoints
+- `SchemaGraph` as the projected static dependency artifact
+- `AnnotationIndex` as the tooling-only structural sidecar
+
+Additive compiler/tooling entrypoints MAY expose those artifacts together through a module envelope:
+
+```typescript
+type DomainModule = {
+  readonly schema: DomainSchema;
+  readonly graph: SchemaGraph;
+  readonly annotations: AnnotationIndex;
+};
+```
+
+Within `DomainSchema`, the compiler emits three distinct type-carrying seams:
 
 ```typescript
 type DomainSchema = {
@@ -56,6 +73,10 @@ type ActionSpec = {
 
 Normative meaning:
 
+- `schema` is the semantic runtime artifact. Core, Host, and SDK runtime entrypoints remain `DomainSchema`-only.
+- `graph` is the projected static dependency artifact extracted from `schema` alone.
+- `annotations` is a tooling-only structural sidecar and MUST remain out-of-schema.
+- schema-only compiler entrypoints MAY continue to expose `DomainSchema` without wrapping it in `DomainModule`.
 - `types` preserves named MEL type declarations losslessly.
 - `state.fields` and `action.input` are the **compatibility / coarse introspection seam**.
 - `state.fieldTypes` and `action.inputType` are the **normative runtime typing seam** when present.
@@ -308,16 +329,195 @@ The compiler MUST continue to extract the projected static graph with:
 
 `dispatchable when` is input-bound and MUST NOT be projected into `SchemaGraph`.
 `unlocks` remains derived from `available when` only.
+Structural annotations MUST NOT alter graph nodes, graph edges, or graph derivation.
 
 ---
 
-## 8. Diagnostics
+## 8. Structural Annotations
+
+### 8.1 Surface and Target Model
+
+`@meta` is part of the current MEL surface as a structural annotation form.
+
+Source form:
+
+```mel
+@meta("namespace:kind")
+@meta("namespace:kind", { key: "value", enabled: true })
+```
+
+Normative rules:
+
+- `@meta` uses prefix syntax and attaches to the immediately following construct.
+- Multiple annotations MAY stack on the same target.
+- The compiler MUST treat the tag string as opaque. Namespace or kind semantics are consumer-owned.
+- Current v1 attachable targets are:
+  - `domain`
+  - `type`
+  - `type_field`
+  - `state_field`
+  - `computed`
+  - `action`
+- For `type_field` and `state_field`, the same prefix form appears immediately above the field declaration inside the enclosing block.
+- `action_param` annotations are deferred from the current v1 contract and are NOT part of current MEL syntax.
+
+Examples:
+
+```mel
+@meta("doc:summary", { area: "tasks" })
+domain TaskBoard {
+  @meta("doc:entity")
+  type Task = {
+    id: string,
+    @meta("ui:hidden")
+    internalNote: string | null
+  }
+
+  state {
+    @meta("analytics:track")
+    lastArchivedId: string | null = null
+  }
+
+  @meta("ui:primary-list")
+  computed hasArchivedTask = isNotNull(lastArchivedId)
+
+  @meta("ui:button", { variant: "secondary" })
+  action archive(id: string) {
+    when true {
+      patch lastArchivedId = id
+    }
+  }
+}
+```
+
+### 8.2 Sidecar Types and Boundaries
+
+Annotations compile into a tooling-only sidecar. They MUST NOT appear inside `DomainSchema` or `SchemaGraph`.
+
+```typescript
+type AnnotationIndex = {
+  readonly schemaHash: string;
+  readonly entries: Record<LocalTargetKey, readonly Annotation[]>;
+};
+
+type LocalTargetKey = string;
+
+type Annotation = {
+  readonly tag: string;
+  readonly payload?: JsonLiteral;
+};
+
+type JsonLiteral =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonLiteral[]
+  | { readonly [key: string]: JsonLiteral };
+```
+
+Current v1 `LocalTargetKey` forms are:
+
+```text
+domain:<DomainName>
+type:<TypeName>
+type_field:<TypeName>.<FieldName>
+state_field:<FieldName>
+computed:<ComputedName>
+action:<ActionName>
+```
+
+Current v1 emission rules:
+
+- `schemaHash` MUST equal `hash` on the emitted `DomainSchema`.
+- `entries` MUST include only targets that carry at least one annotation.
+- `entries` MUST NOT contain empty annotation arrays.
+- stacked annotations on the same target MUST preserve source order.
+- repeated tags on the same target MUST NOT be deduplicated by the compiler.
+- sidecar emission order MUST be deterministic for a fixed source input.
+
+Normative rules:
+
+- `schemaHash` scopes the entire annotation sidecar to one emitted semantic schema.
+- Every emitted `LocalTargetKey` MUST map to an existing construct in the emitted `DomainSchema`.
+- Child targets use exactly one dotted segment (`Parent.Child`) in the current contract.
+- The sidecar MAY be exposed only by additive compiler/tooling entrypoints. It MUST NOT become a runtime input artifact.
+
+### 8.3 Payload Model
+
+Payloads are JSON-like literals only.
+
+Permitted payload values:
+
+- strings
+- numbers
+- booleans
+- `null`
+- arrays of JSON-like literals
+- objects whose values are JSON-like literals
+
+Current v1 payload restrictions:
+
+- payload is optional
+- maximum nesting depth is 2
+- MEL expressions are forbidden
+- semantic references are forbidden
+- guard references or runtime predicates are forbidden
+
+Examples:
+
+```mel
+// valid
+@meta("ui:button", { variant: "primary", size: "lg" })
+@meta("doc:priority", 3)
+
+// invalid: MEL expression in payload
+@meta("ui:button", { disabled: eq(len(items), 0) })
+
+// invalid: depth > 2
+@meta("ui:card", { config: { pricing: { free: "$0" } } })
+```
+
+### 8.4 Annotation Rules and Invariants
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| META-1 | MUST | The compiler MUST remain namespace-blind for annotation tags and payload meaning |
+| META-2 | MUST | Annotations MUST exist only in `AnnotationIndex`, never in `DomainSchema` or `SchemaGraph` |
+| META-3 | MUST | Annotation presence or absence MUST NOT affect schema hash, `compute()`, availability, dispatchability, or other runtime semantics |
+| META-4 | MUST | Runtime entrypoints MUST continue to accept `DomainSchema` only, not `DomainModule` |
+| META-5 | MUST | The compiler MUST validate emitted annotation targets against the emitted `DomainSchema` structure |
+| META-6 | MUST | Payloads MUST be JSON-like literals only, with current v1 nesting depth capped at 2 |
+| META-7 | MUST | Semantic validation of namespace-specific annotation meaning MUST remain consumer-owned |
+| META-8 | MUST | Stacked annotations on the same target MUST preserve source order and repeated tags MUST NOT be deduplicated |
+| META-9 | MUST | `AnnotationIndex.schemaHash` MUST equal `hash` on the emitted `DomainSchema` |
+| META-10 | MUST | `AnnotationIndex.entries` MUST omit unannotated targets and empty arrays, and emission order MUST be deterministic |
+
+Current invariants:
+
+| Invariant | Meaning |
+|-----------|---------|
+| INV-META-1 | Removing all `@meta` from MEL source MUST leave emitted `DomainSchema` byte-identical |
+| INV-META-2 | Removing all `@meta` from MEL source MUST leave emitted `SchemaGraph` identical |
+| INV-META-3 | For any snapshot and intent, `compute()` results MUST remain identical regardless of annotation presence |
+| INV-META-4 | For any snapshot, `getAvailableActions()` MUST remain identical regardless of annotation presence |
+| INV-META-5 | For any snapshot and intent, `isIntentDispatchable()` MUST remain identical regardless of annotation presence |
+| INV-META-6 | Tooling-only `DomainModule` artifacts MUST remain outside runtime schema-input seams |
+
+---
+
+## 9. Diagnostics
 
 The following diagnostics remain active in this area:
 
 - `E043` for unsupported non-trivial schema-position unions
 - `E044` for recursive schema-position refs that cannot be soundly lowered
 - `E047` / `E048` for `dispatchable when` scope violations
+- `E053` for misplaced or floating `@meta`, including unsupported attachment sites
+- `E054` for unsupported `action_param` annotation syntax in the current contract
+- `E055` for annotation payload values that are not JSON-like literals, including MEL expressions and semantic references
+- `E056` for annotation payload nesting depth overflow
+- `E057` for emitted annotation targets that do not map to the emitted `DomainSchema`
 
 The following historical diagnostics are superseded in the current contract:
 
@@ -328,7 +528,7 @@ They remain historical references only and are no longer part of the current com
 
 ---
 
-## 9. Summary
+## 10. Summary
 
 The current compiler contract is:
 
@@ -337,6 +537,8 @@ The current compiler contract is:
 - nullable and record schema-position types are supported
 - pure collection builtins are supported in expressions
 - additive MEL surface expansions MUST preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary
+- structural annotations via `@meta` compile into a tooling-only `AnnotationIndex` sidecar
+- `action_param` annotations remain outside the current v1 surface
 - `dispatchable when` is part of the full action contract
 - `SchemaGraph` remains availability-only and input-independent
 

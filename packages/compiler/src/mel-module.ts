@@ -18,6 +18,11 @@ export function formatDiagnostic(diagnostic: Diagnostic): string {
   return `[${diagnostic.code}] ${diagnostic.message} (${line}:${column})`;
 }
 
+export function renderSchemaModuleCode(schema: unknown): string {
+  const serializedSchema = JSON.stringify(schema, null, 2);
+  return `export default ${serializedSchema};\n`;
+}
+
 /**
  * Compile MEL source and emit ESM source that exports the compiled schema.
  *
@@ -36,7 +41,5 @@ export function compileMelToModuleCode(melSource: string, sourceId: string): str
     throw new Error(`MEL compilation produced no schema for ${sourceId}`);
   }
 
-  const serializedSchema = JSON.stringify(result.schema, null, 2);
-  return `export default ${serializedSchema};\n`;
+  return renderSchemaModuleCode(result.schema);
 }
-

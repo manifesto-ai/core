@@ -20,6 +20,47 @@ import {
 } from "./helpers/schema.js";
 
 describe("createManifesto()", () => {
+  it("rejects compiler DomainModule artifacts at the runtime schema seam", () => {
+    const schema = createCounterSchema();
+    const moduleArtifact = {
+      schema,
+      graph: { nodes: [], edges: [] },
+      annotations: {
+        schemaHash: schema.hash,
+        entries: {},
+      },
+    };
+
+    expect(() =>
+      createManifesto(
+        moduleArtifact as unknown as DomainSchema,
+        {},
+      ),
+    ).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "SCHEMA_ERROR",
+        message: expect.stringContaining("DomainModule"),
+      }),
+    );
+  });
+
+  it("does not reject a DomainSchema when DomainModule-shaped keys only exist on the prototype", () => {
+    const schema = createCounterSchema();
+    const inheritedDomainModuleShape = {
+      schema: "prototype-only",
+      graph: { nodes: [], edges: [] },
+      annotations: { schemaHash: schema.hash, entries: {} },
+    };
+    const schemaWithInheritedKeys = Object.assign(
+      Object.create(inheritedDomainModuleShape) as DomainSchema,
+      schema,
+    );
+
+    expect(() =>
+      createManifesto<CounterDomain>(schemaWithInheritedKeys, {}),
+    ).not.toThrow();
+  });
+
   it("returns a composable manifesto with normalized schema and no runtime verbs", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
 

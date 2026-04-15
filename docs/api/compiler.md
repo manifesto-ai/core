@@ -1,40 +1,69 @@
 # @manifesto-ai/compiler
 
-> MEL compiler package (MEL text -> DomainSchema / patch IR / module code)
+> MEL compiler package (MEL text -> `DomainSchema` / tooling sidecars / patch IR / schema-only module code)
 
 ---
 
 ## Overview
 
-`@manifesto-ai/compiler` provides MEL compilation and lowering adapters.
+`@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
 
-ADR-009 alignment points:
-- Conditional patch ops use `IRPatchPath`
-- Runtime evaluation resolves IR path segments to concrete `PatchPath`
-- Invalid segment resolution is skipped with warnings (TOTAL behavior)
+The current canonical compiler contract lives in `packages/compiler/docs/SPEC-v1.0.0.md`.
 
-The current full compiler contract is [SPEC-v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md).
-
-Current compiler responsibilities also include:
+Current compiler responsibilities include:
+- schema-only compilation through `compileMelDomain()`
+- tooling-only module compilation through `compileMelModule()`
 - projected `SchemaGraph` extraction
+- structural annotations via `@meta` as an out-of-schema `AnnotationIndex` sidecar
 - intent-level dispatchability via `dispatchable when`
-- rich schema-position lowering through `state.fieldTypes`, `action.inputType`, and `action.params`
-- pure collection builtins such as `filter`, `map`, `find`, `every`, and `some` in expression contexts
-- bounded lowering-only MEL sugar such as `absDiff`, `clamp`, `idiv`, `streak`, `match`, `argmax`, and `argmin`
-
----
+- MEL patch lowering through `compileMelPatch()`
 
 ## Main Entry Points
 
-### compileMelDomain()
+### `compileMelDomain()`
+
+Use `compileMelDomain()` when you need the semantic runtime artifact only.
 
 ```typescript
 import { compileMelDomain } from "@manifesto-ai/compiler";
 
 const result = compileMelDomain(melSource, { mode: "domain" });
+
+if (result.schema) {
+  // Runtime-facing seam
+  const schema = result.schema;
+}
 ```
 
-### compileMelPatch()
+`compileMelDomain()` returns `DomainSchema` only. Structural annotations never appear inside that schema.
+
+### `compileMelModule()`
+
+Use `compileMelModule()` when tooling needs compiler-owned helper artifacts in addition to the schema.
+
+```typescript
+import { compileMelModule } from "@manifesto-ai/compiler";
+
+const result = compileMelModule(melSource, { mode: "module" });
+
+if (result.module) {
+  const { schema, graph, annotations } = result.module;
+}
+```
+
+`compileMelModule()` returns a tooling-only `DomainModule`:
+
+```typescript
+type DomainModule = {
+  readonly schema: DomainSchema;
+  readonly graph: SchemaGraph;
+  readonly annotations: AnnotationIndex;
+};
+```
+
+`annotations` is the compiler-owned sidecar for `@meta`. It remains outside both `DomainSchema` and `SchemaGraph`.
+
+### `compileMelPatch()`
 
 ```typescript
 import { compileMelPatch } from "@manifesto-ai/compiler";
@@ -47,7 +76,42 @@ const result = compileMelPatch(patchText, {
 
 `compileMelPatch()` returns unresolved conditional ops. Runtime MUST evaluate them before applying to Core.
 
----
+## Tooling vs Runtime
+
+- Runtime seams consume `DomainSchema`, not `DomainModule`.
+- Tooling can use `compileMelModule()` to read `graph` and `annotations`.
+- If you compile through `compileMelModule()`, pass `module.schema` to runtime creation and keep `module.annotations` external.
+- `.mel` loader and bundler integrations still default-export compiled `DomainSchema`, even when the source uses `@meta`.
+
+```typescript
+import { compileMelModule } from "@manifesto-ai/compiler";
+import { createManifesto } from "@manifesto-ai/sdk";
+
+const result = compileMelModule(melSource, { mode: "module" });
+const module = result.module!;
+
+const app = createManifesto(module.schema, {}).activate();
+const annotations = module.annotations;
+```
+
+## Annotation Sidecar Types
+
+```typescript
+type Annotation = {
+  readonly tag: string;
+  readonly payload?: JsonLiteral;
+};
+
+type AnnotationIndex = {
+  readonly schemaHash: string;
+  readonly entries: Record<LocalTargetKey, readonly Annotation[]>;
+};
+```
+
+- `schemaHash` matches the emitted `DomainSchema.hash`.
+- `entries` includes annotated targets only.
+- stacked annotations preserve source order.
+- repeated tags are preserved and not deduplicated.
 
 ## Patch IR Types
 
@@ -66,8 +130,6 @@ type ConditionalPatchOp = {
 };
 ```
 
----
-
 ## Evaluation Contract
 
 ```typescript
@@ -81,14 +143,13 @@ function evaluateConditionalPatchOps(
 - `expr` segment evaluates to:
   - string -> `{ kind: "prop", name }`
   - non-negative integer -> `{ kind: "index", index }`
-- Any other value => skip op + emit warning (never throw due to runtime data).
-
----
+- Any other value => skip op + emit warning.
 
 ## Related Packages
 
 | Package | Relationship |
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Executes compiled `DomainSchema` semantics |
-| [@manifesto-ai/sdk](./sdk) | Uses compiler results at runtime creation |
+| [@manifesto-ai/sdk](./sdk) | Accepts `DomainSchema` or MEL source at runtime creation, not `DomainModule` |
+| [Application](./application) | Runtime-facing `createManifesto()` entrypoint |
 | [MEL Docs](/mel/) | Language reference and examples |

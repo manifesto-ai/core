@@ -84,10 +84,8 @@ export * from "./evaluation/index.js";
 // ════════════════════════════════════════════════════════════════════════════
 
 export * from "./api/index.js";
+export * from "./annotations.js";
 export * from "./schema-graph.js";
-
-// Compatibility type used in docs for `.mel` module declarations
-export type { DomainSchema as DomainModule } from "./generator/ir.js";
 
 // ===========================================================================
 // Legacy compatibility API
@@ -96,6 +94,7 @@ export type { DomainSchema as DomainModule } from "./generator/ir.js";
 import type { ParseResult } from "./parser/index.js";
 import { analyzeScope, validateSemantics } from "./analyzer/index.js";
 import { validateAndExpandFlows } from "./analyzer/flow-composition.js";
+import { buildAnnotationIndex } from "./annotations.js";
 import { generate, type GenerateResult } from "./generator/ir.js";
 import { lowerSystemValues, type DomainSchema } from "./generator/index.js";
 import type { CompileTrace } from "./api/index.js";
@@ -190,6 +189,11 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
   const genResult: GenerateResult = generate(flowResult.program);
   diagnostics.push(...genResult.diagnostics);
   trace.push({ phase: "generate", durationMs: performance.now() - generateStart });
+
+  if (!options.skipSemanticAnalysis && genResult.schema) {
+    const annotationResult = buildAnnotationIndex(flowResult.program, genResult.schema);
+    diagnostics.push(...annotationResult.diagnostics);
+  }
 
   if (options.skipSemanticAnalysis) {
     diagnostics.push(...parseResult.diagnostics);

@@ -148,6 +148,49 @@ domain DomainName {
 - Multiple `computed` and `action` declarations are allowed
 - Named `type` declarations must appear before their first use
 
+### Structural Annotations (`@meta`)
+
+`@meta` attaches tooling-only structural metadata to the next declaration or field.
+
+```mel
+@meta("doc:summary", { area: "tasks" })
+domain TaskBoard {
+  @meta("doc:entity")
+  type Task = {
+    id: string,
+    @meta("ui:hidden")
+    internalNote: string | null
+  }
+
+  state {
+    @meta("analytics:track")
+    lastArchivedId: string | null = null
+  }
+
+  @meta("ui:status")
+  computed hasArchivedTask = isNotNull(lastArchivedId)
+
+  @meta("ui:button", { variant: "secondary" })
+  action archive(id: string) {
+    when true {
+      patch lastArchivedId = id
+    }
+  }
+}
+```
+
+Current rules:
+- `@meta` uses prefix syntax and attaches to the immediately following construct.
+- Current attachable targets are `domain`, `type`, `type field`, `state field`, `computed`, and `action`.
+- Payload is optional, but when present it must be JSON-like literal data only.
+- Payload nesting depth is capped at 2 levels.
+- Multiple annotations may stack on the same target.
+- Stacked annotations preserve source order.
+- Repeated tags on the same target are preserved and are not deduplicated by the compiler.
+- `action_param` annotations are not part of the current MEL surface.
+
+Annotations are preserved in a tooling-only compiler sidecar. They do not become part of `DomainSchema`, they do not alter `SchemaGraph`, and they do not change runtime legality or execution behavior.
+
 ---
 
 ## 3. State and Types
