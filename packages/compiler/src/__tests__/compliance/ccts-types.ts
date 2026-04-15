@@ -6,6 +6,7 @@ import type { CanonicalDomainSchema, DomainSchema } from "../../generator/ir.js"
 
 export const CCTS_SUITES = [
   "grammar",
+  "annotations",
   "context",
   "state-and-computed",
   "actions-and-control",

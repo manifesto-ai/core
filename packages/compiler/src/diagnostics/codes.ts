@@ -239,6 +239,31 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     message: "Invalid argmax()/argmin() form",
     category: "semantic",
   },
+  E053: {
+    code: "E053",
+    message: "@meta can attach only to domain, type, type field, state field, computed, or action declarations",
+    category: "syntax",
+  },
+  E054: {
+    code: "E054",
+    message: "Action-parameter annotations are not part of the current MEL syntax",
+    category: "syntax",
+  },
+  E055: {
+    code: "E055",
+    message: "Annotation payloads must be JSON-like literals",
+    category: "semantic",
+  },
+  E056: {
+    code: "E056",
+    message: "Annotation payload nesting exceeds the current MEL limit of 2 levels",
+    category: "semantic",
+  },
+  E057: {
+    code: "E057",
+    message: "Annotation target does not map to the emitted DomainSchema",
+    category: "semantic",
+  },
 
   // ============ Scope Errors (E1xx) ============
   E_UNDEFINED: {

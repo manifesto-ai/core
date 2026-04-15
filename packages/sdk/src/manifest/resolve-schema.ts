@@ -23,6 +23,13 @@ import {
 } from "./shared.js";
 
 export function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
+  if (typeof schema !== "string" && isDomainModuleArtifact(schema)) {
+    throw new ManifestoError(
+      "SCHEMA_ERROR",
+      "DomainModule is a compiler tooling artifact. Pass module.schema or MEL source to createManifesto().",
+    );
+  }
+
   const resolved: CompiledSchema = typeof schema === "string"
     ? compileSchema(schema)
     : {
@@ -40,6 +47,20 @@ export function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
     actionSingleParamObjectValueMetadata: resolved.actionSingleParamObjectValueMetadata,
     projectionPlan: buildSnapshotProjectionPlan(normalizedSchema),
   };
+}
+
+function isDomainModuleArtifact(
+  schema: DomainSchema,
+): schema is DomainSchema & {
+  schema: unknown;
+  graph: unknown;
+  annotations: unknown;
+} {
+  return typeof schema === "object"
+    && schema !== null
+    && "schema" in schema
+    && "graph" in schema
+    && "annotations" in schema;
 }
 
 function withPlatformNamespaces(schema: DomainSchema): DomainSchema {

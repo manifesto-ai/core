@@ -22,6 +22,12 @@ export const CCTS_CASES = {
   GRAMMAR_INVALID_SYSTEM_REF: "CCTS-GRAM-003",
   GRAMMAR_ONCE_INTENT_CONTEXTUAL: "CCTS-GRAM-004",
 
+  ANNOTATIONS_SURFACE: "CCTS-ANN-001",
+  ANNOTATIONS_PAYLOAD: "CCTS-ANN-002",
+  ANNOTATIONS_INVARIANTS: "CCTS-ANN-003",
+  ANNOTATIONS_RUNTIME_BOUNDARY: "CCTS-ANN-004",
+  ANNOTATIONS_DIAGNOSTICS: "CCTS-ANN-005",
+
   CONTEXT_COMPUTED_SYSTEM: "CCTS-CTX-001",
   CONTEXT_STATE_INIT_SYSTEM: "CCTS-CTX-002",
   CONTEXT_AVAILABLE_PURITY: "CCTS-CTX-003",
@@ -77,6 +83,12 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF, "grammar", "Invalid system references are diagnosed."),
   complianceCase(CCTS_CASES.GRAMMAR_ONCE_INTENT_CONTEXTUAL, "grammar", "onceIntent is parsed contextually."),
 
+  complianceCase(CCTS_CASES.ANNOTATIONS_SURFACE, "annotations", "@meta target placement, target-key shape, and sidecar emission determinism are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_PAYLOAD, "annotations", "@meta payload literal-only and depth constraints are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_INVARIANTS, "annotations", "@meta semantic erasure invariants are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_RUNTIME_BOUNDARY, "annotations", "Tooling-only DomainModule runtime-boundary guards are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "annotations", "@meta diagnostic families are staged."),
+
   complianceCase(CCTS_CASES.CONTEXT_COMPUTED_SYSTEM, "context", "$system is rejected in computed expressions."),
   complianceCase(CCTS_CASES.CONTEXT_STATE_INIT_SYSTEM, "context", "$system is rejected in state initializers."),
   complianceCase(CCTS_CASES.CONTEXT_AVAILABLE_PURITY, "context", "available when stays schema-pure."),
@@ -118,7 +130,7 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.ENTITY_TYPING, "entity-primitives", "Entity typing and uniqueness rules are tracked."),
 
   complianceCase(CCTS_CASES.INTROSPECTION_GRAPH_SURFACE, "introspection", "SchemaGraph emits projected nodes with kind-prefixed ids and deterministic ordering."),
-  complianceCase(CCTS_CASES.INTROSPECTION_FEEDS_UNLOCKS, "introspection", "SchemaGraph extracts feeds and unlocks relations from computed deps and availability." ),
+  complianceCase(CCTS_CASES.INTROSPECTION_FEEDS_UNLOCKS, "introspection", "SchemaGraph extracts feeds and unlocks relations from computed deps and availability."),
   complianceCase(CCTS_CASES.INTROSPECTION_MUTATIONS, "introspection", "SchemaGraph extracts mutates relations from patches and effect into roots."),
   complianceCase(CCTS_CASES.INTROSPECTION_PROJECTION, "introspection", "SchemaGraph excludes $*-owned substrate and tainted computed nodes."),
 
@@ -172,6 +184,12 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["SGRAPH-5", "SGRAPH-6", "SGRAPH-10", "SGRAPH-11"], [CCTS_CASES.INTROSPECTION_FEEDS_UNLOCKS]),
   ...coverMany(["SGRAPH-7", "SGRAPH-8", "SGRAPH-9"], [CCTS_CASES.INTROSPECTION_MUTATIONS]),
   ...coverMany(["SGRAPH-12", "SGRAPH-13"], [CCTS_CASES.INTROSPECTION_PROJECTION]),
+
+  ...coverMany(["META-1", "META-2", "META-5", "META-7", "META-8", "META-9", "META-10"], [CCTS_CASES.ANNOTATIONS_SURFACE]),
+  ...coverMany(["META-6"], [CCTS_CASES.ANNOTATIONS_PAYLOAD]),
+  ...coverMany(["META-3", "INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5"], [CCTS_CASES.ANNOTATIONS_INVARIANTS]),
+  ...coverMany(["META-4", "INV-META-6"], [CCTS_CASES.ANNOTATIONS_RUNTIME_BOUNDARY]),
+  ...coverMany(["E053", "E054", "E055", "E056", "E057"], [CCTS_CASES.ANNOTATIONS_DIAGNOSTICS]),
 
   ...coverMany(["E003"], [CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF]),
   ...coverMany(["E006", "E007", "E008"], [CCTS_CASES.ACTIONS_FAIL_STOP_DIAGNOSTICS]),

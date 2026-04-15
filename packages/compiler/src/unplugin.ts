@@ -9,7 +9,7 @@ import * as nodePath from "node:path";
 import { createUnplugin } from "unplugin";
 import type { DomainSchema } from "@manifesto-ai/core";
 import { compileMelDomain } from "./api/index.js";
-import { formatDiagnostic } from "./mel-module.js";
+import { formatDiagnostic, renderSchemaModuleCode } from "./mel-module.js";
 
 export type MelCodegenArtifact = {
   readonly schema: DomainSchema;
@@ -143,8 +143,7 @@ export const unpluginMel = createUnplugin((options: MelPluginOptions = {}) => {
         }
       }
 
-      const serializedSchema = JSON.stringify(result.schema, null, 2);
-      return `export default ${serializedSchema};\n`;
+      return renderSchemaModuleCode(result.schema);
     },
 
     async buildEnd() {

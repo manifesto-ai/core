@@ -9,13 +9,22 @@
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { DomainSchema } from "../generator/ir.js";
 import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
+import type {
+  Annotation,
+  AnnotationIndex,
+  DomainModule,
+  JsonLiteral,
+  LocalTargetKey,
+} from "../annotations.js";
 
+import { buildAnnotationIndex } from "../annotations.js";
 import { tokenize, type Token } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
 import { generate } from "../generator/ir.js";
 import { analyzeScope } from "../analyzer/scope.js";
 import { validateSemantics } from "../analyzer/validator.js";
 import { validateAndExpandFlows } from "../analyzer/flow-composition.js";
+import { extractSchemaGraph } from "../schema-graph.js";
 import { compileMelPatchText } from "./compile-mel-patch.js";
 
 // ============ Types ============
@@ -34,6 +43,11 @@ export interface CompileTrace {
  */
 export interface CompileMelDomainOptions {
   mode: "domain";
+  fnTableVersion?: string;
+}
+
+export interface CompileMelModuleOptions {
+  mode: "module";
   fnTableVersion?: string;
 }
 
@@ -63,6 +77,36 @@ export interface CompileMelDomainResult {
    */
   errors: Diagnostic[];
 }
+
+export interface CompileMelModuleResult {
+  /**
+   * Tooling-only compiled module, or null if errors occurred.
+   */
+  module: DomainModule | null;
+
+  /**
+   * Compilation trace.
+   */
+  trace: CompileTrace[];
+
+  /**
+   * Warning diagnostics.
+   */
+  warnings: Diagnostic[];
+
+  /**
+   * Error diagnostics.
+   */
+  errors: Diagnostic[];
+}
+
+export type {
+  Annotation,
+  AnnotationIndex,
+  DomainModule,
+  JsonLiteral,
+  LocalTargetKey,
+} from "../annotations.js";
 
 /**
  * Patch compilation options.
@@ -133,6 +177,51 @@ export function compileMelDomain(
   melText: string,
   options?: CompileMelDomainOptions
 ): CompileMelDomainResult {
+  const result = compileMelArtifacts(melText, options);
+  return {
+    schema: result.schema,
+    trace: result.trace,
+    warnings: result.warnings,
+    errors: result.errors,
+  };
+}
+
+export function compileMelModule(
+  melText: string,
+  options?: CompileMelModuleOptions,
+): CompileMelModuleResult {
+  const result = compileMelArtifacts(melText, options);
+
+  if (result.errors.length > 0 || !result.schema || !result.annotations) {
+    return {
+      module: null,
+      trace: result.trace,
+      warnings: result.warnings,
+      errors: result.errors,
+    };
+  }
+
+  return {
+    module: createDomainModule(result.schema, result.annotations),
+    trace: result.trace,
+    warnings: result.warnings,
+    errors: result.errors,
+  };
+}
+
+interface CompileMelArtifactsResult {
+  program: ProgramNode | null;
+  schema: DomainSchema | null;
+  annotations: AnnotationIndex | null;
+  trace: CompileTrace[];
+  warnings: Diagnostic[];
+  errors: Diagnostic[];
+}
+
+function compileMelArtifacts(
+  melText: string,
+  _options?: CompileMelDomainOptions | CompileMelModuleOptions,
+): CompileMelArtifactsResult {
   const trace: CompileTrace[] = [];
   const warnings: Diagnostic[] = [];
   const errors: Diagnostic[] = [];
@@ -149,7 +238,7 @@ export function compileMelDomain(
     if (lexErrors.length > 0) {
       errors.push(...lexErrors);
       trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
-      return { schema: null, trace, warnings, errors };
+      return { program: null, schema: null, annotations: null, trace, warnings, errors };
     }
     const lexWarnings = lexResult.diagnostics.filter(d => d.severity === "warning");
     warnings.push(...lexWarnings);
@@ -162,7 +251,7 @@ export function compileMelDomain(
       location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
     });
     trace.push({ phase: "lex", durationMs: performance.now() - lexStart });
-    return { schema: null, trace, warnings, errors };
+    return { program: null, schema: null, annotations: null, trace, warnings, errors };
   }
   trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
 
@@ -175,7 +264,7 @@ export function compileMelDomain(
     if (parseErrors.length > 0) {
       errors.push(...parseErrors);
       trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-      return { schema: null, trace, warnings, errors: capDiagnostics(errors) };
+      return { program: null, schema: null, annotations: null, trace, warnings, errors: capDiagnostics(errors) };
     }
     ast = parseResult.program as ProgramNode;
   } catch (e) {
@@ -187,7 +276,7 @@ export function compileMelDomain(
       location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
     });
     trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-    return { schema: null, trace, warnings, errors };
+    return { program: null, schema: null, annotations: null, trace, warnings, errors };
   }
   trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
 
@@ -214,7 +303,14 @@ export function compileMelDomain(
 
   if (analyzeErrors.length > 0) {
     errors.push(...analyzeErrors);
-    return { schema: null, trace, warnings, errors };
+    return {
+      program: flowResult.program,
+      schema: null,
+      annotations: null,
+      trace,
+      warnings,
+      errors: capDiagnostics(errors),
+    };
   }
 
   // Phase 3: Generate IR
@@ -231,12 +327,72 @@ export function compileMelDomain(
     }
   }
 
+  if (genResult.schema) {
+    const annotationResult = buildAnnotationIndex(flowResult.program, genResult.schema);
+    const annotationWarnings = annotationResult.diagnostics.filter((d) => d.severity === "warning");
+    const annotationErrors = annotationResult.diagnostics.filter((d) => d.severity === "error");
+    warnings.push(...annotationWarnings);
+    errors.push(...annotationErrors);
+
+    if (annotationErrors.length > 0) {
+      return {
+        program: flowResult.program,
+        schema: null,
+        annotations: null,
+        trace,
+        warnings,
+        errors: capDiagnostics(errors),
+      };
+    }
+
+    return {
+      program: flowResult.program,
+      schema: genResult.schema,
+      annotations: annotationResult.annotations,
+      trace,
+      warnings,
+      errors: capDiagnostics(errors),
+    };
+  }
+
   return {
-    schema: genResult.schema,
+    program: flowResult.program,
+    schema: null,
+    annotations: null,
     trace,
     warnings,
     errors: capDiagnostics(errors),
   };
+}
+
+function createDomainModule(
+  schema: DomainSchema,
+  annotations: AnnotationIndex,
+): DomainModule {
+  return Object.freeze({
+    schema,
+    graph: deepFreeze(extractSchemaGraph(schema)),
+    annotations,
+  });
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      deepFreeze(entry);
+    }
+    return Object.freeze(value);
+  }
+
+  for (const entry of Object.values(value)) {
+    deepFreeze(entry);
+  }
+
+  return Object.freeze(value);
 }
 
 /** Cap diagnostics to prevent error flooding in output. */

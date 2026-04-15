@@ -8,7 +8,7 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md).
+> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md), including tooling-only structural annotations via `@meta`.
 
 ## 1. Purpose
 
@@ -527,6 +527,8 @@ If `schema` is a string, SDK MUST compile it as MEL domain source before exposin
 
 If `schema` is a compiled `DomainSchema`, SDK MUST still normalize it before exposing `ComposableManifesto.schema`.
 
+Compiler tooling artifacts that bundle schema-side metadata, such as `DomainModule`, are outside this runtime seam. Callers MUST pass `DomainSchema` only.
+
 Normalization includes:
 
 - platform namespace injection for `$host`
@@ -563,6 +565,7 @@ The `snapshot` in `EffectContext` MUST reflect the current projected snapshot vi
 | SDK-CREATE-8 | MUST | SDK MUST reject user effects that override reserved effect types with `ReservedEffectError` |
 | SDK-CREATE-9 | MUST | SDK MUST reject action names using reserved namespace prefixes with `ManifestoError` code `RESERVED_NAMESPACE` |
 | SDK-CREATE-10 | MUST | SDK MUST inject platform namespaces needed by compiler/host coordination before activation |
+| SDK-CREATE-11 | MUST NOT | SDK MUST NOT accept compiler tooling artifacts such as `DomainModule` in place of `DomainSchema` |
 
 ## 7. Activated Base Surface
 
@@ -894,6 +897,7 @@ Admitted results MUST expose the canonical simulated snapshot, the projected pub
 `getSchemaGraph()` returns the current instance's projected static dependency graph.
 
 The graph MUST be derived from the activated `DomainSchema` alone. It MUST NOT depend on the current snapshot or dispatch history.
+Compiler-side annotation sidecars or other tooling-only metadata MUST NOT participate in graph derivation.
 
 The SDK SHOULD compute the graph once at activation time and cache it for the lifetime of the instance.
 
@@ -1412,6 +1416,7 @@ Required stable codes:
 - SDK v3 is a super hard cut, not a migration layer.
 - Re-activating the same composable manifesto is a programmer error.
 - The visible snapshot is always mutation-safe from the caller side.
+- Runtime schema input remains `DomainSchema | string`; tooling-only compiler artifacts such as `DomainModule` are not accepted by `createManifesto()`.
 
 ## 12. Compliance Checklist
 
@@ -1426,6 +1431,7 @@ An SDK v3.x implementation complies with this living contract only if all of the
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
 - `dispatchAsync()` is FIFO per instance and evaluates availability, then input validation, then dispatchability at dequeue time.
 - `dispatchAsyncWithReport()` is additive, reuses the same legality ordering and projected diff semantics, and does not change `dispatchAsync()` publication behavior.
+- `createManifesto()` accepts MEL source or `DomainSchema`, but not tooling-only compiler artifacts such as `DomainModule`.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
 - `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
 - `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers, including `explainIntentFor()`, and no runtime-control methods.

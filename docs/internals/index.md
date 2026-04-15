@@ -56,6 +56,7 @@ Records of significant architectural decisions:
 | [ADR-018](./adr/018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented |
 | [ADR-019](./adr/019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented |
 | [ADR-020](./adr/020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Implemented |
+| [ADR-021](./adr/021-mel-structural-annotation-system-meta-sidecar) | MEL Structural Annotation System — `@meta` Sidecar | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 
