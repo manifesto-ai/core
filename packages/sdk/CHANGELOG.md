@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.14.0](https://github.com/manifesto-ai/core/compare/sdk-v3.13.1...sdk-v3.14.0) (2026-04-15)
+
+
+### Features
+
+* **compiler:** add [@meta](https://github.com/meta) structural annotation support ([#430](https://github.com/manifesto-ai/core/issues/430)) ([41b6ac3](https://github.com/manifesto-ai/core/commit/41b6ac3cc049687a12898b299021a7cba56913b3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.6.0
+
 ## [3.13.1](https://github.com/manifesto-ai/core/compare/sdk-v3.13.0...sdk-v3.13.1) (2026-04-14)
 
 
