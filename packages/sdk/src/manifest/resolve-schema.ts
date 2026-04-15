@@ -58,9 +58,9 @@ function isDomainModuleArtifact(
 } {
   return typeof schema === "object"
     && schema !== null
-    && "schema" in schema
-    && "graph" in schema
-    && "annotations" in schema;
+    && Object.hasOwn(schema, "schema")
+    && Object.hasOwn(schema, "graph")
+    && Object.hasOwn(schema, "annotations");
 }
 
 function withPlatformNamespaces(schema: DomainSchema): DomainSchema {
