@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.0](https://github.com/manifesto-ai/core/compare/compiler-v3.5.0...compiler-v3.6.0) (2026-04-15)
+
+
+### Features
+
+* **compiler:** add [@meta](https://github.com/meta) structural annotation support ([#430](https://github.com/manifesto-ai/core/issues/430)) ([41b6ac3](https://github.com/manifesto-ai/core/commit/41b6ac3cc049687a12898b299021a7cba56913b3))
+
 ## [3.5.0](https://github.com/manifesto-ai/core/compare/compiler-v3.4.0...compiler-v3.5.0) (2026-04-14)
 
 
