@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.0](https://github.com/manifesto-ai/core/compare/compiler-v3.6.0...compiler-v3.7.0) (2026-04-16)
+
+
+### Features
+
+* **compiler:** add source map sidecar contract ([#433](https://github.com/manifesto-ai/core/issues/433)) ([deb5d59](https://github.com/manifesto-ai/core/commit/deb5d59b8e0943a0dbef68f45d519329f53932f4))
+
 ## [3.6.0](https://github.com/manifesto-ai/core/compare/compiler-v3.5.0...compiler-v3.6.0) (2026-04-15)
 
 

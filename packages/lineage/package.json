@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/lineage",
-  "version": "3.10.2",
+  "version": "3.10.3",
   "description": "Manifesto Lineage - decorator runtime for seal-aware continuity, history, and restore",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
