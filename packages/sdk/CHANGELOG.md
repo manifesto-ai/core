@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.15.0](https://github.com/manifesto-ai/core/compare/sdk-v3.14.0...sdk-v3.15.0) (2026-04-16)
+
+
+### Features
+
+* **compiler:** add source map sidecar contract ([#433](https://github.com/manifesto-ai/core/issues/433)) ([deb5d59](https://github.com/manifesto-ai/core/commit/deb5d59b8e0943a0dbef68f45d519329f53932f4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.7.0
+
 ## [3.14.0](https://github.com/manifesto-ai/core/compare/sdk-v3.13.1...sdk-v3.14.0) (2026-04-15)
 
 
