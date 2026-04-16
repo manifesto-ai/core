@@ -57,6 +57,9 @@ const MISSING_TARGET_MESSAGE =
   "Source-map entry missing for emitted DomainSchema target.";
 
 type EntryMap = Map<LocalTargetKey, SourceMapEntry>;
+type SourceSpanConverter = (location: ProgramNode["location"]) => SourceSpan;
+
+const UTF8_ENCODER = new TextEncoder();
 
 export function createDefaultSourceMapEmissionContext(
   compilerVersion: string,
@@ -77,12 +80,13 @@ export function extractSourceMap(
   const diagnostics: Diagnostic[] = [];
   const entries: EntryMap = new Map();
   const domain = program.domain;
+  const toSpan = createSourceSpanConverter(sourceText, ctx.coordinateUnit);
 
   entries.set(
     `domain:${domain.name}`,
     freezeEntry({
       target: { kind: "domain", domain: { name: domain.name } },
-      span: toSourceSpan(domain.location),
+      span: toSpan(domain.location),
     }),
   );
 
@@ -91,10 +95,10 @@ export function extractSourceMap(
       `type:${typeDecl.name}`,
       freezeEntry({
         target: { kind: "type", type: { name: typeDecl.name } },
-        span: toSourceSpan(typeDecl.location),
+        span: toSpan(typeDecl.location),
       }),
     );
-    collectTypeFieldEntries(typeDecl.typeExpr, typeDecl.name, 0, entries);
+    collectTypeFieldEntries(typeDecl.typeExpr, typeDecl.name, 0, entries, toSpan);
   }
 
   for (const member of domain.members) {
@@ -105,7 +109,7 @@ export function extractSourceMap(
             `state_field:${field.name}`,
             freezeEntry({
               target: { kind: "state_field", field: { name: field.name } },
-              span: toSourceSpan(field.location),
+              span: toSpan(field.location),
             }),
           );
         }
@@ -116,7 +120,7 @@ export function extractSourceMap(
           `computed:${member.name}`,
           freezeEntry({
             target: { kind: "computed", computed: { name: member.name } },
-            span: toSourceSpan(member.location),
+            span: toSpan(member.location),
           }),
         );
         break;
@@ -126,7 +130,7 @@ export function extractSourceMap(
           `action:${member.name}`,
           freezeEntry({
             target: { kind: "action", action: { name: member.name } },
-            span: toSourceSpan(member.location),
+            span: toSpan(member.location),
           }),
         );
         break;
@@ -187,6 +191,7 @@ function collectTypeFieldEntries(
   typeName: string,
   depth: number,
   entries: EntryMap,
+  toSpan: SourceSpanConverter,
 ): void {
   switch (typeExpr.kind) {
     case "objectType":
@@ -200,27 +205,27 @@ function collectTypeFieldEntries(
                 type: { name: typeName },
                 field: { name: field.name },
               },
-              span: toSourceSpan(field.location),
+              span: toSpan(field.location),
             }),
           );
         }
 
-        collectTypeFieldEntries(field.typeExpr, typeName, depth + 1, entries);
+        collectTypeFieldEntries(field.typeExpr, typeName, depth + 1, entries, toSpan);
       }
       return;
 
     case "arrayType":
-      collectTypeFieldEntries(typeExpr.elementType, typeName, depth + 1, entries);
+      collectTypeFieldEntries(typeExpr.elementType, typeName, depth + 1, entries, toSpan);
       return;
 
     case "recordType":
-      collectTypeFieldEntries(typeExpr.keyType, typeName, depth + 1, entries);
-      collectTypeFieldEntries(typeExpr.valueType, typeName, depth + 1, entries);
+      collectTypeFieldEntries(typeExpr.keyType, typeName, depth + 1, entries, toSpan);
+      collectTypeFieldEntries(typeExpr.valueType, typeName, depth + 1, entries, toSpan);
       return;
 
     case "unionType":
       for (const member of typeExpr.types) {
-        collectTypeFieldEntries(member, typeName, depth + 1, entries);
+        collectTypeFieldEntries(member, typeName, depth + 1, entries, toSpan);
       }
       return;
 
@@ -410,7 +415,18 @@ function findTypeFieldLocation(
   }
 }
 
-function toSourceSpan(location: ProgramNode["location"]): SourceSpan {
+function createSourceSpanConverter(
+  sourceText: string,
+  coordinateUnit: SourceMapEmissionContext["coordinateUnit"],
+): SourceSpanConverter {
+  if (coordinateUnit === "utf16") {
+    return (location) => toUtf16SourceSpan(location);
+  }
+
+  return (location) => toByteSourceSpan(location, sourceText);
+}
+
+function toUtf16SourceSpan(location: ProgramNode["location"]): SourceSpan {
   return Object.freeze({
     start: Object.freeze({
       line: location.start.line,
@@ -420,6 +436,27 @@ function toSourceSpan(location: ProgramNode["location"]): SourceSpan {
       line: location.end.line,
       column: location.end.column,
     }),
+  });
+}
+
+function toByteSourceSpan(location: ProgramNode["location"], sourceText: string): SourceSpan {
+  return Object.freeze({
+    start: toByteSourcePoint(location.start, sourceText),
+    end: toByteSourcePoint(location.end, sourceText),
+  });
+}
+
+function toByteSourcePoint(
+  position: ProgramNode["location"]["start"],
+  sourceText: string,
+): SourcePoint {
+  const byteOffset = utf8ByteLength(sourceText.slice(0, position.offset));
+  const lineStartOffset = position.offset - (position.column - 1);
+  const lineStartByteOffset = utf8ByteLength(sourceText.slice(0, lineStartOffset));
+
+  return Object.freeze({
+    line: position.line,
+    column: byteOffset - lineStartByteOffset + 1,
   });
 }
 
@@ -483,4 +520,8 @@ function stableHashString(input: string): string {
   }
 
   return `fnv1a32:${hash.toString(16).padStart(8, "0")}`;
+}
+
+function utf8ByteLength(input: string): number {
+  return UTF8_ENCODER.encode(input).length;
 }

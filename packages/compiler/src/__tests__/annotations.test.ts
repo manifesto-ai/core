@@ -285,4 +285,50 @@ describe("structural annotations", () => {
 
     expect(result.diagnostics.some((diagnostic) => diagnostic.code === "E058")).toBe(true);
   });
+
+  it("converts source-map columns to bytes when byte coordinates are requested", () => {
+    const source = `
+      domain Demo {
+        state {
+          label: string = "한"
+        }
+      }
+    `;
+    const lexed = tokenize(source);
+    const parsed = parse(lexed.tokens);
+    const compiled = compileMelDomain(source, { mode: "domain" });
+
+    expect(parsed.diagnostics).toEqual([]);
+    expect(compiled.errors).toEqual([]);
+    expect(parsed.program).not.toBeNull();
+    expect(compiled.schema).not.toBeNull();
+
+    const utf16Result = extractSourceMap(
+      parsed.program!,
+      source,
+      compiled.schema!,
+      createDefaultSourceMapEmissionContext("3.5.0"),
+    );
+    const byteResult = extractSourceMap(
+      parsed.program!,
+      source,
+      compiled.schema!,
+      {
+        ...createDefaultSourceMapEmissionContext("3.5.0"),
+        coordinateUnit: "bytes",
+      },
+    );
+
+    expect(utf16Result.diagnostics).toEqual([]);
+    expect(byteResult.diagnostics).toEqual([]);
+    expect(byteResult.sourceMap.coordinateUnit).toBe("bytes");
+
+    const utf16Span = utf16Result.sourceMap.entries["state_field:label"]!.span;
+    const byteSpan = byteResult.sourceMap.entries["state_field:label"]!.span;
+
+    expect(byteSpan.start.line).toBe(utf16Span.start.line);
+    expect(byteSpan.end.line).toBe(utf16Span.end.line);
+    expect(byteSpan.start.column).toBe(utf16Span.start.column);
+    expect(byteSpan.end.column).toBe(utf16Span.end.column + 2);
+  });
 });
