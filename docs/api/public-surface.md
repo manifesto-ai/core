@@ -274,6 +274,12 @@ _Source: `packages/compiler/src/index.ts`_
 - `SimpleTypeNode`
 - `SkippedRuntimePatch`
 - `SourceLocation`
+- `SourceMapEmissionContext`
+- `SourceMapEntry`
+- `SourceMapIndex`
+- `SourceMapPath`
+- `SourcePoint`
+- `SourceSpan`
 - `StateFieldNode`
 - `StateNode`
 - `StateSpec`

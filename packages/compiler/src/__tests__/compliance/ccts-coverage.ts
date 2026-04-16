@@ -83,11 +83,11 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF, "grammar", "Invalid system references are diagnosed."),
   complianceCase(CCTS_CASES.GRAMMAR_ONCE_INTENT_CONTEXTUAL, "grammar", "onceIntent is parsed contextually."),
 
-  complianceCase(CCTS_CASES.ANNOTATIONS_SURFACE, "annotations", "@meta target placement, target-key shape, and sidecar emission determinism are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_SURFACE, "annotations", "@meta target placement, sibling sidecar target-key shape, and tooling sidecar emission determinism are staged."),
   complianceCase(CCTS_CASES.ANNOTATIONS_PAYLOAD, "annotations", "@meta payload literal-only and depth constraints are staged."),
-  complianceCase(CCTS_CASES.ANNOTATIONS_INVARIANTS, "annotations", "@meta semantic erasure invariants are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_INVARIANTS, "annotations", "Tooling sidecar semantic erasure invariants are staged."),
   complianceCase(CCTS_CASES.ANNOTATIONS_RUNTIME_BOUNDARY, "annotations", "Tooling-only DomainModule runtime-boundary guards are staged."),
-  complianceCase(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "annotations", "@meta diagnostic families are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "annotations", "Annotation and source-map diagnostic families are staged."),
 
   complianceCase(CCTS_CASES.CONTEXT_COMPUTED_SYSTEM, "context", "$system is rejected in computed expressions."),
   complianceCase(CCTS_CASES.CONTEXT_STATE_INIT_SYSTEM, "context", "$system is rejected in state initializers."),
@@ -189,7 +189,7 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["META-6"], [CCTS_CASES.ANNOTATIONS_PAYLOAD]),
   ...coverMany(["META-3", "INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5"], [CCTS_CASES.ANNOTATIONS_INVARIANTS]),
   ...coverMany(["META-4", "INV-META-6"], [CCTS_CASES.ANNOTATIONS_RUNTIME_BOUNDARY]),
-  ...coverMany(["E053", "E054", "E055", "E056", "E057"], [CCTS_CASES.ANNOTATIONS_DIAGNOSTICS]),
+  ...coverMany(["E053", "E054", "E055", "E056", "E057", "E058"], [CCTS_CASES.ANNOTATIONS_DIAGNOSTICS]),
 
   ...coverMany(["E003"], [CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF]),
   ...coverMany(["E006", "E007", "E008"], [CCTS_CASES.ACTIONS_FAIL_STOP_DIAGNOSTICS]),

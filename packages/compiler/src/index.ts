@@ -97,11 +97,17 @@ import { validateAndExpandFlows } from "./analyzer/flow-composition.js";
 import { buildAnnotationIndex } from "./annotations.js";
 import { generate, type GenerateResult } from "./generator/ir.js";
 import { lowerSystemValues, type DomainSchema } from "./generator/index.js";
+import {
+  createDefaultSourceMapEmissionContext,
+  extractSourceMap,
+} from "./source-map.js";
 import type { CompileTrace } from "./api/index.js";
 import { tokenize } from "./lexer/index.js";
 import { parse } from "./parser/index.js";
 import { hasErrors } from "./diagnostics/types.js";
 import type { Diagnostic } from "./diagnostics/types.js";
+
+const COMPILER_VERSION = "3.5.0";
 
 export interface CompileOptions {
   /** Whether to lower system values during compilation */
@@ -193,6 +199,13 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
   if (!options.skipSemanticAnalysis && genResult.schema) {
     const annotationResult = buildAnnotationIndex(flowResult.program, genResult.schema);
     diagnostics.push(...annotationResult.diagnostics);
+    const sourceMapResult = extractSourceMap(
+      flowResult.program,
+      source,
+      genResult.schema,
+      createDefaultSourceMapEmissionContext(COMPILER_VERSION),
+    );
+    diagnostics.push(...sourceMapResult.diagnostics);
   }
 
   if (options.skipSemanticAnalysis) {

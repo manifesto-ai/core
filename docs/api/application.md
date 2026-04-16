@@ -36,11 +36,12 @@ const module = result.module!;
 
 const manifesto = createManifesto(module.schema, {});
 const annotations = module.annotations;
+const sourceMap = module.sourceMap;
 ```
 
 - `createManifesto()` accepts MEL source or `DomainSchema`.
 - `createManifesto()` does not accept `DomainModule`.
-- tooling may read `module.annotations` and `module.graph`, but runtime remains annotation-blind.
+- tooling may read `module.annotations`, `module.sourceMap`, and `module.graph`, but runtime remains sidecar-blind.
 - importing a `.mel` file through the default loader/bundler path still yields schema-only output, even when the MEL source uses `@meta`.
 
 ## Activation Boundary

@@ -8,13 +8,14 @@
 
 `@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
 
-The current canonical compiler contract is [SPEC-v1.0.0](../../packages/compiler/docs/SPEC-v1.0.0.md).
+The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler pinned to `SPEC-v1.1.0`.
 
 Current compiler responsibilities include:
 - schema-only compilation through `compileMelDomain()`
 - tooling-only module compilation through `compileMelModule()`
 - projected `SchemaGraph` extraction
 - structural annotations via `@meta` as an out-of-schema `AnnotationIndex` sidecar
+- declaration-level source locations as an out-of-schema `SourceMapIndex` sidecar
 - intent-level dispatchability via `dispatchable when`
 - MEL patch lowering through `compileMelPatch()`
 
@@ -35,7 +36,7 @@ if (result.schema) {
 }
 ```
 
-`compileMelDomain()` returns `DomainSchema` only. Structural annotations never appear inside that schema.
+`compileMelDomain()` returns `DomainSchema` only. Structural annotations and source maps never appear inside that schema.
 
 ### `compileMelModule()`
 
@@ -47,7 +48,7 @@ import { compileMelModule } from "@manifesto-ai/compiler";
 const result = compileMelModule(melSource, { mode: "module" });
 
 if (result.module) {
-  const { schema, graph, annotations } = result.module;
+  const { schema, graph, annotations, sourceMap } = result.module;
 }
 ```
 
@@ -58,10 +59,11 @@ type DomainModule = {
   readonly schema: DomainSchema;
   readonly graph: SchemaGraph;
   readonly annotations: AnnotationIndex;
+  readonly sourceMap: SourceMapIndex;
 };
 ```
 
-`annotations` is the compiler-owned sidecar for `@meta`. It remains outside both `DomainSchema` and `SchemaGraph`.
+`annotations` is the compiler-owned sidecar for `@meta`. `sourceMap` is the compiler-owned sidecar for declaration-level MEL provenance. Both remain outside `DomainSchema` and `SchemaGraph`.
 
 ### `compileMelPatch()`
 
@@ -79,8 +81,8 @@ const result = compileMelPatch(patchText, {
 ## Tooling vs Runtime
 
 - Runtime seams consume `DomainSchema`, not `DomainModule`.
-- Tooling can use `compileMelModule()` to read `graph` and `annotations`.
-- If you compile through `compileMelModule()`, pass `module.schema` to runtime creation and keep `module.annotations` external.
+- Tooling can use `compileMelModule()` to read `graph`, `annotations`, and `sourceMap`.
+- If you compile through `compileMelModule()`, pass `module.schema` to runtime creation and keep `module.annotations` and `module.sourceMap` external.
 - `.mel` loader and bundler integrations still default-export compiled `DomainSchema`, even when the source uses `@meta`.
 
 ```typescript
@@ -92,9 +94,10 @@ const module = result.module!;
 
 const app = createManifesto(module.schema, {}).activate();
 const annotations = module.annotations;
+const sourceMap = module.sourceMap;
 ```
 
-## Annotation Sidecar Types
+## Tooling Sidecar Types
 
 ```typescript
 type Annotation = {
@@ -106,12 +109,28 @@ type AnnotationIndex = {
   readonly schemaHash: string;
   readonly entries: Record<LocalTargetKey, readonly Annotation[]>;
 };
+
+type SourceMapIndex = {
+  readonly schemaHash: string;
+  readonly sourceHash: string;
+  readonly format: "manifesto/source-map-v1";
+  readonly coordinateUnit: "utf16" | "bytes";
+  readonly emissionFingerprint: string;
+  readonly entries: Record<LocalTargetKey, SourceMapEntry>;
+};
+
+type SourceMapEntry = {
+  readonly target: SourceMapPath;
+  readonly span: SourceSpan;
+};
 ```
 
 - `schemaHash` matches the emitted `DomainSchema.hash`.
 - `entries` includes annotated targets only.
 - stacked annotations preserve source order.
 - repeated tags are preserved and not deduplicated.
+- `sourceMap` is keyed by the same landed declaration target space and carries physical source spans only.
+- `sourceMap` remains tooling-only and does not participate in runtime schema input, schema hash, or `SchemaGraph` derivation.
 
 ## Patch IR Types
 

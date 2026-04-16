@@ -5,7 +5,7 @@
 > **Deciders:** Manifesto Core/Compiler Design Group
 > **Scope:** Core, Compiler, Host, SDK, Docs
 > **Breaking:** Yes
-> **Implemented-by:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler current contract (SPEC-v1.0.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md), and concrete code in `packages/core/src/evaluator/expr.ts`, `packages/core/src/core/explain.ts`
+> **Implemented-by:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler current contract (SPEC-v1.1.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md), and concrete code in `packages/core/src/evaluator/expr.ts`, `packages/core/src/core/explain.ts`
 > **Related:** ADR-001 (Layer Separation), ADR-006 (Canonical rules), ADR-009 (Structured PatchPath), ADR-011 (Boundary contract)
 > **Reason for change:** Developer Ergonomics / API consistency
 

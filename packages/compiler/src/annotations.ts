@@ -9,6 +9,7 @@ import type {
   TypeExprNode,
 } from "./parser/ast.js";
 import type { SchemaGraph } from "./schema-graph.js";
+import type { SourceMapIndex } from "./source-map.js";
 
 export type JsonLiteral =
   | string
@@ -40,6 +41,7 @@ export interface DomainModule {
   readonly schema: DomainSchema;
   readonly graph: SchemaGraph;
   readonly annotations: AnnotationIndex;
+  readonly sourceMap: SourceMapIndex;
 }
 
 export interface AnnotationExtractionResult {

@@ -7,7 +7,7 @@ If you need a single current-surface document without version-history context, s
 :::
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, and `@manifesto-ai/compiler` v1.0.0 as the rolled-up MEL compiler contract, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, and `@manifesto-ai/compiler` v1.1.0 as the rolled-up MEL compiler contract, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -39,7 +39,7 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 | **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.x surface) | Normative (decorator legitimacy package + additive `waitForProposal()` settlement observer + additive `waitForProposalWithReport()` settlement-report helper) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
-| **@manifesto-ai/compiler** | [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md) | Normative full MEL compiler contract | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | [SPEC-v1.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md) | Normative full MEL compiler contract | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -94,8 +94,8 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v1.0.0** (Current Full)
-  - [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md)
+- **Compiler SPEC v1.1.0** (Current Full)
+  - [SPEC-v1.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md)
   - Rolls up `SchemaGraph`, `dispatchable when`, `TypeDefinition`-backed schema-position lowering, and pure collection builtins into the current MEL compiler contract
 
 ---
@@ -111,16 +111,16 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 | 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
 | 03-31 | Host | v4.0.0 | Current Host alignment follows the Core v4 Snapshot contract and removes `system.errors` from Host-facing Snapshot references |
 | 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
-| 03-28 | Governance | v1.0.0 | Governance living SPEC created; package version index added |
+| 03-28 | Governance | v1.1.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
 | 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
-| 03-02 | SDK | v1.0.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
+| 03-02 | SDK | v1.1.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
 ### Recent Changes (2026-04)
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 04-08 | Compiler | v1.0.0 | Current full compiler spec rolls up v0.7.0 + addenda and lands `TypeDefinition`-backed nullable/record schema-position lowering plus expression-level collection builtins |
+| 04-08 | Compiler | v1.1.0 | Current full compiler spec rolls up v0.7.0 + addenda and lands `TypeDefinition`-backed nullable/record schema-position lowering plus expression-level collection builtins |
 | 04-08 | Core | v4.2.0 | Living Core spec now treats `state.fieldTypes` / `action.inputType` as the normative runtime typing seam while keeping `FieldSpec` as the compatibility surface |
 | 04-07 | Core | v4.1.0 | Living Core spec adds `ActionSpec.dispatchable` and the pure `isIntentDispatchable()` query without changing `available` semantics |
 | 04-07 | SDK | v3.4.0 | Living SDK spec adds intent dispatchability queries, blocker explanations, metadata flagging, and dispatch/simulate rejection split |

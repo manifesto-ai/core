@@ -2,7 +2,7 @@
 
 > **Purpose:** The single document a user reads to learn and use MEL. Covers every function, construct, and pattern with examples.
 > **Audience:** Developers writing MEL domains. Both beginners and experienced users.
-> **Normative sources:** SPEC-v1.0.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
+> **Normative sources:** SPEC-v1.1.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
 
 ---
 
@@ -1823,4 +1823,4 @@ domain Toggles {
 
 ---
 
-*Authoritative sources: SPEC-v1.0.0.md, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*
+*Authoritative sources: SPEC-v1.1.0.md, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*

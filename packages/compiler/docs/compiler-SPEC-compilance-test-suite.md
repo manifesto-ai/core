@@ -1,6 +1,6 @@
 # Compiler SPEC Compilance Test Suite (CCTS)
 
-> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.0.0.
+> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.1.0.
 > **Audience:** Compiler maintainers and contributors extending MEL semantics.
 > **Status:** Operational
 
@@ -48,7 +48,7 @@ packages/compiler/src/__tests__/compliance/
 
 The suite mirrors the Host HCTS shape, but adds explicit inventory and coverage layers:
 
-- spec inventory (`SPEC-v1.0.0.md` rule surface)
+- spec inventory (`SPEC-v1.1.0.md` rule surface)
 - shared rule registry
 - case/rule coverage map
 - test adapter wrapping exported APIs
@@ -101,7 +101,7 @@ Blocking rules reflect currently implemented compiler behavior:
 - `flow` / `include` composition and diagnostics (ADR-013a, `FLOW-*`, `E013`-`E024`)
 - entity primitives and placement/type diagnostics (ADR-013b, `ENTITY-*`, `TRANSFORM-*`, `E030`-`E035`)
 - schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E044`; `E045`/`E046` retained only as superseded inventory items)
-- structural annotations via `@meta`, including valid v1 target placement, literal-only payload enforcement, payload-depth enforcement, deterministic sidecar emission, semantic erasure invariants, and the runtime-boundary guard between `DomainSchema` and tooling-only `DomainModule`
+- structural annotations via `@meta`, plus declaration-level source maps via `SourceMapIndex`, including valid v1 target placement, literal-only payload enforcement, deterministic sidecar emission, source-map cache identity, semantic erasure invariants, and the runtime-boundary guard between `DomainSchema` and tooling-only `DomainModule`
 - deterministic compile/lower output
 
 ### Pending

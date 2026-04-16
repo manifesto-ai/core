@@ -5,6 +5,10 @@ import { compileMelDomain, compileMelModule } from "../api/index.js";
 import { parse } from "../parser/index.js";
 import { tokenize } from "../lexer/index.js";
 import { extractSchemaGraph } from "../schema-graph.js";
+import {
+  createDefaultSourceMapEmissionContext,
+  extractSourceMap,
+} from "../source-map.js";
 
 const ANNOTATED_SOURCE = `
   @meta("doc:summary", { area: "tasks" })
@@ -72,7 +76,7 @@ describe("structural annotations", () => {
     expect(JSON.stringify(annotated.schema)).toBe(JSON.stringify(stripped.schema));
   });
 
-  it("emits deterministic AnnotationIndex sidecars through compileMelModule", () => {
+  it("emits deterministic tooling sidecars through compileMelModule", () => {
     const first = compileMelModule(ANNOTATED_SOURCE, { mode: "module" });
     const second = compileMelModule(ANNOTATED_SOURCE, { mode: "module" });
 
@@ -85,9 +89,15 @@ describe("structural annotations", () => {
     const secondModule = second.module!;
 
     expect(firstModule.annotations.schemaHash).toBe(firstModule.schema.hash);
+    expect(firstModule.sourceMap.schemaHash).toBe(firstModule.schema.hash);
+    expect(firstModule.sourceMap.format).toBe("manifesto/source-map-v1");
+    expect(firstModule.sourceMap.coordinateUnit).toBe("utf16");
+    expect(firstModule.sourceMap.sourceHash.startsWith("fnv1a32:")).toBe(true);
+    expect(firstModule.sourceMap.emissionFingerprint.startsWith("fnv1a32:")).toBe(true);
     expect(firstModule.graph).toEqual(extractSchemaGraph(firstModule.schema));
     expect(firstModule.graph).toEqual(extractSchemaGraph(compileMelDomain(STRIPPED_SOURCE, { mode: "domain" }).schema!));
     expect(JSON.stringify(firstModule.annotations)).toBe(JSON.stringify(secondModule.annotations));
+    expect(JSON.stringify(firstModule.sourceMap)).toBe(JSON.stringify(secondModule.sourceMap));
     expect(Object.keys(firstModule.annotations.entries)).toEqual([
       "action:archive",
       "computed:hasArchivedTask",
@@ -96,14 +106,39 @@ describe("structural annotations", () => {
       "type:Task",
       "type_field:Task.internalNote",
     ]);
+    expect(Object.keys(firstModule.sourceMap.entries)).toEqual([
+      "action:archive",
+      "computed:hasArchivedTask",
+      "domain:TaskBoard",
+      "state_field:lastArchivedId",
+      "type:Task",
+      "type_field:Task.id",
+      "type_field:Task.internalNote",
+    ]);
     expect(firstModule.annotations.entries["computed:hasArchivedTask"]).toEqual([
       { tag: "ui:panel" },
       { tag: "ui:panel" },
       { tag: "ui:status", payload: { variant: "compact" } },
     ]);
+    expect(firstModule.sourceMap.entries["action:archive"]?.target).toEqual({
+      kind: "action",
+      action: { name: "archive" },
+    });
+    expect(firstModule.sourceMap.entries["computed:hasArchivedTask"]?.target).toEqual({
+      kind: "computed",
+      computed: { name: "hasArchivedTask" },
+    });
+    expect(firstModule.sourceMap.entries["domain:TaskBoard"]?.span.start.line).toBeGreaterThan(0);
+    expect(firstModule.sourceMap.entries["action:archive"]?.span.end.line).toBeGreaterThanOrEqual(
+      firstModule.sourceMap.entries["action:archive"]!.span.start.line,
+    );
     expect(Object.isFrozen(firstModule)).toBe(true);
     expect(Object.isFrozen(firstModule.graph)).toBe(true);
     expect(Object.isFrozen(firstModule.annotations)).toBe(true);
+    expect(Object.isFrozen(firstModule.sourceMap)).toBe(true);
+    expect(Object.isFrozen(firstModule.sourceMap.entries)).toBe(true);
+    expect(Object.isFrozen(firstModule.sourceMap.entries["action:archive"])).toBe(true);
+    expect(Object.isFrozen(firstModule.sourceMap.entries["action:archive"]?.target)).toBe(true);
     expect(Object.isFrozen(firstModule.annotations.entries)).toBe(true);
     expect(Object.isFrozen(firstModule.annotations.entries["computed:hasArchivedTask"])).toBe(true);
     expect(Object.isFrozen(firstModule.annotations.entries["computed:hasArchivedTask"]?.[2]?.payload)).toBe(true);
@@ -224,5 +259,30 @@ describe("structural annotations", () => {
     const result = buildAnnotationIndex(parsed.program!, tamperedSchema);
 
     expect(result.diagnostics.some((diagnostic) => diagnostic.code === "E057")).toBe(true);
+  });
+
+  it("reports E058 when extracted source-map targets do not match the emitted schema", () => {
+    const lexed = tokenize(ANNOTATED_SOURCE);
+    const parsed = parse(lexed.tokens);
+    const compiled = compileMelDomain(ANNOTATED_SOURCE, { mode: "domain" });
+
+    expect(parsed.diagnostics).toEqual([]);
+    expect(compiled.errors).toEqual([]);
+    expect(parsed.program).not.toBeNull();
+    expect(compiled.schema).not.toBeNull();
+
+    const { archive: _archive, ...actions } = compiled.schema!.actions;
+    const tamperedSchema = {
+      ...compiled.schema!,
+      actions,
+    };
+    const result = extractSourceMap(
+      parsed.program!,
+      ANNOTATED_SOURCE,
+      tamperedSchema,
+      createDefaultSourceMapEmissionContext("3.5.0"),
+    );
+
+    expect(result.diagnostics.some((diagnostic) => diagnostic.code === "E058")).toBe(true);
   });
 });

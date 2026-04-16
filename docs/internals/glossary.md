@@ -162,14 +162,27 @@
 
 ### DomainModule
 
-**Definition:** A compiler tooling artifact returned by additive seams such as `compileMelModule()`. It carries the compiled `DomainSchema` plus compiler-owned helper artifacts such as `SchemaGraph` and `AnnotationIndex`.
+**Definition:** A compiler tooling artifact returned by additive seams such as `compileMelModule()`. It carries the compiled `DomainSchema` plus compiler-owned helper artifacts such as `SchemaGraph` and tooling-only sidecars including `AnnotationIndex` and `SourceMapIndex`.
 
 **Key properties:**
-- Contains `schema`, `graph`, and `annotations`
+- Contains `schema`, `graph`, `annotations`, and `sourceMap`
 - Exists for tooling, inspection, and external consumers
 - Is not accepted by runtime seams such as `createManifesto()`; runtime consumes `DomainSchema` only
 
 **See also:** [Compiler](#compiler), [DomainSchema](#domainschema)
+
+---
+
+### SourceMapIndex
+
+**Definition:** A compiler-owned tooling sidecar that records declaration-level MEL source spans for emitted schema targets.
+
+**Key properties:**
+- Keyed to the emitted schema by `schemaHash` and to the physical source text by `sourceHash`
+- Carries explicit coordinate encoding via `coordinateUnit` and emission identity via `emissionFingerprint`
+- Remains outside `DomainSchema`, `SchemaGraph`, and runtime input seams
+
+**See also:** [Compiler](#compiler), [DomainModule](#domainmodule)
 
 ---
 

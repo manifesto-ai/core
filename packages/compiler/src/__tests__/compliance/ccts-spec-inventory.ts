@@ -107,7 +107,7 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   ...inventoryMany(["E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035"], "§13.6", "MUST", "entity-primitives"),
   ...inventoryMany(["E040", "E041", "E042", "E043", "E044"], "§13.6", "MUST", "state-and-computed"),
   ...inventoryMany(["E049", "E050", "E051", "E052"], "§13.6", "MUST", "lowering-and-ir"),
-  ...inventoryMany(["E053", "E054", "E055", "E056", "E057"], "§9", "MUST", "annotations"),
+  ...inventoryMany(["E053", "E054", "E055", "E056", "E057", "E058"], "§9", "MUST", "annotations"),
   inventory("E045", "§13.6", "MUST", "state-and-computed", {
     lifecycle: "superseded",
     notes: "Superseded when nullable schema-position types became supported through TypeDefinition-backed runtime validation.",
