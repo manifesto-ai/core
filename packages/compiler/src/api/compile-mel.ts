@@ -16,6 +16,14 @@ import type {
   JsonLiteral,
   LocalTargetKey,
 } from "../annotations.js";
+import type {
+  SourceMapEmissionContext,
+  SourceMapEntry,
+  SourceMapIndex,
+  SourceMapPath,
+  SourcePoint,
+  SourceSpan,
+} from "../source-map.js";
 
 import { buildAnnotationIndex } from "../annotations.js";
 import { tokenize, type Token } from "../lexer/index.js";
@@ -25,7 +33,13 @@ import { analyzeScope } from "../analyzer/scope.js";
 import { validateSemantics } from "../analyzer/validator.js";
 import { validateAndExpandFlows } from "../analyzer/flow-composition.js";
 import { extractSchemaGraph } from "../schema-graph.js";
+import {
+  createDefaultSourceMapEmissionContext,
+  extractSourceMap,
+} from "../source-map.js";
 import { compileMelPatchText } from "./compile-mel-patch.js";
+
+const COMPILER_VERSION = "3.5.0";
 
 // ============ Types ============
 
@@ -107,6 +121,14 @@ export type {
   JsonLiteral,
   LocalTargetKey,
 } from "../annotations.js";
+export type {
+  SourceMapEmissionContext,
+  SourceMapEntry,
+  SourceMapIndex,
+  SourceMapPath,
+  SourcePoint,
+  SourceSpan,
+} from "../source-map.js";
 
 /**
  * Patch compilation options.
@@ -192,7 +214,7 @@ export function compileMelModule(
 ): CompileMelModuleResult {
   const result = compileMelArtifacts(melText, options);
 
-  if (result.errors.length > 0 || !result.schema || !result.annotations) {
+  if (result.errors.length > 0 || !result.schema || !result.annotations || !result.sourceMap) {
     return {
       module: null,
       trace: result.trace,
@@ -202,7 +224,7 @@ export function compileMelModule(
   }
 
   return {
-    module: createDomainModule(result.schema, result.annotations),
+    module: createDomainModule(result.schema, result.annotations, result.sourceMap),
     trace: result.trace,
     warnings: result.warnings,
     errors: result.errors,
@@ -213,6 +235,7 @@ interface CompileMelArtifactsResult {
   program: ProgramNode | null;
   schema: DomainSchema | null;
   annotations: AnnotationIndex | null;
+  sourceMap: SourceMapIndex | null;
   trace: CompileTrace[];
   warnings: Diagnostic[];
   errors: Diagnostic[];
@@ -238,7 +261,7 @@ function compileMelArtifacts(
     if (lexErrors.length > 0) {
       errors.push(...lexErrors);
       trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
-      return { program: null, schema: null, annotations: null, trace, warnings, errors };
+      return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors };
     }
     const lexWarnings = lexResult.diagnostics.filter(d => d.severity === "warning");
     warnings.push(...lexWarnings);
@@ -251,7 +274,7 @@ function compileMelArtifacts(
       location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
     });
     trace.push({ phase: "lex", durationMs: performance.now() - lexStart });
-    return { program: null, schema: null, annotations: null, trace, warnings, errors };
+    return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors };
   }
   trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
 
@@ -264,7 +287,7 @@ function compileMelArtifacts(
     if (parseErrors.length > 0) {
       errors.push(...parseErrors);
       trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-      return { program: null, schema: null, annotations: null, trace, warnings, errors: capDiagnostics(errors) };
+      return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors: capDiagnostics(errors) };
     }
     ast = parseResult.program as ProgramNode;
   } catch (e) {
@@ -276,7 +299,7 @@ function compileMelArtifacts(
       location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
     });
     trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-    return { program: null, schema: null, annotations: null, trace, warnings, errors };
+    return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors };
   }
   trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
 
@@ -307,6 +330,7 @@ function compileMelArtifacts(
       program: flowResult.program,
       schema: null,
       annotations: null,
+      sourceMap: null,
       trace,
       warnings,
       errors: capDiagnostics(errors),
@@ -339,6 +363,32 @@ function compileMelArtifacts(
         program: flowResult.program,
         schema: null,
         annotations: null,
+        sourceMap: null,
+        trace,
+        warnings,
+        errors: capDiagnostics(errors),
+      };
+    }
+
+    const sourceMapContext: SourceMapEmissionContext =
+      createDefaultSourceMapEmissionContext(COMPILER_VERSION);
+    const sourceMapResult = extractSourceMap(
+      flowResult.program,
+      melText,
+      genResult.schema,
+      sourceMapContext,
+    );
+    const sourceMapWarnings = sourceMapResult.diagnostics.filter((d) => d.severity === "warning");
+    const sourceMapErrors = sourceMapResult.diagnostics.filter((d) => d.severity === "error");
+    warnings.push(...sourceMapWarnings);
+    errors.push(...sourceMapErrors);
+
+    if (sourceMapErrors.length > 0) {
+      return {
+        program: flowResult.program,
+        schema: null,
+        annotations: null,
+        sourceMap: null,
         trace,
         warnings,
         errors: capDiagnostics(errors),
@@ -349,6 +399,7 @@ function compileMelArtifacts(
       program: flowResult.program,
       schema: genResult.schema,
       annotations: annotationResult.annotations,
+      sourceMap: sourceMapResult.sourceMap,
       trace,
       warnings,
       errors: capDiagnostics(errors),
@@ -359,6 +410,7 @@ function compileMelArtifacts(
     program: flowResult.program,
     schema: null,
     annotations: null,
+    sourceMap: null,
     trace,
     warnings,
     errors: capDiagnostics(errors),
@@ -368,11 +420,13 @@ function compileMelArtifacts(
 function createDomainModule(
   schema: DomainSchema,
   annotations: AnnotationIndex,
+  sourceMap: SourceMapIndex,
 ): DomainModule {
   return Object.freeze({
     schema,
     graph: deepFreeze(extractSchemaGraph(schema)),
     annotations,
+    sourceMap,
   });
 }
 

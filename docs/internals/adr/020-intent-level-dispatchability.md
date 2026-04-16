@@ -5,7 +5,7 @@
 > **Deciders:** 정성우 (Architect), Manifesto Architecture Team
 > **Scope:** Compiler, Core, SDK, Studio/Introspection, Docs
 > **Related ADRs:** ADR-017 (Capability Decorator Pattern), ADR-018 (Public Snapshot Boundary)
-> **Related SPECs:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md)
+> **Related SPECs:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), [SPEC-v1.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md)
 
 > **Current Contract Authority:** This ADR is implemented. The current behavior now lives in the owning package specs and current MEL docs. This document remains the architectural decision record and original design rationale.
 

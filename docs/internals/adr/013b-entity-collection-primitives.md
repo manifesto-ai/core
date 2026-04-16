@@ -10,7 +10,7 @@
 > **Supersedes:** ADR-013 (Withdrawn — mixed three independent decisions)
 > **Breaking:** No — additive builtin functions only; existing syntax unaffected; Core IR unchanged; runtime layers unchanged
 > **Internal Structure:** §4 Query Primitives (013b-1) and §5 Transform Primitives (013b-2) have **separate acceptance criteria** and may be approved independently.
-> **Implemented In:** Compiler current contract ([SPEC-v1.0.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md)), entity primitive lowering/analyzer paths, generator/integration/compliance test suites
+> **Implemented In:** Compiler current contract ([SPEC-v1.1.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md)), entity primitive lowering/analyzer paths, generator/integration/compliance test suites
 
 ---
 

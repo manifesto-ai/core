@@ -1,18 +1,18 @@
 # MEL Compiler Documentation Index
 
 > **Package:** `@manifesto-ai/compiler`
-> **Last Updated:** 2026-04-15
+> **Last Updated:** 2026-04-16
 
 ---
 
 ## Latest Version
 
-- **Current Full SPEC:** [v1.0.0](SPEC-v1.0.0.md) (Full)
+- **Current Full SPEC:** [v1.1.0](SPEC-v1.1.0.md) (Full)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** [v1.0.0](SPEC-v1.0.0.md) is the current integrated compiler contract. It rolls up the old v0.7.0 baseline plus the v0.8.0 `SchemaGraph` and v0.9.0 `dispatchable when` addenda, reflects the landed `TypeDefinition`-backed support for nullable and record schema-position types, clarifies that any future additive MEL surface forms must preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary, records the admitted bounded sugar function forms in parser-free function-call shape, and now includes tooling-only structural annotations via `@meta` with `action_param` explicitly deferred from the current v1 surface.
+**Note:** [v1.1.0](SPEC-v1.1.0.md) is the current integrated compiler contract. It carries forward the v1.0.0 baseline and adds the compiler-owned declaration-level source location sidecar `SourceMapIndex`, explicit source-map emission context, and artifact-specific cache identity rules while preserving the existing runtime-facing `DomainSchema` contract.
 
-**ADR Source:** [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) is the architectural source for the current structural-annotation contract.
+**ADR Sources:** [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) defines the current structural-annotation sidecar contract, and [ADR-022](../../../docs/internals/adr/022-compiler-owned-source-location-sidecar-source-map-index.md) defines the current source-location sidecar contract.
 
 ---
 
@@ -20,7 +20,8 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v1.0.0 | [SPEC](SPEC-v1.0.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
+| v1.1.0 | [SPEC](SPEC-v1.1.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
+| v1.0.0 | [SPEC](SPEC-v1.0.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
 | v0.9.0 | [SPEC](SPEC-v0.9.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Historical Addendum (merged into v1.0.0) | Superseded |
 | v0.8.0 | [SPEC](SPEC-v0.8.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Historical Addendum (merged into v1.0.0) | Superseded |
 | v0.7.0 | [SPEC](SPEC-v0.7.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Baseline | Superseded |
@@ -40,10 +41,10 @@
 
 ### For Current
 
-1. Read [SPEC-v1.0.0.md](SPEC-v1.0.0.md) for the current full compiler contract.
+1. Read [SPEC-v1.1.0.md](SPEC-v1.1.0.md) for the current full compiler contract.
 2. Use [SPEC-v0.8.0.md](SPEC-v0.8.0.md) and [SPEC-v0.9.0.md](SPEC-v0.9.0.md) only for historical addendum context.
 3. For rationale history, use [FDR-v0.5.0.md](FDR-v0.5.0.md).
-4. If you are working on structural annotations, read [SPEC-v1.0.0.md](SPEC-v1.0.0.md) for the current v1 contract, then [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) for the architectural rationale and deferred `action_param` decision.
+4. If you are working on tooling sidecars, read [SPEC-v1.1.0.md](SPEC-v1.1.0.md) for the current v1.1 contract, then [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) and [ADR-022](../../../docs/internals/adr/022-compiler-owned-source-location-sidecar-source-map-index.md) for architectural rationale.
 
 ### For v0.4.0 (Historical Patch)
 

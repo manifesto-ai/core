@@ -14,6 +14,10 @@ import { getRuleOrThrow } from "../ccts-rules.js";
 import { parse } from "../../../parser/index.js";
 import { tokenize } from "../../../lexer/index.js";
 import { extractSchemaGraph } from "../../../schema-graph.js";
+import {
+  createDefaultSourceMapEmissionContext,
+  extractSourceMap,
+} from "../../../source-map.js";
 
 type AnnotationInvariantDomain = {
   actions: {
@@ -99,10 +103,22 @@ describe("CCTS Annotation Suite", () => {
         actions: {},
       })
       : null;
+    const tamperedSourceMap = first.module && parsed.program
+      ? extractSourceMap(
+        parsed.program,
+        ANNOTATED_SOURCE,
+        {
+          ...first.module.schema,
+          actions: {},
+        },
+        createDefaultSourceMapEmissionContext("3.5.0"),
+      )
+      : null;
 
     const firstModule = first.module;
     const secondModule = second.module;
     const sortedKeys = firstModule ? Object.keys(firstModule.annotations.entries) : [];
+    const sourceMapKeys = firstModule ? Object.keys(firstModule.sourceMap.entries) : [];
     const noEmptyArrays = firstModule
       ? Object.values(firstModule.annotations.entries).every((entry) => entry.length > 0)
       : false;
@@ -115,18 +131,23 @@ describe("CCTS Annotation Suite", () => {
       }),
       evaluateRule(getRuleOrThrow("META-2"), Boolean(firstModule)
         && !("annotations" in firstModule.schema)
+        && !("sourceMap" in firstModule.schema)
         && JSON.stringify(firstModule.graph) === JSON.stringify(extractSchemaGraph(firstModule.schema)), {
-        passMessage: "Annotations stay outside DomainSchema and SchemaGraph.",
-        failMessage: "Annotations leaked into semantic compiler artifacts.",
+        passMessage: "Tooling sidecars stay outside DomainSchema and SchemaGraph.",
+        failMessage: "Tooling sidecars leaked into semantic compiler artifacts.",
         evidence: firstModule ? [
           noteEvidence("Annotation entry keys", sortedKeys),
+          noteEvidence("Source map entry keys", sourceMapKeys),
         ] : diagnosticEvidence(first.errors),
       }),
-      evaluateRule(getRuleOrThrow("META-5"), Boolean(tamperedIndex)
-        && hasDiagnosticCode(tamperedIndex!.diagnostics, "E057"), {
-        passMessage: "Annotation targets are validated against emitted DomainSchema structure.",
-        failMessage: "Target validation no longer reports dangling annotation targets.",
-        evidence: tamperedIndex ? diagnosticEvidence(tamperedIndex.diagnostics) : diagnosticEvidence(first.errors),
+      evaluateRule(getRuleOrThrow("META-5"), Boolean(tamperedIndex && tamperedSourceMap)
+        && hasDiagnosticCode(tamperedIndex!.diagnostics, "E057")
+        && hasDiagnosticCode(tamperedSourceMap!.diagnostics, "E058"), {
+        passMessage: "Tooling sidecar targets are validated against emitted DomainSchema structure.",
+        failMessage: "Target validation no longer reports dangling sidecar targets.",
+        evidence: tamperedIndex && tamperedSourceMap
+          ? [...diagnosticEvidence(tamperedIndex.diagnostics), ...diagnosticEvidence(tamperedSourceMap.diagnostics)]
+          : diagnosticEvidence(first.errors),
       }),
       evaluateRule(getRuleOrThrow("META-7"), namespaceBlind.errors.length === 0, {
         passMessage: "Namespace-specific semantics remain consumer-owned.",
@@ -156,11 +177,13 @@ describe("CCTS Annotation Suite", () => {
       }),
       evaluateRule(getRuleOrThrow("META-10"), Boolean(firstModule && secondModule)
         && JSON.stringify(firstModule.annotations) === JSON.stringify(secondModule.annotations)
+        && JSON.stringify(firstModule.sourceMap) === JSON.stringify(secondModule.sourceMap)
         && noEmptyArrays, {
-        passMessage: "Annotation sidecar emission is deterministic and omits empty targets.",
-        failMessage: "Annotation sidecar emission is unstable or includes empty target entries.",
+        passMessage: "Tooling sidecar emission is deterministic and omits empty annotation targets.",
+        failMessage: "Tooling sidecar emission is unstable or includes invalid target entries.",
         evidence: firstModule ? [
           noteEvidence("Annotation entry keys", sortedKeys),
+          noteEvidence("Source map entry keys", sourceMapKeys),
         ] : diagnosticEvidence(first.errors),
       }),
     ]);
@@ -317,7 +340,7 @@ describe("CCTS Annotation Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "(E053-E057) annotation diagnostic families are enforced"), () => {
+  it(caseTitle(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "(E053-E058) annotation and source-map diagnostic families are enforced"), () => {
     const invalidPlacement = compileMelDomain(`
       domain Demo {
         state { count: number = 0 }
@@ -363,6 +386,17 @@ describe("CCTS Annotation Suite", () => {
         actions: {},
       })
       : null;
+    const danglingSourceMap = moduleResult.module && parsed.program
+      ? extractSourceMap(
+        parsed.program,
+        ANNOTATED_SOURCE,
+        {
+          ...moduleResult.module.schema,
+          actions: {},
+        },
+        createDefaultSourceMapEmissionContext("3.5.0"),
+      )
+      : null;
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("E053"), hasDiagnosticCode(invalidPlacement.errors, "E053"), {
@@ -389,6 +423,11 @@ describe("CCTS Annotation Suite", () => {
         passMessage: "Dangling annotation targets emit E057.",
         failMessage: "Dangling annotation targets no longer emit E057.",
         evidence: dangling ? diagnosticEvidence(dangling.diagnostics) : diagnosticEvidence(moduleResult.errors),
+      }),
+      evaluateRule(getRuleOrThrow("E058"), Boolean(danglingSourceMap) && hasDiagnosticCode(danglingSourceMap!.diagnostics, "E058"), {
+        passMessage: "Dangling source-map targets emit E058.",
+        failMessage: "Dangling source-map targets no longer emit E058.",
+        evidence: danglingSourceMap ? diagnosticEvidence(danglingSourceMap.diagnostics) : diagnosticEvidence(moduleResult.errors),
       }),
     ]);
   });

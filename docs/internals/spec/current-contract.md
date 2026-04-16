@@ -1,7 +1,7 @@
 # Current Contract
 
 > **Status:** Living Document
-> **Last Updated:** 2026-04-14
+> **Last Updated:** 2026-04-16
 > **Purpose:** Single-source current contract for external consumers, canonical-doc exports, and current-surface onboarding
 
 This document is the current-only contract summary for the active Manifesto workspace.
@@ -38,7 +38,7 @@ This is the canonical entry story for new integrations.
 | `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v4.2.0) | Pure semantic runtime, schema validation, patch/apply semantics |
 | `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v4.0.0) | Effect execution, compute loop orchestration, canonical snapshot substrate |
 | `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v3.x surface) | Activation-first application surface, intent creation/dispatch, additive base write reports, simulation, projected introspection |
-| `@manifesto-ai/compiler` | [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md) | Full current MEL compiler contract |
+| `@manifesto-ai/compiler` | [SPEC-v1.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md) | Full current MEL compiler contract |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v3.x decorator surface) | Seal-aware continuity, additive lineage write reports, canonical snapshot persistence, restore |
 | `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v3.x decorator surface) | Proposal legitimacy, governed runtime gate over lineage-composed manifesto, settlement observation and settlement reports |
 
@@ -104,7 +104,7 @@ Current extension seam:
 
 `@manifesto-ai/compiler` is now described by one current full contract:
 
-- [SPEC-v1.0.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.0.0.md)
+- [SPEC-v1.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md)
 
 Current MEL/compiler highlights:
 
@@ -112,6 +112,8 @@ Current MEL/compiler highlights:
 - `dispatchable when` is the bound-intent fine gate.
 - `dispatchable when` may read state, computed values, and bare action parameters.
 - `dispatchable when` does not allow direct `$input.*`, `$meta.*`, `$system.*`, or effects.
+- tooling-only compiler sidecars now include structural annotations and declaration-level source maps through `DomainModule`
+- runtime seams continue to consume `DomainSchema` only; `DomainModule` remains tooling-only
 - The compiler preserves precise type information through `TypeDefinition`.
 - `state.fields` / `action.input` remain compatibility surfaces.
 - `state.fieldTypes` / `action.inputType` / `action.params` are the authoritative emitted typing seams for current consumers.

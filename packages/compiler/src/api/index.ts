@@ -19,6 +19,12 @@ export type {
   DomainModule,
   JsonLiteral,
   LocalTargetKey,
+  SourceMapEmissionContext,
+  SourceMapEntry,
+  SourceMapIndex,
+  SourceMapPath,
+  SourcePoint,
+  SourceSpan,
 } from "./compile-mel.js";
 
 export { compileMelDomain, compileMelModule, compileMelPatch } from "./compile-mel.js";

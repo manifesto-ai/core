@@ -8,7 +8,7 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.0.0](../../compiler/docs/SPEC-v1.0.0.md), including tooling-only structural annotations via `@meta`.
+> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.1.0](../../compiler/docs/SPEC-v1.1.0.md), including tooling-only structural annotations via `@meta` and declaration-level source maps through `DomainModule.sourceMap`.
 
 ## 1. Purpose
 
@@ -1448,5 +1448,5 @@ An SDK v3.x implementation complies with this living contract only if all of the
 - [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md)
 - [Core SPEC v4.2.0](../../core/docs/core-SPEC.md)
 - [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
-- [Compiler SPEC v1.0.0](../../compiler/docs/SPEC-v1.0.0.md)
+- [Compiler SPEC v1.1.0](../../compiler/docs/SPEC-v1.1.0.md)
 - [SDK FDR v3.1.0 Rationale Track](FDR-v3.1.0-draft.md)
