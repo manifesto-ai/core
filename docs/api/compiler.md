@@ -8,7 +8,7 @@
 
 `@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
 
-The current canonical compiler contract lives in `packages/compiler/docs/SPEC-v1.0.0.md`.
+The current canonical compiler contract is [SPEC-v1.0.0](../../packages/compiler/docs/SPEC-v1.0.0.md).
 
 Current compiler responsibilities include:
 - schema-only compilation through `compileMelDomain()`
