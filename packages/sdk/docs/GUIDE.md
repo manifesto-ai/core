@@ -266,10 +266,15 @@ The stable authoring seam is the activation/runtime composition layer:
 - `RuntimeKernel`
 - `RuntimeKernelFactory`
 - `attachRuntimeKernelFactory()`
+- `createBaseRuntimeInstance()`
 - `getRuntimeKernelFactory()`
 - `getActivationState()`
 - `activateComposable()`
 - `assertComposableNotActivated()`
+
+If you want to turn a provider-authored `RuntimeKernel` back into the standard
+base SDK runtime contract, use `createBaseRuntimeInstance(kernel)` from the
+provider seam rather than reaching into an internal subpath.
 
 For decorators that need hypothetical planning or availability checks against
 non-live state, `RuntimeKernel` also exposes pure arbitrary-snapshot helpers:
@@ -292,6 +297,7 @@ import type {
 import {
   activateComposable,
   attachRuntimeKernelFactory,
+  createBaseRuntimeInstance,
   getActivationState,
   getRuntimeKernelFactory,
 } from "@manifesto-ai/sdk/provider";
@@ -307,23 +313,7 @@ function withExampleDecorator<T extends ManifestoDomainShape>(
     schema: manifesto.schema,
     activate() {
       activateComposable(decorated);
-      const kernel = createKernel();
-      return {
-        createIntent: kernel.createIntent,
-        dispatchAsync: async (intent) => kernel.executeHost(intent).then((result) => result.snapshot),
-        subscribe: kernel.subscribe,
-        on: kernel.on,
-        getSnapshot: kernel.getSnapshot,
-        getCanonicalSnapshot: kernel.getCanonicalSnapshot,
-        getAvailableActions: kernel.getAvailableActions,
-        getActionMetadata: kernel.getActionMetadata,
-        isActionAvailable: kernel.isActionAvailable,
-        getSchemaGraph: kernel.getSchemaGraph,
-        simulate: kernel.simulate,
-        MEL: kernel.MEL,
-        schema: kernel.schema,
-        dispose: kernel.dispose,
-      };
+      return createBaseRuntimeInstance(createKernel());
     },
   };
 
