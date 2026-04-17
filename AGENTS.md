@@ -21,6 +21,8 @@ This guide is for developers using Claude Code agents to work with the Manifesto
 
 **When to read AGENTS.md:** If you are a developer using Claude Code agents to work with Manifesto.
 
+**When to read `docs/internals/package-operations.md`:** If you need to decide which package should own a new requirement, how SDK seams should be promoted, or how cross-package changes should be routed without weakening the architecture.
+
 ## Tooling Setup
 
 If you want Codex to load Manifesto-specific guidance in another project:
@@ -33,6 +35,8 @@ This setup is explicit. `@manifesto-ai/skills` does not auto-register itself fro
 For the full walkthrough, see the external `@manifesto-ai/skills` package README.
 
 **Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
+
+**Package operations note:** Contributor-facing package ownership and requirement-routing guidance now lives in `docs/internals/package-operations.md`. Use it alongside `CLAUDE.md` when the question is "where should this change live?" rather than "what does the Constitution forbid?"
 
 ---
 

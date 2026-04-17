@@ -13,6 +13,7 @@ Use these pages when you need the current contributor-facing rules around docume
 - [Glossary](./glossary) - Term definitions
 - [Test Conventions](./test-conventions) - Test naming and discovery
 - [Documentation Governance](./documentation-governance) - Docs maintenance rules
+- [Package Operations Manual](./package-operations) - Package ownership and requirement-routing rules
 - [Current Contract](./spec/current-contract) - Single current-only contract entry for external consumers
 - [Layer Boundaries](/architecture/layers) - Normative layer spec (in Architecture section)
 

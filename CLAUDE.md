@@ -44,6 +44,8 @@ When documents conflict, prefer higher-ranked sources.
 
 **Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
 
+**Package operations note:** For contributor-facing package ownership, requirement-routing, and SDK seam-promotion guidance, see `docs/internals/package-operations.md`. This guide is advisory below the Constitution and should be used when deciding where a requirement belongs before opening a new public seam.
+
 ---
 
 ## 1. Core Engineering Axiom

@@ -1,18 +1,26 @@
 name: Bug Report
 description: Report a bug or unexpected behavior
-labels: ["bug", "triage"]
+labels: ["bug", "status:triage"]
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for taking the time to report this bug!
 
-  - type: input
+  - type: dropdown
     id: package
     attributes:
       label: Package
-      description: Which package is affected?
-      placeholder: "@manifesto-ai/core"
+      description: Which package should own this issue?
+      options:
+        - repo
+        - core
+        - host
+        - sdk
+        - compiler
+        - lineage
+        - governance
+        - codegen
     validations:
       required: true
 

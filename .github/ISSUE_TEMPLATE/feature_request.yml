@@ -1,18 +1,26 @@
 name: Feature Request
 description: Suggest a new feature or enhancement
-labels: ["enhancement"]
+labels: ["enhancement", "status:triage"]
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for suggesting a feature!
 
-  - type: input
+  - type: dropdown
     id: package
     attributes:
       label: Package
-      description: Which package does this relate to?
-      placeholder: "@manifesto-ai/core (or 'all' for general features)"
+      description: Which package should own this issue?
+      options:
+        - repo
+        - core
+        - host
+        - sdk
+        - compiler
+        - lineage
+        - governance
+        - codegen
     validations:
       required: true
 
