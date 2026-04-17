@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.15.1](https://github.com/manifesto-ai/core/compare/sdk-v3.15.0...sdk-v3.15.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* **sdk:** move base runtime helper to provider seam ([#435](https://github.com/manifesto-ai/core/issues/435)) ([f33a1c7](https://github.com/manifesto-ai/core/commit/f33a1c77390e5a8c383460e588d295fb98c49a8f))
+
 ## [3.15.0](https://github.com/manifesto-ai/core/compare/sdk-v3.14.0...sdk-v3.15.0) (2026-04-16)
 
 
