@@ -24,3 +24,4 @@ export {
   getActivationState,
   getRuntimeKernelFactory,
 } from "./compat/internal.js";
+export { createBaseRuntimeInstance } from "./runtime/base-runtime.js";

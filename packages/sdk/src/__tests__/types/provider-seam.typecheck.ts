@@ -2,6 +2,7 @@ import type {
   BaseComposableLaws,
   ComposableManifesto,
   DispatchBlocker,
+  ManifestoBaseInstance,
   ManifestoDomainShape,
 } from "../../index.ts";
 import type {
@@ -20,6 +21,7 @@ import {
   activateComposable,
   assertComposableNotActivated,
   attachRuntimeKernelFactory,
+  createBaseRuntimeInstance,
   getActivationState,
   getRuntimeKernelFactory,
 } from "../../provider.ts";
@@ -57,9 +59,11 @@ const intent = kernel.createIntent(kernel.MEL.actions.ping);
 const isDispatchableFor: boolean = kernel.isIntentDispatchableFor(canonical, intent);
 const blockersFor: readonly DispatchBlocker[] = kernel.getIntentBlockersFor(canonical, intent);
 const simulation: SimulateResult<DemoDomain> = kernel.simulateSync(canonical, intent);
+const baseRuntime: ManifestoBaseInstance<DemoDomain> = createBaseRuntimeInstance(kernel);
 
 void activationState;
 void availableFor;
+void baseRuntime;
 void canonical;
 void governanceFactory;
 void governanceKernel;

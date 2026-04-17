@@ -1167,6 +1167,7 @@ _Source: `packages/sdk/src/provider.ts`_
 - `assertComposableNotActivated`
 - `attachExtensionKernel`
 - `attachRuntimeKernelFactory`
+- `createBaseRuntimeInstance`
 - `createRuntimeKernel`
 - `getActivationState`
 - `getRuntimeKernelFactory`

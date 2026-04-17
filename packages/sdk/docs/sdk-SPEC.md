@@ -1307,6 +1307,8 @@ That subpath is for helper and tool authors who need safe arbitrary-snapshot rea
 
 The public decorator/provider authoring seam lives at `@manifesto-ai/sdk/provider`.
 That subpath exposes `RuntimeKernel`, `RuntimeKernelFactory`, focused consumer aliases such as `LineageRuntimeKernel`, `GovernanceRuntimeKernel`, and `WaitForProposalRuntimeKernel`, plus the activation-state helpers used by `withLineage()` and `withGovernance()`.
+It also exposes `createBaseRuntimeInstance(kernel)` as the standard helper for
+reifying the base SDK runtime contract from a provider-authored kernel.
 
 `RuntimeKernel` remains the compatibility aggregate for provider authors. Focused consumer aliases are narrower views over that same provider seam and MUST NOT weaken the compatibility contract of `RuntimeKernel`.
 
@@ -1346,6 +1348,7 @@ Those are defined by ADR-017 and their owning package specs.
 | SDK-BOUNDARY-5 | MUST | once lineage or governance laws are composed, `activate()` MUST return the runtime type defined by the owning package rather than the base SDK runtime |
 | SDK-BOUNDARY-6 | MUST | `@manifesto-ai/sdk/provider` MUST expose arbitrary-snapshot `RuntimeKernel` helpers `simulateSync()`, `getAvailableActionsFor()`, and `isActionAvailableFor()` for decorator authors |
 | SDK-BOUNDARY-6a | MUST | `@manifesto-ai/sdk/provider` MAY expose focused consumer aliases, but those aliases MUST remain narrower views over the same provider seam and MUST NOT replace `RuntimeKernel` as the compatibility aggregate |
+| SDK-BOUNDARY-6b | MUST | `@manifesto-ai/sdk/provider` MUST expose `createBaseRuntimeInstance(kernel)` as the standard helper for wrapping a provider-authored `RuntimeKernel` back into the base SDK runtime contract |
 | SDK-BOUNDARY-7 | MUST NOT | provider-seam arbitrary-snapshot helpers MUST NOT mutate, publish, or otherwise replace the visible runtime snapshot |
 | SDK-BOUNDARY-8 | MUST | `@manifesto-ai/sdk/extensions` MUST expose post-activation observationally pure arbitrary-snapshot helpers for activated runtimes |
 | SDK-BOUNDARY-9 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST NOT expose runtime-control methods or provider-only activation/composition helpers |

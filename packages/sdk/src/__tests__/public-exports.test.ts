@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import * as sdk from "../index.js";
 import * as effectHelpers from "../effects.js";
 import * as extensions from "../extensions.js";
+import * as provider from "../provider.js";
 
 describe("SDK public runtime exports", () => {
   it("exposes the v3 hard-cut runtime surface", () => {
@@ -35,5 +38,23 @@ describe("SDK public runtime exports", () => {
     expect(extensions.createSimulationSession).toBeDefined();
     expect("getExtensionKernel" in sdk).toBe(false);
     expect("createSimulationSession" in sdk).toBe(false);
+  });
+
+  it("keeps provider helpers on the provider subpath", () => {
+    expect(provider.createRuntimeKernel).toBeDefined();
+    expect(provider.createBaseRuntimeInstance).toBeDefined();
+    expect("createRuntimeKernel" in sdk).toBe(false);
+    expect("createBaseRuntimeInstance" in sdk).toBe(false);
+  });
+
+  it("does not publish the internal compat subpath", () => {
+    const packageJson = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    ) as {
+      exports?: Record<string, unknown>;
+    };
+
+    expect(packageJson.exports?.["./provider"]).toBeDefined();
+    expect(packageJson.exports?.["./compat/internal"]).toBeUndefined();
   });
 });
