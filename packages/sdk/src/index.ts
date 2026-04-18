@@ -52,6 +52,7 @@ export type {
   ManifestoEventPayload,
   ManifestoRuntimeByLaws,
   Selector,
+  SimulationDiagnostics,
   SimulateResult,
   ProjectedDiff,
   CanonicalOutcome,

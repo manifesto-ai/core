@@ -212,6 +212,9 @@ type ExtensionSimulateResult<
 
   /** Final compute status. */
   readonly status: ComputeStatus;
+
+  /** Optional debug-grade dry-run diagnostics. */
+  readonly diagnostics?: { readonly trace: TraceGraph };
 };
 ```
 

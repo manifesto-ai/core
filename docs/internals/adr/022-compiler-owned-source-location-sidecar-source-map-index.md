@@ -79,7 +79,7 @@ Resolves one internal inconsistency + one polish item flagged in the third archi
 One critical correction from the second architecture review:
 
 - **Trace replay scope further reduced to action-level only (via `TraceGraph.intent.type`).** v3 promised "enclosing declaration (action or computed) highlight," but the current Core trace contract exposes `TraceNode.kind`, `TraceNode.sourcePath` (as an opaque schema-navigation string), and `TraceGraph.intent.type`. Only the last is a stable consumer-facing coordinate today. Mapping an arbitrary trace node *up to its enclosing computed declaration* would require `sourcePath` parsing stability, which this ADR explicitly defers to ADR-022c. v1 therefore promises only what `TraceGraph.intent.type` can deliver: `action:<intent.type>` highlighting. Computed-level and sub-declaration highlighting both defer to ADR-022c.
-- Related: §13 Phase 0 evidence annex MUST cite a concrete trace surface path (Core `TraceGraph` via compiler/host integration, or a future tooling path). Current SDK `SimulateResult` does not expose trace, and MUST NOT be cited as the evidence surface for trace-replay highlighting.
+- Related: §13 Phase 0 evidence annex MUST cite a concrete trace surface path (Core `TraceGraph` via compiler/host integration, or a future tooling path). At the time of the v4 review SDK `SimulateResult` did not expose trace. The current SDK now exposes dry-run trace via `SimulateResult.diagnostics.trace`, which MAY be cited as an evidence surface for action-level trace-replay highlighting.
 
 ### v3 (2026-04-16, first review)
 
@@ -677,7 +677,7 @@ Before Phase 1, at least two concrete consumer use cases MUST be documented:
 
 Evidence annex notes:
 
-- The current SDK `SimulateResult` does **not** expose trace. Phase 0 evidence for trace-highlight use cases MUST cite a concrete trace surface path — Core `TraceGraph` via compiler/host integration, or a documented future tooling surface. Citing `simulate()` as the trace source is invalid.
+- The current SDK `SimulateResult` exposes dry-run trace via `diagnostics.trace`. Phase 0 evidence for trace-highlight use cases MUST still cite a concrete trace surface path, and `simulate().diagnostics.trace` is now a valid action-level evidence surface alongside Core `TraceGraph` integrations.
 - Claims beyond action-level highlight (computed-level, statement-precise, expression-precise) do not satisfy Phase 0 for v1; they are evidence for ADR-022c, not v1.
 
 This preserves "separation by evidence." v1 design was shaped by anticipated consumers; Phase 0 confirms they are real before compiler surface area grows.
@@ -769,7 +769,7 @@ Before acceptance, reviewers MUST confirm:
 - [ ] Cache rules split explicitly: `AnnotationIndex` on `(schemaHash, sourceHash)` under fixed compiler version (SMAP-HASH-5a); `SourceMapIndex` and `DomainModule` blob on `(schemaHash, sourceHash, emissionFingerprint)` (SMAP-HASH-5b, 5c)
 - [ ] INV-SMAP-3, INV-SMAP-4, INV-SMAP-7, INV-SMAP-8 tests are implementable in existing compiler CI
 - [ ] `SMAP-TRACE-*` scope (**action-level only via `TraceGraph.intent.type`**) is acceptable to trace-replay tooling owners
-- [ ] Phase 0 trace-highlight evidence cites a concrete trace surface (not SDK `SimulateResult`)
+- [ ] Phase 0 trace-highlight evidence cites a concrete trace surface (including `SDK SimulateResult.diagnostics.trace` when appropriate)
 - [ ] No runtime SPEC (Core/Host/SDK/Lineage/Governance) requires modification
 - [ ] `OriginIndex`, body-level resolution, **computed-level resolution**, and `action_param` all remain deferred with explicit entry criteria
 

@@ -371,6 +371,11 @@ type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly newAvailableActions: readonly (keyof T["actions"])[];
   readonly requirements: readonly Requirement[];
   readonly status: "complete" | "pending" | "halted" | "error";
+  readonly diagnostics?: SimulationDiagnostics;
+};
+
+type SimulationDiagnostics = {
+  readonly trace: TraceGraph;
 };
 
 type IntentExplanation<
@@ -948,6 +953,8 @@ For a successful dry-run, `simulate()` MUST:
 
 `status` MUST mirror Core `ComputeStatus` exactly: `complete`, `pending`, `halted`, or `error`.
 
+`diagnostics` is optional, best-effort, and inspection-only. If present, `diagnostics.trace` MUST be the Core `ComputeResult.trace` produced by the exact admitted dry-run `computeSync()` pass that also produced the simulated snapshot, status, and requirements. Callers MUST treat `snapshot`, `status`, `requirements`, `changedPaths`, and `newAvailableActions` as the semantic dry-run surface, and MUST NOT rely on diagnostics for correctness or branching.
+
 ### 7.6 `subscribe()`
 
 `subscribe()` observes visible projected snapshot publication through selector projection.
@@ -1050,6 +1057,7 @@ type ExtensionSimulateResult<
   readonly patches: readonly Patch[];
   readonly requirements: readonly Requirement[];
   readonly status: ComputeStatus;
+  readonly diagnostics?: SimulationDiagnostics;
 };
 ```
 
@@ -1059,7 +1067,7 @@ All arbitrary-snapshot operations accept **canonical** snapshots only. Passing p
 
 The Extension Kernel is the safe public subset for helper and tool authors. It MUST remain observationally pure: no publication, execution, event emission, queue control, or visible runtime mutation.
 
-`ExtensionSimulateResult` is intentionally canonical and minimal. `simulateSync()` itself does not bundle projected `changedPaths`, `newAvailableActions`, or blocker explanations. Callers that need structured intent explanation SHOULD use `explainIntentFor()`. Callers that need lower-level composition MAY still combine `projectSnapshot()`, `getAvailableActionsFor()`, and `isIntentDispatchableFor()` explicitly.
+`ExtensionSimulateResult` is intentionally canonical and minimal. `simulateSync()` itself does not bundle projected `changedPaths`, `newAvailableActions`, or blocker explanations. Optional debug-grade `diagnostics.trace` is allowed because it re-exposes the same dry-run Core trace without adding projected convenience fields or execution control. Callers that need structured intent explanation SHOULD use `explainIntentFor()`. Callers that need lower-level composition MAY still combine `projectSnapshot()`, `getAvailableActionsFor()`, and `isIntentDispatchableFor()` explicitly.
 
 Extension-kernel acquisition and use are post-activation only, but they are not part of runtime execution. The seam remains analytical after `dispose()`: observationally pure methods MUST NOT reject solely because the source runtime has been disposed.
 
@@ -1236,6 +1244,8 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-SIM-6 | MUST | `simulate().newAvailableActions` MUST be evaluated against the canonical simulated snapshot |
 | SDK-SIM-7 | MUST | `simulate().changedPaths` MUST be diffed from the projected public snapshot only and MUST be treated as inspection/debug-only, not as the canonical branching API |
 | SDK-SIM-8 | MUST | `simulate().status` MUST mirror Core `ComputeStatus` exactly, including `halted` |
+| SDK-SIM-9 | MUST | If `simulate().diagnostics` is present, `diagnostics.trace` MUST equal the Core `ComputeResult.trace` from the same admitted dry-run compute pass |
+| SDK-SIM-10 | MUST | The presence or absence of `simulate().diagnostics` MUST NOT change dry-run legality, snapshot projection, status, requirements, changed paths, or new available actions |
 | SDK-EXT-1 | MUST | `getExtensionKernel()` MUST accept only activated runtime instances and MUST return a frozen, bound Extension Kernel |
 | SDK-EXT-2 | MUST | `ExtensionKernel.projectSnapshot()` MUST apply the same public projection boundary as `getSnapshot()` |
 | SDK-EXT-3 | MUST | `ExtensionKernel.projectSnapshot()` MUST be observationally pure; it MUST NOT be implemented by mutating the visible runtime snapshot and reading it back |
@@ -1246,6 +1256,8 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-EXT-8 | MUST NOT | Calls through `ExtensionKernel` MUST mutate the visible runtime snapshot, trigger subscribers, emit runtime events, or enqueue work on the source runtime |
 | SDK-EXT-9 | MUST | `ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` MUST remain observationally equivalent to the corresponding activated-runtime members |
 | SDK-EXT-10 | MUST | `ExtensionSimulateResult` MUST remain canonical and minimal; projected `changedPaths` and `newAvailableActions` belong to `simulate()` or explicit follow-up extension calls, not to `simulateSync()` |
+| SDK-EXT-10a | MAY | `ExtensionSimulateResult` MAY include optional debug-grade `diagnostics.trace` sourced from the same dry-run Core `ComputeResult.trace` |
+| SDK-EXT-10b | MUST | Optional `diagnostics.trace` on `ExtensionSimulateResult` MUST NOT be treated as projected convenience data or execution control, and MUST NOT change the observational purity of the extension seam |
 | SDK-EXT-11 | MUST | For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime, `projectSnapshot(result.snapshot)`, `result.status`, `result.requirements`, and `getAvailableActionsFor(result.snapshot)` from `simulateSync(snapshot, intent)` MUST match public `simulate()` semantics |
 | SDK-EXT-12 | MUST | Observationally pure `ExtensionKernel` methods MUST remain callable after `dispose()` and MUST NOT reject solely because the source runtime has been disposed |
 | SDK-EXT-13 | MUST | `createSimulationSession()` MUST share the same safe substrate as `ExtensionKernel`; it MUST NOT require provider-only access or bypass the extension boundary with provider-only capabilities |

@@ -3,6 +3,7 @@ import {
   hashSchemaSync,
   semanticPathToPatchPath,
   type DomainSchema,
+  type TraceGraph,
 } from "@manifesto-ai/core";
 
 import {
@@ -86,6 +87,44 @@ function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
     hash: hashSchemaSync(schema),
+  };
+}
+
+function normalizeTraceNodeTimestamps(
+  node: TraceGraph["root"],
+): TraceGraph["root"] {
+  return {
+    ...node,
+    timestamp: 0,
+    children: node.children.map(normalizeTraceNodeTimestamps),
+  };
+}
+
+function normalizeSimulationTrace<T extends { diagnostics?: { trace: TraceGraph } }>(
+  result: T,
+): T {
+  const trace = result.diagnostics?.trace;
+  if (!trace) {
+    return result;
+  }
+
+  return {
+    ...result,
+    diagnostics: {
+      trace: {
+        ...trace,
+        root: normalizeTraceNodeTimestamps(trace.root),
+        nodes: Object.fromEntries(
+          Object.entries(trace.nodes).map(([id, value]) => [
+            id,
+            {
+              ...value,
+              timestamp: 0,
+            },
+          ]),
+        ),
+      },
+    },
   };
 }
 
@@ -515,6 +554,8 @@ describe("activated base runtime", () => {
     expect(simulated.newAvailableActions).toEqual(
       expect.arrayContaining(["incrementIfEven"]),
     );
+    expect(simulated.diagnostics?.trace.terminatedBy).toBe("effect");
+    expect(simulated.diagnostics?.trace.root.sourcePath).toBe("actions.load.flow");
     expect(world.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
 
     world.dispose();
@@ -564,7 +605,8 @@ describe("activated base runtime", () => {
     expect(first.changedPaths).toEqual([]);
     expect(first.requirements).toEqual([]);
     expect(first.snapshot).toEqual(before);
-    expect(second).toEqual(first);
+    expect(first.diagnostics?.trace.terminatedBy).toBe("complete");
+    expect(normalizeSimulationTrace(second)).toEqual(normalizeSimulationTrace(first));
     expect(after).toEqual(before);
 
     world.dispose();
@@ -664,6 +706,7 @@ describe("activated base runtime", () => {
     const halted = haltingWorld.simulate(haltingWorld.MEL.actions.finalize);
     expect(halted.status).toBe("halted");
     expect(halted.changedPaths).toEqual([]);
+    expect(halted.diagnostics?.trace.terminatedBy).toBe("halt");
     expect(haltingWorld.getSnapshot().data.status).toBe("idle");
     haltingWorld.dispose();
 
@@ -688,7 +731,7 @@ describe("activated base runtime", () => {
     const normalizeTimestamp = (
       result: typeof first,
     ) => ({
-      ...result,
+      ...normalizeSimulationTrace(result),
       snapshot: {
         ...result.snapshot,
         meta: {
@@ -701,6 +744,7 @@ describe("activated base runtime", () => {
     expect(normalizeTimestamp(first)).toEqual(normalizeTimestamp(second));
     expect(first.status).toBe("complete");
     expect(first.snapshot.data.count).toBe(1);
+    expect(first.diagnostics?.trace.root.sourcePath).toBe("actions.increment.flow");
     expect(canonical.data.count).toBe(0);
     expect(kernel.getCanonicalSnapshot().data.count).toBe(0);
 
@@ -743,6 +787,7 @@ describe("activated base runtime", () => {
     expect(pending.requirements).toHaveLength(1);
     expect(pending.systemDelta.addRequirements).toHaveLength(1);
     expect(pending.snapshot.system.pendingRequirements).toHaveLength(1);
+    expect(pending.diagnostics?.trace.terminatedBy).toBe("effect");
     expect(kernel.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
 
     expect(() =>
@@ -1311,6 +1356,9 @@ describe("activated base runtime", () => {
     expect(projected).toEqual(publicSimulated.snapshot);
     expect(simulated.status).toBe(publicSimulated.status);
     expect(simulated.requirements).toEqual(publicSimulated.requirements);
+    expect(normalizeSimulationTrace(simulated).diagnostics?.trace).toEqual(
+      normalizeSimulationTrace(publicSimulated).diagnostics?.trace,
+    );
     expect(ext.getAvailableActionsFor(simulated.snapshot)).toEqual(publicSimulated.newAvailableActions);
     expect(world.getSnapshot()).toBe(beforeProjected);
     expect(world.getCanonicalSnapshot()).toEqual(beforeCanonical);
@@ -1429,6 +1477,7 @@ describe("activated base runtime", () => {
 
     const simulated = ext.simulateSync(canonical, intent);
     expect(simulated.snapshot.data.count).toBe(1);
+    expect(simulated.diagnostics?.trace.root.sourcePath).toBe("actions.increment.flow");
     expect(ext.getAvailableActionsFor(simulated.snapshot)).not.toContain("incrementIfEven");
   });
 

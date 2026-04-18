@@ -10,6 +10,7 @@ import type {
   CreateIntentArgs,
   IntentExplanation,
   ManifestoDomainShape,
+  SimulationDiagnostics,
   Snapshot,
   TypedActionRef,
   TypedCreateIntent,
@@ -24,6 +25,7 @@ export type ExtensionSimulateResult<
   readonly patches: readonly Patch[];
   readonly requirements: readonly Requirement[];
   readonly status: ComputeStatus;
+  readonly diagnostics?: SimulationDiagnostics;
 };
 
 export interface ExtensionKernel<T extends ManifestoDomainShape> {

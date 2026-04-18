@@ -1110,6 +1110,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `SdkManifest`
 - `Selector`
 - `SimulateResult`
+- `SimulationDiagnostics`
 - `Snapshot`
 - `TypedActionMetadata`
 - `TypedActionRef`

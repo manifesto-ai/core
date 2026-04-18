@@ -149,6 +149,11 @@ export type SimulateResult<
   readonly newAvailableActions: readonly (keyof T["actions"])[];
   readonly requirements: readonly Requirement[];
   readonly status: ComputeStatus;
+  readonly diagnostics?: SimulationDiagnostics;
+};
+
+export type SimulationDiagnostics = {
+  readonly trace: TraceGraph;
 };
 
 export type InvalidInputInfo = {

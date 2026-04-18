@@ -120,6 +120,9 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       systemDelta: cloneAndDeepFreeze(result.systemDelta),
       status: result.status,
       requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
+      diagnostics: Object.freeze({
+        trace: cloneAndDeepFreeze(result.trace),
+      }),
     }) as RuntimeSimulationResult<T>;
   };
 

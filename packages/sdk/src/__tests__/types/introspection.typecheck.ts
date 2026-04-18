@@ -17,12 +17,14 @@ void graph.traceUp("state:count");
 const simulated = world.simulate(world.MEL.actions.increment);
 const changedPaths: readonly string[] = simulated.changedPaths;
 const available: readonly (keyof CounterDomain["actions"])[] = simulated.newAvailableActions;
+const trace = simulated.diagnostics?.trace;
 
 void fieldName;
 void computedName;
 void actionName;
 void changedPaths;
 void available;
+void trace;
 
 // @ts-expect-error FieldRef no longer exposes path in the public type surface
 world.MEL.state.count.path;

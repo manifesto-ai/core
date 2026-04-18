@@ -29,6 +29,7 @@ import type {
   ManifestoEvent,
   ManifestoEventMap,
   SchemaGraph,
+  SimulationDiagnostics,
   SimulateResult as ProjectedSimulateResult,
   Snapshot,
   TypedActionMetadata,
@@ -79,6 +80,7 @@ export type SimulateResult<
   readonly systemDelta: Readonly<SystemDelta>;
   readonly status: ComputeStatus;
   readonly requirements: readonly Requirement[];
+  readonly diagnostics?: SimulationDiagnostics;
 };
 
 export interface RuntimeKernel<T extends ManifestoDomainShape> {
