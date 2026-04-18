@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.16.0](https://github.com/manifesto-ai/core/compare/sdk-v3.15.1...sdk-v3.16.0) (2026-04-18)
+
+
+### Features
+
+* **sdk:** expose simulate trace diagnostics ([#438](https://github.com/manifesto-ai/core/issues/438)) ([228788d](https://github.com/manifesto-ai/core/commit/228788d7c0a605a77f3f3caf0ac195a9f3fb8cd3))
+
 ## [3.15.1](https://github.com/manifesto-ai/core/compare/sdk-v3.15.0...sdk-v3.15.1) (2026-04-17)
 
 
