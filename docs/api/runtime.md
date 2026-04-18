@@ -23,7 +23,7 @@ The base runtime returned by `createManifesto(...).activate()` exposes:
 | `getIntentBlockers(action, ...input)` | Inspect the first failing legality layer |
 | `explainIntent(intent)` / `why(intent)` | Explain availability, dispatchability, or dry-run admission |
 | `whyNot(intent)` | Return blockers, or `null` when admitted |
-| `simulate(action, ...input)` | Dry-run against the current runtime state |
+| `simulate(action, ...input)` | Dry-run against the current runtime state, with optional debug-grade `diagnostics.trace` |
 | `on(event, handler)` | Subscribe to runtime dispatch events |
 | `dispose()` | Release the runtime and stop future dispatch |
 
@@ -40,6 +40,8 @@ console.log(app.getAvailableActions());
 ```
 
 Treat `getAvailableActions()` and `isActionAvailable()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it executes or submits work.
+
+`simulate()` is the admitted dry-run step on this surface. It returns the projected next snapshot, dry-run requirements, new available actions, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace` sourced from the same dry-run compute pass.
 
 ## Legality Ladder
 
