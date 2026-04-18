@@ -211,9 +211,11 @@ The intended legality ladder for callers is:
 
 Use `getSchemaGraph()` when you need the projected static dependency graph for the activated schema. Ref-based lookup through `instance.MEL.*` is the canonical surface; kind-prefixed ids such as `state:count` are debug-only convenience.
 
-Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, and sorted `changedPaths`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but invalid-input intents reject with `INVALID_INPUT`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` as inspection/debug output rather than the canonical branching API.
+Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but invalid-input intents reject with `INVALID_INPUT`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` and diagnostics as inspection/debug output rather than the canonical branching API.
 
 If the action is available but the bound intent input is invalid, `simulate()` rejects with `INVALID_INPUT` before dispatchability.
+
+If `diagnostics.trace` is present, it is derived from the dry-run Core trace for the same admitted compute pass that produced the simulated snapshot, status, and requirements. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
 
 Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
 
@@ -279,6 +281,8 @@ const intent = ext.createIntent(ext.MEL.actions.increment);
 const explanation = ext.explainIntentFor(root, intent);
 const simulated = ext.simulateSync(root, intent);
 const projected = ext.projectSnapshot(simulated.snapshot);
+
+console.log(simulated.diagnostics?.trace);
 ```
 
 The core analytical helpers on this seam are:
@@ -317,7 +321,7 @@ const projectedB = ext.projectSnapshot(branchB.snapshot);
 
 This is the intended substrate for manual simulation helpers. The SDK no longer relies on a dedicated planner/simulator package for post-activation hypothetical tooling.
 
-Use `explainIntentFor()` when you want the extension seam to compose availability, input validation, dispatchability, first-failing-layer blocker construction, and dry-run simulation for a caller-supplied canonical snapshot. `simulateSync()` remains the lower-level minimal dry-run primitive.
+Use `explainIntentFor()` when you want the extension seam to compose availability, input validation, dispatchability, first-failing-layer blocker construction, and dry-run simulation for a caller-supplied canonical snapshot. `simulateSync()` remains the lower-level minimal dry-run primitive: it returns the canonical simulated snapshot, status, requirements, and may also expose optional inspection-only `diagnostics.trace`.
 
 `explainIntentFor()` preserves the same legality ordering as the public runtime:
 

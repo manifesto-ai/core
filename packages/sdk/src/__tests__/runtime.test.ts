@@ -515,6 +515,8 @@ describe("activated base runtime", () => {
     expect(simulated.newAvailableActions).toEqual(
       expect.arrayContaining(["incrementIfEven"]),
     );
+    expect(simulated.diagnostics?.trace.terminatedBy).toBe("effect");
+    expect(simulated.diagnostics?.trace.root.sourcePath).toBe("actions.load.flow");
     expect(world.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
 
     world.dispose();
@@ -556,14 +558,19 @@ describe("activated base runtime", () => {
     }), {}).activate();
 
     const before = world.getSnapshot();
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValueOnce(100);
     const first = world.simulate(world.MEL.actions.touchHostDirect);
+    nowSpy.mockReturnValueOnce(200);
     const second = world.simulate(world.MEL.actions.touchHostDirect);
+    nowSpy.mockRestore();
     const after = world.getSnapshot();
 
     expect(first.status).toBe("complete");
     expect(first.changedPaths).toEqual([]);
     expect(first.requirements).toEqual([]);
     expect(first.snapshot).toEqual(before);
+    expect(first.diagnostics?.trace.terminatedBy).toBe("complete");
     expect(second).toEqual(first);
     expect(after).toEqual(before);
 
@@ -664,6 +671,7 @@ describe("activated base runtime", () => {
     const halted = haltingWorld.simulate(haltingWorld.MEL.actions.finalize);
     expect(halted.status).toBe("halted");
     expect(halted.changedPaths).toEqual([]);
+    expect(halted.diagnostics?.trace.terminatedBy).toBe("halt");
     expect(haltingWorld.getSnapshot().data.status).toBe("idle");
     haltingWorld.dispose();
 
@@ -701,6 +709,7 @@ describe("activated base runtime", () => {
     expect(normalizeTimestamp(first)).toEqual(normalizeTimestamp(second));
     expect(first.status).toBe("complete");
     expect(first.snapshot.data.count).toBe(1);
+    expect(first.diagnostics?.trace.root.sourcePath).toBe("actions.increment.flow");
     expect(canonical.data.count).toBe(0);
     expect(kernel.getCanonicalSnapshot().data.count).toBe(0);
 
@@ -729,10 +738,18 @@ describe("activated base runtime", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
     const kernel = getRuntimeKernelFactory(manifesto)();
     const canonical = kernel.getCanonicalSnapshot();
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValueOnce(100);
     const pending = kernel.simulateSync(
       canonical,
       kernel.createIntent(kernel.MEL.actions.load),
     );
+    nowSpy.mockReturnValueOnce(200);
+    const repeatedPending = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.load),
+    );
+    nowSpy.mockRestore();
     const odd = kernel.simulateSync(
       canonical,
       kernel.createIntent(kernel.MEL.actions.increment),
@@ -743,6 +760,11 @@ describe("activated base runtime", () => {
     expect(pending.requirements).toHaveLength(1);
     expect(pending.systemDelta.addRequirements).toHaveLength(1);
     expect(pending.snapshot.system.pendingRequirements).toHaveLength(1);
+    expect(pending.diagnostics?.trace.terminatedBy).toBe("effect");
+    expect(repeatedPending.diagnostics?.trace).toEqual(pending.diagnostics?.trace);
+    expect(pending.diagnostics?.trace.root.children[0]?.timestamp).toBe(
+      pending.diagnostics?.trace.root.timestamp,
+    );
     expect(kernel.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
 
     expect(() =>
@@ -1311,6 +1333,7 @@ describe("activated base runtime", () => {
     expect(projected).toEqual(publicSimulated.snapshot);
     expect(simulated.status).toBe(publicSimulated.status);
     expect(simulated.requirements).toEqual(publicSimulated.requirements);
+    expect(simulated.diagnostics?.trace).toEqual(publicSimulated.diagnostics?.trace);
     expect(ext.getAvailableActionsFor(simulated.snapshot)).toEqual(publicSimulated.newAvailableActions);
     expect(world.getSnapshot()).toBe(beforeProjected);
     expect(world.getCanonicalSnapshot()).toEqual(beforeCanonical);
@@ -1429,6 +1452,7 @@ describe("activated base runtime", () => {
 
     const simulated = ext.simulateSync(canonical, intent);
     expect(simulated.snapshot.data.count).toBe(1);
+    expect(simulated.diagnostics?.trace.root.sourcePath).toBe("actions.increment.flow");
     expect(ext.getAvailableActionsFor(simulated.snapshot)).not.toContain("incrementIfEven");
   });
 

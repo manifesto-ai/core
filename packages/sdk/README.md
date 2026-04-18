@@ -4,7 +4,7 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current SDK contract is the activation-first model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed `createIntent()` object binding, intent explanation reads, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(instance)`.
+> **Current Contract Note:** The current SDK contract is the activation-first model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed `createIntent()` object binding, intent explanation reads, `simulate()` with optional debug-grade `diagnostics.trace`, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(instance)`.
 
 ## When to Use It
 
@@ -13,7 +13,7 @@ Use the SDK when you want:
 - the shortest path to a running base runtime
 - typed intent creation through `MEL.actions.*`
 - optional typed effect authoring through `@manifesto-ai/sdk/effects`
-- `dispatchAsync`, subscriptions, legality queries, explanation reads, dry-run simulation, and snapshot reads in one package
+- `dispatchAsync`, subscriptions, legality queries, explanation reads, dry-run simulation with optional trace diagnostics, and snapshot reads in one package
 - projected Snapshot reads by default, with canonical inspection available explicitly
 - safe post-activation arbitrary-snapshot tooling through `@manifesto-ai/sdk/extensions`
 
@@ -30,7 +30,7 @@ await instance.dispatchAsync(intent);
 console.log(instance.getSnapshot().data.count);
 ```
 
-Base runtime reads cover availability, dispatchability, intent explanation, dry-run simulation, subscriptions, events, and both projected and canonical snapshot access.
+Base runtime reads cover availability, dispatchability, intent explanation, dry-run simulation, optional debug-grade trace diagnostics, subscriptions, events, and both projected and canonical snapshot access.
 
 Effect authoring helpers live on the dedicated `@manifesto-ai/sdk/effects` subpath. The root package stays centered on `createManifesto()`.
 

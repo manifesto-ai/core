@@ -294,6 +294,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
       newAvailableActions: getAvailableActionsFor(simulated.snapshot),
       requirements: simulated.requirements,
       status: simulated.status,
+      diagnostics: simulated.diagnostics,
     }) as ProjectedSimulateResult<T>;
   }) as RuntimeKernel<T>["simulate"];
 
@@ -315,6 +316,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
         patches: result.patches,
         requirements: result.requirements,
         status: result.status,
+        diagnostics: result.diagnostics,
       }) as ExtensionSimulateResult<T>;
     },
     getAvailableActionsFor,

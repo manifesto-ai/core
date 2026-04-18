@@ -18,6 +18,7 @@ import type {
   ManifestoDomainShape,
   ManifestoEvent,
   ManifestoEventMap,
+  SimulationDiagnostics,
   Snapshot,
   TypedIntent,
   TypedOn,
@@ -93,6 +94,7 @@ export type RuntimeSimulationResult<
   readonly systemDelta: Readonly<SystemDelta>;
   readonly status: ComputeStatus;
   readonly requirements: readonly Requirement[];
+  readonly diagnostics?: SimulationDiagnostics;
 };
 
 export type RuntimeSimulateSync<

@@ -274,7 +274,7 @@ describe("ACTS Base Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
-      "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, and new availability.",
+      "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
     ),
     () => {
       const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
@@ -314,8 +314,12 @@ describe("ACTS Base Suite", () => {
         },
       }), {}).activate();
       const noOpBefore = noOpWorld.getSnapshot();
+      const nowSpy = vi.spyOn(Date, "now");
+      nowSpy.mockReturnValueOnce(100);
       const firstNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
+      nowSpy.mockReturnValueOnce(200);
       const secondNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
+      nowSpy.mockRestore();
       const noOpAfter = noOpWorld.getSnapshot();
 
       expectAllCompliance([

@@ -438,6 +438,13 @@ type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
 
   /** Compute status - mirrors Core `ComputeResult.status` exactly. */
   readonly status: "complete" | "pending" | "halted" | "error";
+
+  /** Optional debug-grade dry-run diagnostics. */
+  readonly diagnostics?: SimulationDiagnostics;
+};
+
+type SimulationDiagnostics = {
+  readonly trace: TraceGraph;
 };
 ```
 
@@ -453,6 +460,8 @@ type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
 | SIM-6 | MUST | `newAvailableActions` MUST reflect availability evaluated against the canonical simulated snapshot, since `available when` may reference `data.$*` fields internally even though those fields are excluded from the projected snapshot |
 | SIM-7 | MUST | `simulate` MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE` if the action is not available against the current snapshot |
 | SIM-8 | MUST | `simulate` MUST use the same `HostContext` construction as `dispatchAsync` for determinism |
+| SIM-9 | MUST | if `diagnostics` is present, `diagnostics.trace` MUST be derived from the Core `ComputeResult.trace` from the same admitted dry-run compute pass, and MAY normalize volatile host-time fields such as node timestamps or duration |
+| SIM-10 | MUST | the presence or absence of diagnostics MUST NOT change legality, snapshot projection, status, requirements, changed paths, or new available actions |
 
 #### Implementation
 

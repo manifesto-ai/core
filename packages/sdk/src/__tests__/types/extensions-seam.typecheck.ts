@@ -19,6 +19,7 @@ const intent = ext.createIntent(ext.MEL.actions.increment);
 const isDispatchable = ext.isIntentDispatchableFor(canonical, intent);
 const explanation: IntentExplanation<CounterDomain> = ext.explainIntentFor(canonical, intent);
 const simulated: ExtensionSimulateResult<CounterDomain> = ext.simulateSync(canonical, intent);
+const simulatedTrace = simulated.diagnostics?.trace;
 const projected = ext.projectSnapshot(simulated.snapshot);
 const next = session.next(world.MEL.actions.increment);
 const finished = next.finish();
@@ -34,5 +35,6 @@ void isDispatchable;
 void explanation;
 void projected;
 void finished;
+void simulatedTrace;
 
 export {};

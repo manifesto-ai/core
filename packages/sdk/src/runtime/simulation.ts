@@ -4,6 +4,7 @@ import {
   computeSync,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
+  type TraceGraph,
 } from "@manifesto-ai/core";
 import {
   getHostState,
@@ -36,6 +37,46 @@ type RuntimeSimulationOptions<T extends ManifestoDomainShape> = {
     intent: TypedIntent<T>,
   ) => IntentLegalityEvaluation<T>;
 };
+
+function normalizeTraceNodeTimestamps(
+  node: TraceGraph["root"],
+  timestamp: number,
+): TraceGraph["root"] {
+  return {
+    ...node,
+    timestamp,
+    children: node.children.map((child) =>
+      normalizeTraceNodeTimestamps(child, timestamp)
+    ),
+  };
+}
+
+function collectTraceNodes(
+  root: TraceGraph["root"],
+): TraceGraph["nodes"] {
+  const nodes: TraceGraph["nodes"] = {};
+
+  function visit(node: TraceGraph["root"]): void {
+    nodes[node.id] = node;
+    node.children.forEach(visit);
+  }
+
+  visit(root);
+  return nodes;
+}
+
+function createStableSimulationTrace(
+  trace: TraceGraph,
+  timestamp: number,
+): TraceGraph {
+  const root = normalizeTraceNodeTimestamps(trace.root, timestamp);
+  return {
+    ...trace,
+    duration: 0,
+    root,
+    nodes: collectTraceNodes(root),
+  };
+}
 
 export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   schema,
@@ -120,6 +161,11 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       systemDelta: cloneAndDeepFreeze(result.systemDelta),
       status: result.status,
       requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
+      diagnostics: Object.freeze({
+        trace: cloneAndDeepFreeze(
+          createStableSimulationTrace(result.trace, snapshot.meta.timestamp),
+        ),
+      }),
     }) as RuntimeSimulationResult<T>;
   };
 

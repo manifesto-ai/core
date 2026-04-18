@@ -112,7 +112,7 @@ console.log(preview.newAvailableActions);
 
 Use `getSchemaGraph()` for projected static dependency inspection. Ref-based lookup through `instance.MEL.*` is canonical. Kind-prefixed ids such as `state:count` remain convenience/debug-only.
 
-Use `simulate()` for a non-committing dry-run against the current canonical snapshot. It returns the projected next snapshot, effect requirements, new availability, and sorted `changedPaths`. Treat `changedPaths` as explanation/debug output rather than the branching API.
+Use `simulate()` for a non-committing dry-run against the current canonical snapshot. It returns the projected next snapshot, effect requirements, new availability, sorted `changedPaths`, and optional debug-grade `diagnostics.trace`. Treat `changedPaths` and diagnostics as explanation/debug output rather than the branching API.
 
 ---
 
