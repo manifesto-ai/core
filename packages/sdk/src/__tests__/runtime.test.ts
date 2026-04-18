@@ -3,7 +3,6 @@ import {
   hashSchemaSync,
   semanticPathToPatchPath,
   type DomainSchema,
-  type TraceGraph,
 } from "@manifesto-ai/core";
 
 import {
@@ -87,44 +86,6 @@ function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
     hash: hashSchemaSync(schema),
-  };
-}
-
-function normalizeTraceNodeTimestamps(
-  node: TraceGraph["root"],
-): TraceGraph["root"] {
-  return {
-    ...node,
-    timestamp: 0,
-    children: node.children.map(normalizeTraceNodeTimestamps),
-  };
-}
-
-function normalizeSimulationTrace<T extends { diagnostics?: { trace: TraceGraph } }>(
-  result: T,
-): T {
-  const trace = result.diagnostics?.trace;
-  if (!trace) {
-    return result;
-  }
-
-  return {
-    ...result,
-    diagnostics: {
-      trace: {
-        ...trace,
-        root: normalizeTraceNodeTimestamps(trace.root),
-        nodes: Object.fromEntries(
-          Object.entries(trace.nodes).map(([id, value]) => [
-            id,
-            {
-              ...value,
-              timestamp: 0,
-            },
-          ]),
-        ),
-      },
-    },
   };
 }
 
@@ -606,7 +567,7 @@ describe("activated base runtime", () => {
     expect(first.requirements).toEqual([]);
     expect(first.snapshot).toEqual(before);
     expect(first.diagnostics?.trace.terminatedBy).toBe("complete");
-    expect(normalizeSimulationTrace(second)).toEqual(normalizeSimulationTrace(first));
+    expect(second).toEqual(first);
     expect(after).toEqual(before);
 
     world.dispose();
@@ -731,7 +692,7 @@ describe("activated base runtime", () => {
     const normalizeTimestamp = (
       result: typeof first,
     ) => ({
-      ...normalizeSimulationTrace(result),
+      ...result,
       snapshot: {
         ...result.snapshot,
         meta: {
@@ -1356,9 +1317,7 @@ describe("activated base runtime", () => {
     expect(projected).toEqual(publicSimulated.snapshot);
     expect(simulated.status).toBe(publicSimulated.status);
     expect(simulated.requirements).toEqual(publicSimulated.requirements);
-    expect(normalizeSimulationTrace(simulated).diagnostics?.trace).toEqual(
-      normalizeSimulationTrace(publicSimulated).diagnostics?.trace,
-    );
+    expect(simulated.diagnostics?.trace).toEqual(publicSimulated.diagnostics?.trace);
     expect(ext.getAvailableActionsFor(simulated.snapshot)).toEqual(publicSimulated.newAvailableActions);
     expect(world.getSnapshot()).toBe(beforeProjected);
     expect(world.getCanonicalSnapshot()).toEqual(beforeCanonical);

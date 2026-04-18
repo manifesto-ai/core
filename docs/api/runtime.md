@@ -41,7 +41,7 @@ console.log(app.getAvailableActions());
 
 Treat `getAvailableActions()` and `isActionAvailable()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it executes or submits work.
 
-`simulate()` is the admitted dry-run step on this surface. It returns the projected next snapshot, dry-run requirements, new available actions, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace` sourced from the same dry-run compute pass.
+`simulate()` is the admitted dry-run step on this surface. It returns the projected next snapshot, dry-run requirements, new available actions, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace` derived from the same dry-run compute pass. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
 
 ## Legality Ladder
 

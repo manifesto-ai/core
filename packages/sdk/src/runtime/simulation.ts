@@ -4,6 +4,7 @@ import {
   computeSync,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
+  type TraceGraph,
 } from "@manifesto-ai/core";
 import {
   getHostState,
@@ -36,6 +37,39 @@ type RuntimeSimulationOptions<T extends ManifestoDomainShape> = {
     intent: TypedIntent<T>,
   ) => IntentLegalityEvaluation<T>;
 };
+
+function normalizeTraceNodeTimestamps(
+  node: TraceGraph["root"],
+  timestamp: number,
+): TraceGraph["root"] {
+  return {
+    ...node,
+    timestamp,
+    children: node.children.map((child) =>
+      normalizeTraceNodeTimestamps(child, timestamp)
+    ),
+  };
+}
+
+function createStableSimulationTrace(
+  trace: TraceGraph,
+  timestamp: number,
+): TraceGraph {
+  return {
+    ...trace,
+    duration: 0,
+    root: normalizeTraceNodeTimestamps(trace.root, timestamp),
+    nodes: Object.fromEntries(
+      Object.entries(trace.nodes).map(([id, value]) => [
+        id,
+        {
+          ...value,
+          timestamp,
+        },
+      ]),
+    ),
+  };
+}
 
 export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   schema,
@@ -121,7 +155,9 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       status: result.status,
       requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
       diagnostics: Object.freeze({
-        trace: cloneAndDeepFreeze(result.trace),
+        trace: cloneAndDeepFreeze(
+          createStableSimulationTrace(result.trace, snapshot.meta.timestamp),
+        ),
       }),
     }) as RuntimeSimulationResult<T>;
   };

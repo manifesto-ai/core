@@ -215,7 +215,7 @@ Use `simulate()` when you need a non-committing dry-run of an action against the
 
 If the action is available but the bound intent input is invalid, `simulate()` rejects with `INVALID_INPUT` before dispatchability.
 
-If `diagnostics.trace` is present, it is the dry-run Core trace from the same admitted compute pass that produced the simulated snapshot, status, and requirements.
+If `diagnostics.trace` is present, it is derived from the dry-run Core trace for the same admitted compute pass that produced the simulated snapshot, status, and requirements. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
 
 Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
 
