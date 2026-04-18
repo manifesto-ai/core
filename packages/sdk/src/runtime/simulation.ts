@@ -51,23 +51,30 @@ function normalizeTraceNodeTimestamps(
   };
 }
 
+function collectTraceNodes(
+  root: TraceGraph["root"],
+): TraceGraph["nodes"] {
+  const nodes: TraceGraph["nodes"] = {};
+
+  function visit(node: TraceGraph["root"]): void {
+    nodes[node.id] = node;
+    node.children.forEach(visit);
+  }
+
+  visit(root);
+  return nodes;
+}
+
 function createStableSimulationTrace(
   trace: TraceGraph,
   timestamp: number,
 ): TraceGraph {
+  const root = normalizeTraceNodeTimestamps(trace.root, timestamp);
   return {
     ...trace,
     duration: 0,
-    root: normalizeTraceNodeTimestamps(trace.root, timestamp),
-    nodes: Object.fromEntries(
-      Object.entries(trace.nodes).map(([id, value]) => [
-        id,
-        {
-          ...value,
-          timestamp,
-        },
-      ]),
-    ),
+    root,
+    nodes: collectTraceNodes(root),
   };
 }
 

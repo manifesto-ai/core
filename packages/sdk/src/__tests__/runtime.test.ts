@@ -558,8 +558,12 @@ describe("activated base runtime", () => {
     }), {}).activate();
 
     const before = world.getSnapshot();
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValueOnce(100);
     const first = world.simulate(world.MEL.actions.touchHostDirect);
+    nowSpy.mockReturnValueOnce(200);
     const second = world.simulate(world.MEL.actions.touchHostDirect);
+    nowSpy.mockRestore();
     const after = world.getSnapshot();
 
     expect(first.status).toBe("complete");
@@ -734,10 +738,18 @@ describe("activated base runtime", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
     const kernel = getRuntimeKernelFactory(manifesto)();
     const canonical = kernel.getCanonicalSnapshot();
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValueOnce(100);
     const pending = kernel.simulateSync(
       canonical,
       kernel.createIntent(kernel.MEL.actions.load),
     );
+    nowSpy.mockReturnValueOnce(200);
+    const repeatedPending = kernel.simulateSync(
+      canonical,
+      kernel.createIntent(kernel.MEL.actions.load),
+    );
+    nowSpy.mockRestore();
     const odd = kernel.simulateSync(
       canonical,
       kernel.createIntent(kernel.MEL.actions.increment),
@@ -749,6 +761,10 @@ describe("activated base runtime", () => {
     expect(pending.systemDelta.addRequirements).toHaveLength(1);
     expect(pending.snapshot.system.pendingRequirements).toHaveLength(1);
     expect(pending.diagnostics?.trace.terminatedBy).toBe("effect");
+    expect(repeatedPending.diagnostics?.trace).toEqual(pending.diagnostics?.trace);
+    expect(pending.diagnostics?.trace.root.children[0]?.timestamp).toBe(
+      pending.diagnostics?.trace.root.timestamp,
+    );
     expect(kernel.getCanonicalSnapshot().system.pendingRequirements).toEqual([]);
 
     expect(() =>
