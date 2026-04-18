@@ -76,7 +76,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
     "base",
-    "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, and new availability.",
+    "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
   ),
   complianceCase(
     ACTS_CASES.BASE_SIMULATE_HALTED,
@@ -141,7 +141,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.TYPES_BASE_INTROSPECTION,
     "types",
-    "Activated base runtime exposes typed introspection refs, graph helpers, and simulate() result types.",
+    "Activated base runtime exposes typed introspection refs, graph helpers, and simulate() result types including optional diagnostics.trace.",
   ),
 ] as const;
 

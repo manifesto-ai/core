@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { semanticPathToPatchPath } from "@manifesto-ai/core";
+import { semanticPathToPatchPath, type TraceGraph } from "@manifesto-ai/core";
 import {
   AlreadyActivatedError,
   ManifestoError,
@@ -21,6 +21,44 @@ import {
 } from "../helpers/schema.js";
 
 const pp = semanticPathToPatchPath;
+
+function normalizeTraceNodeTimestamps(
+  node: TraceGraph["root"],
+): TraceGraph["root"] {
+  return {
+    ...node,
+    timestamp: 0,
+    children: node.children.map(normalizeTraceNodeTimestamps),
+  };
+}
+
+function normalizeSimulationTrace<T extends { diagnostics?: { trace: TraceGraph } }>(
+  result: T,
+): T {
+  const trace = result.diagnostics?.trace;
+  if (!trace) {
+    return result;
+  }
+
+  return {
+    ...result,
+    diagnostics: {
+      trace: {
+        ...trace,
+        root: normalizeTraceNodeTimestamps(trace.root),
+        nodes: Object.fromEntries(
+          Object.entries(trace.nodes).map(([id, value]) => [
+            id,
+            {
+              ...value,
+              timestamp: 0,
+            },
+          ]),
+        ),
+      },
+    },
+  };
+}
 
 describe("ACTS Base Suite", () => {
   it(
@@ -274,7 +312,7 @@ describe("ACTS Base Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
-      "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, and new availability.",
+      "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
     ),
     () => {
       const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
@@ -317,6 +355,8 @@ describe("ACTS Base Suite", () => {
       const firstNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
       const secondNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
       const noOpAfter = noOpWorld.getSnapshot();
+      const normalizedFirstNoOp = normalizeSimulationTrace(firstNoOp);
+      const normalizedSecondNoOp = normalizeSimulationTrace(secondNoOp);
 
       expectAllCompliance([
         evaluateRule(
@@ -348,7 +388,7 @@ describe("ACTS Base Suite", () => {
           firstNoOp.status === "complete"
             && firstNoOp.changedPaths.length === 0
             && firstNoOp.requirements.length === 0
-            && JSON.stringify(firstNoOp) === JSON.stringify(secondNoOp)
+            && JSON.stringify(normalizedFirstNoOp) === JSON.stringify(normalizedSecondNoOp)
             && JSON.stringify(noOpBefore) === JSON.stringify(noOpAfter),
           {
             passMessage: "Projected no-op simulation stays empty and repeatable.",
