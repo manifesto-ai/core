@@ -96,7 +96,7 @@
     "@types/node": "^25.5.2",
     "@types/react": "^19.2.14",
     "dotenv": "^17.4.2",
-    "ink": "^7.0.0",
+    "ink": "^7.0.1",
     "ink-select-input": "^6.2.0",
     "ink-spinner": "^5.0.0",
     "meow": "^14.1.0",
