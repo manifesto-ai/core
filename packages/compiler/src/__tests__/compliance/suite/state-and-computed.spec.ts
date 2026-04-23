@@ -471,14 +471,35 @@ describe("CCTS State and Computed Suite", () => {
         )
       }
     `);
+    const invalidResult = adapter.compile(`
+      domain Demo {
+        state {
+          primary: string | null = null
+          secondary: string | null = null
+          chosen: string = ""
+        }
+
+        action copy() {
+          when true {
+            patch chosen = coalesce(primary, secondary)
+          }
+        }
+      }
+    `);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("COALESCE-1"), numericResult.success && selectorResult.success, {
-        passMessage: "coalesce provides non-null downstream typing for compatible fallback branches.",
-        failMessage: "coalesce still leaks nullable result types into downstream numeric or selector checks.",
+      evaluateRule(
+        getRuleOrThrow("COALESCE-1"),
+        numericResult.success
+          && selectorResult.success
+          && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"),
+        {
+        passMessage: "coalesce narrows only when a non-null fallback is guaranteed and preserves nullable results otherwise.",
+        failMessage: "coalesce still leaks nullable result types into guaranteed fallback paths or over-narrows all-nullable paths.",
         evidence: [
           ...diagnosticEvidence(numericResult.errors),
           ...diagnosticEvidence(selectorResult.errors),
+          ...diagnosticEvidence(invalidResult.errors),
         ],
       }),
     ]);

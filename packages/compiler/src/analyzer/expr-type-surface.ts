@@ -1252,7 +1252,12 @@ function inferCoalesceType(
     return joinTypeCandidates(argTypes, expr.location);
   }
 
-  return joinTypeCandidates(nonNullCandidates, expr.location);
+  const resultCandidates: Array<TypeExprNode | null> = [...nonNullCandidates];
+  if (argTypes.every((typeExpr) => typeExpr !== null && canTypeIncludeNull(typeExpr, symbols))) {
+    resultCandidates.push(simpleType("null", expr.location));
+  }
+
+  return joinTypeCandidates(resultCandidates, expr.location);
 }
 
 function inferValuesType(
@@ -1328,6 +1333,26 @@ function stripNullBranches(
     return null;
   }
   return joinTypeCandidates(members, resolved.location);
+}
+
+function canTypeIncludeNull(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): boolean {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved) {
+    return true;
+  }
+
+  if (isNullType(resolved)) {
+    return true;
+  }
+
+  if (resolved.kind !== "unionType") {
+    return false;
+  }
+
+  return resolved.types.some((member) => canTypeIncludeNull(member, symbols));
 }
 
 function literalTypeFromValue(

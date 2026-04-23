@@ -216,6 +216,27 @@ describe("Expression type checking", () => {
     expect(result.success).toBe(true);
   });
 
+  it("keeps coalesce nullable when every branch may be null", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          primary: string | null = null
+          secondary: string | null = null
+          chosen: string = ""
+        }
+
+        action copy() {
+          when true {
+            patch chosen = coalesce(primary, secondary)
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
   it("accepts typed values(record) mapping for direct array assignment", () => {
     const result = compileSource(`
       domain Demo {
