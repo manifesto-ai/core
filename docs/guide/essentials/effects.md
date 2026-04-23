@@ -9,7 +9,7 @@ Core does not fetch, write databases, call APIs, or send messages. A MEL action 
 ```mel
 domain UserProfile {
   state {
-    userName: string? = null
+    userName: string | null = null
     loading: boolean = false
   }
 
@@ -74,7 +74,7 @@ action completeTodo(id: string) {
   onceIntent {
     effect array.map({
       source: todos,
-      select: eq($item.id, id) ? { ...$item, completed: true } : $item,
+      select: $item.id == id ? { ...$item, completed: true } : $item,
       into: todos
     })
   }

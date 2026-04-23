@@ -12,11 +12,11 @@ domain Counter {
     count: number = 0
   }
 
-  computed canDecrement = gt(count, 0)
+  computed canDecrement = count > 0
 
   action decrement() available when canDecrement {
     onceIntent {
-      patch count = sub(count, 1)
+      patch count = count - 1
     }
   }
 }
@@ -27,11 +27,11 @@ domain Counter {
 ## Keep Input-Specific Gates Separate
 
 ```mel
-action shoot(cellIndex: number)
+action shoot(cellId: string)
   available when gameIsRunning
-  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  dispatchable when cells[cellId] == "unknown" {
   onceIntent {
-    patch cells = updateAt(cells, cellIndex, "pending")
+    patch cells[cellId] = "pending"
   }
 }
 ```

@@ -17,7 +17,7 @@ domain TodoApp {
   state {
     todos: Array<Todo> = []
     filter: "all" | "active" | "completed" = "all"
-    selectedTodoId: string? = null
+    selectedTodoId: string | null = null
   }
 }
 ```

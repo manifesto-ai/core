@@ -88,7 +88,7 @@ Some effect-like flow nodes are pure array transforms and can run inline in Core
 ```mel
 effect array.filter({
   source: todos,
-  where: eq($item.completed, false),
+  where: !$item.completed,
   into: todos
 })
 ```

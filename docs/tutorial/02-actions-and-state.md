@@ -38,7 +38,7 @@ domain TodoList {
   }
 
   computed totalCount = len(todos)
-  computed hasTodos = gt(totalCount, 0)
+  computed hasTodos = totalCount > 0
 
   action addTodo(title: string, id: string) {
     onceIntent {
@@ -54,7 +54,7 @@ domain TodoList {
     onceIntent {
       effect array.map({
         source: todos,
-        select: eq($item.id, id) ? { ...$item, completed: not($item.completed) } : $item,
+        select: $item.id == id ? { ...$item, completed: !$item.completed } : $item,
         into: todos
       })
     }
@@ -70,7 +70,7 @@ domain TodoList {
     onceIntent {
       effect array.filter({
         source: todos,
-        where: eq($item.completed, false),
+        where: !$item.completed,
         into: todos
       })
     }

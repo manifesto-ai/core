@@ -12,8 +12,8 @@ domain Counter {
     count: number = 0
   }
 
-  computed doubled = mul(count, 2)
-  computed canDecrement = gt(count, 0)
+  computed doubled = count * 2
+  computed canDecrement = count > 0
 }
 ```
 
@@ -33,7 +33,7 @@ console.log(snapshot.computed.canDecrement);
 ```mel
 action decrement() available when canDecrement {
   onceIntent {
-    patch count = sub(count, 1)
+    patch count = count - 1
   }
 }
 ```
