@@ -25,6 +25,8 @@ MEL source -> @manifesto-ai/compiler -> DomainSchema -> Core -> Host
 
 MEL is a source format. It does not execute. It produces data that Core can compute on.
 
+This docs section prefers the current sugar-first MEL surface in examples: `count + 1`, `items[id]`, `a ? b : c`, and `{ ...base, status: "done" }`. Equivalent function-form source is still documented, but it is folded into the reference instead of leading every example.
+
 ---
 
 ## What MEL is NOT
@@ -44,11 +46,11 @@ domain Counter {
     count: number = 0
   }
 
-  computed doubled = mul(count, 2)
+  computed doubled = count * 2
 
   action increment() {
     onceIntent {
-      patch count = add(count, 1)
+      patch count = count + 1
     }
   }
 }
@@ -84,7 +86,7 @@ pnpm exec mel compile path/to/domain.mel --stdout
 ## Read Next
 
 - [MEL Reference](/mel/REFERENCE) - **Complete function reference, patterns, and examples** (start here)
-- [MEL Syntax](/mel/SYNTAX)
+- [MEL Syntax](/mel/SYNTAX) - Grammar, sugar, access forms, and quick lookup tables
 - [MEL Examples](/mel/EXAMPLES)
 - [MEL Error Guide](/mel/ERROR-GUIDE)
 - [MEL LLM Context](/mel/LLM-CONTEXT)

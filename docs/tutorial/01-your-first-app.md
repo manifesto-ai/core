@@ -31,17 +31,17 @@ domain Counter {
     count: number = 0
   }
 
-  computed doubled = mul(count, 2)
+  computed doubled = count * 2
 
   action increment() {
     onceIntent {
-      patch count = add(count, 1)
+      patch count = count + 1
     }
   }
 
-  action decrement() available when gt(count, 0) {
+  action decrement() available when count > 0 {
     onceIntent {
-      patch count = sub(count, 1)
+      patch count = count - 1
     }
   }
 }
@@ -126,7 +126,7 @@ The compute loop can revisit an action while processing requirements and patches
 
 ```mel
 action increment() {
-  patch count = add(count, 1)
+  patch count = count + 1
 }
 ```
 

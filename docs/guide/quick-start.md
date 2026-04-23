@@ -54,15 +54,17 @@ domain Counter {
     count: number = 0
   }
 
-  computed doubled = mul(count, 2)
+  computed doubled = count * 2
 
   action increment() {
     onceIntent {
-      patch count = add(count, 1)
+      patch count = count + 1
     }
   }
 }
 ```
+
+This guide uses the current sugar-first MEL surface. The equivalent function-form source remains valid where documented in the MEL reference.
 
 ## Run It In Your App
 

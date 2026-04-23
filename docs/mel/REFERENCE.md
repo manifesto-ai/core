@@ -4,6 +4,8 @@
 > **Audience:** Developers writing MEL domains. Both beginners and experienced users.
 > **Normative sources:** SPEC-v1.2.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
 
+This reference treats the current MEL surface as the set of source forms that survive the compiler's parse -> validate -> lower -> compile path in this repo. Historical docs may mention broader helper names; when they conflict with this page, prefer the compile-verified surface documented here.
+
 ---
 
 ## Table of Contents
@@ -56,6 +58,8 @@ Current bounded exception: object-literal spread is part of the current MEL surf
 
 Compatibility note: if you still need code that compiles on older pre-v1.2 compiler branches, keep using `merge(...)` and `patch path merge expr`. Current v1.2 compilers accept object-literal spread directly.
 
+This reference prefers sugar-first source forms in examples: `count + 1`, `items[id]`, `a ? b : c`, and `{ ...base, status: "done" }`. Equivalent function-form source is still documented here, but it is folded under the sugar-first examples instead of leading every snippet.
+
 ### What MEL is NOT
 
 MEL is not a general-purpose programming language. Specifically:
@@ -86,14 +90,14 @@ domain TaskList {
     status: "idle" | "loading" | "done" = "idle"
   }
 
-  computed taskCount = len(keys(tasks))
-  computed hasUndone = gt(taskCount, 0)
+  computed taskCount = len(tasks)
+  computed hasUndone = taskCount > 0
 
   action addTask(title: string) {
-    when eq(trim(title), "") {
+    when trim(title) == "" {
       fail "MISSING_TITLE"
     }
-    onceIntent when neq(trim(title), "") {
+    onceIntent when trim(title) != "" {
       patch tasks[$system.uuid] = {
         id: $system.uuid,
         title: trim(title),
@@ -103,7 +107,7 @@ domain TaskList {
   }
 
   action completeTask(id: string) {
-    when eq(at(tasks, id), null) {
+    when at(tasks, id) == null {
       fail "NOT_FOUND"
     }
     onceIntent when isNotNull(at(tasks, id)) {
@@ -329,8 +333,8 @@ computed displayName = coalesce(user.name, "Anonymous")
 computed safeId = coalesce(selectedId, "none")
 
 // Ternary
-computed label = gt(count, 0) ? "Positive" : "Non-positive"
-computed display = eq(status, "loading") ? "Loading..." : result
+computed label = count > 0 ? "Positive" : "Non-positive"
+computed display = status == "loading" ? "Loading..." : result
 
 // Aggregation (array only, no composition)
 computed total = sum(prices)
@@ -408,20 +412,35 @@ All MEL operations are function calls. Operators (`+`, `-`, `==`, etc.) are synt
 **Examples:**
 
 ```mel
+computed subtotal = price * quantity
+computed withTax = subtotal * 1.1
+computed average = sum(scores) / len(scores)
+computed remainder = count % 10
+computed magnitude = abs(-value)
+computed error = absDiff(observed, predicted)
+computed rounded = round(total / 3)
+computed hypotenuse = sqrt(pow(a, 2) + pow(b, 2))
+computed bounded = clamp(score, 0, 100)
+computed buckets = idiv(total, bucketSize)
+computed missStreak = streak(previousMissStreak, kind == "shoot" && hit == false)
+computed smaller = min(priceA, priceB)
+computed largest = max(x, y, z)
+```
+
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
 computed subtotal = mul(price, quantity)
 computed withTax = mul(subtotal, 1.1)
 computed average = div(sum(scores), len(scores))
 computed remainder = mod(count, 10)
-computed magnitude = abs(neg(value))
-computed error = absDiff(observed, predicted)
 computed rounded = round(div(total, 3))
 computed hypotenuse = sqrt(add(pow(a, 2), pow(b, 2)))
-computed bounded = clamp(score, 0, 100)
-computed buckets = idiv(total, bucketSize)
 computed missStreak = streak(previousMissStreak, and(eq(kind, "shoot"), eq(hit, false)))
-computed smaller = min(priceA, priceB)
-computed largest = max(x, y, z)
 ```
+
+</details>
 
 > **`div` returns null on zero divisor.** If the divisor may be zero, guard with `when neq(divisor, 0)` before using the result, or use `coalesce(div(a, b), 0)`.
 
@@ -447,12 +466,25 @@ computed largest = max(x, y, z)
 **Examples:**
 
 ```mel
+computed isComplete = status == "done"
+computed isNotStarted = status == "idle"
+computed hasItems = len(items) > 0
+computed isOverBudget = total > budget
+computed inRange = value >= min && value <= max
+```
+
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
 computed isComplete = eq(status, "done")
 computed isNotStarted = eq(status, "idle")
 computed hasItems = gt(len(items), 0)
 computed isOverBudget = gt(total, budget)
 computed inRange = and(gte(value, min), lte(value, max))
 ```
+
+</details>
 
 > **`eq` and `neq` compare primitives only.** You cannot compare arrays or objects. To check if an array is empty, use `eq(len(items), 0)`. To check if a record key exists, use `isNotNull(at(tasks, id))`.
 
@@ -473,10 +505,10 @@ computed inRange = and(gte(value, min), lte(value, max))
 **Examples:**
 
 ```mel
-computed canSubmit = and(isNotNull(email), neq(trim(email), ""))
-computed isInactive = or(eq(status, "idle"), eq(status, "error"))
-computed isActive = not(isInactive)
-computed label = cond(gt(count, 0), "Has items", "Empty")
+computed canSubmit = email != null && trim(email) != ""
+computed isInactive = status == "idle" || status == "error"
+computed isActive = !isInactive
+computed label = count > 0 ? "Has items" : "Empty"
 computed modeLabel = match(mode, ["open", "Open"], ["closed", "Closed"], "Unknown")
 computed bestKind = argmax(
   ["coarse", coarseEligible, coarseScore],
@@ -490,11 +522,23 @@ computed cheapestKind = argmin(
 )
 ```
 
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
+computed canSubmit = and(isNotNull(email), neq(trim(email), ""))
+computed isInactive = or(eq(status, "idle"), eq(status, "error"))
+computed isActive = not(isInactive)
+computed label = cond(gt(count, 0), "Has items", "Empty")
+```
+
+</details>
+
 > **Ternary syntax is sugar for `cond`.** `x ? a : b` compiles to `cond(x, a, b)`.
 
 > **Truthy/falsy coercion does not exist.** `when items` (using an array as a boolean) is a compile error. Always write an explicit boolean expression: `when gt(len(items), 0)`.
 
-> **`and` and `or` are variadic.** `and(a, b, c)` is valid MEL. There is no `&&` operator between more than two expressions; use `and(a, and(b, c))` or the variadic form.
+> **`and` and `or` are variadic.** Chained binary `a && b && c` / `a || b || c` is valid MEL, and `and(a, b, c)` / `or(a, b, c)` is the equivalent function-form source.
 
 > **`match` is function-form only.** Write `match(status, ["open", 1], ["closed", 0], -1)`, not `match(status, "open" => 1, _ => -1)`.
 
@@ -515,12 +559,6 @@ computed cheapestKind = argmin(
 | `lower(s)` | `string → string` | Convert to lowercase. |
 | `upper(s)` | `string → string` | Convert to uppercase. |
 | `strlen(s)` | `string → number` | String length in characters. |
-| `startsWith(s, prefix)` | `(string, string) → boolean` | Returns true if `s` starts with `prefix`. |
-| `endsWith(s, suffix)` | `(string, string) → boolean` | Returns true if `s` ends with `suffix`. |
-| `strIncludes(s, sub)` | `(string, string) → boolean` | Returns true if `s` contains `sub`. |
-| `indexOf(s, sub)` | `(string, string) → number` | Index of first occurrence of `sub` in `s`. Returns -1 if not found. |
-| `replace(s, from, to)` | `(string, string, string) → string` | Replace first occurrence of `from` with `to`. |
-| `split(s, delimiter)` | `(string, string) → Array<string>` | Split `s` by `delimiter`. Returns an array of strings. |
 | `substring(s, start, end?)` | `(string, number, number?) → string` | Extract substring from `start` to `end` (exclusive). |
 | `substr(s, start, end?)` | `(string, number, number?) → string` | Alias for `substring`. |
 
@@ -532,9 +570,7 @@ computed urlWithParam = concat("/users/", userId)
 computed labelCount = concat("Items: ", toString(count))
 computed normalized = lower(trim(input))
 computed initials = concat(upper(substr(first, 0, 1)), upper(substr(last, 0, 1)))
-computed isEmail = strIncludes(email, "@")
-computed isAdmin = startsWith(role, "admin_")
-computed domain = split(email, "@")
+computed shortName = substring(name, 0, 10)
 ```
 
 > **No method calls.** `email.trim()` does not exist in MEL. Write `trim(email)`.
@@ -542,6 +578,8 @@ computed domain = split(email, "@")
 > **No template literals.** `\`Hello, ${name}\`` does not exist. Write `concat("Hello, ", name)`.
 
 > **Use `toString()` to embed numbers in strings.** `concat("Count: ", count)` may behave unexpectedly — use `concat("Count: ", toString(count))` to make the conversion explicit.
+
+> **Historical note:** older docs may mention `startsWith`, `endsWith`, `strIncludes`, `indexOf`, `replace`, or `split`. They are not part of the current compile-verified MEL source surface in this repo.
 
 ---
 
@@ -552,9 +590,8 @@ computed domain = split(email, "@")
 | `isNull(x)` | `T → boolean` | Returns `true` if `x` is `null`. |
 | `isNotNull(x)` | `T → boolean` | Returns `true` if `x` is not `null`. |
 | `coalesce(a, b, ...)` | `(...T) → T` | Returns the first non-null argument. Variadic. |
+| `typeof(x)` | `T → string` | Returns the observed MEL value kind such as `string`, `number`, `boolean`, `object`, `array`, or `null`. |
 | `toString(x)` | `number \| boolean \| null → string` | Convert to string. |
-| `toNumber(x)` | `string \| boolean \| null → number` | Convert to number. |
-| `toBoolean(x)` | `any → boolean` | Convert to boolean. |
 
 **Examples:**
 
@@ -563,6 +600,7 @@ computed isSelected = isNotNull(selectedId)
 computed displayName = coalesce(user.displayName, user.name, "Anonymous")
 computed priceLabel = concat("$", toString(price))
 computed safeCount = coalesce(count, 0)
+computed inputKind = typeof(input)
 
 // Guard with null check before accessing properties
 when isNotNull(at(tasks, id)) {
@@ -580,7 +618,7 @@ when isNotNull(at(tasks, id)) {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `len(arr)` | `Array<T> → number` | Array length. **Array-only** — use `record.keys` effect for records. |
+| `len(value)` | `string \| Array<T> \| object \| Record<string, T> → number` | Length or key count. |
 | `first(arr)` | `Array<T> → T \| null` | First element. Returns `null` if empty. |
 | `last(arr)` | `Array<T> → T \| null` | Last element. Returns `null` if empty. |
 | `at(arr, i)` | `(Array<T>, number) → T \| null` | Element at numeric index. Returns `null` if out of bounds. |
@@ -588,9 +626,6 @@ when isNotNull(at(tasks, id)) {
 | `slice(arr, start, end?)` | `(Array<T>, number, number?) → Array<T>` | Subarray from `start` to `end` (exclusive). |
 | `append(arr, item, ...)` | `(Array<T>, ...T) → Array<T>` | Returns new array with items appended. Does not mutate. |
 | `includes(arr, item)` | `(Array<T>, T) → boolean` | Returns `true` if `arr` contains `item`. |
-| `reverse(arr)` | `Array<T> → Array<T>` | Returns reversed array. Does not mutate. |
-| `unique(arr)` | `Array<T> → Array<T>` | Returns array with duplicates removed. |
-| `flat(arr)` | `Array<Array<T>> → Array<T>` | Flattens one level of nesting. |
 | `filter(arr, pred)` | `(Array<T>, boolean expr) → Array<T>` | Filter using `$item`. |
 | `map(arr, expr)` | `(Array<T>, expr) → Array<U>` | Transform using `$item`. |
 | `find(arr, pred)` | `(Array<T>, boolean expr) → T \| null` | Find first match using `$item`. |
@@ -606,6 +641,16 @@ tasks[id]       // at(tasks, id)
 users["admin"]  // at(users, "admin")
 ```
 
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
+computed firstItem = at(items, 0)
+computed selectedTask = at(tasks, selectedId)
+```
+
+</details>
+
 **Property access on a computed result uses `field`, not `at`:**
 
 ```mel
@@ -618,8 +663,8 @@ first(items).name     // Compiles to: field(first(items), "name")
 ```mel
 computed firstItem = first(items)
 computed lastItem = last(items)
-computed thirdItem = at(items, 2)
-computed taskById = at(tasks, selectedId)
+computed thirdItem = items[2]
+computed taskById = tasks[selectedId]
 computed page = slice(items, mul(page, 10), mul(add(page, 1), 10))
 computed withNew = append(items, newItem)
 computed isSelected = includes(selectedIds, id)
@@ -628,16 +673,54 @@ computed names = map(users, $item.name)
 computed firstActive = find(items, eq($item.active, true))
 computed allDone = every(tasks, eq($item.done, true))
 computed anyFailed = some(tasks, eq($item.status, "error"))
-computed uniqueIds = unique(allIds)
-computed allMembers = flat(teamMemberArrays)
+computed itemCount = len(items)
+computed taskCount = len(tasks)
 ```
 
-> **`len()` works on records and objects.** For records/objects it returns the key count:
+> **`len()` works on strings, records, and objects too.** For records/objects it returns the key count:
 > ```mel
 > computed taskCount = len(tasks)
 > ```
 
 > **`filter`, `map`, `find`, `every`, `some` in computed use `$item` inline.** These are expression-level functions that take a predicate or mapper expression where `$item` refers to the current element. They differ from the effect-level `array.filter` etc. (see §8.1).
+
+#### Entity Primitives (`Array<T>` with `.id`)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `findById(coll, id)` | `(Array<T>, T.id \| null) → T \| null` | Returns the item whose `.id` matches `id`, or `null` |
+| `existsById(coll, id)` | `(Array<T>, T.id \| null) → boolean` | Returns `true` if a matching item exists |
+| `updateById(coll, id, updates)` | `(Array<T>, T.id \| null, Partial<T>) → Array<T>` | Shallow-merges `updates` into the matching item |
+| `removeById(coll, id)` | `(Array<T>, T.id \| null) → Array<T>` | Removes the matching item |
+
+```mel
+computed selectedTask = findById(tasks, selectedId)
+computed hasSelectedTask = existsById(tasks, selectedId)
+
+action completeTask(id: string) {
+  when !existsById(tasks, id) {
+    fail "NOT_FOUND"
+  }
+
+  onceIntent when existsById(tasks, id) {
+    patch tasks = updateById(tasks, id, {
+      done: !findById(tasks, id).done
+    })
+  }
+}
+
+action removeTask(id: string) {
+  onceIntent when existsById(tasks, id) {
+    patch tasks = removeById(tasks, id)
+  }
+}
+```
+
+Rules:
+- `findById()` and `existsById()` are allowed in computed expressions and guards.
+- `updateById()` and `removeById()` are patch-RHS transforms only.
+- `updateById(removeById(...), ...)` style nesting is forbidden.
+- The collection's `.id` values must be unique.
 
 ---
 
@@ -672,6 +755,15 @@ action submitDraft(customerId: string) {
   }
 }
 ```
+
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
+computed shippedOrder = merge(order, { status: "shipped" })
+```
+
+</details>
 
 Current rules:
 
@@ -794,19 +886,19 @@ Conditional execution. The body runs only when the condition is `true`. Re-entry
 
 ```mel
 action reset() {
-  when gt(count, 0) {
+  when count > 0 {
     patch count = 0
   }
 }
 
 action submit(email: string) {
-  when eq(trim(email), "") {
+  when trim(email) == "" {
     fail "MISSING_EMAIL"
   }
   when isNotNull(at(users, email)) {
     fail "DUPLICATE"
   }
-  when neq(trim(email), "") {
+  when trim(email) != "" {
     patch users[email] = { email: email, createdAt: $system.time.now }
   }
 }
@@ -921,7 +1013,7 @@ Use `onceIntent` when you want idempotency but do not need the marker field visi
 ```mel
 action increment() {
   onceIntent {
-    patch count = add(count, 1)
+    patch count = count + 1
   }
 }
 ```
@@ -930,7 +1022,7 @@ action increment() {
 
 ```mel
 action addTask(title: string) {
-  onceIntent when neq(trim(title), "") {
+  onceIntent when trim(title) != "" {
     patch tasks[$system.uuid] = {
       id: $system.uuid,
       title: trim(title),
@@ -949,13 +1041,13 @@ action addTask(title: string) {
 Declares the **coarse action-family gate**. The action is available to be considered only when the condition is true.
 
 ```mel
-action decrement() available when gt(count, 0) {
+action decrement() available when count > 0 {
   when true {
-    patch count = sub(count, 1)
+    patch count = count - 1
   }
 }
 
-action submit() available when and(isNotNull(email), isNull(submittedAt)) {
+action submit() available when email != null && submittedAt == null {
   onceIntent {
     patch submittedAt = $system.time.now
     effect api.post({ url: "/submit", body: formData, into: result })
@@ -973,7 +1065,7 @@ action submit() available when and(isNotNull(email), isNull(submittedAt)) {
 
 ```mel
 // NOT ALLOWED: $input in available when
-action process(x: number) available when gt($input.x, 0) {  // Error E005
+action process(x: number) available when $input.x > 0 {  // Error E005
   when true { ... }
 }
 ```
@@ -987,9 +1079,9 @@ Declares the **fine bound-intent gate**. The action may be available in general,
 ```mel
 action shoot(cellIndex: number)
   available when canShoot
-  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  dispatchable when at(cells, cellIndex) == "unknown" {
   onceIntent {
-    patch cells = updateAt(cells, cellIndex, "pending")
+    patch status = "pending"
   }
 }
 ```
@@ -1015,13 +1107,13 @@ Terminates the action with an error. Errors are values in Snapshot — they do n
 ```mel
 action createUser(email: string) {
   // Validation
-  when eq(trim(email), "") {
+  when trim(email) == "" {
     fail "MISSING_EMAIL"
   }
 
   // With message
-  when not(strIncludes(email, "@")) {
-    fail "INVALID_EMAIL" with "Email must contain @"
+  when strlen(trim(email)) < 3 {
+    fail "EMAIL_TOO_SHORT" with "Email must be at least 3 characters"
   }
 
   // Dynamic message
@@ -1030,7 +1122,7 @@ action createUser(email: string) {
   }
 
   // Success path
-  onceIntent when neq(trim(email), "") {
+  onceIntent when trim(email) != "" {
     patch users[email] = { email: email, createdAt: $system.time.now }
   }
 }
@@ -1562,13 +1654,13 @@ domain TodoList {
 
   computed todoIds = keys(todos)
   computed count = len(todoIds)
-  computed hasAny = gt(count, 0)
+  computed hasAny = count > 0
 
   action add(title: string) {
-    when eq(trim(title), "") {
+    when trim(title) == "" {
       fail "MISSING_TITLE"
     }
-    onceIntent when neq(trim(title), "") {
+    onceIntent when trim(title) != "" {
       patch todos[$system.uuid] = {
         id: $system.uuid,
         title: trim(title),
@@ -1613,12 +1705,9 @@ domain SignupForm {
     status: "idle" | "loading" | "done" | "error" = "idle"
   }
 
-  computed emailValid = and(
-    gt(strlen(email), 0),
-    strIncludes(email, "@")
-  )
-  computed passwordValid = gte(strlen(password), 8)
-  computed canSubmit = and(emailValid, passwordValid)
+  computed emailValid = strlen(trim(email)) > 0
+  computed passwordValid = strlen(password) >= 8
+  computed canSubmit = emailValid && passwordValid
 
   action setEmail(value: string) {
     when true {
@@ -1681,10 +1770,11 @@ domain ProductCatalog {
     status: "idle" | "loading" | "done" | "error" = "idle"
   }
 
-  computed productCount = isNotNull(sortedProducts) ? len(sortedProducts) : 0
-  computed hasProducts = gt(productCount, 0)
-  computed priceRange = isNotNull(sortedProducts) ?
-    sub(max(map(sortedProducts, $item.price)), min(map(sortedProducts, $item.price))) :
+  computed productPrices = isNotNull(sortedProducts) ? map(sortedProducts, $item.price) : []
+  computed productCount = len(productPrices)
+  computed hasProducts = productCount > 0
+  computed priceRange = hasProducts ?
+    max(productPrices) - min(productPrices) :
     0
 
   action load() {
@@ -1849,11 +1939,12 @@ domain Toggles {
 | Arithmetic | `add`, `sub`, `mul`, `div`, `mod`, `neg`, `abs`, `floor`, `ceil`, `round`, `sqrt`, `pow` |
 | Comparison | `eq`, `neq`, `gt`, `gte`, `lt`, `lte` |
 | Logic | `and`, `or`, `not`, `cond` / `if` |
-| String | `concat`, `trim`, `lower`, `upper`, `strlen`, `startsWith`, `endsWith`, `strIncludes`, `indexOf`, `replace`, `split`, `substring`, `substr` |
-| Null/Type | `isNull`, `isNotNull`, `coalesce`, `toString`, `toNumber`, `toBoolean` |
-| Array | `len`, `first`, `last`, `at`, `slice`, `append`, `includes`, `reverse`, `unique`, `flat`, `filter`, `map`, `find`, `every`, `some` |
+| String | `concat`, `trim`, `lower`, `upper`, `strlen`, `substring`, `substr` |
+| Null/Type | `isNull`, `isNotNull`, `coalesce`, `typeof`, `toString` |
+| Array | `len`, `first`, `last`, `at`, `slice`, `append`, `includes`, `filter`, `map`, `find`, `every`, `some` |
 | Numeric comparison | `min(a,b,...)`, `max(a,b,...)` |
 | Object | `merge`, `keys`, `values`, `entries` |
+| Entity primitives | `findById`, `existsById`, `updateById`, `removeById` |
 | Aggregation (computed only) | `sum(arr)`, `min(arr)`, `max(arr)` |
 
 ### Common Mistakes
@@ -1864,7 +1955,7 @@ domain Toggles {
 | `\`Hello ${name}\`` | `concat("Hello ", name)` |
 | `when items { }` | `when gt(len(items), 0) { }` |
 | `eq(items, [])` | `eq(len(items), 0)` |
-| `len(tasks)` (record) | `len(tasks)` |
+| Legacy `len(keys(tasks))` workaround | `len(tasks)` |
 | `sum(filter(prices))` | Two computed: `computed active = filter(prices, ...)` then `sum(active)` |
 | Unguarded `patch count = 1` | `when true { patch count = 1 }` |
 | `once` block without marker first | `patch marker = $meta.intentId` must be first statement |
