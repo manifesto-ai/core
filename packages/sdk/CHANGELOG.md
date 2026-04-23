@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.17.3](https://github.com/manifesto-ai/core/compare/sdk-v3.17.2...sdk-v3.17.3) (2026-04-23)
+
+
+### Bug Fixes
+
+* **sdk:** codify helper-safe runtime boundaries ([#451](https://github.com/manifesto-ai/core/issues/451)) ([12bed45](https://github.com/manifesto-ai/core/commit/12bed45c29d47945b87e0f16b0184b51448b529d))
+
 ## [3.17.2](https://github.com/manifesto-ai/core/compare/sdk-v3.17.1...sdk-v3.17.2) (2026-04-23)
 
 

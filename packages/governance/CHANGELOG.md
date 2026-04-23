@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.12.3](https://github.com/manifesto-ai/core/compare/governance-v3.12.2...governance-v3.12.3) (2026-04-23)
+
+
+### Bug Fixes
+
+* **sdk:** codify helper-safe runtime boundaries ([#451](https://github.com/manifesto-ai/core/issues/451)) ([12bed45](https://github.com/manifesto-ai/core/commit/12bed45c29d47945b87e0f16b0184b51448b529d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.11.3
+    * @manifesto-ai/sdk bumped to 3.17.3
+
 ## [3.12.2](https://github.com/manifesto-ai/core/compare/governance-v3.12.1...governance-v3.12.2) (2026-04-23)
 
 
