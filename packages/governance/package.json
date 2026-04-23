@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/governance",
-  "version": "3.12.1",
+  "version": "3.12.2",
   "description": "Manifesto Governance - decorator runtime for legitimacy, approval, and governed execution",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "test:watch": "node ../../node_modules/vitest/vitest.mjs"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^2.12.0"
+    "@manifesto-ai/core": "^2.13.0"
   },
   "dependencies": {
     "@manifesto-ai/lineage": "workspace:*",

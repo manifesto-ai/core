@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.0](https://github.com/manifesto-ai/core/compare/core-v2.12.0...core-v2.13.0) (2026-04-23)
+
+
+### Features
+
+* **compiler:** add MEL object spread sugar ([#449](https://github.com/manifesto-ai/core/issues/449)) ([dc77aa6](https://github.com/manifesto-ai/core/commit/dc77aa67535fe5444330732227b8331c0ae983d6))
+
 ## [2.12.0](https://github.com/manifesto-ai/core/compare/core-v2.11.1...core-v2.12.0) (2026-04-13)
 
 

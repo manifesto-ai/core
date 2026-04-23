@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.12.2](https://github.com/manifesto-ai/core/compare/governance-v3.12.1...governance-v3.12.2) (2026-04-23)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 3.11.2
+    * @manifesto-ai/sdk bumped to 3.17.2
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.13.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.12.0 to ^2.13.0
+
 ## [3.12.1](https://github.com/manifesto-ai/core/compare/governance-v3.12.0...governance-v3.12.1) (2026-04-23)
 
 
