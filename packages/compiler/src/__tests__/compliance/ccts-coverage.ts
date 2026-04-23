@@ -39,6 +39,10 @@ export const CCTS_CASES = {
   STATE_COMPUTED_DEPS: "CCTS-STATE-005",
   STATE_SCHEMA_REFS: "CCTS-STATE-006",
   STATE_UNSUPPORTED_TYPES: "CCTS-STATE-007",
+  STATE_PATCH_MERGE: "CCTS-STATE-008",
+  STATE_COALESCE_NARROWING: "CCTS-STATE-009",
+  STATE_VALUES_RECORD_TYPING: "CCTS-STATE-010",
+  STATE_ARG_SELECTION_COVERAGE: "CCTS-STATE-011",
 
   ACTIONS_GUARDED_BODY: "CCTS-ACT-001",
   ACTIONS_ONCE_DESUGARING: "CCTS-ACT-002",
@@ -100,6 +104,10 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.STATE_COMPUTED_DEPS, "state-and-computed", "Computed deps are extracted and ordered."),
   complianceCase(CCTS_CASES.STATE_SCHEMA_REFS, "state-and-computed", "Schema-position references and computed cycles are diagnosed."),
   complianceCase(CCTS_CASES.STATE_UNSUPPORTED_TYPES, "state-and-computed", "Unsupported FieldSpec-lowering types are tracked."),
+  complianceCase(CCTS_CASES.STATE_PATCH_MERGE, "state-and-computed", "patch merge remains a shallow partial-object operation."),
+  complianceCase(CCTS_CASES.STATE_COALESCE_NARROWING, "state-and-computed", "coalesce narrows compatible nullable branches for downstream typing."),
+  complianceCase(CCTS_CASES.STATE_VALUES_RECORD_TYPING, "state-and-computed", "values(Record<string, T>) preserves typed collection flow semantics."),
+  complianceCase(CCTS_CASES.STATE_ARG_SELECTION_COVERAGE, "state-and-computed", "argmax/argmin keep nullable labels only when candidate eligibility is not exhaustively covered."),
 
   complianceCase(CCTS_CASES.ACTIONS_GUARDED_BODY, "actions-and-control", "Action mutations remain guarded."),
   complianceCase(CCTS_CASES.ACTIONS_ONCE_DESUGARING, "actions-and-control", "once() desugars to intent-guarded marker writes."),
@@ -171,6 +179,10 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["STATE-INIT-2", "STATE-INIT-3", "E040", "E041", "E042"], [CCTS_CASES.STATE_SCHEMA_REFS]),
   ...coverMany(["COMP-DEP-1", "COMP-DEP-2", "COMP-DEP-3", "COMP-DEP-4", "COMP-DEP-5", "COMP-DEP-6"], [CCTS_CASES.STATE_COMPUTED_DEPS, CCTS_CASES.STATE_SCHEMA_REFS]),
   ...coverMany(["TYPE-LOWER-6", "TYPE-LOWER-7", "TYPE-LOWER-8", "TYPE-LOWER-9", "E043", "E044"], [CCTS_CASES.STATE_UNSUPPORTED_TYPES]),
+  ...coverMany(["PATCH-MERGE-1"], [CCTS_CASES.STATE_PATCH_MERGE]),
+  ...coverMany(["COALESCE-1"], [CCTS_CASES.STATE_COALESCE_NARROWING]),
+  ...coverMany(["COLLECT-VALUES-1"], [CCTS_CASES.STATE_VALUES_RECORD_TYPING]),
+  ...coverMany(["MEL-SUGAR-4"], [CCTS_CASES.IR_ARG_SELECTION_SUGAR, CCTS_CASES.STATE_ARG_SELECTION_COVERAGE]),
 
   ...coverMany(["COMPILER-MEL-1"], [CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING]),
   ...coverMany(["COMPILER-MEL-3"], [CCTS_CASES.GRAMMAR_ONCE_INTENT_CONTEXTUAL]),

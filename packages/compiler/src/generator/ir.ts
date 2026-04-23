@@ -641,6 +641,48 @@ function resolveTypeDefinitionWithCtx(
   return resolveTypeDefinitionWithCtx(next, ctx, [...seenRefs, definition.name]);
 }
 
+function isNullTypeDefinition(definition: TypeDefinition | null): boolean {
+  return (definition?.kind === "primitive" && definition.type === "null")
+    || (definition?.kind === "literal" && definition.value === null);
+}
+
+function getSingleNonNullUnionBranch(
+  definition: TypeDefinition,
+  ctx: GeneratorContext,
+): TypeDefinition | null {
+  const resolved = resolveTypeDefinitionWithCtx(definition, ctx);
+  if (!resolved || resolved.kind !== "union") {
+    return null;
+  }
+
+  const nonNullTypes = resolved.types.filter((candidate) => {
+    const next = resolveTypeDefinitionWithCtx(candidate, ctx);
+    return !isNullTypeDefinition(next);
+  });
+
+  return nonNullTypes.length === 1 ? nonNullTypes[0] : null;
+}
+
+function getPatchLiteralValidationTargetType(
+  targetType: TypeDefinition,
+  literalValue: unknown,
+  ctx: GeneratorContext,
+): TypeDefinition {
+  if (literalValue === null || Array.isArray(literalValue) || typeof literalValue !== "object") {
+    return targetType;
+  }
+
+  const nonNullBranch = getSingleNonNullUnionBranch(targetType, ctx);
+  if (!nonNullBranch) {
+    return targetType;
+  }
+
+  const resolvedNonNullBranch = resolveTypeDefinitionWithCtx(nonNullBranch, ctx);
+  return resolvedNonNullBranch?.kind === "object"
+    ? nonNullBranch
+    : targetType;
+}
+
 function describeTypeDefinition(definition: TypeDefinition): string {
   switch (definition.kind) {
     case "primitive":
@@ -1427,19 +1469,12 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlow
               break;
             }
             if (resolved.kind === "union") {
-              const nonNullTypes: TypeDefinition[] = resolved.types.filter((candidate: TypeDefinition) => {
-                const next = resolveTypeDefinitionWithCtx(candidate, ctx);
-                return !(
-                  next?.kind === "primitive" && next.type === "null"
-                ) && !(
-                  next?.kind === "literal" && next.value === null
-                );
-              });
-              if (nonNullTypes.length !== 1) {
+              const nonNullType = getSingleNonNullUnionBranch(targetType, ctx);
+              if (!nonNullType) {
                 targetType = null;
                 break;
               }
-              targetType = nonNullTypes[0];
+              targetType = nonNullType;
               i -= 1;
               continue;
             }
@@ -1462,7 +1497,18 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlow
               const fieldName = stmt.path.segments.map(s =>
                 s.kind === "propertySegment" ? s.name : "[*]"
               ).join(".");
-              validateLiteralAgainstTypeDefinition(literalValue, targetType, fieldName, stmt.location, ctx);
+              const validationTargetType = getPatchLiteralValidationTargetType(
+                targetType,
+                literalValue,
+                ctx,
+              );
+              validateLiteralAgainstTypeDefinition(
+                literalValue,
+                validationTargetType,
+                fieldName,
+                stmt.location,
+                ctx,
+              );
             }
           }
         }

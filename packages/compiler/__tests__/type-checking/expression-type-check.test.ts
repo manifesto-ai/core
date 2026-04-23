@@ -180,4 +180,284 @@ describe("Expression type checking", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("accepts coalesce as a numeric fallback for bounded numeric calls", () => {
+    const result = compileSource(`
+      domain Demo {
+        state { count: number = 1 }
+        computed maybe = idiv(count, 2)
+        computed safe = clamp(coalesce(maybe, 0), 0, 10)
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts coalesce as a non-null selector fallback for match", () => {
+    const result = compileSource(`
+      domain Demo {
+        state { mode: "ship" | "pickup" = "ship" }
+
+        computed carrier = argmax(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          coalesce(carrier, "manual"),
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts typed values(record) mapping for direct array assignment", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Item = { id: string, qty: number }
+        type Line = { id: string, qty: number }
+
+        state {
+          items: Record<string, Item> = {}
+          lines: Array<Line> = []
+        }
+
+        action copy() {
+          when true {
+            patch lines = map(values(items), {
+              id: $item.id,
+              qty: $item.qty
+            })
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects mistyped values(record) mapping for direct array assignment", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Item = { id: string, qty: number }
+        type Line = { id: string, qty: number }
+
+        state {
+          items: Record<string, Item> = {}
+          lines: Array<Line> = []
+        }
+
+        action copy() {
+          when true {
+            patch lines = map(values(items), {
+              id: 1,
+              qty: "x"
+            })
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("accepts typed values(record) mapping nested inside object literals", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Item = { id: string, qty: number }
+        type Line = { id: string, qty: number }
+        type Order = { id: string, lines: Array<Line> }
+
+        state {
+          items: Record<string, Item> = {}
+          orders: Record<string, Order> = {}
+        }
+
+        action submit(orderId: string) {
+          when true {
+            patch orders[orderId] = {
+              id: orderId,
+              lines: map(values(items), {
+                id: $item.id,
+                qty: $item.qty
+              })
+            }
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts argmax results as non-null when candidate eligibility is exhaustively covered", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          mode: "ship" | "pickup" = "ship"
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("keeps argmax results nullable when candidate eligibility is not exhaustively covered", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          flag: boolean = false
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["a", flag, 1],
+          ["b", false, 0],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["a", "A"],
+          ["b", "B"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("keeps argmax results nullable when literal-union coverage is incomplete", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          mode: "ship" | "pickup" | "digital" = "ship"
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("accepts argmin results as non-null when candidate eligibility is exhaustively covered", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          mode: "pickup" | "ship" = "ship"
+          note: string = ""
+        }
+
+        computed carrier = argmin(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts the CommerceFulfillmentEngine preferredCarrier pattern without explicit fallback", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          fulfillmentMode: "ship" | "pickup" = "ship"
+          shippingCountry: "KR" | "US" = "KR"
+          note: string = ""
+        }
+
+        computed preferredCarrier = argmax(
+          ["pickup", eq(fulfillmentMode, "pickup"), 100],
+          ["domestic_ship", and(eq(fulfillmentMode, "ship"), eq(shippingCountry, "KR")), 80],
+          ["international_ship", and(eq(fulfillmentMode, "ship"), neq(shippingCountry, "KR")), 60],
+          "first"
+        )
+
+        computed fulfillmentTier = match(
+          preferredCarrier,
+          ["pickup", "pickup"],
+          ["domestic_ship", "standard"],
+          ["international_ship", "review"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = preferredCarrier
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
 });
