@@ -11,7 +11,11 @@ import type {
   PatchStmtNode,
 } from "../parser/ast.js";
 import {
+  classifySpreadOperandType,
   classifyComparableExpr,
+  inferExprType,
+  mayYieldArrayExpr,
+  resolveType,
   type DomainTypeSymbols,
 } from "../analyzer/expr-type-surface.js";
 import { toMelExpr } from "./compile-mel-patch-expr.js";
@@ -551,6 +555,11 @@ class PatchExprValidator {
         for (const arg of expr.args) {
           this.validateExpr(arg, errors);
         }
+        if (expr.name === "merge") {
+          for (const arg of expr.args) {
+            this.validateSpreadOperand(arg, arg.location, errors);
+          }
+        }
         return;
 
       case "binary":
@@ -582,7 +591,13 @@ class PatchExprValidator {
 
       case "objectLiteral":
         for (const property of expr.properties) {
-          this.validateExpr(property.value, errors);
+          if (property.kind === "objectProperty") {
+            this.validateExpr(property.value, errors);
+            continue;
+          }
+
+          this.validateExpr(property.expr, errors);
+          this.validateSpreadOperand(property.expr, property.location, errors);
         }
         return;
 
@@ -616,6 +631,43 @@ class PatchExprValidator {
       severity: "error",
       code: "E_TYPE_MISMATCH",
       message: "eq/neq operands must be primitive types (null, boolean, number, string)",
+      location: this.mapLocation(location),
+      });
+  }
+
+  private validateSpreadOperand(
+    expr: ExprNode,
+    location: Diagnostic["location"],
+    errors: Diagnostic[]
+  ): void {
+    const inferred = inferExprType(expr, new Map(), this.symbols);
+    const mayYieldInvalidSpread = mayYieldArrayExpr(expr, {
+      env: new Map(),
+      symbols: this.symbols,
+      inferExprType,
+      resolveType,
+    });
+
+    if (!inferred) {
+      if (!mayYieldInvalidSpread) {
+        return;
+      }
+    }
+
+    const classification = mayYieldInvalidSpread
+      ? "invalid"
+      : inferred
+      ? classifySpreadOperandType(inferred, this.symbols)
+      : "unknown";
+
+    if (classification !== "invalid") {
+      return;
+    }
+
+    errors.push({
+      severity: "error",
+      code: "E_TYPE_MISMATCH",
+      message: "Object spread operands must be object-shaped or T | null where T is object-shaped",
       location: this.mapLocation(location),
     });
   }

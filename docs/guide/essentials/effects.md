@@ -74,7 +74,7 @@ action completeTodo(id: string) {
   onceIntent {
     effect array.map({
       source: todos,
-      select: if(eq($item.id, id), merge($item, { completed: true }), $item),
+      select: eq($item.id, id) ? { ...$item, completed: true } : $item,
       into: todos
     })
   }

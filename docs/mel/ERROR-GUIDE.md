@@ -477,6 +477,94 @@ when eq(len(taskIds), 0) { ... }         // Check key count
 
 ---
 
+### Error: Invalid spread operand
+
+```mel
+// ❌ BROKEN
+computed badArray = { ...items }
+computed badRecord = { ...tasks }
+computed badNumber = { ...count }
+```
+
+**Error:** `SemanticError: Object spread operands must be object-shaped or T | null where T is object-shaped.`
+
+**Rule violated:** Current MEL admits object-literal spread only for object operands. Arrays, records, primitives, and unsupported object-only unions are outside the current contract.
+
+```mel
+// ✅ FIXED: Spread only objects, or stay in canonical merge()/patch forms
+computed fullProfile = { ...profile, status: "active" }
+
+action markDone(id: string) {
+  when true {
+    patch tasks[id] merge { done: true }
+  }
+}
+```
+
+---
+
+### Error: Nullable or optional spread result used as required target
+
+```mel
+// ❌ BROKEN
+type Draft = {
+  customerId: string,
+  appliedCouponId: string | null,
+  submissionState: "idle" | "submitted"
+}
+
+state { draft: Draft | null = null }
+
+action bad(customerId: string) {
+  onceIntent {
+    patch draft = {
+      ...draft,
+      submissionState: "submitted"
+    }
+  }
+}
+```
+
+**Error:** `SemanticError: Optional spread contributors cannot satisfy required target fields without an unconditional contribution.`
+
+**Rule violated:** If a field comes only from a nullable spread operand or optional source field, it remains optional until later contributed unconditionally.
+
+```mel
+// ✅ FIXED: Contribute required fields explicitly
+action good(customerId: string) {
+  onceIntent {
+    patch draft = {
+      ...draft,
+      customerId: customerId,
+      appliedCouponId: null,
+      submissionState: "submitted"
+    }
+  }
+}
+```
+
+---
+
+### Error: Optional spread-result field used without normalization
+
+```mel
+// ❌ BROKEN
+computed partialDraft = { ...draft }
+computed label = concat("customer=", partialDraft.customerId)
+```
+
+**Error:** `SemanticError: Optional spread-result field reads behave as T | null and must be normalized before a non-null sink.`
+
+**Rule violated:** Optional fields introduced by spread are observed as nullable at the read boundary.
+
+```mel
+// ✅ FIXED: Normalize explicitly
+computed partialDraft = { ...draft }
+computed label = concat("customer=", coalesce(partialDraft.customerId, "unknown"))
+```
+
+---
+
 ### Error: Method call
 
 ```mel
@@ -869,6 +957,28 @@ action processAll() {
     })
   }
 }
+```
+
+---
+
+### Error: Adjacent JavaScript forms around object spread
+
+```mel
+// ❌ BROKEN
+computed copy = [...items]
+computed keyed = { [name]: value }
+computed maybeName = profile?.name
+```
+
+**Error:** `SyntaxError: Object spread is the only bounded JavaScript-like sugar admitted in current MEL.`
+
+**Rule violated:** MEL admits object-literal spread only. Array spread, computed keys, rest patterns, and optional chaining remain unsupported.
+
+```mel
+// ✅ FIXED: Stay inside current MEL surface
+computed copied = append([], at(items, 0), at(items, 1))
+computed explicit = { name: value }
+computed safeName = coalesce(profile.name, "unknown")
 ```
 
 ---

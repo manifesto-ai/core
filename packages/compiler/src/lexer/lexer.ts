@@ -75,7 +75,15 @@ export class Lexer {
       case "]": this.addToken("RBRACKET"); break;
       case ",": this.addToken("COMMA"); break;
       case ";": this.addToken("SEMICOLON"); break;
-      case ".": this.addToken("DOT"); break;
+      case ".":
+        if (this.peek() === "." && this.peekNext() === ".") {
+          this.advance();
+          this.advance();
+          this.addToken("ELLIPSIS");
+        } else {
+          this.addToken("DOT");
+        }
+        break;
       case "+": this.addToken("PLUS"); break;
       case "-": this.addToken("MINUS"); break;
       case "*": this.addToken("STAR"); break;

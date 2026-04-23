@@ -28,12 +28,14 @@ import { createWarning } from "../diagnostics/types.js";
 import type { SourceLocation } from "../lexer/source-location.js";
 import { validateEntityPrimitives } from "./entity-primitives.js";
 import {
+  classifySpreadOperandType,
   collectDomainTypeSymbols,
   createActionTypeEnv,
   getArrayElementType,
   getIndexType,
   getPropertyType,
   inferExprType,
+  mayYieldArrayExpr,
   isNullType,
   resolveType,
   type DomainTypeSymbols,
@@ -158,6 +160,9 @@ function isAssignableType(
         if (targetField.optional) {
           continue;
         }
+        return false;
+      }
+      if (sourceField.optional && !targetField.optional) {
         return false;
       }
       const fieldAssignable = isAssignableType(sourceField.typeExpr, targetField.typeExpr, symbols);
@@ -674,7 +679,16 @@ export class SemanticValidator {
 
       case "objectLiteral":
         for (const prop of expr.properties) {
-          this.validateStateInitializer(prop.value);
+          if (prop.kind === "objectProperty") {
+            this.validateStateInitializer(prop.value);
+            continue;
+          }
+
+          const before = this.ctx.diagnostics.length;
+          this.validateStateInitializer(prop.expr);
+          if (before === this.ctx.diagnostics.length) {
+            this.requireSpreadOperand(this.inferType(prop.expr, new Map()), prop.location, prop.expr, new Map());
+          }
         }
         return;
 
@@ -912,7 +926,7 @@ export class SemanticValidator {
 
       case "objectLiteral":
         for (const prop of expr.properties) {
-          this.validateAvailableExpr(prop.value);
+          this.validateAvailableExpr(prop.kind === "objectProperty" ? prop.value : prop.expr);
         }
         break;
 
@@ -988,7 +1002,7 @@ export class SemanticValidator {
 
       case "objectLiteral":
         for (const prop of expr.properties) {
-          this.validateDispatchableExpr(prop.value);
+          this.validateDispatchableExpr(prop.kind === "objectProperty" ? prop.value : prop.expr);
         }
         break;
 
@@ -1316,7 +1330,15 @@ export class SemanticValidator {
 
       case "objectLiteral":
         for (const prop of expr.properties) {
-          this.validateExpr(prop.value, context, env);
+          if (prop.kind === "objectProperty") {
+            this.validateExpr(prop.value, context, env);
+            continue;
+          }
+
+          const spreadType = this.validateExpr(prop.expr, context, env);
+          if (this.symbols) {
+            this.requireSpreadOperand(spreadType, prop.location, prop.expr, env);
+          }
         }
         return this.inferType(expr, env);
 
@@ -1872,6 +1894,12 @@ export class SemanticValidator {
         }
         break;
 
+      case "merge":
+        for (const [index, arg] of args.entries()) {
+          this.requireSpreadOperand(argTypes[index], arg.location, arg, env);
+        }
+        break;
+
       case "coalesce":
         this.validateCoalesceTypes(argTypes, location);
         break;
@@ -1990,6 +2018,38 @@ export class SemanticValidator {
     if (outcome === false) {
       this.error(
         `Function 'len' expects a string, array, object, or record argument, got ${describeTypeExpr(actualType, this.symbols)}`,
+        location,
+        "E_TYPE_MISMATCH"
+      );
+    }
+  }
+
+  private requireSpreadOperand(
+    actualType: TypeExprNode | null,
+    location: SourceLocation,
+    expr?: ExprNode,
+    env: TypeEnv = new Map()
+  ): void {
+    if (!this.symbols) {
+      return;
+    }
+
+    const typeOutcome = actualType === null
+      ? "unknown"
+      : classifySpreadOperandType(actualType, this.symbols);
+    const arrayBranchReachable = mayYieldArrayExpr(expr, {
+      env,
+      symbols: this.symbols,
+      inferExprType,
+      resolveType,
+    });
+    const outcome = arrayBranchReachable
+      ? "invalid"
+      : typeOutcome;
+
+    if (outcome === "invalid") {
+      this.error(
+        `Object spread operands must be object-shaped or T | null where T is object-shaped, got ${describeTypeExpr(actualType, this.symbols)}`,
         location,
         "E_TYPE_MISMATCH"
       );

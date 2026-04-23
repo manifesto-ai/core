@@ -63,6 +63,7 @@ export type TokenKind =
   | "COMMA" // ,
   | "SEMICOLON" // ;
   | "DOT" // .
+  | "ELLIPSIS" // ...
   | "PIPE" // |
   // Literals
   | "NUMBER"

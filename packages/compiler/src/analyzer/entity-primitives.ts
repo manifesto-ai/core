@@ -29,6 +29,11 @@ const ENTITY_PRIMITIVE_FNS = new Set([
 
 type ExprContext = "computed" | "action" | "guard" | "available" | "dispatchable" | "patch";
 
+type LiteralEntityIdResolution =
+  | { kind: "literal"; value: string | number; location: Diagnostic["location"] }
+  | { kind: "absent" }
+  | { kind: "unknown" };
+
 function addDiagnostic(
   diagnostics: Diagnostic[],
   dedupe: Set<string>,
@@ -234,7 +239,15 @@ function validateExpr(
 
     case "objectLiteral":
       for (const property of expr.properties) {
-        validateExpr(property.value, context, env, symbols, diagnostics, dedupe, transformDepth);
+        validateExpr(
+          property.kind === "objectProperty" ? property.value : property.expr,
+          context,
+          env,
+          symbols,
+          diagnostics,
+          dedupe,
+          transformDepth
+        );
       }
       break;
 
@@ -392,19 +405,12 @@ function validateFieldInitializerUniqueness(
       continue;
     }
 
-    const idProp = element.properties.find((property) => property.key === "id");
-    if (!idProp || idProp.value.kind !== "literal") {
+    const id = resolveLiteralEntityId(element);
+    if (id.kind !== "literal") {
       continue;
     }
 
-    if (
-      typeof idProp.value.value !== "string" &&
-      typeof idProp.value.value !== "number"
-    ) {
-      continue;
-    }
-
-    const key = `${typeof idProp.value.value}:${String(idProp.value.value)}`;
+    const key = `${typeof id.value}:${String(id.value)}`;
     const previous = seen.get(key);
     if (previous) {
       addDiagnostic(
@@ -412,12 +418,51 @@ function validateFieldInitializerUniqueness(
         dedupe,
         "E030b",
         "Duplicate '.id' values detected in state initializer.",
-        idProp.value.location
+        id.location
       );
       continue;
     }
-    seen.set(key, idProp.value.location);
+    seen.set(key, id.location);
   }
+}
+
+function resolveLiteralEntityId(
+  expr: ExprNode
+): LiteralEntityIdResolution {
+  if (expr.kind !== "objectLiteral") {
+    return { kind: "unknown" };
+  }
+
+  let current: LiteralEntityIdResolution = { kind: "absent" };
+  for (const property of expr.properties) {
+    if (property.kind === "objectProperty") {
+      if (property.key !== "id") {
+        continue;
+      }
+
+      if (
+        property.value.kind === "literal" &&
+        (typeof property.value.value === "string" || typeof property.value.value === "number")
+      ) {
+        current = {
+          kind: "literal",
+          value: property.value.value,
+          location: property.value.location,
+        };
+        continue;
+      }
+
+      current = { kind: "unknown" };
+      continue;
+    }
+
+    const spreadId = resolveLiteralEntityId(property.expr);
+    if (spreadId.kind !== "absent") {
+      current = spreadId;
+    }
+  }
+
+  return current;
 }
 
 function getCollectionElementType(

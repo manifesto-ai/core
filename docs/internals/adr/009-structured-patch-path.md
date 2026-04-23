@@ -6,7 +6,7 @@
 > **Scope:** Core, Compiler, Host, Runtime, World
 > **Resolves:** [#108](https://github.com/manifesto-ai/core/issues/108), [#189](https://github.com/manifesto-ai/core/issues/189)
 > **Supersedes:** None
-> **Implemented-by:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler current contract (SPEC-v1.1.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md), [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md), and concrete code in `packages/core/src/schema/patch.ts`, `packages/core/src/core/apply.ts`, `packages/compiler/src/lowering/lower-runtime-patch.ts`, plus historical pre-split world/store code paths
+> **Implemented-by:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler current contract (SPEC-v1.2.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md), [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md), and concrete code in `packages/core/src/schema/patch.ts`, `packages/core/src/core/apply.ts`, `packages/compiler/src/lowering/lower-runtime-patch.ts`, plus historical pre-split world/store code paths
 > **Strengthens:** FDR-015 (Static Patch Paths), FDR-MEL-032 (Dynamic Path Segments)
 > **Breaking:** Yes — Major version bump required for Core, Compiler
 

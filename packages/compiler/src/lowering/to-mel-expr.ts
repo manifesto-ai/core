@@ -66,13 +66,7 @@ export function toMelExpr(
       };
 
     case "objectLiteral":
-      return {
-        kind: "obj",
-        fields: input.properties.map((property) => ({
-          key: property.key,
-          value: toMelExpr(property.value, options),
-        })),
-      };
+      return lowerObjectLiteral(input, options);
 
     case "arrayLiteral":
       return {
@@ -80,6 +74,64 @@ export function toMelExpr(
         elements: input.elements.map((element) => toMelExpr(element, options)),
       };
   }
+}
+
+function lowerObjectLiteral(
+  input: Extract<ExprNode, { kind: "objectLiteral" }>,
+  options: ToMelExprOptions
+): MelExprNode {
+  const hasSpread = input.properties.some((property) => property.kind === "objectSpread");
+  if (!hasSpread) {
+    return {
+      kind: "obj",
+      fields: input.properties.map((property) => {
+        if (property.kind !== "objectProperty") {
+          throw new Error("Unexpected non-property in non-spread object literal");
+        }
+
+        return {
+          key: property.key,
+          value: toMelExpr(property.value, options),
+        };
+      }),
+    };
+  }
+
+  const contributors: MelExprNode[] = [];
+  let bufferedFields: Array<{ key: string; value: MelExprNode }> = [];
+
+  const flushBufferedFields = () => {
+    if (bufferedFields.length === 0) {
+      return;
+    }
+
+    contributors.push({
+      kind: "obj",
+      fields: bufferedFields,
+    });
+    bufferedFields = [];
+  };
+
+  for (const property of input.properties) {
+    if (property.kind === "objectProperty") {
+      bufferedFields.push({
+        key: property.key,
+        value: toMelExpr(property.value, options),
+      });
+      continue;
+    }
+
+    flushBufferedFields();
+    contributors.push(toMelExpr(property.expr, options));
+  }
+
+  flushBufferedFields();
+
+  return {
+    kind: "call",
+    fn: "merge",
+    args: contributors,
+  };
 }
 
 export function getPathExpr(...segments: string[]): MelExprNode {

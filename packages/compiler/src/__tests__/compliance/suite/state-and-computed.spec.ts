@@ -768,4 +768,97 @@ describe("CCTS State and Computed Suite", () => {
       }),
     ]);
   });
+
+  it(caseTitle(CCTS_CASES.STATE_OBJECT_SPREAD_TYPING, "(SPREAD-OPERAND-1/SPREAD-PATCH-1/SPREAD-PRESENCE-1) object-spread typing and patch assignability are enforced"), () => {
+    const result = adapter.compile(`
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft | null = null
+        }
+
+        action submit(customerId: string) {
+          onceIntent {
+            patch draft = {
+              ...draft,
+              customerId: customerId,
+              appliedCouponId: null,
+              submissionState: "submitted"
+            }
+          }
+        }
+      }
+    `);
+    const invalidStateInitializerResult = adapter.compile(`
+      domain Demo {
+        type Config = {
+          theme: string
+        }
+
+        state {
+          cfg: Config = {
+            ...1,
+            theme: "light"
+          }
+        }
+      }
+    `);
+    const operandSurfaceHolds =
+      result.success &&
+      !invalidStateInitializerResult.success &&
+      hasDiagnosticCode(invalidStateInitializerResult.diagnostics, ["E_TYPE_MISMATCH"]);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("SPREAD-OPERAND-1"), operandSurfaceHolds, {
+        passMessage: "Object-literal spread accepts nullable object operands and rejects non-object state-initializer operands.",
+        failMessage: "Object-literal spread operand validation still leaks or rejects part of the v1.2 surface.",
+        evidence: [
+          ...diagnosticEvidence(result.errors),
+          ...diagnosticEvidence(invalidStateInitializerResult.errors),
+        ],
+      }),
+      evaluateRule(getRuleOrThrow("SPREAD-PATCH-1"), result.success, {
+        passMessage: "Spread-backed object literals are accepted in set-patch assignment positions.",
+        failMessage: "Set-patch object literals using spread are still blocked.",
+        evidence: diagnosticEvidence(result.errors),
+      }),
+      evaluateRule(getRuleOrThrow("SPREAD-PRESENCE-1"), result.success, {
+        passMessage: "Presence-aware typing for spread-backed objects accepts explicit unconditional contributions.",
+        failMessage: "Presence-aware spread typing did not hold for the current v1.2 contract.",
+        evidence: diagnosticEvidence(result.errors),
+      }),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.STATE_OBJECT_SPREAD_CONSUME, "(SPREAD-CONSUME-1) optional spread-result reads require explicit normalization"), () => {
+    const result = adapter.compile(`
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft | null = null
+        }
+
+        computed partialDraft = { ...draft }
+        computed safeCustomerId = coalesce(partialDraft.customerId, "guest")
+      }
+    `);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("SPREAD-CONSUME-1"), result.success, {
+        passMessage: "Optional fields introduced by spread can be observed as nullable values and normalized explicitly.",
+        failMessage: "Spread-result consumption did not satisfy the current optional-read contract.",
+        evidence: diagnosticEvidence(result.errors),
+      }),
+    ]);
+  });
 });

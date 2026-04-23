@@ -285,12 +285,83 @@ describe("Parser", () => {
       }
     });
 
+    it("parses object literals with spread entries", () => {
+      const expr = parseExpr('{ ...user, name: "Grace" }');
+      expect(expr?.kind).toBe("objectLiteral");
+      if (expr?.kind === "objectLiteral") {
+        expect(expr.properties).toHaveLength(2);
+        expect(expr.properties[0]?.kind).toBe("objectSpread");
+        expect(expr.properties[1]?.kind).toBe("objectProperty");
+      }
+    });
+
     it("parses array literals", () => {
       const expr = parseExpr("[1, 2, 3]");
       expect(expr?.kind).toBe("arrayLiteral");
       if (expr?.kind === "arrayLiteral") {
         expect(expr.elements).toHaveLength(3);
       }
+    });
+
+    it("reports a boundary diagnostic for array spread", () => {
+      const { diagnostics } = parseSource(`
+        domain Demo {
+          computed copy = [...items]
+        }
+      `);
+
+      expect(diagnostics.some((diagnostic) =>
+        diagnostic.message.includes("Object spread is the only bounded JavaScript-like sugar admitted in current MEL.")
+          && diagnostic.message.includes("Array spread is not supported.")
+      )).toBe(true);
+    });
+
+    it("reports a boundary diagnostic for computed object keys", () => {
+      const { diagnostics } = parseSource(`
+        domain Demo {
+          state {
+            name: string = ""
+          }
+
+          computed keyed = { [name]: 1 }
+        }
+      `);
+
+      expect(diagnostics.some((diagnostic) =>
+        diagnostic.message.includes("Object spread is the only bounded JavaScript-like sugar admitted in current MEL.")
+          && diagnostic.message.includes("Computed object keys are not supported.")
+      )).toBe(true);
+    });
+
+    it("reports a boundary diagnostic for optional chaining", () => {
+      const { diagnostics } = parseSource(`
+        domain Demo {
+          type Profile = { name: string }
+
+          state {
+            profile: Profile = { name: "" }
+          }
+
+          computed maybeName = profile?.name
+        }
+      `);
+
+      expect(diagnostics.some((diagnostic) =>
+        diagnostic.message.includes("Object spread is the only bounded JavaScript-like sugar admitted in current MEL.")
+          && diagnostic.message.includes("Optional chaining is not supported.")
+      )).toBe(true);
+    });
+
+    it("reports a parse diagnostic for invalid double-dot access", () => {
+      const { diagnostics } = parseSource(`
+        domain Demo {
+          computed broken = user..name
+        }
+      `);
+
+      expect(diagnostics.some((diagnostic) =>
+        diagnostic.message.includes("Expected property name after '.'")
+      )).toBe(true);
     });
 
     it("parses system identifiers", () => {

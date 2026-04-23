@@ -1,6 +1,6 @@
 // ============================================
 // Title: Object Functions
-// Description: merge, keys, values, entries
+// Description: object spread, merge, keys, values, entries
 // Prerequisites: basic.mel
 // ============================================
 
@@ -17,19 +17,22 @@ domain ObjectFunctions {
     tasks: Record<string, Item> = {}
   }
 
-  // --- merge: Shallow merge objects (later wins) ---
+  // --- Object composition: later contributors win ---
 
-  // Merge two objects — later overrides earlier
-  computed merged = merge(defaults, config)
+  // Spread-first composition — later overrides earlier
+  computed merged = { ...defaults, ...config }
   // If config = { theme: "dark", lang: "en", fontSize: 14 }
   // Result: { theme: "dark", lang: "en", fontSize: 14 }
 
-  // Merge with literal override
-  computed withOverride = merge(config, { theme: "light" })
+  // Spread with literal override
+  computed withOverride = { ...config, theme: "light" }
   // Result: { theme: "light", lang: "en", fontSize: 14 }
 
-  // Variadic: merge 3+ objects
-  computed full = merge(defaults, config, { fontSize: 20 })
+  // Spread multiple contributors
+  computed full = { ...defaults, ...config, fontSize: 20 }
+
+  // Direct merge() remains available and follows the same typing rules
+  computed mergedViaFunction = merge(defaults, config)
 
   // --- keys, values, entries ---
 
@@ -43,12 +46,12 @@ domain ObjectFunctions {
   // Extract key-value pairs
   computed taskPairs = entries(tasks)
 
-  // --- merge in actions (key use case: enrich without enumerating all fields) ---
+  // --- merge in actions (useful when you already have an object expression) ---
 
   action markActive(id: string) {
     when isNotNull(at(tasks, $input.id)) {
       // Instead of: patch tasks[$input.id] = { id: ..., name: ..., status: "active" }
-      // Use merge to only override status:
+      // Use merge to only override status on the fetched record object:
       patch tasks[$input.id] = merge(at(tasks, $input.id), { status: "active" })
     }
   }

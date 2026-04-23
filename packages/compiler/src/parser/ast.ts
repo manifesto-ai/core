@@ -448,13 +448,20 @@ export interface TernaryExprNode extends ASTNode {
  */
 export interface ObjectLiteralExprNode extends ASTNode {
   kind: "objectLiteral";
-  properties: ObjectPropertyNode[];
+  properties: ObjectLiteralEntryNode[];
 }
+
+export type ObjectLiteralEntryNode = ObjectPropertyNode | ObjectSpreadNode;
 
 export interface ObjectPropertyNode extends ASTNode {
   kind: "objectProperty";
   key: string;
   value: ExprNode;
+}
+
+export interface ObjectSpreadNode extends ASTNode {
+  kind: "objectSpread";
+  expr: ExprNode;
 }
 
 /**

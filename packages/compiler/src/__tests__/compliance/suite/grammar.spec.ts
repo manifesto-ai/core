@@ -132,4 +132,65 @@ describe("CCTS Grammar Suite", () => {
       }),
     ]);
   });
+
+  it(caseTitle(CCTS_CASES.GRAMMAR_OBJECT_SPREAD_BOUNDARY, "(SPREAD-SURFACE-1/SPREAD-DIAG-1) object-spread surface and boundary diagnostics are enforced"), () => {
+    const surfaceResult = adapter.compile(`
+      domain Demo {
+        type Profile = { name: string }
+
+        state {
+          profile: Profile = { name: "" }
+        }
+
+        computed copy = { ...profile, name: "next" }
+      }
+    `);
+    const arraySpreadResult = adapter.compile(`
+      domain Demo {
+        computed copy = [...items]
+      }
+    `);
+    const computedKeyResult = adapter.compile(`
+      domain Demo {
+        state {
+          name: string = ""
+        }
+
+        computed keyed = { [name]: 1 }
+      }
+    `);
+    const optionalChainingResult = adapter.compile(`
+      domain Demo {
+        type Profile = { name: string }
+
+        state {
+          profile: Profile = { name: "" }
+        }
+
+        computed maybeName = profile?.name
+      }
+    `);
+    const boundaryDiagnosticsHold = [arraySpreadResult, computedKeyResult, optionalChainingResult].every((result) =>
+      result.errors.some((diagnostic) =>
+        diagnostic.message.includes("Object spread is the only bounded JavaScript-like sugar admitted in current MEL.")
+      )
+    );
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("SPREAD-SURFACE-1"), surfaceResult.success, {
+        passMessage: "Object-literal spread is admitted as the bounded v1.2 parser-level shorthand.",
+        failMessage: "Object-literal spread is not admitted even though SPEC v1.2 declares it current.",
+        evidence: diagnosticEvidence(surfaceResult.errors),
+      }),
+      evaluateRule(getRuleOrThrow("SPREAD-DIAG-1"), boundaryDiagnosticsHold, {
+        passMessage: "Adjacent JS-like forms around object spread remain rejected.",
+        failMessage: "Adjacent JS-like forms around object spread were not rejected.",
+        evidence: [
+          ...diagnosticEvidence(arraySpreadResult.errors),
+          ...diagnosticEvidence(computedKeyResult.errors),
+          ...diagnosticEvidence(optionalChainingResult.errors),
+        ],
+      }),
+    ]);
+  });
 });

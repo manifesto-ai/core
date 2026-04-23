@@ -236,8 +236,10 @@ _Source: `packages/compiler/src/index.ts`_
 - `MelSystemPath`
 - `MelTypeExpr`
 - `MelTypeField`
+- `ObjectLiteralEntryNode`
 - `ObjectLiteralExprNode`
 - `ObjectPropertyNode`
+- `ObjectSpreadNode`
 - `ObjectTypeNode`
 - `OnceIntentStmtNode`
 - `OnceStmtNode`

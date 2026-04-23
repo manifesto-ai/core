@@ -74,6 +74,20 @@ describe("Lexer", () => {
         "COMMA", "SEMICOLON", "DOT", "EOF"
       ]);
     });
+
+    it("tokenizes ellipsis for object spread", () => {
+      const { tokens } = tokenize("... .");
+      expect(tokens.map((t) => t.kind)).toEqual([
+        "ELLIPSIS", "DOT", "EOF"
+      ]);
+    });
+
+    it("does not collapse invalid double-dot into a single token", () => {
+      const { tokens } = tokenize(".. a..b");
+      expect(tokens.map((t) => t.kind)).toEqual([
+        "DOT", "DOT", "IDENTIFIER", "DOT", "DOT", "IDENTIFIER", "EOF"
+      ]);
+    });
   });
 
   describe("literals", () => {

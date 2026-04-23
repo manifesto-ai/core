@@ -101,6 +101,35 @@ describe("flow composition", () => {
     expect(codes).toContain("E024");
   });
 
+  it("keeps include argument diagnostics stable across union member order", () => {
+    const compile = (union: string) => transform(`
+      domain Demo {
+        type A = { value: string }
+        type B = { value: number }
+
+        state {
+          current: ${union} = { value: 1 }
+        }
+
+        flow helper(input: number) {
+          when true {
+            stop "ok"
+          }
+        }
+
+        action test() {
+          include helper(current.value)
+        }
+      }
+    `);
+
+    const aThenB = compile("A | B");
+    const bThenA = compile("B | A");
+
+    expect(aThenB.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E024");
+    expect(bThenA.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E024");
+  });
+
   it("diagnoses invalid include positions and forbidden flow constructs", () => {
     const result = transform(`
       domain Demo {

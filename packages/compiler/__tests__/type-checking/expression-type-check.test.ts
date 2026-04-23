@@ -317,6 +317,179 @@ describe("Expression type checking", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts optional spread-result reads when normalized explicitly", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft | null = null
+        }
+
+        computed partialDraft = { ...draft }
+        computed safeCustomerId = coalesce(partialDraft.customerId, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts nullable object spread operands through null aliases", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Nil = null
+        type User = {
+          id: string,
+          name: string
+        }
+        type MaybeUser = User | Nil
+
+        state {
+          maybeUser: MaybeUser = null
+        }
+
+        computed partialUser = { ...maybeUser }
+        computed safeName = coalesce(partialUser.name, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid object spread operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          items: Array<string> = []
+        }
+
+        computed bad = { ...items }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("rejects object spread operands that deterministically yield arrays", () => {
+    const spreadResult = compileSource(`
+      domain Demo {
+        computed bad = { ...coalesce([], []) }
+      }
+    `);
+    const mergeResult = compileSource(`
+      domain Demo {
+        computed bad = merge(cond(true, [], []))
+      }
+    `);
+
+    expect(spreadResult.success).toBe(false);
+    expect(spreadResult.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+    expect(mergeResult.success).toBe(false);
+    expect(mergeResult.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("accepts direct merge typing parity for nullable object operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft | null = null
+        }
+
+        computed partialDraft = merge(draft)
+        computed safeCustomerId = coalesce(partialDraft.customerId, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts direct merge operands through null aliases", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Nil = null
+        type User = {
+          id: string,
+          name: string
+        }
+        type MaybeUser = User | Nil
+
+        state {
+          maybeUser: MaybeUser = null
+        }
+
+        computed partialUser = merge(maybeUser)
+        computed safeName = coalesce(partialUser.name, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("narrows later unconditional spread contributors to the overriding field type", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft = {
+            submissionState: "idle"
+          }
+          status: "submitted" = "submitted"
+        }
+
+        computed submitted = { ...draft, submissionState: "submitted" }
+
+        action remember() {
+          when true {
+            patch status = submitted.submissionState
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("narrows later unconditional merge contributors to the overriding field type", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft = {
+            submissionState: "idle"
+          }
+          status: "submitted" = "submitted"
+        }
+
+        computed submitted = merge(draft, { submissionState: "submitted" })
+
+        action remember() {
+          when true {
+            patch status = submitted.submissionState
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
   it("accepts argmax results as non-null when candidate eligibility is exhaustively covered", () => {
     const result = compileSource(`
       domain Demo {
@@ -560,6 +733,76 @@ describe("Expression type checking", () => {
             patch note = preferredCarrier
           }
         }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects array-first coalesce object spread operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = { ...coalesce([], { id: "x" }) }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("rejects array-first coalesce merge operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = merge(coalesce([], { id: "x" }))
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("accepts object-first coalesce object spread operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = { ...coalesce(merge({ id: "x" }), []) }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts non-null state coalesce object spread operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Profile = { id: string }
+        state {
+          profile: Profile = { id: "x" }
+        }
+        computed draft = { ...coalesce(profile, []) }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts object-first coalesce merge operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = merge(coalesce(merge({ id: "x" }), []))
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts non-null state coalesce merge operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Profile = { id: string }
+        state {
+          profile: Profile = { id: "x" }
+        }
+        computed draft = merge(coalesce(profile, []))
       }
     `);
 

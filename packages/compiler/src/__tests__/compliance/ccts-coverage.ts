@@ -21,6 +21,7 @@ export const CCTS_CASES = {
   GRAMMAR_CANONICAL_SURFACE: "CCTS-GRAM-002",
   GRAMMAR_INVALID_SYSTEM_REF: "CCTS-GRAM-003",
   GRAMMAR_ONCE_INTENT_CONTEXTUAL: "CCTS-GRAM-004",
+  GRAMMAR_OBJECT_SPREAD_BOUNDARY: "CCTS-GRAM-005",
 
   ANNOTATIONS_SURFACE: "CCTS-ANN-001",
   ANNOTATIONS_PAYLOAD: "CCTS-ANN-002",
@@ -43,6 +44,8 @@ export const CCTS_CASES = {
   STATE_COALESCE_NARROWING: "CCTS-STATE-009",
   STATE_VALUES_RECORD_TYPING: "CCTS-STATE-010",
   STATE_ARG_SELECTION_COVERAGE: "CCTS-STATE-011",
+  STATE_OBJECT_SPREAD_TYPING: "CCTS-STATE-012",
+  STATE_OBJECT_SPREAD_CONSUME: "CCTS-STATE-013",
 
   ACTIONS_GUARDED_BODY: "CCTS-ACT-001",
   ACTIONS_ONCE_DESUGARING: "CCTS-ACT-002",
@@ -64,6 +67,7 @@ export const CCTS_CASES = {
   IR_MATCH_SUGAR: "CCTS-IR-011",
   IR_ARG_SELECTION_SUGAR: "CCTS-IR-012",
   IR_SUGAR_DIAGNOSTICS: "CCTS-IR-013",
+  IR_OBJECT_SPREAD_LOWERING: "CCTS-IR-014",
 
   FLOW_COMPOSITION: "CCTS-FLOW-001",
   FLOW_VALIDATION: "CCTS-FLOW-002",
@@ -86,12 +90,13 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.GRAMMAR_CANONICAL_SURFACE, "grammar", "Non-canonical surface syntax is rejected."),
   complianceCase(CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF, "grammar", "Invalid system references are diagnosed."),
   complianceCase(CCTS_CASES.GRAMMAR_ONCE_INTENT_CONTEXTUAL, "grammar", "onceIntent is parsed contextually."),
+  complianceCase(CCTS_CASES.GRAMMAR_OBJECT_SPREAD_BOUNDARY, "grammar", "Current object-spread surface and adjacent JS-form boundaries are enforced in compliance."),
 
-  complianceCase(CCTS_CASES.ANNOTATIONS_SURFACE, "annotations", "@meta target placement, sibling sidecar target-key shape, and tooling sidecar emission determinism are staged."),
-  complianceCase(CCTS_CASES.ANNOTATIONS_PAYLOAD, "annotations", "@meta payload literal-only and depth constraints are staged."),
-  complianceCase(CCTS_CASES.ANNOTATIONS_INVARIANTS, "annotations", "Tooling sidecar semantic erasure invariants are staged."),
-  complianceCase(CCTS_CASES.ANNOTATIONS_RUNTIME_BOUNDARY, "annotations", "Tooling-only DomainModule runtime-boundary guards are staged."),
-  complianceCase(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "annotations", "Annotation and source-map diagnostic families are staged."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_SURFACE, "annotations", "@meta target placement, sibling sidecar target-key shape, and tooling sidecar emission determinism are enforced."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_PAYLOAD, "annotations", "@meta payload literal-only and depth constraints are enforced."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_INVARIANTS, "annotations", "Tooling sidecar semantic erasure invariants are enforced."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_RUNTIME_BOUNDARY, "annotations", "Tooling-only DomainModule runtime-boundary guards are enforced."),
+  complianceCase(CCTS_CASES.ANNOTATIONS_DIAGNOSTICS, "annotations", "Annotation and source-map diagnostic families are enforced."),
 
   complianceCase(CCTS_CASES.CONTEXT_COMPUTED_SYSTEM, "context", "$system is rejected in computed expressions."),
   complianceCase(CCTS_CASES.CONTEXT_STATE_INIT_SYSTEM, "context", "$system is rejected in state initializers."),
@@ -108,6 +113,8 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.STATE_COALESCE_NARROWING, "state-and-computed", "coalesce narrows compatible nullable branches for downstream typing."),
   complianceCase(CCTS_CASES.STATE_VALUES_RECORD_TYPING, "state-and-computed", "values(Record<string, T>) preserves typed collection flow semantics."),
   complianceCase(CCTS_CASES.STATE_ARG_SELECTION_COVERAGE, "state-and-computed", "argmax/argmin keep nullable labels only when candidate eligibility is not exhaustively covered."),
+  complianceCase(CCTS_CASES.STATE_OBJECT_SPREAD_TYPING, "state-and-computed", "Current object-spread typing and patch assignability are enforced."),
+  complianceCase(CCTS_CASES.STATE_OBJECT_SPREAD_CONSUME, "state-and-computed", "Current optional spread-field consumption rules are enforced."),
 
   complianceCase(CCTS_CASES.ACTIONS_GUARDED_BODY, "actions-and-control", "Action mutations remain guarded."),
   complianceCase(CCTS_CASES.ACTIONS_ONCE_DESUGARING, "actions-and-control", "once() desugars to intent-guarded marker writes."),
@@ -129,6 +136,7 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.IR_MATCH_SUGAR, "lowering-and-ir", "match() remains finite literal-key branch sugar with source-order lowering."),
   complianceCase(CCTS_CASES.IR_ARG_SELECTION_SUGAR, "lowering-and-ir", "argmax()/argmin() remain fixed-candidate deterministic selection sugar."),
   complianceCase(CCTS_CASES.IR_SUGAR_DIAGNOSTICS, "lowering-and-ir", "Bounded sugar shape diagnostics remain visible."),
+  complianceCase(CCTS_CASES.IR_OBJECT_SPREAD_LOWERING, "lowering-and-ir", "Current object-spread lowering and direct merge parity are enforced."),
 
   complianceCase(CCTS_CASES.FLOW_COMPOSITION, "flow-composition", "flow/include remains compile-time composition only."),
   complianceCase(CCTS_CASES.FLOW_VALIDATION, "flow-composition", "Flow declaration and include contracts are tracked."),
@@ -182,10 +190,14 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["PATCH-MERGE-1"], [CCTS_CASES.STATE_PATCH_MERGE]),
   ...coverMany(["COALESCE-1"], [CCTS_CASES.STATE_COALESCE_NARROWING]),
   ...coverMany(["COLLECT-VALUES-1"], [CCTS_CASES.STATE_VALUES_RECORD_TYPING]),
+  ...coverMany(["SPREAD-OPERAND-1", "SPREAD-PATCH-1", "SPREAD-PRESENCE-1"], [CCTS_CASES.STATE_OBJECT_SPREAD_TYPING]),
+  ...coverMany(["SPREAD-CONSUME-1"], [CCTS_CASES.STATE_OBJECT_SPREAD_CONSUME]),
   ...coverMany(["MEL-SUGAR-4"], [CCTS_CASES.IR_ARG_SELECTION_SUGAR, CCTS_CASES.STATE_ARG_SELECTION_COVERAGE]),
 
   ...coverMany(["COMPILER-MEL-1"], [CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING]),
   ...coverMany(["COMPILER-MEL-3"], [CCTS_CASES.GRAMMAR_ONCE_INTENT_CONTEXTUAL]),
+  ...coverMany(["SPREAD-SURFACE-1", "SPREAD-DIAG-1"], [CCTS_CASES.GRAMMAR_OBJECT_SPREAD_BOUNDARY]),
+  ...coverMany(["SPREAD-LOWER-1", "SPREAD-MERGE-TYPE-1"], [CCTS_CASES.IR_OBJECT_SPREAD_LOWERING]),
 
   ...coverMany(["FLOW-PARAM-1", "FLOW-PARAM-2", "FLOW-CALL-1", "FLOW-CALL-2", "E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024"], [CCTS_CASES.FLOW_VALIDATION]),
 
