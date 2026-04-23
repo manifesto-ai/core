@@ -32,6 +32,7 @@ export type {
   GovernanceConfig,
   GovernanceExecutionConfig,
   GovernanceInstance,
+  GovernanceProposalRuntime,
 } from "./runtime-types.js";
 export type {
   ProposalSettlement,

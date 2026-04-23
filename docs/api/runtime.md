@@ -52,6 +52,8 @@ The intended public decision order is:
 3. admitted dry-run via `simulate()`
 4. execution via the runtime's write verb
 
+`getIntentBlockers(action, ...input)` is the pre-bind blocker read. `whyNot(intent)` is the bound-intent convenience read. They preserve the same first-failing-layer ordering, but invalid input still rejects through the explanation path before blocker projection.
+
 ## Decorated Runtimes
 
 Decorators change the write verb:
@@ -65,6 +67,8 @@ Decorators change the write verb:
 Use the base runtime until approval, continuity, restore, branch/head history, or sealing is a product requirement.
 
 Legality query meaning is preserved across decorators. Base and lineage runtimes now expose first-party additive write-report companions for machine-readable call results, while event payloads remain the streaming lifecycle channel. Governed runtimes intentionally do not add a direct write-report companion on the runtime itself; they use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for stored-world settlement outcome reports.
+
+If a helper needs one shared runtime boundary, keep it on legality/preparation reads only. SDK now exports `ManifestoLegalityRuntime<T>` for that purpose. Execution helpers should stay verb-specific and use `ManifestoDispatchRuntime<T>`, `LineageCommitRuntime<T>`, or `GovernanceProposalRuntime<T>` instead of assuming a common `dispatchAsync()` surface.
 
 ## Next
 

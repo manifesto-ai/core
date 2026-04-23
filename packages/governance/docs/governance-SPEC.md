@@ -78,6 +78,11 @@ type GovernanceInstance<T> =
     getActorBinding(actorId: ActorId): Promise<ActorAuthorityBinding | null>;
     getDecisionRecord(decisionId: DecisionId): Promise<DecisionRecord | null>;
   };
+
+type GovernanceProposalRuntime<T extends ManifestoDomainShape> = Pick<
+  GovernanceInstance<T>,
+  "proposeAsync"
+>;
 ```
 
 The inherited read surfaces keep their lineage/SDK meanings:
@@ -89,6 +94,8 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - `getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot observational reads, not durable capability grants
 - inherited legality queries preserve the base SDK ordering: availability is checked before dispatchability
 - inherited `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker without evaluating `dispatchable`
+
+`GovernanceProposalRuntime<T>` is the additive helper-boundary alias for governed execution helpers. It does not define a governed `dispatchAsync()` or `commitAsync()` backdoor.
 
 `waitForProposal()` and `waitForProposalWithReport()` are root-export observation helpers. They are additive and MUST NOT replace the governed write path.
 

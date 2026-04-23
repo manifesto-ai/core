@@ -82,12 +82,13 @@ Current contract highlights:
 - `createManifesto()` returns a composable manifesto, not an already-running instance.
 - Runtime verbs appear only after `activate()`.
 - `createIntent()` is anchored on the generated `MEL.actions.*` surface.
-- `dispatchAsync()` is the canonical execution verb.
+- `dispatchAsync()` is the canonical base-runtime execution verb.
 - `dispatchAsyncWithReport()` is the additive base write-report companion.
 - `simulate()` is the non-committing dry-run surface and may expose debug-grade `diagnostics.trace`.
 - `getSchemaGraph()` is the projected static graph read.
 - `isActionAvailable()` remains the coarse gate query.
 - `isIntentDispatchable()` and `getIntentBlockers()` are the fine legality/introspection queries.
+- helper-safe shared activated-runtime surface is legality/read/introspection only; there is no cross-decorator common write verb.
 
 Current rejection split:
 
@@ -162,6 +163,7 @@ Current contract highlights:
 - decorated runtimes inherit the base read-only legality surface, including `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 - inherited decorator-runtime legality queries preserve the base SDK ordering: availability first, dispatchability second
 - inherited `getIntentBlockers()` surfaces only the first failing layer, so unavailable intents do not evaluate `dispatchable`
+- helper authors may share legality helpers across decorators, but execution helpers must stay verb-specific: base `dispatchAsync()`, lineage `commitAsync()`, governance `proposeAsync()`
 - the active governed path is `withLineage(...)->withGovernance(...)->activate()`
 - governed runtimes intentionally omit direct base/lineage execution verbs and their report companions, and use `waitForProposal()` / `waitForProposalWithReport()` as additive settlement observers
 - there is no separate current `@manifesto-ai/world` package surface

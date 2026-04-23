@@ -11,6 +11,7 @@ export type {
 export type {
   CommitReport,
   LineageConfig,
+  LineageCommitRuntime,
   LineageInstance,
 } from "./runtime-types.js";
 export { InMemoryLineageStore, createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";

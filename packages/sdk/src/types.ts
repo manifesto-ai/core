@@ -411,6 +411,16 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly dispose: () => void;
 };
 
+export type ManifestoLegalityRuntime<T extends ManifestoDomainShape> = Pick<
+  ManifestoBaseInstance<T>,
+  "createIntent" | "whyNot" | "simulate" | "MEL"
+>;
+
+export type ManifestoDispatchRuntime<T extends ManifestoDomainShape> = Pick<
+  ManifestoBaseInstance<T>,
+  "dispatchAsync" | "dispatchAsyncWithReport"
+>;
+
 export interface ManifestoRuntimeByLaws<T extends ManifestoDomainShape> {
   readonly base: ManifestoBaseInstance<T>;
 }

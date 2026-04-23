@@ -8,7 +8,7 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.1.0](../../compiler/docs/SPEC-v1.1.0.md), including tooling-only structural annotations via `@meta` and declaration-level source maps through `DomainModule.sourceMap`.
+> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, the helper-boundary capability aliases `ManifestoLegalityRuntime<T>` and `ManifestoDispatchRuntime<T>`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.1.0](../../compiler/docs/SPEC-v1.1.0.md), including tooling-only structural annotations via `@meta` and declaration-level source maps through `DomainModule.sourceMap`.
 
 ## 1. Purpose
 
@@ -612,6 +612,22 @@ The canonical public surface is the instance object. Destructuring is optional e
 
 The read-oriented members in §7.3.1-§7.5 remain SDK conveniences layered over the same activated schema and canonical runtime substrate.
 
+The SDK also defines additive helper-boundary aliases:
+
+```typescript
+type ManifestoLegalityRuntime<T extends ManifestoDomainShape> = Pick<
+  ManifestoBaseInstance<T>,
+  "createIntent" | "whyNot" | "simulate" | "MEL"
+>;
+
+type ManifestoDispatchRuntime<T extends ManifestoDomainShape> = Pick<
+  ManifestoBaseInstance<T>,
+  "dispatchAsync" | "dispatchAsyncWithReport"
+>;
+```
+
+These aliases are capability names for helper authors. They MUST NOT be interpreted as a cross-decorator common execution story. `dispatchAsync()` remains base-only.
+
 ### 7.1 `createIntent()`
 
 `createIntent()` is instance-owned and typed from `MEL.actions.*`.
@@ -881,7 +897,7 @@ The intended public legality ladder is:
 3. admitted dry-run via `simulate()`
 4. runtime execution via `dispatchAsync()` or the additive report companion `dispatchAsyncWithReport()`
 
-`getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `simulate()` is the admitted dry-run step. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
+`getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `getIntentBlockers()` is the pre-bind blocker query surface; `whyNot()` is the bound-intent convenience projection. `simulate()` is the admitted dry-run step. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
 
 If the action is unavailable, explanation reads MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
 
