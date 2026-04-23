@@ -14,7 +14,7 @@ import {
   classifySpreadOperandType,
   classifyComparableExpr,
   inferExprType,
-  isDefinitelyArrayExpr,
+  mayYieldArrayExpr,
   type DomainTypeSymbols,
 } from "../analyzer/expr-type-surface.js";
 import { toMelExpr } from "./compile-mel-patch-expr.js";
@@ -640,18 +640,18 @@ class PatchExprValidator {
     errors: Diagnostic[]
   ): void {
     const inferred = inferExprType(expr, new Map(), this.symbols);
-    const isDefinitelyInvalidSpread = isDefinitelyArrayExpr(expr);
+    const mayYieldInvalidSpread = mayYieldArrayExpr(expr);
 
     if (!inferred) {
-      if (!isDefinitelyInvalidSpread) {
+      if (!mayYieldInvalidSpread) {
         return;
       }
     }
 
-    const classification = inferred
-      ? classifySpreadOperandType(inferred, this.symbols)
-      : isDefinitelyInvalidSpread
+    const classification = mayYieldInvalidSpread
       ? "invalid"
+      : inferred
+      ? classifySpreadOperandType(inferred, this.symbols)
       : "unknown";
 
     if (classification !== "invalid") {

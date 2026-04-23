@@ -779,6 +779,44 @@ describe("compileMelPatch", () => {
     });
   });
 
+  it("rejects array-first coalesce object spread operands in patch expressions", () => {
+    const melText = `
+      patch draft = {
+        ...coalesce([], { a: 1 })
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-array-first-coalesce-spread",
+    });
+
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: "E_TYPE_MISMATCH",
+      message: "Object spread operands must be object-shaped or T | null where T is object-shaped",
+    });
+  });
+
+  it("rejects array-first coalesce merge operands in patch expressions", () => {
+    const melText = `
+      patch draft = merge(coalesce([], { a: 1 }))
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-array-first-coalesce-merge",
+    });
+
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: "E_TYPE_MISMATCH",
+      message: "Object spread operands must be object-shaped or T | null where T is object-shaped",
+    });
+  });
+
   it("supports unary minus in patch expressions", () => {
     const melText = `
       patch delta = -input.amount

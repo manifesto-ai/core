@@ -15,7 +15,7 @@ import type { SpreadOperandClassification } from "./object-contribution-types.js
 export type {
   SpreadOperandClassification,
 } from "./object-contribution-types.js";
-export { isDefinitelyArrayExpr } from "./object-contribution-types.js";
+export { mayYieldArrayExpr } from "./object-contribution-types.js";
 
 export type TypeEnv = Map<string, TypeExprNode>;
 export type ComparableSurfaceClass = "primitive" | "nonprimitive" | "unknown";

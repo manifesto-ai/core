@@ -738,4 +738,26 @@ describe("Expression type checking", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("rejects array-first coalesce object spread operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = { ...coalesce([], { id: "x" }) }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("rejects array-first coalesce merge operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = merge(coalesce([], { id: "x" }))
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
 });

@@ -119,7 +119,7 @@ export function classifySpreadOperandType<Symbols>(
   return "invalid";
 }
 
-export function isDefinitelyArrayExpr(expr: ExprNode | undefined): boolean {
+export function mayYieldArrayExpr(expr: ExprNode | undefined): boolean {
   if (!expr) {
     return false;
   }
@@ -129,7 +129,7 @@ export function isDefinitelyArrayExpr(expr: ExprNode | undefined): boolean {
   }
 
   if (expr.kind === "ternary") {
-    return isDefinitelyArrayExpr(expr.consequent) && isDefinitelyArrayExpr(expr.alternate);
+    return mayYieldArrayExpr(expr.consequent) || mayYieldArrayExpr(expr.alternate);
   }
 
   if (expr.kind !== "functionCall") {
@@ -137,11 +137,77 @@ export function isDefinitelyArrayExpr(expr: ExprNode | undefined): boolean {
   }
 
   if (expr.name === "coalesce") {
-    return expr.args.length > 0 && expr.args.every((arg) => isDefinitelyArrayExpr(arg));
+    for (const arg of expr.args) {
+      if (isDefinitelyNullExpr(arg)) {
+        continue;
+      }
+
+      if (mayYieldArrayExpr(arg)) {
+        return true;
+      }
+
+      if (isDefinitelyNonNullExpr(arg)) {
+        return false;
+      }
+    }
+
+    return false;
   }
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
-    return isDefinitelyArrayExpr(expr.args[1]) && isDefinitelyArrayExpr(expr.args[2]);
+    return mayYieldArrayExpr(expr.args[1]) || mayYieldArrayExpr(expr.args[2]);
+  }
+
+  return false;
+}
+
+function isDefinitelyNullExpr(expr: ExprNode): boolean {
+  if (expr.kind === "literal") {
+    return expr.value === null;
+  }
+
+  if (expr.kind === "ternary") {
+    return isDefinitelyNullExpr(expr.consequent) && isDefinitelyNullExpr(expr.alternate);
+  }
+
+  if (expr.kind !== "functionCall") {
+    return false;
+  }
+
+  if (expr.name === "coalesce") {
+    return expr.args.length > 0 && expr.args.every((arg) => isDefinitelyNullExpr(arg));
+  }
+
+  if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
+    return isDefinitelyNullExpr(expr.args[1]) && isDefinitelyNullExpr(expr.args[2]);
+  }
+
+  return false;
+}
+
+function isDefinitelyNonNullExpr(expr: ExprNode): boolean {
+  if (expr.kind === "literal") {
+    return expr.value !== null;
+  }
+
+  if (expr.kind === "arrayLiteral" || expr.kind === "objectLiteral") {
+    return true;
+  }
+
+  if (expr.kind === "ternary") {
+    return isDefinitelyNonNullExpr(expr.consequent) && isDefinitelyNonNullExpr(expr.alternate);
+  }
+
+  if (expr.kind !== "functionCall") {
+    return false;
+  }
+
+  if (expr.name === "coalesce") {
+    return expr.args.some((arg) => isDefinitelyNonNullExpr(arg));
+  }
+
+  if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
+    return isDefinitelyNonNullExpr(expr.args[1]) && isDefinitelyNonNullExpr(expr.args[2]);
   }
 
   return false;

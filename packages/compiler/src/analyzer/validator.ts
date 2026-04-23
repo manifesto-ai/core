@@ -35,7 +35,7 @@ import {
   getIndexType,
   getPropertyType,
   inferExprType,
-  isDefinitelyArrayExpr,
+  mayYieldArrayExpr,
   isNullType,
   resolveType,
   type DomainTypeSymbols,
@@ -2033,12 +2033,11 @@ export class SemanticValidator {
       return;
     }
 
-    const outcome =
-      actualType === null
-        ? isDefinitelyArrayExpr(expr)
-          ? "invalid"
-          : "unknown"
-        : classifySpreadOperandType(actualType, this.symbols);
+    const outcome = mayYieldArrayExpr(expr)
+      ? "invalid"
+      : actualType === null
+      ? "unknown"
+      : classifySpreadOperandType(actualType, this.symbols);
 
     if (outcome === "invalid") {
       this.error(
