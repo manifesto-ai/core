@@ -443,6 +443,34 @@ describe("Expression type checking", () => {
     expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
   });
 
+  it("keeps argmax results nullable when predicates read through optional property access", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Selection = { mode?: "ship" | "pickup" }
+
+        state {
+          selection: Selection = {}
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(selection.mode, "pickup"), 100],
+          ["ship", eq(selection.mode, "ship"), 80],
+          "first"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
   it("accepts argmin results as non-null when candidate eligibility is exhaustively covered", () => {
     const result = compileSource(`
       domain Demo {

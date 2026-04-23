@@ -707,9 +707,31 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
+    const optionalPathResult = adapter.compile(`
+      domain Demo {
+        type Selection = { mode?: "ship" | "pickup" }
+
+        state {
+          selection: Selection = {}
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(selection.mode, "pickup"), 100],
+          ["ship", eq(selection.mode, "ship"), 80],
+          "first"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("MEL-SUGAR-4"), coveredResult.success && coveredMinResult.success && hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH"), {
+      evaluateRule(getRuleOrThrow("MEL-SUGAR-4"), coveredResult.success && coveredMinResult.success && hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(optionalPathResult.errors, "E_TYPE_MISMATCH"), {
         passMessage: "argmax()/argmin() preserve non-null label typing only when candidate eligibility coverage is statically exhaustive.",
         failMessage: "argmax()/argmin() nullability narrowing is either too weak for exhaustive coverage or too loose for uncovered cases.",
         evidence: [
@@ -718,6 +740,7 @@ describe("CCTS State and Computed Suite", () => {
           ...diagnosticEvidence(uncoveredResult.errors),
           ...diagnosticEvidence(literalGapResult.errors),
           ...diagnosticEvidence(nullablePathResult.errors),
+          ...diagnosticEvidence(optionalPathResult.errors),
         ],
       }),
     ]);

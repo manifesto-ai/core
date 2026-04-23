@@ -1188,6 +1188,7 @@ function hasNullableEligibilityPath(
   switch (expr.kind) {
     case "propertyAccess":
       return canTypeIncludeNull(inferExprType(expr.object, env, symbols), symbols)
+        || canPropertyAccessBeMissing(expr.object, expr.property, env, symbols)
         || hasNullableEligibilityPath(expr.object, env, symbols);
 
     case "indexAccess":
@@ -1197,6 +1198,38 @@ function hasNullableEligibilityPath(
     default:
       return false;
   }
+}
+
+function canPropertyAccessBeMissing(
+  objectExpr: ExprNode,
+  property: string,
+  env: TypeEnv,
+  symbols: DomainTypeSymbols
+): boolean {
+  return canPropertyTypeBeMissing(inferExprType(objectExpr, env, symbols), property, symbols);
+}
+
+function canPropertyTypeBeMissing(
+  typeExpr: TypeExprNode | null,
+  property: string,
+  symbols: DomainTypeSymbols
+): boolean {
+  const resolved = resolveType(typeExpr, symbols);
+  if (!resolved) {
+    return true;
+  }
+
+  if (resolved.kind === "objectType") {
+    const field = resolved.fields.find((candidate) => candidate.name === property);
+    return !field || field.optional;
+  }
+
+  if (resolved.kind === "unionType") {
+    const members = resolved.types.filter((member) => !isNullType(member));
+    return members.length === 0 || members.some((member) => canPropertyTypeBeMissing(member, property, symbols));
+  }
+
+  return true;
 }
 
 function isStrictBooleanType(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols): boolean {
