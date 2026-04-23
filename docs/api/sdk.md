@@ -100,6 +100,26 @@ instance.simulate(instance.MEL.actions.increment);
 console.log(report.kind);
 ```
 
+## Helper-Safe Capability Types
+
+If a helper needs a shared activated-runtime boundary, keep that boundary on legality/preparation reads only.
+
+```typescript
+import type {
+  ManifestoDispatchRuntime,
+  ManifestoLegalityRuntime,
+} from "@manifesto-ai/sdk";
+import type { LineageCommitRuntime } from "@manifesto-ai/lineage";
+import type { GovernanceProposalRuntime } from "@manifesto-ai/governance";
+```
+
+- `ManifestoLegalityRuntime<T>` is the shared helper-safe legality/preparation surface: `createIntent`, `whyNot`, `simulate`, and `MEL`
+- `ManifestoDispatchRuntime<T>` is the base-only execution surface
+- `LineageCommitRuntime<T>` is the lineage-only execution surface
+- `GovernanceProposalRuntime<T>` is the governed-only execution surface
+
+These aliases are additive conveniences for helper authors. They do not define a cross-decorator common write verb.
+
 ## `createIntent()` binding forms
 
 `createIntent()` stays anchored on the canonical `MEL.actions.*` surface.
@@ -172,6 +192,7 @@ const blockers = instance.whyNot(intent);
 - `explainIntent()` returns a structured `IntentExplanation` for the bound intent against the current visible canonical snapshot.
 - `why()` is a convenience alias of `explainIntent()`.
 - `whyNot()` returns blockers for the first failing layer, or `null` if the intent is admitted.
+- `getIntentBlockers(action, ...input)` is the pre-bind blocker read for action plus candidate input.
 
 Explanation reads preserve SDK input validation ordering. If the action is available but the supplied intent input is invalid, `explainIntent()`, `why()`, and `whyNot()` throw `INVALID_INPUT` before dispatchability or blocker projection.
 If the action is unavailable, these reads return the unavailable blocked result and do not surface invalid-input failures hidden behind that unavailable action.

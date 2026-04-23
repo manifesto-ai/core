@@ -64,6 +64,11 @@ export type GovernanceInstance<T extends ManifestoDomainShape> =
     ) => Promise<DecisionRecord | null>;
   };
 
+export type GovernanceProposalRuntime<T extends ManifestoDomainShape> = Pick<
+  GovernanceInstance<T>,
+  "proposeAsync"
+>;
+
 export type GovernanceComposableManifesto<
   T extends ManifestoDomainShape,
 > = Omit<

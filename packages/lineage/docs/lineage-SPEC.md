@@ -86,6 +86,11 @@ type LineageInstance<T extends ManifestoDomainShape> =
     readonly switchActiveBranch: (branchId: BranchId) => Promise<BranchSwitchResult>;
     readonly createBranch: (name: string, fromWorldId?: WorldId) => Promise<BranchId>;
   };
+
+type LineageCommitRuntime<T extends ManifestoDomainShape> = Pick<
+  LineageInstance<T>,
+  "commitAsync" | "commitAsyncWithReport"
+>;
 ```
 
 Normative rules:
@@ -104,6 +109,8 @@ Normative rules:
 `getSnapshot()` remains the projected runtime read model inherited from SDK. `getCanonicalSnapshot()` returns the current visible runtime substrate. `getWorldSnapshot(worldId)` is different again: it reads the stored sealed canonical substrate for a specific world from lineage storage.
 
 The inherited SDK read surface also remains available on the activated lineage runtime, including `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()`.
+
+`LineageCommitRuntime<T>` is the additive helper-boundary alias for lineage execution helpers. It does not reintroduce any base `dispatchAsync()` assumption into the promoted runtime.
 
 The base SDK write-report companion does not remain on a lineage runtime after verb promotion. The lineage-owned additive report companion is `commitAsyncWithReport()`.
 

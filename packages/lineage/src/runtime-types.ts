@@ -106,6 +106,11 @@ export type LineageInstance<T extends ManifestoDomainShape> =
     readonly createBranch: (name: string, fromWorldId?: WorldId) => Promise<BranchId>;
   };
 
+export type LineageCommitRuntime<T extends ManifestoDomainShape> = Pick<
+  LineageInstance<T>,
+  "commitAsync" | "commitAsyncWithReport"
+>;
+
 export type LineageComposableManifesto<
   T extends ManifestoDomainShape,
 > = Omit<ComposableManifesto<T, LineageComposableLaws>, "activate"> & {
