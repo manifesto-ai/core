@@ -2,6 +2,8 @@
 
 > **Purpose:** Guide for organizing and exploring the example `.mel` files under `docs/mel/examples/`.
 
+Examples in this directory prefer the current sugar-first MEL surface for operators, access, ternaries, and object spread. Equivalent function-form source is documented in [MEL Reference](/mel/REFERENCE) and [MEL Syntax](/mel/SYNTAX).
+
 ---
 
 ## Directory Layout
@@ -134,13 +136,13 @@ domain Example {
 
   // --- Example 1: Arithmetic ---
   // Description of what this shows
-  computed doubled = mul(count, 2)
+  computed doubled = count * 2
 
   // --- Example 2: String ---
   computed greeting = concat("Hello, ", name)
 
-  // --- Anti-pattern (what NOT to do) ---
-  // ❌ computed wrong = count + 1    // Use mul(count, 2)
+  // --- Equivalent function-form source is still valid ---
+  // computed doubledLegacy = mul(count, 2)
 }
 ```
 

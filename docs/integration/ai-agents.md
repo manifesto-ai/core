@@ -271,10 +271,10 @@ That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools u
 
 ## What Manifesto Adds To Agents
 
-- **Live capability discovery:** `getAvailableActions()` tells the agent which domain actions are legal against the current Snapshot.
-- **Runtime-owned writes:** tools translate model requests into `createIntent(app.MEL.actions.*)`; the model never mutates state directly.
-- **Snapshot feedback:** tool results return selected `snapshot.data`, `snapshot.computed`, and updated availability.
-- **Simple HITL escalation:** `withGovernance()` turns a write tool into a proposal tool without rewriting the MEL domain.
+- `getAvailableActions()` exposes current action availability.
+- Tools dispatch or propose typed Intents.
+- Tool results return fresh Snapshot context.
+- `withGovernance()` adds review without changing the MEL domain.
 
 ---
 
@@ -282,19 +282,19 @@ That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools u
 
 ### Describing actions only in the system prompt
 
-Use `getAvailableActions()` and `getActionMetadata()` as the source for agent-facing capabilities. Prompt text can explain behavior, but the runtime owns action availability.
+Use `getAvailableActions()` and `getActionMetadata()` as the capability surface.
 
 ### Letting the agent edit state directly
 
-Do not let the agent write storage rows, React state, Redux slices, or serialized snapshots as its domain command. Call a tool that dispatches or proposes an Intent.
+Do not let the agent write state directly. Dispatch or propose an Intent.
 
 ### Hiding approval logic in prompt text
 
-If a write requires review, use Governance or application policy. A prompt instruction like "ask me first" is not an auditable decision record.
+Use Governance or app policy for review. Do not rely on prompt text.
 
 ### Returning effect results as the action outcome
 
-Effects report back through patches. Actions and tools should read the resulting Snapshot view.
+Read the resulting Snapshot. Effects report back through patches.
 
 ---
 

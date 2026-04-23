@@ -1,6 +1,6 @@
 # Integration
 
-> Connect Manifesto to React apps, agent loops, and later-stage approval/history workflows.
+> Connect Manifesto from direct app wiring to build/runtime setup, tooling, and agent automation.
 
 ---
 
@@ -20,8 +20,11 @@ Both operate on the same semantic core. The difference is how much legitimacy, l
 | Need | Go Here |
 |------|---------|
 | Fast app wiring, rendering, and telemetry | [React](./react) |
-| Agent-driven transitions without approval gates | [AI Agents](./ai-agents) |
+| Import `.mel` files in a bundler or script path | [Bundler Setup](/guides/bundler-setup) |
+| Fulfill declared effects and return patches | [Effect Handlers](/guides/effect-handlers) |
 | Editor, CLI, or agent-facing tooling around the same schema | [Developer Tooling](/guides/developer-tooling) |
+| Generate TypeScript or Zod artifacts from a working schema | [Code Generation](/guides/code-generation) |
+| Agent-driven transitions without approval gates | [AI Agents](./ai-agents) |
 | Explicit proposals, approvals, and branch history | [When You Need Approval or History](/guides/approval-and-history) |
 
 If you only need Snapshot reads and direct intent dispatch, stay on the SDK path.
@@ -66,8 +69,11 @@ That flow is introduced in [When You Need Approval or History](/guides/approval-
 ## See Also
 
 - [Tutorial](/tutorial/) for the learning paths
-- [World](../concepts/world) for advanced runtime composition
 - [React](./react) for UI wiring
-- [AI Agents](./ai-agents) for automation wiring
+- [Bundler Setup](/guides/bundler-setup) for `.mel` imports
+- [Effect Handlers](/guides/effect-handlers) for effect fulfillment
 - [Developer Tooling](/guides/developer-tooling) for CLI, editor, Studio, and skill setup
+- [Code Generation](/guides/code-generation) for generated TS and Zod artifacts
+- [AI Agents](./ai-agents) for automation wiring
+- [World](../concepts/world) for advanced runtime composition
 - [Architecture](/architecture/) for the broader system model

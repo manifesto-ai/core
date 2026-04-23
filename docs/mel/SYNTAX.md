@@ -28,11 +28,11 @@ domain Counter {
     count: number = 0
   }
 
-  computed doubled = mul(count, 2)
+  computed doubled = count * 2
 
   action increment() {
     when true {
-      patch count = add(count, 1)
+      patch count = count + 1
     }
   }
 }
@@ -180,18 +180,18 @@ Computed values are pure expressions derived from state. They are recalculated o
 ### Basic Computed
 
 ```mel
-computed doubled = mul(count, 2)
-computed isPositive = gt(count, 0)
+computed doubled = count * 2
+computed isPositive = count > 0
 computed greeting = concat("Hello, ", name, "!")
 ```
 
 ### Boolean Conditions
 
 ```mel
-computed isEmpty = eq(len(items), 0)
-computed hasItems = gt(len(items), 0)
-computed isActive = and(eq(status, "active"), gt(count, 0))
-computed canSubmit = and(isNotNull(email), neq(trim(email), ""))
+computed isEmpty = len(items) == 0
+computed hasItems = len(items) > 0
+computed isActive = status == "active" && count > 0
+computed canSubmit = email != null && trim(email) != ""
 ```
 
 ### Null Handling
@@ -204,9 +204,36 @@ computed safeValue = coalesce(selectedId, "none")
 ### Ternary Expressions
 
 ```mel
-computed label = gt(count, 0) ? "Positive" : "Non-positive"
-computed display = eq(status, "loading") ? "Please wait..." : result
+computed label = count > 0 ? "Positive" : "Non-positive"
+computed display = status == "loading" ? "Please wait..." : result
 ```
+
+### Preferred Surface: Sugar First
+
+In user-facing docs, prefer MEL's current sugar-first source surface for operators, access, ternaries, nullish coalescing, and object spread.
+
+```mel
+computed next = count + 1
+computed canSubmit = email != null && trim(email) != ""
+computed label = count > 0 ? "Positive" : "Non-positive"
+computed selectedTask = tasks[selectedId]
+computed shippedOrder = { ...order, status: "shipped" }
+```
+
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
+computed next = add(count, 1)
+computed canSubmit = and(isNotNull(email), neq(trim(email), ""))
+computed label = cond(gt(count, 0), "Positive", "Non-positive")
+computed selectedTask = at(tasks, selectedId)
+computed shippedOrder = merge(order, { status: "shipped" })
+```
+
+</details>
+
+Use the folded function-form source when you need exact source-level correspondence. It is not a description of runtime IR shapes.
 
 ### Object Functions
 
@@ -374,12 +401,12 @@ Actions define state transitions. All mutations must be inside guards (`when` or
 ```mel
 action increment() {
   when true {
-    patch count = add(count, 1)
+    patch count = count + 1
   }
 }
 
 action reset() {
-  when gt(count, 0) {
+  when count > 0 {
     patch count = 0
   }
 }
@@ -389,8 +416,8 @@ action reset() {
 
 ```mel
 action addAmount(amount: number) {
-  when gt(amount, 0) {
-    patch count = add(count, amount)
+  when amount > 0 {
+    patch count = count + amount
   }
 }
 
@@ -421,13 +448,13 @@ action updateUser(name: string, age: number) {
 ### Available When (Precondition)
 
 ```mel
-action decrement() available when gt(count, 0) {
+action decrement() available when count > 0 {
   when true {
-    patch count = sub(count, 1)
+    patch count = count - 1
   }
 }
 
-action submit() available when and(isNotNull(email), eq(submittedAt, null)) {
+action submit() available when email != null && submittedAt == null {
   once(submitIntent) {
     patch submitIntent = $meta.intentId
     effect api.submit({ data: formData, into: result })
@@ -439,8 +466,8 @@ action submit() available when and(isNotNull(email), eq(submittedAt, null)) {
 
 ```mel
 // ❌ COMPILE ERROR: $input not allowed in available
-action process(x: number) available when gt($input.x, 0) {
-  when true { patch count = add(count, 1) }
+action process(x: number) available when $input.x > 0 {
+  when true { patch count = count + 1 }
 }
 ```
 
@@ -449,9 +476,9 @@ action process(x: number) available when gt($input.x, 0) {
 ```mel
 action shoot(cellIndex: number)
   available when canShoot
-  dispatchable when eq(at(cells, cellIndex), "unknown") {
+  dispatchable when at(cells, cellIndex) == "unknown" {
   when true {
-    patch cells = updateAt(cells, cellIndex, "pending")
+    patch status = "pending"
   }
 }
 ```
@@ -463,8 +490,8 @@ action shoot(cellIndex: number)
 
 ```mel
 // ❌ COMPILE ERROR: direct $input not allowed in dispatchable
-action process(x: number) dispatchable when gt($input.x, 0) {
-  when true { patch count = add(count, 1) }
+action process(x: number) dispatchable when $input.x > 0 {
+  when true { patch count = count + 1 }
 }
 ```
 
@@ -645,7 +672,7 @@ action increment() {
 
 ```mel
 action addTask(title: string) {
-  onceIntent when neq(trim(title), "") {
+  onceIntent when trim(title) != "" {
     patch tasks[$system.uuid] = { id: $system.uuid, title: title, done: false }
   }
 }
@@ -662,13 +689,13 @@ action addTask(title: string) {
 ```mel
 action createUser(email: string) {
   // Validation failure
-  when eq(trim(email), "") {
+  when trim(email) == "" {
     fail "MISSING_EMAIL"
   }
 
   // With message
-  when not(isValidEmail(email)) {
-    fail "INVALID_EMAIL" with "Email format is invalid"
+  when strlen(trim(email)) < 3 {
+    fail "EMAIL_TOO_SHORT" with "Email must be at least 3 characters"
   }
 
   // Dynamic message
@@ -846,6 +873,8 @@ action process() {
 
 ## Quick Reference
 
+This quick reference lists the current compile-verified MEL source surface for this repo. Historical docs may mention broader helper names; when they conflict with this page, prefer the forms listed here.
+
 ### Operators
 
 | Operator | MEL Function | Example |
@@ -867,11 +896,36 @@ action process() {
 | `??` | `coalesce(a, b)` | `coalesce(x, 0)` |
 | `? :` | ternary | `x ? a : b` |
 
+<details>
+<summary>동등한 함수형 표기</summary>
+
+```mel
+a + b        // add(a, b)
+a - b        // sub(a, b)
+a * b        // mul(a, b)
+a / b        // div(a, b)
+a % b        // mod(a, b)
+a == b       // eq(a, b)
+a != b       // neq(a, b)
+a < b        // lt(a, b)
+a <= b       // lte(a, b)
+a > b        // gt(a, b)
+a >= b       // gte(a, b)
+a && b       // and(a, b)
+a || b       // or(a, b)
+!a           // not(a)
+a ?? b       // coalesce(a, b)
+a ? b : c    // cond(a, b, c)
+items[id]    // at(items, id)
+```
+
+</details>
+
 ### Builtin Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `len(arr)` | `Array<T> → number` | Array length |
+| `len(value)` | `string \| Array<T> \| object \| Record<string, T> → number` | Length or key count |
 | `sum(arr)` | `Array<number> → number` | Sum of array |
 | `min(arr)` | `Array<T> → T \| null` | Minimum (single arg) |
 | `max(arr)` | `Array<T> → T \| null` | Maximum (single arg) |
@@ -892,6 +946,17 @@ action process() {
 | `keys(obj)` | `Object → Array<string>` | Object keys |
 | `values(obj)` | `Object → Array<unknown>` | Object values |
 | `entries(obj)` | `Object → Array<[string, unknown]>` | Key-value pairs |
+
+### Entity Primitives
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `findById(coll, id)` | `(Array<T>, T.id \| null) → T \| null` | Returns the item whose `.id` matches `id` |
+| `existsById(coll, id)` | `(Array<T>, T.id \| null) → boolean` | Returns `true` when a matching item exists |
+| `updateById(coll, id, updates)` | `(Array<T>, T.id \| null, Partial<T>) → Array<T>` | Shallow-merges updates into the matching item |
+| `removeById(coll, id)` | `(Array<T>, T.id \| null) → Array<T>` | Removes the matching item |
+
+`findById()` and `existsById()` are valid in computed expressions and guards. `updateById()` and `removeById()` are patch-RHS transforms only.
 
 > **Object spread is syntax, not a builtin.** `{ ...base, status: "active" }` is the current bounded object-literal sugar and lowers through `merge(...)`.
 

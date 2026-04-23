@@ -47,11 +47,11 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     text: 'Integrations',
     items: [
       { text: 'React', link: '/integration/react' },
-      { text: 'AI Agents', link: '/integration/ai-agents' },
-      { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-      { text: 'Code Generation', link: '/guides/code-generation' },
-      { text: 'Tooling', link: '/guides/developer-tooling' },
       { text: 'Bundler Setup', link: '/guides/bundler-setup' },
+      { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+      { text: 'Tooling', link: '/guides/developer-tooling' },
+      { text: 'Code Generation', link: '/guides/code-generation' },
+      { text: 'AI Agents', link: '/integration/ai-agents' },
     ]
   },
   {
