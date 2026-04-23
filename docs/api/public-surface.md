@@ -780,6 +780,7 @@ _Source: `packages/governance/src/index.ts`_
 - `GovernanceEventType`
 - `GovernanceExecutionConfig`
 - `GovernanceInstance`
+- `GovernanceProposalRuntime`
 - `IntentScope`
 - `PolicyCondition`
 - `PolicyRule`
@@ -990,6 +991,7 @@ _Source: `packages/lineage/src/index.ts`_
 - `BranchInfo`
 - `BranchSwitchResult`
 - `CommitReport`
+- `LineageCommitRuntime`
 - `LineageConfig`
 - `LineageInstance`
 - `World`
@@ -1095,10 +1097,12 @@ _Source: `packages/sdk/src/index.ts`_
 - `LineageLaws`
 - `ManifestoBaseInstance`
 - `ManifestoDecoratedRuntimeByLaws`
+- `ManifestoDispatchRuntime`
 - `ManifestoDomainShape`
 - `ManifestoEvent`
 - `ManifestoEventMap`
 - `ManifestoEventPayload`
+- `ManifestoLegalityRuntime`
 - `ManifestoRuntimeByLaws`
 - `Patch`
 - `ProjectedDiff`
