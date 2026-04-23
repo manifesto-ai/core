@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.1](https://github.com/manifesto-ai/core/compare/compiler-v3.7.0...compiler-v3.7.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **compiler:** harden MEL type-checking and compliance coverage ([#447](https://github.com/manifesto-ai/core/issues/447)) ([42f6c18](https://github.com/manifesto-ai/core/commit/42f6c187edb5e34de0164e4d8c8ad97d7536b2c3))
+
 ## [3.7.0](https://github.com/manifesto-ai/core/compare/compiler-v3.6.0...compiler-v3.7.0) (2026-04-16)
 
 
