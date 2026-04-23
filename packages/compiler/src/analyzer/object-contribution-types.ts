@@ -107,10 +107,11 @@ export function classifySpreadOperandType<Symbols>(
     return "invalid";
   }
 
-  const nonNullMembers = resolved.types
+  const resolvedMembers = resolved.types
     .map((member) => resolveType(member, symbols))
-    .filter((member): member is TypeExprNode => member !== null && !isNullType(member));
-  const hasNullBranch = resolved.types.some((member) => isNullType(member));
+    .filter((member): member is TypeExprNode => member !== null);
+  const nonNullMembers = resolvedMembers.filter((member) => !isNullType(member));
+  const hasNullBranch = resolvedMembers.some((member) => isNullType(member));
   if (hasNullBranch && nonNullMembers.length === 1 && nonNullMembers[0].kind === "objectType") {
     return "nullable-object";
   }
@@ -187,10 +188,11 @@ function getContributionFields<Symbols>(
     return null;
   }
 
-  const nonNullMembers = resolved.types
+  const resolvedMembers = resolved.types
     .map((member) => resolveType(member, symbols))
-    .filter((member): member is TypeExprNode => member !== null && !isNullType(member));
-  const hasNullBranch = resolved.types.some((member) => isNullType(member));
+    .filter((member): member is TypeExprNode => member !== null);
+  const nonNullMembers = resolvedMembers.filter((member) => !isNullType(member));
+  const hasNullBranch = resolvedMembers.some((member) => isNullType(member));
   if (!hasNullBranch || nonNullMembers.length !== 1) {
     return null;
   }

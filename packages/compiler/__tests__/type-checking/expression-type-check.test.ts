@@ -338,6 +338,28 @@ describe("Expression type checking", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts nullable object spread operands through null aliases", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Nil = null
+        type User = {
+          id: string,
+          name: string
+        }
+        type MaybeUser = User | Nil
+
+        state {
+          maybeUser: MaybeUser = null
+        }
+
+        computed partialUser = { ...maybeUser }
+        computed safeName = coalesce(partialUser.name, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects invalid object spread operands", () => {
     const result = compileSource(`
       domain Demo {
@@ -368,6 +390,28 @@ describe("Expression type checking", () => {
 
         computed partialDraft = merge(draft)
         computed safeCustomerId = coalesce(partialDraft.customerId, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts direct merge operands through null aliases", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Nil = null
+        type User = {
+          id: string,
+          name: string
+        }
+        type MaybeUser = User | Nil
+
+        state {
+          maybeUser: MaybeUser = null
+        }
+
+        computed partialUser = merge(maybeUser)
+        computed safeName = coalesce(partialUser.name, "guest")
       }
     `);
 

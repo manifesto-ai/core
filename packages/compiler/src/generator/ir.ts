@@ -499,9 +499,7 @@ function typeExprToFieldSpec(
 
     case "unionType": {
       const nonNullTypes = typeExpr.types.filter(
-        (candidate) =>
-          !(candidate.kind === "simpleType" && candidate.name === "null") &&
-          !(candidate.kind === "literalType" && candidate.value === null)
+        (candidate) => !isNullTypeExpr(candidate, ctx, seenTypeRefs)
       );
       const hasNull = nonNullTypes.length !== typeExpr.types.length;
       const enumValues: unknown[] = [];
@@ -577,6 +575,39 @@ function typeExprToFieldSpec(
       };
     }
   }
+}
+
+function resolveTypeExprForFieldSpec(
+  typeExpr: TypeExprNode,
+  ctx: GeneratorContext,
+  seenTypeRefs: readonly string[] = []
+): TypeExprNode | null {
+  if (typeExpr.kind !== "simpleType") {
+    return typeExpr;
+  }
+
+  const typeDef = ctx.typeDefs.get(typeExpr.name);
+  if (!typeDef) {
+    return typeExpr;
+  }
+
+  if (seenTypeRefs.includes(typeExpr.name)) {
+    return null;
+  }
+
+  return resolveTypeExprForFieldSpec(typeDef.typeExpr, ctx, [...seenTypeRefs, typeExpr.name]);
+}
+
+function isNullTypeExpr(
+  typeExpr: TypeExprNode,
+  ctx: GeneratorContext,
+  seenTypeRefs: readonly string[] = []
+): boolean {
+  const resolved = resolveTypeExprForFieldSpec(typeExpr, ctx, seenTypeRefs);
+  return (
+    (resolved?.kind === "simpleType" && resolved.name === "null") ||
+    (resolved?.kind === "literalType" && resolved.value === null)
+  );
 }
 
 /**
