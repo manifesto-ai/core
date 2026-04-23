@@ -132,6 +132,18 @@ describe("evaluateExpr", () => {
         null
       );
     });
+
+    it("should return null for missing meta intent and action paths", () => {
+      const ctx = createTestContext({
+        meta: {} as EvaluationContext["meta"],
+      });
+      expect(evaluateExpr({ kind: "get", path: "meta.intentId" }, ctx)).toBe(
+        null
+      );
+      expect(evaluateExpr({ kind: "get", path: "meta.actionName" }, ctx)).toBe(
+        null
+      );
+    });
   });
 
   describe("comparison operators", () => {

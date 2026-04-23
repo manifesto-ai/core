@@ -92,7 +92,12 @@ describe("Expression Evaluator", () => {
       const ctx = createTestContext({ count: 10, user: { name: "Alice" } });
       expect(evaluate({ kind: "get", path: "count" }, ctx)).toBe(10);
       expect(evaluate({ kind: "get", path: "user.name" }, ctx)).toBe("Alice");
-      expect(evaluate({ kind: "get", path: "nonexistent" }, ctx)).toBeUndefined();
+      expect(evaluate({ kind: "get", path: "nonexistent" }, ctx)).toBeNull();
+      expect(evaluate({
+        kind: "eq",
+        left: { kind: "get", path: "nonexistent" },
+        right: { kind: "lit", value: null },
+      }, ctx)).toBe(true);
     });
 
     it("get - should get values from input", () => {
@@ -115,6 +120,13 @@ describe("Expression Evaluator", () => {
       expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBe("intent-123");
       expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBe("testAction");
       expect(evaluate({ kind: "get", path: "meta.timestamp" }, ctx)).toBe(1234);
+    });
+
+    it("get - should normalize missing meta values to null", () => {
+      const ctx = createTestContext();
+      expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBeNull();
+      expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBeNull();
+      expect(evaluate({ kind: "get", path: "meta.missing" }, ctx)).toBeNull();
     });
   });
 

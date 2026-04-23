@@ -245,14 +245,14 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Handle collection context variables
   if (path.startsWith("$item")) {
     if (ctx.$item === undefined) {
-      return ok(undefined);
+      return ok(null);
     }
     if (path === "$item") {
       return ok(ctx.$item);
     }
     // e.g., $item.completed
     const subPath = path.slice(6); // Remove "$item."
-    return ok(getByPath(ctx.$item, subPath));
+    return ok(normalizeMissingPathValue(getByPath(ctx.$item, subPath)));
   }
 
   if (path === "$index") {
@@ -284,7 +284,7 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     }
 
     // Unknown $system path
-    return ok(undefined);
+    return ok(null);
   }
 
   // Handle meta path (snapshot metadata)
@@ -292,35 +292,39 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     const metaPath = path.slice(5); // Remove "meta."
 
     if (metaPath === "intentId") {
-      return ok(ctx.intentId);
+      return ok(normalizeMissingPathValue(ctx.intentId));
     }
 
     if (metaPath === "actionName") {
-      return ok(ctx.currentAction);
+      return ok(normalizeMissingPathValue(ctx.currentAction));
     }
 
-    return ok(getByPath(ctx.snapshot.meta, metaPath));
+    return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.meta, metaPath)));
   }
 
   // Handle input path
   if (path.startsWith("input.") || path === "input") {
     const subPath = path === "input" ? "" : path.slice(6);
-    return ok(subPath ? getByPath(ctx.snapshot.input, subPath) : ctx.snapshot.input);
+    return ok(subPath ? normalizeMissingPathValue(getByPath(ctx.snapshot.input, subPath)) : ctx.snapshot.input);
   }
 
   // Handle computed path (schema lookup, no prefix)
   if (Object.prototype.hasOwnProperty.call(ctx.schema.computed.fields, path)) {
-    return ok(ctx.snapshot.computed[path]);
+    return ok(normalizeMissingPathValue(ctx.snapshot.computed[path]));
   }
 
   // Handle system path (snapshot.system, not $system)
   if (path.startsWith("system.")) {
     const subPath = path.slice(7);
-    return ok(getByPath(ctx.snapshot.system, subPath));
+    return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.system, subPath)));
   }
 
   // Default: get from data
-  return ok(getByPath(ctx.snapshot.data, path));
+  return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.data, path)));
+}
+
+function normalizeMissingPathValue(value: unknown): unknown {
+  return value === undefined ? null : value;
 }
 
 // ============ Binary Operations ============

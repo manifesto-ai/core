@@ -14,6 +14,10 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 - Turing-complete
 - A subset of JavaScript
 
+> **MEL is not a subset of JavaScript.** Object-literal spread is admitted exclusively as an authoring-ergonomics sugar that lowers to `merge()`. Array spread, rest destructuring, computed keys, optional chaining, method-call syntax, template literals, and truthiness coercion remain unsupported.
+>
+> **Compatibility note:** If you need code that also compiles on older pre-v1.2 compiler branches, prefer `merge(...)` and `patch path merge expr` as the fallback forms. On current v1.2 compilers, object-literal spread is part of the normal surface.
+
 **MEL expresses:**
 - Facts (computed)
 - Conditions (when, available when)
@@ -56,6 +60,9 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 8. `argmax()` / `argmin()` only accept inline `[label, eligible, score]` candidates plus a literal `"first"` or `"last"` tie-break
 9. `absDiff`, `clamp`, `idiv`, and `streak` are lowering-only sugar over existing arithmetic and conditional builtins
 10. Complex object types in state must be named (`type X = { ... }`)
+11. Object-literal spread `{ ...obj, key: value }` is the sole parser-level shorthand in current MEL
+12. Spread operands must be object-shaped or `T | null`; arrays, records, computed keys, rest patterns, and object-only multi-branch unions are not part of the current contract
+13. Optional fields produced by spread or spread-equivalent `merge()` reads are observed as `T | null` and usually require `coalesce(...)` before a non-null sink
 
 ---
 
@@ -151,13 +158,15 @@ computed bestKind = argmax(
 )
 
 // Object functions
-computed withDefaults = merge(config, { theme: "light" })  // Shallow merge (later wins)
+computed withDefaults = { theme: "light", ...config }      // Spread-first composition
+computed effectiveConfig = { theme: "light", locale: "en", ...userPrefs }
+computed mergedConfig = merge(defaults, config)             // Direct merge() still available
 computed taskIds = keys(tasks)                              // Object keys
 computed taskList = values(tasks)                           // Object values
 computed taskPairs = entries(tasks)                         // Key-value pairs
 ```
 
-> **`merge()` vs `patch merge`:** `merge(a, b)` is a pure expression returning a new object. `patch path merge expr` is a state operation. They are different constructs.
+> **`merge()` vs `patch merge` vs spread-set:** `merge(a, b)` is a pure expression returning a new object. `patch path merge expr` is a patch operation. `patch path = { ...obj, key: value }` is still a set patch whose value lowers through `merge(...)`.
 
 **Forbidden in computed:**
 ```mel
@@ -175,6 +184,11 @@ computed label = match(status, "open" => "Open", _ => "Unknown")
 
 // ❌ Runtime-array argmax/argmin forms are not supported
 computed best = argmax(candidates, "first")
+
+// ❌ Adjacent JS forms remain unsupported
+computed copy = [...items]
+computed keyed = { [name]: value }
+computed maybeName = profile?.name
 ```
 
 ---
@@ -262,6 +276,14 @@ patch tasks[id] unset
 
 // Shallow merge
 patch settings merge { theme: "dark" }
+
+// Set patch with object spread sugar
+patch draft = {
+  ...draft,
+  customerId: customerId,
+  appliedCouponId: null,
+  submissionState: "submitted"
+}
 ```
 
 ---
@@ -483,16 +505,16 @@ action loadData() {
 }
 ```
 
-### Merge to Enrich/Override Fields
+### Object Composition to Enrich/Override Fields
 
 ```mel
-// In computed — combine with defaults
-computed enriched = merge(item, { status: "active", source: "api" })
+// In computed — spread-first override
+computed enriched = { ...item, status: "active", source: "api" }
 
 // In map — override fields without enumerating all
 effect array.map({
   source: items,
-  select: merge($item, { processed: true }),
+  select: { ...$item, processed: true },
   into: processedItems
 })
 ```

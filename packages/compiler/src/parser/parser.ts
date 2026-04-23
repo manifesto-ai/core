@@ -37,6 +37,7 @@ import {
   type ExprNode,
   type PathNode,
   type PathSegmentNode,
+  type ObjectLiteralEntryNode,
   type ObjectPropertyNode,
 } from "./ast.js";
 import {
@@ -839,6 +840,12 @@ export class Parser {
     let left = this.parsePrimary();
 
     while (true) {
+      if (this.check("QUESTION") && this.peekNext().kind === "DOT") {
+        throw this.errorAtCurrent(
+          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Optional chaining is not supported."
+        );
+      }
+
       const precedence = getBinaryPrecedence(this.peek().kind);
       if (precedence <= minPrecedence) break;
 
@@ -1057,19 +1064,35 @@ export class Parser {
 
   private parseObjectLiteral(): ExprNode {
     const start = this.consume("LBRACE", "Expected '{'").location;
-    const properties: ObjectPropertyNode[] = [];
+    const properties: ObjectLiteralEntryNode[] = [];
 
     while (!this.check("RBRACE") && !this.isAtEnd()) {
-      const keyToken = this.consume("IDENTIFIER", "Expected property name");
-      this.consume("COLON", "Expected ':' after property name");
-      const value = this.parseExpression();
+      if (this.check("LBRACKET")) {
+        throw this.errorAtCurrent(
+          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Computed object keys are not supported."
+        );
+      }
 
-      properties.push({
-        kind: "objectProperty",
-        key: keyToken.lexeme,
-        value,
-        location: mergeLocations(keyToken.location, value.location),
-      });
+      if (this.match("ELLIPSIS")) {
+        const spreadStart = this.previous().location;
+        const spreadExpr = this.parseExpression();
+        properties.push({
+          kind: "objectSpread",
+          expr: spreadExpr,
+          location: mergeLocations(spreadStart, spreadExpr.location),
+        });
+      } else {
+        const keyToken = this.consume("IDENTIFIER", "Expected property name");
+        this.consume("COLON", "Expected ':' after property name");
+        const value = this.parseExpression();
+
+        properties.push({
+          kind: "objectProperty",
+          key: keyToken.lexeme,
+          value,
+          location: mergeLocations(keyToken.location, value.location),
+        });
+      }
 
       if (!this.check("RBRACE")) {
         this.consume("COMMA", "Expected ',' between properties");
@@ -1090,6 +1113,12 @@ export class Parser {
     const elements: ExprNode[] = [];
 
     while (!this.check("RBRACKET") && !this.isAtEnd()) {
+      if (this.check("ELLIPSIS")) {
+        throw this.errorAtCurrent(
+          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Array spread is not supported."
+        );
+      }
+
       elements.push(this.parseExpression());
       if (!this.check("RBRACKET")) {
         this.consume("COMMA", "Expected ',' between elements");

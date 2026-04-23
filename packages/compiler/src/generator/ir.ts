@@ -1024,7 +1024,15 @@ function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
     case "objectLiteral": {
       const obj: Record<string, unknown> = {};
       for (const prop of expr.properties) {
-        obj[prop.key] = evaluateInitializer(prop.value, ctx);
+        if (prop.kind === "objectProperty") {
+          obj[prop.key] = evaluateInitializer(prop.value, ctx);
+          continue;
+        }
+
+        const spreadValue = evaluateInitializer(prop.expr, ctx);
+        if (spreadValue !== null && !Array.isArray(spreadValue) && typeof spreadValue === "object") {
+          Object.assign(obj, spreadValue);
+        }
       }
       return obj;
     }

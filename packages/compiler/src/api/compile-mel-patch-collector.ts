@@ -11,7 +11,9 @@ import type {
   PatchStmtNode,
 } from "../parser/ast.js";
 import {
+  classifySpreadOperandType,
   classifyComparableExpr,
+  inferExprType,
   type DomainTypeSymbols,
 } from "../analyzer/expr-type-surface.js";
 import { toMelExpr } from "./compile-mel-patch-expr.js";
@@ -582,7 +584,13 @@ class PatchExprValidator {
 
       case "objectLiteral":
         for (const property of expr.properties) {
-          this.validateExpr(property.value, errors);
+          if (property.kind === "objectProperty") {
+            this.validateExpr(property.value, errors);
+            continue;
+          }
+
+          this.validateExpr(property.expr, errors);
+          this.validateSpreadOperand(property.expr, property.location, errors);
         }
         return;
 
@@ -616,6 +624,38 @@ class PatchExprValidator {
       severity: "error",
       code: "E_TYPE_MISMATCH",
       message: "eq/neq operands must be primitive types (null, boolean, number, string)",
+      location: this.mapLocation(location),
+      });
+  }
+
+  private validateSpreadOperand(
+    expr: ExprNode,
+    location: Diagnostic["location"],
+    errors: Diagnostic[]
+  ): void {
+    const inferred = inferExprType(expr, new Map(), this.symbols);
+    const isDefinitelyInvalidSpread = expr.kind === "arrayLiteral" && expr.elements.length === 0;
+
+    if (!inferred) {
+      if (!isDefinitelyInvalidSpread) {
+        return;
+      }
+    }
+
+    const classification = inferred
+      ? classifySpreadOperandType(inferred, this.symbols)
+      : isDefinitelyInvalidSpread
+      ? "invalid"
+      : "unknown";
+
+    if (classification !== "invalid") {
+      return;
+    }
+
+    errors.push({
+      severity: "error",
+      code: "E_TYPE_MISMATCH",
+      message: "Object spread operands must be object-shaped or T | null where T is object-shaped",
       location: this.mapLocation(location),
     });
   }

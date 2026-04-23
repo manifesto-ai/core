@@ -21,6 +21,10 @@ import type {
   TypeExprNode,
   WhenStmtNode,
 } from "../parser/ast.js";
+import {
+  inferMergeContributionType,
+  inferObjectLiteralContributionType,
+} from "./object-contribution-types.js";
 
 const MAX_INCLUDE_DEPTH = 16;
 
@@ -500,7 +504,9 @@ function cloneExprWithBindings(expr: ExprNode, bindings: ValueBindings): ExprNod
         ...cloneNode(expr),
         properties: expr.properties.map((property) => ({
           ...cloneNode(property),
-          value: cloneExprWithBindings(property.value, bindings),
+          ...(property.kind === "objectProperty"
+            ? { value: cloneExprWithBindings(property.value, bindings) }
+            : { expr: cloneExprWithBindings(property.expr, bindings) }),
         })),
       };
 
@@ -721,25 +727,7 @@ function inferExprType(expr: ExprNode, typeEnv: TypeEnv, symbols: FlowSymbols): 
     }
 
     case "objectLiteral":
-      return {
-        kind: "objectType",
-        fields: expr.properties
-          .map((property) => {
-            const propertyType = inferExprType(property.value, typeEnv, symbols);
-            if (!propertyType) {
-              return null;
-            }
-            return {
-              kind: "typeField" as const,
-              name: property.key,
-              typeExpr: propertyType,
-              optional: false,
-              location: property.location,
-            };
-          })
-          .filter((field): field is NonNullable<typeof field> => field !== null),
-        location: expr.location,
-      };
+      return inferObjectLiteralContributionType(expr, typeEnv, symbols, inferExprType, resolveType);
 
     case "arrayLiteral": {
       if (expr.elements.length === 0) {
@@ -756,8 +744,13 @@ function inferExprType(expr: ExprNode, typeEnv: TypeEnv, symbols: FlowSymbols): 
       };
     }
 
-    case "systemIdent":
     case "functionCall":
+      if (expr.name === "merge") {
+        return inferMergeContributionType(expr, typeEnv, symbols, inferExprType, resolveType);
+      }
+      return null;
+
+    case "systemIdent":
     case "binary":
     case "unary":
     case "ternary":
@@ -790,19 +783,32 @@ function getPropertyType(typeExpr: TypeExprNode | null, property: string, symbol
 
   if (resolved.kind === "objectType") {
     const field = resolved.fields.find((candidate) => candidate.name === property);
-    return field?.typeExpr ?? null;
+    if (!field) {
+      return null;
+    }
+    if (!field.optional) {
+      return field.typeExpr;
+    }
+    return joinTypeCandidates(
+      [
+        field.typeExpr,
+        {
+          kind: "simpleType",
+          name: "null",
+          location: field.location,
+        },
+      ],
+      field.location
+    );
   }
 
   if (resolved.kind === "unionType") {
-    for (const member of resolved.types) {
-      if (member.kind === "simpleType" && member.name === "null") {
-        continue;
-      }
-      const memberType = getPropertyType(member, property, symbols);
-      if (memberType) {
-        return memberType;
-      }
-    }
+    const memberTypes = resolved.types
+      .filter((member) => !isNullType(member))
+      .map((member) => getPropertyType(member, property, symbols))
+      .filter((member): member is TypeExprNode => member !== null);
+
+    return joinTypeCandidates(memberTypes, resolved.location);
   }
 
   return null;
@@ -823,15 +829,12 @@ function getIndexType(typeExpr: TypeExprNode | null, symbols: FlowSymbols): Type
   }
 
   if (resolved.kind === "unionType") {
-    for (const member of resolved.types) {
-      if (member.kind === "simpleType" && member.name === "null") {
-        continue;
-      }
-      const memberType = getIndexType(member, symbols);
-      if (memberType) {
-        return memberType;
-      }
-    }
+    const memberTypes = resolved.types
+      .filter((member) => !isNullType(member))
+      .map((member) => getIndexType(member, symbols))
+      .filter((member): member is TypeExprNode => member !== null);
+
+    return joinTypeCandidates(memberTypes, resolved.location);
   }
 
   return null;
@@ -899,6 +902,9 @@ function isAssignable(sourceType: TypeExprNode, targetType: TypeExprNode, symbol
         }
         return false;
       }
+      if (sourceField.optional && !targetField.optional) {
+        return false;
+      }
       const fieldAssignable = isAssignable(sourceField.typeExpr, targetField.typeExpr, symbols);
       if (fieldAssignable !== true) {
         return fieldAssignable;
@@ -916,6 +922,49 @@ function isAssignable(sourceType: TypeExprNode, targetType: TypeExprNode, symbol
   }
 
   return null;
+}
+
+function isNullType(typeExpr: TypeExprNode): boolean {
+  return (
+    (typeExpr.kind === "simpleType" && typeExpr.name === "null") ||
+    (typeExpr.kind === "literalType" && typeExpr.value === null)
+  );
+}
+
+function joinTypeCandidates(
+  candidates: Array<TypeExprNode | null>,
+  location: TypeExprNode["location"]
+): TypeExprNode | null {
+  const present = candidates
+    .filter((candidate): candidate is TypeExprNode => candidate !== null)
+    .flatMap((candidate) => candidate.kind === "unionType" ? candidate.types : [candidate]);
+  if (present.length === 0) {
+    return null;
+  }
+  if (present.length === 1) {
+    return present[0];
+  }
+
+  const deduped: TypeExprNode[] = [];
+  const seen = new Set<string>();
+  for (const candidate of present) {
+    const key = JSON.stringify(candidate);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(candidate);
+  }
+
+  if (deduped.length === 1) {
+    return deduped[0];
+  }
+
+  return {
+    kind: "unionType",
+    types: deduped,
+    location,
+  };
 }
 
 export function validateAndExpandFlows(program: ProgramNode): FlowExpansionResult {

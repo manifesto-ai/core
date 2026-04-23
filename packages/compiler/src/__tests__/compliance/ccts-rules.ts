@@ -43,6 +43,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   ...registryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5"], "blocking"),
   ...registryMany(["TYPE-LOWER-6", "TYPE-LOWER-7", "TYPE-LOWER-8", "TYPE-LOWER-9"], "blocking"),
   ...registryMany(["PATCH-MERGE-1", "COALESCE-1", "COLLECT-VALUES-1"], "blocking"),
+  ...registryMany(["SPREAD-OPERAND-1", "SPREAD-PATCH-1", "SPREAD-PRESENCE-1", "SPREAD-CONSUME-1"], "blocking"),
   ...registryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14", "SGRAPH-15"], "blocking"),
 
   ...registryMany(["ENTITY-1", "ENTITY-2", "ENTITY-2a", "ENTITY-2b", "ENTITY-3", "ENTITY-4", "ENTITY-5", "ENTITY-7", "ENTITY-8", "ENTITY-9"], "blocking"),
@@ -52,6 +53,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   registry("COMPILER-MEL-2a", "informational"),
   registry("COMPILER-MEL-4", "blocking"),
   ...registryMany(["MEL-SUGAR-1", "MEL-SUGAR-2", "MEL-SUGAR-3", "MEL-SUGAR-4"], "blocking"),
+  ...registryMany(["SPREAD-LOWER-1", "SPREAD-MERGE-TYPE-1"], "blocking"),
 
   ...registryMany(["META-1", "META-2", "META-3", "META-4", "META-5", "META-6", "META-7", "META-8", "META-9", "META-10"], "blocking"),
   ...registryMany(["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"], "blocking"),
@@ -62,6 +64,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
   registry("SCHEMA-RESERVED-1", "blocking"),
 
   ...registryMany(["E001", "E002", "E003", "E004", "E005", "E009", "E010", "E011"], "blocking"),
+  ...registryMany(["SPREAD-SURFACE-1", "SPREAD-DIAG-1"], "blocking"),
   ...registryMany(["E006", "E007", "E008"], "blocking"),
   ...registryMany(["E012", "E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024", "E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035", "E041", "E042", "E043", "E044", "E049", "E050", "E051", "E052"], "blocking"),
   ...registryMany(["E053", "E054", "E055", "E056", "E057", "E058"], "blocking"),

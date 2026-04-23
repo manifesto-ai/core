@@ -325,6 +325,10 @@ function exprToJsonLiteral(
 
       const objectValue: Record<string, JsonLiteral> = {};
       for (const property of expr.properties) {
+        if (property.kind !== "objectProperty") {
+          diagnostics.push(createError("E055", INVALID_PAYLOAD_MESSAGE, property.location));
+          return { ok: false };
+        }
         const result = exprToJsonLiteral(property.value, depth + 1, diagnostics);
         if (!result.ok) {
           return { ok: false };

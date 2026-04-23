@@ -1216,4 +1216,70 @@ describe("CCTS Lowering and IR Suite", () => {
       }),
     ]);
   });
+
+  it(caseTitle(CCTS_CASES.IR_OBJECT_SPREAD_LOWERING, "(SPREAD-LOWER-1/SPREAD-MERGE-TYPE-1) object-spread lowering and merge parity are enforced"), () => {
+    const source = `
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft = {
+            customerId: "",
+            appliedCouponId: null,
+            submissionState: "idle"
+          }
+        }
+
+        computed spreadSubmitted = {
+          ...draft,
+          submissionState: "submitted"
+        }
+
+        computed mergeSubmitted = merge(
+          draft,
+          {
+            submissionState: "submitted"
+          }
+        )
+      }
+    `;
+    const canonical = adapter.canonical(source);
+    const compiled = adapter.compile(source);
+    const spreadExpr = canonical.value?.computed.fields["spreadSubmitted"]?.expr;
+    const mergeExpr = canonical.value?.computed.fields["mergeSubmitted"]?.expr;
+    const runtimeSpread = compiled.value?.computed.fields["spreadSubmitted"]?.expr;
+    const runtimeMerge = compiled.value?.computed.fields["mergeSubmitted"]?.expr;
+    const loweredToMerge =
+      canonical.success &&
+      spreadExpr?.kind === "call" &&
+      spreadExpr.fn === "merge";
+    const runtimeParity =
+      compiled.success &&
+      JSON.stringify(runtimeSpread) === JSON.stringify(runtimeMerge);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("SPREAD-LOWER-1"), loweredToMerge, {
+        passMessage: "Object-literal spread lowers to canonical merge(...) calls.",
+        failMessage: "Object-literal spread is not lowering through canonical merge(...).",
+        evidence: [
+          noteEvidence("Observed spread canonical expr", spreadExpr ?? null),
+          ...diagnosticEvidence(canonical.errors),
+        ],
+      }),
+      evaluateRule(getRuleOrThrow("SPREAD-MERGE-TYPE-1"), runtimeParity, {
+        passMessage: "Direct merge() typing and lowered spread form remain aligned.",
+        failMessage: "Direct merge() and lowered spread form do not share one observable lowering/type path.",
+        evidence: [
+          noteEvidence("Observed merge canonical expr", mergeExpr ?? null),
+          noteEvidence("Observed spread runtime expr", runtimeSpread ?? null),
+          noteEvidence("Observed merge runtime expr", runtimeMerge ?? null),
+          ...diagnosticEvidence(compiled.errors),
+        ],
+      }),
+    ]);
+  });
 });

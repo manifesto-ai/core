@@ -6,6 +6,15 @@ import type {
   TypeDeclNode,
   TypeExprNode,
 } from "../parser/ast.js";
+import {
+  classifySpreadOperandType as classifySpreadOperandTypeWithResolver,
+  inferMergeContributionType,
+  inferObjectLiteralContributionType,
+} from "./object-contribution-types.js";
+import type { SpreadOperandClassification } from "./object-contribution-types.js";
+export type {
+  SpreadOperandClassification,
+} from "./object-contribution-types.js";
 
 export type TypeEnv = Map<string, TypeExprNode>;
 export type ComparableSurfaceClass = "primitive" | "nonprimitive" | "unknown";
@@ -151,25 +160,7 @@ export function inferExprType(
       return getIndexType(inferExprType(expr.object, env, symbols), symbols);
 
     case "objectLiteral":
-      return {
-        kind: "objectType",
-        fields: expr.properties
-          .map((property) => {
-            const propertyType = inferExprType(property.value, env, symbols);
-            if (!propertyType) {
-              return null;
-            }
-            return {
-              kind: "typeField" as const,
-              name: property.key,
-              typeExpr: propertyType,
-              optional: false,
-              location: property.location,
-            };
-          })
-          .filter((field): field is NonNullable<typeof field> => field !== null),
-        location: expr.location,
-      };
+      return inferObjectLiteralContributionType(expr, env, symbols, inferExprType, resolveType);
 
     case "arrayLiteral": {
       const elementType = joinTypeCandidates(
@@ -371,7 +362,16 @@ export function getPropertyType(
 
   if (resolved.kind === "objectType") {
     const field = resolved.fields.find((candidate) => candidate.name === property);
-    return field?.typeExpr ?? null;
+    if (!field) {
+      return null;
+    }
+    if (!field.optional) {
+      return field.typeExpr;
+    }
+    return joinTypeCandidates(
+      [field.typeExpr, simpleType("null", field.location)],
+      field.location
+    );
   }
 
   if (resolved.kind === "unionType") {
@@ -466,6 +466,13 @@ export function isNullType(typeExpr: TypeExprNode): boolean {
     (typeExpr.kind === "simpleType" && typeExpr.name === "null") ||
     (typeExpr.kind === "literalType" && typeExpr.value === null)
   );
+}
+
+export function classifySpreadOperandType(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols
+): SpreadOperandClassification {
+  return classifySpreadOperandTypeWithResolver(typeExpr, symbols, resolveType);
 }
 
 function inferComputedType(name: string, symbols: DomainTypeSymbols): TypeExprNode | null {
@@ -666,6 +673,10 @@ function inferFunctionCallType(
     return inferValuesType(expr, env, symbols);
   }
 
+  if (expr.name === "merge") {
+    return inferMergeContributionType(expr, env, symbols, inferExprType, resolveType);
+  }
+
   return null;
 }
 
@@ -688,7 +699,12 @@ function joinTypeCandidates(
   candidates: Array<TypeExprNode | null>,
   location: TypeExprNode["location"]
 ): TypeExprNode | null {
-  const present = candidates.filter((candidate): candidate is TypeExprNode => candidate !== null);
+  const present = candidates
+    .filter((candidate): candidate is TypeExprNode => candidate !== null)
+    .flatMap((candidate) => {
+      const flattened = candidate.kind === "unionType" ? candidate.types : [candidate];
+      return flattened;
+    });
   if (present.length === 0) {
     return null;
   }

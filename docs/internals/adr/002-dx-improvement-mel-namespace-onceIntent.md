@@ -10,7 +10,7 @@
 - **Date:** 2026-01-27
 - **Status:** Implemented
 - **Implemented-by:**
-  - [Compiler current contract (SPEC-v1.1.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md)
+  - [Compiler current contract (SPEC-v1.2.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md)
   - historical SDK v1.0.0 contract (removed from the working tree; see Git history)
   - `packages/compiler/src/parser/parser.ts`, `packages/compiler/src/api/compile-mel-patch-collector.ts`, `packages/compiler/src/__tests__/once-intent.test.ts`, `packages/sdk/src/create-manifesto.ts`
 - **Owners:** 정성우

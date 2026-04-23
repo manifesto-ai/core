@@ -234,7 +234,15 @@ function validateExpr(
 
     case "objectLiteral":
       for (const property of expr.properties) {
-        validateExpr(property.value, context, env, symbols, diagnostics, dedupe, transformDepth);
+        validateExpr(
+          property.kind === "objectProperty" ? property.value : property.expr,
+          context,
+          env,
+          symbols,
+          diagnostics,
+          dedupe,
+          transformDepth
+        );
       }
       break;
 
@@ -392,7 +400,10 @@ function validateFieldInitializerUniqueness(
       continue;
     }
 
-    const idProp = element.properties.find((property) => property.key === "id");
+    const idProp = element.properties.find(
+      (property): property is Extract<typeof property, { kind: "objectProperty" }> =>
+        property.kind === "objectProperty" && property.key === "id"
+    );
     if (!idProp || idProp.value.kind !== "literal") {
       continue;
     }

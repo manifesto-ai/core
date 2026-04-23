@@ -9,7 +9,7 @@
 > **Related:** ADR-013b (Entity Collection Primitives — separate approval gate)
 > **Supersedes:** ADR-013 (Withdrawn — mixed three independent decisions)
 > **Breaking:** No — additive syntax via contextual keywords; runtime layers unchanged
-> **Implemented In:** Compiler current contract ([SPEC-v1.1.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md)), `packages/compiler/src/analyzer/flow-composition.ts`, analyzer/generator/integration/compliance test suites
+> **Implemented In:** Compiler current contract ([SPEC-v1.2.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md)), `packages/compiler/src/analyzer/flow-composition.ts`, analyzer/generator/integration/compliance test suites
 
 ---
 

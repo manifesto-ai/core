@@ -324,6 +324,26 @@ describe("IR Generator", () => {
       }
     });
 
+    it("generates object spread through merge lowering", () => {
+      const expr = compileExpr('{ ...{ base: 1 }, name: "Grace" }');
+      expect(expr?.kind).toBe("merge");
+      if (expr?.kind === "merge") {
+        expect(expr.objects).toHaveLength(2);
+        expect(expr.objects[0]).toEqual({
+          kind: "object",
+          fields: {
+            base: { kind: "lit", value: 1 },
+          },
+        });
+        expect(expr.objects[1]).toEqual({
+          kind: "object",
+          fields: {
+            name: { kind: "lit", value: "Grace" },
+          },
+        });
+      }
+    });
+
     it("generates array literal", () => {
       const expr = compileExpr("[1, 2, 3]");
       expect(expr?.kind).toBe("lit");
@@ -353,6 +373,23 @@ describe("IR Generator", () => {
         path: [
           { kind: "prop", name: "user" },
           { kind: "prop", name: "name" },
+        ],
+      });
+    });
+
+    it("canonicalizes object spread through merge()", () => {
+      const expr = compileCanonicalExpr('{ ...user, name: "Grace" }');
+      expect(expr).toEqual({
+        kind: "call",
+        fn: "merge",
+        args: [
+          { kind: "get", path: [{ kind: "prop", name: "user" }] },
+          {
+            kind: "obj",
+            fields: [
+              { key: "name", value: { kind: "lit", value: "Grace" } },
+            ],
+          },
         ],
       });
     });

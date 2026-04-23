@@ -53,6 +53,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-020](./020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Implemented | 2026-04-07 | Compiler, Core, SDK, Studio/Introspection, Docs |
 | [ADR-021](./021-mel-structural-annotation-system-meta-sidecar) | MEL Structural Annotation System — `@meta` Sidecar | Accepted | 2026-04-15 | Compiler, Tooling, Docs |
 | [ADR-022](./022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted | 2026-04-16 | Compiler, Tooling, Docs |
+| [ADR-023](./023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted | 2026-04-23 | Compiler, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -97,7 +98,7 @@ These ADRs affect multiple packages across the monorepo:
 
 - There is no standalone `ADR-013` file in the repository.
 - The original mixed ADR-013 draft was withdrawn and split into `ADR-013a` (`flow`/`include`) and `ADR-013b` (entity collection primitives).
-- Both split tracks are now implemented in the compiler current contract, reflected in [SPEC-v1.1.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md), and covered by the compiler compliance suites.
+- Both split tracks are now implemented in the compiler current contract, reflected in [SPEC-v1.2.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md), and covered by the compiler compliance suites.
 
 ### ADR-014 Companion Notes
 
@@ -128,7 +129,7 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-020 Companion Notes
 
 - ADR-020 is implemented in the current compiler, core, and SDK contracts.
-- The current behavior now lives in [SPEC-v1.1.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.1.0.md), [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), and the maintained MEL docs.
+- The current behavior now lives in [SPEC-v1.2.0](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md), [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), and the maintained MEL docs.
 - This ADR remains the architectural rationale for `dispatchable when`; the owning package specs define the current runtime and compiler behavior.
 
 ### ADR-021 Companion Notes

@@ -106,6 +106,51 @@ describe("Literal type checking", () => {
     });
   });
 
+  describe("object spread state initializers", () => {
+    it("accepts compile-time constant object spread operands", () => {
+      const result = compileSource(`
+        domain Demo {
+          type Config = {
+            theme: string,
+            locale: string
+          }
+
+          state {
+            cfg: Config = {
+              ...{ theme: "light" },
+              locale: "ko-KR"
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects invalid spread operands in state initializers", () => {
+      const result = compileSource(`
+        domain Demo {
+          type Config = {
+            theme: string
+          }
+
+          state {
+            cfg: Config = {
+              ...1,
+              theme: "light"
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.some((diagnostic) =>
+        diagnostic.code === "E_TYPE_MISMATCH"
+          && diagnostic.message.includes("Object spread operands must be object-shaped")
+      )).toBe(true);
+    });
+  });
+
   describe("enum type mismatch", () => {
     it("rejects value not in enum", () => {
       const result = compileSource(`
@@ -398,6 +443,65 @@ describe("Literal type checking", () => {
         }
       `);
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe("object spread patch literals", () => {
+    it("accepts spread-backed object literals when required fields are reintroduced unconditionally", () => {
+      const result = compileSource(`
+        domain Demo {
+          type Draft = {
+            customerId: string,
+            appliedCouponId: string | null,
+            submissionState: "idle" | "submitted"
+          }
+
+          state {
+            draft: Draft | null = null
+          }
+
+          action submit(customerId: string) {
+            onceIntent {
+              patch draft = {
+                ...draft,
+                customerId: customerId,
+                appliedCouponId: null,
+                submissionState: "submitted"
+              }
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects spread-backed object literals when required fields stay conditional", () => {
+      const result = compileSource(`
+        domain Demo {
+          type Draft = {
+            customerId: string,
+            appliedCouponId: string | null,
+            submissionState: "idle" | "submitted"
+          }
+
+          state {
+            draft: Draft | null = null
+          }
+
+          action submit() {
+            onceIntent {
+              patch draft = {
+                ...draft,
+                submissionState: "submitted"
+              }
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
     });
   });
 

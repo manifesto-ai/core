@@ -8,7 +8,7 @@
 
 `@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
 
-The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler pinned to `SPEC-v1.1.0`.
+The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler pinned to `SPEC-v1.2.0`.
 
 Current compiler responsibilities include:
 - schema-only compilation through `compileMelDomain()`
@@ -18,6 +18,12 @@ Current compiler responsibilities include:
 - declaration-level source locations as an out-of-schema `SourceMapIndex` sidecar
 - intent-level dispatchability via `dispatchable when`
 - MEL patch lowering through `compileMelPatch()`
+
+Current MEL v1.2 compiler highlights include:
+- object-literal spread as the sole bounded parser-level shorthand
+- canonical lowering of spread through `merge(...)`
+- presence-aware object typing shared by spread and direct `merge()`
+- optional spread-result reads observed as `T | null`, requiring explicit normalization before non-null sinks
 
 ## Main Entry Points
 

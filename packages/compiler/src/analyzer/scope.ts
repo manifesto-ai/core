@@ -275,7 +275,7 @@ export class ScopeAnalyzer {
 
       case "objectLiteral":
         for (const prop of expr.properties) {
-          this.analyzeExpr(prop.value, context);
+          this.analyzeExpr(prop.kind === "objectProperty" ? prop.value : prop.expr, context);
         }
         break;
 

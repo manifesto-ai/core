@@ -54,7 +54,7 @@ domain TodoList {
     onceIntent {
       effect array.map({
         source: todos,
-        select: if(eq($item.id, id), merge($item, { completed: not($item.completed) }), $item),
+        select: eq($item.id, id) ? { ...$item, completed: not($item.completed) } : $item,
         into: todos
       })
     }

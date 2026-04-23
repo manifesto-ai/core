@@ -317,6 +317,117 @@ describe("Expression type checking", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts optional spread-result reads when normalized explicitly", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft | null = null
+        }
+
+        computed partialDraft = { ...draft }
+        computed safeCustomerId = coalesce(partialDraft.customerId, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid object spread operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        state {
+          items: Array<string> = []
+        }
+
+        computed bad = { ...items }
+      }
+    `);
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
+  it("accepts direct merge typing parity for nullable object operands", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          customerId: string,
+          appliedCouponId: string | null,
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft | null = null
+        }
+
+        computed partialDraft = merge(draft)
+        computed safeCustomerId = coalesce(partialDraft.customerId, "guest")
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("narrows later unconditional spread contributors to the overriding field type", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft = {
+            submissionState: "idle"
+          }
+          status: "submitted" = "submitted"
+        }
+
+        computed submitted = { ...draft, submissionState: "submitted" }
+
+        action remember() {
+          when true {
+            patch status = submitted.submissionState
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("narrows later unconditional merge contributors to the overriding field type", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Draft = {
+          submissionState: "idle" | "submitted"
+        }
+
+        state {
+          draft: Draft = {
+            submissionState: "idle"
+          }
+          status: "submitted" = "submitted"
+        }
+
+        computed submitted = merge(draft, { submissionState: "submitted" })
+
+        action remember() {
+          when true {
+            patch status = submitted.submissionState
+          }
+        }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
   it("accepts argmax results as non-null when candidate eligibility is exhaustively covered", () => {
     const result = compileSource(`
       domain Demo {

@@ -81,6 +81,18 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   inventory("PATCH-MERGE-1", "docs/mel/REFERENCE.md `patch merge` / docs/mel/SYNTAX.md `patch path merge expr`", "MUST", "state-and-computed"),
   inventory("COALESCE-1", "docs/mel/REFERENCE.md `coalesce(a, b, ...)`", "MUST", "state-and-computed"),
   inventory("COLLECT-VALUES-1", "docs/mel/REFERENCE.md `values(obj)` / docs/mel/SYNTAX.md computed examples", "MUST", "state-and-computed"),
+  inventory("SPREAD-OPERAND-1", "§5.2 Typing rules", "MUST", "state-and-computed", {
+    notes: "Object-literal spread operands must be object-shaped or `T | null` where `T` is object-shaped.",
+  }),
+  inventory("SPREAD-PATCH-1", "§5.2 Normative rules / Typing rules", "MUST", "state-and-computed", {
+    notes: "`patch path = { ...expr, key: value }` remains a set patch checked against the target type.",
+  }),
+  inventory("SPREAD-PRESENCE-1", "§5.2 Typing rules", "MUST", "state-and-computed", {
+    notes: "Spread result typing is presence-aware; optional contributors do not satisfy required targets without a later unconditional contribution.",
+  }),
+  inventory("SPREAD-CONSUME-1", "§5.2 Typing rules", "MUST", "state-and-computed", {
+    notes: "Direct reads from optional spread-result fields are observed as `T | null` and require explicit normalization for non-null sinks.",
+  }),
   ...inventoryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14"], "SPEC v0.8.0 §6/§7/§8", "MUST", "introspection"),
   inventory("SGRAPH-15", "SPEC v0.8.0 §6", "SHOULD", "introspection"),
 
@@ -94,6 +106,12 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   }),
 
   ...inventoryMany(["MEL-SUGAR-1", "MEL-SUGAR-2", "MEL-SUGAR-3", "MEL-SUGAR-4"], "§5.1", "MUST", "lowering-and-ir"),
+  inventory("SPREAD-LOWER-1", "§5.2 Normative rules", "MUST", "lowering-and-ir", {
+    notes: "Object-literal spread lowers to canonical `merge(...)` with source order preserved.",
+  }),
+  inventory("SPREAD-MERGE-TYPE-1", "§5.2 Typing rules", "MUST", "lowering-and-ir", {
+    notes: "Direct `merge()` typing must stay aligned with the lowered spread form.",
+  }),
 
   ...inventoryMany(["META-1", "META-2", "META-3", "META-4", "META-5", "META-6", "META-7", "META-8", "META-9", "META-10"], "§8.2-§8.4", "MUST", "annotations"),
   ...inventoryMany(["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"], "§8.4", "CRITICAL", "annotations"),
@@ -103,6 +121,12 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
 
   ...inventoryMany(["E001", "E002"], "§11.6", "MUST", "context"),
   ...inventoryMany(["E003", "E004"], "§11.6", "MUST", "grammar"),
+  inventory("SPREAD-SURFACE-1", "§5.2", "MUST", "grammar", {
+    notes: "Object-literal spread is the sole bounded parser-level shorthand admitted in current MEL.",
+  }),
+  inventory("SPREAD-DIAG-1", "§5.2 / §9", "MUST", "grammar", {
+    notes: "Adjacent JS-like forms around spread must remain rejected with spread-specific diagnostics.",
+  }),
   inventory("E005", "§13.6", "MUST", "context"),
   ...inventoryMany(["E006", "E007", "E008", "E009", "E010", "E011"], "§13.6", "MUST", "actions-and-control"),
   inventory("E012", "§13.6", "MUST", "state-and-computed"),

@@ -213,25 +213,47 @@ computed display = eq(status, "loading") ? "Please wait..." : result
 Object expression functions operate on objects and return new values — they do NOT modify state.
 
 ```mel
-// Merge: combine objects (later wins)
-computed withDefaults = merge(config, { theme: "light", lang: "en" })
-computed fullProfile = merge(baseProfile, userOverrides, { lastSeen: $meta.timestamp })
+// Spread-first composition (later contributors win)
+computed withDefaults = { theme: "light", lang: "en", ...config }
+computed fullProfile = { ...baseProfile, ...userOverrides, lastSeen: $meta.timestamp }
 
 // Decompose objects
 computed taskIds = keys(tasks)
 computed taskList = values(tasks)
 computed taskPairs = entries(tasks)
 
-// Key use case: merge inside map to override fields without enumerating all
-// Without merge — must list EVERY field:
+// Key use case: override fields without enumerating all
+// Without object composition — must list EVERY field:
 //   effect array.map({ source: items, select: { id: $item.id, name: $item.name, ... }, into: result })
-// With merge — only specify overrides:
+// With spread — only specify overrides:
 effect array.map({
   source: items,
-  select: merge($item, { status: "active" }),
+  select: { ...$item, status: "active" },
   into: processedItems
 })
 ```
+
+Object spread is also part of the current MEL surface, but only inside object literals:
+
+```mel
+computed effectiveConfig = {
+  theme: "light",
+  locale: "en",
+  ...userPrefs
+}
+
+computed shippedOrder = { ...order, status: "shipped" }
+```
+
+Compatibility note: keep using `merge(...)` and `patch path merge expr` only when you need syntax that compiles across older pre-v1.2 compiler branches.
+
+Rules:
+- `{ ...expr, key: value }` is the sole parser-level shorthand admitted in MEL.
+- It lowers through `merge(...)`; it does not add a new runtime IR kind.
+- It is only valid inside object literals.
+- Array spread, rest destructuring, computed keys, and optional chaining are not part of MEL.
+- Spread operands must be object-shaped or `T | null` where `T` is object-shaped.
+- Direct reads from optional spread-result fields behave like nullable values and usually need `coalesce(...)` before a non-null sink.
 
 ### Aggregation Functions
 
@@ -460,9 +482,17 @@ patch tasks[completedId] unset
 // Merge: Shallow merge into state at path
 patch user merge { name: "Bob" }
 patch settings merge $input.partialSettings
+
+// Set patch with object spread sugar
+patch draft = {
+  ...draft,
+  customerId: customerId,
+  appliedCouponId: null,
+  submissionState: "submitted"
+}
 ```
 
-> **`patch merge` vs `merge()` expression:** `patch path merge expr` is a flow-level state operation that shallow-merges into state at `path`. `merge(a, b)` is a pure expression function that returns a new merged object without modifying state. See [Object Functions](#object-functions) below.
+> **`patch merge` vs `merge()` expression vs `patch = { ...spread }`:** `patch path merge expr` is a flow-level state operation that shallow-merges into state at `path`. `merge(a, b)` is a pure expression function that returns a new merged object. `patch path = { ...spread }` is still a set patch whose value is the lowered `merge(...)`. See [Object Functions](#object-functions) above.
 
 ### System Values
 
@@ -862,6 +892,8 @@ action process() {
 | `keys(obj)` | `Object → Array<string>` | Object keys |
 | `values(obj)` | `Object → Array<unknown>` | Object values |
 | `entries(obj)` | `Object → Array<[string, unknown]>` | Key-value pairs |
+
+> **Object spread is syntax, not a builtin.** `{ ...base, status: "active" }` is the current bounded object-literal sugar and lowers through `merge(...)`.
 
 **Property Access vs. Dynamic Lookup:**
 

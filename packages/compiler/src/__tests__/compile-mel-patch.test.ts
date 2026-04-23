@@ -634,6 +634,112 @@ describe("compileMelPatch", () => {
     ]);
   });
 
+  it("supports object spread in patch expressions and lowers through merge", () => {
+    const melText = `
+      patch draft = {
+        ...draft,
+        customerId: input.customerId,
+        submissionState: "submitted"
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-object-spread",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops).toHaveLength(1);
+    expect(result.ops[0]).toMatchObject({
+      op: "set",
+      value: {
+        kind: "merge",
+        objects: [
+          { kind: "get", path: "draft" },
+          {
+            kind: "object",
+            fields: {
+              customerId: { kind: "get", path: "input.customerId" },
+              submissionState: { kind: "lit", value: "submitted" },
+            },
+          },
+        ],
+      },
+    });
+
+    const concretePatches = evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-object-spread" },
+        snapshot: {
+          data: {
+            draft: {
+              customerId: "customer-1",
+              appliedCouponId: "coupon-1",
+              submissionState: "idle",
+            },
+          },
+          computed: {},
+        },
+        input: { customerId: "customer-2" },
+      })
+    );
+
+    expect(toLegacyPatches(concretePatches)).toEqual([
+      {
+        op: "set",
+        path: "draft",
+        value: {
+          customerId: "customer-2",
+          appliedCouponId: "coupon-1",
+          submissionState: "submitted",
+        },
+      },
+    ]);
+  });
+
+  it("rejects definitely invalid object spread operands in patch expressions", () => {
+    const melText = `
+      patch draft = {
+        ...1,
+        submissionState: "submitted"
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-object-spread-invalid",
+    });
+
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: "E_TYPE_MISMATCH",
+      message: "Object spread operands must be object-shaped or T | null where T is object-shaped",
+    });
+  });
+
+  it("rejects empty-array object spread operands in patch expressions", () => {
+    const melText = `
+      patch draft = {
+        ...[],
+        submissionState: "submitted"
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-empty-array-object-spread",
+    });
+
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: "E_TYPE_MISMATCH",
+      message: "Object spread operands must be object-shaped or T | null where T is object-shaped",
+    });
+  });
+
   it("supports unary minus in patch expressions", () => {
     const melText = `
       patch delta = -input.amount

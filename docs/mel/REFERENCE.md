@@ -2,7 +2,7 @@
 
 > **Purpose:** The single document a user reads to learn and use MEL. Covers every function, construct, and pattern with examples.
 > **Audience:** Developers writing MEL domains. Both beginners and experienced users.
-> **Normative sources:** SPEC-v1.1.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
+> **Normative sources:** SPEC-v1.2.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
 
 ---
 
@@ -51,6 +51,10 @@ MEL source -> @manifesto-ai/compiler -> DomainSchema -> Core -> Host
 MEL is a **source format**. It does not execute. It produces data that Core computes on.
 
 The builtin meanings documented in this reference are the current MEL surface. If the compiler later admits extra source-level sugar, it must do so explicitly and lower through the existing MEL → Core boundary without silently changing the meaning of the builtins documented here.
+
+Current bounded exception: object-literal spread is part of the current MEL surface, but only inside object literals and only as a sugar that lowers through `merge(...)`.
+
+Compatibility note: if you still need code that compiles on older pre-v1.2 compiler branches, keep using `merge(...)` and `patch path merge expr`. Current v1.2 compilers accept object-literal spread directly.
 
 ### What MEL is NOT
 
@@ -339,8 +343,8 @@ computed taskIds = keys(tasks)
 computed taskList = values(tasks)
 computed taskPairs = entries(tasks)
 
-// Merge with defaults
-computed withDefaults = merge(config, { theme: "light", lang: "en" })
+// Object composition
+computed withDefaults = { theme: "light", lang: "en", ...config }
 ```
 
 ### Forbidden Computed Patterns
@@ -461,7 +465,7 @@ computed inRange = and(gte(value, min), lte(value, max))
 | `and(a, b, ...)` | `(...boolean) → boolean` | Logical AND. All arguments must be boolean. Variadic. |
 | `or(a, b, ...)` | `(...boolean) → boolean` | Logical OR. All arguments must be boolean. Variadic. |
 | `not(a)` | `boolean → boolean` | Logical NOT. |
-| `cond(c, t, e)` | `(boolean, T, T) → T` | Conditional. Returns `t` if `c` is true, otherwise `e`. Alias: `if`. |
+| `cond(c, t, e)` | `(boolean, T, T) → T` | Conditional. Returns `t` if `c` is true, otherwise `e`. |
 | `match(key, [k, v], ..., default)` | Function-form only | Finite branch sugar. Each arm is an inline `[key, value]` pair and the last argument is the default value. |
 | `argmax([label, eligible, score], ..., tieBreak)` | Function-form only | Deterministic fixed-candidate max selection. `tieBreak` must be `"first"` or `"last"`. Returns `null` if no candidate is eligible. |
 | `argmin([label, eligible, score], ..., tieBreak)` | Function-form only | Deterministic fixed-candidate min selection. `tieBreak` must be `"first"` or `"last"`. Returns `null` if no candidate is eligible. |
@@ -646,37 +650,83 @@ computed allMembers = flat(teamMemberArrays)
 | `values(obj)` | `Object → Array<unknown>` | Object values in key order. Returns `[]` for null or non-objects. |
 | `entries(obj)` | `Object → Array<[string, unknown]>` | Key-value pairs in key order. Returns `[]` for null or non-objects. |
 
+**Object spread (current surface):**
+
+```mel
+computed effectiveConfig = {
+  theme: "light",
+  locale: "en",
+  ...userPrefs
+}
+
+computed shippedOrder = { ...order, status: "shipped" }
+
+action submitDraft(customerId: string) {
+  onceIntent {
+    patch draft = {
+      ...draft,
+      customerId: customerId,
+      appliedCouponId: null,
+      submissionState: "submitted"
+    }
+  }
+}
+```
+
+Current rules:
+
+- Object-literal spread `{ ...expr, key: value }` is the sole parser-level shorthand admitted in MEL.
+- It is valid only inside object literals.
+- It lowers to canonical `merge(...)` with source order preserved.
+- Array spread, rest destructuring, computed keys, and optional chaining are not part of MEL.
+- Spread operands must be object-shaped or `T | null` where `T` is object-shaped.
+- `Record<string, T>`, arrays, primitives, and object-only multi-branch unions are not valid spread operands in the current contract.
+
 **Examples:**
 
 ```mel
-// Merge with defaults (later wins)
-computed withDefaults = merge(defaults, config)
-computed withOverride = merge(config, { theme: "light" })
-computed fullProfile = merge(base, userPrefs, { lastSeen: $meta.timestamp })
+// Spread-first object composition (later contributors win)
+computed withDefaults = { theme: "light", locale: "en", ...defaults }
+computed withOverride = { ...config, theme: "light" }
+computed fullProfile = { ...base, ...userPrefs, lastSeen: $meta.timestamp }
+
+// Direct merge() remains available and follows the same typing rules
+computed mergedSettings = merge(defaults, config)
 
 // Decompose objects
 computed taskIds = keys(tasks)
 computed taskList = values(tasks)
 computed taskPairs = entries(tasks)
 
-// In actions: update a field without enumerating all fields
-action markDone(id: string) {
-  when isNotNull(at(tasks, id)) {
-    patch tasks[id] = merge(at(tasks, id), { done: true })
+// Patch-layer merge remains distinct from spread sugar
+action updateTheme() {
+  when true {
+    patch settings merge { theme: "light" }
   }
 }
 ```
 
-> **`merge()` expression vs `patch merge` operation — these are different constructs.**
+> **`merge()` expression vs `patch merge` operation vs `patch = { ...spread }` — these are different constructs.**
 >
 > | Construct | Level | What it does |
 > |-----------|-------|-------------|
 > | `merge(a, b)` | Expression | Returns a new merged object. Pure, does not modify state. |
+> | `patch path = { ...expr, key: value }` | Set patch | Computes a new object value, then replaces state at `path`. |
 > | `patch path merge expr` | Patch operation | Shallow-merges `expr` into existing state at `path`. |
 >
-> Both perform shallow merge. `merge()` computes a value; `patch merge` changes state.
+> All three preserve shallow-merge semantics, but they are not the same operation. `merge()` computes a value, `patch = { ...spread }` is still a `set`, and `patch merge` changes state by patch operation.
 
-> **`field(obj, "prop")` is compiler-internal.** You do not call `field()` directly. When you write `at(tasks, id).title`, the compiler generates `field(at(tasks, id), "title")` automatically. See §5.6.
+> **Presence-aware typing applies to spread and direct `merge()`.** If a field comes only from a nullable spread operand or an optional source field, it remains optional in the result until a later unconditional contributor makes it required.
+
+```mel
+computed partialDraft = { ...draft }
+computed maybeCustomerId = partialDraft.customerId
+computed label = concat("customer=", coalesce(partialDraft.customerId, "unknown"))
+```
+
+> Reads from optional spread-result fields are observed as `T | null`. Normalize explicitly with `coalesce(...)` or provide a later unconditional object contribution before using the value in a non-null sink.
+
+> **`field(obj, "prop")` is compiler-internal.** You do not call `field()` directly. When you write `at(tasks, id).title`, the compiler generates `field(at(tasks, id), "title")` automatically. Missing fields are observed as `null`, which is why optional spread-result reads behave as `T | null`.
 
 ---
 
@@ -1823,4 +1873,4 @@ domain Toggles {
 
 ---
 
-*Authoritative sources: SPEC-v1.1.0.md, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*
+*Authoritative sources: SPEC-v1.2.0.md, packages/compiler/src/analyzer/validator.ts, packages/compiler/src/lowering/lower-expr.ts.*

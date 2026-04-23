@@ -1,6 +1,6 @@
 # Compiler SPEC Compilance Test Suite (CCTS)
 
-> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.1.0.
+> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.2.0.
 > **Audience:** Compiler maintainers and contributors extending MEL semantics.
 > **Status:** Operational
 
@@ -13,9 +13,9 @@ CCTS exists to make compiler SPEC compliance executable.
 It has two simultaneous jobs:
 
 1. Turn normative MEL rules into named, reviewable test targets.
-2. Separate enforced baseline rules from the residual normative gaps that are still pending implementation.
+2. Make residual normative gaps explicit when they exist, instead of letting them disappear into implicit behavior.
 
-This is intentionally a **staged blocking** suite:
+This is intentionally a **rule-mode-visible blocking** suite:
 
 - `blocking` rules fail the suite when violated.
 - `pending` rules are probed and reported as `WARN` or `SKIP` until implementation catches up.
@@ -48,7 +48,7 @@ packages/compiler/src/__tests__/compliance/
 
 The suite mirrors the Host HCTS shape, but adds explicit inventory and coverage layers:
 
-- spec inventory (`SPEC-v1.1.0.md` rule surface)
+- spec inventory (`SPEC-v1.2.0.md` rule surface)
 - shared rule registry
 - case/rule coverage map
 - test adapter wrapping exported APIs
@@ -124,7 +124,7 @@ Current acceptance shape:
 
 - inventory/registry/coverage matrix checks pass
 - blocking rules pass
-- any newly introduced pending probes remain visible for the residual backlog and do not regress into silent coverage gaps
+- any pending probes, when introduced, remain visible for the residual backlog and do not regress into silent coverage gaps
 - existing compiler tests continue to run alongside CCTS
 
 ---
@@ -137,7 +137,7 @@ CCTS still does **not**:
 - emit `trace.ndjson`
 - parse the SPEC document automatically
 
-Those are valid follow-up steps once the registry and suite skeleton are stable.
+Those are valid future extensions once the registry and suite skeleton are stable.
 
 ---
 
