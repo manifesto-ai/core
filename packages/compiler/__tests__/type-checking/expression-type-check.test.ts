@@ -375,6 +375,24 @@ describe("Expression type checking", () => {
     expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
   });
 
+  it("rejects object spread operands that deterministically yield arrays", () => {
+    const spreadResult = compileSource(`
+      domain Demo {
+        computed bad = { ...coalesce([], []) }
+      }
+    `);
+    const mergeResult = compileSource(`
+      domain Demo {
+        computed bad = merge(cond(true, [], []))
+      }
+    `);
+
+    expect(spreadResult.success).toBe(false);
+    expect(spreadResult.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+    expect(mergeResult.success).toBe(false);
+    expect(mergeResult.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+  });
+
   it("accepts direct merge typing parity for nullable object operands", () => {
     const result = compileSource(`
       domain Demo {

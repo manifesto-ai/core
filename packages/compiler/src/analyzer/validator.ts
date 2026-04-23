@@ -35,6 +35,7 @@ import {
   getIndexType,
   getPropertyType,
   inferExprType,
+  isDefinitelyArrayExpr,
   isNullType,
   resolveType,
   type DomainTypeSymbols,
@@ -1335,7 +1336,7 @@ export class SemanticValidator {
           }
 
           const spreadType = this.validateExpr(prop.expr, context, env);
-          if (this.symbols && spreadType) {
+          if (this.symbols) {
             this.requireSpreadOperand(spreadType, prop.location, prop.expr);
           }
         }
@@ -2034,7 +2035,7 @@ export class SemanticValidator {
 
     const outcome =
       actualType === null
-        ? expr?.kind === "arrayLiteral" && expr.elements.length === 0
+        ? isDefinitelyArrayExpr(expr)
           ? "invalid"
           : "unknown"
         : classifySpreadOperandType(actualType, this.symbols);

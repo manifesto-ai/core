@@ -119,6 +119,34 @@ export function classifySpreadOperandType<Symbols>(
   return "invalid";
 }
 
+export function isDefinitelyArrayExpr(expr: ExprNode | undefined): boolean {
+  if (!expr) {
+    return false;
+  }
+
+  if (expr.kind === "arrayLiteral") {
+    return true;
+  }
+
+  if (expr.kind === "ternary") {
+    return isDefinitelyArrayExpr(expr.consequent) && isDefinitelyArrayExpr(expr.alternate);
+  }
+
+  if (expr.kind !== "functionCall") {
+    return false;
+  }
+
+  if (expr.name === "coalesce") {
+    return expr.args.length > 0 && expr.args.every((arg) => isDefinitelyArrayExpr(arg));
+  }
+
+  if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
+    return isDefinitelyArrayExpr(expr.args[1]) && isDefinitelyArrayExpr(expr.args[2]);
+  }
+
+  return false;
+}
+
 function mergeObjectContributionTypes<Symbols>(
   contributors: TypeExprNode[],
   location: TypeExprNode["location"],

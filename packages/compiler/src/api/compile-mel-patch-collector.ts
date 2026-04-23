@@ -14,6 +14,7 @@ import {
   classifySpreadOperandType,
   classifyComparableExpr,
   inferExprType,
+  isDefinitelyArrayExpr,
   type DomainTypeSymbols,
 } from "../analyzer/expr-type-surface.js";
 import { toMelExpr } from "./compile-mel-patch-expr.js";
@@ -553,6 +554,11 @@ class PatchExprValidator {
         for (const arg of expr.args) {
           this.validateExpr(arg, errors);
         }
+        if (expr.name === "merge") {
+          for (const arg of expr.args) {
+            this.validateSpreadOperand(arg, arg.location, errors);
+          }
+        }
         return;
 
       case "binary":
@@ -634,7 +640,7 @@ class PatchExprValidator {
     errors: Diagnostic[]
   ): void {
     const inferred = inferExprType(expr, new Map(), this.symbols);
-    const isDefinitelyInvalidSpread = expr.kind === "arrayLiteral" && expr.elements.length === 0;
+    const isDefinitelyInvalidSpread = isDefinitelyArrayExpr(expr);
 
     if (!inferred) {
       if (!isDefinitelyInvalidSpread) {
