@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.11.2](https://github.com/manifesto-ai/core/compare/lineage-v3.11.1...lineage-v3.11.2) (2026-04-23)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 3.17.2
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.13.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.12.0 to ^2.13.0
+
 ## [3.11.1](https://github.com/manifesto-ai/core/compare/lineage-v3.11.0...lineage-v3.11.1) (2026-04-23)
 
 

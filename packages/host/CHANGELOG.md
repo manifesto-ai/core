@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.9.1](https://github.com/manifesto-ai/core/compare/host-v2.9.0...host-v2.9.1) (2026-04-23)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.13.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.12.0 to ^2.13.0
+
 ## [2.9.0](https://github.com/manifesto-ai/core/compare/host-v2.8.1...host-v2.9.0) (2026-04-13)
 
 

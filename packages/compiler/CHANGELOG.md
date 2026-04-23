@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.8.0](https://github.com/manifesto-ai/core/compare/compiler-v3.7.1...compiler-v3.8.0) (2026-04-23)
+
+
+### Features
+
+* **compiler:** add MEL object spread sugar ([#449](https://github.com/manifesto-ai/core/issues/449)) ([dc77aa6](https://github.com/manifesto-ai/core/commit/dc77aa67535fe5444330732227b8331c0ae983d6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 2.13.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.12.0 to ^2.13.0
+
 ## [3.7.1](https://github.com/manifesto-ai/core/compare/compiler-v3.7.0...compiler-v3.7.1) (2026-04-23)
 
 

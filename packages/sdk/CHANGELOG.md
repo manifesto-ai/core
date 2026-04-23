@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.17.2](https://github.com/manifesto-ai/core/compare/sdk-v3.17.1...sdk-v3.17.2) (2026-04-23)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 3.8.0
+    * @manifesto-ai/core bumped to 2.13.0
+    * @manifesto-ai/host bumped to 2.9.1
+
 ## [3.17.1](https://github.com/manifesto-ai/core/compare/sdk-v3.17.0...sdk-v3.17.1) (2026-04-23)
 
 
