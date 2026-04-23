@@ -206,6 +206,10 @@ function isDefinitelyNonNullExpr(expr: ExprNode): boolean {
     return expr.args.some((arg) => isDefinitelyNonNullExpr(arg));
   }
 
+  if (expr.name === "merge") {
+    return true;
+  }
+
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
     return isDefinitelyNonNullExpr(expr.args[1]) && isDefinitelyNonNullExpr(expr.args[2]);
   }

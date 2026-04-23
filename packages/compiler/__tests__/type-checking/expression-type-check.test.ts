@@ -760,4 +760,24 @@ describe("Expression type checking", () => {
     expect(result.success).toBe(false);
     expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
   });
+
+  it("accepts object-first coalesce object spread operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = { ...coalesce(merge({ id: "x" }), []) }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts object-first coalesce merge operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        computed draft = merge(coalesce(merge({ id: "x" }), []))
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
 });

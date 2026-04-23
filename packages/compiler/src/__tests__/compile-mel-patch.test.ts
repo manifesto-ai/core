@@ -817,6 +817,36 @@ describe("compileMelPatch", () => {
     });
   });
 
+  it("accepts object-first coalesce object spread operands with unreachable array fallbacks in patch expressions", () => {
+    const melText = `
+      patch draft = {
+        ...coalesce(merge({ a: 1 }), [])
+      }
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-object-first-coalesce-spread",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops).toHaveLength(1);
+  });
+
+  it("accepts object-first coalesce merge operands with unreachable array fallbacks in patch expressions", () => {
+    const melText = `
+      patch draft = merge(coalesce(merge({ a: 1 }), []))
+    `;
+
+    const result = compileMelPatch(melText, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-object-first-coalesce-merge",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.ops).toHaveLength(1);
+  });
+
   it("supports unary minus in patch expressions", () => {
     const melText = `
       patch delta = -input.amount
