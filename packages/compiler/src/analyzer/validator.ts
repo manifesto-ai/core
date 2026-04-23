@@ -687,7 +687,7 @@ export class SemanticValidator {
           const before = this.ctx.diagnostics.length;
           this.validateStateInitializer(prop.expr);
           if (before === this.ctx.diagnostics.length) {
-            this.requireSpreadOperand(this.inferType(prop.expr, new Map()), prop.location, prop.expr);
+            this.requireSpreadOperand(this.inferType(prop.expr, new Map()), prop.location, prop.expr, new Map());
           }
         }
         return;
@@ -1337,7 +1337,7 @@ export class SemanticValidator {
 
           const spreadType = this.validateExpr(prop.expr, context, env);
           if (this.symbols) {
-            this.requireSpreadOperand(spreadType, prop.location, prop.expr);
+            this.requireSpreadOperand(spreadType, prop.location, prop.expr, env);
           }
         }
         return this.inferType(expr, env);
@@ -1896,7 +1896,7 @@ export class SemanticValidator {
 
       case "merge":
         for (const [index, arg] of args.entries()) {
-          this.requireSpreadOperand(argTypes[index], arg.location, arg);
+          this.requireSpreadOperand(argTypes[index], arg.location, arg, env);
         }
         break;
 
@@ -2027,17 +2027,25 @@ export class SemanticValidator {
   private requireSpreadOperand(
     actualType: TypeExprNode | null,
     location: SourceLocation,
-    expr?: ExprNode
+    expr?: ExprNode,
+    env: TypeEnv = new Map()
   ): void {
     if (!this.symbols) {
       return;
     }
 
-    const outcome = mayYieldArrayExpr(expr)
-      ? "invalid"
-      : actualType === null
+    const typeOutcome = actualType === null
       ? "unknown"
       : classifySpreadOperandType(actualType, this.symbols);
+    const arrayBranchReachable = mayYieldArrayExpr(expr, {
+      env,
+      symbols: this.symbols,
+      inferExprType,
+      resolveType,
+    });
+    const outcome = arrayBranchReachable
+      ? "invalid"
+      : typeOutcome;
 
     if (outcome === "invalid") {
       this.error(

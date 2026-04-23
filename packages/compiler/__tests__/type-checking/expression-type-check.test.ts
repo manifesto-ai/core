@@ -771,10 +771,38 @@ describe("Expression type checking", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts non-null state coalesce object spread operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Profile = { id: string }
+        state {
+          profile: Profile = { id: "x" }
+        }
+        computed draft = { ...coalesce(profile, []) }
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
   it("accepts object-first coalesce merge operands with unreachable array fallbacks", () => {
     const result = compileSource(`
       domain Demo {
         computed draft = merge(coalesce(merge({ id: "x" }), []))
+      }
+    `);
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts non-null state coalesce merge operands with unreachable array fallbacks", () => {
+    const result = compileSource(`
+      domain Demo {
+        type Profile = { id: string }
+        state {
+          profile: Profile = { id: "x" }
+        }
+        computed draft = merge(coalesce(profile, []))
       }
     `);
 

@@ -282,6 +282,18 @@ describe("CCTS Entity Primitive Suite", () => {
         computed selected = findById(tasks, "task-1")
       }
     `);
+    const duplicateSpreadInitializer = adapter.compile(`
+      domain Demo {
+        type Task = { id: string, title: string }
+        state {
+          tasks: Array<Task> = [
+            { ...{ id: "task-1" }, title: "A" },
+            { ...{ id: "task-1" }, title: "B" }
+          ]
+        }
+        computed selected = findById(tasks, "task-1")
+      }
+    `);
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("ENTITY-2"), hasDiagnosticCode(missingId.errors, "E030"), {
@@ -313,6 +325,11 @@ describe("CCTS Entity Primitive Suite", () => {
         passMessage: "E030b diagnoses duplicate entity ids in state initializers.",
         failMessage: "E030b is not emitted for duplicate entity ids in state initializers.",
         evidence: diagnosticEvidence(duplicateInitializer.errors),
+      }),
+      evaluateRule(getRuleOrThrow("E030b"), hasDiagnosticCode(duplicateSpreadInitializer.errors, "E030b"), {
+        passMessage: "E030b diagnoses duplicate entity ids introduced through initializer spreads.",
+        failMessage: "E030b is not emitted for duplicate entity ids introduced through initializer spreads.",
+        evidence: diagnosticEvidence(duplicateSpreadInitializer.errors),
       }),
     ]);
   });

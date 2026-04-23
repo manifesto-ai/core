@@ -13,6 +13,13 @@ type ResolveType<Symbols> = (
   symbols: Symbols
 ) => TypeExprNode | null;
 
+type ExprTypeContext<Env, Symbols> = {
+  env: Env;
+  symbols: Symbols;
+  inferExprType: InferExprType<Env, Symbols>;
+  resolveType: ResolveType<Symbols>;
+};
+
 export function inferObjectLiteralContributionType<Env, Symbols>(
   expr: Extract<ExprNode, { kind: "objectLiteral" }>,
   env: Env,
@@ -119,9 +126,16 @@ export function classifySpreadOperandType<Symbols>(
   return "invalid";
 }
 
-export function mayYieldArrayExpr(expr: ExprNode | undefined): boolean {
+export function mayYieldArrayExpr<Env, Symbols>(
+  expr: ExprNode | undefined,
+  context?: ExprTypeContext<Env, Symbols>
+): boolean {
   if (!expr) {
     return false;
+  }
+
+  if (mayBeArrayType(inferResolvedExprType(expr, context), context)) {
+    return true;
   }
 
   if (expr.kind === "arrayLiteral") {
@@ -129,7 +143,7 @@ export function mayYieldArrayExpr(expr: ExprNode | undefined): boolean {
   }
 
   if (expr.kind === "ternary") {
-    return mayYieldArrayExpr(expr.consequent) || mayYieldArrayExpr(expr.alternate);
+    return mayYieldArrayExpr(expr.consequent, context) || mayYieldArrayExpr(expr.alternate, context);
   }
 
   if (expr.kind !== "functionCall") {
@@ -138,15 +152,15 @@ export function mayYieldArrayExpr(expr: ExprNode | undefined): boolean {
 
   if (expr.name === "coalesce") {
     for (const arg of expr.args) {
-      if (isDefinitelyNullExpr(arg)) {
+      if (isDefinitelyNullExpr(arg, context)) {
         continue;
       }
 
-      if (mayYieldArrayExpr(arg)) {
+      if (mayYieldArrayExpr(arg, context)) {
         return true;
       }
 
-      if (isDefinitelyNonNullExpr(arg)) {
+      if (isDefinitelyNonNullExpr(arg, context)) {
         return false;
       }
     }
@@ -155,19 +169,27 @@ export function mayYieldArrayExpr(expr: ExprNode | undefined): boolean {
   }
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
-    return mayYieldArrayExpr(expr.args[1]) || mayYieldArrayExpr(expr.args[2]);
+    return mayYieldArrayExpr(expr.args[1], context) || mayYieldArrayExpr(expr.args[2], context);
   }
 
   return false;
 }
 
-function isDefinitelyNullExpr(expr: ExprNode): boolean {
+function isDefinitelyNullExpr<Env, Symbols>(
+  expr: ExprNode,
+  context?: ExprTypeContext<Env, Symbols>
+): boolean {
+  const inferred = inferResolvedExprType(expr, context);
+  if (inferred && isDefinitelyNullType(inferred, context)) {
+    return true;
+  }
+
   if (expr.kind === "literal") {
     return expr.value === null;
   }
 
   if (expr.kind === "ternary") {
-    return isDefinitelyNullExpr(expr.consequent) && isDefinitelyNullExpr(expr.alternate);
+    return isDefinitelyNullExpr(expr.consequent, context) && isDefinitelyNullExpr(expr.alternate, context);
   }
 
   if (expr.kind !== "functionCall") {
@@ -175,17 +197,25 @@ function isDefinitelyNullExpr(expr: ExprNode): boolean {
   }
 
   if (expr.name === "coalesce") {
-    return expr.args.length > 0 && expr.args.every((arg) => isDefinitelyNullExpr(arg));
+    return expr.args.length > 0 && expr.args.every((arg) => isDefinitelyNullExpr(arg, context));
   }
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
-    return isDefinitelyNullExpr(expr.args[1]) && isDefinitelyNullExpr(expr.args[2]);
+    return isDefinitelyNullExpr(expr.args[1], context) && isDefinitelyNullExpr(expr.args[2], context);
   }
 
   return false;
 }
 
-function isDefinitelyNonNullExpr(expr: ExprNode): boolean {
+function isDefinitelyNonNullExpr<Env, Symbols>(
+  expr: ExprNode,
+  context?: ExprTypeContext<Env, Symbols>
+): boolean {
+  const inferred = inferResolvedExprType(expr, context);
+  if (inferred && isDefinitelyNonNullType(inferred, context)) {
+    return true;
+  }
+
   if (expr.kind === "literal") {
     return expr.value !== null;
   }
@@ -195,7 +225,7 @@ function isDefinitelyNonNullExpr(expr: ExprNode): boolean {
   }
 
   if (expr.kind === "ternary") {
-    return isDefinitelyNonNullExpr(expr.consequent) && isDefinitelyNonNullExpr(expr.alternate);
+    return isDefinitelyNonNullExpr(expr.consequent, context) && isDefinitelyNonNullExpr(expr.alternate, context);
   }
 
   if (expr.kind !== "functionCall") {
@@ -203,7 +233,7 @@ function isDefinitelyNonNullExpr(expr: ExprNode): boolean {
   }
 
   if (expr.name === "coalesce") {
-    return expr.args.some((arg) => isDefinitelyNonNullExpr(arg));
+    return expr.args.some((arg) => isDefinitelyNonNullExpr(arg, context));
   }
 
   if (expr.name === "merge") {
@@ -211,10 +241,88 @@ function isDefinitelyNonNullExpr(expr: ExprNode): boolean {
   }
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
-    return isDefinitelyNonNullExpr(expr.args[1]) && isDefinitelyNonNullExpr(expr.args[2]);
+    return isDefinitelyNonNullExpr(expr.args[1], context) && isDefinitelyNonNullExpr(expr.args[2], context);
   }
 
   return false;
+}
+
+function inferResolvedExprType<Env, Symbols>(
+  expr: ExprNode,
+  context?: ExprTypeContext<Env, Symbols>
+): TypeExprNode | null {
+  if (!context) {
+    return null;
+  }
+
+  return context.resolveType(
+    context.inferExprType(expr, context.env, context.symbols),
+    context.symbols
+  );
+}
+
+function mayBeArrayType<Env, Symbols>(
+  typeExpr: TypeExprNode | null,
+  context?: ExprTypeContext<Env, Symbols>
+): boolean {
+  if (!typeExpr || !context) {
+    return false;
+  }
+
+  const resolved = context.resolveType(typeExpr, context.symbols);
+  if (!resolved) {
+    return false;
+  }
+
+  if (resolved.kind === "arrayType") {
+    return true;
+  }
+
+  if (resolved.kind === "unionType") {
+    return resolved.types.some((member) => mayBeArrayType(member, context));
+  }
+
+  return false;
+}
+
+function isDefinitelyNullType<Env, Symbols>(
+  typeExpr: TypeExprNode,
+  context?: ExprTypeContext<Env, Symbols>
+): boolean {
+  if (!context) {
+    return isNullType(typeExpr);
+  }
+
+  const resolved = context.resolveType(typeExpr, context.symbols);
+  if (!resolved) {
+    return false;
+  }
+
+  if (resolved.kind === "unionType") {
+    return resolved.types.length > 0 && resolved.types.every((member) => isDefinitelyNullType(member, context));
+  }
+
+  return isNullType(resolved);
+}
+
+function isDefinitelyNonNullType<Env, Symbols>(
+  typeExpr: TypeExprNode,
+  context?: ExprTypeContext<Env, Symbols>
+): boolean {
+  if (!context) {
+    return !isNullType(typeExpr);
+  }
+
+  const resolved = context.resolveType(typeExpr, context.symbols);
+  if (!resolved) {
+    return false;
+  }
+
+  if (resolved.kind === "unionType") {
+    return resolved.types.length > 0 && resolved.types.every((member) => isDefinitelyNonNullType(member, context));
+  }
+
+  return !isNullType(resolved);
 }
 
 function mergeObjectContributionTypes<Symbols>(

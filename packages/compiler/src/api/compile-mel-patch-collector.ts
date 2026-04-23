@@ -15,6 +15,7 @@ import {
   classifyComparableExpr,
   inferExprType,
   mayYieldArrayExpr,
+  resolveType,
   type DomainTypeSymbols,
 } from "../analyzer/expr-type-surface.js";
 import { toMelExpr } from "./compile-mel-patch-expr.js";
@@ -640,7 +641,12 @@ class PatchExprValidator {
     errors: Diagnostic[]
   ): void {
     const inferred = inferExprType(expr, new Map(), this.symbols);
-    const mayYieldInvalidSpread = mayYieldArrayExpr(expr);
+    const mayYieldInvalidSpread = mayYieldArrayExpr(expr, {
+      env: new Map(),
+      symbols: this.symbols,
+      inferExprType,
+      resolveType,
+    });
 
     if (!inferred) {
       if (!mayYieldInvalidSpread) {
