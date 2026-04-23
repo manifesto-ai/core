@@ -1192,8 +1192,7 @@ function hasNullableEligibilityPath(
         || hasNullableEligibilityPath(expr.object, env, symbols);
 
     case "indexAccess":
-      return canTypeIncludeNull(inferExprType(expr.object, env, symbols), symbols)
-        || hasNullableEligibilityPath(expr.object, env, symbols);
+      return true;
 
     default:
       return false;

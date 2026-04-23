@@ -729,9 +729,31 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
+    const indexPathResult = adapter.compile(`
+      domain Demo {
+        type Entry = { mode: "ship" | "pickup" }
+
+        state {
+          entries: Record<string, Entry> = {}
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(entries["active"].mode, "pickup"), 100],
+          ["ship", eq(entries["active"].mode, "ship"), 80],
+          "first"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("MEL-SUGAR-4"), coveredResult.success && coveredMinResult.success && hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(optionalPathResult.errors, "E_TYPE_MISMATCH"), {
+      evaluateRule(getRuleOrThrow("MEL-SUGAR-4"), coveredResult.success && coveredMinResult.success && hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(optionalPathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(indexPathResult.errors, "E_TYPE_MISMATCH"), {
         passMessage: "argmax()/argmin() preserve non-null label typing only when candidate eligibility coverage is statically exhaustive.",
         failMessage: "argmax()/argmin() nullability narrowing is either too weak for exhaustive coverage or too loose for uncovered cases.",
         evidence: [
@@ -741,6 +763,7 @@ describe("CCTS State and Computed Suite", () => {
           ...diagnosticEvidence(literalGapResult.errors),
           ...diagnosticEvidence(nullablePathResult.errors),
           ...diagnosticEvidence(optionalPathResult.errors),
+          ...diagnosticEvidence(indexPathResult.errors),
         ],
       }),
     ]);
