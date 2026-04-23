@@ -910,7 +910,7 @@ function registerBooleanEligibilityAtom(
 ): boolean {
   const key = getEligibilityAtomKey(expr);
   const typeExpr = inferExprType(expr, env, symbols);
-  if (!key || !typeExpr || !isStrictBooleanType(typeExpr, symbols)) {
+  if (!key || !typeExpr || !isStrictBooleanType(typeExpr, symbols) || hasNullableEligibilityPath(expr, env, symbols)) {
     return false;
   }
 
@@ -960,7 +960,7 @@ function registerComparableEligibilityAtom(
 ): boolean {
   const key = getEligibilityAtomKey(expr);
   const typeExpr = inferExprType(expr, env, symbols);
-  if (!key || !typeExpr || !isPrimitiveComparableType(typeExpr, symbols)) {
+  if (!key || !typeExpr || !isPrimitiveComparableType(typeExpr, symbols) || hasNullableEligibilityPath(expr, env, symbols)) {
     return false;
   }
 
@@ -1177,6 +1177,25 @@ function getEligibilityAtomKey(expr: ExprNode): string | null {
     }
     default:
       return null;
+  }
+}
+
+function hasNullableEligibilityPath(
+  expr: ExprNode,
+  env: TypeEnv,
+  symbols: DomainTypeSymbols
+): boolean {
+  switch (expr.kind) {
+    case "propertyAccess":
+      return canTypeIncludeNull(inferExprType(expr.object, env, symbols), symbols)
+        || hasNullableEligibilityPath(expr.object, env, symbols);
+
+    case "indexAccess":
+      return canTypeIncludeNull(inferExprType(expr.object, env, symbols), symbols)
+        || hasNullableEligibilityPath(expr.object, env, symbols);
+
+    default:
+      return false;
   }
 }
 
