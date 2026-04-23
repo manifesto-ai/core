@@ -307,17 +307,29 @@ function stripNullType(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols
     return resolved;
   }
 
-  const members = resolved.types.filter((member) => !isNullType(member));
+  const members = resolved.types
+    .map((member) => stripNullType(member, symbols))
+    .filter((member): member is TypeExprNode => member !== null);
   if (members.length === 0) {
     return null;
   }
-  if (members.length === 1) {
-    return members[0];
+  const deduped: TypeExprNode[] = [];
+  const seen = new Set<string>();
+  for (const member of members) {
+    const key = JSON.stringify(member);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(member);
+  }
+  if (deduped.length === 1) {
+    return deduped[0];
   }
 
   return {
     kind: "unionType",
-    types: members,
+    types: deduped,
     location: resolved.location,
   };
 }
@@ -351,6 +363,71 @@ function areTypesCompatible(
   }
 
   return null;
+}
+
+function isMergeAssignableType(
+  sourceType: TypeExprNode,
+  targetType: TypeExprNode,
+  symbols: DomainTypeSymbols
+): boolean | null {
+  const resolvedSource = resolveType(sourceType, symbols);
+  const resolvedTarget = resolveType(targetType, symbols);
+  if (!resolvedSource || !resolvedTarget) {
+    return null;
+  }
+
+  if (resolvedTarget.kind === "unionType") {
+    let sawUnknown = false;
+    for (const member of resolvedTarget.types) {
+      if (isNullType(member)) {
+        continue;
+      }
+      const outcome = isMergeAssignableType(resolvedSource, member, symbols);
+      if (outcome === true) {
+        return true;
+      }
+      if (outcome === null) {
+        sawUnknown = true;
+      }
+    }
+    return sawUnknown ? null : false;
+  }
+
+  if (resolvedSource.kind === "unionType") {
+    let sawUnknown = false;
+    for (const member of resolvedSource.types) {
+      const outcome = isMergeAssignableType(member, resolvedTarget, symbols);
+      if (outcome === false) {
+        return false;
+      }
+      if (outcome === null) {
+        sawUnknown = true;
+      }
+    }
+    return sawUnknown ? null : true;
+  }
+
+  if (resolvedTarget.kind !== "objectType") {
+    return false;
+  }
+
+  if (resolvedSource.kind !== "objectType") {
+    return false;
+  }
+
+  for (const sourceField of resolvedSource.fields) {
+    const targetField = resolvedTarget.fields.find((candidate) => candidate.name === sourceField.name);
+    if (!targetField) {
+      return false;
+    }
+
+    const fieldAssignable = isAssignableType(sourceField.typeExpr, targetField.typeExpr, symbols);
+    if (fieldAssignable !== true) {
+      return fieldAssignable;
+    }
+  }
+
+  return true;
 }
 
 function classifyArrayOperand(
@@ -1033,7 +1110,9 @@ export class SemanticValidator {
         return;
       }
 
-      const assignable = isAssignableType(valueType, targetType, this.symbols);
+      const assignable = stmt.op === "merge"
+        ? isMergeAssignableType(valueType, targetType, this.symbols)
+        : isAssignableType(valueType, targetType, this.symbols);
       if (assignable === false) {
         this.error(
           `Patch value for '${renderPath(stmt.path)}' must be assignable to ${describeTypeExpr(targetType, this.symbols)}, got ${describeTypeExpr(valueType, this.symbols)}`,

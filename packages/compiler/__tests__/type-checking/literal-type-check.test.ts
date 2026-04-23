@@ -255,6 +255,265 @@ describe("Literal type checking", () => {
     });
   });
 
+  describe("nullable object patch literals", () => {
+    it("accepts partially dynamic object literals for non-null object patch targets", () => {
+      const result = compileSource(`
+        domain Test {
+          type RuntimeOperation = {
+            kind: string,
+            targetId: string
+          }
+
+          state {
+            lastOperation: RuntimeOperation = {
+              kind: "seed",
+              targetId: "seed"
+            }
+          }
+
+          action setOp(id: string) {
+            when true {
+              patch lastOperation = {
+                kind: "a",
+                targetId: id
+              }
+            }
+          }
+        }
+      `);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts all-literal object literals for nullable object patch targets", () => {
+      const result = compileSource(`
+        domain Test {
+          type RuntimeOperation = {
+            kind: string,
+            targetId: string
+          }
+
+          state {
+            lastOperation: RuntimeOperation | null = null
+          }
+
+          action setOp() {
+            when true {
+              patch lastOperation = {
+                kind: "a",
+                targetId: "fixed"
+              }
+            }
+          }
+        }
+      `);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts partially dynamic object literals for nullable named object patch targets", () => {
+      const result = compileSource(`
+        domain Test {
+          type RuntimeOperation = {
+            kind: "a" | "b",
+            targetId: string
+          }
+
+          state {
+            lastOperation: RuntimeOperation | null = null
+          }
+
+          action setOp(id: string) {
+            when true {
+              patch lastOperation = {
+                kind: "a",
+                targetId: id
+              }
+            }
+          }
+        }
+      `);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts partially dynamic object literals for nullable inline object patch targets", () => {
+      const result = compileSource(`
+        domain Test {
+          state {
+            lastOperation: { kind: "a" | "b", targetId: string } | null = null
+          }
+
+          action setOp(id: string) {
+            when true {
+              patch lastOperation = {
+                kind: "a",
+                targetId: id
+              }
+            }
+          }
+        }
+      `);
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects static field mismatches for nullable object patch targets", () => {
+      const result = compileSource(`
+        domain Test {
+          type RuntimeOperation = {
+            kind: string,
+            targetId: string
+          }
+
+          state {
+            lastOperation: RuntimeOperation | null = null
+          }
+
+          action setOp() {
+            when true {
+              patch lastOperation = {
+                kind: "a",
+                targetId: 1
+              }
+            }
+          }
+        }
+      `);
+      expect(result.success).toBe(false);
+      expect(result.errors.some((diagnostic) =>
+        diagnostic.code === "E_TYPE_MISMATCH"
+          && diagnostic.message.includes("Patch value for 'lastOperation' must be assignable")
+      )).toBe(true);
+    });
+
+    it("does not flag plain nullable primitive patch assignments", () => {
+      const result = compileSource(`
+        domain Test {
+          state {
+            selectedId: string | null = null
+          }
+
+          action setSelected(id: string) {
+            when true {
+              patch selectedId = id
+            }
+          }
+        }
+      `);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("patch merge type checking", () => {
+    it("accepts partial merge payloads for object targets", () => {
+      const result = compileSource(`
+        domain Test {
+          type User = {
+            name: string,
+            age: number
+          }
+
+          state {
+            user: User = {
+              name: "a",
+              age: 1
+            }
+          }
+
+          action rename() {
+            when true {
+              patch user merge {
+                name: "b"
+              }
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts partial merge payloads for nullable object targets", () => {
+      const result = compileSource(`
+        domain Test {
+          type Draft = {
+            customerId: string,
+            submissionState: "idle" | "ready"
+          }
+
+          state {
+            draft: Draft | null = null
+          }
+
+          action markReady() {
+            when true {
+              patch draft merge {
+                submissionState: "ready"
+              }
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects wrong field types in merge payloads", () => {
+      const result = compileSource(`
+        domain Test {
+          type User = {
+            name: string,
+            age: number
+          }
+
+          state {
+            user: User = {
+              name: "a",
+              age: 1
+            }
+          }
+
+          action rename() {
+            when true {
+              patch user merge {
+                age: "oops"
+              }
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+    });
+
+    it("rejects unknown fields in merge payloads", () => {
+      const result = compileSource(`
+        domain Test {
+          type User = {
+            name: string,
+            age: number
+          }
+
+          state {
+            user: User = {
+              name: "a",
+              age: 1
+            }
+          }
+
+          action rename() {
+            when true {
+              patch user merge {
+                nickname: "b"
+              }
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.some((diagnostic) => diagnostic.code === "E_TYPE_MISMATCH")).toBe(true);
+    });
+  });
+
   describe("valid MEL compiles successfully", () => {
     it("accepts correct types", () => {
       const result = compileSource(`

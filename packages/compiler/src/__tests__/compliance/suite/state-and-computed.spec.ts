@@ -400,4 +400,372 @@ describe("CCTS State and Computed Suite", () => {
       }),
     ]);
   });
+
+  it(caseTitle(CCTS_CASES.STATE_PATCH_MERGE, "(PATCH-MERGE-1) patch merge remains a shallow partial-object operation"), () => {
+    const partialResult = adapter.compile(`
+      domain Demo {
+        type User = { name: string, age: number }
+
+        state {
+          user: User = { name: "a", age: 1 }
+        }
+
+        action rename() {
+          when true {
+            patch user merge { name: "b" }
+          }
+        }
+      }
+    `);
+    const invalidResult = adapter.compile(`
+      domain Demo {
+        type User = { name: string, age: number }
+
+        state {
+          user: User = { name: "a", age: 1 }
+        }
+
+        action rename() {
+          when true {
+            patch user merge { age: "oops" }
+          }
+        }
+      }
+    `);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("PATCH-MERGE-1"), partialResult.success && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"), {
+        passMessage: "patch merge accepts partial object payloads while preserving field-level type checks.",
+        failMessage: "patch merge no longer behaves as a shallow partial-object operation.",
+        evidence: [
+          ...diagnosticEvidence(partialResult.errors),
+          ...diagnosticEvidence(invalidResult.errors),
+        ],
+      }),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.STATE_COALESCE_NARROWING, "(COALESCE-1) coalesce narrows compatible nullable branches for downstream typing"), () => {
+    const numericResult = adapter.compile(`
+      domain Demo {
+        state { count: number = 1 }
+        computed maybe = idiv(count, 2)
+        computed safe = clamp(coalesce(maybe, 0), 0, 10)
+      }
+    `);
+    const selectorResult = adapter.compile(`
+      domain Demo {
+        state { mode: "ship" | "pickup" = "ship" }
+
+        computed carrier = argmax(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          coalesce(carrier, "manual"),
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+      }
+    `);
+    const invalidResult = adapter.compile(`
+      domain Demo {
+        state {
+          primary: string | null = null
+          secondary: string | null = null
+          chosen: string = ""
+        }
+
+        action copy() {
+          when true {
+            patch chosen = coalesce(primary, secondary)
+          }
+        }
+      }
+    `);
+
+    expectAllCompliance([
+      evaluateRule(
+        getRuleOrThrow("COALESCE-1"),
+        numericResult.success
+          && selectorResult.success
+          && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"),
+        {
+        passMessage: "coalesce narrows only when a non-null fallback is guaranteed and preserves nullable results otherwise.",
+        failMessage: "coalesce still leaks nullable result types into guaranteed fallback paths or over-narrows all-nullable paths.",
+        evidence: [
+          ...diagnosticEvidence(numericResult.errors),
+          ...diagnosticEvidence(selectorResult.errors),
+          ...diagnosticEvidence(invalidResult.errors),
+        ],
+      }),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.STATE_VALUES_RECORD_TYPING, "(COLLECT-VALUES-1) values(record) preserves typed collection flows"), () => {
+    const typedResult = adapter.compile(`
+      domain Demo {
+        type Item = { id: string, qty: number }
+        type Line = { id: string, qty: number }
+
+        state {
+          items: Record<string, Item> = {}
+          lines: Array<Line> = []
+        }
+
+        action copy() {
+          when true {
+            patch lines = map(values(items), { id: $item.id, qty: $item.qty })
+          }
+        }
+      }
+    `);
+    const invalidResult = adapter.compile(`
+      domain Demo {
+        type Item = { id: string, qty: number }
+        type Line = { id: string, qty: number }
+
+        state {
+          items: Record<string, Item> = {}
+          lines: Array<Line> = []
+        }
+
+        action copy() {
+          when true {
+            patch lines = map(values(items), { id: 1, qty: "x" })
+          }
+        }
+      }
+    `);
+    const nestedResult = adapter.compile(`
+      domain Demo {
+        type Item = { id: string, qty: number }
+        type Line = { id: string, qty: number }
+        type Order = { id: string, lines: Array<Line> }
+
+        state {
+          items: Record<string, Item> = {}
+          orders: Record<string, Order> = {}
+        }
+
+        action submit(orderId: string) {
+          when true {
+            patch orders[orderId] = {
+              id: orderId,
+              lines: map(values(items), { id: $item.id, qty: $item.qty })
+            }
+          }
+        }
+      }
+    `);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("COLLECT-VALUES-1"), typedResult.success && nestedResult.success && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"), {
+        passMessage: "values(record) keeps typed collection flows visible to semantic checking.",
+        failMessage: "values(record) still loses typing or bypasses downstream validation.",
+        evidence: [
+          ...diagnosticEvidence(typedResult.errors),
+          ...diagnosticEvidence(invalidResult.errors),
+          ...diagnosticEvidence(nestedResult.errors),
+          noteEvidence("Observed nested order field", nestedResult.value?.state.fields["orders"]),
+        ],
+      }),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.STATE_ARG_SELECTION_COVERAGE, "(MEL-SUGAR-4) argmax()/argmin() narrow away null only when eligibility is exhaustively covered"), () => {
+    const coveredResult = adapter.compile(`
+      domain Demo {
+        state {
+          mode: "ship" | "pickup" = "ship"
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+    const coveredMinResult = adapter.compile(`
+      domain Demo {
+        state {
+          mode: "ship" | "pickup" = "ship"
+          note: string = ""
+        }
+
+        computed carrier = argmin(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+    const uncoveredResult = adapter.compile(`
+      domain Demo {
+        state {
+          flag: boolean = false
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["a", flag, 1],
+          ["b", false, 0],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["a", "A"],
+          ["b", "B"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+    const literalGapResult = adapter.compile(`
+      domain Demo {
+        state {
+          mode: "ship" | "pickup" | "digital" = "ship"
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(mode, "pickup"), 100],
+          ["ship", eq(mode, "ship"), 80],
+          "first"
+        )
+
+        computed tier = match(
+          carrier,
+          ["pickup", "pickup"],
+          ["ship", "ship"],
+          "manual"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+    const nullablePathResult = adapter.compile(`
+      domain Demo {
+        type Selection = { mode: "ship" | "pickup" }
+
+        state {
+          selection: Selection | null = null
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(selection.mode, "pickup"), 100],
+          ["ship", eq(selection.mode, "ship"), 80],
+          "first"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+    const optionalPathResult = adapter.compile(`
+      domain Demo {
+        type Selection = { mode?: "ship" | "pickup" }
+
+        state {
+          selection: Selection = {}
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(selection.mode, "pickup"), 100],
+          ["ship", eq(selection.mode, "ship"), 80],
+          "first"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+    const indexPathResult = adapter.compile(`
+      domain Demo {
+        type Entry = { mode: "ship" | "pickup" }
+
+        state {
+          entries: Record<string, Entry> = {}
+          note: string = ""
+        }
+
+        computed carrier = argmax(
+          ["pickup", eq(entries["active"].mode, "pickup"), 100],
+          ["ship", eq(entries["active"].mode, "ship"), 80],
+          "first"
+        )
+
+        action remember() {
+          when true {
+            patch note = carrier
+          }
+        }
+      }
+    `);
+
+    expectAllCompliance([
+      evaluateRule(getRuleOrThrow("MEL-SUGAR-4"), coveredResult.success && coveredMinResult.success && hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(optionalPathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(indexPathResult.errors, "E_TYPE_MISMATCH"), {
+        passMessage: "argmax()/argmin() preserve non-null label typing only when candidate eligibility coverage is statically exhaustive.",
+        failMessage: "argmax()/argmin() nullability narrowing is either too weak for exhaustive coverage or too loose for uncovered cases.",
+        evidence: [
+          ...diagnosticEvidence(coveredResult.errors),
+          ...diagnosticEvidence(coveredMinResult.errors),
+          ...diagnosticEvidence(uncoveredResult.errors),
+          ...diagnosticEvidence(literalGapResult.errors),
+          ...diagnosticEvidence(nullablePathResult.errors),
+          ...diagnosticEvidence(optionalPathResult.errors),
+          ...diagnosticEvidence(indexPathResult.errors),
+        ],
+      }),
+    ]);
+  });
 });

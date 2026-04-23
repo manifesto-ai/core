@@ -78,6 +78,9 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
     notes: "Record schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
   }),
   ...inventoryMany(["TYPE-LOWER-8", "TYPE-LOWER-9"], "§5.6.2", "MUST", "state-and-computed"),
+  inventory("PATCH-MERGE-1", "docs/mel/REFERENCE.md `patch merge` / docs/mel/SYNTAX.md `patch path merge expr`", "MUST", "state-and-computed"),
+  inventory("COALESCE-1", "docs/mel/REFERENCE.md `coalesce(a, b, ...)`", "MUST", "state-and-computed"),
+  inventory("COLLECT-VALUES-1", "docs/mel/REFERENCE.md `values(obj)` / docs/mel/SYNTAX.md computed examples", "MUST", "state-and-computed"),
   ...inventoryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14"], "SPEC v0.8.0 §6/§7/§8", "MUST", "introspection"),
   inventory("SGRAPH-15", "SPEC v0.8.0 §6", "SHOULD", "introspection"),
 
