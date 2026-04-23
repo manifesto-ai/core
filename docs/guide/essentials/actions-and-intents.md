@@ -14,7 +14,7 @@ domain Counter {
 
   action add(amount: number) {
     onceIntent {
-      patch count = add(count, amount)
+      patch count = count + amount
     }
   }
 }

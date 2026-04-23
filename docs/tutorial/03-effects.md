@@ -32,13 +32,13 @@ domain UserProfile {
   }
 
   state {
-    user: User? = null
+    user: User | null = null
     loading: boolean = false
-    error: string? = null
-    requestedId: string? = null
+    error: string | null = null
+    requestedId: string | null = null
   }
 
-  computed hasUser = neq(user, null)
+  computed hasUser = user != null
 
   action fetchUser(id: string) {
     onceIntent {

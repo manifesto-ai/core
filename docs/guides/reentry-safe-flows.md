@@ -54,7 +54,7 @@ Now the work is tied to a single intent.
 Not every action is one-shot forever. Some actions are repeatable, but only when state says they should run.
 
 ```mel
-action retry() available when eq(status, "error") {
+action retry() available when status == "error" {
   onceIntent {
     patch status = "loading"
     patch error = null
@@ -79,7 +79,7 @@ action clearCompleted() {
   onceIntent {
     effect array.filter({
       source: todos,
-      where: eq($item.completed, false),
+      where: !$item.completed,
       into: todos
     })
   }
@@ -119,7 +119,7 @@ Then ask:
 
 ```mel
 action increment() {
-  patch count = add(count, 1)
+  patch count = count + 1
 }
 ```
 

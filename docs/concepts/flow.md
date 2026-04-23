@@ -42,7 +42,7 @@ domain TodoDomain {
 
   action addTodo(title: string, localId: string) {
     // Validation
-    when eq(len(title), 0) {
+    when len(title) == 0 {
       fail "EMPTY_TITLE"
     }
 
@@ -56,9 +56,7 @@ domain TodoDomain {
       })
 
       // API call
-      effect api.createTodo {
-        title: title
-      }
+      effect api.createTodo({ title: title })
     }
   }
 }
@@ -115,7 +113,7 @@ MEL compiles to JSON Flow structures that Core interprets:
 // RIGHT: Uses onceIntent for automatic re-entry safety
 action submit() {
   onceIntent {
-    patch count = add(count, 1)
+    patch count = count + 1
     effect api.submit({})
   }
 }
@@ -126,7 +124,7 @@ action submit() {
 ```mel
 // RIGHT: State-guarded
 action submit(timestamp: number) {
-  when isNull(submittedAt) {
+  when submittedAt == null {
     patch submittedAt = timestamp
     effect api.submit({})
   }
@@ -138,7 +136,7 @@ action submit(timestamp: number) {
 ```mel
 // WRONG: Runs every compute cycle - infinite loop!
 action submit() {
-  patch count = add(count, 1)
+  patch count = count + 1
   effect api.submit({})
 }
 ```
@@ -150,7 +148,7 @@ action checkAccess() {
   when user.isAdmin {
     patch access = "full"
   }
-  when not(user.isAdmin) {
+  when !user.isAdmin {
     patch access = "limited"
   }
 }
@@ -160,12 +158,12 @@ action checkAccess() {
 
 ```mel
 action createUser(email: string) {
-  when not(contains(email, "@")) {
-    fail "INVALID_EMAIL"
+  when trim(email) == "" {
+    fail "MISSING_EMAIL"
   }
 
   onceIntent {
-    effect api.createUser { email: email }
+    effect api.createUser({ email: email })
   }
 }
 ```
@@ -174,7 +172,7 @@ action createUser(email: string) {
 
 ```mel
 action load() {
-  when eq(status, "idle") {
+  when status == "idle" {
     patch status = "loading"
     effect api.load({})
   }
@@ -188,7 +186,7 @@ action load() {
 | `seq` | Execute steps in order | Statements in order |
 | `if` | Conditional branching | `when condition { ... }` |
 | `patch` | State mutation (set, unset, merge) | `patch field = value` |
-| `effect` | Declare external operation | `effect type { params }` |
+| `effect` | Declare external operation | `effect type({ params })` |
 | `call` | Invoke another flow | (Internal) |
 | `halt` | Normal termination | `stop` |
 | `fail` | Error termination | `fail "CODE"` |

@@ -17,11 +17,11 @@ domain Counter {
     label: Label = { text: "Counter" }
   }
 
-  computed doubled = mul(count, 2)
+  computed doubled = count * 2
 
   action increment() {
     onceIntent {
-      patch count = add(count, 1)
+      patch count = count + 1
     }
   }
 }
