@@ -1057,7 +1057,7 @@ function buildEligibilityAtomDomain(
 function evaluateEligibilityExpr(
   expr: ExprNode,
   assignment: Map<string, AbstractPrimitiveValue>
-): string | number | boolean | null | undefined {
+): AbstractPrimitiveValue | undefined {
   switch (expr.kind) {
     case "literal":
       return expr.literalType === "null"
