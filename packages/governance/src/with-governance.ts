@@ -525,6 +525,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     getActionMetadata: kernel.getActionMetadata,
     isActionAvailable: kernel.isActionAvailable,
     simulate: kernel.simulate,
+    simulateIntent: kernel.simulateIntent,
     explainIntent,
     why,
     whyNot,

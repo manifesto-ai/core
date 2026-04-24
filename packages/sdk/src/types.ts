@@ -309,6 +309,12 @@ export type TypedSimulate<T extends ManifestoDomainShape> = <
   ...args: CreateIntentArgs<T, K>
 ) => SimulateResult<T>;
 
+export type TypedSimulateIntent<T extends ManifestoDomainShape> = <
+  K extends keyof T["actions"],
+>(
+  intent: TypedIntent<T, K>,
+) => SimulateResult<T>;
+
 export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
   selector: Selector<T["state"], R>,
   listener: (value: R) => void,
@@ -406,6 +412,7 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
   readonly getSchemaGraph: () => SchemaGraph;
   readonly simulate: TypedSimulate<T>;
+  readonly simulateIntent: TypedSimulateIntent<T>;
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
   readonly dispose: () => void;
@@ -413,7 +420,7 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 export type ManifestoLegalityRuntime<T extends ManifestoDomainShape> = Pick<
   ManifestoBaseInstance<T>,
-  "createIntent" | "whyNot" | "simulate" | "MEL"
+  "createIntent" | "whyNot" | "simulate" | "simulateIntent" | "MEL"
 >;
 
 export type ManifestoDispatchRuntime<T extends ManifestoDomainShape> = Pick<

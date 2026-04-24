@@ -82,9 +82,11 @@ All of these are JSON-serializable and surface-neutral.
 - [`@manifesto-ai/studio-cli`](./studio-cli) wraps this package for terminal workflows.
 - [`@manifesto-ai/studio-mcp`](./studio-mcp) wraps the same analysis surface as MCP tools.
 - UI packages and dashboards should build on this package instead of re-implementing graph or findings logic.
+- [Runtime Tooling Surface](/guides/runtime-tooling-surface) maps Studio-style tooling to the public runtime, snapshot, and lineage seams.
 
 ## Related Docs
 
 - [Developer Tooling Guide](/guides/developer-tooling)
+- [Runtime Tooling Surface](/guides/runtime-tooling-surface)
 - [@manifesto-ai/studio-cli](./studio-cli)
 - [@manifesto-ai/studio-mcp](./studio-mcp)

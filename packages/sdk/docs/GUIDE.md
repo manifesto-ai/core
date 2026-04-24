@@ -2,7 +2,7 @@
 
 > Practical guide for the activation-first `@manifesto-ai/sdk` path.
 
-> **Current Contract Note:** This guide follows the current SDK v3.x living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes dispatchability queries and projected introspection, `dispatchAsyncWithReport()` is the additive base write-report companion, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
+> **Current Contract Note:** This guide follows the current SDK v3.x living contract. `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, the base surface includes dispatchability queries, projected introspection, and bound-intent dry-run through `simulateIntent(intent)`, `dispatchAsyncWithReport()` is the additive base write-report companion, and `@manifesto-ai/sdk/extensions` provides the safe post-activation arbitrary-snapshot seam plus a first-party simulation-session helper.
 
 ## 1. Build The Activation Lifecycle
 
@@ -22,6 +22,7 @@ const snapshot = instance.getSnapshot();
 const canonical = instance.getCanonicalSnapshot();
 const graph = instance.getSchemaGraph();
 const preview = instance.simulate(instance.MEL.actions.increment);
+const intentPreview = instance.simulateIntent(intent);
 ```
 
 This is the normal SDK lifecycle:
@@ -103,7 +104,8 @@ const downstream = graph.traceDown(instance.MEL.state.count);
 const upstream = graph.traceUp(instance.MEL.actions.incrementIfEven);
 const debug = graph.traceDown("state:count");
 
-const preview = instance.simulate(instance.MEL.actions.increment);
+const intent = instance.createIntent(instance.MEL.actions.increment);
+const preview = instance.simulateIntent(intent);
 
 console.log(preview.snapshot);
 console.log(preview.changedPaths);
@@ -112,7 +114,7 @@ console.log(preview.newAvailableActions);
 
 Use `getSchemaGraph()` for projected static dependency inspection. Ref-based lookup through `instance.MEL.*` is canonical. Kind-prefixed ids such as `state:count` remain convenience/debug-only.
 
-Use `simulate()` for a non-committing dry-run against the current canonical snapshot. It returns the projected next snapshot, effect requirements, new availability, sorted `changedPaths`, and optional debug-grade `diagnostics.trace`. Treat `changedPaths` and diagnostics as explanation/debug output rather than the branching API.
+Use `simulateIntent(intent)` when you already have a typed intent. Use `simulate(action, ...args)` when you want the runtime to bind and dry-run in one call. Both perform a non-committing dry-run against the current canonical snapshot and return the projected next snapshot, effect requirements, new availability, sorted `changedPaths`, and optional debug-grade `diagnostics.trace`. Treat `changedPaths` and diagnostics as explanation/debug output rather than the branching API.
 
 ---
 

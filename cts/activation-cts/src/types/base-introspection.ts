@@ -15,9 +15,15 @@ void graph.traceDown(world.MEL.state.count);
 void graph.traceUp("state:count");
 
 const simulated = world.simulate(world.MEL.actions.increment);
+const intent = world.createIntent(world.MEL.actions.increment);
+const simulatedIntent = world.simulateIntent(intent);
 const changedPaths: readonly string[] = simulated.changedPaths;
 const available: readonly (keyof CounterDomain["actions"])[] = simulated.newAvailableActions;
 const trace = simulated.diagnostics?.trace;
+const intentChangedPaths: readonly string[] = simulatedIntent.changedPaths;
+const intentAvailable: readonly (keyof CounterDomain["actions"])[] =
+  simulatedIntent.newAvailableActions;
+const intentTrace = simulatedIntent.diagnostics?.trace;
 const reportPromise: Promise<DispatchReport<CounterDomain>> = world.dispatchAsyncWithReport(
   world.createIntent(world.MEL.actions.increment),
 );
@@ -42,6 +48,9 @@ void actionName;
 void changedPaths;
 void available;
 void trace;
+void intentChangedPaths;
+void intentAvailable;
+void intentTrace;
 void reportPromise;
 
 // @ts-expect-error FieldRef no longer exposes path as part of the public contract

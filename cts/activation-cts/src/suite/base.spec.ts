@@ -187,28 +187,33 @@ describe("ACTS Base Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.BASE_INTROSPECTION_SURFACE,
-      "Activated base runtime exposes getSchemaGraph() and simulate() as read-only introspection verbs.",
+      "Activated base runtime exposes getSchemaGraph(), simulateIntent(), and simulate() as read-only introspection verbs.",
     ),
     () => {
       const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
       const graph = world.getSchemaGraph();
+      const intent = world.createIntent(world.MEL.actions.increment);
       const simulated = world.simulate(world.MEL.actions.increment);
+      const simulatedIntent = world.simulateIntent(intent);
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-BASE-6"),
           "getSchemaGraph" in world
             && "simulate" in world
+            && "simulateIntent" in world
             && Array.isArray(graph.nodes)
             && Array.isArray(graph.edges)
             && simulated.snapshot.data.count === 1
+            && simulatedIntent.snapshot.data.count === 1
             && world.getSnapshot().data.count === 0,
           {
-            passMessage: "Base runtime exposes getSchemaGraph() and simulate() without committing state.",
-            failMessage: "Base runtime did not expose the introspection surface or simulate() committed state.",
+            passMessage: "Base runtime exposes getSchemaGraph(), simulateIntent(), and simulate() without committing state.",
+            failMessage: "Base runtime did not expose the introspection surface or public dry-run committed state.",
             evidence: [
               noteEvidence("Observed graph nodes", graph.nodes),
               noteEvidence("Observed simulated snapshot", simulated.snapshot),
+              noteEvidence("Observed bound-intent simulated snapshot", simulatedIntent.snapshot),
             ],
           },
         ),
@@ -274,12 +279,14 @@ describe("ACTS Base Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
-      "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
+      "simulateIntent() and simulate() are non-committing and return projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
     ),
     () => {
       const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
       const before = world.getSnapshot();
+      const loadIntent = world.createIntent(world.MEL.actions.load);
       const simulated = world.simulate(world.MEL.actions.load);
+      const simulatedIntent = world.simulateIntent(loadIntent);
       const after = world.getSnapshot();
       type NoOpProjectedDomain = {
         actions: {
@@ -314,11 +321,14 @@ describe("ACTS Base Suite", () => {
         },
       }), {}).activate();
       const noOpBefore = noOpWorld.getSnapshot();
+      const noOpIntent = noOpWorld.createIntent(noOpWorld.MEL.actions.touchHostDirect);
       const nowSpy = vi.spyOn(Date, "now");
       nowSpy.mockReturnValueOnce(100);
       const firstNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
       nowSpy.mockReturnValueOnce(200);
       const secondNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
+      nowSpy.mockReturnValueOnce(300);
+      const noOpIntentResult = noOpWorld.simulateIntent(noOpIntent);
       nowSpy.mockRestore();
       const noOpAfter = noOpWorld.getSnapshot();
 
@@ -329,20 +339,26 @@ describe("ACTS Base Suite", () => {
             && after.data.status === "idle"
             && after.data.count === before.data.count
             && simulated.status === "pending"
+            && simulatedIntent.status === simulated.status
             && simulated.snapshot.data.status === "loading"
+            && simulatedIntent.snapshot.data.status === simulated.snapshot.data.status
             && simulated.requirements.length === 1
+            && simulatedIntent.requirements.length === simulated.requirements.length
             && simulated.changedPaths.includes("data.status")
             && simulated.changedPaths.includes("system.status")
+            && JSON.stringify(simulatedIntent.changedPaths) === JSON.stringify(simulated.changedPaths)
+            && JSON.stringify(simulatedIntent.newAvailableActions) === JSON.stringify(simulated.newAvailableActions)
             && JSON.stringify(simulated.changedPaths) === JSON.stringify([...simulated.changedPaths].sort())
             && simulated.changedPaths.every((path) =>
               !path.includes("$")
               && path !== "system.pendingRequirements"
               && path !== "system.currentAction"),
           {
-            passMessage: "simulate() stays non-committing and returns projected-only dry-run results.",
-            failMessage: "simulate() committed runtime state or leaked canonical-only diff paths.",
+            passMessage: "simulateIntent() and simulate() stay non-committing and return projected-only dry-run results.",
+            failMessage: "Public dry-run committed runtime state or leaked canonical-only diff paths.",
             evidence: [
               noteEvidence("Observed simulated result", simulated),
+              noteEvidence("Observed bound-intent simulated result", simulatedIntent),
               noteEvidence("Visible snapshot after simulate()", after),
             ],
           },
@@ -353,6 +369,7 @@ describe("ACTS Base Suite", () => {
             && firstNoOp.changedPaths.length === 0
             && firstNoOp.requirements.length === 0
             && JSON.stringify(firstNoOp) === JSON.stringify(secondNoOp)
+            && JSON.stringify(firstNoOp) === JSON.stringify(noOpIntentResult)
             && JSON.stringify(noOpBefore) === JSON.stringify(noOpAfter),
           {
             passMessage: "Projected no-op simulation stays empty and repeatable.",
@@ -360,6 +377,7 @@ describe("ACTS Base Suite", () => {
             evidence: [
               noteEvidence("First no-op simulate()", firstNoOp),
               noteEvidence("Second no-op simulate()", secondNoOp),
+              noteEvidence("Bound-intent no-op simulateIntent()", noOpIntentResult),
             ],
           },
         ),
@@ -373,23 +391,31 @@ describe("ACTS Base Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.BASE_SIMULATE_HALTED,
-      "simulate() preserves Core halted status without publishing runtime state.",
+      "simulateIntent() and simulate() preserve Core halted status without publishing runtime state.",
     ),
     () => {
       const world = createManifesto<HaltingDomain>(createHaltingSchema(), {}).activate();
+      const intent = world.createIntent(world.MEL.actions.finalize);
       const simulated = world.simulate(world.MEL.actions.finalize);
+      const simulatedIntent = world.simulateIntent(intent);
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-BASE-9"),
           simulated.status === "halted"
+            && simulatedIntent.status === simulated.status
             && simulated.changedPaths.length === 0
+            && simulatedIntent.changedPaths.length === 0
             && simulated.requirements.length === 0
+            && simulatedIntent.requirements.length === 0
             && world.getSnapshot().data.status === "idle",
           {
-            passMessage: "simulate() preserves halted status without publishing state.",
-            failMessage: "simulate() did not preserve halted status or published state unexpectedly.",
-            evidence: [noteEvidence("Observed simulated result", simulated)],
+            passMessage: "simulateIntent() and simulate() preserve halted status without publishing state.",
+            failMessage: "Public dry-run did not preserve halted status or published state unexpectedly.",
+            evidence: [
+              noteEvidence("Observed simulated result", simulated),
+              noteEvidence("Observed bound-intent simulated result", simulatedIntent),
+            ],
           },
         ),
       ]);

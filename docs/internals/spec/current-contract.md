@@ -84,7 +84,8 @@ Current contract highlights:
 - `createIntent()` is anchored on the generated `MEL.actions.*` surface.
 - `dispatchAsync()` is the canonical base-runtime execution verb.
 - `dispatchAsyncWithReport()` is the additive base write-report companion.
-- `simulate()` is the non-committing dry-run surface and may expose debug-grade `diagnostics.trace`.
+- `simulateIntent(intent)` is the bound-intent non-committing dry-run surface and may expose debug-grade `diagnostics.trace`.
+- `simulate(action, ...args)` remains the action-ref convenience dry-run surface and delegates to the same bound-intent semantics.
 - `getSchemaGraph()` is the projected static graph read.
 - `isActionAvailable()` remains the coarse gate query.
 - `isIntentDispatchable()` and `getIntentBlockers()` are the fine legality/introspection queries.

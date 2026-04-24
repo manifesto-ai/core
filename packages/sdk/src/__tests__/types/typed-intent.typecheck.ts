@@ -1,6 +1,6 @@
 import type { Intent } from "@manifesto-ai/core";
 
-import type { DispatchBlocker, IntentExplanation } from "../../index.ts";
+import type { DispatchBlocker, IntentExplanation, SimulateResult } from "../../index.ts";
 import { createManifesto } from "../../index.ts";
 import { createForeignSchema, type ForeignDomain } from "../helpers/foreign-schema.ts";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
@@ -10,6 +10,7 @@ const typedIntent = world.createIntent(world.MEL.actions.increment);
 const explanation: IntentExplanation<CounterDomain> = world.explainIntent(typedIntent);
 const sameExplanation: IntentExplanation<CounterDomain> = world.why(typedIntent);
 const blockersOrNull: readonly DispatchBlocker[] | null = world.whyNot(typedIntent);
+const simulatedIntent: SimulateResult<CounterDomain> = world.simulateIntent(typedIntent);
 void world.createIntent(world.MEL.actions.add, { amount: 3 });
 
 void world.dispatchAsync(typedIntent);
@@ -21,12 +22,16 @@ const rawIntent: Intent = {
 
 // @ts-expect-error dispatchAsync only accepts typed intents created for this domain
 void world.dispatchAsync(rawIntent);
+// @ts-expect-error simulateIntent only accepts typed intents created for this domain
+void world.simulateIntent(rawIntent);
 
 const foreign = createManifesto<ForeignDomain>(createForeignSchema(), {}).activate();
 const foreignIntent = foreign.createIntent(foreign.MEL.actions.toggle);
 
 // @ts-expect-error dispatchAsync rejects intents branded for a different domain
 void world.dispatchAsync(foreignIntent);
+// @ts-expect-error simulateIntent rejects intents branded for a different domain
+void world.simulateIntent(foreignIntent);
 
 type TodoDomain = {
   actions: {
@@ -95,6 +100,7 @@ void actionMetadataList;
 void explanation;
 void sameExplanation;
 void blockersOrNull;
+void simulatedIntent;
 
 // @ts-expect-error getActionMetadata only accepts domain action names
 void todo.getActionMetadata("missing");

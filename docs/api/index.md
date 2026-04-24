@@ -44,6 +44,8 @@ If you are learning Manifesto for the first time, start with the [Guide](/guide/
 | [@manifesto-ai/studio-core](./studio-core) | You want projection-first analysis APIs in TypeScript tooling |
 | [@manifesto-ai/studio-mcp](./studio-mcp) | You want an MCP inspection surface for agents or remote clients |
 
+For Studio, agent, and adapter authors building on runtime state directly, read [Runtime Tooling Surface](/guides/runtime-tooling-surface) after the package overview.
+
 ## Related Docs
 
 - [Guide](/guide/introduction)

@@ -41,6 +41,7 @@ import type {
   TypedMEL,
   TypedOn,
   TypedSimulate,
+  TypedSimulateIntent,
   TypedSubscribe,
 } from "../types.js";
 import type {
@@ -117,6 +118,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
   ) => SimulateResult<T>;
   readonly simulate: TypedSimulate<T>;
+  readonly simulateIntent: TypedSimulateIntent<T>;
   readonly dispose: () => void;
   readonly isDisposed: () => boolean;
   readonly getVisibleCoreSnapshot: () => CoreSnapshot;
@@ -182,6 +184,7 @@ type RuntimePublicReadFacet<T extends ManifestoDomainShape> = Pick<
   | "isActionAvailable"
   | "getSchemaGraph"
   | "simulate"
+  | "simulateIntent"
 >;
 
 type RuntimeLifecycleFacet<T extends ManifestoDomainShape> = Pick<

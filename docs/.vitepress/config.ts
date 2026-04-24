@@ -50,6 +50,7 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Bundler Setup', link: '/guides/bundler-setup' },
       { text: 'Effect Handlers', link: '/guides/effect-handlers' },
       { text: 'Tooling', link: '/guides/developer-tooling' },
+      { text: 'Runtime Tooling Surface', link: '/guides/runtime-tooling-surface' },
       { text: 'Code Generation', link: '/guides/code-generation' },
       { text: 'AI Agents', link: '/integration/ai-agents' },
     ]

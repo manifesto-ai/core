@@ -53,6 +53,7 @@ The current effect-authoring helper seam is:
   - `isActionAvailable`
   - `getSchemaGraph`
   - `simulate`
+  - `simulateIntent`
   - `MEL`
   - `schema`
   - `dispose`
@@ -97,6 +98,7 @@ instance.getSnapshot();
 instance.getCanonicalSnapshot();
 instance.getSchemaGraph();
 instance.simulate(instance.MEL.actions.increment);
+instance.simulateIntent(intent);
 console.log(report.kind);
 ```
 
@@ -113,7 +115,7 @@ import type { LineageCommitRuntime } from "@manifesto-ai/lineage";
 import type { GovernanceProposalRuntime } from "@manifesto-ai/governance";
 ```
 
-- `ManifestoLegalityRuntime<T>` is the shared helper-safe legality/preparation surface: `createIntent`, `whyNot`, `simulate`, and `MEL`
+- `ManifestoLegalityRuntime<T>` is the shared helper-safe legality/preparation surface: `createIntent`, `whyNot`, `simulate`, `simulateIntent`, and `MEL`
 - `ManifestoDispatchRuntime<T>` is the base-only execution surface
 - `LineageCommitRuntime<T>` is the lineage-only execution surface
 - `GovernanceProposalRuntime<T>` is the governed-only execution surface
@@ -226,15 +228,27 @@ The intended legality ladder for callers is:
 3. admitted dry-run
 4. execution
 
-`whyNot()` and `getIntentBlockers()` are the lightweight first-failing-layer reads. `simulate()` is the admitted dry-run step.
+`whyNot()` and `getIntentBlockers()` are the lightweight first-failing-layer reads. `simulateIntent(intent)` is the admitted dry-run step when the caller already has a typed intent. `simulate(action, ...args)` remains the convenience form when the caller has not bound an intent yet.
 
 ## Static Graph And Dry-Run Introspection
 
 Use `getSchemaGraph()` when you need the projected static dependency graph for the activated schema. Ref-based lookup through `instance.MEL.*` is the canonical surface; kind-prefixed ids such as `state:count` are debug-only convenience.
 
-Use `simulate()` when you need a non-committing dry-run of an action against the current runtime state. It returns the projected snapshot, effect requirements, new action availability, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but invalid-input intents reject with `INVALID_INPUT`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` and diagnostics as inspection/debug output rather than the canonical branching API.
+Use `simulateIntent(intent)` when tooling has already normalized a candidate operation into a `TypedIntent` through `createIntent()`. It dry-runs that bound intent against the current runtime state without unpacking or rebinding `intent.input`.
 
-If the action is available but the bound intent input is invalid, `simulate()` rejects with `INVALID_INPUT` before dispatchability.
+```typescript
+const intent = instance.createIntent(instance.MEL.actions.increment);
+const explanation = instance.explainIntent(intent);
+
+if (explanation.kind === "admitted") {
+  const simulated = instance.simulateIntent(intent);
+  console.log(simulated.snapshot);
+}
+```
+
+Use `simulate(action, ...args)` when you want the runtime to bind the intent and dry-run it in one call. Both dry-run forms return the projected snapshot, effect requirements, new action availability, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace`. Unavailable actions reject with `ACTION_UNAVAILABLE`; available but invalid-input intents reject with `INVALID_INPUT`; available but non-dispatchable intents reject with `INTENT_NOT_DISPATCHABLE`. Treat `changedPaths` and diagnostics as inspection/debug output rather than the canonical branching API.
+
+If the action is available but the bound intent input is invalid, `simulateIntent()` and `simulate()` reject with `INVALID_INPUT` before dispatchability.
 
 If `diagnostics.trace` is present, it is derived from the dry-run Core trace for the same admitted compute pass that produced the simulated snapshot, status, and requirements. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
 
