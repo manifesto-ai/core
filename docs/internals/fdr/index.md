@@ -24,9 +24,9 @@ FDR documents explain **why** design decisions were made. They complement SPECs 
 |---------|------------|-------|--------------|
 | **App facade (retired)** | Removed (R2) | Legacy compatibility rationale | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | v0.5.0 | MEL syntax, IR design | [FDR-v0.5.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/FDR-v0.5.0.md) |
-| **@manifesto-ai/sdk** | v3.1.0 (draft) | Projected schema graph, full-transition dry-run simulation, and introspection rationale staged into the living SDK spec | [FDR-v3.1.0-draft.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/FDR-v3.1.0-draft.md) |
+| **@manifesto-ai/sdk** | v3.1.0 (accepted companion) | Projected schema graph, full-transition dry-run simulation, and introspection rationale staged into the living SDK spec | [FDR-v3.1.0.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/FDR-v3.1.0.md) |
 
-> Core/Host rationale is primarily available in each package SPEC `Rationale` block. The former `@manifesto-ai/world` rationale is retained only as historical split context. SDK currently has a draft additive rationale track for projected introspection APIs; its accepted contract now also appears in the living SDK spec.
+> Core/Host rationale is primarily available in each package SPEC `Rationale` block. The former `@manifesto-ai/world` rationale is retained only as historical split context. SDK currently has an accepted rationale companion for projected introspection APIs; its normative contract appears in the living SDK spec.
 
 ---
 
@@ -51,7 +51,7 @@ App-era rationale remains part of project history and ADR context (see ADR-007, 
 - FDR-H023: Context determinism
 - FDR-H024~H027: Snapshot type alignment
 
-**SDK v3.1.0 (draft)** - Introspection expansion
+**SDK v3.1.0 (accepted companion)** - Introspection expansion
 - FDR-SDK-001: Projected SchemaGraph influence graph
 - FDR-SDK-002: Full-transition `simulate()` dry-run
 

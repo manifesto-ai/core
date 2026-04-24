@@ -55,7 +55,7 @@ This separation enables:
 | **Time-travel debugging** | Step backward/forward through state without re-executing effects |
 | **Crash recovery** | Re-run computation from last snapshot—no lost context |
 
-These guarantees hold regardless of whether you run through the direct-dispatch SDK path or the governed World path. The runtime wrapper changes; the deterministic compute contract does not.
+These guarantees hold regardless of whether you run through the direct-dispatch SDK path or a Governance-decorated runtime with Lineage sealing. The runtime wrapper changes; the deterministic compute contract does not.
 
 ---
 

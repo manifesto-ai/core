@@ -149,10 +149,10 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } fro
 | Field | Owner | Host Reads | Host Writes | Description |
 |-------|-------|------------|-------------|-------------|
 | `data.*` | Core | Yes | via Patch | Domain state |
-| `data.$host.*` | **Host** | Yes | Yes | Host-owned namespace (see below) |
+| `data.$host.*` | **Host** | Yes | Yes | Host-owned canonical diagnostics/bookkeeping namespace (see below) |
 | `computed.*` | Core | Yes | No | Derived values |
 | `system.status` | Core | Yes | No | Core sets via compute() |
-| `system.lastError` | Core | Yes | No | Current error state |
+| `system.lastError` | Core | Yes | No | Current semantic error state |
 | `system.pendingRequirements` | Core | Yes | via `core.applySystemDelta()` | Requirement lifecycle |
 | `system.currentAction` | Core | Yes | No | Core sets during compute |
 | `meta.schemaHash` | Core | Yes | No | Domain schema identity |
@@ -170,6 +170,8 @@ Rather than extending Core's `SystemState`, Host uses a **reserved namespace in 
 type HostOwnedState = {
   /** Intent-scoped effect data */
   intentSlots?: Record<string, Record<string, unknown>>;
+  /** Host-owned effect/execution diagnostic, canonical-only */
+  lastError?: ErrorValue | null;
   /** Other Host-specific state */
   [key: string]: unknown;
 };
@@ -181,6 +183,12 @@ const hostState = snapshot.data.$host as HostOwnedState | undefined;
 **Note:** Patch paths are rooted at `data` by default. Use `$host.*` to target
 the Host-owned namespace. Core reserves `$host` as opaque Host-owned state and
 accepts `$host` patches even when StateSpec does not declare `$host` (Core SPEC §5.5).
+
+`$host.lastError` is an execution diagnostic owned by Host. It is not the
+semantic Snapshot error surface and MUST NOT be automatically promoted into
+`system.lastError`. Application and tooling callers that need per-attempt
+outcomes should use the SDK/Lineage/Governance report helpers; callers that
+need the current semantic error state should read `snapshot.system.lastError`.
 
 | Rule ID | Description |
 |---------|-------------|
@@ -229,7 +237,7 @@ An opaque identifier for execution serialization.
 ```typescript
 /**
  * ExecutionKey is opaque to Host.
- * World/App layer determines the mapping policy.
+ * SDK/Lineage/Governance integration determines the mapping policy.
  */
 type ExecutionKey = string;
 ```
@@ -513,8 +521,8 @@ This section defines the enforcement mechanism for single-writer concurrency.
 
 Host MUST maintain a single-writer mailbox per `ExecutionKey`.
 
-> **Rationale (FDR-H018):** Host MUST maintain a single-writer mailbox per ExecutionKey, where ExecutionKey is opaque to Host. World Protocol (FDR-W017) permits parallel branch execution — if mailbox were keyed by baseWorld, permitted parallelism would be artificially serialized. Keeping ExecutionKey opaque preserves the layer boundary: Host provides serialization mechanism, World/App provides key mapping policy.
-> **Alternatives rejected:** Global single mailbox (blocks W017 parallelism); baseWorld as key (same); no mailbox (no enforcement).
+> **Rationale (FDR-H018):** Host MUST maintain a single-writer mailbox per ExecutionKey, where ExecutionKey is opaque to Host. Lineage and Governance may need parallel branch or proposal execution, and Host must not infer that policy from continuity identifiers such as `baseWorld`. Keeping ExecutionKey opaque preserves the layer boundary: Host provides serialization mechanism; SDK/Lineage/Governance provide key mapping policy.
+> **Alternatives rejected:** Global single mailbox (blocks permitted parallelism); `baseWorld` as key (same); no mailbox (no enforcement).
 > **Consequences:** Single-writer serialization per opaque key; parallel branch execution preserved; clear layer boundary.
 
 #### 9.1.1 Rules (MUST)
@@ -523,7 +531,7 @@ Host MUST maintain a single-writer mailbox per `ExecutionKey`.
 |---------|-------------|
 | MAIL-1 | Host MUST maintain one mailbox per ExecutionKey |
 | MAIL-2 | ExecutionKey MUST be opaque to Host |
-| MAIL-3 | World/App layer determines ExecutionKey mapping policy |
+| MAIL-3 | SDK/Lineage/Governance integration determines ExecutionKey mapping policy |
 | MAIL-4 | All state mutations MUST go through the mailbox |
 
 #### 9.1.2 Type Definition
@@ -542,17 +550,17 @@ interface ExecutionMailbox {
 | Layer | Knows | Provides |
 |-------|-------|----------|
 | **Host** | ExecutionKey (opaque), intentId, Snapshot | Single-writer serialization |
-| **World** | proposalId, baseWorldId, branch | ExecutionKey mapping |
+| **Lineage/Governance** | proposalId, lineage WorldId anchors, branch | ExecutionKey mapping |
 | **App** | User intent, UI state | Orchestration policy |
 
 ```typescript
-// Correct: World/App maps proposalId -> ExecutionKey
+// Correct: Governance/App maps proposalId -> ExecutionKey
 function getExecutionKey(proposalId: string): ExecutionKey {
   return proposalId;
 }
 
-// Wrong: Host directly uses World concepts
-// Host should not import ProposalId type from World
+// Wrong: Host directly uses Governance or Lineage concepts
+// Host should not import ProposalId or WorldId types from Governance/Lineage
 ```
 
 ### 9.2 Run-to-Completion Job Model
@@ -1318,6 +1326,13 @@ Effect handlers MUST NOT throw. Errors are expressed as patches.
 Host-generated error patches MUST target `$host` or domain-owned paths.
 `system.*` is structurally non-patchable at Core boundary. Host MUST use `core.applySystemDelta()` for system transitions.
 
+Host-generated `$host.lastError` records are best-effort Host execution
+diagnostics. They help canonical-substrate debugging for effect handler
+failure, unknown effects, or fulfillment/apply failure. They do not by
+themselves make a terminal Snapshot semantically failed; semantic failure is
+represented by `system.lastError` or domain state through Core-owned
+transitions.
+
 ### 12.2 Mailbox Processing Errors
 
 | Error Type | Handling |
@@ -1444,7 +1459,7 @@ function escalateToFatal(intentId: string, error: Error) {
   // 2. Mark execution as failed
   markExecutionFailed(ctx.executionKey, error);
   
-  // 3. Emit failure to observers (World Protocol)
+  // 3. Emit failure to observers (runtime/governance integration)
   emitExecutionFailure(ctx.executionKey, 'requirement_clear_failed');
   
   // 4. Stop processing this mailbox
@@ -1461,8 +1476,7 @@ function escalateToFatal(intentId: string, error: Error) {
 | Spec | Relationship |
 |------|--------------|
 | Core SPEC | Host executes Core's computation results |
-| World Protocol SPEC | World provides ExecutionKey mapping |
-| App SPEC | App orchestrates Host and provides scheduling policy |
+| SDK/Lineage/Governance SPECS | Runtime and decorator layers provide ExecutionKey mapping policy |
 
 ### 13.2 FDR References
 
@@ -1533,7 +1547,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 ### A.3 Implementation Checklist
 
 - [ ] Mailbox per ExecutionKey
-- [ ] ExecutionKey opaque (no World/Proposal types in Host)
+- [ ] ExecutionKey opaque (no Governance proposal or Lineage WorldId types in Host)
 - [ ] Job handlers synchronous (no await)
 - [ ] Single-runner guard with Set<ExecutionKey>
 - [ ] **Blocked kick remembered in runnerKickRequested set (LIVE-4)**

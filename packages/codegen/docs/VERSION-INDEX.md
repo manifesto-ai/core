@@ -1,13 +1,13 @@
 # Codegen Documentation Index
 
 > **Package:** `@manifesto-ai/codegen`
-> **Last Updated:** 2026-02-08
+> **Last Updated:** 2026-04-24
 
 ---
 
 ## Latest Version
 
-- **SPEC:** [v0.1.1](SPEC-v0.1.1.md) (Draft)
+- **SPEC:** [v0.1.1](SPEC-v0.1.1.md) (Normative Baseline)
 - **ADR:** [ADR-CODEGEN-001](ADR-CODEGEN-001.md) (Accepted)
 
 ---
@@ -16,7 +16,7 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
-| v0.1.1 | [SPEC](SPEC-v0.1.1.md) | [ADR-CODEGEN-001](ADR-CODEGEN-001.md) | Full | Draft |
+| v0.1.1 | [SPEC](SPEC-v0.1.1.md) | [ADR-CODEGEN-001](ADR-CODEGEN-001.md) | Full | Normative Baseline |
 
 ---
 

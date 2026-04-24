@@ -104,11 +104,11 @@ Other statuses: `Deprecated`, `Superseded`, `Withdrawn`
 Operational checks for maintained docs:
 
 1. `pnpm docs:governance-check`
-   - verifies the core governance/index documents exist and still contain required policy tokens.
+   - verifies the core governance/index documents exist, current package docs keep accepted status labels, retired World terminology stays out of current-surface docs, and failure-observation anchors remain present.
 2. `pnpm docs:check:maintained`
    - verifies maintained docs do not mention removed APIs, compatibility aliases, or stale example signatures.
 3. `pnpm docs:check`
-   - runs both governance and maintained-doc checks before a docs build.
+   - runs governance, API surface, and maintained-doc checks before a docs build.
 4. `pnpm docs:build`
    - remains the rendering/link smoke test for the published site.
 

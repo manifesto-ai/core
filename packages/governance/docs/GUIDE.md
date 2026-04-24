@@ -85,6 +85,11 @@ if (report.kind === "completed") {
 
 `waitForProposalWithReport()` stays observational. It does not replace `proposeAsync()`, and it does not turn governed runtime submission into a direct execution verb.
 
+For failed settlements with a `resultWorld`, the report reflects the stored
+terminal Snapshot's semantic failure state (`system.lastError` and pending
+requirements). Canonical `data.$host.lastError` remains a Host diagnostic for
+deep debugging, not the governed settlement error surface.
+
 ## 4. Pending Human Resolution
 
 HITL and tribunal bindings keep the proposal in `evaluating` until a later decision resolves it.

@@ -51,7 +51,7 @@ Governed runtimes keep the lineage query surface, but remove direct execution:
 The root package also exposes additive settlement helpers:
 
 - `waitForProposal(app, proposalOrId, options?)` for normalized settlement state
-- `waitForProposalWithReport(app, proposalOrId, options?)` for world-anchored settlement outcome reports
+- `waitForProposalWithReport(app, proposalOrId, options?)` for Lineage World-anchored settlement outcome reports
 
 Neither helper replaces `proposeAsync()`.
 
@@ -65,6 +65,11 @@ Those inherited legality queries preserve the base SDK ordering and blocker mean
 - `getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot reads, not durable capability grants for later proposal admission
 
 `dispatchAsync`, `dispatchAsyncWithReport`, `commitAsync`, and `commitAsyncWithReport` are intentionally absent. There is no governed `proposeAsyncWithReport()` in the current public surface.
+
+Failed governed settlements observe semantic failure from the stored terminal
+Snapshot's `system.lastError` and pending requirements when a `resultWorld`
+exists. Canonical `data.$host.lastError` remains Host diagnostic data for deep
+debugging and is not merged into settlement `ErrorInfo`.
 
 ## Lineage Guarantee
 

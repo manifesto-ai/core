@@ -50,6 +50,11 @@ It keeps the same seal/publication law and packages the result as data.
 - `rejected` reports include the first failing admission layer plus before snapshots
 - `failed` reports always keep `published: false`; if a failed world was sealed, they may also include `resultWorld`, `branchId`, and `sealedOutcome`
 
+Failed lineage outcomes are derived from the sealed terminal Snapshot's
+`system.lastError` and pending requirements. Canonical `data.$host.lastError`
+is Host-owned diagnostic state and is not, by itself, the lineage terminal
+outcome.
+
 ## 4. Read Heads, Branches, Worlds, And Lineage
 
 ```ts
@@ -69,7 +74,7 @@ These APIs project the backing continuity truth through the activated runtime.
 The activated lineage runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
 Those inherited legality queries keep the same ordering as the base SDK: availability short-circuits dispatchability, and `getIntentBlockers()` returns the first failing layer instead of stacking coarse and fine blockers together.
 
-## 5. Restore A Sealed World
+## 5. Restore A Sealed Lineage World
 
 ```ts
 const head = await lineage.getLatestHead();

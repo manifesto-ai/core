@@ -92,7 +92,7 @@ Sometimes the shared semantic model is enough. Sometimes you need stronger contr
 - proposal review
 - lineage and audit history
 
-That is where [World](./world) comes in. It is the explicit governed composition model built from Lineage and Governance on top of the same Snapshot and request model.
+That is where [World Records and Governed Composition](./world) comes in. Lineage provides sealed World records, while Governance authorizes and settles legitimacy on top of the same Snapshot and request model.
 
 ---
 
@@ -101,4 +101,4 @@ That is where [World](./world) comes in. It is the explicit governed composition
 - [Snapshot](./snapshot) for the projected read model and canonical substrate split
 - [Intent](./intent) for the unit of requested change
 - [Integration: AI Agents](../integration/ai-agents) for practical agent patterns
-- [World](./world) for explicit governance and lineage
+- [World Records and Governed Composition](./world) for lineage records and governed runtime composition

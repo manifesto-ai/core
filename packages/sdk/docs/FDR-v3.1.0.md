@@ -1,7 +1,7 @@
 # Manifesto SDK - Foundational Design Rationale (FDR)
 
 > **Version:** 3.1.0
-> **Status:** Draft
+> **Status:** Accepted Rationale Companion
 > **Purpose:** Document the rationale for projected additive SDK introspection APIs
 > **Scope:** SDK, with compiler-produced schema graph metadata consumed by the SDK
 > **Related:** ADR-015 Snapshot Ontological Purification, PROJ-COMP-1/2, Core `explain()`, Core `computeSync()`, Core `applySystemDelta()`
@@ -12,7 +12,7 @@
 
 ## Scope
 
-This document is the draft rationale track for projected additive SDK v3.1.0 introspection work.
+This document is the accepted rationale companion for projected additive SDK v3.1.0 introspection work.
 
 The current normative SDK contract lives in [`sdk-SPEC.md`](sdk-SPEC.md). The living spec now stages the accepted v3.1.0 introspection additions; this document remains the rationale companion for why those additions exist and how the design was chosen.
 
@@ -28,7 +28,7 @@ The current normative SDK contract lives in [`sdk-SPEC.md`](sdk-SPEC.md). The li
 
 ## FDR-SDK-001: SchemaGraph - Schema-level Static Introspection
 
-> **Status:** Proposed - GO (Rev 4)
+> **Status:** Accepted (Rev 4)
 > **Date:** 2026-04-06
 > **Scope:** Compiler (producer), SDK (consumer)
 > **Related:** COMP-DEP-1~6, PROJ-COMP-1/2, Core `explain()`, ADR-015 Snapshot Ontological Purification
@@ -359,7 +359,7 @@ Kind-prefixed string node ids remain useful for debugging, REPL work, and serial
 
 ## FDR-SDK-002: Simulate - Pure Dry-Run via Core Determinism
 
-> **Status:** Proposed - GO (Rev 2)
+> **Status:** Accepted (Rev 2)
 > **Date:** 2026-04-06
 > **Scope:** SDK
 > **Related:** Core `computeSync()`, `apply()`, `applySystemDelta()`, FDR-C001 Pure Compute Equation, ADR-015 Snapshot Ontological Purification

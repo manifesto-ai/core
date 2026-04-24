@@ -159,4 +159,4 @@ You can construct the object yourself, but `createIntent()` is the safer and cle
 
 - [Tutorial](/tutorial/) for the first end-to-end examples
 - [Effect](./effect) for what happens when an action declares external work
-- [World](./world) for explicit governance and lineage
+- [World Records and Governed Composition](./world) for lineage records and governed runtime composition

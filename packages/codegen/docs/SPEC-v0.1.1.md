@@ -1,6 +1,6 @@
 # Manifesto Codegen Specification v0.1.1
 
-> **Status:** Draft
+> **Status:** Normative Baseline
 > **Version:** 0.1.1
 > **Date:** 2026-02-05
 > **Scope:** `@manifesto-ai/codegen` (build-time code generation tooling)
@@ -122,8 +122,8 @@ Codegen operates **outside** the Manifesto runtime stack. It is a build-time too
        │  (runtime)                │  (build-time)
        ▼                           ▼
 ┌──────────────┐          ┌───────────────────┐
-│ Core/Host/   │          │  @manifesto-ai/   │
-│ World/App    │          │  codegen           │
+│ Runtime/App  │          │  @manifesto-ai/   │
+│ packages     │          │  codegen           │
 │ (runtime     │          │                   │
 │  stack)      │          │  plugins:         │
 └──────────────┘          │   ├ plugin-ts     │
@@ -143,7 +143,7 @@ Codegen operates **outside** the Manifesto runtime stack. It is a build-time too
 
 | Package | Depends On | Does NOT Depend On |
 |---------|------------|-------------------|
-| `@manifesto-ai/codegen` | `@manifesto-ai/core` (peerDep, types only) | Host, World, App, Compiler impl |
+| `@manifesto-ai/codegen` | `@manifesto-ai/core` (peerDep, types only) | Host, SDK, Lineage, Governance, App, Compiler impl |
 | `@manifesto-ai/codegen-plugin-ts` | `@manifesto-ai/codegen` | Zod, any runtime library |
 | `@manifesto-ai/codegen-plugin-zod` | `@manifesto-ai/codegen`, `zod` (peerDep) | Host, any runtime library |
 

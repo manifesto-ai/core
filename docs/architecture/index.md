@@ -34,7 +34,7 @@ If you need explicit governance, actor approval, or lineage, decorate the same m
 1. [Data Flow](./data-flow)
 2. [Determinism](./determinism)
 3. [Failure Model](./failure-model)
-4. [World Concept](/concepts/world)
+4. [World Records and Governed Composition](/concepts/world)
 
 ## When To Read This Section
 

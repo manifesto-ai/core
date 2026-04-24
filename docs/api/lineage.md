@@ -59,6 +59,8 @@ If seal commit fails, the commit rejects and the new snapshot does not become vi
 
 `commitAsyncWithReport()` is the additive companion for tooling and agent callers that need admission data, before/after snapshots, projected diffs, and continuity metadata without changing the underlying seal/publication semantics.
 
+Failed lineage reports observe semantic failure from the sealed terminal Snapshot's `system.lastError` and pending requirements. Canonical `data.$host.lastError` remains Host/effect diagnostic state and is not, by itself, the lineage outcome.
+
 ## Relationship to SDK
 
 ```text
