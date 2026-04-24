@@ -99,6 +99,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     isActionAvailable: kernel.isActionAvailable,
     getSchemaGraph: kernel.getSchemaGraph,
     simulate: kernel.simulate,
+    simulateIntent: kernel.simulateIntent,
     MEL: kernel.MEL,
     schema: kernel.schema,
     dispose: kernel.dispose,

@@ -1019,8 +1019,14 @@ describe("activated base runtime", () => {
     });
     if (admitted.kind === "admitted") {
       const simulated = world.simulate(world.MEL.actions.incrementGuarded, 1);
+      const simulatedIntent = world.simulateIntent(admittedIntent);
       const ext = getExtensionKernel(world);
       expect(admitted.snapshot).toEqual(simulated.snapshot);
+      expect(simulatedIntent.snapshot).toEqual(simulated.snapshot);
+      expect(simulatedIntent.changedPaths).toEqual(simulated.changedPaths);
+      expect(simulatedIntent.newAvailableActions).toEqual(simulated.newAvailableActions);
+      expect(simulatedIntent.requirements).toEqual(simulated.requirements);
+      expect(simulatedIntent.status).toBe(simulated.status);
       expect(ext.projectSnapshot(admitted.canonicalSnapshot)).toEqual(simulated.snapshot);
       expect(admitted.changedPaths).toEqual(simulated.changedPaths);
       expect(admitted.newAvailableActions).toEqual(simulated.newAvailableActions);
@@ -1164,6 +1170,13 @@ describe("activated base runtime", () => {
         code: "INTENT_NOT_DISPATCHABLE",
       }),
     );
+    expect(() => world.simulateIntent(
+      world.createIntent(world.MEL.actions.incrementGuarded, 1),
+    )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INTENT_NOT_DISPATCHABLE",
+      }),
+    );
     expect(world.getSnapshot().data.count).toBe(1);
 
     world.dispose();
@@ -1185,6 +1198,11 @@ describe("activated base runtime", () => {
       world.getCanonicalSnapshot(),
       invalidIntent,
     )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "INVALID_INPUT",
+      }),
+    );
+    expect(() => world.simulateIntent(invalidIntent)).toThrowError(
       expect.objectContaining<Partial<ManifestoError>>({
         code: "INVALID_INPUT",
       }),
@@ -1288,6 +1306,13 @@ describe("activated base runtime", () => {
         code: "ACTION_UNAVAILABLE",
       }),
     );
+    expect(() => world.simulateIntent(
+      world.createIntent(world.MEL.actions.blockedInvalid),
+    )).toThrowError(
+      expect.objectContaining<Partial<ManifestoError>>({
+        code: "ACTION_UNAVAILABLE",
+      }),
+    );
 
     world.dispose();
   });
@@ -1326,11 +1351,17 @@ describe("activated base runtime", () => {
     const simulated = ext.simulateSync(ext.getCanonicalSnapshot(), intent);
     const projected = ext.projectSnapshot(simulated.snapshot);
     const publicSimulated = world.simulate(world.MEL.actions.increment);
+    const publicSimulatedIntent = world.simulateIntent(intent);
 
     expect(ext.MEL).toBe(world.MEL);
     expect(ext.schema).toBe(world.schema);
     expect(ext.getCanonicalSnapshot()).toEqual(beforeCanonical);
     expect(projected).toEqual(publicSimulated.snapshot);
+    expect(publicSimulatedIntent.snapshot).toEqual(publicSimulated.snapshot);
+    expect(publicSimulatedIntent.changedPaths).toEqual(publicSimulated.changedPaths);
+    expect(publicSimulatedIntent.newAvailableActions).toEqual(publicSimulated.newAvailableActions);
+    expect(publicSimulatedIntent.requirements).toEqual(publicSimulated.requirements);
+    expect(publicSimulatedIntent.status).toBe(publicSimulated.status);
     expect(simulated.status).toBe(publicSimulated.status);
     expect(simulated.requirements).toEqual(publicSimulated.requirements);
     expect(simulated.diagnostics?.trace).toEqual(publicSimulated.diagnostics?.trace);

@@ -1130,6 +1130,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `TypedMEL`
 - `TypedOn`
 - `TypedSimulate`
+- `TypedSimulateIntent`
 - `TypedSubscribe`
 - `Unsubscribe`
 

@@ -90,7 +90,7 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - `getSnapshot()` is the projected application-facing runtime read
 - `getCanonicalSnapshot()` is the current visible canonical runtime substrate
 - `getWorldSnapshot(worldId)` is the stored canonical snapshot for a sealed world
-- `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()` remain inherited read/query surfaces
+- `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, `simulateIntent()`, and `simulate()` remain inherited read/query surfaces
 - `getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot observational reads, not durable capability grants
 - inherited legality queries preserve the base SDK ordering: availability is checked before dispatchability
 - inherited `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker without evaluating `dispatchable`

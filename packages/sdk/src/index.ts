@@ -74,6 +74,7 @@ export type {
   TypedMEL,
   TypedOn,
   TypedSimulate,
+  TypedSimulateIntent,
   TypedSubscribe,
   Unsubscribe,
 } from "./types.js";

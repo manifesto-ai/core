@@ -66,7 +66,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_INTROSPECTION_SURFACE,
     "base",
-    "Activated base runtime exposes getSchemaGraph() and simulate() as read-only introspection verbs.",
+    "Activated base runtime exposes getSchemaGraph(), simulateIntent(), and simulate() as read-only introspection verbs.",
   ),
   complianceCase(
     ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP,
@@ -76,12 +76,12 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
     "base",
-    "simulate() is non-committing and returns projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
+    "simulateIntent() and simulate() are non-committing and return projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
   ),
   complianceCase(
     ACTS_CASES.BASE_SIMULATE_HALTED,
     "base",
-    "simulate() preserves Core halted status without publishing runtime state.",
+    "simulateIntent() and simulate() preserve Core halted status without publishing runtime state.",
   ),
   complianceCase(
     ACTS_CASES.BASE_REPORT_SURFACE,
@@ -141,7 +141,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.TYPES_BASE_INTROSPECTION,
     "types",
-    "Activated base runtime exposes typed introspection refs, graph helpers, and simulate() result types including optional diagnostics.trace.",
+    "Activated base runtime exposes typed introspection refs, graph helpers, and public dry-run result types including optional diagnostics.trace.",
   ),
 ] as const;
 

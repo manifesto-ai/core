@@ -87,6 +87,8 @@ const blockers = app.whyNot(intent);
 if (blockers) {
   console.log("not admitted", blockers);
 } else {
+  const simulated = app.simulateIntent(intent);
+  console.log(simulated.changedPaths);
   await app.dispatchAsync(intent);
 }
 ```

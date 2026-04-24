@@ -59,6 +59,7 @@ const intent = kernel.createIntent(kernel.MEL.actions.ping);
 const isDispatchableFor: boolean = kernel.isIntentDispatchableFor(canonical, intent);
 const blockersFor: readonly DispatchBlocker[] = kernel.getIntentBlockersFor(canonical, intent);
 const simulation: SimulateResult<DemoDomain> = kernel.simulateSync(canonical, intent);
+const projectedSimulation = kernel.simulateIntent(intent);
 const simulationTrace = simulation.diagnostics?.trace;
 const baseRuntime: ManifestoBaseInstance<DemoDomain> = createBaseRuntimeInstance(kernel);
 
@@ -75,6 +76,7 @@ void blockersFor;
 void lineageFactory;
 void lineageKernel;
 void metadata;
+void projectedSimulation;
 void hostDispatchOptions;
 void simulation;
 void simulationTrace;

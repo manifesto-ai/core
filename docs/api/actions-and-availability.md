@@ -67,7 +67,7 @@ The intended public caller ladder is:
 
 1. `getAvailableActions()` / `isActionAvailable()` for the coarse current decision surface
 2. `getIntentBlockers()` / `whyNot()` / `explainIntent()` for the first failing layer
-3. `simulate()` when the candidate intent is admitted
+3. `simulateIntent(intent)` when the candidate intent is already bound, or `simulate(action, ...input)` when it is not
 4. the runtime write verb when you are ready to execute or submit
 
 ## Agent Pattern

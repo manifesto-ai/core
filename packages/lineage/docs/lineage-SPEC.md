@@ -108,7 +108,7 @@ Normative rules:
 
 `getSnapshot()` remains the projected runtime read model inherited from SDK. `getCanonicalSnapshot()` returns the current visible runtime substrate. `getWorldSnapshot(worldId)` is different again: it reads the stored sealed canonical substrate for a specific world from lineage storage.
 
-The inherited SDK read surface also remains available on the activated lineage runtime, including `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, and `simulate()`.
+The inherited SDK read surface also remains available on the activated lineage runtime, including `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `getActionMetadata()`, `getSchemaGraph()`, `simulateIntent()`, and `simulate()`.
 
 `LineageCommitRuntime<T>` is the additive helper-boundary alias for lineage execution helpers. It does not reintroduce any base `dispatchAsync()` assumption into the promoted runtime.
 

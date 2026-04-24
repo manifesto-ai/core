@@ -33,6 +33,7 @@ import type {
   TypedGetIntentBlockers,
   TypedIntent,
   TypedIsIntentDispatchable,
+  TypedSimulateIntent,
 } from "../types.js";
 import {
   cloneAndDeepFreeze,
@@ -278,14 +279,9 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     createIntent(action, ...args),
   )) as TypedGetIntentBlockers<T>;
   const simulateSync = simulation.simulateSync as RuntimeKernel<T>["simulateSync"];
-  const simulate = ((
-    action,
-    ...args
-  ) => {
-    const simulated = simulation.simulateSync(
-      getCanonicalSnapshot(),
-      createIntent(action, ...args),
-    );
+  function projectCurrentSimulationResult(
+    simulated: ReturnType<RuntimeKernel<T>["simulateSync"]>,
+  ): ProjectedSimulateResult<T> {
     const projectedSimulated = projectSnapshotFromCanonical(simulated.snapshot);
 
     return Object.freeze({
@@ -296,6 +292,19 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
       status: simulated.status,
       diagnostics: simulated.diagnostics,
     }) as ProjectedSimulateResult<T>;
+  }
+
+  const simulateIntent = ((
+    intent,
+  ) => projectCurrentSimulationResult(
+    simulation.simulateSync(getCanonicalSnapshot(), intent),
+  )) as TypedSimulateIntent<T>;
+
+  const simulate = ((
+    action,
+    ...args
+  ) => {
+    return simulateIntent(createIntent(action, ...args));
   }) as RuntimeKernel<T>["simulate"];
 
   const extensionKernel = Object.freeze({
@@ -346,6 +355,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     },
     simulateSync,
     simulate,
+    simulateIntent,
     dispose,
     isDisposed,
     getCanonicalSnapshot,

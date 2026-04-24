@@ -13,6 +13,7 @@ If you are still learning the basics, start with [Quick Start](/guide/quick-star
 | [Debugging](./debugging) | A dispatch does not do what you expected |
 | [Code Generation](./code-generation) | You want generated TypeScript or Zod artifacts from a schema |
 | [Developer Tooling](./developer-tooling) | You want the CLI, MEL editor support, AI skills, or Studio inspection workflow |
+| [Runtime Tooling Surface](./runtime-tooling-surface) | You are building Studio, agent, or adapter tooling on public runtime contracts |
 | [Re-entry Safety](./reentry-safe-flows) | An action or effect runs more than once |
 
 ## Add The Advanced Runtime Later

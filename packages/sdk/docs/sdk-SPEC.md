@@ -8,7 +8,7 @@
 
 > **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
 >
-> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, the helper-boundary capability aliases `ManifestoLegalityRuntime<T>` and `ManifestoDispatchRuntime<T>`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.1.0](../../compiler/docs/SPEC-v1.1.0.md), including tooling-only structural annotations via `@meta` and declaration-level source maps through `DomainModule.sourceMap`.
+> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, bound-intent dry-run via `simulateIntent(intent)`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, the helper-boundary capability aliases `ManifestoLegalityRuntime<T>` and `ManifestoDispatchRuntime<T>`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.1.0](../../compiler/docs/SPEC-v1.1.0.md), including tooling-only structural annotations via `@meta` and declaration-level source maps through `DomainModule.sourceMap`.
 
 ## 1. Purpose
 
@@ -37,7 +37,7 @@ Normative rule prefixes:
 | `SDK-REPORT-*` | additive base write-report semantics |
 | `SDK-REPORT-SUB-*` | shared internal report substrate semantics |
 | `SDK-GRAPH-*` | `getSchemaGraph()` and `SchemaGraph` semantics |
-| `SDK-SIM-*` | `simulate()` semantics |
+| `SDK-SIM-*` | public dry-run semantics |
 | `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` semantics |
 | `SDK-EXT-EXPLAIN-*` | extension-kernel intent explanation semantics |
 | `SDK-EXPLAIN-RT-*` | activated-runtime explanation convenience semantics |
@@ -600,6 +600,9 @@ type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
     action: TypedActionRef<T, K>,
     ...args: CreateIntentArgs<T, K>
   ) => SimulateResult<T>;
+  readonly simulateIntent: <K extends keyof T["actions"]>(
+    intent: TypedIntent<T, K>
+  ) => SimulateResult<T>;
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
   readonly dispose: () => void;
@@ -617,7 +620,7 @@ The SDK also defines additive helper-boundary aliases:
 ```typescript
 type ManifestoLegalityRuntime<T extends ManifestoDomainShape> = Pick<
   ManifestoBaseInstance<T>,
-  "createIntent" | "whyNot" | "simulate" | "MEL"
+  "createIntent" | "whyNot" | "simulate" | "simulateIntent" | "MEL"
 >;
 
 type ManifestoDispatchRuntime<T extends ManifestoDomainShape> = Pick<
@@ -888,16 +891,16 @@ The legality ordering is normative:
 1. evaluate action availability
 2. if available, validate bound intent input against the activated action contract
 3. if input is valid, evaluate bound-intent dispatchability
-4. if admitted, perform the same dry-run transition contract as `simulate()`
+4. if admitted, perform the same dry-run transition contract as `simulateIntent()`
 
 The intended public legality ladder is:
 
 1. coarse availability via `getAvailableActions()` / `isActionAvailable()`
 2. first-failing-layer blocker or explanation reads via `getIntentBlockers()`, `whyNot()`, or `explainIntent()`
-3. admitted dry-run via `simulate()`
+3. admitted dry-run via `simulateIntent()` or `simulate()`
 4. runtime execution via `dispatchAsync()` or the additive report companion `dispatchAsyncWithReport()`
 
-`getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `getIntentBlockers()` is the pre-bind blocker query surface; `whyNot()` is the bound-intent convenience projection. `simulate()` is the admitted dry-run step. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
+`getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `getIntentBlockers()` is the pre-bind blocker query surface; `whyNot()` is the bound-intent convenience projection. `simulateIntent(intent)` is the admitted dry-run step for callers that already hold a typed intent. `simulate(action, ...args)` remains the action-ref convenience form. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
 
 If the action is unavailable, explanation reads MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
 
@@ -940,26 +943,28 @@ The only supported graph relations are `feeds`, `mutates`, and `unlocks`.
 
 Input-dependent `dispatchable when` predicates MUST NOT be projected into `SchemaGraph`. The public graph remains a static schema-derived artifact over `available when`, writes, and computed dependencies only.
 
-### 7.5 `simulate()`
+### 7.5 `simulateIntent()` and `simulate()`
 
-`simulate()` performs a pure dry-run of an action against the current canonical snapshot without committing the result.
+`simulateIntent(intent)` performs a pure dry-run of an existing typed intent against the current canonical snapshot without committing the result.
 
-It MUST use the same intent packing as `createIntent()` and the same deterministic HostContext construction as `dispatchAsync()`.
+`simulate(action, ...args)` is the action-ref convenience form. It MUST bind the intent through the same SDK-owned packing rules as `createIntent()` and then use the same bound-intent dry-run semantics as `simulateIntent(intent)`.
 
-If the action is unavailable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE`.
+Both dry-run forms MUST use the same deterministic HostContext construction as `dispatchAsync()`.
 
-If the action is available but the bound intent input is invalid against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `INVALID_INPUT`.
+If the action is unavailable against the current canonical snapshot, both dry-run forms MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE`.
 
-If the action is available but the bound intent is not dispatchable against the current canonical snapshot, `simulate()` MUST throw `ManifestoError` with code `INTENT_NOT_DISPATCHABLE`.
+If the action is available but the bound intent input is invalid against the current canonical snapshot, both dry-run forms MUST throw `ManifestoError` with code `INVALID_INPUT`.
 
-For a successful dry-run, `simulate()` MUST:
+If the action is available but the bound intent is not dispatchable against the current canonical snapshot, both dry-run forms MUST throw `ManifestoError` with code `INTENT_NOT_DISPATCHABLE`.
+
+For a successful dry-run, both dry-run forms MUST:
 
 1. call Core `computeSync()`
 2. apply the emitted patches with Core `apply()`
 3. apply the emitted system transition with Core `applySystemDelta()`
 4. project the resulting canonical snapshot through the same public lens as `getSnapshot()`
 
-`simulate().snapshot` is the projected public snapshot that would become visible if the action ran now.
+The returned `snapshot` is the projected public snapshot that would become visible if the action ran now.
 
 `changedPaths` is an inspection/debug-only diff of the projected public snapshot. Callers SHOULD use `snapshot`, `getAvailableActions()`, `isActionAvailable()`, or explicit snapshot reads for programmatic branching instead of branching on display-path strings.
 
@@ -1114,7 +1119,7 @@ Blocker construction reuses the same internal blocker path as the base runtime's
 For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime:
 
 - blocked results MUST be semantically equivalent to `getIntentBlockers()` at the first failing layer
-- admitted results MUST be semantically equivalent to `simulate()` for projected snapshot, status, requirements, new available actions, and changed paths
+- admitted results MUST be semantically equivalent to the public current-snapshot dry-run surface for projected snapshot, status, requirements, new available actions, and changed paths
 
 #### 7.10.2 `createSimulationSession()`
 
@@ -1207,7 +1212,7 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
 | SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
 | SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` or `dispatchAsyncWithReport(instance, intent)` as normative execution surfaces |
-| SDK-BASE-7 | MUST | `getSchemaGraph()` and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
+| SDK-BASE-7 | MUST | `getSchemaGraph()`, `simulateIntent()`, and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
 | SDK-EXPLAIN-RT-1 | MUST | `explainIntent()` MUST evaluate against the runtime's current visible canonical snapshot only |
 | SDK-EXPLAIN-RT-2 | MUST | `explainIntent()` MUST be observationally pure |
 | SDK-EXPLAIN-RT-3 | MUST | `explainIntent()` MUST delegate to the extension-kernel explanation substrate rather than reimplementing a second explanation model |
@@ -1231,7 +1236,7 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-REPORT-SUB-2 | MUST | Shared report admission derivation MUST preserve the current legality order: availability -> input validation -> dispatchability |
 | SDK-REPORT-SUB-3 | MUST | Shared report admission derivation MUST continue to hide invalid-input failures behind an unavailable action |
 | SDK-REPORT-SUB-4 | MUST | First-failing-layer behavior MUST remain aligned with current blocker/explanation and rejected-dispatch semantics |
-| SDK-REPORT-SUB-5 | MUST | Projected changed-path derivation MUST reuse the same projected diff semantics already used by `simulate()` and admitted `explainIntent()` |
+| SDK-REPORT-SUB-5 | MUST | Projected changed-path derivation MUST reuse the same projected diff semantics already used by public dry-run results and admitted `explainIntent()` |
 | SDK-REPORT-SUB-6 | MUST | Failure classification MUST distinguish host-stage failure from reserved promoted-runtime seal-stage failure without fabricating a completed outcome |
 | SDK-REPORT-1 | MUST | `dispatchAsyncWithReport()` MUST preserve the same dequeue-time legality ordering and publication semantics as `dispatchAsync()` |
 | SDK-REPORT-2 | MUST NOT | `dispatchAsyncWithReport()` MUST NOT change the behavior or return contract of `dispatchAsync()` |
@@ -1250,31 +1255,33 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-GRAPH-4 | MUST | the only public relation labels are `feeds`, `mutates`, and `unlocks` |
 | SDK-GRAPH-5 | MUST | `traceUp()` and `traceDown()` ref overloads are the canonical SDK query surface |
 | SDK-GRAPH-6 | MUST | string lookup overloads MUST accept only kind-prefixed node ids and MUST be treated as convenience/debug-only |
-| SDK-SIM-1 | MUST NOT | SDK implementations let `simulate()` mutate, commit, or publish runtime state |
+| SDK-SIM-1 | MUST NOT | SDK implementations let `simulateIntent()` or `simulate()` mutate, commit, or publish runtime state |
 | SDK-SIM-2 | MUST | unavailable simulated actions MUST throw `ManifestoError` code `ACTION_UNAVAILABLE` before dry-run compute begins |
 | SDK-SIM-2b | MUST | available but invalid-input simulated intents MUST throw `ManifestoError` code `INVALID_INPUT` before dispatchability evaluation or dry-run compute begins |
 | SDK-SIM-2a | MUST | available but non-dispatchable simulated intents MUST throw `ManifestoError` code `INTENT_NOT_DISPATCHABLE` before dry-run compute begins |
-| SDK-SIM-3 | MUST | `simulate()` MUST use the same intent packing and HostContext construction as normal dispatch |
-| SDK-SIM-4 | MUST | `simulate()` MUST apply both Core `apply()` and Core `applySystemDelta()` to produce a complete simulated snapshot |
-| SDK-SIM-5 | MUST | `simulate().snapshot` MUST return the same projected surface shape as `getSnapshot()` |
-| SDK-SIM-6 | MUST | `simulate().newAvailableActions` MUST be evaluated against the canonical simulated snapshot |
-| SDK-SIM-7 | MUST | `simulate().changedPaths` MUST be diffed from the projected public snapshot only and MUST be treated as inspection/debug-only, not as the canonical branching API |
-| SDK-SIM-8 | MUST | `simulate().status` MUST mirror Core `ComputeStatus` exactly, including `halted` |
-| SDK-SIM-9 | MUST | If `simulate().diagnostics` is present, `diagnostics.trace` MUST be derived from the Core `ComputeResult.trace` from the same admitted dry-run compute pass, and MAY normalize volatile host-time fields such as node timestamps or duration |
-| SDK-SIM-10 | MUST | The presence or absence of `simulate().diagnostics` MUST NOT change dry-run legality, snapshot projection, status, requirements, changed paths, or new available actions |
+| SDK-SIM-3 | MUST | `simulate(action, ...args)` MUST use the same intent packing as `createIntent()` before dry-run |
+| SDK-SIM-3a | MUST | `simulateIntent(intent)` MUST accept the existing typed intent directly without requiring callers to unpack or re-bind `intent.input` |
+| SDK-SIM-3b | MUST | Both dry-run forms MUST use the same HostContext construction as normal dispatch |
+| SDK-SIM-4 | MUST | Both dry-run forms MUST apply both Core `apply()` and Core `applySystemDelta()` to produce a complete simulated snapshot |
+| SDK-SIM-5 | MUST | Dry-run result `snapshot` MUST return the same projected surface shape as `getSnapshot()` |
+| SDK-SIM-6 | MUST | Dry-run result `newAvailableActions` MUST be evaluated against the canonical simulated snapshot |
+| SDK-SIM-7 | MUST | Dry-run result `changedPaths` MUST be diffed from the projected public snapshot only and MUST be treated as inspection/debug-only, not as the canonical branching API |
+| SDK-SIM-8 | MUST | Dry-run result `status` MUST mirror Core `ComputeStatus` exactly, including `halted` |
+| SDK-SIM-9 | MUST | If dry-run `diagnostics` is present, `diagnostics.trace` MUST be derived from the Core `ComputeResult.trace` from the same admitted dry-run compute pass, and MAY normalize volatile host-time fields such as node timestamps or duration |
+| SDK-SIM-10 | MUST | The presence or absence of dry-run `diagnostics` MUST NOT change legality, snapshot projection, status, requirements, changed paths, or new available actions |
 | SDK-EXT-1 | MUST | `getExtensionKernel()` MUST accept only activated runtime instances and MUST return a frozen, bound Extension Kernel |
 | SDK-EXT-2 | MUST | `ExtensionKernel.projectSnapshot()` MUST apply the same public projection boundary as `getSnapshot()` |
 | SDK-EXT-3 | MUST | `ExtensionKernel.projectSnapshot()` MUST be observationally pure; it MUST NOT be implemented by mutating the visible runtime snapshot and reading it back |
-| SDK-EXT-4 | MUST | `ExtensionKernel.simulateSync()` MUST use the same `computeSync -> apply -> applySystemDelta` transition contract as `simulate()` |
-| SDK-EXT-5 | MUST | `ExtensionKernel.simulateSync()` MUST preserve the same unavailable-action and non-dispatchable-intent rejection semantics as `simulate()` |
+| SDK-EXT-4 | MUST | `ExtensionKernel.simulateSync()` MUST use the same `computeSync -> apply -> applySystemDelta` transition contract as public dry-run |
+| SDK-EXT-5 | MUST | `ExtensionKernel.simulateSync()` MUST preserve the same unavailable-action and non-dispatchable-intent rejection semantics as public dry-run |
 | SDK-EXT-6 | MUST | `ExtensionKernel.getAvailableActionsFor()`, `isActionAvailableFor()`, and `isIntentDispatchableFor()` MUST evaluate against the caller-provided canonical snapshot |
 | SDK-EXT-7 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST expose publication-control, execution-control, queue-control, or provider-activation helpers |
 | SDK-EXT-8 | MUST NOT | Calls through `ExtensionKernel` MUST mutate the visible runtime snapshot, trigger subscribers, emit runtime events, or enqueue work on the source runtime |
 | SDK-EXT-9 | MUST | `ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` MUST remain observationally equivalent to the corresponding activated-runtime members |
-| SDK-EXT-10 | MUST | `ExtensionSimulateResult` MUST remain canonical and minimal; projected `changedPaths` and `newAvailableActions` belong to `simulate()` or explicit follow-up extension calls, not to `simulateSync()` |
+| SDK-EXT-10 | MUST | `ExtensionSimulateResult` MUST remain canonical and minimal; projected `changedPaths` and `newAvailableActions` belong to public dry-run results or explicit follow-up extension calls, not to `simulateSync()` |
 | SDK-EXT-10a | MAY | `ExtensionSimulateResult` MAY include optional debug-grade `diagnostics.trace` sourced from the same dry-run Core `ComputeResult.trace`, with volatile host-time fields normalized for stability |
 | SDK-EXT-10b | MUST | Optional `diagnostics.trace` on `ExtensionSimulateResult` MUST NOT be treated as projected convenience data or execution control, and MUST NOT change the observational purity of the extension seam |
-| SDK-EXT-11 | MUST | For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime, `projectSnapshot(result.snapshot)`, `result.status`, `result.requirements`, and `getAvailableActionsFor(result.snapshot)` from `simulateSync(snapshot, intent)` MUST match public `simulate()` semantics |
+| SDK-EXT-11 | MUST | For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime, `projectSnapshot(result.snapshot)`, `result.status`, `result.requirements`, and `getAvailableActionsFor(result.snapshot)` from `simulateSync(snapshot, intent)` MUST match public dry-run semantics |
 | SDK-EXT-12 | MUST | Observationally pure `ExtensionKernel` methods MUST remain callable after `dispose()` and MUST NOT reject solely because the source runtime has been disposed |
 | SDK-EXT-13 | MUST | `createSimulationSession()` MUST share the same safe substrate as `ExtensionKernel`; it MUST NOT require provider-only access or bypass the extension boundary with provider-only capabilities |
 | SDK-EXT-14 | MUST | The root `SimulationSession` MUST start from `getCanonicalSnapshot()` and expose both the projected `snapshot` and the canonical substrate explicitly as `canonicalSnapshot` |
@@ -1458,13 +1465,13 @@ An SDK v3.x implementation complies with this living contract only if all of the
 - `activate()` is one-shot and throws `AlreadyActivatedError` on repeat use.
 - `ManifestoConfig` does not exist in the v3 contract.
 - SDK no longer presents `@manifesto-ai/world` as part of its public story.
-- The base activated runtime exposes `createIntent`, `dispatchAsync`, `dispatchAsyncWithReport`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, intent explanation reads, `getSchemaGraph`, `simulate`, `MEL`, `schema`, and `dispose`.
+- The base activated runtime exposes `createIntent`, `dispatchAsync`, `dispatchAsyncWithReport`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, intent explanation reads, `getSchemaGraph`, `simulateIntent`, `simulate`, `MEL`, `schema`, and `dispose`.
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
 - `dispatchAsync()` is FIFO per instance and evaluates availability, then input validation, then dispatchability at dequeue time.
 - `dispatchAsyncWithReport()` is additive, reuses the same legality ordering and projected diff semantics, and does not change `dispatchAsync()` publication behavior.
 - `createManifesto()` accepts MEL source or `DomainSchema`, but not tooling-only compiler artifacts such as `DomainModule`.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
-- `simulate()` is a pure dry-run that applies both `apply()` and `applySystemDelta()` and treats `changedPaths` as inspection/debug-only.
+- `simulateIntent()` is the bound-intent pure dry-run, and `simulate()` is the action-ref convenience form; both apply `apply()` and `applySystemDelta()` and treat `changedPaths` as inspection/debug-only.
 - `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers, including `explainIntentFor()`, and no runtime-control methods.
 - `explainIntent()`, `why()`, and `whyNot()` remain current-snapshot read-only conveniences layered over the same extension-kernel explanation substrate.
 - `INVALID_INPUT` is a stable rejection/error code across dispatch, explanation, and dry-run validation paths.

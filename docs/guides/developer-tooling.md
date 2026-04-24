@@ -17,7 +17,8 @@ Manifesto's current DX stack is intentionally split into a small set of packages
 1. Use [@manifesto-ai/cli](/api/cli) to declare runtime and tooling intent in `manifesto.config.*`.
 2. Run [@manifesto-ai/mel-lsp](/api/mel-lsp) in the editor so MEL authoring stays schema-aware.
 3. Install [@manifesto-ai/skills](/api/skills) only for the AI tools your team actually uses.
-4. Reach for [@manifesto-ai/studio-cli](/api/studio-cli) locally and [@manifesto-ai/studio-mcp](/api/studio-mcp) when an agent or remote client needs read-only inspection tools.
+4. Read [Runtime Tooling Surface](/guides/runtime-tooling-surface) before building custom Studio, agent, or adapter workflows on the public runtime.
+5. Reach for [@manifesto-ai/studio-cli](/api/studio-cli) locally and [@manifesto-ai/studio-mcp](/api/studio-mcp) when an agent or remote client needs read-only inspection tools.
 
 ## Typical Workflows
 
@@ -68,6 +69,7 @@ Put HTTPS in front of the HTTP transport when a remote connector product needs a
 ## Important Boundaries
 
 - Studio snapshot inspection expects canonical snapshots from `runtime.getCanonicalSnapshot()`, not the projected result of `getSnapshot()`.
+- Runtime-aware tools that already hold a typed intent should use `simulateIntent(intent)` for current-snapshot dry-runs and `@manifesto-ai/sdk/extensions` for arbitrary canonical snapshots.
 - `@manifesto-ai/skills` does not auto-install from `postinstall`; setup is always explicit.
 - `@manifesto-ai/studio-core` is read-only and renderer-neutral. It analyzes a bundle and returns JSON projections; it does not execute effects or mutate runtime state.
 
@@ -76,6 +78,7 @@ If the project later needs reviewable writes or sealed history, step out of the 
 ## See Also
 
 - [Quick Start](/guide/quick-start)
+- [Runtime Tooling Surface](/guides/runtime-tooling-surface)
 - [AI Agents](/integration/ai-agents)
 - [When You Need Approval or History](/guides/approval-and-history)
 - [Bundler Setup](/guides/bundler-setup)

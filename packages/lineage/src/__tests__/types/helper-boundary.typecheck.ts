@@ -28,7 +28,7 @@ function prepareIntent<
   const intent = runtime.createIntent(action, ...intentArgs);
   const blockers = runtime.whyNot(intent);
   if (blockers === null) {
-    void runtime.simulate(action, ...intentArgs);
+    void runtime.simulateIntent(intent);
   }
   return intent;
 }

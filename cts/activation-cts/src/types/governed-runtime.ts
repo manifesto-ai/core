@@ -28,6 +28,9 @@ lineage.dispatchAsyncWithReport;
 void lineage.commitAsync(
   lineage.createIntent(lineage.MEL.actions.increment),
 );
+void lineage.simulateIntent(
+  lineage.createIntent(lineage.MEL.actions.increment),
+);
 const lineageReport: Promise<CommitReport<CounterDomain>> = lineage.commitAsyncWithReport(
   lineage.createIntent(lineage.MEL.actions.increment),
 );
@@ -55,6 +58,9 @@ governed.commitAsync;
 governed.commitAsyncWithReport;
 
 void governed.proposeAsync(
+  governed.createIntent(governed.MEL.actions.increment),
+);
+void governed.simulateIntent(
   governed.createIntent(governed.MEL.actions.increment),
 );
 void governed.getLatestHead();

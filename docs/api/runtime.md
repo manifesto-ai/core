@@ -24,6 +24,7 @@ The base runtime returned by `createManifesto(...).activate()` exposes:
 | `explainIntent(intent)` / `why(intent)` | Explain availability, dispatchability, or dry-run admission |
 | `whyNot(intent)` | Return blockers, or `null` when admitted |
 | `simulate(action, ...input)` | Dry-run against the current runtime state, with optional debug-grade `diagnostics.trace` |
+| `simulateIntent(intent)` | Dry-run an existing typed intent without unpacking or rebinding input |
 | `on(event, handler)` | Subscribe to runtime dispatch events |
 | `dispose()` | Release the runtime and stop future dispatch |
 
@@ -41,7 +42,7 @@ console.log(app.getAvailableActions());
 
 Treat `getAvailableActions()` and `isActionAvailable()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it executes or submits work.
 
-`simulate()` is the admitted dry-run step on this surface. It returns the projected next snapshot, dry-run requirements, new available actions, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace` derived from the same dry-run compute pass. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
+`simulateIntent(intent)` is the admitted dry-run step when your caller already has a typed intent from `createIntent()`. `simulate(action, ...input)` remains the convenience form that binds and dry-runs in one call. Both return the projected next snapshot, dry-run requirements, new available actions, sorted `changedPaths`, and may also expose optional inspection-only `diagnostics.trace` derived from the same dry-run compute pass. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
 
 ## Legality Ladder
 
@@ -49,7 +50,7 @@ The intended public decision order is:
 
 1. availability via `getAvailableActions()` / `isActionAvailable()`
 2. blocker or explanation reads via `getIntentBlockers()`, `whyNot()`, or `explainIntent()`
-3. admitted dry-run via `simulate()`
+3. admitted dry-run via `simulateIntent()` or `simulate()`
 4. execution via the runtime's write verb
 
 `getIntentBlockers(action, ...input)` is the pre-bind blocker read. `whyNot(intent)` is the bound-intent convenience read. They preserve the same first-failing-layer ordering, but invalid input still rejects through the explanation path before blocker projection.
