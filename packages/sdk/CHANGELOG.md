@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.18.0](https://github.com/manifesto-ai/core/compare/sdk-v3.17.3...sdk-v3.18.0) (2026-04-24)
+
+
+### Features
+
+* **sdk:** add bound intent dry-run surface ([#455](https://github.com/manifesto-ai/core/issues/455)) ([4851c0d](https://github.com/manifesto-ai/core/commit/4851c0d83729db6df94d02364cd65c5aa7fc8e0b))
+
 ## [3.17.3](https://github.com/manifesto-ai/core/compare/sdk-v3.17.2...sdk-v3.17.3) (2026-04-23)
 
 
