@@ -125,6 +125,35 @@ export function validateParamsFragment(params: unknown): Diagnostic[] {
   return diagnostics;
 }
 
+type EditOperationKindRead =
+  | { readonly ok: true; readonly value: string }
+  | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+export function readEditOperationKind(value: unknown): EditOperationKindRead {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() requires one object edit operation."),
+    };
+  }
+  let kind: unknown;
+  try {
+    kind = (value as { readonly kind?: unknown }).kind;
+  } catch {
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation kind must be inspectable."),
+    };
+  }
+  if (typeof kind !== "string") {
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation kind must be source text."),
+    };
+  }
+  return { ok: true, value: kind };
+}
+
 export function validateJsonLiteralFragment(value: unknown, label: string): Diagnostic[] {
   if (value === null) {
     return [];

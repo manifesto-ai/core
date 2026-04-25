@@ -15,7 +15,6 @@ import {
   findTypeField,
   indentLines,
   insertBeforeClosingLine,
-  isEditObject,
   lineIndentAt,
   parseTypeFieldTarget,
   renderAction,
@@ -40,6 +39,7 @@ import {
   diagnosticsOf,
   editError,
   parseProgram,
+  readEditOperationKind,
   targetNotFound,
   validateActionBodyFragment,
   validateExpressionFragment,
@@ -96,9 +96,10 @@ export function compileFragmentInContext(
     ]);
   }
 
-  if (!isEditObject(op)) {
+  const opKind = readEditOperationKind(op);
+  if (!opKind.ok) {
     return preMaterializationFailure(baseSource, [
-      editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() requires one object edit operation."),
+      opKind.diagnostic,
     ]);
   }
 
@@ -119,7 +120,14 @@ export function compileFragmentInContext(
     return preMaterializationFailure(baseSource, parsed.diagnostics);
   }
 
-  const materialized = materializeEdit(baseSource, parsed.program, baseCompile.module, op);
+  let materialized: MaterializedEdit;
+  try {
+    materialized = materializeEdit(baseSource, parsed.program, baseCompile.module, op, opKind.value);
+  } catch {
+    return preMaterializationFailure(baseSource, [
+      editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
+    ]);
+  }
   if (materialized.diagnostics.length > 0 || materialized.edits.length === 0) {
     return preMaterializationFailure(baseSource, materialized.diagnostics);
   }
@@ -160,70 +168,88 @@ function materializeEdit(
   program: ProgramNode,
   baseModule: DomainModule,
   op: MelEditOp,
+  kind: string,
 ): MaterializedEdit {
-  switch (op.kind) {
-    case "addType":
-      return validateThenEdit([...validateIdentifierFragment(op.name, "type name"), ...validateTypeFragment(op.expr)], () =>
-        insertTopLevel(source, program, `type ${op.name} = ${op.expr}`, [`type:${op.name}`]));
+  switch (kind) {
+    case "addType": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "addType" }>;
+      return validateThenEdit([...validateIdentifierFragment(typed.name, "type name"), ...validateTypeFragment(typed.expr)], () =>
+        insertTopLevel(source, program, `type ${typed.name} = ${typed.expr}`, [`type:${typed.name}`]));
+    }
 
     case "addStateField": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "addStateField" }>;
       const diagnostics = [
-        ...validateIdentifierFragment(op.name, "state field name"),
-        ...validateJsonLiteralFragment(op.defaultValue, "state default"),
+        ...validateIdentifierFragment(typed.name, "state field name"),
+        ...validateJsonLiteralFragment(typed.defaultValue, "state default"),
       ];
       if (diagnostics.length > 0) {
         return materializationFailure(...diagnostics);
       }
 
-      const defaultSource = renderJsonLiteral(op.defaultValue);
-      return validateThenEdit(validateStateFieldFragment(op.type, defaultSource), () =>
-        addStateField(source, program, `${op.name}: ${op.type} = ${defaultSource}`, `state_field:${op.name}`));
+      const defaultSource = renderJsonLiteral(typed.defaultValue);
+      return validateThenEdit(validateStateFieldFragment(typed.type, defaultSource), () =>
+        addStateField(source, program, `${typed.name}: ${typed.type} = ${defaultSource}`, `state_field:${typed.name}`));
     }
 
-    case "addComputed":
-      return validateThenEdit([...validateIdentifierFragment(op.name, "computed name"), ...validateExpressionFragment(op.expr)], () =>
-        insertTopLevel(source, program, `computed ${op.name} = ${op.expr}`, [`computed:${op.name}`]));
+    case "addComputed": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "addComputed" }>;
+      return validateThenEdit([...validateIdentifierFragment(typed.name, "computed name"), ...validateExpressionFragment(typed.expr)], () =>
+        insertTopLevel(source, program, `computed ${typed.name} = ${typed.expr}`, [`computed:${typed.name}`]));
+    }
 
-    case "addAction":
+    case "addAction": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "addAction" }>;
       return validateThenEdit(
         [
-          ...validateIdentifierFragment(op.name, "action name"),
-          ...validateParamsFragment(op.params),
-          ...validateActionBodyFragment(op.body),
+          ...validateIdentifierFragment(typed.name, "action name"),
+          ...validateParamsFragment(typed.params),
+          ...validateActionBodyFragment(typed.body),
         ],
-        () => insertTopLevel(source, program, renderAction(op), [`action:${op.name}`]),
+        () => insertTopLevel(source, program, renderAction(typed), [`action:${typed.name}`]),
       );
+    }
 
-    case "addAvailable":
-      return addGuard(source, program, baseModule, op.target, "available", op.expr);
+    case "addAvailable": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "addAvailable" }>;
+      return addGuard(source, program, baseModule, typed.target, "available", typed.expr);
+    }
 
-    case "addDispatchable":
-      return addGuard(source, program, baseModule, op.target, "dispatchable", op.expr);
+    case "addDispatchable": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "addDispatchable" }>;
+      return addGuard(source, program, baseModule, typed.target, "dispatchable", typed.expr);
+    }
 
     case "replaceActionBody":
-      return replaceActionBody(source, program, baseModule, op);
+      return replaceActionBody(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceActionBody" }>);
 
     case "replaceComputedExpr":
-      return replaceComputedExpr(source, program, baseModule, op);
+      return replaceComputedExpr(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceComputedExpr" }>);
 
-    case "replaceAvailable":
-      return replaceGuard(source, program, baseModule, op.target, "available", op.expr);
+    case "replaceAvailable": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "replaceAvailable" }>;
+      return replaceGuard(source, program, baseModule, typed.target, "available", typed.expr);
+    }
 
-    case "replaceDispatchable":
-      return replaceGuard(source, program, baseModule, op.target, "dispatchable", op.expr);
+    case "replaceDispatchable": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "replaceDispatchable" }>;
+      return replaceGuard(source, program, baseModule, typed.target, "dispatchable", typed.expr);
+    }
 
     case "replaceStateDefault":
-      return replaceStateDefault(source, program, baseModule, op);
+      return replaceStateDefault(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceStateDefault" }>);
 
     case "replaceTypeField":
-      return replaceTypeField(source, program, baseModule, op);
+      return replaceTypeField(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceTypeField" }>);
 
     case "removeDeclaration":
-      return removeDeclaration(source, program, baseModule, op.target);
+      return removeDeclaration(source, program, baseModule, (op as Extract<MelEditOp, { readonly kind: "removeDeclaration" }>).target);
 
-    case "renameDeclaration":
-      return validateThenEdit(validateIdentifierFragment(op.newName, "rename target name"), () =>
-        renameDeclaration(source, program, baseModule, op.target, op.newName));
+    case "renameDeclaration": {
+      const typed = op as Extract<MelEditOp, { readonly kind: "renameDeclaration" }>;
+      return validateThenEdit(validateIdentifierFragment(typed.newName, "rename target name"), () =>
+        renameDeclaration(source, program, baseModule, typed.target, typed.newName));
+    }
 
     default:
       return materializationFailure(

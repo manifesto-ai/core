@@ -18,6 +18,11 @@ import type {
 import { requiredOffset } from "./compile-fragment-source-utils.js";
 import type { OffsetRange, ReferenceSpan, TargetInfo } from "./compile-fragment-reference-types.js";
 
+type ExprVisitContext = {
+  readonly preferActionParams?: boolean;
+  readonly actionParams?: ReadonlySet<string>;
+};
+
 export function collectTargetReferences(
   source: string,
   program: ProgramNode,
@@ -67,7 +72,7 @@ export function collectTargetReferences(
     }
   };
 
-  const visitExpr = (expr: ExprNode, ctx: { readonly preferActionParams?: boolean; readonly actionParams?: ReadonlySet<string> } = {}): void => {
+  const visitExpr = (expr: ExprNode, ctx: ExprVisitContext = {}): void => {
     switch (expr.kind) {
       case "identifier":
         if (target.kind === "state_field" && expr.name === target.name && !isActionParamPreferred(expr.name, ctx)) {
@@ -139,7 +144,7 @@ export function collectTargetReferences(
     }
   };
 
-  const visitEffectArg = (arg: EffectArgNode, ctx: { readonly actionParams?: ReadonlySet<string> }): void => {
+  const visitEffectArg = (arg: EffectArgNode, ctx: ExprVisitContext): void => {
     if (arg.isPath) {
       visitPath(arg.value as PathNode, true);
     } else {
@@ -147,7 +152,7 @@ export function collectTargetReferences(
     }
   };
 
-  const visitInnerStmt = (stmt: InnerStmtNode, ctx: { readonly actionParams?: ReadonlySet<string> }): void => {
+  const visitInnerStmt = (stmt: InnerStmtNode, ctx: ExprVisitContext): void => {
     switch (stmt.kind) {
       case "when":
         visitExpr(stmt.condition, ctx);
@@ -180,7 +185,7 @@ export function collectTargetReferences(
     }
   };
 
-  const visitGuardedStmt = (stmt: GuardedStmtNode, ctx: { readonly actionParams?: ReadonlySet<string> }): void => {
+  const visitGuardedStmt = (stmt: GuardedStmtNode, ctx: ExprVisitContext): void => {
     visitInnerStmt(stmt, ctx);
   };
 
@@ -193,7 +198,7 @@ export function collectTargetReferences(
     action.params.forEach((param) => visitParam(param));
     if (action.available) visitExpr(action.available, { actionParams });
     if (action.dispatchable) visitExpr(action.dispatchable, { actionParams, preferActionParams: true });
-    action.body.forEach((stmt) => visitGuardedStmt(stmt, { actionParams }));
+    action.body.forEach((stmt) => visitGuardedStmt(stmt, { actionParams, preferActionParams: true }));
   };
 
   const visitParam = (param: ParamNode): void => {
@@ -250,7 +255,7 @@ function visitMember(
 
 function isActionParamPreferred(
   name: string,
-  ctx: { readonly preferActionParams?: boolean; readonly actionParams?: ReadonlySet<string> },
+  ctx: ExprVisitContext,
 ): boolean {
   return ctx.preferActionParams === true && ctx.actionParams?.has(name) === true;
 }

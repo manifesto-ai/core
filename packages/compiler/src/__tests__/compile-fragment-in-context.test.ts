@@ -241,6 +241,33 @@ domain Demo {
     expect(result.schemaDiff?.addedTargets).toContain("state_field:total");
   });
 
+  it("preserves action parameter reads that shadow renamed state fields", () => {
+    const source = `
+domain Demo {
+  state {
+    count: number = 0
+  }
+
+  action increment(count: number) {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+}
+`;
+    const result = compileFragmentInContext(source, {
+      kind: "renameDeclaration",
+      target: "state_field:count",
+      newName: "total",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("total: number = 0");
+    expect(result.newSource).toContain("action increment(count: number)");
+    expect(result.newSource).toContain("patch total = add(count, 1)");
+    expect(result.newSource).not.toContain("add(total, 1)");
+  });
+
   it("renames computed declarations and type declarations with safe references", () => {
     const source = `
 domain Demo {
@@ -406,6 +433,13 @@ domain Demo {
   });
 
   it("returns diagnostics for runtime-invalid edit operation shapes instead of throwing", () => {
+    const opWithThrowingKind = {};
+    Object.defineProperty(opWithThrowingKind, "kind", {
+      enumerable: true,
+      get() {
+        throw new Error("op kind getter must not run");
+      },
+    });
     const paramWithAccessor = { type: "number" };
     Object.defineProperty(paramWithAccessor, "name", {
       enumerable: true,
@@ -427,6 +461,7 @@ domain Demo {
       { kind: "addComputed", name: "bad", expr: "count" },
     ] as never);
     const unknownKind = compileFragmentInContext(SOURCE, { kind: "unknown" } as never);
+    const throwingKind = compileFragmentInContext(SOURCE, opWithThrowingKind as never);
     const invalidParams = compileFragmentInContext(SOURCE, {
       kind: "addAction",
       name: "submit",
@@ -454,6 +489,7 @@ domain Demo {
     expectNoMaterialization(nullOp, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(arrayOp, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(unknownKind, "E_FRAGMENT_SCOPE_VIOLATION");
+    expectNoMaterialization(throwingKind, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(invalidParams, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(accessorParam, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(proxyParam, "E_FRAGMENT_SCOPE_VIOLATION");
