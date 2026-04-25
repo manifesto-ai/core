@@ -172,6 +172,9 @@ function declarationTarget(
 }
 
 function affectedTargets(program: ProgramNode, target: TargetInfo): readonly LocalTargetKey[] {
+  if (target.kind === "type_field") {
+    return sortTargets([`type:${target.typeName}`, targetKey(target)]);
+  }
   if (target.kind !== "type") {
     return [targetKey(target)];
   }

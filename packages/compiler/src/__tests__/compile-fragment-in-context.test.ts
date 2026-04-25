@@ -105,6 +105,7 @@ describe("compileFragmentInContext", () => {
     expect(stateDefault.newSource).toContain("count: number = 10");
     expect(typeField.ok).toBe(true);
     expect(typeField.newSource).toContain("title: string | null");
+    expect(typeField.changedTargets).toEqual(["type:Task", "type_field:Task.title"]);
     expect(computed.edits[0]?.range.start.offset).toBeTypeOf("number");
     expect(applyEdits(SOURCE, computed.edits)).toBe(computed.newSource);
   });
@@ -358,6 +359,7 @@ domain Demo {
 
     expect(remove.ok).toBe(true);
     expect(remove.newSource).not.toContain("title: string");
+    expect(remove.changedTargets).toEqual(["type:Task", "type_field:Task.title"]);
     expect(remove.schemaDiff?.removedTargets).toContain("type_field:Task.title");
 
     expectNoMaterialization(blocked, "E_UNSAFE_RENAME_AMBIGUOUS", referenced);

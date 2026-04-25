@@ -421,12 +421,12 @@ function replaceTypeField(
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
   const parsed = parseTypeFieldTarget(target);
   const field = parsed ? findTypeField(program, parsed.typeName, parsed.fieldName) : null;
-  if (!field) return materializationFailure(targetNotFound(target));
+  if (!parsed || !field) return materializationFailure(targetNotFound(target));
 
   return validateThenEdit(validateTypeFragment(type), () =>
     materializationSuccess(
       [textEdit(source, field.typeExpr.location.start.offset, field.typeExpr.location.end.offset, type)],
-      [target],
+      [`type:${parsed.typeName}`, target],
     ));
 }
 
