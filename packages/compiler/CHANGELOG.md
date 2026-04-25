@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.9.0](https://github.com/manifesto-ai/core/compare/compiler-v3.8.0...compiler-v3.9.0) (2026-04-25)
+
+
+### Features
+
+* **compiler:** add source fragment editing primitive ([#458](https://github.com/manifesto-ai/core/issues/458)) ([8ac8539](https://github.com/manifesto-ai/core/commit/8ac8539959fe40aae0ce0b81f798ce0da8dc931b))
+
 ## [3.8.0](https://github.com/manifesto-ai/core/compare/compiler-v3.7.1...compiler-v3.8.0) (2026-04-23)
 
 
