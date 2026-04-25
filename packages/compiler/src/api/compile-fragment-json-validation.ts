@@ -98,7 +98,7 @@ function snapshotJsonObject(value: object, label: string): JsonLiteralSnapshot {
   }
 
   const diagnostics: Diagnostic[] = [];
-  const snapshot: { [key: string]: JsonLiteral } = {};
+  const snapshot = Object.create(null) as { [key: string]: JsonLiteral };
   for (const key of keys.sort(compareUnicodeCodePoints)) {
     const descriptor = descriptors[key]!;
     if (!("value" in descriptor)) {

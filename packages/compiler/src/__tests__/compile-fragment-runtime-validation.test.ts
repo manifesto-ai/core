@@ -35,6 +35,15 @@ function changingNestedJsonValue(): { readonly value: object; readonly readCount
   return { value: { nested }, readCount: () => reads };
 }
 
+function jsonObjectWithProtoKey(value: unknown): object {
+  const payload = {};
+  Object.defineProperty(payload, "__proto__", {
+    enumerable: true,
+    value,
+  });
+  return payload;
+}
+
 describe("compileFragmentInContext runtime validation hardening", () => {
   it("returns diagnostics for revoked proxy edit operations instead of throwing", () => {
     const revoked = Proxy.revocable({
@@ -335,5 +344,22 @@ domain Demo {
     expect(result.newSource).toContain("payload: { nested: { value: number } } = { nested: { value: 1 } }");
     expect(result.newSource).not.toContain("value: 2");
     expect(payload.readCount()).toBe(1);
+  });
+
+  it("preserves __proto__ keys in validated JSON snapshots", () => {
+    const result = compileFragmentInContext(`
+domain Demo {
+  state {
+    payload: { __proto__: number } = { __proto__: 0 }
+  }
+}
+`, {
+      kind: "replaceStateDefault",
+      target: "state_field:payload",
+      value: jsonObjectWithProtoKey(1) as never,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("payload: { __proto__: number } = { __proto__: 1 }");
   });
 });
