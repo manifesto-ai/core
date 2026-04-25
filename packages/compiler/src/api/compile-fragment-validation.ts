@@ -4,6 +4,8 @@ import { tokenize } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
 import { compareUnicodeCodePoints } from "../utils/unicode-order.js";
 
+const MAX_FRAGMENT_ARRAY_LENGTH = 10_000;
+
 export const EMPTY_LOCATION = {
   start: { line: 1, column: 1, offset: 0 },
   end: { line: 1, column: 1, offset: 0 },
@@ -101,6 +103,10 @@ export function validateParamsFragment(params: unknown): Diagnostic[] {
   if (!length.ok) {
     return [length.diagnostic];
   }
+  const shape = validateArrayShape(array.value, length.value, "action params");
+  if (shape) {
+    return [shape];
+  }
   const diagnostics: Diagnostic[] = [];
   for (let index = 0; index < length.value; index += 1) {
     const item = readRequiredArrayItem(array.value, index, "action params");
@@ -192,9 +198,9 @@ export function validateJsonLiteralFragment(value: unknown, label: string): Diag
     if (!length.ok) {
       return [length.diagnostic];
     }
-    const ownProperties = validateArrayOwnProperties(array.value, length.value, `${label} array`);
-    if (ownProperties) {
-      return [ownProperties];
+    const shape = validateArrayShape(array.value, length.value, `${label} array`);
+    if (shape) {
+      return [shape];
     }
     const diagnostics: Diagnostic[] = [];
     for (let index = 0; index < length.value; index += 1) {
@@ -277,21 +283,47 @@ function readArrayLength(value: readonly unknown[], label: string): LengthReadRe
   }
 }
 
-function validateArrayOwnProperties(
+function validateArrayShape(
   value: readonly unknown[],
   length: number,
   label: string,
 ): Diagnostic | null {
+  if (length > MAX_FRAGMENT_ARRAY_LENGTH) {
+    return editError(
+      "E_FRAGMENT_SCOPE_VIOLATION",
+      `${label} must contain at most ${MAX_FRAGMENT_ARRAY_LENGTH} items.`,
+    );
+  }
   let descriptors: object;
   try {
     descriptors = Object.getOwnPropertyDescriptors(value);
   } catch {
     return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`);
   }
+  let indexCount = 0;
   for (const key of Reflect.ownKeys(descriptors)) {
     if (typeof key === "symbol" || (key !== "length" && !isArrayIndexKey(key, length))) {
       return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} keys must be JSON array indexes.`);
     }
+    if (key === "length") {
+      continue;
+    }
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(value, key);
+    } catch {
+      return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`);
+    }
+    if (!descriptor || !("value" in descriptor)) {
+      return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}[${key}] must be a JSON data property.`);
+    }
+    if (!descriptor.enumerable) {
+      return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}[${key}] must be enumerable JSON data.`);
+    }
+    indexCount += 1;
+  }
+  if (indexCount !== length) {
+    return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be dense JSON array data.`);
   }
   return null;
 }

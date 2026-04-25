@@ -98,4 +98,31 @@ describe("compileFragmentInContext runtime validation hardening", () => {
 
     expectScopeViolation(result);
   });
+
+  it("rejects oversized sparse JSON arrays before per-index traversal", () => {
+    const payload: unknown[] = [];
+    payload.length = 1_000_000_000;
+
+    const result = compileFragmentInContext(SOURCE, {
+      kind: "replaceStateDefault",
+      target: "state_field:count",
+      value: payload as never,
+    });
+
+    expectScopeViolation(result);
+  });
+
+  it("rejects oversized sparse action params before per-index traversal", () => {
+    const params: unknown[] = [];
+    params.length = 1_000_000_000;
+
+    const result = compileFragmentInContext(SOURCE, {
+      kind: "addAction",
+      name: "submit",
+      params: params as never,
+      body: "when true { patch count = count }",
+    });
+
+    expectScopeViolation(result);
+  });
 });
