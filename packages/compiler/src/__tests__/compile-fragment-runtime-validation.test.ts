@@ -192,4 +192,39 @@ describe("compileFragmentInContext runtime validation hardening", () => {
     expect(paramsReads).toBe(1);
     expect(bodyReads).toBe(1);
   });
+
+  it("replaces computed expressions from values captured during validation", () => {
+    let exprReads = 0;
+    const op = {
+      kind: "replaceComputedExpr",
+      target: "computed:doubled",
+    };
+    Object.defineProperty(op, "expr", {
+      enumerable: true,
+      get() {
+        exprReads += 1;
+        return exprReads === 1
+          ? "count"
+          : {
+              toString() {
+                throw new Error("computed expr must not be re-read");
+              },
+            };
+      },
+    });
+
+    const result = compileFragmentInContext(`
+domain Demo {
+  state {
+    count: number = 0
+  }
+
+  computed doubled = mul(count, 2)
+}
+`, op as never);
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("computed doubled = count");
+    expect(exprReads).toBe(1);
+  });
 });

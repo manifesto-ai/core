@@ -373,12 +373,19 @@ function replaceComputedExpr(
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
   const computed = findComputed(program, op.target.slice("computed:".length));
   if (!computed) return materializationFailure(targetNotFound(op.target));
+  const expr = op.expr;
 
-  return validateThenEdit(validateExpressionFragment(op.expr), () =>
-    materializationSuccess(
-      [textEdit(source, computed.expression.location.start.offset, computed.expression.location.end.offset, op.expr)],
+  return validateThenEdit(validateExpressionFragment(expr), () => {
+    if (typeof expr !== "string") {
+      return materializationFailure(
+        editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
+      );
+    }
+    return materializationSuccess(
+      [textEdit(source, computed.expression.location.start.offset, computed.expression.location.end.offset, expr)],
       [op.target],
-    ));
+    );
+  });
 }
 
 function replaceStateDefault(
