@@ -128,7 +128,7 @@ export function collectTargetReferences(
     }
   };
 
-  const visitPath = (path: PathNode, rewriteRoot: boolean): void => {
+  const visitPath = (path: PathNode, rewriteRoot: boolean, ctx: ExprVisitContext = {}): void => {
     const [first, ...rest] = path.segments;
     if (first?.kind === "propertySegment" && target.kind === "state_field" && first.name === target.name) {
       push(first.location, rewriteRoot);
@@ -139,14 +139,14 @@ export function collectTargetReferences(
           push(segment.location, false);
         }
       } else {
-        visitExpr(segment.index);
+        visitExpr(segment.index, ctx);
       }
     }
   };
 
   const visitEffectArg = (arg: EffectArgNode, ctx: ExprVisitContext): void => {
     if (arg.isPath) {
-      visitPath(arg.value as PathNode, true);
+      visitPath(arg.value as PathNode, true, ctx);
     } else {
       visitExpr(arg.value as ExprNode, ctx);
     }
@@ -159,7 +159,7 @@ export function collectTargetReferences(
         stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
         return;
       case "once":
-        visitPath(stmt.marker, true);
+        visitPath(stmt.marker, true, ctx);
         if (stmt.condition) visitExpr(stmt.condition, ctx);
         stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
         return;
@@ -171,7 +171,7 @@ export function collectTargetReferences(
         stmt.args.forEach((arg) => visitExpr(arg, ctx));
         return;
       case "patch":
-        visitPath(stmt.path, true);
+        visitPath(stmt.path, true, ctx);
         if (stmt.value) visitExpr(stmt.value, ctx);
         return;
       case "effect":
