@@ -264,6 +264,46 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
     message: "Annotation target does not map to the emitted DomainSchema",
     category: "semantic",
   },
+  E058: {
+    code: "E058",
+    message: "Source-map target does not map to the emitted DomainSchema",
+    category: "semantic",
+  },
+  E_STALE_MODULE: {
+    code: "E_STALE_MODULE",
+    message: "baseModule source hash does not match baseSource",
+    category: "semantic",
+  },
+  E_FRAGMENT_PARSE_FAILED: {
+    code: "E_FRAGMENT_PARSE_FAILED",
+    message: "Fragment failed its operation-specific parser",
+    category: "syntax",
+  },
+  E_FRAGMENT_SCOPE_VIOLATION: {
+    code: "E_FRAGMENT_SCOPE_VIOLATION",
+    message: "Fragment violates the requested edit scope",
+    category: "semantic",
+  },
+  E_TARGET_NOT_FOUND: {
+    code: "E_TARGET_NOT_FOUND",
+    message: "Edit target does not exist",
+    category: "semantic",
+  },
+  E_TARGET_KIND_MISMATCH: {
+    code: "E_TARGET_KIND_MISMATCH",
+    message: "Edit target kind is invalid for the requested operation",
+    category: "semantic",
+  },
+  E_UNSAFE_RENAME_AMBIGUOUS: {
+    code: "E_UNSAFE_RENAME_AMBIGUOUS",
+    message: "Rename cannot update references safely and deterministically",
+    category: "semantic",
+  },
+  E_REMOVE_BLOCKED_BY_REFERENCES: {
+    code: "E_REMOVE_BLOCKED_BY_REFERENCES",
+    message: "Remove would leave references dangling",
+    category: "semantic",
+  },
 
   // ============ Scope Errors (E1xx) ============
   E_UNDEFINED: {

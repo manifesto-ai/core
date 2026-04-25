@@ -113,6 +113,14 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
     notes: "Direct `merge()` typing must stay aligned with the lowered spread form.",
   }),
 
+  ...inventoryMany(["MEL-EDIT-1", "MEL-EDIT-3", "MEL-EDIT-4", "MEL-EDIT-5", "MEL-EDIT-7", "MEL-EDIT-8", "MEL-EDIT-9"], "§9.4", "MUST", "source-editing"),
+  inventory("MEL-EDIT-2", "§9.4", "MUST_NOT", "source-editing"),
+  inventory("MEL-EDIT-6", "§9.4", "MUST_NOT", "source-editing"),
+  ...inventoryMany(["MEL-EDIT-10", "MEL-EDIT-11", "MEL-EDIT-12"], "§9.4 / §9.5", "MUST", "source-editing"),
+  ...inventoryMany(["MEL-EDIT-13", "MEL-EDIT-14", "MEL-EDIT-15", "MEL-EDIT-16"], "§9.4 / §9.6", "MUST", "source-editing"),
+  inventory("MEL-EDIT-17", "§9.4 / §9.6", "MUST_NOT", "source-editing"),
+  inventory("MEL-EDIT-18", "§9.4 / §9.5", "MUST", "source-editing"),
+
   ...inventoryMany(["META-1", "META-2", "META-3", "META-4", "META-5", "META-6", "META-7", "META-8", "META-9", "META-10"], "§8.2-§8.4", "MUST", "annotations"),
   ...inventoryMany(["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"], "§8.4", "CRITICAL", "annotations"),
 
@@ -135,6 +143,7 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   ...inventoryMany(["E040", "E041", "E042", "E043", "E044"], "§13.6", "MUST", "state-and-computed"),
   ...inventoryMany(["E049", "E050", "E051", "E052"], "§13.6", "MUST", "lowering-and-ir"),
   ...inventoryMany(["E053", "E054", "E055", "E056", "E057", "E058"], "§9", "MUST", "annotations"),
+  ...inventoryMany(["E_STALE_MODULE", "E_FRAGMENT_PARSE_FAILED", "E_FRAGMENT_SCOPE_VIOLATION", "E_TARGET_NOT_FOUND", "E_TARGET_KIND_MISMATCH", "E_UNSAFE_RENAME_AMBIGUOUS", "E_REMOVE_BLOCKED_BY_REFERENCES"], "§9.6 / §10", "MUST", "source-editing"),
   inventory("E045", "§13.6", "MUST", "state-and-computed", {
     lifecycle: "superseded",
     notes: "Superseded when nullable schema-position types became supported through TypeDefinition-backed runtime validation.",

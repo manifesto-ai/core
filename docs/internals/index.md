@@ -58,6 +58,8 @@ Records of significant architectural decisions:
 | [ADR-020](./adr/020-intent-level-dispatchability) | Intent-Level Dispatchability — `dispatchable when` Clause | Implemented |
 | [ADR-021](./adr/021-mel-structural-annotation-system-meta-sidecar) | MEL Structural Annotation System — `@meta` Sidecar | Accepted |
 | [ADR-022](./adr/022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted |
+| [ADR-023](./adr/023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted |
+| [ADR-024](./adr/024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

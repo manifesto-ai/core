@@ -1,6 +1,6 @@
 # Compiler SPEC Compilance Test Suite (CCTS)
 
-> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.2.0.
+> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.3.0.
 > **Audience:** Compiler maintainers and contributors extending MEL semantics.
 > **Status:** Operational
 
@@ -43,12 +43,13 @@ packages/compiler/src/__tests__/compliance/
     lowering-and-ir.spec.ts
     flow-composition.spec.ts
     entity-primitives.spec.ts
+    source-editing.spec.ts
     determinism.golden.spec.ts
 ```
 
 The suite mirrors the Host HCTS shape, but adds explicit inventory and coverage layers:
 
-- spec inventory (`SPEC-v1.2.0.md` rule surface)
+- spec inventory (SPEC v1.3.0, stored in the current in-place `SPEC-v1.2.0.md` file)
 - shared rule registry
 - case/rule coverage map
 - test adapter wrapping exported APIs
@@ -102,6 +103,7 @@ Blocking rules reflect currently implemented compiler behavior:
 - entity primitives and placement/type diagnostics (ADR-013b, `ENTITY-*`, `TRANSFORM-*`, `E030`-`E035`)
 - schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E044`; `E045`/`E046` retained only as superseded inventory items)
 - structural annotations via `@meta`, plus declaration-level source maps via `SourceMapIndex`, including valid v1 target placement, literal-only payload enforcement, deterministic sidecar emission, source-map cache identity, semantic erasure invariants, and the runtime-boundary guard between `DomainSchema` and tooling-only `DomainModule`
+- source-fragment editing via `compileFragmentInContext()` (`MEL-EDIT-*`, single-operation shape rejection, raw-splice hardening for fragments/identifiers/JSON keys, runtime-invalid JSON literal rejection, safe remove/rename materialization, all-or-nothing unsafe remove/rename diagnostics, `E_STALE_MODULE`, `E_FRAGMENT_PARSE_FAILED`, `E_FRAGMENT_SCOPE_VIOLATION`, `E_TARGET_NOT_FOUND`, `E_TARGET_KIND_MISMATCH`, `E_UNSAFE_RENAME_AMBIGUOUS`, `E_REMOVE_BLOCKED_BY_REFERENCES`)
 - deterministic compile/lower output
 
 ### Pending
@@ -143,13 +145,13 @@ Those are valid future extensions once the registry and suite skeleton are stabl
 
 ## 7. Current Residual Gap Audit
 
-As of the current Phase 4 baseline:
+As of the SPEC v1.3.0 source-editing baseline:
 
 - `blocking`: concrete current-contract feature families already enforced in compiler + CCTS
 - `pending`: none
 - `informational`: `A16`, `COMPILER-MEL-2a`
 
-This means the active compliance backlog is closed for the current SPEC baseline. Remaining tracked items are informational only.
+The active compliance backlog is closed for the current SPEC baseline. Remaining tracked items are informational only.
 
 ---
 

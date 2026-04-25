@@ -8,7 +8,7 @@
 
 `@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
 
-The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler pinned to `SPEC-v1.2.0`.
+The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler pinned to `SPEC-v1.3.0`.
 
 Current compiler responsibilities include:
 - schema-only compilation through `compileMelDomain()`
@@ -16,14 +16,16 @@ Current compiler responsibilities include:
 - projected `SchemaGraph` extraction
 - structural annotations via `@meta` as an out-of-schema `AnnotationIndex` sidecar
 - declaration-level source locations as an out-of-schema `SourceMapIndex` sidecar
+- authoring-time source edits through `compileFragmentInContext()`
 - intent-level dispatchability via `dispatchable when`
 - MEL patch lowering through `compileMelPatch()`
 
-Current MEL v1.2 compiler highlights include:
+Current MEL v1.3 compiler highlights include:
 - object-literal spread as the sole bounded parser-level shorthand
 - canonical lowering of spread through `merge(...)`
 - presence-aware object typing shared by spread and direct `merge()`
 - optional spread-result reads observed as `T | null`, requiring explicit normalization before non-null sinks
+- compiler-owned MEL source-fragment editing for authoring-time tooling
 
 ## Main Entry Points
 
@@ -70,6 +72,34 @@ type DomainModule = {
 ```
 
 `annotations` is the compiler-owned sidecar for `@meta`. `sourceMap` is the compiler-owned sidecar for declaration-level MEL provenance. Both remain outside `DomainSchema` and `SchemaGraph`.
+
+### `compileFragmentInContext()`
+
+Use `compileFragmentInContext()` when authoring-time tooling needs the compiler to validate and materialize one MEL source edit.
+
+```typescript
+import { compileFragmentInContext } from "@manifesto-ai/compiler";
+
+const result = compileFragmentInContext(melSource, {
+  kind: "addComputed",
+  name: "nextCount",
+  expr: "add(count, 1)",
+}, { includeSchemaDiff: true });
+
+if (result.ok) {
+  const nextSource = result.newSource;
+  const changedTargets = result.changedTargets;
+  const impact = result.schemaDiff;
+}
+```
+
+`compileFragmentInContext()` is a tooling API, not a runtime mutation API. It returns a full `newSource` string, diagnostics, base-source text edits, changed targets, and optional schema impact. The caller decides whether to accept the edit and where to store the source.
+
+Pre-materialization failures return diagnostics as values with `newSource === baseSource`, empty `edits`, and empty `changedTargets`. The compiler rejects invalid operation shapes, raw-splice attempts through identifiers or JSON object keys, invalid JSON defaults, stale `baseModule` inputs, missing targets, and target-kind mismatches before producing text edits.
+
+`removeDeclaration` and `renameDeclaration` are Safe v1 all-or-nothing edits. The compiler materializes complete edits when references are provably safe, including compiler-known rename references, and otherwise returns diagnostics such as `E_REMOVE_BLOCKED_BY_REFERENCES` or `E_UNSAFE_RENAME_AMBIGUOUS` with no partial edits.
+
+Runtime creation still consumes `DomainSchema`. If a tool accepts an edited source, compile the accepted source through `compileMelDomain()` or `compileMelModule()` and pass only the resulting schema into runtime seams.
 
 ### `compileMelPatch()`
 

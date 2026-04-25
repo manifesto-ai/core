@@ -511,7 +511,7 @@ function freezePath(path: SourceMapPath): SourceMapPath {
   }
 }
 
-function stableHashString(input: string): string {
+export function stableHashString(input: string): string {
   let hash = 0x811c9dc5;
 
   for (let index = 0; index < input.length; index += 1) {

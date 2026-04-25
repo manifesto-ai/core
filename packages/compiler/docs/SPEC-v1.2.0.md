@@ -1,15 +1,24 @@
-# MEL Compiler SPEC v1.2.0
+# MEL Compiler SPEC v1.3.0
 
-> **Version:** 1.2.0
+> **Version:** 1.3.0
 > **Type:** Full
 > **Status:** Normative
-> **Date:** 2026-04-23
-> **Replaces:** v1.1.0 as the current full compiler contract
+> **Date:** 2026-04-25
+> **Replaces:** v1.2.0 as the current full compiler contract
 > **Compatible with:** Core SPEC v4.2.0, current SDK activation-first contract
 
 ---
 
 ## Changelog
+
+### v1.3.0
+
+- introduce `compileFragmentInContext()` as a compiler-owned authoring-time source-fragment editing primitive
+- define the `MelEditOp` union, `MelEditResult`, `MelTextEdit`, and `SchemaDiff` contracts
+- define single-op source editing, grammar-specific fragment parsing, full-domain output, and full-domain recompile invariants
+- define source-hash validation for optional reusable `baseModule` context
+- define changed-target and schema-diff reporting for external Author layer acceptance policy
+- reaffirm that compiler-owned source editing does not change `DomainSchema`, `DomainModule`, runtime entrypoints, schema hash semantics, `SchemaGraph`, `AnnotationIndex`, or `SourceMapIndex`
 
 ### v1.2.0
 
@@ -44,6 +53,7 @@ It consolidates the landed compiler surface into one current contract, including
 - current clarification that additive MEL surface forms must preserve existing builtin meanings and lower only through the compiler-owned MEL → Core boundary
 - object-literal spread as the sole bounded parser-level shorthand in current MEL
 - presence-aware object typing and direct `merge()` typing parity for spread-admitted object composition
+- compiler-owned source-fragment editing for authoring-time tooling
 
 Historical compiler docs remain useful for archaeology, but **this file is the current truth**.
 
@@ -57,6 +67,7 @@ The current compiler contract defines four distinct artifacts:
 - `SchemaGraph` as the projected static dependency artifact
 - `AnnotationIndex` as the tooling-only structural sidecar
 - `SourceMapIndex` as the tooling-only declaration-level source location sidecar
+- `MelEditResult` as the authoring-time source-edit result returned by source-fragment edit entrypoints
 
 Additive compiler/tooling entrypoints MAY expose those artifacts together through a module envelope:
 
@@ -101,6 +112,7 @@ Normative meaning:
 - `graph` is the projected static dependency artifact extracted from `schema` alone.
 - `annotations` is a tooling-only structural sidecar and MUST remain out-of-schema.
 - `sourceMap` is a tooling-only declaration-level source location sidecar and MUST remain out-of-schema.
+- source-edit results are tooling-only authoring artifacts and MUST NOT be accepted by Core, Host, SDK runtime, Lineage, or Governance entrypoints.
 - schema-only compiler entrypoints MAY continue to expose `DomainSchema` without wrapping it in `DomainModule`.
 - `types` preserves named MEL type declarations losslessly.
 - `state.fields` and `action.input` are the **compatibility / coarse introspection seam**.
@@ -346,8 +358,8 @@ Normative rules:
 - spread entries are admitted only inside object literals: `{ ...expr, key: value }`
 - spread is source-order sensitive; named fields and spread contributors compete by source order alone
 - spread operands MUST be object-shaped, or `T | null` where `T` is object-shaped
-- `Record<string, T>` spread operands are not part of the current v1.2 contract
-- primitive, array, and object-only multi-branch union spread operands are not part of the current v1.2 contract
+- `Record<string, T>` spread operands are not part of the current spread contract
+- primitive, array, and object-only multi-branch union spread operands are not part of the current spread contract
 - object-literal spread MUST lower to canonical `merge(...)` expressions with source order preserved
 - consecutive named fields between spread contributors MUST group into one object-literal `merge(...)` argument
 - `patch path = { ...expr, key: value }` remains a `set` patch whose value is the lowered `merge(...)`
@@ -680,7 +692,312 @@ Current invariants:
 
 ---
 
-## 9. Diagnostics
+## 9. Authoring-Time Source Fragment Editing
+
+The compiler owns one deterministic source-fragment editing primitive for authoring-time tooling:
+
+```typescript
+function compileFragmentInContext(
+  baseSource: string,
+  op: MelEditOp,
+  options?: CompileFragmentInContextOptions,
+): MelEditResult;
+```
+
+This primitive is a compiler/tooling API. It does not change runtime semantics. Core, Host, SDK runtime, Lineage, and Governance continue to consume runtime `DomainSchema` artifacts, not edit results, `DomainModule`, `AnnotationIndex`, or `SourceMapIndex`.
+
+### 9.1 Author Layer Boundary
+
+The compiler is responsible for validating and materializing exactly one requested source edit.
+
+The external Author layer owns user request interpretation, op selection, multi-op sequencing, retry/repair loops, edit-attempt storage, lineage/proposal handling, acceptance policy, and agent decomposition.
+
+The compiler MUST NOT provide author sessions, edit sequence stores, multi-op composers, retry loops, repair loops, LLM planners, runtime snapshot mutation, governance policy decisions, lineage commits, or acceptance decisions.
+
+### 9.2 API Types
+
+```typescript
+type CompileFragmentInContextOptions = {
+  readonly baseModule?: DomainModule;
+  readonly includeModule?: boolean;
+  readonly includeSchemaDiff?: boolean;
+};
+
+type MelEditResult = {
+  readonly ok: boolean;
+  readonly newSource: string;
+  readonly diagnostics: readonly Diagnostic[];
+  readonly module?: DomainModule;
+  readonly changedTargets: readonly LocalTargetKey[];
+  readonly edits: readonly MelTextEdit[];
+  readonly schemaDiff?: SchemaDiff;
+};
+
+type MelTextEdit = {
+  readonly range: SourceSpan;
+  readonly replacement: string;
+};
+
+type SchemaDiff = {
+  readonly addedTargets: readonly LocalTargetKey[];
+  readonly removedTargets: readonly LocalTargetKey[];
+  readonly modifiedTargets: readonly SchemaModifiedTarget[];
+};
+
+type SchemaModifiedTarget = {
+  readonly target: LocalTargetKey;
+  readonly beforeHash: string;
+  readonly afterHash: string;
+  readonly before?: unknown;
+  readonly after?: unknown;
+};
+```
+
+`before` and `after` are optional normalized summaries. Stable comparison is hash-based through `beforeHash` and `afterHash`.
+
+`MelEditResult` MUST NOT include nondeterministic trace timing fields. For identical inputs, deterministic result fields are `newSource`, `diagnostics`, `edits`, `changedTargets`, and `schemaDiff`.
+
+Result semantics:
+
+- `ok` MUST be `true` only when no `error` diagnostics are present after fragment parsing, source materialization, and full-domain compilation.
+- If an edit fails before source materialization, `newSource` MUST equal `baseSource`, `edits` MUST be empty, and `changedTargets` MUST be empty.
+- If source materialization succeeds but full-domain compilation fails, `newSource` and `edits` MUST describe the materialized edit, `ok` MUST be `false`, and diagnostics MUST include the full-domain compile errors.
+- `module` MUST be present only when `includeModule` is `true`, full-domain compilation succeeds, and the result has no error diagnostics.
+- `schemaDiff` MUST be present only when `includeSchemaDiff` is `true` and both the base and edited sources compile successfully enough to compare emitted schemas.
+- `changedTargets`, `schemaDiff.addedTargets`, `schemaDiff.removedTargets`, and `schemaDiff.modifiedTargets` MUST be sorted by `LocalTargetKey` using deterministic Unicode code point order.
+- `edits` MUST be ordered by ascending start offset. Overlapping edits are forbidden.
+- Applying returned `MelTextEdit` entries as a non-overlapping replacement set over the original `baseSource` MUST produce `newSource`.
+
+### 9.3 Edit Operations
+
+The public edit operation union is:
+
+```typescript
+type MelEditOp =
+  | MelEditAddTypeOp
+  | MelEditAddStateFieldOp
+  | MelEditAddComputedOp
+  | MelEditAddActionOp
+  | MelEditAddAvailableOp
+  | MelEditAddDispatchableOp
+  | MelEditReplaceActionBodyOp
+  | MelEditReplaceComputedExprOp
+  | MelEditReplaceAvailableOp
+  | MelEditReplaceDispatchableOp
+  | MelEditReplaceStateDefaultOp
+  | MelEditReplaceTypeFieldOp
+  | MelEditRemoveDeclarationOp
+  | MelEditRenameDeclarationOp;
+```
+
+Operation type names use the `MelEdit*` prefix to avoid colliding with existing renderer fragment types. Operation `kind` string values remain the concise MEL edit verbs.
+
+```typescript
+type MelParamSource = {
+  readonly name: string;
+  readonly type: string;
+};
+
+type MelEditAddTypeOp = {
+  readonly kind: "addType";
+  readonly name: string;
+  readonly expr: string;
+};
+
+type MelEditAddStateFieldOp = {
+  readonly kind: "addStateField";
+  readonly name: string;
+  readonly type: string;
+  readonly defaultValue: JsonLiteral;
+};
+
+type MelEditAddComputedOp = {
+  readonly kind: "addComputed";
+  readonly name: string;
+  readonly expr: string;
+};
+
+type MelEditAddActionOp = {
+  readonly kind: "addAction";
+  readonly name: string;
+  readonly params: readonly MelParamSource[];
+  readonly body: string;
+};
+
+type MelEditAddAvailableOp = {
+  readonly kind: "addAvailable";
+  readonly target: `action:${string}`;
+  readonly expr: string;
+};
+
+type MelEditAddDispatchableOp = {
+  readonly kind: "addDispatchable";
+  readonly target: `action:${string}`;
+  readonly expr: string;
+};
+
+type MelEditReplaceActionBodyOp = {
+  readonly kind: "replaceActionBody";
+  readonly target: `action:${string}`;
+  readonly body: string;
+};
+
+type MelEditReplaceComputedExprOp = {
+  readonly kind: "replaceComputedExpr";
+  readonly target: `computed:${string}`;
+  readonly expr: string;
+};
+
+type MelEditReplaceAvailableOp = {
+  readonly kind: "replaceAvailable";
+  readonly target: `action:${string}`;
+  readonly expr: string | null;
+};
+
+type MelEditReplaceDispatchableOp = {
+  readonly kind: "replaceDispatchable";
+  readonly target: `action:${string}`;
+  readonly expr: string | null;
+};
+
+type MelEditReplaceStateDefaultOp = {
+  readonly kind: "replaceStateDefault";
+  readonly target: `state_field:${string}`;
+  readonly value: JsonLiteral;
+};
+
+type MelEditReplaceTypeFieldOp = {
+  readonly kind: "replaceTypeField";
+  readonly target: `type_field:${string}.${string}`;
+  readonly type: string;
+};
+
+type MelEditRemoveDeclarationOp = {
+  readonly kind: "removeDeclaration";
+  readonly target: LocalTargetKey;
+};
+
+type MelEditRenameDeclarationOp = {
+  readonly kind: "renameDeclaration";
+  readonly target: LocalTargetKey;
+  readonly newName: string;
+};
+```
+
+Fragment payloads are string-first. Action bodies, computed expressions, type expressions, state-field type expressions, and available/dispatchable guard expressions are accepted as MEL source strings and immediately parsed by the compiler.
+
+Identifier-bearing fields such as declaration names, action parameter names, and rename targets MUST parse as exactly one MEL identifier token before any source edit is materialized. These fields MUST NOT be treated as raw source snippets.
+
+JSON literal payloads used for state defaults MUST be validated before rendering. The compiler MUST reject non-finite numbers, sparse arrays, accessor properties, non-plain objects, non-inspectable object/array values, and object keys that are not valid MEL identifiers with `E_FRAGMENT_SCOPE_VIOLATION` and no source edits.
+
+### 9.4 Fragment Parsing and Materialization Rules
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| MEL-EDIT-1 | MUST | `compileFragmentInContext()` MUST process exactly one `MelEditOp` |
+| MEL-EDIT-2 | MUST_NOT | The public primitive MUST NOT accept arrays, non-object values, or unknown operation shapes as valid edit operations |
+| MEL-EDIT-3 | MUST | `newSource` MUST be a full MEL domain source string, not only the inserted fragment |
+| MEL-EDIT-4 | MUST | After materializing `newSource`, the compiler MUST run full-domain compilation and return resulting diagnostics |
+| MEL-EDIT-5 | MUST | Fragment strings MUST be parsed with the narrowest valid grammar for the operation |
+| MEL-EDIT-6 | MUST_NOT | The compiler MUST NOT raw-splice unparsed source text through fragments, identifiers, action parameters, or JSON object keys into `baseSource` |
+| MEL-EDIT-7 | MUST | `options.baseModule`, when provided, MUST be source-hash checked against `baseSource` before any source spans are reused |
+| MEL-EDIT-8 | MUST | A stale `baseModule` MUST return `E_STALE_MODULE` and MUST NOT use stale source spans |
+| MEL-EDIT-9 | MUST | Results for identical `baseSource`, `MelEditOp`, compiler version, and options MUST be deterministic for `newSource`, diagnostics, edits, changed targets, and schema diff |
+| MEL-EDIT-10 | MUST | `changedTargets` MUST expose every declaration target the compiler can determine was directly changed by the edit |
+| MEL-EDIT-11 | MUST | `schemaDiff`, when requested and available, MUST expose added, removed, and modified schema targets using deterministic ordering |
+| MEL-EDIT-12 | MUST | The compiler MUST report impact; the external Author layer decides whether the impact matches user intent |
+| MEL-EDIT-13 | MUST | Invalid `baseSource` MUST return diagnostics as values and MUST NOT attempt target mutation |
+| MEL-EDIT-14 | MUST | `MelTextEdit.range` MUST be expressed in `baseSource` coordinates using the same `SourceSpan` coordinate convention as `SourceMapIndex` |
+| MEL-EDIT-15 | MUST | Successful edits MUST preserve unrelated source text byte-for-byte except for the returned edit ranges |
+| MEL-EDIT-16 | MUST | Result ordering for diagnostics, edits, changed targets, and schema diff MUST be stable for identical inputs |
+| MEL-EDIT-17 | MUST_NOT | A failed remove or rename safety check MUST NOT return partial source edits |
+| MEL-EDIT-18 | MUST | A safe remove or rename operation MUST produce a complete source edit and deterministic target impact report |
+
+Grammar-specific fragment constraints:
+
+| Fragment | Grammar |
+|----------|---------|
+| action body string | action-body grammar only |
+| computed expression string | expression grammar only |
+| type expression string | type grammar only |
+| state field string | state-field grammar only |
+| available/dispatchable string | expression grammar only |
+
+An action body fragment MUST NOT be able to smuggle top-level declarations such as `action`, `state`, `computed`, `type`, or `domain`.
+
+Declaration identifiers and action parameter identifiers MUST NOT be able to smuggle source syntax such as assignment, braces, newline-separated declarations, or secondary action/type/computed declarations. JSON object keys rendered into MEL object literals follow the same identifier rule.
+
+### 9.5 Operation Semantics
+
+| Operation | Required behavior |
+|-----------|-------------------|
+| `addType` | Adds one top-level named type declaration and reports `type:<name>` in `changedTargets` / `schemaDiff.addedTargets` when successful |
+| `addStateField` | Adds one state field with the provided MEL type expression and JSON default value |
+| `addComputed` | Adds one computed declaration and reports `computed:<name>` in added targets |
+| `addAction` | Adds one action declaration with provided params and action body |
+| `addAvailable` / `addDispatchable` | Adds the corresponding action guard only when the target action does not already carry that clause |
+| `replaceActionBody` | Replaces only the target action body while preserving action identity, params, annotations, and guard clauses |
+| `replaceComputedExpr` | Replaces only the target computed expression while preserving computed identity and annotations |
+| `replaceAvailable` / `replaceDispatchable` | Replaces the target guard expression, or removes the clause when `expr` is `null` |
+| `replaceStateDefault` | Replaces only the target state field initializer value |
+| `replaceTypeField` | Replaces only the target top-level type field's type expression |
+| `removeDeclaration` | Removes one declaration only when references are safe; otherwise returns `E_REMOVE_BLOCKED_BY_REFERENCES` |
+| `renameDeclaration` | Renames one declaration and all compiler-known safe references only when unambiguous; otherwise returns `E_UNSAFE_RENAME_AMBIGUOUS` |
+
+If secondary target changes occur, they MUST be represented in `changedTargets` and `schemaDiff`. The compiler MAY reject an edit when it violates the operation's safety contract, such as ambiguous rename references or remove blockers.
+
+### 9.6 Target Validation and Diagnostics
+
+Target-bearing operations MUST validate the target before materializing source edits.
+
+| Condition | Diagnostic |
+|-----------|------------|
+| `baseModule.sourceMap.sourceHash` does not match `baseSource` | `E_STALE_MODULE` |
+| Fragment fails its grammar-specific parser | `E_FRAGMENT_PARSE_FAILED` |
+| Fragment parses but violates the requested fragment scope or in-context semantic constraints | `E_FRAGMENT_SCOPE_VIOLATION` |
+| Operation shape, source-string field, identifier field, target field, or JSON literal payload is invalid before materialization | `E_FRAGMENT_SCOPE_VIOLATION` |
+| Target key does not exist in the base source/module target index | `E_TARGET_NOT_FOUND` |
+| Target key exists but is not valid for the requested operation | `E_TARGET_KIND_MISMATCH` |
+| Rename cannot update references safely or deterministically | `E_UNSAFE_RENAME_AMBIGUOUS` |
+| Remove would leave references dangling | `E_REMOVE_BLOCKED_BY_REFERENCES` |
+
+Target-kind rules:
+
+| Operation | Valid target kind |
+|-----------|-------------------|
+| `addAvailable`, `addDispatchable`, `replaceActionBody`, `replaceAvailable`, `replaceDispatchable` | `action:*` |
+| `replaceComputedExpr` | `computed:*` |
+| `replaceStateDefault` | `state_field:*` |
+| `replaceTypeField` | `type_field:*.*` |
+| `removeDeclaration`, `renameDeclaration` | any current `LocalTargetKey` kind except `domain:*` |
+
+Add operations that introduce new named declarations MUST reject duplicate names through existing duplicate-identifier diagnostics when full-domain compilation detects the duplicate. Add operations that attach `available` or `dispatchable` MUST reject an already-present clause with `E_FRAGMENT_SCOPE_VIOLATION`.
+
+Remove and rename are all-or-nothing operations. They MUST either produce a complete safe source edit and full recompile result, or return diagnostics with `newSource === baseSource` and no edits.
+
+### 9.7 Acceptance Criteria
+
+The compliance suite for this surface MUST cover:
+
+- fragment grammar rejection for top-level declaration smuggling inside action body fragments
+- rejection of runtime-invalid operation shapes without thrown exceptions
+- rejection of raw-splice smuggling through declaration identifiers, action parameter identifiers, and JSON object keys
+- rejection of invalid JSON literal payloads before rendering state defaults
+- `replaceActionBody` preserving action signature and replacing only the target body
+- `replaceComputedExpr` preserving computed identity and replacing only the expression
+- `addComputed` returning `schemaDiff.addedTargets` containing `computed:<name>`
+- stale `baseModule` source-hash mismatch returning `E_STALE_MODULE`
+- deterministic `newSource`, `edits`, `changedTargets`, `schemaDiff`, and diagnostics for identical inputs
+- result semantics for pre-materialization failures, post-materialization compile failures, `includeModule`, and `includeSchemaDiff`
+- text edits ordered by base-source range and producing `newSource` as a non-overlapping replacement set
+- target-kind mismatch returning `E_TARGET_KIND_MISMATCH`
+- safe `removeDeclaration` and `renameDeclaration` producing complete edits and deterministic impact reports
+- unsafe `removeDeclaration` and `renameDeclaration` returning diagnostics rather than partial edits
+- runtime boundary invariants proving runtime entrypoints still consume `DomainSchema`, not `DomainModule` or edit results
+
+---
+
+## 10. Diagnostics
 
 The following diagnostics remain active in this area:
 
@@ -697,6 +1014,13 @@ The following diagnostics remain active in this area:
 - spread operand diagnostics for primitives, arrays, records, and unsupported object-only unions
 - presence-aware assignability diagnostics when optional spread contributors do not satisfy required target fields
 - optional-field consumption diagnostics when a spread-derived `T | null` value must be explicitly normalized before reaching a non-null sink
+- `E_STALE_MODULE` for `baseModule.sourceMap.sourceHash` mismatch against `baseSource`
+- `E_FRAGMENT_PARSE_FAILED` for grammar-specific fragment parse failure
+- `E_FRAGMENT_SCOPE_VIOLATION` for fragments, operation shapes, identifier fields, target fields, or JSON literal payloads that are illegal in the requested edit scope or domain context
+- `E_TARGET_NOT_FOUND` for edit operations whose target does not exist
+- `E_TARGET_KIND_MISMATCH` for edit operations whose target key kind is not valid for the operation
+- `E_UNSAFE_RENAME_AMBIGUOUS` for rename operations that cannot safely update references
+- `E_REMOVE_BLOCKED_BY_REFERENCES` for remove operations blocked by references
 
 The following historical diagnostics are superseded in the current contract:
 
@@ -707,7 +1031,7 @@ They remain historical references only and are no longer part of the current com
 
 ---
 
-## 10. Summary
+## 11. Summary
 
 The current compiler contract is:
 
@@ -721,6 +1045,9 @@ The current compiler contract is:
 - optional fields produced by spread are observed as `T | null` at read boundaries and require explicit normalization for non-null sinks
 - structural annotations via `@meta` compile into a tooling-only `AnnotationIndex` sidecar
 - declaration-level source locations compile into a tooling-only `SourceMapIndex` sidecar on `DomainModule`
+- `compileFragmentInContext()` is the current compiler-owned authoring-time source-fragment editing primitive
+- Safe v1 remove/rename source edits are all-or-nothing, with complete safe edits or no partial edits on diagnostics
+- source edit results are tooling-only artifacts and do not change runtime entrypoints or semantic schema artifacts
 - `action_param` annotations remain outside the current v1 surface
 - `dispatchable when` is part of the full action contract
 - `SchemaGraph` remains availability-only and input-independent
