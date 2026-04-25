@@ -19,8 +19,8 @@ import { requiredOffset } from "./compile-fragment-source-utils.js";
 import type { OffsetRange, ReferenceSpan, TargetInfo } from "./compile-fragment-reference-types.js";
 
 type ExprVisitContext = {
-  readonly preferActionParams?: boolean;
-  readonly actionParams?: ReadonlySet<string>;
+  readonly preferLocalParams?: boolean;
+  readonly localParams?: ReadonlySet<string>;
 };
 
 export function collectTargetReferences(
@@ -81,9 +81,9 @@ export function collectTargetReferences(
   const visitExpr = (expr: ExprNode, ctx: ExprVisitContext = {}): void => {
     switch (expr.kind) {
       case "identifier":
-        if (target.kind === "state_field" && expr.name === target.name && !isActionParamPreferred(expr.name, ctx)) {
+        if (target.kind === "state_field" && expr.name === target.name && !isLocalParamPreferred(expr.name, ctx)) {
           push(expr.location, true);
-        } else if (target.kind === "computed" && expr.name === target.name && !isActionParamPreferred(expr.name, ctx)) {
+        } else if (target.kind === "computed" && expr.name === target.name && !isLocalParamPreferred(expr.name, ctx)) {
           push(expr.location, true);
         }
         return;
@@ -195,16 +195,16 @@ export function collectTargetReferences(
     visitInnerStmt(stmt, ctx);
   };
 
-  const visitFlowStmt = (stmt: FlowStmtNode): void => {
-    visitInnerStmt(stmt, {});
+  const visitFlowStmt = (stmt: FlowStmtNode, ctx: ExprVisitContext): void => {
+    visitInnerStmt(stmt, ctx);
   };
 
   const visitAction = (action: ActionNode): void => {
-    const actionParams = new Set(action.params.map((param) => param.name));
+    const localParams = new Set(action.params.map((param) => param.name));
     action.params.forEach((param) => visitParam(param));
-    if (action.available) visitExpr(action.available, { actionParams });
-    if (action.dispatchable) visitExpr(action.dispatchable, { actionParams, preferActionParams: true });
-    action.body.forEach((stmt) => visitGuardedStmt(stmt, { actionParams, preferActionParams: true }));
+    if (action.available) visitExpr(action.available, { localParams });
+    if (action.dispatchable) visitExpr(action.dispatchable, { localParams, preferLocalParams: true });
+    action.body.forEach((stmt) => visitGuardedStmt(stmt, { localParams, preferLocalParams: true }));
   };
 
   const visitParam = (param: ParamNode): void => {
@@ -212,8 +212,9 @@ export function collectTargetReferences(
   };
 
   const visitFlow = (flow: FlowDeclNode): void => {
+    const localParams = new Set(flow.params.map((param) => param.name));
     flow.params.forEach((param) => visitType(param.typeExpr));
-    flow.body.forEach(visitFlowStmt);
+    flow.body.forEach((stmt) => visitFlowStmt(stmt, { localParams, preferLocalParams: true }));
   };
 
   for (const importNode of program.imports) {
@@ -259,11 +260,11 @@ function visitMember(
   }
 }
 
-function isActionParamPreferred(
+function isLocalParamPreferred(
   name: string,
   ctx: ExprVisitContext,
 ): boolean {
-  return ctx.preferActionParams === true && ctx.actionParams?.has(name) === true;
+  return ctx.preferLocalParams === true && ctx.localParams?.has(name) === true;
 }
 
 function findTokenRange(tokens: readonly Token[], location: SourceLocation, name: string): OffsetRange | null {
