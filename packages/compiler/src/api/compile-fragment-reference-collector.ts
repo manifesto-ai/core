@@ -1,5 +1,5 @@
 import type { SourceLocation } from "../lexer/source-location.js";
-import { tokenize } from "../lexer/index.js";
+import { tokenize, type Token } from "../lexer/index.js";
 import type {
   ActionNode,
   DomainMember,
@@ -30,6 +30,7 @@ export function collectTargetReferences(
   ignoreRange?: OffsetRange,
 ): ReferenceSpan[] {
   const refs: ReferenceSpan[] = [];
+  let identifierTokens: readonly Token[] | null = null;
   const push = (location: SourceLocation, rewrite: boolean): void => {
     const range = locationRange(location);
     if (ignoreRange && containsRange(ignoreRange, range)) {
@@ -38,11 +39,16 @@ export function collectTargetReferences(
     refs.push({ range, location, rewrite });
   };
   const pushNamedToken = (location: SourceLocation, name: string, rewrite: boolean): void => {
-    const range = findTokenRange(source, location, name) ?? locationRange(location);
+    const range = findTokenRange(getIdentifierTokens(), location, name) ?? locationRange(location);
     if (ignoreRange && containsRange(ignoreRange, range)) {
       return;
     }
     refs.push({ range, location, rewrite });
+  };
+
+  const getIdentifierTokens = (): readonly Token[] => {
+    identifierTokens ??= tokenize(source).tokens.filter((token) => token.kind === "IDENTIFIER");
+    return identifierTokens;
   };
 
   const visitType = (typeExpr: TypeExprNode): void => {
@@ -260,14 +266,13 @@ function isActionParamPreferred(
   return ctx.preferActionParams === true && ctx.actionParams?.has(name) === true;
 }
 
-function findTokenRange(source: string, location: SourceLocation, name: string): OffsetRange | null {
+function findTokenRange(tokens: readonly Token[], location: SourceLocation, name: string): OffsetRange | null {
   const range = locationRange(location);
-  const tokens = tokenize(source).tokens.filter((token) =>
+  const matches = tokens.filter((token) =>
     token.location.start.offset >= range.start
     && token.location.end.offset <= range.end
-    && token.kind === "IDENTIFIER"
     && token.lexeme === name);
-  const token = tokens[tokens.length - 1];
+  const token = matches[matches.length - 1];
   return token ? locationRange(token.location) : null;
 }
 

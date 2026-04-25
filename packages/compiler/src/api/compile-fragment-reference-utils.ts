@@ -199,6 +199,7 @@ function renamedTargets(program: ProgramNode, declaration: DeclarationTarget, ne
   }
   if (declaration.info.kind === "type_field") {
     return sortTargets([
+      `type:${declaration.info.typeName}`,
       `type_field:${declaration.info.typeName}.${declaration.info.fieldName}`,
       `type_field:${declaration.info.typeName}.${newName}`,
     ]);

@@ -352,6 +352,7 @@ domain Demo {
 
     expect(rename.ok).toBe(true);
     expect(rename.newSource).toContain("label: string");
+    expect(rename.changedTargets).toEqual(["type:Task", "type_field:Task.label", "type_field:Task.title"]);
     expect(rename.schemaDiff?.removedTargets).toContain("type_field:Task.title");
     expect(rename.schemaDiff?.addedTargets).toContain("type_field:Task.label");
 
