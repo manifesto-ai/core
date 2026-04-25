@@ -66,4 +66,36 @@ describe("compileFragmentInContext runtime validation hardening", () => {
 
     expectScopeViolation(result);
   });
+
+  it("rejects non-index JSON array properties before rendering", () => {
+    const payload = [1];
+    Object.defineProperty(payload, "extra", {
+      enumerable: true,
+      value: 2,
+    });
+
+    const result = compileFragmentInContext(SOURCE, {
+      kind: "replaceStateDefault",
+      target: "state_field:count",
+      value: payload as never,
+    });
+
+    expectScopeViolation(result);
+  });
+
+  it("rejects symbol-keyed JSON array properties before rendering", () => {
+    const payload = [1];
+    Object.defineProperty(payload, Symbol("hidden"), {
+      enumerable: true,
+      value: 2,
+    });
+
+    const result = compileFragmentInContext(SOURCE, {
+      kind: "replaceStateDefault",
+      target: "state_field:count",
+      value: payload as never,
+    });
+
+    expectScopeViolation(result);
+  });
 });

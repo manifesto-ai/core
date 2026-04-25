@@ -192,6 +192,10 @@ export function validateJsonLiteralFragment(value: unknown, label: string): Diag
     if (!length.ok) {
       return [length.diagnostic];
     }
+    const ownProperties = validateArrayOwnProperties(array.value, length.value, `${label} array`);
+    if (ownProperties) {
+      return [ownProperties];
+    }
     const diagnostics: Diagnostic[] = [];
     for (let index = 0; index < length.value; index += 1) {
       const item = readRequiredArrayItem(array.value, index, `${label} array`);
@@ -271,6 +275,33 @@ function readArrayLength(value: readonly unknown[], label: string): LengthReadRe
   } catch {
     return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
   }
+}
+
+function validateArrayOwnProperties(
+  value: readonly unknown[],
+  length: number,
+  label: string,
+): Diagnostic | null {
+  let descriptors: object;
+  try {
+    descriptors = Object.getOwnPropertyDescriptors(value);
+  } catch {
+    return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`);
+  }
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key === "symbol" || (key !== "length" && !isArrayIndexKey(key, length))) {
+      return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} keys must be JSON array indexes.`);
+    }
+  }
+  return null;
+}
+
+function isArrayIndexKey(key: string, length: number): boolean {
+  const index = Number(key);
+  return Number.isInteger(index)
+    && index >= 0
+    && index < length
+    && String(index) === key;
 }
 
 function readRequiredArrayItem(value: readonly unknown[], index: number, label: string): ValueReadResult {
