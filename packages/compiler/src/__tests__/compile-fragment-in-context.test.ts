@@ -371,6 +371,7 @@ domain Demo {
         throw new Error("proxy trap must not escape");
       },
     });
+    const sparseArray = new Array(1);
 
     const invalidKey = compileFragmentInContext(SOURCE, {
       kind: "addStateField",
@@ -393,13 +394,34 @@ domain Demo {
       target: "state_field:count",
       value: proxyPayload as never,
     });
+    const sparse = compileFragmentInContext(SOURCE, {
+      kind: "replaceStateDefault",
+      target: "state_field:count",
+      value: sparseArray as never,
+    });
 
-    for (const result of [invalidKey, invalidNumber, accessor, proxy]) {
+    for (const result of [invalidKey, invalidNumber, accessor, proxy, sparse]) {
       expectNoMaterialization(result, "E_FRAGMENT_SCOPE_VIOLATION");
     }
   });
 
   it("returns diagnostics for runtime-invalid edit operation shapes instead of throwing", () => {
+    const paramWithAccessor = { type: "number" };
+    Object.defineProperty(paramWithAccessor, "name", {
+      enumerable: true,
+      get() {
+        throw new Error("param getter must not run");
+      },
+    });
+    const paramProxy = new Proxy({ name: "value", type: "number" }, {
+      get(target, property, receiver) {
+        if (property === "name" || property === "type") {
+          throw new Error("param proxy trap must not escape");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
     const nullOp = compileFragmentInContext(SOURCE, null as never);
     const arrayOp = compileFragmentInContext(SOURCE, [
       { kind: "addComputed", name: "bad", expr: "count" },
@@ -409,6 +431,18 @@ domain Demo {
       kind: "addAction",
       name: "submit",
       params: undefined,
+      body: "when true { patch count = count }",
+    } as never);
+    const accessorParam = compileFragmentInContext(SOURCE, {
+      kind: "addAction",
+      name: "submit",
+      params: [paramWithAccessor],
+      body: "when true { patch count = count }",
+    } as never);
+    const proxyParam = compileFragmentInContext(SOURCE, {
+      kind: "addAction",
+      name: "submit",
+      params: [paramProxy],
       body: "when true { patch count = count }",
     } as never);
     const invalidTarget = compileFragmentInContext(SOURCE, {
@@ -421,6 +455,8 @@ domain Demo {
     expectNoMaterialization(arrayOp, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(unknownKind, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(invalidParams, "E_FRAGMENT_SCOPE_VIOLATION");
+    expectNoMaterialization(accessorParam, "E_FRAGMENT_SCOPE_VIOLATION");
+    expectNoMaterialization(proxyParam, "E_FRAGMENT_SCOPE_VIOLATION");
     expectNoMaterialization(invalidTarget, "E_FRAGMENT_SCOPE_VIOLATION");
   });
 });

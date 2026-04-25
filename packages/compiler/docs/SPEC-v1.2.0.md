@@ -888,7 +888,7 @@ Fragment payloads are string-first. Action bodies, computed expressions, type ex
 
 Identifier-bearing fields such as declaration names, action parameter names, and rename targets MUST parse as exactly one MEL identifier token before any source edit is materialized. These fields MUST NOT be treated as raw source snippets.
 
-JSON literal payloads used for state defaults MUST be validated before rendering. The compiler MUST reject non-finite numbers, accessor properties, non-plain objects, non-inspectable object/array values, and object keys that are not valid MEL identifiers with `E_FRAGMENT_SCOPE_VIOLATION` and no source edits.
+JSON literal payloads used for state defaults MUST be validated before rendering. The compiler MUST reject non-finite numbers, sparse arrays, accessor properties, non-plain objects, non-inspectable object/array values, and object keys that are not valid MEL identifiers with `E_FRAGMENT_SCOPE_VIOLATION` and no source edits.
 
 ### 9.4 Fragment Parsing and Materialization Rules
 

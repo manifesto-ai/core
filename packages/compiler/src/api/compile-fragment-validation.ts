@@ -93,16 +93,36 @@ export function validateParamsFragment(params: unknown): Diagnostic[] {
   if (!Array.isArray(params)) {
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", "action params must be an array.")];
   }
-  return params.flatMap((param, index) => {
-    if (param === null || typeof param !== "object") {
-      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `action parameter ${index} must be an object.`)];
+  const length = readArrayLength(params, "action params");
+  if (!length.ok) {
+    return [length.diagnostic];
+  }
+  const diagnostics: Diagnostic[] = [];
+  for (let index = 0; index < length.value; index += 1) {
+    const item = readRequiredArrayItem(params, index, "action params");
+    if (!item.ok) {
+      diagnostics.push(item.diagnostic);
+      continue;
     }
-    const candidate = param as { readonly name?: unknown; readonly type?: unknown };
-    return [
-      ...validateIdentifierFragment(candidate.name, "action parameter name"),
-      ...validateTypeFragment(candidate.type),
-    ];
-  });
+    const param = item.value;
+    if (param === null || typeof param !== "object") {
+      diagnostics.push(editError("E_FRAGMENT_SCOPE_VIOLATION", `action parameter ${index} must be an object.`));
+      continue;
+    }
+    const name = readOptionalDataProperty(param, "name", `action parameter ${index}.name`);
+    const type = readOptionalDataProperty(param, "type", `action parameter ${index}.type`);
+    if (!name.ok) {
+      diagnostics.push(name.diagnostic);
+    } else {
+      diagnostics.push(...validateIdentifierFragment(name.value, "action parameter name"));
+    }
+    if (!type.ok) {
+      diagnostics.push(type.diagnostic);
+    } else {
+      diagnostics.push(...validateTypeFragment(type.value));
+    }
+  }
+  return diagnostics;
 }
 
 export function validateJsonLiteralFragment(value: unknown, label: string): Diagnostic[] {
@@ -121,11 +141,20 @@ export function validateJsonLiteralFragment(value: unknown, label: string): Diag
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON literal.`)];
   }
   if (Array.isArray(value)) {
-    try {
-      return value.flatMap((item, index) => validateJsonLiteralFragment(item, `${label}[${index}]`));
-    } catch {
-      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} array must be inspectable JSON data.`)];
+    const length = readArrayLength(value, `${label} array`);
+    if (!length.ok) {
+      return [length.diagnostic];
     }
+    const diagnostics: Diagnostic[] = [];
+    for (let index = 0; index < length.value; index += 1) {
+      const item = readRequiredArrayItem(value, index, `${label} array`);
+      if (!item.ok) {
+        diagnostics.push(item.diagnostic);
+      } else {
+        diagnostics.push(...validateJsonLiteralFragment(item.value, `${label}[${index}]`));
+      }
+    }
+    return diagnostics;
   }
   let prototype: object | null;
   try {
@@ -148,11 +177,85 @@ export function validateJsonLiteralFragment(value: unknown, label: string): Diag
     if (!("value" in descriptor)) {
       return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}.${key} must be a JSON data property.`)];
     }
+    const property = readRequiredDataProperty(value, key, `${label}.${key}`);
+    if (!property.ok) {
+      return [property.diagnostic];
+    }
     return [
       ...validateIdentifierFragment(key, `${label} object key`),
-      ...validateJsonLiteralFragment(descriptor.value, `${label}.${key}`),
+      ...validateJsonLiteralFragment(property.value, `${label}.${key}`),
     ];
   });
+}
+
+type ValueReadResult =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+type LengthReadResult =
+  | { readonly ok: true; readonly value: number }
+  | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+function readArrayLength(value: readonly unknown[], label: string): LengthReadResult {
+  try {
+    return { ok: true, value: value.length };
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+  }
+}
+
+function readRequiredArrayItem(value: readonly unknown[], index: number, label: string): ValueReadResult {
+  try {
+    if (!Object.hasOwn(value, index)) {
+      return {
+        ok: false,
+        diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}[${index}] must be present JSON data.`),
+      };
+    }
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+  }
+  return readRequiredDataProperty(value, String(index), `${label}[${index}]`);
+}
+
+function readOptionalDataProperty(value: object, key: string, label: string): ValueReadResult {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(value, key);
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+  }
+  if (!descriptor) {
+    return { ok: true, value: undefined };
+  }
+  if (!("value" in descriptor)) {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`) };
+  }
+  try {
+    return { ok: true, value: (value as Record<string, unknown>)[key] };
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+  }
+}
+
+function readRequiredDataProperty(value: object, key: string, label: string): ValueReadResult {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(value, key);
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+  }
+  if (!descriptor) {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be present JSON data.`) };
+  }
+  if (!("value" in descriptor)) {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`) };
+  }
+  try {
+    return { ok: true, value: (value as Record<string, unknown>)[key] };
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+  }
 }
 
 export function validateTarget(
