@@ -26,5 +26,29 @@ export type {
   SourcePoint,
   SourceSpan,
 } from "./compile-mel.js";
+export type {
+  CompileFragmentInContextOptions,
+  MelEditAddActionOp,
+  MelEditAddAvailableOp,
+  MelEditAddComputedOp,
+  MelEditAddDispatchableOp,
+  MelEditAddStateFieldOp,
+  MelEditAddTypeOp,
+  MelEditOp,
+  MelEditRemoveDeclarationOp,
+  MelEditRenameDeclarationOp,
+  MelEditReplaceActionBodyOp,
+  MelEditReplaceAvailableOp,
+  MelEditReplaceComputedExprOp,
+  MelEditReplaceDispatchableOp,
+  MelEditReplaceStateDefaultOp,
+  MelEditReplaceTypeFieldOp,
+  MelEditResult,
+  MelParamSource,
+  MelTextEdit,
+  SchemaDiff,
+  SchemaModifiedTarget,
+} from "./compile-fragment-in-context.js";
 
 export { compileMelDomain, compileMelModule, compileMelPatch } from "./compile-mel.js";
+export { compileFragmentInContext } from "./compile-fragment-in-context.js";

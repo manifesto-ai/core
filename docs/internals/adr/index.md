@@ -54,6 +54,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-021](./021-mel-structural-annotation-system-meta-sidecar) | MEL Structural Annotation System — `@meta` Sidecar | Accepted | 2026-04-15 | Compiler, Tooling, Docs |
 | [ADR-022](./022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted | 2026-04-16 | Compiler, Tooling, Docs |
 | [ADR-023](./023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted | 2026-04-23 | Compiler, Docs |
+| [ADR-024](./024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted | 2026-04-25 | Compiler, Studio/authoring tools |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -143,6 +144,12 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-022 is accepted as the compiler-owned source-location sidecar decision for declaration-level MEL provenance.
 - The canonical accepted record is [ADR-022 v11](./022-compiler-owned-source-location-sidecar-source-map-index); earlier review iterations are preserved in the inline revision history rather than separate archived ADR files.
 - `SourceMapIndex` is additive tooling-only output and does not change `DomainSchema.hash`, `SchemaGraph`, or runtime entrypoints.
+
+### ADR-024 Companion Notes
+
+- ADR-024 is accepted as the compiler-owned source-fragment editing primitive decision for Studio and external Author layer integrations.
+- The accepted boundary is narrow: compiler validates and materializes exactly one source edit; the Author layer owns request interpretation, sequencing, retries, acceptance policy, and edit-attempt lineage.
+- ADR-024 is reflected in the current Compiler SPEC v1.3.0 contract, updated in place at `packages/compiler/docs/SPEC-v1.2.0.md`.
 
 ### ADR-017 Version Notes
 

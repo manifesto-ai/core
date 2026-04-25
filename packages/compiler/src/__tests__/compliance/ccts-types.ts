@@ -14,6 +14,7 @@ export const CCTS_SUITES = [
   "flow-composition",
   "entity-primitives",
   "introspection",
+  "source-editing",
   "determinism",
   "matrix",
 ] as const;

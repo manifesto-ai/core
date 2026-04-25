@@ -81,6 +81,13 @@ export const CCTS_CASES = {
   INTROSPECTION_MUTATIONS: "CCTS-INT-003",
   INTROSPECTION_PROJECTION: "CCTS-INT-004",
 
+  SOURCE_EDIT_API_SURFACE: "CCTS-EDIT-001",
+  SOURCE_EDIT_FRAGMENT_GRAMMAR: "CCTS-EDIT-002",
+  SOURCE_EDIT_STALE_MODULE: "CCTS-EDIT-003",
+  SOURCE_EDIT_RESULT_DETERMINISM: "CCTS-EDIT-004",
+  SOURCE_EDIT_TARGET_IMPACT: "CCTS-EDIT-005",
+  SOURCE_EDIT_REMOVE_RENAME_SAFETY: "CCTS-EDIT-006",
+
   DETERMINISM_COMPILE: "CCTS-DET-001",
   DETERMINISM_LOWER: "CCTS-DET-002",
 } as const;
@@ -150,6 +157,13 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.INTROSPECTION_MUTATIONS, "introspection", "SchemaGraph extracts mutates relations from patches and effect into roots."),
   complianceCase(CCTS_CASES.INTROSPECTION_PROJECTION, "introspection", "SchemaGraph excludes $*-owned substrate and tainted computed nodes."),
 
+  complianceCase(CCTS_CASES.SOURCE_EDIT_API_SURFACE, "source-editing", "compileFragmentInContext API and result semantics are tracked."),
+  complianceCase(CCTS_CASES.SOURCE_EDIT_FRAGMENT_GRAMMAR, "source-editing", "Fragment grammars reject parse failures, scope violations, and raw splice smuggling."),
+  complianceCase(CCTS_CASES.SOURCE_EDIT_STALE_MODULE, "source-editing", "baseModule source-hash validation rejects stale source maps before span reuse."),
+  complianceCase(CCTS_CASES.SOURCE_EDIT_RESULT_DETERMINISM, "source-editing", "Source-edit results keep deterministic text edits, diagnostics, changed targets, and schema diffs."),
+  complianceCase(CCTS_CASES.SOURCE_EDIT_TARGET_IMPACT, "source-editing", "Target validation and impact reporting are compiler-owned and deterministic."),
+  complianceCase(CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY, "source-editing", "Remove and rename safety failures are all-or-nothing diagnostic results."),
+
   complianceCase(CCTS_CASES.DETERMINISM_COMPILE, "determinism", "Compilation remains deterministic."),
   complianceCase(CCTS_CASES.DETERMINISM_LOWER, "determinism", "Lowering remains deterministic."),
 ] as const;
@@ -198,6 +212,12 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["COMPILER-MEL-3"], [CCTS_CASES.GRAMMAR_ONCE_INTENT_CONTEXTUAL]),
   ...coverMany(["SPREAD-SURFACE-1", "SPREAD-DIAG-1"], [CCTS_CASES.GRAMMAR_OBJECT_SPREAD_BOUNDARY]),
   ...coverMany(["SPREAD-LOWER-1", "SPREAD-MERGE-TYPE-1"], [CCTS_CASES.IR_OBJECT_SPREAD_LOWERING]),
+  ...coverMany(["MEL-EDIT-1", "MEL-EDIT-2", "MEL-EDIT-3", "MEL-EDIT-4", "MEL-EDIT-13"], [CCTS_CASES.SOURCE_EDIT_API_SURFACE]),
+  ...coverMany(["MEL-EDIT-5", "MEL-EDIT-6", "E_FRAGMENT_PARSE_FAILED", "E_FRAGMENT_SCOPE_VIOLATION"], [CCTS_CASES.SOURCE_EDIT_FRAGMENT_GRAMMAR]),
+  ...coverMany(["MEL-EDIT-7", "MEL-EDIT-8", "E_STALE_MODULE"], [CCTS_CASES.SOURCE_EDIT_STALE_MODULE]),
+  ...coverMany(["MEL-EDIT-9", "MEL-EDIT-14", "MEL-EDIT-15", "MEL-EDIT-16"], [CCTS_CASES.SOURCE_EDIT_RESULT_DETERMINISM]),
+  ...coverMany(["MEL-EDIT-10", "MEL-EDIT-11", "MEL-EDIT-12", "E_TARGET_NOT_FOUND", "E_TARGET_KIND_MISMATCH"], [CCTS_CASES.SOURCE_EDIT_TARGET_IMPACT]),
+  ...coverMany(["MEL-EDIT-17", "E_UNSAFE_RENAME_AMBIGUOUS", "E_REMOVE_BLOCKED_BY_REFERENCES"], [CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY]),
 
   ...coverMany(["FLOW-PARAM-1", "FLOW-PARAM-2", "FLOW-CALL-1", "FLOW-CALL-2", "E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024"], [CCTS_CASES.FLOW_VALIDATION]),
 

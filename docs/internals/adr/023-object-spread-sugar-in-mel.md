@@ -5,7 +5,7 @@
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** `@manifesto-ai/compiler` (MEL surface form)
 > **Affected Packages:** `@manifesto-ai/compiler` (MEL parser, type checker, lowering)
-> **Current Normative Source:** Compiler SPEC v1.2.0 §5, MEL Reference §5.7, MEL LLM Context
+> **Current Normative Source:** Compiler SPEC v1.3.0 §5, MEL Reference §5.7, MEL LLM Context
 > **Supersedes:** None
 > **Breaking:** No runtime/Core breaking — additive syntax only. Compiler type inference for existing `merge()` calls MAY be tightened where current behavior was unsound around nullable or presence-aware object operands. No change to `DomainSchema` hash, `SchemaGraph`, Core IR, runtime semantics, or any existing non-typing contract.
 
