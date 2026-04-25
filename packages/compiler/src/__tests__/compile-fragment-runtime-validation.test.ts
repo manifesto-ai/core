@@ -21,6 +21,20 @@ function expectScopeViolation(result: MelEditResult): void {
   expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_FRAGMENT_SCOPE_VIOLATION");
 }
 
+function changingNestedJsonValue(): { readonly value: object; readonly readCount: () => number } {
+  let reads = 0;
+  const nested = new Proxy({ value: 1 }, {
+    get(target, property, receiver) {
+      if (property === "value") {
+        reads += 1;
+        return reads === 1 ? 1 : 2;
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  return { value: { nested }, readCount: () => reads };
+}
+
 describe("compileFragmentInContext runtime validation hardening", () => {
   it("returns diagnostics for revoked proxy edit operations instead of throwing", () => {
     const revoked = Proxy.revocable({
@@ -284,5 +298,42 @@ domain Demo {
     expect(result.newSource).toContain("count: number = 1");
     expect(result.newSource).not.toContain("escaped");
     expect(valueReads).toBe(1);
+  });
+
+  it("adds state defaults from a validated deep JSON snapshot", () => {
+    const payload = changingNestedJsonValue();
+
+    const result = compileFragmentInContext(SOURCE, {
+      kind: "addStateField",
+      name: "payload",
+      type: "{ nested: { value: number } }",
+      defaultValue: payload.value as never,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("payload: { nested: { value: number } } = { nested: { value: 1 } }");
+    expect(result.newSource).not.toContain("value: 2");
+    expect(payload.readCount()).toBe(1);
+  });
+
+  it("replaces state defaults from a validated deep JSON snapshot", () => {
+    const payload = changingNestedJsonValue();
+
+    const result = compileFragmentInContext(`
+domain Demo {
+  state {
+    payload: { nested: { value: number } } = { nested: { value: 0 } }
+  }
+}
+`, {
+      kind: "replaceStateDefault",
+      target: "state_field:payload",
+      value: payload.value as never,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("payload: { nested: { value: number } } = { nested: { value: 1 } }");
+    expect(result.newSource).not.toContain("value: 2");
+    expect(payload.readCount()).toBe(1);
   });
 });

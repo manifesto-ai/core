@@ -2,7 +2,6 @@ import type { DomainModule, LocalTargetKey } from "../annotations.js";
 import { createError, type Diagnostic } from "../diagnostics/types.js";
 import { tokenize } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
-import { compareUnicodeCodePoints } from "../utils/unicode-order.js";
 import type { MelParamSource } from "./compile-fragment-types.js";
 
 const MAX_FRAGMENT_ARRAY_LENGTH = 10_000;
@@ -202,87 +201,6 @@ export function readEditOperationKind(value: unknown): EditOperationKindRead {
     };
   }
   return { ok: true, value: kind };
-}
-
-export function validateJsonLiteralFragment(value: unknown, label: string): Diagnostic[] {
-  if (value === null) {
-    return [];
-  }
-  if (typeof value === "string" || typeof value === "boolean") {
-    return [];
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value)
-      ? []
-      : [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a finite JSON number.`)];
-  }
-  if (value === null || typeof value !== "object") {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON literal.`)];
-  }
-  const array = readArrayBrand(value, `${label} must be inspectable JSON data.`);
-  if (!array.ok) {
-    return [array.diagnostic];
-  }
-  if (array.value !== null) {
-    const length = readArrayLength(array.value, `${label} array`);
-    if (!length.ok) {
-      return [length.diagnostic];
-    }
-    const shape = validateArrayShape(array.value, length.value, `${label} array`);
-    if (shape) {
-      return [shape];
-    }
-    const diagnostics: Diagnostic[] = [];
-    for (let index = 0; index < length.value; index += 1) {
-      const item = readRequiredArrayItem(array.value, index, `${label} array`);
-      if (!item.ok) {
-        diagnostics.push(item.diagnostic);
-      } else {
-        diagnostics.push(...validateJsonLiteralFragment(item.value, `${label}[${index}]`));
-      }
-    }
-    return diagnostics;
-  }
-  let prototype: object | null;
-  try {
-    prototype = Object.getPrototypeOf(value);
-  } catch {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} object must be inspectable JSON data.`)];
-  }
-  if (prototype !== Object.prototype && prototype !== null) {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} object must be a plain JSON object.`)];
-  }
-
-  let descriptors: PropertyDescriptorMap;
-  try {
-    descriptors = Object.getOwnPropertyDescriptors(value);
-  } catch {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} object must be inspectable JSON data.`)];
-  }
-  const keys: string[] = [];
-  for (const key of Reflect.ownKeys(descriptors)) {
-    if (typeof key === "symbol") {
-      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} object keys must be JSON object keys.`)];
-    }
-    keys.push(key);
-  }
-  return keys.sort(compareUnicodeCodePoints).flatMap((key) => {
-    const descriptor = descriptors[key]!;
-    if (!("value" in descriptor)) {
-      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}.${key} must be a JSON data property.`)];
-    }
-    if (!descriptor.enumerable) {
-      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}.${key} must be enumerable JSON data.`)];
-    }
-    const property = readRequiredDataProperty(value, key, `${label}.${key}`);
-    if (!property.ok) {
-      return [property.diagnostic];
-    }
-    return [
-      ...validateIdentifierFragment(key, `${label} object key`),
-      ...validateJsonLiteralFragment(property.value, `${label}.${key}`),
-    ];
-  });
 }
 
 type ValueReadResult =

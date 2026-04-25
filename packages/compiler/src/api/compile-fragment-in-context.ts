@@ -44,11 +44,11 @@ import {
   validateActionBodyFragment,
   validateExpressionFragment,
   validateIdentifierFragment,
-  validateJsonLiteralFragment,
   validateStateFieldFragment,
   validateTarget,
   validateTypeFragment,
 } from "./compile-fragment-validation.js";
+import { snapshotJsonLiteralFragment } from "./compile-fragment-json-validation.js";
 import {
   planRemoveDeclaration,
   planRenameDeclaration,
@@ -183,15 +183,16 @@ function materializeEdit(
     case "addStateField": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addStateField" }>;
       const { name, type, defaultValue } = typed;
+      const defaultSnapshot = snapshotJsonLiteralFragment(defaultValue, "state default");
       const diagnostics = [
         ...validateIdentifierFragment(name, "state field name"),
-        ...validateJsonLiteralFragment(defaultValue, "state default"),
+        ...defaultSnapshot.diagnostics,
       ];
-      if (diagnostics.length > 0) {
+      if (diagnostics.length > 0 || !defaultSnapshot.ok) {
         return materializationFailure(...diagnostics);
       }
 
-      const defaultSource = renderJsonLiteral(defaultValue);
+      const defaultSource = renderJsonLiteral(defaultSnapshot.value);
       return validateThenEdit(validateStateFieldFragment(type, defaultSource), () =>
         addStateField(source, program, `${name}: ${type} = ${defaultSource}`, `state_field:${name}`));
     }
@@ -205,9 +206,7 @@ function materializeEdit(
 
     case "addAction": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addAction" }>;
-      const name = typed.name;
-      const params = typed.params;
-      const body = typed.body;
+      const { name, params, body } = typed;
       const paramsSnapshot = snapshotParamsFragment(params);
       return validateThenEdit(
         [
@@ -217,9 +216,7 @@ function materializeEdit(
         ],
         () => {
           if (typeof name !== "string" || typeof body !== "string" || !paramsSnapshot.ok) {
-            return materializationFailure(
-              editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
-            );
+            return materializationFailure(editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."));
           }
           return insertTopLevel(
             source,
@@ -399,12 +396,12 @@ function replaceStateDefault(
   const field = findStateField(program, target.slice("state_field:".length));
   if (!field) return materializationFailure(targetNotFound(target));
 
-  const jsonDiagnostics = validateJsonLiteralFragment(value, "state default");
-  if (jsonDiagnostics.length > 0) {
-    return materializationFailure(...jsonDiagnostics);
+  const valueSnapshot = snapshotJsonLiteralFragment(value, "state default");
+  if (valueSnapshot.diagnostics.length > 0 || !valueSnapshot.ok) {
+    return materializationFailure(...valueSnapshot.diagnostics);
   }
 
-  const replacement = renderJsonLiteral(value);
+  const replacement = renderJsonLiteral(valueSnapshot.value);
   return validateThenEdit(validateExpressionFragment(replacement), () => {
     const start = field.initializer?.location.start.offset ?? field.typeExpr.location.end.offset;
     const end = field.initializer?.location.end.offset ?? field.typeExpr.location.end.offset;
