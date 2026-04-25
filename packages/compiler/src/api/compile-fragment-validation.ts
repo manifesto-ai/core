@@ -90,16 +90,20 @@ export function validateIdentifierFragment(value: unknown, label: string): Diagn
 }
 
 export function validateParamsFragment(params: unknown): Diagnostic[] {
-  if (!Array.isArray(params)) {
+  const array = readArrayBrand(params, "action params must be inspectable JSON data.");
+  if (!array.ok) {
+    return [array.diagnostic];
+  }
+  if (array.value === null) {
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", "action params must be an array.")];
   }
-  const length = readArrayLength(params, "action params");
+  const length = readArrayLength(array.value, "action params");
   if (!length.ok) {
     return [length.diagnostic];
   }
   const diagnostics: Diagnostic[] = [];
   for (let index = 0; index < length.value; index += 1) {
-    const item = readRequiredArrayItem(params, index, "action params");
+    const item = readRequiredArrayItem(array.value, index, "action params");
     if (!item.ok) {
       diagnostics.push(item.diagnostic);
       continue;
@@ -130,10 +134,20 @@ type EditOperationKindRead =
   | { readonly ok: false; readonly diagnostic: Diagnostic };
 
 export function readEditOperationKind(value: unknown): EditOperationKindRead {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  if (value === null || typeof value !== "object") {
     return {
       ok: false,
       diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() requires one object edit operation."),
+    };
+  }
+  const array = readArrayBrand(value, "Source edit operation must be inspectable.");
+  if (!array.ok) {
+    return { ok: false, diagnostic: array.diagnostic };
+  }
+  if (array.value !== null) {
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() accepts exactly one edit operation."),
     };
   }
   let kind: unknown;
@@ -169,14 +183,18 @@ export function validateJsonLiteralFragment(value: unknown, label: string): Diag
   if (value === null || typeof value !== "object") {
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON literal.`)];
   }
-  if (Array.isArray(value)) {
-    const length = readArrayLength(value, `${label} array`);
+  const array = readArrayBrand(value, `${label} must be inspectable JSON data.`);
+  if (!array.ok) {
+    return [array.diagnostic];
+  }
+  if (array.value !== null) {
+    const length = readArrayLength(array.value, `${label} array`);
     if (!length.ok) {
       return [length.diagnostic];
     }
     const diagnostics: Diagnostic[] = [];
     for (let index = 0; index < length.value; index += 1) {
-      const item = readRequiredArrayItem(value, index, `${label} array`);
+      const item = readRequiredArrayItem(array.value, index, `${label} array`);
       if (!item.ok) {
         diagnostics.push(item.diagnostic);
       } else {
@@ -201,10 +219,20 @@ export function validateJsonLiteralFragment(value: unknown, label: string): Diag
   } catch {
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} object must be inspectable JSON data.`)];
   }
-  return Object.keys(descriptors).sort(compareUnicodeCodePoints).flatMap((key) => {
+  const keys: string[] = [];
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key === "symbol") {
+      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} object keys must be JSON object keys.`)];
+    }
+    keys.push(key);
+  }
+  return keys.sort(compareUnicodeCodePoints).flatMap((key) => {
     const descriptor = descriptors[key]!;
     if (!("value" in descriptor)) {
       return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}.${key} must be a JSON data property.`)];
+    }
+    if (!descriptor.enumerable) {
+      return [editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}.${key} must be enumerable JSON data.`)];
     }
     const property = readRequiredDataProperty(value, key, `${label}.${key}`);
     if (!property.ok) {
@@ -224,6 +252,18 @@ type ValueReadResult =
 type LengthReadResult =
   | { readonly ok: true; readonly value: number }
   | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+type ArrayBrandReadResult =
+  | { readonly ok: true; readonly value: readonly unknown[] | null }
+  | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+function readArrayBrand(value: unknown, message: string): ArrayBrandReadResult {
+  try {
+    return { ok: true, value: Array.isArray(value) ? value : null };
+  } catch {
+    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", message) };
+  }
+}
 
 function readArrayLength(value: readonly unknown[], label: string): LengthReadResult {
   try {

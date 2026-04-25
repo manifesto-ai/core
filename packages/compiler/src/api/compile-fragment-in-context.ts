@@ -90,12 +90,6 @@ export function compileFragmentInContext(
   op: MelEditOp,
   options: CompileFragmentInContextOptions = {},
 ): MelEditResult {
-  if (Array.isArray(op)) {
-    return preMaterializationFailure(baseSource, [
-      editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() accepts exactly one edit operation."),
-    ]);
-  }
-
   const opKind = readEditOperationKind(op);
   if (!opKind.ok) {
     return preMaterializationFailure(baseSource, [
