@@ -162,7 +162,7 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.SOURCE_EDIT_STALE_MODULE, "source-editing", "baseModule source-hash validation rejects stale source maps before span reuse."),
   complianceCase(CCTS_CASES.SOURCE_EDIT_RESULT_DETERMINISM, "source-editing", "Source-edit results keep deterministic text edits, diagnostics, changed targets, and schema diffs."),
   complianceCase(CCTS_CASES.SOURCE_EDIT_TARGET_IMPACT, "source-editing", "Target validation and impact reporting are compiler-owned and deterministic."),
-  complianceCase(CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY, "source-editing", "Remove and rename safety failures are all-or-nothing diagnostic results."),
+  complianceCase(CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY, "source-editing", "Remove and rename safety checks cover complete safe edits and all-or-nothing diagnostic failures."),
 
   complianceCase(CCTS_CASES.DETERMINISM_COMPILE, "determinism", "Compilation remains deterministic."),
   complianceCase(CCTS_CASES.DETERMINISM_LOWER, "determinism", "Lowering remains deterministic."),
@@ -217,7 +217,7 @@ export const COMPILER_RULE_COVERAGE: readonly CompilerComplianceCoverageEntry[] 
   ...coverMany(["MEL-EDIT-7", "MEL-EDIT-8", "E_STALE_MODULE"], [CCTS_CASES.SOURCE_EDIT_STALE_MODULE]),
   ...coverMany(["MEL-EDIT-9", "MEL-EDIT-14", "MEL-EDIT-15", "MEL-EDIT-16"], [CCTS_CASES.SOURCE_EDIT_RESULT_DETERMINISM]),
   ...coverMany(["MEL-EDIT-10", "MEL-EDIT-11", "MEL-EDIT-12", "E_TARGET_NOT_FOUND", "E_TARGET_KIND_MISMATCH"], [CCTS_CASES.SOURCE_EDIT_TARGET_IMPACT]),
-  ...coverMany(["MEL-EDIT-17", "E_UNSAFE_RENAME_AMBIGUOUS", "E_REMOVE_BLOCKED_BY_REFERENCES"], [CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY]),
+  ...coverMany(["MEL-EDIT-17", "MEL-EDIT-18", "E_UNSAFE_RENAME_AMBIGUOUS", "E_REMOVE_BLOCKED_BY_REFERENCES"], [CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY]),
 
   ...coverMany(["FLOW-PARAM-1", "FLOW-PARAM-2", "FLOW-CALL-1", "FLOW-CALL-2", "E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024"], [CCTS_CASES.FLOW_VALIDATION]),
 

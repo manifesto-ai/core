@@ -126,6 +126,7 @@ Current MEL/compiler highlights:
 - tooling-only compiler sidecars now include structural annotations and declaration-level source maps through `DomainModule`
 - runtime seams continue to consume `DomainSchema` only; `DomainModule` remains tooling-only
 - `compileFragmentInContext()` is the compiler-owned authoring-time MEL source-fragment editing primitive
+- Safe v1 remove/rename edits are all-or-nothing: complete safe edits or diagnostics with no partial edits
 - source edit results are tooling-only artifacts and do not change runtime entrypoints or semantic schema artifacts
 - The compiler preserves precise type information through `TypeDefinition`.
 - `state.fields` / `action.input` remain compatibility surfaces.

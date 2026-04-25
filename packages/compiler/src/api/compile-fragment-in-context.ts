@@ -23,7 +23,6 @@ import {
   renderJsonLiteral,
   requiredOffset,
   sortTargets,
-  targetLocation,
   textEdit,
 } from "./compile-fragment-source-utils.js";
 import type {
@@ -51,6 +50,10 @@ import {
   validateTarget,
   validateTypeFragment,
 } from "./compile-fragment-validation.js";
+import {
+  planRemoveDeclaration,
+  planRenameDeclaration,
+} from "./compile-fragment-reference-utils.js";
 
 export type {
   CompileFragmentInContextOptions,
@@ -216,11 +219,11 @@ function materializeEdit(
       return replaceTypeField(source, program, baseModule, op);
 
     case "removeDeclaration":
-      return failUnsafeDeclarationEdit(source, program, baseModule, op.target, "remove");
+      return removeDeclaration(source, program, baseModule, op.target);
 
     case "renameDeclaration":
       return validateThenEdit(validateIdentifierFragment(op.newName, "rename target name"), () =>
-        failUnsafeDeclarationEdit(source, program, baseModule, op.target, "rename"));
+        renameDeclaration(source, program, baseModule, op.target, op.newName));
 
     default:
       return materializationFailure(
@@ -378,20 +381,35 @@ function replaceTypeField(
     ));
 }
 
-function failUnsafeDeclarationEdit(
+function removeDeclaration(
   source: string,
   program: ProgramNode,
   baseModule: DomainModule,
   target: LocalTargetKey,
-  kind: "remove" | "rename",
 ): MaterializedEdit {
   const targetDiagnostic = validateTarget(baseModule, target, ["type", "type_field", "state_field", "computed", "action"]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
-  const diagnosticCode = kind === "remove" ? "E_REMOVE_BLOCKED_BY_REFERENCES" : "E_UNSAFE_RENAME_AMBIGUOUS";
-  const message = kind === "remove"
-    ? "removeDeclaration is blocked until reference safety can be proven."
-    : "renameDeclaration is blocked until reference rewriting can be proven unambiguous.";
-  return materializationFailure(editError(diagnosticCode, message, targetLocation(program, target)));
+  const plan = planRemoveDeclaration(source, program, target);
+  if (!plan.ok) {
+    return materializationFailure(editError(plan.code, plan.message, plan.location));
+  }
+  return materializationSuccess(plan.edits, plan.changedTargets);
+}
+
+function renameDeclaration(
+  source: string,
+  program: ProgramNode,
+  baseModule: DomainModule,
+  target: LocalTargetKey,
+  newName: string,
+): MaterializedEdit {
+  const targetDiagnostic = validateTarget(baseModule, target, ["type", "type_field", "state_field", "computed", "action"]);
+  if (targetDiagnostic) return materializationFailure(targetDiagnostic);
+  const plan = planRenameDeclaration(source, program, target, newName);
+  if (!plan.ok) {
+    return materializationFailure(editError(plan.code, plan.message, plan.location));
+  }
+  return materializationSuccess(plan.edits, plan.changedTargets);
 }
 
 function insertTopLevel(

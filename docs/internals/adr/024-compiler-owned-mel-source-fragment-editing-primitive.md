@@ -356,7 +356,7 @@ export type ReplaceStateDefaultOp = {
 export type ReplaceTypeFieldOp = {
   readonly kind: "replaceTypeField";
   readonly target: `type_field:${string}.${string}`;
-  readonly field: string;
+  readonly type: string;
 };
 
 export type RemoveDeclarationOp = {
@@ -496,6 +496,8 @@ replaceActionBody(action:clearDoneTasks)
 should not modify state fields, computed declarations, or other actions.
 
 If secondary changes occur, they must appear in `schemaDiff` and `changedTargets`. The precise set of permitted secondary targets per operation is defined by the op's SPEC contract, not by this ADR.
+
+Remove and rename are Safe v1 all-or-nothing operations. The compiler may materialize them only when every required reference update is compiler-known and deterministic; otherwise it must return diagnostics with no partial edits.
 
 ### 5.9 Diagnostics-as-values invariant
 
@@ -793,6 +795,8 @@ The compiler MUST NOT compare the result against caller intent or author expecta
 
 The compiler MAY reject an edit only when the edit violates the operation's SPEC-defined safety contract, such as ambiguous rename references or remove blockers.
 
+For Safe v1, `removeDeclaration` succeeds only when removing the declaration cannot leave compiler-known references dangling. `renameDeclaration` succeeds only when the declaration name and every compiler-known reference can be rewritten deterministically.
+
 ---
 
 ## 11. Test Plan
@@ -816,6 +820,10 @@ The compiler MAY reject an edit only when the edit violates the operation's SPEC
 - addAction inserts action declaration in deterministic location
 - replaceAvailable removes clause when expr is null
 - replaceDispatchable removes clause when expr is null
+- safe removeDeclaration removes an unreferenced declaration and reports schema impact
+- safe renameDeclaration rewrites compiler-known references and reports schema impact
+- unsafe removeDeclaration returns E_REMOVE_BLOCKED_BY_REFERENCES with no edits
+- unsafe renameDeclaration returns E_UNSAFE_RENAME_AMBIGUOUS with no edits
 ```
 
 ### 11.3 Full compile tests

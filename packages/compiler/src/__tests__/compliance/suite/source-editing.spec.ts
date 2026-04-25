@@ -273,36 +273,86 @@ describe("CCTS Source Editing Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY, "(MEL-EDIT-17) remove/rename all-or-nothing safety is enforced"), () => {
-    const remove = compileFragmentInContext(BASE_SOURCE, {
+  it(caseTitle(CCTS_CASES.SOURCE_EDIT_REMOVE_RENAME_SAFETY, "(MEL-EDIT-17/18) remove/rename all-or-nothing safety is enforced"), () => {
+    const safeRemoveSource = `
+      domain Demo {
+        state { count: number = 0 }
+        computed unused = 1
+      }
+    `;
+    const unsafeRenameSource = `
+      domain Demo {
+        type Task = {
+          id: string,
+          title: string
+        }
+
+        state {
+          task: Task = { id: "1", title: "A" }
+        }
+
+        computed taskTitle = task.title
+      }
+    `;
+    const safeRemove = compileFragmentInContext(safeRemoveSource, {
       kind: "removeDeclaration",
-      target: "computed:doubled",
-    });
-    const rename = compileFragmentInContext(BASE_SOURCE, {
+      target: "computed:unused",
+    }, { includeSchemaDiff: true });
+    const safeRename = compileFragmentInContext(BASE_SOURCE, {
       kind: "renameDeclaration",
       target: "computed:doubled",
       newName: "renamed",
+    }, { includeSchemaDiff: true });
+    const blockedRemove = compileFragmentInContext(BASE_SOURCE, {
+      kind: "removeDeclaration",
+      target: "state_field:count",
+    });
+    const blockedRename = compileFragmentInContext(unsafeRenameSource, {
+      kind: "renameDeclaration",
+      target: "type_field:Task.title",
+      newName: "label",
     });
 
     expectAllCompliance([
       evaluateRule(
         getRuleOrThrow("MEL-EDIT-17"),
-        remove.newSource === BASE_SOURCE && remove.edits.length === 0 && rename.newSource === BASE_SOURCE && rename.edits.length === 0,
+        blockedRemove.newSource === BASE_SOURCE
+          && blockedRemove.edits.length === 0
+          && blockedRename.newSource === unsafeRenameSource
+          && blockedRename.edits.length === 0,
         {
           passMessage: "Unsafe remove/rename checks return diagnostics without partial edits.",
           failMessage: "Unsafe remove/rename returned partial edits.",
-          evidence: [...diagnosticEvidence(remove.diagnostics), ...diagnosticEvidence(rename.diagnostics)],
+          evidence: [...diagnosticEvidence(blockedRemove.diagnostics), ...diagnosticEvidence(blockedRename.diagnostics)],
         },
       ),
-      evaluateRule(getRuleOrThrow("E_UNSAFE_RENAME_AMBIGUOUS"), hasDiagnosticCode(rename.diagnostics, "E_UNSAFE_RENAME_AMBIGUOUS"), {
+      evaluateRule(
+        getRuleOrThrow("MEL-EDIT-18"),
+        safeRemove.ok
+          && safeRemove.newSource !== safeRemoveSource
+          && safeRemove.schemaDiff?.removedTargets.includes("computed:unused") === true
+          && safeRename.ok
+          && safeRename.newSource.includes("computed renamed =")
+          && safeRename.schemaDiff?.removedTargets.includes("computed:doubled") === true
+          && safeRename.schemaDiff?.addedTargets.includes("computed:renamed") === true,
+        {
+          passMessage: "Safe remove/rename checks materialize complete source edits and impact reports.",
+          failMessage: "Safe remove/rename did not produce the expected complete source edit.",
+          evidence: [
+            noteEvidence("Safe remove", safeRemove),
+            noteEvidence("Safe rename", safeRename),
+          ],
+        },
+      ),
+      evaluateRule(getRuleOrThrow("E_UNSAFE_RENAME_AMBIGUOUS"), hasDiagnosticCode(blockedRename.diagnostics, "E_UNSAFE_RENAME_AMBIGUOUS"), {
         passMessage: "Unsafe rename emits E_UNSAFE_RENAME_AMBIGUOUS.",
         failMessage: "Unsafe rename diagnostic was not emitted.",
-        evidence: diagnosticEvidence(rename.diagnostics),
+        evidence: diagnosticEvidence(blockedRename.diagnostics),
       }),
-      evaluateRule(getRuleOrThrow("E_REMOVE_BLOCKED_BY_REFERENCES"), hasDiagnosticCode(remove.diagnostics, "E_REMOVE_BLOCKED_BY_REFERENCES"), {
+      evaluateRule(getRuleOrThrow("E_REMOVE_BLOCKED_BY_REFERENCES"), hasDiagnosticCode(blockedRemove.diagnostics, "E_REMOVE_BLOCKED_BY_REFERENCES"), {
         passMessage: "Blocked remove emits E_REMOVE_BLOCKED_BY_REFERENCES.",
         failMessage: "Blocked remove diagnostic was not emitted.",
-        evidence: diagnosticEvidence(remove.diagnostics),
+        evidence: diagnosticEvidence(blockedRemove.diagnostics),
       }),
     ]);
   });

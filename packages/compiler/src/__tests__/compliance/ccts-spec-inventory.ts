@@ -119,6 +119,7 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   ...inventoryMany(["MEL-EDIT-10", "MEL-EDIT-11", "MEL-EDIT-12"], "§9.4 / §9.5", "MUST", "source-editing"),
   ...inventoryMany(["MEL-EDIT-13", "MEL-EDIT-14", "MEL-EDIT-15", "MEL-EDIT-16"], "§9.4 / §9.6", "MUST", "source-editing"),
   inventory("MEL-EDIT-17", "§9.4 / §9.6", "MUST_NOT", "source-editing"),
+  inventory("MEL-EDIT-18", "§9.4 / §9.5", "MUST", "source-editing"),
 
   ...inventoryMany(["META-1", "META-2", "META-3", "META-4", "META-5", "META-6", "META-7", "META-8", "META-9", "META-10"], "§8.2-§8.4", "MUST", "annotations"),
   ...inventoryMany(["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"], "§8.4", "CRITICAL", "annotations"),

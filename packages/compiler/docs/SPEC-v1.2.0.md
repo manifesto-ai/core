@@ -911,6 +911,7 @@ JSON literal payloads used for state defaults MUST be validated before rendering
 | MEL-EDIT-15 | MUST | Successful edits MUST preserve unrelated source text byte-for-byte except for the returned edit ranges |
 | MEL-EDIT-16 | MUST | Result ordering for diagnostics, edits, changed targets, and schema diff MUST be stable for identical inputs |
 | MEL-EDIT-17 | MUST_NOT | A failed remove or rename safety check MUST NOT return partial source edits |
+| MEL-EDIT-18 | MUST | A safe remove or rename operation MUST produce a complete source edit and deterministic target impact report |
 
 Grammar-specific fragment constraints:
 
@@ -990,6 +991,7 @@ The compliance suite for this surface MUST cover:
 - result semantics for pre-materialization failures, post-materialization compile failures, `includeModule`, and `includeSchemaDiff`
 - text edits ordered by base-source range and producing `newSource` as a non-overlapping replacement set
 - target-kind mismatch returning `E_TARGET_KIND_MISMATCH`
+- safe `removeDeclaration` and `renameDeclaration` producing complete edits and deterministic impact reports
 - unsafe `removeDeclaration` and `renameDeclaration` returning diagnostics rather than partial edits
 - runtime boundary invariants proving runtime entrypoints still consume `DomainSchema`, not `DomainModule` or edit results
 
@@ -1044,6 +1046,7 @@ The current compiler contract is:
 - structural annotations via `@meta` compile into a tooling-only `AnnotationIndex` sidecar
 - declaration-level source locations compile into a tooling-only `SourceMapIndex` sidecar on `DomainModule`
 - `compileFragmentInContext()` is the current compiler-owned authoring-time source-fragment editing primitive
+- Safe v1 remove/rename source edits are all-or-nothing, with complete safe edits or no partial edits on diagnostics
 - source edit results are tooling-only artifacts and do not change runtime entrypoints or semantic schema artifacts
 - `action_param` annotations remain outside the current v1 surface
 - `dispatchable when` is part of the full action contract

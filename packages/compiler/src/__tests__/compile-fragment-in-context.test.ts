@@ -174,7 +174,7 @@ domain Demo {
     });
     const remove = compileFragmentInContext(SOURCE, {
       kind: "removeDeclaration",
-      target: "computed:doubled",
+      target: "state_field:count",
     });
 
     expect(stale.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_STALE_MODULE");
@@ -185,6 +185,154 @@ domain Demo {
     for (const result of [stale, missing, mismatch, smuggled, remove]) {
       expect(result.edits).toEqual([]);
     }
+  });
+
+  it("removes unreferenced declarations and reports removed schema targets", () => {
+    const source = `
+domain Demo {
+  state { count: number = 0 }
+  computed unused = 1
+}
+`;
+    const result = compileFragmentInContext(source, {
+      kind: "removeDeclaration",
+      target: "computed:unused",
+    }, { includeModule: true, includeSchemaDiff: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).not.toContain("computed unused");
+    expect(result.module?.schema.computed.fields.unused).toBeUndefined();
+    expect(result.changedTargets).toEqual(["computed:unused"]);
+    expect(result.schemaDiff?.removedTargets).toContain("computed:unused");
+    expect(applyEdits(source, result.edits)).toBe(result.newSource);
+  });
+
+  it("renames state fields and rewrites safe expression and path references", () => {
+    const source = `
+domain Demo {
+  state {
+    count: number = 0
+  }
+
+  computed doubled = mul(count, 2)
+
+  action increment() dispatchable when gt(count, 0) {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+}
+`;
+    const result = compileFragmentInContext(source, {
+      kind: "renameDeclaration",
+      target: "state_field:count",
+      newName: "total",
+    }, { includeModule: true, includeSchemaDiff: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("total: number = 0");
+    expect(result.newSource).toContain("computed doubled = mul(total, 2)");
+    expect(result.newSource).toContain("dispatchable when gt(total, 0)");
+    expect(result.newSource).toContain("patch total = add(total, 1)");
+    expect(result.module?.schema.state.fields.total).toBeDefined();
+    expect(result.module?.schema.state.fields.count).toBeUndefined();
+    expect(result.changedTargets).toEqual(["state_field:count", "state_field:total"]);
+    expect(result.schemaDiff?.removedTargets).toContain("state_field:count");
+    expect(result.schemaDiff?.addedTargets).toContain("state_field:total");
+  });
+
+  it("renames computed declarations and type declarations with safe references", () => {
+    const source = `
+domain Demo {
+  type Task = {
+    id: string
+  }
+
+  state {
+    task: Task = { id: "1" }
+    count: number = 0
+  }
+
+  computed doubled = mul(count, 2)
+  computed label = add(doubled, 1)
+}
+`;
+    const renamedComputed = compileFragmentInContext(source, {
+      kind: "renameDeclaration",
+      target: "computed:doubled",
+      newName: "doubleCount",
+    }, { includeModule: true, includeSchemaDiff: true });
+    const renamedType = compileFragmentInContext(source, {
+      kind: "renameDeclaration",
+      target: "type:Task",
+      newName: "Todo",
+    }, { includeModule: true, includeSchemaDiff: true });
+
+    expect(renamedComputed.ok).toBe(true);
+    expect(renamedComputed.newSource).toContain("computed doubleCount = mul(count, 2)");
+    expect(renamedComputed.newSource).toContain("computed label = add(doubleCount, 1)");
+    expect(renamedComputed.module?.schema.computed.fields.doubleCount).toBeDefined();
+    expect(renamedComputed.schemaDiff?.removedTargets).toContain("computed:doubled");
+    expect(renamedComputed.schemaDiff?.addedTargets).toContain("computed:doubleCount");
+
+    expect(renamedType.ok).toBe(true);
+    expect(renamedType.newSource).toContain("type Todo =");
+    expect(renamedType.newSource).toContain("task: Todo");
+    expect(renamedType.module?.schema.types.Todo).toBeDefined();
+    expect(renamedType.schemaDiff?.removedTargets).toContain("type:Task");
+    expect(renamedType.schemaDiff?.addedTargets).toContain("type:Todo");
+  });
+
+  it("renames and removes unreferenced type fields while blocking ambiguous field references", () => {
+    const unreferenced = `
+domain Demo {
+  type Task = {
+    id: string,
+    title: string
+  }
+
+  state { count: number = 0 }
+}
+`;
+    const referenced = `
+domain Demo {
+  type Task = {
+    id: string,
+    title: string
+  }
+
+  state {
+    task: Task = { id: "1", title: "A" }
+  }
+
+  computed taskTitle = task.title
+}
+`;
+    const rename = compileFragmentInContext(unreferenced, {
+      kind: "renameDeclaration",
+      target: "type_field:Task.title",
+      newName: "label",
+    }, { includeModule: true, includeSchemaDiff: true });
+    const remove = compileFragmentInContext(unreferenced, {
+      kind: "removeDeclaration",
+      target: "type_field:Task.title",
+    }, { includeModule: true, includeSchemaDiff: true });
+    const blocked = compileFragmentInContext(referenced, {
+      kind: "renameDeclaration",
+      target: "type_field:Task.title",
+      newName: "label",
+    });
+
+    expect(rename.ok).toBe(true);
+    expect(rename.newSource).toContain("label: string");
+    expect(rename.schemaDiff?.removedTargets).toContain("type_field:Task.title");
+    expect(rename.schemaDiff?.addedTargets).toContain("type_field:Task.label");
+
+    expect(remove.ok).toBe(true);
+    expect(remove.newSource).not.toContain("title: string");
+    expect(remove.schemaDiff?.removedTargets).toContain("type_field:Task.title");
+
+    expectNoMaterialization(blocked, "E_UNSAFE_RENAME_AMBIGUOUS", referenced);
   });
 
   it("rejects raw syntax smuggling through declaration identifiers before rendering edits", () => {

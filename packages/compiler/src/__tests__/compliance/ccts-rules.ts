@@ -73,6 +73,7 @@ export const COMPILER_COMPLIANCE_RULES: readonly CompilerComplianceRule[] = [
       "MEL-EDIT-15",
       "MEL-EDIT-16",
       "MEL-EDIT-17",
+      "MEL-EDIT-18",
       "E_STALE_MODULE",
       "E_FRAGMENT_PARSE_FAILED",
       "E_FRAGMENT_SCOPE_VIOLATION",

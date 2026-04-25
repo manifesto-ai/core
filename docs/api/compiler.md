@@ -97,6 +97,8 @@ if (result.ok) {
 
 Pre-materialization failures return diagnostics as values with `newSource === baseSource`, empty `edits`, and empty `changedTargets`. The compiler rejects invalid operation shapes, raw-splice attempts through identifiers or JSON object keys, invalid JSON defaults, stale `baseModule` inputs, missing targets, and target-kind mismatches before producing text edits.
 
+`removeDeclaration` and `renameDeclaration` are Safe v1 all-or-nothing edits. The compiler materializes complete edits when references are provably safe, including compiler-known rename references, and otherwise returns diagnostics such as `E_REMOVE_BLOCKED_BY_REFERENCES` or `E_UNSAFE_RENAME_AMBIGUOUS` with no partial edits.
+
 Runtime creation still consumes `DomainSchema`. If a tool accepts an edited source, compile the accepted source through `compileMelDomain()` or `compileMelModule()` and pass only the resulting schema into runtime seams.
 
 ### `compileMelPatch()`

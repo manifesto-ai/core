@@ -103,7 +103,7 @@ Blocking rules reflect currently implemented compiler behavior:
 - entity primitives and placement/type diagnostics (ADR-013b, `ENTITY-*`, `TRANSFORM-*`, `E030`-`E035`)
 - schema-position lowering hardening (`A26`, `A28`, `A33`, `TYPE-LOWER-6`-`TYPE-LOWER-9`, `E040`-`E044`; `E045`/`E046` retained only as superseded inventory items)
 - structural annotations via `@meta`, plus declaration-level source maps via `SourceMapIndex`, including valid v1 target placement, literal-only payload enforcement, deterministic sidecar emission, source-map cache identity, semantic erasure invariants, and the runtime-boundary guard between `DomainSchema` and tooling-only `DomainModule`
-- source-fragment editing via `compileFragmentInContext()` (`MEL-EDIT-*`, single-operation shape rejection, raw-splice hardening for fragments/identifiers/JSON keys, runtime-invalid JSON literal rejection, `E_STALE_MODULE`, `E_FRAGMENT_PARSE_FAILED`, `E_FRAGMENT_SCOPE_VIOLATION`, `E_TARGET_NOT_FOUND`, `E_TARGET_KIND_MISMATCH`, `E_UNSAFE_RENAME_AMBIGUOUS`, `E_REMOVE_BLOCKED_BY_REFERENCES`)
+- source-fragment editing via `compileFragmentInContext()` (`MEL-EDIT-*`, single-operation shape rejection, raw-splice hardening for fragments/identifiers/JSON keys, runtime-invalid JSON literal rejection, safe remove/rename materialization, all-or-nothing unsafe remove/rename diagnostics, `E_STALE_MODULE`, `E_FRAGMENT_PARSE_FAILED`, `E_FRAGMENT_SCOPE_VIOLATION`, `E_TARGET_NOT_FOUND`, `E_TARGET_KIND_MISMATCH`, `E_UNSAFE_RENAME_AMBIGUOUS`, `E_REMOVE_BLOCKED_BY_REFERENCES`)
 - deterministic compile/lower output
 
 ### Pending
