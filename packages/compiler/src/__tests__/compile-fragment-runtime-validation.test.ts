@@ -125,4 +125,71 @@ describe("compileFragmentInContext runtime validation hardening", () => {
 
     expectScopeViolation(result);
   });
+
+  it("returns diagnostics for malformed baseModule options instead of throwing", () => {
+    const malformedBaseModule = {};
+    const baseModuleAccessor = {};
+    Object.defineProperty(baseModuleAccessor, "sourceMap", {
+      enumerable: true,
+      get() {
+        throw new Error("baseModule getter must not run");
+      },
+    });
+
+    const missingSourceMap = compileFragmentInContext(SOURCE, {
+      kind: "addComputed",
+      name: "next",
+      expr: "count",
+    }, { baseModule: malformedBaseModule } as never);
+    const throwingSourceMap = compileFragmentInContext(SOURCE, {
+      kind: "addComputed",
+      name: "next",
+      expr: "count",
+    }, { baseModule: baseModuleAccessor } as never);
+
+    expectScopeViolation(missingSourceMap);
+    expectScopeViolation(throwingSourceMap);
+  });
+
+  it("renders addAction from values captured during validation", () => {
+    let nameReads = 0;
+    let paramsReads = 0;
+    let bodyReads = 0;
+    const op = { kind: "addAction" };
+    Object.defineProperty(op, "name", {
+      enumerable: true,
+      get() {
+        nameReads += 1;
+        return nameReads === 1 ? "submit" : "submit) { computed escaped = count } action x(";
+      },
+    });
+    Object.defineProperty(op, "params", {
+      enumerable: true,
+      get() {
+        paramsReads += 1;
+        return paramsReads === 1
+          ? [{ name: "value", type: "number" }]
+          : [{ name: "value) { computed escaped = count } action x(", type: "number" }];
+      },
+    });
+    Object.defineProperty(op, "body", {
+      enumerable: true,
+      get() {
+        bodyReads += 1;
+        return bodyReads === 1
+          ? "when true { patch count = value }"
+          : "computed escaped = count";
+      },
+    });
+
+    const result = compileFragmentInContext(SOURCE, op as never);
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("action submit(value: number)");
+    expect(result.newSource).toContain("patch count = value");
+    expect(result.newSource).not.toContain("computed escaped");
+    expect(nameReads).toBe(1);
+    expect(paramsReads).toBe(1);
+    expect(bodyReads).toBe(1);
+  });
 });

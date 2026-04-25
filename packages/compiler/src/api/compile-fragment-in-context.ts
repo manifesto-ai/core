@@ -20,7 +20,6 @@ import {
   renderAction,
   renderBodyReplacement,
   renderJsonLiteral,
-  requiredOffset,
   sortTargets,
   textEdit,
 } from "./compile-fragment-source-utils.js";
@@ -40,12 +39,12 @@ import {
   editError,
   parseProgram,
   readEditOperationKind,
+  snapshotParamsFragment,
   targetNotFound,
   validateActionBodyFragment,
   validateExpressionFragment,
   validateIdentifierFragment,
   validateJsonLiteralFragment,
-  validateParamsFragment,
   validateStateFieldFragment,
   validateTarget,
   validateTypeFragment,
@@ -54,6 +53,14 @@ import {
   planRemoveDeclaration,
   planRenameDeclaration,
 } from "./compile-fragment-reference-utils.js";
+import { snapshotCompileFragmentOptions } from "./compile-fragment-options-validation.js";
+import {
+  type MaterializedEdit,
+  materializationFailure,
+  materializationSuccess,
+  preMaterializationFailure,
+  validateThenEdit,
+} from "./compile-fragment-edit-result.js";
 
 export type {
   CompileFragmentInContextOptions,
@@ -79,17 +86,18 @@ export type {
   SchemaModifiedTarget,
 } from "./compile-fragment-types.js";
 
-type MaterializedEdit = {
-  readonly edits: readonly MelTextEdit[];
-  readonly changedTargets: readonly LocalTargetKey[];
-  readonly diagnostics: readonly Diagnostic[];
-};
-
 export function compileFragmentInContext(
   baseSource: string,
   op: MelEditOp,
   options: CompileFragmentInContextOptions = {},
 ): MelEditResult {
+  const optionsSnapshot = snapshotCompileFragmentOptions(options);
+  if (!optionsSnapshot.ok) {
+    return preMaterializationFailure(baseSource, [
+      optionsSnapshot.diagnostic,
+    ]);
+  }
+
   const opKind = readEditOperationKind(op);
   if (!opKind.ok) {
     return preMaterializationFailure(baseSource, [
@@ -97,7 +105,7 @@ export function compileFragmentInContext(
     ]);
   }
 
-  if (options.baseModule && options.baseModule.sourceMap.sourceHash !== stableHashString(baseSource)) {
+  if (optionsSnapshot.value.baseModuleSourceHash !== null && optionsSnapshot.value.baseModuleSourceHash !== stableHashString(baseSource)) {
     return preMaterializationFailure(baseSource, [
       editError("E_STALE_MODULE", "baseModule.sourceMap.sourceHash does not match baseSource."),
     ]);
@@ -146,11 +154,11 @@ export function compileFragmentInContext(
     edits: materialized.edits,
   };
 
-  if (ok && options.includeModule && editedCompile.module) {
+  if (ok && optionsSnapshot.value.includeModule && editedCompile.module) {
     result.module = editedCompile.module;
   }
 
-  if (ok && options.includeSchemaDiff && editedCompile.module) {
+  if (ok && optionsSnapshot.value.includeSchemaDiff && editedCompile.module) {
     result.schemaDiff = diffSchemas(baseCompile.module.schema, editedCompile.module.schema);
   }
 
@@ -194,13 +202,29 @@ function materializeEdit(
 
     case "addAction": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addAction" }>;
+      const name = typed.name;
+      const params = typed.params;
+      const body = typed.body;
+      const paramsSnapshot = snapshotParamsFragment(params);
       return validateThenEdit(
         [
-          ...validateIdentifierFragment(typed.name, "action name"),
-          ...validateParamsFragment(typed.params),
-          ...validateActionBodyFragment(typed.body),
+          ...validateIdentifierFragment(name, "action name"),
+          ...paramsSnapshot.diagnostics,
+          ...validateActionBodyFragment(body),
         ],
-        () => insertTopLevel(source, program, renderAction(typed), [`action:${typed.name}`]),
+        () => {
+          if (typeof name !== "string" || typeof body !== "string" || !paramsSnapshot.ok) {
+            return materializationFailure(
+              editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
+            );
+          }
+          return insertTopLevel(
+            source,
+            program,
+            renderAction({ kind: "addAction", name, params: paramsSnapshot.value, body }),
+            [`action:${name}`],
+          );
+        },
       );
     }
 
@@ -463,29 +487,4 @@ function addStateField(
     [insertBeforeClosingLine(source, closeOffset, `${fieldIndent}${fieldSource}`)],
     [target],
   );
-}
-
-function validateThenEdit(diagnostics: readonly Diagnostic[], makeEdit: () => MaterializedEdit): MaterializedEdit {
-  if (diagnostics.length > 0) {
-    return { edits: [], changedTargets: [], diagnostics };
-  }
-  return makeEdit();
-}
-
-function preMaterializationFailure(baseSource: string, diagnostics: readonly Diagnostic[]): MelEditResult {
-  return {
-    ok: false,
-    newSource: baseSource,
-    diagnostics,
-    changedTargets: [],
-    edits: [],
-  };
-}
-
-function materializationSuccess(edits: readonly MelTextEdit[], changedTargets: readonly LocalTargetKey[]): MaterializedEdit {
-  return { edits: [...edits].sort((a, b) => requiredOffset(a.range.start) - requiredOffset(b.range.start)), changedTargets, diagnostics: [] };
-}
-
-function materializationFailure(...diagnostics: Diagnostic[]): MaterializedEdit {
-  return { edits: [], changedTargets: [], diagnostics };
 }

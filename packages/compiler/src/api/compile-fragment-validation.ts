@@ -3,6 +3,7 @@ import { createError, type Diagnostic } from "../diagnostics/types.js";
 import { tokenize } from "../lexer/index.js";
 import { parse, type ProgramNode } from "../parser/index.js";
 import { compareUnicodeCodePoints } from "../utils/unicode-order.js";
+import type { MelParamSource } from "./compile-fragment-types.js";
 
 const MAX_FRAGMENT_ARRAY_LENGTH = 10_000;
 
@@ -92,22 +93,31 @@ export function validateIdentifierFragment(value: unknown, label: string): Diagn
 }
 
 export function validateParamsFragment(params: unknown): Diagnostic[] {
+  return [...snapshotParamsFragment(params).diagnostics];
+}
+
+type ParamsFragmentSnapshot =
+  | { readonly ok: true; readonly value: readonly MelParamSource[]; readonly diagnostics: readonly Diagnostic[] }
+  | { readonly ok: false; readonly diagnostics: readonly Diagnostic[] };
+
+export function snapshotParamsFragment(params: unknown): ParamsFragmentSnapshot {
   const array = readArrayBrand(params, "action params must be inspectable JSON data.");
   if (!array.ok) {
-    return [array.diagnostic];
+    return { ok: false, diagnostics: [array.diagnostic] };
   }
   if (array.value === null) {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", "action params must be an array.")];
+    return { ok: false, diagnostics: [editError("E_FRAGMENT_SCOPE_VIOLATION", "action params must be an array.")] };
   }
   const length = readArrayLength(array.value, "action params");
   if (!length.ok) {
-    return [length.diagnostic];
+    return { ok: false, diagnostics: [length.diagnostic] };
   }
   const shape = validateArrayShape(array.value, length.value, "action params");
   if (shape) {
-    return [shape];
+    return { ok: false, diagnostics: [shape] };
   }
   const diagnostics: Diagnostic[] = [];
+  const value: MelParamSource[] = [];
   for (let index = 0; index < length.value; index += 1) {
     const item = readRequiredArrayItem(array.value, index, "action params");
     if (!item.ok) {
@@ -121,18 +131,38 @@ export function validateParamsFragment(params: unknown): Diagnostic[] {
     }
     const name = readOptionalDataProperty(param, "name", `action parameter ${index}.name`);
     const type = readOptionalDataProperty(param, "type", `action parameter ${index}.type`);
+    let nameValue: string | null = null;
+    let typeValue: string | null = null;
+    let paramOk = true;
     if (!name.ok) {
       diagnostics.push(name.diagnostic);
+      paramOk = false;
     } else {
-      diagnostics.push(...validateIdentifierFragment(name.value, "action parameter name"));
+      const nameDiagnostics = validateIdentifierFragment(name.value, "action parameter name");
+      diagnostics.push(...nameDiagnostics);
+      paramOk = paramOk && nameDiagnostics.length === 0;
+      if (typeof name.value === "string") {
+        nameValue = name.value;
+      }
     }
     if (!type.ok) {
       diagnostics.push(type.diagnostic);
+      paramOk = false;
     } else {
-      diagnostics.push(...validateTypeFragment(type.value));
+      const typeDiagnostics = validateTypeFragment(type.value);
+      diagnostics.push(...typeDiagnostics);
+      paramOk = paramOk && typeDiagnostics.length === 0;
+      if (typeof type.value === "string") {
+        typeValue = type.value;
+      }
+    }
+    if (paramOk && nameValue !== null && typeValue !== null) {
+      value.push({ name: nameValue, type: typeValue });
     }
   }
-  return diagnostics;
+  return diagnostics.length === 0
+    ? { ok: true, value, diagnostics }
+    : { ok: false, diagnostics };
 }
 
 type EditOperationKindRead =
