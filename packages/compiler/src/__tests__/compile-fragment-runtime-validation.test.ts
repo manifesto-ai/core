@@ -227,4 +227,62 @@ domain Demo {
     expect(result.newSource).toContain("computed doubled = count");
     expect(exprReads).toBe(1);
   });
+
+  it("replaces action bodies from values captured during validation", () => {
+    let bodyReads = 0;
+    const op = {
+      kind: "replaceActionBody",
+      target: "action:submit",
+    };
+    Object.defineProperty(op, "body", {
+      enumerable: true,
+      get() {
+        bodyReads += 1;
+        return bodyReads === 1
+          ? "when true { patch count = count }"
+          : "computed escaped = count";
+      },
+    });
+
+    const result = compileFragmentInContext(`
+domain Demo {
+  state {
+    count: number = 0
+  }
+
+  action submit() {
+    when true {
+      patch count = add(count, 1)
+    }
+  }
+}
+`, op as never);
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("patch count = count");
+    expect(result.newSource).not.toContain("computed escaped");
+    expect(bodyReads).toBe(1);
+  });
+
+  it("replaces state defaults from values captured during validation", () => {
+    let valueReads = 0;
+    const op = {
+      kind: "replaceStateDefault",
+      target: "state_field:count",
+    };
+    Object.defineProperty(op, "value", {
+      enumerable: true,
+      get() {
+        valueReads += 1;
+        return valueReads === 1 ? 1 : { escaped: 2 };
+      },
+    });
+
+    const result = compileFragmentInContext(SOURCE, op as never);
+
+    expect(result.ok).toBe(true);
+    expect(result.newSource).toContain("count: number = 1");
+    expect(result.newSource).not.toContain("escaped");
+    expect(valueReads).toBe(1);
+  });
 });

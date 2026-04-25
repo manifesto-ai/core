@@ -175,29 +175,32 @@ function materializeEdit(
   switch (kind) {
     case "addType": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addType" }>;
-      return validateThenEdit([...validateIdentifierFragment(typed.name, "type name"), ...validateTypeFragment(typed.expr)], () =>
-        insertTopLevel(source, program, `type ${typed.name} = ${typed.expr}`, [`type:${typed.name}`]));
+      const { name, expr } = typed;
+      return validateThenEdit([...validateIdentifierFragment(name, "type name"), ...validateTypeFragment(expr)], () =>
+        insertTopLevel(source, program, `type ${name} = ${expr}`, [`type:${name}`]));
     }
 
     case "addStateField": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addStateField" }>;
+      const { name, type, defaultValue } = typed;
       const diagnostics = [
-        ...validateIdentifierFragment(typed.name, "state field name"),
-        ...validateJsonLiteralFragment(typed.defaultValue, "state default"),
+        ...validateIdentifierFragment(name, "state field name"),
+        ...validateJsonLiteralFragment(defaultValue, "state default"),
       ];
       if (diagnostics.length > 0) {
         return materializationFailure(...diagnostics);
       }
 
-      const defaultSource = renderJsonLiteral(typed.defaultValue);
-      return validateThenEdit(validateStateFieldFragment(typed.type, defaultSource), () =>
-        addStateField(source, program, `${typed.name}: ${typed.type} = ${defaultSource}`, `state_field:${typed.name}`));
+      const defaultSource = renderJsonLiteral(defaultValue);
+      return validateThenEdit(validateStateFieldFragment(type, defaultSource), () =>
+        addStateField(source, program, `${name}: ${type} = ${defaultSource}`, `state_field:${name}`));
     }
 
     case "addComputed": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addComputed" }>;
-      return validateThenEdit([...validateIdentifierFragment(typed.name, "computed name"), ...validateExpressionFragment(typed.expr)], () =>
-        insertTopLevel(source, program, `computed ${typed.name} = ${typed.expr}`, [`computed:${typed.name}`]));
+      const { name, expr } = typed;
+      return validateThenEdit([...validateIdentifierFragment(name, "computed name"), ...validateExpressionFragment(expr)], () =>
+        insertTopLevel(source, program, `computed ${name} = ${expr}`, [`computed:${name}`]));
     }
 
     case "addAction": {
@@ -265,8 +268,9 @@ function materializeEdit(
 
     case "renameDeclaration": {
       const typed = op as Extract<MelEditOp, { readonly kind: "renameDeclaration" }>;
-      return validateThenEdit(validateIdentifierFragment(typed.newName, "rename target name"), () =>
-        renameDeclaration(source, program, baseModule, typed.target, typed.newName));
+      const { target, newName } = typed;
+      return validateThenEdit(validateIdentifierFragment(newName, "rename target name"), () =>
+        renameDeclaration(source, program, baseModule, target, newName));
     }
 
     default:
@@ -346,19 +350,20 @@ function replaceActionBody(
   baseModule: DomainModule,
   op: MelEditReplaceActionBodyOp,
 ): MaterializedEdit {
-  const targetDiagnostic = validateTarget(baseModule, op.target, ["action"]);
+  const { target, body } = op;
+  const targetDiagnostic = validateTarget(baseModule, target, ["action"]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
-  const action = findAction(program, op.target.slice("action:".length));
-  if (!action) return materializationFailure(targetNotFound(op.target));
+  const action = findAction(program, target.slice("action:".length));
+  if (!action) return materializationFailure(targetNotFound(target));
 
-  return validateThenEdit(validateActionBodyFragment(op.body), () => {
+  return validateThenEdit(validateActionBodyFragment(body), () => {
     const braces = findActionBodyBraces(source, action);
-    if (!braces) return materializationFailure(targetNotFound(op.target));
+    if (!braces) return materializationFailure(targetNotFound(target));
     const actionIndent = lineIndentAt(source, action.location.start.offset);
-    const body = renderBodyReplacement(op.body, `${actionIndent}  `, actionIndent);
+    const replacement = renderBodyReplacement(body, `${actionIndent}  `, actionIndent);
     return materializationSuccess(
-      [textEdit(source, braces.open.location.end.offset, braces.close.location.start.offset, body)],
-      [op.target],
+      [textEdit(source, braces.open.location.end.offset, braces.close.location.start.offset, replacement)],
+      [target],
     );
   });
 }
@@ -369,23 +374,17 @@ function replaceComputedExpr(
   baseModule: DomainModule,
   op: MelEditReplaceComputedExprOp,
 ): MaterializedEdit {
-  const targetDiagnostic = validateTarget(baseModule, op.target, ["computed"]);
+  const { target, expr } = op;
+  const targetDiagnostic = validateTarget(baseModule, target, ["computed"]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
-  const computed = findComputed(program, op.target.slice("computed:".length));
-  if (!computed) return materializationFailure(targetNotFound(op.target));
-  const expr = op.expr;
+  const computed = findComputed(program, target.slice("computed:".length));
+  if (!computed) return materializationFailure(targetNotFound(target));
 
-  return validateThenEdit(validateExpressionFragment(expr), () => {
-    if (typeof expr !== "string") {
-      return materializationFailure(
-        editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
-      );
-    }
-    return materializationSuccess(
+  return validateThenEdit(validateExpressionFragment(expr), () =>
+    materializationSuccess(
       [textEdit(source, computed.expression.location.start.offset, computed.expression.location.end.offset, expr)],
-      [op.target],
-    );
-  });
+      [target],
+    ));
 }
 
 function replaceStateDefault(
@@ -394,22 +393,23 @@ function replaceStateDefault(
   baseModule: DomainModule,
   op: MelEditReplaceStateDefaultOp,
 ): MaterializedEdit {
-  const targetDiagnostic = validateTarget(baseModule, op.target, ["state_field"]);
+  const { target, value } = op;
+  const targetDiagnostic = validateTarget(baseModule, target, ["state_field"]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
-  const field = findStateField(program, op.target.slice("state_field:".length));
-  if (!field) return materializationFailure(targetNotFound(op.target));
+  const field = findStateField(program, target.slice("state_field:".length));
+  if (!field) return materializationFailure(targetNotFound(target));
 
-  const jsonDiagnostics = validateJsonLiteralFragment(op.value, "state default");
+  const jsonDiagnostics = validateJsonLiteralFragment(value, "state default");
   if (jsonDiagnostics.length > 0) {
     return materializationFailure(...jsonDiagnostics);
   }
 
-  const replacement = renderJsonLiteral(op.value);
+  const replacement = renderJsonLiteral(value);
   return validateThenEdit(validateExpressionFragment(replacement), () => {
     const start = field.initializer?.location.start.offset ?? field.typeExpr.location.end.offset;
     const end = field.initializer?.location.end.offset ?? field.typeExpr.location.end.offset;
     const text = field.initializer ? replacement : ` = ${replacement}`;
-    return materializationSuccess([textEdit(source, start, end, text)], [op.target]);
+    return materializationSuccess([textEdit(source, start, end, text)], [target]);
   });
 }
 
@@ -419,16 +419,17 @@ function replaceTypeField(
   baseModule: DomainModule,
   op: MelEditReplaceTypeFieldOp,
 ): MaterializedEdit {
-  const targetDiagnostic = validateTarget(baseModule, op.target, ["type_field"]);
+  const { target, type } = op;
+  const targetDiagnostic = validateTarget(baseModule, target, ["type_field"]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
-  const parsed = parseTypeFieldTarget(op.target);
+  const parsed = parseTypeFieldTarget(target);
   const field = parsed ? findTypeField(program, parsed.typeName, parsed.fieldName) : null;
-  if (!field) return materializationFailure(targetNotFound(op.target));
+  if (!field) return materializationFailure(targetNotFound(target));
 
-  return validateThenEdit(validateTypeFragment(op.type), () =>
+  return validateThenEdit(validateTypeFragment(type), () =>
     materializationSuccess(
-      [textEdit(source, field.typeExpr.location.start.offset, field.typeExpr.location.end.offset, op.type)],
-      [op.target],
+      [textEdit(source, field.typeExpr.location.start.offset, field.typeExpr.location.end.offset, type)],
+      [target],
     ));
 }
 
