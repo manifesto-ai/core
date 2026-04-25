@@ -7,7 +7,7 @@ If you need a single current-surface document without version-history context, s
 :::
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, and `@manifesto-ai/compiler` v1.2.0 as the rolled-up MEL compiler contract, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, `@manifesto-ai/compiler` v1.2.0 as the rolled-up MEL compiler contract, and `@manifesto-ai/codegen` as the normative build-time code generation baseline, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -40,6 +40,7 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) | Normative full MEL compiler contract | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/codegen** | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) | Normative baseline for build-time code generation tooling | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -159,7 +160,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ## Living Documents
 
-Core, Host, SDK, Governance, and Lineage are maintained as **Living Documents** for their active package scopes. Compiler remains versioned full specs with companion addenda when a narrower extension is sufficient.
+Core, Host, SDK, Governance, and Lineage are maintained as **Living Documents** for their active package scopes. Compiler and Codegen remain versioned package specs.
 
 Each Living Document includes:
 - A **Changelog** table in the header tracking all version history

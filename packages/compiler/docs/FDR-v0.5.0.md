@@ -1,7 +1,7 @@
 # MEL (Manifesto Expression Language) — Foundational Design Rationale (FDR)
 
 > **Version:** 0.5.0  
-> **Status:** Draft  
+> **Status:** Accepted Rationale
 > **Purpose:** Document the "Why" behind every major design decision in MEL  
 > **Changelog:**
 > - v0.2: AI-Native design principles and reviewer feedback integration

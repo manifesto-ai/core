@@ -1,7 +1,7 @@
 # Current Contract
 
 > **Status:** Living Document
-> **Last Updated:** 2026-04-23
+> **Last Updated:** 2026-04-24
 > **Purpose:** Single-source current contract for external consumers, canonical-doc exports, and current-surface onboarding
 
 This document is the current-only contract summary for the active Manifesto workspace.
@@ -72,6 +72,7 @@ Current contract highlights:
 - Host executes effect requirements and applies the resulting patches.
 - Host does not reinterpret domain legality or policy.
 - Host remains aligned to the current Core snapshot contract and does not use accumulated `system.errors`.
+- Host-owned execution diagnostics live under canonical `data.$host.*`. In particular, `data.$host.lastError` is a canonical-only diagnostic, not the semantic Snapshot error surface.
 
 ## SDK Contract
 
@@ -90,6 +91,13 @@ Current contract highlights:
 - `isActionAvailable()` remains the coarse gate query.
 - `isIntentDispatchable()` and `getIntentBlockers()` are the fine legality/introspection queries.
 - helper-safe shared activated-runtime surface is legality/read/introspection only; there is no cross-decorator common write verb.
+
+Current failure observation:
+
+- Use write-report companions for per-attempt call outcomes: base `dispatchAsyncWithReport()`, lineage `commitAsyncWithReport()`, and governed `waitForProposalWithReport()`.
+- Use `snapshot.system.lastError` to read the current semantic error state of the canonical or projected Snapshot.
+- Use canonical `data.$host.lastError` only for Host-owned effect/execution diagnostics during deep debugging.
+- The runtime MUST NOT automatically promote `data.$host.lastError` into `system.lastError`; such promotion would turn Host diagnostics into semantic Snapshot state without domain or governance authority.
 
 Current rejection split:
 
@@ -160,6 +168,7 @@ Current contract highlights:
 
 - lineage owns sealed continuity and stored canonical snapshot lookup
 - lineage promotes the base write verb to `commitAsync()` and the additive report companion to `commitAsyncWithReport()`
+- lineage derives sealed failure outcome from the terminal Snapshot's `system.lastError` and pending requirements, not from Host-owned `data.$host.lastError` alone
 - governance composes on top of lineage, not beside it
 - decorated runtimes inherit the base read-only legality surface, including `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 - inherited decorator-runtime legality queries preserve the base SDK ordering: availability first, dispatchability second
@@ -167,6 +176,7 @@ Current contract highlights:
 - helper authors may share legality helpers across decorators, but execution helpers must stay verb-specific: base `dispatchAsync()`, lineage `commitAsync()`, governance `proposeAsync()`
 - the active governed path is `withLineage(...)->withGovernance(...)->activate()`
 - governed runtimes intentionally omit direct base/lineage execution verbs and their report companions, and use `waitForProposal()` / `waitForProposalWithReport()` as additive settlement observers
+- governance settlement failure reports read semantic failure from terminal Snapshot state when a `resultWorld` exists; Host-owned diagnostics remain canonical-substrate debugging data
 - there is no separate current `@manifesto-ai/world` package surface
 
 ## What External Consumers Should Read

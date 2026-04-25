@@ -171,11 +171,16 @@ It does not replace `commitAsync()`, and it does not change lineage seal/publica
 | LIN-V3-DISPATCH-4 | MUST | a completed terminal snapshot prepare and commit a next lineage seal before publication |
 | LIN-V3-DISPATCH-5 | MUST | `commitAsync()` resolve only after seal commit succeeds |
 | LIN-V3-DISPATCH-6 | MUST | subscribers and `dispatch:completed` fire only after seal commit succeeds |
-| LIN-V3-DISPATCH-7 | MUST | the visible runtime snapshot and the active branch head refer to the same completed World after resolution |
+| LIN-V3-DISPATCH-7 | MUST | the visible runtime snapshot and the active branch head refer to the same completed Lineage World after resolution |
 
 ### 4.3 Failed or Pending Terminal Commit
 
 Lineage still seals failed terminal snapshots. However failed continuity does not become the active head.
+
+A sealed failed outcome is derived from the terminal canonical Snapshot's
+semantic state: non-empty `system.pendingRequirements` or non-null
+`system.lastError`. Host-owned `data.$host.lastError` is canonical diagnostic
+state only; by itself it does not define the sealed terminal outcome.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -258,6 +263,8 @@ Normative rules:
 | LIN-V3-REPORT-9 | MUST | `commitAsyncWithReport()` resolve report unions for normal operational outcomes (`completed`, `rejected`, `failed`) instead of rejecting for those outcomes |
 | LIN-V3-REPORT-10 | MUST | calls made after dispose continue to reject with `DisposedError` rather than being remapped into a report union |
 | LIN-V3-REPORT-11 | MUST NOT | `commitAsyncWithReport()` reintroduce base `dispatchAsync` or `dispatchAsyncWithReport` semantics into a lineage runtime |
+| LIN-V3-REPORT-12 | SHOULD | callers that need per-attempt lineage execution outcome SHOULD use `commitAsyncWithReport()` instead of combining thrown errors, events, and Snapshot probing |
+| LIN-V3-REPORT-13 | MUST NOT | lineage MUST NOT derive sealed failed outcome from Host-owned `data.$host.lastError` alone |
 
 ---
 
@@ -307,7 +314,7 @@ Normative rules:
 
 The service/store/hash contract from v2 remains lineage-owned.
 
-`LineageStore`, `LineageService`, `PreparedLineageCommit`, `World`, `WorldHead`, `BranchInfo`, restore normalization, snapshot hashing, `head` / `tip` / `epoch` semantics, and idempotent reuse rules continue to be normative. This v3 draft layers the decorator runtime on top of that substrate; it does not replace it.
+`LineageStore`, `LineageService`, `PreparedLineageCommit`, `World`, `WorldHead`, `BranchInfo`, restore normalization, snapshot hashing, `head` / `tip` / `epoch` semantics, and idempotent reuse rules continue to be normative. This v3 living specification layers the decorator runtime on top of that substrate; it does not replace it.
 
 ---
 

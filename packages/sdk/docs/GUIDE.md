@@ -146,6 +146,12 @@ It is the additive write companion for callers that need:
 
 The report surface reuses the same dequeue-time legality ordering and publication semantics as `dispatchAsync()`.
 
+For failure observation, keep the surfaces distinct:
+
+- use `dispatchAsyncWithReport()` for the result of this execution attempt
+- use `snapshot.system.lastError` for the current semantic error state
+- use canonical `data.$host.lastError` only for deep Host/effect diagnostics
+
 ---
 
 ## 6. Dispatch, Observe, And Read
@@ -363,5 +369,5 @@ Those runtime contracts belong to the owning Lineage and Governance packages. Th
 - [SDK Version Index](VERSION-INDEX.md)
 - [SDK API](../../../docs/api/sdk.md)
 - [API Index](../../../docs/api/index.md)
-- [World Concept](../../../docs/concepts/world.md)
+- [World Records and Governed Composition](../../../docs/concepts/world.md)
 - [Tutorial](../../../docs/tutorial/)

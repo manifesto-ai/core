@@ -67,7 +67,9 @@ Decorators change the write verb:
 
 Use the base runtime until approval, continuity, restore, branch/head history, or sealing is a product requirement.
 
-Legality query meaning is preserved across decorators. Base and lineage runtimes now expose first-party additive write-report companions for machine-readable call results, while event payloads remain the streaming lifecycle channel. Governed runtimes intentionally do not add a direct write-report companion on the runtime itself; they use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for stored-world settlement outcome reports.
+Legality query meaning is preserved across decorators. Base and lineage runtimes now expose first-party additive write-report companions for machine-readable call results, while event payloads remain the streaming lifecycle channel. Governed runtimes intentionally do not add a direct write-report companion on the runtime itself; they use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for Lineage World-anchored settlement outcome reports.
+
+For failure observation, use report helpers for per-attempt outcomes, `snapshot.system.lastError` for the current semantic Snapshot error state, and canonical `data.$host.lastError` only for Host/effect diagnostics.
 
 If a helper needs one shared runtime boundary, keep it on legality/preparation reads only. SDK now exports `ManifestoLegalityRuntime<T>` for that purpose. Execution helpers should stay verb-specific and use `ManifestoDispatchRuntime<T>`, `LineageCommitRuntime<T>`, or `GovernanceProposalRuntime<T>` instead of assuming a common `dispatchAsync()` surface.
 

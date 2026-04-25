@@ -75,5 +75,5 @@ That flow is introduced in [When You Need Approval or History](/guides/approval-
 - [Developer Tooling](/guides/developer-tooling) for CLI, editor, Studio, and skill setup
 - [Code Generation](/guides/code-generation) for generated TS and Zod artifacts
 - [AI Agents](./ai-agents) for automation wiring
-- [World](../concepts/world) for advanced runtime composition
+- [World Records and Governed Composition](../concepts/world) for Lineage records and Governance composition
 - [Architecture](/architecture/) for the broader system model

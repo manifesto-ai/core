@@ -254,7 +254,7 @@ If `diagnostics.trace` is present, it is derived from the dry-run Core trace for
 
 Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
 
-Base SDK and lineage runtimes keep event payloads plus stable rejection codes as streaming lifecycle telemetry. They now also expose additive write-report companions: base uses `dispatchAsyncWithReport()` and lineage uses `commitAsyncWithReport()`. Governed runtimes use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for stored-world settlement outcome reports. Neither helper replaces `proposeAsync()`.
+Base SDK and lineage runtimes keep event payloads plus stable rejection codes as streaming lifecycle telemetry. They now also expose additive write-report companions: base uses `dispatchAsyncWithReport()` and lineage uses `commitAsyncWithReport()`. Governed runtimes use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for Lineage World-anchored settlement outcome reports. Neither helper replaces `proposeAsync()`.
 
 ## Additive Write Report
 
@@ -276,6 +276,8 @@ if (report.kind === "rejected") {
 ```
 
 `dispatchAsyncWithReport()` is additive. It does not replace `dispatchAsync()`, and it does not change queueing, legality ordering, or publication behavior.
+
+For failure observation, use report helpers for per-attempt outcomes, `snapshot.system.lastError` for the current semantic Snapshot error state, and canonical `data.$host.lastError` only for Host/effect diagnostics.
 
 The report union gives tooling and agent callers:
 

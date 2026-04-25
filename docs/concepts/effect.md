@@ -117,4 +117,4 @@ Handlers should still return a precise patch story. That is what makes the syste
 
 - [Effect Handlers](/guides/effect-handlers) for the implementation guide
 - [Debugging](/guides/debugging) for troubleshooting effect-driven flows
-- [World](./world) for the governed path that can approve and seal those effects
+- [World Records and Governed Composition](./world) for Governance approval and Lineage sealing

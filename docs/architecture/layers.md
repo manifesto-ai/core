@@ -112,9 +112,9 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Add sealing, restore, branch/head queries, and stored world snapshots |
+| **Role** | Add sealing, restore, branch/head queries, and stored Lineage World snapshots |
 | **Primary API** | `withLineage()`, `commitAsync()`, `restore()`, lineage queries |
-| **Owns** | World history, branch/head refs, seal records, stored canonical snapshots |
+| **Owns** | Lineage World history, branch/head refs, seal records, stored canonical snapshots |
 | **Does NOT Know** | Host execution micro-steps, approval policy semantics |
 
 ### Governance
@@ -179,7 +179,7 @@ The base activated instance lives in SDK and owns:
 When Lineage and Governance are composed in, they add:
 
 - continuity and sealing
-- restore and stored world snapshot lookup
+- restore and stored Lineage World snapshot lookup
 - branch/head queries
 - proposal lifecycle and authority decisions
 
@@ -268,7 +268,7 @@ An implementation is aligned with the current architecture only if:
 ## Related Documents
 
 - [Architecture Index](/architecture/)
-- [World Concept](/concepts/world)
+- [World Records and Governed Composition](/concepts/world)
 - [SDK API](/api/sdk)
 - [Lineage API](/api/lineage)
 - [Governance API](/api/governance)

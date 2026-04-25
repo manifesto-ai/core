@@ -23,11 +23,11 @@
 | v1.2.0 | [SPEC](SPEC-v1.2.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
 | v1.1.0 | [SPEC](SPEC-v1.1.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
 | v1.0.0 | [SPEC](SPEC-v1.0.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
-| v0.9.0 | [SPEC](SPEC-v0.9.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Historical Addendum (merged into v1.0.0) | Superseded |
-| v0.8.0 | [SPEC](SPEC-v0.8.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0-draft.md) | Historical Addendum (merged into v1.0.0) | Superseded |
+| v0.9.0 | [SPEC](SPEC-v0.9.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0.md) | Historical Addendum (merged into v1.0.0) | Superseded |
+| v0.8.0 | [SPEC](SPEC-v0.8.0.md) | [FDR](../../sdk/docs/FDR-v3.1.0.md) | Historical Addendum (merged into v1.0.0) | Superseded |
 | v0.7.0 | [SPEC](SPEC-v0.7.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Baseline | Superseded |
 | v0.6.0 | — (historical baseline; no standalone file in repo) | [FDR](FDR-v0.5.0.md) | Full | Superseded by v0.7.0 |
-| v0.5.0 | [SPEC](SPEC-v0.5.0.md) | [FDR](FDR-v0.5.0.md) | Full | Draft |
+| v0.5.0 | [SPEC](SPEC-v0.5.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Baseline | Superseded |
 | v0.5.0 | [SPEC](SPEC-v0.5.0-patch.md) | [FDR](FDR-v0.5.0-patch.md) | Patch (Base: v0.4.0) | Merged |
 | v0.4.0 | [SPEC](SPEC-v0.4.0-patch.md) | [FDR](FDR-v0.4.0-patch.md) | Patch (Base: v0.3.3) | Merged |
 | v0.3.3 | [SPEC](SPEC-v0.3.3.md) | [FDR](FDR-v0.3.3.md) | Full | Final |

@@ -13,7 +13,7 @@ If you are still trying to get the first app running, go back to [Quick Start](/
 | [Intent](./intent.md) | Request to perform a domain action | Intents are proposals, not commands |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they do not execute |
 | [Effect](./effect.md) | Declaration of external operation | Core declares, Host fulfills |
-| [World](./world.md) | Governed composition over governance + lineage | Governed composition makes legitimacy, continuity, and sealing explicit |
+| [World Records](./world.md) | Lineage records and governed composition | Lineage records preserve continuity; Governance authorizes legitimacy |
 
 ## Two Runtime Shapes
 

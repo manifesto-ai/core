@@ -7,7 +7,7 @@
 > **Base:** v0.7.0 (REQUIRED - read [SPEC-v0.7.0.md](SPEC-v0.7.0.md) first)
 > **Scope:** `SchemaGraph` extraction for projected SDK introspection
 > **Compatible with:** Core SPEC v4.0.0, SDK living spec v3.1.0 current surface
-> **Related:** [SDK FDR v3.1.0](../../sdk/docs/FDR-v3.1.0-draft.md), ADR-015 Snapshot Ontological Purification
+> **Related:** [SDK FDR v3.1.0](../../sdk/docs/FDR-v3.1.0.md), ADR-015 Snapshot Ontological Purification
 
 ---
 
@@ -232,5 +232,5 @@ action finalize() available when gt(todoCount, 0) {
 - [Compiler Version Index](VERSION-INDEX.md)
 - [Compiler SPEC v0.7.0](SPEC-v0.7.0.md)
 - [SDK SPEC (Living)](../../sdk/docs/sdk-SPEC.md)
-- [SDK FDR v3.1.0](../../sdk/docs/FDR-v3.1.0-draft.md)
+- [SDK FDR v3.1.0](../../sdk/docs/FDR-v3.1.0.md)
 - [Core SPEC v4.0.0](../../core/docs/core-SPEC.md)

@@ -857,6 +857,23 @@ If Host execution produces a terminal error result that also carries a new publi
 
 If execution fails before a new terminal snapshot exists, `dispatchAsyncWithReport()` MUST resolve a failed report with `published: false` and MUST NOT fabricate `outcome`.
 
+### 7.2.3 Failure Observation Surfaces
+
+`dispatchAsyncWithReport()` is the recommended SDK path when a caller needs a
+first-party per-attempt execution result. Callers SHOULD prefer it over
+combining `try/catch`, runtime events, `snapshot.system.lastError`, and
+canonical substrate probing.
+
+`snapshot.system.lastError` is the current semantic error surface of the
+Snapshot. It is present on both projected `getSnapshot()` reads and canonical
+`getCanonicalSnapshot()` reads.
+
+`data.$host.lastError` is Host-owned execution diagnostic state. It is visible
+only on the canonical substrate, is omitted from projected app-facing
+Snapshots, and exists for deep debugging of effect/Host execution. SDK MUST NOT
+automatically promote `data.$host.lastError` into `system.lastError` and MUST
+NOT add a second generic `getLastError()` helper that merges those surfaces.
+
 ### 7.3 Availability, Dispatchability, Explanation, and Metadata Queries
 
 `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `explainIntent()`, `why()`, `whyNot()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
@@ -1010,7 +1027,7 @@ The returned value MUST be protected from external mutation. The implementation 
 
 `getCanonicalSnapshot()` returns the current visible **canonical** runtime substrate synchronously.
 
-This is the explicit inspection seam for persistence-aware tooling, stored-world alignment, and low-level debugging. It is not the default application-facing read surface.
+This is the explicit inspection seam for persistence-aware tooling, Lineage World snapshot alignment, and low-level debugging. It is not the default application-facing read surface.
 
 ### 7.10 `@manifesto-ai/sdk/extensions`
 
@@ -1249,6 +1266,10 @@ Dispose MUST release all SDK-owned resources for the activated base instance, in
 | SDK-REPORT-9 | MUST | `dispatchAsyncWithReport()` MUST resolve report unions for normal operational outcomes (`completed`, `rejected`, `failed`) instead of rejecting for those outcomes |
 | SDK-REPORT-10 | MUST | Calls made after disposal MUST continue to reject with `DisposedError` rather than being remapped into a report union |
 | SDK-REPORT-11 | MUST NOT | This additive report surface MUST NOT expose provider-only runtime-control helpers or become a new execution-control seam |
+| SDK-FAILOBS-1 | SHOULD | Callers that need per-attempt execution outcome SHOULD use `dispatchAsyncWithReport()` instead of combining `try/catch`, events, and Snapshot probing |
+| SDK-FAILOBS-2 | MUST | `snapshot.system.lastError` remains the current semantic Snapshot error surface on projected and canonical reads |
+| SDK-FAILOBS-3 | MUST | `data.$host.lastError` remains canonical-only Host-owned diagnostic state and MUST NOT appear in projected app-facing Snapshots |
+| SDK-FAILOBS-4 | MUST NOT | SDK MUST NOT automatically promote `data.$host.lastError` into `system.lastError` or expose a generic helper that merges the two surfaces |
 | SDK-GRAPH-1 | MUST | `getSchemaGraph()` MUST expose a static graph derived from the activated `DomainSchema` alone, with no snapshot dependency |
 | SDK-GRAPH-2 | MUST | the public graph MUST exclude `data.$*` nodes, edges touching excluded `$*` nodes, and computed nodes tainted by transitive `$*` dependencies |
 | SDK-GRAPH-3 | SHOULD | the SDK SHOULD compute the graph once at activation time and cache it for the instance lifetime |
@@ -1469,6 +1490,7 @@ An SDK v3.x implementation complies with this living contract only if all of the
 - `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
 - `dispatchAsync()` is FIFO per instance and evaluates availability, then input validation, then dispatchability at dequeue time.
 - `dispatchAsyncWithReport()` is additive, reuses the same legality ordering and projected diff semantics, and does not change `dispatchAsync()` publication behavior.
+- Failure observation keeps per-attempt reports, semantic `system.lastError`, and canonical-only `$host.lastError` diagnostics distinct.
 - `createManifesto()` accepts MEL source or `DomainSchema`, but not tooling-only compiler artifacts such as `DomainModule`.
 - `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
 - `simulateIntent()` is the bound-intent pure dry-run, and `simulate()` is the action-ref convenience form; both apply `apply()` and `applySystemDelta()` and treat `changedPaths` as inspection/debug-only.
@@ -1487,4 +1509,4 @@ An SDK v3.x implementation complies with this living contract only if all of the
 - [Core SPEC v4.2.0](../../core/docs/core-SPEC.md)
 - [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
 - [Compiler SPEC v1.1.0](../../compiler/docs/SPEC-v1.1.0.md)
-- [SDK FDR v3.1.0 Rationale Track](FDR-v3.1.0-draft.md)
+- [SDK FDR v3.1.0 Rationale Companion](FDR-v3.1.0.md)

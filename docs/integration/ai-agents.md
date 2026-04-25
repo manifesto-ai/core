@@ -2,7 +2,7 @@
 
 > Let agents see the current Snapshot, see the actions that are available now, and submit domain changes through the runtime.
 >
-> **Current Contract Note:** This page uses the activation-first SDK surface: activate a `createManifesto(...)` app, then call `getSnapshot`, `getAvailableActions`, `getActionMetadata`, `createIntent`, and `dispatchAsync()`. When tooling needs in-band admission or diff data, base runtimes may use `dispatchAsyncWithReport()` and lineage runtimes may use `commitAsyncWithReport()`. Governed examples use the current `withLineage(...) -> withGovernance(...) -> activate()` surface, with optional settlement observation through `waitForProposal()` or world-anchored settlement reports through `waitForProposalWithReport()`.
+> **Current Contract Note:** This page uses the activation-first SDK surface: activate a `createManifesto(...)` app, then call `getSnapshot`, `getAvailableActions`, `getActionMetadata`, `createIntent`, and `dispatchAsync()`. When tooling needs in-band admission or diff data, base runtimes may use `dispatchAsyncWithReport()` and lineage runtimes may use `commitAsyncWithReport()`. Governed examples use the current `withLineage(...) -> withGovernance(...) -> activate()` surface, with optional settlement observation through `waitForProposal()` or Lineage World-anchored settlement reports through `waitForProposalWithReport()`.
 
 An agent should not guess your domain API from prompt text. It should read the current state, read the currently legal actions, call an app-owned tool, and receive a Snapshot view back.
 
@@ -265,7 +265,7 @@ export async function approveAgentProposal(proposalId: string) {
 }
 ```
 
-That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools use `proposeAsync()`, optionally observe settlement with `waitForProposal()`, optionally inspect a stored-world settlement outcome with `waitForProposalWithReport()`, and a reviewer calls `approve()` when policy requires it.
+That is the upgrade path: direct tools use `dispatchAsync()`. Reviewable tools use `proposeAsync()`, optionally observe settlement with `waitForProposal()`, optionally inspect a Lineage World-anchored settlement outcome with `waitForProposalWithReport()`, and a reviewer calls `approve()` when policy requires it.
 
 ---
 

@@ -77,7 +77,7 @@ When documents conflict, prefer higher-ranked sources.
 
 ### 1. Core Engineering Axiom
 
-**Manifesto computes what the world should become; Host makes it so.**
+**Manifesto computes what the Snapshot should become; Host makes declared work real.**
 
 The fundamental equation is:
 
@@ -100,8 +100,8 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 1. **Determinism** — Same input MUST produce same output, always
 2. **Accountability** — Every state change MUST be traceable to Actor + Authority + Intent
 3. **Explainability** — Every value MUST answer "why?"
-4. **Separation of Concerns** — Core computes, Host executes, World governs
-5. **Immutability** — Snapshots and Worlds MUST NOT mutate after creation
+4. **Separation of Concerns** — Core computes, Host executes, SDK exposes runtime, Lineage records continuity, Governance authorizes legitimacy
+5. **Immutability** — Snapshots and Lineage Worlds MUST NOT mutate after creation
 6. **Schema-first** — All semantics MUST be expressible as JSON-serializable data
 7. **Type safety** — Zero string paths in user-facing APIs
 8. **Simplicity** — Minimum complexity for current requirements only
@@ -127,9 +127,9 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Access wall-clock time (`Date.now()` is forbidden)
 - Execute effects
 - Have mutable state
-- Know about Host or World
+- Know about Host, SDK runtime assembly, Lineage, or Governance
 
-**Forbidden imports:** Host, World, network libraries
+**Forbidden imports:** Host, SDK runtime internals, Lineage, Governance, network libraries
 
 #### @manifesto-ai/host
 
@@ -144,27 +144,64 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Compute semantic meaning
 - Make policy decisions
 - Suppress, alter, or reinterpret effects declared by Core
-- Know about World governance or Authority
+- Know about Governance policy, Lineage continuity, or Authority handlers
 - Define domain logic
 
-**Forbidden imports:** World governance types, React, Authority handlers
+**Forbidden imports:** Governance policy types, Lineage internals, React, Authority handlers
 
-#### @manifesto-ai/world
+#### @manifesto-ai/sdk
+
+**IS responsible for:**
+- Activation-first application runtime surface
+- Typed intent creation and dispatch verbs
+- Projected app-facing reads
+- Runtime legality/introspection helpers
+- Runtime events and additive write reports
+
+**MUST NOT:**
+- Compute semantic meaning
+- Execute effects directly
+- Own authority policy
+- Own lineage storage semantics
+- Re-export a retired world facade package
+
+**Forbidden imports:** Core internals, Host internals, Governance internals, Lineage internals
+
+#### @manifesto-ai/lineage
+
+**IS responsible for:**
+- Sealed continuity
+- World record creation and lookup
+- Branch/head history
+- Restore and stored canonical snapshot lookup
+- Additive lineage write reports
+
+**MUST NOT:**
+- Execute effects
+- Evaluate authority policy
+- Compute semantic state transitions
+- Apply patches outside the runtime/Host path
+- Reinterpret domain legality
+
+**Forbidden imports:** Host execution internals, Core compute internals, Governance policy internals
+
+#### @manifesto-ai/governance
 
 **IS responsible for:**
 - Proposal management
 - Authority evaluation
 - Decision recording
-- Lineage maintenance (DAG)
 - Actor registry
+- Governed settlement observation
 
 **MUST NOT:**
 - Execute effects
 - Apply patches
 - Compute state transitions
+- Seal lineage implicitly
 - Make implicit decisions
 
-**Forbidden imports:** Host execution internals, Core compute internals
+**Forbidden imports:** Host execution internals, Core compute internals, Lineage storage internals
 
 ---
 
@@ -220,10 +257,10 @@ type Snapshot = {
 #### 4.4 Data Flow Direction
 
 ```
-Actor submits Intent
+Actor submits typed Intent
       |
       v
-World Protocol (Proposal + Authority)
+SDK runtime
       |
       v
 Host (compute loop + effect execution)
@@ -233,9 +270,21 @@ Core (pure computation)
       |
       v
 New Snapshot (via patches)
+```
+
+Governed composition adds explicit legitimacy and continuity around the same runtime path:
+
+```text
+Actor proposes typed Intent
       |
       v
-New World (immutable)
+Governance (proposal + authority decision)
+      |
+      v
+SDK runtime -> Host -> Core -> terminal Snapshot
+      |
+      v
+Lineage (sealed immutable World record)
 ```
 
 **CRITICAL:** Information flows ONLY through Snapshot. There are no other channels.
@@ -414,7 +463,7 @@ type ComputedRef<T> = {
 
 - **Core tests:** Determinism (same input -> same output)
 - **Host tests:** Effect handler correctness, patch application
-- **World tests:** Governance invariants, lineage integrity
+- **Lineage/Governance tests:** continuity invariants, sealed World record integrity, legitimacy settlement
 - **Integration tests:** End-to-end flow correctness
 
 #### 9.2 Core Testing (No Mocks)
@@ -520,12 +569,13 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
 #### 10.6 Authority Bypass (FORBIDDEN)
 
 ```typescript
-// FORBIDDEN - Direct execution without governance
-host.execute(snapshot, intent);  // Skips World Protocol!
+// FORBIDDEN - Direct execution when governance is required
+host.execute(snapshot, intent);  // Bypasses Governance and Lineage!
 
-// REQUIRED - All intents through World Protocol
-world.submitProposal(actor, intentInstance);
-// Authority evaluates, then approved intents go to Host
+// REQUIRED - Governed intents enter through the governed runtime
+const proposal = await governed.proposeAsync(intent);
+await governed.approve(proposal.proposalId);
+// Governance authorizes, Host executes through the SDK runtime, Lineage seals the terminal Snapshot
 ```
 
 #### 10.7 Hidden Continuation State (FORBIDDEN)
@@ -570,7 +620,7 @@ Before producing any code change, mentally verify ALL of the following:
 
 - [ ] Does this change preserve determinism? (Same input -> same output)
 - [ ] Does this change maintain Snapshot as sole communication medium?
-- [ ] Does this change respect sovereignty boundaries? (Core computes, Host executes, World governs)
+- [ ] Does this change respect sovereignty boundaries? (Core computes, Host executes, SDK exposes runtime, Lineage records continuity, Governance authorizes)
 - [ ] Are all state changes expressed as Patches?
 - [ ] Are all errors expressed as values, not exceptions?
 
@@ -642,7 +692,9 @@ Reference these when making decisions:
 |------|--------|-------------|
 | **Actor** | Propose change | Mutate state, execute effects, govern |
 | **Authority** | Approve, reject, constrain scope | Execute, compute, apply patches, rewrite Intent |
-| **World** | Govern, audit, maintain lineage | Execute, apply patches, hidden channels |
+| **SDK** | Expose activated runtime, typed intents, projected reads, reports | Compute semantics, execute effects directly, own governance/lineage internals |
+| **Lineage** | Seal continuity, maintain World records, restore, branch/head history | Execute effects, evaluate authority, apply patches directly |
+| **Governance** | Govern legitimacy, evaluate authority, record decisions | Execute effects, seal lineage implicitly, compute state transitions |
 | **Core** | Compute meaning, declare effects | IO, execution, time-awareness |
 | **Host** | Execute effects, apply patches, report | Decide, interpret, suppress effects |
 
@@ -650,10 +702,12 @@ Reference these when making decisions:
 
 | Package | MUST NOT Import |
 |---------|-----------------|
-| core | host, world |
-| host | world governance |
-| world | host internals, core compute |
-| app | core internals, host internals, world internals |
+| core | host, sdk runtime internals, lineage, governance |
+| host | governance policy, lineage internals, React, authority handlers |
+| sdk | core internals, host internals, lineage internals, governance internals |
+| lineage | host internals, core compute internals, governance policy internals |
+| governance | host internals, core compute internals, lineage storage internals |
+| app | core internals, host internals, sdk internals, lineage internals, governance internals |
 
 #### Priority Decision Tree
 
@@ -753,11 +807,11 @@ When working with Claude Code agents on Manifesto:
    - Bad: "Add this to the docs"
 
 3. **Clarify mental model expectations**
-   - Good: "Explain World Protocol without implying it's a workflow engine"
-   - Bad: "Explain World Protocol"
+   - Good: "Explain governed composition by separating Governance legitimacy from Lineage continuity"
+   - Bad: "Explain the old governed layer"
 
 4. **Request architectural verification**
-   - Good: "Generate a sequence diagram showing Actor → World → Host flow"
+   - Good: "Generate a sequence diagram showing Actor -> Governance -> SDK/Host -> Lineage flow"
    - Bad: "Show how this works"
 
 ### Common Agent Pitfalls (and How to Avoid Them)
@@ -771,7 +825,7 @@ When working with Claude Code agents on Manifesto:
 
 ### Example: Full Agent Workflow
 
-**Task:** Add a new Authority type to @manifesto-ai/world
+**Task:** Add a new Authority type to @manifesto-ai/governance
 
 **Step 1: Verify constitutional compliance**
 ```bash
@@ -788,7 +842,7 @@ claude-code "Add a new DurationAuthority that rejects Intents older than N secon
 **Step 3: Document the change**
 ```bash
 claude-code --agent manifesto-docs-architect \
-  "Document DurationAuthority in packages/world/docs/SPEC.md (Layer 4)"
+  "Document DurationAuthority in packages/governance/docs/governance-SPEC.md (Layer 4)"
 ```
 
 **Step 4: Update tests**

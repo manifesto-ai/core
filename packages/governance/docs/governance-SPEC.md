@@ -6,7 +6,7 @@
 
 ## 1. Scope
 
-This draft defines the governed decorator runtime for Manifesto.
+This living specification defines the governed decorator runtime for Manifesto.
 
 Governance v3 owns:
 
@@ -114,6 +114,7 @@ The inherited read surfaces keep their lineage/SDK meanings:
 - `failed` MUST include `ErrorInfo` and MUST NOT fabricate a visible snapshot
 - `failed` SHOULD include `resultWorld` when a sealed failed world exists; when execution fails before a result world is recorded, `failed` MAY omit `resultWorld` and return summary-only `ErrorInfo`
 - when `resultWorld` exists, failed-branch `ErrorInfo` MUST follow the same shape as governance `execution:failed` events: `summary`, optional `currentError`, optional `pendingRequirements`
+- when `resultWorld` exists, `currentError` MUST be derived from the stored terminal Snapshot's `system.lastError`; Host-owned `data.$host.lastError` is canonical diagnostic state and MUST NOT be merged into settlement `ErrorInfo`
 - callers that need the stored failed world MUST use `getWorldSnapshot(resultWorld)` directly when `resultWorld` is present
 
 ### 5.2 `waitForProposalWithReport()`
@@ -154,6 +155,7 @@ Normative rules:
 - for `completed`, the report MUST derive `ExecutionOutcome<T>` from `proposal.baseWorld -> proposal.resultWorld`
 - for `completed`, the report MUST NOT use the current visible runtime head as the settlement `after` truth
 - for `failed` with `resultWorld`, the report MUST include `published: false` and MAY include `sealedOutcome` derived from `proposal.baseWorld -> proposal.resultWorld`
+- for `failed` with `resultWorld`, the semantic failure state comes from the stored terminal Snapshot's `system.lastError` and pending requirements; Host-owned `data.$host.lastError` remains canonical-substrate diagnostic data only
 - for `failed` without `resultWorld`, the report MUST remain summary-only and MUST NOT fabricate `sealedOutcome`
 - `rejected`, `superseded`, `pending`, and `timed_out` reports MUST remain proposal-state observations only and MUST NOT fabricate execution diffs
 - governance settlement report derivation MUST reuse the same projected snapshot, changed-path, and availability-delta semantics already used by SDK/Lineage report companions
@@ -220,7 +222,7 @@ They are valid low-level seams but are no longer the canonical application entry
 Governance v3 no longer teaches:
 
 - service-first assembly as the package’s primary entry path
-- `@manifesto-ai/world` as the canonical governed composition surface
+- the retired world facade package as the canonical governed composition surface
 - any governed runtime that still exposes direct `dispatchAsync` or `commitAsync`
 
 ## 11. Normative Rules
@@ -244,3 +246,4 @@ Governance v3 no longer teaches:
 | GOV-V3-15 | MUST | `waitForProposalWithReport()` anchor completed settlement outcomes on `proposal.baseWorld -> proposal.resultWorld`, not on the current visible head |
 | GOV-V3-16 | MUST NOT | `waitForProposalWithReport()` fabricate execution outcome or diff data for `rejected`, `superseded`, `pending`, or `timed_out` settlements |
 | GOV-V3-17 | MUST | failed settlement reports with no `resultWorld` remain summary-only with `published: false` |
+| GOV-V3-18 | MUST NOT | governance settlement `ErrorInfo` MUST NOT merge Host-owned `data.$host.lastError` into semantic failure observation |

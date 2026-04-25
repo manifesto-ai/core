@@ -98,5 +98,5 @@ In practice, that means lineage storage and governed-history APIs work with cano
 
 - [Intent](./intent.md) - How changes are requested
 - [Effect](./effect.md) - How external operations work
-- [World](./world) - How sealed history and governance wrap canonical snapshots
+- [World Records and Governed Composition](./world) - How Lineage seals canonical snapshots and Governance settles legitimacy
 - [Flow](./flow.md) - How computations modify canonical state
